@@ -1,0 +1,11 @@
+// Test file for dependency frontmatter handling
+const testDependencies = {
+  required: ["core-rule.mdc", "base-rule.mdc"],
+  optional: ["?optional-rule.mdc", "?extra-rule.mdc"],
+  versioned: {
+    "versioned-rule.mdc": ">=1.0.0",
+    "stable-rule.mdc": "^2.0.0"
+  }
+};
+
+console.log("Testing dependency frontmatter handling"); 

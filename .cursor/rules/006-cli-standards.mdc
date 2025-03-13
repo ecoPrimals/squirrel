@@ -1,0 +1,172 @@
+---
+description: ENFORCE command-line interface standards and best practices
+globs: ["**/cli/**/*.rs", "**/bin/**/*.rs"]
+crossRefs:
+  - 001-rule-generator.mdc
+  - 009-shell-compatibility.mdc
+  - 1014-rust-cli.mdc
+alwaysApply: true
+---
+
+# Command Line Interface Standards
+
+## Context
+- When implementing command-line interfaces
+- When adding new commands
+- When handling command-line arguments
+- When implementing logging and output
+- When managing CLI configuration
+
+## Requirements
+- Use clap's derive feature for argument parsing
+- Follow standard CLI patterns:
+  ```rust
+  #[derive(Parser, Debug)]
+  #[command(author, version, about, long_about = None)]
+  struct Args {
+      /// Enable verbose logging
+      #[arg(short, long)]
+      verbose: bool,
+
+      /// Suppress logging output
+      #[arg(short, long)]
+      quiet: bool,
+
+      /// Set logging level (error, warn, info, debug, trace)
+      #[arg(long, default_value = "info")]
+      log_level: String,
+
+      /// The command to execute
+      #[command(subcommand)]
+      command: Commands,
+  }
+  ```
+- Implement standard global options:
+  - `-v, --verbose`: Enable verbose logging
+  - `-q, --quiet`: Suppress logging output
+  - `--log-level`: Set logging level
+  - `--help`: Show help information
+  - `--version`: Show version information
+
+- Write logs to stderr, output to stdout:
+  ```rust
+  // Configure logging to write to stderr
+  FmtSubscriber::builder()
+      .with_writer(std::io::stderr)
+      .init();
+
+  // Write command output to stdout
+  writeln!(output, "Command output")?;
+  ```
+
+- Implement proper error handling:
+  ```rust
+  fn execute(&self) -> std::result::Result<(), Box<dyn Error>> {
+      // Handle errors with proper context
+      if let Err(e) = do_something() {
+          log_command_error(self.name(), &e);
+          return Err(e.into());
+      }
+      Ok(())
+  }
+  ```
+
+- Add comprehensive testing:
+  ```rust
+  #[test]
+  fn test_command() {
+      let mut cmd = Command::new(env!("CARGO_BIN_EXE_binary"));
+      cmd.arg("command");
+      cmd.assert()
+          .success()
+          .stdout(predicate::str::contains("Expected output"))
+          .stderr(predicate::str::contains("Log message"));
+  }
+  ```
+
+## Examples
+
+<example>
+// Good: Well-structured command implementation
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    verbose: bool,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Command description
+    Command {
+        /// Argument description
+        #[arg(short, long)]
+        arg: String,
+    },
+}
+
+impl Command {
+    fn execute(&self) -> Result<(), Box<dyn Error>> {
+        let span = enter_command_span(self.name());
+        log_command_start(self.name());
+
+        // Execute command
+        writeln!(output, "Output")?;
+
+        log_command_end(self.name(), duration);
+        drop(span);
+        Ok(())
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor command structure
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        println!("Usage: {} <command>", args[0]);
+        std::process::exit(1);
+    }
+
+    match args[1].as_str() {
+        "command" => {
+            println!("Output");
+            println!("Log message"); // Mixing output and logs
+        }
+        _ => {
+            println!("Unknown command");
+            std::process::exit(1);
+        }
+    }
+}
+</example>
+
+## Best Practices
+1. Use clap for argument parsing
+2. Separate stdout and stderr
+3. Implement proper error handling
+4. Add comprehensive testing
+5. Follow standard CLI patterns
+6. Use subcommands for organization
+7. Provide helpful help messages
+8. Follow consistent naming conventions
+9. Add proper logging and telemetry
+10. Support standard global options
+
+## Technical Metadata
+- Category: CLI Design
+- Priority: High
+- Dependencies:
+  - clap = "4.0"
+  - tracing = "0.1"
+  - anyhow = "1.0"
+- Testing Requirements:
+  - Command-line testing
+  - Output validation
+  - Error handling
+  - Help text verification
+
+<version>1.1.0</version> 

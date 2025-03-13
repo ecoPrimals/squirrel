@@ -1,0 +1,116 @@
+---
+description: ENFORCE best practices for writing and using Rust macros
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1005-rust-documentation.mdc
+  - 1010-rust-code-style.mdc
+alwaysApply: true
+---
+
+# Rust Macros Standards
+
+## Context
+- When writing procedural macros
+- When writing declarative macros
+- When using macros in code
+- When implementing derive macros
+
+## Requirements
+- Prefer declarative macros over procedural macros when possible
+- Document macro inputs and outputs
+- Use hygienic macros to avoid variable capture issues
+- Implement proper error messages for macro failures
+- Use appropriate macro attributes
+- Follow the principle of least surprise
+- Document macro expansion behavior
+- Use appropriate macro scoping
+- Implement proper hygiene rules
+- Use appropriate macro naming conventions
+
+## Examples
+<example>
+// Good: Well-designed declarative macro
+#[macro_export]
+macro_rules! vec_of_strings {
+    ($($x:expr),*) => (vec![$($x.to_string()),*]);
+    ($($x:expr,)*) => (vec![$($x.to_string()),*]);
+}
+
+// Good: Derive macro implementation
+#[proc_macro_derive(MyDebug)]
+pub fn derive_my_debug(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+    let gen = impl_my_debug(&ast);
+    gen.into()
+}
+
+// Good: Procedural macro with proper error handling
+#[proc_macro_attribute]
+pub fn my_attribute(attr: TokenStream, item: TokenStream) -> TokenStream {
+    match process_attribute(attr, item) {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            let msg = format!("Error in my_attribute: {}", err);
+            quote! {
+                compile_error!(#msg);
+            }.into()
+        }
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Unhygienic macro
+#[macro_export]
+macro_rules! bad_macro {
+    ($x:expr) => {
+        let x = $x; // Captures 'x' from the calling scope
+        println!("{}", x);
+    }
+}
+
+// Bad: Macro without proper error handling
+#[proc_macro_attribute]
+pub fn unsafe_attribute(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // No error handling, could panic
+    process_unsafe_attribute(attr, item)
+}
+
+// Bad: Macro with confusing syntax
+#[macro_export]
+macro_rules! confusing_macro {
+    ($($x:expr),*) => {
+        // Unclear what the macro does
+        // No documentation
+        // Complex expansion
+        vec![$($x),*]
+    }
+}
+</example>
+
+## Best Practices
+1. Document macro behavior clearly
+2. Use hygienic variable names
+3. Provide clear error messages
+4. Follow consistent naming
+5. Test macro expansions
+6. Document edge cases
+7. Use appropriate scoping
+8. Implement proper hygiene
+9. Handle errors gracefully
+10. Follow macro conventions
+
+## Technical Metadata
+- Category: Rust Macros
+- Priority: High
+- Dependencies:
+  - syn = "2.0"
+  - quote = "1.0"
+  - proc-macro2 = "1.0"
+- Validation Requirements:
+  - Hygiene checks
+  - Error handling
+  - Documentation completeness
+
+<version>1.0</version> 

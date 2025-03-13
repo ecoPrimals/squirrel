@@ -1,0 +1,175 @@
+---
+description: ENFORCE consistent team integration practices across worktrees and teams
+globs: 
+  - specs/**/*
+  - TEAMCHAT.md
+  - .github/**/*
+crossRefs:
+  - 020-task-organization.mdc
+  - 005-git-commit-automation.mdc
+  - 007-worktree-management.mdc
+alwaysApply: true
+---
+
+# Team Integration Standards
+
+## Context
+- When coordinating between teams
+- When managing cross-team dependencies
+- When reviewing cross-team changes
+- When planning shared features
+- When updating shared specifications
+
+## Requirements
+
+### Integration Points
+- Document primary integration points:
+  ```
+  integration/
+  ├── api/          # API contracts between teams
+  ├── events/       # Event definitions and flows
+  ├── schemas/      # Shared data schemas
+  └── protocols/    # Communication protocols
+  ```
+
+### Cross-Team Communication
+- Use structured TEAMCHAT.md format:
+  ```markdown
+  ## Team Communication: [UI -> Core]
+  
+  ### Context
+  - Feature: Dialog System
+  - State: InProgress -> Review
+  - Priority: High
+  
+  ### Dependencies
+  - core/api/dialog-service
+  - core/models/dialog-state
+  
+  ### Changes Required
+  1. Add new dialog service endpoints
+  2. Update state management model
+  
+  ### Timeline
+  - Review needed by: 2024-03-20
+  - Target completion: 2024-03-25
+  
+  ### Reviewers
+  @core-team @mcp-team
+  ```
+
+### Integration Testing
+- Implement cross-team test suites:
+  ```rust
+  #[cfg(test)]
+  mod integration_tests {
+      #[test]
+      fn test_ui_core_dialog_integration() {
+          // Test UI components with Core API
+      }
+      
+      #[test]
+      fn test_core_mcp_event_flow() {
+          // Test Core events with MCP protocol
+      }
+  }
+  ```
+
+### Dependency Resolution
+- Track integration status:
+  1. `Proposed`: Initial dependency identified
+  2. `Agreed`: Teams have approved integration
+  3. `InProgress`: Integration being implemented
+  4. `Testing`: Cross-team validation
+  5. `Complete`: Integration verified
+
+### Review Requirements
+- Cross-team reviews must:
+  1. Verify API contracts
+  2. Validate event flows
+  3. Check performance impact
+  4. Assess security implications
+  5. Update documentation
+
+### Breaking Changes
+- Document breaking changes:
+  ```markdown
+  ## Breaking Change Notice
+  
+  ### Change
+  - Updated dialog message format
+  
+  ### Impact
+  - UI Team: Update message handlers
+  - MCP Team: Regenerate protocol types
+  
+  ### Migration Steps
+  1. Update to new message format
+  2. Run compatibility tests
+  3. Deploy in sequence: Core -> MCP -> UI
+  
+  ### Rollback Plan
+  1. Revert message format
+  2. Deploy previous versions
+  ```
+
+## Examples
+
+<example>
+# Good: Proper integration workflow
+```markdown
+# New Dialog Feature Integration
+
+## Phase 1: Planning
+1. Document API requirements
+2. Define event schema
+3. Create integration tests
+
+## Phase 2: Implementation
+1. Core team: Implement API
+2. UI team: Create components
+3. MCP team: Update protocol
+
+## Phase 3: Integration
+1. Run cross-team tests
+2. Validate performance
+3. Update documentation
+```
+</example>
+
+<example type="invalid">
+# Bad: Poor integration practices
+```markdown
+# Quick Update
+Changed the API, please update your code.
+No tests yet, will add later.
+```
+</example>
+
+## Best Practices
+1. Document integration points
+2. Use structured communication
+3. Implement cross-team tests
+4. Track integration status
+5. Plan breaking changes
+6. Coordinate deployments
+7. Maintain API contracts
+8. Version shared schemas
+9. Monitor performance
+10. Keep documentation updated
+
+## Technical Metadata
+- Category: Team Integration
+- Priority: High
+- Dependencies:
+  - Task organization system
+  - Git worktree setup
+  - Team communication system
+  - Integration testing framework
+- Validation Requirements:
+  - Communication format
+  - Test coverage
+  - Documentation completeness
+  - Breaking change notices
+
+<version>1.0.0</version> 

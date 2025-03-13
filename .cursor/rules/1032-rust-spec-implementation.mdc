@@ -1,0 +1,275 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE systematic implementation of specifications from SPECS.md and specs/ directories within the current worktree context, ensuring proper testing, validation, and continuous integration
+globs: ["SPECS.md", "specs/**/*.md", "specs/MVP/**/*.md", "**/*.rs", "**/Cargo.toml"]
+crossRefs:
+  - 1009-rust-code-style.mdc
+  - 1008-rust-error-handling.mdc
+  - 005-git-commit-automation.mdc
+  - 007-worktree-management.mdc
+---
+# Rust Specification Implementation Standards
+
+## Context
+- When implementing features from SPECS.md in current worktree
+- When working on MVP specifications in current context
+- When implementing from specs/ directory in current worktree
+- When improving existing implementations in current context
+- When adding test coverage to current implementations
+- When validating implementations in current worktree
+- When integrating changes within current context
+
+## Requirements
+
+### Specification Analysis
+- Review SPECS.md in current worktree context
+- Analyze relevant specs/ subdirectories in current path
+- Review MVP specifications applicable to current worktree
+- Document implementation plan for current context
+- Identify dependencies within current worktree
+- Map test requirements for current implementation
+- Follow specification hierarchy in current context
+- Document design decisions for current implementation
+
+### Implementation Process
+- Work within current worktree context
+- Follow incremental development in current path
+- Implement proper error handling for current context
+- Add comprehensive tests for current implementation
+- Run continuous validation in current worktree
+- Follow code style guidelines consistently
+- Document implementation details in current context
+- Maintain specification traceability within worktree
+- Update related documentation in current path
+
+## Examples
+
+<example>
+// Good: Context-aware implementation process
+/*
+# Implementation Workflow
+
+1. Review Current Context
+   ```bash
+   # Get current worktree path
+   pwd
+   
+   # Review specs in current context
+   cat SPECS.md
+   find ./specs/MVP/ -type f -name "*.md" -exec cat {} \;
+   ```
+
+2. Work in Current Branch
+   ```bash
+   # Get current branch
+   git branch --show-current
+   
+   # Ensure clean working directory
+   git status
+   ```
+
+3. Implement Feature with Tests in Current Context
+*/
+
+// Good: Context-aware implementation
+use std::error::Error;
+use tracing::{info, warn, error};
+
+#[derive(Debug)]
+pub struct ContextImplementation {
+    config: Config,
+    state: State,
+}
+
+impl ContextImplementation {
+    /// Creates a new implementation following spec requirements in current context
+    ///
+    /// # Specification Reference
+    /// - Current SPECS.md: Section 2.3
+    /// - Current specs/MVP/feature.md
+    pub fn new(config: Config) -> Result<Self, ImplementationError> {
+        info!(
+            context = "current_worktree",
+            config = ?config,
+            "Initializing implementation"
+        );
+        
+        // Validate configuration against current spec
+        config.validate_in_context()?;
+        
+        Ok(Self {
+            config,
+            state: State::default(),
+        })
+    }
+
+    /// Processes data according to current specification
+    ///
+    /// # Specification Reference
+    /// - Current specs/MVP/feature.md: Data Processing
+    pub async fn process_data(&mut self, input: &[u8]) -> Result<Vec<u8>, ImplementationError> {
+        info!(
+            context = "current_worktree",
+            input_size = input.len(),
+            "Processing data"
+        );
+        
+        // Implementation following current spec
+        let result = self.internal_process(input).await?;
+        
+        // Validate output against current spec requirements
+        self.validate_output_in_context(&result)?;
+        
+        Ok(result)
+    }
+}
+
+// Good: Context-aware test suite
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    /// Test cases derived from current specification
+    #[test_case("current_basic", &[1, 2, 3] => Ok(vec![2, 4, 6]))]
+    #[test_case("current_empty", &[] => Ok(vec![]))]
+    #[test_case("current_invalid", &[255] => Err(ImplementationError::InvalidInput))]
+    fn test_process_data(name: &str, input: &[u8]) -> Result<Vec<u8>, ImplementationError> {
+        let mut implementation = ContextImplementation::new(Config::default())?;
+        
+        // Run test and validate against current spec
+        let result = tokio_test::block_on(implementation.process_data(input));
+        
+        // Log test results with context
+        match &result {
+            Ok(output) => info!(
+                context = "current_worktree",
+                test = name,
+                output_size = output.len(),
+                "Test passed"
+            ),
+            Err(e) => warn!(
+                context = "current_worktree",
+                test = name,
+                error = ?e,
+                "Test failed as expected"
+            ),
+        }
+        
+        result
+    }
+}
+
+// Good: Context-aware validation script
+/*
+#!/bin/bash
+set -e
+
+# Get current context
+CURRENT_DIR=$(pwd)
+CURRENT_BRANCH=$(git branch --show-current)
+
+echo "Running in context: $CURRENT_DIR on branch: $CURRENT_BRANCH"
+
+# Build current implementation
+echo "Building implementation in current context..."
+cargo build --all-features
+
+# Run clippy on current code
+echo "Running clippy in current context..."
+cargo clippy -- -D warnings
+
+# Run tests in current context
+echo "Running tests in current context..."
+cargo test --all-features
+
+# On success, commit current changes
+if [ $? -eq 0 ]; then
+    git add .
+    git commit -m "feat: implement current spec
+
+    - Implements current SPECS.md section
+    - Adds tests for current implementation
+    - Passes current validation checks"
+    git push origin $CURRENT_BRANCH
+fi
+*/
+</example>
+
+<example type="invalid">
+// Bad: Context-unaware implementation
+struct BadImplementation {
+    // Bad: No awareness of current context
+    data: Vec<u8>,
+}
+
+impl BadImplementation {
+    // Bad: No validation against current spec
+    fn process(&mut self) {
+        // Implementation without current context reference
+        self.data.clear();
+    }
+    
+    // Bad: No test coverage for current context
+    fn update(&mut self, value: u8) {
+        self.data.push(value);
+    }
+}
+
+// Bad: Insufficient testing for current context
+#[test]
+fn test_implementation() {
+    // Bad: Single basic test without context
+    let mut impl = BadImplementation {
+        data: Vec::new(),
+    };
+    impl.process();
+    assert!(impl.data.is_empty());
+}
+
+// Bad: No context validation
+fn main() {
+    // Bad: Direct usage without context validation
+    let mut impl = BadImplementation {
+        data: Vec::new(),
+    };
+    impl.process();
+}
+
+// Bad: Context-unaware commit
+/*
+git checkout -b new-feature  # Bad: Creating new branch instead of using current
+git commit -m "update code"  # Bad: No context reference
+*/
+</example>
+
+## Best Practices
+1. Review specs in current worktree
+2. Create implementation plan for current context
+3. Write tests for current implementation
+4. Validate against current specs
+5. Run continuous checks in current worktree
+6. Document current implementation thoroughly
+7. Maintain traceability in current context
+8. Follow commit standards for current worktree
+9. Update documentation in current path
+10. Integrate carefully within current context
+
+## Technical Metadata
+- Category: Rust Implementation
+- Priority: High
+- Dependencies:
+  - tracing = "0.1"
+  - test-case = "3.1"
+  - tokio-test = "0.4"
+  - criterion = "0.5"
+- Validation Requirements:
+  - Current specification compliance
+  - Test coverage in current context
+  - Build validation in current worktree
+
+<version>1.1</version> 

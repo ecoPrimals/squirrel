@@ -1,0 +1,245 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for using smart pointers in Rust, focusing on memory safety, interior mutability, and reference counting
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1007-rust-ownership.mdc
+  - 1022-rust-memory-management.mdc
+---
+# Rust Smart Pointer Standards
+
+## Context
+- When using reference counting
+- When implementing interior mutability
+- When managing shared ownership
+- When working with cyclic references
+- When implementing custom smart pointers
+- When using weak references
+- When managing mutable state
+- When working with thread safety
+
+## Requirements
+
+### Smart Pointer Selection
+- Use appropriate pointer types
+- Implement proper sharing
+- Use appropriate mutability
+- Document pointer requirements
+- Implement proper cleanup
+- Use appropriate thread safety
+- Follow pointer patterns
+- Document pointer lifecycles
+
+### Interior Mutability
+- Use appropriate cell types
+- Implement proper borrowing
+- Use appropriate mutability
+- Document mutation patterns
+- Implement proper validation
+- Use appropriate safety checks
+- Follow mutability patterns
+- Document safety requirements
+
+## Examples
+
+<example>
+// Good: Well-structured smart pointer usage
+use std::cell::{Cell, RefCell};
+use std::rc::{Rc, Weak};
+use std::sync::{Arc, Mutex, RwLock};
+
+// Good: Thread-safe shared ownership
+pub struct SharedState {
+    counter: Arc<AtomicUsize>,
+    data: Arc<RwLock<Vec<String>>>,
+}
+
+impl SharedState {
+    pub fn new() -> Self {
+        Self {
+            counter: Arc::new(AtomicUsize::new(0)),
+            data: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    pub fn increment(&self) -> usize {
+        self.counter.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub fn add_data(&self, item: String) -> Result<(), StateError> {
+        let mut data = self.data.write().map_err(|_| StateError::LockPoisoned)?;
+        data.push(item);
+        Ok(())
+    }
+}
+
+// Good: Single-threaded interior mutability
+pub struct DynamicConfig {
+    settings: RefCell<HashMap<String, String>>,
+    callbacks: RefCell<Vec<Box<dyn Fn(&str, &str)>>>,
+}
+
+impl DynamicConfig {
+    pub fn new() -> Self {
+        Self {
+            settings: RefCell::new(HashMap::new()),
+            callbacks: RefCell::new(Vec::new()),
+        }
+    }
+
+    pub fn set(&self, key: &str, value: &str) {
+        let mut settings = self.settings.borrow_mut();
+        settings.insert(key.to_string(), value.to_string());
+        
+        // Notify callbacks
+        let callbacks = self.callbacks.borrow();
+        for callback in callbacks.iter() {
+            callback(key, value);
+        }
+    }
+}
+
+// Good: Weak references to prevent cycles
+pub struct Node {
+    next: Option<Rc<Node>>,
+    parent: RefCell<Weak<Node>>,
+    data: String,
+}
+
+impl Node {
+    pub fn new(data: String) -> Rc<Self> {
+        Rc::new(Self {
+            next: None,
+            parent: RefCell::new(Weak::new()),
+            data,
+        })
+    }
+
+    pub fn set_next(&mut self, next: Rc<Node>) {
+        self.next = Some(next);
+    }
+
+    pub fn set_parent(&self, parent: &Rc<Node>) {
+        *self.parent.borrow_mut() = Rc::downgrade(parent);
+    }
+}
+
+// Good: Custom smart pointer implementation
+pub struct UniquePtr<T> {
+    ptr: *mut T,
+}
+
+impl<T> UniquePtr<T> {
+    pub fn new(value: T) -> Self {
+        let ptr = Box::into_raw(Box::new(value));
+        Self { ptr }
+    }
+
+    pub fn take(self) -> T {
+        let value = unsafe { Box::from_raw(self.ptr) };
+        std::mem::forget(self); // Prevent double-free
+        *value
+    }
+}
+
+impl<T> Drop for UniquePtr<T> {
+    fn drop(&mut self) {
+        unsafe {
+            Box::from_raw(self.ptr);
+        }
+    }
+}
+
+unsafe impl<T: Send> Send for UniquePtr<T> {}
+unsafe impl<T: Sync> Sync for UniquePtr<T> {}
+</example>
+
+<example type="invalid">
+// Bad: Poor smart pointer usage
+struct BadSharing {
+    // Bad: Using Rc where Arc is needed for thread safety
+    data: Rc<Vec<String>>,
+}
+
+impl BadSharing {
+    // Bad: Potential thread safety issues
+    fn share_data(&self) -> Rc<Vec<String>> {
+        self.data.clone()
+    }
+}
+
+// Bad: Unnecessary interior mutability
+struct BadMutability {
+    // Bad: RefCell where not needed
+    counter: RefCell<usize>,
+}
+
+impl BadMutability {
+    // Bad: Unnecessary borrowing
+    fn increment(&self) {
+        *self.counter.borrow_mut() += 1;
+    }
+}
+
+// Bad: Memory leak through circular reference
+struct BadCircular {
+    // Bad: Strong reference cycle
+    next: Option<Rc<RefCell<BadCircular>>>,
+}
+
+impl BadCircular {
+    // Bad: Creates reference cycle
+    fn set_next(&self, next: Rc<RefCell<BadCircular>>) {
+        *next.borrow_mut() = Self {
+            next: Some(Rc::clone(&next)),
+        };
+    }
+}
+
+// Bad: Unsafe smart pointer implementation
+struct BadPtr<T> {
+    ptr: *mut T,
+}
+
+impl<T> BadPtr<T> {
+    // Bad: Memory safety issues
+    fn new(value: T) -> Self {
+        let ptr = Box::into_raw(Box::new(value));
+        Self { ptr }
+    }
+    
+    // Bad: No proper cleanup
+    fn get(&self) -> &T {
+        unsafe { &*self.ptr }
+    }
+}
+</example>
+
+## Best Practices
+1. Choose appropriate pointers
+2. Handle thread safety
+3. Manage reference cycles
+4. Use interior mutability
+5. Implement proper cleanup
+6. Handle weak references
+7. Document safety guarantees
+8. Follow pointer patterns
+9. Validate usage
+10. Test thread safety
+
+## Technical Metadata
+- Category: Rust Smart Pointers
+- Priority: High
+- Dependencies:
+  - None (standard library features)
+- Validation Requirements:
+  - Memory safety
+  - Thread safety
+  - Reference cycles
+
+<version>1.0</version> 

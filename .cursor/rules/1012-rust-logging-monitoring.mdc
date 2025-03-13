@@ -1,0 +1,174 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper logging, tracing, and monitoring practices in Rust code
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1009-rust-error-handling.mdc
+  - 1011-rust-dependencies.mdc
+---
+
+# Rust Logging and Monitoring Standards
+
+## Context
+- When implementing logging in Rust code
+- When setting up monitoring
+- When implementing tracing
+- When handling diagnostics
+
+## Requirements
+- Use appropriate log levels
+- Implement structured logging
+- Use proper tracing spans
+- Document logging practices
+- Implement proper error logging
+- Use appropriate metrics
+- Follow monitoring best practices
+- Document monitoring requirements
+- Implement proper instrumentation
+- Use appropriate logging macros
+
+## Examples
+<example>
+// Good: Well-structured logging
+use tracing::{info, warn, error, instrument};
+use metrics::{counter, gauge};
+
+#[derive(Debug)]
+pub struct ServiceMetrics {
+    requests: Counter,
+    latency: Histogram,
+}
+
+impl ServiceMetrics {
+    pub fn new() -> Self {
+        Self {
+            requests: Counter::new("service_requests_total"),
+            latency: Histogram::new("service_latency_seconds"),
+        }
+    }
+}
+
+#[instrument(skip(config), fields(service_name = "api"))]
+pub async fn process_request(
+    request_id: String,
+    config: &Config,
+) -> Result<Response, Error> {
+    info!(
+        request_id = %request_id,
+        "Processing new request"
+    );
+
+    let timer = Instant::now();
+    
+    match process_internal(request_id, config).await {
+        Ok(response) => {
+            let duration = timer.elapsed();
+            info!(
+                duration_ms = duration.as_millis(),
+                "Request processed successfully"
+            );
+            
+            // Record metrics
+            counter!("requests_total", 1, "status" => "success");
+            gauge!("request_duration_ms", duration.as_millis() as f64);
+            
+            Ok(response)
+        }
+        Err(e) => {
+            error!(
+                error = %e,
+                "Failed to process request"
+            );
+            
+            counter!("requests_total", 1, "status" => "error");
+            Err(e)
+        }
+    }
+}
+
+// Good: Structured logging with context
+pub struct Logger {
+    context: HashMap<String, String>,
+}
+
+impl Logger {
+    #[instrument(skip(self))]
+    pub fn log_event(&self, event: &str, data: &HashMap<String, String>) {
+        let span = info_span!("event_logger", event = %event);
+        let _guard = span.enter();
+
+        info!(
+            context = ?self.context,
+            data = ?data,
+            "Logging event"
+        );
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor logging practices
+pub fn process_data(data: &[u8]) -> Result<(), Error> {
+    println!("Processing data"); // Bad: Using println instead of logger
+    
+    if data.is_empty() {
+        eprintln!("Error: empty data"); // Bad: Using eprintln for errors
+        return Err(Error::Empty);
+    }
+    
+    // Bad: No structured logging
+    println!("Data processed: {:?}", data);
+    Ok(())
+}
+
+// Bad: Inconsistent log levels
+pub struct BadLogger {
+    fn log_error(&self, msg: &str) {
+        println!("ERROR: {}", msg); // Should use error! macro
+    }
+    
+    fn log_warning(&self, msg: &str) {
+        println!("WARNING: {}", msg); // Should use warn! macro
+    }
+}
+
+// Bad: No metrics or tracing
+pub async fn handle_request() -> Result<(), Error> {
+    // No request tracing
+    // No metrics collection
+    // No structured logging
+    println!("Handling request");
+    Ok(())
+}
+</example>
+
+## Best Practices
+1. Use structured logging
+2. Implement proper spans
+3. Use appropriate levels
+4. Include context data
+5. Monitor key metrics
+6. Use proper macros
+7. Document log formats
+8. Implement tracing
+9. Follow naming conventions
+10. Handle errors properly
+
+## Technical Metadata
+- Category: Rust Logging
+- Priority: High
+- Dependencies:
+  - tracing = "0.1"
+  - metrics = "0.21"
+  - opentelemetry = "0.20"
+- Validation Requirements:
+  - Log structure
+  - Metric coverage
+  - Tracing setup
+
+<version>1.0</version> 

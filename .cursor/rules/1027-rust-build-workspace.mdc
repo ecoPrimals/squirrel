@@ -1,0 +1,194 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for Cargo workspace organization and build system configuration in Rust projects
+globs: ["**/Cargo.toml", "**/Cargo.lock", "**/.cargo/config.toml"]
+crossRefs:
+  - 1011-rust-dependencies.mdc
+  - 1009-rust-code-style.mdc
+---
+# Rust Build and Workspace Standards
+
+## Context
+- When organizing Cargo workspaces
+- When configuring build settings
+- When managing dependencies
+- When setting up project structure
+- When configuring build profiles
+- When managing feature flags
+- When handling conditional compilation
+- When organizing project metadata
+
+## Requirements
+
+### Workspace Organization
+- Use appropriate workspace structure
+- Implement proper dependency management
+- Use appropriate feature flags
+- Document workspace configuration
+- Implement proper versioning
+- Use appropriate build profiles
+- Follow workspace patterns
+- Document workspace requirements
+
+### Build Configuration
+- Use appropriate build settings
+- Implement proper target configuration
+- Use appropriate optimization levels
+- Document build requirements
+- Implement proper platform support
+- Use appropriate compiler flags
+- Follow build patterns
+- Document build configuration
+
+## Examples
+
+<example>
+// Good: Well-structured workspace configuration
+# Root Cargo.toml
+[workspace]
+members = [
+    "core",
+    "cli",
+    "web",
+    "common",
+    "tools/*",
+]
+default-members = ["core", "cli"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+authors = ["DataScienceBioLab <contact@example.com>"]
+edition = "2021"
+rust-version = "1.70"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+
+# Core crate Cargo.toml
+[package]
+name = "myproject-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+tracing.workspace = true
+
+[features]
+default = ["std"]
+std = ["serde/std"]
+full = ["std", "async"]
+
+[dev-dependencies]
+criterion = "0.5"
+mockall = "0.11"
+
+# Build configuration (.cargo/config.toml)
+[build]
+rustflags = ["-D", "warnings"]
+target-dir = "target"
+
+[target.'cfg(unix)']
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Feature configuration
+[features]
+default = ["std"]
+std = []
+async = ["tokio"]
+full = ["std", "async", "extra"]
+
+# Documentation configuration
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Benchmark configuration
+[[bench]]
+name = "core_benchmarks"
+harness = false
+</example>
+
+<example type="invalid">
+# Bad: Poor workspace organization
+[workspace]
+# Bad: No structure
+members = [
+    "*"  # Wildcard is dangerous
+]
+
+# Bad: No workspace-level configuration
+[package]
+name = "my-project"
+version = "0.1"  # No proper versioning
+
+# Bad: Direct dependency versions
+[dependencies]
+tokio = "*"  # No version constraint
+serde = ">=1.0"  # Overly permissive
+
+# Bad: No proper feature organization
+[features]
+all = []  # No proper feature structure
+
+# Bad: Poor profile configuration
+[profile.release]
+# No optimization settings
+# No LTO configuration
+# No panic strategy
+
+# Bad: Missing target configuration
+[build]
+# No rustflags
+# No target-specific settings
+
+# Bad: Poor benchmark configuration
+[[bench]]
+# No proper configuration
+# No harness setting
+</example>
+
+## Best Practices
+1. Use workspace inheritance
+2. Manage dependencies properly
+3. Configure build profiles
+4. Use proper features
+5. Set appropriate flags
+6. Handle platform specifics
+7. Document configurations
+8. Use proper versioning
+9. Configure benchmarks
+10. Manage metadata
+
+## Technical Metadata
+- Category: Rust Build System
+- Priority: High
+- Dependencies:
+  - cargo = "0.70"
+  - cargo-workspace-manager = "0.1"
+- Validation Requirements:
+  - Workspace structure
+  - Build configuration
+  - Dependency management
+
+<version>1.0</version> 

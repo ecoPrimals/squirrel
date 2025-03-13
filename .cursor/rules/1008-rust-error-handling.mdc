@@ -1,0 +1,135 @@
+---
+description: ENFORCE proper error handling practices in Rust code
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1007-rust-ownership.mdc
+  - 1005-rust-documentation.mdc
+alwaysApply: true
+---
+
+# Rust Error Handling Standards
+
+## Context
+- When implementing error handling in Rust code
+- When creating custom error types
+- When working with Result and Option types
+- When propagating errors across boundaries
+
+## Requirements
+- Use appropriate error types
+- Implement proper error propagation
+- Create meaningful error messages
+- Document error conditions
+- Use Result and Option appropriately
+- Implement Error trait properly
+- Use appropriate error conversion
+- Document error handling requirements
+- Implement proper error recovery
+- Use appropriate panic boundaries
+
+## Examples
+<example>
+// Good: Custom error type
+use std::error::Error;
+use std::fmt;
+
+#[derive(Debug)]
+pub enum DataError {
+    NotFound(String),
+    InvalidFormat(String),
+    IoError(std::io::Error),
+}
+
+impl fmt::Display for DataError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DataError::NotFound(msg) => write!(f, "Data not found: {}", msg),
+            DataError::InvalidFormat(msg) => write!(f, "Invalid format: {}", msg),
+            DataError::IoError(err) => write!(f, "IO error: {}", err),
+        }
+    }
+}
+
+impl Error for DataError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            DataError::IoError(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+// Good: Error handling with Result
+pub fn process_data(input: &str) -> Result<String, DataError> {
+    if input.is_empty() {
+        return Err(DataError::InvalidFormat(
+            "Input cannot be empty".to_string(),
+        ));
+    }
+
+    process_internal(input).map_err(|e| DataError::IoError(e))
+}
+
+// Good: Option handling
+pub fn find_value(data: &[i32], target: i32) -> Option<usize> {
+    data.iter()
+        .position(|&x| x == target)
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor error handling
+pub fn bad_process(input: &str) -> String {
+    // Unwrap can panic
+    let data = std::fs::read_to_string(input).unwrap();
+    data
+}
+
+// Bad: Mixing Result and Option incorrectly
+pub fn bad_find(data: &[i32], target: i32) -> Result<i32, String> {
+    match data.iter().position(|&x| x == target) {
+        Some(pos) => Ok(data[pos]),
+        None => Err("Not found".to_string()), // Should use Option instead
+    }
+}
+
+// Bad: Panic instead of proper error handling
+pub fn unsafe_operation() -> i32 {
+    panic!("Operation failed"); // Should return Result instead
+}
+
+// Bad: Unclear error messages
+pub fn unclear_errors(input: &str) -> Result<(), String> {
+    if input.is_empty() {
+        return Err("Error occurred".to_string()); // Unclear message
+    }
+    Ok(())
+}
+</example>
+
+## Best Practices
+1. Use descriptive error types
+2. Implement Error trait
+3. Document error conditions
+4. Use proper error conversion
+5. Handle all error cases
+6. Use meaningful messages
+7. Avoid unwrap/expect
+8. Use proper error types
+9. Document error handling
+10. Use appropriate recovery
+
+## Technical Metadata
+- Category: Rust Error Handling
+- Priority: High
+- Dependencies:
+  - thiserror = "1.0"
+  - anyhow = "1.0"
+  - error-stack = "0.4"
+- Validation Requirements:
+  - Error type correctness
+  - Error propagation
+  - Recovery handling
+
+<version>1.0</version> 

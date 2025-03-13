@@ -1,0 +1,102 @@
+---
+description: CREATE rules in tempRules as .md and CONVERT to .mdc in .cursor/rules after verification
+globs: ["**/*.mdc", "**/*.md"]
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 010-rule-cross-referencing.mdc
+alwaysApply: true
+---
+
+# MDC Rule Location Standards
+
+## Context
+- When creating new MDC rules
+- When converting rules from tempRules to .cursor/rules
+- When organizing rule files
+- When verifying rule structure
+- When managing rule lifecycle
+
+## Requirements
+- Create new rules in tempRules/ with .md extension
+- Follow NNN-name.md format for new rules
+- Include all required sections:
+  - Frontmatter with description and globs
+  - Title
+  - Context
+  - Requirements
+  - Examples
+  - Version tag
+- Convert to .mdc and move to .cursor/rules/ after verification
+- Never create .mdc files directly in .cursor/rules/
+- Keep .md version in tempRules/ until .mdc is verified
+- Follow proper rule structure and formatting
+
+## Examples
+<example>
+# Good: Proper MDC rule creation workflow
+1. Create tempRules/004-mdc-rule-location.md
+2. Add required sections
+3. Verify content
+4. Convert to .mdc
+5. Move to .cursor/rules/004-mdc-rule-location.mdc
+</example>
+
+<example type="invalid">
+# Bad: Direct .mdc creation
+Creating .mdc files directly in .cursor/rules/ without tempRules/ verification
+</example>
+
+<example>
+# Good: Rule file structure
+---
+description: ACTION when TRIGGER to OUTCOME
+globs: pattern
+---
+# Rule Title
+
+## Context
+- When to apply
+- Prerequisites
+
+## Requirements
+- Actionable items
+- Testable criteria
+
+## Examples
+<example>
+Good example
+</example>
+
+<example type="invalid">
+Invalid example
+</example>
+
+<version>1.0</version>
+</example>
+
+## Best Practices
+1. Follow proper rule creation workflow
+2. Verify rule structure before conversion
+3. Maintain rule versions
+4. Document rule changes
+5. Follow naming conventions
+6. Include all required sections
+7. Validate rule content
+8. Keep rule organization clean
+9. Update cross-references
+10. Review rule effectiveness
+
+## Technical Metadata
+- Category: Rule Management
+- Priority: High
+- Dependencies:
+  - Rule verification tools
+  - MDC conversion tools
+  - Rule validation system
+- Validation Requirements:
+  - Rule structure
+  - Content completeness
+  - Cross-reference validity
+
+<version>1.1.0</version> 

@@ -1,0 +1,178 @@
+---
+description: ENFORCE git commit standards and worktree-aware practices with cross-platform shell compatibility
+globs: **/*.{rs,toml,md}
+crossRefs:
+  - 020-task-organization.mdc
+  - 007-worktree-management.mdc
+  - 009-shell-compatibility.mdc
+  - 008-rule-update-automation.mdc
+alwaysApply: true
+---
+
+# Git Commit and Worktree Management Standards
+
+## Context
+- When committing changes through any shell (PowerShell/Bash)
+- When working with multiple worktrees
+- When managing feature isolation
+- When tracking AI-assisted changes
+- When handling cross-worktree dependencies
+- When managing IDE state after git operations
+
+## Requirements
+
+### Shell-Aware Command Structure
+- Use shell-appropriate command chaining:
+  ```powershell
+  # PowerShell
+  git add .; git commit -m "type(scope): message"
+  
+  # Bash/Zsh
+  git add . && git commit -m "type(scope): message"
+  ```
+
+### Commit Types and Scopes
+- Use standard commit types:
+  - feat: New feature
+  - fix: Bug fix
+  - docs: Documentation changes
+  - style: Non-functional code changes
+  - refactor: Code restructuring
+  - test: Test-related changes
+  - chore: Build/auxiliary tool changes
+  - state: Task state transition
+
+- Use worktree-aware scopes:
+  - core: Core functionality
+  - ui: User interface components
+  - mcp: Machine Context Protocol
+  - sync: Synchronization features
+  - docs: Documentation
+  - test: Testing infrastructure
+
+### Task State Transitions
+- Include state transitions in commits:
+  ```
+  state(ui): move dialog task to review
+  
+  State: Planning -> InProgress
+  Components: ui/dialog, core/api
+  Reviewers: @core-team
+  ```
+
+### Cross-Platform Considerations
+- Use double quotes for messages:
+  ```powershell
+  # Both shells
+  git commit -m "feat(scope): message"
+  ```
+
+- Handle multi-line commits:
+  ```powershell
+  # PowerShell
+  git commit -m "feat(scope): message`nDetails"
+  
+  # Bash/Zsh
+  git commit -m "feat(scope): message
+  
+  Details"
+  ```
+
+### Cross-Worktree Changes
+- Reference related worktrees:
+  ```
+  feat(ui,core): add state management
+  ```
+
+- Document dependencies:
+  ```
+  feat(mcp): implement protocol handler
+  
+  State: InProgress
+  Depends-On: core/messaging
+  Related-To: ui/events
+  Breaking-Change: Updated message format
+  Migration:
+  - Update client message handlers
+  - Regenerate protocol types
+  ```
+
+### Post-Push Workflow
+- After successful push operation:
+  1. Close the current IDE window
+  2. Pull changes to main branch
+  3. Resync worktrees
+  4. Reopen IDE window in desired worktree
+- This ensures:
+  - Proper file system recognition
+  - Correct Cargo integration
+  - Clean IDE state
+  - Synchronized worktree state
+
+## Examples
+
+<example>
+# Good: State-aware commit sequence
+# PowerShell
+git add src/ui/dialog; `
+    git commit -m "feat(ui): implement dialog component
+
+State: InProgress
+Depends-On: core/api/dialog
+Reviewers: @core-team
+Breaking-Change: None"; `
+    git push origin feature/ui/dialog
+
+# Bash/Zsh
+git add src/ui/dialog && \
+    git commit -m "feat(ui): implement dialog component
+
+State: InProgress
+Depends-On: core/api/dialog
+Reviewers: @core-team
+Breaking-Change: None" && \
+    git push origin feature/ui/dialog
+</example>
+
+<example type="invalid">
+# Bad: Missing state and dependency info
+git commit -m "updated dialog"
+
+# Bad: Inconsistent format
+git commit -m 'feat(ui): update'
+
+# Bad: Shell-incompatible commands
+# Will fail in PowerShell
+git add . && git commit -m "update stuff"
+
+# Bad: Missing scope
+git commit -m "added new feature"
+</example>
+
+## Best Practices
+1. Use shell-appropriate syntax
+2. Include state transitions
+3. Document dependencies
+4. Track breaking changes
+5. Specify required reviews
+6. Use proper scoping
+7. Include migration guides
+8. Test commands in both shells
+9. Handle long messages
+10. Maintain history clarity
+
+## Technical Metadata
+- Category: Version Control
+- Priority: High
+- Dependencies:
+  - Git 2.25+
+  - PowerShell 5.1+
+  - Bash 4.0+
+  - Task state system
+- Validation Requirements:
+  - Commit message format
+  - State transitions
+  - Dependency tracking
+  - Shell compatibility
+
+<version>1.3.0</version> 

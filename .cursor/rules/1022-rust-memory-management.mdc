@@ -1,0 +1,197 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE efficient and safe memory management practices in Rust code, focusing on allocation, deallocation, and resource management
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1006-rust-performance.mdc
+  - 1007-rust-ownership.mdc
+---
+# Rust Memory Management Standards
+
+## Context
+- When allocating and deallocating memory
+- When managing heap vs stack allocation
+- When implementing custom allocators
+- When working with large data structures
+- When optimizing memory usage
+- When implementing resource pools
+- When working with zero-copy operations
+- When managing memory fragmentation
+
+## Requirements
+
+### Memory Allocation Patterns
+- Use stack allocation for small, fixed-size data
+- Use heap allocation judiciously
+- Implement custom allocators when needed
+- Use appropriate collection types
+- Implement proper buffer management
+- Use zero-copy operations when possible
+- Follow memory alignment requirements
+- Document memory usage patterns
+
+### Resource Management
+- Implement proper cleanup
+- Use appropriate smart pointers
+- Follow RAII principles
+- Document resource lifecycles
+- Implement proper pooling
+- Use appropriate buffer strategies
+- Follow allocation patterns
+- Document memory requirements
+
+## Examples
+
+<example>
+// Good: Efficient memory management
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::sync::Arc;
+
+// Custom allocator example
+#[global_allocator]
+static ALLOCATOR: MyAllocator = MyAllocator;
+
+struct MyAllocator;
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // Implement custom allocation strategy
+        System.alloc(layout)
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        // Implement custom deallocation strategy
+        System.dealloc(ptr, layout)
+    }
+}
+
+// Good: Resource pool implementation
+pub struct ResourcePool<T> {
+    resources: Vec<T>,
+    max_size: usize,
+}
+
+impl<T> ResourcePool<T> {
+    pub fn with_capacity(max_size: usize) -> Self {
+        Self {
+            resources: Vec::with_capacity(max_size),
+            max_size,
+        }
+    }
+
+    pub fn acquire(&mut self) -> Option<T> {
+        self.resources.pop()
+    }
+
+    pub fn release(&mut self, resource: T) {
+        if self.resources.len() < self.max_size {
+            self.resources.push(resource);
+        }
+    }
+}
+
+// Good: Zero-copy buffer management
+pub struct Buffer {
+    data: Box<[u8]>,
+    position: usize,
+}
+
+impl Buffer {
+    pub fn with_capacity(size: usize) -> Self {
+        Self {
+            data: vec![0; size].into_boxed_slice(),
+            position: 0,
+        }
+    }
+
+    pub fn write(&mut self, src: &[u8]) -> Result<usize, BufferError> {
+        let available = self.data.len() - self.position;
+        if src.len() > available {
+            return Err(BufferError::InsufficientSpace);
+        }
+        
+        self.data[self.position..self.position + src.len()]
+            .copy_from_slice(src);
+        self.position += src.len();
+        
+        Ok(src.len())
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor memory management
+struct BadResource {
+    data: Vec<String>,
+}
+
+impl BadResource {
+    // Bad: No capacity planning
+    fn new() -> Self {
+        Self {
+            data: Vec::new(),
+        }
+    }
+    
+    // Bad: Unnecessary allocations
+    fn process(&mut self, input: &str) {
+        self.data.push(input.to_string()); // Creates new allocation each time
+    }
+}
+
+// Bad: Memory leaks through circular references
+struct Node {
+    next: Option<Box<Node>>,
+    data: Vec<u8>,
+}
+
+impl Node {
+    // Bad: Potential memory leak
+    fn set_next(&mut self, next: Node) {
+        self.next = Some(Box::new(next));
+    }
+}
+
+// Bad: Inefficient buffer management
+struct BadBuffer {
+    data: Vec<u8>,
+}
+
+impl BadBuffer {
+    // Bad: Frequent reallocations
+    fn append(&mut self, bytes: &[u8]) {
+        self.data.extend_from_slice(bytes); // May cause reallocation
+    }
+}
+</example>
+
+## Best Practices
+1. Plan memory allocation
+2. Use appropriate containers
+3. Implement custom allocators
+4. Manage resources properly
+5. Use zero-copy operations
+6. Handle fragmentation
+7. Document memory usage
+8. Profile allocations
+9. Use proper alignment
+10. Implement pooling
+
+## Technical Metadata
+- Category: Rust Memory Management
+- Priority: High
+- Dependencies:
+  - allocator-api2 = "0.2"
+  - static_assertions = "1.1"
+  - memmap2 = "0.9"
+- Validation Requirements:
+  - Memory safety
+  - Allocation patterns
+  - Resource management
+
+<version>1.0</version> 

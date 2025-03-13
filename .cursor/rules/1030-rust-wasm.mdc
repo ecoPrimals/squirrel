@@ -1,0 +1,233 @@
+---
+description: ENFORCE best practices for WebAssembly integration in Rust, focusing on wasm-bindgen usage, performance optimization, and web platform integration
+globs: ["**/*.rs", "**/Cargo.toml", "**/*.js", "**/*.ts"]
+crossRefs:
+  - 1006-rust-performance.mdc
+  - 1028-rust-cross-platform.mdc
+  - 1027-rust-build-workspace.mdc
+---
+# Rust WebAssembly Standards
+
+## Context
+- When developing WebAssembly modules
+- When integrating with JavaScript
+- When optimizing Wasm performance
+- When handling web APIs
+- When managing memory
+- When implementing bindings
+- When handling async operations
+- When managing build configuration
+
+## Requirements
+
+### Wasm Integration
+- Use appropriate wasm-bindgen features
+- Implement proper type conversions
+- Use appropriate memory management
+- Document JavaScript interface
+- Implement proper error handling
+- Use appropriate async patterns
+- Follow WebAssembly best practices
+- Document browser compatibility
+
+### Performance Optimization
+- Use appropriate data structures
+- Implement proper memory handling
+- Use appropriate serialization
+- Document performance characteristics
+- Implement proper bundling
+- Use appropriate optimization flags
+- Follow size optimization patterns
+- Document optimization strategies
+
+## Examples
+
+<example>
+// Good: Well-structured Wasm module
+use wasm_bindgen::prelude::*;
+use web_sys::{Document, Element, Window};
+use serde::{Serialize, Deserialize};
+
+// Good: Proper type definitions
+#[wasm_bindgen]
+#[derive(Serialize, Deserialize)]
+pub struct DataProcessor {
+    data: Vec<u32>,
+    config: ProcessingConfig,
+}
+
+#[wasm_bindgen]
+impl DataProcessor {
+    // Good: Constructor exposed to JS
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        console_error_panic_hook::set_once();
+        Self {
+            data: Vec::new(),
+            config: ProcessingConfig::default(),
+        }
+    }
+
+    // Good: Async operation handling
+    #[wasm_bindgen]
+    pub async fn process_data(&mut self) -> Result<JsValue, JsError> {
+        // Process data asynchronously
+        let result = self.internal_process().await?;
+        
+        // Convert to JS value
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    // Good: Memory management
+    #[wasm_bindgen]
+    pub fn clear_memory(&mut self) {
+        self.data.clear();
+        self.data.shrink_to_fit();
+    }
+}
+
+// Good: DOM manipulation
+#[wasm_bindgen]
+pub fn update_ui(element_id: &str, data: &JsValue) -> Result<(), JsError> {
+    let window = web_sys::window()
+        .ok_or_else(|| JsError::new("No window found"))?;
+    
+    let document = window.document()
+        .ok_or_else(|| JsError::new("No document found"))?;
+    
+    let element = document.get_element_by_id(element_id)
+        .ok_or_else(|| JsError::new("Element not found"))?;
+    
+    // Update element with serialized data
+    let content = serde_wasm_bindgen::from_value(data.clone())?;
+    element.set_inner_html(&content);
+    
+    Ok(())
+}
+
+// Good: Performance optimization
+#[wasm_bindgen]
+pub fn compute_intensive(size: usize) -> Vec<u32> {
+    let mut result = Vec::with_capacity(size);
+    
+    // Perform computation in Rust for better performance
+    for i in 0..size {
+        result.push(fibonacci(i as u32));
+    }
+    
+    result
+}
+
+// Good: Proper error handling
+#[wasm_bindgen]
+pub fn validate_input(data: JsValue) -> Result<bool, JsError> {
+    let input: InputData = serde_wasm_bindgen::from_value(data)?;
+    
+    if input.is_valid() {
+        Ok(true)
+    } else {
+        Err(JsError::new("Invalid input data"))
+    }
+}
+
+// Good: Cargo.toml configuration
+/*
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Document", "Element", "Window"] }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.5"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+*/
+</example>
+
+<example type="invalid">
+// Bad: Poor Wasm implementation
+#[wasm_bindgen]
+pub struct BadWasmStruct {
+    // Bad: Exposing raw pointers
+    ptr: *mut u8,
+    len: usize,
+}
+
+impl BadWasmStruct {
+    // Bad: Unsafe memory management
+    #[wasm_bindgen]
+    pub fn new() -> Self {
+        let mut vec = Vec::new();
+        let ptr = vec.as_mut_ptr();
+        let len = vec.len();
+        std::mem::forget(vec);
+        Self { ptr, len }
+    }
+}
+
+// Bad: Inefficient data transfer
+#[wasm_bindgen]
+pub fn bad_data_processing(data: &str) -> String {
+    // Bad: Unnecessary string conversion
+    let mut result = String::new();
+    for c in data.chars() {
+        result.push(c);
+    }
+    result
+}
+
+// Bad: No error handling
+#[wasm_bindgen]
+pub fn unsafe_operation() {
+    // Bad: Panic in Wasm
+    panic!("Something went wrong");
+}
+
+// Bad: Direct DOM manipulation without checks
+#[wasm_bindgen]
+pub fn bad_dom_update() {
+    // Bad: Unsafe DOM access
+    let document = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap();
+    
+    document
+        .get_element_by_id("some-id")
+        .unwrap()
+        .set_inner_html("Updated");
+}
+</example>
+
+## Best Practices
+1. Use wasm-bindgen properly
+2. Handle memory carefully
+3. Optimize for size
+4. Implement error handling
+5. Use proper types
+6. Handle async correctly
+7. Document interfaces
+8. Profile performance
+9. Test in browsers
+10. Bundle efficiently
+
+## Technical Metadata
+- Category: Rust WebAssembly
+- Priority: High
+- Dependencies:
+  - wasm-bindgen = "0.2"
+  - web-sys = "0.3"
+  - wasm-pack = "0.12"
+  - serde-wasm-bindgen = "0.5"
+- Validation Requirements:
+  - Browser compatibility
+  - Memory safety
+  - Performance metrics
+
+<version>1.0</version> 

@@ -1,0 +1,194 @@
+---
+description: ENFORCE consistent integration testing practices across teams and components
+globs: 
+  - tests/**/*
+  - integration_tests/**/*
+  - **/tests/integration/*
+crossRefs:
+  - 021-team-integration.mdc
+  - 020-task-organization.mdc
+  - 1021-rust-test-organization.mdc
+alwaysApply: true
+---
+
+# Integration Testing Standards
+
+## Context
+- When implementing cross-team tests
+- When validating integration points
+- When testing shared features
+- When verifying breaking changes
+- When automating integration tests
+
+## Requirements
+
+### Test Organization
+- Structure integration tests:
+  ```
+  integration_tests/
+  ├── ui_core/           # UI-Core integration tests
+  │   ├── dialog/        # Dialog system tests
+  │   └── state/         # State management tests
+  ├── core_mcp/          # Core-MCP integration tests
+  │   ├── protocol/      # Protocol tests
+  │   └── events/        # Event flow tests
+  └── e2e/              # End-to-end tests
+      ├── workflows/     # Complete workflow tests
+      └── scenarios/     # User scenario tests
+  ```
+
+### Test Implementation
+- Use proper test structure:
+  ```rust
+  #[cfg(test)]
+  mod integration_tests {
+      use test_context::TestContext;
+      
+      struct IntegrationTest {
+          ui_client: UiClient,
+          core_api: CoreApi,
+          mcp_client: McpClient,
+      }
+      
+      impl TestContext for IntegrationTest {
+          fn setup() -> Self {
+              // Initialize test environment
+          }
+          
+          fn teardown(self) {
+              // Clean up resources
+          }
+      }
+      
+      #[tokio::test]
+      async fn test_dialog_workflow() {
+          let ctx = IntegrationTest::setup();
+          
+          // Test complete dialog workflow
+          let dialog = ctx.ui_client.create_dialog().await?;
+          let state = ctx.core_api.process_dialog(dialog).await?;
+          let events = ctx.mcp_client.verify_events(state).await?;
+          
+          assert_workflow_complete(events);
+      }
+  }
+  ```
+
+### Test Categories
+1. API Integration Tests
+   - Verify API contracts
+   - Test error conditions
+   - Validate response formats
+
+2. Event Flow Tests
+   - Verify event propagation
+   - Test event ordering
+   - Validate event handlers
+
+3. State Management Tests
+   - Test state transitions
+   - Verify data consistency
+   - Validate concurrent operations
+
+4. Performance Tests
+   - Measure response times
+   - Test under load
+   - Verify resource usage
+
+### Test Environment
+- Maintain test environments:
+  ```toml
+  [test.integration]
+  ui_port = 8080
+  core_port = 8081
+  mcp_port = 8082
+  database_url = "postgres://test:test@localhost:5432/test"
+  ```
+
+### Breaking Change Tests
+- Implement compatibility tests:
+  ```rust
+  #[test]
+  fn test_api_version_compatibility() {
+      // Test old client with new server
+      // Test new client with old server
+  }
+  
+  #[test]
+  fn test_data_migration() {
+      // Test data format migration
+      // Verify backward compatibility
+  }
+  ```
+
+## Examples
+
+<example>
+# Good: Comprehensive integration test
+```rust
+#[tokio::test]
+async fn test_complete_dialog_flow() {
+    let ctx = IntegrationTest::setup();
+    
+    // 1. UI Creates Dialog
+    let dialog = ctx.ui_client
+        .create_dialog(DialogConfig::new())
+        .await?;
+    
+    // 2. Core Processes Dialog
+    let result = ctx.core_api
+        .process_dialog(dialog)
+        .await?;
+    
+    // 3. MCP Handles Events
+    let events = ctx.mcp_client
+        .collect_events()
+        .timeout(Duration::from_secs(5))
+        .await?;
+    
+    // 4. Verify Complete Flow
+    assert_dialog_complete(dialog, result, events);
+}
+```
+</example>
+
+<example type="invalid">
+# Bad: Poor integration test
+```rust
+#[test]
+fn test_dialog() {
+    // Direct API call without context
+    let result = create_dialog();
+    assert!(result.is_ok());
+    // No validation of integration points
+}
+```
+</example>
+
+## Best Practices
+1. Use proper test isolation
+2. Implement comprehensive setup
+3. Test complete workflows
+4. Validate all integration points
+5. Include performance tests
+6. Handle error conditions
+7. Test backward compatibility
+8. Document test requirements
+9. Maintain test environments
+10. Automate test execution
+
+## Technical Metadata
+- Category: Testing
+- Priority: High
+- Dependencies:
+  - tokio-test = "0.4"
+  - test-context = "0.1"
+  - mockall = "0.11"
+  - criterion = "0.5"
+- Validation Requirements:
+  - Test coverage
+  - Performance metrics
+  - Integration points
+  - Error scenarios
+
+<version>1.0.0</version> 

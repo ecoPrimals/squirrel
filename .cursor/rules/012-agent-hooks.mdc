@@ -1,0 +1,186 @@
+---
+title: Agent Hook Standards
+description: ENFORCE consistent agent hook standards for specification entry points and context
+version: 0.1.0
+category: core
+globs: 
+  - "specs/*.md"
+  - "templates/*.md"
+status: draft
+validation_required: true
+cross_refs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 003-code-style-guide.mdc
+  - 004-mdc-rule-location.mdc
+  - 400-md-docs.mdc
+---
+
+# Agent Hook Standards
+
+## Context
+- When creating entry points for AI agents
+- When defining agent roles and responsibilities
+- When specifying agent expertise and motivation
+- When structuring machine-parseable specifications
+- When balancing technical and narrative content
+
+## Requirements
+
+### Hook Structure
+```yaml
+agent_hook:
+  required_sections:
+    - motivation: |
+        Multi-line narrative establishing expertise and mindset
+        Must convey deep domain knowledge and quality standards
+        Should inspire confidence and set expectations
+    - purpose: "Single-line core objective"
+    - focus_areas: ["List of key responsibilities"]
+    - entry_sections: ["Relevant document sections"]
+    - validation_requirements: ["Specific success criteria"]
+    - rules_reference: ["@.cursor/rules/relevant-rules.mdc"]
+```
+
+### Motivation Standards
+- Write in second person ("You are...")
+- Establish domain expertise
+- Reference significant achievements
+- Connect expertise to current task
+- Set quality expectations
+
+### Content Balance
+```yaml
+content_ratio:
+  documentation:
+    machine_parseable: 70%
+    requirements:
+      - Structured YAML configurations
+      - Explicit validation criteria
+      - Measurable metrics
+      - Error conditions
+      - Integration points
+    format: "Clear key-value pairs"
+
+    technical_context: 30%
+    requirements:
+      - Implementation sequences
+      - Critical constraints
+      - Technical requirements
+      - Integration notes
+    format: "Concise technical descriptions"
+
+  code_generation:
+    machine_parseable: 90%
+    requirements:
+      - Function signatures
+      - Type definitions
+      - Error handling patterns
+      - Performance constraints
+      - Test criteria
+    format: "Compilable code blocks"
+
+    technical_context: 10%
+    requirements:
+      - Critical implementation notes
+      - Safety requirements
+      - Performance considerations
+    format: "Inline documentation"
+    placement: "Adjacent to relevant code blocks"
+
+  validation:
+    documentation:
+      - Verify YAML syntax
+      - Check section completeness
+      - Validate cross-references
+    
+    code:
+      - Ensure compilable output
+      - Verify test coverage
+      - Check error handling
+```
+
+### Agent Types
+```yaml
+standard_agents:
+  review:
+    expertise: "Systems architecture and specification review"
+    focus: "Validation and quality assurance"
+    
+  implementation:
+    expertise: "Systems programming and language mastery"
+    focus: "Code generation and optimization"
+    
+  architecture:
+    expertise: "System design and scalability"
+    focus: "Component relationships and patterns"
+    
+  monitoring:
+    expertise: "Observability and performance optimization"
+    focus: "Metrics and resource management"
+```
+
+## Examples
+
+<example>
+# Good: Well-structured agent hook
+```yaml
+implementation_agent:
+  motivation: |
+    You are a systems programming virtuoso who helped design Rust's ownership system.
+    Your code is not just functional but exhibits an artistic balance of performance and safety.
+    You see beyond immediate implementation to future maintenance and evolution.
+    Every line of code you write is a masterclass in systems programming.
+  
+  purpose: "Code generation and implementation"
+  focus_areas:
+    - Component implementation
+    - Integration points
+    - Error handling
+  validation_criteria:
+    - All tests pass
+    - Performance metrics met
+  rules_reference:
+    - "@.cursor/rules/1001-rust-safety.mdc"
+```
+</example>
+
+<example type="invalid">
+# Bad: Poor agent hook structure
+```yaml
+agent:
+  about: "Implements code"
+  skills: ["coding", "testing"]
+  # Missing motivation
+  # Missing validation criteria
+  # Missing rules reference
+  # No clear focus areas
+```
+</example>
+
+## Best Practices
+1. Always include motivational context
+2. Maintain 70/30 machine/human ratio
+3. Reference relevant rules
+4. Specify clear validation criteria
+5. Define entry points
+6. Include focus areas
+7. Specify required capabilities
+8. Document success criteria
+9. Cross-reference related rules
+10. Validate hook structure
+
+## Technical Metadata
+- Category: Agent Configuration
+- Priority: High
+- Dependencies:
+  - Rule system
+  - Specification format
+  - Documentation standards
+- Validation Requirements:
+  - Hook structure completeness
+  - Motivation quality
+  - Rule references
+  - Content ratio compliance
+
+<version>0.1.0</version> 

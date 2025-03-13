@@ -1,0 +1,326 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE consistent plugin development standards across all plugin types (Core, MCP, Tools, UI)
+globs: ["**/plugins/**/*.rs"]
+crossRefs:
+  - 1008-rust-error-handling.mdc
+  - 1009-rust-code-style.mdc
+  - 1011-rust-dependencies.mdc
+  - 1012-rust-logging-monitoring.mdc
+  - 1021-rust-test-organization.mdc
+---
+
+# Rust Plugin Development Rules
+
+## Context
+- When developing Core plugins
+- When developing MCP plugins
+- When developing Tool plugins
+- When developing UI plugins
+- When implementing plugin interfaces
+- When handling plugin errors
+- When managing plugin resources
+- When monitoring plugin performance
+
+## Requirements
+
+### 1. Plugin Interface
+```rust
+// All plugins must implement this base trait
+pub trait Plugin {
+    // Required metadata
+    fn name(&self) -> &str;
+    fn version(&self) -> &str;
+    fn description(&self) -> &str;
+    
+    // Required lifecycle methods
+    fn initialize(&mut self) -> Result<(), PluginError>;
+    fn start(&mut self) -> Result<(), PluginError>;
+    fn stop(&mut self) -> Result<(), PluginError>;
+    fn cleanup(&mut self) -> Result<(), PluginError>;
+    
+    // Required state management
+    fn get_state(&self) -> Result<PluginState, PluginError>;
+    fn set_state(&mut self, state: PluginState) -> Result<(), PluginError>;
+}
+```
+
+### 2. Error Handling
+```rust
+// Standard plugin error type
+#[derive(Debug, thiserror::Error)]
+pub enum PluginError {
+    #[error("Initialization error: {0}")]
+    InitializationError(String),
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
+    #[error("State error: {0}")]
+    StateError(String),
+    #[error("Security error: {0}")]
+    SecurityError(String),
+    #[error("Resource error: {0}")]
+    ResourceError(String),
+}
+
+// Required error handling pattern
+impl Plugin {
+    fn handle_error(&self, error: PluginError) -> Result<(), PluginError> {
+        // Log error
+        log::error!("Plugin error: {}", error);
+        
+        // Attempt recovery
+        match &error {
+            PluginError::InitializationError(_) => self.attempt_recovery(),
+            PluginError::RuntimeError(_) => self.handle_runtime_error(),
+            PluginError::StateError(_) => self.handle_state_error(),
+            PluginError::SecurityError(_) => self.handle_security_error(),
+            PluginError::ResourceError(_) => self.handle_resource_error(),
+        }?;
+        
+        Err(error)
+    }
+}
+```
+
+### 3. Resource Management
+- Use `Arc<Mutex<T>>` for shared state
+- Implement `Drop` trait for cleanup
+- Use `parking_lot` for mutexes
+- Follow RAII principles
+- Implement proper resource limits
+
+### 4. Safety Requirements
+- No unsafe code without team review
+- Proper error propagation
+- Thread-safe implementations
+- Memory leak prevention
+- Resource cleanup guarantees
+
+### 5. Performance Guidelines
+- Use async/await for I/O operations
+- Implement proper caching
+- Minimize allocations
+- Use appropriate data structures
+- Profile performance-critical paths
+
+### 6. Testing Requirements
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_plugin_lifecycle() {
+        // Test initialization
+        // Test start
+        // Test stop
+        // Test cleanup
+    }
+    
+    #[tokio::test]
+    async fn test_plugin_state() {
+        // Test state management
+        // Test state persistence
+        // Test state recovery
+    }
+    
+    #[tokio::test]
+    async fn test_plugin_error_handling() {
+        // Test error scenarios
+        // Test recovery mechanisms
+        // Test error propagation
+    }
+}
+```
+
+### 7. Documentation Requirements
+```rust
+/// Plugin implementation for [Plugin Type]
+/// 
+/// # Safety
+/// This plugin is safe to use in a multi-threaded environment
+/// 
+/// # Performance
+/// - Initialization: < 100ms
+/// - Operation: < 10ms
+/// - Memory: < 50MB
+/// 
+/// # Examples
+/// ```
+/// let plugin = MyPlugin::new();
+/// plugin.initialize()?;
+/// ```
+pub struct MyPlugin {
+    // Implementation
+}
+```
+
+## Examples
+
+<example>
+// Good: Well-structured plugin implementation
+use std::sync::Arc;
+use parking_lot::Mutex;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum MyPluginError {
+    #[error("Initialization failed: {0}")]
+    InitError(String),
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
+}
+
+pub struct MyPlugin {
+    state: Arc<Mutex<PluginState>>,
+    metrics: Arc<Mutex<PluginMetrics>>,
+}
+
+impl Plugin for MyPlugin {
+    fn name(&self) -> &str {
+        "my_plugin"
+    }
+
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+
+    fn description(&self) -> &str {
+        "A well-structured plugin implementation"
+    }
+
+    fn initialize(&mut self) -> Result<(), PluginError> {
+        // Initialize plugin state
+        // Set up metrics
+        // Configure resources
+        Ok(())
+    }
+
+    fn start(&mut self) -> Result<(), PluginError> {
+        // Start plugin operations
+        // Initialize async tasks
+        // Set up monitoring
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), PluginError> {
+        // Stop plugin operations
+        // Clean up resources
+        // Save state
+        Ok(())
+    }
+
+    fn cleanup(&mut self) -> Result<(), PluginError> {
+        // Final cleanup
+        // Release resources
+        // Close connections
+        Ok(())
+    }
+
+    fn get_state(&self) -> Result<PluginState, PluginError> {
+        Ok(self.state.lock().clone())
+    }
+
+    fn set_state(&mut self, state: PluginState) -> Result<(), PluginError> {
+        *self.state.lock() = state;
+        Ok(())
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poorly structured plugin implementation
+pub struct BadPlugin {
+    state: PluginState, // Not thread-safe
+    metrics: PluginMetrics, // Not thread-safe
+}
+
+impl Plugin for BadPlugin {
+    fn name(&self) -> &str {
+        "bad_plugin"
+    }
+
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+
+    fn description(&self) -> &str {
+        "A poorly structured plugin implementation"
+    }
+
+    fn initialize(&mut self) -> Result<(), PluginError> {
+        // Missing error handling
+        // No resource management
+        // No metrics setup
+        Ok(())
+    }
+
+    fn start(&mut self) -> Result<(), PluginError> {
+        // No async support
+        // No monitoring
+        // No resource limits
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), PluginError> {
+        // No cleanup
+        // No state saving
+        // No resource release
+        Ok(())
+    }
+
+    fn cleanup(&mut self) -> Result<(), PluginError> {
+        // Missing cleanup
+        // No resource management
+        // No error handling
+        Ok(())
+    }
+
+    fn get_state(&self) -> Result<PluginState, PluginError> {
+        // No error handling
+        // Not thread-safe
+        Ok(self.state.clone())
+    }
+
+    fn set_state(&mut self, state: PluginState) -> Result<(), PluginError> {
+        // No error handling
+        // Not thread-safe
+        self.state = state;
+        Ok(())
+    }
+}
+</example>
+
+## Best Practices
+1. Follow plugin interface requirements
+2. Implement proper error handling
+3. Use thread-safe data structures
+4. Follow resource management guidelines
+5. Implement comprehensive testing
+6. Document public interfaces
+7. Monitor plugin performance
+8. Handle cleanup properly
+9. Use appropriate logging
+10. Follow security guidelines
+
+## Technical Metadata
+- Category: Rust Plugin Development
+- Priority: High
+- Dependencies:
+  - tokio
+  - thiserror
+  - parking_lot
+  - metrics
+  - serde
+- Validation Requirements:
+  - Interface compliance
+  - Error handling
+  - Resource management
+  - Thread safety
+  - Performance metrics
+
+<version>1.0</version>

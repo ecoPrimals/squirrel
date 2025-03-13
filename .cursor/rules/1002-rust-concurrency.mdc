@@ -1,0 +1,128 @@
+---
+description: ENFORCE safe and efficient concurrent programming practices in Rust
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1008-rust-ownership.mdc
+  - 1009-rust-error-handling.mdc
+  - 1006-rust-performance.mdc
+alwaysApply: true
+---
+
+# Rust Concurrency Standards
+
+## Context
+- When writing concurrent Rust code
+- When using threads and async/await
+- When working with shared state
+- When implementing parallel algorithms
+
+## Requirements
+- Prefer async/await over raw threads when appropriate
+- Use appropriate synchronization primitives
+- Follow the principle of least privilege for mutability
+- Use thread-safe types when sharing data
+- Implement proper error handling for concurrent operations
+- Use channels for message passing
+- Avoid deadlocks and race conditions
+- Document thread safety guarantees
+- Use appropriate thread pool sizes
+- Implement proper shutdown mechanisms
+
+## Examples
+<example>
+// Good: Safe concurrent code using async/await
+use tokio::sync::Mutex;
+use std::sync::Arc;
+
+pub struct ThreadSafeCounter {
+    count: Arc<Mutex<u32>>,
+}
+
+impl ThreadSafeCounter {
+    pub fn new() -> Self {
+        Self {
+            count: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    pub async fn increment(&self) -> u32 {
+        let mut count = self.count.lock().await;
+        *count += 1;
+        *count
+    }
+}
+
+// Good: Message passing with channels
+use tokio::sync::mpsc;
+
+pub async fn process_messages() {
+    let (tx, mut rx) = mpsc::channel(100);
+    
+    // Spawn worker task
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            // Process message safely
+            process_message(msg).await;
+        }
+    });
+}
+</example>
+
+<example type="invalid">
+// Bad: Unsafe concurrent code
+use std::sync::Mutex;
+
+pub struct UnsafeCounter {
+    count: Mutex<u32>,
+}
+
+impl UnsafeCounter {
+    pub fn increment(&self) -> u32 {
+        let mut count = self.count.lock().unwrap();
+        *count += 1;
+        *count
+    }
+}
+
+// Bad: Potential deadlock
+pub struct DeadlockProne {
+    mutex1: Mutex<()>,
+    mutex2: Mutex<()>,
+}
+
+impl DeadlockProne {
+    pub fn bad_method(&self) {
+        let _guard1 = self.mutex1.lock().unwrap();
+        let _guard2 = self.mutex2.lock().unwrap();
+        // Potential deadlock if another thread holds mutex2 and tries to acquire mutex1
+    }
+}
+</example>
+
+## Best Practices
+1. Use async/await for I/O-bound tasks
+2. Use threads for CPU-bound tasks
+3. Avoid shared mutable state
+4. Use message passing when possible
+5. Implement proper error handling
+6. Document thread safety guarantees
+7. Use appropriate synchronization
+8. Avoid deadlocks and race conditions
+9. Implement proper shutdown
+10. Monitor thread pool usage
+
+## Technical Metadata
+- Category: Rust Concurrency
+- Priority: High
+- Dependencies:
+  - tokio = "1.0"
+  - futures = "0.3"
+  - parking_lot = "0.12"
+- Testing Requirements:
+  - Concurrent testing
+  - Race condition detection
+  - Deadlock detection
+  - Performance benchmarks
+
+<version>1.0</version> 

@@ -1,0 +1,255 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper error handling practices in MCP tools, focusing on error types, propagation, and recovery
+globs: ["**/*.rs"]
+crossRefs:
+  - 1016-rust-mcp-protocol.mdc
+  - 1015-rust-mcp-tools.mdc
+  - 1009-rust-error-handling.mdc
+  - 1012-rust-logging-monitoring.mdc
+---
+
+# Rust MCP Error Handling Standards
+
+## Context
+- When handling MCP errors
+- When implementing error recovery
+- When propagating errors
+- When logging error information
+
+## Requirements
+- Use appropriate error types
+- Implement proper error recovery
+- Use appropriate error propagation
+- Document error conditions
+- Implement proper logging
+- Use appropriate error conversion
+- Follow error handling patterns
+- Document recovery strategies
+- Implement proper validation
+- Use appropriate context
+
+## Examples
+<example>
+// Good: Well-structured MCP error handling
+use std::fmt;
+use thiserror::Error;
+use tracing::{error, warn, info, instrument};
+
+#[derive(Debug, Error)]
+pub enum McpError {
+    #[error("Protocol error: {kind}")]
+    Protocol {
+        kind: ProtocolErrorKind,
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    },
+
+    #[error("Message error: {kind}")]
+    Message {
+        kind: MessageErrorKind,
+        context: String,
+    },
+
+    #[error("Connection error: {0}")]
+    Connection(#[from] ConnectionError),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+#[derive(Debug, Clone)]
+pub enum ProtocolErrorKind {
+    InvalidVersion,
+    InvalidFormat,
+    UnsupportedOperation,
+    SecurityViolation,
+}
+
+#[derive(Debug, Clone)]
+pub enum MessageErrorKind {
+    InvalidPayload,
+    ValidationFailed,
+    DeserializationFailed,
+    Timeout,
+}
+
+impl McpError {
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            McpError::Protocol { kind, .. } => matches!(
+                kind,
+                ProtocolErrorKind::InvalidFormat | ProtocolErrorKind::UnsupportedOperation
+            ),
+            McpError::Message { kind, .. } => matches!(
+                kind,
+                MessageErrorKind::InvalidPayload | MessageErrorKind::Timeout
+            ),
+            McpError::Connection(_) => true,
+            McpError::Io(_) => false,
+        }
+    }
+}
+
+// Good: Error context and recovery
+pub struct McpErrorHandler {
+    recovery_strategy: RecoveryStrategy,
+    max_retries: u32,
+}
+
+impl McpErrorHandler {
+    #[instrument(skip(self))]
+    pub async fn handle_error(&self, error: &McpError) -> Result<(), McpError> {
+        error!(
+            error = %error,
+            recoverable = error.is_recoverable(),
+            "Handling MCP error"
+        );
+
+        if error.is_recoverable() {
+            self.attempt_recovery(error).await
+        } else {
+            error!("Unrecoverable error encountered");
+            Err(error.clone())
+        }
+    }
+
+    #[instrument(skip(self, error))]
+    async fn attempt_recovery(&self, error: &McpError) -> Result<(), McpError> {
+        let mut attempts = 0;
+        
+        while attempts < self.max_retries {
+            match self.recovery_strategy.recover(error).await {
+                Ok(_) => {
+                    info!(
+                        attempts = attempts + 1,
+                        "Successfully recovered from error"
+                    );
+                    return Ok(());
+                }
+                Err(e) => {
+                    warn!(
+                        attempt = attempts + 1,
+                        error = %e,
+                        "Recovery attempt failed"
+                    );
+                    attempts += 1;
+                }
+            }
+        }
+
+        error!(
+            max_retries = self.max_retries,
+            "Maximum recovery attempts reached"
+        );
+        Err(error.clone())
+    }
+}
+
+// Good: Error context preservation
+#[derive(Debug)]
+pub struct ErrorContext {
+    timestamp: chrono::DateTime<chrono::Utc>,
+    operation: String,
+    component: String,
+    details: serde_json::Value,
+}
+
+impl ErrorContext {
+    pub fn new(operation: impl Into<String>, component: impl Into<String>) -> Self {
+        Self {
+            timestamp: chrono::Utc::now(),
+            operation: operation.into(),
+            component: component.into(),
+            details: serde_json::Value::Null,
+        }
+    }
+
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = details;
+        self
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor error handling
+struct UnsafeMcpHandler {
+    // Bad: No error context
+    fn process_message(&self, message: &[u8]) -> Vec<u8> {
+        // Bad: Using unwrap
+        let decoded = String::from_utf8(message.to_vec()).unwrap();
+        decoded.as_bytes().to_vec()
+    }
+    
+    // Bad: No error propagation
+    fn handle_error(&self, error: &str) {
+        println!("Error: {}", error);
+        // No proper handling
+        // No recovery attempt
+    }
+}
+
+// Bad: Generic error type
+#[derive(Debug)]
+struct BadError {
+    message: String,
+}
+
+impl BadError {
+    // Bad: No context
+    fn new(msg: &str) -> Self {
+        Self {
+            message: msg.to_string(),
+        }
+    }
+}
+
+// Bad: Poor error recovery
+fn attempt_recovery(error: &str) -> bool {
+    // No proper strategy
+    // No retry logic
+    // No logging
+    false
+}
+
+// Bad: Error swallowing
+fn process_with_errors() -> Result<(), ()> {
+    // Bad: Error details lost
+    if something_fails() {
+        return Err(());
+    }
+    Ok(())
+}
+</example>
+
+## Best Practices
+1. Use proper error types
+2. Implement recovery
+3. Preserve context
+4. Log error details
+5. Handle retries properly
+6. Document errors
+7. Use error conversion
+8. Implement backoff
+9. Monitor errors
+10. Clean up resources
+
+## Technical Metadata
+- Category: Rust MCP
+- Priority: High
+- Dependencies:
+  - thiserror = "1.0"
+  - tracing = "0.1"
+  - serde_json = "1.0"
+  - chrono = "0.4"
+- Validation Requirements:
+  - Error handling
+  - Recovery logic
+  - Context preservation
+
+<version>1.0</version> 

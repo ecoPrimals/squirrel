@@ -1,0 +1,8 @@
+// Test file for priority and weight frontmatter handling
+const testPriority = {
+  high: { priority: 1, weight: 1.0 },
+  medium: { priority: 2, weight: 0.5 },
+  low: { priority: 3, weight: 0.2 }
+};
+
+console.log("Testing priority frontmatter handling"); 

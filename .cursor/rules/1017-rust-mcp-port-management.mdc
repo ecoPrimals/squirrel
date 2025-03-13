@@ -1,0 +1,216 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE secure and efficient port management practices in MCP tools, focusing on port allocation, validation, and lifecycle management
+globs: ["**/*.rs"]
+crossRefs:
+  - 1014-rust-port-management.mdc
+  - 1015-rust-mcp-tools.mdc
+  - 1016-rust-mcp-protocol.mdc
+  - 1012-rust-logging-monitoring.mdc
+---
+
+# Rust MCP Port Management Standards
+
+## Context
+- When managing MCP tool ports
+- When allocating ports for MCP tools
+- When handling port lifecycle
+- When implementing port security
+
+## Requirements
+- Use appropriate port allocation
+- Implement proper port validation
+- Use appropriate security measures
+- Document port requirements
+- Implement proper error handling
+- Use appropriate port ranges
+- Follow MCP port standards
+- Document port lifecycle
+- Implement proper cleanup
+- Use appropriate logging
+
+## Examples
+<example>
+// Good: Well-structured MCP port management
+use std::net::{SocketAddr, TcpListener};
+use tokio::sync::Mutex;
+use tracing::{info, warn, error, instrument};
+
+#[derive(Debug)]
+pub struct McpPortManager {
+    port_range: (u16, u16),
+    allocated_ports: Mutex<HashSet<u16>>,
+    reserved_ports: HashSet<u16>,
+}
+
+impl McpPortManager {
+    #[instrument]
+    pub fn new(min_port: u16, max_port: u16) -> Result<Self, McpPortError> {
+        if min_port >= max_port {
+            return Err(McpPortError::InvalidRange {
+                min: min_port,
+                max: max_port,
+            });
+        }
+
+        info!(
+            min_port = min_port,
+            max_port = max_port,
+            "Creating new MCP port manager"
+        );
+
+        Ok(Self {
+            port_range: (min_port, max_port),
+            allocated_ports: Mutex::new(HashSet::new()),
+            reserved_ports: HashSet::new(),
+        })
+    }
+
+    #[instrument]
+    pub async fn allocate_port(&self) -> Result<u16, McpPortError> {
+        let mut allocated = self.allocated_ports.lock().await;
+        
+        for port in self.port_range.0..=self.port_range.1 {
+            if !allocated.contains(&port) && !self.reserved_ports.contains(&port) {
+                if let Ok(_) = self.validate_port(port).await {
+                    allocated.insert(port);
+                    info!(port = port, "Port allocated for MCP tool");
+                    return Ok(port);
+                }
+            }
+        }
+
+        error!("No available ports in range");
+        Err(McpPortError::NoAvailablePorts)
+    }
+
+    #[instrument]
+    async fn validate_port(&self, port: u16) -> Result<(), McpPortError> {
+        // Check if port is in valid range
+        if port < self.port_range.0 || port > self.port_range.1 {
+            return Err(McpPortError::InvalidPort(port));
+        }
+
+        // Check if port is available
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        match TcpListener::bind(addr) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                warn!(port = port, error = %e, "Port validation failed");
+                Err(McpPortError::PortInUse(port))
+            }
+        }
+    }
+
+    #[instrument]
+    pub async fn release_port(&self, port: u16) -> Result<(), McpPortError> {
+        let mut allocated = self.allocated_ports.lock().await;
+        
+        if allocated.remove(&port) {
+            info!(port = port, "Port released");
+            Ok(())
+        } else {
+            warn!(port = port, "Attempted to release unallocated port");
+            Err(McpPortError::PortNotAllocated(port))
+        }
+    }
+}
+
+// Good: Proper error handling for MCP port management
+#[derive(Debug, thiserror::Error)]
+pub enum McpPortError {
+    #[error("Invalid port range: min {min}, max {max}")]
+    InvalidRange { min: u16, max: u16 },
+
+    #[error("Invalid port number: {0}")]
+    InvalidPort(u16),
+
+    #[error("Port {0} is already in use")]
+    PortInUse(u16),
+
+    #[error("Port {0} was not allocated")]
+    PortNotAllocated(u16),
+
+    #[error("No available ports in range")]
+    NoAvailablePorts,
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor MCP port management
+struct UnsafeMcpPortManager {
+    ports: Vec<u16>,
+}
+
+impl UnsafeMcpPortManager {
+    // Bad: No validation
+    fn allocate_port(&mut self) -> u16 {
+        let port = 8080; // Hard-coded port
+        self.ports.push(port);
+        port
+    }
+    
+    // Bad: No error handling
+    fn release_port(&mut self, port: u16) {
+        // No validation
+        // No cleanup
+        self.ports.retain(|&p| p != port);
+    }
+}
+
+// Bad: Unsafe port validation
+fn check_port(port: u16) -> bool {
+    // No proper validation
+    // No error handling
+    // No security checks
+    port > 1024
+}
+
+// Bad: Poor port range management
+struct BadPortRange {
+    // Bad: Public fields
+    pub start: u16,
+    pub end: u16,
+}
+
+impl BadPortRange {
+    // Bad: No validation
+    fn new(start: u16, end: u16) -> Self {
+        Self { start, end }
+    }
+}
+</example>
+
+## Best Practices
+1. Validate port ranges
+2. Handle port conflicts
+3. Implement port security
+4. Manage port lifecycle
+5. Handle errors properly
+6. Log port operations
+7. Clean up resources
+8. Document port usage
+9. Follow MCP standards
+10. Monitor port status
+
+## Technical Metadata
+- Category: Rust MCP
+- Priority: High
+- Dependencies:
+  - tokio = { version = "1.0", features = ["net"] }
+  - socket2 = "0.5"
+  - tracing = "0.1"
+  - thiserror = "1.0"
+- Validation Requirements:
+  - Port validation
+  - Security checks
+  - Resource management
+
+<version>1.0</version> 

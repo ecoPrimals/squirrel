@@ -1,0 +1,143 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper dependency management and Cargo.toml practices in Rust projects
+globs: ["Cargo.toml", "Cargo.lock", "**/*.rs"]
+crossRefs:
+  - 1010-rust-module-organization.mdc
+  - 1006-rust-performance.mdc
+  - 1001-rust-safety.mdc
+---
+
+# Rust Dependency Management Standards
+
+## Context
+- When managing project dependencies
+- When updating Cargo.toml files
+- When specifying version requirements
+- When organizing workspace dependencies
+
+## Requirements
+- Use appropriate version constraints
+- Document dependency purposes
+- Follow workspace organization
+- Use appropriate features
+- Implement proper dependency organization
+- Document feature flags
+- Use appropriate dependency categories
+- Follow security best practices
+- Implement proper version management
+- Use appropriate dependency scoping
+
+## Examples
+<example>
+# Good: Well-organized Cargo.toml
+[package]
+name = "my-project"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab <mokkevin@msu.edu>"]
+description = "A well-organized Rust project"
+license = "MIT OR Apache-2.0"
+
+# Good: Organized dependencies with comments
+[dependencies]
+# Core functionality
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+
+# Database integration
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.11"
+
+[build-dependencies]
+build-deps = "0.1"
+
+# Good: Feature organization
+[features]
+default = ["std"]
+std = ["serde/std"]
+full = ["std", "async", "metrics"]
+async = ["tokio/rt"]
+metrics = ["tracing/attributes"]
+
+# Good: Workspace organization
+[workspace]
+members = [
+    "core",
+    "cli",
+    "web",
+]
+
+# Good: Target-specific dependencies
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser"] }
+</example>
+
+<example type="invalid">
+# Bad: Poor dependency management
+[package]
+name = "bad-project"
+version = "0.1.0"
+
+[dependencies]
+# Bad: No version constraints
+tokio = "*"
+# Bad: Overly permissive version
+serde = ">=1.0"
+# Bad: Direct git dependency without revision
+some-lib = { git = "https://github.com/user/some-lib" }
+
+# Bad: Mixed dependency categories
+[dependencies]
+test-utils = "0.1" # Should be in dev-dependencies
+
+# Bad: Unnecessary features
+tokio = { version = "1.0", features = ["full"] } # Too many features
+
+# Bad: Workspace organization
+[workspace]
+members = [
+    "*" # Wildcard is dangerous
+]
+</example>
+
+## Best Practices
+1. Use semantic versioning
+2. Document dependencies
+3. Organize by category
+4. Use appropriate features
+5. Follow security practices
+6. Manage versions carefully
+7. Use workspace structure
+8. Document feature flags
+9. Review dependencies
+10. Update dependencies
+
+## Technical Metadata
+- Category: Rust Dependencies
+- Priority: High
+- Dependencies:
+  - cargo
+  - cargo-audit
+  - cargo-outdated
+- Validation Requirements:
+  - Version constraints
+  - Security audits
+  - Feature usage
+
+<version>1.0</version> 

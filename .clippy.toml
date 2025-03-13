@@ -1,0 +1,40 @@
+# Clippy configuration for the squirrel project
+# These rules complement the compiler warnings in .cargo/config.toml
+
+# Documentation
+warn_doc_markdown = true
+warn_missing_docs_in_private_items = true
+
+# Safety
+warn_unsafe_code = true
+warn_unsafe_op_in_unsafe_fn = true
+
+# Performance
+warn_clone_on_ref_ptr = true
+warn_needless_collect = true
+warn_needless_pass_by_value = true
+warn_redundant_clone = true
+warn_unnecessary_to_owned = true
+
+# Code Style
+warn_needless_return = true
+warn_single_match = true
+warn_single_match_else = true
+warn_unneeded_wildcard_pattern = true
+
+# Error Handling
+warn_unwrap_used = true
+warn_expect_used = true
+warn_unwrap_or_else_default = true
+
+# Testing
+warn_needless_doctest_main = true
+warn_print_stdout = true
+warn_print_stderr = true
+
+# Dependencies
+warn_unused_crate_dependencies = true
+warn_unused_extern_crates = true
+
+# All warnings are treated as errors
+deny_warnings = true 

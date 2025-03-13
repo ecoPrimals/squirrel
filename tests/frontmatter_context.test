@@ -1,0 +1,16 @@
+// Test file for context and activation frontmatter handling
+const testContext = {
+  activation_threshold: 0.5,
+  context_requirements: {
+    languages: ["typescript", "javascript"],
+    frameworks: ["react", "next"],
+    environments: ["browser", "node"]
+  },
+  load_conditions: {
+    always_load: false,
+    lazy_load: true,
+    preload: false
+  }
+};
+
+console.log("Testing context frontmatter handling"); 

@@ -1,0 +1,141 @@
+---
+description: ENFORCE systematic tracking and automation of rule updates based on development experience
+globs: ["**/*.mdc", "**/*.md"]
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 004-mdc-rule-location.mdc
+  - 010-rule-cross-referencing.mdc
+alwaysApply: true
+---
+
+# Rule Update Automation Standards
+
+## Context
+- When updating existing rules
+- When tracking rule changes
+- When automating rule updates
+- When managing rule dependencies
+- When implementing rule versioning
+
+## Requirements
+
+### Rule Update Process
+- Track rule changes systematically:
+  ```yaml
+  # rule-updates.yaml
+  rule_id: "001-rule-generator"
+  version: "1.2.0"
+  changes:
+    - type: "update"
+      section: "Requirements"
+      description: "Added cross-reference validation"
+      date: "2024-03-15"
+  dependencies:
+    - rule_id: "002-rule-organization"
+      min_version: "1.1.0"
+  ```
+
+### Version Management
+- Use semantic versioning:
+  - MAJOR: Breaking changes
+  - MINOR: New features
+  - PATCH: Bug fixes and minor updates
+
+### Update Automation
+- Implement automated update checks:
+  ```rust
+  pub struct RuleUpdateChecker {
+      rules: Vec<Rule>,
+      dependencies: HashMap<String, Vec<Dependency>>,
+  }
+
+  impl RuleUpdateChecker {
+      pub fn check_updates(&self) -> Vec<UpdateRequired> {
+          // Check for required updates
+          let mut updates = Vec::new();
+          for rule in &self.rules {
+              if let Some(deps) = self.dependencies.get(&rule.id) {
+                  for dep in deps {
+                      if dep.requires_update(rule) {
+                          updates.push(UpdateRequired::new(rule, dep));
+                      }
+                  }
+              }
+          }
+          updates
+      }
+  }
+  ```
+
+### Cross-Reference Updates
+- Update cross-references automatically:
+  ```rust
+  pub fn update_cross_references(&mut self, rule: &Rule) -> Result<()> {
+      let affected_rules = self.find_affected_rules(rule);
+      for affected in affected_rules {
+          affected.update_reference(rule)?;
+      }
+      Ok(())
+  }
+  ```
+
+## Examples
+
+<example>
+# Good: Proper rule update tracking
+---
+rule_id: "001-rule-generator"
+version: "1.2.0"
+updates:
+  - date: "2024-03-15"
+    changes:
+      - section: "Requirements"
+        type: "add"
+        description: "Added cross-reference validation"
+      - section: "Examples"
+        type: "update"
+        description: "Updated examples with latest syntax"
+dependencies:
+  - rule_id: "002-rule-organization"
+    min_version: "1.1.0"
+    relationship: "required"
+---
+</example>
+
+<example type="invalid">
+# Bad: Poor update tracking
+version = 1.2
+changes:
+  - "Updated some stuff"
+  - "Fixed things"
+# No proper structure
+# No dependency tracking
+# No versioning scheme
+</example>
+
+## Best Practices
+1. Follow semantic versioning
+2. Track all rule changes
+3. Document dependencies
+4. Automate update checks
+5. Maintain change history
+6. Update cross-references
+7. Validate rule updates
+8. Test rule changes
+9. Document breaking changes
+10. Monitor rule health
+
+## Technical Metadata
+- Category: Rule Management
+- Priority: High
+- Dependencies:
+  - Rule versioning system
+  - Update automation tools
+  - Dependency tracker
+- Validation Requirements:
+  - Version format
+  - Update tracking
+  - Dependency validation
+
+<version>1.1.0</version> 

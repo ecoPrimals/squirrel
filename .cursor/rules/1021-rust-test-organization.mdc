@@ -1,0 +1,252 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE consistent test organization in Rust code, specifying where different types of tests should be located
+globs: ["**/*.rs"]
+crossRefs:
+  - 1010-rust-module-organization.mdc
+  - 1005-rust-documentation.mdc
+  - 1009-rust-code-style.mdc
+---
+
+# Rust Test Organization Standards
+
+## Context
+- When organizing test code
+- When implementing unit tests
+- When implementing integration tests
+- When organizing test modules
+
+## Requirements
+- Use appropriate test organization
+- Implement proper test structure
+- Use appropriate test naming
+- Document test requirements
+- Implement proper test setup
+- Use appropriate test helpers
+- Follow test best practices
+- Document test coverage
+- Implement proper assertions
+- Use appropriate test fixtures
+
+## Examples
+<example>
+// Good: Well-structured test organization
+use test_case::test_case;
+use mockall::predicate::*;
+use tokio::test;
+
+// Good: Unit tests in the same file as the code
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    // Good: Test setup helper
+    struct TestContext {
+        data: Vec<String>,
+        processor: DataProcessor,
+    }
+
+    impl TestContext {
+        fn new() -> Self {
+            Self {
+                data: vec!["test".to_string()],
+                processor: DataProcessor::new(),
+            }
+        }
+
+        fn with_data(mut self, data: Vec<String>) -> Self {
+            self.data = data;
+            self
+        }
+    }
+
+    // Good: Grouped related tests
+    mod process_data {
+        use super::*;
+
+        #[test]
+        fn processes_valid_data_successfully() {
+            let ctx = TestContext::new();
+            let result = ctx.processor.process(&ctx.data);
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn returns_error_for_empty_data() {
+            let ctx = TestContext::new().with_data(vec![]);
+            let result = ctx.processor.process(&ctx.data);
+            assert!(matches!(result, Err(ProcessError::EmptyData)));
+        }
+
+        #[test_case("valid" => true)]
+        #[test_case("" => false)]
+        fn validates_input_correctly(input: &str) -> bool {
+            DataProcessor::validate_input(input)
+        }
+    }
+
+    // Good: Async test organization
+    mod async_operations {
+        use super::*;
+
+        #[tokio::test]
+        async fn processes_async_data_successfully() {
+            let ctx = TestContext::new();
+            let result = ctx.processor.process_async(&ctx.data).await;
+            assert!(result.is_ok());
+        }
+
+        #[tokio::test]
+        async fn handles_timeout_correctly() {
+            let ctx = TestContext::new();
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(1),
+                ctx.processor.process_async(&ctx.data),
+            ).await;
+            assert!(result.is_ok());
+        }
+    }
+
+    // Good: Mock usage organization
+    mod mocked_dependencies {
+        use super::*;
+        use mockall::predicate::*;
+
+        #[test]
+        fn uses_database_correctly() {
+            let mut mock_db = MockDatabase::new();
+            mock_db.expect_query()
+                .with(eq("test"))
+                .times(1)
+                .returning(|_| Ok(vec![]));
+
+            let processor = DataProcessor::with_database(mock_db);
+            let result = processor.process_with_db("test");
+            assert!(result.is_ok());
+        }
+    }
+}
+
+// Good: Integration test organization in tests directory
+// tests/integration_tests.rs
+#[cfg(test)]
+mod integration_tests {
+    use my_crate::*;
+
+    #[test]
+    fn full_workflow_succeeds() {
+        let input = prepare_test_input();
+        let result = process_workflow(input);
+        assert_workflow_result(result);
+    }
+
+    // Test helpers in a separate module
+    mod helpers {
+        use super::*;
+
+        pub(crate) fn prepare_test_input() -> TestInput {
+            // Setup test data
+        }
+
+        pub(crate) fn assert_workflow_result(result: WorkflowResult) {
+            // Verify workflow result
+        }
+    }
+}
+
+// Good: Benchmark organization
+#[cfg(test)]
+mod benchmarks {
+    use test::Bencher;
+    use criterion::{criterion_group, criterion_main, Criterion};
+
+    fn benchmark_process(c: &mut Criterion) {
+        c.bench_function("process_data", |b| {
+            let processor = DataProcessor::new();
+            let data = vec!["test".to_string()];
+            b.iter(|| processor.process(&data))
+        });
+    }
+
+    criterion_group!(benches, benchmark_process);
+    criterion_main!(benches);
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor test organization
+#[test]
+fn test_something() {
+    // Test directly in the module
+    // No organization
+    // No setup helpers
+    assert!(true);
+}
+
+// Bad: Mixed test concerns
+#[test]
+fn test_everything() {
+    // Multiple concerns in one test
+    let data = "test".to_string();
+    let result1 = process_data(&data);
+    assert!(result1.is_ok());
+    
+    let result2 = validate_data(&data);
+    assert!(result2);
+    
+    let result3 = store_data(&data);
+    assert!(result3.is_ok());
+}
+
+// Bad: No test helpers
+#[test]
+fn test_with_setup() {
+    // Repeated setup code
+    let data = vec!["test".to_string()];
+    let processor = DataProcessor::new();
+    // No helper functions
+    // No shared setup
+}
+
+// Bad: Poor async test organization
+#[tokio::test]
+async fn test_async() {
+    // Mixed async and sync code
+    // No timeout handling
+    // No proper organization
+    let result = do_async_thing().await;
+    assert!(result.is_ok());
+}
+</example>
+
+## Best Practices
+1. Use test modules
+2. Group related tests
+3. Create test helpers
+4. Document test cases
+5. Use proper assertions
+6. Organize benchmarks
+7. Handle async tests
+8. Use test fixtures
+9. Follow naming conventions
+10. Maintain test coverage
+
+## Technical Metadata
+- Category: Rust Testing
+- Priority: High
+- Dependencies:
+  - test-case = "3.1"
+  - mockall = "0.12"
+  - tokio = { version = "1.0", features = ["test-util"] }
+  - criterion = "0.5"
+- Validation Requirements:
+  - Test organization
+  - Coverage metrics
+  - Documentation
+
+<version>1.0</version> 

@@ -1,0 +1,203 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for lifetime management in Rust, focusing on borrow checking, lifetime elision, and advanced lifetime patterns
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1007-rust-ownership.mdc
+  - 1024-rust-generics-traits.mdc
+---
+# Rust Lifetime Management Standards
+
+## Context
+- When managing reference lifetimes
+- When implementing generic lifetimes
+- When working with lifetime bounds
+- When using lifetime elision
+- When implementing self-referential types
+- When managing struct lifetimes
+- When working with lifetime parameters
+- When handling higher-rank trait bounds
+
+## Requirements
+
+### Lifetime Specification
+- Use appropriate lifetime annotations
+- Implement proper lifetime bounds
+- Use appropriate lifetime elision
+- Document lifetime requirements
+- Implement proper lifetime constraints
+- Use appropriate lifetime parameters
+- Follow lifetime patterns
+- Document lifetime guarantees
+
+### Advanced Lifetime Patterns
+- Use appropriate lifetime hierarchies
+- Implement proper lifetime variance
+- Use appropriate lifetime bounds
+- Document lifetime relationships
+- Implement proper lifetime constraints
+- Use appropriate lifetime parameters
+- Follow advanced patterns
+- Document lifetime complexity
+
+## Examples
+
+<example>
+// Good: Well-structured lifetime usage
+use std::collections::HashMap;
+
+// Good: Explicit lifetime annotations
+pub struct Cache<'a> {
+    data: HashMap<&'a str, Vec<u8>>,
+    config: &'a Configuration,
+}
+
+impl<'a> Cache<'a> {
+    pub fn new(config: &'a Configuration) -> Self {
+        Self {
+            data: HashMap::new(),
+            config,
+        }
+    }
+
+    pub fn get(&self, key: &'a str) -> Option<&Vec<u8>> {
+        self.data.get(key)
+    }
+}
+
+// Good: Multiple lifetime parameters
+pub struct DataView<'a, 'b> {
+    primary: &'a [u8],
+    secondary: Option<&'b [u8]>,
+}
+
+impl<'a, 'b> DataView<'a, 'b> {
+    pub fn new(primary: &'a [u8], secondary: Option<&'b [u8]>) -> Self {
+        Self { primary, secondary }
+    }
+
+    pub fn get_primary(&self) -> &'a [u8] {
+        self.primary
+    }
+}
+
+// Good: Higher-ranked trait bounds
+pub trait DataProcessor<'a> {
+    fn process<'b>(&'b self, data: &'a [u8]) -> &'b [u8]
+    where
+        'a: 'b;
+}
+
+// Good: Lifetime bounds in trait implementations
+impl<'a, T: 'a> DataProcessor<'a> for Vec<T> {
+    fn process<'b>(&'b self, _data: &'a [u8]) -> &'b [u8]
+    where
+        'a: 'b,
+    {
+        // Implementation
+        &[]
+    }
+}
+
+// Good: Static lifetime usage
+pub struct StaticConfig {
+    name: &'static str,
+    version: &'static str,
+}
+
+impl StaticConfig {
+    pub const fn new(name: &'static str, version: &'static str) -> Self {
+        Self { name, version }
+    }
+}
+
+// Good: Lifetime elision
+pub trait Storage {
+    // Elided lifetime in return type
+    fn get_data(&self) -> Option<&[u8]>;
+    
+    // Explicit lifetime when needed
+    fn store<'a>(&'a mut self, data: &'a [u8]) -> &'a [u8];
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor lifetime management
+struct BadCache {
+    // Bad: Missing lifetime annotation
+    data: HashMap<&str, Vec<u8>>,
+}
+
+impl BadCache {
+    // Bad: Will not compile
+    fn new() -> Self {
+        Self {
+            data: HashMap::new(),
+        }
+    }
+}
+
+// Bad: Incorrect lifetime bounds
+struct BadReference<'a, 'b> {
+    // Bad: No relationship between lifetimes
+    data: &'a [&'b str],
+}
+
+impl<'a, 'b> BadReference<'a, 'b> {
+    // Bad: Missing lifetime bound
+    fn get_data(&self) -> &[&str] {
+        self.data
+    }
+}
+
+// Bad: Unnecessary lifetime annotations
+struct BadLifetime<'a> {
+    // Bad: Unnecessary lifetime
+    data: String,
+    _phantom: std::marker::PhantomData<&'a ()>,
+}
+
+// Bad: Incorrect self-referential structure
+struct BadSelfRef {
+    data: String,
+    // Bad: Cannot store reference to own field
+    ptr: *const String,
+}
+
+impl BadSelfRef {
+    // Bad: Creates dangling pointer
+    fn new(data: String) -> Self {
+        let ptr = &data as *const String;
+        Self { data, ptr }
+    }
+}
+</example>
+
+## Best Practices
+1. Use explicit lifetimes
+2. Implement proper bounds
+3. Use lifetime elision
+4. Document relationships
+5. Handle static lifetimes
+6. Use proper variance
+7. Follow lifetime patterns
+8. Document guarantees
+9. Use proper constraints
+10. Test lifetime bounds
+
+## Technical Metadata
+- Category: Rust Lifetimes
+- Priority: High
+- Dependencies:
+  - None (standard library features)
+- Validation Requirements:
+  - Lifetime correctness
+  - Borrow checking
+  - Reference safety
+
+<version>1.0</version> 

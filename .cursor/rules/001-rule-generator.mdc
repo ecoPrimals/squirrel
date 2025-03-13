@@ -1,0 +1,142 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE consistent rule creation and structure with cross-referencing support
+globs: ["**/*.mdc", "**/*.md"]
+crossRefs:
+  - 002-rule-organization.mdc
+  - 010-rule-cross-referencing.mdc
+alwaysApply: true
+---
+
+# Rule Generation Standards
+
+## Context
+- When creating new rules
+- When updating existing rules
+- When managing rule relationships
+- When ensuring consistent rule structure
+- When implementing cross-references
+
+## Requirements
+
+### Rule Structure
+- Use consistent frontmatter format:
+  ```yaml
+  ---
+  description: ENFORCE [specific purpose]
+  globs: [file patterns]
+  crossRefs:
+    - related-rule-1.mdc
+    - related-rule-2.mdc
+  alwaysApply: true  # Optional, for core rules
+  ---
+  ```
+
+### Required Sections
+1. Frontmatter (YAML)
+   - description (required)
+   - globs (required)
+   - crossRefs (optional)
+   - alwaysApply (optional)
+2. Title (H1)
+3. Context
+4. Requirements
+5. Examples
+6. Best Practices (optional)
+7. Technical Metadata (optional)
+8. Version
+
+### Rule Naming
+- Use numerical prefixes:
+  ```
+  NNN-descriptive-name.mdc
+  ```
+- Categories:
+  - 000-099: Core rules (often have alwaysApply: true)
+  - 100-199: Project structure
+  - 200-299: Code style
+  - 300-399: Testing
+  - 400-499: Documentation
+  - 1000+: Language-specific
+
+### Cross-Reference Management
+- Include all direct dependencies
+- Sort references numerically
+- Validate references exist
+- Document relationship types
+- Update affected rules
+
+## Examples
+
+<example>
+# Good: Complete rule structure with cross-references
+---
+description: ENFORCE testing standards for Rust code
+globs: tests/**/*.rs
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+alwaysApply: true
+---
+
+# Testing Standards
+
+## Context
+- When writing Rust tests
+- When updating test suites
+
+## Requirements
+- Use appropriate test frameworks
+- Follow naming conventions
+
+## Examples
+<example>
+#[test]
+fn test_feature() {
+    assert!(true);
+}
+</example>
+
+<version>1.0</version>
+</example>
+
+<example type="invalid">
+# Bad: Missing required sections and improper frontmatter
+---
+description: Some testing rule
+alwaysApply: wrong  # Should be boolean
+---
+
+# Title Only
+[Content without structure]
+</example>
+
+## Best Practices
+1. Use clear, specific descriptions
+2. Include relevant glob patterns
+3. Document all cross-references
+4. Provide concrete examples
+5. Include technical metadata
+6. Maintain version history
+7. Follow naming conventions
+8. Validate rule structure
+9. Update related rules
+10. Test rule effectiveness
+
+## Technical Metadata
+- Category: Rule Management
+- Priority: High
+- Dependencies:
+  - YAML parser
+  - MDC processor
+  - Cross-reference validator
+- Validation Requirements:
+  - Structure compliance
+  - Reference validity
+  - Format consistency
+
+<version>1.2.0</version> 

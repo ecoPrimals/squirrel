@@ -1,0 +1,128 @@
+---
+description: ENFORCE shell-specific command standards for cross-platform compatibility
+globs: ["**/*.sh", "**/*.ps1", "**/*.cmd", "**/*.bat"]
+crossRefs:
+  - 005-git-commit-automation.mdc
+  - 007-worktree-management.mdc
+  - 008-rule-update-automation.mdc
+alwaysApply: true
+---
+
+# Shell Compatibility Standards
+
+## Context
+- When writing shell commands in rules
+- When creating cross-platform scripts
+- When handling shell-specific features
+- When automating development tasks
+- When managing shell-specific behavior
+
+## Requirements
+
+### Command Chaining
+- Use shell-specific command separators:
+  ```powershell
+  # PowerShell
+  command1; command2  # Semicolon
+  command1 | command2  # Pipeline
+  
+  # Bash/Zsh
+  command1 && command2  # Logical AND
+  command1 || command2  # Logical OR
+  command1 | command2  # Pipeline
+  ```
+
+### Path Handling
+- Use platform-agnostic path separators:
+  ```powershell
+  # PowerShell
+  Join-Path $dir $file  # Preferred
+  "$dir/$file"         # Alternative
+  
+  # Bash/Zsh
+  "$dir/$file"        # Standard
+  ```
+
+### Environment Variables
+- Use shell-specific syntax:
+  ```powershell
+  # PowerShell
+  $env:VAR_NAME
+  ${env:VAR_NAME}
+  
+  # Bash/Zsh
+  $VAR_NAME
+  ${VAR_NAME}
+  ```
+
+### Process Management
+- Handle background tasks appropriately:
+  ```powershell
+  # PowerShell
+  Start-Process command -NoNewWindow
+  
+  # Bash/Zsh
+  command &
+  ```
+
+### Error Handling
+- Implement proper error checking:
+  ```powershell
+  # PowerShell
+  if ($LASTEXITCODE -ne 0) {
+      throw "Command failed"
+  }
+  
+  # Bash/Zsh
+  if [ $? -ne 0 ]; then
+      echo "Command failed" >&2
+      exit 1
+  fi
+  ```
+
+## Examples
+
+<example>
+# Good: Cross-platform command execution
+# script.ps1/sh
+if ($PSVersionTable) {  # PowerShell
+    $result = git add .; git commit
+} else {  # Bash/Zsh
+    result=$(git add . && git commit)
+}
+</example>
+
+<example type="invalid">
+# Bad: Shell-specific assumptions
+# Assumes Bash
+git add . && \
+    git commit && \
+    git push
+# Will fail in PowerShell
+</example>
+
+## Best Practices
+1. Always test commands in both shells
+2. Use shell-specific escape sequences
+3. Handle path separators properly
+4. Check for command availability
+5. Use appropriate line endings
+6. Handle environment differences
+7. Document shell requirements
+8. Provide alternative commands
+9. Use cross-platform tools when possible
+10. Maintain shell-specific versions if needed
+
+## Technical Metadata
+- Category: Shell Compatibility
+- Priority: High
+- Dependencies:
+  - PowerShell 5.1+
+  - Bash 4.0+
+  - Git 2.25+
+- Testing Requirements:
+  - Windows PowerShell
+  - Linux Bash
+  - macOS Zsh
+
+<version>1.1.0</version> 

@@ -1,0 +1,143 @@
+---
+description: ENFORCE consistent team communication standards across worktrees to maintain clear and effective collaboration
+globs: ["**/TEAMCHAT.md", "**/docs/**/*.md"]
+crossRefs:
+  - 007-worktree-management.mdc
+  - 005-git-commit-automation.mdc
+  - 400-md-docs.mdc
+alwaysApply: true
+---
+
+# Team Communication Standards
+
+## Context
+- When communicating between worktrees
+- When reporting issues or improvements
+- When sharing best practices
+- When coordinating cross-worktree changes
+- When documenting technical findings
+
+## Requirements
+
+### Message Structure
+- Use standardized file name: `TEAMCHAT.md`
+- Include required sections:
+  ```markdown
+  # Title: Clear Description of Topic
+
+  ## From: [Team Name]
+  ### Working in: [source-worktree]
+  ### To: [target-worktree]
+  ## Date: [YYYY-MM-DD]
+
+  ### Summary
+  Brief overview of the communication purpose
+
+  ### [Main Content Sections]
+  Relevant details, findings, or requests
+
+  ### Action Items
+  Clear, numbered list of required actions
+
+  ### Benefits
+  List of benefits from implementing changes
+
+  ### Next Steps
+  Numbered list of recommended next steps
+
+  ### Contact
+  How to reach the source worktree team
+  ```
+
+### Content Guidelines
+- Keep messages clear and concise
+- Use proper markdown formatting
+- Include specific file references with line numbers
+- Document concrete examples
+- Provide actionable recommendations
+- Include relevant code snippets
+- Reference related issues or PRs
+
+### Cross-Worktree References
+- Use consistent worktree naming
+- Reference specific commits when relevant
+- Link to related documentation
+- Include dependency information
+
+## Examples
+
+<example>
+# Good: Well-structured team communication
+# Code Quality Improvements
+
+## From: DataScienceBioLab
+### Working in: mcp worktree
+### To: core worktree
+## Date: 2024-03-15
+
+### Summary
+Identified code quality improvements in core modules during MCP implementation.
+
+### Findings
+#### 1. Implementation Issue (`src/core/module.rs`)
+- **Issue**: [Clear description]
+- **Location**: Line 42
+- **Impact**: [Specific impact]
+- **Recommendation**: [Clear suggestion]
+
+### Action Items
+1. Review suggested changes
+2. Implement improvements
+3. Update documentation
+
+### Benefits
+- Improved maintainability
+- Better performance
+- Enhanced reliability
+
+### Next Steps
+1. Review findings
+2. Schedule implementation
+3. Plan testing
+
+### Contact
+Reach out to us in the mcp worktree for clarification.
+</example>
+
+<example type="invalid">
+# Bad: Poor team communication
+Hey core team,
+
+Found some issues in your code. Please fix:
+- The sync thing isn't working right
+- Maybe add some tests?
+- Let me know when fixed
+
+Thanks!
+</example>
+
+## Best Practices
+1. Use consistent message structure
+2. Provide specific examples
+3. Include clear action items
+4. Document benefits and impact
+5. Reference specific code locations
+6. Include relevant context
+7. Propose concrete solutions
+8. Maintain professional tone
+9. Follow markdown formatting
+10. Include contact information
+
+## Technical Metadata
+- Category: Team Communication
+- Priority: High
+- Dependencies:
+  - Markdown support
+  - Git worktree setup
+  - Cross-team collaboration tools
+- Validation Requirements:
+  - Message structure compliance
+  - Markdown formatting
+  - Required sections present
+
+<version>1.0</version> 

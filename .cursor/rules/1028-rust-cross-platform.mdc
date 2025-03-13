@@ -1,0 +1,231 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for cross-platform development in Rust, focusing on platform-specific code, conditional compilation, and compatibility
+globs: ["**/*.rs", "**/Cargo.toml", "**/.cargo/config.toml"]
+crossRefs:
+  - 1027-rust-build-workspace.mdc
+  - 1011-rust-dependencies.mdc
+  - 1006-rust-performance.mdc
+---
+# Rust Cross-Platform Standards
+
+## Context
+- When writing platform-specific code
+- When handling platform differences
+- When managing system interfaces
+- When implementing FFI
+- When handling file systems
+- When managing process control
+- When handling environment variables
+- When implementing platform detection
+
+## Requirements
+
+### Platform Compatibility
+- Use appropriate platform abstractions
+- Implement proper feature detection
+- Use appropriate conditional compilation
+- Document platform requirements
+- Implement proper fallbacks
+- Use appropriate system calls
+- Follow platform patterns
+- Document platform support
+
+### Platform-Specific Implementation
+- Use appropriate platform APIs
+- Implement proper error handling
+- Use appropriate path handling
+- Document platform differences
+- Implement proper compatibility layers
+- Use appropriate system types
+- Follow platform conventions
+- Document platform limitations
+
+## Examples
+
+<example>
+// Good: Well-structured cross-platform code
+use std::env;
+use std::path::PathBuf;
+use std::process::Command;
+
+// Good: Platform-specific path handling
+pub fn get_config_path() -> PathBuf {
+    if cfg!(windows) {
+        env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                let mut path = env::home_dir().unwrap_or_default();
+                path.push("AppData");
+                path.push("Roaming");
+                path
+            })
+    } else if cfg!(target_os = "macos") {
+        let mut path = env::home_dir().unwrap_or_default();
+        path.push("Library");
+        path.push("Application Support");
+        path
+    } else {
+        let mut path = env::home_dir().unwrap_or_default();
+        path.push(".config");
+        path
+    }
+}
+
+// Good: Conditional compilation
+#[cfg(unix)]
+pub mod unix {
+    use std::os::unix::fs::PermissionsExt;
+    use std::fs::{self, Permissions};
+
+    pub fn set_executable(path: &std::path::Path) -> std::io::Result<()> {
+        let mut perms = fs::metadata(path)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms)
+    }
+}
+
+#[cfg(windows)]
+pub mod windows {
+    use std::os::windows::fs::MetadataExt;
+
+    pub fn is_hidden(path: &std::path::Path) -> std::io::Result<bool> {
+        let attr = path.metadata()?.file_attributes();
+        Ok((attr & 0x2) != 0)
+    }
+}
+
+// Good: Platform-agnostic abstractions
+pub trait ProcessManager {
+    fn spawn_process(&self, cmd: &str) -> std::io::Result<u32>;
+    fn kill_process(&self, pid: u32) -> std::io::Result<()>;
+}
+
+#[cfg(unix)]
+pub struct UnixProcessManager;
+
+#[cfg(unix)]
+impl ProcessManager for UnixProcessManager {
+    fn spawn_process(&self, cmd: &str) -> std::io::Result<u32> {
+        Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .spawn()
+            .map(|child| child.id())
+    }
+
+    fn kill_process(&self, pid: u32) -> std::io::Result<()> {
+        use nix::sys::signal::{kill, Signal};
+        use nix::unistd::Pid;
+        
+        kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+}
+
+#[cfg(windows)]
+pub struct WindowsProcessManager;
+
+#[cfg(windows)]
+impl ProcessManager for WindowsProcessManager {
+    fn spawn_process(&self, cmd: &str) -> std::io::Result<u32> {
+        Command::new("cmd")
+            .arg("/C")
+            .arg(cmd)
+            .spawn()
+            .map(|child| child.id())
+    }
+
+    fn kill_process(&self, pid: u32) -> std::io::Result<()> {
+        Command::new("taskkill")
+            .args(&["/F", "/PID", &pid.to_string()])
+            .output()
+            .map(|_| ())
+    }
+}
+
+// Good: Feature-gated dependencies in Cargo.toml
+#[cfg(feature = "gui")]
+use native_gui_framework as gui;
+
+#[cfg(all(unix, feature = "gui"))]
+use x11_specific_framework as x11;
+
+#[cfg(all(windows, feature = "gui"))]
+use win32_specific_framework as win32;
+</example>
+
+<example type="invalid">
+// Bad: Poor cross-platform handling
+struct BadPlatformCode {
+    path: String,
+}
+
+impl BadPlatformCode {
+    // Bad: Hardcoded path separators
+    fn new() -> Self {
+        Self {
+            path: "C:\\Windows\\System32".to_string(),
+        }
+    }
+    
+    // Bad: Platform-specific code without cfg
+    fn get_process_info(&self) -> String {
+        std::fs::read_to_string("/proc/cpuinfo").unwrap()
+    }
+}
+
+// Bad: Inconsistent path handling
+fn bad_path_handling(path: &str) -> String {
+    // Bad: Direct string manipulation of paths
+    format!("{}\\{}", path, "config.txt")
+}
+
+// Bad: No platform abstraction
+struct BadSystemCalls {
+    // Bad: Direct system call usage
+    fn execute(&self) {
+        std::process::Command::new("bash")
+            .arg("-c")
+            .arg("ls")
+            .spawn()
+            .unwrap();
+    }
+}
+
+// Bad: Missing platform-specific error handling
+fn bad_error_handling() -> Result<(), std::io::Error> {
+    // Bad: No platform-specific error cases
+    std::fs::remove_file("/var/lock/app.lock")
+}
+</example>
+
+## Best Practices
+1. Use platform abstractions
+2. Handle paths correctly
+3. Use conditional compilation
+4. Implement proper fallbacks
+5. Handle system differences
+6. Use appropriate APIs
+7. Document platform support
+8. Test all platforms
+9. Use feature flags
+10. Handle errors properly
+
+## Technical Metadata
+- Category: Rust Cross-Platform
+- Priority: High
+- Dependencies:
+  - cfg-if = "1.0"
+  - dunce = "1.0"
+  - platforms = "3.0"
+- Validation Requirements:
+  - Platform compatibility
+  - Feature detection
+  - Error handling
+
+<version>1.0</version> 

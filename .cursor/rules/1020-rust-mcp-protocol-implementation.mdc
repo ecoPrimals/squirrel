@@ -1,0 +1,262 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper protocol implementation practices in MCP tools, focusing on protocol structure, message handling, and state management
+globs: ["**/*.rs"]
+crossRefs:
+  - 1016-rust-mcp-protocol.mdc
+  - 1015-rust-mcp-tools.mdc
+  - 1018-rust-mcp-security.mdc
+  - 1019-rust-mcp-error-handling.mdc
+---
+
+# Rust MCP Protocol Implementation Standards
+
+## Context
+- When implementing MCP protocol
+- When handling protocol messages
+- When managing protocol state
+- When implementing protocol versioning
+
+## Requirements
+- Use appropriate protocol structure
+- Implement proper message handling
+- Use appropriate state management
+- Document protocol interfaces
+- Implement proper versioning
+- Use appropriate serialization
+- Follow protocol specifications
+- Document message formats
+- Implement proper validation
+- Use appropriate logging
+
+## Examples
+<example>
+// Good: Well-structured MCP protocol implementation
+use serde::{Serialize, Deserialize};
+use tokio::sync::{mpsc, oneshot};
+use tracing::{info, warn, error, instrument};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct McpProtocolVersion {
+    major: u16,
+    minor: u16,
+    patch: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct McpMessage {
+    version: McpProtocolVersion,
+    message_type: MessageType,
+    payload: MessagePayload,
+    metadata: MessageMetadata,
+}
+
+#[derive(Debug)]
+pub struct McpProtocolImpl {
+    version: McpProtocolVersion,
+    state: ProtocolState,
+    message_handler: MessageHandler,
+    tx: mpsc::Sender<McpMessage>,
+    rx: mpsc::Receiver<McpMessage>,
+}
+
+impl McpProtocolImpl {
+    #[instrument(skip(config))]
+    pub async fn new(config: ProtocolConfig) -> Result<Self, ProtocolError> {
+        info!(
+            version = ?config.version,
+            "Initializing MCP protocol implementation"
+        );
+
+        let (tx, rx) = mpsc::channel(100);
+        let message_handler = MessageHandler::new(&config);
+
+        let protocol = Self {
+            version: config.version,
+            state: ProtocolState::Initializing,
+            message_handler,
+            tx,
+            rx,
+        };
+
+        Ok(protocol)
+    }
+
+    #[instrument(skip(self, message))]
+    pub async fn handle_message(&mut self, message: McpMessage) -> Result<(), ProtocolError> {
+        // Validate protocol version
+        self.validate_version(&message.version)?;
+
+        // Process based on message type
+        match message.message_type {
+            MessageType::Handshake => {
+                self.handle_handshake(message).await?;
+            }
+            MessageType::Request => {
+                self.handle_request(message).await?;
+            }
+            MessageType::Response => {
+                self.handle_response(message).await?;
+            }
+            MessageType::Event => {
+                self.handle_event(message).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn handle_handshake(&mut self, message: McpMessage) -> Result<(), ProtocolError> {
+        info!("Processing handshake message");
+
+        // Validate handshake
+        let handshake = self.validate_handshake(&message)?;
+
+        // Update protocol state
+        self.state = ProtocolState::Connected;
+
+        // Send handshake response
+        self.send_handshake_response(handshake).await?;
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn handle_request(&mut self, message: McpMessage) -> Result<(), ProtocolError> {
+        info!(
+            request_id = ?message.metadata.request_id,
+            "Processing request message"
+        );
+
+        // Validate request
+        self.validate_request(&message)?;
+
+        // Process request
+        let response = self.message_handler.process_request(message).await?;
+
+        // Send response
+        self.send_response(response).await?;
+
+        Ok(())
+    }
+
+    fn validate_version(&self, version: &McpProtocolVersion) -> Result<(), ProtocolError> {
+        if version.major != self.version.major {
+            return Err(ProtocolError::IncompatibleVersion {
+                expected: self.version.clone(),
+                received: version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+// Good: Protocol state management
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProtocolState {
+    Initializing,
+    Connected,
+    Disconnecting,
+    Disconnected,
+}
+
+// Good: Message handling
+#[derive(Debug)]
+pub struct MessageHandler {
+    handlers: HashMap<MessageType, Box<dyn MessageProcessor>>,
+}
+
+impl MessageHandler {
+    #[instrument(skip(self, message))]
+    pub async fn process_message(&self, message: McpMessage) -> Result<(), ProtocolError> {
+        if let Some(handler) = self.handlers.get(&message.message_type) {
+            handler.process(message).await
+        } else {
+            Err(ProtocolError::UnsupportedMessageType(message.message_type))
+        }
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor protocol implementation
+struct UnsafeProtocol {
+    version: String,
+}
+
+impl UnsafeProtocol {
+    // Bad: No proper initialization
+    fn new() -> Self {
+        Self {
+            version: "1.0".to_string(),
+        }
+    }
+    
+    // Bad: No message validation
+    fn process_message(&self, message: &str) {
+        println!("Processing: {}", message);
+        // No validation
+        // No error handling
+        // No state management
+    }
+    
+    // Bad: No proper versioning
+    fn check_version(&self, version: &str) -> bool {
+        version == self.version
+    }
+}
+
+// Bad: Poor message handling
+fn handle_message(message: &[u8]) -> Vec<u8> {
+    // No validation
+    // No proper processing
+    // No error handling
+    message.to_vec()
+}
+
+// Bad: Poor state management
+struct BadProtocolState {
+    // Bad: Public state
+    pub is_connected: bool,
+    pub last_message: String,
+}
+
+impl BadProtocolState {
+    // Bad: No state validation
+    fn update_state(&mut self, connected: bool) {
+        self.is_connected = connected;
+    }
+}
+</example>
+
+## Best Practices
+1. Validate protocol versions
+2. Handle messages properly
+3. Manage state correctly
+4. Document interfaces
+5. Implement versioning
+6. Use proper serialization
+7. Handle errors properly
+8. Log protocol events
+9. Follow specifications
+10. Validate messages
+
+## Technical Metadata
+- Category: Rust MCP
+- Priority: High
+- Dependencies:
+  - tokio = { version = "1.0", features = ["full"] }
+  - serde = { version = "1.0", features = ["derive"] }
+  - tracing = "0.1"
+  - thiserror = "1.0"
+- Validation Requirements:
+  - Protocol compliance
+  - Message validation
+  - State management
+
+<version>1.0</version> 

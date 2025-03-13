@@ -1,0 +1,138 @@
+[package]
+name = "squirrel"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "A modular and maintainable Rust project"
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.36", features = ["full"], optional = true }
+futures = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Monitoring and logging
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
+log = { version = "0.4", optional = true }
+env_logger = { version = "0.11", optional = true }
+
+# MCP dependencies
+bytes = { version = "1.5", optional = true }
+futures-util = { version = "0.3", optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.5", features = ["trace"], optional = true }
+hyper = { version = "1.1", features = ["full"], optional = true }
+
+# Security dependencies
+ring = { version = "0.17", optional = true }
+bcrypt = { version = "0.15", optional = true }
+jwt = { version = "0.16", optional = true }
+argon2 = { version = "0.5", optional = true }
+
+# Data management
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"], optional = true }
+redis = { version = "0.24", features = ["tokio-comp"], optional = true }
+sled = { version = "0.34", optional = true }
+
+# UI dependencies (optional)
+egui = { version = "0.26", optional = true }
+eframe = { version = "0.26", optional = true }
+egui-wgpu = { version = "0.26", optional = true }
+wgpu = { version = "0.19", optional = true }
+
+# Testing dependencies
+tokio-test = "0.4"
+mockall = "0.12"
+criterion = "0.5"
+test-log = "0.2"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+criterion = "0.5"
+test-log = "0.2"
+insta = "1.36"
+snapbox = "0.5"
+
+[features]
+default = ["full"]
+full = [
+    "mcp",
+    "ai",
+    "data",
+    "deployment",
+    "monitoring",
+    "security",
+    "analysis",
+    "reporting"
+]
+ui = [
+    "dep:egui",
+    "dep:eframe",
+    "dep:egui-wgpu",
+    "dep:wgpu",
+    "dep:tokio",
+    "dep:futures"
+]
+mcp = [
+    "dep:tokio",
+    "dep:futures",
+    "dep:bytes",
+    "dep:futures-util",
+    "dep:tokio-util",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:hyper"
+]
+ai = [
+    "dep:tokio",
+    "dep:futures",
+    "dep:async-trait"
+]
+data = [
+    "dep:sqlx",
+    "dep:redis",
+    "dep:sled"
+]
+deployment = ["dep:tokio"]
+monitoring = [
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:log",
+    "dep:env_logger"
+]
+security = [
+    "dep:ring",
+    "dep:bcrypt",
+    "dep:jwt",
+    "dep:argon2"
+]
+analysis = [
+    "dep:tokio",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:uuid",
+    "dep:chrono"
+]
+reporting = [
+    "dep:analysis",
+    "dep:tokio",
+    "dep:serde",
+    "dep:serde_json"
+]
+
+[[bin]]
+name = "squirrel"
+path = "src/main.rs"
+
+[lib]
+name = "squirrel"
+path = "src/lib.rs" 

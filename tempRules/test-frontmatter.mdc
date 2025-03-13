@@ -1,0 +1,19 @@
+---
+description: TEST frontmatter handling in Cursor rules
+globs: ["**/*.test"]
+---
+
+# Test Rule
+
+## Context
+- When testing frontmatter handling
+
+## Requirements
+- Simple test requirement
+
+## Examples
+<example>
+Test example
+</example>
+
+<version>1.0</version> 

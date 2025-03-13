@@ -1,0 +1,159 @@
+---
+description: ENFORCE proper module organization and structure in Rust code
+globs: ["**/*.rs"]
+crossRefs:
+  - 1009-rust-code-style.mdc
+  - 1005-rust-documentation.mdc
+  - 1012-rust-dependencies.mdc
+alwaysApply: true
+---
+
+# Rust Module Organization Standards
+
+## Context
+- When organizing Rust code into modules
+- When structuring Rust projects
+- When managing module visibility
+- When organizing public interfaces
+
+## Requirements
+- Follow module hierarchy conventions
+- Use appropriate module visibility
+- Organize related functionality
+- Document module structure
+- Use appropriate module names
+- Follow re-export patterns
+- Implement proper error handling
+- Document module interfaces
+- Use appropriate file structure
+- Follow dependency organization
+
+## Examples
+<example>
+// Good: Well-organized module structure
+// lib.rs
+pub mod core;
+pub mod utils;
+pub mod error;
+
+// core/mod.rs
+//! Core functionality for the application.
+//!
+//! This module contains the primary business logic and data structures.
+
+mod config;
+mod state;
+mod processor;
+
+pub use self::config::Config;
+pub use self::state::State;
+pub use self::processor::Processor;
+
+// Good: Module with clear organization
+pub mod data {
+    //! Data handling and storage functionality.
+    
+    use std::collections::HashMap;
+    use crate::error::DataError;
+
+    mod storage;
+    mod validation;
+    mod transformation;
+
+    pub use self::storage::Storage;
+    pub use self::validation::Validator;
+    pub use self::transformation::Transform;
+
+    /// Core data structure for the module.
+    #[derive(Debug)]
+    pub struct DataManager {
+        storage: Storage,
+        validator: Validator,
+    }
+
+    impl DataManager {
+        pub fn new() -> Self {
+            Self {
+                storage: Storage::new(),
+                validator: Validator::new(),
+            }
+        }
+    }
+
+    // Private implementation details
+    mod internal {
+        use super::*;
+
+        pub(super) fn validate_data(data: &[u8]) -> bool {
+            // Implementation
+            true
+        }
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor module organization
+// main.rs
+mod stuff {
+    pub fn do_thing() {}
+    pub fn other_thing() {}
+}
+
+mod more_stuff {
+    pub struct Thing {}
+    pub struct OtherThing {}
+}
+
+// Bad: Inconsistent visibility and organization
+pub mod utils {
+    pub struct Helper;
+    pub struct Util;
+    
+    impl Helper {
+        fn internal() {} // Should be pub(crate) or public
+    }
+    
+    pub mod internal { // Should be private
+        pub fn helper() {}
+    }
+}
+
+// Bad: Mixed concerns in single module
+pub mod mixed {
+    pub struct Database {}
+    pub struct WebServer {}
+    pub struct FileSystem {}
+    
+    // Everything mixed together without organization
+    impl Database {
+        pub fn connect() {}
+    }
+}
+</example>
+
+## Best Practices
+1. Use clear module hierarchy
+2. Follow visibility rules
+3. Group related functionality
+4. Document module purpose
+5. Use consistent naming
+6. Organize public exports
+7. Separate concerns
+8. Document interfaces
+9. Use proper re-exports
+10. Follow file structure
+
+## Technical Metadata
+- Category: Rust Organization
+- Priority: High
+- Dependencies:
+  - cargo
+  - rust-analyzer
+  - rustfmt
+- Validation Requirements:
+  - Module structure
+  - Visibility rules
+  - Documentation coverage
+
+<version>1.0</version> 

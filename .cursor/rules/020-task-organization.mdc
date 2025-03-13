@@ -1,0 +1,162 @@
+---
+description: ENFORCE consistent task organization and automation across teams
+globs: specs/**/*
+crossRefs:
+  - 000-cursor-rules.mdc
+  - 002-rule-organization.mdc
+  - 005-git-commit-automation.mdc
+  - 007-worktree-management.mdc
+alwaysApply: true
+---
+
+# Task Organization Standards
+
+## Context
+- When starting new tasks in any worktree
+- When organizing team-specific work
+- When coordinating cross-team efforts
+- When managing specifications
+- When automating task workflows
+
+## Requirements
+
+### Specification Structure
+```
+specs/
+├── SPECS.md           # Root specification document
+├── MVP/               # MVP requirements and features
+├── ui/               # UI-specific specifications
+├── core/             # Core functionality specifications
+├── mcp/              # MCP protocol specifications
+└── docs/             # Documentation specifications
+```
+
+### Task State Management
+- Track task state transitions:
+  1. `Planning`: Specification review and dependency analysis
+  2. `InProgress`: Active development with tracked dependencies
+  3. `Review`: Cross-team review if dependencies exist
+  4. `Testing`: Validation across affected components
+  5. `Done`: Completion with updated specifications
+
+### Task Initialization
+- All tasks must start by reading:
+  1. `SPECS.md` for project overview
+  2. `specs/MVP/` for core requirements
+  3. Team-specific directory (e.g., `specs/ui/` for UI team)
+- Automatically track:
+  - Cross-team dependencies
+  - Required reviewers
+  - Affected components
+
+### Team-Specific Directories
+- UI Team:
+  ```
+  specs/ui/
+  ├── components/     # UI component specifications
+  ├── layouts/        # Layout specifications
+  ├── themes/         # Theme specifications
+  └── workflows/      # User workflow specifications
+  ```
+
+- Core Team:
+  ```
+  specs/core/
+  ├── api/           # API specifications
+  ├── models/        # Data model specifications
+  ├── services/      # Service specifications
+  └── integrations/  # Integration specifications
+  ```
+
+- MCP Team:
+  ```
+  specs/mcp/
+  ├── protocol/      # Protocol specifications
+  ├── security/      # Security specifications
+  ├── tools/         # Tool specifications
+  └── testing/       # Testing specifications
+  ```
+
+### Task Workflow
+1. Read relevant specifications
+2. Create task branch following worktree conventions
+3. Reference specifications in commits
+4. Update specifications if changes are needed
+5. Communicate changes via teamchat
+6. Track state transitions and dependencies
+
+### Automation Requirements
+- AI assistants must:
+  1. Identify team context from workspace
+  2. Load relevant specifications
+  3. Track task state and dependencies
+  4. Enforce cross-team communication when needed
+  5. Validate specification consistency
+  6. Monitor breaking changes
+  7. Suggest required reviewers
+
+### Dependency Management
+- Track dependencies in commit messages:
+  ```
+  feat(ui): implement new dialog
+  
+  Depends-On: core/api/dialog-service
+  Affects: mcp/protocol/ui-events
+  Reviewers: @core-team @mcp-team
+  ```
+
+## Examples
+
+<example>
+# Good: Proper task initialization with dependency tracking
+```bash
+# UI team starting new component
+1. Read SPECS.md
+2. Read specs/MVP/ui-requirements.md
+3. Read specs/ui/components/button-spec.md
+4. Identify dependencies: core/api/button-service
+5. Create feature branch
+6. Add dependency tracking to commits
+7. Request core team review
+```
+</example>
+
+<example type="invalid">
+# Bad: Improper task management
+```bash
+# Missing dependency tracking
+1. Create random branch
+2. Write code without spec reference
+3. No team coordination
+4. Push changes without reviews
+```
+</example>
+
+## Best Practices
+1. Always start with specifications
+2. Track task state transitions
+3. Document dependencies explicitly
+4. Maintain specification hierarchy
+5. Update affected teams automatically
+6. Use proper communication channels
+7. Reference specifications in work
+8. Monitor breaking changes
+9. Follow naming conventions
+10. Maintain clear organization
+
+## Technical Metadata
+- Category: Task Management
+- Priority: High
+- Dependencies:
+  - Git worktree setup
+  - Team communication system
+  - Specification structure
+  - State tracking system
+- Validation Requirements:
+  - Directory structure
+  - Specification format
+  - Reference validity
+  - Dependency tracking
+  - State transitions
+
+<version>1.1.0</version> 

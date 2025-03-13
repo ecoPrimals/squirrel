@@ -1,0 +1,259 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for embedded systems development in Rust, focusing on bare metal programming, resource constraints, and hardware interaction
+globs: ["**/*.rs", "**/Cargo.toml", "**/*.x", "**/memory.x"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1006-rust-performance.mdc
+  - 1028-rust-cross-platform.mdc
+---
+# Rust Embedded Systems Standards
+
+## Context
+- When developing for embedded systems
+- When working with microcontrollers
+- When handling hardware interfaces
+- When managing interrupts
+- When optimizing for size
+- When handling real-time constraints
+- When managing memory
+- When implementing device drivers
+
+## Requirements
+
+### Hardware Interaction
+- Use appropriate HAL abstractions
+- Implement proper interrupt handling
+- Use appropriate peripheral access
+- Document hardware requirements
+- Implement proper initialization
+- Use appropriate timing control
+- Follow hardware safety patterns
+- Document hardware interfaces
+
+### Resource Management
+- Use appropriate memory allocation
+- Implement proper stack usage
+- Use appropriate static allocation
+- Document memory requirements
+- Implement proper power management
+- Use appropriate optimization flags
+- Follow size optimization patterns
+- Document resource constraints
+
+## Examples
+
+<example>
+// Good: Well-structured embedded application
+#![no_std]
+#![no_main]
+
+use cortex_m_rt::entry;
+use panic_halt as _;
+use embedded_hal::digital::v2::OutputPin;
+use stm32f4xx_hal as hal;
+
+// Good: Hardware abstraction
+pub struct LedController<PIN> {
+    led: PIN,
+    state: bool,
+}
+
+impl<PIN: OutputPin> LedController<PIN> {
+    pub fn new(led: PIN) -> Self {
+        Self {
+            led,
+            state: false,
+        }
+    }
+
+    pub fn toggle(&mut self) -> Result<(), PIN::Error> {
+        self.state = !self.state;
+        if self.state {
+            self.led.set_high()
+        } else {
+            self.led.set_low()
+        }
+    }
+}
+
+// Good: Proper interrupt handling
+#[interrupt]
+fn TIMER0() {
+    static mut LED: Option<LedController<PA5<Output<PushPull>>>> = None;
+    
+    // Safe because this is the only place we access LED
+    if let Some(led) = LED {
+        led.toggle().ok();
+    }
+}
+
+// Good: Memory management
+#[entry]
+fn main() -> ! {
+    // Initialize core peripherals
+    let cp = cortex_m::Peripherals::take().unwrap();
+    let dp = hal::stm32::Peripherals::take().unwrap();
+    
+    // Configure system clock
+    let rcc = dp.RCC.constrain();
+    let clocks = rcc.cfgr.freeze();
+    
+    // Configure GPIO
+    let gpioa = dp.GPIOA.split();
+    let led = gpioa.pa5.into_push_pull_output();
+    
+    // Static allocation for interrupt context
+    interrupt::free(|_| {
+        unsafe {
+            LED = Some(LedController::new(led));
+        }
+    });
+    
+    loop {
+        // Power management
+        cortex_m::asm::wfi();
+    }
+}
+
+// Good: Device driver implementation
+pub struct I2CDevice<I2C> {
+    i2c: I2C,
+    address: u8,
+}
+
+impl<I2C, E> I2CDevice<I2C>
+where
+    I2C: embedded_hal::blocking::i2c::Write<Error = E> +
+         embedded_hal::blocking::i2c::Read<Error = E>,
+{
+    pub fn new(i2c: I2C, address: u8) -> Self {
+        Self { i2c, address }
+    }
+
+    pub fn read_register(&mut self, register: u8) -> Result<u8, E> {
+        let mut buffer = [0u8; 1];
+        self.i2c.write(self.address, &[register])?;
+        self.i2c.read(self.address, &mut buffer)?;
+        Ok(buffer[0])
+    }
+}
+
+// Good: Memory configuration (memory.x)
+/*
+MEMORY
+{
+  FLASH : ORIGIN = 0x08000000, LENGTH = 512K
+  RAM : ORIGIN = 0x20000000, LENGTH = 128K
+}
+
+SECTIONS
+{
+  .text :
+  {
+    *(.text .text.*);
+  } > FLASH
+
+  .rodata :
+  {
+    *(.rodata .rodata.*);
+  } > FLASH
+
+  .bss :
+  {
+    *(.bss .bss.*);
+  } > RAM
+
+  .data :
+  {
+    *(.data .data.*);
+  } > RAM AT > FLASH
+}
+*/
+</example>
+
+<example type="invalid">
+// Bad: Poor embedded implementation
+#[no_mangle]
+pub extern "C" fn main() -> ! {
+    // Bad: No hardware abstraction
+    let peripherals = unsafe {
+        (*stm32f4::GPIOA::ptr()).odr.modify(|_, w| w.odr5().set_bit());
+    };
+    
+    // Bad: Busy waiting
+    loop {
+        for _ in 0..1000000 {
+            unsafe { asm!("nop") };
+        }
+    }
+}
+
+// Bad: Unsafe interrupt handling
+static mut GLOBAL_DATA: u32 = 0;
+
+#[interrupt]
+fn TIMER0() {
+    // Bad: Direct access to mutable static
+    unsafe {
+        GLOBAL_DATA += 1;
+    }
+}
+
+// Bad: Dynamic allocation in embedded context
+#[entry]
+fn bad_allocation() -> ! {
+    // Bad: Heap allocation
+    let mut data = Vec::new();
+    
+    loop {
+        // Bad: Growing vector in embedded context
+        data.push(1);
+    }
+}
+
+// Bad: No error handling
+pub struct BadDriver {
+    register: *mut u32,
+}
+
+impl BadDriver {
+    // Bad: Raw pointer manipulation
+    pub fn write_register(&mut self, value: u32) {
+        unsafe {
+            *self.register = value;
+        }
+    }
+}
+</example>
+
+## Best Practices
+1. Use HAL abstractions
+2. Handle interrupts safely
+3. Manage memory statically
+4. Implement proper timing
+5. Use proper drivers
+6. Handle errors appropriately
+7. Document hardware
+8. Optimize for size
+9. Test thoroughly
+10. Follow safety patterns
+
+## Technical Metadata
+- Category: Rust Embedded
+- Priority: High
+- Dependencies:
+  - cortex-m = "0.7"
+  - embedded-hal = "0.2"
+  - panic-halt = "0.2"
+  - rtt-target = "0.4"
+- Validation Requirements:
+  - Memory safety
+  - Interrupt safety
+  - Resource constraints
+
+<version>1.0</version> 

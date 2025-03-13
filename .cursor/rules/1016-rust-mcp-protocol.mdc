@@ -1,0 +1,233 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper implementation of Machine Context Protocol (MCP) in Rust, ensuring secure message handling, state management, and protocol compliance
+globs: ["**/*.rs"]
+crossRefs:
+  - 1015-rust-mcp-tools.mdc
+  - 1014-rust-port-management.mdc
+  - 1009-rust-error-handling.mdc
+  - 1012-rust-logging-monitoring.mdc
+---
+
+# Rust MCP Protocol Standards
+
+## Context
+- When implementing MCP protocol
+- When handling MCP messages
+- When managing protocol state
+- When implementing protocol security
+
+## Requirements
+- Use appropriate message formats
+- Implement proper state management
+- Use appropriate security measures
+- Document protocol interfaces
+- Implement proper error handling
+- Use appropriate validation
+- Follow protocol specifications
+- Document message formats
+- Implement proper versioning
+- Use appropriate serialization
+
+## Examples
+<example>
+// Good: Well-structured MCP protocol implementation
+use serde::{Serialize, Deserialize};
+use tokio::sync::mpsc;
+use tracing::{info, warn, error, instrument};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct McpMessage {
+    version: String,
+    message_id: uuid::Uuid,
+    timestamp: chrono::DateTime<chrono::Utc>,
+    message_type: McpMessageType,
+    payload: serde_json::Value,
+    metadata: McpMetadata,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct McpMetadata {
+    source: String,
+    target: String,
+    correlation_id: Option<uuid::Uuid>,
+    security_context: SecurityContext,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum McpMessageType {
+    Request,
+    Response,
+    Event,
+    Error,
+}
+
+#[derive(Debug)]
+pub struct McpProtocolHandler {
+    version: semver::Version,
+    state: ProtocolState,
+    tx: mpsc::Sender<McpMessage>,
+    rx: mpsc::Receiver<McpMessage>,
+}
+
+impl McpProtocolHandler {
+    #[instrument(skip(config))]
+    pub async fn new(config: McpConfig) -> Result<Self, McpError> {
+        info!(
+            version = %config.version,
+            "Creating new MCP protocol handler"
+        );
+
+        let (tx, rx) = mpsc::channel(100);
+        
+        let handler = Self {
+            version: semver::Version::parse(&config.version)?,
+            state: ProtocolState::Initializing,
+            tx,
+            rx,
+        };
+
+        Ok(handler)
+    }
+
+    #[instrument(skip(self, message))]
+    pub async fn handle_message(&mut self, message: McpMessage) -> Result<(), McpError> {
+        // Validate message
+        self.validate_message(&message)?;
+
+        // Process based on message type
+        match message.message_type {
+            McpMessageType::Request => {
+                self.handle_request(message).await?;
+            }
+            McpMessageType::Response => {
+                self.handle_response(message).await?;
+            }
+            McpMessageType::Event => {
+                self.handle_event(message).await?;
+            }
+            McpMessageType::Error => {
+                self.handle_error(message).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_message(&self, message: &McpMessage) -> Result<(), McpError> {
+        // Validate version compatibility
+        let msg_version = semver::Version::parse(&message.version)?;
+        if !self.is_version_compatible(&msg_version) {
+            return Err(McpError::VersionMismatch {
+                expected: self.version.clone(),
+                received: msg_version,
+            });
+        }
+
+        // Validate message format and content
+        self.validate_payload(message)?;
+        self.validate_metadata(&message.metadata)?;
+
+        Ok(())
+    }
+}
+
+// Good: Proper error handling for MCP protocol
+#[derive(Debug, thiserror::Error)]
+pub enum McpError {
+    #[error("Version mismatch: expected {expected}, received {received}")]
+    VersionMismatch {
+        expected: semver::Version,
+        received: semver::Version,
+    },
+
+    #[error("Invalid message format: {0}")]
+    InvalidFormat(String),
+
+    #[error("Protocol error: {0}")]
+    ProtocolError(String),
+
+    #[error("Security error: {0}")]
+    SecurityError(String),
+
+    #[error(transparent)]
+    SerdeError(#[from] serde_json::Error),
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor MCP protocol implementation
+struct UnsafeMcpProtocol {
+    version: String,
+}
+
+impl UnsafeMcpProtocol {
+    // Bad: No proper validation
+    fn handle_message(&self, message: &str) {
+        // No version check
+        // No message validation
+        println!("Handling message: {}", message);
+    }
+    
+    // Bad: Unsafe message creation
+    fn create_message(&self, data: &str) -> String {
+        // No proper format
+        // No validation
+        format!("{{\"data\": \"{}\"}}", data)
+    }
+}
+
+// Bad: Insecure message handling
+fn process_mcp_message(raw_message: &[u8]) -> Vec<u8> {
+    // No validation
+    // No error handling
+    // No security checks
+    raw_message.to_vec()
+}
+
+// Bad: Poor state management
+struct BadMcpState {
+    // Bad: Public state
+    pub is_connected: bool,
+    pub last_message: String,
+}
+
+impl BadMcpState {
+    // Bad: No state validation
+    fn update(&mut self, message: &str) {
+        self.last_message = message.to_string();
+    }
+}
+</example>
+
+## Best Practices
+1. Validate message formats
+2. Handle protocol versions
+3. Implement secure messaging
+4. Manage state properly
+5. Handle errors appropriately
+6. Log protocol operations
+7. Validate message content
+8. Follow specifications
+9. Document interfaces
+10. Use proper serialization
+
+## Technical Metadata
+- Category: Rust MCP
+- Priority: High
+- Dependencies:
+  - serde = { version = "1.0", features = ["derive"] }
+  - tokio = { version = "1.0", features = ["full"] }
+  - uuid = { version = "1.0", features = ["v4"] }
+  - chrono = { version = "0.4", features = ["serde"] }
+- Validation Requirements:
+  - Message format
+  - Protocol compliance
+  - Security validation
+
+<version>1.0</version> 

@@ -1,0 +1,119 @@
+---
+description: ENFORCE consistent cross-referencing standards across all rules
+globs: ["**/*.mdc", "**/*.md"]
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 008-rule-update-automation.mdc
+alwaysApply: true
+---
+
+# Rule Cross-Referencing Standards
+
+## Context
+- When creating or updating rule frontmatter
+- When establishing relationships between rules
+- When tracking rule dependencies
+- When managing rule updates that affect multiple rules
+
+## Requirements
+
+### Frontmatter Structure
+- Include `crossRefs` array in frontmatter:
+  ```yaml
+  ---
+  description: ENFORCE [rule purpose]
+  globs: [file patterns]
+  crossRefs:
+    - related-rule-1.mdc
+    - related-rule-2.mdc
+  ---
+  ```
+
+### Reference Format
+- Use complete filenames with extensions:
+  ```yaml
+  # Good
+  crossRefs:
+    - 001-rule-generator.mdc
+    - 002-rule-organization.mdc
+
+  # Bad
+  crossRefs:
+    - rule-generator
+    - 002-rule-organization
+  ```
+
+### Reference Types
+- Primary references: Direct dependencies
+  ```yaml
+  crossRefs:
+    - 001-rule-generator.mdc  # Primary dependency
+  ```
+
+- Secondary references: Related but not dependent
+  ```yaml
+  crossRefs:
+    - "?002-rule-organization.mdc"  # Optional relationship
+  ```
+
+### Validation Requirements
+- All referenced files must exist
+- References must be properly formatted
+- No circular dependencies
+- References must be sorted numerically
+- Extensions must be included
+- No duplicate references
+
+## Examples
+
+<example>
+# Good: Well-structured cross-references
+---
+description: ENFORCE testing standards
+globs: tests/**/*.rs
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 007-worktree-management.mdc
+---
+</example>
+
+<example type="invalid">
+# Bad: Poorly structured cross-references
+---
+description: Some rule
+crossRefs:
+  rule-generator
+  rule-organization.mdc
+  # Missing proper format
+  # Missing extensions
+  # Not an array
+---
+</example>
+
+## Best Practices
+1. Always include .mdc extension
+2. Sort references numerically
+3. Validate references exist
+4. Document relationship types
+5. Keep references up to date
+6. Remove obsolete references
+7. Use explicit relationships
+8. Check for circular dependencies
+9. Update all affected rules
+10. Document breaking changes
+
+## Technical Metadata
+- Category: Rule Management
+- Priority: High
+- Dependencies:
+  - YAML parser
+  - File system validation
+  - Rule versioning system
+- Validation Requirements:
+  - Reference existence
+  - Format compliance
+  - Dependency cycles
+
+<version>1.0</version> 

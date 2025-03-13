@@ -1,0 +1,226 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE secure protocol practices in MCP tools, focusing on message security, authentication, and authorization
+globs: ["**/*.rs"]
+crossRefs:
+  - 1016-rust-mcp-protocol.mdc
+  - 1015-rust-mcp-tools.mdc
+  - 1001-rust-safety.mdc
+  - 1009-rust-error-handling.mdc
+---
+
+# Rust MCP Security Standards
+
+## Context
+- When implementing MCP security
+- When handling secure messages
+- When managing authentication
+- When implementing authorization
+
+## Requirements
+- Use appropriate encryption
+- Implement proper authentication
+- Use appropriate authorization
+- Document security measures
+- Implement proper validation
+- Use appropriate key management
+- Follow security best practices
+- Document security requirements
+- Implement proper auditing
+- Use appropriate logging
+
+## Examples
+<example>
+// Good: Well-structured MCP security implementation
+use ring::{aead, rand};
+use tracing::{info, warn, error, instrument};
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SecurityContext {
+    auth_token: String,
+    permissions: Vec<Permission>,
+    encryption_enabled: bool,
+}
+
+#[derive(Debug)]
+pub struct McpSecurity {
+    key_manager: KeyManager,
+    auth_provider: AuthProvider,
+    audit_logger: AuditLogger,
+}
+
+impl McpSecurity {
+    #[instrument(skip(config))]
+    pub async fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
+        info!("Initializing MCP security");
+
+        let key_manager = KeyManager::new(&config.key_config).await?;
+        let auth_provider = AuthProvider::new(&config.auth_config).await?;
+        let audit_logger = AuditLogger::new(&config.audit_config).await?;
+
+        Ok(Self {
+            key_manager,
+            auth_provider,
+            audit_logger,
+        })
+    }
+
+    #[instrument(skip(self, message))]
+    pub async fn secure_message(&self, message: &McpMessage) -> Result<SecureMessage, SecurityError> {
+        // Validate message before encryption
+        self.validate_message(message)?;
+
+        // Get encryption key
+        let key = self.key_manager.get_current_key().await?;
+
+        // Encrypt message
+        let encrypted = self.encrypt_message(message, &key).await?;
+
+        // Create secure message
+        let secure_message = SecureMessage {
+            payload: encrypted,
+            key_id: key.id(),
+            timestamp: chrono::Utc::now(),
+            signature: self.sign_message(&encrypted).await?,
+        };
+
+        // Log security event
+        self.audit_logger.log_secure_message(&secure_message).await?;
+
+        Ok(secure_message)
+    }
+
+    #[instrument(skip(self, context))]
+    pub async fn validate_auth(&self, context: &SecurityContext) -> Result<(), SecurityError> {
+        // Validate authentication token
+        if !self.auth_provider.validate_token(&context.auth_token).await? {
+            error!("Invalid authentication token");
+            return Err(SecurityError::InvalidToken);
+        }
+
+        // Check permissions
+        for permission in &context.permissions {
+            if !self.auth_provider.has_permission(permission).await? {
+                error!(permission = ?permission, "Missing required permission");
+                return Err(SecurityError::InsufficientPermissions);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn encrypt_message(&self, message: &McpMessage, key: &aead::LessSafeKey) -> Result<Vec<u8>, SecurityError> {
+        let nonce = aead::Nonce::assume_unique_for_key([0u8; 12]);
+        let message_bytes = serde_json::to_vec(message)?;
+
+        key.seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut message_bytes.clone())
+            .map_err(|_| SecurityError::EncryptionError)?;
+
+        Ok(message_bytes)
+    }
+}
+
+// Good: Proper error handling for security
+#[derive(Debug, thiserror::Error)]
+pub enum SecurityError {
+    #[error("Invalid authentication token")]
+    InvalidToken,
+
+    #[error("Insufficient permissions")]
+    InsufficientPermissions,
+
+    #[error("Encryption error")]
+    EncryptionError,
+
+    #[error("Key management error: {0}")]
+    KeyError(String),
+
+    #[error("Audit logging error: {0}")]
+    AuditError(String),
+
+    #[error(transparent)]
+    SerializationError(#[from] serde_json::Error),
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor security implementation
+struct UnsafeMcpSecurity {
+    secret_key: String,
+}
+
+impl UnsafeMcpSecurity {
+    // Bad: Hardcoded credentials
+    fn new() -> Self {
+        Self {
+            secret_key: "secret123".to_string(),
+        }
+    }
+    
+    // Bad: Weak encryption
+    fn encrypt_message(&self, message: &str) -> String {
+        // No proper encryption
+        // No validation
+        base64::encode(message)
+    }
+    
+    // Bad: Poor authentication
+    fn check_auth(&self, token: &str) -> bool {
+        // No proper validation
+        token == "admin"
+    }
+}
+
+// Bad: Insecure message handling
+fn process_secure_message(message: &[u8]) -> Vec<u8> {
+    // No validation
+    // No proper decryption
+    // No authentication
+    message.to_vec()
+}
+
+// Bad: Poor permission management
+struct BadPermissions {
+    // Bad: Public permissions
+    pub is_admin: bool,
+}
+
+impl BadPermissions {
+    // Bad: No validation
+    fn grant_admin(&mut self) {
+        self.is_admin = true;
+    }
+}
+</example>
+
+## Best Practices
+1. Use strong encryption
+2. Implement proper auth
+3. Validate all input
+4. Manage keys securely
+5. Log security events
+6. Handle errors properly
+7. Follow best practices
+8. Document security
+9. Audit operations
+10. Monitor security
+
+## Technical Metadata
+- Category: Rust MCP Security
+- Priority: High
+- Dependencies:
+  - ring = "0.17"
+  - jsonwebtoken = "9.1"
+  - argon2 = "0.5"
+  - tracing = "0.1"
+- Validation Requirements:
+  - Security validation
+  - Auth verification
+  - Encryption checks
+
+<version>1.0</version> 

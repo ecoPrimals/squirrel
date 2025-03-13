@@ -1,0 +1,235 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper implementation of Machine Context Protocol (MCP) tools in Rust, ensuring security, validation, and proper lifecycle management
+globs: ["**/*.rs"]
+crossRefs:
+  - 1014-rust-port-management.mdc
+  - 1009-rust-error-handling.mdc
+  - 1012-rust-logging-monitoring.mdc
+  - 1016-rust-mcp-protocol.mdc
+---
+
+# Rust MCP Tools Standards
+
+## Context
+- When implementing MCP tools
+- When managing MCP tool lifecycle
+- When handling MCP tool state
+- When implementing tool security
+
+## Requirements
+- Use appropriate MCP protocol
+- Implement proper tool lifecycle
+- Use appropriate security measures
+- Document tool interfaces
+- Implement proper error handling
+- Use appropriate state management
+- Follow MCP best practices
+- Document tool requirements
+- Implement proper validation
+- Use appropriate logging
+
+## Examples
+<example>
+// Good: Well-structured MCP tool implementation
+use tokio::sync::mpsc;
+use tracing::{info, warn, error, instrument};
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct McpToolConfig {
+    name: String,
+    version: String,
+    capabilities: Vec<String>,
+    max_concurrent_operations: usize,
+}
+
+#[derive(Debug)]
+pub struct McpTool {
+    config: McpToolConfig,
+    state: McpToolState,
+    tx: mpsc::Sender<McpMessage>,
+    rx: mpsc::Receiver<McpMessage>,
+}
+
+#[derive(Debug)]
+enum McpToolState {
+    Initializing,
+    Ready,
+    Processing,
+    ShuttingDown,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum McpMessage {
+    Initialize { config: McpToolConfig },
+    Execute { command: String, params: serde_json::Value },
+    Shutdown,
+    Response { result: serde_json::Value },
+    Error { code: u32, message: String },
+}
+
+impl McpTool {
+    #[instrument(skip(config))]
+    pub async fn new(config: McpToolConfig) -> Result<Self, McpError> {
+        info!(
+            tool_name = %config.name,
+            version = %config.version,
+            "Creating new MCP tool"
+        );
+
+        let (tx, rx) = mpsc::channel(100);
+
+        let tool = Self {
+            config,
+            state: McpToolState::Initializing,
+            tx,
+            rx,
+        };
+
+        Ok(tool)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn start(&mut self) -> Result<(), McpError> {
+        info!(
+            tool_name = %self.config.name,
+            "Starting MCP tool"
+        );
+
+        self.validate_configuration()?;
+        self.initialize_resources().await?;
+        self.state = McpToolState::Ready;
+
+        self.run_message_loop().await
+    }
+
+    async fn run_message_loop(&mut self) -> Result<(), McpError> {
+        while let Some(msg) = self.rx.recv().await {
+            match msg {
+                McpMessage::Execute { command, params } => {
+                    self.handle_command(command, params).await?;
+                }
+                McpMessage::Shutdown => {
+                    info!("Received shutdown command");
+                    break;
+                }
+                _ => {
+                    warn!("Unexpected message type");
+                }
+            }
+        }
+
+        self.shutdown().await
+    }
+
+    #[instrument(skip(self))]
+    async fn shutdown(&mut self) -> Result<(), McpError> {
+        info!("Shutting down MCP tool");
+        self.state = McpToolState::ShuttingDown;
+        self.cleanup_resources().await?;
+        Ok(())
+    }
+}
+
+// Good: Proper error handling for MCP tools
+#[derive(Debug, thiserror::Error)]
+pub enum McpError {
+    #[error("Invalid configuration: {0}")]
+    ConfigError(String),
+
+    #[error("Protocol error: {0}")]
+    ProtocolError(String),
+
+    #[error("Resource error: {0}")]
+    ResourceError(String),
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor MCP tool implementation
+struct UnsafeMcpTool {
+    name: String,
+}
+
+impl UnsafeMcpTool {
+    // Bad: No proper initialization
+    fn new(name: String) -> Self {
+        Self { name }
+    }
+    
+    // Bad: No error handling
+    fn execute(&self, command: &str) {
+        println!("Executing: {}", command);
+        // No validation
+        // No error handling
+        // No state management
+    }
+    
+    // Bad: No proper shutdown
+    fn stop(&self) {
+        println!("Stopping tool");
+        // No resource cleanup
+        // No state management
+    }
+}
+
+// Bad: Unsafe message handling
+fn process_message(msg: &str) -> String {
+    // Bad: No validation
+    // Bad: No error handling
+    // Bad: No security checks
+    format!("Processed: {}", msg)
+}
+
+// Bad: Poor resource management
+struct BadMcpResource {
+    // Bad: Public fields
+    pub data: Vec<u8>,
+    pub is_active: bool,
+}
+
+impl BadMcpResource {
+    // Bad: No cleanup
+    fn new() -> Self {
+        Self {
+            data: Vec::new(),
+            is_active: true,
+        }
+    }
+}
+</example>
+
+## Best Practices
+1. Validate configurations
+2. Handle lifecycle properly
+3. Implement secure messaging
+4. Manage state correctly
+5. Handle errors properly
+6. Log operations
+7. Clean up resources
+8. Document interfaces
+9. Validate inputs
+10. Follow protocol specs
+
+## Technical Metadata
+- Category: Rust MCP
+- Priority: High
+- Dependencies:
+  - tokio = { version = "1.0", features = ["full"] }
+  - serde = { version = "1.0", features = ["derive"] }
+  - tracing = "0.1"
+  - thiserror = "1.0"
+- Validation Requirements:
+  - Protocol compliance
+  - Security validation
+  - Resource management
+
+<version>1.0</version> 

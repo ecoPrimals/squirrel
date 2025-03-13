@@ -1,0 +1,229 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for async/await in Rust, focusing on performance, safety, and proper runtime usage
+globs: ["**/*.rs"]
+crossRefs:
+  - 1002-rust-concurrency.mdc
+  - 1006-rust-performance.mdc
+  - 1008-rust-error-handling.mdc
+---
+# Rust Async/Await Standards
+
+## Context
+- When implementing async code
+- When managing async runtimes
+- When handling async operations
+- When implementing async traits
+- When managing async resources
+- When handling async cancellation
+- When implementing async streams
+- When managing async lifetimes
+
+## Requirements
+
+### Async Runtime Management
+- Use appropriate async runtime
+- Implement proper executor configuration
+- Use appropriate task spawning
+- Document runtime requirements
+- Implement proper shutdown
+- Use appropriate worker threads
+- Follow runtime best practices
+- Document runtime configuration
+
+### Async Pattern Implementation
+- Use appropriate async patterns
+- Implement proper cancellation
+- Use appropriate Future traits
+- Document async boundaries
+- Implement proper timeouts
+- Use appropriate Stream traits
+- Follow async best practices
+- Document async requirements
+
+## Examples
+
+<example>
+// Good: Well-structured async implementation
+use tokio::{self, sync::mpsc, time};
+use futures::{Stream, StreamExt};
+use std::pin::Pin;
+use std::time::Duration;
+
+// Good: Async trait implementation
+#[async_trait::async_trait]
+pub trait AsyncProcessor {
+    async fn process(&self, data: Vec<u8>) -> Result<Vec<u8>, ProcessError>;
+    async fn shutdown(&self) -> Result<(), ShutdownError>;
+}
+
+// Good: Async resource management
+pub struct AsyncResource {
+    tx: mpsc::Sender<Command>,
+    shutdown_signal: tokio::sync::watch::Sender<bool>,
+}
+
+impl AsyncResource {
+    pub async fn new() -> Result<Self, ResourceError> {
+        let (tx, mut rx) = mpsc::channel(100);
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+
+        // Spawn background task
+        tokio::spawn(async move {
+            let mut shutdown = shutdown_rx;
+            loop {
+                tokio::select! {
+                    Some(cmd) = rx.recv() => {
+                        if let Err(e) = process_command(cmd).await {
+                            log::error!("Command processing error: {}", e);
+                        }
+                    }
+                    _ = shutdown.changed() => {
+                        log::info!("Shutdown signal received");
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Self {
+            tx,
+            shutdown_signal: shutdown_tx,
+        })
+    }
+
+    pub async fn send_command(&self, cmd: Command) -> Result<(), CommandError> {
+        self.tx.send(cmd).await.map_err(CommandError::from)
+    }
+
+    pub async fn shutdown(self) -> Result<(), ShutdownError> {
+        self.shutdown_signal.send(true)?;
+        Ok(())
+    }
+}
+
+// Good: Async stream implementation
+pub struct AsyncStreamProcessor {
+    buffer: Vec<u8>,
+    max_size: usize,
+}
+
+impl AsyncStreamProcessor {
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            buffer: Vec::with_capacity(max_size),
+            max_size,
+        }
+    }
+
+    pub async fn process_stream<S>(&mut self, mut stream: S) -> Result<(), ProcessError>
+    where
+        S: Stream<Item = Result<Vec<u8>, std::io::Error>> + Unpin,
+    {
+        while let Some(chunk) = stream.next().await {
+            let data = chunk?;
+            if self.buffer.len() + data.len() > self.max_size {
+                return Err(ProcessError::BufferFull);
+            }
+            self.buffer.extend_from_slice(&data);
+        }
+        Ok(())
+    }
+}
+
+// Good: Timeout handling
+pub async fn with_timeout<F, T, E>(
+    duration: Duration,
+    future: F,
+) -> Result<T, TimeoutError<E>>
+where
+    F: Future<Output = Result<T, E>>,
+{
+    match time::timeout(duration, future).await {
+        Ok(Ok(result)) => Ok(result),
+        Ok(Err(error)) => Err(TimeoutError::Operation(error)),
+        Err(_) => Err(TimeoutError::Elapsed),
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor async implementation
+struct BadAsync {
+    data: Vec<u8>,
+}
+
+impl BadAsync {
+    // Bad: Blocking in async context
+    async fn process(&self) {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        // Blocks the async runtime
+    }
+    
+    // Bad: No proper cancellation
+    async fn run_forever(&self) {
+        loop {
+            // No cancellation mechanism
+            // No proper shutdown
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+}
+
+// Bad: Async resource leaks
+struct LeakyAsync {
+    tx: mpsc::Sender<String>,
+}
+
+impl LeakyAsync {
+    // Bad: No proper cleanup
+    async fn start(&self) {
+        let (tx, _rx) = mpsc::channel(100);
+        // rx is dropped, potentially leaving dangling tasks
+    }
+    
+    // Bad: No timeout handling
+    async fn process(&self) -> Result<(), std::io::Error> {
+        // Could hang indefinitely
+        self.tx.send("data".to_string()).await.unwrap();
+        Ok(())
+    }
+}
+
+// Bad: Improper async trait usage
+trait BadAsyncTrait {
+    // Bad: Should use async_trait
+    fn process(&self) -> Pin<Box<dyn Future<Output = Result<(), Error>>>>;
+}
+</example>
+
+## Best Practices
+1. Use appropriate runtime
+2. Handle cancellation properly
+3. Implement proper timeouts
+4. Manage async resources
+5. Use proper traits
+6. Handle errors correctly
+7. Document async boundaries
+8. Profile async code
+9. Test async flows
+10. Follow async patterns
+
+## Technical Metadata
+- Category: Rust Async
+- Priority: High
+- Dependencies:
+  - tokio = { version = "1.0", features = ["full"] }
+  - futures = "0.3"
+  - async-trait = "0.1"
+  - tokio-util = "0.7"
+- Validation Requirements:
+  - Async safety
+  - Runtime configuration
+  - Resource management
+
+<version>1.0</version> 

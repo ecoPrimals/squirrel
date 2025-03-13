@@ -1,0 +1,210 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for generic code and trait implementations in Rust, focusing on type safety, code reuse, and performance
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1006-rust-performance.mdc
+  - 1009-rust-code-style.mdc
+---
+# Rust Generics and Traits Standards
+
+## Context
+- When implementing generic types
+- When defining trait bounds
+- When implementing traits
+- When using associated types
+- When working with type parameters
+- When implementing marker traits
+- When using trait objects
+- When defining trait hierarchies
+
+## Requirements
+
+### Generic Type Implementation
+- Use meaningful type parameters
+- Implement proper bounds
+- Use appropriate constraints
+- Document type requirements
+- Implement proper defaults
+- Use appropriate lifetimes
+- Follow generic patterns
+- Document generic constraints
+
+### Trait Design
+- Use appropriate trait bounds
+- Implement proper defaults
+- Use associated types wisely
+- Document trait requirements
+- Implement marker traits
+- Use appropriate trait objects
+- Follow trait patterns
+- Document trait hierarchies
+
+## Examples
+
+<example>
+// Good: Well-structured generic and trait implementations
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::ops::Add;
+
+// Good: Generic type with meaningful constraints
+#[derive(Debug, Clone)]
+pub struct DataContainer<T, U>
+where
+    T: Clone + Debug + Send + Sync + 'static,
+    U: Add<Output = U> + Copy + Default,
+{
+    data: Vec<T>,
+    metadata: U,
+}
+
+impl<T, U> DataContainer<T, U>
+where
+    T: Clone + Debug + Send + Sync + 'static,
+    U: Add<Output = U> + Copy + Default,
+{
+    pub fn new() -> Self {
+        Self {
+            data: Vec::new(),
+            metadata: U::default(),
+        }
+    }
+
+    pub fn add_data(&mut self, item: T) {
+        self.data.push(item);
+    }
+}
+
+// Good: Trait with associated types
+pub trait DataProcessor {
+    type Input: Clone;
+    type Output: Debug;
+    type Error: std::error::Error;
+
+    fn process(&self, input: Self::Input) -> Result<Self::Output, Self::Error>;
+    
+    fn validate(&self, input: &Self::Input) -> bool {
+        true // Default implementation
+    }
+}
+
+// Good: Generic trait implementation
+impl<T, U> DataProcessor for DataContainer<T, U>
+where
+    T: Clone + Debug + Send + Sync + 'static,
+    U: Add<Output = U> + Copy + Default,
+{
+    type Input = T;
+    type Output = Vec<T>;
+    type Error = ProcessError;
+
+    fn process(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+        let mut result = self.data.clone();
+        result.push(input);
+        Ok(result)
+    }
+}
+
+// Good: Marker trait usage
+pub trait Processable: Clone + Debug {}
+
+// Good: Trait object usage
+pub struct ProcessorRegistry {
+    processors: Vec<Box<dyn DataProcessor<Output = String>>>,
+}
+
+impl ProcessorRegistry {
+    pub fn register<P>(&mut self, processor: P)
+    where
+        P: DataProcessor<Output = String> + 'static,
+    {
+        self.processors.push(Box::new(processor));
+    }
+}
+
+// Good: Bounded type parameters
+pub fn process_data<T, P>(data: T, processor: &P) -> Result<P::Output, P::Error>
+where
+    T: Clone,
+    P: DataProcessor<Input = T>,
+{
+    if processor.validate(&data) {
+        processor.process(data)
+    } else {
+        Err(ProcessError::ValidationFailed)
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor generic implementation
+struct BadGeneric<T> {
+    data: Vec<T>,
+}
+
+impl<T> BadGeneric<T> {
+    // Bad: No constraints
+    fn process(&self) {
+        // No bounds specified
+        // No error handling
+        // No validation
+    }
+}
+
+// Bad: Trait without associated types
+trait BadProcessor {
+    // Bad: Concrete types instead of associated types
+    fn process(&self, input: String) -> Vec<u8>;
+}
+
+// Bad: Unnecessary trait bounds
+trait OverConstrained: Clone + Debug + Default + Hash + Send + Sync {
+    // Too many constraints
+    // Not all are necessary
+    fn do_something(&self);
+}
+
+// Bad: Poor trait object usage
+struct BadRegistry {
+    // Bad: Concrete type instead of trait object
+    processors: Vec<String>,
+}
+
+// Bad: Trait without proper bounds
+trait Unbounded {
+    // Bad: No bounds specified
+    // No associated types
+    // No default implementations
+    fn process(&self);
+}
+</example>
+
+## Best Practices
+1. Use meaningful type parameters
+2. Implement proper bounds
+3. Use associated types
+4. Document constraints
+5. Use marker traits
+6. Handle trait objects
+7. Follow trait patterns
+8. Document hierarchies
+9. Use proper generics
+10. Validate constraints
+
+## Technical Metadata
+- Category: Rust Generics and Traits
+- Priority: High
+- Dependencies:
+  - None (standard library features)
+- Validation Requirements:
+  - Type safety
+  - Trait bounds
+  - Generic constraints
+
+<version>1.0</version> 

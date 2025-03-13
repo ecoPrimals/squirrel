@@ -1,0 +1,108 @@
+---
+description: ENFORCE consistent code style and formatting standards across JavaScript, TypeScript, CSS, and SCSS files
+globs: ["**/*.js", "**/*.ts", "**/*.css", "**/*.scss"]
+crossRefs:
+  - 001-rule-generator.mdc
+  - 002-rule-organization.mdc
+  - 400-md-docs.mdc
+alwaysApply: true
+---
+
+# Code Style Standards
+
+## Context
+- When writing or modifying JavaScript/TypeScript code
+- When creating or updating CSS/SCSS styles
+- When reviewing code for style consistency
+- When implementing new features
+- When refactoring existing code
+
+## Requirements
+- Use 2 spaces for indentation
+- Max line length: 80 characters
+- Use const by default, let when needed
+- Use arrow functions instead of function declarations
+- Use explicit TypeScript types, avoid 'any'
+- Use rem/em/% units in CSS, avoid px
+- Use BEM methodology for CSS class names
+- Use PascalCase for components, camelCase for functions/variables
+- Include JSDoc for public functions
+- End files with newline
+- Use semicolons
+- Single quotes for strings
+- No trailing whitespace
+
+## Examples
+<example>
+// Good: Modern JavaScript/TypeScript
+const getUserData = async (userId: string): Promise<UserData> => {
+  try {
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+  } catch (error) {
+    throw new ApiError('Failed to fetch user data');
+  }
+};
+</example>
+
+<example type="invalid">
+// Bad: Legacy style
+var data = null;
+function get_user(id) {
+  var result = api.get('/users/'+id);
+  return result;
+}
+</example>
+
+<example>
+// Good: BEM CSS
+.header {
+  padding: 1.25rem;
+}
+.header__nav {
+  background: #000;
+}
+.header__nav--dark {
+  color: white;
+}
+</example>
+
+<example type="invalid">
+// Bad: Non-BEM CSS
+.header {
+  padding: 20px;
+}
+.nav {
+  background: #000;
+}
+.nav-dark {
+  color: white;
+}
+</example>
+
+## Best Practices
+1. Use consistent naming conventions
+2. Follow language-specific best practices
+3. Implement proper error handling
+4. Use appropriate design patterns
+5. Write self-documenting code
+6. Follow SOLID principles
+7. Keep functions small and focused
+8. Use meaningful variable names
+9. Write comprehensive documentation
+10. Follow team coding standards
+
+## Technical Metadata
+- Category: Code Style
+- Priority: High
+- Dependencies:
+  - ESLint configuration
+  - Prettier configuration
+  - TypeScript configuration
+  - SCSS linting rules
+- Validation Requirements:
+  - Code formatting
+  - Style consistency
+  - Documentation standards
+
+<version>1.1.0</version> 

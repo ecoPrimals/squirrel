@@ -1,0 +1,199 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE proper CLI application design and implementation practices in Rust
+globs: ["**/*.rs"]
+crossRefs:
+  - 1012-rust-logging-monitoring.mdc
+  - 1009-rust-error-handling.mdc
+  - 1011-rust-dependencies.mdc
+---
+
+# Rust CLI Standards
+
+## Context
+- When designing CLI applications
+- When implementing command-line interfaces
+- When handling user input
+- When managing CLI state
+
+## Requirements
+- Use appropriate argument parsing
+- Implement proper error handling
+- Use appropriate output formatting
+- Document CLI interface
+- Implement proper help messages
+- Use appropriate exit codes
+- Follow CLI best practices
+- Document command structure
+- Implement proper validation
+- Use appropriate progress indicators
+
+## Examples
+<example>
+// Good: Well-structured CLI application
+use clap::{Parser, Subcommand};
+use console::{style, Term};
+use indicatif::{ProgressBar, ProgressStyle};
+use tracing::{info, error};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Optional name to operate on
+    #[arg(short, long)]
+    name: Option<String>,
+
+    /// Sets a custom config file
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Process data with specific options
+    Process {
+        #[arg(short, long)]
+        input: PathBuf,
+        
+        #[arg(short, long)]
+        output: PathBuf,
+        
+        #[arg(short, long, default_value = "default")]
+        format: String,
+    },
+}
+
+impl Cli {
+    pub fn run() -> Result<(), Error> {
+        let cli = Self::parse();
+        
+        // Set up logging
+        tracing_subscriber::fmt::init();
+        
+        info!("Starting CLI application");
+        
+        match &cli.command {
+            Some(Commands::Process { input, output, format }) => {
+                let pb = ProgressBar::new_spinner();
+                pb.set_style(
+                    ProgressStyle::default_spinner()
+                        .template("{spinner:.green} {msg}")
+                        .unwrap()
+                );
+                
+                pb.set_message("Processing data...");
+                
+                match process_data(input, output, format) {
+                    Ok(_) => {
+                        pb.finish_with_message("Processing complete!");
+                        println!("{}", style("Success!").green());
+                        Ok(())
+                    }
+                    Err(e) => {
+                        pb.finish_with_message("Processing failed!");
+                        error!(?e, "Failed to process data");
+                        Err(e)
+                    }
+                }
+            }
+            None => {
+                println!("No command specified");
+                Ok(())
+            }
+        }
+    }
+}
+
+// Good: Error handling for CLI
+#[derive(Debug, thiserror::Error)]
+pub enum CliError {
+    #[error("Failed to read input file: {0}")]
+    InputError(#[from] std::io::Error),
+    
+    #[error("Invalid format: {0}")]
+    FormatError(String),
+    
+    #[error("Processing error: {0}")]
+    ProcessError(String),
+}
+</example>
+
+<example type="invalid">
+// Bad: Poor CLI implementation
+fn main() {
+    // Bad: Manual argument parsing
+    let args: Vec<String> = std::env::args().collect();
+    
+    // Bad: No proper error handling
+    if args.len() < 2 {
+        println!("Error: not enough arguments");
+        std::process::exit(1);
+    }
+    
+    // Bad: Direct printing without proper formatting
+    println!("Processing...");
+    
+    // Bad: No progress indication
+    match process_data(&args[1]) {
+        Ok(_) => println!("Done"),
+        Err(e) => {
+            println!("Error: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+// Bad: Poor command structure
+fn process_command(cmd: &str) {
+    match cmd {
+        "help" => print_help(),
+        "version" => print_version(),
+        _ => {
+            println!("Unknown command");
+            std::process::exit(1);
+        }
+    }
+}
+
+// Bad: Poor error handling
+fn print_help() {
+    println!("Usage: program [args]");
+    println!("Commands:");
+    println!("  help    - Show this message");
+    println!("  version - Show version");
+}
+</example>
+
+## Best Practices
+1. Use argument parsing
+2. Handle errors properly
+3. Show progress clearly
+4. Document commands
+5. Use color appropriately
+6. Validate input
+7. Show helpful messages
+8. Use proper exit codes
+9. Format output well
+10. Follow CLI patterns
+
+## Technical Metadata
+- Category: Rust CLI
+- Priority: High
+- Dependencies:
+  - clap = "4.0"
+  - indicatif = "0.17"
+  - console = "0.15"
+  - dialoguer = "0.11"
+- Validation Requirements:
+  - Command structure
+  - Error handling
+  - User experience
+
+<version>1.0</version> 

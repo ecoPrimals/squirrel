@@ -1,0 +1,133 @@
+---
+description: ENFORCE proper ownership and borrowing practices in Rust code
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1002-rust-concurrency.mdc
+  - 1008-rust-ownership.mdc
+  - 1009-rust-error-handling.mdc
+alwaysApply: true
+---
+
+# Rust Ownership Standards
+
+## Context
+- When managing memory and resources in Rust code
+- When implementing data structures with complex ownership patterns
+- When working with shared or mutable references
+- When implementing custom types with ownership semantics
+
+## Requirements
+- Follow Rust's ownership rules strictly
+- Use appropriate lifetime annotations
+- Implement proper borrowing patterns
+- Use appropriate reference types
+- Document ownership requirements
+- Follow the principle of least privilege
+- Implement proper Drop traits
+- Use appropriate smart pointers
+- Document lifetime requirements
+- Implement Clone and Copy appropriately
+
+## Examples
+<example>
+// Good: Clear ownership semantics
+#[derive(Debug)]
+pub struct ResourceOwner {
+    data: Vec<String>,
+}
+
+impl ResourceOwner {
+    pub fn new() -> Self {
+        Self {
+            data: Vec::new(),
+        }
+    }
+
+    // Takes ownership of the string
+    pub fn add_data(&mut self, value: String) {
+        self.data.push(value);
+    }
+
+    // Borrows the data immutably
+    pub fn get_data(&self, index: usize) -> Option<&String> {
+        self.data.get(index)
+    }
+
+    // Returns an iterator that borrows the data
+    pub fn iter(&self) -> impl Iterator<Item = &String> {
+        self.data.iter()
+    }
+}
+
+// Good: Lifetime annotations
+pub struct DataView<'a> {
+    data: &'a [String],
+}
+
+impl<'a> DataView<'a> {
+    pub fn new(data: &'a [String]) -> Self {
+        Self { data }
+    }
+
+    pub fn get(&self, index: usize) -> Option<&'a String> {
+        self.data.get(index)
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Unclear ownership semantics
+pub struct BadOwner {
+    data: Vec<String>,
+}
+
+impl BadOwner {
+    // Bad: Returns reference without lifetime annotation
+    pub fn get_data(&self) -> &String {
+        &self.data[0] // Potential panic
+    }
+
+    // Bad: Unnecessary cloning
+    pub fn process_data(&self) -> Vec<String> {
+        self.data.clone() // Wasteful clone
+    }
+}
+
+// Bad: Dangling references
+pub fn create_dangling() -> &String {
+    let s = String::from("hello");
+    &s // Returns reference to dropped value
+}
+
+// Bad: Memory leak
+pub struct LeakyType {
+    data: Box<Vec<String>>, // Unnecessary Box
+}
+</example>
+
+## Best Practices
+1. Use clear ownership patterns
+2. Document lifetime requirements
+3. Minimize unnecessary cloning
+4. Use appropriate references
+5. Implement Drop when needed
+6. Use smart pointers wisely
+7. Document ownership transfer
+8. Follow borrowing rules
+9. Use proper lifetimes
+10. Avoid reference cycles
+
+## Technical Metadata
+- Category: Rust Ownership
+- Priority: High
+- Dependencies:
+  - Rust compiler
+  - Static analysis tools
+  - Memory profilers
+- Validation Requirements:
+  - Ownership correctness
+  - Memory safety
+  - Lifetime validity
+
+<version>1.0</version> 

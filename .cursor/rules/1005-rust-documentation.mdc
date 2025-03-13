@@ -1,0 +1,152 @@
+---
+description: ENFORCE comprehensive and clear documentation practices in Rust code
+globs: ["**/*.rs"]
+crossRefs:
+  - 400-md-docs.mdc
+  - 1001-rust-safety.mdc
+  - 1010-rust-code-style.mdc
+alwaysApply: true
+---
+
+# Rust Documentation Standards
+
+## Context
+- When writing documentation for Rust code
+- When documenting public APIs
+- When writing examples
+- When documenting unsafe code
+- When writing module documentation
+
+## Requirements
+- Document all public APIs
+- Include examples in documentation
+- Document safety requirements for unsafe code
+- Use appropriate documentation attributes
+- Include error handling documentation
+- Document performance characteristics
+- Include version information
+- Document platform-specific behavior
+- Include usage examples
+- Follow documentation style guidelines
+
+## Examples
+<example>
+/// A thread-safe counter that can be safely shared between threads.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use std::thread;
+///
+/// let counter = Arc::new(ThreadSafeCounter::new());
+/// let mut handles = vec![];
+///
+/// for _ in 0..10 {
+///     let counter = Arc::clone(&counter);
+///     handles.push(thread::spawn(move || {
+///         counter.increment();
+///     }));
+/// }
+///
+/// for handle in handles {
+///     handle.join().unwrap();
+/// }
+///
+/// assert_eq!(counter.get_count(), 10);
+/// ```
+///
+/// # Safety
+///
+/// This type is safe to use in concurrent environments as it uses
+/// appropriate synchronization primitives internally.
+///
+/// # Performance
+///
+/// The counter uses an atomic integer for thread-safe operations,
+/// which provides good performance for concurrent access.
+pub struct ThreadSafeCounter {
+    count: AtomicU32,
+}
+
+// Good: Well-documented unsafe code
+/// Performs a low-level memory operation.
+///
+/// # Safety
+///
+/// This function is unsafe because it performs raw pointer arithmetic.
+/// The caller must ensure:
+///
+/// * The pointer is valid and properly aligned
+/// * The memory region is allocated and accessible
+/// * The operation won't cause undefined behavior
+///
+/// # Examples
+///
+/// ```
+/// let mut data = [1, 2, 3, 4];
+/// let ptr = data.as_mut_ptr();
+///
+/// unsafe {
+///     // Safe because we're working with properly allocated memory
+///     process_memory(ptr, data.len());
+/// }
+/// ```
+pub unsafe fn process_memory(ptr: *mut u8, len: usize) {
+    // Implementation
+}
+</example>
+
+<example type="invalid">
+// Bad: Poorly documented code
+pub struct Counter {
+    count: u32,
+}
+
+impl Counter {
+    // Missing documentation
+    pub fn increment(&mut self) {
+        self.count += 1;
+    }
+}
+
+// Bad: Unsafe code without safety documentation
+pub unsafe fn unsafe_operation(ptr: *mut u8) {
+    // No safety requirements documented
+    // No examples provided
+    // Implementation
+}
+
+// Bad: Incomplete documentation
+/// A data structure for storing values
+pub struct DataStore {
+    // Missing field documentation
+    values: Vec<i32>,
+}
+</example>
+
+## Best Practices
+1. Document all public items
+2. Include clear examples
+3. Document safety requirements
+4. Document error conditions
+5. Include performance notes
+6. Document platform specifics
+7. Use proper formatting
+8. Keep docs up to date
+9. Test doc examples
+10. Follow style guidelines
+
+## Technical Metadata
+- Category: Rust Documentation
+- Priority: High
+- Dependencies:
+  - rustdoc
+  - doc-comment = "0.3"
+  - insta = "1.34"
+- Validation Requirements:
+  - Documentation coverage
+  - Example correctness
+  - Style compliance
+
+<version>1.0</version> 

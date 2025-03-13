@@ -1,0 +1,175 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE technical standards for git worktree management, synchronization, and testing in parallel development
+globs: ["**/*.rs", "**/*.toml", ".gitignore", ".git/**/*"]
+crossRefs:
+  - 002-rule-organization.mdc
+  - 005-git-commit-automation.mdc
+  - 009-shell-compatibility.mdc
+alwaysApply: true
+---
+# Git Worktree Technical Standards
+
+## Context
+- When managing multiple parallel development streams
+- When handling worktree synchronization and conflicts
+- When implementing cross-worktree testing
+- When managing worktree-specific dependencies
+- When coordinating multiple Cursor instances
+
+## Requirements
+
+### Directory Structure
+
+
+groundhog/ # Main repository
+├── .git/ # Git directory
+├── .gitignore # Git ignore file
+├── groundhog-worktrees/ # Worktree parent directory
+│ ├── core/ # Core team worktree
+│ ├── mcp/ # MCP team worktree
+│ ├── mcp-tools/ # MCP tools team worktree
+│ ├── ui/ # UI team worktree
+│ ├── specs/ # Specifications team worktree
+│ ├── rules/ # Rules team worktree
+│ ├── reviewer/ # Review team worktree
+│ └── mvp/ # MVP team worktree
+└── src/ # Main source code
+
+### Branch Management
+- Use semantic branch naming:
+  ```
+  feature/[worktree-name]/[dev]
+  bugfix/[worktree-name]/[issue-number]
+  hotfix/[worktree-name]/[issue-number]
+  release/[worktree-name]/[version]
+  ```
+
+### Worktree Creation Sequence
+1. Create branch first:
+   ```bash
+   # PowerShell
+   git branch feature/[worktree-name]/dev
+
+   # Bash/Zsh
+   git branch feature/${worktree_name}/dev
+   ```
+
+2. Add worktree in nested structure:
+   ```bash
+   # PowerShell
+   git worktree add groundhog-worktrees/[worktree-name] feature/[worktree-name]/dev
+
+   # Bash/Zsh
+   git worktree add groundhog-worktrees/${worktree_name} feature/${worktree_name}/dev
+   ```
+
+### Worktree Synchronization
+- Implement proper sync workflow:
+  ```bash
+  # 1. Update main branch
+  git checkout main
+  git pull origin main
+
+  # 2. Update develop
+  git checkout develop
+  git pull origin develop
+  git merge main --no-ff
+
+  # 3. Update feature branches
+  git checkout feature/[worktree-name]/[feature]
+  git merge develop
+  git push origin feature/[worktree-name]/[feature]
+
+  # 4. Sync all worktrees
+  git worktree list | grep "feature/" | while read -r path hash branch; do
+    cd "$path"
+    git merge develop
+  done
+  ```
+
+### Conflict Resolution
+- Handle merge conflicts per worktree:
+  ```bash
+  # 1. Identify conflicting files
+  git status | grep "both modified:"
+
+  # 2. For each conflict:
+  #    - Resolve in primary worktree first
+  #    - Test in isolation
+  #    - Sync resolution to other worktrees
+  ```
+
+### Testing Strategy
+- Implement worktree-specific test suites:
+  ```rust
+  #[cfg(test)]
+  mod tests {
+      #[test]
+      #[cfg(feature = "worktree-ui")]
+      fn test_ui_specific() {
+          // UI-specific tests
+      }
+
+      #[test]
+      #[cfg(feature = "worktree-core")]
+      fn test_core_specific() {
+          // Core-specific tests
+      }
+  }
+  ```
+
+## Examples
+
+<example>
+# Good: Proper worktree creation and sync
+# Create core worktree
+git branch feature/core/dev
+git worktree add groundhog-worktrees/core feature/core/dev
+
+# Sync worktree
+cd groundhog-worktrees/core
+git merge develop
+cargo test --features="worktree-core"
+git commit -m "merge(core): sync with develop"
+</example>
+
+<example type="invalid">
+# Bad: Improper worktree creation
+# Creating worktree without branch
+git worktree add ../core
+# Wrong directory structure
+git worktree add /tmp/core feature/core/dev
+</example>
+
+## Best Practices
+1. Follow nested directory structure
+2. Create branches before worktrees
+3. Maintain independent test suites
+4. Handle conflicts in primary worktree first
+5. Run cross-worktree integration tests
+6. Monitor resource usage across worktrees
+7. Implement proper cleanup for abandoned worktrees
+8. Use worktree-specific CI/CD pipelines
+9. Maintain worktree-specific documentation
+10. Regular dependency audits per worktree
+
+## Technical Metadata
+- Category: Version Control
+- Priority: High
+- Dependencies:
+  - Git 2.25+
+  - Cargo workspaces
+  - Feature flags
+  - CI/CD integration
+- Testing Requirements:
+  - Unit tests per worktree
+  - Integration tests across worktrees
+  - Performance benchmarks
+  - Resource monitoring
+
+<version>1.2.0</version>

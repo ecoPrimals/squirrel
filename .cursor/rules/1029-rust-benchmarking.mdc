@@ -1,0 +1,232 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE best practices for benchmarking and profiling in Rust, focusing on performance measurement, optimization, and analysis
+globs: ["**/*.rs", "**/benches/*.rs", "**/Cargo.toml"]
+crossRefs:
+  - 1006-rust-performance.mdc
+  - 1027-rust-build-workspace.mdc
+  - 1028-rust-cross-platform.mdc
+---
+# Rust Benchmarking Standards
+
+## Context
+- When writing benchmarks
+- When profiling code
+- When measuring performance
+- When optimizing code
+- When comparing implementations
+- When testing scalability
+- When analyzing bottlenecks
+- When documenting performance
+
+## Requirements
+
+### Benchmark Implementation
+- Use appropriate benchmark frameworks
+- Implement proper measurement
+- Use appropriate test data
+- Document benchmark setup
+- Implement proper warmup
+- Use appropriate metrics
+- Follow benchmark patterns
+- Document performance goals
+
+### Profiling and Analysis
+- Use appropriate profiling tools
+- Implement proper instrumentation
+- Use appropriate sampling
+- Document profiling results
+- Implement proper analysis
+- Use appropriate visualization
+- Follow profiling patterns
+- Document optimization opportunities
+
+## Examples
+
+<example>
+// Good: Well-structured benchmark code
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::time::Duration;
+
+// Good: Proper benchmark function
+pub fn fibonacci_benchmark(c: &mut Criterion) {
+    // Good: Configuring benchmark parameters
+    let mut group = c.benchmark_group("fibonacci");
+    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(100);
+    
+    // Good: Multiple input sizes
+    for i in [20, 25, 30].iter() {
+        group.bench_with_input(format!("fib_{}", i), i, |b, i| {
+            b.iter(|| fibonacci(black_box(*i)))
+        });
+    }
+    group.finish();
+}
+
+// Good: Proper benchmark organization
+criterion_group! {
+    name = benches;
+    config = Criterion::default()
+        .with_plots()
+        .sample_size(100)
+        .measurement_time(Duration::from_secs(10));
+    targets = fibonacci_benchmark
+}
+criterion_main!(benches);
+
+// Good: Flamegraph generation
+#[cfg(feature = "flame_it")]
+use flame;
+
+pub fn profile_intensive_operation() {
+    flame::start("intensive_operation");
+    // Operation code here
+    flame::end("intensive_operation");
+    
+    flame::dump_html(&mut std::fs::File::create("flame-graph.html").unwrap()).unwrap();
+}
+
+// Good: Custom measurements
+pub struct CustomBenchmark {
+    iterations: u64,
+    samples: Vec<Duration>,
+}
+
+impl CustomBenchmark {
+    pub fn new(iterations: u64) -> Self {
+        Self {
+            iterations,
+            samples: Vec::with_capacity(iterations as usize),
+        }
+    }
+
+    pub fn bench<F>(&mut self, mut f: F)
+    where
+        F: FnMut(),
+    {
+        for _ in 0..self.iterations {
+            let start = std::time::Instant::now();
+            f();
+            self.samples.push(start.elapsed());
+        }
+    }
+
+    pub fn report(&self) -> BenchReport {
+        let total: Duration = self.samples.iter().sum();
+        let avg = total / self.iterations;
+        let max = self.samples.iter().max().unwrap();
+        let min = self.samples.iter().min().unwrap();
+        
+        BenchReport {
+            average: avg,
+            maximum: *max,
+            minimum: *min,
+            samples: self.iterations,
+        }
+    }
+}
+
+// Good: Cargo.toml benchmark configuration
+/*
+[dev-dependencies]
+criterion = "0.5"
+pprof = { version = "0.12", features = ["flamegraph"] }
+dhat = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+
+[profile.bench]
+debug = true
+*/
+</example>
+
+<example type="invalid">
+// Bad: Poor benchmark implementation
+fn bad_benchmark() {
+    // Bad: Using system time
+    let start = std::time::SystemTime::now();
+    
+    // Bad: No black box to prevent optimization
+    expensive_operation();
+    
+    // Bad: Simple duration measurement
+    let duration = start.elapsed().unwrap();
+    println!("Time: {:?}", duration);
+}
+
+// Bad: Inconsistent measurements
+struct BadBenchmark {
+    // Bad: No proper statistics
+    total_time: Duration,
+    count: u32,
+}
+
+impl BadBenchmark {
+    // Bad: No warmup phase
+    fn run_bench(&mut self) {
+        let start = std::time::Instant::now();
+        // Operation
+        self.total_time += start.elapsed();
+        self.count += 1;
+    }
+    
+    // Bad: Oversimplified reporting
+    fn average(&self) -> Duration {
+        self.total_time / self.count
+    }
+}
+
+// Bad: No proper setup
+fn bad_benchmark_setup() {
+    // Bad: No environment control
+    // Bad: No consistent state
+    // Bad: No proper measurement
+    let result = std::time::Instant::now();
+    expensive_operation();
+    println!("{:?}", result.elapsed());
+}
+
+// Bad: Memory profiling
+fn bad_memory_profile() {
+    // Bad: No proper memory tracking
+    let mut vec = Vec::new();
+    for i in 0..1000 {
+        vec.push(i);
+    }
+    // Bad: No memory usage reporting
+}
+</example>
+
+## Best Practices
+1. Use benchmark frameworks
+2. Implement proper warmup
+3. Use statistical analysis
+4. Control environment
+5. Profile memory usage
+6. Generate flamegraphs
+7. Document methodology
+8. Compare implementations
+9. Use appropriate tools
+10. Report comprehensive results
+
+## Technical Metadata
+- Category: Rust Performance
+- Priority: High
+- Dependencies:
+  - criterion = "0.5"
+  - pprof = "0.12"
+  - dhat = "0.3"
+  - flamegraph = "0.6"
+- Validation Requirements:
+  - Benchmark correctness
+  - Statistical validity
+  - Performance regression
+
+<version>1.0</version> 

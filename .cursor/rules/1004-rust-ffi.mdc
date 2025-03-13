@@ -1,0 +1,149 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: ENFORCE safe and efficient Foreign Function Interface practices in Rust
+globs: ["**/*.rs"]
+crossRefs:
+  - 1001-rust-safety.mdc
+  - 1009-rust-error-handling.mdc
+  - 1012-rust-dependencies.mdc
+---
+
+# Rust FFI Standards
+
+## Context
+- When writing Rust code that interfaces with other languages
+- When creating bindings to C/C++ libraries
+- When exposing Rust code to other languages
+- When working with system calls
+
+## Requirements
+- Use appropriate FFI types and conversions
+- Implement proper memory management
+- Document FFI safety guarantees
+- Use appropriate error handling for FFI calls
+- Follow platform-specific conventions
+- Implement proper lifetime management
+- Use appropriate calling conventions
+- Document FFI interface requirements
+- Implement proper type safety
+- Use appropriate FFI attributes
+
+## Examples
+<example>
+// Good: Safe FFI wrapper
+use std::ffi::{CString, CStr};
+use std::os::raw::c_char;
+
+#[repr(C)]
+pub struct SafeString {
+    ptr: *mut c_char,
+    len: usize,
+}
+
+impl SafeString {
+    pub fn new(s: &str) -> Result<Self, std::ffi::NulError> {
+        let c_string = CString::new(s)?;
+        let ptr = c_string.into_raw();
+        Ok(Self {
+            ptr,
+            len: s.len(),
+        })
+    }
+
+    pub unsafe fn from_raw(ptr: *mut c_char, len: usize) -> Self {
+        Self { ptr, len }
+    }
+}
+
+impl Drop for SafeString {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.ptr.is_null() {
+                let _ = CString::from_raw(self.ptr);
+            }
+        }
+    }
+}
+
+// Good: Safe FFI function wrapper
+#[no_mangle]
+pub extern "C" fn process_string(s: *const c_char) -> *mut c_char {
+    if s.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    unsafe {
+        match CStr::from_ptr(s).to_str() {
+            Ok(s) => {
+                match SafeString::new(s) {
+                    Ok(safe_string) => safe_string.ptr,
+                    Err(_) => std::ptr::null_mut(),
+                }
+            }
+            Err(_) => std::ptr::null_mut(),
+        }
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Unsafe FFI code
+#[no_mangle]
+pub extern "C" fn unsafe_process_string(s: *const c_char) -> *mut c_char {
+    unsafe {
+        // No null checks
+        // No proper memory management
+        // No error handling
+        let input = CStr::from_ptr(s);
+        let result = CString::new(input.to_bytes()).unwrap();
+        result.into_raw()
+    }
+}
+
+// Bad: FFI without proper lifetime management
+pub struct UnsafeFFI {
+    ptr: *mut c_char,
+}
+
+impl UnsafeFFI {
+    pub fn new(s: &str) -> Self {
+        unsafe {
+            let c_string = CString::new(s).unwrap();
+            Self {
+                ptr: c_string.into_raw(),
+            }
+        }
+    }
+    // Missing Drop implementation
+}
+</example>
+
+## Best Practices
+1. Always validate pointers
+2. Implement proper cleanup
+3. Document safety requirements
+4. Use appropriate types
+5. Handle errors properly
+6. Follow platform conventions
+7. Manage lifetimes carefully
+8. Document interface contracts
+9. Test FFI boundaries
+10. Follow FFI conventions
+
+## Technical Metadata
+- Category: Rust FFI
+- Priority: High
+- Dependencies:
+  - libc = "0.2"
+  - bindgen = "0.69"
+  - cbindgen = "0.26"
+- Validation Requirements:
+  - Memory safety
+  - Type safety
+  - Platform compatibility
+
+<version>1.0</version> 
