@@ -1,112 +1,57 @@
-[package]
-name = "squirrel"
+[workspace]
+resolver = "2"
+members = [
+    "crates/core"
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["DataScienceBioLab"]
 description = "A modular and maintainable Rust project"
 
 # Linting configuration for development
-[lints.rust]
+[workspace.lints.rust]
 missing_docs = "allow"
 missing_debug_implementations = "allow"
 missing_copy_implementations = "allow"
 dead_code = "allow"
 
-[lints.clippy]
+[workspace.lints.clippy]
 all = "warn"
-pedantic = "allow"
-nursery = "allow"
+pedantic = "warn"
+nursery = "warn"
 cargo = "allow"
 complexity = "allow"
 perf = "warn"
 style = "warn"
 suspicious = "warn"
 
-[dependencies]
+[workspace.dependencies]
 # Core dependencies
-tokio = { version = "1.36", features = ["full"], optional = true }
-futures = { version = "0.3", optional = true }
-async-trait = { version = "0.1", optional = true }
+tokio = { version = "1.36", features = ["full"] }
+futures = { version = "0.3" }
+async-trait = { version = "0.1" }
 thiserror = "1.0"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-
-# Compression dependencies
-flate2 = "1.0"
-zstd = "0.13"
-lz4 = "1.24"
-sysinfo = "0.30"
-
-# UI dependencies
-crossbeam-channel = "0.5"
-derive_more = "0.99"
+sled = "0.34"
 
 # Monitoring and logging
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", optional = true }
-log = { version = "0.4", optional = true }
-env_logger = { version = "0.11", optional = true }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }
 
 # MCP dependencies
-bytes = { version = "1.5", optional = true }
-futures-util = { version = "0.3", optional = true }
-tokio-util = { version = "0.7", features = ["codec"], optional = true }
-tower = { version = "0.4", optional = true }
-tower-http = { version = "0.5", features = ["trace"], optional = true }
-hyper = { version = "1.1", features = ["full"], optional = true }
-
-# Security dependencies
-ring = { version = "0.17", optional = true }
-bcrypt = { version = "0.15", optional = true }
-jwt = { version = "0.16", optional = true }
-argon2 = { version = "0.5", optional = true }
-
-# Data management
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"], optional = true }
-redis = { version = "0.24", features = ["tokio-comp"], optional = true }
-sled = { version = "0.34", optional = true }
-
-# UI dependencies
-ratatui = { version = "0.26", features = ["crossterm"], optional = true }
-crossterm = { version = "0.27", features = ["event-stream"], optional = true }
-egui = { version = "0.26", optional = true }
-eframe = { version = "0.26", optional = true }
-egui-wgpu = { version = "0.26", optional = true }
-wgpu = { version = "0.19", optional = true }
+bytes = { version = "1.5" }
+futures-util = { version = "0.3" }
+tokio-util = { version = "0.7", features = ["codec"] }
 
 # Testing dependencies
 tokio-test = "0.4"
 mockall = "0.12"
 criterion = "0.5"
-test-log = "0.2"
-
-[dev-dependencies]
-tokio-test = "0.4"
-mockall = "0.12"
-criterion = "0.5"
-test-log = "0.2"
 insta = "1.36"
-snapbox = "0.5"
-
-[features]
-default = ["truecolor"]
-truecolor = []
-ui = ["ratatui", "crossterm"]
-async = ["tokio", "futures", "async-trait"]
-monitoring = ["tracing", "tracing-subscriber", "log", "env_logger"]
-mcp = ["bytes", "futures-util", "tokio-util", "tower", "tower-http", "hyper"]
-security = ["ring", "bcrypt", "jwt", "argon2"]
-data = ["sqlx", "redis", "sled"]
-gui = ["egui", "eframe", "egui-wgpu", "wgpu"]
-full = ["ui", "async", "monitoring", "mcp", "security", "data", "gui"]
-
-[[bin]]
-name = "squirrel"
-path = "src/main.rs"
-
-[lib]
-name = "squirrel"
-path = "src/lib.rs" 
+snapbox = "0.5" 

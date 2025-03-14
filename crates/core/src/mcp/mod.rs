@@ -1,49 +1,73 @@
-mod protocol;
-mod port_manager;
-mod security_manager;
-mod error;
-mod state_manager;
-mod context_manager;
-mod message_handler;
-mod connection_manager;
+//! MCP (Machine Context Protocol) module
+//!
+//! This module implements the core functionality for the Machine Context Protocol.
 
-pub use protocol::{
-    MCPMessage,
-    MessageType,
-    ProtocolVersion,
-    ProtocolHeader,
-    SecurityLevel,
-    SecurityMetadata,
-    MCPProtocol,
-};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use serde::{Serialize, Deserialize};
+use thiserror::Error;
 
-pub use port_manager::{
-    PortManager,
-    PortConfig,
-    PortState,
-    PortStatus,
-    PortMetrics,
-    PortAccessControl,
-};
+/// Error type for MCP operations
+#[derive(Debug, Error)]
+pub enum MCPError {
+    /// Lock acquisition failed
+    #[error("Failed to acquire lock: {0}")]
+    LockError(String),
+}
 
-pub use security_manager::{
-    SecurityManager,
-    KeyInfo,
-    PermissionInfo,
-};
+/// A Result type alias for MCP operations
+pub type Result<T> = std::result::Result<T, MCPError>;
 
-pub use error::{
-    MCPError,
-    PortErrorKind,
-    SecurityError,
-    ConnectionError,
-    ProtocolError,
-    ErrorContext,
-    ErrorSeverity,
-    ErrorHandler,
-};
+/// Configuration for the MCP system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MCPConfig {
+    /// The protocol version
+    pub version: String,
+    /// Maximum message size in bytes
+    pub max_message_size: u64,
+    /// Timeout in milliseconds
+    pub timeout_ms: u64,
+}
 
-pub use state_manager::{StateManager, StateError, State, StateTransition};
-pub use context_manager::{ContextManager, ContextError, Context, ContextValidation};
-pub use message_handler::{MessageHandler, MessageHandlerError, MessageHandlerConfig};
-pub use connection_manager::{ConnectionManager, ConnectionConfig, Connection}; 
+/// The main MCP system controller
+pub struct MCP {
+    /// The MCP configuration, wrapped in a thread-safe read-write lock
+    config: Arc<RwLock<MCPConfig>>,
+}
+
+impl MCP {
+    /// Creates a new MCP instance with the specified configuration
+    #[must_use]
+    pub fn new(config: MCPConfig) -> Self {
+        Self {
+            config: Arc::new(RwLock::new(config)),
+        }
+    }
+
+    /// Gets the current configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns a `MCPError::LockError` if the configuration lock cannot be acquired
+    #[must_use = "This returns the current MCP configuration which may be needed for further operations"]
+    pub async fn get_config(&self) -> Result<MCPConfig> {
+        let config = self.config.read().await;
+        Ok(config.clone())
+    }
+}
+
+impl Default for MCPConfig {
+    fn default() -> Self {
+        Self {
+            version: "1.0".to_string(),
+            max_message_size: 1024 * 1024 * 10, // 10MB
+            timeout_ms: 30000, // 30 seconds
+        }
+    }
+}
+
+impl Default for MCP {
+    fn default() -> Self {
+        Self::new(MCPConfig::default())
+    }
+} 
