@@ -106,10 +106,10 @@ impl LogCollector {
     /// Create a new log entry
     pub async fn log(
         &self,
-        level: LogLevel,
-        target: &str,
-        message: &str,
-        attributes: Option<serde_json::Value>,
+        _level: LogLevel,
+        _target: &str,
+        _message: &str,
+        _attributes: Option<serde_json::Value>,
     ) -> Result<(), LogError> {
         // TODO: Implement log creation
         Ok(())
@@ -118,9 +118,9 @@ impl LogCollector {
     /// Query logs
     pub async fn query_logs(
         &self,
-        filter: Option<serde_json::Value>,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        _filter: Option<serde_json::Value>,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
     ) -> Result<Vec<Log>, LogError> {
         // TODO: Implement log querying
         Ok(vec![])
@@ -141,8 +141,8 @@ impl LogExporter {
     /// Export logs
     pub async fn export_logs(
         &self,
-        format: &str,
-        filter: Option<serde_json::Value>,
+        _format: &str,
+        _filter: Option<serde_json::Value>,
     ) -> Result<Vec<u8>, LogError> {
         // TODO: Implement log export
         Ok(vec![])

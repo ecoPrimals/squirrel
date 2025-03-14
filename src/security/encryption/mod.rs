@@ -1,54 +1,49 @@
 //! Encryption module for Squirrel
 //!
-//! This module provides encryption functionality including symmetric and asymmetric
-//! encryption, key management, and secure storage.
+//! This module provides encryption functionality including key management,
+//! encryption/decryption operations, and secure storage.
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use async_trait::async_trait;
+use crate::core::error::types::{Result, SquirrelError};
+use std::future::Future;
+use std::pin::Pin;
 
-/// Encryption provider trait
-pub trait EncryptionProvider: Send + Sync {
+/// Base encryption provider trait
+pub trait EncryptionProviderAsync: Send + Sync {
     /// Encrypt data
-    async fn encrypt(&self, data: &[u8], key_id: &str) -> Result<Vec<u8>, EncryptionError>;
+    fn encrypt<'a>(&'a self, data: &'a [u8], key: &'a EncryptionKey) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, EncryptionError>> + Send + 'a>>;
     
     /// Decrypt data
-    async fn decrypt(&self, data: &[u8], key_id: &str) -> Result<Vec<u8>, EncryptionError>;
+    fn decrypt<'a>(&'a self, data: &'a [u8], key: &'a EncryptionKey) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, EncryptionError>> + Send + 'a>>;
     
-    /// Generate a new key
-    async fn generate_key(&self, key_type: KeyType) -> Result<Key, EncryptionError>;
+    /// Generate a new encryption key
+    fn generate_key<'a>(&'a self, key_type: KeyType) -> Pin<Box<dyn Future<Output = Result<EncryptionKey, EncryptionError>> + Send + 'a>>;
     
-    /// Import a key
-    async fn import_key(&self, key_data: &[u8], key_type: KeyType) -> Result<Key, EncryptionError>;
+    /// Import an existing encryption key
+    fn import_key<'a>(&'a self, key_data: &'a [u8], key_type: KeyType) -> Pin<Box<dyn Future<Output = Result<EncryptionKey, EncryptionError>> + Send + 'a>>;
 }
 
-/// Key types supported by the encryption system
-#[derive(Debug, Clone, Copy)]
+pub trait EncryptionProvider: Send + Sync {
+    fn as_async(&self) -> &dyn EncryptionProviderAsync;
+}
+
+/// Encryption key types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyType {
-    /// Symmetric key for AES encryption
-    Symmetric,
-    
-    /// Asymmetric key pair for RSA encryption
-    Asymmetric,
-    
-    /// Key for HMAC operations
-    Hmac,
+    Aes256,
+    Rsa2048,
+    Rsa4096,
+    Ed25519,
 }
 
 /// Encryption key
 #[derive(Debug, Clone)]
-pub struct Key {
-    pub id: String,
+pub struct EncryptionKey {
     pub key_type: KeyType,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-/// Encryption configuration
-#[derive(Debug, Clone)]
-pub struct EncryptionConfig {
-    pub default_key_type: KeyType,
-    pub key_rotation_period: chrono::Duration,
-    pub max_keys_per_type: u32,
+    pub key_id: String,
+    pub key_data: Vec<u8>,
 }
 
 /// Encryption error types
@@ -57,17 +52,11 @@ pub enum EncryptionError {
     #[error("Invalid key")]
     InvalidKey,
     
-    #[error("Key expired")]
-    KeyExpired,
+    #[error("Invalid data")]
+    InvalidData,
     
-    #[error("Encryption failed")]
-    EncryptionFailed,
-    
-    #[error("Decryption failed")]
-    DecryptionFailed,
-    
-    #[error("Key generation failed")]
-    KeyGenerationFailed,
+    #[error("Unsupported key type")]
+    UnsupportedKeyType,
     
     #[error("Provider error: {0}")]
     Provider(String),
@@ -76,33 +65,32 @@ pub enum EncryptionError {
 /// Encryption service
 pub struct Encryption {
     provider: Arc<dyn EncryptionProvider>,
-    config: EncryptionConfig,
 }
 
 impl Encryption {
     /// Create a new encryption service
-    pub fn new(provider: Arc<dyn EncryptionProvider>, config: EncryptionConfig) -> Self {
-        Self { provider, config }
+    pub fn new(provider: Arc<dyn EncryptionProvider>) -> Self {
+        Self { provider }
     }
     
     /// Encrypt data
-    pub async fn encrypt(&self, data: &[u8], key_id: &str) -> Result<Vec<u8>, EncryptionError> {
-        self.provider.encrypt(data, key_id).await
+    pub async fn encrypt(&self, data: &[u8], key: &EncryptionKey) -> Result<Vec<u8>, EncryptionError> {
+        self.provider.as_async().encrypt(data, key).await
     }
     
     /// Decrypt data
-    pub async fn decrypt(&self, data: &[u8], key_id: &str) -> Result<Vec<u8>, EncryptionError> {
-        self.provider.decrypt(data, key_id).await
+    pub async fn decrypt(&self, data: &[u8], key: &EncryptionKey) -> Result<Vec<u8>, EncryptionError> {
+        self.provider.as_async().decrypt(data, key).await
     }
     
-    /// Generate a new key
-    pub async fn generate_key(&self, key_type: KeyType) -> Result<Key, EncryptionError> {
-        self.provider.generate_key(key_type).await
+    /// Generate a new encryption key
+    pub async fn generate_key(&self, key_type: KeyType) -> Result<EncryptionKey, EncryptionError> {
+        self.provider.as_async().generate_key(key_type).await
     }
     
-    /// Import a key
-    pub async fn import_key(&self, key_data: &[u8], key_type: KeyType) -> Result<Key, EncryptionError> {
-        self.provider.import_key(key_data, key_type).await
+    /// Import an existing encryption key
+    pub async fn import_key(&self, key_data: &[u8], key_type: KeyType) -> Result<EncryptionKey, EncryptionError> {
+        self.provider.as_async().import_key(key_data, key_type).await
     }
 }
 

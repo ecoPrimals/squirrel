@@ -138,7 +138,7 @@ impl MetricCollector {
     }
     
     /// Update a metric value
-    pub async fn update_metric(&self, metric: &mut Metric, value: MetricValue) -> Result<(), MetricError> {
+    pub async fn update_metric(&self, _metric: &mut Metric, _value: MetricValue) -> Result<(), MetricError> {
         // TODO: Implement metric update
         Ok(())
     }
@@ -146,9 +146,9 @@ impl MetricCollector {
     /// Query metrics
     pub async fn query_metrics(
         &self,
-        filter: Option<serde_json::Value>,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        _filter: Option<serde_json::Value>,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
     ) -> Result<Vec<Metric>, MetricError> {
         // TODO: Implement metric querying
         Ok(vec![])
@@ -169,8 +169,8 @@ impl MetricExporter {
     /// Export metrics
     pub async fn export_metrics(
         &self,
-        format: &str,
-        filter: Option<serde_json::Value>,
+        _format: &str,
+        _filter: Option<serde_json::Value>,
     ) -> Result<Vec<u8>, MetricError> {
         // TODO: Implement metric export
         Ok(vec![])

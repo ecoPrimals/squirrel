@@ -127,13 +127,13 @@ impl TraceCollector {
     }
     
     /// End a span
-    pub async fn end_span(&self, span: &mut Span, status: SpanStatus) -> Result<(), TraceError> {
+    pub async fn end_span(&self, _span: &mut Span, _status: SpanStatus) -> Result<(), TraceError> {
         // TODO: Implement span ending
         Ok(())
     }
     
     /// Record a span event
-    pub async fn record_event(&self, span: &mut Span, event: SpanEvent) -> Result<(), TraceError> {
+    pub async fn record_event(&self, _span: &mut Span, _event: SpanEvent) -> Result<(), TraceError> {
         // TODO: Implement event recording
         Ok(())
     }
@@ -151,7 +151,7 @@ impl TraceExporter {
     }
     
     /// Export traces
-    pub async fn export_traces(&self, traces: Vec<Vec<Span>>) -> Result<(), TraceError> {
+    pub async fn export_traces(&self, _traces: Vec<Vec<Span>>) -> Result<(), TraceError> {
         // TODO: Implement trace export
         Ok(())
     }

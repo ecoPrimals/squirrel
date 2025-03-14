@@ -4,8 +4,10 @@
 //! It provides a unified error handling approach with custom error types
 //! for different components of the system.
 
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The main error type for the Squirrel project
 #[derive(Debug)]
@@ -23,7 +25,7 @@ pub enum Error {
     /// Serialization errors
     Serialization(serde_json::Error),
     /// Other errors
-    Other(Box<dyn StdError + Send + Sync>),
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Context-specific errors
@@ -127,13 +129,26 @@ impl fmt::Display for MetricsError {
     }
 }
 
-impl StdError for Error {}
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Error::Context(_) => None,
+            Error::Command(_) => None,
+            Error::Event(_) => None,
+            Error::Metrics(_) => None,
+            Error::Io(e) => Some(e),
+            Error::Serialization(e) => Some(e),
+            Error::Other(e) => Some(e.as_ref()),
+        }
+    }
+}
+
 impl StdError for ContextError {}
 impl StdError for CommandError {}
 impl StdError for EventError {}
 impl StdError for MetricsError {}
 
-// Conversion implementations
+// Implement From for specific error types
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Error::Io(err)
@@ -167,5 +182,23 @@ impl From<EventError> for Error {
 impl From<MetricsError> for Error {
     fn from(err: MetricsError) -> Self {
         Error::Metrics(err)
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for Error {
+    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        Error::Other(err)
+    }
+}
+
+impl From<String> for Error {
+    fn from(err: String) -> Self {
+        Error::Other(Box::new(err) as Box<dyn std::error::Error + Send + Sync>)
+    }
+}
+
+impl From<&str> for Error {
+    fn from(err: &str) -> Self {
+        Error::Other(Box::new(err.to_string()) as Box<dyn std::error::Error + Send + Sync>)
     }
 } 

@@ -1,11 +1,18 @@
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, KeyCode};
 use ratatui::{
     layout::{Layout, Constraint, Direction},
     widgets::{Block, Borders, Paragraph, List, ListItem},
-    style::{Style, Modifier, Color},
+    style::{Style, Modifier},
     text::{Line, Span},
     Frame,
 };
+use crate::ui::{Size, Rect};
+use crate::ui::error::UiError;
+use crate::ui::theme::{Theme, Themeable, ColorRole, StyleRole};
+use crate::ui::components::{Component, Resizable};
+use std::sync::{Arc, Mutex};
+use crate::ui::components::{ComponentId, ComponentError};
+use crate::ui::events::Event;
 
 /// Main application component that manages the UI state and rendering.
 pub struct App {
@@ -16,7 +23,13 @@ pub struct App {
     /// List of status indicators displayed in the main area.
     pub indicators: Vec<String>,
     /// List of key bindings displayed at the bottom (key, description).
-    pub bindings: Vec<(String, String)>,
+    pub bindings: Vec<String>,
+    /// Current size of the component
+    size: Size,
+    /// Current theme
+    theme: Theme,
+    id: ComponentId,
+    children: Vec<Arc<Mutex<dyn Component>>>,
 }
 
 impl App {
@@ -25,25 +38,16 @@ impl App {
     /// # Arguments
     ///
     /// * `title` - The title to display at the top of the application
-    pub fn new(title: String) -> App {
-        App {
-            title,
+    pub fn new(id: ComponentId, theme: Theme) -> Self {
+        Self {
+            title: String::new(),
             should_quit: false,
             indicators: Vec::new(),
-            bindings: vec![
-                ("q".to_string(), "Quit".to_string()),
-            ],
-        }
-    }
-
-    /// Handles key events and updates application state.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The key event to process
-    pub fn on_key(&mut self, key: KeyEvent) {
-        if self.should_quit(key) {
-            self.should_quit = true;
+            bindings: Vec::new(),
+            size: Size::new(0, 0),
+            theme,
+            id,
+            children: Vec::new(),
         }
     }
 
@@ -55,73 +59,136 @@ impl App {
     /// # Returns
     /// `true` if the application should quit, `false` otherwise
     fn should_quit(&self, key: KeyEvent) -> bool {
-        matches!(key.code, crossterm::event::KeyCode::Char('q'))
+        matches!(key.code, KeyCode::Char('q'))
     }
 
-    /// Renders the application UI to the given frame.
-    ///
-    /// # Arguments
-    ///
-    /// * `frame` - The frame to render to
-    pub fn render(&self, frame: &mut Frame) {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .margin(1)
-            .constraints(
-                [
-                    Constraint::Length(3),
-                    Constraint::Min(0),
-                    Constraint::Length(3),
-                ]
-                .as_ref(),
-            )
-            .split(frame.size());
+    pub fn add_indicator(&mut self, indicator: String) {
+        self.indicators.push(indicator);
+    }
 
-        // Render title
-        let title = Paragraph::new(Span::styled(
-            &self.title,
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ))
-        .block(Block::default().borders(Borders::ALL));
-        frame.render_widget(title, chunks[0]);
+    pub fn add_binding(&mut self, binding: String) {
+        self.bindings.push(binding);
+    }
 
-        // Render indicators
-        let indicators: Vec<Line> = self.indicators
-            .iter()
-            .map(|s| Line::from(vec![Span::raw(s)]))
-            .collect();
-        let indicators = Paragraph::new(indicators)
-            .block(Block::default().borders(Borders::ALL).title("Status"));
-        frame.render_widget(indicators, chunks[1]);
+    pub fn clear_indicators(&mut self) {
+        self.indicators.clear();
+    }
 
-        // Render bindings
-        let bindings: Vec<ListItem> = self.bindings
-            .iter()
-            .map(|(key, desc)| {
-                ListItem::new(Line::from(vec![
-                    Span::styled(key.clone(), Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw(" - "),
-                    Span::raw(desc.clone()),
-                ]))
-            })
-            .collect();
-        let bindings = List::new(bindings)
-            .block(Block::default().borders(Borders::ALL).title("Bindings"));
-        frame.render_widget(bindings, chunks[2]);
+    pub fn clear_bindings(&mut self) {
+        self.bindings.clear();
+    }
+
+    /// Set whether the app should quit
+    pub fn set_should_quit(&mut self, should_quit: bool) {
+        self.should_quit = should_quit;
+    }
+
+    pub fn add_child(&mut self, component: Box<dyn Component>) {
+        self.children.push(Arc::new(Mutex::new(component)));
+    }
+}
+
+impl Component for App {
+    fn draw(&self, frame: &mut Frame<'_>, area: Rect) -> std::result::Result<(), ComponentError> {
+        for child in &self.children {
+            let child = child.lock().map_err(|e| ComponentError::Lock(e.to_string()))?;
+            child.draw(frame, area)?;
+        }
+        Ok(())
+    }
+
+    fn handle_event(&mut self, event: &dyn Event) -> std::result::Result<(), ComponentError> {
+        for child in &mut self.children {
+            let mut child = child.lock().map_err(|e| ComponentError::Lock(e.to_string()))?;
+            child.handle_event(event)?;
+        }
+        Ok(())
+    }
+
+    fn required_size(&self) -> Size {
+        let mut max_width = 0;
+        let mut max_height = 0;
+        for child in &self.children {
+            if let Ok(child) = child.lock() {
+                let size = child.required_size();
+                max_width = max_width.max(size.width);
+                max_height = max_height.max(size.height);
+            }
+        }
+        Size::new(max_width, max_height)
+    }
+
+    fn id(&self) -> ComponentId {
+        self.id
+    }
+}
+
+impl Themeable for App {
+    fn theme(&self) -> Option<&Theme> {
+        Some(&self.theme)
+    }
+
+    fn theme_mut(&mut self) -> &mut Theme {
+        &mut self.theme
+    }
+
+    fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
+    }
+
+    fn apply_theme(&mut self, theme: &Theme) -> std::result::Result<(), ComponentError> {
+        self.theme = theme.clone();
+        for child in &mut self.children {
+            let mut child = child.lock().map_err(|e| ComponentError::Lock(e.to_string()))?;
+            child.apply_theme(theme)?;
+        }
+        Ok(())
+    }
+
+    fn get_style(&self) -> Style {
+        self.theme.get_style(StyleRole::Default)
+    }
+
+    fn get_color(&self, role: ColorRole) -> ratatui::style::Color {
+        self.theme.get_color(role)
+    }
+}
+
+impl Resizable for App {
+    fn resize(&mut self, size: Size) -> Result<(), UiError> {
+        self.size = size;
+        Ok(())
+    }
+
+    fn resizable(&self) -> bool {
+        true
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crossterm::event::{KeyCode, KeyModifiers};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use crate::ui::theme::Theme;
 
     #[test]
     fn test_should_quit() {
-        let app = App::new("Test App".to_string());
-        assert!(app.should_quit(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty())));
-        assert!(!app.should_quit(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty())));
+        let app = App::new(ComponentId::new("app"), Theme::default());
+        let quit_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::empty());
+        let other_key = KeyEvent::new(KeyCode::Char('x'), KeyModifiers::empty());
+
+        assert!(app.should_quit(quit_key));
+        assert!(!app.should_quit(other_key));
+    }
+
+    #[test]
+    fn test_theme_application() {
+        let mut app = App::new(ComponentId::new("app"), Theme::default());
+        let theme = Theme::default();
+
+        assert!(app.theme().is_none());
+        app.apply_theme(&theme).unwrap();
+        assert!(app.theme().is_some());
+        assert_eq!(app.theme().unwrap().name, "Default");
     }
 } 

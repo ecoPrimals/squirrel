@@ -114,7 +114,7 @@ impl AuditLog {
     }
     
     /// Log an audit event
-    pub async fn log_event(&self, event: AuditEvent) -> Result<(), AuditError> {
+    pub async fn log_event(&self, _event: AuditEvent) -> Result<(), AuditError> {
         // TODO: Implement event logging
         Ok(())
     }
@@ -122,9 +122,9 @@ impl AuditLog {
     /// Query audit events
     pub async fn query_events(
         &self,
-        filter: Option<serde_json::Value>,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        _filter: Option<serde_json::Value>,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
     ) -> Result<Vec<AuditEvent>, AuditError> {
         // TODO: Implement event querying
         Ok(vec![])
@@ -133,8 +133,8 @@ impl AuditLog {
     /// Export audit events
     pub async fn export_events(
         &self,
-        format: &str,
-        filter: Option<serde_json::Value>,
+        _format: &str,
+        _filter: Option<serde_json::Value>,
     ) -> Result<Vec<u8>, AuditError> {
         // TODO: Implement event export
         Ok(vec![])

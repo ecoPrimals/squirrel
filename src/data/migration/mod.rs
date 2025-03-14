@@ -144,13 +144,13 @@ impl MigrationManager {
     }
     
     /// Apply a migration
-    pub async fn apply_migration(&self, id: &str) -> Result<(), MigrationError> {
+    pub async fn apply_migration(&self, _id: &str) -> Result<(), MigrationError> {
         // TODO: Implement migration application
         Ok(())
     }
     
     /// Rollback a migration
-    pub async fn rollback_migration(&self, id: &str) -> Result<(), MigrationError> {
+    pub async fn rollback_migration(&self, _id: &str) -> Result<(), MigrationError> {
         // TODO: Implement migration rollback
         Ok(())
     }
@@ -158,16 +158,16 @@ impl MigrationManager {
     /// List migrations
     pub async fn list_migrations(
         &self,
-        filter: Option<serde_json::Value>,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        _filter: Option<serde_json::Value>,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
     ) -> Result<Vec<Migration>, MigrationError> {
         // TODO: Implement migration listing
         Ok(vec![])
     }
     
     /// Validate a migration
-    pub async fn validate_migration(&self, id: &str) -> Result<bool, MigrationError> {
+    pub async fn validate_migration(&self, _id: &str) -> Result<bool, MigrationError> {
         // TODO: Implement migration validation
         Ok(true)
     }

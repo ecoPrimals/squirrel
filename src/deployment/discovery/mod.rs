@@ -120,31 +120,31 @@ impl ServiceDiscovery {
     }
     
     /// Register a service
-    pub async fn register(&self, registration: ServiceRegistration) -> Result<(), DiscoveryError> {
+    pub async fn register(&self, _registration: ServiceRegistration) -> Result<(), DiscoveryError> {
         // TODO: Implement service registration
         Ok(())
     }
     
     /// Deregister a service
-    pub async fn deregister(&self, service_name: &str) -> Result<(), DiscoveryError> {
+    pub async fn deregister(&self, _service_name: &str) -> Result<(), DiscoveryError> {
         // TODO: Implement service deregistration
         Ok(())
     }
     
     /// Discover a service
-    pub async fn discover(&self, service_name: &str) -> Result<Vec<Endpoint>, DiscoveryError> {
+    pub async fn discover(&self, _service_name: &str) -> Result<Vec<Endpoint>, DiscoveryError> {
         // TODO: Implement service discovery
         Ok(vec![])
     }
     
     /// Update service registration
-    pub async fn update(&self, registration: ServiceRegistration) -> Result<(), DiscoveryError> {
+    pub async fn update(&self, _registration: ServiceRegistration) -> Result<(), DiscoveryError> {
         // TODO: Implement service update
         Ok(())
     }
     
     /// Get service status
-    pub async fn status(&self, service_name: &str) -> Result<ServiceStatus, DiscoveryError> {
+    pub async fn status(&self, _service_name: &str) -> Result<ServiceStatus, DiscoveryError> {
         // TODO: Implement status check
         Ok(ServiceStatus::Unknown)
     }

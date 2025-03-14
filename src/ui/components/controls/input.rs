@@ -26,7 +26,7 @@ pub enum InputError {
 pub type Result<T> = std::result::Result<T, InputError>;
 
 /// Represents different modes of input handling.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
     /// Normal mode for navigation and commands.
     Normal,
@@ -38,7 +38,14 @@ pub enum InputMode {
     Search,
 }
 
+impl Default for InputMode {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 /// Represents a keyboard input event with its associated mode and modifiers.
+#[derive(Debug, Clone)]
 pub struct InputEvent {
     /// The key code of the input event.
     pub code: KeyCode,
@@ -49,6 +56,7 @@ pub struct InputEvent {
 }
 
 /// Represents the result of handling an input event.
+#[derive(Debug, Clone, PartialEq)]
 pub enum InputResult {
     /// The input was handled successfully.
     Handled,
@@ -61,6 +69,7 @@ pub enum InputResult {
 }
 
 /// Handles keyboard input events and manages input state.
+#[derive(Debug)]
 pub struct InputHandler {
     /// The current input mode (normal, insert, command, or search).
     mode: InputMode,
@@ -82,9 +91,10 @@ impl Default for InputHandler {
 
 impl InputHandler {
     /// Creates a new InputHandler with default settings.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            mode: InputMode::Normal,
+            mode: InputMode::default(),
             timeout: Duration::from_millis(100),
             raw_mode: false,
             value: String::new(),
@@ -93,18 +103,24 @@ impl InputHandler {
     }
 
     /// Sets a timeout duration for input operations.
+    #[must_use]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
     /// Sets the initial input mode.
+    #[must_use]
     pub fn with_mode(mut self, mode: InputMode) -> Self {
         self.mode = mode;
         self
     }
 
     /// Enables raw mode for terminal input.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::IoError` if enabling raw mode fails.
     pub fn enable_raw_mode(&mut self) -> Result<()> {
         if !self.raw_mode {
             enable_raw_mode()?;
@@ -114,6 +130,10 @@ impl InputHandler {
     }
 
     /// Disables raw mode for terminal input.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::IoError` if disabling raw mode fails.
     pub fn disable_raw_mode(&mut self) -> Result<()> {
         if self.raw_mode {
             disable_raw_mode()?;
@@ -128,11 +148,17 @@ impl InputHandler {
     }
 
     /// Gets the current input mode.
-    pub fn get_mode(&self) -> InputMode {
+    #[must_use]
+    pub const fn mode(&self) -> InputMode {
         self.mode
     }
 
     /// Waits for a key press with timeout if configured.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::IoError` if reading input fails.
+    /// Returns `InputError::Timeout` if no input is received within the timeout.
     pub fn wait_for_key(&mut self) -> Result<InputEvent> {
         if !self.raw_mode {
             self.enable_raw_mode()?;
@@ -152,6 +178,11 @@ impl InputHandler {
     }
 
     /// Waits for a key press without timeout.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::IoError` if reading input fails.
+    /// Returns `InputError::Timeout` if no key event is received.
     pub fn wait_for_key_blocking(&mut self) -> Result<InputEvent> {
         if !self.raw_mode {
             self.enable_raw_mode()?;
@@ -169,7 +200,8 @@ impl InputHandler {
     }
 
     /// Checks if the given event is a navigation key event.
-    pub fn is_navigation_key(&self, event: &InputEvent) -> bool {
+    #[must_use]
+    pub const fn is_navigation_key(&self, event: &InputEvent) -> bool {
         matches!(
             event.code,
             KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right |
@@ -178,6 +210,7 @@ impl InputHandler {
     }
 
     /// Handles mode changes based on input events.
+    #[must_use]
     pub fn handle_mode_change(&mut self, event: &InputEvent) -> Option<InputMode> {
         match (self.mode, event.code, event.modifiers) {
             (InputMode::Normal, KeyCode::Char('i'), _) => {
@@ -201,6 +234,7 @@ impl InputHandler {
     }
 
     /// Handles an input event and returns the result of the handling.
+    #[must_use]
     pub fn handle_input(&mut self, event: Event) -> InputResult {
         match event {
             Event::Key(key) => match (key.code, key.modifiers) {
@@ -254,66 +288,72 @@ impl InputHandler {
         }
     }
 
-    /// Handles a delete key event by removing the character at the cursor position.
+    /// Handles a delete key event by removing the character at the cursor.
     fn handle_delete(&mut self) {
         if self.cursor_position < self.value.len() {
             self.value.remove(self.cursor_position);
         }
     }
 
-    /// Moves the cursor one position to the left if possible.
+    /// Moves the cursor one position to the left.
     fn handle_left(&mut self) {
         if self.cursor_position > 0 {
             self.cursor_position -= 1;
         }
     }
 
-    /// Moves the cursor one position to the right if possible.
+    /// Moves the cursor one position to the right.
     fn handle_right(&mut self) {
         if self.cursor_position < self.value.len() {
             self.cursor_position += 1;
         }
     }
 
-    /// Moves the cursor to the start of the input field.
+    /// Moves the cursor to the start of the input.
     fn handle_home(&mut self) {
         self.cursor_position = 0;
     }
 
-    /// Moves the cursor to the end of the input field.
+    /// Moves the cursor to the end of the input.
     fn handle_end(&mut self) {
         self.cursor_position = self.value.len();
     }
 
     /// Gets the current input value.
-    pub fn get_value(&self) -> &str {
+    #[must_use]
+    pub fn value(&self) -> &str {
         &self.value
     }
 
     /// Gets the current cursor position.
-    pub fn get_cursor_position(&self) -> usize {
+    #[must_use]
+    pub const fn cursor_position(&self) -> usize {
         self.cursor_position
     }
 
-    /// Clears the current input value.
+    /// Clears the current input value and resets the cursor position.
     pub fn clear(&mut self) {
         self.value.clear();
         self.cursor_position = 0;
     }
 
-    /// Checks if the given key event represents a command key
-    pub fn is_command_key(&self, event: &KeyEvent) -> bool {
-        matches!(event.modifiers, KeyModifiers::CONTROL)
+    /// Checks if the given key event is a command key.
+    #[must_use]
+    pub const fn is_command_key(&self, event: &KeyEvent) -> bool {
+        event.modifiers.contains(KeyModifiers::CONTROL)
     }
 }
 
 impl Drop for InputHandler {
     fn drop(&mut self) {
-        let _ = self.disable_raw_mode();
+        if self.raw_mode {
+            let _ = disable_raw_mode();
+        }
     }
 }
 
 /// Represents an input field in the UI.
+#[derive(Debug, Clone)]
 pub struct Field {
     /// The label text displayed next to the input field.
     label: String,
@@ -329,6 +369,7 @@ pub struct Field {
 
 impl Field {
     /// Creates a new input field with the given label.
+    #[must_use]
     pub fn new(label: &str) -> Self {
         Self {
             label: label.to_string(),
@@ -340,6 +381,7 @@ impl Field {
     }
 
     /// Creates a new password input field with the given label.
+    #[must_use]
     pub fn new_password(label: &str) -> Self {
         Self {
             label: label.to_string(),
@@ -350,41 +392,42 @@ impl Field {
         }
     }
 
-    /// Gets the label of the field.
+    /// Gets the field's label.
+    #[must_use]
     pub fn label(&self) -> &str {
         &self.label
     }
 
-    /// Sets the position of the input field.
+    /// Sets the field's position in the UI.
     pub fn set_position(&mut self, x: u16, y: u16) {
         self.position = Position::new(x, y);
     }
 
-    /// Gets the current value of the input field.
+    /// Gets the field's current value.
     #[must_use]
     pub fn value(&self) -> &str {
         &self.value
     }
 
-    /// Sets the value of the input field.
+    /// Sets the field's value.
     pub fn set_value(&mut self, value: &str) {
         self.value = value.to_string();
     }
 
-    /// Sets the focus state of the input field.
+    /// Sets whether the field has focus.
     pub fn set_focus(&mut self, focused: bool) {
         self.is_focused = focused;
     }
 
-    /// Returns whether the input field is focused.
+    /// Returns whether the field has focus.
     #[must_use]
-    pub fn is_focused(&self) -> bool {
+    pub const fn is_focused(&self) -> bool {
         self.is_focused
     }
 
-    /// Returns whether the input field is a password field.
+    /// Returns whether the field is a password field.
     #[must_use]
-    pub fn is_password(&self) -> bool {
+    pub const fn is_password(&self) -> bool {
         self.is_password
     }
 }
@@ -396,91 +439,86 @@ mod tests {
     #[test]
     fn test_input_mode_changes() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.get_mode(), InputMode::Normal);
+        assert_eq!(handler.mode(), InputMode::Normal);
 
         handler.set_mode(InputMode::Insert);
-        assert_eq!(handler.get_mode(), InputMode::Insert);
+        assert_eq!(handler.mode(), InputMode::Insert);
 
         handler.set_mode(InputMode::Command);
-        assert_eq!(handler.get_mode(), InputMode::Command);
+        assert_eq!(handler.mode(), InputMode::Command);
 
         handler.set_mode(InputMode::Search);
-        assert_eq!(handler.get_mode(), InputMode::Search);
+        assert_eq!(handler.mode(), InputMode::Search);
     }
 
     #[test]
     fn test_command_key_detection() {
         let handler = InputHandler::new();
-        
-        let ctrl_c = KeyEvent::new(
-            KeyCode::Char('c'),
-            KeyModifiers::CONTROL,
-        );
-        assert!(handler.is_command_key(&ctrl_c));
+        let event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert!(handler.is_command_key(&event));
 
-        let normal_key = KeyEvent::new(
-            KeyCode::Char('a'),
-            KeyModifiers::NONE,
-        );
-        assert!(!handler.is_command_key(&normal_key));
+        let event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE);
+        assert!(!handler.is_command_key(&event));
     }
 
     #[test]
     fn test_navigation_key_detection() {
         let handler = InputHandler::new();
-        
-        let up_key = InputEvent {
+        let event = InputEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
             mode: InputMode::Normal,
         };
-        assert!(handler.is_navigation_key(&up_key));
+        assert!(handler.is_navigation_key(&event));
 
-        let normal_key = InputEvent {
-            code: KeyCode::Char('a'),
+        let event = InputEvent {
+            code: KeyCode::Char('x'),
             modifiers: KeyModifiers::NONE,
             mode: InputMode::Normal,
         };
-        assert!(!handler.is_navigation_key(&normal_key));
+        assert!(!handler.is_navigation_key(&event));
     }
 
     #[test]
     fn test_mode_change_handling() {
         let mut handler = InputHandler::new();
-        
-        let insert_key = InputEvent {
+        let event = InputEvent {
             code: KeyCode::Char('i'),
             modifiers: KeyModifiers::NONE,
             mode: InputMode::Normal,
         };
-        assert_eq!(handler.handle_mode_change(&insert_key), Some(InputMode::Insert));
+        assert_eq!(handler.handle_mode_change(&event), Some(InputMode::Insert));
 
-        let esc_key = InputEvent {
+        let event = InputEvent {
             code: KeyCode::Esc,
             modifiers: KeyModifiers::NONE,
             mode: InputMode::Insert,
         };
-        assert_eq!(handler.handle_mode_change(&esc_key), Some(InputMode::Normal));
+        assert_eq!(handler.handle_mode_change(&event), Some(InputMode::Normal));
     }
 
     #[test]
     fn test_key_handling() {
-        let handler = InputHandler::new();
-        let normal_key = KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE);
-        let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
-        
-        assert!(handler.is_command_key(&ctrl_c));
-        assert!(!handler.is_command_key(&normal_key));
+        let mut handler = InputHandler::new();
+        handler.handle_char('a');
+        assert_eq!(handler.value(), "a");
+        assert_eq!(handler.cursor_position(), 1);
+
+        handler.handle_backspace();
+        assert_eq!(handler.value(), "");
+        assert_eq!(handler.cursor_position(), 0);
     }
 
     #[test]
     fn test_input_handling() {
-        let _handler = InputHandler::new();
-        let _normal_input = InputEvent {
-            code: KeyCode::Char('a'),
-            modifiers: KeyModifiers::NONE,
-            mode: InputMode::Normal,
-        };
-        // ... rest of the test ...
+        let mut handler = InputHandler::new();
+        let event = Event::Key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE));
+        assert_eq!(handler.handle_input(event), InputResult::Handled);
+
+        let event = Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(handler.handle_input(event), InputResult::Submit("x".to_string()));
+
+        let event = Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(handler.handle_input(event), InputResult::Cancel);
     }
 } 

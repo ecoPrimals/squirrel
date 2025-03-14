@@ -1,8 +1,12 @@
 use std::collections::HashMap;
-use std::error::Error;
-use std::sync::RwLock;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use std::time::SystemTime;
-use crate::core::commands::{Command, CommandResult};
+use std::future::Future;
+use std::pin::Pin;
+
+use crate::core::commands::{Command, CommandResult, CommandArgs};
+use crate::core::error::Result;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LifecycleStage {
@@ -14,87 +18,72 @@ pub enum LifecycleStage {
     Cleanup,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("Lifecycle error at {stage:?}: {message}")]
 pub struct LifecycleError {
     pub stage: LifecycleStage,
     pub message: String,
 }
 
-impl std::fmt::Display for LifecycleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Lifecycle error at {:?}: {}", self.stage, self.message)
-    }
-}
-
-impl Error for LifecycleError {}
-
+/// Hook for command lifecycle events
 pub trait CommandHook: Send + Sync {
-    fn before_stage(&self, stage: &LifecycleStage, command: &Command) -> Result<(), Box<dyn Error>>;
-    fn after_stage(&self, stage: &LifecycleStage, command: &Command, result: Option<&CommandResult>) -> Result<(), Box<dyn Error>>;
+    fn before_stage<'a>(&'a self, stage: &'a LifecycleStage, command: &'a CommandArgs) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
+    fn after_stage<'a>(&'a self, stage: &'a LifecycleStage, command: &'a CommandArgs, result: Option<&'a CommandResult>) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 }
 
-#[derive(Default)]
 pub struct CommandLifecycle {
-    hooks: RwLock<Vec<Box<dyn CommandHook>>>,
-    state: RwLock<HashMap<String, LifecycleStage>>,
+    hooks: Arc<RwLock<Vec<Arc<dyn CommandHook>>>>,
+    state: Arc<RwLock<HashMap<String, LifecycleStage>>>,
+}
+
+impl Default for CommandLifecycle {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CommandLifecycle {
     pub fn new() -> Self {
         Self {
-            hooks: RwLock::new(Vec::new()),
-            state: RwLock::new(HashMap::new()),
+            hooks: Arc::new(RwLock::new(Vec::new())),
+            state: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    pub fn add_hook(&self, hook: Box<dyn CommandHook>) -> Result<(), Box<dyn Error>> {
-        let mut hooks = self.hooks.write().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: LifecycleStage::Registration,
-                message: "Failed to acquire write lock on hooks".to_string(),
-            }) as Box<dyn Error>
-        })?;
+    pub async fn add_hook(&self, hook: Arc<dyn CommandHook>) -> Result<()> {
+        let mut hooks = self.hooks.write().await;
         hooks.push(hook);
         Ok(())
     }
 
-    pub fn execute_stage(&self, stage: LifecycleStage, command: &Command, result: Option<&CommandResult>) -> Result<(), Box<dyn Error>> {
+    pub async fn execute_stage(
+        &self,
+        stage: LifecycleStage,
+        command: &CommandArgs,
+        result: Option<&CommandResult>,
+    ) -> Result<()> {
         // Execute before hooks
-        let hooks = self.hooks.read().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: stage.clone(),
-                message: "Failed to acquire read lock on hooks".to_string(),
-            }) as Box<dyn Error>
-        })?;
-
+        let hooks = self.hooks.read().await;
         for hook in hooks.iter() {
-            hook.before_stage(&stage, command)?;
+            hook.before_stage(&stage, command).await?;
         }
 
         // Update state
-        let mut state = self.state.write().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: stage.clone(),
-                message: "Failed to acquire write lock on state".to_string(),
-            }) as Box<dyn Error>
-        })?;
-        state.insert(command.name.clone(), stage.clone());
+        let mut state = self.state.write().await;
+        if let Some(cmd) = command.args.first() {
+            state.insert(cmd.clone(), stage.clone());
+        }
 
         // Execute after hooks
         for hook in hooks.iter() {
-            hook.after_stage(&stage, command, result)?;
+            hook.after_stage(&stage, command, result).await?;
         }
 
         Ok(())
     }
 
-    pub fn get_stage(&self, command_name: &str) -> Result<Option<LifecycleStage>, Box<dyn Error>> {
-        let state = self.state.read().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: LifecycleStage::Registration,
-                message: "Failed to acquire read lock on state".to_string(),
-            }) as Box<dyn Error>
-        })?;
+    pub async fn get_stage(&self, command_name: &str) -> Result<Option<LifecycleStage>> {
+        let state = self.state.read().await;
         Ok(state.get(command_name).cloned())
     }
 }
@@ -113,22 +102,28 @@ impl LoggingHook {
 }
 
 impl CommandHook for LoggingHook {
-    fn before_stage(&self, stage: &LifecycleStage, command: &Command) -> Result<(), Box<dyn Error>> {
-        println!("Starting {:?} stage for command {}", stage, command.name);
-        Ok(())
+    fn before_stage<'a>(&'a self, stage: &'a LifecycleStage, command: &'a CommandArgs) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            println!("Starting {:?} stage for command {:?}", stage, command);
+            Ok(())
+        })
     }
 
-    fn after_stage(&self, stage: &LifecycleStage, command: &Command, result: Option<&CommandResult>) -> Result<(), Box<dyn Error>> {
-        let duration = SystemTime::now().duration_since(self.start_time).unwrap_or_default();
-        let status = result.map(|r| if r.success { "success" } else { "failure" }).unwrap_or("unknown");
-        println!(
-            "Completed {:?} stage for command {} with status {} after {:?}",
-            stage,
-            command.name,
-            status,
-            duration
-        );
-        Ok(())
+    fn after_stage<'a>(&'a self, stage: &'a LifecycleStage, command: &'a CommandArgs, result: Option<&'a CommandResult>) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            let duration = SystemTime::now()
+                .duration_since(self.start_time)
+                .unwrap_or_default();
+            let status = result.map(|r| if r.success { "success" } else { "failure" }).unwrap_or("unknown");
+            println!(
+                "Completed {:?} stage for command {:?} with status {} after {:?}",
+                stage,
+                command,
+                status,
+                duration
+            );
+            Ok(())
+        })
     }
 }
 
@@ -141,43 +136,39 @@ impl Default for LoggingHook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::commands::{CommandType, CommandResult};
+    use tokio::test;
 
     #[test]
-    fn test_lifecycle_stages() {
+    async fn test_lifecycle_stages() {
         let lifecycle = CommandLifecycle::new();
-        let command = Command {
-            name: "test".to_string(),
-            command_type: CommandType::System,
-            args: vec![],
-            env: HashMap::new(),
+        let command = CommandArgs {
+            args: vec!["test".to_string()],
+            env: Vec::new(),
         };
 
         // Test each stage
-        lifecycle.execute_stage(LifecycleStage::Registration, &command, None).unwrap();
+        lifecycle.execute_stage(LifecycleStage::Registration, &command, None).await.unwrap();
         assert_eq!(
-            lifecycle.get_stage("test").unwrap().unwrap(),
+            lifecycle.get_stage("test").await.unwrap().unwrap(),
             LifecycleStage::Registration
         );
 
-        lifecycle.execute_stage(LifecycleStage::Initialization, &command, None).unwrap();
+        lifecycle.execute_stage(LifecycleStage::Initialization, &command, None).await.unwrap();
         assert_eq!(
-            lifecycle.get_stage("test").unwrap().unwrap(),
+            lifecycle.get_stage("test").await.unwrap().unwrap(),
             LifecycleStage::Initialization
         );
     }
 
     #[test]
-    fn test_hooks() {
+    async fn test_hooks() {
         let lifecycle = CommandLifecycle::new();
-        let hook = LoggingHook::new();
-        lifecycle.add_hook(Box::new(hook)).unwrap();
+        let hook = Arc::new(LoggingHook::new());
+        lifecycle.add_hook(hook).await.unwrap();
 
-        let command = Command {
-            name: "test".to_string(),
-            command_type: CommandType::System,
-            args: vec![],
-            env: HashMap::new(),
+        let command = CommandArgs {
+            args: vec!["test".to_string()],
+            env: Vec::new(),
         };
 
         let result = Some(CommandResult {
@@ -186,7 +177,7 @@ mod tests {
             error: None,
         });
 
-        lifecycle.execute_stage(LifecycleStage::Registration, &command, None).unwrap();
-        lifecycle.execute_stage(LifecycleStage::Execution, &command, result.as_ref()).unwrap();
+        lifecycle.execute_stage(LifecycleStage::Registration, &command, None).await.unwrap();
+        lifecycle.execute_stage(LifecycleStage::Execution, &command, result.as_ref()).await.unwrap();
     }
 } 

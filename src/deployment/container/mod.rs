@@ -167,7 +167,7 @@ impl Container {
     }
     
     /// Get container logs
-    pub async fn logs(&self, follow: bool) -> Result<Vec<String>, ContainerError> {
+    pub async fn logs(&self, _follow: bool) -> Result<Vec<String>, ContainerError> {
         // TODO: Implement log retrieval
         Ok(vec![])
     }

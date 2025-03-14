@@ -6,9 +6,18 @@ use crossterm::{
 use std::io::{self, Write};
 use std::time::SystemTime;
 use derive_more::From;
+use std::sync::Arc;
+use ratatui::{
+    layout::Rect,
+    style::Style,
+    widgets::{Block, Borders, Paragraph},
+    Frame,
+};
+use crossterm::event::KeyEvent;
 
 use crate::ui::layout::LayoutManager;
 use crate::ui::theme::{Theme, Themeable, ColorRole, ThemeError, Style};
+use crate::ui::components::{Component, UiError};
 
 /// Errors that can occur during status message operations.
 #[derive(Debug, From)]
@@ -206,6 +215,17 @@ pub struct Status {
     layout: LayoutManager,
     /// The style configuration for status messages.
     style: Style,
+    message: String,
+    level: StatusLevel,
+    theme: Theme,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatusLevel {
+    Info,
+    Success,
+    Error,
+    Warning,
 }
 
 impl Status {
@@ -217,90 +237,79 @@ impl Status {
         Self {
             layout,
             style: Style::new(),
+            message: String::new(),
+            level: StatusLevel::Info,
+            theme: Theme::default(),
         }
     }
 
-    /// Prints a success message with green color.
-    ///
-    /// # Arguments
-    /// * `writer` - The output writer
-    /// * `text` - The message text
-    ///
-    /// # Returns
-    /// * `io::Result<()>` - Success or error during writing
-    pub fn print_success<W: Write>(&self, writer: &mut W, text: &str) -> io::Result<()> {
-        let indent = self.layout.get_current_indentation();
-        writer.queue(cursor::SavePosition)?;
-        writer.queue(cursor::MoveRight(indent as u16))?;
-        writer.queue(SetForegroundColor(Color::Green))?;
-        write!(writer, "✓ {}", text)?;
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
-        writer.queue(cursor::RestorePosition)?;
-        writer.flush()?;
+    pub fn set_message(&mut self, message: String) {
+        self.message = message;
+    }
+
+    pub fn set_level(&mut self, level: StatusLevel) {
+        self.level = level;
+    }
+
+    fn get_color_role(&self) -> ColorRole {
+        match self.level {
+            StatusLevel::Info => ColorRole::Primary,
+            StatusLevel::Success => ColorRole::Success,
+            StatusLevel::Error => ColorRole::Error,
+            StatusLevel::Warning => ColorRole::Warning,
+        }
+    }
+}
+
+impl Component for Status {
+    fn render(&self, frame: &mut Frame<'_>, area: Rect) -> std::result::Result<(), UiError> {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().fg(self.theme.get_color(ColorRole::Border)));
+
+        let text_style = Style::default().fg(self.theme.get_color(self.get_color_role()));
+
+        let paragraph = Paragraph::new(self.message.as_str())
+            .block(block)
+            .style(text_style);
+
+        frame.render_widget(paragraph, area);
         Ok(())
     }
 
-    /// Prints an error message with red color.
-    ///
-    /// # Arguments
-    /// * `writer` - The output writer
-    /// * `text` - The message text
-    ///
-    /// # Returns
-    /// * `io::Result<()>` - Success or error during writing
-    pub fn print_error<W: Write>(&self, writer: &mut W, text: &str) -> io::Result<()> {
-        let indent = self.layout.get_current_indentation();
-        writer.queue(cursor::SavePosition)?;
-        writer.queue(cursor::MoveRight(indent as u16))?;
-        writer.queue(SetForegroundColor(Color::Red))?;
-        write!(writer, "✗ {}", text)?;
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
-        writer.queue(cursor::RestorePosition)?;
-        writer.flush()?;
+    fn handle_event(&mut self, _event: &Event) -> std::result::Result<(), UiError> {
         Ok(())
     }
 
-    /// Prints an info message with blue color.
-    ///
-    /// # Arguments
-    /// * `writer` - The output writer
-    /// * `text` - The message text
-    ///
-    /// # Returns
-    /// * `io::Result<()>` - Success or error during writing
-    pub fn print_info<W: Write>(&self, writer: &mut W, text: &str) -> io::Result<()> {
-        let indent = self.layout.get_current_indentation();
-        writer.queue(cursor::SavePosition)?;
-        writer.queue(cursor::MoveRight(indent as u16))?;
-        writer.queue(SetForegroundColor(Color::Yellow))?;
-        write!(writer, "ℹ {}", text)?;
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
-        writer.queue(cursor::RestorePosition)?;
-        writer.flush()?;
+    fn on_key(&mut self, _key: KeyEvent) -> std::result::Result<(), UiError> {
         Ok(())
+    }
+
+    fn update(&mut self) -> std::result::Result<(), UiError> {
+        Ok(())
+    }
+
+    fn required_size(&self) -> Size {
+        Size::new(0, 3) // Minimum height for status with borders
     }
 }
 
 impl Themeable for Status {
-    fn apply_theme(&mut self, theme: &Theme) -> std::result::Result<(), ThemeError> {
-        self.style = theme.styles.text.clone();
+    fn theme(&self) -> Option<&Theme> {
+        Some(&self.theme)
+    }
+
+    fn theme_mut(&mut self) -> &mut Theme {
+        &mut self.theme
+    }
+
+    fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
+    }
+
+    fn apply_theme(&mut self, theme: &Theme) -> std::result::Result<(), UiError> {
+        self.theme = theme.clone();
         Ok(())
-    }
-
-    fn get_style(&self) -> &Style {
-        &self.style
-    }
-
-    fn get_color(&self, role: ColorRole) -> crate::ui::theme::Color {
-        match role {
-            ColorRole::Success => crate::ui::theme::Color::Green,
-            ColorRole::Error => crate::ui::theme::Color::Red,
-            ColorRole::Warning => crate::ui::theme::Color::Yellow,
-            _ => crate::ui::theme::Color::White,
-        }
     }
 }
 

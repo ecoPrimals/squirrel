@@ -6,6 +6,7 @@ use crate::ai::mcp_tools::{
     types::MCPError,
     context::MachineContext,
 };
+use futures::Stream;
 
 /// Represents a system prompt template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,7 +132,7 @@ impl LLMService {
     }
 
     /// Stream responses from the LLM
-    pub async fn stream_complete(&self, _prompt: String) -> Result<impl futures::Stream<Item = Result<String, MCPError>>, MCPError> {
+    pub async fn stream_complete(&self, _prompt: String) -> Result<impl Stream<Item = Result<String, MCPError>>, MCPError> {
         // TODO: Implement actual LLM API streaming
         // This is a placeholder implementation
         Ok(futures::stream::iter(vec![Ok("Placeholder response".to_string())]))

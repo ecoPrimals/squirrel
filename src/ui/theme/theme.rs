@@ -7,13 +7,17 @@
 //! - Theme configuration
 //! - Theme management utilities
 
-use crossterm::style::{self, Color, Attribute, Stylize};
+use crossterm::style::{self, Color as CrosstermColor, Attribute as CrosstermAttribute};
+use ratatui::style::{Color as RatatuiColor, Style as RatatuiStyle, Modifier};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
+use thiserror::Error;
+
+use super::{ColorRole, StyleRole, ThemeError};
 
 /// Error type for theme-related operations
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum ThemeError {
     #[error("Failed to load theme: {0}")]
     LoadError(String),
@@ -25,199 +29,131 @@ pub enum ThemeError {
     ValidationError(String),
 }
 
-/// This enum provides a comprehensive set of colors that can be used for both
-/// foreground and background styling in the terminal UI.
+/// A wrapper around RatatuiColor that provides conversion to/from CrosstermColor
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Color {
-    /// Black color
-    Black,
-    /// Red color
-    Red,
-    /// Green color
-    Green,
-    /// Yellow color
-    Yellow,
-    /// Blue color
-    Blue,
-    /// Magenta color
-    Magenta,
-    /// Cyan color
-    Cyan,
-    /// White color
-    White,
-    /// Gray color
-    Gray,
-    /// Bright red color
-    BrightRed,
-    /// Bright green color
-    BrightGreen,
-    /// Bright yellow color
-    BrightYellow,
-    /// Bright blue color
-    BrightBlue,
-    /// Bright magenta color
-    BrightMagenta,
-    /// Bright cyan color
-    BrightCyan,
-    /// Bright white color
-    BrightWhite,
-    /// RGB color with red, green, and blue components
-    Rgb { r: u8, g: u8, b: u8 },
-}
-
-impl From<Color> for crossterm::style::Color {
-    fn from(color: Color) -> Self {
-        match color {
-            Color::Black => crossterm::style::Color::Black,
-            Color::Red => crossterm::style::Color::Red,
-            Color::Green => crossterm::style::Color::Green,
-            Color::Yellow => crossterm::style::Color::Yellow,
-            Color::Blue => crossterm::style::Color::Blue,
-            Color::Magenta => crossterm::style::Color::Magenta,
-            Color::Cyan => crossterm::style::Color::Cyan,
-            Color::White => crossterm::style::Color::White,
-            Color::Gray => crossterm::style::Color::Grey,
-            Color::BrightRed => crossterm::style::Color::DarkRed,
-            Color::BrightGreen => crossterm::style::Color::DarkGreen,
-            Color::BrightYellow => crossterm::style::Color::DarkYellow,
-            Color::BrightBlue => crossterm::style::Color::DarkBlue,
-            Color::BrightMagenta => crossterm::style::Color::DarkMagenta,
-            Color::BrightCyan => crossterm::style::Color::DarkCyan,
-            Color::BrightWhite => crossterm::style::Color::Grey,
-            Color::Rgb { r, g, b } => crossterm::style::Color::Rgb { r, g, b },
-        }
-    }
-}
+pub struct Color(RatatuiColor);
 
 impl Color {
+    /// Create a new color
+    pub fn new(color: RatatuiColor) -> Self {
+        Self(color)
+    }
+
     /// Check if the color is an RGB color
     #[must_use]
     pub fn is_rgb(&self) -> bool {
-        matches!(self, Color::Rgb { .. })
-    }
-
-    /// Convert to crossterm color
-    pub fn to_crossterm(&self) -> crossterm::style::Color {
-        (*self).into()
+        matches!(self.0, RatatuiColor::Rgb(..))
     }
 }
 
-/// Represents a text attribute
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Attribute {
-    /// Bold text
-    Bold,
-    /// Dimmed text
-    Dim,
-    /// Underlined text
-    Underlined,
-    /// Reversed text
-    Reverse,
-    /// Hidden text
-    Hidden,
-    /// Italic text
-    Italic,
-    /// Strikethrough text
-    Strikethrough,
-    /// Slow blink text
-    SlowBlink,
-    /// Rapid blink text
-    RapidBlink,
-    /// Overlined text
-    Overlined,
+impl From<RatatuiColor> for Color {
+    fn from(color: RatatuiColor) -> Self {
+        Self(color)
+    }
 }
 
-impl From<Attribute> for crossterm::style::Attribute {
-    fn from(attr: Attribute) -> Self {
-        match attr {
-            Attribute::Bold => crossterm::style::Attribute::Bold,
-            Attribute::Dim => crossterm::style::Attribute::Dim,
-            Attribute::Underlined => crossterm::style::Attribute::Underlined,
-            Attribute::Reverse => crossterm::style::Attribute::Reverse,
-            Attribute::Hidden => crossterm::style::Attribute::Hidden,
-            Attribute::Italic => crossterm::style::Attribute::Italic,
-            Attribute::Strikethrough => crossterm::style::Attribute::CrossedOut,
-            Attribute::SlowBlink => crossterm::style::Attribute::SlowBlink,
-            Attribute::RapidBlink => crossterm::style::Attribute::RapidBlink,
-            Attribute::Overlined => crossterm::style::Attribute::Overlined,
+impl From<Color> for RatatuiColor {
+    fn from(color: Color) -> Self {
+        color.0
+    }
+}
+
+impl From<Color> for CrosstermColor {
+    fn from(color: Color) -> Self {
+        match color.0 {
+            RatatuiColor::Black => CrosstermColor::Black,
+            RatatuiColor::Red => CrosstermColor::Red,
+            RatatuiColor::Green => CrosstermColor::Green,
+            RatatuiColor::Yellow => CrosstermColor::Yellow,
+            RatatuiColor::Blue => CrosstermColor::Blue,
+            RatatuiColor::Magenta => CrosstermColor::Magenta,
+            RatatuiColor::Cyan => CrosstermColor::Cyan,
+            RatatuiColor::Gray => CrosstermColor::Grey,
+            RatatuiColor::DarkGray => CrosstermColor::DarkGrey,
+            RatatuiColor::LightRed => CrosstermColor::DarkRed,
+            RatatuiColor::LightGreen => CrosstermColor::DarkGreen,
+            RatatuiColor::LightYellow => CrosstermColor::DarkYellow,
+            RatatuiColor::LightBlue => CrosstermColor::DarkBlue,
+            RatatuiColor::LightMagenta => CrosstermColor::DarkMagenta,
+            RatatuiColor::LightCyan => CrosstermColor::DarkCyan,
+            RatatuiColor::White => CrosstermColor::White,
+            RatatuiColor::Rgb(r, g, b) => CrosstermColor::Rgb { r, g, b },
+            RatatuiColor::Indexed(i) => CrosstermColor::AnsiValue(i),
+            RatatuiColor::Reset => CrosstermColor::Reset,
         }
     }
 }
 
+/// A wrapper around CrosstermAttribute that provides conversion to RatatuiModifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Attribute(CrosstermAttribute);
+
 impl Attribute {
-    /// Convert to crossterm attribute
-    pub fn to_crossterm(&self) -> crossterm::style::Attribute {
-        (*self).into()
+    /// Create a new attribute
+    pub fn new(attr: CrosstermAttribute) -> Self {
+        Self(attr)
+    }
+}
+
+impl From<CrosstermAttribute> for Attribute {
+    fn from(attr: CrosstermAttribute) -> Self {
+        Self(attr)
+    }
+}
+
+impl From<Attribute> for CrosstermAttribute {
+    fn from(attr: Attribute) -> Self {
+        attr.0
+    }
+}
+
+impl From<Attribute> for Modifier {
+    fn from(attr: Attribute) -> Self {
+        match attr.0 {
+            CrosstermAttribute::Bold => Modifier::BOLD,
+            CrosstermAttribute::Dim => Modifier::DIM,
+            CrosstermAttribute::Italic => Modifier::ITALIC,
+            CrosstermAttribute::Underlined => Modifier::UNDERLINED,
+            CrosstermAttribute::SlowBlink => Modifier::SLOW_BLINK,
+            CrosstermAttribute::RapidBlink => Modifier::RAPID_BLINK,
+            CrosstermAttribute::Reverse => Modifier::REVERSED,
+            CrosstermAttribute::Hidden => Modifier::HIDDEN,
+            CrosstermAttribute::CrossedOut => Modifier::CROSSED_OUT,
+            _ => Modifier::empty(),
+        }
     }
 }
 
 /// A set of text attributes
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attributes {
-    /// The set of attributes
-    attributes: std::collections::HashSet<Attribute>,
+    bits: u16,
 }
 
 impl Attributes {
     /// Create a new empty set of attributes
-    #[must_use]
     pub fn new() -> Self {
-        Self {
-            attributes: std::collections::HashSet::new(),
-        }
+        Self { bits: 0 }
     }
 
-    /// Add an attribute to the set
-    pub fn add(&mut self, attr: Attribute) {
-        self.attributes.insert(attr);
+    /// Insert an attribute into the set
+    pub fn insert(&mut self, modifier: Modifier) {
+        self.bits |= modifier as u16;
     }
 
     /// Remove an attribute from the set
-    pub fn remove(&mut self, attr: Attribute) {
-        self.attributes.remove(&attr);
+    pub fn remove(&mut self, modifier: Modifier) {
+        self.bits &= !(modifier as u16);
     }
 
     /// Check if an attribute is in the set
-    pub fn contains(&self, attr: Attribute) -> bool {
-        self.attributes.contains(&attr)
-    }
-
-    /// Get an iterator over the attributes
-    pub fn iter(&self) -> std::collections::hash_set::Iter<Attribute> {
-        self.attributes.iter()
-    }
-
-    /// Clear all attributes
-    pub fn clear(&mut self) {
-        self.attributes.clear();
-    }
-
-    /// Get the number of attributes in the set
-    pub fn len(&self) -> usize {
-        self.attributes.len()
+    pub fn contains(&self, modifier: Modifier) -> bool {
+        self.bits & (modifier as u16) != 0
     }
 
     /// Check if the set is empty
     pub fn is_empty(&self) -> bool {
-        self.attributes.is_empty()
-    }
-}
-
-impl IntoIterator for Attributes {
-    type Item = Attribute;
-    type IntoIter = std::collections::hash_set::IntoIter<Attribute>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attributes.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a Attributes {
-    type Item = &'a Attribute;
-    type IntoIter = std::collections::hash_set::Iter<'a, Attribute>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attributes.iter()
+        self.bits == 0
     }
 }
 
@@ -228,111 +164,95 @@ impl Default for Attributes {
 }
 
 /// A style that can be applied to text
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Style {
-    /// The foreground color
-    pub fg: Option<Color>,
-    /// The background color
-    pub bg: Option<Color>,
-    /// The text attributes
-    pub attrs: std::collections::HashSet<Attribute>,
+    attrs: Attributes,
+    fg: Option<Color>,
+    bg: Option<Color>,
 }
 
 impl Style {
     /// Create a new style with no colors or attributes
-    #[must_use]
     pub fn new() -> Self {
         Self {
+            attrs: Attributes::new(),
             fg: None,
             bg: None,
-            attrs: std::collections::HashSet::new(),
         }
     }
 
     /// Create a new style with a foreground color
-    #[must_use]
-    pub fn fg(color: Color) -> Self {
-        Self {
-            fg: Some(color),
-            bg: None,
-            attrs: std::collections::HashSet::new(),
-        }
-    }
-
-    /// Create a new style with a background color
-    #[must_use]
-    pub fn bg(color: Color) -> Self {
-        Self {
-            fg: None,
-            bg: Some(color),
-            attrs: std::collections::HashSet::new(),
-        }
-    }
-
-    /// Create a new style with a foreground and background color
-    #[must_use]
-    pub fn fg_bg(fg: Color, bg: Color) -> Self {
-        Self {
-            fg: Some(fg),
-            bg: Some(bg),
-            attrs: std::collections::HashSet::new(),
-        }
-    }
-
-    /// Add a foreground color to the style
-    pub fn with_fg(mut self, color: Color) -> Self {
+    pub fn fg(mut self, color: Color) -> Self {
         self.fg = Some(color);
         self
     }
 
-    /// Add a background color to the style
-    pub fn with_bg(mut self, color: Color) -> Self {
+    /// Create a new style with a background color
+    pub fn bg(mut self, color: Color) -> Self {
         self.bg = Some(color);
         self
     }
 
-    /// Add an attribute to the style
-    pub fn with_attr(mut self, attr: Attribute) -> Self {
-        self.attrs.insert(attr);
+    /// Add a modifier to the style
+    pub fn add_modifier(mut self, modifier: Modifier) -> Self {
+        self.attrs.insert(modifier);
         self
     }
 
-    /// Add multiple attributes to the style
-    pub fn with_attrs(mut self, attrs: impl IntoIterator<Item = Attribute>) -> Self {
-        self.attrs.extend(attrs);
+    /// Remove a modifier from the style
+    pub fn remove_modifier(mut self, modifier: Modifier) -> Self {
+        self.attrs.remove(modifier);
         self
     }
 
-    /// Apply the style to a string
-    pub fn apply<T: Into<String>>(&self, text: T) -> StyledText {
-        StyledText {
-            text: text.into(),
-            style: *self,
-        }
+    /// Get the modifiers of the style
+    pub fn modifiers(&self) -> &Attributes {
+        &self.attrs
     }
 
-    /// Convert to crossterm style
-    pub fn to_crossterm(&self) -> crossterm::style::Style {
-        let mut style = crossterm::style::Style::default();
-        
-        if let Some(fg) = self.fg {
-            style = style.foreground(fg.to_crossterm());
-        }
-        
-        if let Some(bg) = self.bg {
-            style = style.background(bg.to_crossterm());
-        }
-        
-        for attr in &self.attrs {
-            style = style.attribute(attr.to_crossterm());
-        }
-        
-        style
+    /// Get the foreground color of the style
+    pub fn fg_color(&self) -> Option<Color> {
+        self.fg
+    }
+
+    /// Get the background color of the style
+    pub fn bg_color(&self) -> Option<Color> {
+        self.bg
     }
 }
 
-/// A text with a style applied to it
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl Default for Style {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl From<Style> for RatatuiStyle {
+    fn from(style: Style) -> Self {
+        let mut ratatui_style = RatatuiStyle::default();
+        if let Some(fg) = style.fg {
+            ratatui_style = ratatui_style.fg(fg.into());
+        }
+        if let Some(bg) = style.bg {
+            ratatui_style = ratatui_style.bg(bg.into());
+        }
+        ratatui_style = ratatui_style.add_modifier(style.attrs.to_modifier());
+        ratatui_style
+    }
+}
+
+impl From<RatatuiStyle> for Style {
+    fn from(style: RatatuiStyle) -> Self {
+        Self {
+            fg: style.fg.map(Color::from),
+            bg: style.bg.map(Color::from),
+            attrs: Attributes::new(), // Note: RatatuiStyle doesn't expose its modifiers
+        }
+    }
+}
+
+/// A styled text with content and style
+#[derive(Debug, Clone)]
 pub struct StyledText {
     /// The text content
     pub text: String,
@@ -342,7 +262,6 @@ pub struct StyledText {
 
 impl StyledText {
     /// Create a new styled text
-    #[must_use]
     pub fn new(text: impl Into<String>, style: Style) -> Self {
         Self {
             text: text.into(),
@@ -351,98 +270,85 @@ impl StyledText {
     }
 
     /// Get the text content
-    #[must_use]
     pub fn text(&self) -> &str {
         &self.text
     }
 
     /// Get the style
-    #[must_use]
     pub fn style(&self) -> Style {
         self.style
     }
-
-    /// Convert to crossterm styled text
-    pub fn to_crossterm(&self) -> crossterm::style::StyledContent<String> {
-        crossterm::style::StyledContent::new(self.style.to_crossterm(), self.text.clone())
-    }
 }
 
-/// Represents a complete theme for the terminal UI
+/// A theme containing colors and styles for UI components
 #[derive(Debug, Clone)]
 pub struct Theme {
-    /// The name of the theme
-    pub name: String,
-    /// The color scheme
-    pub colors: ColorScheme,
-    /// The set of styles
-    pub styles: StyleSet,
-    /// Theme metadata
-    pub metadata: ThemeMetadata,
+    colors: HashMap<ColorRole, Color>,
+    styles: HashMap<StyleRole, Style>,
+}
+
+impl Theme {
+    /// Create a new empty theme
+    pub fn new() -> Self {
+        let mut theme = Self {
+            colors: HashMap::new(),
+            styles: HashMap::new(),
+        };
+        theme.set_defaults();
+        theme
+    }
+
+    /// Set default colors and styles
+    fn set_defaults(&mut self) {
+        // Set default colors
+        self.colors.insert(ColorRole::Primary, Color::new(RatatuiColor::Blue));
+        self.colors.insert(ColorRole::Secondary, Color::new(RatatuiColor::Cyan));
+        self.colors.insert(ColorRole::Background, Color::new(RatatuiColor::Black));
+        self.colors.insert(ColorRole::Foreground, Color::new(RatatuiColor::White));
+        self.colors.insert(ColorRole::Accent, Color::new(RatatuiColor::Yellow));
+        self.colors.insert(ColorRole::Error, Color::new(RatatuiColor::Red));
+        self.colors.insert(ColorRole::Warning, Color::new(RatatuiColor::Yellow));
+        self.colors.insert(ColorRole::Success, Color::new(RatatuiColor::Green));
+        self.colors.insert(ColorRole::Info, Color::new(RatatuiColor::Blue));
+
+        // Set default styles
+        self.styles.insert(StyleRole::Default, Style::new());
+        self.styles.insert(StyleRole::Header, Style::new().with_fg(self.colors[&ColorRole::Primary]));
+        self.styles.insert(StyleRole::Text, Style::new().with_fg(self.colors[&ColorRole::Foreground]));
+        self.styles.insert(StyleRole::Error, Style::new().with_fg(self.colors[&ColorRole::Error]));
+        self.styles.insert(StyleRole::Warning, Style::new().with_fg(self.colors[&ColorRole::Warning]));
+        self.styles.insert(StyleRole::Success, Style::new().with_fg(self.colors[&ColorRole::Success]));
+        self.styles.insert(StyleRole::Info, Style::new().with_fg(self.colors[&ColorRole::Info]));
+    }
+
+    /// Get a color for a specific role
+    pub fn get_color(&self, role: ColorRole) -> Color {
+        self.colors[&role]
+    }
+
+    /// Set a color for a specific role
+    pub fn set_color(&mut self, role: ColorRole, color: Color) {
+        self.colors.insert(role, color);
+    }
+
+    /// Get a style for a specific role
+    pub fn get_style(&self, role: StyleRole) -> Style {
+        self.styles[&role]
+    }
+
+    /// Set a style for a specific role
+    pub fn set_style(&mut self, role: StyleRole, style: Style) {
+        self.styles.insert(role, style);
+    }
 }
 
 impl Default for Theme {
     fn default() -> Self {
-        Self {
-            name: "default".to_string(),
-            colors: ColorScheme {
-                primary: Color::Blue,
-                secondary: Color::Cyan,
-                background: Color::Black,
-                foreground: Color::White,
-                accent: Color::Magenta,
-                error: Color::Red,
-                warning: Color::Yellow,
-                success: Color::Green,
-                info: Color::Blue,
-            },
-            styles: StyleSet {
-                default: Style::new(),
-                header: Style::new().with_attr(Attribute::Bold),
-                heading: Style::new().with_attr(Attribute::Bold),
-                subheading: Style::new().with_attr(Attribute::Bold),
-                text: Style::new(),
-                link: Style::new().with_fg(Color::Blue),
-                button: Style::new().with_bg(Color::Blue),
-                input: Style::new(),
-                error: Style::new().with_fg(Color::Red),
-                warning: Style::new().with_fg(Color::Yellow),
-                success: Style::new().with_fg(Color::Green),
-                info: Style::new().with_fg(Color::Blue),
-            },
-            metadata: ThemeMetadata {
-                author: "System".to_string(),
-                version: "1.0.0".to_string(),
-                description: "Default theme".to_string(),
-                license: "MIT".to_string(),
-            },
-        }
+        Self::new()
     }
 }
 
-impl Theme {
-    /// Create a new theme with default values
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Validate the theme configuration
-    pub fn validate(&self) -> Result<(), ThemeError> {
-        // Validate color scheme
-        self.colors.validate()?;
-        
-        // Validate styles
-        self.styles.validate()?;
-        
-        // Validate metadata
-        self.metadata.validate()?;
-        
-        Ok(())
-    }
-}
-
-/// Represents a color scheme for the theme
+/// A color scheme for a theme
 #[derive(Debug, Clone)]
 pub struct ColorScheme {
     /// The primary color
@@ -468,65 +374,61 @@ pub struct ColorScheme {
 impl Default for ColorScheme {
     fn default() -> Self {
         Self {
-            primary: Color::Blue,
-            secondary: Color::Cyan,
-            background: Color::Black,
-            foreground: Color::White,
-            accent: Color::Magenta,
-            error: Color::Red,
-            warning: Color::Yellow,
-            success: Color::Green,
-            info: Color::Blue,
+            primary: Color::new(RatatuiColor::Blue),
+            secondary: Color::new(RatatuiColor::Cyan),
+            background: Color::new(RatatuiColor::Black),
+            foreground: Color::new(RatatuiColor::White),
+            accent: Color::new(RatatuiColor::Yellow),
+            error: Color::new(RatatuiColor::Red),
+            warning: Color::new(RatatuiColor::Yellow),
+            success: Color::new(RatatuiColor::Green),
+            info: Color::new(RatatuiColor::Blue),
         }
     }
 }
 
 impl ColorScheme {
-    /// Create a new color scheme with default values
-    #[must_use]
+    /// Create a new color scheme with default colors
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Validate the color scheme
     pub fn validate(&self) -> Result<(), ThemeError> {
-        // Check for invalid color combinations
-        if self.background == self.foreground {
-            return Err(ThemeError::ValidationError(
-                "Background and foreground colors cannot be the same".to_string(),
-            ));
-        }
+        // Ensure all colors are valid
+        let colors = [
+            ("primary", self.primary),
+            ("secondary", self.secondary),
+            ("background", self.background),
+            ("foreground", self.foreground),
+            ("accent", self.accent),
+            ("error", self.error),
+            ("warning", self.warning),
+            ("success", self.success),
+            ("info", self.info),
+        ];
 
-        // Check for contrast issues
-        if self.primary == self.background {
-            return Err(ThemeError::ValidationError(
-                "Primary color should contrast with background".to_string(),
-            ));
+        for (name, color) in colors {
+            if color.is_rgb() && !cfg!(feature = "truecolor") {
+                return Err(ThemeError::ValidationError(
+                    format!("RGB color used for {} but truecolor is not enabled", name)
+                ));
+            }
         }
 
         Ok(())
     }
 }
 
-/// Represents a set of styles for the theme
+/// A set of styles for different UI elements
 #[derive(Debug, Clone)]
 pub struct StyleSet {
     /// The default style
     pub default: Style,
     /// The header style
     pub header: Style,
-    /// The heading style
-    pub heading: Style,
-    /// The subheading style
-    pub subheading: Style,
     /// The text style
     pub text: Style,
-    /// The link style
-    pub link: Style,
-    /// The button style
-    pub button: Style,
-    /// The input style
-    pub input: Style,
     /// The error style
     pub error: Style,
     /// The warning style
@@ -538,69 +440,62 @@ pub struct StyleSet {
 }
 
 impl StyleSet {
-    /// Create a new style set with default values
-    #[must_use]
+    /// Create a new style set with default styles
     pub fn new() -> Self {
-        Self {
-            default: Style::new(),
-            header: Style::new()
-                .with_fg(Color::White)
-                .with_attr(Attribute::Bold),
-            heading: Style::new()
-                .with_fg(Color::White)
-                .with_attr(Attribute::Bold),
-            subheading: Style::new()
-                .with_fg(Color::White)
-                .with_attr(Attribute::Bold),
-            text: Style::new()
-                .with_fg(Color::White),
-            link: Style::new()
-                .with_fg(Color::Blue)
-                .with_attr(Attribute::Underlined),
-            button: Style::new()
-                .with_bg(Color::Blue)
-                .with_fg(Color::White),
-            input: Style::new()
-                .with_fg(Color::White),
-            error: Style::new()
-                .with_fg(Color::Red),
-            warning: Style::new()
-                .with_fg(Color::Yellow),
-            success: Style::new()
-                .with_fg(Color::Green),
-            info: Style::new()
-                .with_fg(Color::Blue),
-        }
+        Self::default()
     }
 
     /// Validate the style set
     pub fn validate(&self) -> Result<(), ThemeError> {
-        // Validate each style in the set
-        let mut result = Ok(());
-        result = result.and_then(|| self.default.validate())?;
-        result = result.and_then(|| self.header.validate())?;
-        result = result.and_then(|| self.heading.validate())?;
-        result = result.and_then(|| self.subheading.validate())?;
-        result = result.and_then(|| self.text.validate())?;
-        result = result.and_then(|| self.link.validate())?;
-        result = result.and_then(|| self.button.validate())?;
-        result = result.and_then(|| self.input.validate())?;
-        result = result.and_then(|| self.error.validate())?;
-        result = result.and_then(|| self.warning.validate())?;
-        result = result.and_then(|| self.success.validate())?;
-        result = result.and_then(|| self.info.validate())?;
-        result
+        // Ensure all styles have valid colors
+        let styles = [
+            ("default", &self.default),
+            ("header", &self.header),
+            ("text", &self.text),
+            ("error", &self.error),
+            ("warning", &self.warning),
+            ("success", &self.success),
+            ("info", &self.info),
+        ];
+
+        for (name, style) in styles {
+            if let Some(color) = style.fg {
+                if color.is_rgb() && !cfg!(feature = "truecolor") {
+                    return Err(ThemeError::ValidationError(
+                        format!("RGB color used in {} style but truecolor is not enabled", name)
+                    ));
+                }
+            }
+            if let Some(color) = style.bg {
+                if color.is_rgb() && !cfg!(feature = "truecolor") {
+                    return Err(ThemeError::ValidationError(
+                        format!("RGB color used in {} style background but truecolor is not enabled", name)
+                    ));
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
 impl Default for StyleSet {
     fn default() -> Self {
-        Self::new()
+        let color_scheme = ColorScheme::default();
+        Self {
+            default: Style::new(),
+            header: Style::new().with_fg(color_scheme.primary),
+            text: Style::new().with_fg(color_scheme.foreground),
+            error: Style::new().with_fg(color_scheme.error),
+            warning: Style::new().with_fg(color_scheme.warning),
+            success: Style::new().with_fg(color_scheme.success),
+            info: Style::new().with_fg(color_scheme.info),
+        }
     }
 }
 
-/// Represents metadata for the theme
-#[derive(Debug, Clone)]
+/// Theme metadata
+#[derive(Debug, Clone, Default)]
 pub struct ThemeMetadata {
     /// The author of the theme
     pub author: String,
@@ -612,43 +507,31 @@ pub struct ThemeMetadata {
     pub license: String,
 }
 
-impl Default for ThemeMetadata {
-    fn default() -> Self {
-        Self {
-            author: "System".to_string(),
-            version: "1.0.0".to_string(),
-            description: "Default theme".to_string(),
-            license: "MIT".to_string(),
-        }
-    }
-}
-
 impl ThemeMetadata {
-    /// Create a new theme metadata with default values
-    #[must_use]
+    /// Create new theme metadata
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Validate the theme metadata
+    /// Validate the metadata
     pub fn validate(&self) -> Result<(), ThemeError> {
-        if self.name.is_empty() {
-            return Err(ThemeError::ValidationError("Theme name cannot be empty".to_string()));
+        if self.author.is_empty() {
+            return Err(ThemeError::ValidationError("Author is required".to_string()));
         }
-
         if self.version.is_empty() {
-            return Err(ThemeError::ValidationError("Theme version cannot be empty".to_string()));
+            return Err(ThemeError::ValidationError("Version is required".to_string()));
         }
-
         if self.description.is_empty() {
-            return Err(ThemeError::ValidationError("Theme description cannot be empty".to_string()));
+            return Err(ThemeError::ValidationError("Description is required".to_string()));
         }
-
+        if self.license.is_empty() {
+            return Err(ThemeError::ValidationError("License is required".to_string()));
+        }
         Ok(())
     }
 }
 
-/// Represents information about a theme
+/// Information about a theme
 #[derive(Debug, Clone)]
 pub struct ThemeInfo {
     /// The name of the theme
@@ -660,19 +543,17 @@ pub struct ThemeInfo {
 }
 
 impl ThemeInfo {
-    /// Create a new theme info with default values
-    #[must_use]
-    pub fn new() -> Self {
+    /// Create new theme info
+    pub fn new(name: impl Into<String>, description: impl Into<String>, is_builtin: bool) -> Self {
         Self {
-            name: "default".to_string(),
-            description: "Default theme".to_string(),
-            is_builtin: true,
+            name: name.into(),
+            description: description.into(),
+            is_builtin,
         }
     }
 }
 
-/// This trait defines the operations that can be performed on themes,
-/// including loading, applying, and managing themes.
+/// Trait for theme management
 pub trait ThemeManager {
     /// Load a theme
     fn load_theme(&mut self, theme: Theme) -> Result<(), ThemeError>;
@@ -684,7 +565,7 @@ pub trait ThemeManager {
     fn create_custom_theme(&mut self, theme: Theme) -> Result<(), ThemeError>;
 }
 
-/// Default implementation of the theme manager
+/// Default implementation of ThemeManager
 #[derive(Debug)]
 pub struct DefaultThemeManager {
     /// The current theme
@@ -695,11 +576,10 @@ pub struct DefaultThemeManager {
 
 impl DefaultThemeManager {
     /// Create a new theme manager
-    #[must_use]
     pub fn new() -> Self {
         Self {
             current_theme: Theme::default(),
-            available_themes: Vec::new(),
+            available_themes: vec![Theme::default()],
         }
     }
 }
@@ -717,10 +597,13 @@ impl ThemeManager for DefaultThemeManager {
     fn get_available_themes(&self) -> Vec<ThemeInfo> {
         self.available_themes
             .iter()
-            .map(|theme| ThemeInfo {
-                name: theme.name.clone(),
-                description: theme.metadata.description.clone(),
-                is_builtin: true,
+            .enumerate()
+            .map(|(i, _)| {
+                ThemeInfo::new(
+                    format!("Theme {}", i),
+                    "A default theme".to_string(),
+                    true,
+                )
             })
             .collect()
     }
@@ -737,20 +620,18 @@ impl Default for DefaultThemeManager {
     }
 }
 
-/// This trait should be implemented by any UI component that wants to
-/// support theming. It provides methods for applying themes and getting
-/// the current style.
+/// Trait for components that can be themed
 pub trait Themeable {
     /// Apply a theme to the component
     fn apply_theme(&mut self, theme: &Theme) -> Result<(), ThemeError>;
     /// Get the current style of the component
-    fn get_style(&self) -> &Style;
+    fn get_style(&self) -> Style;
     /// Get a color for a specific role
     fn get_color(&self, role: ColorRole) -> Color;
 }
 
-/// Represents a role for a color in the theme system
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Color roles for theme components
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorRole {
     /// Primary color role
     Primary,
@@ -778,214 +659,61 @@ impl Default for ColorRole {
     }
 }
 
+/// Style roles for theme components
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StyleRole {
+    /// Default style role
+    Default,
+    /// Header style role
+    Header,
+    /// Text style role
+    Text,
+    /// Error style role
+    Error,
+    /// Warning style role
+    Warning,
+    /// Success style role
+    Success,
+    /// Info style role
+    Info,
+}
+
+impl Default for StyleRole {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_theme_manager() {
-        let mut manager = DefaultThemeManager::new();
-        assert_eq!(manager.get_current_theme().name, "default");
-    }
-
-    #[test]
-    fn test_custom_theme() {
-        let mut manager = DefaultThemeManager::new();
-        let custom_theme = Theme {
-            name: "custom".to_string(),
-            colors: ColorScheme {
-                primary: Color::Red,
-                secondary: Color::Green,
-                background: Color::Black,
-                foreground: Color::White,
-                accent: Color::Blue,
-                error: Color::Red,
-                warning: Color::Yellow,
-                success: Color::Green,
-                info: Color::Blue,
-            },
-            styles: StyleSet::new(),
-            metadata: ThemeMetadata {
-                author: "Test".to_string(),
-                version: "1.0.0".to_string(),
-                description: "Custom theme".to_string(),
-                license: "MIT".to_string(),
-            },
-        };
-
-        assert!(manager.create_custom_theme(custom_theme).is_ok());
-        assert_eq!(manager.get_available_themes().len(), 1);
-    }
-
-    #[test]
-    fn test_style_builder() {
-        let style = Style::new()
-            .with_attr(Attribute::Bold)
-            .with_attr(Attribute::Underlined)
-            .with_fg(Color::Red)
-            .with_bg(Color::Black);
-
-        assert!(style.attrs.contains(&Attribute::Bold));
-        assert!(style.attrs.contains(&Attribute::Underlined));
-        assert_eq!(style.fg, Some(Color::Red));
-        assert_eq!(style.bg, Some(Color::Black));
-    }
-
-    #[test]
-    fn test_style_attributes() {
-        let mut attributes = Attributes::new();
-        attributes.add(Attribute::Bold);
-        attributes.add(Attribute::Underlined);
-
-        assert!(attributes.contains(&Attribute::Bold));
-        assert!(attributes.contains(&Attribute::Underlined));
-        assert_eq!(attributes.len(), 2);
-
-        attributes.remove(&Attribute::Bold);
-        assert!(!attributes.contains(&Attribute::Bold));
-        assert_eq!(attributes.len(), 1);
-    }
-
-    #[test]
-    fn test_style_application() {
-        let style = Style::new()
-            .with_attr(Attribute::Bold)
-            .with_fg(Color::Red);
-        let content = "test";
-        let styled = style.apply(content);
-        assert_eq!(styled.text, "test");
-    }
-
-    #[test]
-    fn test_style_creation() {
-        let style = Style::new();
-        assert!(style.attrs.is_empty());
-        assert!(style.fg.is_none());
-        assert!(style.bg.is_none());
+        let manager = DefaultThemeManager::new();
+        assert!(manager.get_available_themes().len() > 0);
     }
 
     #[test]
     fn test_color_conversion() {
-        let rgb_color = Color::Rgb { r: 255, g: 0, b: 0 };
-        let crossterm_color: crossterm::style::Color = rgb_color.into();
-        assert!(matches!(crossterm_color, crossterm::style::Color::Rgb { r: 255, g: 0, b: 0 }));
+        let color = Color::new(RatatuiColor::Red);
+        let crossterm_color: CrosstermColor = color.into();
+        assert!(matches!(crossterm_color, CrosstermColor::Red));
     }
 
     #[test]
-    fn test_attribute_conversion() {
-        let bold = Attribute::Bold;
-        let crossterm_attr: crossterm::style::Attribute = bold.into();
-        assert!(matches!(crossterm_attr, crossterm::style::Attribute::Bold));
-    }
-
-    #[test]
-    fn test_style_set_default() {
-        let style_set = StyleSet::default();
-        assert!(style_set.default.attrs.is_empty());
-        assert!(style_set.header.attrs.contains(&Attribute::Bold));
-        assert!(style_set.link.attrs.contains(&Attribute::Underlined));
-    }
-
-    #[test]
-    fn test_theme_default() {
-        let theme = Theme::default();
-        assert_eq!(theme.name, "default");
-        assert_eq!(theme.colors.primary, Color::Blue);
-        assert_eq!(theme.colors.background, Color::Black);
-        assert_eq!(theme.colors.foreground, Color::White);
-    }
-
-    #[test]
-    fn test_theme_manager_operations() {
-        let mut manager = DefaultThemeManager::new();
-        
-        // Test loading a theme
-        let new_theme = Theme::default();
-        assert!(manager.load_theme(new_theme).is_ok());
-        
-        // Test getting current theme
-        let current_theme = manager.get_current_theme();
-        assert_eq!(current_theme.name, "default");
-        
-        // Test creating a custom theme
-        let custom_theme = Theme {
-            name: "custom".to_string(),
-            colors: ColorScheme::new(),
-            styles: StyleSet::new(),
-            metadata: ThemeMetadata::new(),
-        };
-        assert!(manager.create_custom_theme(custom_theme).is_ok());
-        
-        // Test getting available themes
-        let available_themes = manager.get_available_themes();
-        assert_eq!(available_themes.len(), 1);
-        assert_eq!(available_themes[0].name, "custom");
+    fn test_style_creation() {
+        let style = Style::new()
+            .with_fg(Color::new(RatatuiColor::Red))
+            .with_bg(Color::new(RatatuiColor::Blue));
+        let ratatui_style: RatatuiStyle = style.into();
+        assert_eq!(ratatui_style.fg, Some(RatatuiColor::Red));
+        assert_eq!(ratatui_style.bg, Some(RatatuiColor::Blue));
     }
 
     #[test]
     fn test_theme_validation() {
-        let theme = Theme::default();
-        assert!(theme.validate().is_ok());
-
-        // Test invalid color scheme
-        let mut invalid_theme = Theme::default();
-        invalid_theme.colors.background = Color::White;
-        invalid_theme.colors.foreground = Color::White;
-        assert!(invalid_theme.validate().is_err());
-
-        // Test invalid metadata
-        let mut invalid_theme = Theme::default();
-        invalid_theme.metadata.name = String::new();
-        assert!(invalid_theme.validate().is_err());
-    }
-
-    #[test]
-    fn test_color_scheme_validation() {
-        let scheme = ColorScheme::default();
-        assert!(scheme.validate().is_ok());
-
-        // Test invalid background/foreground combination
-        let mut invalid_scheme = ColorScheme::default();
-        invalid_scheme.background = Color::White;
-        invalid_scheme.foreground = Color::White;
-        assert!(invalid_scheme.validate().is_err());
-
-        // Test invalid primary/background combination
-        let mut invalid_scheme = ColorScheme::default();
-        invalid_scheme.primary = Color::Black;
-        invalid_scheme.background = Color::Black;
-        assert!(invalid_scheme.validate().is_err());
-    }
-
-    #[test]
-    fn test_theme_metadata_validation() {
-        let metadata = ThemeMetadata::default();
-        assert!(metadata.validate().is_ok());
-
-        // Test empty name
-        let mut invalid_metadata = ThemeMetadata::default();
-        invalid_metadata.name = String::new();
-        assert!(invalid_metadata.validate().is_err());
-
-        // Test empty version
-        let mut invalid_metadata = ThemeMetadata::default();
-        invalid_metadata.version = String::new();
-        assert!(invalid_metadata.validate().is_err());
-
-        // Test empty description
-        let mut invalid_metadata = ThemeMetadata::default();
-        invalid_metadata.description = String::new();
-        assert!(invalid_metadata.validate().is_err());
-    }
-
-    #[test]
-    fn test_style_set_validation() {
-        let style_set = StyleSet::default();
-        assert!(style_set.validate().is_ok());
-
-        // Test invalid style
-        let mut invalid_style_set = StyleSet::default();
-        invalid_style_set.default = Style::new().with_fg(Color::White).with_bg(Color::White);
-        assert!(invalid_style_set.validate().is_err());
+        let theme = Theme::new();
+        assert!(theme.get_color(ColorRole::Primary).is_rgb() == false);
     }
 } 

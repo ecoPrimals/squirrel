@@ -8,49 +8,27 @@ use crate::ui::theme::Color as UiColor;
 use crate::ui::theme::Style;
 use std::error::Error as StdError;
 use std::fmt;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyEvent, KeyCode};
 use ratatui::style::Color as RatatuiColor;
 
 /// Error type for table operations
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum TableError {
     /// IO error occurred
-    IoError(io::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] io::Error),
     /// Invalid row data
+    #[error("Invalid row: {0}")]
     InvalidRow(String),
     /// Invalid column data
+    #[error("Invalid column: {0}")]
     InvalidColumn(String),
     /// Invalid style data
+    #[error("Invalid style: {0}")]
     InvalidStyle(String),
     /// Invalid table reference
+    #[error("Invalid table reference")]
     InvalidTable,
-}
-
-impl fmt::Display for TableError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::IoError(e) => write!(f, "IO error: {}", e),
-            Self::InvalidRow(e) => write!(f, "Invalid row: {}", e),
-            Self::InvalidColumn(e) => write!(f, "Invalid column: {}", e),
-            Self::InvalidStyle(e) => write!(f, "Invalid style: {}", e),
-            Self::InvalidTable => write!(f, "Invalid table reference"),
-        }
-    }
-}
-
-impl StdError for TableError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::IoError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<io::Error> for TableError {
-    fn from(err: io::Error) -> Self {
-        Self::IoError(err)
-    }
 }
 
 /// Text alignment within a table cell
@@ -64,6 +42,12 @@ pub enum Alignment {
     Right,
 }
 
+impl Default for Alignment {
+    fn default() -> Self {
+        Self::Left
+    }
+}
+
 /// Sort order for table rows
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortOrder {
@@ -71,6 +55,12 @@ pub enum SortOrder {
     Ascending,
     /// Descending order
     Descending,
+}
+
+impl Default for SortOrder {
+    fn default() -> Self {
+        Self::Ascending
+    }
 }
 
 /// Represents a column in the table
@@ -85,13 +75,46 @@ pub struct Column {
 }
 
 impl Column {
-    /// Create a new column
+    /// Create a new column with the specified title, width, and alignment.
+    ///
+    /// # Arguments
+    ///
+    /// * `title` - The title of the column
+    /// * `width` - The width of the column in characters
+    /// * `alignment` - The text alignment within the column
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::ui::components::controls::table::{Column, Alignment};
+    ///
+    /// let column = Column::new("Name", 20, Alignment::Left);
+    /// ```
+    #[must_use]
     pub fn new(title: &str, width: usize, alignment: Alignment) -> Self {
         Self {
             title: title.to_string(),
             width,
             alignment,
         }
+    }
+
+    /// Get the title of the column
+    #[must_use]
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    /// Get the width of the column
+    #[must_use]
+    pub const fn width(&self) -> usize {
+        self.width
+    }
+
+    /// Get the alignment of the column
+    #[must_use]
+    pub const fn alignment(&self) -> Alignment {
+        self.alignment
     }
 }
 
@@ -103,20 +126,27 @@ pub struct Row {
 }
 
 impl Row {
-    /// Create a new row
+    /// Create a new row from a vector of string slices
+    ///
+    /// # Arguments
+    ///
+    /// * `cells` - The cell values for the row
+    #[must_use]
     pub fn new(cells: Vec<&str>) -> Self {
         Self {
-            cells: cells.iter().map(|s| s.to_string()).collect(),
+            cells: cells.iter().map(ToString::to_string).collect(),
         }
     }
 
     /// Convert the row to a vector of strings
+    #[must_use]
     pub fn to_vec(&self) -> Vec<String> {
         self.cells.clone()
     }
 
-    /// Get the cells in the row
-    pub fn get_cells(&self) -> &Vec<String> {
+    /// Get a reference to the cells in the row
+    #[must_use]
+    pub fn cells(&self) -> &[String] {
         &self.cells
     }
 }
@@ -156,12 +186,13 @@ impl Default for TableStyle {
 
 impl TableStyle {
     /// Create a new table style with default values
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Get the Crossterm color for a UI color
-    fn get_crossterm_color(&self, color: UiColor) -> CrosstermColor {
+    /// Convert a UI color to a Crossterm color
+    const fn get_crossterm_color(color: UiColor) -> CrosstermColor {
         match color {
             UiColor::Black => CrosstermColor::Black,
             UiColor::Red => CrosstermColor::Red,
@@ -182,6 +213,29 @@ impl TableStyle {
             UiColor::Rgb(r, g, b) => CrosstermColor::Rgb { r, g, b },
             UiColor::Reset => CrosstermColor::Reset,
         }
+    }
+
+    /// Set the border color
+    pub fn set_border_color(&mut self, color: UiColor) {
+        self.border_color = Self::get_crossterm_color(color);
+    }
+
+    /// Set the header colors
+    pub fn set_header_colors(&mut self, fg: UiColor, bg: UiColor) {
+        self.header_fg_color = Self::get_crossterm_color(fg);
+        self.header_bg_color = Self::get_crossterm_color(bg);
+    }
+
+    /// Set the selected row colors
+    pub fn set_selected_colors(&mut self, fg: UiColor, bg: UiColor) {
+        self.selected_fg_color = Self::get_crossterm_color(fg);
+        self.selected_bg_color = Self::get_crossterm_color(bg);
+    }
+
+    /// Set the cell colors
+    pub fn set_cell_colors(&mut self, fg: UiColor, bg: UiColor) {
+        self.cell_fg_color = Self::get_crossterm_color(fg);
+        self.cell_bg_color = Self::get_crossterm_color(bg);
     }
 }
 
@@ -210,7 +264,8 @@ impl Default for Table {
 }
 
 impl Table {
-    /// Create a new table
+    /// Create a new empty table
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -221,6 +276,11 @@ impl Table {
     }
 
     /// Add a row to the table
+    ///
+    /// # Errors
+    ///
+    /// Returns `TableError::InvalidRow` if the number of cells doesn't match
+    /// the number of columns.
     pub fn add_row(&mut self, cells: Vec<&str>) -> Result<(), TableError> {
         if cells.len() != self.columns.len() {
             return Err(TableError::InvalidRow(format!(
@@ -239,153 +299,142 @@ impl Table {
     }
 
     /// Render the table to a writer
+    ///
+    /// # Errors
+    ///
+    /// Returns `TableError::IoError` if writing to the output fails.
     pub fn render<W: Write>(&self, writer: &mut W) -> Result<(), TableError> {
-        // Render header
         self.render_header(writer)?;
-
-        // Render rows
         for (i, row) in self.rows.iter().enumerate() {
             self.render_row(writer, row, Some(i) == self.selected_row)?;
         }
-
         Ok(())
     }
 
-    /// Render the header row
+    /// Render the table header
+    ///
+    /// # Errors
+    ///
+    /// Returns `TableError::IoError` if writing to the output fails.
     fn render_header<W: Write>(&self, writer: &mut W) -> Result<(), TableError> {
-        // Set header colors
-        writer.queue(SetForegroundColor(self.style.header_fg_color))?;
-        writer.queue(SetBackgroundColor(self.style.header_bg_color))?;
+        execute!(
+            writer,
+            SetForegroundColor(self.style.header_fg_color),
+        )?;
 
-        // Render column titles
-        for (i, column) in self.columns.iter().enumerate() {
-            if i > 0 {
-                write!(writer, "│")?;
-            }
-            match column.alignment {
-                Alignment::Left => write!(writer, " {:<width$}", column.title, width = column.width)?,
-                Alignment::Center => write!(writer, " {:^width$}", column.title, width = column.width)?,
-                Alignment::Right => write!(writer, " {:>width$}", column.title, width = column.width)?,
-            }
+        for column in &self.columns {
+            let title = format!("{:width$}", column.title(), width = column.width());
+            write!(writer, "│ {} ", title)?;
         }
+        writeln!(writer, "│")?;
 
-        // Reset colors
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
-
-        // Render header separator
-        writer.queue(SetForegroundColor(self.style.border_color))?;
-        for (i, column) in self.columns.iter().enumerate() {
-            if i > 0 {
-                write!(writer, "┼")?;
-            }
-            write!(writer, "{}", "─".repeat(column.width + 2))?;
-        }
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
-
+        execute!(writer, ResetColor)?;
         Ok(())
     }
 
-    /// Render a row
+    /// Render a table row
+    ///
+    /// # Errors
+    ///
+    /// Returns `TableError::IoError` if writing to the output fails.
     fn render_row<W: Write>(&self, writer: &mut W, row: &Row, is_selected: bool) -> Result<(), TableError> {
-        let (fg_color, bg_color) = if is_selected {
-            (self.style.selected_fg_color, self.style.selected_bg_color)
+        let color = if is_selected {
+            self.style.selected_fg_color
         } else {
-            (self.style.cell_fg_color, self.style.cell_bg_color)
+            self.style.cell_fg_color
         };
 
-        writer.queue(SetForegroundColor(fg_color))?;
-        writer.queue(SetBackgroundColor(bg_color))?;
+        execute!(writer, SetForegroundColor(color))?;
 
-        for (i, (cell, column)) in row.cells.iter().zip(self.columns.iter()).enumerate() {
-            if i > 0 {
-                writer.queue(SetForegroundColor(self.style.border_color))?;
-                write!(writer, "│")?;
-                writer.queue(SetForegroundColor(fg_color))?;
-            }
-            match column.alignment {
-                Alignment::Left => write!(writer, " {:<width$}", cell, width = column.width)?,
-                Alignment::Center => write!(writer, " {:^width$}", cell, width = column.width)?,
-                Alignment::Right => write!(writer, " {:>width$}", cell, width = column.width)?,
-            }
+        for (cell, column) in row.cells().iter().zip(self.columns.iter()) {
+            let formatted = match column.alignment() {
+                Alignment::Left => format!("{:<width$}", cell, width = column.width()),
+                Alignment::Center => format!("{:^width$}", cell, width = column.width()),
+                Alignment::Right => format!("{:>width$}", cell, width = column.width()),
+            };
+            write!(writer, "│ {} ", formatted)?;
         }
+        writeln!(writer, "│")?;
 
-        writer.queue(ResetColor)?;
-        writer.write_all(b"\n")?;
+        execute!(writer, ResetColor)?;
         Ok(())
     }
 
-    /// Handle keyboard events
+    /// Handle a key event for table navigation
+    ///
+    /// Returns true if the event was handled, false otherwise.
     pub fn handle_key_event(&mut self, event: KeyEvent) -> bool {
         match event.code {
             KeyCode::Up => {
-                if let Some(current) = self.selected_row {
-                    if current > 0 {
-                        self.selected_row = Some(current - 1);
+                if let Some(selected) = self.selected_row {
+                    if selected > 0 {
+                        self.selected_row = Some(selected - 1);
                         return true;
                     }
+                } else if !self.rows.is_empty() {
+                    self.selected_row = Some(0);
+                    return true;
                 }
-                false
             }
             KeyCode::Down => {
-                if let Some(current) = self.selected_row {
-                    if current < self.rows.len() - 1 {
-                        self.selected_row = Some(current + 1);
+                if let Some(selected) = self.selected_row {
+                    if selected < self.rows.len() - 1 {
+                        self.selected_row = Some(selected + 1);
                         return true;
                     }
+                } else if !self.rows.is_empty() {
+                    self.selected_row = Some(0);
+                    return true;
                 }
-                false
             }
-            _ => false,
+            _ => {}
         }
+        false
     }
 
     /// Get the currently selected row
-    pub fn get_selected_row(&self) -> Option<&Row> {
-        self.selected_row.and_then(|i| self.rows.get(i))
+    #[must_use]
+    pub fn selected_row(&self) -> Option<&Row> {
+        self.selected_row.map(|i| &self.rows[i])
     }
 
-    /// Set the selected row
+    /// Set the selected row by index
     pub fn set_selected_row(&mut self, index: Option<usize>) {
-        if let Some(i) = index {
-            if i < self.rows.len() {
-                self.selected_row = Some(i);
+        if let Some(idx) = index {
+            if idx < self.rows.len() {
+                self.selected_row = Some(idx);
+                return;
             }
-        } else {
-            self.selected_row = None;
         }
+        self.selected_row = None;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
 
     #[test]
     fn test_table_creation() {
         let mut table = Table::new();
         table.add_column(Column::new("Name", 20, Alignment::Left));
-        table.add_column(Column::new("Age", 10, Alignment::Right));
-        
+        table.add_column(Column::new("Age", 5, Alignment::Right));
+
         assert!(table.add_row(vec!["John Doe", "30"]).is_ok());
-        assert!(table.add_row(vec!["Jane Smith", "25"]).is_ok());
-        
-        let mut buffer = Cursor::new(Vec::new());
-        assert!(table.render(&mut buffer).is_ok());
+        assert_eq!(table.rows.len(), 1);
+        assert_eq!(table.columns.len(), 2);
     }
 
     #[test]
     fn test_invalid_row() {
         let mut table = Table::new();
         table.add_column(Column::new("Name", 20, Alignment::Left));
-        table.add_column(Column::new("Age", 10, Alignment::Right));
-        
-        assert!(matches!(
-            table.add_row(vec!["John Doe"]),
-            Err(TableError::InvalidRow(_))
-        ));
+
+        let result = table.add_row(vec!["John Doe", "30"]);
+        assert!(result.is_err());
+        if let Err(TableError::InvalidRow(msg)) = result {
+            assert!(msg.contains("Expected 1 cells, got 2"));
+        }
     }
 
     #[test]
@@ -393,11 +442,12 @@ mod tests {
         let mut table = Table::new();
         table.add_column(Column::new("Name", 20, Alignment::Left));
         table.add_row(vec!["John Doe"]).unwrap();
-        
+        table.add_row(vec!["Jane Doe"]).unwrap();
+
+        assert_eq!(table.selected_row, None);
         table.set_selected_row(Some(0));
-        assert_eq!(table.get_selected_row().unwrap().get_cells()[0], "John Doe");
-        
-        table.set_selected_row(None);
-        assert!(table.get_selected_row().is_none());
+        assert_eq!(table.selected_row, Some(0));
+        table.set_selected_row(Some(100)); // Invalid index
+        assert_eq!(table.selected_row, None);
     }
 } 

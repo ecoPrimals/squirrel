@@ -115,7 +115,7 @@ impl VersionManager {
     }
     
     /// Get a version by ID
-    pub async fn get_version(&self, id: &str) -> Result<Version, VersionError> {
+    pub async fn get_version(&self, _id: &str) -> Result<Version, VersionError> {
         // TODO: Implement version retrieval
         Err(VersionError::GetFailed)
     }
@@ -123,22 +123,22 @@ impl VersionManager {
     /// List versions
     pub async fn list_versions(
         &self,
-        filter: Option<serde_json::Value>,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        _filter: Option<serde_json::Value>,
+        _limit: Option<u64>,
+        _offset: Option<u64>,
     ) -> Result<Vec<Version>, VersionError> {
         // TODO: Implement version listing
         Ok(vec![])
     }
     
     /// Rollback to a version
-    pub async fn rollback(&self, id: &str) -> Result<(), VersionError> {
+    pub async fn rollback(&self, _id: &str) -> Result<(), VersionError> {
         // TODO: Implement version rollback
         Ok(())
     }
     
     /// Compare two versions
-    pub async fn compare_versions(&self, id1: &str, id2: &str) -> Result<String, VersionError> {
+    pub async fn compare_versions(&self, _id1: &str, _id2: &str) -> Result<String, VersionError> {
         // TODO: Implement version comparison
         Ok(String::new())
     }

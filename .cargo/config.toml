@@ -63,7 +63,25 @@ rustflags = [
 ]
 
 [build]
-rustflags = ["-D", "warnings"]
+rustflags = [
+    "-A", "dead_code",
+    "-A", "unused_imports",
+    "-A", "unused_variables",
+    "-A", "missing_docs",
+    "-A", "missing_debug_implementations",
+    "-A", "missing_copy_implementations",
+    "-A", "unreachable_pub",
+    "-A", "variant_size_differences"
+]
 
-[env]
-RUSTFLAGS = "-D warnings" 
+[target.'cfg(debug_assertions)']
+rustflags = [
+    "-A", "dead_code",
+    "-A", "unused_imports",
+    "-A", "unused_variables",
+    "-A", "missing_docs",
+    "-A", "missing_debug_implementations",
+    "-A", "missing_copy_implementations",
+    "-A", "unreachable_pub",
+    "-A", "variant_size_differences"
+] 

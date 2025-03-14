@@ -7,8 +7,13 @@ use std::fmt;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-
-use crate::core::error::{Error, MetricsError};
+use crate::core::error::{Result, SquirrelError};
+use async_trait::async_trait;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use crate::core::error::Error;
+use std::future::Future;
+use std::pin::Pin;
 
 /// The type of metric
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,46 +63,124 @@ pub struct Metric {
     pub labels: HashMap<String, String>,
 }
 
-/// The main metrics collector
-#[derive(Debug, Default)]
+pub trait MetricsCollector: Send + Sync {
+    fn as_async(&self) -> &dyn MetricsCollectorAsync;
+}
+
+pub trait MetricsCollectorAsync: Send + Sync {
+    /// Collect metrics
+    fn collect<'a>(&'a self) -> Pin<Box<dyn Future<Output = std::result::Result<MetricsData, MetricsError>> + Send + 'a>>;
+}
+
+pub trait MetricsExporter: Send + Sync {
+    fn as_async(&self) -> &dyn MetricsExporterAsync;
+}
+
+pub trait MetricsExporterAsync: Send + Sync {
+    /// Export metrics
+    fn export<'a>(&'a self, metrics: &'a MetricsData) -> Pin<Box<dyn Future<Output = std::result::Result<(), MetricsError>> + Send + 'a>>;
+}
+
+/// Metrics data
+#[derive(Debug, Clone)]
+pub struct MetricsData {
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub metrics: serde_json::Value,
+}
+
+/// Metrics error types
+#[derive(Debug, thiserror::Error)]
+pub enum MetricsError {
+    #[error("Collection error: {0}")]
+    Collection(String),
+    
+    #[error("Export error: {0}")]
+    Export(String),
+    
+    #[error("Invalid metrics data: {0}")]
+    InvalidData(String),
+}
+
+/// Metrics system
 pub struct Metrics {
-    /// The metrics store
-    metrics: HashMap<String, Vec<Metric>>,
+    collectors: Arc<RwLock<Vec<Arc<dyn MetricsCollector>>>>,
+    exporters: Arc<RwLock<Vec<Arc<dyn MetricsExporter>>>>,
+    initialized: Arc<RwLock<bool>>,
 }
 
 impl Metrics {
-    /// Create a new metrics collector
+    /// Create a new metrics system
     pub fn new() -> Self {
         Self {
-            metrics: HashMap::new(),
+            collectors: Arc::new(RwLock::new(Vec::new())),
+            exporters: Arc::new(RwLock::new(Vec::new())),
+            initialized: Arc::new(RwLock::new(false)),
         }
     }
-
-    /// Initialize the metrics collector
-    pub fn initialize(&mut self) -> Result<(), Error> {
+    
+    /// Register a metrics collector
+    pub async fn register_collector(&self, collector: Arc<dyn MetricsCollector>) {
+        self.collectors.write().await.push(collector);
+    }
+    
+    /// Register a metrics exporter
+    pub async fn register_exporter(&self, exporter: Arc<dyn MetricsExporter>) {
+        self.exporters.write().await.push(exporter);
+    }
+    
+    /// Collect and export metrics
+    pub async fn collect_and_export(&self) -> std::result::Result<(), MetricsError> {
+        // Collect metrics from all collectors
+        let mut all_metrics = Vec::new();
+        for collector in self.collectors.read().await.iter() {
+            let metrics = collector.as_async().collect().await?;
+            all_metrics.push(metrics);
+        }
+        
+        // Export metrics through all exporters
+        for metrics in all_metrics {
+            for exporter in self.exporters.read().await.iter() {
+                exporter.as_async().export(&metrics).await?;
+            }
+        }
+        
         Ok(())
     }
 
-    /// Shutdown the metrics collector
-    pub fn shutdown(&mut self) -> Result<(), Error> {
+    pub async fn initialize(&self) -> Result<(), MetricsError> {
+        let mut initialized = self.initialized.write().await;
+        if !*initialized {
+            *initialized = true;
+        }
         Ok(())
     }
 
-    /// Record a metric
-    pub fn record(&mut self, metric: Metric) -> Result<(), Error> {
-        let metrics = self.metrics.entry(metric.name.clone()).or_insert_with(Vec::new);
-        metrics.push(metric);
+    pub async fn shutdown(&self) -> Result<(), MetricsError> {
+        let mut initialized = self.initialized.write().await;
+        if *initialized {
+            *initialized = false;
+        }
         Ok(())
     }
 
-    /// Get all metrics
-    pub fn get_metrics(&self) -> &HashMap<String, Vec<Metric>> {
-        &self.metrics
+    pub async fn collect_metrics(&self) -> Result<MetricsData, MetricsError> {
+        let collectors = self.collectors.read().await;
+        let mut metrics_data = MetricsData::new();
+
+        for collector in collectors.iter() {
+            let collector_data = collector.as_async().collect().await?;
+            metrics_data.merge(collector_data);
+        }
+
+        Ok(metrics_data)
     }
 
-    /// Clear all metrics
-    pub fn clear(&mut self) {
-        self.metrics.clear();
+    pub async fn export_metrics(&self, metrics: &MetricsData) -> Result<(), MetricsError> {
+        let exporters = self.exporters.read().await;
+        for exporter in exporters.iter() {
+            exporter.as_async().export(metrics).await?;
+        }
+        Ok(())
     }
 }
 
@@ -105,6 +188,18 @@ impl Default for Metrics {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Initialize the metrics system
+pub async fn initialize() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // TODO: Initialize metrics system
+    Ok(())
+}
+
+/// Shutdown the metrics system
+pub async fn shutdown() -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // TODO: Cleanup metrics system resources
+    Ok(())
 }
 
 impl fmt::Display for MetricType {
@@ -150,19 +245,3 @@ impl fmt::Display for Metric {
         )
     }
 }
-
-/// Trait for metrics collectors
-pub trait MetricsCollector: Send + Sync {
-    /// Record a metric
-    fn record(&mut self, metric: Metric) -> Result<(), Error>;
-    /// Get all metrics
-    fn get_metrics(&self) -> &HashMap<String, Vec<Metric>>;
-    /// Clear all metrics
-    fn clear(&mut self);
-}
-
-/// Trait for metrics exporters
-pub trait MetricsExporter: Send + Sync {
-    /// Export metrics
-    fn export(&self, metrics: &HashMap<String, Vec<Metric>>) -> Result<(), Error>;
-} 

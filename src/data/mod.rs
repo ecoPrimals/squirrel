@@ -8,10 +8,8 @@ pub mod versioning;
 pub mod migration;
 
 // Re-export commonly used types
-pub use storage::{Store, Cache, StorageError};
-pub use versioning::{VersionManager, Version, VersionError};
-pub use storage::{Store, Cache, StorageConfig};
-pub use versioning::{Version, VersionManager, VersionConfig};
+pub use storage::{Store, Cache, StorageError, StorageConfig};
+pub use versioning::{VersionManager, Version, VersionError, VersionConfig};
 pub use migration::{Migration, MigrationManager, MigrationConfig};
 
 /// Initialize the data management system

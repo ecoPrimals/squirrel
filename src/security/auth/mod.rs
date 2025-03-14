@@ -5,17 +5,24 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use async_trait::async_trait;
+use std::future::Future;
+use std::pin::Pin;
 
-/// Authentication provider trait
-pub trait AuthProvider: Send + Sync {
+/// Base authentication provider trait
+pub trait AuthProviderAsync: Send + Sync {
     /// Authenticate a user
-    async fn authenticate(&self, credentials: &Credentials) -> Result<AuthToken, AuthError>;
+    fn authenticate<'a>(&'a self, credentials: &'a Credentials) -> Pin<Box<dyn Future<Output = Result<AuthToken, AuthError>> + Send + 'a>>;
     
     /// Validate a token
-    async fn validate_token(&self, token: &AuthToken) -> Result<(), AuthError>;
+    fn validate_token<'a>(&'a self, token: &'a AuthToken) -> Pin<Box<dyn Future<Output = Result<(), AuthError>> + Send + 'a>>;
     
     /// Refresh a token
-    async fn refresh_token(&self, token: &AuthToken) -> Result<AuthToken, AuthError>;
+    fn refresh_token<'a>(&'a self, token: &'a AuthToken) -> Pin<Box<dyn Future<Output = Result<AuthToken, AuthError>> + Send + 'a>>;
+}
+
+pub trait AuthProvider: Send + Sync {
+    fn as_async(&self) -> &dyn AuthProviderAsync;
 }
 
 /// Authentication credentials
@@ -74,17 +81,17 @@ impl Auth {
     
     /// Authenticate a user
     pub async fn authenticate(&self, credentials: &Credentials) -> Result<AuthToken, AuthError> {
-        self.provider.authenticate(credentials).await
+        self.provider.as_async().authenticate(credentials).await
     }
     
     /// Validate a token
     pub async fn validate_token(&self, token: &AuthToken) -> Result<(), AuthError> {
-        self.provider.validate_token(token).await
+        self.provider.as_async().validate_token(token).await
     }
     
     /// Refresh a token
     pub async fn refresh_token(&self, token: &AuthToken) -> Result<AuthToken, AuthError> {
-        self.provider.refresh_token(token).await
+        self.provider.as_async().refresh_token(token).await
     }
 }
 

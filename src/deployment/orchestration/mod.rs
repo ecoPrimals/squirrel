@@ -157,7 +157,7 @@ impl Orchestrator {
     }
     
     /// Update the service
-    pub async fn update(&self, new_config: ServiceConfig) -> Result<(), OrchestrationError> {
+    pub async fn update(&self, _new_config: ServiceConfig) -> Result<(), OrchestrationError> {
         // TODO: Implement service update
         Ok(())
     }
@@ -169,7 +169,7 @@ impl Orchestrator {
     }
     
     /// Scale the service
-    pub async fn scale(&self, replicas: u32) -> Result<(), OrchestrationError> {
+    pub async fn scale(&self, _replicas: u32) -> Result<(), OrchestrationError> {
         // TODO: Implement service scaling
         Ok(())
     }

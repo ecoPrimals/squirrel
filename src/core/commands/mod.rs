@@ -1,20 +1,27 @@
 //! Command system for the Squirrel project
+
 //!
 //! This module provides the command system functionality, which allows
 //! executing commands and managing their lifecycle. Commands can be
 //! validated, executed, and monitored through various hooks.
 
-mod lifecycle;
+pub mod lifecycle;
+mod executor;
 
 use std::fmt;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
+use std::sync::Arc;
 
-use crate::core::error::{Error, CommandError};
+use crate::core::error::Result;
+
+// Re-export types
+pub use executor::BasicCommandExecutor;
+pub use lifecycle::{LifecycleStage, CommandLifecycle, LoggingHook};
 
 /// The type of command
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CommandType {
     /// System command
     System,
@@ -26,15 +33,9 @@ pub enum CommandType {
 
 /// A command in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Command {
-    /// The name of the command
-    pub name: String,
-    /// The type of command
-    pub command_type: CommandType,
-    /// The arguments for the command
+pub struct CommandArgs {
     pub args: Vec<String>,
-    /// The environment variables for the command
-    pub env: HashMap<String, String>,
+    pub env: Vec<(String, String)>,
 }
 
 /// The result of executing a command
@@ -48,40 +49,62 @@ pub struct CommandResult {
     pub error: Option<String>,
 }
 
-/// The main command handler
-#[derive(Debug, Default)]
+impl Default for CommandResult {
+    fn default() -> Self {
+        Self {
+            success: false,
+            output: String::new(),
+            error: None,
+        }
+    }
+}
+
+// Base trait for commands
+pub trait Command: Send + Sync {
+    /// Returns the name of the command
+    fn name(&self) -> &str;
+    
+    /// Returns the description of the command
+    fn description(&self) -> &str;
+
+    /// Execute the command asynchronously
+    fn execute<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CommandResult>> + Send + 'a>>;
+}
+
+// Base trait for command executors
+pub trait CommandExecutor: Send + Sync {
+    /// Execute a command asynchronously
+    fn execute<'a>(&'a self, command: &'a dyn Command, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CommandResult>> + Send + 'a>>;
+    
+    /// Validate command arguments
+    fn validate<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
+    
+    /// Cleanup after command execution
+    fn cleanup<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
+    
+    /// Pre-execute hook
+    fn pre_execute<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
+    
+    /// Post-execute hook
+    fn post_execute<'a>(&'a self, args: &'a CommandArgs, result: &'a CommandResult) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
+}
+
 pub struct CommandHandler {
-    /// The command handlers
-    handlers: HashMap<String, Box<dyn CommandExecutor>>,
+    executor: Box<dyn CommandExecutor>,
 }
 
 impl CommandHandler {
-    /// Create a new command handler
-    pub fn new() -> Self {
-        Self {
-            handlers: HashMap::new(),
-        }
+    pub fn new(executor: Box<dyn CommandExecutor>) -> Self {
+        Self { executor }
     }
 
-    /// Register a command handler
-    pub fn register(&mut self, name: impl Into<String>, handler: Box<dyn CommandExecutor>) {
-        self.handlers.insert(name.into(), handler);
-    }
-
-    /// Execute a command
-    pub async fn execute(&self, command: Command) -> Result<CommandResult, Error> {
-        let handler = self
-            .handlers
-            .get(&command.name)
-            .ok_or_else(|| CommandError::Handler(format!("No handler for command: {}", command.name)))?;
-
-        handler.execute(command).await
-    }
-}
-
-impl Default for CommandHandler {
-    fn default() -> Self {
-        Self::new()
+    pub async fn execute(&self, command: &dyn Command, args: &CommandArgs) -> Result<CommandResult> {
+        self.executor.validate(args).await?;
+        self.executor.pre_execute(args).await?;
+        let result = self.executor.execute(command, args).await?;
+        self.executor.post_execute(args, &result).await?;
+        self.executor.cleanup(args).await?;
+        Ok(result)
     }
 }
 
@@ -95,16 +118,9 @@ impl fmt::Display for CommandType {
     }
 }
 
-impl fmt::Display for Command {
+impl fmt::Display for CommandArgs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Command(name={}, type={}, args={}, env={})",
-            self.name,
-            self.command_type,
-            self.args.len(),
-            self.env.len()
-        )
+        write!(f, "CommandArgs(args={}, env={})", self.args.len(), self.env.len())
     }
 }
 
@@ -120,26 +136,57 @@ impl fmt::Display for CommandResult {
     }
 }
 
-/// Trait for command executors
-#[async_trait]
-pub trait CommandExecutor: Send + Sync {
-    /// Execute a command
-    async fn execute(&self, command: Command) -> Result<CommandResult, Error>;
-}
-
 /// Trait for command validators
 pub trait CommandValidator: Send + Sync {
     /// Validate a command
-    fn validate(&self, command: &Command) -> Result<(), Error>;
+    fn validate<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
 }
 
 /// Trait for command hooks
 pub trait CommandHook: Send + Sync {
     /// Called before a command is executed
-    fn pre_execute(&self, command: &Command) -> Result<(), Error>;
+    fn pre_execute<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
+    
     /// Called after a command is executed
-    fn post_execute(&self, command: &Command, result: &CommandResult) -> Result<(), Error>;
+    fn post_execute<'a>(&'a self, args: &'a CommandArgs, result: &'a CommandResult) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
 }
 
-// Re-export lifecycle types
-pub use lifecycle::{LifecycleStage, CommandLifecycle, CommandHook, LoggingHook}; 
+pub struct BasicCommand {
+    name: String,
+    description: String,
+}
+
+impl BasicCommand {
+    pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+        }
+    }
+}
+
+impl Command for BasicCommand {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn description(&self) -> &str {
+        &self.description
+    }
+
+    fn execute<'a>(&'a self, args: &'a CommandArgs) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<CommandResult>> + Send + 'a>> {
+        Box::pin(async move {
+            Ok(CommandResult {
+                success: true,
+                output: format!("Executed command {} with args {:?}", self.name, args),
+                error: None,
+            })
+        })
+    }
+}
+
+impl fmt::Display for BasicCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.name, self.description)
+    }
+} 

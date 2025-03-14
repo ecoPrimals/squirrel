@@ -19,58 +19,35 @@ pub mod mcp_tools;
 #[cfg(feature = "ui")]
 pub mod ui;
 
-use anyhow::Result;
+use std::error::Error as StdError;
+
+/// A boxed error type that can be sent between threads
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+/// A result type that uses our Error type
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Initialize all systems
 pub async fn initialize() -> Result<()> {
-    // Initialize security systems
-    security::auth::initialize().await?;
-    security::encryption::initialize().await?;
-    security::audit::initialize().await?;
-
-    // Initialize monitoring systems
-    monitoring::tracing::initialize().await?;
-    monitoring::logging::initialize().await?;
-    monitoring::metrics::initialize().await?;
-
-    // Initialize data systems
-    data::storage::initialize().await?;
-    data::versioning::initialize().await?;
-    data::migration::initialize().await?;
-
-    // Initialize deployment systems
-    deployment::initialize().await?;
-
-    // Initialize UI if enabled
-    #[cfg(feature = "ui")]
-    ui::initialize().await?;
-
+    monitoring::metrics::initialize().await.map_err(Into::into)?;
+    monitoring::logging::initialize().await.map_err(Into::into)?;
+    security::audit::initialize().await.map_err(Into::into)?;
+    security::auth::initialize().await.map_err(Into::into)?;
+    security::encryption::initialize().await.map_err(Into::into)?;
+    data::storage::initialize().await.map_err(Into::into)?;
+    data::versioning::initialize().await.map_err(Into::into)?;
+    data::migration::initialize().await.map_err(Into::into)?;
     Ok(())
 }
 
 /// Shutdown all systems
 pub async fn shutdown() -> Result<()> {
-    // Shutdown UI if enabled
-    #[cfg(feature = "ui")]
-    ui::shutdown().await?;
-
-    // Shutdown deployment systems
-    deployment::shutdown().await?;
-
-    // Shutdown data systems
-    data::migration::shutdown().await?;
-    data::versioning::shutdown().await?;
-    data::storage::shutdown().await?;
-
-    // Shutdown monitoring systems
-    monitoring::metrics::shutdown().await?;
-    monitoring::logging::shutdown().await?;
-    monitoring::tracing::shutdown().await?;
-
-    // Shutdown security systems
-    security::audit::shutdown().await?;
-    security::encryption::shutdown().await?;
-    security::auth::shutdown().await?;
-
+    data::migration::shutdown().await.map_err(Into::into)?;
+    data::versioning::shutdown().await.map_err(Into::into)?;
+    data::storage::shutdown().await.map_err(Into::into)?;
+    security::encryption::shutdown().await.map_err(Into::into)?;
+    security::auth::shutdown().await.map_err(Into::into)?;
+    security::audit::shutdown().await.map_err(Into::into)?;
+    monitoring::logging::shutdown().await.map_err(Into::into)?;
+    monitoring::metrics::shutdown().await.map_err(Into::into)?;
     Ok(())
 } 

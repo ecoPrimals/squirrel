@@ -5,6 +5,23 @@ edition = "2021"
 authors = ["DataScienceBioLab"]
 description = "A modular and maintainable Rust project"
 
+# Linting configuration for development
+[lints.rust]
+missing_docs = "allow"
+missing_debug_implementations = "allow"
+missing_copy_implementations = "allow"
+dead_code = "allow"
+
+[lints.clippy]
+all = "warn"
+pedantic = "allow"
+nursery = "allow"
+cargo = "allow"
+complexity = "allow"
+perf = "warn"
+style = "warn"
+suspicious = "warn"
+
 [dependencies]
 # Core dependencies
 tokio = { version = "1.36", features = ["full"], optional = true }
@@ -16,6 +33,16 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+
+# Compression dependencies
+flate2 = "1.0"
+zstd = "0.13"
+lz4 = "1.24"
+sysinfo = "0.30"
+
+# UI dependencies
+crossbeam-channel = "0.5"
+derive_more = "0.99"
 
 # Monitoring and logging
 tracing = { version = "0.1", optional = true }
@@ -42,7 +69,9 @@ sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chron
 redis = { version = "0.24", features = ["tokio-comp"], optional = true }
 sled = { version = "0.34", optional = true }
 
-# UI dependencies (optional)
+# UI dependencies
+ratatui = { version = "0.26", features = ["crossterm"], optional = true }
+crossterm = { version = "0.27", features = ["event-stream"], optional = true }
 egui = { version = "0.26", optional = true }
 eframe = { version = "0.26", optional = true }
 egui-wgpu = { version = "0.26", optional = true }
@@ -63,71 +92,16 @@ insta = "1.36"
 snapbox = "0.5"
 
 [features]
-default = ["full"]
-full = [
-    "mcp",
-    "ai",
-    "data",
-    "deployment",
-    "monitoring",
-    "security",
-    "analysis",
-    "reporting"
-]
-ui = [
-    "dep:egui",
-    "dep:eframe",
-    "dep:egui-wgpu",
-    "dep:wgpu",
-    "dep:tokio",
-    "dep:futures"
-]
-mcp = [
-    "dep:tokio",
-    "dep:futures",
-    "dep:bytes",
-    "dep:futures-util",
-    "dep:tokio-util",
-    "dep:tower",
-    "dep:tower-http",
-    "dep:hyper"
-]
-ai = [
-    "dep:tokio",
-    "dep:futures",
-    "dep:async-trait"
-]
-data = [
-    "dep:sqlx",
-    "dep:redis",
-    "dep:sled"
-]
-deployment = ["dep:tokio"]
-monitoring = [
-    "dep:tracing",
-    "dep:tracing-subscriber",
-    "dep:log",
-    "dep:env_logger"
-]
-security = [
-    "dep:ring",
-    "dep:bcrypt",
-    "dep:jwt",
-    "dep:argon2"
-]
-analysis = [
-    "dep:tokio",
-    "dep:serde",
-    "dep:serde_json",
-    "dep:uuid",
-    "dep:chrono"
-]
-reporting = [
-    "dep:analysis",
-    "dep:tokio",
-    "dep:serde",
-    "dep:serde_json"
-]
+default = ["truecolor"]
+truecolor = []
+ui = ["ratatui", "crossterm"]
+async = ["tokio", "futures", "async-trait"]
+monitoring = ["tracing", "tracing-subscriber", "log", "env_logger"]
+mcp = ["bytes", "futures-util", "tokio-util", "tower", "tower-http", "hyper"]
+security = ["ring", "bcrypt", "jwt", "argon2"]
+data = ["sqlx", "redis", "sled"]
+gui = ["egui", "eframe", "egui-wgpu", "wgpu"]
+full = ["ui", "async", "monitoring", "mcp", "security", "data", "gui"]
 
 [[bin]]
 name = "squirrel"

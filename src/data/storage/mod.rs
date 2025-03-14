@@ -73,25 +73,25 @@ impl Store {
     }
     
     /// Read data from storage
-    pub async fn read(&self, key: &str) -> Result<Vec<u8>, StorageError> {
+    pub async fn read(&self, _key: &str) -> Result<Vec<u8>, StorageError> {
         // TODO: Implement data reading
         Ok(vec![])
     }
     
     /// Write data to storage
-    pub async fn write(&self, key: &str, data: &[u8]) -> Result<(), StorageError> {
+    pub async fn write(&self, _key: &str, _data: &[u8]) -> Result<(), StorageError> {
         // TODO: Implement data writing
         Ok(())
     }
     
     /// Delete data from storage
-    pub async fn delete(&self, key: &str) -> Result<(), StorageError> {
+    pub async fn delete(&self, _key: &str) -> Result<(), StorageError> {
         // TODO: Implement data deletion
         Ok(())
     }
     
     /// List data in storage
-    pub async fn list(&self, prefix: Option<&str>) -> Result<Vec<String>, StorageError> {
+    pub async fn list(&self, _prefix: Option<&str>) -> Result<Vec<String>, StorageError> {
         // TODO: Implement data listing
         Ok(vec![])
     }
@@ -109,19 +109,19 @@ impl Cache {
     }
     
     /// Get data from cache
-    pub async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, StorageError> {
+    pub async fn get(&self, _key: &str) -> Result<Option<Vec<u8>>, StorageError> {
         // TODO: Implement cache retrieval
         Ok(None)
     }
     
     /// Set data in cache
-    pub async fn set(&self, key: &str, data: &[u8], ttl: Option<chrono::Duration>) -> Result<(), StorageError> {
+    pub async fn set(&self, _key: &str, _data: &[u8], _ttl: Option<chrono::Duration>) -> Result<(), StorageError> {
         // TODO: Implement cache setting
         Ok(())
     }
     
     /// Delete data from cache
-    pub async fn delete(&self, key: &str) -> Result<(), StorageError> {
+    pub async fn delete(&self, _key: &str) -> Result<(), StorageError> {
         // TODO: Implement cache deletion
         Ok(())
     }

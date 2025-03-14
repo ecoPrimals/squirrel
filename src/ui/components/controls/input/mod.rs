@@ -2,40 +2,51 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     terminal,
 };
-use std::io;
+use std::io::{self, Write};
 use std::time::Duration;
 use crate::ui::layout::LayoutManager;
 use crate::ui::theme::{Theme, Themeable, ColorRole, ThemeError, Style};
 
 /// Represents an input component in the UI.
+///
+/// # Examples
+///
+/// ```
+/// use crate::ui::components::controls::Input;
+/// use std::time::Duration;
+///
+/// let input = Input::with_timeout(Duration::from_secs(5));
+/// if let Ok(line) = input.read_line_with_prompt("Enter your name: ") {
+///     println!("Hello, {}", line);
+/// }
+/// ```
+#[derive(Debug)]
 pub struct Input {
     /// Optional timeout duration for input operations.
     timeout: Option<Duration>,
     /// The layout manager for positioning the input field.
-    #[allow(dead_code)]
     layout: LayoutManager,
     /// The style configuration for the input component.
     style: Style,
 }
 
 /// Error types that can occur during input operations.
+#[derive(Debug, thiserror::Error)]
 pub enum InputError {
     /// An I/O error occurred during input handling.
-    IO(io::Error),
+    #[error("IO error: {0}")]
+    IO(#[from] io::Error),
     /// A timeout occurred while waiting for input.
+    #[error("Input timeout")]
     Timeout,
     /// The input was invalid or could not be processed.
+    #[error("Invalid input")]
     InvalidInput,
-}
-
-impl From<io::Error> for InputError {
-    fn from(err: io::Error) -> Self {
-        InputError::IO(err)
-    }
 }
 
 impl Input {
     /// Creates a new input component with no timeout.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             timeout: None,
@@ -48,6 +59,14 @@ impl Input {
     ///
     /// # Arguments
     /// * `timeout` - The maximum duration to wait for input
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time::Duration;
+    /// let input = Input::with_timeout(Duration::from_secs(5));
+    /// ```
+    #[must_use]
     pub fn with_timeout(timeout: Duration) -> Self {
         Self {
             timeout: Some(timeout),
@@ -60,10 +79,14 @@ impl Input {
     ///
     /// If a timeout is set, returns an error if no key is pressed within
     /// the timeout duration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Timeout` if no key is pressed within the timeout duration.
+    /// Returns `InputError::IO` if an I/O error occurs.
+    /// Returns `InputError::InvalidInput` if the event is not a key event.
     pub fn wait_for_key(&self) -> Result<KeyEvent, InputError> {
-        // Enable raw mode
-        terminal::enable_raw_mode()?;
-
+        let _raw = terminal::enable_raw_mode()?;
         let result = match event::poll(self.timeout.unwrap_or(Duration::from_millis(100)))? {
             true => match event::read()? {
                 Event::Key(key) => Ok(key),
@@ -71,10 +94,7 @@ impl Input {
             },
             false => Err(InputError::Timeout),
         };
-
-        // Disable raw mode
         terminal::disable_raw_mode()?;
-
         result
     }
 
@@ -83,21 +103,32 @@ impl Input {
     /// Returns None if the key pressed was not a character key.
     /// If a timeout is set, returns an error if no key is pressed within
     /// the timeout duration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Timeout` if no key is pressed within the timeout duration.
+    /// Returns `InputError::IO` if an I/O error occurs.
     pub fn wait_for_char(&self) -> Result<Option<char>, InputError> {
         let key = self.wait_for_key()?;
-        match key.code {
-            KeyCode::Char(c) => Ok(Some(c)),
-            _ => Ok(None),
-        }
+        Ok(match key.code {
+            KeyCode::Char(c) => Some(c),
+            _ => None,
+        })
     }
 
     /// Reads a line of text from the user, ending with Enter.
     ///
     /// If a timeout is set, returns an error if the line is not completed
     /// within the timeout duration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Timeout` if input is not completed within the timeout duration.
+    /// Returns `InputError::IO` if an I/O error occurs.
+    /// Returns `InputError::InvalidInput` if Escape is pressed.
     pub fn read_line(&self) -> Result<String, InputError> {
         let mut input = String::new();
-        terminal::enable_raw_mode()?;
+        let _raw = terminal::enable_raw_mode()?;
 
         loop {
             match event::poll(self.timeout.unwrap_or(Duration::from_millis(100)))? {
@@ -107,14 +138,14 @@ impl Input {
                             KeyCode::Enter => break,
                             KeyCode::Char(c) => {
                                 input.push(c);
-                                print!("{}", c);
-                                io::Write::flush(&mut io::stdout())?;
+                                print!("{c}");
+                                io::stdout().flush()?;
                             }
                             KeyCode::Backspace => {
                                 if !input.is_empty() {
                                     input.pop();
                                     print!("\x08 \x08"); // Move back, erase, move back
-                                    io::Write::flush(&mut io::stdout())?;
+                                    io::stdout().flush()?;
                                 }
                             }
                             KeyCode::Esc => {
@@ -138,24 +169,32 @@ impl Input {
     ///
     /// # Arguments
     /// * `prompt` - The text to display before the input line
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::IO` if an I/O error occurs.
+    /// Returns other `InputError` variants from `read_line`.
     pub fn read_line_with_prompt(&self, prompt: &str) -> Result<String, InputError> {
-        print!("{}", prompt);
-        io::Write::flush(&mut io::stdout())?;
+        print!("{prompt}");
+        io::stdout().flush()?;
         self.read_line()
     }
 
     /// Checks if the Control key was pressed with the given key event.
-    pub fn is_ctrl_pressed(key: KeyEvent) -> bool {
+    #[must_use]
+    pub const fn is_ctrl_pressed(key: KeyEvent) -> bool {
         key.modifiers.contains(KeyModifiers::CONTROL)
     }
 
     /// Checks if the Alt key was pressed with the given key event.
-    pub fn is_alt_pressed(key: KeyEvent) -> bool {
+    #[must_use]
+    pub const fn is_alt_pressed(key: KeyEvent) -> bool {
         key.modifiers.contains(KeyModifiers::ALT)
     }
 
     /// Checks if the Shift key was pressed with the given key event.
-    pub fn is_shift_pressed(key: KeyEvent) -> bool {
+    #[must_use]
+    pub const fn is_shift_pressed(key: KeyEvent) -> bool {
         key.modifiers.contains(KeyModifiers::SHIFT)
     }
 }
