@@ -1,4 +1,11 @@
-//! Squirrel - A modular and maintainable Rust project
+#![deny(missing_docs)]
+#![deny(clippy::missing_docs_in_private_items)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+
+//! Machine Context Protocol (MCP) implementation for the DataScienceBioLab project.
+//! 
+//! This crate provides the core functionality for component-based UI management,
+//! event handling, and layout management.
 
 pub mod security;
 pub mod monitoring;

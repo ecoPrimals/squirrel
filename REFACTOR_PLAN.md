@@ -4,143 +4,131 @@
 This document outlines the refactoring plan for the Squirrel project, focusing on creating a robust, maintainable, and future-proof codebase. The plan is designed to be executed in phases, with clear milestones and quality gates.
 
 ## Project Goals
-1. Create a modular, well-organized codebase ✅
-2. Implement robust error handling and recovery ✅
-3. Ensure comprehensive test coverage 🔄
-4. Maintain clear separation of concerns ✅
-5. Enable future extensibility ✅
+1. Create a modular, well-organized codebase
+2. Implement robust error handling and recovery
+3. Ensure comprehensive test coverage
+4. Maintain clear separation of concerns
+5. Enable future extensibility
 
 ## Implementation Phases
 
-### Phase 1: Core Infrastructure (Completed) ✅
-1. **Context System Refactor** ✅
-   - [x] Context Management
-   - [x] State transitions
-   - [x] Event handling
-   - [x] Context registry
-   - [x] Context lookup
-   - [x] Context relationships
-   - [x] Registry events
-   - [x] State handling
-   - [x] State store implementation
-   - [x] Snapshot management
-   - [x] State diffing
+### Phase 1: Core Infrastructure (Not Started)
+1. **Context System Refactor**
+   - [ ] Context Management
+   - [ ] State transitions
+   - [ ] Event handling
+   - [ ] Context registry
+   - [ ] Context lookup
+   - [ ] Context relationships
+   - [ ] Registry events
+   - [ ] State handling
+   - [ ] State store implementation
+   - [ ] Snapshot management
+   - [ ] State diffing
    
-   - [x] Synchronization System
-     - [x] Protocol implementation
-     - [x] Conflict resolution
-     - [x] Queue management
+   - [ ] Synchronization System
+     - [ ] Protocol implementation
+     - [ ] Conflict resolution
+     - [ ] Queue management
    
-   - [x] Persistence System
-     - [x] Storage backend
-     - [x] Data migration
+   - [ ] Persistence System
+     - [ ] Storage backend
+     - [ ] Data migration
 
-2. **Command System Refactor** ✅
-   - [x] Command Lifecycle
-     - [x] Execution stages
-     - [x] Pipeline system
+2. **Command System Refactor**
+   - [ ] Command Lifecycle
+     - [ ] Execution stages
+     - [ ] Pipeline system
    
-   - [x] Validation System
-     - [x] Rule engine
-     - [x] Schema validation
+   - [ ] Validation System
+     - [ ] Rule engine
+     - [ ] Schema validation
    
-   - [x] Hook System
-     - [x] Hook registry
-     - [x] Hook chain
+   - [ ] Hook System
+     - [ ] Hook registry
+     - [ ] Hook chain
    
-   - [x] Resource Management
-     - [x] Resource allocation
-     - [x] Resource limits
+   - [ ] Resource Management
+     - [ ] Resource allocation
+     - [ ] Resource limits
 
-3. **Error Handling System** ✅
-   - [x] Error Types
-   - [x] Error Context
-   - [x] Error Recovery
+3. **Error Handling System**
+   - [ ] Error Types
+   - [ ] Error Context
+   - [ ] Error Recovery
 
-4. **Event System** ✅
-   - [x] Event Bus
-   - [x] Event Handlers
-   - [x] Event Filtering
+4. **Event System**
+   - [ ] Event Bus
+   - [ ] Event Handlers
+   - [ ] Event Filtering
 
-5. **Metrics System** ✅
-   - [x] Metrics Collection
-   - [x] Metrics Registry
-   - [x] Metrics Export
+5. **Metrics System**
+   - [ ] Metrics Collection
+   - [ ] Metrics Registry
+   - [ ] Metrics Export
 
-6. **MCP System Refactor** ✅
-   - [x] Message System
-   - [x] Protocol Implementation
-   - [x] Transport Layer
-   - [x] Session Management
+6. **MCP System Refactor**
+   - [ ] Message System
+   - [ ] Protocol Implementation
+   - [ ] Transport Layer
+   - [ ] Session Management
 
-### Phase 2: New Systems (In Progress) 🔄
+### Phase 2: New Systems (Not Started)
 
-1. **Security System** ✅
-   - [x] Authentication
-   - [x] Encryption
-   - [x] Audit Logging
+1. **Security System**
+   - [ ] Authentication
+   - [ ] Encryption
+   - [ ] Audit Logging
 
-2. **Monitoring System** ✅
-   - [x] Tracing
-   - [x] Logging
-   - [x] Metrics
+2. **Monitoring System**
+   - [ ] Tracing
+   - [ ] Logging
+   - [ ] Metrics
 
-3. **Data Management** ✅
-   - [x] Storage
-   - [x] Versioning
-   - [x] Migration
+3. **Data Management**
+   - [ ] Storage
+   - [ ] Versioning
+   - [ ] Migration
 
-4. **Deployment System** ✅
-   - [x] Container Management
-   - [x] Orchestration
-   - [x] Service Discovery
+4. **Deployment System**
+   - [ ] Container Management
+   - [ ] Orchestration
+   - [ ] Service Discovery
 
-5. **Analysis System** ✅
-   - [x] Data Structures
-     - [x] Dataset management
-     - [x] Data point handling
-   - [x] Metrics System
-     - [x] Metric calculations
-     - [x] Metric sets
-   - [x] Processing Pipeline
-     - [x] Data processing
-     - [x] Metric generation
+5. **Analysis System**
+   - [ ] Data Structures
+     - [ ] Dataset management
+     - [ ] Data point handling
+   - [ ] Metrics System
+     - [ ] Metric calculations
+     - [ ] Metric sets
+   - [ ] Processing Pipeline
+     - [ ] Data processing
+     - [ ] Metric generation
 
-6. **Reporting System** ✅
-   - [x] Report Generation
-     - [x] Template system
-     - [x] Report creation
-   - [x] Format Handling
-     - [x] Multiple formats
-     - [x] Format conversion
-   - [x] Template Management
-     - [x] Template storage
-     - [x] Template variables
-
-### Next Actions
-1. Implement individual module components
-2. Add comprehensive tests for each module
-3. Set up CI/CD pipeline
-4. Add documentation for all modules
-5. Create example applications
+6. **Reporting System**
+   - [ ] Report Generation
+     - [ ] Template system
+     - [ ] Report creation
+   - [ ] Format Handling
+     - [ ] Multiple formats
+     - [ ] Format conversion
+   - [ ] Template Management
+     - [ ] Template storage
+     - [ ] Template variables
 
 ### Current Status (March 13, 2024)
-1. ✅ Completed directory structure setup
-2. ✅ Moved core context system files
-3. ✅ Moved MCP system files
-4. ✅ Moved AI tools files
-5. ✅ Created new module structure
-6. ✅ Set up mod.rs files for all modules
-7. ✅ Updated lib.rs with new modules
-8. ✅ Created main.rs with proper initialization
-9. ✅ Moved web crate to squirrel/crates/
-10. ✅ Created analysis module
-11. ✅ Created reporting module
-12. 🔄 Next Steps:
-    - Add tests to new modules
-    - Set up CI/CD pipeline
-    - Add documentation
-    - Create examples
+1. 🔄 Directory Structure Reset Required
+2. 🔄 Core Context System Files Need to be Moved
+3. 🔄 MCP System Files Need to be Moved
+4. 🔄 AI Tools Files Need to be Moved
+5. 🔄 New Module Structure Needs to be Created
+6. 🔄 Mod.rs Files Need to be Created
+7. 🔄 Lib.rs Needs to be Updated
+8. 🔄 Main.rs Needs to be Created
+9. ✅ Web Crate is in Place
+10. 🔄 Analysis Module Needs to be Created
+11. 🔄 Reporting Module Needs to be Created
 
 ## Quality Gates
 1. **Code Quality**
@@ -165,8 +153,8 @@ This document outlines the refactoring plan for the Squirrel project, focusing o
    - Security testing
 
 ## Timeline
-- Phase 1: Completed ✅
-- Phase 2: In Progress 🔄
+- Phase 1: Not Started ⏳
+- Phase 2: Not Started ⏳
 - Phase 3: Not Started ⏳
 
 ## Progress Tracking
@@ -176,11 +164,11 @@ This document outlines the refactoring plan for the Squirrel project, focusing o
 - Issue management
 
 ## Next Steps
-1. Begin implementing individual module components
-2. Set up testing infrastructure
-3. Add documentation for completed modules
-4. Create example applications
-5. Set up CI/CD pipeline
+1. Reset directory structure
+2. Move core files to appropriate locations
+3. Set up new module structure
+4. Begin implementing core components
+5. Set up testing infrastructure
 
 ## Development Guidelines
 
@@ -246,13 +234,7 @@ This document outlines the refactoring plan for the Squirrel project, focusing o
    - Clear documentation
    - Code reviews
 
-## Next Steps
-1. Set up development environment
-2. Create initial repository structure
-3. Begin Phase 1 implementation
-4. Schedule regular reviews
-
 ## Version History
 - v0.1.0: Initial refactoring plan
-- v0.2.0: Added analysis and reporting modules
+- v0.2.0: Reset plan due to tracking issues
 - Future versions will track implementation progress 
