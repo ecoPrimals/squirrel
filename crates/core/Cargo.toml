@@ -19,6 +19,9 @@ chrono = { workspace = true }
 sled = { workspace = true }
 rand = { workspace = true }
 ring = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+regex = "1.10"
+sysinfo = "0.30"
 
 # Monitoring and logging
 tracing = { workspace = true }
@@ -47,4 +50,7 @@ async = ["dep:tokio"]
 
 [lib]
 name = "squirrel_core"
-path = "src/lib.rs" 
+path = "src/lib.rs"
+
+[build-dependencies]
+built = "0.7"

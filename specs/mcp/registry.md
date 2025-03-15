@@ -7,7 +7,7 @@ status: implemented
 # MCP Registry Specification
 
 ## Overview
-The MCP Registry manages tool registration, discovery, and lifecycle management for the Squirrel system. It provides a centralized registry for all available tools and their capabilities.
+The MCP Registry is a secure, distributed system for managing and discovering MCP tools and protocols. It provides a centralized registry for tool metadata, versioning, access control, and lifecycle management for the Squirrel system.
 
 ## Core Components
 
@@ -18,8 +18,13 @@ pub struct ToolRegistration {
     pub name: String,
     pub description: String,
     pub version: String,
+    pub author: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub capabilities: Vec<Capability>,
     pub parameters: ToolParameters,
+    pub security_policy: SecurityPolicy,
+    pub validation_hash: String,
 }
 
 pub struct ToolParameters {
@@ -33,15 +38,43 @@ pub struct Parameter {
     pub parameter_type: ParameterType,
     pub required: bool,
 }
+
+pub struct SecurityPolicy {
+    pub required_permissions: Vec<Permission>,
+    pub rate_limits: RateLimits,
+    pub allowed_origins: Vec<String>,
+    pub security_level: SecurityLevel,
+    pub audit_requirements: AuditRequirements,
+}
 ```
 
-### Tool Management
+### Access Control
 ```rust
-pub trait ToolRegistry {
-    fn register_tool(&mut self, registration: ToolRegistration) -> Result<(), RegistryError>;
-    fn unregister_tool(&mut self, tool_id: &str) -> Result<(), RegistryError>;
-    fn get_tool(&self, tool_id: &str) -> Option<&ToolRegistration>;
-    fn list_tools(&self) -> Vec<&ToolRegistration>;
+pub struct AccessControl {
+    pub roles: HashMap<String, Role>,
+    pub permissions: HashMap<String, Vec<Permission>>,
+    pub api_keys: HashMap<String, ApiKey>,
+    pub audit_log: Vec<AuditEvent>,
+}
+
+pub struct ApiKey {
+    pub key_id: String,
+    pub hashed_key: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub permissions: Vec<Permission>,
+    pub rate_limits: RateLimits,
+    pub last_rotated: DateTime<Utc>,
+}
+
+pub struct AuditEvent {
+    pub timestamp: DateTime<Utc>,
+    pub event_type: AuditEventType,
+    pub user_id: String,
+    pub resource_id: String,
+    pub action: String,
+    pub status: ActionStatus,
+    pub metadata: HashMap<String, String>,
 }
 ```
 
@@ -56,38 +89,58 @@ pub enum Capability {
 }
 ```
 
-## Implementation
+## Security Implementation
 
-### Registry Implementation
+### Authentication
 ```rust
-pub struct Registry {
-    tools: HashMap<String, ToolRegistration>,
+pub struct AuthenticationManager {
+    pub key_store: KeyStore,
+    pub token_manager: TokenManager,
+    pub mfa_provider: Option<MFAProvider>,
 }
 
-impl Registry {
-    pub fn new() -> Self {
-        Self {
-            tools: HashMap::new(),
+impl AuthenticationManager {
+    pub async fn authenticate(&self, credentials: &Credentials) -> Result<AuthToken, AuthError> {
+        // Validate credentials
+        self.validate_credentials(credentials)?;
+        
+        // Check MFA if required
+        if let Some(mfa) = &self.mfa_provider {
+            mfa.validate_code(credentials.mfa_code)?;
         }
-    }
-
-    pub fn register(&mut self, tool: ToolRegistration) -> Result<(), RegistryError> {
-        if self.tools.contains_key(&tool.id) {
-            return Err(RegistryError::DuplicateTool);
-        }
-        self.tools.insert(tool.id.clone(), tool);
-        Ok(())
+        
+        // Generate and store token
+        let token = self.token_manager.generate_token(credentials)?;
+        
+        // Log authentication event
+        self.log_auth_event(credentials, &token);
+        
+        Ok(token)
     }
 }
 ```
 
-### Error Handling
+### Rate Limiting
 ```rust
-pub enum RegistryError {
-    DuplicateTool,
-    ToolNotFound,
-    InvalidRegistration,
-    PermissionDenied,
+pub struct RateLimiter {
+    pub limits: HashMap<String, RateLimit>,
+    pub counters: HashMap<String, RateCounter>,
+}
+
+impl RateLimiter {
+    pub async fn check_rate_limit(&self, key: &str) -> Result<(), RateLimitError> {
+        let limit = self.limits.get(key)
+            .ok_or(RateLimitError::NoLimit)?;
+            
+        let counter = self.counters.get(key)
+            .ok_or(RateLimitError::NoCounter)?;
+            
+        if counter.count >= limit.max_requests {
+            return Err(RateLimitError::LimitExceeded);
+        }
+        
+        Ok(())
+    }
 }
 ```
 
@@ -97,7 +150,8 @@ pub enum RegistryError {
 1. Tool provides registration information
 2. Registry validates registration
 3. Tool capabilities are verified
-4. Tool is added to registry
+4. Security policy is validated
+5. Tool is added to registry
 
 ### Tool Discovery
 1. Client requests available tools
@@ -105,18 +159,46 @@ pub enum RegistryError {
 3. Client can query tool details
 4. Tool capabilities are provided
 
-## Security
+## Implementation Guidelines
 
-### Access Control
-- Tool registration requires appropriate permissions
-- Tool usage follows security level requirements
-- Capability restrictions based on security level
+### Security Best Practices
+- Use secure cryptographic libraries
+- Implement proper input validation
+- Follow OWASP guidelines
+- Regular security audits
+- Secure key management
+- Regular backup testing
 
-### Validation
-- Tool registration validation
-- Parameter validation
-- Capability validation
-- Security level validation
+### Performance Optimization
+- Implement distributed caching
+- Use connection pooling
+- Optimize database queries
+- Efficient rate limiting
+- Monitor resource usage
+- Use async/await for I/O
+
+### Monitoring and Logging
+- Comprehensive audit logging
+- Performance metrics collection
+- Error tracking and alerting
+- Security event monitoring
+- Resource usage tracking
+- Health check endpoints
+
+## Error Handling
+```rust
+pub enum RegistryError {
+    DuplicateTool,
+    ToolNotFound,
+    InvalidRegistration,
+    PermissionDenied,
+    SecurityViolation,
+    RateLimitExceeded,
+    ValidationFailed,
+    DatabaseError,
+    NetworkError,
+}
+```
 
 ## Best Practices
 1. Register tools with clear descriptions
@@ -127,5 +209,7 @@ pub enum RegistryError {
 6. Follow security guidelines
 7. Implement proper error handling
 8. Keep registry synchronized
+9. Monitor tool health
+10. Maintain audit logs
 
 <version>1.1.0</version>

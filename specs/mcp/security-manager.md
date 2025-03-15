@@ -7,9 +7,27 @@ status: active
 # MCP Security Manager Specification
 
 ## Overview
-The Security Manager handles authentication, authorization, and secure communication within the MCP system. It enforces security policies and manages access control.
+The Security Manager handles authentication, authorization, and secure communication within the MCP system. It provides comprehensive security features including token-based authentication, role-based access control, secure message encryption, and security policy enforcement.
 
 ## Core Components
+
+### Security Configuration
+```rust
+pub struct SecurityConfig {
+    pub token_expiry: Duration,
+    pub key_rotation_interval: Duration,
+    pub min_key_size: usize,
+    pub security_level: SecurityLevel,
+}
+
+#[derive(Debug, Clone)]
+pub enum SecurityLevel {
+    Low,
+    Standard,
+    High,
+    Critical,
+}
+```
 
 ### Authentication
 ```rust
@@ -25,6 +43,14 @@ pub struct Credentials {
     pub security_level: SecurityLevel,
     pub mfa_info: Option<MFAInfo>,
 }
+
+pub struct AuthToken {
+    pub token: String,
+    pub user_id: String,
+    pub roles: HashSet<String>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
 ```
 
 ### Authorization
@@ -34,17 +60,6 @@ pub trait AuthorizationManager {
     async fn get_security_level(&self, session: &Session) -> Result<SecurityLevel>;
 }
 
-#[derive(Debug, Clone)]
-pub enum SecurityLevel {
-    Low,
-    Standard,
-    High,
-    Critical,
-}
-```
-
-### Role-Based Access Control
-```rust
 pub struct Role {
     pub id: RoleId,
     pub name: String,
@@ -56,6 +71,20 @@ pub trait RBACManager {
     async fn assign_role(&mut self, session: &Session, role: Role) -> Result<()>;
     async fn check_role(&self, session: &Session, role: &Role) -> Result<bool>;
     async fn get_roles(&self, session: &Session) -> Result<Vec<Role>>;
+}
+```
+
+### Encryption
+```rust
+struct EncryptionProvider {
+    keys: RwLock<HashMap<String, EncryptionKey>>,
+    rng: rand::SystemRandom,
+}
+
+struct EncryptionKey {
+    key: aead::LessSafeKey,
+    created_at: DateTime<Utc>,
+    expires_at: Option<DateTime<Utc>>,
 }
 ```
 
@@ -87,6 +116,26 @@ pub trait RBACManager {
    - Apply security policies
    - Log access attempts
 
+## Performance Requirements
+
+### Latency Targets
+- Authentication: < 50ms
+- Authorization: < 20ms
+- Encryption: < 30ms
+- Key rotation: < 100ms
+
+### Throughput Goals
+- Authentication: 1000 req/s
+- Authorization: 5000 req/s
+- Encryption: 2000 msg/s
+- Key operations: 100 ops/s
+
+### Resource Usage
+- Memory: < 256MB
+- CPU: < 30% single core
+- Key storage: < 100MB
+- Token storage: < 50MB
+
 ## Implementation Guidelines
 
 ### Security Best Practices
@@ -95,6 +144,11 @@ pub trait RBACManager {
 3. Apply principle of least privilege
 4. Log security events
 5. Handle errors securely
+6. Regular key rotation
+7. Secure random number generation
+8. Input validation
+9. Output encoding
+10. Regular security audits
 
 ### Error Handling
 ```rust
@@ -103,6 +157,9 @@ pub enum SecurityError {
     AuthorizationDenied(String),
     InvalidSession(String),
     SecurityLevelInsufficient(String),
+    EncryptionError(String),
+    KeyRotationError(String),
+    ValidationError(String),
 }
 ```
 
@@ -112,5 +169,50 @@ pub enum SecurityError {
 3. Log security violations
 4. Track resource usage
 5. Monitor error rates
+6. Audit access patterns
+7. Track key usage
+8. Monitor performance metrics
 
-<version>1.1.0</version> 
+## Testing Requirements
+
+### Unit Tests
+- Token management
+- Permission checks
+- Encryption operations
+- Error handling
+- Session management
+- Role validation
+
+### Integration Tests
+- Authentication flow
+- Authorization chain
+- Encryption pipeline
+- Key rotation
+- Session handling
+- Role management
+
+### Security Tests
+- Penetration testing
+- Vulnerability scanning
+- Compliance checking
+- Performance testing
+- Stress testing
+- Security audit
+
+## Compliance
+
+### Security Standards
+- OWASP Top 10
+- NIST guidelines
+- GDPR requirements
+- SOC 2 compliance
+- Zero Trust principles
+- Least privilege access
+
+### Performance Standards
+- 99.99% availability
+- < 100ms latency (p95)
+- < 0.1% error rate
+- < 256MB memory usage
+
+<version>1.1.0</version>
