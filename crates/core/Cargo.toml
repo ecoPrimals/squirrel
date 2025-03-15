@@ -17,6 +17,9 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 sled = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+regex = "1.10"
+sysinfo = "0.30"
 
 # Monitoring and logging
 tracing = { workspace = true, optional = true }
@@ -44,4 +47,7 @@ path = "src/bin/main.rs"
 
 [lib]
 name = "squirrel"
-path = "src/lib.rs" 
+path = "src/lib.rs"
+
+[build-dependencies]
+built = "0.7" 
