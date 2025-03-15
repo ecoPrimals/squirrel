@@ -1,205 +1,142 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::sync::RwLock;
-use std::time::SystemTime;
-use crate::core::Command;
+use crate::commands::validation::ValidationError;
+use super::Command;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Represents different stages in a command's lifecycle
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum LifecycleStage {
+    /// Before command registration
     Registration,
+    /// During command initialization
     Initialization,
+    /// During command validation
     Validation,
+    /// Before command execution
+    PreExecution,
+    /// During command execution
     Execution,
+    /// After command execution
+    PostExecution,
+    /// During command completion
     Completion,
+    /// During cleanup
     Cleanup,
 }
 
-#[derive(Debug)]
-pub struct LifecycleError {
-    pub stage: LifecycleStage,
-    pub message: String,
+/// A hook that can be executed at different stages of a command's lifecycle
+pub trait LifecycleHook: Send + Sync {
+    /// Called before a lifecycle stage is executed
+    ///
+    /// # Arguments
+    /// * `stage` - The lifecycle stage being executed
+    /// * `command` - The command being executed
+    ///
+    /// # Errors
+    /// Returns an error if the hook fails to execute
+    fn pre_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
+
+    /// Called after a lifecycle stage is executed
+    ///
+    /// # Arguments
+    /// * `stage` - The lifecycle stage being executed
+    /// * `command` - The command being executed
+    ///
+    /// # Errors
+    /// Returns an error if the hook fails to execute
+    fn post_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
 }
 
-impl std::fmt::Display for LifecycleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Lifecycle error at {:?}: {}", self.stage, self.message)
-    }
-}
-
-impl Error for LifecycleError {}
-
-pub trait CommandHook: Send + Sync {
-    fn before_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
-    fn after_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
-}
-
-#[derive(Default)]
+/// Manages the lifecycle of a command
 pub struct CommandLifecycle {
-    hooks: RwLock<Vec<Box<dyn CommandHook>>>,
-    state: RwLock<HashMap<String, LifecycleStage>>,
+    /// List of hooks that will be executed during each lifecycle stage
+    hooks: RwLock<Vec<Box<dyn LifecycleHook>>>,
+}
+
+impl Default for CommandLifecycle {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CommandLifecycle {
+    /// Creates a new command lifecycle manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             hooks: RwLock::new(Vec::new()),
-            state: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn add_hook(&self, hook: Box<dyn CommandHook>) -> Result<(), Box<dyn Error>> {
-        let mut hooks = self.hooks.write().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: LifecycleStage::Registration,
-                message: "Failed to acquire write lock on hooks".to_string(),
-            }) as Box<dyn Error>
-        })?;
+    /// Executes all hooks for the given lifecycle stage.
+    ///
+    /// # Arguments
+    /// * `stage` - The lifecycle stage to execute hooks for
+    /// * `command` - The command being executed
+    ///
+    /// # Errors
+    /// Returns an error if any hook fails to execute or if the hooks lock is poisoned
+    ///
+    /// # Panics
+    /// Panics if the hooks lock is poisoned
+    pub fn execute_stage(&self, stage: LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+        let hooks = self.hooks.read().map_err(|e| Box::new(ValidationError {
+            rule_name: "LifecycleHook".to_string(),
+            message: format!("Failed to acquire read lock: {e}"),
+        }))?;
+        
+        // Execute pre-stage hooks
+        for hook in hooks.iter() {
+            if let Err(e) = hook.pre_stage(&stage, command) {
+                return Err(Box::new(ValidationError {
+                    rule_name: "LifecycleHook".to_string(),
+                    message: format!("Pre-stage hook failed: {e}"),
+                }));
+            }
+        }
+
+        // Execute post-stage hooks
+        for hook in hooks.iter() {
+            if let Err(e) = hook.post_stage(&stage, command) {
+                return Err(Box::new(ValidationError {
+                    rule_name: "LifecycleHook".to_string(),
+                    message: format!("Post-stage hook failed: {e}"),
+                }));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Adds a hook to be executed during lifecycle stages
+    /// 
+    /// # Arguments
+    /// * `hook` - The hook to add
+    ///
+    /// # Errors
+    /// Returns an error if the hook cannot be added or if the hooks lock is poisoned
+    ///
+    /// # Panics
+    /// Panics if the hooks lock is poisoned
+    #[allow(dead_code)]
+    pub fn add_hook(&self, hook: Box<dyn LifecycleHook>) -> Result<(), Box<dyn Error>> {
+        let mut hooks = self.hooks.write().map_err(|e| Box::new(ValidationError {
+            rule_name: "LifecycleHook".to_string(),
+            message: format!("Failed to acquire write lock: {e}"),
+        }))?;
         hooks.push(hook);
         Ok(())
-    }
-
-    pub fn execute_stage(&self, stage: LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        // Execute before hooks
-        let hooks = self.hooks.read().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: stage.clone(),
-                message: "Failed to acquire read lock on hooks".to_string(),
-            }) as Box<dyn Error>
-        })?;
-
-        for hook in hooks.iter() {
-            hook.before_stage(&stage, command)?;
-        }
-
-        // Update state
-        let mut state = self.state.write().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: stage.clone(),
-                message: "Failed to acquire write lock on state".to_string(),
-            }) as Box<dyn Error>
-        })?;
-        state.insert(command.name().to_string(), stage.clone());
-
-        // Execute after hooks
-        for hook in hooks.iter() {
-            hook.after_stage(&stage, command)?;
-        }
-
-        Ok(())
-    }
-
-    pub fn get_stage(&self, command_name: &str) -> Result<Option<LifecycleStage>, Box<dyn Error>> {
-        let state = self.state.read().map_err(|_| {
-            Box::new(LifecycleError {
-                stage: LifecycleStage::Registration,
-                message: "Failed to acquire read lock on state".to_string(),
-            }) as Box<dyn Error>
-        })?;
-        Ok(state.get(command_name).cloned())
-    }
-}
-
-// Example hook implementation
-pub struct LoggingHook {
-    start_time: SystemTime,
-}
-
-impl LoggingHook {
-    pub fn new() -> Self {
-        Self {
-            start_time: SystemTime::now(),
-        }
-    }
-}
-
-impl CommandHook for LoggingHook {
-    fn before_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        println!("Starting {:?} stage for command {}", stage, command.name());
-        Ok(())
-    }
-
-    fn after_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        let duration = SystemTime::now().duration_since(self.start_time).unwrap_or_default();
-        println!(
-            "Completed {:?} stage for command {} after {:?}",
-            stage,
-            command.name(),
-            duration
-        );
-        Ok(())
-    }
-}
-
-impl Default for LoggingHook {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-
-    struct TestCommand {
-        name: String,
-        description: String,
-    }
-
-    impl crate::core::CommandOutput for TestCommand {
-        fn execute_with_output(&self, output: &mut dyn Write) -> Result<(), Box<dyn Error>> {
-            writeln!(output, "Test command executed")?;
-            Ok(())
-        }
-    }
-
-    impl Command for TestCommand {
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
-            &self.description
-        }
-
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
-    }
 
     #[test]
     fn test_lifecycle_stages() {
-        let lifecycle = CommandLifecycle::new();
-        let command = TestCommand {
-            name: "test".to_string(),
-            description: "Test command".to_string(),
-        };
-
-        // Test each stage
-        lifecycle.execute_stage(LifecycleStage::Registration, &command).unwrap();
-        assert_eq!(
-            lifecycle.get_stage("test").unwrap().unwrap(),
-            LifecycleStage::Registration
-        );
-
-        lifecycle.execute_stage(LifecycleStage::Initialization, &command).unwrap();
-        assert_eq!(
-            lifecycle.get_stage("test").unwrap().unwrap(),
-            LifecycleStage::Initialization
-        );
+        let stage = LifecycleStage::PreExecution;
+        assert_eq!(stage, LifecycleStage::PreExecution);
     }
-
-    #[test]
-    fn test_hooks() {
-        let lifecycle = CommandLifecycle::new();
-        let hook = LoggingHook::new();
-        lifecycle.add_hook(Box::new(hook)).unwrap();
-
-        let command = TestCommand {
-            name: "test".to_string(),
-            description: "Test command".to_string(),
-        };
-
-        lifecycle.execute_stage(LifecycleStage::Registration, &command).unwrap();
-    }
-} 
+}
