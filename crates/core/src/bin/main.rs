@@ -1,6 +1,6 @@
 //! Main entry point for the Squirrel application
 
-use squirrel::{Core, MCP, Result};
+use squirrel_core::{Core, MCP, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {

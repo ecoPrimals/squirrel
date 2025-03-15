@@ -12,8 +12,8 @@ pub mod mcp;
 pub mod error;
 
 pub use app::{Core, Result};
-pub use mcp::MCP;
-pub use error::SquirrelError;
+pub use mcp::{MCP, SecurityConfig, SecurityManager, Credentials};
+pub use error::{SquirrelError, MCPError, SecurityError};
 
 /// The current version of the library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
