@@ -31,8 +31,8 @@ pub mod error;
 pub mod commands;
 
 pub use app::{Core, Result};
-pub use mcp::MCP;
-pub use error::SquirrelError;
+pub use mcp::{MCP, SecurityConfig, SecurityManager, Credentials};
+pub use error::{SquirrelError, MCPError, SecurityError};
 pub use commands::CommandRegistry;
 
 /// The current version of the library
@@ -66,4 +66,4 @@ mod tests {
         let config = mcp.get_config().await.unwrap();
         assert_eq!(config.version, "1.0");
     }
-} 
+}

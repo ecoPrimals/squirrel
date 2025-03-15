@@ -1,29 +1,19 @@
+---
+version: 1.1.0
+last_updated: 2024-03-15
+status: implemented
+---
+
 # MCP Registry Specification
 
 ## Overview
-The MCP Registry is a secure, distributed system for managing and discovering MCP tools and protocols. It provides a centralized repository for tool metadata, versioning, and access control.
+The MCP Registry is a secure, distributed system for managing and discovering MCP tools and protocols. It provides a centralized registry for tool metadata, versioning, access control, and lifecycle management for the Squirrel system.
 
 ## Core Components
 
-### 1. Registry Server
-- Secure HTTPS endpoint for registry operations
-- Authentication and authorization system
-- Rate limiting and request validation
-- Audit logging for all operations
-- Health monitoring and metrics collection
-- Distributed cache for performance
-- Load balancing for high availability
-
-### 2. Tool Registry
+### Tool Registration
 ```rust
-pub struct ToolRegistry {
-    pub tools: HashMap<String, ToolMetadata>,
-    pub versions: HashMap<String, Vec<ToolVersion>>,
-    pub security_policies: HashMap<String, SecurityPolicy>,
-    pub health_metrics: HashMap<String, ToolHealth>,
-}
-
-pub struct ToolMetadata {
+pub struct ToolRegistration {
     pub id: String,
     pub name: String,
     pub description: String,
@@ -31,10 +21,22 @@ pub struct ToolMetadata {
     pub author: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub security_policy: SecurityPolicy,
-    pub dependencies: Vec<Dependency>,
     pub capabilities: Vec<Capability>,
-    pub validation_hash: String,  // For integrity verification
+    pub parameters: ToolParameters,
+    pub security_policy: SecurityPolicy,
+    pub validation_hash: String,
+}
+
+pub struct ToolParameters {
+    pub required: Vec<Parameter>,
+    pub optional: Vec<Parameter>,
+}
+
+pub struct Parameter {
+    pub name: String,
+    pub description: String,
+    pub parameter_type: ParameterType,
+    pub required: bool,
 }
 
 pub struct SecurityPolicy {
@@ -46,7 +48,7 @@ pub struct SecurityPolicy {
 }
 ```
 
-### 3. Access Control
+### Access Control
 ```rust
 pub struct AccessControl {
     pub roles: HashMap<String, Role>,
@@ -76,9 +78,20 @@ pub struct AuditEvent {
 }
 ```
 
+### Tool Capabilities
+```rust
+pub enum Capability {
+    FileSystem,    // File operations
+    Process,       // Process management
+    Network,       // Network operations
+    Search,        // Search operations
+    Edit,         // Content editing
+}
+```
+
 ## Security Implementation
 
-### 1. Authentication
+### Authentication
 ```rust
 pub struct AuthenticationManager {
     pub key_store: KeyStore,
@@ -107,30 +120,7 @@ impl AuthenticationManager {
 }
 ```
 
-### 2. Authorization
-```rust
-pub struct AuthorizationManager {
-    pub rbac: RBACManager,
-    pub policy_engine: PolicyEngine,
-}
-
-impl AuthorizationManager {
-    pub async fn check_permission(&self, token: &AuthToken, resource: &str, action: &str) -> Result<(), AuthError> {
-        // Validate token
-        self.validate_token(token)?;
-        
-        // Check RBAC permissions
-        self.rbac.check_permission(token.user_id, resource, action)?;
-        
-        // Evaluate policies
-        self.policy_engine.evaluate(token, resource, action)?;
-        
-        Ok(())
-    }
-}
-```
-
-### 3. Rate Limiting
+### Rate Limiting
 ```rust
 pub struct RateLimiter {
     pub limits: HashMap<String, RateLimit>,
@@ -154,212 +144,72 @@ impl RateLimiter {
 }
 ```
 
+## Tool Lifecycle
+
+### Registration Process
+1. Tool provides registration information
+2. Registry validates registration
+3. Tool capabilities are verified
+4. Security policy is validated
+5. Tool is added to registry
+
+### Tool Discovery
+1. Client requests available tools
+2. Registry returns tool list
+3. Client can query tool details
+4. Tool capabilities are provided
+
 ## Implementation Guidelines
 
-### 1. Security Best Practices
-- Use secure cryptographic libraries (ring, rustls)
-- Implement proper input validation and sanitization
-- Follow OWASP security guidelines
-- Regular security audits and penetration testing
-- Automated security testing and vulnerability scanning
-- Secure key management and rotation
-- Regular backup and disaster recovery testing
+### Security Best Practices
+- Use secure cryptographic libraries
+- Implement proper input validation
+- Follow OWASP guidelines
+- Regular security audits
+- Secure key management
+- Regular backup testing
 
-### 2. Performance Optimization
-- Implement distributed caching (Redis)
-- Use connection pooling for databases
-- Optimize database queries and indexing
-- Implement efficient rate limiting
-- Monitor and optimize resource usage
-- Use async/await for I/O operations
-- Implement proper connection handling
+### Performance Optimization
+- Implement distributed caching
+- Use connection pooling
+- Optimize database queries
+- Efficient rate limiting
+- Monitor resource usage
+- Use async/await for I/O
 
-### 3. Monitoring and Logging
+### Monitoring and Logging
 - Comprehensive audit logging
 - Performance metrics collection
 - Error tracking and alerting
 - Security event monitoring
 - Resource usage tracking
 - Health check endpoints
-- Distributed tracing
-
-### 4. High Availability
-- Load balancing
-- Service discovery
-- Health checking
-- Failover handling
-- Data replication
-- Backup and recovery
-- Disaster recovery planning
-
-## API Endpoints
-
-### 1. Tool Management
-```http
-POST /api/v1/tools
-GET /api/v1/tools
-GET /api/v1/tools/{id}
-PUT /api/v1/tools/{id}
-DELETE /api/v1/tools/{id}
-```
-
-### 2. Version Management
-```http
-POST /api/v1/tools/{id}/versions
-GET /api/v1/tools/{id}/versions
-GET /api/v1/tools/{id}/versions/{version}
-```
-
-### 3. Authentication
-```http
-POST /api/v1/auth/token
-POST /api/v1/auth/refresh
-DELETE /api/v1/auth/token
-```
-
-## Data Models
-
-### 1. Tool Metadata
-```rust
-pub struct ToolMetadata {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub version: String,
-    pub author: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub security_policy: SecurityPolicy,
-    pub dependencies: Vec<Dependency>,
-    pub capabilities: Vec<Capability>,
-}
-
-pub struct SecurityPolicy {
-    pub required_permissions: Vec<Permission>,
-    pub rate_limits: RateLimits,
-    pub allowed_origins: Vec<String>,
-}
-
-pub struct Dependency {
-    pub tool_id: String,
-    pub version_constraint: String,
-    pub required: bool,
-}
-
-pub struct Capability {
-    pub name: String,
-    pub description: String,
-    pub parameters: Vec<Parameter>,
-}
-```
-
-### 2. Access Control
-```rust
-pub struct User {
-    pub id: String,
-    pub username: String,
-    pub roles: Vec<Role>,
-    pub permissions: Vec<Permission>,
-    pub api_keys: Vec<ApiKey>,
-}
-
-pub struct Role {
-    pub id: String,
-    pub name: String,
-    pub permissions: Vec<Permission>,
-}
-
-pub struct Permission {
-    pub resource: String,
-    pub action: Action,
-    pub conditions: Vec<Condition>,
-}
-
-pub enum Action {
-    Read,
-    Write,
-    Delete,
-    Execute,
-}
-```
-
-## Additional Features
-
-### 1. Tool Versioning
-```rust
-pub struct ToolVersion {
-    pub version: String,
-    pub compatibility: Vec<String>,
-    pub changelog: String,
-    pub release_date: DateTime<Utc>,
-    pub deprecation_date: Option<DateTime<Utc>>,
-    pub security_updates: Vec<SecurityUpdate>,
-}
-
-pub struct SecurityUpdate {
-    pub id: String,
-    pub severity: SecuritySeverity,
-    pub description: String,
-    pub affected_versions: Vec<String>,
-    pub fixed_version: String,
-}
-```
-
-### 2. Dependency Resolution
-```rust
-pub struct DependencyResolver {
-    pub dependency_graph: HashMap<String, Vec<Dependency>>,
-    pub version_constraints: HashMap<String, String>,
-    pub conflict_resolution: ConflictResolutionStrategy,
-}
-
-pub enum ConflictResolutionStrategy {
-    Latest,
-    Earliest,
-    Strict,
-    Compatible,
-}
-```
-
-### 3. Health Monitoring
-```rust
-pub struct ToolHealth {
-    pub status: HealthStatus,
-    pub last_check: DateTime<Utc>,
-    pub uptime: Duration,
-    pub error_rate: f64,
-    pub response_time: Duration,
-    pub resource_usage: ResourceUsage,
-}
-
-pub enum HealthStatus {
-    Healthy,
-    Degraded,
-    Unhealthy,
-    Unknown,
-}
-```
-
-### 4. Usage Analytics
-```rust
-pub struct ToolAnalytics {
-    pub total_usage: u64,
-    pub unique_users: u64,
-    pub average_response_time: Duration,
-    pub error_rate: f64,
-    pub popular_features: Vec<FeatureUsage>,
-    pub usage_patterns: Vec<UsagePattern>,
-}
-
-pub struct FeatureUsage {
-    pub feature_name: String,
-    pub usage_count: u64,
-    pub average_duration: Duration,
-    pub success_rate: f64,
-}
-```
 
 ## Error Handling
-
-### 1. Error Types
+```rust
+pub enum RegistryError {
+    DuplicateTool,
+    ToolNotFound,
+    InvalidRegistration,
+    PermissionDenied,
+    SecurityViolation,
+    RateLimitExceeded,
+    ValidationFailed,
+    DatabaseError,
+    NetworkError,
+}
 ```
+
+## Best Practices
+1. Register tools with clear descriptions
+2. Validate tool parameters
+3. Document tool capabilities
+4. Handle registration errors
+5. Maintain tool versioning
+6. Follow security guidelines
+7. Implement proper error handling
+8. Keep registry synchronized
+9. Monitor tool health
+10. Maintain audit logs
+
+<version>1.1.0</version>

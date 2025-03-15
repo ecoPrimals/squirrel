@@ -39,6 +39,8 @@ serde_json = "1.0"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 sled = "0.34"
+rand = "0.8"
+ring = "0.17"
 
 # Monitoring and logging
 tracing = { version = "0.1" }

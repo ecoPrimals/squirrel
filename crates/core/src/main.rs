@@ -1,5 +1,7 @@
 //! Main entry point for the Squirrel application
 
+use squirrel_core::{Core, MCP, Result};
+
 mod commands;
 use commands::CommandRegistry;
 
@@ -7,6 +9,10 @@ use std::env;
 use std::process;
 
 fn main() {
+    // Initialize core systems
+    let core = Core::new();
+    let mcp = MCP::default();
+
     // Create a new command registry with built-in commands
     let registry = match CommandRegistry::with_builtins() {
         Ok(registry) => registry,
@@ -50,4 +56,4 @@ fn main() {
             process::exit(1);
         }
     }
-} 
+}

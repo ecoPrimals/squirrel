@@ -1,10 +1,14 @@
 use std::collections::HashMap;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tracing::{error, info, instrument, warn};
 use thiserror::Error;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
+use std::path::PathBuf;
+
+use super::persistence::{StatePersistence, PersistenceError};
+use super::recovery::{StateRecovery, RecoveryError, RecoveryPoint};
 
 #[derive(Debug, Error)]
 pub enum StateError {
@@ -16,6 +20,12 @@ pub enum StateError {
 
     #[error("State not found: {0}")]
     NotFound(String),
+
+    #[error("Persistence error: {0}")]
+    Persistence(#[from] PersistenceError),
+
+    #[error("Recovery error: {0}")]
+    Recovery(#[from] RecoveryError),
 
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
@@ -39,19 +49,46 @@ pub struct StateTransition {
     pub validation_rules: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateSyncMessage {
+    pub id: Uuid,
+    pub state: State,
+    pub version: u64,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateValidationRule {
+    pub name: String,
+    pub condition: String,
+    pub error_message: String,
+}
+
 #[derive(Debug)]
 pub struct StateManager {
     states: RwLock<HashMap<String, State>>,
     transitions: RwLock<HashMap<String, Vec<StateTransition>>>,
     history: RwLock<Vec<StateHistoryEntry>>,
+    validation_rules: RwLock<Vec<StateValidationRule>>,
+    sync_tx: mpsc::Sender<StateSyncMessage>,
+    sync_rx: mpsc::Receiver<StateSyncMessage>,
+    persistence: RwLock<StatePersistence>,
+    recovery: RwLock<StateRecovery>,
 }
 
 impl Clone for StateManager {
     fn clone(&self) -> Self {
+        let (tx, rx) = mpsc::channel(100);
+        let persistence = StatePersistence::new("states");
         Self {
             states: RwLock::new(HashMap::new()),
             transitions: RwLock::new(HashMap::new()),
             history: RwLock::new(Vec::new()),
+            validation_rules: RwLock::new(Vec::new()),
+            sync_tx: tx,
+            sync_rx: rx,
+            persistence: RwLock::new(persistence.clone()),
+            recovery: RwLock::new(StateRecovery::new(persistence, 10)),
         }
     }
 }
@@ -69,19 +106,58 @@ impl StateManager {
     #[instrument]
     pub fn new() -> Self {
         info!("Initializing MCP state manager");
+        let (tx, rx) = mpsc::channel(100);
+        let persistence = StatePersistence::new("states");
         
         Self {
             states: RwLock::new(HashMap::new()),
             transitions: RwLock::new(HashMap::new()),
             history: RwLock::new(Vec::new()),
+            validation_rules: RwLock::new(Vec::new()),
+            sync_tx: tx,
+            sync_rx: rx,
+            persistence: RwLock::new(persistence.clone()),
+            recovery: RwLock::new(StateRecovery::new(persistence, 10)),
+        }
+    }
+
+    #[instrument]
+    pub fn with_storage_path<P: Into<PathBuf>>(storage_path: P) -> Self {
+        info!("Initializing MCP state manager with custom storage path");
+        let (tx, rx) = mpsc::channel(100);
+        let persistence = StatePersistence::new(storage_path.into());
+        
+        Self {
+            states: RwLock::new(HashMap::new()),
+            transitions: RwLock::new(HashMap::new()),
+            history: RwLock::new(Vec::new()),
+            validation_rules: RwLock::new(Vec::new()),
+            sync_tx: tx,
+            sync_rx: rx,
+            persistence: RwLock::new(persistence.clone()),
+            recovery: RwLock::new(StateRecovery::new(persistence, 10)),
         }
     }
 
     #[instrument(skip(self, state))]
     pub async fn register_state(&self, name: String, state: State) -> Result<(), StateError> {
         let mut states = self.states.write().await;
-        states.insert(name.clone(), state);
-        info!(state_name = %name, "State registered");
+        states.insert(name.clone(), state.clone());
+        
+        // Persist state
+        let mut persistence = self.persistence.write().await;
+        persistence.save_state(state.clone()).await?;
+
+        // Create initial recovery point
+        let mut recovery = self.recovery.write().await;
+        recovery.create_recovery_point(
+            state,
+            "Initial state registration".to_string(),
+            true,
+            Vec::new(),
+        ).await?;
+        
+        info!(state_name = %name, "State registered, persisted, and recovery point created");
         Ok(())
     }
 
@@ -122,16 +198,29 @@ impl StateManager {
             from_state: from_state.to_string(),
             to_state: to_state.to_string(),
             timestamp: Utc::now(),
-            metadata,
+            metadata: metadata.clone(),
         };
 
         let mut history = self.history.write().await;
-        history.push(history_entry);
+        history.push(history_entry.clone());
+
+        // Create recovery point
+        let mut recovery = self.recovery.write().await;
+        recovery.create_recovery_point(
+            state.clone(),
+            format!("Transition from {} to {}", from_state, to_state),
+            true,
+            vec![from_state.to_string()],
+        ).await?;
+
+        // Persist updated state
+        let mut persistence = self.persistence.write().await;
+        persistence.save_state(state.clone()).await?;
 
         info!(
             from_state = %from_state,
             to_state = %to_state,
-            "State transition completed"
+            "State transition completed with recovery point"
         );
         Ok(())
     }
@@ -156,11 +245,22 @@ impl StateManager {
 
     #[instrument(skip(self))]
     pub async fn get_state(&self, name: &str) -> Result<State, StateError> {
+        // Try in-memory cache first
         let states = self.states.read().await;
-        states
-            .get(name)
-            .cloned()
-            .ok_or(StateError::NotFound(name.to_string()))
+        if let Some(state) = states.get(name) {
+            return Ok(state.clone());
+        }
+
+        // Load from persistence
+        let mut persistence = self.persistence.write().await;
+        let state = persistence.load_state(name).await?;
+
+        // Update in-memory cache
+        drop(states);
+        let mut states = self.states.write().await;
+        states.insert(name.to_string(), state.clone());
+
+        Ok(state)
     }
 
     #[instrument(skip(self))]
@@ -175,6 +275,145 @@ impl StateManager {
     #[instrument(skip(self))]
     pub async fn get_history(&self) -> Vec<StateHistoryEntry> {
         self.history.read().await.clone()
+    }
+
+    #[instrument(skip(self))]
+    pub async fn sync_state(&self, state_name: &str) -> Result<(), StateError> {
+        let states = self.states.read().await;
+        let state = states.get(state_name)
+            .ok_or(StateError::NotFound(state_name.to_string()))?
+            .clone();
+
+        let sync_message = StateSyncMessage {
+            id: state.id,
+            state: state.clone(),
+            version: state.version,
+            timestamp: Utc::now(),
+        };
+
+        self.sync_tx.send(sync_message).await.map_err(|e| {
+            error!("Failed to send sync message: {}", e);
+            StateError::ValidationError(format!("Sync failed: {}", e))
+        })?;
+
+        info!(state_name = %state_name, "State synchronized");
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn handle_sync_message(&self, message: StateSyncMessage) -> Result<(), StateError> {
+        let mut states = self.states.write().await;
+        
+        // Check if we have a newer version
+        if let Some(existing_state) = states.get(&message.state.name) {
+            if existing_state.version >= message.version {
+                warn!(
+                    state_name = %message.state.name,
+                    existing_version = %existing_state.version,
+                    received_version = %message.version,
+                    "Received older state version, ignoring"
+                );
+                return Ok(());
+            }
+        }
+
+        // Update state
+        states.insert(message.state.name.clone(), message.state);
+        info!(state_name = %message.state.name, "State updated from sync");
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn add_validation_rule(&self, rule: StateValidationRule) -> Result<(), StateError> {
+        let mut rules = self.validation_rules.write().await;
+        rules.push(rule);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn validate_state(&self, state: &State) -> Result<(), StateError> {
+        let rules = self.validation_rules.read().await;
+        
+        for rule in rules.iter() {
+            // Here we would evaluate the rule condition
+            // For now, we'll just log that validation occurred
+            info!(
+                state_name = %state.name,
+                rule_name = %rule.name,
+                "Validating state"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn start_sync_handler(&self) -> Result<(), StateError> {
+        let state_manager = self.clone();
+        
+        tokio::spawn(async move {
+            info!("Starting state sync handler");
+            
+            while let Some(sync_message) = state_manager.sync_rx.recv().await {
+                if let Err(e) = state_manager.handle_sync_message(sync_message).await {
+                    error!("Failed to handle sync message: {}", e);
+                }
+            }
+            
+            warn!("State sync handler stopped");
+        });
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn load_persisted_states(&self) -> Result<(), StateError> {
+        let mut persistence = self.persistence.write().await;
+        let state_names = persistence.list_states().await?;
+
+        let mut states = self.states.write().await;
+        for name in state_names {
+            let state = persistence.load_state(&name).await?;
+            states.insert(name.clone(), state);
+            info!(state_name = %name, "State loaded from persistence");
+        }
+
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    pub async fn recover_state(&self, state_name: &str, point_id: Option<Uuid>) -> Result<State, StateError> {
+        let recovery = self.recovery.read().await;
+        let state = recovery.recover_state(state_name, point_id).await?;
+
+        // Update in-memory state
+        let mut states = self.states.write().await;
+        states.insert(state_name.to_string(), state.clone());
+
+        info!(
+            state_name = %state_name,
+            point_id = ?point_id,
+            "State recovered from recovery point"
+        );
+        Ok(state)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn list_recovery_points(&self, state_name: &str) -> Result<Vec<RecoveryPoint>, StateError> {
+        let recovery = self.recovery.read().await;
+        Ok(recovery.list_recovery_points(state_name).await?)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn verify_state_integrity(&self, state_name: &str) -> Result<bool, StateError> {
+        let recovery = self.recovery.read().await;
+        Ok(recovery.verify_recovery_chain(state_name).await?)
+    }
+
+    #[instrument(skip(self))]
+    pub async fn cleanup_recovery_points(&self, max_age_days: i64) -> Result<usize, StateError> {
+        let recovery = self.recovery.write().await;
+        Ok(recovery.cleanup_old_points(max_age_days).await?)
     }
 }
 

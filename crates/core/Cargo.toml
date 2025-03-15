@@ -8,8 +8,8 @@ description.workspace = true
 [dependencies]
 # Core dependencies
 tokio = { workspace = true, optional = true }
-futures = { workspace = true, optional = true }
-async-trait = { workspace = true, optional = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
@@ -17,18 +17,25 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 sled = { workspace = true }
+rand = { workspace = true }
+ring = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
 regex = "1.10"
 sysinfo = "0.30"
 
 # Monitoring and logging
-tracing = { workspace = true, optional = true }
-tracing-subscriber = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # MCP dependencies
-bytes = { workspace = true, optional = true }
-futures-util = { workspace = true, optional = true }
-tokio-util = { workspace = true, optional = true }
+bytes = { workspace = true }
+futures-util = { workspace = true }
+tokio-util = { workspace = true }
+
+# Compression dependencies
+zstd = { version = "0.13", features = ["zstdmt"] }
+flate2 = { version = "1.0", features = ["zlib"] }
+lz4 = "1.24"
 
 [dev-dependencies]
 tokio-test = { workspace = true }
@@ -39,15 +46,11 @@ snapbox = { workspace = true }
 
 [features]
 default = ["async"]
-async = ["tokio"]
-
-[[bin]]
-name = "squirrel"
-path = "src/bin/main.rs"
+async = ["dep:tokio"]
 
 [lib]
-name = "squirrel"
+name = "squirrel_core"
 path = "src/lib.rs"
 
 [build-dependencies]
-built = "0.7" 
+built = "0.7"
