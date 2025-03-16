@@ -25,32 +25,32 @@ pub struct FileStorage {
 impl FileStorage {
     pub fn new(base_path: PathBuf) -> Result<Self, ContextError> {
         fs::create_dir_all(&base_path).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to create directory: {}", e))
+            ContextError::PersistenceError(format!("Failed to create directory: {e}"))
         })?;
         Ok(Self { base_path })
     }
 
     fn get_path(&self, key: &str) -> PathBuf {
-        self.base_path.join(format!("{}.json", key))
+        self.base_path.join(format!("{key}.json"))
     }
 }
 
 impl Storage for FileStorage {
     fn save(&self, key: &str, data: &[u8]) -> Result<(), ContextError> {
         fs::write(self.get_path(key), data).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to write file: {}", e))
+            ContextError::PersistenceError(format!("Failed to write file: {e}"))
         })
     }
 
     fn load(&self, key: &str) -> Result<Vec<u8>, ContextError> {
         fs::read(self.get_path(key)).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to read file: {}", e))
+            ContextError::PersistenceError(format!("Failed to read file: {e}"))
         })
     }
 
     fn delete(&self, key: &str) -> Result<(), ContextError> {
         fs::remove_file(self.get_path(key)).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to delete file: {}", e))
+            ContextError::PersistenceError(format!("Failed to delete file: {e}"))
         })
     }
 
@@ -76,25 +76,25 @@ impl Default for JsonSerializer {
 impl Serializer for JsonSerializer {
     fn serialize_state(&self, state: &ContextState) -> Result<Vec<u8>, ContextError> {
         serde_json::to_vec(state).map_err(|e| {
-            ContextError::PersistenceError(format!("State serialization failed: {}", e))
+            ContextError::PersistenceError(format!("State serialization failed: {e}"))
         })
     }
 
     fn deserialize_state(&self, data: &[u8]) -> Result<ContextState, ContextError> {
         serde_json::from_slice(data).map_err(|e| {
-            ContextError::PersistenceError(format!("State deserialization failed: {}", e))
+            ContextError::PersistenceError(format!("State deserialization failed: {e}"))
         })
     }
 
     fn serialize_snapshot(&self, snapshot: &ContextSnapshot) -> Result<Vec<u8>, ContextError> {
         serde_json::to_vec(snapshot).map_err(|e| {
-            ContextError::PersistenceError(format!("Snapshot serialization failed: {}", e))
+            ContextError::PersistenceError(format!("Snapshot serialization failed: {e}"))
         })
     }
 
     fn deserialize_snapshot(&self, data: &[u8]) -> Result<ContextSnapshot, ContextError> {
         serde_json::from_slice(data).map_err(|e| {
-            ContextError::PersistenceError(format!("Snapshot deserialization failed: {}", e))
+            ContextError::PersistenceError(format!("Snapshot deserialization failed: {e}"))
         })
     }
 }
@@ -194,7 +194,7 @@ impl ContextPersistence {
     }
 
     pub fn load_state(&self, version: u64) -> Result<ContextState, ContextError> {
-        let key = format!("state_{}", version);
+        let key = format!("state_{version}");
         
         // Try cache first
         if let Some(data) = self.cache.get(&key) {
@@ -233,7 +233,6 @@ impl ContextPersistence {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration, SystemTime};
     use tempfile::tempdir;
 
     #[test]

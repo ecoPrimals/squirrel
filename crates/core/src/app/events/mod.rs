@@ -6,53 +6,59 @@
 
 use std::fmt;
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
-use crate::core::error::{Result as CoreResult, Error as CoreError, EventError};
+use time::OffsetDateTime;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
+use std::fmt::Debug;
+use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
+use thiserror::Error;
 use uuid;
-use serde_json::Value;
-use thiserror;
-use crate::core::error::Error as SquirrelError;
 
-/// The type of event
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EventType {
-    Core,
-    Protocol,
-    Context,
-    Security,
-    Monitoring,
-    Custom(u32),
+#[derive(Error, Debug)]
+pub enum EventError {
+    #[error("Invalid event type: {0}")]
+    InvalidType(String),
+    #[error("Event handler error: {0}")]
+    HandlerError(String),
 }
 
-impl From<String> for EventType {
-    fn from(s: String) -> Self {
+pub type Result<T> = std::result::Result<T, EventError>;
+
+/// Event types supported by the system
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum EventType {
+    SystemStartup,
+    SystemShutdown,
+    MetricCollected,
+    AlertTriggered,
+    HealthCheckCompleted,
+}
+
+impl std::str::FromStr for EventType {
+    type Err = EventError;
+
+    fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "system" => Self::System,
-            "command" => Self::Command,
-            "state" => Self::State,
-            "error" => Self::Error,
-            "warning" => Self::Warning,
-            "info" => Self::Info,
-            "debug" => Self::Debug,
-            "trace" => Self::Trace,
-            _ => Self::Custom(s.parse::<u32>().unwrap()),
+            "system" => Ok(Self::SystemStartup),
+            "command" | "info" => Ok(Self::MetricCollected),
+            "state" | "debug" => Ok(Self::HealthCheckCompleted),
+            "error" => Ok(Self::AlertTriggered),
+            "warning" | "trace" => Ok(Self::SystemShutdown),
+            _ => Err(EventError::InvalidType(s.to_string())),
         }
     }
 }
 
 /// Event data that can be attached to an event
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventData {
     /// String data
     String(String),
     /// JSON data
-    Json(serde_json::Value),
+    Json(Value),
     /// Binary data
     Binary(Vec<u8>),
 }
@@ -60,9 +66,10 @@ pub enum EventData {
 /// An event in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
+    pub id: String,
     pub event_type: EventType,
-    pub payload: serde_json::Value,
     pub metadata: EventMetadata,
+    pub payload: Value,
 }
 
 /// Builder for creating new events
@@ -84,7 +91,7 @@ impl Event {
     }
 
     /// Get the timestamp
-    pub fn timestamp(&self) -> DateTime<Utc> {
+    pub fn timestamp(&self) -> OffsetDateTime {
         self.metadata.timestamp
     }
 
@@ -98,16 +105,40 @@ impl Event {
         &self.metadata
     }
 
-    pub fn new(event_type: EventType, data: Value, metadata: EventMetadata) -> Self {
+    pub fn new(
+        event_type: EventType,
+        payload: Value,
+        metadata: Option<HashMap<String, String>>,
+    ) -> Self {
+        let mut event_metadata = EventMetadata::new();
+        
+        if let Some(labels) = metadata {
+            event_metadata.labels = labels;
+        }
+        
         Self {
+            id: uuid::Uuid::new_v4().to_string(),
             event_type,
-            payload: data,
-            metadata,
+            payload,
+            metadata: event_metadata,
         }
     }
 
+    #[must_use]
     pub fn with_metadata(mut self, metadata: EventMetadata) -> Self {
         self.metadata = metadata;
+        self
+    }
+
+    #[must_use]
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.metadata.correlation_id = Some(correlation_id);
+        self
+    }
+
+    #[must_use]
+    pub fn with_label(mut self, key: String, value: String) -> Self {
+        self.metadata.labels.insert(key, value);
         self
     }
 }
@@ -116,49 +147,72 @@ impl EventBuilder {
     /// Create a new event builder
     pub fn new() -> Self {
         Self {
-            event_type: EventType::Core,
-            data: serde_json::Value::Null,
-            metadata: EventMetadata {
-                timestamp: Utc::now(),
-                source: String::new(),
-                correlation_id: None,
-            },
+            event_type: EventType::SystemStartup,
+            data: Value::Null,
+            metadata: EventMetadata::new(),
         }
     }
 
     /// Set the event type
+    #[must_use]
     pub fn event_type(mut self, event_type: EventType) -> Self {
         self.event_type = event_type;
         self
     }
 
     /// Set the data
+    #[must_use]
     pub fn data(mut self, data: Value) -> Self {
         self.data = data;
         self
     }
 
     /// Set the metadata
+    #[must_use]
     pub fn metadata(mut self, metadata: EventMetadata) -> Self {
         self.metadata = metadata;
         self
     }
 
+    /// Set the correlation ID
+    #[must_use]
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.metadata.correlation_id = Some(correlation_id);
+        self
+    }
+
+    /// Add a label to the metadata
+    #[must_use]
+    pub fn with_label(mut self, key: String, value: String) -> Self {
+        self.metadata.labels.insert(key, value);
+        self
+    }
+
     /// Build the event
     pub fn build(self) -> Event {
-        self.into()
+        Event {
+            id: uuid::Uuid::new_v4().to_string(),
+            event_type: self.event_type,
+            payload: self.data,
+            metadata: self.metadata,
+        }
+    }
+}
+
+impl Default for EventBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl fmt::Display for EventType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EventType::Core => write!(f, "Core"),
-            EventType::Protocol => write!(f, "Protocol"),
-            EventType::Context => write!(f, "Context"),
-            EventType::Security => write!(f, "Security"),
-            EventType::Monitoring => write!(f, "Monitoring"),
-            EventType::Custom(id) => write!(f, "Custom({})", id),
+            EventType::SystemStartup => write!(f, "System Startup"),
+            EventType::SystemShutdown => write!(f, "System Shutdown"),
+            EventType::MetricCollected => write!(f, "Metric Collected"),
+            EventType::AlertTriggered => write!(f, "Alert Triggered"),
+            EventType::HealthCheckCompleted => write!(f, "Health Check Completed"),
         }
     }
 }
@@ -166,8 +220,8 @@ impl fmt::Display for EventType {
 impl fmt::Display for EventData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EventData::String(s) => write!(f, "String({})", s),
-            EventData::Json(j) => write!(f, "Json({})", j),
+            EventData::String(s) => write!(f, "String({s})"),
+            EventData::Json(j) => write!(f, "Json({j})"),
             EventData::Binary(b) => write!(f, "Binary({} bytes)", b.len()),
         }
     }
@@ -177,37 +231,43 @@ impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Event(type={}, timestamp={}, metadata={})",
-            self.event_type,
-            self.metadata.timestamp,
-            self.metadata.correlation_id.as_ref().map_or("None", |id| id)
+            "Event {{ id: {}, type: {}, timestamp: {} }}",
+            self.id, self.event_type, self.metadata.timestamp
         )
     }
-}
-
-pub trait EventHandler: Send + Sync {
-    fn id(&self) -> String;
-    async fn handle(&self, event: Event) -> CoreResult<()>;
 }
 
 pub trait EventProcessor: Send + Sync {
     fn as_async(&self) -> &dyn EventProcessorAsync;
 }
 
+/// Event processor for asynchronous event processing
 pub trait EventProcessorAsync: Send + Sync {
     /// Process an event
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the processing fails, which can occur due to:
+    /// - Invalid event data
+    /// - Processing logic failure
+    /// - Resource unavailability
     fn process<'a>(&'a self, event: &'a Event) -> Pin<Box<dyn Future<Output = std::result::Result<(), EventError>> + Send + 'a>>;
 }
 
-pub trait EventEmitter: Send + Sync {
-    async fn emit(&self, event: Event) -> CoreResult<()>;
-    async fn subscribe(&self, event_type: EventType, handler: Box<dyn EventHandler>) -> CoreResult<()>;
-    async fn unsubscribe(&self, event_type: EventType, handler_id: String) -> CoreResult<()>;
-}
-
+/// Event bus for managing events
 pub struct EventBus {
     events: Arc<RwLock<Vec<Event>>>,
+    #[allow(clippy::type_complexity)]
     subscribers: Arc<RwLock<Vec<Box<dyn Fn(&Event) + Send + Sync>>>>,
+}
+
+impl Debug for EventBus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EventBus")
+            .field("events", &self.events)
+            .field("subscribers", &format!("<{count} subscribers>", count = self.subscribers.blocking_read().len()))
+            .finish()
+    }
 }
 
 impl EventBus {
@@ -218,7 +278,12 @@ impl EventBus {
         }
     }
 
-    pub async fn publish(&self, event: Event) -> CoreResult<()> {
+    /// Publish an event to the event bus
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the event cannot be published
+    pub async fn publish(&self, event: Event) -> Result<()> {
         let mut events = self.events.write().await;
         events.push(event.clone());
         
@@ -230,7 +295,12 @@ impl EventBus {
         Ok(())
     }
 
-    pub async fn subscribe<F>(&self, handler: F) -> CoreResult<()>
+    /// Subscribe to events on the event bus
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the subscription cannot be registered
+    pub async fn subscribe<F>(&self, handler: F) -> Result<()>
     where
         F: Fn(&Event) + Send + Sync + 'static,
     {
@@ -239,102 +309,148 @@ impl EventBus {
         Ok(())
     }
 
-    pub async fn get_events(&self) -> CoreResult<Vec<Event>> {
+    /// Get all events from the event bus
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the events cannot be retrieved
+    pub async fn get_events(&self) -> Result<Vec<Event>> {
         let events = self.events.read().await;
         Ok(events.clone())
     }
 
-    pub async fn clear_events(&self) -> CoreResult<()> {
+    /// Clear all events from the event bus
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the events cannot be cleared
+    pub async fn clear_events(&self) -> Result<()> {
         let mut events = self.events.write().await;
         events.clear();
         Ok(())
     }
 }
 
+impl Default for EventBus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Initialize the event system
-pub async fn initialize() -> Result<()> {
+///
+/// # Errors
+///
+/// Returns an `EventError` if the event system cannot be initialized
+pub fn initialize() -> Result<()> {
     // TODO: Initialize event system
     Ok(())
 }
 
 /// Shutdown the event system
-pub async fn shutdown() -> Result<()> {
+///
+/// # Errors
+///
+/// Returns an `EventError` if the event system cannot be shut down properly
+pub fn shutdown() -> Result<()> {
     // TODO: Cleanup event system resources
     Ok(())
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum EventError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("Other error: {0}")]
-    Other(String),
+/// Event metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventMetadata {
+    pub timestamp: OffsetDateTime,
+    pub correlation_id: Option<String>,
+    pub labels: HashMap<String, String>,
 }
 
-impl From<EventError> for SquirrelError {
-    fn from(err: EventError) -> Self {
-        match err {
-            EventError::Io(e) => SquirrelError::Io(e),
-            EventError::Json(e) => SquirrelError::Json(e),
-            EventError::Other(e) => SquirrelError::Other(e),
+impl EventMetadata {
+    pub fn new() -> Self {
+        Self {
+            timestamp: OffsetDateTime::now_utc(),
+            correlation_id: None,
+            labels: HashMap::new(),
         }
+    }
+    
+    #[must_use]
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.correlation_id = Some(correlation_id);
+        self
+    }
+    
+    #[must_use]
+    pub fn with_label(mut self, key: String, value: String) -> Self {
+        self.labels.insert(key, value);
+        self
     }
 }
 
-pub type Result<T> = std::result::Result<T, EventError>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventMetadata {
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-    pub source: String,
-    pub correlation_id: Option<String>,
+impl Default for EventMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
+/// Event handler trait for processing events
+#[async_trait]
+pub trait EventHandler: Send + Sync + Debug {
+    async fn handle(&self, event: Event) -> Result<()>;
+}
+
+#[derive(Debug, Default)]
+pub struct EventEmitterConfig {
+    pub max_events: usize,
+    pub buffer_size: usize,
+}
+
+#[async_trait]
+pub trait EventEmitter: Send + Sync {
+    async fn emit(&self, event: Event) -> Result<()>;
+}
+
+/// Default implementation of the `EventEmitter` trait
+#[derive(Debug)]
 pub struct DefaultEventEmitter {
-    handlers: Arc<RwLock<HashMap<EventType, Vec<Box<dyn EventHandler>>>>>,
+    handlers: Arc<RwLock<Vec<Box<dyn EventHandler + Send + Sync>>>>,
 }
 
 impl DefaultEventEmitter {
     pub fn new() -> Self {
         Self {
-            handlers: Arc::new(RwLock::new(HashMap::new())),
+            handlers: Arc::new(RwLock::new(Vec::new())),
         }
+    }
+    
+    /// Register a new event handler
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EventError` if the handler cannot be registered
+    pub async fn register_handler<H>(&self, handler: H) -> Result<()>
+    where
+        H: EventHandler + Send + Sync + 'static,
+    {
+        let mut handlers = self.handlers.write().await;
+        handlers.push(Box::new(handler));
+        Ok(())
     }
 }
 
 #[async_trait]
 impl EventEmitter for DefaultEventEmitter {
-    async fn emit(&self, event: Event) -> CoreResult<()> {
+    async fn emit(&self, event: Event) -> Result<()> {
         let handlers = self.handlers.read().await;
-        if let Some(type_handlers) = handlers.get(&event.event_type) {
-            for handler in type_handlers {
-                handler.handle(event.clone()).await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn subscribe(&self, event_type: EventType, handler: Box<dyn EventHandler>) -> CoreResult<()> {
-        let mut handlers = self.handlers.write().await;
-        handlers.entry(event_type)
-            .or_insert_with(Vec::new)
-            .push(handler);
-        Ok(())
-    }
-
-    async fn unsubscribe(&self, event_type: EventType, handler_id: String) -> CoreResult<()> {
-        let mut handlers = self.handlers.write().await;
-        if let Some(type_handlers) = handlers.get_mut(&event_type) {
-            type_handlers.retain(|h| h.id() != handler_id);
+        for handler in handlers.iter() {
+            handler.handle(event.clone()).await?;
         }
         Ok(())
     }
 }
 
-#[async_trait]
-pub trait EventHandler: Send + Sync {
-    fn id(&self) -> String;
-    async fn handle(&self, event: Event) -> CoreResult<()>;
+impl Default for DefaultEventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
 } 

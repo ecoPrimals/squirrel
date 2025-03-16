@@ -15,7 +15,7 @@ pub struct ContextSnapshot {
     pub id: String,
     pub timestamp: SystemTime,
     pub state: ContextState,
-    pub metadata: Option<serde_json::Value>,
+    pub metadata: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,7 +55,7 @@ impl ContextTracker {
         Self {
             state: Arc::new(RwLock::new(ContextState {
                 version: 0,
-                data: serde_json::Value::Null,
+                data: Value::Null,
                 last_modified: SystemTime::now(),
             })),
             history: VecDeque::with_capacity(100), // Keep last 100 snapshots
@@ -67,7 +67,14 @@ impl ContextTracker {
         self.subscribers.push(subscriber);
     }
 
-    pub fn update_state(&mut self, new_data: serde_json::Value) -> Result<(), ContextError> {
+    /// Updates the context state with new data
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the write lock for the state
+    /// - The state update fails
+    pub fn update_state(&mut self, new_data: Value) -> Result<(), ContextError> {
         let mut state = self.state.write().map_err(|_| {
             ContextError::InvalidState("Failed to acquire write lock".to_string())
         })?;
@@ -101,6 +108,12 @@ impl ContextTracker {
         Ok(())
     }
 
+    /// Gets the current context state
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the read lock for the state
     pub fn get_state(&self) -> Result<ContextState, ContextError> {
         self.state.read()
             .map(|state| state.clone())
@@ -111,6 +124,13 @@ impl ContextTracker {
         &self.history
     }
 
+    /// Rolls back the context state to a specific version
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - The specified version is not found in the history
+    /// - Unable to acquire the write lock for the state
     pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
         if let Some(snapshot) = self.history.iter().find(|s| s.state.version == version) {
             let mut state = self.state.write().map_err(|_| {
@@ -127,7 +147,7 @@ impl ContextTracker {
 
             Ok(())
         } else {
-            Err(ContextError::InvalidState(format!("Version {} not found", version)))
+            Err(ContextError::InvalidState(format!("Version {version} not found")))
         }
     }
 }
@@ -135,6 +155,24 @@ impl ContextTracker {
 impl Default for ContextTracker {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct ContextData {
+    pub id: String,
+    pub name: String,
+    pub metadata: Option<Value>,
+    pub data: Value,
+}
+
+impl Default for ContextData {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            metadata: None,
+            data: Value::Null,
+        }
     }
 }
 

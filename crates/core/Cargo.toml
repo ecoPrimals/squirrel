@@ -1,25 +1,48 @@
 [package]
 name = "squirrel-core"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-description.workspace = true
+version = "0.1.0"
+edition = "2021"
+
+# Enable pedantic linting
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "warn"
+# Temporarily disable this lint
+# unused_crate_dependencies = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = "warn"
+module_name_repetitions = "allow"
+too_many_lines = "allow"
+similar_names = "allow"
+must_use_candidate = "allow"
+
+[features]
+default = ["async"]
+async = ["tokio", "futures", "async-trait"]
 
 [dependencies]
-# Core dependencies
-tokio = { workspace = true, optional = true }
-futures = { workspace = true, optional = true }
-async-trait = { workspace = true, optional = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-sled = { workspace = true }
+tokio = { version = "1.0", features = ["full"], optional = true }
+futures = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+time = { version = "0.3", features = ["serde"] }
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+prometheus = "0.13"
+hyper = { version = "0.14", features = ["full"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+sysinfo = "0.29"
+lazy_static = "1.4"
 
 # Monitoring and logging
-tracing = { workspace = true, optional = true }
+tracing = "0.1"
 tracing-subscriber = { workspace = true, optional = true }
 
 # MCP dependencies
@@ -27,21 +50,24 @@ bytes = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 tokio-util = { workspace = true, optional = true }
 
+# Notification system dependencies
+reqwest = { version = "0.11", features = ["json"] }
+handlebars = "4.3"
+lettre = { version = "0.10", features = ["tokio1", "tokio1-native-tls"] }
+
+# Dashboard server dependencies
+axum = { version = "0.6", features = ["ws"] }
+tower-http = { version = "0.4", features = ["cors"] }
+tokio-tungstenite = "0.20"
+tower = "0.4"
+
+# Testing and development dependencies
+tempfile = "3.8"
+
 [dev-dependencies]
-tokio-test = { workspace = true }
-mockall = { workspace = true }
-criterion = { workspace = true }
+tokio-test = "0.4"
+test-context = "0.1"
+mockall = "0.11"
+criterion = "0.5"
 insta = { workspace = true }
-snapbox = { workspace = true }
-
-[features]
-default = ["async"]
-async = ["tokio"]
-
-[[bin]]
-name = "squirrel"
-path = "src/bin/main.rs"
-
-[lib]
-name = "squirrel"
-path = "src/lib.rs" 
+snapbox = { workspace = true } 

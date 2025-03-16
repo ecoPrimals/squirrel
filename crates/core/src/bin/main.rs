@@ -1,18 +1,17 @@
 //! Main entry point for the Squirrel application
 
-use squirrel::{Core, MCP, Result};
+use squirrel_core::{app::App, error::Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize core
-    let core = Core::new();
-    
-    // Initialize MCP
-    let mcp = MCP::default();
+    // Initialize app
+    let app_config = squirrel_core::app::AppConfig::default();
+    let app = App::from_config(app_config).await?;
     
     println!("Squirrel initialized successfully!");
-    println!("Core version: {}", core.version());
-    println!("MCP version: {}", mcp.get_config().await.unwrap().version);
+    
+    // Start the app
+    app.start().await?;
     
     Ok(())
 } 

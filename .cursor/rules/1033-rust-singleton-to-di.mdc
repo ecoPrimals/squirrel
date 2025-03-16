@@ -1,0 +1,387 @@
+---
+description: ENFORCE proper dependency injection patterns in Rust code to avoid global singletons
+globs: "**/*.rs"
+---
+# 1011-rust-singleton-to-di: ENFORCE proper dependency injection patterns in Rust code to avoid global singletons
+
+## Summary
+This rule enforces best practices for avoiding the static singleton pattern in Rust code, favoring dependency injection instead. It provides guidelines for refactoring existing singleton-based code to more testable and maintainable dependency injection patterns.
+
+## Motivation
+Global singleton patterns in Rust, typically implemented using `static` variables and `OnceCell` or similar synchronization primitives, can lead to multiple issues:
+
+1. **Testing challenges**: Tests become order-dependent and cannot be run in isolation
+2. **Resource management issues**: Resources may not be properly cleaned up at shutdown
+3. **Tight coupling**: Components directly access singletons instead of having dependencies injected
+4. **Limited flexibility**: Only one configuration can exist at runtime
+
+Dependency injection provides a cleaner solution that addresses these problems while maintaining similar ergonomics.
+
+## Implementation Guidelines
+
+### Anti-Patterns to Avoid
+
+```rust
+// AVOID: Global singleton pattern
+static INSTANCE: OnceCell<Arc<MyService>> = OnceCell::new();
+
+fn get_instance() -> Option<Arc<MyService>> {
+    INSTANCE.get().cloned()
+}
+
+fn init_instance(config: Config) -> Result<Arc<MyService>, Error> {
+    let service = Arc::new(MyService::new(config));
+    match INSTANCE.set(service.clone()) {
+        Ok(_) => Ok(service),
+        Err(_) => Err(Error::AlreadyInitialized),
+    }
+}
+```
+
+### Preferred Patterns
+
+#### Factory Pattern
+
+```rust
+// PREFER: Factory for creating service instances
+pub struct MyServiceFactory {
+    default_config: Config,
+}
+
+impl MyServiceFactory {
+    pub fn new(config: Config) -> Self {
+        Self { default_config: config }
+    }
+    
+    pub fn create_service(&self) -> Arc<MyService> {
+        Arc::new(MyService::new(self.default_config.clone()))
+    }
+    
+    pub fn create_service_with_config(&self, config: Config) -> Arc<MyService> {
+        Arc::new(MyService::new(config))
+    }
+}
+```
+
+#### Dependency Injection
+
+```rust
+// PREFER: Explicit dependency injection
+struct Consumer {
+    service: Arc<MyService>,
+}
+
+impl Consumer {
+    fn new(service: Arc<MyService>) -> Self {
+        Self { service }
+    }
+    
+    fn process(&self, data: &str) {
+        self.service.process(data);
+    }
+}
+
+// Function-level injection
+fn process_item(item: &Item, service: &MyService) {
+    service.handle(item);
+}
+```
+
+### Testing with Dependency Injection
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_consumer() {
+        // Each test creates its own instance
+        let config = Config::default();
+        let service = Arc::new(MyService::new(config));
+        let consumer = Consumer::new(service);
+        
+        // Test specific functionality
+        assert!(consumer.process("test"));
+    }
+    
+    #[test]
+    fn test_with_mock() {
+        // Tests can use mock implementations
+        let mock_service = Arc::new(MockService::new());
+        let consumer = Consumer::new(mock_service);
+        
+        // Verify behavior with mock
+        assert!(consumer.process("test"));
+        assert_eq!(mock_service.call_count(), 1);
+    }
+}
+```
+
+## Transition Strategies
+
+When transitioning from singleton patterns to dependency injection, follow these strategies:
+
+### 1. Adapter Pattern for Legacy Code
+
+Create adapters that provide a DI-friendly interface while internally using the legacy singleton:
+
+```rust
+pub struct LegacyServiceAdapter {
+    // May or may not hold the singleton reference
+}
+
+impl LegacyServiceAdapter {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl ServiceTrait for LegacyServiceAdapter {
+    fn perform_action(&self, data: &str) -> Result<()> {
+        // Delegates to the singleton
+        if let Some(service) = get_legacy_service() {
+            service.perform_action(data)
+        } else {
+            Err(Error::ServiceNotInitialized)
+        }
+    }
+}
+
+// New code uses the adapter via dependency injection
+pub struct ModernComponent {
+    service: Arc<dyn ServiceTrait>,
+}
+
+impl ModernComponent {
+    pub fn new(service: Arc<dyn ServiceTrait>) -> Self {
+        Self { service }
+    }
+}
+```
+
+### 2. Backward Compatibility Layer
+
+When refactoring a widely-used singleton, provide a compatibility layer:
+
+```rust
+// Modern implementation with factory pattern
+pub struct ServiceFactory {
+    config: Config,
+}
+
+impl ServiceFactory {
+    pub fn new(config: Config) -> Self {
+        Self { config }
+    }
+    
+    pub fn create_service(&self) -> Arc<Service> {
+        Arc::new(Service::new(self.config.clone()))
+    }
+}
+
+// Compatibility layer for legacy code
+pub mod compat {
+    use super::*;
+    
+    static SERVICE: OnceCell<Arc<Service>> = OnceCell::const_new();
+    
+    pub fn initialize(config: Config) -> Result<()> {
+        let factory = ServiceFactory::new(config);
+        let service = factory.create_service();
+        
+        SERVICE.set(service).map_err(|_| Error::AlreadyInitialized)?;
+        Ok(())
+    }
+    
+    pub fn get_service() -> Option<Arc<Service>> {
+        SERVICE.get().cloned()
+    }
+}
+```
+
+### 3. Gradual Migration Strategy
+
+1. **Create interfaces** for all singleton services
+2. **Implement factories** for each service
+3. **Refactor dependent components** one at a time
+4. **Update tests** to use the new pattern
+5. **Maintain compatibility** until all dependencies are updated
+
+## Team Coordination
+
+For teams working on large codebases:
+
+1. **Start with new code**: Apply DI patterns to all new components
+2. **Define transition period**: Set a timeline for component migration
+3. **Document component status**: Track which components use which pattern
+4. **Coordinate refactoring**: Prioritize based on test impact and dependencies
+5. **Create expertise**: Ensure each team has DI pattern experts
+
+## Migration Examples
+
+### Before (Problematic Singleton)
+
+```rust
+// In service.rs
+static SERVICE: OnceCell<Arc<Service>> = OnceCell::new();
+
+pub fn get_service() -> Option<Arc<Service>> {
+    SERVICE.get().cloned()
+}
+
+pub fn init_service(config: Config) -> Result<(), Error> {
+    let service = Arc::new(Service::new(config));
+    SERVICE.set(service).map_err(|_| Error::AlreadyInitialized)
+}
+
+// In user.rs
+fn process() {
+    if let Some(service) = get_service() {
+        service.do_work();
+    }
+}
+
+// In tests
+#[test]
+fn test_service() {
+    // This test will fail if run after any other test that initializes the service
+    let config = Config::new();
+    init_service(config).unwrap();
+    assert!(get_service().unwrap().is_ready());
+}
+```
+
+### After (Dependency Injection)
+
+```rust
+// In service.rs
+pub struct ServiceFactory {
+    default_config: Config,
+}
+
+impl ServiceFactory {
+    pub fn new(config: Config) -> Self {
+        Self { default_config: config }
+    }
+    
+    pub fn create_service(&self) -> Arc<Service> {
+        Arc::new(Service::new(self.default_config.clone()))
+    }
+}
+
+// In user.rs
+struct User {
+    service: Arc<Service>,
+}
+
+impl User {
+    fn new(service: Arc<Service>) -> Self {
+        Self { service }
+    }
+    
+    fn process(&self) {
+        self.service.do_work();
+    }
+}
+
+// In tests
+#[test]
+fn test_service() {
+    // Each test gets its own instance
+    let factory = ServiceFactory::new(Config::default());
+    let service = factory.create_service();
+    assert!(service.is_ready());
+}
+```
+
+## Complex Migration Patterns
+
+### For Services with Complex Initialization
+
+```rust
+// Factory with lazy initialization support
+pub struct ServiceFactory {
+    config: Config,
+    instance: Mutex<Option<Arc<Service>>>,
+}
+
+impl ServiceFactory {
+    pub fn new(config: Config) -> Self {
+        Self { 
+            config,
+            instance: Mutex::new(None),
+        }
+    }
+    
+    // Lazy initialization pattern
+    pub fn get_or_create_service(&self) -> Arc<Service> {
+        let mut guard = self.instance.lock().unwrap();
+        if let Some(service) = guard.as_ref() {
+            service.clone()
+        } else {
+            let service = Arc::new(Service::new(self.config.clone()));
+            *guard = Some(service.clone());
+            service
+        }
+    }
+    
+    // Always create a new instance
+    pub fn create_service(&self) -> Arc<Service> {
+        Arc::new(Service::new(self.config.clone()))
+    }
+}
+```
+
+### For Multi-Component Systems
+
+```rust
+// System-wide factory coordinating multiple components
+pub struct SystemFactory {
+    config: SystemConfig,
+}
+
+impl SystemFactory {
+    pub fn new(config: SystemConfig) -> Self {
+        Self { config }
+    }
+    
+    pub fn create_system(&self) -> System {
+        // Create component factories
+        let service_factory = ServiceFactory::new(self.config.service.clone());
+        let db_factory = DatabaseFactory::new(self.config.database.clone());
+        
+        // Create components
+        let service = service_factory.create_service();
+        let database = db_factory.create_database();
+        
+        // Construct the system with dependencies injected
+        System::new(service, database)
+    }
+}
+```
+
+## Related Rules
+
+- [Rule 1001-rust-safety](/cross-ref/1001-rust-safety): For safe handling of resources
+- [Rule 1002-rust-concurrency](/cross-ref/1002-rust-concurrency): For thread-safe service patterns
+- [Rule 1007-rust-ownership](/cross-ref/1007-rust-ownership): For proper ownership patterns in dependency injection
+- [Rule 1008-rust-error-handling](/cross-ref/1008-rust-error-handling): For handling service initialization failures
+- [Rule 1010-rust-module-organization](/cross-ref/1010-rust-module-organization): For properly organizing service modules
+
+## Enforcement
+
+During code reviews, check for:
+
+1. Use of global static variables with synchronization primitives like `OnceCell`
+2. Functions that retrieve global instances without context
+3. Tests that might be affected by global state
+4. Missing cleanup/shutdown mechanisms
+
+Apply this rule immediately to new code and gradually refactor existing code as opportunity allows.
+
+## References
+
+- [Rust Design Patterns: Dependency Injection](https://rust-unofficial.github.io/patterns/patterns/creational/dependency_injection.html)
+- [Testing in Rust](https://doc.rust-lang.org/book/ch11-01-writing-tests.html)
+- Martin Fowler's article on [Dependency Injection](https://martinfowler.com/articles/injection.html) 

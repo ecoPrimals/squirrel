@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 use serde_json::Value;
@@ -27,6 +27,13 @@ impl ContextTracker {
         self.subscribers.push(subscriber);
     }
 
+    /// Updates the context state with new data
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the write lock for the state
+    /// - The state update fails
     pub fn update_state(&mut self, new_data: Value) -> Result<(), ContextError> {
         let mut state = self.state.write().map_err(|_| {
             ContextError::InvalidState("Failed to acquire write lock".to_string())
@@ -61,6 +68,12 @@ impl ContextTracker {
         Ok(())
     }
 
+    /// Gets the current context state
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the read lock for the state
     pub fn get_state(&self) -> Result<ContextState, ContextError> {
         self.state.read()
             .map(|state| state.clone())
@@ -71,6 +84,13 @@ impl ContextTracker {
         &self.history
     }
 
+    /// Rolls back the context state to a specific version
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - The specified version is not found in the history
+    /// - Unable to acquire the write lock for the state
     pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
         if let Some(snapshot) = self.history.iter().find(|s| s.state.version == version) {
             let mut state = self.state.write().map_err(|_| {
@@ -87,7 +107,7 @@ impl ContextTracker {
 
             Ok(())
         } else {
-            Err(ContextError::InvalidState(format!("Version {} not found", version)))
+            Err(ContextError::InvalidState(format!("Version {version} not found")))
         }
     }
 }

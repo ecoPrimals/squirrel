@@ -52,13 +52,13 @@ pub struct SyncManager {
 }
 
 impl SyncManager {
-    pub async fn subscribe(&mut self, sender: Sender<SyncEvent>) -> String {
+    pub fn subscribe(&mut self, sender: Sender<SyncEvent>) -> String {
         let id = Uuid::new_v4().to_string();
         self.subscribers.insert(id.clone(), sender);
         id
     }
 
-    pub async fn unsubscribe(&mut self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn unsubscribe(&mut self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
         if self.subscribers.remove(id).is_none() {
             return Err("Subscription not found".into());
         }
@@ -78,7 +78,7 @@ impl SyncManager {
         Ok(())
     }
 
-    pub async fn resolve_conflict(&self, state1: &ContextState, state2: &ContextState) -> ContextState {
+    pub fn resolve_conflict(&self, state1: &ContextState, state2: &ContextState) -> ContextState {
         if state1.version > state2.version {
             state1.clone()
         } else if state2.version > state1.version || state2.last_modified > state1.last_modified {
@@ -128,7 +128,7 @@ impl ConflictResolver for DefaultConflictResolver {
 pub struct SyncCoordinator {
     node_id: String,
     peers: Arc<RwLock<HashMap<String, PeerInfo>>>,
-    message_tx: mpsc::Sender<SyncMessage>,
+    message_tx: Sender<SyncMessage>,
     message_rx: mpsc::Receiver<SyncMessage>,
     conflict_resolver: Box<dyn ConflictResolver>,
 }
@@ -176,7 +176,7 @@ impl SyncCoordinator {
 
     async fn handle_sync_message(&mut self, message: SyncMessage) -> Result<(), ContextError> {
         // Update peer info
-        self.update_peer_info(&message.source, message.timestamp).await?;
+        self.update_peer_info(&message.source, message.timestamp)?;
 
         match message.operation {
             SyncOperation::StateUpdate(state) => {
@@ -196,7 +196,7 @@ impl SyncCoordinator {
         Ok(())
     }
 
-    async fn update_peer_info(&self, peer_id: &str, _timestamp: SystemTime) -> Result<(), ContextError> {
+    fn update_peer_info(&self, peer_id: &str, _timestamp: SystemTime) -> Result<(), ContextError> {
         let mut peers = self.peers.write().map_err(|_| {
             ContextError::InvalidState("Failed to acquire peers lock".to_string())
         })?;
@@ -266,7 +266,7 @@ impl SyncCoordinator {
         };
 
         self.message_tx.send(message).await.map_err(|e| {
-            ContextError::InvalidState(format!("Failed to broadcast message: {}", e))
+            ContextError::InvalidState(format!("Failed to broadcast message: {e}"))
         })
     }
 
