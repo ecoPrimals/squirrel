@@ -9,47 +9,89 @@ use std::io;
 /// Main error type for the Squirrel project
 #[derive(Debug)]
 pub enum SquirrelError {
+    /// I/O errors from the standard library
     Io(io::Error),
+    /// Health check related errors
     Health(String),
+    /// Metric collection and processing errors
     Metric(String),
+    /// Alert generation and notification errors
     Alert(String),
+    /// Dashboard rendering and management errors
     Dashboard(String),
+    /// General monitoring system errors
     Monitoring(String),
+    /// Communication protocol errors
     Protocol(String),
+    /// Context management and persistence errors
     Context(String),
+    /// Command execution and processing errors
     Command(String),
+    /// Miscellaneous errors not fitting other categories
     Other(String),
 }
 
 impl SquirrelError {
+    /// Creates a new health-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn health<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Health(msg.to_string())
     }
     
+    /// Creates a new metric-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn metric<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Metric(msg.to_string())
     }
     
+    /// Creates a new alert-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn alert<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Alert(msg.to_string())
     }
     
+    /// Creates a new dashboard-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn dashboard<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Dashboard(msg.to_string())
     }
     
+    /// Creates a new monitoring-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn monitoring<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Monitoring(msg.to_string())
     }
     
+    /// Creates a new protocol-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn protocol<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Protocol(msg.to_string())
     }
     
+    /// Creates a new context-related error
+    ///
+    /// # Arguments
+    /// * `msg` - The error message
     pub fn context<T: ToString + ?Sized>(msg: &T) -> Self {
         SquirrelError::Context(msg.to_string())
     }
     
+    /// Creates a new command-not-found error
+    ///
+    /// # Arguments
+    /// * `name` - The name of the command that was not found
     pub fn command_not_found<T: ToString>(name: &T) -> Self {
         SquirrelError::Command(format!("Command not found: {name}", name = name.to_string()))
     }

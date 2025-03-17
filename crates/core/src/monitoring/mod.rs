@@ -13,10 +13,15 @@
 //! - Alert management
 //! - Monitoring agent coordination
 
+/// Health monitoring and status checking functionality
 pub mod health;
+/// Metrics collection, processing, and export functionality
 pub mod metrics;
+/// Alert generation, management, and notification functionality
 pub mod alerts;
+/// Dashboard visualization and reporting functionality
 pub mod dashboard;
+/// Network monitoring and statistics functionality
 pub mod network;
 
 #[cfg(test)]
@@ -125,20 +130,28 @@ pub struct MonitoringServiceFactory {
 /// Monitoring errors
 #[derive(Debug, Error)]
 pub enum MonitoringError {
+    /// Errors related to health checks and status monitoring
     #[error("Health check error: {0}")]
     HealthError(String),
+    /// Errors related to metric collection and processing
     #[error("Metric error: {0}")]
     MetricError(String),
+    /// Errors related to alert generation and notification
     #[error("Alert error: {0}")]
     AlertError(String),
+    /// Errors related to dashboard visualization and reporting
     #[error("Dashboard error: {0}")]
     DashboardError(String),
+    /// Errors related to network monitoring and statistics
     #[error("Network error: {0}")]
     NetworkError(String),
+    /// Errors related to communication protocols
     #[error("Protocol error: {0}")]
     ProtocolError(String),
+    /// Errors related to tool usage and metrics
     #[error("Tool error: {0}")]
     ToolError(String),
+    /// General system-level errors
     #[error("System error: {0}")]
     SystemError(String),
 }
@@ -166,6 +179,15 @@ impl MonitoringService {
     }
 
     /// Start the monitoring service
+    ///
+    /// Initializes and starts all monitoring components if enabled in the config.
+    ///
+    /// # Errors
+    /// Returns an error if any of the following fail to start:
+    /// * Health checker component
+    /// * Metric collector component
+    /// * Alert manager component
+    /// * Network monitor component
     pub async fn start(&self) -> Result<()> {
         if !self.config.health.enabled && !self.config.metrics.enabled {
             return Ok(());
@@ -187,6 +209,15 @@ impl MonitoringService {
     }
 
     /// Stop the monitoring service
+    ///
+    /// Gracefully shuts down all monitoring components.
+    ///
+    /// # Errors
+    /// Returns an error if any of the following fail to stop properly:
+    /// * Health checker component
+    /// * Metric collector component
+    /// * Alert manager component
+    /// * Network monitor component
     pub async fn stop(&self) -> Result<()> {
         // Stop the health checker
         self.health_checker.stop().await?;
@@ -253,6 +284,13 @@ impl MonitoringService {
         self.health_checker.check_health().await
     }
 
+    /// Runs the metrics collection and alert processing pipeline
+    ///
+    /// This method collects metrics from the metric collector and processes
+    /// any alerts that may be triggered based on those metrics.
+    ///
+    /// # Returns
+    /// Ok(()) if the metrics and alerts were processed successfully
     pub async fn run_and_process_metrics(&self) -> Result<()> {
         debug!("Running metric and alert handlers");
 
@@ -268,6 +306,13 @@ impl MonitoringService {
         Ok(())
     }
 
+    /// Collects metrics from the metric collector
+    ///
+    /// This method collects metrics and retrieves current alerts
+    /// without processing them further.
+    ///
+    /// # Returns
+    /// Ok(()) if the metrics were collected successfully
     pub async fn run_metrics(&self) -> Result<()> {
         // Collect metrics from the metric collector
         let _metrics = self.metric_collector.collect_metrics().await?;
@@ -278,6 +323,13 @@ impl MonitoringService {
         Ok(())
     }
 
+    /// Runs a single metrics collection cycle and sends results through the provided channel
+    ///
+    /// # Arguments
+    /// * `sender` - Channel to send monitoring messages through
+    ///
+    /// # Returns
+    /// Ok(()) if the metrics collection was initiated successfully
     pub fn run_once(
         &self,
         sender: mpsc::Sender<MonitoringMessage>,
@@ -301,6 +353,14 @@ impl MonitoringService {
         Ok(())
     }
 
+    /// Runs continuous metrics collection at the specified interval
+    ///
+    /// # Arguments
+    /// * `interval` - Time between collection cycles
+    /// * `sender` - Channel to send monitoring messages through
+    ///
+    /// # Returns
+    /// Ok(()) if the continuous metrics collection was initiated successfully
     pub fn run_continuous(
         &self,
         interval: Duration,

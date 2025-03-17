@@ -163,21 +163,25 @@ impl Context {
     }
 
     /// Get the current lifecycle stage
+    #[must_use = "This returns the current lifecycle stage which may be needed for state-dependent operations"]
     pub async fn get_lifecycle_stage(&self) -> LifecycleStage {
         self.state_store.read().await.lifecycle_stage.clone()
     }
 
     /// Get the metrics collector
+    #[must_use = "This returns a metrics instance that should be used for recording metrics"]
     pub fn metrics(&self) -> Arc<Metrics> {
         self.metrics.clone()
     }
 
     /// Get the events store
+    #[must_use = "This returns the events storage that should be used for event operations"]
     pub fn events(&self) -> Arc<RwLock<Vec<Event>>> {
         self.events.clone()
     }
 
     /// Get the state store
+    #[must_use = "This returns the state storage that should be used for state operations"]
     pub fn state(&self) -> Arc<RwLock<ContextState>> {
         self.state_store.clone()
     }
@@ -236,10 +240,12 @@ impl Context {
         Ok(())
     }
 
+    #[must_use = "This returns the initialization status which may be needed for conditional logic"]
     pub async fn is_initialized(&self) -> bool {
         self.state_store.read().await.initialized
     }
 
+    #[must_use = "This returns the shutdown status which may be needed for conditional logic"]
     pub async fn is_shutting_down(&self) -> bool {
         self.state_store.read().await.shutting_down
     }
@@ -259,6 +265,7 @@ pub struct ContextBuilder {
 
 impl ContextBuilder {
     /// Create a new context builder
+    #[must_use = "This returns a builder that should be used to configure and create a Context"]
     pub fn new() -> Self {
         Self {
             config: ContextConfig::default(),
@@ -266,7 +273,7 @@ impl ContextBuilder {
     }
 
     /// Set whether to enable metrics
-    #[must_use]
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn enable_metrics(self, enable: bool) -> Self {
         let mut builder = self;
         builder.config.metadata.insert("enable_metrics".to_string(), enable.to_string());
@@ -274,7 +281,7 @@ impl ContextBuilder {
     }
 
     /// Set whether to enable events
-    #[must_use]
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn enable_events(self, enable: bool) -> Self {
         let mut builder = self;
         builder.config.metadata.insert("enable_events".to_string(), enable.to_string());
@@ -282,7 +289,7 @@ impl ContextBuilder {
     }
 
     /// Set the maximum number of events to store
-    #[must_use]
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn max_events(self, max: usize) -> Self {
         let mut builder = self;
         builder.config.metadata.insert("max_events".to_string(), max.to_string());
@@ -419,6 +426,8 @@ pub struct ContextManager {
 }
 
 impl ContextManager {
+    /// Create a new context manager
+    #[must_use = "This returns a new context manager that should be used to manage contexts"]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(Metrics::new()),
@@ -504,6 +513,8 @@ pub struct AppContext {
 }
 
 impl AppContext {
+    /// Create a new application context
+    #[must_use = "This returns a new application context that should be used for application operations"]
     pub fn new(config: AppConfig, event_emitter: Arc<DefaultEventEmitter>) -> Self {
         Self {
             config,
@@ -511,10 +522,14 @@ impl AppContext {
         }
     }
 
+    /// Get the application configuration
+    #[must_use = "This returns the application configuration that contains important settings"]
     pub fn config(&self) -> &AppConfig {
         &self.config
     }
 
+    /// Get the event emitter
+    #[must_use = "This returns the event emitter that should be used for event operations"]
     pub fn event_emitter(&self) -> Arc<DefaultEventEmitter> {
         self.event_emitter.clone()
     }

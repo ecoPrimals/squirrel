@@ -57,6 +57,12 @@ impl Default for AppMonitorConfig {
 
 impl AppMonitor {
     /// Create a new application monitor
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The monitoring service fails to start
+    /// - Required resources are unavailable
     pub async fn new(config: AppMonitorConfig) -> Result<Self> {
         // Create a factory
         let factory = Arc::new(MonitoringServiceFactory::new(config.monitoring.clone()));
@@ -73,6 +79,10 @@ impl AppMonitor {
     }
 
     /// Record a metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metric collector fails to record the metric
     pub async fn record_metric(&self, name: &str, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Result<()> {
         let metric = Metric::new(
             name.to_string(),
@@ -87,6 +97,10 @@ impl AppMonitor {
     }
 
     /// Record an application event
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the alert manager fails to send the alert
     pub async fn record_event(&self, event_type: &str, message: &str, severity: AlertSeverity) -> Result<()> {
         let alert = Alert::new(
             event_type.to_string(),
@@ -103,6 +117,10 @@ impl AppMonitor {
     }
 
     /// Get application health status
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service cannot retrieve health status
     pub async fn get_health(&self) -> Result<HealthStatus> {
         let future = self.service.get_system_status();
         futures::pin_mut!(future);
@@ -110,26 +128,43 @@ impl AppMonitor {
     }
 
     /// Get application metrics
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service cannot retrieve metrics
     pub async fn get_metrics(&self) -> Result<Vec<Metric>> {
         self.service.get_metrics().await
     }
 
     /// Get application alerts
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service cannot retrieve alerts
     pub async fn get_alerts(&self) -> Result<Vec<Alert>> {
         self.service.get_alerts().await
     }
 
     /// Start the monitoring system
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service fails to start
     pub async fn start(&self) -> Result<()> {
         self.service.start().await
     }
 
     /// Stop the monitoring system
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service fails to stop
     pub async fn stop(&self) -> Result<()> {
         self.service.stop().await
     }
 
     /// Get the underlying monitoring service
+    #[must_use]
     pub fn service(&self) -> Arc<MonitoringService> {
         self.service.clone()
     }

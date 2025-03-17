@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use serde_json::Value;
 use super::{ContextState, ContextError, ContextSnapshot, ContextSubscriber};
 
+/// Tracks and manages context state changes and history
 pub struct ContextTracker {
     state: Arc<RwLock<ContextState>>,
     history: VecDeque<ContextSnapshot>,
@@ -11,6 +12,7 @@ pub struct ContextTracker {
 }
 
 impl ContextTracker {
+    /// Creates a new context tracker with an empty initial state
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(ContextState {
@@ -23,11 +25,18 @@ impl ContextTracker {
         }
     }
 
+    /// Registers a subscriber to be notified of context state changes
+    ///
+    /// # Arguments
+    /// * `subscriber` - The subscriber implementation to register
     pub fn subscribe(&mut self, subscriber: Box<dyn ContextSubscriber>) {
         self.subscribers.push(subscriber);
     }
 
     /// Updates the context state with new data
+    ///
+    /// # Arguments
+    /// * `new_data` - The new data to update the context with
     ///
     /// # Errors
     ///
@@ -70,6 +79,9 @@ impl ContextTracker {
 
     /// Gets the current context state
     ///
+    /// # Returns
+    /// The current context state if successful
+    ///
     /// # Errors
     ///
     /// Returns a `ContextError` if:
@@ -80,11 +92,18 @@ impl ContextTracker {
             .map_err(|_| ContextError::InvalidState("Failed to acquire read lock".to_string()))
     }
 
+    /// Returns the history of context state changes
+    ///
+    /// # Returns
+    /// A reference to the collection of historical snapshots
     pub fn get_history(&self) -> &VecDeque<ContextSnapshot> {
         &self.history
     }
 
     /// Rolls back the context state to a specific version
+    ///
+    /// # Arguments
+    /// * `version` - The version number to roll back to
     ///
     /// # Errors
     ///

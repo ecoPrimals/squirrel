@@ -1,3 +1,8 @@
+/// Command handling functionality for the application
+///
+/// This module provides the core command processing components that 
+/// enable the application to handle incoming commands, execute them,
+/// and process them through pre and post hooks.
 use crate::error::{Result, SquirrelError};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
@@ -10,19 +15,35 @@ use std::pin::Pin;
 
 use serde_json;
 
+/// A command that can be processed by the system
+///
+/// Commands represent actions that can be executed by the application.
+/// Each command has a type, parameters, and metadata to describe its behavior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
+    /// The type identifier for the command
     pub command_type: String,
+    /// Parameters that control the command's behavior
     pub parameters: serde_json::Value,
+    /// Additional metadata associated with the command
     pub metadata: HashMap<String, String>,
 }
 
+/// Handles and dispatches commands to appropriate processors
+///
+/// The CommandHandler manages a registry of command processors and
+/// routes incoming commands to the appropriate processor based on the command type.
 #[derive(Debug, Clone)]
 pub struct CommandHandler {
+    /// Map of command types to their processors
     handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
 }
 
 impl CommandHandler {
+    /// Creates a new command handler with an empty set of handlers
+    ///
+    /// # Returns
+    /// A new CommandHandler instance
     pub fn new() -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
@@ -70,18 +91,40 @@ impl Default for CommandHandler {
     }
 }
 
+/// Processes commands of a specific type
+///
+/// Command processors implement the specific logic for handling
+/// different types of commands in the system.
 #[async_trait]
 pub trait CommandProcessor: Debug + Send + Sync {
+    /// Processes a command and returns a future with the result
+    ///
+    /// # Arguments
+    /// * `command` - The command to process
+    ///
+    /// # Returns
+    /// A boxed future that will resolve to a Result indicating success or failure
     fn process(&self, command: &Command) -> Box<dyn Future<Output = Result<()>> + Send + '_>;
 }
 
+/// Provides pre and post processing hooks for commands
+///
+/// CommandHook allows for registering processors that will run before
+/// and after command execution, enabling cross-cutting concerns like
+/// logging, validation, and side effects.
 #[derive(Debug, Clone)]
 pub struct CommandHook {
+    /// Processors that run before command execution
     pre_hooks: Arc<RwLock<Vec<Box<dyn CommandProcessor>>>>,
+    /// Processors that run after command execution
     post_hooks: Arc<RwLock<Vec<Box<dyn CommandProcessor>>>>,
 }
 
 impl CommandHook {
+    /// Creates a new command hook with empty pre and post hook lists
+    ///
+    /// # Returns
+    /// A new CommandHook instance
     pub fn new() -> Self {
         Self {
             pre_hooks: Arc::new(RwLock::new(Vec::new())),

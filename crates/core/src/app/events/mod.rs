@@ -81,26 +81,31 @@ pub struct EventBuilder {
 
 impl Event {
     /// Create a new event builder
+    #[must_use = "This returns an event builder that should be used to create events"]
     pub fn builder() -> EventBuilder {
         EventBuilder::new()
     }
 
     /// Get the event type
+    #[must_use = "This returns the event type which may be needed for conditional handling"]
     pub fn event_type(&self) -> &EventType {
         &self.event_type
     }
 
     /// Get the timestamp
+    #[must_use = "This returns the event timestamp which may be needed for time-based processing"]
     pub fn timestamp(&self) -> OffsetDateTime {
         self.metadata.timestamp
     }
 
     /// Get the data
+    #[must_use = "This returns the event data which contains the payload information"]
     pub fn data(&self) -> &Value {
         &self.payload
     }
 
     /// Get the metadata
+    #[must_use = "This returns the event metadata which contains important contextual information"]
     pub fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
@@ -145,6 +150,7 @@ impl Event {
 
 impl EventBuilder {
     /// Create a new event builder
+    #[must_use = "This returns a new event builder that should be used to create events"]
     pub fn new() -> Self {
         Self {
             event_type: EventType::SystemStartup,
@@ -189,6 +195,7 @@ impl EventBuilder {
     }
 
     /// Build the event
+    #[must_use = "This returns the built event which should be used or emitted"]
     pub fn build(self) -> Event {
         Event {
             id: uuid::Uuid::new_v4().to_string(),
@@ -271,6 +278,8 @@ impl Debug for EventBus {
 }
 
 impl EventBus {
+    /// Create a new event bus
+    #[must_use = "This returns a new event bus that should be used for event operations"]
     pub fn new() -> Self {
         Self {
             events: Arc::new(RwLock::new(Vec::new())),
@@ -315,8 +324,8 @@ impl EventBus {
     ///
     /// Returns an `EventError` if the events cannot be retrieved
     pub async fn get_events(&self) -> Result<Vec<Event>> {
-        let events = self.events.read().await;
-        Ok(events.clone())
+        let events = self.events.read().await.clone();
+        Ok(events)
     }
 
     /// Clear all events from the event bus
@@ -366,6 +375,8 @@ pub struct EventMetadata {
 }
 
 impl EventMetadata {
+    /// Create a new event metadata
+    #[must_use = "This returns new event metadata that should be used with events"]
     pub fn new() -> Self {
         Self {
             timestamp: OffsetDateTime::now_utc(),
@@ -374,13 +385,15 @@ impl EventMetadata {
         }
     }
     
-    #[must_use]
+    /// Set the correlation ID
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
         self.correlation_id = Some(correlation_id);
         self
     }
     
-    #[must_use]
+    /// Add a label
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn with_label(mut self, key: String, value: String) -> Self {
         self.labels.insert(key, value);
         self
@@ -417,6 +430,8 @@ pub struct DefaultEventEmitter {
 }
 
 impl DefaultEventEmitter {
+    /// Create a new default event emitter
+    #[must_use = "This returns a new event emitter that should be used for emitting events"]
     pub fn new() -> Self {
         Self {
             handlers: Arc::new(RwLock::new(Vec::new())),

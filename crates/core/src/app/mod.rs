@@ -17,10 +17,15 @@ use crate::error::Result;
 
 pub use metrics::Metrics;
 
+/// Command processing functionality including handlers, hooks and processors
 pub mod command;
+/// Application context management for storing state and configuration
 pub mod context;
+/// Event system for application-wide messaging and notifications 
 pub mod events;
+/// Metrics collection and reporting functionality
 pub mod metrics;
+/// Application-specific monitoring components
 pub mod monitoring;
 
 /// Application core functionality
@@ -40,6 +45,12 @@ pub struct App {
 
 impl App {
     /// Create a new application instance from config
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The monitoring service fails to start
+    /// - Required resources are unavailable
     pub async fn from_config(config: AppConfig) -> Result<Self> {
         let event_emitter = Arc::new(DefaultEventEmitter::new());
         let context = Arc::new(AppContext::new(config.clone(), event_emitter.clone()));
@@ -66,23 +77,35 @@ impl App {
         })
     }
 
+    /// Get the application context
+    #[must_use]
     pub fn context(&self) -> Arc<AppContext> {
         self.context.clone()
     }
 
+    /// Get the event emitter
+    #[must_use]
     pub fn event_emitter(&self) -> Arc<DefaultEventEmitter> {
         self.event_emitter.clone()
     }
 
+    /// Get the monitoring service if available
+    #[must_use]
     pub fn monitoring(&self) -> Option<Arc<MonitoringService>> {
         self.monitoring.clone()
     }
     
+    /// Get the monitoring service factory if available
+    #[must_use]
     pub fn monitoring_factory(&self) -> Option<Arc<MonitoringServiceFactory>> {
         self.monitoring_factory.clone()
     }
 
     /// Start the application
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service fails to start
     pub async fn start(&self) -> Result<()> {
         if let Some(monitoring) = &self.monitoring {
             monitoring.start().await?;
@@ -91,6 +114,10 @@ impl App {
     }
 
     /// Stop the application
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the monitoring service fails to stop
     pub async fn stop(&self) -> Result<()> {
         if let Some(monitoring) = &self.monitoring {
             monitoring.stop().await?;
@@ -99,6 +126,10 @@ impl App {
     }
 }
 
+/// Application configuration settings
+///
+/// Contains settings that control the behavior of the application,
+/// including data storage location and monitoring configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// Application data directory

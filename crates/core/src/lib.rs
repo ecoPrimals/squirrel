@@ -1,26 +1,32 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
-#![allow(clippy::module_name_repetitions)]
-#![allow(clippy::missing_errors_doc)] // Temporarily allow while we fix systematically
-#![allow(clippy::must_use_candidate)] // Temporarily allow while we fix systematically
-#![allow(clippy::use_self)] // Temporarily allow while we fix systematically
-#![allow(clippy::significant_drop_tightening)] // Temporarily allow while we fix systematically
-#![allow(clippy::missing_const_for_fn)] // Temporarily allow while we fix systematically
-#![allow(clippy::redundant_clone)] // Temporarily allow while we fix systematically
-#![allow(clippy::needless_pass_by_ref_mut)] // Temporarily allow while we fix systematically
-#![allow(clippy::option_if_let_else)] // Temporarily allow while we fix systematically
-#![allow(clippy::significant_drop_in_scrutinee)] // Temporarily allow while we fix systematically
-#![allow(clippy::derive_partial_eq_without_eq)] // Temporarily allow while we fix systematically
-#![allow(clippy::suboptimal_flops)] // Temporarily allow while we fix systematically
-#![allow(clippy::future_not_send)] // Temporarily allow while we fix systematically
-#![allow(missing_docs)]
+#![warn(clippy::module_name_repetitions)]
+#![warn(clippy::missing_errors_doc)]
+#![warn(clippy::must_use_candidate)]
+#![warn(clippy::use_self)]
+#![warn(clippy::significant_drop_tightening)]
+#![warn(clippy::missing_const_for_fn)]
+#![warn(clippy::redundant_clone)]
+#![warn(clippy::needless_pass_by_ref_mut)]
+#![warn(clippy::option_if_let_else)]
+#![warn(clippy::significant_drop_in_scrutinee)]
+#![warn(clippy::derive_partial_eq_without_eq)]
+#![warn(clippy::suboptimal_flops)]
+#![warn(clippy::future_not_send)]
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+#![warn(clippy::unused_async)]
+#![warn(clippy::cast_possible_wrap)]
+#![warn(clippy::cast_precision_loss)]
+#![warn(clippy::manual_let_else)]
+#![warn(clippy::redundant_closure_for_method_calls)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
-//! Squirrel is a high-performance data processing and machine learning framework.
+//! Squirrel Core Library
 //!
-//! This library provides core functionality for data processing, machine learning,
-//! and distributed computing using the Machine Context Protocol (MCP).
+//! This library provides the core functionality for the Squirrel monitoring system.
+//! It includes modules for monitoring, metrics, health checks, and more.
 
 // Explicitly use external crates to avoid unused dependency warnings
 use async_trait as _;
@@ -47,17 +53,16 @@ use tower_http as _;
 use tracing as _;
 use uuid as _;
 
-pub mod app;
-pub mod commands;
-pub mod context;
 pub mod error;
+pub mod context;
 pub mod monitoring;
+pub mod commands;
 pub mod mcp;
+pub mod app;
 
 pub use error::Result;
 pub use mcp::MCP;
 pub use error::SquirrelError;
-pub use crate::app::context::Context;
 pub use commands::CommandHandler;
 pub use monitoring::MonitoringService;
 

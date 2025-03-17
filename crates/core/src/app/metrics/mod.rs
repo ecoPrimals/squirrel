@@ -54,10 +54,20 @@ pub struct Metric {
 }
 
 pub trait MetricsCollector: fmt::Debug + Send + Sync {
+    /// Collect metrics from the given metrics source
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics collection fails
     fn collect(&self, metrics: &Metrics) -> Result<()>;
 }
 
 pub trait MetricsExporter: fmt::Debug + Send + Sync {
+    /// Export metrics to the target destination
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics export fails
     fn export(&self, metrics: &Metrics) -> Result<()>;
 }
 
@@ -70,6 +80,8 @@ pub struct MetricsData {
 }
 
 impl MetricsData {
+    /// Create a new empty metrics data instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             timestamp: Utc::now(),
@@ -78,6 +90,7 @@ impl MetricsData {
         }
     }
 
+    /// Merge another metrics data instance into this one
     pub fn merge(&mut self, other: MetricsData) {
         for (key, value) in other.metrics {
             self.metrics.insert(key, value);
@@ -121,10 +134,20 @@ impl Default for Metrics {
 }
 
 impl Metrics {
+    /// Create a new metrics instance
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Record a metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The metric type is invalid
+    /// - The metric value is incompatible with its type
+    /// - A counter metric has a negative value
     pub async fn record(&self, metric: Metric) -> Result<()> {
         match metric.metric_type {
             MetricType::Counter => {
@@ -156,21 +179,38 @@ impl Metrics {
         Ok(())
     }
 
+    /// Get the current value of a counter metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the counter metric cannot be accessed
     pub async fn get_counter(&self, name: &str) -> Result<u64> {
         let counters = self.counters.read().await;
         Ok(*counters.get(name).unwrap_or(&0))
     }
 
+    /// Get the current value of a gauge metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the gauge metric cannot be accessed
     pub async fn get_gauge(&self, name: &str) -> Result<f64> {
         let gauges = self.gauges.read().await;
         Ok(*gauges.get(name).unwrap_or(&0.0))
     }
 
+    /// Get the current values of a histogram metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the histogram metric cannot be accessed
     pub async fn get_histogram(&self, name: &str) -> Result<Vec<f64>> {
         let histograms = self.histograms.read().await;
         Ok(histograms.get(name).cloned().unwrap_or_default())
     }
 
+    /// Create a snapshot of all current metrics
+    #[must_use]
     pub async fn snapshot(&self) -> MetricsSnapshot {
         let counters = self.counters.read().await.clone();
         let gauges = self.gauges.read().await.clone();
@@ -191,23 +231,40 @@ pub struct MetricsRegistry {
 }
 
 impl MetricsRegistry {
+    /// Create a new metrics registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    /// Register a named metrics instance
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics instance cannot be registered
     pub async fn register(&self, name: &str, metrics: Arc<Metrics>) -> Result<()> {
         let mut registry = self.metrics.write().await;
         registry.insert(name.to_string(), metrics);
         Ok(())
     }
 
+    /// Get a named metrics instance if it exists
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics registry cannot be accessed
     pub async fn get(&self, name: &str) -> Result<Option<Arc<Metrics>>> {
         let registry = self.metrics.read().await;
         Ok(registry.get(name).cloned())
     }
 
+    /// Get all registered metrics instances
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics registry cannot be accessed
     pub async fn get_all(&self) -> Result<HashMap<String, Arc<Metrics>>> {
         let registry = self.metrics.read().await;
         Ok(registry.clone())

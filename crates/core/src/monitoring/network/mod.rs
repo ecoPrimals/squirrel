@@ -69,10 +69,13 @@ pub struct NetworkStats {
     pub errors_on_transmitted: u64,
 }
 
+/// Errors that can occur during network monitoring operations
 #[derive(Debug, Error)]
 pub enum NetworkError {
+    /// System-level errors related to network operations
     #[error("System error: {0}")]
     System(String),
+    /// Errors related to network metrics collection and processing
     #[error("Metrics error: {0}")]
     Metrics(String),
 }
@@ -86,7 +89,13 @@ pub struct NetworkMonitor {
 }
 
 impl NetworkMonitor {
-    /// Create a new network monitor
+    /// Creates a new network monitor with the specified configuration
+    ///
+    /// # Arguments
+    /// * `config` - The network monitoring configuration
+    ///
+    /// # Returns
+    /// A new `NetworkMonitor` instance initialized with the provided configuration
     pub fn new(config: NetworkConfig) -> Self {
         let mut system = System::new();
         system.refresh_networks_list();

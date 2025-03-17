@@ -20,11 +20,13 @@ use std::fmt::Debug;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
+use thiserror::Error;
 use crate::SquirrelError;
 use crate::error::Result;
 pub mod export;
 pub mod performance;
 pub mod resource;
+/// Tool-specific metrics collection and tracking
 pub mod tool;
 
 // Re-export important types
@@ -135,6 +137,10 @@ pub struct DefaultMetricCollector {
 }
 
 impl DefaultMetricCollector {
+    /// Creates a new default metric collector with default configuration
+    ///
+    /// This initializes an empty metrics collection that will be populated
+    /// with metrics when they are recorded or collected.
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(Vec::new())),
@@ -177,15 +183,22 @@ impl MetricCollector for DefaultMetricCollector {
     }
 }
 
-/// Metric error types
-#[derive(Debug, thiserror::Error)]
+/// Errors that can occur during metric operations
+#[derive(Error, Debug)]
 pub enum MetricError {
+    /// The metric system has not been initialized
     #[error("Metric not initialized: {0}")]
     NotInitialized(String),
+    
+    /// An error occurred during metric export
     #[error("Export error: {0}")]
     ExportError(String),
+    
+    /// An error occurred during metric collection
     #[error("Collection error: {0}")]
     CollectionError(String),
+    
+    /// The metric data is invalid or malformed
     #[error("Invalid metric: {0}")]
     InvalidMetric(String),
 }
