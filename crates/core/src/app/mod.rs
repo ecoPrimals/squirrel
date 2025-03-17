@@ -27,6 +27,8 @@ pub mod events;
 pub mod metrics;
 /// Application-specific monitoring components
 pub mod monitoring;
+/// Application module
+pub mod core;
 
 /// Application core functionality
 #[derive(Debug, Clone)]
@@ -196,4 +198,11 @@ mod tests {
         // Clean up test directory
         let _ = std::fs::remove_dir_all(temp_dir);
     }
-} 
+}
+
+// Re-export commonly used types
+pub use command::CommandHandler;
+pub use context::Context;
+// pub use error::Error as AppError;
+// pub use event::Event;
+// pub use monitoring::Monitor; 

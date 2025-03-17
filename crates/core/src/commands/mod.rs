@@ -242,11 +242,72 @@ impl Default for CommandRegistry {
     }
 }
 
-/// Registers all built-in commands with the registry.
-///
-/// # Errors
-/// Returns an error if any command registration fails.
-#[allow(dead_code)]
+/// Factory for creating CommandRegistry instances
+#[derive(Debug, Default)]
+pub struct CommandRegistryFactory {
+    /// Command validation rules to apply during registration
+    validation_rules: Vec<Box<dyn ValidationRule>>,
+    /// Custom lifecycle handlers
+    lifecycle_handlers: Vec<Box<dyn LifecycleHandler>>,
+}
+
+impl CommandRegistryFactory {
+    /// Create a new empty factory with no validation rules or lifecycle handlers
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            validation_rules: Vec::new(),
+            lifecycle_handlers: Vec::new(),
+        }
+    }
+
+    /// Add a validation rule to the factory
+    /// 
+    /// # Arguments
+    /// * `rule` - The validation rule to add
+    pub fn with_validation_rule(mut self, rule: Box<dyn ValidationRule>) -> Self {
+        self.validation_rules.push(rule);
+        self
+    }
+
+    /// Add a lifecycle handler to the factory
+    /// 
+    /// # Arguments
+    /// * `handler` - The lifecycle handler to add
+    pub fn with_lifecycle_handler(mut self, handler: Box<dyn LifecycleHandler>) -> Self {
+        self.lifecycle_handlers.push(handler);
+        self
+    }
+
+    /// Create a new command registry with the configured validation rules and lifecycle handlers
+    #[must_use]
+    pub fn create(&self) -> CommandRegistry {
+        let mut registry = CommandRegistry::new();
+        
+        // Apply validation rules
+        for rule in &self.validation_rules {
+            registry.add_validation_rule(rule.clone_box());
+        }
+        
+        // Apply lifecycle handlers
+        for handler in &self.lifecycle_handlers {
+            registry.add_lifecycle_handler(handler.clone_box());
+        }
+        
+        registry
+    }
+    
+    /// Create a new command registry with built-in commands
+    /// 
+    /// # Errors
+    /// Returns an error if any of the built-in commands fail to register
+    pub fn create_with_builtins(&self) -> Result<CommandRegistry, Box<dyn Error>> {
+        let mut registry = self.create();
+        register_builtin_commands(&mut registry)?;
+        Ok(registry)
+    }
+}
+
 pub fn register_builtin_commands(registry: &mut CommandRegistry) -> Result<(), Box<dyn Error>> {
     registry.register(Box::new(VersionCommand))
         .map_err(|e| Box::new(ValidationError {
@@ -319,5 +380,75 @@ mod tests {
         let commands = registry.list().unwrap();
         assert_eq!(commands.len(), 1);
         assert_eq!(commands[0], "test");
+    }
+    
+    #[test]
+    fn test_command_registry_factory_create() {
+        let factory = CommandRegistryFactory::new();
+        let registry = factory.create();
+        
+        // Registry should be empty
+        assert_eq!(registry.list().unwrap().len(), 0);
+    }
+    
+    #[test]
+    fn test_command_registry_factory_with_validation() {
+        #[derive(Clone)]
+        struct TestValidationRule;
+        
+        impl ValidationRule for TestValidationRule {
+            fn validate(&self, _cmd: &dyn Command) -> Result<(), ValidationError> {
+                Ok(())
+            }
+            
+            fn clone_box(&self) -> Box<dyn ValidationRule> {
+                Box::new(self.clone())
+            }
+        }
+        
+        let factory = CommandRegistryFactory::new()
+            .with_validation_rule(Box::new(TestValidationRule));
+        let registry = factory.create();
+        
+        // Registry should have the validation rule
+        assert_eq!(registry.validation_rules.len(), 1);
+    }
+    
+    #[test]
+    fn test_command_registry_factory_with_lifecycle() {
+        #[derive(Clone)]
+        struct TestLifecycleHandler;
+        
+        impl LifecycleHandler for TestLifecycleHandler {
+            fn before_execute(&self, _cmd: &dyn Command, _args: &[String]) -> Result<(), Box<dyn Error>> {
+                Ok(())
+            }
+            
+            fn after_execute(&self, _cmd: &dyn Command, _args: &[String], _result: &Result<(), Box<dyn Error>>) {
+                // No-op
+            }
+            
+            fn clone_box(&self) -> Box<dyn LifecycleHandler> {
+                Box::new(self.clone())
+            }
+        }
+        
+        let factory = CommandRegistryFactory::new()
+            .with_lifecycle_handler(Box::new(TestLifecycleHandler));
+        let registry = factory.create();
+        
+        // Registry should have the lifecycle handler
+        assert_eq!(registry.lifecycle_handlers.len(), 1);
+    }
+    
+    #[test]
+    fn test_command_registry_factory_with_builtins() {
+        let factory = CommandRegistryFactory::new();
+        let registry = factory.create_with_builtins().unwrap();
+        
+        // Registry should have builtin commands
+        assert!(registry.list().unwrap().len() > 0);
+        // Should include the version command
+        assert!(registry.get("version").unwrap().is_some());
     }
 } 

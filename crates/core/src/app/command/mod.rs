@@ -31,7 +31,7 @@ pub struct Command {
 
 /// Handles and dispatches commands to appropriate processors
 ///
-/// The CommandHandler manages a registry of command processors and
+/// The `CommandHandler` manages a registry of command processors and
 /// routes incoming commands to the appropriate processor based on the command type.
 #[derive(Debug, Clone)]
 pub struct CommandHandler {
@@ -43,8 +43,8 @@ impl CommandHandler {
     /// Creates a new command handler with an empty set of handlers
     ///
     /// # Returns
-    /// A new CommandHandler instance
-    pub fn new() -> Self {
+    /// A new `CommandHandler` instance
+    #[must_use] pub fn new() -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -80,7 +80,7 @@ impl CommandHandler {
             let process_future = handler.process(&command);
             Pin::from(process_future).await
         } else {
-            Err(SquirrelError::Command(format!("No handler found for command type: {}", command.command_type)))
+            Err(SquirrelError::command_not_found(&command.command_type))
         }
     }
 }
@@ -109,7 +109,7 @@ pub trait CommandProcessor: Debug + Send + Sync {
 
 /// Provides pre and post processing hooks for commands
 ///
-/// CommandHook allows for registering processors that will run before
+/// `CommandHook` allows for registering processors that will run before
 /// and after command execution, enabling cross-cutting concerns like
 /// logging, validation, and side effects.
 #[derive(Debug, Clone)]
@@ -124,8 +124,8 @@ impl CommandHook {
     /// Creates a new command hook with empty pre and post hook lists
     ///
     /// # Returns
-    /// A new CommandHook instance
-    pub fn new() -> Self {
+    /// A new `CommandHook` instance
+    #[must_use] pub fn new() -> Self {
         Self {
             pre_hooks: Arc::new(RwLock::new(Vec::new())),
             post_hooks: Arc::new(RwLock::new(Vec::new())),

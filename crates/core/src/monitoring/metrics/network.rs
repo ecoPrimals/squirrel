@@ -160,19 +160,19 @@ pub async fn initialize() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Get network statistics for all interfaces
-pub async fn get_network_stats() -> HashMap<String, NetworkStats> {
+pub async fn get_network_stats() -> Result<HashMap<String, NetworkStats>, crate::error::SquirrelError> {
     NETWORK_MONITOR
         .get()
-        .expect("Network monitor not initialized")
+        .ok_or_else(|| crate::error::SquirrelError::State("Network monitor not initialized".to_string()))?
         .get_stats()
         .await
 }
 
 /// Get network statistics for a specific interface
-pub async fn get_interface_stats(interface: &str) -> Option<NetworkStats> {
-    NETWORK_MONITOR
+pub async fn get_interface_stats(interface: &str) -> Result<Option<NetworkStats>, crate::error::SquirrelError> {
+    Ok(NETWORK_MONITOR
         .get()
-        .expect("Network monitor not initialized")
+        .ok_or_else(|| crate::error::SquirrelError::State("Network monitor not initialized".to_string()))?
         .get_interface_stats(interface)
-        .await
+        .await)
 } 

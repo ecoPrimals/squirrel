@@ -23,6 +23,7 @@ use serde::{Serialize, Deserialize};
 use thiserror::Error;
 use crate::SquirrelError;
 use crate::error::Result;
+use crate::monitoring::metrics::performance::OperationType;
 pub mod export;
 pub mod performance;
 pub mod resource;
@@ -66,7 +67,7 @@ pub enum MetricValue {
 }
 
 /// Metric type
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MetricType {
     /// Counter metric that only increases
     Counter,
@@ -91,17 +92,20 @@ pub struct Metric {
     pub labels: HashMap<String, String>,
     /// Timestamp in seconds since Unix epoch
     pub timestamp: i64,
+    /// Type of operation this metric is associated with
+    pub operation_type: OperationType,
 }
 
 impl Metric {
     /// Create a new metric
-    pub fn new(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
+    #[must_use] pub fn new(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
         Self {
             name,
             metric_type,
             value,
             labels: labels.unwrap_or_default(),
             timestamp: system_time_to_timestamp(SystemTime::now()),
+            operation_type: OperationType::Unknown,
         }
     }
 }
@@ -141,7 +145,7 @@ impl DefaultMetricCollector {
     ///
     /// This initializes an empty metrics collection that will be populated
     /// with metrics when they are recorded or collected.
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(Vec::new())),
             config: MetricConfig::default(),
@@ -205,7 +209,7 @@ pub enum MetricError {
 
 impl From<MetricError> for SquirrelError {
     fn from(err: MetricError) -> Self {
-        SquirrelError::metric(&err.to_string())
+        Self::metric(&err.to_string())
     }
 }
 
@@ -216,12 +220,12 @@ pub async fn initialize(_config: Option<MetricConfig>) -> Result<()> {
 }
 
 /// Get the metric collector instance
-pub fn get_collector() -> Option<Arc<DefaultMetricCollector>> {
+#[must_use] pub const fn get_collector() -> Option<Arc<DefaultMetricCollector>> {
     None // Placeholder
 }
 
 /// Check if metrics system is initialized
-pub fn is_initialized() -> bool {
+#[must_use] pub const fn is_initialized() -> bool {
     false // Placeholder
 }
 
@@ -315,7 +319,7 @@ pub struct MetricsManager {
 }
 
 impl MetricsManager {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             collectors: Arc::new(RwLock::new(Vec::new())),
             exporters: Arc::new(RwLock::new(Vec::new())),
@@ -381,7 +385,7 @@ impl Default for MetricsManager {
 ///
 /// # Errors
 /// Returns an error if the collector is already initialized or if initialization fails
-pub fn init_collector(_config: MetricConfig) -> Result<()> {
+pub const fn init_collector(_config: MetricConfig) -> Result<()> {
     // Implementation would go here
     Ok(())
 }
@@ -451,9 +455,10 @@ mod tests {
         let metric = Metric {
             name: "test_metric".to_string(),
             value: 1.0,
-            metric_type: crate::monitoring::metrics::MetricType::Gauge,
+            metric_type: MetricType::Gauge,
             timestamp: 0,
             labels: HashMap::new(),
+            operation_type: OperationType::Unknown,
         };
         
         // Record the metric
@@ -471,9 +476,10 @@ mod tests {
         let second_metric = Metric {
             name: "second_metric".to_string(),
             value: 2.0,
-            metric_type: crate::monitoring::metrics::MetricType::Counter,
+            metric_type: MetricType::Counter,
             timestamp: 0,
             labels: HashMap::new(),
+            operation_type: OperationType::Unknown,
         };
         
         collector.record_metric(second_metric).await.unwrap();

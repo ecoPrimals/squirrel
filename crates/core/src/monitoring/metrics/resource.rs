@@ -6,32 +6,36 @@
 //! - Storage usage
 //! - Network bandwidth
 
-use crate::error::Result;
+use crate::error::{Result, SquirrelError};
 use crate::monitoring::metrics::{Metric, MetricCollector, MetricType};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 use sysinfo::{System, SystemExt, ProcessExt, Process, DiskExt, NetworkExt, PidExt, CpuExt, NetworksExt};
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 
-/// Resource usage metrics for a team
+/// Resource usage metrics for a team.
+/// 
+/// This struct tracks various resource usage metrics for a specific team,
+/// including memory, storage, network, and process information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamResourceMetrics {
-    /// Memory usage in bytes
+    /// Memory usage in bytes.
     pub memory_usage: f64,
-    /// Storage usage in bytes
+    /// Storage usage in bytes.
     pub storage_usage: f64,
-    /// Network bandwidth usage in bits per second
+    /// Network bandwidth usage in bits per second.
     pub network_bandwidth: f64,
-    /// Number of active threads
+    /// Number of active threads.
     pub thread_count: u32,
-    /// Disk I/O statistics
+    /// Disk I/O statistics in bytes per second.
     pub disk_io: f64,
-    /// CPU usage
+    /// CPU usage as a percentage (0.0 to 100.0).
     pub cpu_usage: f64,
+    /// List of processes owned by the team.
     pub processes: Vec<ProcessInfo>,
 }
 
@@ -74,7 +78,7 @@ pub struct ResourceMetricsCollector {
 
 impl ResourceMetricsCollector {
     /// Create a new resource metrics collector
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             system: System::new_all(),
             metrics: Arc::new(RwLock::new(Vec::new())),
@@ -94,11 +98,11 @@ impl ResourceMetricsCollector {
         // Update metrics for each team
         for (team_name, team_path) in team_paths.iter() {
             // Get processes for this team
-            let team_processes = ResourceMetricsCollector::get_team_processes(&self.system, team_name);
+            let team_processes = Self::get_team_processes(&self.system, team_name);
             
             // Collect process information
             let process_info: Vec<ProcessInfo> = team_processes.iter()
-                .map(|p| ResourceMetricsCollector::collect_process_info(p))
+                .map(|p| Self::collect_process_info(p))
                 .collect();
             
             // Calculate total memory usage
@@ -107,13 +111,13 @@ impl ResourceMetricsCollector {
                 .sum::<f64>();
 
             // Calculate thread count
-            let thread_count = ResourceMetricsCollector::calculate_thread_count(&self.system, team_name);
+            let thread_count = Self::calculate_thread_count(&self.system, team_name);
 
             // Update storage usage if team path is configured
-            let storage_usage = ResourceMetricsCollector::calculate_storage_usage(&self.system, team_path);
+            let storage_usage = Self::calculate_storage_usage(&self.system, team_path);
             
             // Update disk I/O statistics
-            let current_io = ResourceMetricsCollector::calculate_disk_io(&self.system, team_path);
+            let current_io = Self::calculate_disk_io(&self.system, team_path);
             let prev_io = prev_disk_io.get(team_name).cloned().unwrap_or_default();
             
             // Calculate rates
@@ -124,10 +128,10 @@ impl ResourceMetricsCollector {
             prev_disk_io.insert(team_name.clone(), current_io);
 
             // Calculate CPU usage
-            let cpu_usage = ResourceMetricsCollector::calculate_cpu_usage(&self.system, team_name);
+            let cpu_usage = Self::calculate_cpu_usage(&self.system, team_name);
             
             // Calculate network bandwidth
-            let network_bandwidth = ResourceMetricsCollector::calculate_network_bandwidth(&self.system, team_name);
+            let network_bandwidth = Self::calculate_network_bandwidth(&self.system, team_name);
 
             // Update metrics
             let mut team_metric = Metric::new(
@@ -161,7 +165,7 @@ impl ResourceMetricsCollector {
             let _available_space = disk.available_space();
             
             // Calculate used space for the team's directory
-            if let Ok(dir_size) = ResourceMetricsCollector::calculate_dir_size(path) {
+            if let Ok(dir_size) = Self::calculate_dir_size(path) {
                 total_usage = dir_size as f64;
             }
         }
@@ -214,7 +218,7 @@ impl ResourceMetricsCollector {
     ) -> Vec<&'a Process> {
         system.processes()
             .values()
-            .filter(|p| ResourceMetricsCollector::is_team_process(p, team_name))
+            .filter(|p| Self::is_team_process(p, team_name))
             .collect()
     }
 
@@ -355,7 +359,7 @@ impl ResourceMetricsCollector {
 
     /// Calculate CPU usage for a team
     fn calculate_cpu_usage(system: &System, team_name: &str) -> f64 {
-        let team_processes = ResourceMetricsCollector::get_team_processes(system, team_name);
+        let team_processes = Self::get_team_processes(system, team_name);
         team_processes.iter()
             .map(|p| f64::from(p.cpu_usage()))
             .sum::<f64>()
@@ -364,7 +368,7 @@ impl ResourceMetricsCollector {
     /// Calculate network bandwidth for a team
     fn calculate_network_bandwidth(system: &System, team_name: &str) -> f64 {
         // Simple implementation - in a real system, you would track network usage per process
-        let team_processes = ResourceMetricsCollector::get_team_processes(system, team_name);
+        let team_processes = Self::get_team_processes(system, team_name);
         if team_processes.is_empty() {
             return 0.0;
         }
@@ -398,30 +402,170 @@ impl Default for ResourceMetricsCollector {
     }
 }
 
+/// Configuration for resource metrics collection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceConfig {
+    /// Whether to enable resource metrics collection
+    pub enabled: bool,
+    /// Collection interval in seconds
+    pub interval: u64,
+    /// Maximum history size
+    pub history_size: usize,
+}
+
+impl Default for ResourceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval: 60,
+            history_size: 100,
+        }
+    }
+}
+
+/// Factory for creating and managing resource metrics collector instances
+#[derive(Debug, Clone)]
+pub struct ResourceMetricsCollectorFactory {
+    /// Configuration for creating collectors
+    config: ResourceConfig,
+}
+
+impl ResourceMetricsCollectorFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: ResourceConfig::default(),
+        }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: ResourceConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a resource metrics collector
+    #[must_use]
+    pub fn create_collector(&self) -> Arc<ResourceMetricsCollector> {
+        Arc::new(ResourceMetricsCollector::new())
+    }
+
+    /// Initializes and returns a global resource metrics collector instance
+    ///
+    /// # Errors
+    /// Returns an error if the collector is already initialized
+    pub async fn initialize_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
+        static GLOBAL_COLLECTOR: OnceLock<Arc<ResourceMetricsCollector>> = OnceLock::new();
+
+        let collector = self.create_collector();
+        
+        // Start collection if enabled
+        if self.config.enabled {
+            collector.start_collection().await;
+        }
+        
+        match GLOBAL_COLLECTOR.set(collector.clone()) {
+            Ok(()) => Ok(collector),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_COLLECTOR.get()
+                    .ok_or_else(|| SquirrelError::metric("Failed to get global resource metrics collector"))?
+                    .clone())
+            }
+        }
+    }
+
+    /// Gets the global resource metrics collector, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be initialized
+    pub async fn get_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
+        static GLOBAL_COLLECTOR: OnceLock<Arc<ResourceMetricsCollector>> = OnceLock::new();
+
+        if let Some(collector) = GLOBAL_COLLECTOR.get() {
+            return Ok(collector.clone());
+        }
+
+        self.initialize_global_collector().await
+    }
+}
+
+impl Default for ResourceMetricsCollectorFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating resource metrics collectors
+static FACTORY: OnceLock<ResourceMetricsCollectorFactory> = OnceLock::new();
+
+/// Initialize the resource metrics collector factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<ResourceConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => ResourceMetricsCollectorFactory::with_config(cfg),
+        None => ResourceMetricsCollectorFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::metric("Resource metrics collector factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the resource metrics collector factory
+#[must_use]
+pub fn get_factory() -> Option<ResourceMetricsCollectorFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the resource metrics collector factory
+#[must_use]
+pub fn ensure_factory() -> ResourceMetricsCollectorFactory {
+    FACTORY.get_or_init(ResourceMetricsCollectorFactory::new).clone()
+}
+
 // Module initialization
 static RESOURCE_COLLECTOR: tokio::sync::OnceCell<Arc<ResourceMetricsCollector>> = 
     tokio::sync::OnceCell::const_new();
 
 /// Initialize the resource metrics collector
-pub async fn initialize() -> Result<()> {
-    let collector = Arc::new(ResourceMetricsCollector::new());
-    collector.start_collection().await;
-    RESOURCE_COLLECTOR.set(collector)
-        .map_err(|_| "Resource collector already initialized")?;
-    Ok(())
+///
+/// # Errors
+/// Returns an error if the collector is already initialized
+pub async fn initialize(config: Option<ResourceConfig>) -> Result<Arc<ResourceMetricsCollector>> {
+    let factory = match config {
+        Some(cfg) => ResourceMetricsCollectorFactory::with_config(cfg),
+        None => ensure_factory(),
+    };
+    
+    let collector = factory.initialize_global_collector().await?;
+    
+    // For backward compatibility, also set in the old static
+    let _ = RESOURCE_COLLECTOR.set(collector.clone());
+    
+    Ok(collector)
 }
 
 /// Get resource metrics for a team
 ///
-/// # Panics
+/// # Parameters
+/// * `team_name` - The name of the team to get metrics for
 ///
-/// Panics if the resource collector is not initialized
+/// # Returns
+/// * `Option<TeamResourceMetrics>` - The team resource metrics, if available
 pub async fn get_team_metrics(team_name: &str) -> Option<TeamResourceMetrics> {
-    RESOURCE_COLLECTOR
-        .get()
-        .expect("Resource collector not initialized")
-        .get_team_metrics(team_name)
-        .await
+    if let Some(collector) = RESOURCE_COLLECTOR.get() {
+        collector.get_team_metrics(team_name).await
+    } else {
+        // Try to initialize on-demand
+        match ensure_factory().get_global_collector().await {
+            Ok(collector) => collector.get_team_metrics(team_name).await,
+            Err(_) => None,
+        }
+    }
 }
 
 /// Register a new team for resource tracking
@@ -510,13 +654,23 @@ impl MetricCollector for ResourceMetricsCollector {
     }
 }
 
+/// Information about a running process.
+/// 
+/// This struct contains various metrics about a process's resource usage,
+/// including CPU, memory, and disk I/O statistics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessInfo {
+    /// Process identifier.
     pub pid: u32,
+    /// Name of the process.
     pub name: String,
+    /// CPU usage as a percentage (0.0 to 100.0).
     pub cpu_usage: f64,
+    /// Memory usage in bytes.
     pub memory_usage: f64,
+    /// Total bytes read from disk.
     pub disk_read: u64,
+    /// Total bytes written to disk.
     pub disk_write: u64,
 }
 
@@ -533,19 +687,36 @@ impl From<&Process> for ProcessInfo {
     }
 }
 
-/// System resource metrics
-#[derive(Debug, Clone)]
+/// System-wide resource usage metrics.
+/// 
+/// This struct provides an overview of system resource utilization,
+/// including CPU, memory, disk, and network usage.
 pub struct ResourceMetrics {
+    /// CPU usage as a percentage (0.0 to 100.0).
     pub cpu_usage: f64,
+    /// Memory usage in bytes.
     pub memory_usage: f64,
+    /// Disk space usage in bytes.
     pub disk_usage: f64,
+    /// Total bytes received over network interfaces.
     pub network_rx: u64,
+    /// Total bytes transmitted over network interfaces.
     pub network_tx: u64,
+    /// List of running processes and their resource usage.
     pub processes: Vec<ProcessInfo>,
 }
 
 impl ResourceMetrics {
-    pub fn new(system: &System) -> Self {
+    /// Creates a new ResourceMetrics instance from system information.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `system` - Reference to a System instance containing system information
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a new ResourceMetrics instance with current system metrics.
+    #[must_use] pub fn new(system: &System) -> Self {
         // Calculate CPU usage
         let cpu_usage = f64::from(system.global_cpu_info().cpu_usage());
         
@@ -571,9 +742,7 @@ impl ResourceMetrics {
             cpu_usage,
             memory_usage,
             disk_usage,
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             network_rx: network_rx as u64,
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             network_tx: network_tx as u64,
             processes: Vec::new(),
         }

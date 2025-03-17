@@ -25,7 +25,7 @@ pub struct LatestVersionStrategy;
 
 impl LatestVersionStrategy {
     /// Creates a new instance of the latest version recovery strategy
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self
     }
 }
@@ -52,7 +52,7 @@ impl SpecificVersionStrategy {
     ///
     /// # Arguments
     /// * `version` - The specific version number to recover
-    pub fn new(version: u64) -> Self {
+    #[must_use] pub const fn new(version: u64) -> Self {
         Self { version }
     }
 }
@@ -73,7 +73,7 @@ impl TimeBasedStrategy {
     ///
     /// # Arguments
     /// * `timestamp` - The timestamp to use as the upper bound for recovery
-    pub fn new(timestamp: SystemTime) -> Self {
+    #[must_use] pub const fn new(timestamp: SystemTime) -> Self {
         Self { timestamp }
     }
 }
@@ -100,7 +100,7 @@ impl RecoveryManager {
     /// # Arguments
     /// * `persistence` - The persistence layer for storing snapshots
     /// * `max_snapshots` - Maximum number of snapshots to keep in memory
-    pub fn new(
+    pub const fn new(
         persistence: Arc<Mutex<ContextPersistence>>,
         max_snapshots: usize,
     ) -> Self {
@@ -149,7 +149,7 @@ impl RecoveryManager {
     ///
     /// # Returns
     /// A reference to the collection of snapshots
-    pub fn get_snapshots(&self) -> &VecDeque<ContextSnapshot> {
+    #[must_use] pub const fn get_snapshots(&self) -> &VecDeque<ContextSnapshot> {
         &self.snapshots
     }
 

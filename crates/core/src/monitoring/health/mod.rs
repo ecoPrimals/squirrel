@@ -7,17 +7,15 @@
 
 use std::{
     collections::HashMap,
-    sync::Arc,
+    sync::{Arc, OnceLock},
     fmt::Debug,
 };
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use crate::error::Result;
+use crate::error::{Result, SquirrelError};
 use async_trait::async_trait;
+use self::status::Status;
 
-// Allow certain linting issues that are too numerous to fix individually
-#[allow(clippy::missing_errors_doc)] // Temporarily allow missing error documentation
-#[allow(clippy::unused_async)] // Allow unused async functions
 // Define the submodules
 /// Health status definitions and reporting
 pub mod status;
@@ -49,6 +47,130 @@ impl Default for HealthConfig {
     }
 }
 
+/// Factory for creating and managing health checker instances
+#[derive(Debug, Clone)]
+pub struct HealthCheckerFactory {
+    /// Configuration for creating health checkers
+    config: HealthConfig,
+}
+
+impl HealthCheckerFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: HealthConfig::default(),
+        }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: HealthConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a health checker
+    #[must_use]
+    pub fn create_checker(&self) -> Arc<DefaultHealthChecker> {
+        Arc::new(DefaultHealthChecker::new())
+    }
+
+    /// Initializes and returns a global health checker instance
+    ///
+    /// # Errors
+    /// Returns an error if the checker is already initialized
+    pub async fn initialize_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
+        static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
+
+        let checker = self.create_checker();
+        match GLOBAL_CHECKER.set(checker.clone()) {
+            Ok(()) => Ok(checker),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_CHECKER.get()
+                    .ok_or_else(|| SquirrelError::health("Failed to get global health checker"))?
+                    .clone())
+            }
+        }
+    }
+
+    /// Gets the global health checker, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the health checker cannot be initialized
+    pub async fn get_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
+        static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
+
+        if let Some(checker) = GLOBAL_CHECKER.get() {
+            return Ok(checker.clone());
+        }
+
+        self.initialize_global_checker().await
+    }
+}
+
+impl Default for HealthCheckerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating health checkers
+static FACTORY: OnceLock<HealthCheckerFactory> = OnceLock::new();
+
+/// Initialize the health checker factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<HealthConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => HealthCheckerFactory::with_config(cfg),
+        None => HealthCheckerFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::health("Health checker factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the health checker factory
+#[must_use]
+pub fn get_factory() -> Option<HealthCheckerFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the health checker factory
+#[must_use]
+pub fn ensure_factory() -> HealthCheckerFactory {
+    FACTORY.get_or_init(HealthCheckerFactory::new).clone()
+}
+
+/// Initialize the health checker
+///
+/// # Errors
+/// Returns an error if the checker cannot be initialized
+pub async fn initialize() -> Result<Arc<DefaultHealthChecker>> {
+    let factory = ensure_factory();
+    factory.initialize_global_checker().await
+}
+
+/// Get the global health checker
+///
+/// # Errors
+/// Returns an error if the health checker is not initialized
+pub async fn get_checker() -> Result<Arc<DefaultHealthChecker>> {
+    ensure_factory().get_global_checker().await
+}
+
+/// Check health status
+///
+/// # Errors
+/// Returns an error if the health check fails
+pub async fn check_health() -> Result<HealthStatus> {
+    let checker = get_checker().await?;
+    checker.check_health().await
+}
+
 /// Default health checker implementation
 #[derive(Debug)]
 pub struct DefaultHealthChecker {
@@ -60,7 +182,7 @@ impl DefaultHealthChecker {
     ///
     /// This initializes an empty components map that will be populated
     /// with component health information when components are registered.
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             components: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -108,25 +230,25 @@ impl HealthChecker for DefaultHealthChecker {
 
         // If no components registered, return healthy
         if components.is_empty() {
-            return Ok(HealthStatus::Healthy);
+            return Ok(HealthStatus::healthy(String::from("system"), String::from("All systems operational")));
         }
 
         // Check if any component is unhealthy
         for component in components.values() {
-            if component.status == HealthStatus::Unhealthy {
-                return Ok(HealthStatus::Unhealthy);
+            if component.status == Status::Unhealthy {
+                return Ok(HealthStatus::unhealthy(String::from("system"), String::from("One or more components are unhealthy")));
             }
         }
 
         // Check if any component is degraded
         for component in components.values() {
-            if component.status == HealthStatus::Degraded {
-                return Ok(HealthStatus::Degraded);
+            if component.status == Status::Degraded {
+                return Ok(HealthStatus::degraded(String::from("system"), String::from("One or more components are degraded")));
             }
         }
 
         // All components are healthy
-        Ok(HealthStatus::Healthy)
+        Ok(HealthStatus::healthy(String::from("system"), String::from("All systems operational")))
     }
 
     /// Retrieves the health status of a specific component

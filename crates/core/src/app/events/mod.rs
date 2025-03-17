@@ -18,23 +18,32 @@ use std::pin::Pin;
 use thiserror::Error;
 use uuid;
 
-#[derive(Error, Debug)]
+/// Errors that can occur during event processing
+#[derive(Debug, Error)]
 pub enum EventError {
+    /// Error when event type is invalid
     #[error("Invalid event type: {0}")]
     InvalidType(String),
-    #[error("Event handler error: {0}")]
+    /// Error during event handler execution
+    #[error("Handler error: {0}")]
     HandlerError(String),
 }
 
+/// Result type for event operations
 pub type Result<T> = std::result::Result<T, EventError>;
 
-/// Event types supported by the system
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Types of events that can occur in the system
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventType {
+    /// System startup event
     SystemStartup,
+    /// System shutdown event
     SystemShutdown,
+    /// Metric collection event
     MetricCollected,
+    /// Alert trigger event
     AlertTriggered,
+    /// Health check completion event
     HealthCheckCompleted,
 }
 
@@ -63,12 +72,16 @@ pub enum EventData {
     Binary(Vec<u8>),
 }
 
-/// An event in the system
+/// Event data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
+    /// Unique identifier for the event
     pub id: String,
+    /// Type of event
     pub event_type: EventType,
+    /// Event metadata
     pub metadata: EventMetadata,
+    /// Event payload
     pub payload: Value,
 }
 
@@ -80,37 +93,13 @@ pub struct EventBuilder {
 }
 
 impl Event {
-    /// Create a new event builder
-    #[must_use = "This returns an event builder that should be used to create events"]
-    pub fn builder() -> EventBuilder {
-        EventBuilder::new()
-    }
-
-    /// Get the event type
-    #[must_use = "This returns the event type which may be needed for conditional handling"]
-    pub fn event_type(&self) -> &EventType {
-        &self.event_type
-    }
-
-    /// Get the timestamp
-    #[must_use = "This returns the event timestamp which may be needed for time-based processing"]
-    pub fn timestamp(&self) -> OffsetDateTime {
-        self.metadata.timestamp
-    }
-
-    /// Get the data
-    #[must_use = "This returns the event data which contains the payload information"]
-    pub fn data(&self) -> &Value {
-        &self.payload
-    }
-
-    /// Get the metadata
-    #[must_use = "This returns the event metadata which contains important contextual information"]
-    pub fn metadata(&self) -> &EventMetadata {
-        &self.metadata
-    }
-
-    pub fn new(
+    /// Creates a new event
+    ///
+    /// # Arguments
+    /// * `event_type` - Type of event
+    /// * `payload` - Event data
+    /// * `metadata` - Optional event metadata
+    #[must_use] pub fn new(
         event_type: EventType,
         payload: Value,
         metadata: Option<HashMap<String, String>>,
@@ -129,22 +118,59 @@ impl Event {
         }
     }
 
+    /// Adds metadata to the event
+    ///
+    /// # Arguments
+    /// * `metadata` - Metadata to add
     #[must_use]
     pub fn with_metadata(mut self, metadata: EventMetadata) -> Self {
         self.metadata = metadata;
         self
     }
 
+    /// Adds a correlation ID to the event
+    ///
+    /// # Arguments
+    /// * `correlation_id` - ID to correlate related events
     #[must_use]
     pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
         self.metadata.correlation_id = Some(correlation_id);
         self
     }
 
+    /// Adds a label to the event
+    ///
+    /// # Arguments
+    /// * `key` - Label key
+    /// * `value` - Label value
     #[must_use]
     pub fn with_label(mut self, key: String, value: String) -> Self {
         self.metadata.labels.insert(key, value);
         self
+    }
+
+    /// Get the event type
+    #[must_use = "This returns the event type which may be needed for conditional handling"]
+    pub const fn event_type(&self) -> &EventType {
+        &self.event_type
+    }
+
+    /// Get the timestamp
+    #[must_use = "This returns the event timestamp which may be needed for time-based processing"]
+    pub const fn timestamp(&self) -> OffsetDateTime {
+        self.metadata.timestamp
+    }
+
+    /// Get the data
+    #[must_use = "This returns the event data which contains the payload information"]
+    pub const fn data(&self) -> &Value {
+        &self.payload
+    }
+
+    /// Get the metadata
+    #[must_use = "This returns the event metadata which contains important contextual information"]
+    pub const fn metadata(&self) -> &EventMetadata {
+        &self.metadata
     }
 }
 
@@ -161,7 +187,7 @@ impl EventBuilder {
 
     /// Set the event type
     #[must_use]
-    pub fn event_type(mut self, event_type: EventType) -> Self {
+    pub const fn event_type(mut self, event_type: EventType) -> Self {
         self.event_type = event_type;
         self
     }
@@ -215,11 +241,11 @@ impl Default for EventBuilder {
 impl fmt::Display for EventType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EventType::SystemStartup => write!(f, "System Startup"),
-            EventType::SystemShutdown => write!(f, "System Shutdown"),
-            EventType::MetricCollected => write!(f, "Metric Collected"),
-            EventType::AlertTriggered => write!(f, "Alert Triggered"),
-            EventType::HealthCheckCompleted => write!(f, "Health Check Completed"),
+            Self::SystemStartup => write!(f, "System Startup"),
+            Self::SystemShutdown => write!(f, "System Shutdown"),
+            Self::MetricCollected => write!(f, "Metric Collected"),
+            Self::AlertTriggered => write!(f, "Alert Triggered"),
+            Self::HealthCheckCompleted => write!(f, "Health Check Completed"),
         }
     }
 }
@@ -227,9 +253,9 @@ impl fmt::Display for EventType {
 impl fmt::Display for EventData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EventData::String(s) => write!(f, "String({s})"),
-            EventData::Json(j) => write!(f, "Json({j})"),
-            EventData::Binary(b) => write!(f, "Binary({} bytes)", b.len()),
+            Self::String(s) => write!(f, "String({s})"),
+            Self::Json(j) => write!(f, "Json({j})"),
+            Self::Binary(b) => write!(f, "Binary({} bytes)", b.len()),
         }
     }
 }
@@ -244,7 +270,9 @@ impl fmt::Display for Event {
     }
 }
 
+/// Event processor interface
 pub trait EventProcessor: Send + Sync {
+    /// Gets the async event processor implementation
     fn as_async(&self) -> &dyn EventProcessorAsync;
 }
 
@@ -351,7 +379,7 @@ impl Default for EventBus {
 /// # Errors
 ///
 /// Returns an `EventError` if the event system cannot be initialized
-pub fn initialize() -> Result<()> {
+pub const fn initialize() -> Result<()> {
     // TODO: Initialize event system
     Ok(())
 }
@@ -361,7 +389,7 @@ pub fn initialize() -> Result<()> {
 /// # Errors
 ///
 /// Returns an `EventError` if the event system cannot be shut down properly
-pub fn shutdown() -> Result<()> {
+pub const fn shutdown() -> Result<()> {
     // TODO: Cleanup event system resources
     Ok(())
 }
@@ -369,8 +397,11 @@ pub fn shutdown() -> Result<()> {
 /// Event metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMetadata {
+    /// Time when the event occurred
     pub timestamp: OffsetDateTime,
+    /// ID to correlate related events
     pub correlation_id: Option<String>,
+    /// Additional event labels
     pub labels: HashMap<String, String>,
 }
 
@@ -406,20 +437,32 @@ impl Default for EventMetadata {
     }
 }
 
-/// Event handler trait for processing events
+/// Event handler interface
 #[async_trait]
 pub trait EventHandler: Send + Sync + Debug {
+    /// Handles an event
+    ///
+    /// # Arguments
+    /// * `event` - Event to handle
     async fn handle(&self, event: Event) -> Result<()>;
 }
 
-#[derive(Debug, Default)]
+/// Configuration for event emitter
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventEmitterConfig {
+    /// Maximum number of events to store
     pub max_events: usize,
+    /// Size of event buffer
     pub buffer_size: usize,
 }
 
+/// Event emitter interface
 #[async_trait]
 pub trait EventEmitter: Send + Sync {
+    /// Emits an event
+    ///
+    /// # Arguments
+    /// * `event` - Event to emit
     async fn emit(&self, event: Event) -> Result<()>;
 }
 

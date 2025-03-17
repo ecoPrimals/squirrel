@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
-use crate::monitoring::health::status::HealthStatus;
+use crate::monitoring::health::status::Status;
 
 /// Health information for a component
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,7 +8,7 @@ pub struct ComponentHealth {
     /// Name of the component
     pub name: String,
     /// Health status of the component
-    pub status: HealthStatus,
+    pub status: Status,
     /// Detailed message about the health status
     pub message: String,
     /// Timestamp when the health was last checked
@@ -19,7 +19,7 @@ pub struct ComponentHealth {
 
 impl ComponentHealth {
     /// Create a new component health
-    pub fn new(name: String, status: HealthStatus, message: String) -> Self {
+    #[must_use] pub fn new(name: String, status: Status, message: String) -> Self {
         Self {
             name,
             status,

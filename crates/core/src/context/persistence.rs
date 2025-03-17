@@ -3,26 +3,99 @@ use std::fs;
 use std::time::Duration;
 use super::{ContextState, ContextError, ContextSnapshot};
 
-pub trait Storage: Send + Sync {
+/// Storage interface for persisting context data
+pub trait Storage: Send + Sync + std::fmt::Debug {
+    /// Saves data to storage
+    ///
+    /// # Arguments
+    /// * `key` - Unique identifier for the data
+    /// * `data` - Data to save
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     fn save(&self, key: &str, data: &[u8]) -> Result<(), ContextError>;
+
+    /// Loads data from storage
+    ///
+    /// # Arguments
+    /// * `key` - Unique identifier for the data
+    ///
+    /// # Returns
+    /// * `Result<Vec<u8>, ContextError>` - Loaded data or error
     fn load(&self, key: &str) -> Result<Vec<u8>, ContextError>;
+
+    /// Deletes data from storage
+    ///
+    /// # Arguments
+    /// * `key` - Unique identifier for the data to delete
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     fn delete(&self, key: &str) -> Result<(), ContextError>;
+
+    /// Checks if data exists in storage
+    ///
+    /// # Arguments
+    /// * `key` - Unique identifier to check
+    ///
+    /// # Returns
+    /// * `bool` - True if data exists
     fn exists(&self, key: &str) -> bool;
 }
 
-pub trait Serializer: Send + Sync {
+/// Serializer interface for converting context data to/from bytes
+pub trait Serializer: Send + Sync + std::fmt::Debug {
+    /// Serializes context state to bytes
+    ///
+    /// # Arguments
+    /// * `state` - State to serialize
+    ///
+    /// # Returns
+    /// * `Result<Vec<u8>, ContextError>` - Serialized data or error
     fn serialize_state(&self, state: &ContextState) -> Result<Vec<u8>, ContextError>;
+
+    /// Deserializes bytes to context state
+    ///
+    /// # Arguments
+    /// * `data` - Data to deserialize
+    ///
+    /// # Returns
+    /// * `Result<ContextState, ContextError>` - Deserialized state or error
     fn deserialize_state(&self, data: &[u8]) -> Result<ContextState, ContextError>;
+
+    /// Serializes context snapshot to bytes
+    ///
+    /// # Arguments
+    /// * `snapshot` - Snapshot to serialize
+    ///
+    /// # Returns
+    /// * `Result<Vec<u8>, ContextError>` - Serialized data or error
     fn serialize_snapshot(&self, snapshot: &ContextSnapshot) -> Result<Vec<u8>, ContextError>;
+
+    /// Deserializes bytes to context snapshot
+    ///
+    /// # Arguments
+    /// * `data` - Data to deserialize
+    ///
+    /// # Returns
+    /// * `Result<ContextSnapshot, ContextError>` - Deserialized snapshot or error
     fn deserialize_snapshot(&self, data: &[u8]) -> Result<ContextSnapshot, ContextError>;
 }
 
+/// File-based storage implementation
 #[derive(Debug)]
 pub struct FileStorage {
     base_path: PathBuf,
 }
 
 impl FileStorage {
+    /// Creates a new file storage instance
+    ///
+    /// # Arguments
+    /// * `base_path` - Base directory for storing files
+    ///
+    /// # Returns
+    /// * `Result<Self, ContextError>` - Storage instance or error
     pub fn new(base_path: PathBuf) -> Result<Self, ContextError> {
         fs::create_dir_all(&base_path).map_err(|e| {
             ContextError::PersistenceError(format!("Failed to create directory: {e}"))
@@ -59,17 +132,14 @@ impl Storage for FileStorage {
     }
 }
 
+/// JSON-based serializer implementation
+#[derive(Debug, Default)]
 pub struct JsonSerializer;
 
 impl JsonSerializer {
-    pub fn new() -> Self {
+    /// Creates a new JSON serializer instance
+    #[must_use] pub const fn new() -> Self {
         Self
-    }
-}
-
-impl Default for JsonSerializer {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -99,6 +169,7 @@ impl Serializer for JsonSerializer {
     }
 }
 
+/// Cache for storing frequently accessed data
 #[derive(Debug)]
 pub struct Cache {
     entries: std::collections::HashMap<String, CacheEntry>,
@@ -113,7 +184,12 @@ struct CacheEntry {
 }
 
 impl Cache {
-    pub fn new(max_size: usize, ttl: Duration) -> Self {
+    /// Creates a new cache instance
+    ///
+    /// # Arguments
+    /// * `max_size` - Maximum number of items to store
+    /// * `ttl` - Time-to-live for cached items
+    #[must_use] pub fn new(max_size: usize, ttl: Duration) -> Self {
         Self {
             entries: std::collections::HashMap::with_capacity(max_size),
             max_size,
@@ -121,7 +197,14 @@ impl Cache {
         }
     }
 
-    pub fn get(&self, key: &str) -> Option<&[u8]> {
+    /// Gets data from the cache
+    ///
+    /// # Arguments
+    /// * `key` - Key to look up
+    ///
+    /// # Returns
+    /// * `Option<&[u8]>` - Cached data if found and not expired
+    #[must_use] pub fn get(&self, key: &str) -> Option<&[u8]> {
         self.entries.get(key).and_then(|entry| {
             if entry.expires_at > std::time::SystemTime::now() {
                 Some(entry.data.as_slice())
@@ -131,6 +214,11 @@ impl Cache {
         })
     }
 
+    /// Sets data in the cache
+    ///
+    /// # Arguments
+    /// * `key` - Key to store under
+    /// * `data` - Data to cache
     pub fn set(&mut self, key: String, data: Vec<u8>) {
         if self.entries.len() >= self.max_size {
             // Remove expired entries
@@ -156,15 +244,22 @@ impl Cache {
         });
     }
 
+    /// Removes data from the cache
+    ///
+    /// # Arguments
+    /// * `key` - Key to remove
     pub fn remove(&mut self, key: &str) {
         self.entries.remove(key);
     }
 
+    /// Clears all data from the cache
     pub fn clear(&mut self) {
         self.entries.clear();
     }
 }
 
+/// Manages persistence of context state and snapshots
+#[derive(Debug)]
 pub struct ContextPersistence {
     storage: Box<dyn Storage>,
     serializer: Box<dyn Serializer>,
@@ -172,7 +267,14 @@ pub struct ContextPersistence {
 }
 
 impl ContextPersistence {
-    pub fn new(
+    /// Creates a new persistence manager
+    ///
+    /// # Arguments
+    /// * `storage` - Storage implementation to use
+    /// * `serializer` - Serializer implementation to use
+    /// * `cache_size` - Maximum number of items to cache
+    /// * `cache_ttl` - Time-to-live for cached items
+    #[must_use] pub fn new(
         storage: Box<dyn Storage>,
         serializer: Box<dyn Serializer>,
         cache_size: usize,
@@ -185,6 +287,13 @@ impl ContextPersistence {
         }
     }
 
+    /// Saves context state to storage
+    ///
+    /// # Arguments
+    /// * `state` - State to save
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub fn save_state(&mut self, state: &ContextState) -> Result<(), ContextError> {
         let key = format!("state_{}", state.version);
         let data = self.serializer.serialize_state(state)?;
@@ -193,6 +302,13 @@ impl ContextPersistence {
         Ok(())
     }
 
+    /// Loads context state from storage
+    ///
+    /// # Arguments
+    /// * `version` - Version of state to load
+    ///
+    /// # Returns
+    /// * `Result<ContextState, ContextError>` - Loaded state or error
     pub fn load_state(&self, version: u64) -> Result<ContextState, ContextError> {
         let key = format!("state_{version}");
         
@@ -206,6 +322,13 @@ impl ContextPersistence {
         self.serializer.deserialize_state(&data)
     }
 
+    /// Saves context snapshot to storage
+    ///
+    /// # Arguments
+    /// * `snapshot` - Snapshot to save
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub fn save_snapshot(&mut self, snapshot: &ContextSnapshot) -> Result<(), ContextError> {
         let serialized = self.serializer.serialize_snapshot(snapshot)
             .map_err(|e| ContextError::PersistenceError(e.to_string()))?;
@@ -213,11 +336,25 @@ impl ContextPersistence {
             .map_err(|e| ContextError::PersistenceError(e.to_string()))
     }
 
+    /// Deletes context snapshot from storage
+    ///
+    /// # Arguments
+    /// * `id` - ID of snapshot to delete
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub fn delete_snapshot(&mut self, id: &str) -> Result<(), ContextError> {
         self.storage.delete(id)
             .map_err(|e| ContextError::PersistenceError(e.to_string()))
     }
 
+    /// Loads context snapshot from storage
+    ///
+    /// # Arguments
+    /// * `id` - ID of snapshot to load
+    ///
+    /// # Returns
+    /// * `Result<ContextSnapshot, ContextError>` - Loaded snapshot or error
     pub fn load_snapshot(&self, id: &str) -> Result<ContextSnapshot, ContextError> {
         // Try cache first
         if let Some(data) = self.cache.get(id) {

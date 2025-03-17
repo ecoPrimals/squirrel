@@ -6,58 +6,96 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use super::{ContextState, ContextError, ContextSnapshot};
 
+/// Message representing a synchronization operation between nodes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncMessage {
+    /// Unique identifier for the sync message
     pub id: String,
+    /// Timestamp when the message was created
     pub timestamp: SystemTime,
+    /// Type of synchronization operation
     pub operation: SyncOperation,
+    /// Identifier of the source node
     pub source: String,
 }
 
+/// Types of synchronization operations that can be performed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncOperation {
+    /// Update the state of a context
     StateUpdate(ContextState),
+    /// Create a new snapshot
     SnapshotCreate(ContextSnapshot),
+    /// Delete an existing snapshot
     SnapshotDelete(String),
+    /// Handle a conflict between states
     Conflict(ConflictInfo),
 }
 
+/// Information about a conflict between different versions of state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConflictInfo {
+    /// Identifier of the state in conflict
     pub state_id: String,
+    /// List of conflicting state versions
     pub conflicting_versions: Vec<ContextState>,
+    /// Strategy to resolve the conflict
     pub resolution_strategy: ConflictResolutionStrategy,
 }
 
+/// Strategies for resolving conflicts between different versions of state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConflictResolutionStrategy {
+    /// Keep the most recent version
     KeepLatest,
+    /// Keep the oldest version
     KeepOldest,
+    /// Merge the conflicting versions
     Merge,
+    /// Require manual resolution
     Manual,
 }
 
-#[derive(Debug, Clone)]
+/// Events that can occur during synchronization
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncEvent {
+    /// State has been updated
     StateUpdated {
+        /// Version number of the updated state
         version: u64,
+        /// Timestamp of the update
         timestamp: SystemTime,
     },
     // Add other event types as needed
 }
 
-#[derive(Default)]
+/// Manages synchronization between nodes in a distributed system
+#[derive(Debug)]
 pub struct SyncManager {
     subscribers: HashMap<String, Sender<SyncEvent>>,
 }
 
 impl SyncManager {
+    /// Subscribes to sync events
+    ///
+    /// # Arguments
+    /// * `sender` - Channel to send sync events to
+    ///
+    /// # Returns
+    /// * `String` - Unique identifier for the subscription
     pub fn subscribe(&mut self, sender: Sender<SyncEvent>) -> String {
         let id = Uuid::new_v4().to_string();
         self.subscribers.insert(id.clone(), sender);
         id
     }
 
+    /// Unsubscribes from sync events
+    ///
+    /// # Arguments
+    /// * `id` - Subscription identifier to remove
+    ///
+    /// # Returns
+    /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
     pub fn unsubscribe(&mut self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
         if self.subscribers.remove(id).is_none() {
             return Err("Subscription not found".into());
@@ -65,6 +103,13 @@ impl SyncManager {
         Ok(())
     }
 
+    /// Broadcasts a sync event to all subscribers
+    ///
+    /// # Arguments
+    /// * `event` - Event to broadcast
+    ///
+    /// # Returns
+    /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
     pub async fn broadcast_event(&mut self, event: SyncEvent) -> Result<(), Box<dyn std::error::Error>> {
         let mut failed_ids = Vec::new();
         for (id, sender) in &self.subscribers {
@@ -78,7 +123,15 @@ impl SyncManager {
         Ok(())
     }
 
-    pub fn resolve_conflict(&self, state1: &ContextState, state2: &ContextState) -> ContextState {
+    /// Resolves a conflict between two states
+    ///
+    /// # Arguments
+    /// * `state1` - First state in conflict
+    /// * `state2` - Second state in conflict
+    ///
+    /// # Returns
+    /// * `ContextState` - Resolved state
+    #[must_use] pub fn resolve_conflict(&self, state1: &ContextState, state2: &ContextState) -> ContextState {
         if state1.version > state2.version {
             state1.clone()
         } else if state2.version > state1.version || state2.last_modified > state1.last_modified {
@@ -89,10 +142,20 @@ impl SyncManager {
     }
 }
 
-pub trait ConflictResolver: Send + Sync {
+/// Resolves conflicts between different versions of state
+pub trait ConflictResolver: Send + Sync + std::fmt::Debug {
+    /// Resolves a conflict using the specified strategy
+    ///
+    /// # Arguments
+    /// * `conflict` - Information about the conflict to resolve
+    ///
+    /// # Returns
+    /// * `Result<ContextState, ContextError>` - Resolved state or error
     fn resolve(&self, conflict: &ConflictInfo) -> Result<ContextState, ContextError>;
 }
 
+/// Default implementation of conflict resolution
+#[derive(Debug, Default)]
 pub struct DefaultConflictResolver;
 
 impl ConflictResolver for DefaultConflictResolver {
@@ -125,6 +188,8 @@ impl ConflictResolver for DefaultConflictResolver {
     }
 }
 
+/// Coordinates synchronization between nodes in a distributed system
+#[derive(Debug)]
 pub struct SyncCoordinator {
     node_id: String,
     peers: Arc<RwLock<HashMap<String, PeerInfo>>>,
@@ -153,7 +218,12 @@ impl PeerInfo {
 }
 
 impl SyncCoordinator {
-    pub fn new(
+    /// Creates a new sync coordinator
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier for this node
+    /// * `conflict_resolver` - Strategy for resolving conflicts
+    #[must_use] pub fn new(
         node_id: String,
         conflict_resolver: Box<dyn ConflictResolver>,
     ) -> Self {
@@ -167,6 +237,10 @@ impl SyncCoordinator {
         }
     }
 
+    /// Starts the sync coordinator
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub async fn start(&mut self) -> Result<(), ContextError> {
         while let Some(message) = self.message_rx.recv().await {
             self.handle_sync_message(message).await?;
@@ -270,14 +344,35 @@ impl SyncCoordinator {
         })
     }
 
+    /// Sends a state update to other nodes
+    ///
+    /// # Arguments
+    /// * `state` - New state to propagate
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub async fn send_state_update(&self, state: ContextState) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::StateUpdate(state)).await
     }
 
+    /// Sends a snapshot creation event to other nodes
+    ///
+    /// # Arguments
+    /// * `snapshot` - New snapshot to propagate
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub async fn send_snapshot_create(&self, snapshot: ContextSnapshot) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotCreate(snapshot)).await
     }
 
+    /// Sends a snapshot deletion event to other nodes
+    ///
+    /// # Arguments
+    /// * `id` - ID of the snapshot to delete
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error status
     pub async fn send_snapshot_delete(&self, id: String) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotDelete(id)).await
     }

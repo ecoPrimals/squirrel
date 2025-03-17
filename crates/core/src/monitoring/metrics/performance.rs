@@ -6,10 +6,10 @@
 //! - Command execution
 //! - Monitoring operations
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use crate::error::Result;
+use crate::error::{Result, SquirrelError};
 use crate::monitoring::metrics::{Metric, MetricCollector};
 use std::fmt;
 use std::collections::HashMap;
@@ -20,38 +20,56 @@ use std::cmp::Eq;
 use crate::monitoring::metrics::MetricType;
 use async_trait::async_trait;
 
-/// Operation type for performance tracking
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+/// Types of operations that can be monitored for performance
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OperationType {
-    Request,
-    Database,
-    FileIO,
-    Computation,
-    Network,
+    /// Database read operations
+    DatabaseRead,
+    /// Database write operations
+    DatabaseWrite,
+    /// Network requests
+    NetworkRequest,
+    /// File system operations
+    FileSystem,
+    /// Cache operations
+    Cache,
+    /// Custom operation type
     Custom(String),
+    /// Unknown operation type
+    Unknown,
 }
 
-impl OperationType {
-    pub fn as_str(&self) -> &str {
+impl fmt::Display for OperationType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OperationType::Request => "request",
-            OperationType::Database => "database",
-            OperationType::FileIO => "fileIO",
-            OperationType::Computation => "computation",
-            OperationType::Network => "network",
-            OperationType::Custom(name) => name.as_str(),
+            Self::DatabaseRead => write!(f, "Database Read"),
+            Self::DatabaseWrite => write!(f, "Database Write"),
+            Self::NetworkRequest => write!(f, "Network Request"),
+            Self::FileSystem => write!(f, "File System"),
+            Self::Cache => write!(f, "Cache"),
+            Self::Custom(name) => write!(f, "Custom: {name}"),
+            Self::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
-/// Performance metrics for an operation type
+/// Performance metrics for an operation type.
+/// 
+/// This struct tracks various performance metrics for a specific type of operation,
+/// including counts, durations, and a histogram of operation timings.
 #[derive(Clone)]
 pub struct OperationMetrics {
+    /// The type of operation being measured.
     pub operation_type: OperationType,
+    /// Number of times this operation has been executed.
     pub count: u64,
+    /// Total time spent executing this operation.
     pub total_duration: f64,
+    /// Shortest duration observed for this operation.
     pub min_duration: f64,
+    /// Longest duration observed for this operation.
     pub max_duration: f64,
+    /// Histogram of operation durations for statistical analysis.
     pub histogram: Histogram,
 }
 
@@ -80,10 +98,23 @@ impl PerformanceCollector {
     /// # Panics
     ///
     /// This function panics if the Histogram cannot be created with the given options
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             histograms: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+    
+    /// Create a new performance collector with the given configuration
+    ///
+    /// # Parameters
+    /// * `config` - The performance collector configuration
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the Histogram cannot be created with the given options
+    #[must_use] pub fn with_config(_config: PerformanceConfig) -> Self {
+        // Currently we don't use the config, but we'll keep the method for future extensibility
+        Self::new()
     }
 
     /// Record an operation duration
@@ -140,7 +171,7 @@ impl PerformanceCollector {
     }
 
     /// Start timing an operation
-    pub fn start_operation() -> Instant {
+    #[must_use] pub fn start_operation() -> Instant {
         Instant::now()
     }
 
@@ -163,7 +194,7 @@ impl PerformanceCollector {
     }
 
     /// Get all metrics
-    pub fn get_all_metrics(&self) -> HashMap<OperationType, OperationMetrics> {
+    #[must_use] pub fn get_all_metrics(&self) -> HashMap<OperationType, OperationMetrics> {
         let histograms = self.histograms.blocking_read();
         let mut metrics = HashMap::new();
         for (op_type, histogram) in histograms.iter() {
@@ -190,85 +221,224 @@ impl Default for PerformanceCollector {
     }
 }
 
-// Module initialization
-static PERFORMANCE_COLLECTOR: tokio::sync::OnceCell<Arc<PerformanceCollector>> = 
-    tokio::sync::OnceCell::const_new();
+/// Factory for creating and managing performance collector instances.
+/// 
+/// This factory provides a more maintainable and testable approach to
+/// managing PerformanceCollector instances compared to static variables.
+#[derive(Debug, Clone)]
+pub struct PerformanceCollectorFactory {
+    /// Default configuration for creating collectors
+    config: Option<PerformanceConfig>,
+}
 
-/// Initialize the performance collector
-pub async fn initialize() -> Result<()> {
-    let collector = Arc::new(PerformanceCollector::new());
-    PERFORMANCE_COLLECTOR
-        .set(collector)
-        .map_err(|_| "Performance collector already initialized")?;
+/// Configuration for performance collection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceConfig {
+    /// Whether to enable performance tracking
+    pub enabled: bool,
+    /// The number of histogram buckets to use
+    pub histogram_buckets: usize,
+    /// The maximum histogram value to track
+    pub histogram_max_value: f64,
+}
+
+impl Default for PerformanceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            histogram_buckets: 20,
+            histogram_max_value: 60.0, // 60 seconds
+        }
+    }
+}
+
+impl PerformanceCollectorFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { config: None }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: PerformanceConfig) -> Self {
+        Self { config: Some(config) }
+    }
+
+    /// Creates a performance collector
+    #[must_use]
+    pub fn create_collector(&self) -> Arc<PerformanceCollector> {
+        let collector = match &self.config {
+            Some(config) => PerformanceCollector::with_config(config.clone()),
+            None => PerformanceCollector::new(),
+        };
+        
+        Arc::new(collector)
+    }
+
+    /// Initialize a global collector instance
+    ///
+    /// # Errors
+    /// Returns an error if the collector is already initialized
+    pub async fn initialize_global_collector(&self) -> Result<Arc<PerformanceCollector>> {
+        static GLOBAL_COLLECTOR: OnceLock<Arc<PerformanceCollector>> = OnceLock::new();
+        
+        let collector = self.create_collector();
+        GLOBAL_COLLECTOR
+            .set(collector.clone())
+            .map_err(|_| SquirrelError::metric("Performance collector already initialized"))?;
+            
+        Ok(collector)
+    }
+    
+    /// Gets the global performance collector if initialized
+    ///
+    /// # Errors
+    /// Returns an error if the collector is not initialized
+    pub async fn get_global_collector(&self) -> Result<Arc<PerformanceCollector>> {
+        static GLOBAL_COLLECTOR: OnceLock<Arc<PerformanceCollector>> = OnceLock::new();
+        
+        if let Some(collector) = GLOBAL_COLLECTOR.get() {
+            Ok(collector.clone())
+        } else {
+            Err(SquirrelError::metric("Performance collector not initialized"))
+        }
+    }
+}
+
+impl Default for PerformanceCollectorFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating performance collectors
+static FACTORY: OnceLock<PerformanceCollectorFactory> = OnceLock::new();
+
+/// Initialize the performance collector factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<PerformanceConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => PerformanceCollectorFactory::with_config(cfg),
+        None => PerformanceCollectorFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::metric("Performance collector factory already initialized"))?;
     Ok(())
 }
 
-/// Records an operation with the global performance collector
+/// Get the performance collector factory
+#[must_use]
+pub fn get_factory() -> Option<PerformanceCollectorFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the performance collector factory
+#[must_use]
+pub fn ensure_factory() -> PerformanceCollectorFactory {
+    FACTORY.get_or_init(PerformanceCollectorFactory::new).clone()
+}
+
+/// Initialize the performance collector
 ///
-/// # Parameters
-/// * `op_type` - The type of operation
-/// * `duration` - The duration of the operation
+/// # Errors
+/// Returns an error if the collector cannot be initialized
+pub async fn initialize() -> Result<Arc<PerformanceCollector>> {
+    let factory = ensure_factory();
+    let collector = factory.initialize_global_collector().await?;
+    
+    // Also set the collector in the global variable for direct access in performance measurements
+    let _ = PERFORMANCE_COLLECTOR.set(collector.clone());
+    
+    Ok(collector)
+}
+
+/// Record an operation's duration
 ///
-/// # Returns
-/// * `Result<()>` - Success or failure
-///
-/// # Panics
-///
-/// This function panics if the operation cannot be recorded or if the performance collector is not initialized
+/// # Errors
+/// Returns an error if:
+/// - The performance collector is not initialized
+/// - The operation cannot be recorded
 pub async fn record_operation(op_type: OperationType, duration: Duration) -> Result<()> {
-    if let Some(collector) = PERFORMANCE_COLLECTOR.get() {
-        collector.record_operation(&op_type, duration).await
-    } else {
-        Ok(())
-    }
+    let factory = ensure_factory();
+    let collector = factory.get_global_collector().await?;
+    collector.record_operation(&op_type, duration).await
 }
 
 /// Time an operation and record its duration
-pub async fn time_operation<F, T>(op_type: OperationType, f: F) -> T
+///
+/// # Errors
+/// Returns an error if the performance collector is not initialized
+pub async fn time_operation<F, T>(op_type: OperationType, f: F) -> Result<T>
 where
     F: FnOnce() -> T,
 {
-    if let Some(collector) = PERFORMANCE_COLLECTOR.get() {
-        collector.time_operation(op_type, f).await
-    } else {
-        f()
-    }
+    let factory = ensure_factory();
+    let collector = factory.get_global_collector().await?;
+    Ok(collector.time_operation(op_type, f).await)
 }
 
-/// Start timing an operation
-pub fn start_operation() -> Instant {
-    PerformanceCollector::start_operation()
+/// Starts timing an operation.
+/// 
+/// This function returns an `Instant` that can be used to measure
+/// the duration of an operation.
+/// 
+/// # Returns
+/// Returns a `Result` containing the start time `Instant`.
+pub fn start_operation() -> Result<Instant> {
+    Ok(PerformanceCollector::start_operation())
 }
 
+/// Collects and tracks performance metrics for operations.
+/// 
+/// This struct maintains a histogram of operation durations and provides
+/// methods to record new observations and retrieve statistics.
 pub struct PerformanceMetrics {
+    /// Histogram for tracking operation durations.
     histogram: Histogram,
 }
 
 impl PerformanceMetrics {
-    /// Creates a new performance metrics
-    ///
-    /// # Parameters
+    /// Creates a new performance metrics instance.
+    /// 
+    /// # Arguments
+    /// 
     /// * `name` - The name of the metrics
     /// * `help` - A description of the metrics
-    ///
+    /// 
     /// # Returns
-    /// A new PerformanceMetrics instance
-    ///
+    /// 
+    /// A new `PerformanceMetrics` instance.
+    /// 
     /// # Panics
-    ///
-    /// This function panics if the Histogram cannot be created with the given options
-    pub fn new(name: &str, help: &str) -> Self {
+    /// 
+    /// This function panics if the Histogram cannot be created with the given options.
+    #[must_use] pub fn new(name: &str, help: &str) -> Self {
         let opts = HistogramOpts::new(name, help);
         Self {
             histogram: Histogram::with_opts(opts).unwrap(),
         }
     }
 
+    /// Records a new duration observation in the metrics.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `duration` - The duration to record
     pub fn observe(&mut self, duration: Duration) {
         self.histogram.observe(duration.as_secs_f64());
     }
 
-    pub fn get_metrics(&self) -> PerformanceStats {
+    /// Retrieves current performance statistics.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `PerformanceStats` instance containing various statistics
+    /// calculated from the recorded observations.
+    #[must_use] pub fn get_metrics(&self) -> PerformanceStats {
         let count = self.histogram.get_sample_count();
         let sum = self.histogram.get_sample_sum();
         
@@ -284,28 +454,50 @@ impl PerformanceMetrics {
     }
 }
 
-/// Performance statistics
+/// Statistics calculated from performance metrics.
+/// 
+/// This struct contains various statistical measures calculated from
+/// recorded operation durations.
 #[derive(Debug, Clone)]
 pub struct PerformanceStats {
+    /// Total number of operations recorded.
     pub operation_count: u64,
+    /// Total duration of all recorded operations.
     pub total_duration: Duration,
+    /// Shortest recorded operation duration.
     pub min_duration: Duration,
+    /// Longest recorded operation duration.
     pub max_duration: Duration,
+    /// Average duration of recorded operations.
     pub avg_duration: Duration,
+    /// 95th percentile duration.
     pub p95_duration: Duration,
+    /// 99th percentile duration.
     pub p99_duration: Duration,
 }
 
-#[derive(Debug, Clone)]
+/// Statistics for a specific operation type.
+/// 
+/// This struct tracks basic statistics about operation latencies,
+/// including count and various latency measurements.
+#[derive(Debug, Clone, Default)]
 pub struct OperationStats {
+    /// Number of times this operation has been executed.
     pub count: u64,
+    /// Total latency across all executions.
     pub total_latency: f64,
+    /// Minimum observed latency.
     pub min_latency: f64,
+    /// Maximum observed latency.
     pub max_latency: f64,
 }
 
 impl OperationStats {
-    pub fn new() -> Self {
+    /// Creates a new OperationStats instance with default values.
+    /// 
+    /// Initializes all counters to zero and sets min_latency to the maximum
+    /// possible value to ensure proper minimum tracking.
+    #[must_use] pub const fn new() -> Self {
         Self {
             count: 0,
             total_latency: 0.0,
@@ -314,6 +506,11 @@ impl OperationStats {
         }
     }
 
+    /// Updates the statistics with a new latency observation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `latency` - The latency value to record
     pub fn update(&mut self, latency: f64) {
         self.count += 1;
         self.total_latency += latency;
@@ -321,7 +518,12 @@ impl OperationStats {
         self.max_latency = self.max_latency.max(latency);
     }
 
-    pub fn average_latency(&self) -> f64 {
+    /// Calculates the average latency of all recorded operations.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the average latency, or 0.0 if no operations have been recorded.
+    #[must_use] pub fn average_latency(&self) -> f64 {
         if self.count > 0 {
             self.total_latency / self.count as f64
         } else {
@@ -330,24 +532,34 @@ impl OperationStats {
     }
 }
 
-impl Default for OperationStats {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+/// Collector for performance metrics across multiple operations.
+/// 
+/// This struct maintains a collection of operation statistics and provides
+/// methods to record and retrieve metrics for different operations.
 #[derive(Debug)]
 pub struct PerformanceMetricsCollector {
+    /// Map of operation names to their statistics.
     metrics: Arc<RwLock<HashMap<String, OperationStats>>>,
 }
 
 impl PerformanceMetricsCollector {
-    pub fn new() -> Self {
+    /// Creates a new PerformanceMetricsCollector instance.
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    /// Records a latency observation for a specific operation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The name of the operation
+    /// * `latency` - The latency to record
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating whether the operation was recorded successfully.
     pub async fn record_operation(&self, operation: &str, latency: f64) -> Result<()> {
         let mut metrics = self.metrics.write().await;
         let stats = metrics.entry(operation.to_string()).or_default();
@@ -355,11 +567,26 @@ impl PerformanceMetricsCollector {
         Ok(())
     }
 
+    /// Retrieves statistics for a specific operation.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The name of the operation
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing an `Option` with the operation's statistics
+    /// if they exist.
     pub async fn get_operation_stats(&self, operation: &str) -> Result<Option<OperationStats>> {
         let metrics = self.metrics.read().await;
         Ok(metrics.get(operation).cloned())
     }
 
+    /// Retrieves all operation statistics.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing a `HashMap` with all operation statistics.
     pub async fn get_all_stats(&self) -> Result<HashMap<String, OperationStats>> {
         let metrics = self.metrics.read().await;
         Ok(metrics.clone())
@@ -449,7 +676,7 @@ mod tests {
     #[tokio::test]
     async fn test_performance_collector() {
         let collector = PerformanceCollector::new();
-        let op_type = OperationType::Network;
+        let op_type = OperationType::NetworkRequest;
         let duration = Duration::from_millis(100);
 
         collector.record_operation(&op_type, duration).await.unwrap();
@@ -480,4 +707,83 @@ mod tests {
         let metrics = collector.collect_metrics().await.unwrap();
         assert!(!metrics.is_empty());
     }
-} 
+}
+
+/// Measures the duration of an operation and records it.
+/// 
+/// # Type Parameters
+/// 
+/// * `F` - A function type that returns `T`
+/// * `T` - The return type of the operation
+/// 
+/// # Arguments
+/// 
+/// * `operation` - The name of the operation to measure
+/// * `f` - The operation to measure
+/// 
+/// # Returns
+/// 
+/// Returns a `Result` containing the operation's return value.
+pub async fn measure_operation<F, T>(operation: &str, f: F) -> Result<T>
+where
+    F: FnOnce() -> T,
+{
+    let start = Instant::now();
+    let result = f();
+    let duration = start.elapsed();
+    
+    // Try to get a global collector using the non-async static variable
+    if let Some(collector) = PERFORMANCE_COLLECTOR.get() {
+        let _ = collector.record_operation(&OperationType::Custom(operation.to_string()), duration).await;
+    } else {
+        // Only initialize collector if needed and missing
+        let factory = ensure_factory();
+        let collector = factory.create_collector();
+        let _ = collector.record_operation(&OperationType::Custom(operation.to_string()), duration).await;
+    }
+    
+    Ok(result)
+}
+
+/// Measures an operation and records it only if it exceeds a duration threshold.
+/// 
+/// # Type Parameters
+/// 
+/// * `F` - A function type that returns `T`
+/// * `T` - The return type of the operation
+/// 
+/// # Arguments
+/// 
+/// * `operation` - The name of the operation to measure
+/// * `duration` - The minimum duration threshold for recording
+/// * `f` - The operation to measure
+/// 
+/// # Returns
+/// 
+/// Returns a `Result` containing the operation's return value.
+pub async fn measure_operation_with_duration<F, T>(operation: &str, duration: Duration, f: F) -> Result<T>
+where
+    F: FnOnce() -> T,
+{
+    let start = Instant::now();
+    let result = f();
+    let actual_duration = start.elapsed();
+    
+    // Record operation duration if it exceeds expected duration
+    if actual_duration > duration {
+        // Try to get a global collector using the non-async static variable
+        if let Some(collector) = PERFORMANCE_COLLECTOR.get() {
+            let _ = collector.record_operation(&OperationType::Custom(operation.to_string()), actual_duration).await;
+        } else {
+            // Only initialize collector if needed and missing
+            let factory = ensure_factory();
+            let collector = factory.create_collector();
+            let _ = collector.record_operation(&OperationType::Custom(operation.to_string()), actual_duration).await;
+        }
+    }
+    
+    Ok(result)
+}
+
+/// Global performance collector singleton
+static PERFORMANCE_COLLECTOR: OnceLock<Arc<PerformanceCollector>> = OnceLock::new();

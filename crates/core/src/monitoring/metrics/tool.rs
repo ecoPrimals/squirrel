@@ -40,7 +40,7 @@ impl ToolMetrics {
     ///
     /// # Returns
     /// A new ToolMetrics instance initialized with zero usage
-    pub fn new(name: String) -> Self {
+    #[must_use] pub const fn new(name: String) -> Self {
         Self {
             name,
             usage_count: 0,
@@ -64,14 +64,14 @@ impl ToolMetrics {
         }
 
         // Update average duration using running average formula
-        self.average_duration = (self.average_duration * (self.usage_count - 1) as f64 + duration) / self.usage_count as f64;
+        self.average_duration = self.average_duration.mul_add((self.usage_count - 1) as f64, duration) / self.usage_count as f64;
     }
     
     /// Calculates the success rate of tool executions
     ///
     /// # Returns
     /// A float between 0.0 and 1.0 representing the percentage of successful executions
-    pub fn success_rate(&self) -> f64 {
+    #[must_use] pub fn success_rate(&self) -> f64 {
         if self.usage_count == 0 {
             return 0.0;
         }
@@ -91,7 +91,7 @@ impl ToolMetricsCollector {
     ///
     /// # Returns
     /// A new collector instance with an empty metrics collection
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
         }

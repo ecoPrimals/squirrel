@@ -4,30 +4,42 @@
 //! to the operation of the Squirrel system. The context maintains the state
 //! and provides access to various system components.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use crate::app::events::Event;
 use serde_json::Value;
 use uuid;
 use std::time::Duration;
-use crate::error::SquirrelError;
 use crate::app::events::DefaultEventEmitter;
 use crate::app::AppConfig;
 use crate::app::Metrics;
+use thiserror::Error;
+use crate::error::Result;
 
-/// Configuration for the context
+/// Configuration for a context instance.
+/// 
+/// This struct holds the configuration parameters that define how a context
+/// should be initialized and behave during its lifecycle.
 #[derive(Debug, Clone)]
 pub struct ContextConfig {
+    /// Unique identifier for the context.
     pub id: String,
+    /// Human-readable name for the context.
     pub name: String,
+    /// Detailed description of the context's purpose.
     pub description: String,
+    /// Environment in which the context is running (e.g., "development", "production").
     pub environment: String,
+    /// Version string for the context.
     pub version: String,
+    /// Additional metadata key-value pairs associated with the context.
     pub metadata: HashMap<String, String>,
+    /// Whether the context should persist its state.
     pub persistence: bool,
+    /// Maximum number of entries to store in the context's history.
     pub max_entries: usize,
 }
 
@@ -46,16 +58,27 @@ impl Default for ContextConfig {
     }
 }
 
-/// The main context type that holds system state
+/// Represents the current state of a context.
+/// 
+/// This struct maintains the runtime state of a context, including its metadata,
+/// state data, timestamps, and lifecycle information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextState {
+    /// Unique identifier for the context state.
     pub id: String,
+    /// Additional metadata associated with the context state.
     pub metadata: HashMap<String, Value>,
+    /// Current state data stored in the context.
     pub state: HashMap<String, Value>,
+    /// Timestamp when the context state was created.
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the context state was last updated.
     pub updated_at: DateTime<Utc>,
+    /// Whether the context has been initialized.
     pub initialized: bool,
+    /// Whether the context is in the process of shutting down.
     pub shutting_down: bool,
+    /// Current stage in the context's lifecycle.
     pub lifecycle_stage: LifecycleStage,
 }
 
@@ -74,17 +97,29 @@ impl Default for ContextState {
     }
 }
 
-/// The lifecycle stages of the context
+/// Represents the different stages in a context's lifecycle.
+/// 
+/// This enum defines all possible states that a context can be in during its
+/// lifecycle, from creation to shutdown.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum LifecycleStage {
+    /// Initial state before any initialization has occurred.
     Uninitialized,
+    /// Context has been created but not yet initialized.
     Created,
+    /// Context is in the process of initializing.
     Initializing,
+    /// Context is fully initialized and running normally.
     Running,
+    /// Context execution has been temporarily paused.
     Paused,
+    /// Context has been stopped but not shut down.
     Stopped,
+    /// Context is in the process of shutting down.
     ShuttingDown,
+    /// Context has been fully shut down.
     Shutdown,
+    /// Context has encountered an error (with error message).
     Error(String),
 }
 
@@ -94,18 +129,34 @@ impl Default for LifecycleStage {
     }
 }
 
-/// The main context type that holds system state
+/// A context represents a managed system state with lifecycle control.
+/// 
+/// The Context struct is the central component that manages system state,
+/// configuration, metrics, and events. It provides methods to control the
+/// lifecycle of the context and access its various components.
 #[derive(Debug, Clone)]
 pub struct Context {
+    /// The configuration for this context.
     #[allow(dead_code)]
     config: Arc<RwLock<ContextConfig>>,
+    /// The current state of the context.
     state_store: Arc<RwLock<ContextState>>,
+    /// Metrics collection for this context.
     metrics: Arc<Metrics>,
+    /// Event history for this context.
     events: Arc<RwLock<Vec<Event>>>,
 }
 
 impl Context {
-    /// Create a new context with default configuration
+    /// Creates a new context with the specified configuration.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `config` - The configuration to use for this context.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing the new `Context` instance if successful.
     pub fn new(config: ContextConfig) -> Result<Self> {
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
@@ -115,11 +166,19 @@ impl Context {
         })
     }
 
-    /// Initialize the context
+    /// Initializes the context, preparing it for use.
+    /// 
+    /// This method transitions the context from the `Uninitialized` state to
+    /// `Initializing` and marks it as initialized.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::AlreadyInitialized` if the context is not in the
+    /// `Uninitialized` state.
     pub async fn initialize(&self) -> Result<()> {
         let mut state = self.state_store.write().await;
-        if state.lifecycle_stage != LifecycleStage::Uninitialized {
-            return Err(ContextError::AlreadyInitialized);
+        if state.initialized {
+            return Err(ContextError::AlreadyInitialized.into());
         }
         state.lifecycle_stage = LifecycleStage::Initializing;
         state.initialized = true;
@@ -127,21 +186,33 @@ impl Context {
         Ok(())
     }
 
-    /// Start the context
+    /// Starts the context, transitioning it to the `Running` state.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::NotInitialized` if the context has not been initialized.
     pub async fn start(&self) -> Result<()> {
         let mut state = self.state_store.write().await;
         if !state.initialized {
-            return Err(ContextError::NotInitialized);
+            return Err(ContextError::NotInitialized.into());
         }
         state.lifecycle_stage = LifecycleStage::Running;
         Ok(())
     }
 
-    /// Shutdown the context
+    /// Begins the shutdown process for the context.
+    /// 
+    /// This method transitions the context to the `ShuttingDown` state and marks
+    /// it as shutting down.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::AlreadyShuttingDown` if the context is already
+    /// in the process of shutting down.
     pub async fn shutdown(&self) -> Result<()> {
         let mut state = self.state_store.write().await;
-        if state.lifecycle_stage == LifecycleStage::ShuttingDown {
-            return Err(ContextError::AlreadyShuttingDown);
+        if state.shutting_down {
+            return Err(ContextError::AlreadyShuttingDown.into());
         }
         state.lifecycle_stage = LifecycleStage::ShuttingDown;
         state.shutting_down = true;
@@ -149,43 +220,70 @@ impl Context {
         Ok(())
     }
 
-    /// Stop the context
+    /// Stops the context, transitioning it to the `Stopped` state.
+    /// 
+    /// This method should only be called after `shutdown()` has been called.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::NotInitialized` if the context has not been initialized,
+    /// or `ContextError::Lifecycle` if the context is not in the `ShuttingDown` state.
     pub async fn stop(&self) -> Result<()> {
         let mut state = self.state_store.write().await;
         if !state.initialized {
-            return Err(ContextError::NotInitialized);
+            return Err(ContextError::NotInitialized.into());
         }
-        if state.lifecycle_stage != LifecycleStage::ShuttingDown {
-            return Err(ContextError::Lifecycle("Context not shutting down".to_string()));
+        if !state.shutting_down {
+            return Err(ContextError::Lifecycle("Context not shutting down".to_string()).into());
         }
         state.lifecycle_stage = LifecycleStage::Stopped;
         Ok(())
     }
 
-    /// Get the current lifecycle stage
+    /// Returns the current lifecycle stage of the context.
+    /// 
+    /// This method is marked with `#[must_use]` because the returned stage
+    /// may be needed for state-dependent operations.
     #[must_use = "This returns the current lifecycle stage which may be needed for state-dependent operations"]
     pub async fn get_lifecycle_stage(&self) -> LifecycleStage {
         self.state_store.read().await.lifecycle_stage.clone()
     }
 
-    /// Get the metrics collector
+    /// Returns the metrics collector for this context.
+    /// 
+    /// The returned metrics instance should be used for recording metrics
+    /// related to this context.
     #[must_use = "This returns a metrics instance that should be used for recording metrics"]
     pub fn metrics(&self) -> Arc<Metrics> {
         self.metrics.clone()
     }
 
-    /// Get the events store
+    /// Returns the events store for this context.
+    /// 
+    /// The returned events storage should be used for all event-related operations.
     #[must_use = "This returns the events storage that should be used for event operations"]
     pub fn events(&self) -> Arc<RwLock<Vec<Event>>> {
         self.events.clone()
     }
 
-    /// Get the state store
+    /// Returns the state store for this context.
+    /// 
+    /// The returned state storage should be used for all state-related operations.
     #[must_use = "This returns the state storage that should be used for state operations"]
     pub fn state(&self) -> Arc<RwLock<ContextState>> {
         self.state_store.clone()
     }
 
+    /// Updates a data value in the context's state.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - The key to update
+    /// * `value` - The new value to store
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `Result` indicating whether the update was successful.
     pub async fn update_data(&self, key: &str, value: Value) -> Result<()> {
         let mut state = self.state_store.write().await;
         state.state.insert(key.to_string(), value);
@@ -193,6 +291,16 @@ impl Context {
         Ok(())
     }
 
+    /// Updates a metadata value in the context's state.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - The key to update
+    /// * `value` - The new value to store
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `Result` indicating whether the update was successful.
     pub async fn update_metadata(&self, key: String, value: Value) -> Result<()> {
         let mut state = self.state_store.write().await;
         state.metadata.insert(key, value);
@@ -200,23 +308,51 @@ impl Context {
         Ok(())
     }
 
+    /// Retrieves a data value from the context's state.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - The key to retrieve
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing an `Option` with the value if it exists.
     pub async fn get_data(&self, key: &str) -> Result<Option<Value>> {
         let state = self.state_store.read().await;
         Ok(state.state.get(key).cloned())
     }
 
+    /// Retrieves all metadata from the context's state.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing a `HashMap` of all metadata key-value pairs.
     pub async fn get_metadata(&self) -> Result<HashMap<String, Value>> {
         let state = self.state_store.read().await;
         Ok(state.metadata.clone())
     }
 
+    /// Retrieves the current state of the context.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::NotInitialized` if the context has not been initialized.
     pub async fn get_state(&self) -> Result<ContextState> {
-        if !self.state_store.read().await.initialized {
-            return Err(ContextError::NotInitialized);
+        let state = self.state_store.read().await;
+        if !state.initialized {
+            return Err(ContextError::NotInitialized.into());
         }
-        Ok(self.state_store.read().await.clone())
+        Ok(state.clone())
     }
 
+    /// Creates a snapshot of the current context state.
+    /// 
+    /// A snapshot includes the current state, metrics, and other relevant
+    /// information at the time it is taken.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing the `ContextSnapshot` if successful.
     pub async fn get_snapshot(&self) -> Result<ContextSnapshot> {
         let state = self.state_store.read().await;
         Ok(ContextSnapshot {
@@ -230,26 +366,46 @@ impl Context {
         })
     }
 
+    /// Sets the application state
+    ///
+    /// # Arguments
+    /// * `new_state` - New state to set
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error status
     pub async fn set_state(&self, new_state: HashMap<String, Value>) -> Result<()> {
         let mut state = self.state_store.write().await;
-        if state.lifecycle_stage == LifecycleStage::ShuttingDown {
-            return Err(ContextError::AlreadyShuttingDown);
+        if state.shutting_down {
+            return Err(ContextError::AlreadyShuttingDown.into());
         }
         state.state = new_state;
         state.updated_at = Utc::now();
         Ok(())
     }
 
-    #[must_use = "This returns the initialization status which may be needed for conditional logic"]
+    /// Checks if the application is initialized
+    ///
+    /// # Returns
+    /// * `bool` - True if initialized
     pub async fn is_initialized(&self) -> bool {
         self.state_store.read().await.initialized
     }
 
-    #[must_use = "This returns the shutdown status which may be needed for conditional logic"]
+    /// Checks if the application is shutting down
+    ///
+    /// # Returns
+    /// * `bool` - True if shutting down
     pub async fn is_shutting_down(&self) -> bool {
         self.state_store.read().await.shutting_down
     }
 
+    /// Sets the application lifecycle stage
+    ///
+    /// # Arguments
+    /// * `stage` - New lifecycle stage
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error status
     pub async fn set_lifecycle_stage(&self, stage: LifecycleStage) -> Result<()> {
         let mut ctx_state = self.state_store.write().await;
         ctx_state.lifecycle_stage = stage;
@@ -308,22 +464,35 @@ impl Default for ContextBuilder {
     }
 }
 
+/// A snapshot of application context at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSnapshot {
+    /// Timestamp when the snapshot was taken
     pub timestamp: DateTime<Utc>,
+    /// Application data
     pub data: HashMap<String, Value>,
+    /// Application metrics
     pub metrics: HashMap<String, Value>,
+    /// Application state
     pub state: HashMap<String, Value>,
+    /// Time when the snapshot was created
     pub created_at: DateTime<Utc>,
+    /// Time when the snapshot was last updated
     pub updated_at: DateTime<Utc>,
+    /// Current lifecycle stage
     pub lifecycle_stage: LifecycleStage,
 }
 
+/// Configuration for context persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistenceConfig {
+    /// Whether persistence is enabled
     pub enabled: bool,
+    /// Path to store persistent data
     pub path: String,
+    /// Whether to automatically save state
     pub auto_save: bool,
+    /// Interval between auto-saves
     pub save_interval: Duration,
 }
 
@@ -338,11 +507,16 @@ impl Default for PersistenceConfig {
     }
 }
 
+/// Configuration for context synchronization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
+    /// Whether synchronization is enabled
     pub enabled: bool,
+    /// List of peer nodes to sync with
     pub peers: Vec<String>,
+    /// Interval between sync attempts
     pub sync_interval: Duration,
+    /// Maximum number of sync retries
     pub max_retries: u32,
 }
 
@@ -357,103 +531,138 @@ impl Default for SyncConfig {
     }
 }
 
-#[derive(Debug)]
+/// Errors that can occur during context operations
+#[derive(Debug, Error)]
 pub enum ContextError {
+    /// Error during initialization
+    #[error("Initialization error: {0}")]
     Initialization(String),
+    /// Error during lifecycle transition
+    #[error("Lifecycle error: {0}")]
     Lifecycle(String),
+    /// Error with context data
+    #[error("Data error: {0}")]
     Data(String),
+    /// Error with context metadata
+    #[error("Metadata error: {0}")]
     Metadata(String),
+    /// Other error type
+    #[error("Error: {0}")]
     Other(Box<dyn std::error::Error + Send + Sync>),
+    /// Context is already initialized
+    #[error("Context is already initialized")]
     AlreadyInitialized,
+    /// Context is not initialized
+    #[error("Context is not initialized")]
     NotInitialized,
+    /// Context is already shutting down
+    #[error("Context is already shutting down")]
     AlreadyShuttingDown,
+    /// Context already exists
+    #[error("Context already exists: {0}")]
     ContextExists(String),
+    /// Context not found
+    #[error("Context not found: {0}")]
     ContextNotFound(String),
+    /// Invalid context state
+    #[error("Invalid state: {0}")]
     InvalidState(String),
 }
 
-impl std::fmt::Display for ContextError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ContextError::Initialization(msg) => write!(f, "Context initialization error: {msg}"),
-            ContextError::Lifecycle(msg) => write!(f, "Context lifecycle error: {msg}"),
-            ContextError::Data(msg) => write!(f, "Context data error: {msg}"),
-            ContextError::Metadata(msg) => write!(f, "Context metadata error: {msg}"),
-            ContextError::Other(e) => write!(f, "Other context error: {e}"),
-            ContextError::AlreadyInitialized => write!(f, "Context already initialized"),
-            ContextError::NotInitialized => write!(f, "Context not initialized"),
-            ContextError::AlreadyShuttingDown => write!(f, "Context already shutting down"),
-            ContextError::ContextExists(id) => write!(f, "Context with id {id} already exists"),
-            ContextError::ContextNotFound(id) => write!(f, "Context with id {id} not found"),
-            ContextError::InvalidState(msg) => write!(f, "Invalid context state: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for ContextError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ContextError::Other(e) => Some(e.as_ref()),
-            _ => None,
-        }
-    }
-}
-
-impl From<ContextError> for SquirrelError {
+impl From<ContextError> for crate::error::SquirrelError {
     fn from(err: ContextError) -> Self {
         match err {
-            ContextError::Initialization(msg) => SquirrelError::Context(format!("Initialization error: {msg}")),
-            ContextError::Lifecycle(msg) => SquirrelError::Context(format!("Lifecycle error: {msg}")),
-            ContextError::Data(msg) => SquirrelError::Context(format!("Data error: {msg}")),
-            ContextError::Metadata(msg) => SquirrelError::Context(format!("Metadata error: {msg}")),
-            ContextError::Other(e) => SquirrelError::Context(e.to_string()),
-            ContextError::AlreadyInitialized => SquirrelError::Context("Context already initialized".to_string()),
-            ContextError::NotInitialized => SquirrelError::Context("Context not initialized".to_string()),
-            ContextError::AlreadyShuttingDown => SquirrelError::Context("Context already shutting down".to_string()),
-            ContextError::ContextExists(id) => SquirrelError::Context(format!("Context with id {id} already exists")),
-            ContextError::ContextNotFound(id) => SquirrelError::Context(format!("Context with id {id} not found")),
-            ContextError::InvalidState(msg) => SquirrelError::Context(format!("Invalid context state: {msg}")),
+            ContextError::Initialization(msg) => Self::context(&format!("Initialization error: {msg}")),
+            ContextError::Lifecycle(msg) => Self::context(&format!("Lifecycle error: {msg}")),
+            ContextError::Data(msg) => Self::context(&format!("Data error: {msg}")),
+            ContextError::Metadata(msg) => Self::context(&format!("Metadata error: {msg}")),
+            ContextError::Other(e) => Self::context(&e.to_string()),
+            ContextError::AlreadyInitialized => Self::context("Context already initialized"),
+            ContextError::NotInitialized => Self::context("Context not initialized"),
+            ContextError::AlreadyShuttingDown => Self::context("Context already shutting down"),
+            ContextError::ContextExists(id) => Self::context(&format!("Context with id {id} already exists")),
+            ContextError::ContextNotFound(id) => Self::context(&format!("Context with id {id} not found")),
+            ContextError::InvalidState(msg) => Self::context(&format!("Invalid context state: {msg}")),
         }
     }
 }
 
-type Result<T> = std::result::Result<T, ContextError>;
-
+/// Manager for multiple contexts within an application.
+/// 
+/// The `ContextManager` is responsible for creating, tracking, and managing
+/// multiple contexts, ensuring proper lifecycle management and resource
+/// allocation.
 #[derive(Debug)]
 pub struct ContextManager {
+    /// Metrics collection for all managed contexts.
     pub metrics: Arc<Metrics>,
+    /// Map of context IDs to their corresponding Context instances.
     pub contexts: Arc<RwLock<HashMap<String, Arc<Context>>>>,
 }
 
 impl ContextManager {
-    /// Create a new context manager
-    #[must_use = "This returns a new context manager that should be used to manage contexts"]
-    pub fn new() -> Self {
+    /// Creates a new `ContextManager` instance.
+    /// 
+    /// The manager is initialized with an empty context map and default metrics.
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(Metrics::new()),
             contexts: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    /// Creates a new context with the specified ID.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The unique identifier for the new context
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::ContextExists` if a context with the given ID
+    /// already exists.
     pub async fn create_context(&self, id: String) -> Result<Arc<Context>> {
-        let mut contexts = self.contexts.write().await;
+        let contexts = self.contexts.read().await;
         if contexts.contains_key(&id) {
-            return Err(ContextError::ContextExists(id));
+            return Err(ContextError::ContextExists(id).into());
         }
+        drop(contexts);
+
         let config = ContextConfig {
             id: id.clone(),
             ..ContextConfig::default()
         };
         let context = Arc::new(Context::new(config)?);
+        let mut contexts = self.contexts.write().await;
         contexts.insert(id, context.clone());
         Ok(context)
     }
 
+    /// Retrieves a context by its ID.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The ID of the context to retrieve
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::ContextNotFound` if no context exists with the
+    /// given ID.
     pub async fn get_context(&self, id: &str) -> Result<Arc<Context>> {
         let contexts = self.contexts.read().await;
-        contexts.get(id).cloned().ok_or_else(|| ContextError::ContextNotFound(id.to_string()))
+        contexts.get(id).cloned().ok_or_else(|| ContextError::ContextNotFound(id.to_string()).into())
     }
 
+    /// Deletes a context by its ID.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The ID of the context to delete
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::ContextNotFound` if no context exists with the
+    /// given ID.
     pub async fn delete_context(&self, id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         if let Some(context) = contexts.remove(id) {
@@ -469,20 +678,84 @@ impl Default for ContextManager {
     }
 }
 
+/// Factory for creating ContextTracker instances
+#[derive(Debug, Clone)]
+pub struct ContextTrackerFactory {
+    /// The default context manager to use
+    manager: Option<Arc<ContextManager>>,
+}
+
+impl ContextTrackerFactory {
+    /// Create a new ContextTrackerFactory
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - Optional default context manager to use
+    #[must_use] pub fn new(manager: Option<Arc<ContextManager>>) -> Self {
+        Self { manager }
+    }
+
+    /// Create a new ContextTracker with the default manager
+    ///
+    /// # Panics
+    ///
+    /// Panics if no default manager was provided during factory creation
+    #[must_use] pub fn create(&self) -> ContextTracker {
+        let manager = self.manager.clone().expect("No default manager provided");
+        ContextTracker::new(manager)
+    }
+
+    /// Create a new ContextTracker with a specific manager
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - The ContextManager to use
+    #[must_use] pub fn create_with_manager(&self, manager: Arc<ContextManager>) -> ContextTracker {
+        ContextTracker::new(manager)
+    }
+}
+
+impl Default for ContextTrackerFactory {
+    fn default() -> Self {
+        Self { manager: None }
+    }
+}
+
+/// Tracks the currently active context in a multi-context environment.
+/// 
+/// The `ContextTracker` maintains a reference to the currently active context
+/// and provides methods to switch between contexts.
 #[derive(Debug, Clone)]
 pub struct ContextTracker {
+    /// The context manager that owns all contexts.
     manager: Arc<ContextManager>,
+    /// The ID of the currently active context, if any.
     active_context: Arc<RwLock<Option<String>>>,
 }
 
 impl ContextTracker {
-    pub fn new(manager: Arc<ContextManager>) -> Self {
+    /// Creates a new `ContextTracker` with the specified manager.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `manager` - The `ContextManager` to track contexts from
+    #[must_use] pub fn new(manager: Arc<ContextManager>) -> Self {
         Self {
             manager,
             active_context: Arc::new(RwLock::new(None)),
         }
     }
 
+    /// Sets the specified context as the active context.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The ID of the context to activate
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `ContextError::ContextNotFound` if no context exists with the
+    /// given ID.
     pub async fn activate_context(&self, id: &str) -> Result<()> {
         self.manager.get_context(id).await?;
         let mut active = self.active_context.write().await;
@@ -490,12 +763,22 @@ impl ContextTracker {
         Ok(())
     }
 
+    /// Deactivates the currently active context, if any.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `Result` indicating whether the deactivation was successful.
     pub async fn deactivate_context(&self) -> Result<()> {
         let mut active = self.active_context.write().await;
         *active = None;
         Ok(())
     }
 
+    /// Retrieves the currently active context, if one exists.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing an `Option` with the active context.
     pub async fn get_active_context(&self) -> Result<Option<Arc<Context>>> {
         if let Some(id) = self.active_context.read().await.as_ref() {
             Ok(Some(self.manager.get_context(id).await?))
@@ -505,32 +788,96 @@ impl ContextTracker {
     }
 }
 
-/// Application context that stores the application configuration and components
+/// Application-wide context that stores configuration and shared components.
+/// 
+/// The `AppContext` provides access to application-level configuration and
+/// components that are shared across the entire application.
 #[derive(Debug)]
 pub struct AppContext {
+    /// The application's configuration.
     config: AppConfig,
+    /// The application's event emitter for broadcasting events.
     event_emitter: Arc<DefaultEventEmitter>,
 }
 
 impl AppContext {
-    /// Create a new application context
+    /// Creates a new `AppContext` with the specified configuration and event emitter.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `config` - The application configuration to use
+    /// * `event_emitter` - The event emitter to use for broadcasting events
     #[must_use = "This returns a new application context that should be used for application operations"]
-    pub fn new(config: AppConfig, event_emitter: Arc<DefaultEventEmitter>) -> Self {
+    pub const fn new(config: AppConfig, event_emitter: Arc<DefaultEventEmitter>) -> Self {
         Self {
             config,
             event_emitter,
         }
     }
 
-    /// Get the application configuration
+    /// Returns a reference to the application's configuration.
+    /// 
+    /// The configuration contains important settings that control the
+    /// application's behavior.
     #[must_use = "This returns the application configuration that contains important settings"]
-    pub fn config(&self) -> &AppConfig {
+    pub const fn config(&self) -> &AppConfig {
         &self.config
     }
 
-    /// Get the event emitter
-    #[must_use = "This returns the event emitter that should be used for event operations"]
+    /// Returns a reference to the application's event emitter.
+    /// 
+    /// The event emitter is used to broadcast events throughout the
+    /// application.
+    #[must_use = "This returns the event emitter that should be used for broadcasting events"]
     pub fn event_emitter(&self) -> Arc<DefaultEventEmitter> {
         self.event_emitter.clone()
     }
-} 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_context_tracker_factory_default() {
+        let factory = ContextTrackerFactory::default();
+        assert!(factory.manager.is_none());
+    }
+    
+    #[test]
+    fn test_context_tracker_factory_new() {
+        let manager = Arc::new(ContextManager::new());
+        let factory = ContextTrackerFactory::new(Some(manager.clone()));
+        assert!(factory.manager.is_some());
+        assert!(Arc::ptr_eq(&factory.manager.unwrap(), &manager));
+    }
+    
+    #[test]
+    fn test_context_tracker_factory_create_with_manager() {
+        let manager1 = Arc::new(ContextManager::new());
+        let manager2 = Arc::new(ContextManager::new());
+        
+        let factory = ContextTrackerFactory::new(Some(manager1));
+        let tracker = factory.create_with_manager(manager2.clone());
+        
+        // Tracker should use the explicitly provided manager, not the factory's default
+        assert!(Arc::ptr_eq(&tracker.manager, &manager2));
+    }
+    
+    #[test]
+    fn test_context_tracker_factory_create() {
+        let manager = Arc::new(ContextManager::new());
+        let factory = ContextTrackerFactory::new(Some(manager.clone()));
+        
+        let tracker = factory.create();
+        assert!(Arc::ptr_eq(&tracker.manager, &manager));
+    }
+    
+    #[test]
+    #[should_panic(expected = "No default manager provided")]
+    fn test_context_tracker_factory_create_no_default() {
+        let factory = ContextTrackerFactory::default();
+        // Should panic due to no default manager
+        let _ = factory.create();
+    }
+}

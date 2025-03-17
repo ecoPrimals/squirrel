@@ -53,6 +53,7 @@ pub struct Metric {
     pub labels: HashMap<String, String>,
 }
 
+/// Interface for collecting metrics
 pub trait MetricsCollector: fmt::Debug + Send + Sync {
     /// Collect metrics from the given metrics source
     ///
@@ -62,6 +63,7 @@ pub trait MetricsCollector: fmt::Debug + Send + Sync {
     fn collect(&self, metrics: &Metrics) -> Result<()>;
 }
 
+/// Interface for exporting metrics
 pub trait MetricsExporter: fmt::Debug + Send + Sync {
     /// Export metrics to the target destination
     ///
@@ -71,11 +73,14 @@ pub trait MetricsExporter: fmt::Debug + Send + Sync {
     fn export(&self, metrics: &Metrics) -> Result<()>;
 }
 
-/// Metrics data
+/// Data structure for storing metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsData {
+    /// Time when metrics were collected
     pub timestamp: DateTime<Utc>,
+    /// Collected metric values
     pub metrics: HashMap<String, MetricValue>,
+    /// Metric quantiles
     pub quantiles: HashMap<String, f64>,
 }
 
@@ -91,7 +96,7 @@ impl MetricsData {
     }
 
     /// Merge another metrics data instance into this one
-    pub fn merge(&mut self, other: MetricsData) {
+    pub fn merge(&mut self, other: Self) {
         for (key, value) in other.metrics {
             self.metrics.insert(key, value);
         }
@@ -107,11 +112,14 @@ impl Default for MetricsData {
     }
 }
 
-/// A snapshot of metrics at a point in time
+/// Snapshot of metrics at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsSnapshot {
+    /// Counter metrics
     pub counters: HashMap<String, u64>,
+    /// Gauge metrics
     pub gauges: HashMap<String, f64>,
+    /// Histogram metrics
     pub histograms: HashMap<String, Vec<f64>>,
 }
 
@@ -280,10 +288,10 @@ impl Default for MetricsRegistry {
 impl fmt::Display for MetricType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetricType::Counter => write!(f, "Counter"),
-            MetricType::Gauge => write!(f, "Gauge"),
-            MetricType::Histogram => write!(f, "Histogram"),
-            MetricType::Summary => write!(f, "Summary"),
+            Self::Counter => write!(f, "Counter"),
+            Self::Gauge => write!(f, "Gauge"),
+            Self::Histogram => write!(f, "Histogram"),
+            Self::Summary => write!(f, "Summary"),
         }
     }
 }
@@ -291,10 +299,10 @@ impl fmt::Display for MetricType {
 impl fmt::Display for MetricValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetricValue::Counter(c) => write!(f, "Counter({c})"),
-            MetricValue::Gauge(g) => write!(f, "Gauge({g})"),
-            MetricValue::Histogram(h) => write!(f, "Histogram({} values)", h.len()),
-            MetricValue::Summary(s) => write!(f, "Summary({} pairs)", s.len()),
+            Self::Counter(c) => write!(f, "Counter({c})"),
+            Self::Gauge(g) => write!(f, "Gauge({g})"),
+            Self::Histogram(h) => write!(f, "Histogram({} values)", h.len()),
+            Self::Summary(s) => write!(f, "Summary({} pairs)", s.len()),
         }
     }
 }
@@ -313,37 +321,42 @@ impl fmt::Display for Metric {
     }
 }
 
+/// Errors that can occur during metric operations
 #[derive(Debug, Error)]
 pub enum MetricError {
+    /// Error when metric type is invalid
     #[error("Invalid metric type: {0}")]
     InvalidType(String),
+    /// Error when metric value is invalid
     #[error("Invalid metric value: {0}")]
     InvalidValue(String),
-    #[error("Other error: {0}")]
+    /// Other metric-related error
+    #[error("Metric error: {0}")]
     Other(String),
 }
 
+/// Result type for metric operations
 type Result<T> = std::result::Result<T, MetricError>;
 
 impl From<MetricError> for SquirrelError {
     fn from(err: MetricError) -> Self {
         match err {
-            MetricError::InvalidType(e) => SquirrelError::Other(format!("Invalid metric type: {e}")),
-            MetricError::InvalidValue(e) => SquirrelError::Other(format!("Invalid metric value: {e}")),
-            MetricError::Other(e) => SquirrelError::Other(e),
+            MetricError::InvalidType(e) => Self::Other(format!("Invalid metric type: {e}")),
+            MetricError::InvalidValue(e) => Self::Other(format!("Invalid metric value: {e}")),
+            MetricError::Other(e) => Self::Other(e),
         }
     }
 }
 
 impl From<String> for MetricError {
     fn from(err: String) -> Self {
-        MetricError::Other(err)
+        Self::Other(err)
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for MetricError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        MetricError::Other(err.to_string())
+        Self::Other(err.to_string())
     }
 }
 
@@ -352,7 +365,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for MetricError {
 /// # Errors
 ///
 /// Returns a `MetricError` if the metrics system cannot be initialized
-pub fn initialize() -> Result<()> {
+pub const fn initialize() -> Result<()> {
     // TODO: Initialize metrics system
     Ok(())
 }
@@ -362,7 +375,7 @@ pub fn initialize() -> Result<()> {
 /// # Errors
 ///
 /// Returns a `MetricError` if the metrics system cannot be shut down properly
-pub fn shutdown() -> Result<()> {
+pub const fn shutdown() -> Result<()> {
     // TODO: Cleanup metrics system resources
     Ok(())
 }

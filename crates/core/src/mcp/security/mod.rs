@@ -22,11 +22,9 @@ pub mod rbac;
 pub use rbac::{Role, Permission, Action, RBACManager};
 
 /// Length of credential values in bytes
-#[allow(dead_code)]
 const CREDENTIAL_LEN: usize = 32;
 
 /// Length of salt values in bytes
-#[allow(dead_code)]
 const SALT_LEN: usize = 16;
 
 /// Length of nonce values in bytes
@@ -100,7 +98,6 @@ struct AuthAttempt {
 #[derive(Debug, Default)]
 struct KeyManager {
     /// Master encryption key
-    #[allow(dead_code)]
     master_key: [u8; KEY_LEN],
     /// Map of session keys by session ID
     session_keys: Arc<RwLock<HashMap<String, SessionKey>>>,
@@ -129,7 +126,6 @@ struct SessionKey {
     /// Encryption key bytes
     key: [u8; KEY_LEN],
     /// Creation timestamp
-    #[allow(dead_code)]
     created_at: DateTime<Utc>,
     /// Expiration timestamp
     expires_at: DateTime<Utc>,
@@ -345,7 +341,6 @@ impl SecurityManager {
     }
 
     /// Records a failed authentication attempt.
-    #[allow(clippy::significant_drop_tightening)]
     async fn record_failed_attempt(&self, credentials: &Credentials) -> Result<()> {
         let mut state = self.state.write().await;
         {

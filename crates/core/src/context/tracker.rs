@@ -13,7 +13,7 @@ pub struct ContextTracker {
 
 impl ContextTracker {
     /// Creates a new context tracker with an empty initial state
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(ContextState {
                 version: 0,
@@ -96,7 +96,7 @@ impl ContextTracker {
     ///
     /// # Returns
     /// A reference to the collection of historical snapshots
-    pub fn get_history(&self) -> &VecDeque<ContextSnapshot> {
+    #[must_use] pub const fn get_history(&self) -> &VecDeque<ContextSnapshot> {
         &self.history
     }
 

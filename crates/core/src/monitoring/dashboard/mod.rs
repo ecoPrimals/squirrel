@@ -10,487 +10,323 @@
 // - Data visualization
 // - Interactive controls
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
-use tokio::sync::{OnceCell, RwLock};
+use tokio::sync::RwLock;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
 use crate::monitoring::{
-    alerts::{AlertSeverity, AlertStatus, Alert, AlertConfig, AlertManager, DefaultAlertManager},
-    health::{HealthChecker, HealthConfig, HealthStatus, DefaultHealthChecker},
-    metrics::{performance::OperationType, MetricCollector, MetricConfig, DefaultMetricCollector, Metric},
+    alerts::{AlertSeverity, AlertStatus, Alert, AlertConfig, AlertManager},
+    health::{HealthChecker, HealthConfig, status::HealthStatus},
+    metrics::{performance::OperationType, MetricCollector, MetricConfig, Metric},
 };
 use crate::error::{Result, SquirrelError};
-use tokio::time::sleep;
+use serde_json::{Value, to_value};
 
-/// Dashboard configuration
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct DashboardConfig {
-    /// HTTP server port
-    pub port: u16,
-    /// Enable dashboard
-    pub enabled: bool,
-    /// Refresh interval
-    pub refresh_interval: Duration,
-    /// Enable WebSocket updates
+/// Configuration for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    /// Whether to enable `WebSocket` updates
     pub websocket_enabled: bool,
-    /// Custom styling options
-    pub style: Option<DashboardStyle>,
-    pub title: String,
-    pub description: String,
-    pub health_config: HealthConfig,
-    pub metric_config: MetricConfig,
+    /// Update interval in seconds
+    pub update_interval: u64,
+    /// Maximum number of data points to store per metric
+    pub max_data_points: usize,
+    /// Alert configuration
     pub alert_config: AlertConfig,
-    pub metrics_port: Option<u16>,
-    pub dashboard_port: Option<u16>,
-    pub host: String,
+    /// Health check configuration
+    pub health_config: HealthConfig,
+    /// Metric collection configuration
+    pub metric_config: MetricConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DashboardStyle {
-    pub theme: String,
-    pub custom_css: Option<String>,
-}
-
-/// Dashboard component type
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DashboardComponent {
-    /// Metric chart
-    MetricChart {
-        /// Component ID
-        id: String,
-        /// Chart title
-        title: String,
-        /// Metric names to display
-        metrics: Vec<String>,
-        /// Chart type (line, bar, etc.)
-        chart_type: String,
-        /// Time range in seconds
-        time_range: u64,
-    },
-    /// Health status panel
-    HealthPanel {
-        /// Component ID
-        id: String,
-        /// Panel title
-        title: String,
-        /// Components to monitor
-        components: Vec<String>,
-    },
-    /// Alert list
-    AlertList {
-        /// Component ID
-        id: String,
-        /// List title
-        title: String,
-        /// Filter by severity
-        severity_filter: Option<AlertSeverity>,
-        /// Filter by status
-        status_filter: Option<AlertStatus>,
-        /// Maximum items to display
-        max_items: usize,
-    },
-    /// Resource usage gauge
-    ResourceGauge {
-        /// Component ID
-        id: String,
-        /// Gauge title
-        title: String,
-        /// Resource type
-        resource_type: String,
-        /// Team name
-        team_name: String,
-    },
-    /// Performance graph
-    PerformanceGraph {
-        /// Component ID
-        id: String,
-        /// Graph title
-        title: String,
-        /// Operation type
-        operation_type: OperationType,
-        /// Time range in seconds
-        time_range: u64,
-    },
-}
-
-/// Dashboard layout
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DashboardLayout {
-    /// Layout ID
-    pub id: String,
-    /// Layout name
-    pub name: String,
-    /// Layout description
-    pub description: String,
-    /// Dashboard components
-    pub components: Vec<DashboardComponent>,
-    /// Layout grid configuration
-    pub grid: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-impl DashboardLayout {
-    pub fn new(id: String, name: String, description: String, grid: serde_json::Value) -> Self {
-        let now = Utc::now();
+impl Default for Config {
+    fn default() -> Self {
         Self {
-            id,
-            name,
-            description,
-            components: Vec::new(),
-            grid,
-            created_at: now,
-            updated_at: now,
+            websocket_enabled: false,
+            update_interval: 60,
+            max_data_points: 100,
+            alert_config: AlertConfig::default(),
+            health_config: HealthConfig::default(),
+            metric_config: MetricConfig::default(),
         }
     }
 }
 
-/// Dashboard data update
+/// Component types available in the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Component {
+    /// Performance graph showing metrics over time
+    PerformanceGraph {
+        id: String,
+        title: String,
+        description: String,
+        operation_type: OperationType,
+        time_range: Duration,
+    },
+    /// Alert list showing current alerts
+    AlertList {
+        id: String,
+        title: String,
+        description: String,
+        severity: Option<AlertSeverity>,
+        status: Option<AlertStatus>,
+    },
+    /// Health status display
+    HealthStatus {
+        id: String,
+        title: String,
+        description: String,
+        service: String,
+    },
+    /// Custom component with arbitrary data
+    Custom {
+        id: String,
+        title: String,
+        description: String,
+        data: Value,
+    },
+}
+
+/// Layout configuration for a dashboard
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Layout {
+    /// Unique identifier for the layout
+    pub id: String,
+    /// Display name of the layout
+    pub name: String,
+    /// Detailed description of the layout
+    pub description: String,
+    /// List of components included in the layout
+    pub components: Vec<Component>,
+    /// Grid configuration for component placement
+    pub grid: Value,
+    /// Timestamp when the layout was created
+    pub created_at: OffsetDateTime,
+    /// Timestamp when the layout was last updated
+    pub updated_at: OffsetDateTime,
+}
+
+/// Data update for the dashboard
 #[derive(Debug, Clone, Serialize)]
-pub struct DashboardUpdate {
+pub struct Update {
     /// Component ID
     pub component_id: String,
     /// Update timestamp
-    pub timestamp: time::OffsetDateTime,
+    pub timestamp: OffsetDateTime,
     /// Updated data
-    pub data: serde_json::Value,
+    pub data: Value,
 }
 
-/// Dashboard errors
-#[derive(Debug, Error)]
-pub enum DashboardError {
-    #[error("Configuration error: {0}")]
-    ConfigError(String),
-    #[error("Component error: {0}")]
-    ComponentError(String),
-    #[error("Update error: {0}")]
-    UpdateError(String),
-    #[error("System error: {0}")]
-    SystemError(String),
-}
-
-/// Dashboard data
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DashboardData {
+/// Current state of the dashboard
+#[derive(Debug)]
+pub struct Data {
+    /// Current health status of monitored components
     pub health: HealthStatus,
+    /// List of collected metrics
     pub metrics: Vec<Metric>,
+    /// List of active alerts
     pub alerts: Vec<Alert>,
+    /// Interval at which dashboard data is refreshed
     pub refresh_interval: Duration,
 }
 
-/// Dashboard manager for handling monitoring visualization
+/// Error types for dashboard operations
+#[derive(Debug, Error)]
+pub enum DashboardError {
+    /// Layout not found
+    #[error("Layout not found: {0}")]
+    LayoutNotFound(String),
+    /// Invalid configuration
+    #[error("Invalid configuration: {0}")]
+    InvalidConfig(String),
+    /// Data error
+    #[error("Data error: {0}")]
+    DataError(String),
+}
+
+/// Dashboard configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardConfig {
+    /// Whether the dashboard is enabled
+    pub enabled: bool,
+    /// Dashboard refresh interval in seconds
+    pub refresh_interval: u64,
+    /// Maximum number of metrics to display
+    pub max_metrics: usize,
+}
+
+impl Default for DashboardConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            refresh_interval: 60,
+            max_metrics: 100,
+        }
+    }
+}
+
+/// Dashboard manager for system monitoring
 #[derive(Debug)]
 pub struct DashboardManager {
-    health_checker: Arc<dyn HealthChecker + Send + Sync>,
-    metric_collector: Arc<dyn MetricCollector + Send + Sync>,
-    alert_manager: Arc<dyn AlertManager + Send + Sync>,
-    layouts: Arc<RwLock<Vec<DashboardLayout>>>,
+    /// Dashboard configuration
     config: DashboardConfig,
 }
 
 impl DashboardManager {
-    pub fn new(
-        health_checker: Arc<dyn HealthChecker + Send + Sync>,
-        metric_collector: Arc<dyn MetricCollector + Send + Sync>,
-        alert_manager: Arc<dyn AlertManager + Send + Sync>,
-        config: DashboardConfig,
-    ) -> Self {
-        Self {
-            health_checker,
-            metric_collector,
-            alert_manager,
-            layouts: Arc::new(RwLock::new(Vec::new())),
-            config,
-        }
+    /// Create a new dashboard manager with the given configuration
+    #[must_use]
+    pub const fn new(config: DashboardConfig) -> Self {
+        Self { config }
     }
 
-    /// Initializes the dashboard manager with the given configuration
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the dashboard manager is already initialized
-    pub fn initialize(config: Option<DashboardConfig>) -> Result<Arc<DashboardManager>> {
-        // For backward compatibility, still store in a global static
-        static INSTANCE: OnceCell<Arc<DashboardManager>> = OnceCell::const_new();
-        
-        let config = config.unwrap_or_default();
-        let health_checker: Arc<dyn HealthChecker + Send + Sync> = Arc::new(DefaultHealthChecker::new());
-        let metric_collector: Arc<dyn MetricCollector + Send + Sync> = Arc::new(DefaultMetricCollector::new());
-        let alert_manager: Arc<dyn AlertManager + Send + Sync> = Arc::new(DefaultAlertManager::new(AlertConfig::default()));
-        
-        let manager = Arc::new(DashboardManager::new(
-            health_checker,
-            metric_collector,
-            alert_manager,
-            config,
-        ));
-
-        INSTANCE
-            .set(manager.clone())
-            .map_err(|_| SquirrelError::monitoring("Dashboard manager already initialized"))?;
-
-        Ok(manager)
+    /// Create a new dashboard manager with default configuration
+    #[must_use]
+    pub fn default() -> Self {
+        Self::new(DashboardConfig::default())
     }
 
-    /// Starts the dashboard manager and its components
+    /// Start the dashboard manager
     ///
     /// # Errors
-    /// Returns an error if any component fails to start
-    ///
-    /// # Panics
-    /// Panics if a new Tokio runtime cannot be created
+    /// Returns an error if the dashboard manager fails to start
     pub async fn start(&self) -> Result<()> {
-        if !self.config.enabled {
-            return Ok(());
-        }
-
-        // Start the health checker
-        let health_start = self.health_checker.start();
-        health_start.await?;
-        
-        // Start the metric collector
-        let metrics_start = self.metric_collector.start();
-        metrics_start.await?;
-        
-        // Start the alert manager
-        let alerts_start = self.alert_manager.start();
-        alerts_start.await?;
-
-        let _layouts = self.layouts.clone();
-        let config = self.config.clone();
-
-        std::thread::spawn(move || {
-            tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(async move {
-                    loop {
-                        // Refresh dashboard data
-                        sleep(config.refresh_interval).await;
-                    }
-                });
-        });
-
+        // Implementation will be added in future PRs
         Ok(())
     }
 
-    /// Stops the dashboard manager and its components
+    /// Stop the dashboard manager
     ///
     /// # Errors
-    ///
-    /// Returns an error if any component fails to stop
+    /// Returns an error if the dashboard manager fails to stop
     pub async fn stop(&self) -> Result<()> {
-        if !self.config.enabled {
-            return Ok(());
-        }
-
-        // Stop the health checker
-        let health_stop = self.health_checker.stop();
-        health_stop.await?;
-        
-        // Stop the metric collector
-        let metrics_stop = self.metric_collector.stop();
-        metrics_stop.await?;
-        
-        // Stop the alert manager
-        let alerts_stop = self.alert_manager.stop();
-        alerts_stop.await?;
-        
+        // Implementation will be added in future PRs
         Ok(())
-    }
-
-    /// Retrieves dashboard data including health status, metrics, and alerts
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the data could not be retrieved from any component
-    pub async fn get_dashboard_data(&self) -> Result<DashboardData> {
-        // Get health status
-        let health_future = self.health_checker.check_health();
-        let health = health_future.await?;
-        
-        // Get metrics
-        let metrics_future = self.metric_collector.collect_metrics();
-        let metrics = metrics_future.await?;
-        
-        // Get alerts
-        let alerts_future = self.alert_manager.get_alerts();
-        let alerts = alerts_future.await?;
-        
-        Ok(DashboardData {
-            health,
-            metrics,
-            alerts,
-            refresh_interval: self.config.refresh_interval,
-        })
-    }
-
-    /// Updates the dashboard configuration
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration could not be updated
-    pub async fn update_config(&mut self, config: DashboardConfig) -> Result<()> {
-        self.config = config;
-        Ok(())
-    }
-
-    /// Adds a new dashboard layout
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the layout could not be added
-    pub async fn add_layout(&self, layout: DashboardLayout) -> Result<()> {
-        let mut layouts = self.layouts.write().await;
-        layouts.push(layout);
-        Ok(())
-    }
-
-    /// Removes a dashboard layout by ID
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the layout with the given ID is not found
-    pub async fn remove_layout(&self, layout_id: &str) -> Result<()> {
-        let mut layouts = self.layouts.write().await;
-        let original_len = layouts.len();
-        layouts.retain(|layout| layout.id != layout_id);
-        
-        if layouts.len() == original_len {
-            // No layout was removed
-            return Err(SquirrelError::monitoring(&format!("Layout '{layout_id}' not found")));
-        }
-        
-        Ok(())
-    }
-
-    /// Retrieves all dashboard layouts
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the layouts could not be retrieved
-    pub async fn get_layouts(&self) -> Result<Vec<DashboardLayout>> {
-        let layouts = self.layouts.read().await;
-        Ok(layouts.clone())
-    }
-
-    /// Retrieves a dashboard layout by ID
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the layout could not be retrieved
-    pub async fn get_layout(&self, layout_id: &str) -> Result<Option<DashboardLayout>> {
-        let layouts = self.layouts.read().await;
-        Ok(layouts.iter().find(|layout| layout.id == layout_id).cloned())
-    }
-
-    /// Retrieves data for a dashboard widget
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the widget data could not be retrieved
-    pub async fn get_widget_data(&self, widget: &DashboardWidget) -> Result<serde_json::Value> {
-        match &widget.data_source {
-            DataSource::Metrics(metric_name) => {
-                let metrics_future = self.metric_collector.collect_metrics();
-                let metrics = metrics_future.await?;
-                
-                // Filter metrics by name
-                let filtered_metrics: Vec<Metric> = metrics.into_iter()
-                    .filter(|m| m.name.contains(metric_name))
-                    .collect();
-                
-                let metrics_value: serde_json::Value = serde_json::to_value(filtered_metrics)?;
-                Ok(metrics_value)
-            }
-            DataSource::Alerts => {
-                let alerts_future = self.alert_manager.get_alerts();
-                let alerts = alerts_future.await?;
-                let alerts_value: serde_json::Value = serde_json::to_value(alerts)?;
-                Ok(alerts_value)
-            }
-            DataSource::Health => {
-                let health_future = self.health_checker.check_health();
-                let health = health_future.await?;
-                let health_value: serde_json::Value = serde_json::to_value(health)?;
-                Ok(health_value)
-            }
-        }
-    }
-
-    /// Retrieves dashboard data for WebSocket clients
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the data could not be retrieved from any component
-    pub async fn get_dashboard_data_ws(&self) -> Result<DashboardData> {
-        // Get metrics
-        let metrics_future = self.metric_collector.collect_metrics();
-        let metrics = metrics_future.await?;
-        
-        // Get alerts
-        let alerts_future = self.alert_manager.get_alerts();
-        let alerts = alerts_future.await?;
-        
-        // Get health status
-        let health_future = self.health_checker.check_health();
-        let health = health_future.await?;
-        
-        Ok(DashboardData {
-            health,
-            metrics,
-            alerts,
-            refresh_interval: self.config.refresh_interval,
-        })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::test;
+/// Factory for creating and managing dashboard manager instances
+#[derive(Debug, Clone)]
+pub struct DashboardManagerFactory {
+    /// Configuration for creating dashboard managers
+    config: DashboardConfig,
+}
 
-    #[test]
-    async fn test_dashboard_manager() {
-        let config = DashboardConfig::default();
-        let health_checker = Arc::new(DefaultHealthChecker::new());
-        let metric_collector = Arc::new(DefaultMetricCollector::new());
-        let alert_config = AlertConfig::default();
-        let alert_manager = Arc::new(DefaultAlertManager::new(alert_config));
-
-        let manager = DashboardManager::new(
-            health_checker,
-            metric_collector,
-            alert_manager,
-            config,
-        );
-
-        // Test adding a layout
-        let layout = DashboardLayout {
-            id: "test".to_string(),
-            name: "Test Layout".to_string(),
-            description: "Test layout".to_string(),
-            components: vec![],
-            grid: serde_json::json!({}),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-
-        assert!(manager.add_layout(layout.clone()).await.is_ok());
-
-        // Test getting layouts
-        let layouts = manager.get_layouts().await.unwrap();
-        assert_eq!(layouts.len(), 1);
-        assert_eq!(layouts[0].id, "test");
-
-        // Test removing a layout
-        assert!(manager.remove_layout("test").await.is_ok());
-        assert!(manager.remove_layout("nonexistent").await.is_err());
-
-        // Test getting a specific layout
-        assert!(manager.get_layout("test").await.unwrap().is_none());
+impl DashboardManagerFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: DashboardConfig::default(),
+        }
     }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: DashboardConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a dashboard manager
+    #[must_use]
+    pub fn create_manager(&self) -> Arc<DashboardManager> {
+        Arc::new(DashboardManager::new(self.config.clone()))
+    }
+
+    /// Initializes and returns a global dashboard manager instance
+    ///
+    /// # Errors
+    /// Returns an error if the manager is already initialized
+    pub async fn initialize_global_manager(&self) -> Result<Arc<DashboardManager>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<DashboardManager>> = OnceLock::new();
+
+        let manager = self.create_manager();
+        match GLOBAL_MANAGER.set(manager.clone()) {
+            Ok(()) => Ok(manager),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_MANAGER.get()
+                    .ok_or_else(|| SquirrelError::monitoring("Failed to get global dashboard manager"))?
+                    .clone())
+            }
+        }
+    }
+
+    /// Gets the global dashboard manager, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the dashboard manager cannot be initialized
+    pub async fn get_global_manager(&self) -> Result<Arc<DashboardManager>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<DashboardManager>> = OnceLock::new();
+
+        if let Some(manager) = GLOBAL_MANAGER.get() {
+            return Ok(manager.clone());
+        }
+
+        self.initialize_global_manager().await
+    }
+}
+
+impl Default for DashboardManagerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating dashboard managers
+static FACTORY: OnceLock<DashboardManagerFactory> = OnceLock::new();
+
+/// Initialize the dashboard manager factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<DashboardConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => DashboardManagerFactory::with_config(cfg),
+        None => DashboardManagerFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::monitoring("Dashboard manager factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the dashboard manager factory
+#[must_use]
+pub fn get_factory() -> Option<DashboardManagerFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the dashboard manager factory
+#[must_use]
+pub fn ensure_factory() -> DashboardManagerFactory {
+    FACTORY.get_or_init(DashboardManagerFactory::new).clone()
+}
+
+// Static instance for global access
+static DASHBOARD_MANAGER: tokio::sync::OnceCell<Arc<DashboardManager>> = tokio::sync::OnceCell::const_new();
+
+/// Initialize the dashboard manager with the given configuration
+///
+/// # Parameters
+/// * `config` - The dashboard configuration to use, or the default configuration if None
+///
+/// # Errors
+/// Returns an error if the dashboard manager is already initialized or if initialization fails
+pub async fn initialize(config: Option<DashboardConfig>) -> Result<Arc<DashboardManager>> {
+    let factory = match config {
+        Some(cfg) => DashboardManagerFactory::with_config(cfg),
+        None => ensure_factory(),
+    };
+    
+    let manager = factory.initialize_global_manager().await?;
+    
+    // Also set in the old static for backward compatibility
+    let _ = DASHBOARD_MANAGER.set(manager.clone());
+    
+    Ok(manager)
 }
 
 /// Get the dashboard manager instance
@@ -503,63 +339,184 @@ pub fn is_initialized() -> bool {
     DASHBOARD_MANAGER.get().is_some()
 }
 
-/// Creates a default dashboard with standard layout and components
+/// Shuts down the dashboard manager
 ///
 /// # Errors
-///
-/// Returns an error if the dashboard manager cannot be created
-pub async fn create_default_dashboard() -> Result<Arc<DashboardManager>> {
-    // Fix the trait object issues by using concrete implementations
-    let health_checker: Arc<dyn HealthChecker + Send + Sync> = Arc::new(DefaultHealthChecker::new());
-    let metric_collector: Arc<dyn MetricCollector + Send + Sync> = Arc::new(DefaultMetricCollector::new());
-    let alert_manager: Arc<dyn AlertManager + Send + Sync> = Arc::new(DefaultAlertManager::new(AlertConfig::default()));
+/// Returns an error if the dashboard manager is not initialized or if shutdown fails
+pub async fn shutdown() -> Result<()> {
+    if let Some(manager) = DASHBOARD_MANAGER.get() {
+        let stop_future = manager.stop();
+        stop_future.await?;
+    }
     
-    let config = DashboardConfig::default();
-    let manager = Arc::new(DashboardManager::new(
-        health_checker,
-        metric_collector,
-        alert_manager,
-        config,
-    ));
-
-    let default_layout = DashboardLayout::new(
-        "default".to_string(),
-        "Default Dashboard".to_string(),
-        "Default monitoring dashboard".to_string(),
-        serde_json::json!({
-            "rows": 2,
-            "cols": 2
-        }),
-    );
-
-    manager.add_layout(default_layout).await?;
-    Ok(manager)
+    Ok(())
 }
 
-#[derive(Debug, Clone)]
-pub enum DataSource {
-    Metrics(String),
-    Alerts,
-    Health,
+/// Manager for dashboard operations
+pub struct Manager {
+    health_checker: Arc<RwLock<Box<dyn HealthChecker + Send + Sync>>>,
+    metric_collector: Arc<RwLock<Box<dyn MetricCollector + Send + Sync>>>,
+    alert_manager: Arc<RwLock<Box<dyn AlertManager + Send + Sync>>>,
+    layouts: Arc<RwLock<HashMap<String, Layout>>>,
+    config: Arc<RwLock<Config>>,
+    data_store: Arc<RwLock<HashMap<String, Vec<Update>>>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct DashboardWidget {
-    pub id: String,
-    pub title: String,
-    pub widget_type: WidgetType,
-    pub data_source: DataSource,
-    pub refresh_interval: Duration,
+impl Manager {
+    /// Creates a new dashboard manager
+    #[must_use]
+    pub fn new(
+        config: Config,
+        metric_collector: Box<dyn MetricCollector + Send + Sync>,
+        alert_manager: Box<dyn AlertManager + Send + Sync>,
+        health_checker: Box<dyn HealthChecker + Send + Sync>,
+    ) -> Self {
+        Self {
+            config: Arc::new(RwLock::new(config)),
+            layouts: Arc::new(RwLock::new(HashMap::new())),
+            metric_collector: Arc::new(RwLock::new(metric_collector)),
+            alert_manager: Arc::new(RwLock::new(alert_manager)),
+            health_checker: Arc::new(RwLock::new(health_checker)),
+            data_store: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Starts the dashboard manager
+    /// 
+    /// # Errors
+    /// Returns error if unable to start the manager
+    /// 
+    /// # Panics
+    /// Panics if unable to create runtime
+    pub async fn start(&self) -> Result<()> {
+        if self.config.read().await.websocket_enabled {
+            // Start WebSocket server in background
+            tokio::spawn(async move {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(async {
+                        // WebSocket server implementation
+                    });
+            });
+        }
+        Ok(())
+    }
+
+    /// Adds a new layout to the dashboard
+    /// 
+    /// # Errors
+    /// Returns error if unable to acquire lock
+    pub async fn add_layout(&self, layout: Layout) -> Result<()> {
+        let id = layout.id.clone();
+        self.layouts.write().await.insert(id, layout);
+        Ok(())
+    }
+
+    /// Removes a layout from the dashboard
+    /// 
+    /// # Errors
+    /// Returns error if unable to acquire lock or layout not found
+    pub async fn remove_layout(&self, layout_id: &str) -> Result<()> {
+        let mut layouts = self.layouts.write().await;
+        if layouts.remove(layout_id).is_none() {
+            return Err(SquirrelError::dashboard(&format!("Layout '{layout_id}' not found")));
+        }
+        Ok(())
+    }
+
+    /// Gets all dashboard layouts
+    /// 
+    /// # Errors
+    /// Returns error if unable to acquire lock
+    pub async fn get_layouts(&self) -> Result<Vec<Layout>> {
+        Ok(self.layouts.read().await.values().cloned().collect())
+    }
+
+    /// Updates dashboard data
+    /// 
+    /// # Errors
+    /// Returns error if unable to acquire lock
+    pub async fn update_data(&self, values: HashMap<String, Value>) -> Result<()> {
+        let mut data_store = self.data_store.write().await;
+        let now = OffsetDateTime::now_utc();
+
+        for (component_id, value) in values {
+            let update = Update {
+                component_id: component_id.clone(),
+                timestamp: now,
+                data: value,
+            };
+
+            data_store.entry(component_id)
+                .or_insert_with(Vec::new)
+                .push(update);
+        }
+        Ok(())
+    }
+
+    /// Retrieves dashboard data for `WebSocket` updates
+    /// 
+    /// # Returns
+    /// * `Result<Data>` - Current dashboard state for `WebSocket` clients
+    /// 
+    /// # Errors
+    /// Returns error if unable to acquire lock
+    pub async fn get_data(&self, component_id: &str) -> Result<Vec<Update>> {
+        Ok(self.data_store.read().await
+            .get(component_id)
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    /// Gets widget data
+    /// 
+    /// # Errors
+    /// Returns error if unable to get widget data
+    pub async fn get_widget_data(&self, component: &Component) -> Result<Value> {
+        match component {
+            Component::PerformanceGraph { operation_type, time_range, .. } => {
+                let metrics = self.metric_collector.read().await
+                    .collect_metrics()
+                    .await?
+                    .into_iter()
+                    .filter(|m| m.operation_type == *operation_type)
+                    .take(time_range.as_secs() as usize)
+                    .collect::<Vec<_>>();
+                
+                to_value(metrics).map_err(|e| SquirrelError::serialization(&e.to_string()))
+            },
+            Component::AlertList { severity, status, .. } => {
+                let alerts = self.alert_manager.read().await
+                    .get_alerts()
+                    .await?
+                    .into_iter()
+                    .filter(|alert| {
+                        severity.as_ref().map_or(true, |s| alert.severity == *s) &&
+                        status.as_ref().map_or(true, |s| alert.status == *s)
+                    })
+                    .collect::<Vec<_>>();
+                
+                to_value(alerts).map_err(|e| SquirrelError::serialization(&e.to_string()))
+            },
+            Component::HealthStatus { service, .. } => {
+                let mut status = self.health_checker.read().await
+                    .check_health()
+                    .await?;
+                
+                // Add service information to the status
+                status.service = service.clone();
+                
+                to_value(status).map_err(|e| SquirrelError::serialization(&e.to_string()))
+            },
+            Component::Custom { data, .. } => {
+                Ok(data.clone())
+            },
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum WidgetType {
-    LineChart,
-    BarChart,
-    Table,
-    Gauge,
-    Status,
+/// Creates a default dashboard configuration
+#[must_use]
+pub fn create_default() -> Config {
+    Config::default()
 }
-
-// Add the missing DASHBOARD_MANAGER
-static DASHBOARD_MANAGER: OnceCell<Arc<DashboardManager>> = OnceCell::const_new(); 

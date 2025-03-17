@@ -8,7 +8,7 @@
 //! - Notification routing
 //! - Rate limiting
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::RwLock;
 use thiserror::Error;
 use time::OffsetDateTime;
@@ -96,64 +96,82 @@ pub struct RoutingRule {
     pub channels: Vec<String>,
 }
 
-/// Notification errors
+/// Errors that can occur during alert notification delivery.
+/// 
+/// This enum represents various error conditions that may arise when
+/// attempting to deliver alert notifications through different channels.
 #[derive(Debug, Error)]
 pub enum NotificationError {
+    /// Error related to notification channel configuration or operation.
     #[error("Channel error: {0}")]
     ChannelError(String),
+    /// Error related to notification template processing.
     #[error("Template error: {0}")]
     TemplateError(String),
+    /// Error due to rate limiting restrictions.
     #[error("Rate limit error: {0}")]
     RateLimitError(String),
+    /// Error related to notification routing.
     #[error("Routing error: {0}")]
     RoutingError(String),
+    /// System-level error during notification processing.
     #[error("System error: {0}")]
     SystemError(String),
+    /// Error in notification configuration.
     #[error("Config error: {0}")]
     ConfigError(String),
 }
 
-/// Notification manager for handling alert notifications
+/// Manager for handling alert notifications and their delivery.
+/// 
+/// This struct is responsible for managing notification templates,
+/// routing rules, rate limiting, and delivery through various channels.
 #[derive(Debug)]
 pub struct NotificationManager {
-    /// Configuration
+    /// Configuration for notification delivery.
     config: Arc<RwLock<NotificationConfig>>,
-    /// Template engine
+    /// Template engine for rendering notifications.
     templates: Arc<RwLock<Handlebars<'static>>>,
-    /// HTTP client
+    /// HTTP client for webhook notifications.
     client: reqwest::Client,
-    /// Rate limiter
+    /// Rate limiter for notification channels.
     rate_limiter: Arc<RwLock<std::collections::HashMap<String, OffsetDateTime>>>,
 }
 
-/// Email notification parameters
+/// Parameters for sending email notifications.
+/// 
+/// This struct contains all the necessary information for sending
+/// an alert notification via email.
 #[derive(Debug)]
 #[allow(dead_code)]
 struct EmailParams<'a> {
-    /// SMTP server address
+    /// SMTP server address.
     smtp_server: &'a str,
-    /// SMTP port
+    /// SMTP port number.
     smtp_port: u16,
-    /// SMTP username for authentication
+    /// SMTP username for authentication.
     username: &'a str,
-    /// SMTP password for authentication
+    /// SMTP password for authentication.
     password: &'a str,
-    /// Sender email address
+    /// Sender email address.
     from: &'a str,
-    /// Recipient email addresses
+    /// List of recipient email addresses.
     to: &'a [String],
-    /// Alert notification to send
+    /// Alert notification to be sent.
     alert: &'a AlertNotification,
 }
 
 impl NotificationManager {
-    /// Creates a new notification manager with the given configuration
-    ///
-    /// # Parameters
+    /// Creates a new notification manager with the given configuration.
+    /// 
+    /// # Arguments
+    /// 
     /// * `config` - The notification configuration to use
-    ///
-    /// # Errors
-    /// Returns an error if the configuration is invalid or if the notification channels cannot be initialized
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing the new manager if successful, or an error
+    /// if the configuration is invalid or channels cannot be initialized.
     pub fn new(config: NotificationConfig) -> Result<Self, NotificationError> {
         let mut handlebars = Handlebars::new();
         
@@ -172,13 +190,18 @@ impl NotificationManager {
         })
     }
 
-    /// Sends a notification for the given alert
-    ///
-    /// # Parameters
+    /// Sends a notification for the given alert.
+    /// 
+    /// This method handles routing the alert to appropriate channels based on
+    /// routing rules, applying rate limiting, and delivering the notification.
+    /// 
+    /// # Arguments
+    /// 
     /// * `alert` - The alert to send a notification for
-    ///
-    /// # Errors
-    /// Returns an error if the notification cannot be sent or if the configuration is invalid
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating whether the notification was sent successfully.
     pub async fn send_notification(&self, alert: &AlertNotification) -> Result<(), NotificationError> {
         let config = self.config.read().await;
 
@@ -366,7 +389,15 @@ impl NotificationManager {
         Ok(())
     }
 
-    /// Check rate limit for a channel
+    /// Checks if a notification can be sent through a channel based on rate limits.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `channel_id` - The ID of the channel to check
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing a boolean indicating whether sending is allowed.
     async fn check_rate_limit(&self, channel_id: &str) -> Result<bool, NotificationError> {
         let config = self.config.read().await;
         let rate_limit = config.rate_limit;
@@ -414,14 +445,16 @@ impl NotificationManager {
         Ok(())
     }
 
-    /// Checks if an alert matches a routing rule
-    ///
-    /// # Parameters
+    /// Checks if a routing rule matches an alert.
+    /// 
+    /// # Arguments
+    /// 
     /// * `rule` - The routing rule to check
-    /// * `alert` - The alert to check against the rule
-    ///
+    /// * `alert` - The alert to check against
+    /// 
     /// # Returns
-    /// `true` if the alert matches the rule, `false` otherwise
+    /// 
+    /// Returns true if the rule matches the alert.
     fn check_routing_rule(rule: &RoutingRule, alert: &AlertNotification) -> bool {
         // Check severity filter
         let severity_match = match &rule.severity {
@@ -439,8 +472,122 @@ impl NotificationManager {
     }
 }
 
-fn get_severity_color(severity: &AlertSeverity) -> &'static str {
+const fn get_severity_color(severity: &AlertSeverity) -> &'static str {
     severity.color()
+}
+
+/// Factory for creating and managing notification manager instances
+#[derive(Debug, Clone)]
+pub struct NotificationManagerFactory {
+    /// Configuration for creating notification managers
+    config: NotificationConfig,
+}
+
+impl NotificationManagerFactory {
+    /// Creates a new factory with default configuration
+    ///
+    /// # Errors
+    /// Returns an error if the default configuration is invalid
+    pub const fn new() -> Result<Self, NotificationError> {
+        Ok(Self {
+            config: NotificationConfig {
+                channels: Vec::new(),
+                rate_limit: 300, // 5 minutes
+                templates: Vec::new(),
+                routing_rules: Vec::new(),
+            },
+        })
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: NotificationConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a notification manager
+    ///
+    /// # Errors
+    /// Returns an error if the notification manager cannot be created
+    pub fn create_manager(&self) -> Result<Arc<NotificationManager>, NotificationError> {
+        let manager = NotificationManager::new(self.config.clone())?;
+        Ok(Arc::new(manager))
+    }
+
+    /// Initializes and returns a global notification manager instance
+    ///
+    /// # Errors
+    /// Returns an error if the manager is already initialized or creation fails
+    pub async fn initialize_global_manager(&self) -> Result<Arc<NotificationManager>, Box<dyn std::error::Error>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<NotificationManager>> = OnceLock::new();
+
+        let manager = self.create_manager()?;
+        
+        match GLOBAL_MANAGER.set(manager.clone()) {
+            Ok(()) => Ok(manager),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_MANAGER.get()
+                    .ok_or_else(|| Box::<dyn std::error::Error>::from("Failed to get global notification manager"))?
+                    .clone())
+            }
+        }
+    }
+
+    /// Gets the global notification manager, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the notification manager cannot be initialized
+    pub async fn get_global_manager(&self) -> Result<Arc<NotificationManager>, Box<dyn std::error::Error>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<NotificationManager>> = OnceLock::new();
+
+        if let Some(manager) = GLOBAL_MANAGER.get() {
+            return Ok(manager.clone());
+        }
+
+        self.initialize_global_manager().await
+    }
+}
+
+/// Global factory for creating notification managers
+static FACTORY: OnceLock<NotificationManagerFactory> = OnceLock::new();
+
+/// Initialize the notification manager factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized or if the default factory cannot be created
+pub fn initialize_factory(config: Option<NotificationConfig>) -> Result<(), Box<dyn std::error::Error>> {
+    let factory = match config {
+        Some(cfg) => NotificationManagerFactory::with_config(cfg),
+        None => NotificationManagerFactory::new()?,
+    };
+    
+    match FACTORY.set(factory) {
+        Ok(()) => Ok(()),
+        Err(_) => Err(Box::<dyn std::error::Error>::from("Notification manager factory already initialized")),
+    }
+}
+
+/// Get the notification manager factory
+pub fn get_factory() -> Option<NotificationManagerFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the notification manager factory
+///
+/// # Errors
+/// Returns an error if the factory cannot be created
+pub fn ensure_factory() -> Result<NotificationManagerFactory, Box<dyn std::error::Error>> {
+    if let Some(factory) = FACTORY.get() { Ok(factory.clone()) } else {
+        let factory = NotificationManagerFactory::new()?;
+        match FACTORY.set(factory.clone()) {
+            Ok(()) => Ok(factory),
+            Err(_) => {
+                // Race condition - another thread set the factory
+                Ok(FACTORY.get().unwrap().clone())
+            }
+        }
+    }
 }
 
 // Module initialization
@@ -455,8 +602,10 @@ static NOTIFICATION_MANAGER: tokio::sync::OnceCell<Arc<NotificationManager>> =
 /// # Errors
 /// Returns an error if the notification manager is already initialized or if initialization fails
 pub async fn initialize(config: NotificationConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let manager = Arc::new(NotificationManager::new(config)?);
+    let factory = NotificationManagerFactory::with_config(config);
+    let manager = factory.create_manager()?;
 
+    // For backward compatibility, also set in the old static
     NOTIFICATION_MANAGER.set(manager)
         .map_err(|_| Box::<dyn std::error::Error>::from("Notification manager already initialized"))?;
     

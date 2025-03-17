@@ -1,155 +1,93 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use thiserror::Error;
 
+// Context module for managing application state and persistence
+//
+// This module provides functionality for:
+// - State management
+// - Persistence
+// - Synchronization
+// - Recovery
+// - State tracking
+
+/// Persistence functionality for storing and loading context state
 pub mod persistence;
+/// Synchronization functionality for distributed context state
 pub mod sync;
+/// Recovery functionality for handling context state failures
 pub mod recovery;
+/// Tracking functionality for monitoring context state changes
 pub mod tracker;
 
+/// A snapshot of context state at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSnapshot {
+    /// Unique identifier for the snapshot
     pub id: String,
+    /// Time when the snapshot was created
     pub timestamp: SystemTime,
+    /// State data at the time of snapshot
     pub state: ContextState,
+    /// Additional metadata about the snapshot
     pub metadata: Option<Value>,
 }
 
+/// State data for a context
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextState {
+    /// Version number of the state
     pub version: u64,
+    /// State data
     pub data: Value,
+    /// Time of last modification
     pub last_modified: SystemTime,
 }
 
+/// Errors that can occur during context operations
 #[derive(Debug, Error)]
 pub enum ContextError {
+    /// Error when state is invalid
     #[error("Invalid state: {0}")]
     InvalidState(String),
+    /// Error during state recovery
     #[error("Recovery error: {0}")]
     RecoveryError(String),
+    /// Error during state persistence
     #[error("Persistence error: {0}")]
     PersistenceError(String),
+    /// Error when snapshot is not found
     #[error("Snapshot not found")]
     SnapshotNotFound,
-    #[error("No valid snapshot found")]
+    /// Error when no valid snapshot exists
+    #[error("No valid snapshot available")]
     NoValidSnapshot,
 }
 
-pub trait ContextSubscriber: Send + Sync {
+/// Subscriber for context state changes and errors
+pub trait ContextSubscriber: Send + Sync + std::fmt::Debug {
+    /// Called when context state changes
+    ///
+    /// # Arguments
+    /// * `old_state` - Previous state
+    /// * `new_state` - New state
     fn on_state_change(&self, old_state: &ContextState, new_state: &ContextState);
+
+    /// Called when a context error occurs
+    ///
+    /// # Arguments
+    /// * `error` - The error that occurred
     fn on_error(&self, error: &ContextError);
 }
 
+/// Tracks context state changes and notifies subscribers
+#[derive(Debug)]
 pub struct ContextTracker {
-    state: Arc<RwLock<ContextState>>,
-    history: VecDeque<ContextSnapshot>,
     subscribers: Vec<Box<dyn ContextSubscriber>>,
-}
-
-impl ContextTracker {
-    pub fn new() -> Self {
-        Self {
-            state: Arc::new(RwLock::new(ContextState {
-                version: 0,
-                data: Value::Null,
-                last_modified: SystemTime::now(),
-            })),
-            history: VecDeque::with_capacity(100), // Keep last 100 snapshots
-            subscribers: Vec::new(),
-        }
-    }
-
-    pub fn subscribe(&mut self, subscriber: Box<dyn ContextSubscriber>) {
-        self.subscribers.push(subscriber);
-    }
-
-    /// Updates the context state with new data
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContextError` if:
-    /// - Unable to acquire the write lock for the state
-    /// - The state update fails
-    pub fn update_state(&mut self, new_data: Value) -> Result<(), ContextError> {
-        let mut state = self.state.write().map_err(|_| {
-            ContextError::InvalidState("Failed to acquire write lock".to_string())
-        })?;
-
-        let old_state = state.clone();
-        
-        // Update state
-        state.version += 1;
-        state.data = new_data;
-        state.last_modified = SystemTime::now();
-
-        // Create snapshot
-        let snapshot = ContextSnapshot {
-            id: format!("snapshot_{}", state.version),
-            timestamp: state.last_modified,
-            state: state.clone(),
-            metadata: None,
-        };
-
-        // Add to history
-        if self.history.len() >= 100 {
-            self.history.pop_front();
-        }
-        self.history.push_back(snapshot);
-
-        // Notify subscribers
-        for subscriber in &self.subscribers {
-            subscriber.on_state_change(&old_state, &state);
-        }
-
-        Ok(())
-    }
-
-    /// Gets the current context state
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContextError` if:
-    /// - Unable to acquire the read lock for the state
-    pub fn get_state(&self) -> Result<ContextState, ContextError> {
-        self.state.read()
-            .map(|state| state.clone())
-            .map_err(|_| ContextError::InvalidState("Failed to acquire read lock".to_string()))
-    }
-
-    pub fn get_history(&self) -> &VecDeque<ContextSnapshot> {
-        &self.history
-    }
-
-    /// Rolls back the context state to a specific version
-    ///
-    /// # Errors
-    ///
-    /// Returns a `ContextError` if:
-    /// - The specified version is not found in the history
-    /// - Unable to acquire the write lock for the state
-    pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
-        if let Some(snapshot) = self.history.iter().find(|s| s.state.version == version) {
-            let mut state = self.state.write().map_err(|_| {
-                ContextError::InvalidState("Failed to acquire write lock".to_string())
-            })?;
-
-            let old_state = state.clone();
-            *state = snapshot.state.clone();
-
-            // Notify subscribers
-            for subscriber in &self.subscribers {
-                subscriber.on_state_change(&old_state, &state);
-            }
-
-            Ok(())
-        } else {
-            Err(ContextError::InvalidState(format!("Version {version} not found")))
-        }
-    }
+    history: VecDeque<ContextSnapshot>,
+    max_history: usize,
 }
 
 impl Default for ContextTracker {
@@ -158,10 +96,43 @@ impl Default for ContextTracker {
     }
 }
 
+impl ContextTracker {
+    /// Creates a new context tracker
+    #[must_use] pub fn new() -> Self {
+        Self {
+            subscribers: Vec::new(),
+            history: VecDeque::new(),
+            max_history: 100,
+        }
+    }
+
+    /// Subscribes to context state changes and errors
+    ///
+    /// # Arguments
+    /// * `subscriber` - The subscriber to add
+    pub fn subscribe(&mut self, subscriber: Box<dyn ContextSubscriber>) {
+        self.subscribers.push(subscriber);
+    }
+
+    /// Gets the history of context state changes
+    ///
+    /// # Returns
+    /// * `&VecDeque<ContextSnapshot>` - The history of state changes
+    #[must_use] pub const fn get_history(&self) -> &VecDeque<ContextSnapshot> {
+        &self.history
+    }
+}
+
+/// Data associated with a context
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextData {
+    /// Unique identifier for the context
     pub id: String,
+    /// Display name of the context
     pub name: String,
+    /// Additional metadata about the context
     pub metadata: Option<Value>,
+    /// Context data
     pub data: Value,
 }
 

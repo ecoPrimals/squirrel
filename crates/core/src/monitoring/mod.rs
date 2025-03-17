@@ -48,7 +48,7 @@ use tokio::sync::mpsc;
 use tracing::debug;
 
 /// Converts a `SystemTime` to a Unix timestamp (seconds since Unix epoch)
-pub fn system_time_to_timestamp(time: SystemTime) -> i64 {
+#[must_use] pub fn system_time_to_timestamp(time: SystemTime) -> i64 {
     time.duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64
@@ -156,14 +156,12 @@ pub enum MonitoringError {
     SystemError(String),
 }
 
-// Static instance for global access
-static MONITORING_SERVICE: OnceCell<Arc<MonitoringService>> = OnceCell::const_new();
 // Factory for global access (replaces direct service access)
 static MONITORING_FACTORY: OnceCell<Arc<MonitoringServiceFactory>> = OnceCell::const_new();
 
 impl MonitoringService {
     /// Create a new monitoring service
-    pub fn new(config: MonitoringConfig) -> Self {
+    #[must_use] pub fn new(config: MonitoringConfig) -> Self {
         let health_checker = Arc::new(DefaultHealthChecker::new());
         let metric_collector = Arc::new(DefaultMetricCollector::new());
         let alert_manager = Arc::new(DefaultAlertManager::new(config.alerts.clone()));
@@ -260,22 +258,22 @@ impl MonitoringService {
     }
 
     /// Get the health checker component
-    pub fn health_checker(&self) -> Arc<DefaultHealthChecker> {
+    #[must_use] pub fn health_checker(&self) -> Arc<DefaultHealthChecker> {
         self.health_checker.clone()
     }
 
     /// Get the metric collector component
-    pub fn metric_collector(&self) -> Arc<DefaultMetricCollector> {
+    #[must_use] pub fn metric_collector(&self) -> Arc<DefaultMetricCollector> {
         self.metric_collector.clone()
     }
 
     /// Get the alert manager component
-    pub fn alert_manager(&self) -> Arc<DefaultAlertManager> {
+    #[must_use] pub fn alert_manager(&self) -> Arc<DefaultAlertManager> {
         self.alert_manager.clone()
     }
 
     /// Get the network monitor component
-    pub fn network_monitor(&self) -> Arc<NetworkMonitor> {
+    #[must_use] pub fn network_monitor(&self) -> Arc<NetworkMonitor> {
         self.network_monitor.clone()
     }
 
@@ -393,17 +391,17 @@ impl MonitoringService {
 
 impl MonitoringServiceFactory {
     /// Create a new factory with default configuration
-    pub fn new(default_config: MonitoringConfig) -> Self {
+    #[must_use] pub const fn new(default_config: MonitoringConfig) -> Self {
         Self { default_config }
     }
     
     /// Create a service using the default configuration
-    pub fn create_service(&self) -> Arc<MonitoringService> {
+    #[must_use] pub fn create_service(&self) -> Arc<MonitoringService> {
         Arc::new(MonitoringService::new(self.default_config.clone()))
     }
     
     /// Create a service with a custom configuration
-    pub fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<MonitoringService> {
+    #[must_use] pub fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<MonitoringService> {
         Arc::new(MonitoringService::new(config))
     }
     
@@ -423,45 +421,92 @@ impl MonitoringServiceFactory {
 }
 
 /// Initialize the monitoring system
-pub async fn initialize(config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
+///
+/// This initializes the global monitoring factory singleton using the default configuration.
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<MonitoringConfig>) -> Result<Arc<MonitoringServiceFactory>> {
+    let cfg = config.unwrap_or_default();
+    
     // Create and initialize the factory
-    let factory = Arc::new(MonitoringServiceFactory::new(config.clone()));
+    let factory = Arc::new(MonitoringServiceFactory::new(cfg));
     
     // Set the factory in the global OnceCell
     MONITORING_FACTORY
         .set(factory.clone())
         .map_err(|_| SquirrelError::monitoring("Monitoring factory already initialized"))?;
     
+    Ok(factory)
+}
+
+/// Get the global monitoring factory
+///
+/// # Returns
+/// The global monitoring factory, if initialized
+///
+/// # Errors
+/// Returns an error if the factory hasn't been initialized
+pub fn get_factory() -> Result<Arc<MonitoringServiceFactory>> {
+    MONITORING_FACTORY.get()
+        .cloned()
+        .ok_or_else(|| SquirrelError::monitoring("Monitoring factory not initialized"))
+}
+
+/// Initialize the monitoring system
+///
+/// # Errors
+/// Returns an error if initialization fails
+pub async fn initialize(config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
+    // Initialize component factories first
+    health::initialize_factory(Some(config.health.clone()))?;
+    metrics::performance::initialize_factory(None)?;
+    dashboard::initialize_factory(None)?;
+    
+    // Initialize additional factories
+    let _ = metrics::export::initialize_factory(None);
+    let _ = metrics::resource::initialize_factory(None);
+    
+    // Initialize alert/notification factories
+    let _ = alerts::initialize_factory(Some(config.alerts.clone()));
+    let _ = network::initialize_factory(Some(config.network.clone()));
+    
+    // Initialize dashboard manager
+    let _ = dashboard::initialize(None).await;
+    
+    // Create and initialize the factory
+    let factory = initialize_factory(Some(config.clone()))?;
+    
     // Create and start a service
     let service = factory.create_service_with_config(config);
     service.start().await?;
     
-    // For backward compatibility, still set the service in the global OnceCell
-    MONITORING_SERVICE
-        .set(service.clone())
-        .map_err(|_| SquirrelError::monitoring("Monitoring service already initialized"))?;
-    
     Ok(service)
 }
 
-/// Get the monitoring service factory
-pub fn get_factory() -> Option<Arc<MonitoringServiceFactory>> {
-    MONITORING_FACTORY.get().cloned()
+/// Start the monitoring service with the global factory
+///
+/// # Errors
+/// Returns an error if the factory hasn't been initialized or if starting the service fails
+pub async fn start_service() -> Result<Arc<MonitoringService>> {
+    let factory = get_factory()?;
+    factory.start_service().await
 }
 
-/// Get the monitoring service instance
-pub fn get_service() -> Option<Arc<MonitoringService>> {
-    MONITORING_SERVICE.get().cloned()
-}
-
-/// Check if the monitoring system is initialized
-pub fn is_initialized() -> bool {
-    MONITORING_SERVICE.get().is_some()
+/// Initialize the monitoring service with default configuration
+///
+/// # Errors
+/// Returns an error if the service is already initialized
+pub fn initialize_service() -> Result<()> {
+    // Initialize the factory with default config
+    initialize_factory(None)?;
+    
+    Ok(())
 }
 
 /// Shutdown the monitoring system
 pub async fn shutdown() -> Result<()> {
-    if let Some(service) = MONITORING_SERVICE.get() {
+    if let Some(service) = MONITORING_FACTORY.get() {
         service.stop().await?;
         // Note: We don't reset the OnceCell here as it's not possible
         // with the current API. This is a limitation that needs addressing
@@ -472,7 +517,7 @@ pub async fn shutdown() -> Result<()> {
 
 /// Get protocol metrics
 pub async fn get_protocol_metrics() -> Option<serde_json::Value> {
-    let service = get_service()?;
+    let service = get_factory()?.create_service();
     let _metrics = service.metric_collector().collect_metrics().await.ok()?;
     
     let protocol_metrics = serde_json::json!({
@@ -488,7 +533,7 @@ pub async fn get_protocol_metrics() -> Option<serde_json::Value> {
 
 /// Get tool metrics
 pub async fn get_tool_metrics(tool_name: &str) -> Option<serde_json::Value> {
-    let service = get_service()?;
+    let service = get_factory()?.create_service();
     let _metrics = service.metric_collector().collect_metrics().await.ok()?;
     
     let tool_metrics = serde_json::json!({
@@ -504,7 +549,7 @@ pub async fn get_tool_metrics(tool_name: &str) -> Option<serde_json::Value> {
 
 /// Get all tool metrics
 pub async fn get_all_tool_metrics() -> Option<HashMap<String, serde_json::Value>> {
-    let _service = get_service()?;
+    let _service = get_factory()?.create_service();
     
     let mut result = HashMap::new();
     result.insert("default".to_string(), serde_json::json!({
@@ -532,5 +577,66 @@ impl From<TimeWrapper> for SystemTime {
         } else {
             UNIX_EPOCH - Duration::new(unix_timestamp.unsigned_abs(), nanos)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_monitoring_service_factory_new() {
+        let config = MonitoringConfig::default();
+        let factory = MonitoringServiceFactory::new(config.clone());
+        
+        assert_eq!(factory.config, config);
+    }
+    
+    #[test]
+    fn test_monitoring_service_factory_create_service() {
+        let config = MonitoringConfig::default();
+        let factory = MonitoringServiceFactory::new(config);
+        
+        let service = factory.create_service();
+        assert!(Arc::strong_count(&service) > 0);
+    }
+    
+    #[test]
+    fn test_monitoring_service_factory_create_service_with_config() {
+        let default_config = MonitoringConfig::default();
+        let factory = MonitoringServiceFactory::new(default_config);
+        
+        let custom_config = MonitoringConfig {
+            logging: LoggingConfig {
+                level: "trace".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        
+        let service = factory.create_service_with_config(custom_config.clone());
+        assert_eq!(service.config, custom_config);
+    }
+    
+    #[test]
+    fn test_initialize_factory() {
+        let result = initialize_factory(None);
+        assert!(result.is_ok());
+        
+        // Second initialization should fail
+        let result = initialize_factory(None);
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_get_factory() {
+        // Factory not initialized yet
+        let result = get_factory();
+        assert!(result.is_err());
+        
+        // Initialize factory and try again
+        let _ = initialize_factory(None);
+        let result = get_factory();
+        assert!(result.is_ok());
     }
 } 
