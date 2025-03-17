@@ -80,7 +80,7 @@ impl CommandHandler {
             let process_future = handler.process(&command);
             Pin::from(process_future).await
         } else {
-            Err(SquirrelError::command_not_found(&command.command_type))
+            Err(SquirrelError::Other(format!("Command not found: {}", command.command_type)))
         }
     }
 }

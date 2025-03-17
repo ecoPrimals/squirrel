@@ -9,11 +9,15 @@ use thiserror::Error;
 pub enum SquirrelError {
     /// Errors originating from the app module
     #[error("App error: {0}")]
-    App(#[from] crate::app::error::CoreError),
+    App(String),
 
     /// Errors originating from the MCP module
     #[error("MCP error: {0}")]
     MCP(#[from] MCPError),
+    
+    /// Errors originating from the monitoring module
+    #[error("Monitoring error: {0}")]
+    Monitoring(String),
     
     /// Other miscellaneous errors that don't fit into specific categories
     #[error("Other error: {0}")]

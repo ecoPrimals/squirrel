@@ -150,12 +150,13 @@ impl CommandValidator {
     /// # Errors
     /// Returns an error if the write lock cannot be acquired.
     #[allow(dead_code)]
-    pub fn add_rule(&mut self, rule: Box<dyn ValidationRule>) -> Result<(), Box<dyn Error>> {
-        self.rules.write().map(|mut rules| rules.push(rule))
-            .map_err(|e| Box::new(ValidationError {
-                rule_name: "RuleAddition".to_string(),
-                message: format!("Failed to acquire write lock: {e}"),
-            }) as Box<dyn Error>)
+    pub fn add_rule(&self, rule: Box<dyn ValidationRule>) -> Result<(), Box<dyn Error>> {
+        let mut rules = self.rules.write().map_err(|e| Box::new(ValidationError {
+            rule_name: "RuleAddition".to_string(),
+            message: format!("Failed to acquire write lock: {e}"),
+        }))?;
+        rules.push(rule);
+        Ok(())
     }
 
     /// Validates a command against all registered validation rules
@@ -211,6 +212,12 @@ impl CommandValidator {
         }
 
         Ok(())
+    }
+
+    /// Returns the number of rules in the validator
+    #[allow(dead_code)]
+    pub fn rules(&self) -> usize {
+        self.rules.read().map(|rules| rules.len()).unwrap_or(0)
     }
 }
 
@@ -558,7 +565,7 @@ impl ValidationRule for InputSanitizationRule {
     }
 
     fn description(&self) -> &'static str {
-        "Validates and sanitizes input values"
+        "Validates command input against unsafe patterns"
     }
 }
 
@@ -649,7 +656,7 @@ impl ValidationRule for ResourceValidationRule {
     }
 
     fn description(&self) -> &'static str {
-        "Validates resource usage limits"
+        "Validates command against resource limits"
     }
 }
 
@@ -662,11 +669,11 @@ mod tests {
     struct TestCommand;
 
     impl Command for TestCommand {
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "test"
         }
 
-        fn description(&self) -> &str {
+        fn description(&self) -> &'static str {
             "A test command"
         }
 
@@ -688,12 +695,12 @@ mod tests {
     struct ShortNameCommand;
 
     impl Command for ShortNameCommand {
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "t"
         }
 
-        fn description(&self) -> &str {
-            "A test command"
+        fn description(&self) -> &'static str {
+            "Short name command"
         }
 
         fn parser(&self) -> clap::Command {
@@ -714,12 +721,12 @@ mod tests {
     struct LongNameCommand;
 
     impl Command for LongNameCommand {
-        fn name(&self) -> &str {
-            "verylongname"
+        fn name(&self) -> &'static str {
+            "very_long_command_name_that_exceeds_the_limit"
         }
 
-        fn description(&self) -> &str {
-            "A test command"
+        fn description(&self) -> &'static str {
+            "Long name command"
         }
 
         fn parser(&self) -> clap::Command {
@@ -740,14 +747,14 @@ mod tests {
     struct ShortDescCommand;
 
     impl Command for ShortDescCommand {
-        fn name(&self) -> &str {
-            "test"
+        fn name(&self) -> &'static str {
+            "short_desc"
         }
-
-        fn description(&self) -> &str {
-            "test"
+        
+        fn description(&self) -> &'static str {
+            "Shrt"
         }
-
+        
         fn parser(&self) -> clap::Command {
             clap::Command::new("test")
                 .about("test")
@@ -821,7 +828,7 @@ mod tests {
 
     #[test]
     fn test_validator_rules() {
-        let mut validator = CommandValidator::new();
+        let validator = CommandValidator::new();
         let rule = NameLengthRule::new(3, 10);
         validator.add_rule(Box::new(rule)).unwrap();
         let command = TestCommand;
@@ -837,7 +844,7 @@ mod tests {
             let context = Arc::clone(&context);
             handles.push(std::thread::spawn(move || {
                 context
-                    .set(&format!("key{}", i), &format!("value{}", i))
+                    .set(&format!("key{i}"), &format!("value{i}"))
                     .unwrap();
             }));
         }
@@ -848,8 +855,8 @@ mod tests {
 
         for i in 0..10 {
             assert_eq!(
-                context.get(&format!("key{}", i)).unwrap().map(|s| s.to_string()),
-                Some(format!("value{}", i))
+                context.get(&format!("key{i}")).unwrap().map(|s| s.to_string()),
+                Some(format!("value{i}"))
             );
         }
     }

@@ -6,16 +6,15 @@
 
 use std::{fmt::Debug, sync::Arc, path::PathBuf};
 use serde::{Serialize, Deserialize};
-use crate::monitoring::{
-    MonitoringService,
+use crate::app::monitoring::{
     MonitoringConfig,
-    MonitoringServiceFactory,
+    MonitoringServiceTrait,
+    MonitoringServiceFactoryTrait,
+    MonitoringServiceFactoryImpl,
 };
 use crate::app::context::AppContext;
 use crate::app::events::DefaultEventEmitter;
 use crate::error::Result;
-
-pub use metrics::Metrics;
 
 /// Command processing functionality including handlers, hooks and processors
 pub mod command;
@@ -39,10 +38,10 @@ pub struct App {
     context: Arc<AppContext>,
     /// Event emitter
     event_emitter: Arc<DefaultEventEmitter>,
-    /// Monitoring service (optional)
-    monitoring_factory: Option<Arc<MonitoringServiceFactory>>,
+    /// Monitoring service factory (optional)
+    monitoring_factory: Option<Arc<dyn MonitoringServiceFactoryTrait + Send + Sync>>,
     /// Active monitoring service (optional)
-    monitoring: Option<Arc<MonitoringService>>,
+    monitoring: Option<Arc<dyn MonitoringServiceTrait + Send + Sync>>,
 }
 
 impl App {
@@ -58,11 +57,14 @@ impl App {
         let context = Arc::new(AppContext::new(config.clone(), event_emitter.clone()));
         
         let (monitoring_factory, monitoring) = if let Some(ref monitoring_config) = config.monitoring {
+            // Convert MonitoringConfig to MonitoringConfigType
+            let config_map: std::collections::HashMap<String, String> = monitoring_config.to_map();
+            
             // Create the factory
-            let factory = Arc::new(MonitoringServiceFactory::new(monitoring_config.clone()));
+            let factory: Arc<dyn MonitoringServiceFactoryTrait + Send + Sync> = Arc::new(MonitoringServiceFactoryImpl::new(config_map.clone()));
             
             // Create and start a service
-            let service = factory.create_service_with_config(monitoring_config.clone());
+            let service = factory.create_service_with_config(config_map);
             service.start().await?;
             
             (Some(factory), Some(service))
@@ -93,13 +95,13 @@ impl App {
 
     /// Get the monitoring service if available
     #[must_use]
-    pub fn monitoring(&self) -> Option<Arc<MonitoringService>> {
+    pub fn monitoring(&self) -> Option<Arc<dyn MonitoringServiceTrait + Send + Sync>> {
         self.monitoring.clone()
     }
     
     /// Get the monitoring service factory if available
     #[must_use]
-    pub fn monitoring_factory(&self) -> Option<Arc<MonitoringServiceFactory>> {
+    pub fn monitoring_factory(&self) -> Option<Arc<dyn MonitoringServiceFactoryTrait + Send + Sync>> {
         self.monitoring_factory.clone()
     }
 
@@ -149,6 +151,18 @@ impl Default for AppConfig {
     }
 }
 
+pub use command::CommandHandler;
+pub use context::Context;
+pub use metrics::Metrics;
+pub use core::Core;
+
+// Remove the monitoring re-exports since they're causing issues
+// pub use crate::monitoring::{
+//     MonitoringService,
+//     MonitoringConfig,
+//     MonitoringServiceFactory,
+// };
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,9 +170,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_app_lifecycle() {
-        // Make sure any existing monitoring service is shut down
-        let _ = crate::monitoring::shutdown().await;
-        
         // Create app config with monitoring enabled
         let temp_dir = std::env::temp_dir().join("squirrel_test_app");
         let _ = std::fs::create_dir_all(&temp_dir);
@@ -181,7 +192,7 @@ mod tests {
         
         if let Some(monitoring) = monitoring {
             // Test health checking
-            let health = monitoring.get_health().await;
+            let health = monitoring.get_system_status().await;
             assert!(health.is_ok(), "Health check should succeed");
             
             // Test metric collection
@@ -192,17 +203,16 @@ mod tests {
         // Stop the app
         app.stop().await.expect("Failed to stop app");
         
-        // Make sure monitoring is shut down for other tests
-        let _ = crate::monitoring::shutdown().await;
-        
         // Clean up test directory
         let _ = std::fs::remove_dir_all(temp_dir);
     }
 }
 
-// Re-export commonly used types
-pub use command::CommandHandler;
-pub use context::Context;
-// pub use error::Error as AppError;
-// pub use event::Event;
-// pub use monitoring::Monitor; 
+// Import these from the crate root if they exist there
+// pub use self::core::Core;
+// pub use self::error::{CoreError, Result as CoreResult}; // Rename to avoid conflict
+// pub use self::events::EventHandler; // Changed from EventManager
+// pub use self::monitoring::MonitoringService; // Changed from MonitoringManager
+// pub use self::metrics::Metrics; // Changed from MetricsManager
+// pub use self::context::AppContext; // Changed from ContextManager
+// pub use self::command::CommandHandler; // Changed from CommandManager 

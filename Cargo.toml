@@ -23,8 +23,8 @@ type_complexity = "allow"
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
-cargo = { level = "allow", priority = -1 }
-complexity = { level = "allow", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
 perf = { level = "warn", priority = -1 }
 style = { level = "warn", priority = -1 }
 suspicious = { level = "warn", priority = -1 }
@@ -49,7 +49,7 @@ implicit-saturating-sub = "warn"
 indexing-slicing = "warn"
 manual-assert = "warn"
 manual-ok-or = "warn"
-missing-errors-doc = "allow"
+missing-errors-doc = "warn"
 missing-panics-doc = "warn"
 must-use-candidate = "warn"
 needless-borrow = "warn"
@@ -63,8 +63,13 @@ module-name-repetitions = "allow"
 too-many-lines = "allow"
 similar-names = "allow"
 significant-drop-tightening = "allow"
-unused-async = "allow"
+unused-async = "warn"
 raw-string-hashes = "allow"
+
+# Enforce documentation standards
+missing_docs_in_private_items = "warn"
+undocumented_unsafe_blocks = "warn"
+todo = "warn"
 
 [workspace.dependencies]
 # Core dependencies
@@ -72,8 +77,10 @@ tokio = { version = "1.0", features = ["full"] }
 futures = { version = "0.3" }
 async-trait = { version = "0.1" }
 thiserror = "1.0"
+anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sled = "0.34"
 time = { version = "0.3", features = ["serde"] }
 metrics = "0.21"
 metrics-exporter-prometheus = "0.12"

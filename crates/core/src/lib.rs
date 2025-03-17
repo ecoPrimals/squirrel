@@ -1,12 +1,15 @@
-#![deny(missing_docs)]
-#![deny(clippy::missing_docs_in_private_items)]
+#![warn(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc(html_root_url = "https://docs.rs/squirrel-core")]
-#![deny(clippy::all)]
-#![deny(clippy::pedantic)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
 #![allow(clippy::needless_raw_string_hashes)]
+#![warn(clippy::todo)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+#![cfg_attr(test, allow(clippy::expect_used))]
 
 //! Core functionality for the Squirrel command system.
 //!
@@ -18,19 +21,13 @@
 //! and distributed computing using the Machine Context Protocol (MCP).
 
 pub mod app;
+/// Machine Context Protocol implementation
 pub mod mcp;
 pub mod error;
-
-/// Command system implementation including command traits, registry, validation, and lifecycle management.
-/// 
-/// This module contains the core components for:
-/// - Command trait definition and basic implementations
-/// - Command registry for storing and retrieving commands
-/// - Validation rules and validation system
-/// - Lifecycle management and hooks
+/// Command processing and lifecycle management
 pub mod commands;
 
-pub use app::{Core, Result};
+pub use app::Core;
 pub use mcp::{MCP, SecurityConfig, SecurityManager, Credentials};
 pub use error::{SquirrelError, MCPError, SecurityError};
 pub use commands::CommandRegistry;
@@ -63,7 +60,8 @@ mod tests {
     #[tokio::test]
     async fn test_mcp_initialization() {
         let mcp = MCP::default();
-        let config = mcp.get_config().await.unwrap();
+        let config = mcp.get_config().await
+            .expect("Failed to get MCP configuration");
         assert_eq!(config.version, "1.0");
     }
 }

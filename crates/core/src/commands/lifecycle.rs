@@ -128,6 +128,12 @@ impl CommandLifecycle {
         hooks.push(hook);
         Ok(())
     }
+
+    /// Returns the number of hooks registered with the lifecycle manager
+    #[allow(dead_code)]
+    pub fn hooks(&self) -> usize {
+        self.hooks.read().map(|hooks| hooks.len()).unwrap_or(0)
+    }
 }
 
 #[cfg(test)]

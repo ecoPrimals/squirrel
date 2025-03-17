@@ -6,7 +6,7 @@
 
 use std::fmt;
 use serde::{Serialize, Deserialize};
-use time::OffsetDateTime;
+use chrono::{DateTime, Utc};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
 use thiserror::Error;
-use uuid;
+use uuid::Uuid;
 
 /// Errors that can occur during event processing
 #[derive(Debug, Error)]
@@ -76,19 +76,22 @@ pub enum EventData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     /// Unique identifier for the event
-    pub id: String,
+    pub id: Uuid,
     /// Type of event
-    pub event_type: EventType,
+    pub event_type: String,
     /// Event metadata
     pub metadata: EventMetadata,
     /// Event payload
-    pub payload: Value,
+    pub data: serde_json::Value,
 }
 
 /// Builder for creating new events
 pub struct EventBuilder {
+    /// Type of event being built
     event_type: EventType,
+    /// Event data payload
     data: Value,
+    /// Event metadata including timestamp and labels
     metadata: EventMetadata,
 }
 
@@ -100,7 +103,7 @@ impl Event {
     /// * `payload` - Event data
     /// * `metadata` - Optional event metadata
     #[must_use] pub fn new(
-        event_type: EventType,
+        event_type: &EventType,
         payload: Value,
         metadata: Option<HashMap<String, String>>,
     ) -> Self {
@@ -111,9 +114,9 @@ impl Event {
         }
         
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            event_type,
-            payload,
+            id: Uuid::new_v4(),
+            event_type: event_type.to_string(),
+            data: payload,
             metadata: event_metadata,
         }
     }
@@ -151,20 +154,20 @@ impl Event {
 
     /// Get the event type
     #[must_use = "This returns the event type which may be needed for conditional handling"]
-    pub const fn event_type(&self) -> &EventType {
+    pub fn event_type(&self) -> &str {
         &self.event_type
     }
 
     /// Get the timestamp
     #[must_use = "This returns the event timestamp which may be needed for time-based processing"]
-    pub const fn timestamp(&self) -> OffsetDateTime {
+    pub fn timestamp(&self) -> DateTime<Utc> {
         self.metadata.timestamp
     }
 
     /// Get the data
     #[must_use = "This returns the event data which contains the payload information"]
     pub const fn data(&self) -> &Value {
-        &self.payload
+        &self.data
     }
 
     /// Get the metadata
@@ -224,9 +227,9 @@ impl EventBuilder {
     #[must_use = "This returns the built event which should be used or emitted"]
     pub fn build(self) -> Event {
         Event {
-            id: uuid::Uuid::new_v4().to_string(),
-            event_type: self.event_type,
-            payload: self.data,
+            id: Uuid::new_v4(),
+            event_type: self.event_type.to_string(),
+            data: self.data,
             metadata: self.metadata,
         }
     }
@@ -291,7 +294,9 @@ pub trait EventProcessorAsync: Send + Sync {
 
 /// Event bus for managing events
 pub struct EventBus {
+    /// Storage for all events in the system
     events: Arc<RwLock<Vec<Event>>>,
+    /// List of event subscribers that receive event notifications
     #[allow(clippy::type_complexity)]
     subscribers: Arc<RwLock<Vec<Box<dyn Fn(&Event) + Send + Sync>>>>,
 }
@@ -398,7 +403,7 @@ pub const fn shutdown() -> Result<()> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMetadata {
     /// Time when the event occurred
-    pub timestamp: OffsetDateTime,
+    pub timestamp: DateTime<Utc>,
     /// ID to correlate related events
     pub correlation_id: Option<String>,
     /// Additional event labels
@@ -410,7 +415,7 @@ impl EventMetadata {
     #[must_use = "This returns new event metadata that should be used with events"]
     pub fn new() -> Self {
         Self {
-            timestamp: OffsetDateTime::now_utc(),
+            timestamp: Utc::now(),
             correlation_id: None,
             labels: HashMap::new(),
         }
@@ -469,6 +474,7 @@ pub trait EventEmitter: Send + Sync {
 /// Default implementation of the `EventEmitter` trait
 #[derive(Debug)]
 pub struct DefaultEventEmitter {
+    /// List of event handlers that process emitted events
     handlers: Arc<RwLock<Vec<Box<dyn EventHandler + Send + Sync>>>>,
 }
 

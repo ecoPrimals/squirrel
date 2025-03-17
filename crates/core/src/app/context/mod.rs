@@ -157,6 +157,10 @@ impl Context {
     /// # Returns
     /// 
     /// Returns a `Result` containing the new `Context` instance if successful.
+    /// 
+    /// # Errors
+    /// 
+    /// This function will return an error if the context creation fails due to invalid configuration.
     pub fn new(config: ContextConfig) -> Result<Self> {
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
@@ -317,6 +321,10 @@ impl Context {
     /// # Returns
     /// 
     /// Returns a `Result` containing an `Option` with the value if it exists.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the state store cannot be accessed.
     pub async fn get_data(&self, key: &str) -> Result<Option<Value>> {
         let state = self.state_store.read().await;
         Ok(state.state.get(key).cloned())
@@ -327,6 +335,10 @@ impl Context {
     /// # Returns
     /// 
     /// Returns a `Result` containing a `HashMap` of all metadata key-value pairs.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the state store cannot be accessed.
     pub async fn get_metadata(&self) -> Result<HashMap<String, Value>> {
         let state = self.state_store.read().await;
         Ok(state.metadata.clone())
@@ -353,6 +365,10 @@ impl Context {
     /// # Returns
     /// 
     /// Returns a `Result` containing the `ContextSnapshot` if successful.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if the internal state cannot be accessed or if the snapshot creation fails.
     pub async fn get_snapshot(&self) -> Result<ContextSnapshot> {
         let state = self.state_store.read().await;
         Ok(ContextSnapshot {
@@ -373,6 +389,10 @@ impl Context {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error status
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the context is shutting down or if the state store cannot be accessed.
     pub async fn set_state(&self, new_state: HashMap<String, Value>) -> Result<()> {
         let mut state = self.state_store.write().await;
         if state.shutting_down {
@@ -406,6 +426,10 @@ impl Context {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error status
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the state store cannot be accessed.
     pub async fn set_lifecycle_stage(&self, stage: LifecycleStage) -> Result<()> {
         let mut ctx_state = self.state_store.write().await;
         ctx_state.lifecycle_stage = stage;
@@ -414,8 +438,9 @@ impl Context {
     }
 }
 
-/// Builder for creating a new context
+/// Builds context instances with a fluent API.
 pub struct ContextBuilder {
+    /// The configuration for the context being built
     config: ContextConfig,
 }
 
@@ -453,6 +478,14 @@ impl ContextBuilder {
     }
 
     /// Build the context
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a new `Context` instance configured with the builder's settings.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the context creation fails due to invalid configuration.
     pub fn build(self) -> Result<Context> {
         Context::new(self.config)
     }
@@ -572,17 +605,17 @@ pub enum ContextError {
 impl From<ContextError> for crate::error::SquirrelError {
     fn from(err: ContextError) -> Self {
         match err {
-            ContextError::Initialization(msg) => Self::context(&format!("Initialization error: {msg}")),
-            ContextError::Lifecycle(msg) => Self::context(&format!("Lifecycle error: {msg}")),
-            ContextError::Data(msg) => Self::context(&format!("Data error: {msg}")),
-            ContextError::Metadata(msg) => Self::context(&format!("Metadata error: {msg}")),
-            ContextError::Other(e) => Self::context(&e.to_string()),
-            ContextError::AlreadyInitialized => Self::context("Context already initialized"),
-            ContextError::NotInitialized => Self::context("Context not initialized"),
-            ContextError::AlreadyShuttingDown => Self::context("Context already shutting down"),
-            ContextError::ContextExists(id) => Self::context(&format!("Context with id {id} already exists")),
-            ContextError::ContextNotFound(id) => Self::context(&format!("Context with id {id} not found")),
-            ContextError::InvalidState(msg) => Self::context(&format!("Invalid context state: {msg}")),
+            ContextError::Initialization(msg) => Self::Other(format!("Initialization error: {msg}")),
+            ContextError::Lifecycle(msg) => Self::Other(format!("Lifecycle error: {msg}")),
+            ContextError::Data(msg) => Self::Other(format!("Data error: {msg}")),
+            ContextError::Metadata(msg) => Self::Other(format!("Metadata error: {msg}")),
+            ContextError::Other(e) => Self::Other(e.to_string()),
+            ContextError::AlreadyInitialized => Self::Other("Context already initialized".to_string()),
+            ContextError::NotInitialized => Self::Other("Context not initialized".to_string()),
+            ContextError::AlreadyShuttingDown => Self::Other("Context already shutting down".to_string()),
+            ContextError::ContextExists(id) => Self::Other(format!("Context with id {id} already exists")),
+            ContextError::ContextNotFound(id) => Self::Other(format!("Context with id {id} not found")),
+            ContextError::InvalidState(msg) => Self::Other(format!("Invalid context state: {msg}")),
         }
     }
 }
@@ -678,15 +711,15 @@ impl Default for ContextManager {
     }
 }
 
-/// Factory for creating ContextTracker instances
-#[derive(Debug, Clone)]
+/// Factory for creating `ContextTracker` instances
+#[derive(Debug, Clone, Default)]
 pub struct ContextTrackerFactory {
     /// The default context manager to use
     manager: Option<Arc<ContextManager>>,
 }
 
 impl ContextTrackerFactory {
-    /// Create a new ContextTrackerFactory
+    /// Create a new `ContextTrackerFactory`
     ///
     /// # Arguments
     ///
@@ -695,29 +728,29 @@ impl ContextTrackerFactory {
         Self { manager }
     }
 
-    /// Create a new ContextTracker with the default manager
+    /// Create a new `ContextTracker` with the default manager
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `ContextTracker` instance using the default manager
     ///
     /// # Panics
     ///
     /// Panics if no default manager was provided during factory creation
     #[must_use] pub fn create(&self) -> ContextTracker {
-        let manager = self.manager.clone().expect("No default manager provided");
-        ContextTracker::new(manager)
+        match &self.manager {
+            Some(manager) => ContextTracker::new(manager.clone()),
+            None => panic!("No default manager provided")
+        }
     }
 
-    /// Create a new ContextTracker with a specific manager
+    /// Create a new `ContextTracker` with a specific manager
     ///
     /// # Arguments
     ///
-    /// * `manager` - The ContextManager to use
+    /// * `manager` - The `ContextManager` to use
     #[must_use] pub fn create_with_manager(&self, manager: Arc<ContextManager>) -> ContextTracker {
         ContextTracker::new(manager)
-    }
-}
-
-impl Default for ContextTrackerFactory {
-    fn default() -> Self {
-        Self { manager: None }
     }
 }
 
@@ -779,6 +812,10 @@ impl ContextTracker {
     /// # Returns
     /// 
     /// Returns a `Result` containing an `Option` with the active context.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the active context ID is invalid or if the context manager fails to retrieve the context.
     pub async fn get_active_context(&self) -> Result<Option<Arc<Context>>> {
         if let Some(id) = self.active_context.read().await.as_ref() {
             Ok(Some(self.manager.get_context(id).await?))

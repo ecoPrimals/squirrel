@@ -1,0 +1,461 @@
+//! Application monitoring service
+//! 
+//! This module provides functionality for:
+//! - Service monitoring
+//! - Resource tracking
+//! - Performance monitoring
+//! - Health checks
+
+use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::RwLock;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::any::Any;
+
+use serde::{Serialize, Deserialize};
+use async_trait::async_trait;
+
+use crate::error::{Result, SquirrelError};
+
+use crate::app::metrics::Metrics;
+use crate::app::events::EventHandler;
+
+// Import core modules
+pub mod network;
+pub mod performance;
+pub mod disk;
+pub mod process;
+pub mod service;
+pub mod alert;
+pub mod metrics;
+
+// Import implementation modules
+mod network_impl;
+mod performance_impl;
+mod service_impl;
+
+// Import traits for local use (private)
+use network::NetworkMonitorTrait;
+use performance::PerformanceMonitorTrait;
+use disk::DiskMonitorTrait;
+use process::ProcessMonitorTrait;
+use service::MonitoringServiceTrait;
+
+// Define metric and alert types
+pub type Metric = HashMap<String, String>;
+pub type Alert = HashMap<String, String>;
+pub type MetricType = String;
+
+// Define the monitoring configuration type
+pub type MonitoringConfig = HashMap<String, String>;
+
+// Define network and performance configuration types
+use crate::app::monitoring::network::NetworkConfig;
+use crate::app::monitoring::performance::PerformanceConfig;
+
+use crate::app::monitoring::network::{NetworkConfig, NetworkMonitorTrait};
+use crate::app::monitoring::performance::{PerformanceConfig, PerformanceMonitorTrait};
+use crate::app::monitoring::disk::DiskMonitorTrait;
+use crate::app::monitoring::process::ProcessMonitorTrait;
+use crate::app::monitoring::service::MonitoringServiceTrait;
+use crate::app::monitoring::network_impl;
+use crate::app::monitoring::performance_impl;
+use crate::app::monitoring::disk;
+use crate::app::monitoring::process;
+use crate::app::monitoring::alert;
+use crate::app::monitoring::service_impl;
+use crate::app::monitoring::metrics::MetricCollectorImpl;
+
+// Define traits for our services to enable proper dependency injection
+/// The monitoring service trait that defines the interface for all monitoring services
+#[async_trait]
+pub trait MonitoringServiceTrait: Send + Sync + std::fmt::Debug {
+    /// Start the monitoring service
+    async fn start(&self) -> Result<()>;
+    
+    /// Stop the monitoring service
+    async fn stop(&self) -> Result<()>;
+    
+    /// Get the current system status
+    async fn get_system_status(&self) -> Result<HashMap<String, String>>;
+    
+    /// Get all metrics
+    async fn get_metrics(&self) -> Result<Vec<Metric>>;
+    
+    /// Get all alerts
+    async fn get_alerts(&self) -> Result<Vec<Alert>>;
+}
+
+/// The metric collector trait that defines the interface for all metric collectors
+#[async_trait::async_trait]
+pub trait MetricCollectorTrait: Send + Sync + std::fmt::Debug {
+    /// Record a metric
+    async fn record_metric(&self, metric: Metric) -> Result<()>;
+    
+    /// Get all metrics
+    async fn get_metrics(&self) -> Result<Vec<Metric>>;
+
+    /// Start the metric collector
+    async fn start(&self) -> Result<()>;
+    
+    /// Stop the metric collector
+    async fn stop(&self) -> Result<()>;
+}
+
+/// The alert manager trait that defines the interface for all alert managers
+#[async_trait]
+pub trait AlertManagerTrait: Send + Sync + std::fmt::Debug {
+    /// Send an alert
+    async fn send_alert(&self, alert: Alert) -> Result<()>;
+}
+
+/// Factory trait for creating monitoring services
+pub trait MonitoringServiceFactoryTrait: Send + Sync + std::fmt::Debug {
+    /// Create a new monitoring service
+    fn create_service(&self) -> Arc<dyn MonitoringServiceTrait + Send + Sync>;
+    
+    /// Create a new monitoring service with the specified configuration
+    fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<dyn MonitoringServiceTrait + Send + Sync>;
+}
+
+/// Application monitoring service
+#[derive(Debug, Clone)]
+pub struct AppMonitor {
+    /// Configuration for the monitoring service
+    config: MonitoringConfig,
+    /// Metric collector
+    metric_collector: Arc<Mutex<Box<dyn MetricCollectorTrait>>>,
+    /// Alert manager
+    alert_manager: Arc<Mutex<Box<dyn AlertManagerTrait>>>,
+}
+
+/// Application monitoring configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppMonitorConfig {
+    /// Base monitoring configuration
+    pub monitoring: MonitoringConfig,
+    /// Application-specific labels
+    pub labels: HashMap<String, String>,
+}
+
+impl Default for AppMonitorConfig {
+    fn default() -> Self {
+        let mut labels = HashMap::new();
+        labels.insert("component".to_string(), "app".to_string());
+        
+        Self {
+            monitoring: MonitoringConfig::default(),
+            labels,
+        }
+    }
+}
+
+/// Default implementation of the monitoring service
+#[derive(Debug)]
+pub struct MonitoringServiceImpl {
+    /// Configuration for the monitoring service
+    config: MonitoringConfig,
+    /// Metric collector
+    metric_collector: Box<dyn MetricCollectorTrait>,
+    /// Alert manager
+    alert_manager: Box<dyn AlertManagerTrait>,
+    /// Started flag
+    started: std::sync::Mutex<bool>,
+    /// Stopped flag
+    stopped: std::sync::Mutex<bool>,
+}
+
+impl MonitoringServiceImpl {
+    /// Create a new monitoring service
+    pub fn new(config: MonitoringConfig) -> Self {
+        Self {
+            config,
+            metric_collector: Box::new(MetricCollectorImpl::new()),
+            alert_manager: Box::new(alert::AlertManagerImpl::new()),
+            started: std::sync::Mutex::new(false),
+            stopped: std::sync::Mutex::new(false),
+        }
+    }
+}
+
+#[async_trait]
+impl MonitoringServiceTrait for MonitoringServiceImpl {
+    async fn start(&self) -> Result<()> {
+        let mut started = self.started.lock().unwrap();
+        *started = true;
+        Ok(())
+    }
+    
+    async fn stop(&self) -> Result<()> {
+        let mut stopped = self.stopped.lock().unwrap();
+        *stopped = true;
+        Ok(())
+    }
+    
+    async fn get_system_status(&self) -> Result<HashMap<String, String>> {
+        let mut status = HashMap::new();
+        status.insert("status".to_string(), "healthy".to_string());
+        Ok(status)
+    }
+    
+    async fn get_metrics(&self) -> Result<Vec<Metric>> {
+        self.metric_collector.get_metrics().await
+    }
+    
+    async fn get_alerts(&self) -> Result<Vec<Alert>> {
+        self.alert_manager.get_alerts().await
+    }
+}
+
+/// Default implementation of the monitoring service factory
+#[derive(Debug)]
+pub struct MonitoringServiceFactoryImpl {
+    /// Configuration for creating new monitoring services
+    config: MonitoringConfig,
+    /// Network configuration
+    network_config: NetworkConfig,
+    /// Performance configuration
+    performance_config: PerformanceConfig,
+}
+
+impl MonitoringServiceFactoryTrait for MonitoringServiceFactoryImpl {
+    fn create_service(&self) -> Arc<dyn MonitoringServiceTrait + Send + Sync> {
+        // Create a service with the default configuration
+        self.create_service_with_config(self.config.clone())
+    }
+    
+    fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<dyn MonitoringServiceTrait + Send + Sync> {
+        // Create network monitoring
+        let network_factory = NetworkMonitorFactoryImpl::new(self.network_config.clone());
+        let network_monitor = network_factory.create_monitor();
+        
+        // Create performance monitoring
+        let performance_factory = PerformanceMonitorFactoryImpl::new(self.performance_config.clone());
+        let performance_monitor = performance_factory.create_monitor();
+        
+        // Create the monitoring service
+        Arc::new(MonitoringServiceImpl {
+            config,
+            metric_collector: Arc::new(MetricCollectorImpl::new()),
+            alert_manager: Arc::new(AlertManagerImpl::new()),
+            started: std::sync::Mutex::new(false),
+            stopped: std::sync::Mutex::new(false),
+        })
+    }
+}
+
+impl MonitoringServiceFactoryImpl {
+    /// Create a new monitoring service factory implementation
+    #[must_use]
+    pub fn new(config: MonitoringConfig) -> Self {
+        // Extract network configuration if provided, otherwise use defaults
+        let network_config = if let Some(interval_str) = config.get("network.interval") {
+            if let Ok(interval) = interval_str.parse::<u64>() {
+                NetworkConfig { interval, ..Default::default() }
+            } else {
+                NetworkConfig::default()
+            }
+        } else {
+            NetworkConfig::default()
+        };
+        
+        // Extract performance configuration if provided, otherwise use defaults
+        let mut performance_config = PerformanceConfig::default();
+        
+        if let Some(interval_str) = config.get("performance.interval") {
+            if let Ok(interval) = interval_str.parse::<u64>() {
+                performance_config.interval = interval;
+            }
+        }
+        
+        if let Some(max_samples_str) = config.get("performance.max_samples") {
+            if let Ok(max_samples) = max_samples_str.parse::<usize>() {
+                performance_config.max_samples = max_samples;
+            }
+        }
+        
+        if let Some(track_cpu_str) = config.get("performance.track_cpu") {
+            if let Ok(track_cpu) = track_cpu_str.parse::<bool>() {
+                performance_config.track_cpu = track_cpu;
+            }
+        }
+        
+        if let Some(track_memory_str) = config.get("performance.track_memory") {
+            if let Ok(track_memory) = track_memory_str.parse::<bool>() {
+                performance_config.track_memory = track_memory;
+            }
+        }
+        
+        Self {
+            config,
+            network_config,
+            performance_config,
+        }
+    }
+}
+
+/// Default implementation of the metric collector
+#[derive(Debug)]
+pub struct MetricCollectorImpl {
+    /// Stored metrics
+    metrics: Arc<RwLock<Vec<Metric>>>,
+}
+
+#[async_trait]
+impl MetricCollectorTrait for MetricCollectorImpl {
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        let mut metrics = self.metrics.write().map_err(|e| 
+            SquirrelError::Monitoring(format!("Failed to acquire write lock: {}", e)))?;
+        metrics.push(metric);
+        Ok(())
+    }
+    
+    async fn get_metrics(&self) -> Result<Vec<Metric>> {
+        let metrics = self.metrics.read().map_err(|e| 
+            SquirrelError::Monitoring(format!("Failed to acquire read lock: {}", e)))?;
+        Ok(metrics.clone())
+    }
+
+    /// Start the metric collector
+    async fn start(&self) -> Result<()> {
+        Ok(())
+    }
+    
+    /// Stop the metric collector
+    async fn stop(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl MetricCollectorImpl {
+    /// Create a new metric collector
+    pub fn new() -> Self {
+        Self {
+            metrics: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+}
+
+/// Default implementation of the alert manager
+#[derive(Debug)]
+pub struct AlertManagerImpl;
+
+#[async_trait]
+impl AlertManagerTrait for AlertManagerImpl {
+    async fn send_alert(&self, _alert: Alert) -> Result<()> {
+        // Placeholder implementation
+        Ok(())
+    }
+}
+
+impl AlertManagerImpl {
+    /// Create a new alert manager implementation
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for AlertManagerImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AppMonitor {
+    /// Create a new AppMonitor
+    pub fn new(config: MonitoringConfig) -> Self {
+        // Create the metric collector
+        let metric_collector: Box<dyn MetricCollectorTrait> = Box::new(MetricCollectorImpl::new());
+        
+        // Create the alert manager
+        let alert_manager: Box<dyn AlertManagerTrait> = Box::new(alert::AlertManagerImpl::new());
+        
+        Self {
+            config,
+            metric_collector: Arc::new(Mutex::new(metric_collector)),
+            alert_manager: Arc::new(Mutex::new(alert_manager)),
+        }
+    }
+
+    /// Start the monitoring service
+    pub async fn start(&self) -> Result<()> {
+        let collector = self.get_metric_collector();
+        collector.start().await?;
+        
+        let alert_mgr = self.get_alert_manager();
+        alert_mgr.start().await?;
+        
+        Ok(())
+    }
+
+    /// Stop the monitoring service
+    pub async fn stop(&self) -> Result<()> {
+        let collector = self.get_metric_collector();
+        collector.stop().await?;
+        
+        let alert_mgr = self.get_alert_manager();
+        alert_mgr.stop().await?;
+        
+        Ok(())
+    }
+    
+    /// Get the metric collector
+    pub fn get_metric_collector(&self) -> MutexGuard<'_, Box<dyn MetricCollectorTrait>> {
+        self.metric_collector.lock().unwrap()
+    }
+    
+    /// Get the alert manager
+    pub fn get_alert_manager(&self) -> MutexGuard<'_, Box<dyn AlertManagerTrait>> {
+        self.alert_manager.lock().unwrap()
+    }
+    
+    /// Get the configuration
+    pub fn config(&self) -> &MonitoringConfig {
+        &self.config
+    }
+}
+
+/// Manager for monitoring metrics and events
+pub struct MonitoringManager {
+    /// Metrics collection
+    #[allow(dead_code)]
+    metrics: Metrics,
+    /// Event handler
+    #[allow(dead_code)]
+    events: Arc<dyn EventHandler>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_app_monitor() {
+        // Create a simple configuration
+        let mut config = HashMap::new();
+        config.insert("test_key".to_string(), "test_value".to_string());
+        
+        // Create a simplified AppMonitor for testing
+        let app_monitor = AppMonitor::new(config);
+        
+        // Start the monitor
+        app_monitor.start().await.unwrap();
+        
+        // Stop the monitor
+        app_monitor.stop().await.unwrap();
+        
+        // We should be able to start and stop multiple times without errors
+        app_monitor.start().await.unwrap();
+        app_monitor.stop().await.unwrap();
+        
+        // Check that the configuration is not empty
+        let config = app_monitor.config();
+        assert!(!config.is_empty());
+        
+        // Check that we can get the metric collector and alert manager
+        let _metric_collector = app_monitor.get_metric_collector();
+        let _alert_manager = app_monitor.get_alert_manager();
+    }
+} 

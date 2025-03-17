@@ -126,8 +126,11 @@ pub struct MetricsSnapshot {
 /// Metrics collection and management
 #[derive(Debug, Clone)]
 pub struct Metrics {
+    /// Counter metrics (incrementing values)
     counters: Arc<RwLock<HashMap<String, u64>>>,
+    /// Gauge metrics (values that can go up and down)
     gauges: Arc<RwLock<HashMap<String, f64>>>,
+    /// Histogram metrics (distribution of values)
     histograms: Arc<RwLock<HashMap<String, Vec<f64>>>>,
 }
 
@@ -235,6 +238,7 @@ impl Metrics {
 /// Registry for managing multiple metrics instances
 #[derive(Debug)]
 pub struct MetricsRegistry {
+    /// Map of named metrics instances
     metrics: Arc<RwLock<HashMap<String, Arc<Metrics>>>>,
 }
 

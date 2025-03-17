@@ -495,12 +495,12 @@ mod tests {
     struct TestCommand;
 
     impl Command for TestCommand {
-        fn name(&self) -> &str {
-            "test"
+        fn name(&self) -> &'static str {
+            "test_command"
         }
-
-        fn description(&self) -> &str {
-            "A test command"
+        
+        fn description(&self) -> &'static str {
+            "Test command for hooks"
         }
 
         fn execute(&self) -> Result<(), Box<dyn Error>> {
