@@ -10,7 +10,7 @@
 use serde::{Serialize, Deserialize};
 use std::{
     collections::HashMap,
-    sync::Arc,
+    sync::{Arc, OnceLock},
     fmt::Debug,
 };
 use tokio::sync::RwLock;
@@ -38,22 +38,22 @@ pub enum AlertSeverity {
 impl std::fmt::Display for AlertSeverity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AlertSeverity::Info => write!(f, "Info"),
-            AlertSeverity::Warning => write!(f, "Warning"),
-            AlertSeverity::Error => write!(f, "Error"),
-            AlertSeverity::Critical => write!(f, "Critical"),
+            Self::Info => write!(f, "Info"),
+            Self::Warning => write!(f, "Warning"),
+            Self::Error => write!(f, "Error"),
+            Self::Critical => write!(f, "Critical"),
         }
     }
 }
 
 impl AlertSeverity {
     /// Get the color associated with this severity level
-    pub fn color(&self) -> &'static str {
+    #[must_use] pub const fn color(&self) -> &'static str {
         match self {
-            AlertSeverity::Info => "blue",
-            AlertSeverity::Warning => "yellow",
-            AlertSeverity::Error => "orange",
-            AlertSeverity::Critical => "red",
+            Self::Info => "blue",
+            Self::Warning => "yellow",
+            Self::Error => "orange",
+            Self::Critical => "red",
         }
     }
 }
@@ -72,9 +72,9 @@ pub enum AlertStatus {
 impl std::fmt::Display for AlertStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AlertStatus::Active => write!(f, "Active"),
-            AlertStatus::Acknowledged => write!(f, "Acknowledged"),
-            AlertStatus::Resolved => write!(f, "Resolved"),
+            Self::Active => write!(f, "Active"),
+            Self::Acknowledged => write!(f, "Acknowledged"),
+            Self::Resolved => write!(f, "Resolved"),
         }
     }
 }
@@ -105,7 +105,16 @@ pub struct Alert {
 }
 
 impl Alert {
-    pub fn new(
+    /// Creates a new alert with the given parameters
+    ///
+    /// # Arguments
+    /// * `name` - Short name describing the alert
+    /// * `description` - Detailed description of the alert
+    /// * `severity` - Severity level of the alert
+    /// * `labels` - Key-value pairs for additional alert metadata
+    /// * `message` - Human-readable message describing the alert
+    /// * `component` - System component that generated the alert
+    #[must_use] pub fn new(
         name: String,
         description: String,
         severity: AlertSeverity,
@@ -132,6 +141,10 @@ impl Alert {
         }
     }
 
+    /// Updates the status of the alert and sets the updated_at timestamp
+    ///
+    /// # Arguments
+    /// * `status` - The new status to set for the alert
     pub fn update_status(&mut self, status: AlertStatus) {
         self.status = status;
         self.updated_at = SystemTime::now()
@@ -199,7 +212,7 @@ impl From<Alert> for AlertNotification {
             created_at: alert.created_at,
             updated_at: alert.updated_at,
             message: alert.message.clone(),
-            component: alert.component.clone(),
+            component: alert.component,
         }
     }
 }
@@ -275,7 +288,7 @@ impl DefaultAlertManager {
     ///
     /// # Returns
     /// A new instance of `DefaultAlertManager` initialized with the provided configuration
-    pub fn new(config: AlertConfig) -> Self {
+    #[must_use] pub fn new(config: AlertConfig) -> Self {
         Self {
             alerts: Arc::new(RwLock::new(Vec::new())),
             config,
@@ -394,8 +407,106 @@ pub enum AlertError {
 
 impl From<AlertError> for SquirrelError {
     fn from(err: AlertError) -> Self {
-        SquirrelError::alert(&err.to_string())
+        Self::alert(&err.to_string())
     }
+}
+
+/// Factory for creating and managing alert manager instances
+#[derive(Debug, Clone)]
+pub struct AlertManagerFactory {
+    /// Configuration for creating alert managers
+    config: AlertConfig,
+}
+
+impl AlertManagerFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: AlertConfig::default(),
+        }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: AlertConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates an alert manager
+    #[must_use]
+    pub fn create_manager(&self) -> Arc<DefaultAlertManager> {
+        Arc::new(DefaultAlertManager::new(self.config.clone()))
+    }
+
+    /// Initializes and returns a global alert manager instance
+    ///
+    /// # Errors
+    /// Returns an error if the manager is already initialized
+    pub async fn initialize_global_manager(&self) -> Result<Arc<DefaultAlertManager>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<DefaultAlertManager>> = OnceLock::new();
+
+        let manager = self.create_manager();
+        match GLOBAL_MANAGER.set(manager.clone()) {
+            Ok(()) => Ok(manager),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_MANAGER.get()
+                    .ok_or_else(|| SquirrelError::alert("Failed to get global alert manager"))?
+                    .clone())
+            }
+        }
+    }
+
+    /// Gets the global alert manager, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the alert manager cannot be initialized
+    pub async fn get_global_manager(&self) -> Result<Arc<DefaultAlertManager>> {
+        static GLOBAL_MANAGER: OnceLock<Arc<DefaultAlertManager>> = OnceLock::new();
+
+        if let Some(manager) = GLOBAL_MANAGER.get() {
+            return Ok(manager.clone());
+        }
+
+        self.initialize_global_manager().await
+    }
+}
+
+impl Default for AlertManagerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating alert managers
+static FACTORY: OnceLock<AlertManagerFactory> = OnceLock::new();
+
+/// Initialize the alert manager factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<AlertConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => AlertManagerFactory::with_config(cfg),
+        None => AlertManagerFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::alert("Alert manager factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the alert manager factory
+#[must_use]
+pub fn get_factory() -> Option<AlertManagerFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the alert manager factory
+#[must_use]
+pub fn ensure_factory() -> AlertManagerFactory {
+    FACTORY.get_or_init(AlertManagerFactory::new).clone()
 }
 
 // Static instance for global access
@@ -408,15 +519,18 @@ static ALERT_MANAGER: tokio::sync::OnceCell<Arc<DefaultAlertManager>> = tokio::s
 ///
 /// # Errors
 /// Returns an error if the alert manager is already initialized or if initialization fails
-pub async fn initialize(config: Option<AlertConfig>) -> Result<()> {
-    let config = config.unwrap_or_default();
-    let manager = Arc::new(DefaultAlertManager::new(config));
+pub async fn initialize(config: Option<AlertConfig>) -> Result<Arc<DefaultAlertManager>> {
+    let factory = match config {
+        Some(cfg) => AlertManagerFactory::with_config(cfg),
+        None => ensure_factory(),
+    };
     
-    ALERT_MANAGER
-        .set(manager)
-        .map_err(|_| SquirrelError::alert("Alert manager already initialized"))?;
+    let manager = factory.initialize_global_manager().await?;
     
-    Ok(())
+    // Also set in the old static for backward compatibility
+    let _ = ALERT_MANAGER.set(manager.clone());
+    
+    Ok(manager)
 }
 
 /// Get the alert manager instance

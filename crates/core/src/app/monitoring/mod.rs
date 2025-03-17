@@ -17,7 +17,7 @@ use crate::monitoring::{
     MonitoringService,
     MonitoringServiceFactory,
     alerts::{Alert, AlertSeverity, AlertManager},
-    health::HealthStatus,
+    health::status::HealthStatus,
     metrics::{Metric, MetricCollector, MetricType},
 };
 
@@ -93,7 +93,7 @@ impl AppMonitor {
         
         let collector = self.service.metric_collector();
         let record_future = collector.record_metric(metric);
-        record_future.await.map_err(|e| SquirrelError::Metric(format!("Failed to record metric: {e}")))
+        record_future.await.map_err(|e| SquirrelError::metric(&format!("Failed to record metric: {e}")))
     }
 
     /// Record an application event
@@ -113,7 +113,7 @@ impl AppMonitor {
         
         let manager = self.service.alert_manager();
         let send_future = manager.send_alert(alert);
-        send_future.await.map_err(|e| SquirrelError::Alert(format!("Failed to send alert: {e}")))
+        send_future.await.map_err(|e| SquirrelError::alert(&format!("Failed to send alert: {e}")))
     }
 
     /// Get application health status
@@ -210,7 +210,7 @@ mod tests {
 
         // Test health status
         let health = monitor.get_health().await.unwrap();
-        assert_eq!(health, HealthStatus::Healthy);
+        assert_eq!(health.status, Status::Healthy);
 
         // Test shutdown
         assert!(monitor.stop().await.is_ok());

@@ -17,6 +17,7 @@ use crate::monitoring::metrics::MetricCollector;
 use crate::monitoring::alerts::AlertConfig;
 use crate::monitoring::{MonitoringIntervals};
 use crate::monitoring::health::{HealthConfig};
+use crate::monitoring::health::status::{Status};
 use crate::monitoring::metrics::MetricConfig;
 use crate::monitoring::network::NetworkConfig;
 use crate::monitoring::network::NetworkMonitor;
@@ -86,13 +87,13 @@ async fn test_health_checker_basic() {
     let health_status = service.health_checker.check_health().await
         .expect("Failed to check health");
     
-    assert_eq!(health_status, HealthStatus::Healthy, 
+    assert_eq!(health_status.status, Status::Healthy, 
         "Health status should be Healthy with no components");
     
     // Register a healthy component
     let component = ComponentHealth {
         name: "test-component".to_string(),
-        status: HealthStatus::Healthy,
+        status: HealthStatus::healthy("test-component".to_string(), "All good".to_string()),
         message: "All good".to_string(),
         timestamp: 0,
         metadata: None,
@@ -104,7 +105,7 @@ async fn test_health_checker_basic() {
     let health_status = service.health_checker.check_health().await
         .expect("Failed to check health");
     
-    assert_eq!(health_status, HealthStatus::Healthy,
+    assert_eq!(health_status.status, Status::Healthy,
         "Health status should be Healthy with a healthy component");
     
     // Verify service can be started and stopped
@@ -369,13 +370,13 @@ async fn test_health_checker() {
         .expect("Failed to get health status");
     
     // Initial health status should be Healthy since no components are registered
-    assert_eq!(health_status, HealthStatus::Healthy, 
+    assert_eq!(health_status.status, Status::Healthy, 
         "Initial health status should be Healthy");
     
     // Register an unhealthy component
     let unhealthy_component = ComponentHealth {
         name: "test-unhealthy".to_string(),
-        status: HealthStatus::Unhealthy,
+        status: HealthStatus::unhealthy("test-unhealthy".to_string(), "Component is unhealthy".to_string()),
         message: "Component is unhealthy".to_string(),
         timestamp: 0, // Just use 0 for testing
         metadata: None,
@@ -388,7 +389,7 @@ async fn test_health_checker() {
     let health_status = service.health_checker.check_health().await
         .expect("Failed to get health status");
     
-    assert_eq!(health_status, HealthStatus::Unhealthy, 
+    assert_eq!(health_status.status, Status::Unhealthy, 
         "Health status should be Unhealthy with an unhealthy component");
     
     // Stop the health checker
@@ -433,13 +434,13 @@ async fn test_system_status() {
         .expect("Failed to get system status");
     
     // Initially it should be healthy since no components are registered
-    assert_eq!(status, HealthStatus::Healthy, 
+    assert_eq!(status.status, Status::Healthy, 
         "Initial system status should be Healthy");
     
     // Register an unhealthy component
     let unhealthy_component = ComponentHealth {
         name: "critical-component".to_string(),
-        status: HealthStatus::Unhealthy,
+        status: HealthStatus::unhealthy("critical-component".to_string(), "Critical component is down".to_string()),
         message: "Critical component is down".to_string(),
         timestamp: 0,
         metadata: None,
@@ -452,13 +453,13 @@ async fn test_system_status() {
     let updated_status = service.get_health().await
         .expect("Failed to get updated system status");
     
-    assert_eq!(updated_status, HealthStatus::Unhealthy, 
-        "System status should be Unhealthy with an unhealthy component");
+    assert_eq!(updated_status.status, Status::Unhealthy, 
+        "System status should be Unhealthy when critical component is down");
     
     // Register a healthy component
     let healthy_component = ComponentHealth {
         name: "healthy-component".to_string(),
-        status: HealthStatus::Healthy,
+        status: HealthStatus::healthy("healthy-component".to_string(), "Component is healthy".to_string()),
         message: "Component is healthy".to_string(),
         timestamp: 0,
         metadata: None,
@@ -471,7 +472,7 @@ async fn test_system_status() {
     let final_status = service.get_health().await
         .expect("Failed to get final system status");
     
-    assert_eq!(final_status, HealthStatus::Unhealthy, 
+    assert_eq!(final_status.status, Status::Unhealthy, 
         "System status should remain Unhealthy with mixed component health");
     
     // Stop the monitoring service
@@ -494,9 +495,9 @@ async fn test_health_checks() {
     
     let status = health_status.unwrap();
     // Check that we got a valid health status
-    assert!(matches!(status, HealthStatus::Healthy) || 
-            matches!(status, HealthStatus::Unhealthy) || 
-            matches!(status, HealthStatus::Unknown));
+    assert!(matches!(status.status, Status::Healthy) || 
+            matches!(status.status, Status::Unhealthy) || 
+            matches!(status.status, Status::Unknown));
     
     let _shutdown_result = shutdown().await;
 }
@@ -679,9 +680,9 @@ async fn test_health_status() {
     let status = service.health_checker.check_health().await.expect("Failed to check health");
     
     // Just check that we get a valid health status
-    assert!(matches!(status, HealthStatus::Healthy) || 
-            matches!(status, HealthStatus::Unhealthy) || 
-            matches!(status, HealthStatus::Unknown));
+    assert!(matches!(status.status, Status::Healthy) || 
+            matches!(status.status, Status::Unhealthy) || 
+            matches!(status.status, Status::Unknown));
 }
 
 #[tokio::test]
@@ -813,9 +814,9 @@ async fn test_status() {
     let health_status = service.health_checker.check_health().await.expect("Failed to check health");
     
     // Since is_healthy() doesn't exist, we'll just check that we got a health status
-    assert!(matches!(health_status, HealthStatus::Healthy) || 
-            matches!(health_status, HealthStatus::Unhealthy) || 
-            matches!(health_status, HealthStatus::Unknown));
+    assert!(matches!(health_status.status, Status::Healthy) || 
+            matches!(health_status.status, Status::Unhealthy) || 
+            matches!(health_status.status, Status::Unknown));
 }
 
 #[tokio::test]
