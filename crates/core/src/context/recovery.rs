@@ -5,13 +5,26 @@ use uuid::Uuid;
 use super::{ContextState, ContextError, ContextSnapshot};
 use super::persistence::ContextPersistence;
 
+/// Defines a strategy for selecting a context snapshot for recovery
+///
+/// This trait allows for different strategies to be implemented for
+/// selecting which snapshot to use when recovering context state.
 pub trait RecoveryStrategy {
+    /// Selects a context snapshot from a collection of snapshots
+    ///
+    /// # Arguments
+    /// * `snapshots` - A slice of available context snapshots
+    ///
+    /// # Returns
+    /// The selected snapshot, or None if no suitable snapshot is found
     fn select_state<'a>(&self, snapshots: &'a [ContextSnapshot]) -> Option<&'a ContextSnapshot>;
 }
 
+/// Strategy that selects the most recent context snapshot by version number
 pub struct LatestVersionStrategy;
 
 impl LatestVersionStrategy {
+    /// Creates a new instance of the latest version recovery strategy
     pub fn new() -> Self {
         Self
     }
@@ -29,11 +42,16 @@ impl RecoveryStrategy for LatestVersionStrategy {
     }
 }
 
+/// Strategy that selects a context snapshot with a specific version number
 pub struct SpecificVersionStrategy {
     version: u64,
 }
 
 impl SpecificVersionStrategy {
+    /// Creates a new instance of the specific version recovery strategy
+    ///
+    /// # Arguments
+    /// * `version` - The specific version number to recover
     pub fn new(version: u64) -> Self {
         Self { version }
     }
@@ -45,11 +63,16 @@ impl RecoveryStrategy for SpecificVersionStrategy {
     }
 }
 
+/// Strategy that selects the most recent context snapshot before a specific timestamp
 pub struct TimeBasedStrategy {
     timestamp: SystemTime,
 }
 
 impl TimeBasedStrategy {
+    /// Creates a new instance of the time-based recovery strategy
+    ///
+    /// # Arguments
+    /// * `timestamp` - The timestamp to use as the upper bound for recovery
     pub fn new(timestamp: SystemTime) -> Self {
         Self { timestamp }
     }
@@ -64,6 +87,7 @@ impl RecoveryStrategy for TimeBasedStrategy {
     }
 }
 
+/// Manages context snapshots and recovery operations
 pub struct RecoveryManager {
     persistence: Arc<Mutex<ContextPersistence>>,
     snapshots: VecDeque<ContextSnapshot>,
@@ -71,6 +95,11 @@ pub struct RecoveryManager {
 }
 
 impl RecoveryManager {
+    /// Creates a new recovery manager
+    ///
+    /// # Arguments
+    /// * `persistence` - The persistence layer for storing snapshots
+    /// * `max_snapshots` - Maximum number of snapshots to keep in memory
     pub fn new(
         persistence: Arc<Mutex<ContextPersistence>>,
         max_snapshots: usize,
@@ -82,6 +111,16 @@ impl RecoveryManager {
         }
     }
 
+    /// Creates a new snapshot of the current context state
+    ///
+    /// # Arguments
+    /// * `state` - The context state to snapshot
+    ///
+    /// # Returns
+    /// The created snapshot if successful
+    ///
+    /// # Errors
+    /// Returns a `ContextError` if the snapshot could not be created or saved
     pub fn create_snapshot(&mut self, state: &ContextState) -> Result<ContextSnapshot, ContextError> {
         let snapshot = ContextSnapshot {
             id: Uuid::new_v4().to_string(),
@@ -106,10 +145,24 @@ impl RecoveryManager {
         Ok(snapshot)
     }
 
+    /// Returns all available snapshots
+    ///
+    /// # Returns
+    /// A reference to the collection of snapshots
     pub fn get_snapshots(&self) -> &VecDeque<ContextSnapshot> {
         &self.snapshots
     }
 
+    /// Restores a snapshot with the specified ID
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the snapshot to restore
+    ///
+    /// # Returns
+    /// The restored context state if successful
+    ///
+    /// # Errors
+    /// Returns a `ContextError::SnapshotNotFound` if no snapshot with the given ID exists
     pub fn restore_snapshot(&self, id: &str) -> Result<ContextState, ContextError> {
         if let Some(snapshot) = self.snapshots.iter().find(|s| s.id == id) {
             Ok(snapshot.state.clone())
@@ -118,6 +171,12 @@ impl RecoveryManager {
         }
     }
 
+    /// Deletes a snapshot with the specified ID
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::SnapshotNotFound` if no snapshot with the given ID exists,
+    /// or propagates a `ContextError::PersistenceError` if the deletion from persistent storage fails
     pub fn delete_snapshot(&mut self, id: &str) -> Result<(), ContextError> {
         if let Some(index) = self.snapshots.iter().position(|s| s.id == id) {
             self.snapshots.remove(index);
@@ -130,6 +189,11 @@ impl RecoveryManager {
         }
     }
 
+    /// Recovers a context state using the specified recovery strategy
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::NoValidSnapshot` if the strategy cannot find a valid snapshot to recover
     pub fn recover_using_strategy(&self, strategy: &dyn RecoveryStrategy) -> Result<ContextState, ContextError> {
         let snapshots: Vec<_> = self.snapshots.iter().cloned().collect();
         if let Some(snapshot) = strategy.select_state(&snapshots) {
@@ -145,7 +209,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
     use tempfile::tempdir;
-    use crate::core::{ContextPersistence, FileStorage, JsonSerializer};
+    use crate::context::persistence::{ContextPersistence, FileStorage, JsonSerializer};
 
     #[test]
     fn test_recovery_manager() {

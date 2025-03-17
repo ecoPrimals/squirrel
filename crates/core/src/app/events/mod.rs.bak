@@ -44,10 +44,13 @@ impl std::str::FromStr for EventType {
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             "system" => Ok(Self::SystemStartup),
-            "command" | "info" => Ok(Self::MetricCollected),
-            "state" | "debug" => Ok(Self::HealthCheckCompleted),
+            "command" => Ok(Self::MetricCollected),
+            "state" => Ok(Self::HealthCheckCompleted),
             "error" => Ok(Self::AlertTriggered),
-            "warning" | "trace" => Ok(Self::SystemShutdown),
+            "warning" => Ok(Self::SystemShutdown),
+            "info" => Ok(Self::MetricCollected),
+            "debug" => Ok(Self::HealthCheckCompleted),
+            "trace" => Ok(Self::SystemShutdown),
             _ => Err(EventError::InvalidType(s.to_string())),
         }
     }
@@ -81,31 +84,26 @@ pub struct EventBuilder {
 
 impl Event {
     /// Create a new event builder
-    #[must_use = "This returns an event builder that should be used to create events"]
     pub fn builder() -> EventBuilder {
         EventBuilder::new()
     }
 
     /// Get the event type
-    #[must_use = "This returns the event type which may be needed for conditional handling"]
     pub fn event_type(&self) -> &EventType {
         &self.event_type
     }
 
     /// Get the timestamp
-    #[must_use = "This returns the event timestamp which may be needed for time-based processing"]
     pub fn timestamp(&self) -> OffsetDateTime {
         self.metadata.timestamp
     }
 
     /// Get the data
-    #[must_use = "This returns the event data which contains the payload information"]
     pub fn data(&self) -> &Value {
         &self.payload
     }
 
     /// Get the metadata
-    #[must_use = "This returns the event metadata which contains important contextual information"]
     pub fn metadata(&self) -> &EventMetadata {
         &self.metadata
     }
@@ -150,7 +148,6 @@ impl Event {
 
 impl EventBuilder {
     /// Create a new event builder
-    #[must_use = "This returns a new event builder that should be used to create events"]
     pub fn new() -> Self {
         Self {
             event_type: EventType::SystemStartup,
@@ -181,21 +178,18 @@ impl EventBuilder {
     }
 
     /// Set the correlation ID
-    #[must_use]
     pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
         self.metadata.correlation_id = Some(correlation_id);
         self
     }
 
     /// Add a label to the metadata
-    #[must_use]
     pub fn with_label(mut self, key: String, value: String) -> Self {
         self.metadata.labels.insert(key, value);
         self
     }
 
     /// Build the event
-    #[must_use = "This returns the built event which should be used or emitted"]
     pub fn build(self) -> Event {
         Event {
             id: uuid::Uuid::new_v4().to_string(),
@@ -278,8 +272,6 @@ impl Debug for EventBus {
 }
 
 impl EventBus {
-    /// Create a new event bus
-    #[must_use = "This returns a new event bus that should be used for event operations"]
     pub fn new() -> Self {
         Self {
             events: Arc::new(RwLock::new(Vec::new())),
@@ -287,11 +279,6 @@ impl EventBus {
         }
     }
 
-    /// Publish an event to the event bus
-    ///
-    /// # Errors
-    ///
-    /// Returns an `EventError` if the event cannot be published
     pub async fn publish(&self, event: Event) -> Result<()> {
         let mut events = self.events.write().await;
         events.push(event.clone());
@@ -304,11 +291,6 @@ impl EventBus {
         Ok(())
     }
 
-    /// Subscribe to events on the event bus
-    ///
-    /// # Errors
-    ///
-    /// Returns an `EventError` if the subscription cannot be registered
     pub async fn subscribe<F>(&self, handler: F) -> Result<()>
     where
         F: Fn(&Event) + Send + Sync + 'static,
@@ -318,21 +300,11 @@ impl EventBus {
         Ok(())
     }
 
-    /// Get all events from the event bus
-    ///
-    /// # Errors
-    ///
-    /// Returns an `EventError` if the events cannot be retrieved
     pub async fn get_events(&self) -> Result<Vec<Event>> {
-        let events = self.events.read().await.clone();
-        Ok(events)
+        let events = self.events.read().await;
+        Ok(events.clone())
     }
 
-    /// Clear all events from the event bus
-    ///
-    /// # Errors
-    ///
-    /// Returns an `EventError` if the events cannot be cleared
     pub async fn clear_events(&self) -> Result<()> {
         let mut events = self.events.write().await;
         events.clear();
@@ -347,21 +319,13 @@ impl Default for EventBus {
 }
 
 /// Initialize the event system
-///
-/// # Errors
-///
-/// Returns an `EventError` if the event system cannot be initialized
-pub fn initialize() -> Result<()> {
+pub async fn initialize() -> Result<()> {
     // TODO: Initialize event system
     Ok(())
 }
 
 /// Shutdown the event system
-///
-/// # Errors
-///
-/// Returns an `EventError` if the event system cannot be shut down properly
-pub fn shutdown() -> Result<()> {
+pub async fn shutdown() -> Result<()> {
     // TODO: Cleanup event system resources
     Ok(())
 }
@@ -375,8 +339,6 @@ pub struct EventMetadata {
 }
 
 impl EventMetadata {
-    /// Create a new event metadata
-    #[must_use = "This returns new event metadata that should be used with events"]
     pub fn new() -> Self {
         Self {
             timestamp: OffsetDateTime::now_utc(),
@@ -385,15 +347,11 @@ impl EventMetadata {
         }
     }
     
-    /// Set the correlation ID
-    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
         self.correlation_id = Some(correlation_id);
         self
     }
     
-    /// Add a label
-    #[must_use = "This method returns self for method chaining and the return value should be used"]
     pub fn with_label(mut self, key: String, value: String) -> Self {
         self.labels.insert(key, value);
         self
@@ -423,6 +381,46 @@ pub trait EventEmitter: Send + Sync {
     async fn emit(&self, event: Event) -> Result<()>;
 }
 
+/// Default implementation of the EventEmitter trait
+#[derive(Debug)]
+pub struct DefaultEventEmitter {
+    handlers: Arc<RwLock<Vec<Box<dyn EventHandler + Send + Sync>>>>,
+}
+
+impl DefaultEventEmitter {
+    pub fn new() -> Self {
+        Self {
+            handlers: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+    
+    pub async fn register_handler<H>(&self, handler: H) -> Result<()>
+    where
+        H: EventHandler + Send + Sync + 'static,
+    {
+        let mut handlers = self.handlers.write().await;
+        handlers.push(Box::new(handler));
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl EventEmitter for DefaultEventEmitter {
+    async fn emit(&self, event: Event) -> Result<()> {
+        let handlers = self.handlers.read().await;
+        for handler in handlers.iter() {
+            handler.handle(event.clone()).await?;
+        }
+        Ok(())
+    }
+}
+
+impl Default for DefaultEventEmitter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Default implementation of the `EventEmitter` trait
 #[derive(Debug)]
 pub struct DefaultEventEmitter {
@@ -430,19 +428,12 @@ pub struct DefaultEventEmitter {
 }
 
 impl DefaultEventEmitter {
-    /// Create a new default event emitter
-    #[must_use = "This returns a new event emitter that should be used for emitting events"]
     pub fn new() -> Self {
         Self {
             handlers: Arc::new(RwLock::new(Vec::new())),
         }
     }
     
-    /// Register a new event handler
-    ///
-    /// # Errors
-    ///
-    /// Returns an `EventError` if the handler cannot be registered
     pub async fn register_handler<H>(&self, handler: H) -> Result<()>
     where
         H: EventHandler + Send + Sync + 'static,

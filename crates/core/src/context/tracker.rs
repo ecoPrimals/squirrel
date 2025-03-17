@@ -1,9 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 use serde_json::Value;
 use super::{ContextState, ContextError, ContextSnapshot, ContextSubscriber};
 
+/// Tracks and manages context state changes and history
 pub struct ContextTracker {
     state: Arc<RwLock<ContextState>>,
     history: VecDeque<ContextSnapshot>,
@@ -11,6 +12,7 @@ pub struct ContextTracker {
 }
 
 impl ContextTracker {
+    /// Creates a new context tracker with an empty initial state
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(ContextState {
@@ -23,10 +25,24 @@ impl ContextTracker {
         }
     }
 
+    /// Registers a subscriber to be notified of context state changes
+    ///
+    /// # Arguments
+    /// * `subscriber` - The subscriber implementation to register
     pub fn subscribe(&mut self, subscriber: Box<dyn ContextSubscriber>) {
         self.subscribers.push(subscriber);
     }
 
+    /// Updates the context state with new data
+    ///
+    /// # Arguments
+    /// * `new_data` - The new data to update the context with
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the write lock for the state
+    /// - The state update fails
     pub fn update_state(&mut self, new_data: Value) -> Result<(), ContextError> {
         let mut state = self.state.write().map_err(|_| {
             ContextError::InvalidState("Failed to acquire write lock".to_string())
@@ -61,16 +77,39 @@ impl ContextTracker {
         Ok(())
     }
 
+    /// Gets the current context state
+    ///
+    /// # Returns
+    /// The current context state if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - Unable to acquire the read lock for the state
     pub fn get_state(&self) -> Result<ContextState, ContextError> {
         self.state.read()
             .map(|state| state.clone())
             .map_err(|_| ContextError::InvalidState("Failed to acquire read lock".to_string()))
     }
 
+    /// Returns the history of context state changes
+    ///
+    /// # Returns
+    /// A reference to the collection of historical snapshots
     pub fn get_history(&self) -> &VecDeque<ContextSnapshot> {
         &self.history
     }
 
+    /// Rolls back the context state to a specific version
+    ///
+    /// # Arguments
+    /// * `version` - The version number to roll back to
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError` if:
+    /// - The specified version is not found in the history
+    /// - Unable to acquire the write lock for the state
     pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
         if let Some(snapshot) = self.history.iter().find(|s| s.state.version == version) {
             let mut state = self.state.write().map_err(|_| {
@@ -87,7 +126,7 @@ impl ContextTracker {
 
             Ok(())
         } else {
-            Err(ContextError::InvalidState(format!("Version {} not found", version)))
+            Err(ContextError::InvalidState(format!("Version {version} not found")))
         }
     }
 }

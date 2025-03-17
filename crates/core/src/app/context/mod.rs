@@ -8,41 +8,40 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use crate::core::error::{Error, Result};
-use crate::core::metrics::{Metrics, MetricsSnapshot};
 use chrono::{DateTime, Utc};
-use crate::core::Event;
+use crate::app::events::Event;
 use serde_json::Value;
 use uuid;
 use std::time::Duration;
-use crate::core::error::SquirrelError;
+use crate::error::SquirrelError;
+use crate::app::events::DefaultEventEmitter;
+use crate::app::AppConfig;
+use crate::app::Metrics;
 
 /// Configuration for the context
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ContextConfig {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub metadata: HashMap<String, Value>,
-    pub persistence: PersistenceConfig,
-    pub sync: SyncConfig,
-    pub enable_metrics: bool,
-    pub enable_events: bool,
-    pub max_events: usize,
+    pub environment: String,
+    pub version: String,
+    pub metadata: HashMap<String, String>,
+    pub persistence: bool,
+    pub max_entries: usize,
 }
 
 impl Default for ContextConfig {
     fn default() -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
-            name: String::new(),
-            description: String::new(),
+            name: "default".to_string(),
+            description: "Default context".to_string(),
+            environment: "development".to_string(),
+            version: "0.1.0".to_string(),
             metadata: HashMap::new(),
-            persistence: PersistenceConfig::default(),
-            sync: SyncConfig::default(),
-            enable_metrics: true,
-            enable_events: true,
-            max_events: 1000,
+            persistence: false,
+            max_entries: 1000,
         }
     }
 }
@@ -98,6 +97,7 @@ impl Default for LifecycleStage {
 /// The main context type that holds system state
 #[derive(Debug, Clone)]
 pub struct Context {
+    #[allow(dead_code)]
     config: Arc<RwLock<ContextConfig>>,
     state_store: Arc<RwLock<ContextState>>,
     metrics: Arc<Metrics>,
@@ -163,26 +163,30 @@ impl Context {
     }
 
     /// Get the current lifecycle stage
+    #[must_use = "This returns the current lifecycle stage which may be needed for state-dependent operations"]
     pub async fn get_lifecycle_stage(&self) -> LifecycleStage {
         self.state_store.read().await.lifecycle_stage.clone()
     }
 
     /// Get the metrics collector
+    #[must_use = "This returns a metrics instance that should be used for recording metrics"]
     pub fn metrics(&self) -> Arc<Metrics> {
         self.metrics.clone()
     }
 
     /// Get the events store
+    #[must_use = "This returns the events storage that should be used for event operations"]
     pub fn events(&self) -> Arc<RwLock<Vec<Event>>> {
         self.events.clone()
     }
 
     /// Get the state store
+    #[must_use = "This returns the state storage that should be used for state operations"]
     pub fn state(&self) -> Arc<RwLock<ContextState>> {
         self.state_store.clone()
     }
 
-    pub async fn update_data(&self, key: &str, value: serde_json::Value) -> Result<()> {
+    pub async fn update_data(&self, key: &str, value: Value) -> Result<()> {
         let mut state = self.state_store.write().await;
         state.state.insert(key.to_string(), value);
         state.updated_at = Utc::now();
@@ -196,7 +200,7 @@ impl Context {
         Ok(())
     }
 
-    pub async fn get_data(&self, key: &str) -> Result<Option<serde_json::Value>> {
+    pub async fn get_data(&self, key: &str) -> Result<Option<Value>> {
         let state = self.state_store.read().await;
         Ok(state.state.get(key).cloned())
     }
@@ -236,18 +240,20 @@ impl Context {
         Ok(())
     }
 
+    #[must_use = "This returns the initialization status which may be needed for conditional logic"]
     pub async fn is_initialized(&self) -> bool {
         self.state_store.read().await.initialized
     }
 
+    #[must_use = "This returns the shutdown status which may be needed for conditional logic"]
     pub async fn is_shutting_down(&self) -> bool {
         self.state_store.read().await.shutting_down
     }
 
     pub async fn set_lifecycle_stage(&self, stage: LifecycleStage) -> Result<()> {
-        let mut state = self.state_store.write().await;
-        state.lifecycle_stage = stage;
-        state.updated_at = Utc::now();
+        let mut ctx_state = self.state_store.write().await;
+        ctx_state.lifecycle_stage = stage;
+        ctx_state.updated_at = Utc::now();
         Ok(())
     }
 }
@@ -259,6 +265,7 @@ pub struct ContextBuilder {
 
 impl ContextBuilder {
     /// Create a new context builder
+    #[must_use = "This returns a builder that should be used to configure and create a Context"]
     pub fn new() -> Self {
         Self {
             config: ContextConfig::default(),
@@ -266,26 +273,38 @@ impl ContextBuilder {
     }
 
     /// Set whether to enable metrics
-    pub fn enable_metrics(mut self, enable: bool) -> Self {
-        self.config.enable_metrics = enable;
-        self
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
+    pub fn enable_metrics(self, enable: bool) -> Self {
+        let mut builder = self;
+        builder.config.metadata.insert("enable_metrics".to_string(), enable.to_string());
+        builder
     }
 
     /// Set whether to enable events
-    pub fn enable_events(mut self, enable: bool) -> Self {
-        self.config.enable_events = enable;
-        self
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
+    pub fn enable_events(self, enable: bool) -> Self {
+        let mut builder = self;
+        builder.config.metadata.insert("enable_events".to_string(), enable.to_string());
+        builder
     }
 
     /// Set the maximum number of events to store
-    pub fn max_events(mut self, max: usize) -> Self {
-        self.config.max_events = max;
-        self
+    #[must_use = "This method returns self for method chaining and the return value should be used"]
+    pub fn max_events(self, max: usize) -> Self {
+        let mut builder = self;
+        builder.config.metadata.insert("max_events".to_string(), max.to_string());
+        builder
     }
 
     /// Build the context
-    pub async fn build(self) -> Result<Context> {
-        Ok(Context::new(self.config)?)
+    pub fn build(self) -> Result<Context> {
+        Context::new(self.config)
+    }
+}
+
+impl Default for ContextBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -350,21 +369,23 @@ pub enum ContextError {
     AlreadyShuttingDown,
     ContextExists(String),
     ContextNotFound(String),
+    InvalidState(String),
 }
 
 impl std::fmt::Display for ContextError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ContextError::Initialization(msg) => write!(f, "Context initialization error: {}", msg),
-            ContextError::Lifecycle(msg) => write!(f, "Context lifecycle error: {}", msg),
-            ContextError::Data(msg) => write!(f, "Context data error: {}", msg),
-            ContextError::Metadata(msg) => write!(f, "Context metadata error: {}", msg),
-            ContextError::Other(e) => write!(f, "Other context error: {}", e),
+            ContextError::Initialization(msg) => write!(f, "Context initialization error: {msg}"),
+            ContextError::Lifecycle(msg) => write!(f, "Context lifecycle error: {msg}"),
+            ContextError::Data(msg) => write!(f, "Context data error: {msg}"),
+            ContextError::Metadata(msg) => write!(f, "Context metadata error: {msg}"),
+            ContextError::Other(e) => write!(f, "Other context error: {e}"),
             ContextError::AlreadyInitialized => write!(f, "Context already initialized"),
             ContextError::NotInitialized => write!(f, "Context not initialized"),
             ContextError::AlreadyShuttingDown => write!(f, "Context already shutting down"),
-            ContextError::ContextExists(id) => write!(f, "Context with id {} already exists", id),
-            ContextError::ContextNotFound(id) => write!(f, "Context with id {} not found", id),
+            ContextError::ContextExists(id) => write!(f, "Context with id {id} already exists"),
+            ContextError::ContextNotFound(id) => write!(f, "Context with id {id} not found"),
+            ContextError::InvalidState(msg) => write!(f, "Invalid context state: {msg}"),
         }
     }
 }
@@ -381,21 +402,22 @@ impl std::error::Error for ContextError {
 impl From<ContextError> for SquirrelError {
     fn from(err: ContextError) -> Self {
         match err {
-            ContextError::Initialization(msg) => SquirrelError::Context(format!("Initialization error: {}", msg)),
-            ContextError::Lifecycle(msg) => SquirrelError::Context(format!("Lifecycle error: {}", msg)),
-            ContextError::Data(msg) => SquirrelError::Context(format!("Data error: {}", msg)),
-            ContextError::Metadata(msg) => SquirrelError::Context(format!("Metadata error: {}", msg)),
+            ContextError::Initialization(msg) => SquirrelError::Context(format!("Initialization error: {msg}")),
+            ContextError::Lifecycle(msg) => SquirrelError::Context(format!("Lifecycle error: {msg}")),
+            ContextError::Data(msg) => SquirrelError::Context(format!("Data error: {msg}")),
+            ContextError::Metadata(msg) => SquirrelError::Context(format!("Metadata error: {msg}")),
             ContextError::Other(e) => SquirrelError::Context(e.to_string()),
             ContextError::AlreadyInitialized => SquirrelError::Context("Context already initialized".to_string()),
             ContextError::NotInitialized => SquirrelError::Context("Context not initialized".to_string()),
             ContextError::AlreadyShuttingDown => SquirrelError::Context("Context already shutting down".to_string()),
-            ContextError::ContextExists(id) => SquirrelError::Context(format!("Context with id {} already exists", id)),
-            ContextError::ContextNotFound(id) => SquirrelError::Context(format!("Context with id {} not found", id)),
+            ContextError::ContextExists(id) => SquirrelError::Context(format!("Context with id {id} already exists")),
+            ContextError::ContextNotFound(id) => SquirrelError::Context(format!("Context with id {id} not found")),
+            ContextError::InvalidState(msg) => SquirrelError::Context(format!("Invalid context state: {msg}")),
         }
     }
 }
 
-pub type Result<T> = std::result::Result<T, ContextError>;
+type Result<T> = std::result::Result<T, ContextError>;
 
 #[derive(Debug)]
 pub struct ContextManager {
@@ -404,6 +426,8 @@ pub struct ContextManager {
 }
 
 impl ContextManager {
+    /// Create a new context manager
+    #[must_use = "This returns a new context manager that should be used to manage contexts"]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(Metrics::new()),
@@ -416,8 +440,10 @@ impl ContextManager {
         if contexts.contains_key(&id) {
             return Err(ContextError::ContextExists(id));
         }
-        let mut config = ContextConfig::default();
-        config.id = id.clone();
+        let config = ContextConfig {
+            id: id.clone(),
+            ..ContextConfig::default()
+        };
         let context = Arc::new(Context::new(config)?);
         contexts.insert(id, context.clone());
         Ok(context)
@@ -434,6 +460,12 @@ impl ContextManager {
             context.stop().await?;
         }
         Ok(())
+    }
+}
+
+impl Default for ContextManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -470,5 +502,35 @@ impl ContextTracker {
         } else {
             Ok(None)
         }
+    }
+}
+
+/// Application context that stores the application configuration and components
+#[derive(Debug)]
+pub struct AppContext {
+    config: AppConfig,
+    event_emitter: Arc<DefaultEventEmitter>,
+}
+
+impl AppContext {
+    /// Create a new application context
+    #[must_use = "This returns a new application context that should be used for application operations"]
+    pub fn new(config: AppConfig, event_emitter: Arc<DefaultEventEmitter>) -> Self {
+        Self {
+            config,
+            event_emitter,
+        }
+    }
+
+    /// Get the application configuration
+    #[must_use = "This returns the application configuration that contains important settings"]
+    pub fn config(&self) -> &AppConfig {
+        &self.config
+    }
+
+    /// Get the event emitter
+    #[must_use = "This returns the event emitter that should be used for event operations"]
+    pub fn event_emitter(&self) -> Arc<DefaultEventEmitter> {
+        self.event_emitter.clone()
     }
 } 

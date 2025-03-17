@@ -6,16 +6,11 @@
 use std::fmt;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use crate::core::error::{Error as CoreError, Result as CoreResult};
-use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::future::Future;
-use std::pin::Pin;
-use std::time::SystemTime;
 use thiserror::Error;
-use crate::core::error::{SquirrelError, Result, CoreResult};
+use crate::error::SquirrelError;
 
 /// The type of metric
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,11 +53,21 @@ pub struct Metric {
     pub labels: HashMap<String, String>,
 }
 
-pub trait MetricsCollector: std::fmt::Debug + Send + Sync {
+pub trait MetricsCollector: fmt::Debug + Send + Sync {
+    /// Collect metrics from the given metrics source
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics collection fails
     fn collect(&self, metrics: &Metrics) -> Result<()>;
 }
 
-pub trait MetricsExporter: std::fmt::Debug + Send + Sync {
+pub trait MetricsExporter: fmt::Debug + Send + Sync {
+    /// Export metrics to the target destination
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics export fails
     fn export(&self, metrics: &Metrics) -> Result<()>;
 }
 
@@ -75,6 +80,8 @@ pub struct MetricsData {
 }
 
 impl MetricsData {
+    /// Create a new empty metrics data instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             timestamp: Utc::now(),
@@ -83,6 +90,7 @@ impl MetricsData {
         }
     }
 
+    /// Merge another metrics data instance into this one
     pub fn merge(&mut self, other: MetricsData) {
         for (key, value) in other.metrics {
             self.metrics.insert(key, value);
@@ -90,6 +98,12 @@ impl MetricsData {
         for (key, value) in other.quantiles {
             self.quantiles.insert(key, value);
         }
+    }
+}
+
+impl Default for MetricsData {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -120,16 +134,30 @@ impl Default for Metrics {
 }
 
 impl Metrics {
+    /// Create a new metrics instance
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub async fn record(&self, metric: Metric) -> CoreResult<()> {
+    /// Record a metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The metric type is invalid
+    /// - The metric value is incompatible with its type
+    /// - A counter metric has a negative value
+    pub async fn record(&self, metric: Metric) -> Result<()> {
         match metric.metric_type {
             MetricType::Counter => {
                 if let MetricValue::Counter(value) = metric.value {
                     let mut counters = self.counters.write().await;
-                    *counters.entry(metric.name).or_insert(0) += value as u64;
+                    if value >= 0 {
+                        *counters.entry(metric.name).or_insert(0) += value.unsigned_abs();
+                    } else {
+                        return Err(MetricError::InvalidValue(format!("Counter value must be non-negative: {value}")));
+                    }
                 }
             }
             MetricType::Gauge => {
@@ -151,21 +179,38 @@ impl Metrics {
         Ok(())
     }
 
-    pub async fn get_counter(&self, name: &str) -> CoreResult<u64> {
+    /// Get the current value of a counter metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the counter metric cannot be accessed
+    pub async fn get_counter(&self, name: &str) -> Result<u64> {
         let counters = self.counters.read().await;
         Ok(*counters.get(name).unwrap_or(&0))
     }
 
-    pub async fn get_gauge(&self, name: &str) -> CoreResult<f64> {
+    /// Get the current value of a gauge metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the gauge metric cannot be accessed
+    pub async fn get_gauge(&self, name: &str) -> Result<f64> {
         let gauges = self.gauges.read().await;
         Ok(*gauges.get(name).unwrap_or(&0.0))
     }
 
-    pub async fn get_histogram(&self, name: &str) -> CoreResult<Vec<f64>> {
+    /// Get the current values of a histogram metric
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the histogram metric cannot be accessed
+    pub async fn get_histogram(&self, name: &str) -> Result<Vec<f64>> {
         let histograms = self.histograms.read().await;
         Ok(histograms.get(name).cloned().unwrap_or_default())
     }
 
+    /// Create a snapshot of all current metrics
+    #[must_use]
     pub async fn snapshot(&self) -> MetricsSnapshot {
         let counters = self.counters.read().await.clone();
         let gauges = self.gauges.read().await.clone();
@@ -186,23 +231,40 @@ pub struct MetricsRegistry {
 }
 
 impl MetricsRegistry {
+    /// Create a new metrics registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    /// Register a named metrics instance
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics instance cannot be registered
     pub async fn register(&self, name: &str, metrics: Arc<Metrics>) -> Result<()> {
         let mut registry = self.metrics.write().await;
         registry.insert(name.to_string(), metrics);
         Ok(())
     }
 
+    /// Get a named metrics instance if it exists
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics registry cannot be accessed
     pub async fn get(&self, name: &str) -> Result<Option<Arc<Metrics>>> {
         let registry = self.metrics.read().await;
         Ok(registry.get(name).cloned())
     }
 
+    /// Get all registered metrics instances
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the metrics registry cannot be accessed
     pub async fn get_all(&self) -> Result<HashMap<String, Arc<Metrics>>> {
         let registry = self.metrics.read().await;
         Ok(registry.clone())
@@ -229,8 +291,8 @@ impl fmt::Display for MetricType {
 impl fmt::Display for MetricValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MetricValue::Counter(c) => write!(f, "Counter({})", c),
-            MetricValue::Gauge(g) => write!(f, "Gauge({})", g),
+            MetricValue::Counter(c) => write!(f, "Counter({c})"),
+            MetricValue::Gauge(g) => write!(f, "Gauge({g})"),
             MetricValue::Histogram(h) => write!(f, "Histogram({} values)", h.len()),
             MetricValue::Summary(s) => write!(f, "Summary({} pairs)", s.len()),
         }
@@ -251,54 +313,56 @@ impl fmt::Display for Metric {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum MetricsError {
-    #[error("Invalid metric name: {0}")]
-    InvalidName(String),
-    #[error("Metric not found: {0}")]
-    NotFound(String),
-    #[error("Metric already exists: {0}")]
-    AlreadyExists(String),
+#[derive(Debug, Error)]
+pub enum MetricError {
+    #[error("Invalid metric type: {0}")]
+    InvalidType(String),
     #[error("Invalid metric value: {0}")]
     InvalidValue(String),
     #[error("Other error: {0}")]
     Other(String),
 }
 
-impl From<MetricsError> for SquirrelError {
-    fn from(err: MetricsError) -> Self {
+type Result<T> = std::result::Result<T, MetricError>;
+
+impl From<MetricError> for SquirrelError {
+    fn from(err: MetricError) -> Self {
         match err {
-            MetricsError::InvalidName(e) => SquirrelError::Other(format!("Invalid metric name: {}", e)),
-            MetricsError::NotFound(e) => SquirrelError::Other(format!("Metric not found: {}", e)),
-            MetricsError::AlreadyExists(e) => SquirrelError::Other(format!("Metric already exists: {}", e)),
-            MetricsError::InvalidValue(e) => SquirrelError::Other(format!("Invalid metric value: {}", e)),
-            MetricsError::Other(e) => SquirrelError::Other(e),
+            MetricError::InvalidType(e) => SquirrelError::Other(format!("Invalid metric type: {e}")),
+            MetricError::InvalidValue(e) => SquirrelError::Other(format!("Invalid metric value: {e}")),
+            MetricError::Other(e) => SquirrelError::Other(e),
         }
     }
 }
 
-impl From<String> for MetricsError {
+impl From<String> for MetricError {
     fn from(err: String) -> Self {
-        MetricsError::Other(err)
+        MetricError::Other(err)
     }
 }
 
-impl From<Box<dyn std::error::Error + Send + Sync>> for MetricsError {
+impl From<Box<dyn std::error::Error + Send + Sync>> for MetricError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        MetricsError::Other(err.to_string())
+        MetricError::Other(err.to_string())
     }
 }
-
-pub type Result<T> = std::result::Result<T, MetricsError>;
 
 /// Initialize the metrics system
-pub async fn initialize() -> Result<()> {
+///
+/// # Errors
+///
+/// Returns a `MetricError` if the metrics system cannot be initialized
+pub fn initialize() -> Result<()> {
     // TODO: Initialize metrics system
     Ok(())
 }
 
 /// Shutdown the metrics system
-pub async fn shutdown() -> Result<()> {
+///
+/// # Errors
+///
+/// Returns a `MetricError` if the metrics system cannot be shut down properly
+pub fn shutdown() -> Result<()> {
     // TODO: Cleanup metrics system resources
     Ok(())
 }
