@@ -25,6 +25,10 @@ use crate::monitoring::{
 use crate::error::{Result, SquirrelError};
 use serde_json::{Value, to_value};
 
+// Make the adapter module public
+pub mod adapter;
+use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter, create_dashboard_manager_adapter_with_manager};
+
 /// Configuration for the dashboard
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -235,6 +239,29 @@ impl DashboardManagerFactory {
         Arc::new(DashboardManager::new(self.config.clone()))
     }
 
+    /// Creates a dashboard manager with explicit dependencies
+    ///
+    /// This method supports dependency injection by accepting
+    /// external dependencies for the dashboard manager.
+    #[must_use]
+    pub fn create_manager_with_dependencies(
+        &self,
+        // Add any required dependencies here in the future
+    ) -> Arc<DashboardManager> {
+        // For now, the dashboard manager doesn't have external dependencies
+        self.create_manager()
+    }
+
+    /// Creates an adapter for the dashboard manager with default configuration
+    ///
+    /// This method is used for backward compatibility during the
+    /// transition to dependency injection.
+    #[must_use]
+    pub fn create_adapter(&self) -> Arc<DashboardManagerAdapter> {
+        let manager = self.create_manager();
+        create_dashboard_manager_adapter_with_manager(manager)
+    }
+
     /// Initializes and returns a global dashboard manager instance
     ///
     /// # Errors
@@ -295,14 +322,32 @@ pub fn initialize_factory(config: Option<DashboardConfig>) -> Result<()> {
 
 /// Get the dashboard manager factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with DashboardManagerFactory::new() or DashboardManagerFactory::with_config() instead"
+)]
 pub fn get_factory() -> Option<DashboardManagerFactory> {
     FACTORY.get().cloned()
 }
 
 /// Get or create the dashboard manager factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0", 
+    note = "Use DI pattern with DashboardManagerFactory::new() or DashboardManagerFactory::with_config() instead"
+)]
 pub fn ensure_factory() -> DashboardManagerFactory {
     FACTORY.get_or_init(DashboardManagerFactory::new).clone()
+}
+
+/// Create a dashboard manager adapter using the factory
+///
+/// This function is a convenience method for creating an adapter
+/// using the global factory. It's primarily for backward compatibility
+/// during the transition to dependency injection.
+#[must_use]
+pub fn create_adapter() -> Arc<DashboardManagerAdapter> {
+    ensure_factory().create_adapter()
 }
 
 // Static instance for global access
@@ -315,6 +360,10 @@ static DASHBOARD_MANAGER: tokio::sync::OnceCell<Arc<DashboardManager>> = tokio::
 ///
 /// # Errors
 /// Returns an error if the dashboard manager is already initialized or if initialization fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with DashboardManagerFactory::create_manager() or create_adapter() instead"
+)]
 pub async fn initialize(config: Option<DashboardConfig>) -> Result<Arc<DashboardManager>> {
     let factory = match config {
         Some(cfg) => DashboardManagerFactory::with_config(cfg),
@@ -330,11 +379,19 @@ pub async fn initialize(config: Option<DashboardConfig>) -> Result<Arc<Dashboard
 }
 
 /// Get the dashboard manager instance
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with DashboardManagerFactory::create_adapter() instead"
+)]
 pub fn get_manager() -> Option<Arc<DashboardManager>> {
     DASHBOARD_MANAGER.get().cloned()
 }
 
 /// Check if the dashboard system is initialized
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with DashboardManagerFactory instead of relying on global state"
+)]
 pub fn is_initialized() -> bool {
     DASHBOARD_MANAGER.get().is_some()
 }
@@ -343,6 +400,10 @@ pub fn is_initialized() -> bool {
 ///
 /// # Errors
 /// Returns an error if the dashboard manager is not initialized or if shutdown fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with DashboardManagerAdapter::stop() instead"
+)]
 pub async fn shutdown() -> Result<()> {
     if let Some(manager) = DASHBOARD_MANAGER.get() {
         let stop_future = manager.stop();

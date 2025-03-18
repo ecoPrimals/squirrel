@@ -9,22 +9,111 @@ use std::collections::HashMap;
 use crate::error::{Result, SquirrelError};
 use serde::{Serialize, Deserialize};
 
-lazy_static::lazy_static! {
-    static ref SYSTEM: Arc<RwLock<System>> = Arc::new(RwLock::new(System::new_all()));
+pub mod adapter;
+pub use adapter::{NetworkMonitorAdapter, create_monitor_adapter, create_monitor_adapter_with_monitor, SystemInfoAdapter, create_system_info_adapter, create_system_info_adapter_with_system};
+
+/// System information manager for monitoring system resources
+#[derive(Debug)]
+pub struct SystemInfoManager {
+    system: Arc<RwLock<System>>,
 }
 
-/// Initialize the network monitoring system (legacy function)
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - The system information cannot be initialized
-/// - The system lock cannot be acquired
-pub fn initialize_legacy() -> Result<()> {
-    SYSTEM.write()
-        .map_err(|e| SquirrelError::Other(format!("Failed to acquire system lock: {e}")))?
-        .refresh_networks();
-    Ok(())
+impl SystemInfoManager {
+    /// Creates a new system info manager
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            system: Arc::new(RwLock::new(System::new_all())),
+        }
+    }
+
+    /// Creates a new system info manager with dependencies
+    #[must_use]
+    pub fn with_dependencies(system: Arc<RwLock<System>>) -> Self {
+        Self { system }
+    }
+
+    /// Refreshes all system information
+    pub async fn refresh_all(&self) -> Result<()> {
+        let mut sys = self.system.write().await;
+        sys.refresh_all();
+        Ok(())
+    }
+
+    /// Refreshes network information
+    pub async fn refresh_networks(&self) -> Result<()> {
+        let mut sys = self.system.write().await;
+        sys.refresh_networks();
+        Ok(())
+    }
+
+    /// Gets CPU usage
+    pub async fn cpu_usage(&self) -> Result<f32> {
+        let sys = self.system.read().await;
+        Ok(sys.global_cpu_info().cpu_usage())
+    }
+
+    /// Gets memory usage
+    pub async fn memory_usage(&self) -> Result<(u64, u64)> {
+        let sys = self.system.read().await;
+        Ok((sys.used_memory(), sys.total_memory()))
+    }
+
+    /// Gets network statistics
+    pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
+        let sys = self.system.read().await;
+        let mut stats = Vec::new();
+        for (interface_name, data) in sys.networks() {
+            stats.push((
+                interface_name.clone(),
+                data.received(),
+                data.transmitted(),
+            ));
+        }
+        Ok(stats)
+    }
+}
+
+impl Default for SystemInfoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Factory for creating system info managers
+#[derive(Debug, Default)]
+pub struct SystemInfoManagerFactory;
+
+impl SystemInfoManagerFactory {
+    /// Creates a new factory
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Creates a new system info manager
+    #[must_use]
+    pub fn create_manager(&self) -> Arc<SystemInfoManager> {
+        Arc::new(SystemInfoManager::new())
+    }
+
+    /// Creates a new system info manager with dependencies
+    #[must_use]
+    pub fn create_manager_with_dependencies(&self, system: Arc<RwLock<System>>) -> Arc<SystemInfoManager> {
+        Arc::new(SystemInfoManager::with_dependencies(system))
+    }
+
+    /// Creates a new system info adapter
+    #[must_use]
+    pub fn create_adapter(&self) -> Arc<SystemInfoAdapter> {
+        create_system_info_adapter()
+    }
+
+    /// Creates a new system info adapter with an existing system
+    #[must_use]
+    pub fn create_adapter_with_system(&self, system: Arc<RwLock<System>>) -> Arc<SystemInfoAdapter> {
+        create_system_info_adapter_with_system(system)
+    }
 }
 
 /// Configuration for network monitoring
@@ -45,24 +134,24 @@ impl Default for NetworkConfig {
 /// Network interface statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkStats {
-    /// Name of the network interface
+    /// Network interface name
     pub interface: String,
     /// Total bytes received
     pub received_bytes: u64,
     /// Total bytes transmitted
     pub transmitted_bytes: u64,
+    /// Receive rate in bytes per second
+    pub receive_rate: f64,
+    /// Transmit rate in bytes per second
+    pub transmit_rate: f64,
     /// Total packets received
     pub packets_received: u64,
     /// Total packets transmitted
     pub packets_transmitted: u64,
-    /// Number of errors on received packets
+    /// Errors on received packets
     pub errors_on_received: u64,
-    /// Number of errors on transmitted packets
+    /// Errors on transmitted packets
     pub errors_on_transmitted: u64,
-    /// Rate of bytes received per second
-    pub receive_rate: f64,
-    /// Rate of bytes transmitted per second
-    pub transmit_rate: f64,
 }
 
 /// Errors that can occur during network monitoring
@@ -99,6 +188,12 @@ impl NetworkMonitor {
             system: Arc::new(RwLock::new(system)),
             stats: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Creates a new network monitor with dependencies
+    #[must_use]
+    pub fn with_dependencies(config: NetworkConfig) -> Self {
+        Self::new(config)
     }
 
     /// Gets current network statistics for all interfaces
@@ -231,9 +326,9 @@ impl Default for NetworkStats {
 }
 
 impl NetworkStats {
-    /// Creates a new empty network stats instance
+    /// Creates a new network stats instance
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             interface: String::new(),
             received_bytes: 0,
@@ -329,29 +424,17 @@ impl NetworkMonitorFactory {
         Self { config }
     }
 
-    /// Creates a network monitor
+    /// Creates a network monitor with dependencies
     #[must_use]
-    pub fn create_monitor(&self) -> Arc<NetworkMonitor> {
-        Arc::new(NetworkMonitor::new(self.config.clone()))
+    pub fn create_monitor_with_dependencies(&self) -> Arc<NetworkMonitor> {
+        Arc::new(NetworkMonitor::with_dependencies(self.config.clone()))
     }
 
-    /// Initializes and returns a global network monitor instance
-    ///
-    /// # Errors
-    /// Returns an error if the monitor is already initialized
-    pub async fn initialize_global_monitor(&self) -> Result<Arc<NetworkMonitor>> {
-        static GLOBAL_MONITOR: OnceLock<Arc<NetworkMonitor>> = OnceLock::new();
-
-        let monitor = self.create_monitor();
-        match GLOBAL_MONITOR.set(monitor.clone()) {
-            Ok(()) => Ok(monitor),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_MONITOR.get()
-                    .ok_or_else(|| SquirrelError::monitoring("Failed to get global network monitor"))?
-                    .clone())
-            }
-        }
+    /// Creates a network monitor adapter
+    #[must_use]
+    pub fn create_monitor_adapter(&self) -> Arc<NetworkMonitorAdapter> {
+        let monitor = self.create_monitor_with_dependencies();
+        Arc::new(NetworkMonitorAdapter::with_monitor(monitor))
     }
 
     /// Gets the global network monitor, initializing it if necessary
@@ -365,7 +448,16 @@ impl NetworkMonitorFactory {
             return Ok(monitor.clone());
         }
 
-        self.initialize_global_monitor().await
+        let monitor = self.create_monitor_with_dependencies();
+        match GLOBAL_MONITOR.set(monitor.clone()) {
+            Ok(()) => Ok(monitor),
+            Err(_) => {
+                // Already initialized, return the existing instance
+                Ok(GLOBAL_MONITOR.get()
+                    .ok_or_else(|| SquirrelError::monitoring("Failed to get global network monitor"))?
+                    .clone())
+            }
+        }
     }
 }
 
@@ -416,18 +508,12 @@ static NETWORK_MONITOR: tokio::sync::OnceCell<Arc<NetworkMonitor>> = tokio::sync
 /// - The system lock cannot be acquired
 /// - The network monitor is already initialized
 pub async fn initialize(config: Option<NetworkConfig>) -> Result<Arc<NetworkMonitor>> {
-    // Initialize the system first
-    SYSTEM.write()
-        .map_err(|e| SquirrelError::monitoring(&format!("Failed to acquire system lock: {e}")))?
-        .refresh_networks();
-    
-    // Create and initialize using factory
     let factory = match config {
         Some(cfg) => NetworkMonitorFactory::with_config(cfg),
         None => ensure_factory(),
     };
     
-    let monitor = factory.initialize_global_monitor().await?;
+    let monitor = factory.get_global_monitor().await?;
     
     // For backward compatibility, also set in the old static
     let _ = NETWORK_MONITOR.set(monitor.clone());

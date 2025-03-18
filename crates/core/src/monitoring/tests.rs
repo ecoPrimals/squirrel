@@ -1,5 +1,7 @@
 use tokio::time::Duration;
 use std::sync::Arc;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 use crate::monitoring::{
     initialize, 
@@ -9,21 +11,17 @@ use crate::monitoring::{
     MonitoringConfig, 
     MonitoringService,
     MonitoringServiceFactory,
-    health::{HealthStatus, HealthChecker, ComponentHealth}
+    health::{HealthStatus, HealthChecker, ComponentHealth, create_checker_adapter},
+    alerts::{Alert, AlertSeverity, AlertManager, DefaultAlertManager},
+    metrics::{MetricCollector, DefaultMetricCollector, MetricConfig},
+    alerts::AlertConfig,
+    MonitoringIntervals,
+    health::{HealthConfig},
+    health::status::{Status},
+    metrics::Metric,
+    metrics::MetricType,
+    network::{NetworkConfig, NetworkMonitor, NetworkStats},
 };
-
-use crate::monitoring::alerts::{Alert, AlertSeverity, AlertManager};
-use crate::monitoring::metrics::MetricCollector;
-use crate::monitoring::alerts::AlertConfig;
-use crate::monitoring::{MonitoringIntervals};
-use crate::monitoring::health::{HealthConfig};
-use crate::monitoring::health::status::{Status};
-use crate::monitoring::metrics::MetricConfig;
-use crate::monitoring::network::NetworkConfig;
-use crate::monitoring::network::NetworkMonitor;
-use crate::monitoring::metrics::Metric;
-use crate::monitoring::metrics::MetricType;
-use std::collections::HashMap;
 
 // ==========================================================================
 // TEST UTILITIES AND FIXTURES
@@ -848,4 +846,73 @@ async fn test_get_test_metrics() {
     
     let metrics = service.get_metrics().await;
     assert!(metrics.is_ok());
+}
+
+#[tokio::test]
+async fn test_monitoring_service_basic() -> Result<()> {
+    // Create a basic monitoring service
+    let config = MonitoringConfig::default();
+    let service = MonitoringService::new(config);
+
+    // Start the service
+    service.start().await?;
+
+    // Check initial health status
+    let health_status = service.check_health().await?;
+    assert!(health_status.is_healthy(), "Initial health status should be healthy");
+
+    // Stop the service
+    service.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_monitoring_service_full() -> Result<()> {
+    // Create a monitoring service with all components
+    let config = MonitoringConfig {
+        health: Default::default(),
+        metrics: MetricConfig::default(),
+        alerts: AlertConfig::default(),
+        network: NetworkConfig::default(),
+    };
+
+    // Create the service with explicit dependencies
+    let health_checker = create_checker_adapter();
+    let metric_collector = Arc::new(DefaultMetricCollector::new());
+    let alert_manager = Arc::new(DefaultAlertManager::new(config.alerts.clone()));
+    let network_monitor = Arc::new(NetworkMonitor::new(config.network.clone()));
+
+    let service = MonitoringService::with_dependencies(
+        config,
+        health_checker,
+        metric_collector,
+        alert_manager,
+        network_monitor,
+    );
+
+    // Start all components
+    service.start().await?;
+
+    // Verify health status
+    let health_status = service.check_health().await?;
+    assert!(health_status.is_healthy(), "Initial health status should be healthy");
+
+    // Register an unhealthy component
+    let unhealthy_component = ComponentHealth {
+        name: String::from("test-component"),
+        status: health::status::Status::Unhealthy,
+        message: String::from("Test failure"),
+        last_check: chrono::Utc::now(),
+    };
+
+    service.health_checker.register_component(unhealthy_component).await?;
+
+    // Verify health status is now unhealthy
+    let health_status = service.check_health().await?;
+    assert!(!health_status.is_healthy(), "Health status should be unhealthy after registering unhealthy component");
+
+    // Stop all components
+    service.stop().await?;
+
+    Ok(())
 } 

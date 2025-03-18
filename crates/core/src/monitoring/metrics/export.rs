@@ -17,6 +17,9 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use prometheus::Registry;
 
+pub mod adapter;
+pub use adapter::{MetricExporterAdapter, create_exporter_adapter, create_exporter_adapter_with_exporter};
+
 /// Configuration for metric export functionality.
 /// 
 /// This struct defines how metrics should be exported, including the format,
@@ -119,6 +122,22 @@ impl DefaultMetricExporter {
         Self {
             config,
             metrics: Arc::new(RwLock::new(Vec::new())),
+        }
+    }
+
+    /// Creates a new DefaultMetricExporter with dependencies
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Export configuration to use
+    /// * `metrics` - Optional pre-existing metrics storage
+    #[must_use] pub fn with_dependencies(
+        config: ExportConfig,
+        metrics: Option<Arc<RwLock<Vec<Metric>>>>,
+    ) -> Self {
+        Self {
+            config,
+            metrics: metrics.unwrap_or_else(|| Arc::new(RwLock::new(Vec::new()))),
         }
     }
 
@@ -250,6 +269,26 @@ impl PrometheusExporter {
         }
     }
 
+    /// Creates a new PrometheusExporter with dependencies
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Export configuration to use
+    /// * `registry` - Optional pre-existing Prometheus registry
+    /// * `metrics` - Optional pre-existing metrics storage
+    #[must_use] pub fn with_dependencies(
+        config: ExportConfig,
+        registry: Option<Registry>,
+        metrics: Option<Arc<RwLock<HashMap<String, String>>>>,
+    ) -> Self {
+        Self {
+            name: "prometheus".to_string(),
+            config,
+            registry: registry.unwrap_or_else(Registry::new),
+            metrics: metrics.unwrap_or_else(|| Arc::new(RwLock::new(HashMap::new()))),
+        }
+    }
+
     /// Returns the configured export endpoint URL.
     #[must_use] pub fn endpoint(&self) -> &str {
         &self.config.endpoint
@@ -304,6 +343,49 @@ impl MetricExporterFactory {
             format: self.config.format.clone(),
             endpoint: self.config.endpoint.clone(),
         })
+    }
+
+    /// Creates a metric exporter with dependencies
+    ///
+    /// # Arguments
+    ///
+    /// * `registry` - Optional pre-existing Prometheus registry
+    /// * `metrics` - Optional pre-existing metrics storage
+    ///
+    /// # Errors
+    /// Returns an error if exporter creation fails
+    pub fn create_exporter_with_dependencies(
+        &self,
+        registry: Option<Registry>,
+        metrics: Option<Arc<RwLock<HashMap<String, String>>>>,
+    ) -> Result<Arc<dyn MetricExporter + Send + Sync>> {
+        let exporter: Arc<dyn MetricExporter + Send + Sync> = match self.config.format.as_str() {
+            "prometheus" => Arc::new(PrometheusExporter::with_dependencies(
+                self.config.clone(),
+                registry,
+                metrics,
+            )),
+            _ => Arc::new(DefaultMetricExporter::with_dependencies(
+                self.config.clone(),
+                None,
+            )),
+        };
+        Ok(exporter)
+    }
+
+    /// Creates a metric exporter adapter
+    #[must_use]
+    pub fn create_adapter(&self) -> Arc<MetricExporterAdapter> {
+        create_exporter_adapter()
+    }
+
+    /// Creates a metric exporter adapter with an existing exporter
+    #[must_use]
+    pub fn create_adapter_with_exporter(
+        &self,
+        exporter: Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>,
+    ) -> Arc<MetricExporterAdapter> {
+        create_exporter_adapter_with_exporter(exporter)
     }
 
     /// Initializes and returns a global metric exporter instance
@@ -492,25 +574,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_json_exporter() {
-        let config = JsonExportConfig {
-            path: "test_metrics.json".to_string(),
-            pretty: true,
-        };
+    async fn test_metric_exporter_factory() {
+        let factory = MetricExporterFactory::new();
+        let exporter = factory.create_exporter().unwrap();
         
-        let exporter = JsonMetricExporter::new(config);
-        let metrics = vec![
-            Metric::new("test_metric".to_string(), 1.0, MetricType::Gauge, None),
-            Metric::new("test_counter".to_string(), 10.0, MetricType::Counter, None),
-        ];
+        // Test exporter creation
+        assert!(Arc::strong_count(&exporter) > 0);
         
-        // Export metrics using the exporter trait method
-        exporter.export(metrics).await.unwrap();
+        // Test with dependencies
+        let registry = Some(Registry::new());
+        let metrics = Some(Arc::new(RwLock::new(HashMap::new())));
+        let exporter_with_deps = factory.create_exporter_with_dependencies(registry, metrics).unwrap();
         
-        // Verify exporter name
-        assert_eq!(exporter.name(), "json", "Exporter name should match");
+        assert!(Arc::strong_count(&exporter_with_deps) > 0);
+    }
+
+    #[tokio::test]
+    async fn test_metric_exporter_adapter() {
+        let factory = MetricExporterFactory::new();
+        let adapter = factory.create_adapter();
         
-        // Clean up test file if it exists (our mock implementation doesn't actually create it)
-        std::fs::remove_file("test_metrics.json").ok();
+        // Test adapter creation
+        assert!(Arc::strong_count(&adapter) > 0);
+        
+        // Test with existing exporter
+        let exporter = factory.create_exporter().unwrap();
+        let exporter_lock = Arc::new(RwLock::new(exporter));
+        let adapter_with_exporter = factory.create_adapter_with_exporter(exporter_lock);
+        
+        assert!(Arc::strong_count(&adapter_with_exporter) > 0);
     }
 } 

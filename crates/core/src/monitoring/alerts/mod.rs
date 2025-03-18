@@ -20,7 +20,11 @@ use crate::error::{Result, SquirrelError};
 use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 
+pub mod config;
+pub mod manager;
 pub mod notify;
+pub mod status;
+pub mod adapter;
 
 /// Alert severity levels
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -278,6 +282,7 @@ pub trait AlertManager: Debug + Send + Sync {
 pub struct DefaultAlertManager {
     alerts: Arc<RwLock<Vec<Alert>>>,
     config: AlertConfig,
+    notification_manager: Option<Arc<NotificationManager>>,
 }
 
 impl DefaultAlertManager {
@@ -292,6 +297,26 @@ impl DefaultAlertManager {
         Self {
             alerts: Arc::new(RwLock::new(Vec::new())),
             config,
+            notification_manager: None,
+        }
+    }
+
+    /// Creates a new alert manager with dependencies
+    ///
+    /// # Arguments
+    /// * `config` - The alert configuration settings
+    /// * `notification_manager` - Optional notification manager for sending alerts
+    ///
+    /// # Returns
+    /// A new instance of `DefaultAlertManager` with the specified dependencies
+    #[must_use] pub fn with_dependencies(
+        config: AlertConfig,
+        notification_manager: Option<Arc<NotificationManager>>,
+    ) -> Self {
+        Self {
+            alerts: Arc::new(RwLock::new(Vec::new())),
+            config,
+            notification_manager,
         }
     }
 }
@@ -314,8 +339,18 @@ impl AlertManager for DefaultAlertManager {
     /// * The notification system fails to send the alert
     /// * There are issues storing the alert in the internal storage
     async fn send_alert(&self, alert: Alert) -> Result<()> {
-        // TODO: Implement notification
-        self.add_alert(alert).await
+        // Store the alert
+        self.add_alert(alert.clone()).await?;
+
+        // Send notification if configured
+        if let Some(notification_manager) = &self.notification_manager {
+            let notification = AlertNotification::from(alert);
+            if let Err(e) = notification_manager.send_notification(&notification).await {
+                log::error!("Failed to send notification: {}", e);
+            }
+        }
+
+        Ok(())
     }
 
     /// Retrieves all stored alerts
@@ -433,29 +468,35 @@ impl AlertManagerFactory {
         Self { config }
     }
 
-    /// Creates an alert manager
+    /// Creates an alert manager with dependencies
+    ///
+    /// # Arguments
+    /// * `notification_manager` - Optional notification manager for sending alerts
+    ///
+    /// # Returns
+    /// A new alert manager instance with the specified dependencies
     #[must_use]
-    pub fn create_manager(&self) -> Arc<DefaultAlertManager> {
-        Arc::new(DefaultAlertManager::new(self.config.clone()))
+    pub fn create_manager_with_dependencies(
+        &self,
+        notification_manager: Option<Arc<NotificationManager>>,
+    ) -> Arc<DefaultAlertManager> {
+        Arc::new(DefaultAlertManager::with_dependencies(
+            self.config.clone(),
+            notification_manager,
+        ))
     }
 
-    /// Initializes and returns a global alert manager instance
-    ///
-    /// # Errors
-    /// Returns an error if the manager is already initialized
-    pub async fn initialize_global_manager(&self) -> Result<Arc<DefaultAlertManager>> {
-        static GLOBAL_MANAGER: OnceLock<Arc<DefaultAlertManager>> = OnceLock::new();
+    /// Creates an alert manager with default configuration
+    #[must_use]
+    pub fn create_manager(&self) -> Arc<DefaultAlertManager> {
+        self.create_manager_with_dependencies(None)
+    }
 
+    /// Creates an alert manager adapter
+    #[must_use]
+    pub fn create_manager_adapter(&self) -> Arc<AlertManagerAdapter> {
         let manager = self.create_manager();
-        match GLOBAL_MANAGER.set(manager.clone()) {
-            Ok(()) => Ok(manager),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_MANAGER.get()
-                    .ok_or_else(|| SquirrelError::alert("Failed to get global alert manager"))?
-                    .clone())
-            }
-        }
+        Arc::new(AlertManagerAdapter::with_manager(manager))
     }
 
     /// Gets the global alert manager, initializing it if necessary
@@ -463,13 +504,24 @@ impl AlertManagerFactory {
     /// # Errors
     /// Returns an error if the alert manager cannot be initialized
     pub async fn get_global_manager(&self) -> Result<Arc<DefaultAlertManager>> {
-        static GLOBAL_MANAGER: OnceLock<Arc<DefaultAlertManager>> = OnceLock::new();
+        if let Some(manager) = ALERT_MANAGER.get() {
+            Ok(manager.clone())
+        } else {
+            // Create notification manager adapter
+            let notification_manager = match crate::monitoring::alerts::notify::get_manager() {
+                Some(manager) => Some(manager),
+                None => None,
+            };
 
-        if let Some(manager) = GLOBAL_MANAGER.get() {
-            return Ok(manager.clone());
+            // Create manager with dependencies
+            let manager = self.create_manager_with_dependencies(notification_manager);
+            
+            // Initialize the manager
+            match ALERT_MANAGER.set(manager.clone()) {
+                Ok(_) => Ok(manager),
+                Err(_) => Err(SquirrelError::alert("Failed to set global alert manager")),
+            }
         }
-
-        self.initialize_global_manager().await
     }
 }
 
@@ -479,8 +531,11 @@ impl Default for AlertManagerFactory {
     }
 }
 
-/// Global factory for creating alert managers
-static FACTORY: OnceLock<AlertManagerFactory> = OnceLock::new();
+// Re-export adapter types
+pub use adapter::{AlertManagerAdapter, create_manager_adapter, create_manager_adapter_with_manager};
+
+// Static instance for global access
+static ALERT_MANAGER: tokio::sync::OnceCell<Arc<DefaultAlertManager>> = tokio::sync::OnceCell::const_new();
 
 /// Initialize the alert manager factory
 ///
@@ -508,9 +563,6 @@ pub fn get_factory() -> Option<AlertManagerFactory> {
 pub fn ensure_factory() -> AlertManagerFactory {
     FACTORY.get_or_init(AlertManagerFactory::new).clone()
 }
-
-// Static instance for global access
-static ALERT_MANAGER: tokio::sync::OnceCell<Arc<DefaultAlertManager>> = tokio::sync::OnceCell::const_new();
 
 /// Initializes the alert manager with the given configuration
 ///
@@ -554,4 +606,11 @@ pub async fn shutdown() -> Result<()> {
     }
     
     Ok(())
-} 
+}
+
+// Re-export 
+pub use self::config::*;
+pub use self::manager::*;
+pub use self::notify::*;
+pub use self::status::*;
+pub use self::adapter::*; 

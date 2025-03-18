@@ -1,85 +1,99 @@
 use std::error::Error;
 use std::sync::RwLock;
-use crate::commands::validation::ValidationError;
-use super::Command;
+use crate::commands::Command;
 
-/// Represents different stages in a command's lifecycle
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Represents the different stages in a command's lifecycle
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum LifecycleStage {
-    /// Before command registration
+    /// Before command registration.
     Registration,
-    /// During command initialization
+    
+    /// The initialization stage, executed before any validation
     Initialization,
-    /// During command validation
+    
+    /// The validation stage, where command parameters are validated
     Validation,
-    /// Before command execution
+    
+    /// The pre-execution stage, executed after validation but before execution
     PreExecution,
-    /// During command execution
+    
+    /// Pre-validation stage, before command validation is performed
+    PreValidation,
+    
+    /// The execution stage, where the command is actually executed
     Execution,
-    /// After command execution
+    
+    /// The post-execution stage, executed after a successful execution
     PostExecution,
-    /// During command completion
+    
+    /// Post-validation stage, after command validation is complete
+    PostValidation,
+    
+    /// During command completion.
     Completion,
-    /// During cleanup
+    
+    /// During cleanup.
     Cleanup,
+    
+    /// The error handling stage, executed if an error occurs during any stage
+    ErrorHandling,
 }
 
-/// A hook that can be executed at different stages of a command's lifecycle
-pub trait LifecycleHook: Send + Sync {
-    /// Called before a lifecycle stage is executed
-    ///
+/// Trait that defines a command lifecycle hook.
+/// 
+/// Lifecycle hooks allow hooking into different stages of command processing.
+pub trait LifecycleHook: Send + Sync + std::fmt::Debug {
+    /// Returns the name of the lifecycle hook.
+    #[allow(dead_code)]
+    fn name(&self) -> &'static str;
+    
+    /// Returns the lifecycle stages this hook is interested in.
+    #[allow(dead_code)]
+    fn stages(&self) -> Vec<LifecycleStage>;
+    
+    /// Called when a command is processed at different lifecycle stages.
+    /// 
     /// # Arguments
-    /// * `stage` - The lifecycle stage being executed
-    /// * `command` - The command being executed
-    ///
+    /// * `stage` - The current lifecycle stage
+    /// * `command` - The command being processed
+    /// * `context` - The context for the command
+    /// 
     /// # Errors
-    /// Returns an error if the hook fails to execute
-    fn pre_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
-
-    /// Called after a lifecycle stage is executed
-    ///
-    /// # Arguments
-    /// * `stage` - The lifecycle stage being executed
-    /// * `command` - The command being executed
-    ///
-    /// # Errors
-    /// Returns an error if the hook fails to execute
-    fn post_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
+    /// Returns an error if the hook fails
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>>;
+    
+    /// Clone the hook into a new Box.
+    #[allow(dead_code)]
+    fn clone_box(&self) -> Box<dyn LifecycleHook>;
 }
 
-/// Manages the lifecycle of a command
+/// Manager for command lifecycle stages.
+#[derive(Debug)]
 pub struct CommandLifecycle {
-    /// List of hooks that will be executed during each lifecycle stage
+    /// List of lifecycle hooks to execute.
     hooks: RwLock<Vec<Box<dyn LifecycleHook>>>,
 }
 
-impl Default for CommandLifecycle {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl CommandLifecycle {
-    /// Creates a new command lifecycle manager
+    /// Creates a new command lifecycle manager.
     #[must_use]
     pub fn new() -> Self {
         Self {
             hooks: RwLock::new(Vec::new()),
         }
     }
-
-    /// Executes all hooks for the given lifecycle stage.
-    ///
+    
+    /// Executes a lifecycle stage for a command
+    /// 
     /// # Arguments
-    /// * `stage` - The lifecycle stage to execute hooks for
-    /// * `command` - The command being executed
-    ///
+    /// 
+    /// * `stage` - The lifecycle stage to execute
+    /// * `command` - The command to execute the stage for
+    /// 
     /// # Errors
-    /// Returns an error if any hook fails to execute or if the hooks lock is poisoned
-    ///
-    /// # Panics
-    /// Panics if the hooks lock is poisoned
+    /// 
+    /// Returns an error if any lifecycle hook fails during execution
     pub fn execute_stage(&self, stage: LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
         let hooks = self.hooks.read().map_err(|e| Box::new(ValidationError {
             rule_name: "LifecycleHook".to_string(),
@@ -88,38 +102,26 @@ impl CommandLifecycle {
         
         // Execute pre-stage hooks
         for hook in hooks.iter() {
-            if let Err(e) = hook.pre_stage(&stage, command) {
-                return Err(Box::new(ValidationError {
-                    rule_name: "LifecycleHook".to_string(),
-                    message: format!("Pre-stage hook failed: {e}"),
-                }));
-            }
+            hook.on_stage(&stage, command)?;
         }
-
+        
         // Execute post-stage hooks
         for hook in hooks.iter() {
-            if let Err(e) = hook.post_stage(&stage, command) {
-                return Err(Box::new(ValidationError {
-                    rule_name: "LifecycleHook".to_string(),
-                    message: format!("Post-stage hook failed: {e}"),
-                }));
-            }
+            hook.on_stage(&stage, command)?;
         }
-
+        
         Ok(())
     }
-
-    /// Adds a hook to be executed during lifecycle stages
+    
+    /// Adds a lifecycle hook to the manager
     /// 
     /// # Arguments
+    /// 
     /// * `hook` - The hook to add
-    ///
+    /// 
     /// # Errors
-    /// Returns an error if the hook cannot be added or if the hooks lock is poisoned
-    ///
-    /// # Panics
-    /// Panics if the hooks lock is poisoned
-    #[allow(dead_code)]
+    /// 
+    /// Returns an error if the hook cannot be added
     pub fn add_hook(&self, hook: Box<dyn LifecycleHook>) -> Result<(), Box<dyn Error>> {
         let mut hooks = self.hooks.write().map_err(|e| Box::new(ValidationError {
             rule_name: "LifecycleHook".to_string(),
@@ -128,11 +130,33 @@ impl CommandLifecycle {
         hooks.push(hook);
         Ok(())
     }
-
-    /// Returns the number of hooks registered with the lifecycle manager
+    
+    /// Returns the number of hooks registered
+    #[must_use]
     #[allow(dead_code)]
     pub fn hooks(&self) -> usize {
-        self.hooks.read().map(|hooks| hooks.len()).unwrap_or(0)
+        self.hooks.read().map(|h| h.len()).unwrap_or(0)
+    }
+}
+
+impl Default for CommandLifecycle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Represents an error that occurred during command validation
+#[derive(Debug, thiserror::Error)]
+pub struct ValidationError {
+    /// Name of the validation rule that failed
+    pub rule_name: String,
+    /// Error message describing what validation failed
+    pub message: String,
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Validation error in rule {}: {}", self.rule_name, self.message)
     }
 }
 

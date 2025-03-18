@@ -63,8 +63,7 @@ impl Default for DiskIOStats {
     }
 }
 
-/// Resource metrics collector
-#[derive(Debug)]
+/// Resource metrics collector that monitors system and team resource usage
 pub struct ResourceMetricsCollector {
     /// System information collector
     system: System,
@@ -74,16 +73,45 @@ pub struct ResourceMetricsCollector {
     team_paths: Arc<RwLock<HashMap<String, PathBuf>>>,
     /// Previous disk I/O measurements
     prev_disk_io: Arc<RwLock<HashMap<String, DiskIOStats>>>,
+    /// Performance collector adapter
+    performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
+    /// Configuration
+    config: ResourceConfig,
 }
 
 impl ResourceMetricsCollector {
-    /// Create a new resource metrics collector
-    #[must_use] pub fn new() -> Self {
+    /// Create a new resource metrics collector with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self::with_config(ResourceConfig::default())
+    }
+
+    /// Creates a new resource metrics collector with the specified configuration
+    #[must_use]
+    pub fn with_config(config: ResourceConfig) -> Self {
         Self {
             system: System::new_all(),
             metrics: Arc::new(RwLock::new(Vec::new())),
             team_paths: Arc::new(RwLock::new(HashMap::new())),
             prev_disk_io: Arc::new(RwLock::new(HashMap::new())),
+            performance_collector: None,
+            config,
+        }
+    }
+
+    /// Creates a new resource metrics collector with dependencies
+    #[must_use]
+    pub fn with_dependencies(
+        config: ResourceConfig,
+        performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
+    ) -> Self {
+        Self {
+            system: System::new_all(),
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            team_paths: Arc::new(RwLock::new(HashMap::new())),
+            prev_disk_io: Arc::new(RwLock::new(HashMap::new())),
+            performance_collector,
+            config,
         }
     }
 
@@ -392,6 +420,8 @@ impl Clone for ResourceMetricsCollector {
             metrics: self.metrics.clone(),
             team_paths: self.team_paths.clone(),
             prev_disk_io: self.prev_disk_io.clone(),
+            performance_collector: self.performance_collector.clone(),
+            config: self.config.clone(),
         }
     }
 }
@@ -439,55 +469,69 @@ impl ResourceMetricsCollectorFactory {
         }
     }
 
-    /// Creates a new factory with specific configuration
+    /// Creates a new factory with the specified configuration
     #[must_use]
     pub const fn with_config(config: ResourceConfig) -> Self {
         Self { config }
     }
 
-    /// Creates a resource metrics collector
+    /// Creates a new collector instance with dependency injection
+    ///
+    /// # Arguments
+    /// * `performance_collector` - Optional performance collector adapter
+    ///
+    /// # Returns
+    /// A new ResourceMetricsCollector instance wrapped in an Arc
+    #[must_use]
+    pub fn create_collector_with_dependencies(
+        &self,
+        performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
+    ) -> Arc<ResourceMetricsCollector> {
+        Arc::new(ResourceMetricsCollector::with_dependencies(
+            self.config.clone(),
+            performance_collector,
+        ))
+    }
+
+    /// Creates a new collector instance with the default configuration
     #[must_use]
     pub fn create_collector(&self) -> Arc<ResourceMetricsCollector> {
-        Arc::new(ResourceMetricsCollector::new())
+        self.create_collector_with_dependencies(None)
     }
 
-    /// Initializes and returns a global resource metrics collector instance
-    ///
-    /// # Errors
-    /// Returns an error if the collector is already initialized
-    pub async fn initialize_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
-        static GLOBAL_COLLECTOR: OnceLock<Arc<ResourceMetricsCollector>> = OnceLock::new();
-
+    /// Creates a new collector adapter
+    #[must_use]
+    pub fn create_collector_adapter(&self) -> Arc<ResourceMetricsCollectorAdapter> {
         let collector = self.create_collector();
-        
-        // Start collection if enabled
-        if self.config.enabled {
-            collector.start_collection().await;
-        }
-        
-        match GLOBAL_COLLECTOR.set(collector.clone()) {
-            Ok(()) => Ok(collector),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_COLLECTOR.get()
-                    .ok_or_else(|| SquirrelError::metric("Failed to get global resource metrics collector"))?
-                    .clone())
+        Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
+    }
+
+    /// Gets the global collector instance, initializing it if necessary
+    pub async fn get_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
+        if let Some(collector) = RESOURCE_COLLECTOR.get() {
+            Ok(collector.clone())
+        } else {
+            // Create performance collector adapter
+            let performance_collector = match crate::monitoring::metrics::performance::create_collector_adapter().await {
+                Ok(adapter) => Some(Arc::new(adapter)),
+                Err(_) => None,
+            };
+
+            // Create collector with dependencies
+            let collector = self.create_collector_with_dependencies(performance_collector);
+            
+            // Initialize the collector
+            match RESOURCE_COLLECTOR.set(collector.clone()) {
+                Ok(_) => {
+                    // Start collection if enabled
+                    if self.config.enabled {
+                        collector.start_collection().await;
+                    }
+                    Ok(collector)
+                }
+                Err(_) => Err(anyhow::anyhow!("Failed to set global resource collector")),
             }
         }
-    }
-
-    /// Gets the global resource metrics collector, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be initialized
-    pub async fn get_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
-        static GLOBAL_COLLECTOR: OnceLock<Arc<ResourceMetricsCollector>> = OnceLock::new();
-
-        if let Some(collector) = GLOBAL_COLLECTOR.get() {
-            return Ok(collector.clone());
-        }
-
-        self.initialize_global_collector().await
     }
 }
 
@@ -531,22 +575,32 @@ pub fn ensure_factory() -> ResourceMetricsCollectorFactory {
 static RESOURCE_COLLECTOR: tokio::sync::OnceCell<Arc<ResourceMetricsCollector>> = 
     tokio::sync::OnceCell::const_new();
 
-/// Initialize the resource metrics collector
+/// Initializes the resource metrics collector with the given configuration
+///
+/// # Arguments
+/// * `config` - Optional configuration for the collector
 ///
 /// # Errors
-/// Returns an error if the collector is already initialized
+/// Returns an error if the collector cannot be initialized
 pub async fn initialize(config: Option<ResourceConfig>) -> Result<Arc<ResourceMetricsCollector>> {
-    let factory = match config {
-        Some(cfg) => ResourceMetricsCollectorFactory::with_config(cfg),
-        None => ensure_factory(),
-    };
-    
-    let collector = factory.initialize_global_collector().await?;
-    
-    // For backward compatibility, also set in the old static
-    let _ = RESOURCE_COLLECTOR.set(collector.clone());
-    
-    Ok(collector)
+    // Initialize factory with config
+    initialize_factory(config)?;
+
+    // Get factory and create collector with dependencies
+    let factory = ensure_factory();
+    let collector = factory.get_global_collector().await?;
+
+    // Initialize global collector
+    match RESOURCE_COLLECTOR.set(collector.clone()) {
+        Ok(_) => {
+            // Start collection if enabled
+            if factory.config.enabled {
+                collector.start_collection().await;
+            }
+            Ok(collector)
+        }
+        Err(_) => Err(anyhow::anyhow!("Failed to set global resource collector")),
+    }
 }
 
 /// Get resource metrics for a team

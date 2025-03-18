@@ -6,6 +6,7 @@ use super::Command;
 use super::validation::ValidationError;
 use crate::commands::CommandValidator;
 use super::lifecycle::{LifecycleHook, LifecycleStage};
+use std::sync::Arc;
 
 /// Error type for hook failures.
 #[derive(Debug)]
@@ -311,9 +312,10 @@ impl Default for TimingHook {
 }
 
 /// Hook for validating command arguments
+#[derive(Debug, Clone)]
 pub struct ArgumentValidationHook {
-    /// Validator instance for checking command arguments
-    validator: CommandValidator,
+    /// The validator component that performs argument validation
+    validator: Arc<RwLock<CommandValidator>>,
 }
 
 impl ArgumentValidationHook {
@@ -321,21 +323,37 @@ impl ArgumentValidationHook {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            validator: CommandValidator::new(),
+            validator: Arc::new(RwLock::new(CommandValidator::new())),
         }
     }
 }
 
 impl LifecycleHook for ArgumentValidationHook {
-    fn pre_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn name(&self) -> &'static str {
+        "argument_validation"
+    }
+    
+    fn stages(&self) -> Vec<LifecycleStage> {
+        vec![LifecycleStage::Validation]
+    }
+    
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
         if *stage == LifecycleStage::Validation {
-            self.validator.validate(command)?;
+            let validator = self.validator.read().map_err(|e| {
+                Box::new(ValidationError {
+                    rule_name: "argument_validation".to_string(), 
+                    message: format!("Failed to acquire read lock: {e}"),
+                })
+            })?;
+            
+            validator.validate(command)?;
         }
+        
         Ok(())
     }
-
-    fn post_stage(&self, _stage: &LifecycleStage, _command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        Ok(())
+    
+    fn clone_box(&self) -> Box<dyn LifecycleHook> {
+        Box::new(self.clone())
     }
 }
 
@@ -346,9 +364,10 @@ impl Default for ArgumentValidationHook {
 }
 
 /// Hook for validating environment requirements
+#[derive(Debug, Clone)]
 pub struct EnvironmentValidationHook {
-    /// Validator instance for checking environment requirements
-    validator: CommandValidator,
+    /// The validator component that performs environment validation
+    validator: Arc<RwLock<CommandValidator>>,
 }
 
 impl EnvironmentValidationHook {
@@ -356,21 +375,37 @@ impl EnvironmentValidationHook {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            validator: CommandValidator::new(),
+            validator: Arc::new(RwLock::new(CommandValidator::new())),
         }
     }
 }
 
 impl LifecycleHook for EnvironmentValidationHook {
-    fn pre_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn name(&self) -> &'static str {
+        "environment_validation"
+    }
+    
+    fn stages(&self) -> Vec<LifecycleStage> {
+        vec![LifecycleStage::Validation]
+    }
+    
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
         if *stage == LifecycleStage::Validation {
-            self.validator.validate(command)?;
+            let validator = self.validator.read().map_err(|e| {
+                Box::new(ValidationError {
+                    rule_name: "environment_validation".to_string(),
+                    message: format!("Failed to acquire read lock: {e}"),
+                })
+            })?;
+            
+            validator.validate(command)?;
         }
+        
         Ok(())
     }
-
-    fn post_stage(&self, _stage: &LifecycleStage, _command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        Ok(())
+    
+    fn clone_box(&self) -> Box<dyn LifecycleHook> {
+        Box::new(self.clone())
     }
 }
 
@@ -381,9 +416,10 @@ impl Default for EnvironmentValidationHook {
 }
 
 /// Hook for validating resource requirements
+#[derive(Debug, Clone)]
 pub struct ResourceValidationHook {
-    /// Validator instance for checking resource requirements
-    validator: CommandValidator,
+    /// The validator component that performs resource validation
+    validator: Arc<RwLock<CommandValidator>>,
 }
 
 impl ResourceValidationHook {
@@ -391,21 +427,37 @@ impl ResourceValidationHook {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            validator: CommandValidator::new(),
+            validator: Arc::new(RwLock::new(CommandValidator::new())),
         }
     }
 }
 
 impl LifecycleHook for ResourceValidationHook {
-    fn pre_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
+    fn name(&self) -> &'static str {
+        "resource_validation"
+    }
+    
+    fn stages(&self) -> Vec<LifecycleStage> {
+        vec![LifecycleStage::Validation]
+    }
+    
+    fn on_stage(&self, stage: &LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
         if *stage == LifecycleStage::Validation {
-            self.validator.validate(command)?;
+            let validator = self.validator.read().map_err(|e| {
+                Box::new(ValidationError {
+                    rule_name: "resource_validation".to_string(),
+                    message: format!("Failed to acquire read lock: {e}"),
+                })
+            })?;
+            
+            validator.validate(command)?;
         }
+        
         Ok(())
     }
-
-    fn post_stage(&self, _stage: &LifecycleStage, _command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        Ok(())
+    
+    fn clone_box(&self) -> Box<dyn LifecycleHook> {
+        Box::new(self.clone())
     }
 }
 
@@ -477,10 +529,37 @@ impl Default for HookManager {
     }
 }
 
+/// Validation hook for commands
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct ValidationHook {
+    /// The validator component that performs the actual validation
+    #[allow(dead_code)]
+    validator: Arc<RwLock<CommandValidator>>,
+}
+
+/// Pre-execution lifecycle hook
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct PreExecutionHook {
+    /// The validator component that performs pre-execution validation
+    #[allow(dead_code)]
+    validator: Arc<RwLock<CommandValidator>>,
+}
+
+/// Post-execution lifecycle hook
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct PostExecutionHook {
+    /// The validator component that performs post-execution validation
+    #[allow(dead_code)]
+    validator: Arc<RwLock<CommandValidator>>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::{Parser, CommandFactory};
+    use clap::Parser;
 
     #[derive(Parser)]
     #[command(name = "test")]
@@ -490,29 +569,30 @@ mod tests {
         value: String,
     }
 
-    #[derive(Clone)]
+    #[derive(Debug)]
     #[allow(dead_code)]
     struct TestCommand;
 
     impl Command for TestCommand {
         fn name(&self) -> &'static str {
-            "test_command"
+            "test"
         }
         
         fn description(&self) -> &'static str {
-            "Test command for hooks"
+            "A test command"
         }
-
+        
         fn execute(&self) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
-
+        
         fn parser(&self) -> clap::Command {
-            TestArgs::command()
+            clap::Command::new(self.name())
+                .about(self.description())
         }
-
+        
         fn clone_box(&self) -> Box<dyn Command> {
-            Box::new(self.clone())
+            Box::new(TestCommand)
         }
     }
 

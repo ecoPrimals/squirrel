@@ -18,8 +18,8 @@ pub struct VersionArgs {
     verbose: bool,
 }
 
-/// A command that displays version information
-#[derive(Clone)]
+/// Command that displays the version information.
+#[derive(Debug, Clone)]
 pub struct VersionCommand;
 
 impl Command for VersionCommand {
@@ -28,7 +28,7 @@ impl Command for VersionCommand {
     }
 
     fn description(&self) -> &'static str {
-        "Displays version information"
+        "Display version information"
     }
 
     fn execute(&self) -> Result<(), Box<dyn Error>> {

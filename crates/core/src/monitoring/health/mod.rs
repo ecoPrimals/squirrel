@@ -23,11 +23,14 @@ pub mod status;
 pub mod component;
 /// Health checker implementations and scheduling
 pub mod checker;
+/// Health checker adapter for dependency injection
+pub mod adapter;
 
 // Re-export the types
 pub use status::HealthStatus;
 pub use component::ComponentHealth;
 pub use checker::HealthChecker;
+pub use adapter::{HealthCheckerAdapter, create_checker_adapter};
 
 /// Health configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,134 +50,11 @@ impl Default for HealthConfig {
     }
 }
 
-/// Factory for creating and managing health checker instances
-#[derive(Debug, Clone)]
-pub struct HealthCheckerFactory {
-    /// Configuration for creating health checkers
-    config: HealthConfig,
-}
-
-impl HealthCheckerFactory {
-    /// Creates a new factory with default configuration
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            config: HealthConfig::default(),
-        }
-    }
-
-    /// Creates a new factory with specific configuration
-    #[must_use]
-    pub const fn with_config(config: HealthConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a health checker
-    #[must_use]
-    pub fn create_checker(&self) -> Arc<DefaultHealthChecker> {
-        Arc::new(DefaultHealthChecker::new())
-    }
-
-    /// Initializes and returns a global health checker instance
-    ///
-    /// # Errors
-    /// Returns an error if the checker is already initialized
-    pub async fn initialize_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
-        static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
-
-        let checker = self.create_checker();
-        match GLOBAL_CHECKER.set(checker.clone()) {
-            Ok(()) => Ok(checker),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_CHECKER.get()
-                    .ok_or_else(|| SquirrelError::health("Failed to get global health checker"))?
-                    .clone())
-            }
-        }
-    }
-
-    /// Gets the global health checker, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the health checker cannot be initialized
-    pub async fn get_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
-        static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
-
-        if let Some(checker) = GLOBAL_CHECKER.get() {
-            return Ok(checker.clone());
-        }
-
-        self.initialize_global_checker().await
-    }
-}
-
-impl Default for HealthCheckerFactory {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Global factory for creating health checkers
-static FACTORY: OnceLock<HealthCheckerFactory> = OnceLock::new();
-
-/// Initialize the health checker factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized
-pub fn initialize_factory(config: Option<HealthConfig>) -> Result<()> {
-    let factory = match config {
-        Some(cfg) => HealthCheckerFactory::with_config(cfg),
-        None => HealthCheckerFactory::new(),
-    };
-    
-    FACTORY.set(factory)
-        .map_err(|_| SquirrelError::health("Health checker factory already initialized"))?;
-    Ok(())
-}
-
-/// Get the health checker factory
-#[must_use]
-pub fn get_factory() -> Option<HealthCheckerFactory> {
-    FACTORY.get().cloned()
-}
-
-/// Get or create the health checker factory
-#[must_use]
-pub fn ensure_factory() -> HealthCheckerFactory {
-    FACTORY.get_or_init(HealthCheckerFactory::new).clone()
-}
-
-/// Initialize the health checker
-///
-/// # Errors
-/// Returns an error if the checker cannot be initialized
-pub async fn initialize() -> Result<Arc<DefaultHealthChecker>> {
-    let factory = ensure_factory();
-    factory.initialize_global_checker().await
-}
-
-/// Get the global health checker
-///
-/// # Errors
-/// Returns an error if the health checker is not initialized
-pub async fn get_checker() -> Result<Arc<DefaultHealthChecker>> {
-    ensure_factory().get_global_checker().await
-}
-
-/// Check health status
-///
-/// # Errors
-/// Returns an error if the health check fails
-pub async fn check_health() -> Result<HealthStatus> {
-    let checker = get_checker().await?;
-    checker.check_health().await
-}
-
 /// Default health checker implementation
 #[derive(Debug)]
 pub struct DefaultHealthChecker {
     components: Arc<RwLock<HashMap<String, ComponentHealth>>>,
+    config: HealthConfig,
 }
 
 impl DefaultHealthChecker {
@@ -185,6 +65,17 @@ impl DefaultHealthChecker {
     #[must_use] pub fn new() -> Self {
         Self {
             components: Arc::new(RwLock::new(HashMap::new())),
+            config: HealthConfig::default(),
+        }
+    }
+
+    /// Creates a new instance with dependencies
+    ///
+    /// This constructor allows for dependency injection of required components
+    #[must_use] pub fn with_dependencies(config: Option<HealthConfig>) -> Self {
+        Self {
+            components: Arc::new(RwLock::new(HashMap::new())),
+            config: config.unwrap_or_default(),
         }
     }
 
@@ -285,4 +176,144 @@ impl HealthChecker for DefaultHealthChecker {
     async fn stop(&self) -> Result<()> {
         Ok(())
     }
+}
+
+/// Factory for creating health checkers with dependency injection
+#[derive(Debug, Clone)]
+pub struct HealthCheckerFactory {
+    config: HealthConfig,
+}
+
+impl HealthCheckerFactory {
+    /// Creates a new factory with default configuration
+    #[must_use] pub fn new() -> Self {
+        Self {
+            config: HealthConfig::default(),
+        }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use] pub const fn with_config(config: HealthConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a health checker with dependencies
+    #[must_use] pub fn create_checker_with_dependencies(&self) -> Arc<DefaultHealthChecker> {
+        Arc::new(DefaultHealthChecker::with_dependencies(Some(self.config.clone())))
+    }
+
+    /// Creates a health checker adapter
+    #[must_use] pub fn create_checker_adapter(&self) -> Arc<HealthCheckerAdapter> {
+        let checker = self.create_checker_with_dependencies();
+        Arc::new(HealthCheckerAdapter::with_checker(checker))
+    }
+}
+
+impl Default for HealthCheckerFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Initialize the health checker factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<HealthConfig>) -> Result<Arc<HealthCheckerFactory>> {
+    let factory = Arc::new(HealthCheckerFactory::with_config(config.unwrap_or_default()));
+    Ok(factory)
+}
+
+/// Create a health checker adapter
+#[must_use] pub fn create_checker_adapter() -> Arc<HealthCheckerAdapter> {
+    adapter::create_checker_adapter()
+}
+
+/// Global factory for creating health checkers
+static FACTORY: OnceLock<HealthCheckerFactory> = OnceLock::new();
+
+/// Initialize the health checker factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory_global(config: Option<HealthConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => HealthCheckerFactory::with_config(cfg),
+        None => HealthCheckerFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::health("Health checker factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the health checker factory
+#[must_use]
+pub fn get_factory() -> Option<HealthCheckerFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the health checker factory
+#[must_use]
+pub fn ensure_factory() -> HealthCheckerFactory {
+    FACTORY.get_or_init(HealthCheckerFactory::new).clone()
+}
+
+/// Initialize the health checker
+///
+/// # Errors
+/// Returns an error if the checker cannot be initialized
+pub async fn initialize() -> Result<Arc<DefaultHealthChecker>> {
+    let factory = ensure_factory();
+    factory.initialize_global_checker().await
+}
+
+/// Get the global health checker
+///
+/// # Errors
+/// Returns an error if the health checker is not initialized
+pub async fn get_checker() -> Result<Arc<DefaultHealthChecker>> {
+    ensure_factory().get_global_checker().await
+}
+
+/// Check health status
+///
+/// # Errors
+/// Returns an error if the health check fails
+pub async fn check_health() -> Result<HealthStatus> {
+    let checker = get_checker().await?;
+    checker.check_health().await
+}
+
+/// Initialize the health checker
+///
+/// # Errors
+/// Returns an error if the checker cannot be initialized
+pub async fn initialize_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
+    static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
+
+    let checker = self.create_checker();
+    match GLOBAL_CHECKER.set(checker.clone()) {
+        Ok(()) => Ok(checker),
+        Err(_) => {
+            // Already initialized, return the existing instance
+            Ok(GLOBAL_CHECKER.get()
+                .ok_or_else(|| SquirrelError::health("Failed to get global health checker"))?
+                .clone())
+        }
+    }
+}
+
+/// Gets the global health checker, initializing it if necessary
+///
+/// # Errors
+/// Returns an error if the health checker cannot be initialized
+pub async fn get_global_checker(&self) -> Result<Arc<DefaultHealthChecker>> {
+    static GLOBAL_CHECKER: OnceLock<Arc<DefaultHealthChecker>> = OnceLock::new();
+
+    if let Some(checker) = GLOBAL_CHECKER.get() {
+        return Ok(checker.clone());
+    }
+
+    self.initialize_global_checker().await
 } 

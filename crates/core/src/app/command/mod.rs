@@ -8,12 +8,16 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::future::Future;
-use async_trait::async_trait;
-use std::fmt::Debug;
 use std::pin::Pin;
+use std::future::Future;
+use std::fmt::Debug;
+use async_trait::async_trait;
 
 use serde_json;
+
+/// Adapter module for command handling
+pub mod adapter;
+pub use adapter::{CommandHandlerAdapter, create_handler_adapter, create_handler_adapter_with_handler};
 
 /// A command that can be processed by the system
 ///
@@ -44,10 +48,25 @@ impl CommandHandler {
     ///
     /// # Returns
     /// A new `CommandHandler` instance
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Creates a new command handler with dependencies
+    ///
+    /// # Arguments
+    /// * `handlers` - Map of command types to their processors
+    ///
+    /// # Returns
+    /// A new `CommandHandler` instance with the provided handlers
+    #[must_use]
+    pub fn with_dependencies(
+        handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
+    ) -> Self {
+        Self { handlers }
     }
 
     /// Registers a command processor for the specified command type.
@@ -88,6 +107,40 @@ impl CommandHandler {
 impl Default for CommandHandler {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[async_trait]
+impl CommandProcessor for CommandHandler {
+    fn process(&self, command: &Command) -> Box<dyn Future<Output = Result<()>> + Send + '_> {
+        Box::new(self.handle(command.clone()))
+    }
+}
+
+/// Default implementation of `CommandProcessor`
+#[derive(Debug)]
+pub struct DefaultCommandProcessor;
+
+impl Default for DefaultCommandProcessor {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl DefaultCommandProcessor {
+    /// Creates a new `DefaultCommandProcessor`
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl CommandProcessor for DefaultCommandProcessor {
+    fn process(&self, _command: &Command) -> Box<dyn Future<Output = Result<()>> + Send + '_> {
+        Box::new(async move {
+            // Default implementation just returns success
+            Ok(())
+        })
     }
 }
 
@@ -196,5 +249,44 @@ impl CommandHook {
 impl Default for CommandHook {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Factory for creating command handlers
+#[derive(Debug, Default)]
+pub struct CommandHandlerFactory;
+
+impl CommandHandlerFactory {
+    /// Creates a new command handler factory
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Creates a new command handler
+    #[must_use]
+    pub fn create(&self) -> Arc<CommandHandler> {
+        Arc::new(CommandHandler::new())
+    }
+
+    /// Creates a new command handler with dependencies
+    #[must_use]
+    pub fn create_with_dependencies(
+        &self,
+        handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
+    ) -> Arc<CommandHandler> {
+        Arc::new(CommandHandler::with_dependencies(handlers))
+    }
+
+    /// Creates a new command handler adapter
+    #[must_use]
+    pub fn create_adapter(&self) -> Arc<CommandHandlerAdapter> {
+        create_handler_adapter()
+    }
+
+    /// Creates a new command handler adapter with an existing handler
+    #[must_use]
+    pub fn create_adapter_with_handler(&self, _handler: Arc<CommandHandler>) -> Arc<CommandHandlerAdapter> {
+        Arc::new(CommandHandlerAdapter::new())
     }
 } 

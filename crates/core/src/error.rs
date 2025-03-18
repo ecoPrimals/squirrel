@@ -22,6 +22,14 @@ pub enum SquirrelError {
     /// Other miscellaneous errors that don't fit into specific categories
     #[error("Other error: {0}")]
     Other(String),
+
+    /// Error from a lock operation
+    #[error("Lock error: {0}")]
+    Lock(String),
+    
+    /// Error from a command operation
+    #[error("Command error: {0}")]
+    Command(Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Error type for MCP-related operations

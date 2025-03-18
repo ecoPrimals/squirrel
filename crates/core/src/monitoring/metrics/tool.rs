@@ -16,6 +16,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use async_trait;
+use std::sync::OnceLock;
+use crate::error::SquirrelError;
+
+pub mod adapter;
+pub use adapter::{ToolMetricsCollectorAdapter, create_collector_adapter, create_collector_adapter_with_collector};
 
 /// Tool execution metrics
 #[derive(Debug, Clone, Default)]
@@ -79,11 +84,36 @@ impl ToolMetrics {
     }
 }
 
+/// Configuration for tool metrics collection
+#[derive(Debug, Clone)]
+pub struct ToolMetricsConfig {
+    /// Whether to enable tool metrics collection
+    pub enabled: bool,
+    /// Collection interval in seconds
+    pub interval: u64,
+    /// Maximum history size
+    pub history_size: usize,
+}
+
+impl Default for ToolMetricsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval: 30,
+            history_size: 100,
+        }
+    }
+}
+
 /// Tool metrics collector
 #[derive(Debug)]
 pub struct ToolMetricsCollector {
     /// Storage for tool metrics by tool name
     metrics: Arc<RwLock<HashMap<String, ToolMetrics>>>,
+    /// Configuration for the collector
+    config: ToolMetricsConfig,
+    /// Performance collector adapter for additional metrics
+    performance_collector: Option<Arc<crate::monitoring::metrics::performance::PerformanceCollectorAdapter>>,
 }
 
 impl ToolMetricsCollector {
@@ -94,6 +124,35 @@ impl ToolMetricsCollector {
     #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
+            config: ToolMetricsConfig::default(),
+            performance_collector: None,
+        }
+    }
+
+    /// Creates a new tool metrics collector with configuration
+    ///
+    /// # Returns
+    /// A new collector instance with the specified configuration
+    #[must_use] pub fn with_config(config: ToolMetricsConfig) -> Self {
+        Self {
+            metrics: Arc::new(RwLock::new(HashMap::new())),
+            config,
+            performance_collector: None,
+        }
+    }
+
+    /// Creates a new tool metrics collector with dependencies
+    ///
+    /// # Returns
+    /// A new collector instance with the specified dependencies
+    #[must_use] pub fn with_dependencies(
+        config: ToolMetricsConfig,
+        performance_collector: Option<Arc<crate::monitoring::metrics::performance::PerformanceCollectorAdapter>>,
+    ) -> Self {
+        Self {
+            metrics: Arc::new(RwLock::new(HashMap::new())),
+            config,
+            performance_collector,
         }
     }
 
@@ -140,6 +199,12 @@ impl ToolMetricsCollector {
         let mut metrics = self.metrics.write().await;
         let tool_metrics = metrics.entry(tool_name.to_string()).or_insert_with(|| ToolMetrics::new(tool_name.to_string()));
         tool_metrics.record_usage(duration, success);
+
+        // Record performance metrics if available
+        if let Some(perf_collector) = &self.performance_collector {
+            perf_collector.record_operation_duration(tool_name, duration).await?;
+        }
+
         Ok(())
     }
 }
@@ -265,8 +330,112 @@ impl Default for ToolMetricsCollector {
     }
 }
 
-// Static collector instance
-#[allow(dead_code)]
+/// Factory for creating and managing tool metrics collector instances
+#[derive(Debug, Clone)]
+pub struct ToolMetricsCollectorFactory {
+    /// Configuration for creating collectors
+    config: ToolMetricsConfig,
+}
+
+impl ToolMetricsCollectorFactory {
+    /// Creates a new factory with default configuration
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: ToolMetricsConfig::default(),
+        }
+    }
+
+    /// Creates a new factory with specific configuration
+    #[must_use]
+    pub const fn with_config(config: ToolMetricsConfig) -> Self {
+        Self { config }
+    }
+
+    /// Creates a tool metrics collector
+    #[must_use]
+    pub fn create_collector(&self) -> Arc<ToolMetricsCollector> {
+        Arc::new(ToolMetricsCollector::with_config(self.config.clone()))
+    }
+
+    /// Creates a new collector instance with dependency injection
+    ///
+    /// # Arguments
+    /// * `performance_collector` - Optional performance metrics collector adapter
+    #[must_use]
+    pub fn create_collector_with_dependencies(
+        &self,
+        performance_collector: Option<Arc<crate::monitoring::metrics::performance::PerformanceCollectorAdapter>>,
+    ) -> Arc<ToolMetricsCollector> {
+        Arc::new(ToolMetricsCollector::with_dependencies(
+            self.config.clone(),
+            performance_collector,
+        ))
+    }
+
+    /// Gets the global collector instance, initializing it if necessary
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be initialized
+    pub async fn get_global_collector(&self) -> Result<Arc<ToolMetricsCollector>> {
+        if let Some(collector) = TOOL_COLLECTOR.get() {
+            Ok(collector.clone())
+        } else {
+            // Create performance collector adapter
+            let performance_collector = match crate::monitoring::metrics::performance::create_collector_adapter().await {
+                Ok(adapter) => Some(Arc::new(adapter)),
+                Err(_) => None,
+            };
+
+            // Create collector with dependencies
+            let collector = self.create_collector_with_dependencies(performance_collector);
+            
+            // Initialize the collector
+            match TOOL_COLLECTOR.set(collector.clone()) {
+                Ok(_) => Ok(collector),
+                Err(_) => Err(SquirrelError::metric("Failed to set global tool collector")),
+            }
+        }
+    }
+}
+
+impl Default for ToolMetricsCollectorFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Global factory for creating tool metrics collectors
+static FACTORY: OnceLock<ToolMetricsCollectorFactory> = OnceLock::new();
+
+/// Initialize the tool metrics collector factory
+///
+/// # Errors
+/// Returns an error if the factory is already initialized
+pub fn initialize_factory(config: Option<ToolMetricsConfig>) -> Result<()> {
+    let factory = match config {
+        Some(cfg) => ToolMetricsCollectorFactory::with_config(cfg),
+        None => ToolMetricsCollectorFactory::new(),
+    };
+    
+    FACTORY.set(factory)
+        .map_err(|_| SquirrelError::metric("Tool metrics collector factory already initialized"))?;
+    Ok(())
+}
+
+/// Get the tool metrics collector factory
+#[must_use]
+pub fn get_factory() -> Option<ToolMetricsCollectorFactory> {
+    FACTORY.get().cloned()
+}
+
+/// Get or create the tool metrics collector factory
+#[must_use]
+pub fn ensure_factory() -> ToolMetricsCollectorFactory {
+    FACTORY.get_or_init(ToolMetricsCollectorFactory::new).clone()
+}
+
+// Static collector instance for backward compatibility
 static TOOL_COLLECTOR: tokio::sync::OnceCell<Arc<ToolMetricsCollector>> = tokio::sync::OnceCell::const_new();
 
 /// Initializes the tool metrics system
@@ -277,10 +446,20 @@ static TOOL_COLLECTOR: tokio::sync::OnceCell<Arc<ToolMetricsCollector>> = tokio:
 /// A Result indicating success or failure of the initialization
 ///
 /// # Errors
-/// This function doesn't produce errors currently, but returns a Result for API consistency
-pub async fn initialize() -> Result<()> {
-    // No initialization needed yet, but this function exists for API consistency
-    Ok(())
+/// Returns an error if the collector cannot be initialized
+pub async fn initialize(config: Option<ToolMetricsConfig>) -> Result<Arc<ToolMetricsCollector>> {
+    // Initialize factory with config
+    initialize_factory(config)?;
+
+    // Get factory and create collector with dependencies
+    let factory = ensure_factory();
+    let collector = factory.get_global_collector().await?;
+
+    // Initialize global collector
+    match TOOL_COLLECTOR.set(collector.clone()) {
+        Ok(_) => Ok(collector),
+        Err(_) => Err(SquirrelError::metric("Failed to set global tool collector")),
+    }
 }
 
 /// Retrieves metrics for a specific tool from the global collector
@@ -290,9 +469,16 @@ pub async fn initialize() -> Result<()> {
 ///
 /// # Returns
 /// The metrics for the specified tool, or None if no metrics exist or the collector is not initialized
-pub async fn get_tool_metrics(_tool_name: &str) -> Option<ToolMetrics> {
-    // Implementation would retrieve from global state
-    None
+pub async fn get_tool_metrics(tool_name: &str) -> Option<ToolMetrics> {
+    if let Some(collector) = TOOL_COLLECTOR.get() {
+        collector.get_tool_metrics(tool_name).await.ok().flatten()
+    } else {
+        // Try to initialize on-demand
+        match ensure_factory().get_global_collector().await {
+            Ok(collector) => collector.get_tool_metrics(tool_name).await.ok().flatten(),
+            Err(_) => None,
+        }
+    }
 }
 
 /// Retrieves metrics for all tracked tools from the global collector
@@ -300,8 +486,15 @@ pub async fn get_tool_metrics(_tool_name: &str) -> Option<ToolMetrics> {
 /// # Returns
 /// A hashmap containing tool names mapped to their metric data, or None if the collector is not initialized
 pub async fn get_all_metrics() -> Option<HashMap<String, ToolMetrics>> {
-    // Implementation would retrieve from global state
-    None
+    if let Some(collector) = TOOL_COLLECTOR.get() {
+        collector.get_all_metrics().await.ok()
+    } else {
+        // Try to initialize on-demand
+        match ensure_factory().get_global_collector().await {
+            Ok(collector) => collector.get_all_metrics().await.ok(),
+            Err(_) => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -329,5 +522,20 @@ mod tests {
         // Collect metrics
         let collected = collector.collect_metrics().await.unwrap();
         assert!(!collected.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_tool_metrics_factory() {
+        let factory = ToolMetricsCollectorFactory::new();
+        let collector = factory.create_collector();
+        
+        // Test collector creation
+        assert!(Arc::strong_count(&collector) > 0);
+        
+        // Test with dependencies
+        let perf_collector = Some(Arc::new(crate::monitoring::metrics::performance::PerformanceCollectorAdapter::new()));
+        let collector_with_deps = factory.create_collector_with_dependencies(perf_collector);
+        
+        assert!(Arc::strong_count(&collector_with_deps) > 0);
     }
 } 

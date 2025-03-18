@@ -32,6 +32,134 @@ pub type ProtocolResult<T> = Result<T>;
 pub type ValidationResult = Result<()>;
 pub type RoutingResult = Result<()>;
 
+pub mod adapter;
+pub use adapter::{MCPProtocolAdapter, create_protocol_adapter, create_protocol_adapter_with_protocol};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtocolConfig {
+    pub version: ProtocolVersion,
+    pub state: ProtocolState,
+    pub max_message_size: usize,
+    pub timeout_ms: u64,
+}
+
+impl Default for ProtocolConfig {
+    fn default() -> Self {
+        Self {
+            version: ProtocolVersion::V1,
+            state: ProtocolState::Initialized,
+            max_message_size: 1024 * 1024, // 1MB
+            timeout_ms: 5000, // 5 seconds
+        }
+    }
+}
+
+#[async_trait::async_trait]
+pub trait CommandHandler: Send + Sync {
+    async fn handle(&self, message: &MCPMessage) -> Result<MCPMessage>;
+}
+
+pub struct MCPProtocol {
+    config: ProtocolConfig,
+    handlers: HashMap<String, Box<dyn CommandHandler>>,
+    state: Value,
+}
+
+impl MCPProtocol {
+    pub fn new(config: ProtocolConfig) -> Self {
+        Self {
+            config,
+            handlers: HashMap::new(),
+            state: Value::Null,
+        }
+    }
+
+    pub fn with_dependencies(
+        config: ProtocolConfig,
+        handlers: HashMap<String, Box<dyn CommandHandler>>,
+        initial_state: Value,
+    ) -> Self {
+        Self {
+            config,
+            handlers,
+            state: initial_state,
+        }
+    }
+
+    pub async fn handle_message(&self, message: &MCPMessage) -> Result<MCPMessage> {
+        let handler = self.handlers.get(&message.command)
+            .ok_or_else(|| MCPError::Protocol(format!("No handler for command: {}", message.command)))?;
+
+        handler.handle(message).await
+    }
+
+    pub fn register_handler(&mut self, command: String, handler: Box<dyn CommandHandler>) -> Result<()> {
+        if self.handlers.contains_key(&command) {
+            return Err(MCPError::Protocol(format!("Handler already exists for command: {}", command)));
+        }
+        self.handlers.insert(command, handler);
+        Ok(())
+    }
+
+    pub fn unregister_handler(&mut self, command: &str) -> Result<()> {
+        self.handlers.remove(command)
+            .ok_or_else(|| MCPError::Protocol(format!("No handler found for command: {}", command)))?;
+        Ok(())
+    }
+
+    pub fn get_state(&self) -> &Value {
+        &self.state
+    }
+
+    pub fn set_state(&mut self, state: Value) {
+        self.state = state;
+    }
+
+    pub fn get_config(&self) -> &ProtocolConfig {
+        &self.config
+    }
+}
+
+pub struct MCPProtocolFactory {
+    config: ProtocolConfig,
+}
+
+impl MCPProtocolFactory {
+    pub fn new(config: ProtocolConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn with_config(config: ProtocolConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn create_protocol_with_dependencies(
+        &self,
+        handlers: HashMap<String, Box<dyn CommandHandler>>,
+        initial_state: Value,
+    ) -> Arc<MCPProtocol> {
+        Arc::new(MCPProtocol::with_dependencies(
+            self.config.clone(),
+            handlers,
+            initial_state,
+        ))
+    }
+
+    pub fn create_protocol_adapter(&self) -> Arc<MCPProtocolAdapter> {
+        let protocol = self.create_protocol_with_dependencies(
+            HashMap::new(),
+            Value::Null,
+        );
+        Arc::new(MCPProtocolAdapter::with_protocol(protocol))
+    }
+}
+
+impl Default for MCPProtocolFactory {
+    fn default() -> Self {
+        Self::new(ProtocolConfig::default())
+    }
+}
+
 #[async_trait::async_trait]
 pub trait MCPProtocol: Send + Sync {
     /// Handles an incoming message according to the protocol
@@ -197,4 +325,5 @@ mod tests {
         
         assert!(protocol.validate_message(&invalid_msg).await.is_err());
     }
+}
 }

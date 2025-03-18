@@ -16,6 +16,7 @@ use handlebars::Handlebars;
 use serde::{Serialize, Deserialize};
 
 use super::{AlertNotification, AlertSeverity};
+use super::adapter::{NotificationManagerAdapter, create_notification_manager_adapter_with_manager};
 
 /// Notification channel type
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -477,7 +478,6 @@ const fn get_severity_color(severity: &AlertSeverity) -> &'static str {
 }
 
 /// Factory for creating and managing notification manager instances
-#[derive(Debug, Clone)]
 pub struct NotificationManagerFactory {
     /// Configuration for creating notification managers
     config: NotificationConfig,
@@ -488,15 +488,16 @@ impl NotificationManagerFactory {
     ///
     /// # Errors
     /// Returns an error if the default configuration is invalid
-    pub const fn new() -> Result<Self, NotificationError> {
-        Ok(Self {
-            config: NotificationConfig {
-                channels: Vec::new(),
-                rate_limit: 300, // 5 minutes
-                templates: Vec::new(),
-                routing_rules: Vec::new(),
-            },
-        })
+    pub fn new() -> Result<Self, NotificationError> {
+        // Default configuration with basic templates and channels
+        let config = NotificationConfig {
+            channels: Vec::new(),
+            rate_limit: 60,
+            templates: Vec::new(),
+            routing_rules: Vec::new(),
+        };
+        
+        Ok(Self { config })
     }
 
     /// Creates a new factory with specific configuration
@@ -512,6 +513,33 @@ impl NotificationManagerFactory {
     pub fn create_manager(&self) -> Result<Arc<NotificationManager>, NotificationError> {
         let manager = NotificationManager::new(self.config.clone())?;
         Ok(Arc::new(manager))
+    }
+
+    /// Creates a notification manager with explicit dependencies
+    ///
+    /// This method supports dependency injection by accepting
+    /// external dependencies for the notification manager.
+    ///
+    /// # Errors
+    /// Returns an error if the notification manager cannot be created
+    pub fn create_manager_with_dependencies(
+        &self,
+        // Add any required dependencies here in the future
+    ) -> Result<Arc<NotificationManager>, NotificationError> {
+        // For now, the notification manager doesn't have external dependencies
+        self.create_manager()
+    }
+
+    /// Creates an adapter for the notification manager
+    ///
+    /// This method is used for backward compatibility during the
+    /// transition to dependency injection.
+    ///
+    /// # Errors
+    /// Returns an error if the notification manager cannot be created
+    pub fn create_adapter(&self) -> Result<Arc<NotificationManagerAdapter>, NotificationError> {
+        let manager = self.create_manager()?;
+        Ok(create_notification_manager_adapter_with_manager(manager))
     }
 
     /// Initializes and returns a global notification manager instance
@@ -556,6 +584,10 @@ static FACTORY: OnceLock<NotificationManagerFactory> = OnceLock::new();
 ///
 /// # Errors
 /// Returns an error if the factory is already initialized or if the default factory cannot be created
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
+)]
 pub fn initialize_factory(config: Option<NotificationConfig>) -> Result<(), Box<dyn std::error::Error>> {
     let factory = match config {
         Some(cfg) => NotificationManagerFactory::with_config(cfg),
@@ -569,6 +601,10 @@ pub fn initialize_factory(config: Option<NotificationConfig>) -> Result<(), Box<
 }
 
 /// Get the notification manager factory
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
+)]
 pub fn get_factory() -> Option<NotificationManagerFactory> {
     FACTORY.get().cloned()
 }
@@ -577,6 +613,10 @@ pub fn get_factory() -> Option<NotificationManagerFactory> {
 ///
 /// # Errors
 /// Returns an error if the factory cannot be created
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
+)]
 pub fn ensure_factory() -> Result<NotificationManagerFactory, Box<dyn std::error::Error>> {
     if let Some(factory) = FACTORY.get() { Ok(factory.clone()) } else {
         let factory = NotificationManagerFactory::new()?;
@@ -590,6 +630,19 @@ pub fn ensure_factory() -> Result<NotificationManagerFactory, Box<dyn std::error
     }
 }
 
+/// Create a notification manager adapter using the factory
+///
+/// This function is a convenience method for creating an adapter
+/// using the global factory. It's primarily for backward compatibility
+/// during the transition to dependency injection.
+///
+/// # Errors
+/// Returns an error if the adapter cannot be created
+pub fn create_adapter() -> Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
+    let factory = ensure_factory()?;
+    factory.create_adapter().map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))
+}
+
 // Module initialization
 static NOTIFICATION_MANAGER: tokio::sync::OnceCell<Arc<NotificationManager>> = 
     tokio::sync::OnceCell::const_new();
@@ -601,6 +654,10 @@ static NOTIFICATION_MANAGER: tokio::sync::OnceCell<Arc<NotificationManager>> =
 ///
 /// # Errors
 /// Returns an error if the notification manager is already initialized or if initialization fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory::create_manager() or create_adapter() instead"
+)]
 pub async fn initialize(config: NotificationConfig) -> Result<(), Box<dyn std::error::Error>> {
     let factory = NotificationManagerFactory::with_config(config);
     let manager = factory.create_manager()?;
@@ -613,11 +670,19 @@ pub async fn initialize(config: NotificationConfig) -> Result<(), Box<dyn std::e
 }
 
 /// Get the notification manager instance
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory::create_adapter() instead"
+)]
 pub fn get_manager() -> Option<Arc<NotificationManager>> {
     NOTIFICATION_MANAGER.get().cloned()
 }
 
 /// Check if the notification system is initialized
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with NotificationManagerFactory instead of relying on global state"
+)]
 pub fn is_initialized() -> bool {
     NOTIFICATION_MANAGER.get().is_some()
 }

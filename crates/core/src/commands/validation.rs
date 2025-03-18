@@ -1,21 +1,25 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::RwLock;
+#[allow(unused_imports)]
+use std::sync::Arc;
 use regex::Regex;
 use sysinfo::System;
 use serde::{Serialize, Deserialize};
 use super::Command;
+#[allow(unused_imports)]
+use clap::Command as ClapCommand;
 
 /// Trait for implementing command validation rules.
 /// 
 /// This trait defines the interface for validation rules that can be applied
 /// to commands before execution.
-#[allow(dead_code)]
-pub trait ValidationRule: Send + Sync {
+pub trait ValidationRule: Send + Sync + std::fmt::Debug {
     /// Returns the name of the validation rule.
     fn name(&self) -> &'static str;
     
-    /// Returns the description of the validation rule.
+    /// Returns a description of what the rule validates.
+    #[allow(dead_code)]
     fn description(&self) -> &'static str;
     
     /// Validates a command against this rule.
@@ -26,7 +30,12 @@ pub trait ValidationRule: Send + Sync {
     /// 
     /// # Errors
     /// Returns an error if validation fails with a description of the failure
-    fn validate(&self, command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error>>;
+    #[allow(dead_code)]
+    fn validate(&self, command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>>;
+    
+    /// Clone the rule into a new Box.
+    #[allow(dead_code)]
+    fn clone_box(&self) -> Box<dyn ValidationRule>;
 }
 
 /// Error type for validation failures
@@ -46,9 +55,16 @@ impl std::fmt::Display for ValidationError {
 
 impl Error for ValidationError {}
 
+// Safety: ValidationError is just a simple error type that contains only primitive types
+// and strings, so it's safe to share between threads.
+unsafe impl Send for ValidationError {}
+
+// Safety: ValidationError is just a simple error type that contains only primitive types
+// and strings, so it's safe to access from multiple threads.
+unsafe impl Sync for ValidationError {}
+
 /// Context for command validation, including arguments and environment variables
-#[allow(dead_code)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationContext {
     /// Map of argument names to their values
     pub arguments: HashMap<String, String>,
@@ -57,6 +73,10 @@ pub struct ValidationContext {
     /// Map of context data
     #[serde(skip)]
     data: RwLock<HashMap<String, String>>,
+    /// Rules for validation (currently unused)
+    #[serde(skip)]
+    #[allow(dead_code)]
+    rules: HashMap<String, Box<dyn ValidationRule>>,
 }
 
 #[allow(dead_code)]
@@ -68,6 +88,7 @@ impl ValidationContext {
             arguments: HashMap::new(),
             environment: HashMap::new(),
             data: RwLock::new(HashMap::new()),
+            rules: HashMap::new(),
         }
     }
 
@@ -122,6 +143,7 @@ impl Default for ValidationContext {
 /// 
 /// This struct manages validation rules and applies them to commands
 /// before execution.
+#[derive(Debug)]
 pub struct CommandValidator {
     /// Map of pattern names to regex patterns used for validation
     #[allow(dead_code)]
@@ -230,7 +252,7 @@ impl Default for CommandValidator {
 // Built-in validation rules
 
 /// Rule that validates required command arguments
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct RequiredArgumentsRule {
     /// List of argument names that must be present
     required_args: Vec<String>,
@@ -252,7 +274,7 @@ impl RequiredArgumentsRule {
 }
 
 impl ValidationRule for RequiredArgumentsRule {
-    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         for arg in &self.required_args {
             if !context.arguments.contains_key(arg) {
                 return Err(Box::new(ValidationError {
@@ -271,10 +293,14 @@ impl ValidationRule for RequiredArgumentsRule {
     fn description(&self) -> &'static str {
         "Validates that required arguments are present"
     }
+
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that validates argument patterns against defined regex patterns
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct ArgumentPatternRule {
     /// Map of argument names to their expected regex patterns
     patterns: HashMap<String, String>,
@@ -296,7 +322,7 @@ impl ArgumentPatternRule {
 }
 
 impl ValidationRule for ArgumentPatternRule {
-    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         for (arg, pattern) in &self.patterns {
             if !context.arguments.contains_key(arg) {
                 continue;
@@ -333,10 +359,14 @@ impl ValidationRule for ArgumentPatternRule {
     fn description(&self) -> &'static str {
         "Validates argument values against regex patterns"
     }
+
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that validates required environment variables
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct EnvironmentRule {
     /// List of environment variable names that must be present
     required_vars: Vec<String>,
@@ -358,7 +388,7 @@ impl EnvironmentRule {
 }
 
 impl ValidationRule for EnvironmentRule {
-    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         for var in &self.required_vars {
             if !context.environment.contains_key(var) {
                 return Err(Box::new(ValidationError {
@@ -377,10 +407,14 @@ impl ValidationRule for EnvironmentRule {
     fn description(&self) -> &'static str {
         "Validates required environment variables"
     }
+
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that validates command name length
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct NameLengthRule {
     /// Minimum allowed length for command name
     min_length: usize,
@@ -415,7 +449,7 @@ impl NameLengthRule {
     ///
     /// # Errors
     /// Returns an error if the command name length is outside the allowed range.
-    fn validate_name(name: &str, min_length: usize, max_length: usize) -> Result<(), Box<dyn Error>> {
+    fn validate_name(name: &str, min_length: usize, max_length: usize) -> Result<(), Box<dyn Error + Send + Sync>> {
         let name_len = name.len();
         if name_len < min_length {
             return Err(Box::new(ValidationError {
@@ -434,7 +468,7 @@ impl NameLengthRule {
 }
 
 impl ValidationRule for NameLengthRule {
-    fn validate(&self, command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         Self::validate_name(command.name(), self.min_length, self.max_length)
     }
 
@@ -445,10 +479,14 @@ impl ValidationRule for NameLengthRule {
     fn description(&self) -> &'static str {
         "Validates command name length"
     }
+    
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that validates command description length
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct DescriptionRule {
     /// Minimum required length for command description
     min_length: usize,
@@ -470,7 +508,7 @@ impl DescriptionRule {
 }
 
 impl ValidationRule for DescriptionRule {
-    fn validate(&self, command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         let description = command.description();
         if description.len() < self.min_length {
             return Err(Box::new(ValidationError {
@@ -491,10 +529,14 @@ impl ValidationRule for DescriptionRule {
     fn description(&self) -> &'static str {
         "Validates command description length"
     }
+    
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that sanitizes and validates input against patterns
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct InputSanitizationRule {
     /// Map of input field names to their validation regex patterns
     patterns: HashMap<String, regex::Regex>,
@@ -531,7 +573,7 @@ impl InputSanitizationRule {
 }
 
 impl ValidationRule for InputSanitizationRule {
-    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, _command: &dyn Command, context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Check max length for all arguments
         for (key, value) in &context.arguments {
             if value.len() > self.max_length {
@@ -567,10 +609,14 @@ impl ValidationRule for InputSanitizationRule {
     fn description(&self) -> &'static str {
         "Validates command input against unsafe patterns"
     }
+    
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 /// Rule that validates resource usage against defined limits
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct ResourceValidationRule {
     /// Maximum memory usage allowed in megabytes
     max_memory_mb: usize,
@@ -601,7 +647,7 @@ impl ResourceValidationRule {
     /// # Returns
     /// * `Ok(())` if memory usage is within limits
     /// * `Err(Box<dyn Error>)` if memory usage exceeds limits
-    fn check_memory_usage(&self) -> Result<(), Box<dyn Error>> {
+    fn check_memory_usage(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut sys = System::new_all();
         sys.refresh_all();
         let used_memory = sys.used_memory();
@@ -625,7 +671,7 @@ impl ResourceValidationRule {
     /// # Returns
     /// * `Ok(())` if thread usage is within limits
     /// * `Err(Box<dyn Error>)` if thread usage exceeds limits
-    fn check_thread_usage(&self) -> Result<(), Box<dyn Error>> {
+    fn check_thread_usage(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut sys = System::new_all();
         sys.refresh_all();
         let thread_count = sys.cpus().len();
@@ -645,7 +691,7 @@ impl ResourceValidationRule {
 }
 
 impl ValidationRule for ResourceValidationRule {
-    fn validate(&self, _command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error>> {
+    fn validate(&self, _command: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.check_memory_usage()?;
         self.check_thread_usage()?;
         Ok(())
@@ -658,6 +704,10 @@ impl ValidationRule for ResourceValidationRule {
     fn description(&self) -> &'static str {
         "Validates command against resource limits"
     }
+    
+    fn clone_box(&self) -> Box<dyn ValidationRule> {
+        Box::new(self.clone())
+    }
 }
 
 #[cfg(test)]
@@ -665,7 +715,7 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct TestCommand;
 
     impl Command for TestCommand {
@@ -691,7 +741,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct ShortNameCommand;
 
     impl Command for ShortNameCommand {
@@ -717,7 +767,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct LongNameCommand;
 
     impl Command for LongNameCommand {
@@ -743,7 +793,7 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     struct ShortDescCommand;
 
     impl Command for ShortDescCommand {

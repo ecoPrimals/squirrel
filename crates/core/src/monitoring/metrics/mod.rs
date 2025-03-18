@@ -138,6 +138,7 @@ pub trait MetricSource: Debug + Send + Sync {
 pub struct DefaultMetricCollector {
     metrics: Arc<RwLock<Vec<Metric>>>,
     config: MetricConfig,
+    protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
 }
 
 impl DefaultMetricCollector {
@@ -149,7 +150,47 @@ impl DefaultMetricCollector {
         Self {
             metrics: Arc::new(RwLock::new(Vec::new())),
             config: MetricConfig::default(),
+            protocol_collector: None,
         }
+    }
+
+    /// Creates a new default metric collector with dependencies
+    ///
+    /// This constructor allows for dependency injection of required collectors
+    /// through their adapter interfaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Optional metric configuration
+    /// * `protocol_collector` - Optional protocol metrics collector adapter
+    #[must_use] pub fn with_dependencies(
+        config: Option<MetricConfig>,
+        protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
+    ) -> Self {
+        Self {
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            config: config.unwrap_or_default(),
+            protocol_collector,
+        }
+    }
+
+    /// Creates a new default metric collector with a protocol collector adapter
+    ///
+    /// This constructor is provided for backward compatibility and convenience.
+    /// For new code, prefer using `with_dependencies`.
+    ///
+    /// # Arguments
+    ///
+    /// * `protocol_collector` - The protocol metrics collector adapter to use
+    #[must_use] pub fn with_protocol_collector(
+        protocol_collector: Arc<ProtocolMetricsCollectorAdapter>
+    ) -> Self {
+        Self::with_dependencies(None, Some(protocol_collector))
+    }
+
+    /// Get the protocol metrics collector adapter if available
+    #[must_use] pub fn protocol_collector(&self) -> Option<Arc<ProtocolMetricsCollectorAdapter>> {
+        self.protocol_collector.clone()
     }
 }
 
@@ -162,7 +203,21 @@ impl Default for DefaultMetricCollector {
 #[async_trait]
 impl MetricCollector for DefaultMetricCollector {
     async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        let metrics = self.metrics.read().await.clone();
+        let mut metrics = self.metrics.read().await.clone();
+        
+        // If we have a protocol collector, get its metrics too
+        if let Some(protocol_collector) = &self.protocol_collector {
+            match protocol_collector.get_metrics().await {
+                Ok(protocol_metrics) => {
+                    log::debug!("Collected {} protocol metrics", protocol_metrics.len());
+                    metrics.extend(protocol_metrics);
+                }
+                Err(e) => {
+                    log::warn!("Failed to collect protocol metrics: {}", e);
+                }
+            }
+        }
+        
         Ok(metrics)
     }
 
@@ -170,7 +225,7 @@ impl MetricCollector for DefaultMetricCollector {
         let mut metrics = self.metrics.write().await;
         metrics.push(metric);
         
-        // Enforce max metrics limit
+        // Enforce max metrics limit if configured
         if metrics.len() > self.config.max_metrics {
             metrics.remove(0);
         }
@@ -179,10 +234,12 @@ impl MetricCollector for DefaultMetricCollector {
     }
 
     async fn start(&self) -> Result<()> {
+        // No specific startup needed for default collector
         Ok(())
     }
 
     async fn stop(&self) -> Result<()> {
+        // No specific cleanup needed for default collector
         Ok(())
     }
 }

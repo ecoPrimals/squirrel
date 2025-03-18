@@ -6,6 +6,7 @@ use thiserror::Error;
 use async_trait::async_trait;
 use crate::error::{Result as SquirrelResult, SquirrelError};
 use super::Metric as SuperMetric;
+use std::collections::HashMap;
 
 /// MCP Protocol metrics tracking
 #[derive(Debug, Clone)]
@@ -54,6 +55,7 @@ type Result<T> = std::result::Result<T, ProtocolError>;
 #[derive(Debug)]
 pub struct ProtocolMetricsCollector {
     metrics: Arc<RwLock<Vec<SuperMetric>>>,
+    resource_collector: Option<Arc<crate::monitoring::metrics::resource::ResourceMetricsCollectorAdapter>>,
 }
 
 impl ProtocolMetricsCollector {
@@ -61,7 +63,84 @@ impl ProtocolMetricsCollector {
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(Vec::new())),
+            resource_collector: None,
         }
+    }
+
+    /// Create a new protocol metrics collector with dependencies
+    pub fn with_dependencies(
+        resource_collector: Option<Arc<crate::monitoring::metrics::resource::ResourceMetricsCollectorAdapter>>,
+    ) -> Self {
+        Self {
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            resource_collector,
+        }
+    }
+
+    /// Collect current protocol metrics
+    pub async fn collect_metrics(&self) -> Result<()> {
+        let mut metrics = Vec::new();
+        
+        // Collect basic protocol metrics
+        let mcp_metrics = McpMetrics::default(); // Replace with actual metrics collection
+        
+        // Add protocol-specific metrics
+        metrics.push(SuperMetric::new(
+            "mcp.messages_processed".to_string(),
+            mcp_metrics.messages_processed as f64,
+            MetricType::Counter,
+            Some(HashMap::new()),
+        ));
+        
+        metrics.push(SuperMetric::new(
+            "mcp.message_latency".to_string(),
+            mcp_metrics.message_latency.as_secs_f64(),
+            MetricType::Gauge,
+            Some(HashMap::new()),
+        ));
+        
+        metrics.push(SuperMetric::new(
+            "mcp.error_count".to_string(),
+            mcp_metrics.error_count as f64,
+            MetricType::Counter,
+            Some(HashMap::new()),
+        ));
+        
+        metrics.push(SuperMetric::new(
+            "mcp.active_connections".to_string(),
+            mcp_metrics.active_connections as f64,
+            MetricType::Gauge,
+            Some(HashMap::new()),
+        ));
+        
+        metrics.push(SuperMetric::new(
+            "mcp.queue_depth".to_string(),
+            mcp_metrics.queue_depth as f64,
+            MetricType::Gauge,
+            Some(HashMap::new()),
+        ));
+        
+        // If resource collector is available, collect and add resource metrics
+        if let Some(resource_collector) = &self.resource_collector {
+            if let Ok(resource_metrics) = resource_collector.get_metrics().await {
+                metrics.extend(resource_metrics.into_iter().map(|m| {
+                    let mut labels = m.labels.unwrap_or_default();
+                    labels.insert("source".to_string(), "resource_collector".to_string());
+                    SuperMetric::new(
+                        format!("mcp.resource.{}", m.name),
+                        m.value,
+                        m.metric_type,
+                        Some(labels),
+                    )
+                }));
+            }
+        }
+        
+        // Update stored metrics
+        let mut current_metrics = self.metrics.write().await;
+        *current_metrics = metrics;
+        
+        Ok(())
     }
 }
 
@@ -83,6 +162,7 @@ impl Clone for ProtocolMetricsCollector {
     fn clone(&self) -> Self {
         Self {
             metrics: self.metrics.clone(),
+            resource_collector: self.resource_collector.clone(),
         }
     }
 }
@@ -133,41 +213,45 @@ impl ProtocolMetricsCollectorFactory {
     /// Creates a protocol metrics collector
     #[must_use]
     pub fn create_collector(&self) -> Arc<ProtocolMetricsCollector> {
-        Arc::new(ProtocolMetricsCollector::new())
+        self.create_collector_with_dependencies(None)
     }
 
-    /// Initializes and returns a global protocol metrics collector instance
+    /// Creates a new collector instance with dependency injection
     ///
-    /// # Errors
-    /// Returns an error if the collector is already initialized
-    pub async fn initialize_global_collector(&self) -> Result<Arc<ProtocolMetricsCollector>> {
-        static GLOBAL_COLLECTOR: OnceLock<Arc<ProtocolMetricsCollector>> = OnceLock::new();
+    /// # Arguments
+    /// * `resource_collector` - Optional resource metrics collector adapter
+    #[must_use]
+    pub fn create_collector_with_dependencies(
+        &self,
+        resource_collector: Option<Arc<crate::monitoring::metrics::resource::ResourceMetricsCollectorAdapter>>,
+    ) -> Arc<ProtocolMetricsCollector> {
+        let collector = ProtocolMetricsCollector {
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            resource_collector,
+        };
+        Arc::new(collector)
+    }
 
-        let collector = self.create_collector();
-        
-        match GLOBAL_COLLECTOR.set(collector.clone()) {
-            Ok(()) => Ok(collector),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_COLLECTOR.get()
-                    .ok_or_else(|| ProtocolError::Other("Failed to get global protocol metrics collector".to_string()))?
-                    .clone())
+    /// Gets the global collector instance, initializing it if necessary
+    pub async fn get_global_collector(&self) -> Result<Arc<ProtocolMetricsCollector>> {
+        if let Some(collector) = PROTOCOL_COLLECTOR.get() {
+            Ok(collector.clone())
+        } else {
+            // Create resource collector adapter
+            let resource_collector = match crate::monitoring::metrics::resource::create_collector_adapter().await {
+                Ok(adapter) => Some(adapter),
+                Err(_) => None,
+            };
+
+            // Create collector with adapter
+            let collector = self.create_collector_with_dependencies(resource_collector);
+            
+            // Initialize the collector
+            match PROTOCOL_COLLECTOR.set(collector.clone()) {
+                Ok(_) => Ok(collector),
+                Err(_) => Err(ProtocolError::Other("Failed to set global protocol collector".to_string())),
             }
         }
-    }
-
-    /// Gets the global protocol metrics collector, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be initialized
-    pub async fn get_global_collector(&self) -> Result<Arc<ProtocolMetricsCollector>> {
-        static GLOBAL_COLLECTOR: OnceLock<Arc<ProtocolMetricsCollector>> = OnceLock::new();
-
-        if let Some(collector) = GLOBAL_COLLECTOR.get() {
-            return Ok(collector.clone());
-        }
-
-        self.initialize_global_collector().await
     }
 }
 
@@ -213,20 +297,62 @@ static PROTOCOL_COLLECTOR: tokio::sync::OnceCell<Arc<ProtocolMetricsCollector>> 
 
 /// Initialize the protocol metrics collector
 ///
+/// # Arguments
+/// * `config` - Optional configuration for the collector
+///
 /// # Errors
-/// Returns an error if the collector is already initialized
+/// Returns an error if the collector cannot be initialized
 pub async fn initialize(config: Option<ProtocolConfig>) -> Result<Arc<ProtocolMetricsCollector>> {
-    let factory = match config {
-        Some(cfg) => ProtocolMetricsCollectorFactory::with_config(cfg),
-        None => ensure_factory(),
+    // Initialize factory with config
+    initialize_factory(config.clone())?;
+
+    // Create resource collector adapter
+    let resource_collector = match crate::monitoring::metrics::resource::create_collector_adapter().await {
+        Ok(adapter) => {
+            log::debug!("Successfully created resource collector adapter");
+            Some(Arc::new(adapter))
+        }
+        Err(e) => {
+            log::warn!("Failed to create resource collector adapter: {}", e);
+            None
+        }
     };
-    
-    let collector = factory.initialize_global_collector().await?;
-    
-    // For backward compatibility, also set in the old static
-    let _ = PROTOCOL_COLLECTOR.set(collector.clone());
-    
-    Ok(collector)
+
+    // Get factory and create collector with dependencies
+    let factory = ensure_factory();
+    let collector = factory.create_collector_with_dependencies(resource_collector);
+
+    // Initialize global collector
+    match PROTOCOL_COLLECTOR.set(collector.clone()) {
+        Ok(_) => {
+            log::info!("Successfully initialized protocol metrics collector");
+            
+            // Start any necessary background tasks or initialization
+            if let Some(config) = config {
+                if config.enabled {
+                    // Initialize metrics collection
+                    let metrics = collector.clone();
+                    tokio::spawn(async move {
+                        let interval = tokio::time::Duration::from_secs(config.interval);
+                        let mut ticker = tokio::time::interval(interval);
+                        
+                        loop {
+                            ticker.tick().await;
+                            if let Err(e) = metrics.collect_metrics().await {
+                                log::error!("Failed to collect protocol metrics: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
+            
+            Ok(collector)
+        }
+        Err(_) => {
+            log::error!("Failed to set global protocol collector");
+            Err(ProtocolError::Other("Failed to set global protocol collector".to_string()))
+        }
+    }
 }
 
 /// Get protocol metrics collector
@@ -249,6 +375,235 @@ pub async fn get_metrics() -> Option<Vec<SuperMetric>> {
                 Err(_) => None,
             },
             Err(_) => None,
+        }
+    }
+}
+
+/// Adapter for protocol metrics collector to support
+/// transition from singleton to dependency injection
+#[derive(Debug)]
+pub struct ProtocolMetricsCollectorAdapter {
+    inner: Option<Arc<ProtocolMetricsCollector>>,
+}
+
+impl ProtocolMetricsCollectorAdapter {
+    /// Create a new adapter that uses the global singleton
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            inner: get_collector(),
+        }
+    }
+    
+    /// Check if adapter has a valid inner collector
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        self.inner.is_some()
+    }
+}
+
+#[async_trait]
+impl super::MetricCollector for ProtocolMetricsCollectorAdapter {
+    async fn get_metrics(&self) -> Result<Vec<SuperMetric>> {
+        if let Some(collector) = &self.inner {
+            collector.get_metrics().await
+        } else {
+            // Try to initialize on-demand
+            match ensure_factory().get_global_collector().await {
+                Ok(collector) => collector.get_metrics().await,
+                Err(_) => Err(ProtocolError::Other("Protocol metrics collector not initialized".to_string())),
+            }
+        }
+    }
+
+    async fn record_metrics(&self, metrics: &[SuperMetric]) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.record_metrics(metrics).await
+        } else {
+            // Try to initialize on-demand
+            match ensure_factory().get_global_collector().await {
+                Ok(collector) => collector.record_metrics(metrics).await,
+                Err(_) => Err(ProtocolError::Other("Protocol metrics collector not initialized".to_string())),
+            }
+        }
+    }
+}
+
+impl Clone for ProtocolMetricsCollectorAdapter {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+/// Create a protocol metrics collector using dependency injection
+/// 
+/// This function creates a new collector without relying on the global singleton.
+/// Use this for components that have been updated to use dependency injection.
+/// 
+/// # Arguments
+/// 
+/// * `config` - Optional configuration for the collector
+/// * `resource_collector` - Optional resource metrics collector adapter
+#[must_use]
+pub fn create_collector_di(
+    config: Option<ProtocolConfig>,
+    resource_collector: Option<Arc<crate::monitoring::metrics::resource::ResourceMetricsCollectorAdapter>>,
+) -> Arc<ProtocolMetricsCollector> {
+    let factory = match config {
+        Some(cfg) => ProtocolMetricsCollectorFactory::with_config(cfg),
+        None => ProtocolMetricsCollectorFactory::new(),
+    };
+    
+    factory.create_collector_with_dependencies(resource_collector)
+}
+
+/// Create an adapter for the protocol metrics collector
+/// 
+/// This function creates an adapter that implements the MetricCollector trait
+/// but delegates to the global singleton internally. Use this for components
+/// that are transitioning to dependency injection but still need to work with
+/// code that uses the singleton pattern.
+#[must_use]
+pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
+    Arc::new(ProtocolMetricsCollectorAdapter::new())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::monitoring::metrics::resource::ResourceMetricsCollectorAdapter;
+    use std::time::Duration;
+
+    /// Helper function to create a test resource collector adapter
+    async fn create_test_resource_adapter() -> Arc<ResourceMetricsCollectorAdapter> {
+        match crate::monitoring::metrics::resource::create_collector_adapter().await {
+            Ok(adapter) => Arc::new(adapter),
+            Err(_) => panic!("Failed to create resource collector adapter for test"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_protocol_collector_di() {
+        // Test direct DI constructor
+        let resource_adapter = create_test_resource_adapter().await;
+        let collector = ProtocolMetricsCollector::with_dependencies(Some(resource_adapter));
+        
+        // Verify collector is properly initialized
+        assert!(collector.resource_collector.is_some());
+        
+        // Test metrics collection
+        collector.collect_metrics().await.expect("Failed to collect metrics");
+        
+        // Verify metrics were collected
+        let metrics = collector.get_metrics().await.expect("Failed to get metrics");
+        assert!(!metrics.is_empty());
+        
+        // Verify metric types
+        let metric_names: Vec<String> = metrics.iter().map(|m| m.name.clone()).collect();
+        assert!(metric_names.contains(&"mcp.messages_processed".to_string()));
+        assert!(metric_names.contains(&"mcp.message_latency".to_string()));
+        assert!(metric_names.contains(&"mcp.error_count".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_protocol_collector_adapter() {
+        // Initialize the global collector first
+        let config = ProtocolConfig {
+            enabled: true,
+            interval: 1,
+            history_size: 10,
+        };
+        initialize(Some(config.clone())).await.expect("Failed to initialize collector");
+        
+        // Create adapter
+        let adapter = ProtocolMetricsCollectorAdapter::new();
+        assert!(adapter.is_valid());
+        
+        // Test metrics collection through adapter
+        let test_metrics = vec![
+            SuperMetric::new(
+                "test.metric".to_string(),
+                42.0,
+                MetricType::Counter,
+                None,
+            ),
+        ];
+        
+        adapter.record_metrics(&test_metrics).await.expect("Failed to record metrics");
+        
+        // Verify metrics were recorded
+        let metrics = adapter.get_metrics().await.expect("Failed to get metrics");
+        assert!(!metrics.is_empty());
+        
+        // Verify test metric was included
+        let test_metric = metrics.iter().find(|m| m.name == "test.metric");
+        assert!(test_metric.is_some());
+        assert_eq!(test_metric.unwrap().value, 42.0);
+    }
+
+    #[tokio::test]
+    async fn test_protocol_collector_factory() {
+        // Test factory with dependencies
+        let resource_adapter = create_test_resource_adapter().await;
+        let factory = ProtocolMetricsCollectorFactory::new();
+        let collector = factory.create_collector_with_dependencies(Some(resource_adapter));
+        
+        // Verify collector was created with dependencies
+        assert!(collector.resource_collector.is_some());
+        
+        // Test collector functionality
+        collector.collect_metrics().await.expect("Failed to collect metrics");
+        let metrics = collector.get_metrics().await.expect("Failed to get metrics");
+        assert!(!metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_background_collection() {
+        // Create collector with short interval
+        let config = ProtocolConfig {
+            enabled: true,
+            interval: 1,
+            history_size: 10,
+        };
+        
+        let collector = initialize(Some(config)).await.expect("Failed to initialize collector");
+        
+        // Wait for background collection
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        
+        // Verify metrics were collected
+        let metrics = collector.get_metrics().await.expect("Failed to get metrics");
+        assert!(!metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_resource_metrics_integration() {
+        // Create collector with resource adapter
+        let resource_adapter = create_test_resource_adapter().await;
+        let collector = ProtocolMetricsCollector::with_dependencies(Some(resource_adapter));
+        
+        // Collect metrics
+        collector.collect_metrics().await.expect("Failed to collect metrics");
+        
+        // Verify metrics include resource metrics
+        let metrics = collector.get_metrics().await.expect("Failed to get metrics");
+        let resource_metrics = metrics.iter().filter(|m| m.name.contains("mcp.resource"));
+        assert!(resource_metrics.count() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        // Test initialization with invalid config
+        let result = initialize(None).await;
+        assert!(result.is_ok());
+        
+        // Test adapter with uninitialized collector
+        let adapter = ProtocolMetricsCollectorAdapter::new();
+        if !adapter.is_valid() {
+            let result = adapter.get_metrics().await;
+            assert!(result.is_err());
         }
     }
 } 

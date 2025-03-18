@@ -32,6 +32,8 @@ use crate::mcp::types::{
 use crate::mcp::protocol::{
     MCPProtocol,
     CommandHandler,
+    MCPProtocolAdapter,
+    create_protocol_adapter,
 };
 
 // Import transport types
@@ -56,54 +58,140 @@ pub use crate::mcp::types::{
 // Re-export error types
 pub use crate::error::{MCPError, ProtocolError};
 
-// Export server types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfig {
+    pub bind_address: SocketAddr,
+    pub max_connections: usize,
+    pub connection_timeout_ms: u64,
+    pub keep_alive_interval_ms: u64,
+    pub max_message_size: usize,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "127.0.0.1:8080".parse().unwrap(),
+            max_connections: 1000,
+            connection_timeout_ms: 30000,
+            keep_alive_interval_ms: 5000,
+            max_message_size: 1024 * 1024, // 1MB
+        }
+    }
+}
+
 pub struct MCPServer {
-    protocol: Arc<RwLock<MCPProtocol>>,
-    transport: Transport,
+    config: ServerConfig,
+    protocol: Arc<MCPProtocolAdapter>,
+    transport: Arc<RwLock<Transport>>,
+    connections: Arc<RwLock<HashMap<SocketAddr, DateTime<Utc>>>>,
 }
 
 impl MCPServer {
-    pub fn new(protocol: Arc<RwLock<MCPProtocol>>, transport: Transport) -> Self {
+    pub async fn new(config: ServerConfig) -> Result<Self> {
+        let mut transport = Transport::new();
+        transport.bind(config.bind_address).await?;
+        
+        Ok(Self {
+            config,
+            protocol: create_protocol_adapter(),
+            transport: Arc::new(RwLock::new(transport)),
+            connections: Arc::new(RwLock::new(HashMap::new())),
+        })
+    }
+
+    pub fn with_dependencies(
+        config: ServerConfig,
+        protocol: Arc<MCPProtocolAdapter>,
+        transport: Arc<RwLock<Transport>>,
+        connections: Arc<RwLock<HashMap<SocketAddr, DateTime<Utc>>>>,
+    ) -> Self {
         Self {
+            config,
             protocol,
             transport,
+            connections,
         }
     }
 
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&self) -> Result<()> {
+        let mut transport = self.transport.write().await;
+        transport.start().await?;
+        
+        // Start connection handling loop
+        self.handle_connections().await
+    }
+
+    pub async fn stop(&self) -> Result<()> {
+        let mut transport = self.transport.write().await;
+        transport.stop().await?;
+        
+        // Clean up connections
+        let mut connections = self.connections.write().await;
+        connections.clear();
+        
+        Ok(())
+    }
+
+    async fn handle_connections(&self) -> Result<()> {
         loop {
-            let message = self.transport.receive_message().await?;
-            let response = self.handle_message(&message).await?;
-            self.transport.send_message(&response).await?;
+            let mut transport = self.transport.write().await;
+            let (message, addr) = transport.accept_connection().await?;
+            
+            // Update connection tracking
+            let mut connections = self.connections.write().await;
+            connections.insert(addr, Utc::now());
+            
+            // Handle message
+            let response = self.protocol.handle_message(&message).await?;
+            transport.send_message_to(&response, addr).await?;
         }
     }
 
-    async fn handle_message(&self, message: &MCPMessage) -> Result<MCPMessage> {
-        let protocol = self.protocol.read().await;
-        protocol.handle_message(message).await
+    pub fn get_config(&self) -> &ServerConfig {
+        &self.config
     }
 
-    pub async fn get_state(&self) -> Result<Value> {
-        let protocol = self.protocol.read().await;
-        protocol.get_state()
+    pub async fn get_connections(&self) -> Result<Vec<SocketAddr>> {
+        let connections = self.connections.read().await;
+        Ok(connections.keys().cloned().collect())
+    }
+}
+
+pub struct MCPServerFactory {
+    config: ServerConfig,
+}
+
+impl MCPServerFactory {
+    pub fn new(config: ServerConfig) -> Self {
+        Self { config }
     }
 
-    pub async fn set_state(&self, state: Value) -> Result<()> {
-        let mut protocol = self.protocol.write().await;
-        protocol.set_state(state);
-        Ok(())
+    pub fn with_config(config: ServerConfig) -> Self {
+        Self { config }
     }
 
-    pub async fn handle_client_connection(&self, client_id: String, connection: ClientConnection) -> Result<()> {
-        let mut clients = self.clients.write().await;
-        clients.insert(client_id, connection);
-        Ok(())
+    pub async fn create_server(&self) -> Result<Arc<MCPServer>> {
+        Ok(Arc::new(MCPServer::new(self.config.clone()).await?))
     }
 
-    pub async fn remove_client(&self, client_id: &str) -> Result<()> {
-        let mut clients = self.clients.write().await;
-        clients.remove(client_id);
-        Ok(())
+    pub fn create_server_with_dependencies(
+        &self,
+        protocol: Arc<MCPProtocolAdapter>,
+        transport: Arc<RwLock<Transport>>,
+        connections: Arc<RwLock<HashMap<SocketAddr, DateTime<Utc>>>>,
+    ) -> Arc<MCPServer> {
+        Arc::new(MCPServer::with_dependencies(
+            self.config.clone(),
+            protocol,
+            transport,
+            connections,
+        ))
+    }
+}
+
+impl Default for MCPServerFactory {
+    fn default() -> Self {
+        Self::new(ServerConfig::default())
     }
 }
 
