@@ -35,33 +35,43 @@ impl SystemInfoManager {
 
     /// Refreshes all system information
     pub async fn refresh_all(&self) -> Result<()> {
-        let mut sys = self.system.write().await;
+        let mut sys = self.system.write().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?;
         sys.refresh_all();
         Ok(())
     }
 
     /// Refreshes network information
     pub async fn refresh_networks(&self) -> Result<()> {
-        let mut sys = self.system.write().await;
+        let mut sys = self.system.write().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?;
         sys.refresh_networks();
         Ok(())
     }
 
     /// Gets CPU usage
     pub async fn cpu_usage(&self) -> Result<f32> {
-        let sys = self.system.read().await;
+        let sys = self.system.read().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?;
         Ok(sys.global_cpu_info().cpu_usage())
     }
 
     /// Gets memory usage
     pub async fn memory_usage(&self) -> Result<(u64, u64)> {
-        let sys = self.system.read().await;
+        let sys = self.system.read().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?;
         Ok((sys.used_memory(), sys.total_memory()))
     }
 
     /// Gets network statistics
     pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
-        let sys = self.system.read().await;
+        let sys = self.system.read().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?;
         let mut stats = Vec::new();
         for (interface_name, data) in sys.networks() {
             stats.push((

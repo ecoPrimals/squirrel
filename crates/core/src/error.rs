@@ -13,11 +13,15 @@ pub enum SquirrelError {
 
     /// Errors originating from the MCP module
     #[error("MCP error: {0}")]
-    MCP(#[from] MCPError),
+    MCP(String),
     
     /// Errors originating from the monitoring module
     #[error("Monitoring error: {0}")]
     Monitoring(String),
+    
+    /// Errors related to security operations
+    #[error("Security error: {0}")]
+    Security(String),
     
     /// Other miscellaneous errors that don't fit into specific categories
     #[error("Other error: {0}")]
@@ -32,102 +36,36 @@ pub enum SquirrelError {
     Command(Box<dyn std::error::Error + Send + Sync>),
 }
 
-/// Error type for MCP-related operations
-#[derive(Debug, Error)]
-pub enum MCPError {
-    /// Connection-related errors
-    #[error("Connection error: {0}")]
-    Connection(String),
-
-    /// Protocol-related errors
-    #[error("Protocol error: {0}")]
-    Protocol(String),
-
-    /// Serialization errors
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-
-    /// Deserialization errors
-    #[error("Deserialization error: {0}")]
-    Deserialization(String),
-
-    /// Compression errors
-    #[error("Compression error: {0}")]
-    Compression(String),
-
-    /// IO errors
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    /// Security errors
-    #[error("Security error: {0}")]
-    Security(#[from] SecurityError),
-
-    /// State errors
-    #[error("State error: {0}")]
-    State(String),
-
-    /// Other errors
-    #[error("Other error: {0}")]
-    Other(String),
+impl SquirrelError {
+    /// Determines if the error is recoverable
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            SquirrelError::App(_) => false,
+            SquirrelError::MCP(_) => false,
+            SquirrelError::Monitoring(_) => true,
+            SquirrelError::Security(_) => false,
+            SquirrelError::Other(_) => false,
+            SquirrelError::Lock(_) => true,
+            SquirrelError::Command(_) => false,
+        }
+    }
 }
 
-/// Error type for security-related operations
-#[derive(Debug, Error)]
-pub enum SecurityError {
-    /// Authentication errors
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
-
-    /// Authorization errors
-    #[error("Authorization failed: {0}")]
-    AuthorizationFailed(String),
-
-    /// Token-related errors
-    #[error("Invalid token: {0}")]
-    InvalidToken(String),
-
-    /// Token expiration errors
-    #[error("Token expired")]
-    TokenExpired,
-
-    /// Security level errors
-    #[error("Invalid security level: required {required:?}, provided {provided:?}")]
-    InvalidSecurityLevel {
-        /// Required security level for the operation
-        required: crate::mcp::types::SecurityLevel,
-        /// Actual security level provided
-        provided: crate::mcp::types::SecurityLevel,
-    },
-
-    /// Encryption errors
-    #[error("Encryption failed: {0}")]
-    EncryptionFailed(String),
-
-    /// Decryption errors
-    #[error("Decryption failed: {0}")]
-    DecryptionFailed(String),
-
-    /// Role-related errors
-    #[error("Invalid role: {0}")]
-    InvalidRole(String),
-    
-    /// Permission-related errors
-    #[error("Permission denied: {0}")]
-    PermissionDenied(String),
-    
-    /// Role assignment errors
-    #[error("Role assignment failed: {0}")]
-    RoleAssignmentFailed(String),
-    
-    /// Permission validation errors
-    #[error("Invalid permission: {0}")]
-    InvalidPermission(String),
-
-    /// Other security-related errors
-    #[error("Other security error: {0}")]
-    Other(String),
+// Implement From for &str for SquirrelError
+impl From<&str> for SquirrelError {
+    fn from(s: &str) -> Self {
+        SquirrelError::Other(s.to_string())
+    }
 }
+
+// Implement From for String for SquirrelError
+impl From<String> for SquirrelError {
+    fn from(s: String) -> Self {
+        SquirrelError::Other(s)
+    }
+}
+
+// MCP-specific errors are now defined in crate::mcp::error
 
 /// A Result type alias for operations that may return a `SquirrelError`
 pub type Result<T> = std::result::Result<T, SquirrelError>; 

@@ -7,7 +7,7 @@ use crate::mcp::types::{ProtocolVersion};
 use tokio::fs;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use crate::mcp::context::Context;
+use crate::mcp::context_manager::Context;
 use crate::mcp::sync::StateChange;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,9 +33,12 @@ pub struct PersistentState {
     pub last_sync: DateTime<Utc>,
 }
 
+/// Persistence layer for MCP
+#[derive(Debug)]
 pub struct MCPPersistence {
     config: PersistenceConfig,
     metadata: Arc<RwLock<StorageMetadata>>,
+    state: Arc<RwLock<PersistentState>>,
 }
 
 impl MCPPersistence {
@@ -50,6 +53,12 @@ impl MCPPersistence {
         Self {
             config,
             metadata: Arc::new(RwLock::new(metadata)),
+            state: Arc::new(RwLock::new(PersistentState {
+                contexts: Vec::new(),
+                changes: Vec::new(),
+                last_version: 0,
+                last_sync: Utc::now(),
+            })),
         }
     }
 

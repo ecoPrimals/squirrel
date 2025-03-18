@@ -8,8 +8,7 @@
 //! - Notification routing
 //! - Rate limiting
 
-use std::sync::{Arc, OnceLock};
-use tokio::sync::RwLock;
+use std::sync::Arc;
 use thiserror::Error;
 use time::OffsetDateTime;
 use handlebars::Handlebars;
@@ -489,7 +488,6 @@ impl NotificationManagerFactory {
     /// # Errors
     /// Returns an error if the default configuration is invalid
     pub fn new() -> Result<Self, NotificationError> {
-        // Default configuration with basic templates and channels
         let config = NotificationConfig {
             channels: Vec::new(),
             rate_limit: 60,
@@ -511,178 +509,29 @@ impl NotificationManagerFactory {
     /// # Errors
     /// Returns an error if the notification manager cannot be created
     pub fn create_manager(&self) -> Result<Arc<NotificationManager>, NotificationError> {
-        let manager = NotificationManager::new(self.config.clone())?;
-        Ok(Arc::new(manager))
+        Ok(Arc::new(NotificationManager::new(self.config.clone())?))
     }
 
-    /// Creates a notification manager with explicit dependencies
-    ///
-    /// This method supports dependency injection by accepting
-    /// external dependencies for the notification manager.
-    ///
-    /// # Errors
-    /// Returns an error if the notification manager cannot be created
+    /// Creates a notification manager with dependencies
     pub fn create_manager_with_dependencies(
         &self,
         // Add any required dependencies here in the future
     ) -> Result<Arc<NotificationManager>, NotificationError> {
-        // For now, the notification manager doesn't have external dependencies
         self.create_manager()
     }
 
-    /// Creates an adapter for the notification manager
-    ///
-    /// This method is used for backward compatibility during the
-    /// transition to dependency injection.
-    ///
-    /// # Errors
-    /// Returns an error if the notification manager cannot be created
+    /// Creates an adapter
     pub fn create_adapter(&self) -> Result<Arc<NotificationManagerAdapter>, NotificationError> {
         let manager = self.create_manager()?;
-        Ok(create_notification_manager_adapter_with_manager(manager))
-    }
-
-    /// Initializes and returns a global notification manager instance
-    ///
-    /// # Errors
-    /// Returns an error if the manager is already initialized or creation fails
-    pub async fn initialize_global_manager(&self) -> Result<Arc<NotificationManager>, Box<dyn std::error::Error>> {
-        static GLOBAL_MANAGER: OnceLock<Arc<NotificationManager>> = OnceLock::new();
-
-        let manager = self.create_manager()?;
-        
-        match GLOBAL_MANAGER.set(manager.clone()) {
-            Ok(()) => Ok(manager),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_MANAGER.get()
-                    .ok_or_else(|| Box::<dyn std::error::Error>::from("Failed to get global notification manager"))?
-                    .clone())
-            }
-        }
-    }
-
-    /// Gets the global notification manager, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the notification manager cannot be initialized
-    pub async fn get_global_manager(&self) -> Result<Arc<NotificationManager>, Box<dyn std::error::Error>> {
-        static GLOBAL_MANAGER: OnceLock<Arc<NotificationManager>> = OnceLock::new();
-
-        if let Some(manager) = GLOBAL_MANAGER.get() {
-            return Ok(manager.clone());
-        }
-
-        self.initialize_global_manager().await
+        Ok(Arc::new(NotificationManagerAdapter::with_manager(manager)))
     }
 }
 
-/// Global factory for creating notification managers
-static FACTORY: OnceLock<NotificationManagerFactory> = OnceLock::new();
-
-/// Initialize the notification manager factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized or if the default factory cannot be created
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
-)]
-pub fn initialize_factory(config: Option<NotificationConfig>) -> Result<(), Box<dyn std::error::Error>> {
-    let factory = match config {
-        Some(cfg) => NotificationManagerFactory::with_config(cfg),
-        None => NotificationManagerFactory::new()?,
-    };
-    
-    match FACTORY.set(factory) {
-        Ok(()) => Ok(()),
-        Err(_) => Err(Box::<dyn std::error::Error>::from("Notification manager factory already initialized")),
-    }
-}
-
-/// Get the notification manager factory
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
-)]
-pub fn get_factory() -> Option<NotificationManagerFactory> {
-    FACTORY.get().cloned()
-}
-
-/// Get or create the notification manager factory
-///
-/// # Errors
-/// Returns an error if the factory cannot be created
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory::new() or NotificationManagerFactory::with_config() instead"
-)]
-pub fn ensure_factory() -> Result<NotificationManagerFactory, Box<dyn std::error::Error>> {
-    if let Some(factory) = FACTORY.get() { Ok(factory.clone()) } else {
-        let factory = NotificationManagerFactory::new()?;
-        match FACTORY.set(factory.clone()) {
-            Ok(()) => Ok(factory),
-            Err(_) => {
-                // Race condition - another thread set the factory
-                Ok(FACTORY.get().unwrap().clone())
-            }
-        }
-    }
-}
-
-/// Create a notification manager adapter using the factory
-///
-/// This function is a convenience method for creating an adapter
-/// using the global factory. It's primarily for backward compatibility
-/// during the transition to dependency injection.
+/// Create a notification manager adapter using dependency injection
 ///
 /// # Errors
 /// Returns an error if the adapter cannot be created
-pub fn create_adapter() -> Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
-    let factory = ensure_factory()?;
-    factory.create_adapter().map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))
-}
-
-// Module initialization
-static NOTIFICATION_MANAGER: tokio::sync::OnceCell<Arc<NotificationManager>> = 
-    tokio::sync::OnceCell::const_new();
-
-/// Initializes the notification system with the given configuration
-///
-/// # Parameters
-/// * `config` - The notification configuration to use
-///
-/// # Errors
-/// Returns an error if the notification manager is already initialized or if initialization fails
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory::create_manager() or create_adapter() instead"
-)]
-pub async fn initialize(config: NotificationConfig) -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_adapter(config: NotificationConfig) -> Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
     let factory = NotificationManagerFactory::with_config(config);
-    let manager = factory.create_manager()?;
-
-    // For backward compatibility, also set in the old static
-    NOTIFICATION_MANAGER.set(manager)
-        .map_err(|_| Box::<dyn std::error::Error>::from("Notification manager already initialized"))?;
-    
-    Ok(())
-}
-
-/// Get the notification manager instance
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory::create_adapter() instead"
-)]
-pub fn get_manager() -> Option<Arc<NotificationManager>> {
-    NOTIFICATION_MANAGER.get().cloned()
-}
-
-/// Check if the notification system is initialized
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with NotificationManagerFactory instead of relying on global state"
-)]
-pub fn is_initialized() -> bool {
-    NOTIFICATION_MANAGER.get().is_some()
+    factory.create_adapter().map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))
 }

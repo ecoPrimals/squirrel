@@ -37,7 +37,7 @@ use std::{
 };
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
-use tokio::sync::OnceCell;
+use tokio::sync::Mutex;
 use crate::error::{Result, SquirrelError};
 use crate::monitoring::metrics::{MetricConfig, MetricCollector, DefaultMetricCollector, Metric};
 use crate::monitoring::alerts::{AlertConfig, AlertManager, Alert, DefaultAlertManager};
@@ -49,6 +49,9 @@ use serde_json;
 use tokio::sync::mpsc;
 use tracing::debug;
 use crate::monitoring::adapter::{MonitoringServiceFactoryAdapter, create_factory_adapter, create_factory_adapter_with_factory};
+use log::{info, error, debug, warn};
+use std::convert::{TryFrom, TryInto};
+use futures::future::{self, Future};
 
 /// Converts a `SystemTime` to a Unix timestamp (seconds since Unix epoch)
 #[must_use] pub fn system_time_to_timestamp(time: SystemTime) -> i64 {
@@ -183,9 +186,6 @@ pub enum MonitoringError {
     #[error("System error: {0}")]
     SystemError(String),
 }
-
-/// Global factory for creating monitoring services
-static MONITORING_FACTORY: OnceCell<Arc<MonitoringServiceFactory>> = OnceCell::const_new();
 
 impl MonitoringService {
     /// Create a new monitoring service
@@ -569,68 +569,6 @@ pub fn create_service_with_adapters() -> Result<Arc<MonitoringService>> {
         alert_manager,
         network_monitor,
     )))
-}
-
-/// Initialize the monitoring service with the given configuration
-///
-/// # Arguments
-/// * `config` - Configuration for the monitoring service
-///
-/// # Errors
-/// Returns an error if initialization fails
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MonitoringServiceFactory::new() or MonitoringServiceFactory::with_config() instead"
-)]
-pub async fn initialize(config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
-    // Create factory with config
-    let factory = Arc::new(MonitoringServiceFactory::new(config.clone()));
-    
-    // Set global factory
-    match MONITORING_FACTORY.set(factory.clone()) {
-        Ok(_) => {
-            // Create and start service
-            let service = factory.create_service_with_config(config);
-            service.start().await?;
-            Ok(service)
-        }
-        Err(_) => Err(MonitoringError::SystemError("Monitoring factory already initialized".to_string()).into()),
-    }
-}
-
-/// Get the monitoring service factory
-#[must_use]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MonitoringServiceFactory::new() or MonitoringServiceFactory::with_config() instead"
-)]
-pub fn get_factory() -> Option<Arc<MonitoringServiceFactory>> {
-    MONITORING_FACTORY.get().cloned()
-}
-
-/// Get the monitoring service
-#[must_use]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MonitoringServiceFactory::create_service() or create_service_with_adapters() instead"
-)]
-pub fn get_service() -> Option<Arc<MonitoringService>> {
-    get_factory().map(|f| f.create_service())
-}
-
-/// Shutdown the monitoring service
-///
-/// # Errors
-/// Returns an error if shutdown fails
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MonitoringService::stop() instead"
-)]
-pub async fn shutdown() -> Result<()> {
-    if let Some(service) = get_service() {
-        service.stop().await?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]

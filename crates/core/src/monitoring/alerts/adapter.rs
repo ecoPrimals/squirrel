@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::error::Result;
-use super::{Alert, AlertManager, DefaultAlertManager, ensure_factory};
+use super::{Alert, AlertManager, DefaultAlertManager};
 use async_trait::async_trait;
 use super::{NotificationManager, NotificationConfig, AlertNotification, NotificationError};
 
@@ -26,54 +26,50 @@ impl AlertManagerAdapter {
     }
 
     /// Sends an alert through configured notification channels and stores it
+    ///
+    /// # Errors
+    /// Returns an error if the alert cannot be sent or if no manager is available
     pub async fn send_alert(&self, alert: Alert) -> Result<()> {
         if let Some(manager) = &self.inner {
             manager.send_alert(alert).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.send_alert(alert).await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 
     /// Adds a new alert to the storage without sending notifications
+    ///
+    /// # Errors
+    /// Returns an error if the alert cannot be added or if no manager is available
     pub async fn add_alert(&self, alert: Alert) -> Result<()> {
         if let Some(manager) = &self.inner {
             manager.add_alert(alert).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.add_alert(alert).await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 
     /// Updates an existing alert in the storage
+    ///
+    /// # Errors
+    /// Returns an error if the alert cannot be updated or if no manager is available
     pub async fn update_alert(&self, alert: Alert) -> Result<()> {
         if let Some(manager) = &self.inner {
             manager.update_alert(alert).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.update_alert(alert).await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 
     /// Retrieves all stored alerts
+    ///
+    /// # Errors
+    /// Returns an error if the alerts cannot be retrieved or if no manager is available
     pub async fn get_alerts(&self) -> Result<Vec<Alert>> {
         if let Some(manager) = &self.inner {
             manager.get_alerts().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.get_alerts().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 }
@@ -100,11 +96,7 @@ impl AlertManager for AlertManagerAdapter {
         if let Some(manager) = &self.inner {
             manager.start().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.start().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 
@@ -112,11 +104,7 @@ impl AlertManager for AlertManagerAdapter {
         if let Some(manager) = &self.inner {
             manager.stop().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_manager().await {
-                Ok(manager) => manager.stop().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Alert manager not initialized via dependency injection").into())
         }
     }
 }
@@ -162,20 +150,6 @@ impl NotificationManagerAdapter {
         Self { inner: manager }
     }
 
-    /// Creates a new adapter from the global notification manager if available
-    ///
-    /// # Errors
-    /// Returns an error if the global notification manager is not set
-    pub fn from_global() -> Result<Self, Box<dyn std::error::Error>> {
-        if let Some(manager) = super::get_manager() {
-            Ok(Self { inner: manager })
-        } else {
-            Err(Box::<dyn std::error::Error>::from(
-                "Global notification manager not initialized"
-            ))
-        }
-    }
-
     /// Get the inner manager
     #[must_use]
     pub fn inner(&self) -> Arc<NotificationManager> {
@@ -216,13 +190,4 @@ pub fn create_notification_manager_adapter_with_manager(
     manager: Arc<NotificationManager>
 ) -> Arc<NotificationManagerAdapter> {
     Arc::new(NotificationManagerAdapter::with_manager(manager))
-}
-
-/// Creates a notification manager adapter from the global manager
-///
-/// # Errors
-/// Returns an error if the global manager is not initialized
-pub fn create_notification_manager_adapter_from_global() -> Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
-    let adapter = NotificationManagerAdapter::from_global()?;
-    Ok(Arc::new(adapter))
 } 

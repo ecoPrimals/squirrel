@@ -54,6 +54,19 @@ impl MonitoringServiceImpl {
             alert_manager: Box::new(AlertManagerImpl::new()),
         }
     }
+    
+    /// Checks whether the monitoring service is initialized (started)
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `true` if the service has been started, `false` otherwise
+    #[must_use]
+    pub fn is_initialized(&self) -> bool {
+        match self.started.lock() {
+            Ok(started) => *started,
+            Err(_) => false, // If we can't acquire the lock, assume we're not started
+        }
+    }
 }
 
 #[async_trait]
@@ -126,8 +139,14 @@ mod tests {
         let config = MonitoringConfig::default();
         let service = MonitoringServiceImpl::new(config);
         
+        // Test if service is initialized before starting
+        assert!(!service.is_initialized());
+        
         // Test starting the service
         service.start().await.unwrap();
+        
+        // Test if service is initialized after starting
+        assert!(service.is_initialized());
         
         // Test getting health
         let health = service.get_health().await.unwrap();

@@ -2,6 +2,12 @@ mod integration;
 mod team_workflow;
 mod git_operations;
 mod validation;
+mod adapter;
+mod protocol_adapter_comprehensive;
+
+// Import and re-export the adapter tests to make them discoverable
+pub use adapter::*;
+pub use protocol_adapter_comprehensive::*;
 
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;

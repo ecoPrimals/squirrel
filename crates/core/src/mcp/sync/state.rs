@@ -6,7 +6,8 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use crate::error::{MCPError, Result};
 use crate::mcp::types::ProtocolVersion;
-use crate::mcp::context::Context;
+use crate::mcp::monitoring::MCPMonitor;
+use crate::mcp::context_manager::Context;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateChange {

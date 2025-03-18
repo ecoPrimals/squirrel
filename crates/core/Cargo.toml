@@ -10,7 +10,7 @@ description.workspace = true
 tokio = { workspace = true, optional = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
-thiserror = { workspace = true }
+thiserror.workspace = true
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -36,9 +36,11 @@ tokio-util = { workspace = true }
 zstd = { version = "0.13", features = ["zstdmt"] }
 flate2 = { version = "1.0", features = ["zlib"] }
 lz4 = "1.24"
+log = "0.4.26"
 
 [dev-dependencies]
-tokio-test = { workspace = true }
+tokio-test = "0.4.2"
+tempfile = "3.8.0"
 mockall = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use crate::error::Result;
 use crate::monitoring::metrics::{Metric, MetricCollector};
-use super::{ToolMetricsCollector, ToolMetrics, ensure_factory};
+use super::{ToolMetricsCollector, ToolMetrics};
 use async_trait::async_trait;
 
 /// Adapter for the tool metrics collector to support dependency injection
@@ -31,11 +31,8 @@ impl ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.get_tool_metrics(tool_name).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.get_tool_metrics(tool_name).await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 
@@ -44,11 +41,8 @@ impl ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.get_all_metrics().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.get_all_metrics().await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 
@@ -57,11 +51,8 @@ impl ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.record_tool_usage(tool_name, duration, success).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.record_tool_usage(tool_name, duration, success).await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 }
@@ -72,11 +63,8 @@ impl MetricCollector for ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.start().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.start().await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 
@@ -84,11 +72,8 @@ impl MetricCollector for ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.stop().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.stop().await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 
@@ -96,11 +81,8 @@ impl MetricCollector for ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.collect_metrics().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.collect_metrics().await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 
@@ -108,11 +90,8 @@ impl MetricCollector for ToolMetricsCollectorAdapter {
         if let Some(collector) = &self.inner {
             collector.record_metric(metric).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_collector().await {
-                Ok(collector) => collector.record_metric(metric).await,
-                Err(e) => Err(e),
-            }
+            // Return error when no collector is available
+            Err(crate::error::SquirrelError::metric("No tool metrics collector available"))
         }
     }
 }

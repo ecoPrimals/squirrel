@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::error::Result;
-use super::{NetworkMonitor, NetworkStats, NetworkConfig, ensure_factory};
+use super::{NetworkMonitor, NetworkStats, NetworkConfig};
 use std::collections::HashMap;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
@@ -28,67 +28,62 @@ impl NetworkMonitorAdapter {
     }
 
     /// Gets current network statistics for all interfaces
+    ///
+    /// # Errors
+    /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn get_stats(&self) -> Result<HashMap<String, NetworkStats>> {
         if let Some(monitor) = &self.inner {
             monitor.get_stats().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_monitor().await {
-                Ok(monitor) => monitor.get_stats().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Network monitor not initialized via dependency injection").into())
         }
     }
 
     /// Gets statistics for a specific network interface
+    ///
+    /// # Errors
+    /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn get_interface_stats(&self, interface: &str) -> Result<Option<NetworkStats>> {
         if let Some(monitor) = &self.inner {
             monitor.get_interface_stats(interface).await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_monitor().await {
-                Ok(monitor) => monitor.get_interface_stats(interface).await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Network monitor not initialized via dependency injection").into())
         }
     }
 
     /// Updates network statistics
+    ///
+    /// # Errors
+    /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn update_stats(&self) -> Result<()> {
         if let Some(monitor) = &self.inner {
             monitor.update_stats()
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_monitor().await {
-                Ok(monitor) => monitor.update_stats(),
-                Err(e) => Err(e),
-            }
+            Err(format!("Network monitor not initialized via dependency injection").into())
         }
     }
 
     /// Starts the network monitor
+    ///
+    /// # Errors
+    /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn start(&self) -> Result<()> {
         if let Some(monitor) = &self.inner {
             monitor.start().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_monitor().await {
-                Ok(monitor) => monitor.start().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Network monitor not initialized via dependency injection").into())
         }
     }
 
     /// Stops the network monitor
+    ///
+    /// # Errors
+    /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn stop(&self) -> Result<()> {
         if let Some(monitor) = &self.inner {
             monitor.stop().await
         } else {
-            // Try to initialize on-demand
-            match ensure_factory().get_global_monitor().await {
-                Ok(monitor) => monitor.stop().await,
-                Err(e) => Err(e),
-            }
+            Err(format!("Network monitor not initialized via dependency injection").into())
         }
     }
 }

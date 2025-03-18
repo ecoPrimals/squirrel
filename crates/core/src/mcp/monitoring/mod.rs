@@ -15,7 +15,9 @@ use opentelemetry_otlp::WithExportConfig;
 use crate::error::{MCPError, Result};
 use crate::mcp::types::{ProtocolState, ProtocolVersion};
 use crate::mcp::sync::{MCPSync, StateOperation};
-use crate::mcp::context::Context;
+use crate::mcp::context_manager::Context;
+use std::time::{Instant, Duration};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metrics {
@@ -142,6 +144,67 @@ impl MCPMonitor {
         })
     }
 
+    // A synchronous version of new() for use in default implementations
+    pub fn default_sync() -> Self {
+        // Create fallback metrics without OpenTelemetry
+        let metrics = Arc::new(RwLock::new(Metrics {
+            total_messages: 0,
+            total_errors: 0,
+            sync_operations: 0,
+            context_operations: 0,
+            active_contexts: 0,
+            last_sync_duration_ms: 0.0,
+        }));
+
+        let health = Arc::new(RwLock::new(HealthStatus {
+            is_healthy: true,
+            last_check: Utc::now(),
+            sync_status: SyncHealth {
+                is_syncing: false,
+                last_successful_sync: Utc::now(),
+                consecutive_failures: 0,
+            },
+            persistence_status: PersistenceHealth {
+                storage_available: true,
+                last_write_success: Utc::now(),
+                storage_usage_percent: 0.0,
+            },
+            resource_status: ResourceHealth {
+                cpu_usage_percent: 0.0,
+                memory_usage_percent: 0.0,
+                disk_usage_percent: 0.0,
+            },
+        }));
+
+        // Create a no-op meter provider
+        let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder().build();
+        let meter = meter_provider.meter("mcp_monitor_fallback");
+
+        // Create no-op metrics
+        let message_counter = meter
+            .u64_counter("mcp.messages")
+            .init();
+        let error_counter = meter
+            .u64_counter("mcp.errors")
+            .init();
+        let sync_duration = meter
+            .f64_histogram("mcp.sync_duration")
+            .init();
+        let context_operation_counter = meter
+            .u64_counter("mcp.context_operations")
+            .init();
+
+        Self {
+            metrics,
+            health,
+            meter,
+            message_counter,
+            error_counter,
+            sync_duration,
+            context_operation_counter,
+        }
+    }
+
     pub async fn record_message(&self, message_type: &str) {
         let mut metrics = self.metrics.write().await;
         metrics.total_messages += 1;
@@ -241,6 +304,12 @@ impl Clone for MCPMonitor {
             sync_duration: self.sync_duration.clone(),
             context_operation_counter: self.context_operation_counter.clone(),
         }
+    }
+}
+
+impl Default for MCPMonitor {
+    fn default() -> Self {
+        Self::default_sync()
     }
 }
 

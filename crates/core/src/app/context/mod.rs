@@ -716,6 +716,8 @@ impl Default for ContextManager {
 pub struct ContextTrackerFactory {
     /// The default context manager to use
     manager: Option<Arc<ContextManager>>,
+    /// Configuration for the context tracker
+    config: Option<ContextConfig>,
 }
 
 impl ContextTrackerFactory {
@@ -725,22 +727,64 @@ impl ContextTrackerFactory {
     ///
     /// * `manager` - Optional default context manager to use
     #[must_use] pub fn new(manager: Option<Arc<ContextManager>>) -> Self {
-        Self { manager }
+        Self { 
+            manager,
+            config: None
+        }
+    }
+
+    /// Create a factory with an existing manager and configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `manager` - Optional default context manager to use
+    /// * `config` - Configuration for the context tracker
+    #[must_use] pub fn with_config(manager: Option<Arc<ContextManager>>, config: ContextConfig) -> Self {
+        Self {
+            manager,
+            config: Some(config)
+        }
     }
 
     /// Create a new `ContextTracker` with the default manager
     ///
     /// # Returns
     ///
-    /// Returns a new `ContextTracker` instance using the default manager
+    /// Returns a `Result` containing a new `ContextTracker` instance using the default manager
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if no default manager was provided during factory creation
-    #[must_use] pub fn create(&self) -> ContextTracker {
+    /// Returns `ContextError::NotInitialized` if no default manager was provided during factory creation
+    pub fn create(&self) -> Result<ContextTracker> {
         match &self.manager {
-            Some(manager) => ContextTracker::new(manager.clone()),
-            None => panic!("No default manager provided")
+            Some(manager) => Ok(ContextTracker::new(manager.clone())),
+            None => Err(ContextError::NotInitialized.into())
+        }
+    }
+
+    /// Create a context tracker with custom configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The configuration to use for the context tracker
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing a new `ContextTracker` instance with the specified configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::NotInitialized` if no default manager was provided during factory creation
+    pub fn create_with_config(&self, config: ContextConfig) -> Result<ContextTracker> {
+        match &self.manager {
+            Some(manager) => {
+                let mut tracker = ContextTracker::new(manager.clone());
+                // Apply configuration if needed
+                // Currently ContextTracker doesn't have a configure method, so we'd need to add that
+                // For now, we just return the tracker
+                Ok(tracker)
+            },
+            None => Err(ContextError::NotInitialized.into())
         }
     }
 
@@ -825,6 +869,41 @@ impl ContextTracker {
     }
 }
 
+/// Create a context tracker with default configuration
+///
+/// # Returns
+///
+/// Returns a `Result` containing a new `ContextTracker` instance
+///
+/// # Errors
+///
+/// Returns an error if the context tracker creation fails
+pub fn create_context_tracker() -> Result<ContextTracker> {
+    let manager = Arc::new(ContextManager::new());
+    Ok(ContextTracker::new(manager))
+}
+
+/// Create a context tracker with custom configuration
+///
+/// # Arguments
+///
+/// * `config` - The configuration to use
+///
+/// # Returns
+///
+/// Returns a `Result` containing a new `ContextTracker` instance
+///
+/// # Errors
+///
+/// Returns an error if the context tracker creation fails
+pub fn create_context_tracker_with_config(config: ContextConfig) -> Result<ContextTracker> {
+    let manager = Arc::new(ContextManager::new());
+    let tracker = ContextTracker::new(manager);
+    // Apply configuration if needed
+    // Currently ContextTracker doesn't have a configure method, so we'd need to add that
+    Ok(tracker)
+}
+
 /// Application-wide context that stores configuration and shared components.
 /// 
 /// The `AppContext` provides access to application-level configuration and
@@ -906,15 +985,52 @@ mod tests {
         let manager = Arc::new(ContextManager::new());
         let factory = ContextTrackerFactory::new(Some(manager.clone()));
         
-        let tracker = factory.create();
+        let tracker = factory.create().unwrap();
         assert!(Arc::ptr_eq(&tracker.manager, &manager));
     }
     
     #[test]
-    #[should_panic(expected = "No default manager provided")]
     fn test_context_tracker_factory_create_no_default() {
         let factory = ContextTrackerFactory::default();
-        // Should panic due to no default manager
-        let _ = factory.create();
+        // Should return an error due to no default manager
+        let result = factory.create();
+        assert!(result.is_err());
+    }
+    
+    #[test]
+    fn test_context_tracker_factory_with_config() {
+        let manager = Arc::new(ContextManager::new());
+        let config = ContextConfig::default();
+        let factory = ContextTrackerFactory::with_config(Some(manager.clone()), config);
+        
+        assert!(factory.manager.is_some());
+        assert!(factory.config.is_some());
+        
+        let tracker = factory.create().unwrap();
+        assert!(Arc::ptr_eq(&tracker.manager, &manager));
+    }
+    
+    #[test]
+    fn test_context_tracker_factory_create_with_config() {
+        let manager = Arc::new(ContextManager::new());
+        let factory = ContextTrackerFactory::new(Some(manager.clone()));
+        
+        let config = ContextConfig::default();
+        let tracker = factory.create_with_config(config).unwrap();
+        
+        assert!(Arc::ptr_eq(&tracker.manager, &manager));
+    }
+    
+    #[test]
+    fn test_helper_create_context_tracker() {
+        let tracker = create_context_tracker().unwrap();
+        assert!(tracker.active_context.read().unwrap().is_none());
+    }
+    
+    #[test]
+    fn test_helper_create_context_tracker_with_config() {
+        let config = ContextConfig::default();
+        let tracker = create_context_tracker_with_config(config).unwrap();
+        assert!(tracker.active_context.read().unwrap().is_none());
     }
 }

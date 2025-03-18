@@ -1,11 +1,9 @@
-use std::fmt;
 use thiserror::Error;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::Map;
 use crate::mcp::types::{MessageType, SecurityLevel, ProtocolVersion};
-use std::io;
-use crate::core::error::{CoreError, Result};
+use crate::error::{SquirrelError as CoreError, Result as CoreResult};
 use crate::mcp::error::context::ErrorSeverity;
 
 #[derive(Debug, Error)]
@@ -33,6 +31,18 @@ pub enum MCPError {
     
     #[error("State error: {0}")]
     State(String),
+    
+    #[error("Not initialized: {0}")]
+    NotInitialized(String),
+    
+    #[error("Already initialized: {0}")]
+    AlreadyInitialized(String),
+    
+    #[error("Storage error: {0}")]
+    StorageError(String),
+    
+    #[error("Sync error: {0}")]
+    SyncError(String),
     
     #[error("Version mismatch: expected {expected}, received {received}")]
     VersionMismatch {
@@ -65,59 +75,28 @@ pub enum MCPError {
     },
 }
 
-impl std::error::Error for MCPError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            MCPError::Protocol(e) => Some(e),
-            MCPError::Io(e) => Some(e),
-            MCPError::SerdeJson(e) => Some(e),
-            MCPError::Security(e) => Some(e),
-            MCPError::Connection(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl fmt::Display for MCPError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MCPError::Protocol(e) => write!(f, "Protocol error: {}", e),
-            MCPError::Io(e) => write!(f, "IO error: {}", e),
-            MCPError::SerdeJson(e) => write!(f, "Serialization error: {}", e),
-            MCPError::InvalidMessage(msg) => write!(f, "Invalid message: {}", msg),
-            MCPError::Security(e) => write!(f, "Security error: {}", e),
-            MCPError::Event(msg) => write!(f, "Event error: {}", msg),
-            MCPError::Connection(e) => write!(f, "Connection error: {}", e),
-            MCPError::State(msg) => write!(f, "State error: {}", msg),
-            MCPError::VersionMismatch { .. } => write!(f, "Version mismatch"),
-            MCPError::SecurityLevelTooLow { .. } => write!(f, "Security level too low"),
-            MCPError::UnknownMessageType(msg) => write!(f, "Unknown message type: {}", msg),
-            MCPError::ValidationError(msg) => write!(f, "Message validation failed: {}", msg),
-            MCPError::RoutingError(msg) => write!(f, "Message routing failed: {}", msg),
-            MCPError::HandlerError(msg) => write!(f, "Handler error: {}", msg),
-            MCPError::Timeout { .. } => write!(f, "Timeout"),
-        }
-    }
-}
-
 impl From<MCPError> for CoreError {
     fn from(err: MCPError) -> Self {
         match err {
-            MCPError::Protocol(e) => CoreError::Protocol(e.to_string()),
-            MCPError::Io(e) => CoreError::Io(e),
-            MCPError::SerdeJson(e) => CoreError::Other(format!("Serialization error: {}", e)),
-            MCPError::InvalidMessage(e) => CoreError::Other(e),
-            MCPError::Security(e) => CoreError::Security(e.to_string()),
-            MCPError::Event(e) => CoreError::Other(e),
-            MCPError::Connection(e) => CoreError::Context(e.to_string()),
-            MCPError::State(e) => CoreError::Protocol(e),
-            MCPError::VersionMismatch { .. } => CoreError::Protocol("Version mismatch".to_string()),
-            MCPError::SecurityLevelTooLow { .. } => CoreError::Protocol("Security level too low".to_string()),
-            MCPError::UnknownMessageType(msg) => CoreError::Other(format!("Unknown message type: {}", msg)),
-            MCPError::ValidationError(msg) => CoreError::Other(format!("Message validation failed: {}", msg)),
-            MCPError::RoutingError(msg) => CoreError::Other(format!("Message routing failed: {}", msg)),
-            MCPError::HandlerError(msg) => CoreError::Other(format!("Handler error: {}", msg)),
-            MCPError::Timeout { .. } => CoreError::Other("Timeout".to_string()),
+            MCPError::Protocol(e) => CoreError::MCP(format!("Protocol error: {}", e)),
+            MCPError::Io(e) => CoreError::MCP(format!("IO error: {}", e)),
+            MCPError::SerdeJson(e) => CoreError::MCP(format!("Serialization error: {}", e)),
+            MCPError::InvalidMessage(e) => CoreError::MCP(e),
+            MCPError::Security(e) => CoreError::MCP(format!("Security error: {}", e)),
+            MCPError::Event(e) => CoreError::MCP(e),
+            MCPError::Connection(e) => CoreError::MCP(format!("Connection error: {}", e)),
+            MCPError::State(e) => CoreError::MCP(e),
+            MCPError::NotInitialized(e) => CoreError::MCP(format!("Not initialized: {}", e)),
+            MCPError::AlreadyInitialized(e) => CoreError::MCP(format!("Already initialized: {}", e)),
+            MCPError::StorageError(e) => CoreError::MCP(format!("Storage error: {}", e)),
+            MCPError::SyncError(e) => CoreError::MCP(format!("Sync error: {}", e)),
+            MCPError::VersionMismatch { .. } => CoreError::MCP("Version mismatch".to_string()),
+            MCPError::SecurityLevelTooLow { .. } => CoreError::MCP("Security level too low".to_string()),
+            MCPError::UnknownMessageType(msg) => CoreError::MCP(format!("Unknown message type: {}", msg)),
+            MCPError::ValidationError(msg) => CoreError::MCP(format!("Message validation failed: {}", msg)),
+            MCPError::RoutingError(msg) => CoreError::MCP(format!("Message routing failed: {}", msg)),
+            MCPError::HandlerError(msg) => CoreError::MCP(format!("Handler error: {}", msg)),
+            MCPError::Timeout { .. } => CoreError::MCP("Timeout".to_string()),
         }
     }
 }
@@ -154,6 +133,8 @@ pub enum SecurityError {
     TokenExpired,
     #[error("Invalid token: {0}")]
     InvalidToken(String),
+    #[error("Invalid role: {0}")]
+    InvalidRole(String),
     #[error("Encryption failed: {0}")]
     EncryptionFailed(String),
     #[error("Decryption failed: {0}")]
@@ -274,6 +255,10 @@ impl MCPError {
             MCPError::Security(SecurityError::TokenExpired) => true,
             MCPError::Connection(ConnectionError::Timeout(_)) => true,
             MCPError::Connection(ConnectionError::Reset) => true,
+            MCPError::NotInitialized(_) => true,
+            MCPError::AlreadyInitialized(_) => false,
+            MCPError::StorageError(_) => true,
+            MCPError::SyncError(_) => true,
             MCPError::VersionMismatch { .. } => false,
             MCPError::SecurityLevelTooLow { .. } => false,
             MCPError::ValidationError(_) => false,
@@ -289,6 +274,10 @@ impl MCPError {
             MCPError::Security(_) => ErrorSeverity::Critical,
             MCPError::Connection(ConnectionError::Timeout(_)) => ErrorSeverity::Medium,
             MCPError::Connection(_) => ErrorSeverity::High,
+            MCPError::NotInitialized(_) => ErrorSeverity::Medium,
+            MCPError::AlreadyInitialized(_) => ErrorSeverity::Low,
+            MCPError::StorageError(_) => ErrorSeverity::High,
+            MCPError::SyncError(_) => ErrorSeverity::Medium,
             MCPError::VersionMismatch { .. } => ErrorSeverity::Critical,
             MCPError::SecurityLevelTooLow { .. } => ErrorSeverity::Critical,
             MCPError::ValidationError(_) => ErrorSeverity::Medium,
@@ -308,6 +297,10 @@ impl MCPError {
             MCPError::ValidationError(_) => "MCP-006",
             MCPError::HandlerError(_) => "MCP-007",
             MCPError::Timeout { .. } => "MCP-008",
+            MCPError::NotInitialized(_) => "MCP-009",
+            MCPError::AlreadyInitialized(_) => "MCP-010",
+            MCPError::StorageError(_) => "MCP-011",
+            MCPError::SyncError(_) => "MCP-012",
             _ => "MCP-000",
         }.to_string()
     }
@@ -334,9 +327,9 @@ impl ErrorHandler {
         }
     }
 
-    pub async fn handle_error<F, T>(&mut self, operation: F) -> Result<T>
+    pub async fn handle_error<F, T>(&mut self, operation: F) -> CoreResult<T>
     where
-        F: Fn() -> Result<T> + Send + Sync,
+        F: Fn() -> CoreResult<T> + Send + Sync,
     {
         loop {
             match operation() {

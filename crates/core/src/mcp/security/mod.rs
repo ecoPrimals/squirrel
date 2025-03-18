@@ -14,8 +14,10 @@ use rand::RngCore;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-use crate::mcp::{MCPError, Result, SecurityError};
 use crate::mcp::types::{SecurityLevel, EncryptionFormat};
+use crate::mcp::error::types::{MCPError, SecurityError};
+use crate::mcp::error::Result;
+use crate::error::SquirrelError;
 
 /// Role-Based Access Control (RBAC) implementation
 pub mod rbac;
@@ -100,9 +102,23 @@ struct AuthAttempt {
 #[derive(Debug, Default)]
 struct KeyManager {
     /// Master encryption key
+    #[allow(dead_code)]
     master_key: [u8; KEY_LEN],
     /// Map of session keys by session ID
     session_keys: Arc<RwLock<HashMap<String, SessionKey>>>,
+}
+
+impl KeyManager {
+    /// Creates a new key manager with a random master key
+    fn new() -> Self {
+        let mut master_key = [0u8; KEY_LEN];
+        OsRng.fill_bytes(&mut master_key);
+        
+        Self {
+            master_key,
+            session_keys: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
 }
 
 /// Represents an authenticated user session
@@ -155,35 +171,49 @@ impl NonceSequence for NonceGen {
 }
 
 impl SecurityManager {
-    /// Creates a new security manager with the given configuration.
-    /// 
-    /// # Errors
-    /// Returns an error if initialization fails
+    /// Creates a new security manager
     pub async fn new(config: SecurityConfig) -> Result<Arc<Self>> {
-        let mut key_manager = KeyManager::default();
-        OsRng.fill_bytes(&mut key_manager.master_key);
-
-        let manager = Arc::new(Self {
-            config,
-            state: Arc::new(RwLock::new(SecurityState::default())),
-            key_manager,
-            rbac_manager: Arc::new(RwLock::new(RBACManager::new())),
-        });
-
+        // Create key manager
+        let key_manager = KeyManager::new();
+        
+        // Create RBAC manager
+        let mut rbac_manager = RBACManager::new();
+        
         // Initialize default roles
-        {
-            let mut rbac = manager.rbac_manager.write().await;
-            for role in &manager.config.default_roles {
-                rbac.create_role(
-                    role.name.clone(),
-                    role.description.clone(),
-                    role.permissions.clone(),
-                    role.parent_roles.clone(),
-                )?;
+        for role in &config.default_roles {
+            // Create role with parent relationships
+            let parent_roles = role.parent_roles.clone();
+            let permissions = role.permissions.clone();
+            
+            let role_result = rbac_manager.create_role_with_id(
+                role.id.clone(),
+                role.name.clone(),
+                role.description.clone(),
+                permissions,
+                parent_roles,
+            );
+            
+            // Convert error if needed
+            if let Err(e) = role_result {
+                return Err(match e {
+                    crate::error::SquirrelError::Security(msg) => 
+                        MCPError::Security(SecurityError::InvalidRole(msg)),
+                    _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+                });
             }
         }
-
-        Ok(manager)
+        
+        let state = SecurityState {
+            active_sessions: Vec::new(),
+            auth_attempts: HashMap::new(),
+        };
+        
+        Ok(Arc::new(Self {
+            config,
+            state: Arc::new(RwLock::new(state)),
+            key_manager,
+            rbac_manager: Arc::new(RwLock::new(rbac_manager)),
+        }))
     }
 
     /// Authenticates a client using the provided credentials.
@@ -214,8 +244,8 @@ impl SecurityManager {
         // Assign requested roles if provided
         if let Some(roles) = &credentials.requested_roles {
             for role_id in roles {
-                if let Err(e) = self.assign_role(credentials.client_id.clone(), role_id.as_str()).await {
-                    tracing::warn!("Failed to assign role {}: {}", role_id, e);
+                if let Err(e) = self.assign_role(credentials.client_id.clone(), role_id.to_string()).await {
+                    tracing::warn!("Failed to assign role: {}", e);
                 }
             }
         }
@@ -420,36 +450,82 @@ impl SecurityManager {
         Ok(())
     }
 
-    /// Assigns a role to a user.
-    /// 
-    /// # Errors
-    /// Returns an error if the role assignment fails
-    pub async fn assign_role(&self, user_id: String, role_id: &str) -> Result<()> {
-        let mut rbac = self.rbac_manager.write().await;
-        rbac.assign_role(user_id, role_id)
+    /// Assigns a role to a user
+    pub async fn assign_role(&self, user_id: String, role_id: String) -> Result<()> {
+        let mut rbac_manager = self.rbac_manager.write().await;
+        rbac_manager.assign_role(user_id, role_id)
+            .map_err(|e| match e {
+                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
+                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{}", e))),
+            })
+    }
+
+    /// Assigns a role to a user by name
+    pub async fn assign_role_by_name(&self, user_id: String, role_name: String) -> Result<()> {
+        let mut rbac_manager = self.rbac_manager.write().await;
+        rbac_manager.assign_role_by_name(user_id, role_name)
+            .map_err(|e| match e {
+                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
+                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{}", e))),
+            })
     }
 
     /// Checks if a user has a specific permission
     pub async fn has_permission(&self, user_id: &str, permission: &Permission) -> bool {
-        let rbac = self.rbac_manager.read().await;
-        rbac.has_permission(user_id, permission)
+        // Use a read lock since we're not modifying the RBAC manager
+        let rbac_manager = self.rbac_manager.read().await;
+        rbac_manager.has_permission(user_id, permission)
     }
 
-    /// Gets all permissions assigned to a user
+    /// Gets all permissions for a user
     pub async fn get_user_permissions(&self, user_id: &str) -> HashSet<Permission> {
-        let rbac = self.rbac_manager.read().await;
-        rbac.get_user_permissions(user_id)
+        let rbac_manager = self.rbac_manager.read().await;
+        rbac_manager.get_user_permissions(user_id)
     }
 
-    /// Creates a new role with the specified parameters.
-    /// 
-    /// # Errors
-    /// Returns an error if:
-    /// - Role name is already taken
-    /// - Parent roles don't exist
-    pub async fn create_role(&self, name: String, description: Option<String>, permissions: HashSet<Permission>, parent_roles: HashSet<String>) -> Result<Role> {
-        let mut rbac = self.rbac_manager.write().await;
-        rbac.create_role(name, description, permissions, parent_roles)
+    /// Creates a new role
+    pub async fn create_role(
+        &self, 
+        name: String,
+        description: Option<String>,
+        permissions: HashSet<Permission>,
+        parent_roles: HashSet<String>,
+    ) -> Result<Role> {
+        let mut rbac_manager = self.rbac_manager.write().await;
+        rbac_manager.create_role(name, description, permissions, parent_roles)
+            .map_err(|e| match e {
+                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
+                _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+            })
+    }
+
+    /// Creates a role with a specific ID (useful for testing)
+    pub async fn create_role_with_id(
+        &self, 
+        id: String,
+        name: String,
+        description: Option<String>,
+        permissions: HashSet<Permission>,
+        parent_roles: HashSet<String>,
+    ) -> Result<Role> {
+        let mut rbac_manager = self.rbac_manager.write().await;
+        rbac_manager.create_role_with_id(id, name, description, permissions, parent_roles)
+            .map_err(|e| match e {
+                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
+                _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+            })
+    }
+
+    /// Gets a role by ID
+    pub async fn get_role_by_id(&self, id: &str) -> Option<Role> {
+        let rbac_manager = self.rbac_manager.read().await;
+        rbac_manager.get_role_by_id(id).cloned()
+    }
+
+    /// Gets a role by name
+    pub async fn get_role_by_name(&self, name: &str) -> Option<Role> {
+        let rbac_manager = self.rbac_manager.read().await;
+        rbac_manager.get_role_by_name(name).cloned()
     }
 
     /// Verifies user credentials.
@@ -533,149 +609,186 @@ mod tests {
     async fn test_rbac_integration() {
         let mut config = SecurityConfig::default();
         
-        // Create user role with read permission
-        let mut user_permissions = HashSet::new();
-        user_permissions.insert(Permission {
-            id: Uuid::new_v4().to_string(),
-            name: "read".to_string(),
-            resource: "document".to_string(),
-            action: Action::Read,
-        });
-
-        let user_role = Role {
-            id: Uuid::new_v4().to_string(),
-            name: "user".to_string(),
-            description: Some("Basic user".to_string()),
-            permissions: user_permissions.clone(),
-            parent_roles: HashSet::new(),
-        };
-
-        config.default_roles.push(user_role.clone());
-        let security = SecurityManager::new(config).await.unwrap();
-
-        // Get the role ID from the RBAC manager
-        let role_id = security.rbac_manager.read().await.get_role_by_name("user").unwrap().id.clone();
-
-        // Authenticate with role request
-        let credentials = Credentials {
-            client_id: "test_user".to_string(),
-            client_secret: "secret".to_string(),
-            security_level: SecurityLevel::Standard,
-            requested_roles: Some(vec![role_id]),
-        };
-
-        // Use the token to ensure it's not marked as unused
-        let _token = security.authenticate(&credentials).await.unwrap();
-
-        // Check permissions
-        let read_permission = Permission {
-            id: Uuid::new_v4().to_string(),
-            name: "read".to_string(),
-            resource: "document".to_string(),
-            action: Action::Read,
-        };
-
-        assert!(security.has_permission(&credentials.client_id, &read_permission).await);
-    }
-
-    #[tokio::test]
-    async fn test_authentication_with_roles() {
-        let mut config = SecurityConfig::default();
-        
-        // Create default user role
-        let mut user_permissions = HashSet::new();
-        user_permissions.insert(Permission {
-            id: Uuid::new_v4().to_string(),
-            name: "read".to_string(),
-            resource: "document".to_string(),
-            action: Action::Read,
-        });
-
-        let user_role = Role {
-            id: Uuid::new_v4().to_string(),
-            name: "user".to_string(),
-            description: Some("Basic user".to_string()),
-            permissions: user_permissions,
-            parent_roles: HashSet::new(),
-        };
-
-        config.default_roles.push(user_role.clone());
-        let security = SecurityManager::new(config).await.unwrap();
-
-        // Get the role ID from the RBAC manager
-        let role_id = security.rbac_manager.read().await.get_role_by_name("user").unwrap().id.clone();
-
-        // Authenticate with role request
-        let credentials = Credentials {
-            client_id: "test_user".to_string(),
-            client_secret: "secret".to_string(),
-            security_level: SecurityLevel::Standard,
-            requested_roles: Some(vec![role_id]),
-        };
-
-        // Use the token to ensure it's not marked as unused
-        let _token = security.authenticate(&credentials).await.unwrap();
-
-        // Verify role assignment
-        let read_permission = Permission {
-            id: Uuid::new_v4().to_string(),
-            name: "read".to_string(),
-            resource: "document".to_string(),
-            action: Action::Read,
-        };
-
-        assert!(security.has_permission(&credentials.client_id, &read_permission).await);
-    }
-
-    #[tokio::test]
-    async fn test_authorization_with_permission() {
-        let mut config = SecurityConfig::default();
-        
-        // Create user role with read permission
+        // Create default user role with read permission
         let mut user_permissions = HashSet::new();
         let read_permission = Permission {
-            id: Uuid::new_v4().to_string(),
+            id: "read-doc-1".to_string(), // Use a stable ID for testing
             name: "read".to_string(),
             resource: "document".to_string(),
             action: Action::Read,
         };
         user_permissions.insert(read_permission.clone());
-
+        
         let user_role = Role {
-            id: Uuid::new_v4().to_string(),
+            id: "user-role-1".to_string(), // Use a stable ID for testing
             name: "user".to_string(),
             description: Some("Basic user".to_string()),
             permissions: user_permissions,
             parent_roles: HashSet::new(),
         };
-
+        
         config.default_roles.push(user_role.clone());
         let security = SecurityManager::new(config).await.unwrap();
-
-        // Get the role ID from the RBAC manager
-        let role_id = security.rbac_manager.read().await.get_role_by_name("user").unwrap().id.clone();
-
+        
+        // Authenticate with role request
+        let credentials = Credentials {
+            client_id: "test_user".to_string(),
+            client_secret: "secret".to_string(),
+            security_level: SecurityLevel::Standard,
+            requested_roles: Some(vec![user_role.id.clone()]),
+        };
+        
+        // Use the token to ensure it's not marked as unused
+        let _token = security.authenticate(&credentials).await.unwrap();
+        
+        // Check permissions
+        assert!(security.has_permission(&credentials.client_id, &read_permission).await);
+    }
+    
+    #[tokio::test]
+    async fn test_authentication_with_roles() {
+        let mut config = SecurityConfig::default();
+        
+        // Create user role with stable ID
+        let mut user_permissions = HashSet::new();
+        let read_permission = Permission {
+            id: "read-doc-2".to_string(), // Use a stable ID for testing
+            name: "read".to_string(),
+            resource: "document".to_string(),
+            action: Action::Read,
+        };
+        user_permissions.insert(read_permission.clone());
+        
+        let user_role = Role {
+            id: "user-role-2".to_string(), // Use a stable ID for testing
+            name: "user".to_string(),
+            description: Some("Basic user".to_string()),
+            permissions: user_permissions,
+            parent_roles: HashSet::new(),
+        };
+        
+        config.default_roles.push(user_role.clone());
+        let security = SecurityManager::new(config).await.unwrap();
+        
+        // Authenticate with role request
+        let credentials = Credentials {
+            client_id: "test_user".to_string(),
+            client_secret: "secret".to_string(),
+            security_level: SecurityLevel::Standard,
+            requested_roles: Some(vec![user_role.id.clone()]),
+        };
+        
+        // Use the token to ensure it's not marked as unused
+        let _token = security.authenticate(&credentials).await.unwrap();
+        
+        // Verify permission assignment
+        assert!(security.has_permission(&credentials.client_id, &read_permission).await);
+    }
+    
+    #[tokio::test]
+    async fn test_authorization_with_permission() {
+        let mut config = SecurityConfig::default();
+        
+        // Create user role with read permission and stable ID
+        let mut user_permissions = HashSet::new();
+        let read_permission = Permission {
+            id: "read-doc-3".to_string(), // Use a stable ID for testing
+            name: "read".to_string(),
+            resource: "document".to_string(),
+            action: Action::Read,
+        };
+        user_permissions.insert(read_permission.clone());
+        
+        let user_role = Role {
+            id: "user-role-3".to_string(), // Use a stable ID for testing
+            name: "user".to_string(),
+            description: Some("Basic user".to_string()),
+            permissions: user_permissions,
+            parent_roles: HashSet::new(),
+        };
+        
+        config.default_roles.push(user_role.clone());
+        let security = SecurityManager::new(config).await.unwrap();
+        
         // Authenticate user
         let credentials = Credentials {
             client_id: "test_user".to_string(),
             client_secret: "secret".to_string(),
             security_level: SecurityLevel::Standard,
-            requested_roles: Some(vec![role_id]),
+            requested_roles: Some(vec![user_role.id.clone()]),
         };
-
+        
         let token = security.authenticate(&credentials).await.unwrap();
-
+        
         // Test authorization with permission
         assert!(security.authorize(&token, SecurityLevel::Standard, Some(&read_permission)).await.is_ok());
-
+        
         // Test authorization with invalid permission
         let write_permission = Permission {
-            id: Uuid::new_v4().to_string(),
+            id: "write-doc-3".to_string(),
             name: "write".to_string(),
             resource: "document".to_string(),
             action: Action::Create,
         };
-
+        
         assert!(security.authorize(&token, SecurityLevel::Standard, Some(&write_permission)).await.is_err());
+    }
+    
+    // Add a test for role inheritance with our refactored RBAC
+    #[tokio::test]
+    async fn test_role_inheritance_integration() {
+        let config = SecurityConfig::default();
+        let security = SecurityManager::new(config).await.unwrap();
+        
+        // Create base role with read permission
+        let mut base_permissions = HashSet::new();
+        let read_permission = Permission {
+            id: "read-doc-4".to_string(),
+            name: "read".to_string(),
+            resource: "document".to_string(),
+            action: Action::Read,
+        };
+        base_permissions.insert(read_permission.clone());
+        
+        let base_role = security.create_role_with_id(
+            "reader-role-4".to_string(),
+            "reader".to_string(),
+            None,
+            base_permissions,
+            HashSet::new(),
+        ).await.unwrap();
+        
+        // Create admin role with write permission, inheriting from base role
+        let mut admin_permissions = HashSet::new();
+        let write_permission = Permission {
+            id: "write-doc-4".to_string(),
+            name: "write".to_string(),
+            resource: "document".to_string(),
+            action: Action::Create,
+        };
+        admin_permissions.insert(write_permission.clone());
+        
+        let mut parent_roles = HashSet::new();
+        parent_roles.insert(base_role.id.clone());
+        
+        let admin_role = security.create_role_with_id(
+            "admin-role-4".to_string(),
+            "admin".to_string(),
+            None,
+            admin_permissions,
+            parent_roles,
+        ).await.unwrap();
+        
+        // Assign admin role to user
+        let user_id = "test_admin_user";
+        security.assign_role(user_id.to_string(), admin_role.id.clone()).await.unwrap();
+        
+        // Check permissions
+        assert!(security.has_permission(user_id, &read_permission).await);
+        assert!(security.has_permission(user_id, &write_permission).await);
+        
+        // User should have access to both permissions
+        let user_permissions = security.get_user_permissions(user_id).await;
+        assert_eq!(user_permissions.len(), 2);
     }
 } 

@@ -9,13 +9,14 @@ use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use prometheus::{Registry, Encoder, TextEncoder};
+use async_trait::async_trait;
 use tokio::sync::RwLock;
 use crate::error::{Result, SquirrelError};
 use super::Metric;
 use serde::{Serialize, Deserialize};
 use serde_json;
-use prometheus::Registry;
+use thiserror::Error;
 
 pub mod adapter;
 pub use adapter::{MetricExporterAdapter, create_exporter_adapter, create_exporter_adapter_with_exporter};
@@ -387,41 +388,6 @@ impl MetricExporterFactory {
     ) -> Arc<MetricExporterAdapter> {
         create_exporter_adapter_with_exporter(exporter)
     }
-
-    /// Initializes and returns a global metric exporter instance
-    ///
-    /// # Errors
-    /// Returns an error if the exporter is already initialized or creation fails
-    pub async fn initialize_global_exporter(&self) -> Result<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> {
-        static GLOBAL_EXPORTER: OnceLock<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> = OnceLock::new();
-
-        let exporter = self.create_exporter()?;
-        let exporter_lock = Arc::new(RwLock::new(exporter));
-        
-        match GLOBAL_EXPORTER.set(exporter_lock.clone()) {
-            Ok(()) => Ok(exporter_lock),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_EXPORTER.get()
-                    .ok_or_else(|| SquirrelError::metric("Failed to get global metric exporter"))?
-                    .clone())
-            }
-        }
-    }
-
-    /// Gets the global metric exporter, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the exporter cannot be initialized
-    pub async fn get_global_exporter(&self) -> Result<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> {
-        static GLOBAL_EXPORTER: OnceLock<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> = OnceLock::new();
-
-        if let Some(exporter) = GLOBAL_EXPORTER.get() {
-            return Ok(exporter.clone());
-        }
-
-        self.initialize_global_exporter().await
-    }
 }
 
 impl Default for MetricExporterFactory {
@@ -430,129 +396,30 @@ impl Default for MetricExporterFactory {
     }
 }
 
-/// Global factory for creating metric exporters
-static FACTORY: OnceLock<MetricExporterFactory> = OnceLock::new();
-
-/// Initialize the metric exporter factory
+/// Create a metric exporter adapter using dependency injection
 ///
-/// # Errors
-/// Returns an error if the factory is already initialized
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::new() or MetricExporterFactory::with_config() instead"
-)]
-pub fn initialize_factory(config: Option<ExportConfig>) -> Result<()> {
+/// This function is a convenience method for creating an adapter
+/// using dependency injection.
+///
+/// # Arguments
+/// * `config` - Optional export configuration, uses default if None
+#[must_use]
+pub fn create_adapter(config: Option<ExportConfig>) -> Arc<MetricExporterAdapter> {
     let factory = match config {
         Some(cfg) => MetricExporterFactory::with_config(cfg),
         None => MetricExporterFactory::new(),
     };
-    
-    FACTORY.set(factory)
-        .map_err(|_| SquirrelError::metric("Metric exporter factory already initialized"))?;
-    Ok(())
+    factory.create_adapter()
 }
 
-/// Get the metric exporter factory
-#[must_use]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::new() or MetricExporterFactory::with_config() instead"
-)]
-pub fn get_factory() -> Option<MetricExporterFactory> {
-    FACTORY.get().cloned()
-}
-
-/// Get or create the metric exporter factory
-#[must_use]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::new() or MetricExporterFactory::with_config() instead"
-)]
-pub fn ensure_factory() -> MetricExporterFactory {
-    FACTORY.get_or_init(MetricExporterFactory::new).clone()
-}
-
-// Module state
-static EXPORTER: tokio::sync::OnceCell<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> = tokio::sync::OnceCell::const_new();
-
-/// Initializes a single metric exporter.
-/// 
+/// Create a metric exporter adapter using dependency injection with a specific exporter
+///
 /// # Arguments
-/// 
-/// * `config` - Export configuration to use
-/// 
-/// # Returns
-/// 
-/// Returns a `Result` indicating whether initialization was successful.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::create_adapter() instead"
-)]
-pub async fn initialize_exporter(config: ExportConfig) -> Result<()> {
-    let factory = MetricExporterFactory::with_config(config.clone());
-    let exporter_lock = factory.initialize_global_exporter().await?;
-    
-    // For backward compatibility, also set in the old static
-    EXPORTER.get_or_init(|| async move { exporter_lock }).await;
-    
-    Ok(())
-}
-
-/// Initializes multiple metric exporters.
-/// 
-/// # Arguments
-/// 
-/// * `config` - Export configuration to use
-/// 
-/// # Returns
-/// 
-/// Returns a `Result` indicating whether initialization was successful.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::create_adapter() instead"
-)]
-pub async fn initialize_exporters(config: ExportConfig) -> Result<()> {
-    // For now, we only support one exporter at a time.
-    // This can be extended in the future to support multiple exporters.
-    initialize_exporter(config).await
-}
-
-/// Check if the exporter is initialized
+/// * `exporter` - The metric exporter to use
 #[must_use]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory instead of relying on global state"
-)]
-pub fn is_initialized() -> bool {
-    EXPORTER.get().is_some()
-}
-
-/// Get the global exporter
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterFactory::create_adapter() instead"
-)]
-pub async fn get_exporter() -> Option<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>> {
-    EXPORTER.get().cloned()
-}
-
-/// Exports metrics using the specified exporter.
-/// 
-/// # Arguments
-/// 
-/// * `exporter` - The exporter to use
-/// * `metrics` - List of metrics to export
-/// 
-/// # Returns
-/// 
-/// Returns a `Result` indicating whether the export was successful.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use DI pattern with MetricExporterAdapter::export_metrics() instead"
-)]
-pub async fn export_metrics(exporter: &dyn MetricExporter, metrics: &[Metric]) -> Result<()> {
-    let export_future = exporter.export(metrics.to_vec());
-    Pin::from(export_future).await
+pub fn create_adapter_with_exporter(exporter: Arc<dyn MetricExporter + Send + Sync>) -> Arc<MetricExporterAdapter> {
+    let exporter_lock = Arc::new(RwLock::new(exporter));
+    create_exporter_adapter_with_exporter(exporter_lock)
 }
 
 #[cfg(test)]

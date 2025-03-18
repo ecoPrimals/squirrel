@@ -147,6 +147,10 @@ impl Default for ContextData {
     }
 }
 
+pub mod manager;
+pub mod state;
+// pub mod tracker;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,6 +274,7 @@ mod tests {
         let counter_clone = counter.clone();
 
         // Create a subscriber that counts state changes
+        #[derive(Debug)]
         struct TestSubscriber {
             counter: Arc<AtomicU64>,
         }
