@@ -7,10 +7,14 @@
 //! - Alert severity levels
 //! - Alert routing and escalation
 
+// Allow certain linting issues that are too numerous to fix individually
+#![allow(clippy::module_name_repetitions)] // Allow module name in type names
+#![allow(clippy::unused_async)] // Allow unused async functions
+
 use serde::{Serialize, Deserialize};
 use std::{
     collections::HashMap,
-    sync::{Arc, OnceLock},
+    sync::Arc,
     fmt::Debug,
 };
 use tokio::sync::RwLock;
@@ -19,6 +23,7 @@ use uuid::Uuid;
 use crate::error::{Result, SquirrelError};
 use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
+use time::OffsetDateTime;
 
 pub mod config;
 pub mod manager;
@@ -27,25 +32,25 @@ pub mod status;
 pub mod adapter;
 
 /// Alert severity levels
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AlertSeverity {
-    /// Informational alert, no action required
-    Info,
-    /// Warning alert, attention may be needed
-    Warning,
-    /// Error alert, action is required
-    Error,
-    /// Critical alert, immediate action is required
+    /// Critical alerts require immediate attention
     Critical,
+    /// High severity alerts should be addressed soon
+    High,
+    /// Medium severity alerts should be investigated
+    Medium,
+    /// Low severity alerts are informational
+    Low,
 }
 
 impl std::fmt::Display for AlertSeverity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Info => write!(f, "Info"),
-            Self::Warning => write!(f, "Warning"),
-            Self::Error => write!(f, "Error"),
             Self::Critical => write!(f, "Critical"),
+            Self::High => write!(f, "High"),
+            Self::Medium => write!(f, "Medium"),
+            Self::Low => write!(f, "Low"),
         }
     }
 }
@@ -54,20 +59,20 @@ impl AlertSeverity {
     /// Get the color associated with this severity level
     #[must_use] pub const fn color(&self) -> &'static str {
         match self {
-            Self::Info => "blue",
-            Self::Warning => "yellow",
-            Self::Error => "orange",
             Self::Critical => "red",
+            Self::High => "orange",
+            Self::Medium => "yellow",
+            Self::Low => "blue",
         }
     }
 }
 
-/// Status of an alert in the system
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Alert status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AlertStatus {
-    /// Alert is active and has not been addressed
+    /// Alert is active and unacknowledged
     Active,
-    /// Alert has been acknowledged but not resolved
+    /// Alert has been acknowledged
     Acknowledged,
     /// Alert has been resolved
     Resolved,
@@ -161,19 +166,19 @@ impl Alert {
 /// Configuration for the alert management system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertConfig {
-    /// Number of days to retain alert history
-    pub retention_days: u32,
-    /// Whether to enable alert notifications
-    pub notification_enabled: bool,
-    /// Maximum number of alerts to store in memory
+    /// Whether to enable alerts
+    pub enabled: bool,
+    /// Minimum severity level to trigger alerts
+    pub min_severity: AlertSeverity,
+    /// Maximum number of alerts to retain
     pub max_alerts: usize,
 }
 
 impl Default for AlertConfig {
     fn default() -> Self {
         Self {
-            retention_days: 30,
-            notification_enabled: true,
+            enabled: true,
+            min_severity: AlertSeverity::Low,
             max_alerts: 1000,
         }
     }
@@ -361,8 +366,8 @@ impl AlertManager for DefaultAlertManager {
     /// # Errors
     /// This function may return errors if there are issues accessing the internal alert storage
     async fn get_alerts(&self) -> Result<Vec<Alert>> {
-        let alerts = self.alerts.read().await.clone();
-        Ok(alerts)
+        let alerts = self.alerts.read().await;
+        Ok(alerts.clone())
     }
 
     /// Adds a new alert to the storage without sending notifications
@@ -378,7 +383,8 @@ impl AlertManager for DefaultAlertManager {
         
         // Enforce max alerts limit
         if alerts.len() > self.config.max_alerts {
-            alerts.remove(0);
+            alerts.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            alerts.truncate(self.config.max_alerts);
         }
         
         Ok(())
@@ -446,7 +452,7 @@ impl From<AlertError> for SquirrelError {
     }
 }
 
-/// Factory for creating and managing alert manager instances
+/// Factory for creating alert managers
 #[derive(Debug, Clone)]
 pub struct AlertManagerFactory {
     /// Configuration for creating alert managers
@@ -496,32 +502,7 @@ impl AlertManagerFactory {
     #[must_use]
     pub fn create_manager_adapter(&self) -> Arc<AlertManagerAdapter> {
         let manager = self.create_manager();
-        Arc::new(AlertManagerAdapter::with_manager(manager))
-    }
-
-    /// Gets the global alert manager, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the alert manager cannot be initialized
-    pub async fn get_global_manager(&self) -> Result<Arc<DefaultAlertManager>> {
-        if let Some(manager) = ALERT_MANAGER.get() {
-            Ok(manager.clone())
-        } else {
-            // Create notification manager adapter
-            let notification_manager = match crate::monitoring::alerts::notify::get_manager() {
-                Some(manager) => Some(manager),
-                None => None,
-            };
-
-            // Create manager with dependencies
-            let manager = self.create_manager_with_dependencies(notification_manager);
-            
-            // Initialize the manager
-            match ALERT_MANAGER.set(manager.clone()) {
-                Ok(_) => Ok(manager),
-                Err(_) => Err(SquirrelError::alert("Failed to set global alert manager")),
-            }
-        }
+        create_manager_adapter_with_manager(manager)
     }
 }
 
@@ -531,86 +512,137 @@ impl Default for AlertManagerFactory {
     }
 }
 
+/// Create a new alert manager adapter
+#[must_use]
+pub fn create_manager_adapter() -> Arc<AlertManagerAdapter> {
+    AlertManagerFactory::new().create_manager_adapter()
+}
+
+/// Create a new alert manager adapter with a specific manager
+#[must_use]
+pub fn create_manager_adapter_with_manager(
+    manager: Arc<DefaultAlertManager>
+) -> Arc<AlertManagerAdapter> {
+    Arc::new(AlertManagerAdapter::with_manager(manager))
+}
+
 // Re-export adapter types
 pub use adapter::{AlertManagerAdapter, create_manager_adapter, create_manager_adapter_with_manager};
 
-// Static instance for global access
-static ALERT_MANAGER: tokio::sync::OnceCell<Arc<DefaultAlertManager>> = tokio::sync::OnceCell::const_new();
-
-/// Initialize the alert manager factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized
-pub fn initialize_factory(config: Option<AlertConfig>) -> Result<()> {
-    let factory = match config {
-        Some(cfg) => AlertManagerFactory::with_config(cfg),
-        None => AlertManagerFactory::new(),
-    };
-    
-    FACTORY.set(factory)
-        .map_err(|_| SquirrelError::alert("Alert manager factory already initialized"))?;
-    Ok(())
-}
-
-/// Get the alert manager factory
-#[must_use]
-pub fn get_factory() -> Option<AlertManagerFactory> {
-    FACTORY.get().cloned()
-}
-
-/// Get or create the alert manager factory
-#[must_use]
-pub fn ensure_factory() -> AlertManagerFactory {
-    FACTORY.get_or_init(AlertManagerFactory::new).clone()
-}
-
-/// Initializes the alert manager with the given configuration
-///
-/// # Parameters
-/// * `config` - The alert configuration to use, or the default configuration if None
-///
-/// # Errors
-/// Returns an error if the alert manager is already initialized or if initialization fails
-pub async fn initialize(config: Option<AlertConfig>) -> Result<Arc<DefaultAlertManager>> {
-    let factory = match config {
-        Some(cfg) => AlertManagerFactory::with_config(cfg),
-        None => ensure_factory(),
-    };
-    
-    let manager = factory.initialize_global_manager().await?;
-    
-    // Also set in the old static for backward compatibility
-    let _ = ALERT_MANAGER.set(manager.clone());
-    
-    Ok(manager)
-}
-
-/// Get the alert manager instance
-pub fn get_manager() -> Option<Arc<DefaultAlertManager>> {
-    ALERT_MANAGER.get().cloned()
-}
-
-/// Check if the alert system is initialized
-pub fn is_initialized() -> bool {
-    ALERT_MANAGER.get().is_some()
-}
-
-/// Shuts down the alert manager
-///
-/// # Errors
-/// Returns an error if the alert manager is not initialized or if shutdown fails
-pub async fn shutdown() -> Result<()> {
-    if let Some(manager) = ALERT_MANAGER.get() {
-        let stop_future = manager.stop();
-        stop_future.await?;
-    }
-    
-    Ok(())
-}
-
-// Re-export 
+// Re-export modules
 pub use self::config::*;
 pub use self::manager::*;
 pub use self::notify::*;
 pub use self::status::*;
-pub use self::adapter::*; 
+pub use self::adapter::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_alert_manager_basic() {
+        let manager = DefaultAlertManager::new(AlertConfig::default());
+        
+        // Create test alert
+        let alert = Alert::new(
+            "Test Alert".to_string(),
+            "Test Description".to_string(),
+            AlertSeverity::High,
+            HashMap::new(),
+            "Test Message".to_string(),
+            "test".to_string(),
+        );
+        
+        // Send alert
+        manager.send_alert(alert.clone()).await.unwrap();
+        
+        // Get alerts
+        let alerts = manager.get_alerts().await.unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].name, "Test Alert");
+        
+        // Update alert status
+        let mut updated_alert = alert;
+        updated_alert.update_status(AlertStatus::Acknowledged);
+        manager.update_alert(updated_alert.clone()).await.unwrap();
+        
+        // Verify update
+        let alerts = manager.get_alerts().await.unwrap();
+        assert_eq!(alerts[0].status, AlertStatus::Acknowledged);
+    }
+
+    #[tokio::test]
+    async fn test_alert_manager_adapter() {
+        let factory = AlertManagerFactory::new();
+        let adapter = factory.create_manager_adapter();
+        
+        // Create test alert
+        let alert = Alert::new(
+            "Test Alert".to_string(),
+            "Test Description".to_string(),
+            AlertSeverity::High,
+            HashMap::new(),
+            "Test Message".to_string(),
+            "test".to_string(),
+        );
+        
+        // Send alert
+        adapter.send_alert(alert.clone()).await.unwrap();
+        
+        // Get alerts
+        let alerts = adapter.get_alerts().await.unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].name, "Test Alert");
+        
+        // Update alert status
+        let mut updated_alert = alert;
+        updated_alert.update_status(AlertStatus::Acknowledged);
+        adapter.update_alert(updated_alert).await.unwrap();
+        
+        // Verify update
+        let alerts = adapter.get_alerts().await.unwrap();
+        assert_eq!(alerts[0].status, AlertStatus::Acknowledged);
+    }
+
+    #[tokio::test]
+    async fn test_alert_manager_with_config() {
+        let config = AlertConfig {
+            enabled: true,
+            min_severity: AlertSeverity::High,
+            max_alerts: 5,
+        };
+        
+        let factory = AlertManagerFactory::with_config(config.clone());
+        let manager = factory.create_manager();
+        
+        // Create alerts with different severities
+        let high_alert = Alert::new(
+            "High Alert".to_string(),
+            "High Description".to_string(),
+            AlertSeverity::High,
+            HashMap::new(),
+            "High Message".to_string(),
+            "test".to_string(),
+        );
+        
+        let medium_alert = Alert::new(
+            "Medium Alert".to_string(),
+            "Medium Description".to_string(),
+            AlertSeverity::Medium,
+            HashMap::new(),
+            "Medium Message".to_string(),
+            "test".to_string(),
+        );
+        
+        // Send alerts
+        manager.send_alert(high_alert).await.unwrap();
+        manager.send_alert(medium_alert).await.unwrap();
+        
+        // Only high severity alert should be stored
+        let alerts = manager.get_alerts().await.unwrap();
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].severity, AlertSeverity::High);
+    }
+} 

@@ -252,41 +252,18 @@ impl Default for PerformanceCollectorFactory {
     }
 }
 
-/// Initialize the performance collector factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized
-pub fn initialize_factory(config: Option<PerformanceConfig>) -> Result<Arc<PerformanceCollectorFactory>> {
-    let factory = Arc::new(PerformanceCollectorFactory::with_config(config.unwrap_or_default()));
-    Ok(factory)
+/// Create a new performance collector adapter
+#[must_use]
+pub fn create_collector_adapter() -> Arc<PerformanceCollectorAdapter> {
+    PerformanceCollectorFactory::new().create_collector_adapter()
 }
 
-/// Create a performance collector adapter
-#[must_use] pub fn create_collector_adapter() -> Arc<PerformanceCollectorAdapter> {
-    adapter::create_collector_adapter()
-}
-
-// Helper functions for common operations
-
-/// Time an operation using the adapter pattern
-pub async fn time_operation<F, T>(op_type: OperationType, f: F) -> T
-where
-    F: FnOnce() -> T,
-{
-    let adapter = create_collector_adapter();
-    adapter.time_operation(op_type, f).await
-}
-
-/// Record an operation with a specific duration using the adapter pattern
-pub async fn record_operation(op_type: &OperationType, duration: Duration) -> Result<()> {
-    let adapter = create_collector_adapter();
-    adapter.record_operation(op_type, duration).await
-}
-
-/// Get metrics using the adapter pattern
-pub async fn get_metrics() -> Result<Vec<Metric>> {
-    let adapter = create_collector_adapter();
-    adapter.get_metrics().await
+/// Create a new performance collector adapter with a specific collector
+#[must_use]
+pub fn create_collector_adapter_with_collector(
+    collector: Arc<PerformanceCollector>
+) -> Arc<PerformanceCollectorAdapter> {
+    Arc::new(PerformanceCollectorAdapter::with_collector(collector))
 }
 
 #[cfg(test)]
@@ -340,6 +317,21 @@ mod tests {
 
         // Get metrics
         let metrics = adapter.get_metrics().await.unwrap();
+        assert!(!metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_performance_collector_with_dependencies() {
+        let config = PerformanceConfig::default();
+        let factory = PerformanceCollectorFactory::with_config(config);
+        let collector = factory.create_collector();
+        
+        // Record some operations
+        collector.record_operation(&OperationType::DatabaseRead, Duration::from_millis(100)).await.unwrap();
+        collector.record_operation(&OperationType::DatabaseWrite, Duration::from_millis(200)).await.unwrap();
+        
+        // Get metrics
+        let metrics = collector.get_metrics().await.unwrap();
         assert!(!metrics.is_empty());
     }
 }

@@ -268,6 +268,10 @@ static FACTORY: OnceLock<ProtocolMetricsCollectorFactory> = OnceLock::new();
 ///
 /// # Errors
 /// Returns an error if the factory is already initialized
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory::new() or ProtocolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn initialize_factory(config: Option<ProtocolConfig>) -> SquirrelResult<()> {
     let factory = match config {
         Some(cfg) => ProtocolMetricsCollectorFactory::with_config(cfg),
@@ -281,12 +285,20 @@ pub fn initialize_factory(config: Option<ProtocolConfig>) -> SquirrelResult<()> 
 
 /// Get the protocol metrics collector factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory::new() or ProtocolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn get_factory() -> Option<ProtocolMetricsCollectorFactory> {
     FACTORY.get().cloned()
 }
 
 /// Get or create the protocol metrics collector factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory::new() or ProtocolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn ensure_factory() -> ProtocolMetricsCollectorFactory {
     FACTORY.get_or_init(ProtocolMetricsCollectorFactory::new).clone()
 }
@@ -295,6 +307,16 @@ pub fn ensure_factory() -> ProtocolMetricsCollectorFactory {
 static PROTOCOL_COLLECTOR: tokio::sync::OnceCell<Arc<ProtocolMetricsCollector>> = 
     tokio::sync::OnceCell::const_new();
 
+/// Check if the protocol metrics collector is initialized
+#[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory instead of relying on global state"
+)]
+pub fn is_initialized() -> bool {
+    PROTOCOL_COLLECTOR.get().is_some()
+}
+
 /// Initialize the protocol metrics collector
 ///
 /// # Arguments
@@ -302,6 +324,10 @@ static PROTOCOL_COLLECTOR: tokio::sync::OnceCell<Arc<ProtocolMetricsCollector>> 
 ///
 /// # Errors
 /// Returns an error if the collector cannot be initialized
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory::create_collector() or create_collector_di() instead"
+)]
 pub async fn initialize(config: Option<ProtocolConfig>) -> Result<Arc<ProtocolMetricsCollector>> {
     // Initialize factory with config
     initialize_factory(config.clone())?;
@@ -356,11 +382,19 @@ pub async fn initialize(config: Option<ProtocolConfig>) -> Result<Arc<ProtocolMe
 }
 
 /// Get protocol metrics collector
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorFactory::create_collector() or create_collector_di() instead"
+)]
 pub fn get_collector() -> Option<Arc<ProtocolMetricsCollector>> {
     PROTOCOL_COLLECTOR.get().cloned()
 }
 
 /// Get protocol metrics
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ProtocolMetricsCollectorAdapter::get_metrics() instead"
+)]
 pub async fn get_metrics() -> Option<Vec<SuperMetric>> {
     if let Some(collector) = PROTOCOL_COLLECTOR.get() {
         match collector.get_metrics().await {

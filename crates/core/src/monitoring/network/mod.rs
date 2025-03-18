@@ -2,7 +2,7 @@
 #![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
 #![allow(clippy::unused_async)] // Allow unused async functions
 
-use std::sync::{Arc, RwLock, OnceLock};
+use std::sync::{Arc, RwLock};
 use sysinfo::{NetworkExt, System, SystemExt};
 use thiserror::Error;
 use std::collections::HashMap;
@@ -343,121 +343,52 @@ impl NetworkStats {
     }
 }
 
-/// Get network statistics for all interfaces (legacy function)
-///
-/// # Errors
-///
-/// Returns an error if the system lock cannot be acquired
-pub fn get_network_stats_legacy() -> Result<HashMap<String, NetworkStats>> {
-    let mut system = SYSTEM.write().map_err(|e| {
-        SquirrelError::Other(format!("Failed to acquire system lock: {e}"))
-    })?;
-    system.refresh_networks();
-    
-    let mut stats = HashMap::new();
-    for (interface_name, network) in system.networks() {
-        stats.insert(interface_name.clone(), NetworkStats {
-            interface: interface_name.clone(),
-            received_bytes: network.received(),
-            transmitted_bytes: network.transmitted(),
-            packets_received: network.packets_received(),
-            packets_transmitted: network.packets_transmitted(),
-            errors_on_received: network.errors_on_received(),
-            errors_on_transmitted: network.errors_on_transmitted(),
-            receive_rate: network.received() as f64,
-            transmit_rate: network.transmitted() as f64,
-        });
-    }
-    
-    Ok(stats)
-}
-
-/// Get network statistics for a specific interface (legacy function)
-///
-/// # Errors
-///
-/// Returns an error if the system lock cannot be acquired
-pub fn get_interface_stats_legacy(interface: &str) -> Result<Option<NetworkStats>> {
-    let mut system = SYSTEM.write().map_err(|e| {
-        SquirrelError::Other(format!("Failed to acquire system lock: {e}"))
-    })?;
-    system.refresh_networks();
-    
-    for (interface_name, network) in system.networks() {
-        if interface_name == interface {
-            return Ok(Some(NetworkStats {
-                interface: interface_name.clone(),
-                received_bytes: network.received(),
-                transmitted_bytes: network.transmitted(),
-                packets_received: network.packets_received(),
-                packets_transmitted: network.packets_transmitted(),
-                errors_on_received: network.errors_on_received(),
-                errors_on_transmitted: network.errors_on_transmitted(),
-                receive_rate: network.received() as f64,
-                transmit_rate: network.transmitted() as f64,
-            }));
-        }
-    }
-    
-    Ok(None)
-}
-
-/// Factory for creating and managing network monitor instances
+/// Factory for creating network monitors
 #[derive(Debug, Clone)]
 pub struct NetworkMonitorFactory {
-    /// Configuration for creating network monitors
+    /// Configuration for creating monitors
     config: NetworkConfig,
 }
 
 impl NetworkMonitorFactory {
     /// Creates a new factory with default configuration
-    #[must_use]
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             config: NetworkConfig::default(),
         }
     }
 
-    /// Creates a new factory with specific configuration
-    #[must_use]
-    pub const fn with_config(config: NetworkConfig) -> Self {
+    /// Creates a new factory with the specified configuration
+    #[must_use] pub const fn with_config(config: NetworkConfig) -> Self {
         Self { config }
     }
 
-    /// Creates a network monitor with dependencies
+    /// Creates a new monitor instance with dependency injection
+    ///
+    /// # Arguments
+    /// * `config` - Optional configuration override
+    ///
+    /// # Returns
+    /// A new NetworkMonitor instance wrapped in an Arc
     #[must_use]
-    pub fn create_monitor_with_dependencies(&self) -> Arc<NetworkMonitor> {
-        Arc::new(NetworkMonitor::with_dependencies(self.config.clone()))
+    pub fn create_monitor_with_config(
+        &self,
+        config: Option<NetworkConfig>,
+    ) -> Arc<NetworkMonitor> {
+        Arc::new(NetworkMonitor::new(config.unwrap_or_else(|| self.config.clone())))
     }
 
-    /// Creates a network monitor adapter
+    /// Creates a new monitor instance with the default configuration
+    #[must_use]
+    pub fn create_monitor(&self) -> Arc<NetworkMonitor> {
+        self.create_monitor_with_config(None)
+    }
+
+    /// Creates a new monitor adapter
     #[must_use]
     pub fn create_monitor_adapter(&self) -> Arc<NetworkMonitorAdapter> {
-        let monitor = self.create_monitor_with_dependencies();
-        Arc::new(NetworkMonitorAdapter::with_monitor(monitor))
-    }
-
-    /// Gets the global network monitor, initializing it if necessary
-    ///
-    /// # Errors
-    /// Returns an error if the network monitor cannot be initialized
-    pub async fn get_global_monitor(&self) -> Result<Arc<NetworkMonitor>> {
-        static GLOBAL_MONITOR: OnceLock<Arc<NetworkMonitor>> = OnceLock::new();
-
-        if let Some(monitor) = GLOBAL_MONITOR.get() {
-            return Ok(monitor.clone());
-        }
-
-        let monitor = self.create_monitor_with_dependencies();
-        match GLOBAL_MONITOR.set(monitor.clone()) {
-            Ok(()) => Ok(monitor),
-            Err(_) => {
-                // Already initialized, return the existing instance
-                Ok(GLOBAL_MONITOR.get()
-                    .ok_or_else(|| SquirrelError::monitoring("Failed to get global network monitor"))?
-                    .clone())
-            }
-        }
+        let monitor = self.create_monitor();
+        create_monitor_adapter_with_monitor(monitor)
     }
 }
 
@@ -467,90 +398,88 @@ impl Default for NetworkMonitorFactory {
     }
 }
 
-/// Global factory for creating network monitors
-static FACTORY: OnceLock<NetworkMonitorFactory> = OnceLock::new();
-
-/// Initialize the network monitor factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized
-pub fn initialize_factory(config: Option<NetworkConfig>) -> Result<()> {
-    let factory = match config {
-        Some(cfg) => NetworkMonitorFactory::with_config(cfg),
-        None => NetworkMonitorFactory::new(),
-    };
-    
-    FACTORY.set(factory)
-        .map_err(|_| SquirrelError::monitoring("Network monitor factory already initialized"))?;
-    Ok(())
-}
-
-/// Get the network monitor factory
+/// Create a new network monitor adapter
 #[must_use]
-pub fn get_factory() -> Option<NetworkMonitorFactory> {
-    FACTORY.get().cloned()
+pub fn create_monitor_adapter() -> Arc<NetworkMonitorAdapter> {
+    NetworkMonitorFactory::new().create_monitor_adapter()
 }
 
-/// Get or create the network monitor factory
+/// Create a new network monitor adapter with a specific monitor
 #[must_use]
-pub fn ensure_factory() -> NetworkMonitorFactory {
-    FACTORY.get_or_init(NetworkMonitorFactory::new).clone()
+pub fn create_monitor_adapter_with_monitor(
+    monitor: Arc<NetworkMonitor>
+) -> Arc<NetworkMonitorAdapter> {
+    Arc::new(NetworkMonitorAdapter::with_monitor(monitor))
 }
 
-// Static instance for global access (replace with factory access later)
-static NETWORK_MONITOR: tokio::sync::OnceCell<Arc<NetworkMonitor>> = tokio::sync::OnceCell::const_new();
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
 
-/// Initialize the network monitoring system with configuration
-///
-/// # Errors
-/// Returns an error if:
-/// - The system information cannot be initialized
-/// - The system lock cannot be acquired
-/// - The network monitor is already initialized
-pub async fn initialize(config: Option<NetworkConfig>) -> Result<Arc<NetworkMonitor>> {
-    let factory = match config {
-        Some(cfg) => NetworkMonitorFactory::with_config(cfg),
-        None => ensure_factory(),
-    };
-    
-    let monitor = factory.get_global_monitor().await?;
-    
-    // For backward compatibility, also set in the old static
-    let _ = NETWORK_MONITOR.set(monitor.clone());
-    
-    Ok(monitor)
-}
-
-/// Get network statistics
-///
-/// # Errors
-/// Returns an error if:
-/// - The network monitor is not initialized
-/// - The statistics cannot be retrieved
-pub async fn get_network_stats() -> Result<HashMap<String, NetworkStats>> {
-    if let Some(monitor) = NETWORK_MONITOR.get() {
-        monitor.get_stats().await
-    } else {
-        // Try to initialize on-demand if not already done
-        let factory = ensure_factory();
-        let monitor = factory.get_global_monitor().await?;
-        monitor.get_stats().await
+    #[tokio::test]
+    async fn test_network_monitor_basic() {
+        let monitor = NetworkMonitor::new(NetworkConfig::default());
+        
+        // Start monitoring
+        monitor.start().await.unwrap();
+        
+        // Wait for some stats to be collected
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        
+        // Get stats
+        let stats = monitor.get_stats().await.unwrap();
+        assert!(!stats.is_empty());
+        
+        // Stop monitoring
+        monitor.stop().await.unwrap();
     }
-}
 
-/// Get statistics for a specific network interface
-///
-/// # Errors
-/// Returns an error if:
-/// - The network monitor is not initialized
-/// - The statistics cannot be retrieved
-pub async fn get_interface_stats(interface: &str) -> Result<Option<NetworkStats>> {
-    if let Some(monitor) = NETWORK_MONITOR.get() {
-        monitor.get_interface_stats(interface).await
-    } else {
-        // Try to initialize on-demand if not already done
-        let factory = ensure_factory();
-        let monitor = factory.get_global_monitor().await?;
-        monitor.get_interface_stats(interface).await
+    #[tokio::test]
+    async fn test_network_monitor_adapter() {
+        let factory = NetworkMonitorFactory::new();
+        let adapter = factory.create_monitor_adapter();
+        
+        // Start monitoring
+        adapter.start().await.unwrap();
+        
+        // Wait for some stats to be collected
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        
+        // Get stats
+        let stats = adapter.get_stats().await.unwrap();
+        assert!(!stats.is_empty());
+        
+        // Get interface stats
+        if let Some(interface) = stats.keys().next() {
+            let interface_stats = adapter.get_interface_stats(interface).await.unwrap();
+            assert!(interface_stats.is_some());
+        }
+        
+        // Stop monitoring
+        adapter.stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_network_monitor_with_config() {
+        let config = NetworkConfig {
+            interval: 1,
+        };
+        
+        let factory = NetworkMonitorFactory::with_config(config.clone());
+        let monitor = factory.create_monitor();
+        
+        // Start monitoring
+        monitor.start().await.unwrap();
+        
+        // Wait for some stats to be collected
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        
+        // Get stats
+        let stats = monitor.get_stats().await.unwrap();
+        assert!(!stats.is_empty());
+        
+        // Stop monitoring
+        monitor.stop().await.unwrap();
     }
 } 

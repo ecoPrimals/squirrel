@@ -184,6 +184,9 @@ pub enum MonitoringError {
     SystemError(String),
 }
 
+/// Global factory for creating monitoring services
+static MONITORING_FACTORY: OnceCell<Arc<MonitoringServiceFactory>> = OnceCell::const_new();
+
 impl MonitoringService {
     /// Create a new monitoring service
     #[must_use] pub fn new(config: MonitoringConfig) -> Self {
@@ -532,145 +535,6 @@ impl MonitoringServiceFactory {
     }
 }
 
-/// Initialize the monitoring system
-///
-/// # Errors
-/// Returns an error if initialization fails
-pub async fn initialize(config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
-    // Initialize component factories
-    let health_factory = Arc::new(health::HealthCheckerFactory::new(config.health.clone()));
-    let metric_factory = Arc::new(metrics::MetricCollectorFactory::new(config.metrics.clone()));
-    let alert_factory = Arc::new(alerts::AlertManagerFactory::new(config.alerts.clone()));
-    let network_factory = Arc::new(network::NetworkMonitorFactory::new(config.network.clone()));
-    
-    // Create the monitoring factory with dependencies
-    let factory = MonitoringServiceFactory::with_dependencies(
-        config.clone(),
-        health_factory,
-        metric_factory,
-        alert_factory,
-        network_factory,
-    );
-    
-    // Create and start a service
-    let service = factory.create_service_with_config(config);
-    service.start().await?;
-    
-    Ok(service)
-}
-
-/// Start the monitoring service with the global factory
-///
-/// # Errors
-/// Returns an error if the factory hasn't been initialized or if starting the service fails
-pub async fn start_service() -> Result<Arc<MonitoringService>> {
-    let factory = get_factory()?;
-    factory.start_service().await
-}
-
-/// Initialize the monitoring service with default configuration
-///
-/// # Errors
-/// Returns an error if the service is already initialized
-pub fn initialize_service() -> Result<()> {
-    // Initialize the factory with default config
-    initialize_factory(None)?;
-    
-    Ok(())
-}
-
-/// Shutdown the monitoring system
-pub async fn shutdown() -> Result<()> {
-    if let Some(service) = MONITORING_FACTORY.get() {
-        service.stop().await?;
-        // Note: We don't reset the OnceCell here as it's not possible
-        // with the current API. This is a limitation that needs addressing
-        // in a separate PR.
-    }
-    Ok(())
-}
-
-/// Get protocol metrics
-pub async fn get_protocol_metrics() -> Option<serde_json::Value> {
-    // Create a protocol metrics collector adapter
-    let protocol_adapter = metrics::protocol::create_collector_adapter();
-    
-    // Get metrics through the adapter
-    match protocol_adapter.get_metrics().await {
-        Ok(metrics) => {
-            // Convert metrics to JSON format
-            let mut protocol_metrics = serde_json::json!({
-                "messages_processed": 0,
-                "message_latency": 0,
-                "error_count": 0,
-                "active_connections": 0,
-                "queue_depth": 0
-            });
-
-            // Update values from collected metrics
-            if let serde_json::Value::Object(ref mut map) = protocol_metrics {
-                for metric in metrics {
-                    match metric.name.as_str() {
-                        "mcp.messages_processed" => { map.insert("messages_processed".to_string(), json!(metric.value)); }
-                        "mcp.message_latency" => { map.insert("message_latency".to_string(), json!(metric.value)); }
-                        "mcp.error_count" => { map.insert("error_count".to_string(), json!(metric.value)); }
-                        "mcp.active_connections" => { map.insert("active_connections".to_string(), json!(metric.value)); }
-                        "mcp.queue_depth" => { map.insert("queue_depth".to_string(), json!(metric.value)); }
-                        _ => {} // Ignore other metrics
-                    }
-                }
-            }
-            
-            Some(protocol_metrics)
-        }
-        Err(e) => {
-            log::error!("Failed to get protocol metrics: {}", e);
-            None
-        }
-    }
-}
-
-/// Get tool metrics
-pub async fn get_tool_metrics(tool_name: &str) -> Option<serde_json::Value> {
-    // Use the new adapter pattern instead of directly accessing singleton
-    match create_service_with_adapters() {
-        Ok(service) => {
-            let _metrics = service.metric_collector().collect_metrics().await.ok()?;
-            
-            let tool_metrics = serde_json::json!({
-                "name": tool_name,
-                "usage_count": 0,
-                "success_count": 0,
-                "failure_count": 0,
-                "average_duration": 0.0
-            });
-            
-            Some(tool_metrics)
-        },
-        Err(_) => None
-    }
-}
-
-/// Get all tool metrics
-pub async fn get_all_tool_metrics() -> Option<HashMap<String, serde_json::Value>> {
-    // Use the new adapter pattern instead of directly accessing singleton
-    match create_service_with_adapters() {
-        Ok(_service) => {
-            let mut result = HashMap::new();
-            result.insert("default".to_string(), serde_json::json!({
-                "name": "default",
-                "usage_count": 0,
-                "success_count": 0,
-                "failure_count": 0,
-                "average_duration": 0.0
-            }));
-            
-            Some(result)
-        },
-        Err(_) => None
-    }
-}
-
 /// Wrapper for `OffsetDateTime` to implement From for `SystemTime`
 pub struct TimeWrapper(pub OffsetDateTime);
 
@@ -696,15 +560,77 @@ pub fn create_service_with_adapters() -> Result<Arc<MonitoringService>> {
     let alert_manager = alerts::create_manager_adapter();
     let network_monitor = network::create_monitor_adapter();
     
-    // Get factory and create service with adapters
-    let factory = get_factory()?;
-    Ok(factory.create_service_with_dependencies(
-        MonitoringConfig::default(),
+    // Create service with adapters
+    let config = MonitoringConfig::default();
+    Ok(Arc::new(MonitoringService::with_dependencies(
+        config,
         health_checker,
         metric_collector,
         alert_manager,
         network_monitor,
-    ))
+    )))
+}
+
+/// Initialize the monitoring service with the given configuration
+///
+/// # Arguments
+/// * `config` - Configuration for the monitoring service
+///
+/// # Errors
+/// Returns an error if initialization fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with MonitoringServiceFactory::new() or MonitoringServiceFactory::with_config() instead"
+)]
+pub async fn initialize(config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
+    // Create factory with config
+    let factory = Arc::new(MonitoringServiceFactory::new(config.clone()));
+    
+    // Set global factory
+    match MONITORING_FACTORY.set(factory.clone()) {
+        Ok(_) => {
+            // Create and start service
+            let service = factory.create_service_with_config(config);
+            service.start().await?;
+            Ok(service)
+        }
+        Err(_) => Err(MonitoringError::SystemError("Monitoring factory already initialized".to_string()).into()),
+    }
+}
+
+/// Get the monitoring service factory
+#[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with MonitoringServiceFactory::new() or MonitoringServiceFactory::with_config() instead"
+)]
+pub fn get_factory() -> Option<Arc<MonitoringServiceFactory>> {
+    MONITORING_FACTORY.get().cloned()
+}
+
+/// Get the monitoring service
+#[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with MonitoringServiceFactory::create_service() or create_service_with_adapters() instead"
+)]
+pub fn get_service() -> Option<Arc<MonitoringService>> {
+    get_factory().map(|f| f.create_service())
+}
+
+/// Shutdown the monitoring service
+///
+/// # Errors
+/// Returns an error if shutdown fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with MonitoringService::stop() instead"
+)]
+pub async fn shutdown() -> Result<()> {
+    if let Some(service) = get_service() {
+        service.stop().await?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -716,7 +642,7 @@ mod tests {
         let config = MonitoringConfig::default();
         let factory = MonitoringServiceFactory::new(config.clone());
         
-        assert_eq!(factory.config, config);
+        assert_eq!(factory.default_config, config);
     }
     
     #[test]
@@ -734,36 +660,13 @@ mod tests {
         let factory = MonitoringServiceFactory::new(default_config);
         
         let custom_config = MonitoringConfig {
-            logging: LoggingConfig {
-                level: "trace".to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
+            health: HealthConfig::default(),
+            metrics: MetricConfig::default(),
+            alerts: AlertConfig::default(),
+            network: NetworkConfig::default(),
         };
         
         let service = factory.create_service_with_config(custom_config.clone());
         assert_eq!(service.config, custom_config);
-    }
-    
-    #[test]
-    fn test_initialize_factory() {
-        let result = initialize_factory(None);
-        assert!(result.is_ok());
-        
-        // Second initialization should fail
-        let result = initialize_factory(None);
-        assert!(result.is_err());
-    }
-    
-    #[test]
-    fn test_get_factory() {
-        // Factory not initialized yet
-        let result = get_factory();
-        assert!(result.is_err());
-        
-        // Initialize factory and try again
-        let _ = initialize_factory(None);
-        let result = get_factory();
-        assert!(result.is_ok());
     }
 } 

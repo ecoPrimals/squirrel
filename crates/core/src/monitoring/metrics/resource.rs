@@ -453,7 +453,7 @@ impl Default for ResourceConfig {
     }
 }
 
-/// Factory for creating and managing resource metrics collector instances
+/// Factory for creating resource metrics collectors
 #[derive(Debug, Clone)]
 pub struct ResourceMetricsCollectorFactory {
     /// Configuration for creating collectors
@@ -462,16 +462,14 @@ pub struct ResourceMetricsCollectorFactory {
 
 impl ResourceMetricsCollectorFactory {
     /// Creates a new factory with default configuration
-    #[must_use]
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             config: ResourceConfig::default(),
         }
     }
 
     /// Creates a new factory with the specified configuration
-    #[must_use]
-    pub const fn with_config(config: ResourceConfig) -> Self {
+    #[must_use] pub const fn with_config(config: ResourceConfig) -> Self {
         Self { config }
     }
 
@@ -505,34 +503,6 @@ impl ResourceMetricsCollectorFactory {
         let collector = self.create_collector();
         Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
     }
-
-    /// Gets the global collector instance, initializing it if necessary
-    pub async fn get_global_collector(&self) -> Result<Arc<ResourceMetricsCollector>> {
-        if let Some(collector) = RESOURCE_COLLECTOR.get() {
-            Ok(collector.clone())
-        } else {
-            // Create performance collector adapter
-            let performance_collector = match crate::monitoring::metrics::performance::create_collector_adapter().await {
-                Ok(adapter) => Some(Arc::new(adapter)),
-                Err(_) => None,
-            };
-
-            // Create collector with dependencies
-            let collector = self.create_collector_with_dependencies(performance_collector);
-            
-            // Initialize the collector
-            match RESOURCE_COLLECTOR.set(collector.clone()) {
-                Ok(_) => {
-                    // Start collection if enabled
-                    if self.config.enabled {
-                        collector.start_collection().await;
-                    }
-                    Ok(collector)
-                }
-                Err(_) => Err(anyhow::anyhow!("Failed to set global resource collector")),
-            }
-        }
-    }
 }
 
 impl Default for ResourceMetricsCollectorFactory {
@@ -541,266 +511,18 @@ impl Default for ResourceMetricsCollectorFactory {
     }
 }
 
-/// Global factory for creating resource metrics collectors
-static FACTORY: OnceLock<ResourceMetricsCollectorFactory> = OnceLock::new();
-
-/// Initialize the resource metrics collector factory
-///
-/// # Errors
-/// Returns an error if the factory is already initialized
-pub fn initialize_factory(config: Option<ResourceConfig>) -> Result<()> {
-    let factory = match config {
-        Some(cfg) => ResourceMetricsCollectorFactory::with_config(cfg),
-        None => ResourceMetricsCollectorFactory::new(),
-    };
-    
-    FACTORY.set(factory)
-        .map_err(|_| SquirrelError::metric("Resource metrics collector factory already initialized"))?;
-    Ok(())
-}
-
-/// Get the resource metrics collector factory
+/// Create a new resource metrics collector adapter
 #[must_use]
-pub fn get_factory() -> Option<ResourceMetricsCollectorFactory> {
-    FACTORY.get().cloned()
+pub fn create_collector_adapter() -> Arc<ResourceMetricsCollectorAdapter> {
+    ResourceMetricsCollectorFactory::new().create_collector_adapter()
 }
 
-/// Get or create the resource metrics collector factory
+/// Create a new resource metrics collector adapter with a specific collector
 #[must_use]
-pub fn ensure_factory() -> ResourceMetricsCollectorFactory {
-    FACTORY.get_or_init(ResourceMetricsCollectorFactory::new).clone()
-}
-
-// Module initialization
-static RESOURCE_COLLECTOR: tokio::sync::OnceCell<Arc<ResourceMetricsCollector>> = 
-    tokio::sync::OnceCell::const_new();
-
-/// Initializes the resource metrics collector with the given configuration
-///
-/// # Arguments
-/// * `config` - Optional configuration for the collector
-///
-/// # Errors
-/// Returns an error if the collector cannot be initialized
-pub async fn initialize(config: Option<ResourceConfig>) -> Result<Arc<ResourceMetricsCollector>> {
-    // Initialize factory with config
-    initialize_factory(config)?;
-
-    // Get factory and create collector with dependencies
-    let factory = ensure_factory();
-    let collector = factory.get_global_collector().await?;
-
-    // Initialize global collector
-    match RESOURCE_COLLECTOR.set(collector.clone()) {
-        Ok(_) => {
-            // Start collection if enabled
-            if factory.config.enabled {
-                collector.start_collection().await;
-            }
-            Ok(collector)
-        }
-        Err(_) => Err(anyhow::anyhow!("Failed to set global resource collector")),
-    }
-}
-
-/// Get resource metrics for a team
-///
-/// # Parameters
-/// * `team_name` - The name of the team to get metrics for
-///
-/// # Returns
-/// * `Option<TeamResourceMetrics>` - The team resource metrics, if available
-pub async fn get_team_metrics(team_name: &str) -> Option<TeamResourceMetrics> {
-    if let Some(collector) = RESOURCE_COLLECTOR.get() {
-        collector.get_team_metrics(team_name).await
-    } else {
-        // Try to initialize on-demand
-        match ensure_factory().get_global_collector().await {
-            Ok(collector) => collector.get_team_metrics(team_name).await,
-            Err(_) => None,
-        }
-    }
-}
-
-/// Register a new team for resource tracking
-///
-/// # Panics
-///
-/// Panics if the resource collector is not initialized
-pub async fn register_team(team_name: String, workspace_path: PathBuf) {
-    RESOURCE_COLLECTOR
-        .get()
-        .expect("Resource collector not initialized")
-        .register_team(team_name, workspace_path)
-        .await;
-}
-
-#[async_trait]
-impl MetricCollector for ResourceMetricsCollector {
-    async fn start(&self) -> Result<()> {
-        Ok(())
-    }
-
-    async fn stop(&self) -> Result<()> {
-        Ok(())
-    }
-
-    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        let system_metrics = self.collect_system_metrics()?;
-        let mut result = Vec::new();
-        
-        // Add CPU usage
-        let mut labels = HashMap::new();
-        labels.insert("resource".to_string(), "cpu".to_string());
-        result.push(Metric::new(
-            "system.cpu.usage".to_string(),
-            system_metrics.cpu_usage,
-            MetricType::Gauge,
-            Some(labels),
-        ));
-        
-        // Add memory usage
-        let mut labels = HashMap::new();
-        labels.insert("resource".to_string(), "memory".to_string());
-        result.push(Metric::new(
-            "system.memory.usage".to_string(),
-            system_metrics.memory_usage,
-            MetricType::Gauge,
-            Some(labels),
-        ));
-        
-        // Add disk usage
-        let mut labels = HashMap::new();
-        labels.insert("resource".to_string(), "disk".to_string());
-        result.push(Metric::new(
-            "system.disk.usage".to_string(),
-            system_metrics.disk_usage,
-            MetricType::Gauge,
-            Some(labels),
-        ));
-        
-        // Add network metrics
-        let mut labels = HashMap::new();
-        labels.insert("direction".to_string(), "rx".to_string());
-        result.push(Metric::new(
-            "system.network.traffic".to_string(),
-            system_metrics.network_rx as f64,
-            MetricType::Counter,
-            Some(labels),
-        ));
-        
-        let mut labels = HashMap::new();
-        labels.insert("direction".to_string(), "tx".to_string());
-        result.push(Metric::new(
-            "system.network.traffic".to_string(),
-            system_metrics.network_tx as f64,
-            MetricType::Counter,
-            Some(labels),
-        ));
-        
-        Ok(result)
-    }
-
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let mut metrics = self.metrics.write().await;
-        metrics.push(metric);
-        Ok(())
-    }
-}
-
-/// Information about a running process.
-/// 
-/// This struct contains various metrics about a process's resource usage,
-/// including CPU, memory, and disk I/O statistics.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcessInfo {
-    /// Process identifier.
-    pub pid: u32,
-    /// Name of the process.
-    pub name: String,
-    /// CPU usage as a percentage (0.0 to 100.0).
-    pub cpu_usage: f64,
-    /// Memory usage in bytes.
-    pub memory_usage: f64,
-    /// Total bytes read from disk.
-    pub disk_read: u64,
-    /// Total bytes written to disk.
-    pub disk_write: u64,
-}
-
-impl From<&Process> for ProcessInfo {
-    fn from(process: &Process) -> Self {
-        Self {
-            pid: process.pid().as_u32(),
-            name: process.name().to_string(),
-            cpu_usage: f64::from(process.cpu_usage()),
-            memory_usage: process.memory() as f64,
-            disk_read: process.disk_usage().read_bytes,
-            disk_write: process.disk_usage().written_bytes,
-        }
-    }
-}
-
-/// System-wide resource usage metrics.
-/// 
-/// This struct provides an overview of system resource utilization,
-/// including CPU, memory, disk, and network usage.
-pub struct ResourceMetrics {
-    /// CPU usage as a percentage (0.0 to 100.0).
-    pub cpu_usage: f64,
-    /// Memory usage in bytes.
-    pub memory_usage: f64,
-    /// Disk space usage in bytes.
-    pub disk_usage: f64,
-    /// Total bytes received over network interfaces.
-    pub network_rx: u64,
-    /// Total bytes transmitted over network interfaces.
-    pub network_tx: u64,
-    /// List of running processes and their resource usage.
-    pub processes: Vec<ProcessInfo>,
-}
-
-impl ResourceMetrics {
-    /// Creates a new ResourceMetrics instance from system information.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `system` - Reference to a System instance containing system information
-    /// 
-    /// # Returns
-    /// 
-    /// Returns a new ResourceMetrics instance with current system metrics.
-    #[must_use] pub fn new(system: &System) -> Self {
-        // Calculate CPU usage
-        let cpu_usage = f64::from(system.global_cpu_info().cpu_usage());
-        
-        // Calculate memory usage
-        let total_memory = system.total_memory() as f64;
-        let used_memory = system.used_memory() as f64;
-        let memory_usage = if total_memory > 0.0 { used_memory / total_memory * 100.0 } else { 0.0 };
-        
-        // Calculate disk usage
-        let mut total_space = 0;
-        let mut used_space = 0;
-        for disk in system.disks() {
-            total_space += disk.total_space();
-            used_space += disk.total_space() - disk.available_space();
-        }
-        let disk_usage = if total_space > 0 { (used_space as f64 / total_space as f64) * 100.0 } else { 0.0 };
-        
-        // Calculate network usage
-        let network_rx: f64 = system.networks().iter().map(|(_, net)| net.received() as f64).sum();
-        let network_tx: f64 = system.networks().iter().map(|(_, net)| net.transmitted() as f64).sum();
-        
-        Self {
-            cpu_usage,
-            memory_usage,
-            disk_usage,
-            network_rx: network_rx as u64,
-            network_tx: network_tx as u64,
-            processes: Vec::new(),
-        }
-    }
+pub fn create_collector_adapter_with_collector(
+    collector: Arc<ResourceMetricsCollector>
+) -> Arc<ResourceMetricsCollectorAdapter> {
+    Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
 }
 
 #[cfg(test)]
@@ -812,5 +534,46 @@ mod tests {
         let collector = ResourceMetricsCollector::new();
         let metrics = collector.collect_metrics().await.unwrap();
         assert!(!metrics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_resource_metrics_collector_with_dependencies() {
+        let config = ResourceConfig::default();
+        let factory = ResourceMetricsCollectorFactory::with_config(config);
+        let collector = factory.create_collector();
+        
+        // Register a test team
+        collector.register_team(
+            "test_team".to_string(),
+            std::env::current_dir().unwrap()
+        ).await;
+        
+        // Get metrics
+        let metrics = collector.collect_metrics().await.unwrap();
+        assert!(!metrics.is_empty());
+        
+        // Get team metrics
+        let team_metrics = collector.get_team_metrics("test_team").await;
+        assert!(team_metrics.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_resource_metrics_collector_adapter() {
+        let factory = ResourceMetricsCollectorFactory::new();
+        let adapter = factory.create_collector_adapter();
+        
+        // Register a test team
+        adapter.register_team(
+            "test_team".to_string(),
+            std::env::current_dir().unwrap()
+        ).await;
+        
+        // Get metrics
+        let metrics = adapter.collect_metrics().await.unwrap();
+        assert!(!metrics.is_empty());
+        
+        // Get team metrics
+        let team_metrics = adapter.get_team_metrics("test_team").await;
+        assert!(team_metrics.is_some());
     }
 } 

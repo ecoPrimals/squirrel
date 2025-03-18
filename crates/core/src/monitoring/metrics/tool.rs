@@ -412,6 +412,10 @@ static FACTORY: OnceLock<ToolMetricsCollectorFactory> = OnceLock::new();
 ///
 /// # Errors
 /// Returns an error if the factory is already initialized
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorFactory::new() or ToolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn initialize_factory(config: Option<ToolMetricsConfig>) -> Result<()> {
     let factory = match config {
         Some(cfg) => ToolMetricsCollectorFactory::with_config(cfg),
@@ -425,73 +429,115 @@ pub fn initialize_factory(config: Option<ToolMetricsConfig>) -> Result<()> {
 
 /// Get the tool metrics collector factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorFactory::new() or ToolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn get_factory() -> Option<ToolMetricsCollectorFactory> {
     FACTORY.get().cloned()
 }
 
 /// Get or create the tool metrics collector factory
 #[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorFactory::new() or ToolMetricsCollectorFactory::with_config() instead"
+)]
 pub fn ensure_factory() -> ToolMetricsCollectorFactory {
     FACTORY.get_or_init(ToolMetricsCollectorFactory::new).clone()
 }
 
-// Static collector instance for backward compatibility
+// Module state
 static TOOL_COLLECTOR: tokio::sync::OnceCell<Arc<ToolMetricsCollector>> = tokio::sync::OnceCell::const_new();
 
-/// Initializes the tool metrics system
-///
-/// This function sets up the global tool metrics collector if it hasn't been initialized yet.
-///
-/// # Returns
-/// A Result indicating success or failure of the initialization
-///
-/// # Errors
-/// Returns an error if the collector cannot be initialized
-pub async fn initialize(config: Option<ToolMetricsConfig>) -> Result<Arc<ToolMetricsCollector>> {
-    // Initialize factory with config
-    initialize_factory(config)?;
-
-    // Get factory and create collector with dependencies
-    let factory = ensure_factory();
-    let collector = factory.get_global_collector().await?;
-
-    // Initialize global collector
-    match TOOL_COLLECTOR.set(collector.clone()) {
-        Ok(_) => Ok(collector),
-        Err(_) => Err(SquirrelError::metric("Failed to set global tool collector")),
-    }
+/// Check if the tool metrics collector is initialized
+#[must_use]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorFactory instead of relying on global state"
+)]
+pub fn is_initialized() -> bool {
+    TOOL_COLLECTOR.get().is_some()
 }
 
-/// Retrieves metrics for a specific tool from the global collector
+/// Initialize the tool metrics collector
+///
+/// # Arguments
+/// * `config` - Optional configuration for the collector
+///
+/// # Returns
+/// Returns a Result containing the initialized collector
+///
+/// # Errors
+/// Returns an error if initialization fails
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorFactory::create_collector() or create_collector_adapter() instead"
+)]
+pub async fn initialize(config: Option<ToolMetricsConfig>) -> Result<Arc<ToolMetricsCollector>> {
+    let factory = match config {
+        Some(cfg) => ToolMetricsCollectorFactory::with_config(cfg),
+        None => ensure_factory(),
+    };
+    
+    let collector = factory.get_global_collector().await?;
+    
+    // For backward compatibility, also set in the old static
+    let _ = TOOL_COLLECTOR.set(collector.clone());
+    
+    Ok(collector)
+}
+
+/// Get metrics for a specific tool
 ///
 /// # Arguments
 /// * `tool_name` - The name of the tool to get metrics for
 ///
 /// # Returns
-/// The metrics for the specified tool, or None if no metrics exist or the collector is not initialized
+/// Returns an Option containing the tool metrics if found
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorAdapter::get_tool_metrics() instead"
+)]
 pub async fn get_tool_metrics(tool_name: &str) -> Option<ToolMetrics> {
     if let Some(collector) = TOOL_COLLECTOR.get() {
-        collector.get_tool_metrics(tool_name).await.ok().flatten()
+        match collector.get_tool_metrics(tool_name).await {
+            Ok(metrics) => metrics,
+            Err(_) => None,
+        }
     } else {
         // Try to initialize on-demand
         match ensure_factory().get_global_collector().await {
-            Ok(collector) => collector.get_tool_metrics(tool_name).await.ok().flatten(),
+            Ok(collector) => match collector.get_tool_metrics(tool_name).await {
+                Ok(metrics) => metrics,
+                Err(_) => None,
+            },
             Err(_) => None,
         }
     }
 }
 
-/// Retrieves metrics for all tracked tools from the global collector
+/// Get metrics for all tools
 ///
 /// # Returns
-/// A hashmap containing tool names mapped to their metric data, or None if the collector is not initialized
+/// Returns an Option containing a HashMap of tool metrics
+#[deprecated(
+    since = "0.2.0",
+    note = "Use DI pattern with ToolMetricsCollectorAdapter::get_all_metrics() instead"
+)]
 pub async fn get_all_metrics() -> Option<HashMap<String, ToolMetrics>> {
     if let Some(collector) = TOOL_COLLECTOR.get() {
-        collector.get_all_metrics().await.ok()
+        match collector.get_all_metrics().await {
+            Ok(metrics) => Some(metrics),
+            Err(_) => None,
+        }
     } else {
         // Try to initialize on-demand
         match ensure_factory().get_global_collector().await {
-            Ok(collector) => collector.get_all_metrics().await.ok(),
+            Ok(collector) => match collector.get_all_metrics().await {
+                Ok(metrics) => Some(metrics),
+                Err(_) => None,
+            },
             Err(_) => None,
         }
     }
