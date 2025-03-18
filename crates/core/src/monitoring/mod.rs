@@ -49,9 +49,7 @@ use serde_json;
 use tokio::sync::mpsc;
 use tracing::debug;
 use crate::monitoring::adapter::{MonitoringServiceFactoryAdapter, create_factory_adapter, create_factory_adapter_with_factory};
-use log::{info, error, debug, warn};
-use std::convert::{TryFrom, TryInto};
-use futures::future::{self, Future};
+use log::error;
 
 /// Converts a `SystemTime` to a Unix timestamp (seconds since Unix epoch)
 #[must_use] pub fn system_time_to_timestamp(time: SystemTime) -> i64 {
@@ -570,6 +568,9 @@ pub fn create_service_with_adapters() -> Result<Arc<MonitoringService>> {
         network_monitor,
     )))
 }
+
+#[cfg(test)]
+mod tests;
 
 #[cfg(test)]
 mod tests {

@@ -1,17 +1,41 @@
-//! Main entry point for the Squirrel application
+//! Main executable for the Squirrel Core library.
 
+#[cfg(not(feature = "di-tests"))]
 use squirrel_core::{Core, MCP};
 
+#[cfg(feature = "di-tests")]
+use squirrel_core::{Core, app::AppConfig};
+
+#[cfg(not(feature = "di-tests"))]
 mod commands;
+
+#[cfg(not(feature = "di-tests"))]
 use commands::CommandRegistry;
 
+#[cfg(not(feature = "di-tests"))]
 use std::env;
+
+#[cfg(not(feature = "di-tests"))]
 use std::process;
 
+#[cfg(feature = "di-tests")]
 fn main() {
-    // Initialize core systems
+    println!("Running with di-tests feature");
+    
+    // Create a simple app with our new structure
+    let config = AppConfig::default();
+    let _core = Core::new(config);
+    
+    println!("Core created successfully");
+}
+
+#[cfg(not(feature = "di-tests"))]
+fn main() {
+    println!("Running without di-tests feature");
+    
+    // Original implementation
     let _core = Core::new();
-    let _mcp = MCP::default();
+    println!("Core created successfully");
 
     // Create a new command registry with built-in commands
     let registry = match CommandRegistry::with_builtins() {

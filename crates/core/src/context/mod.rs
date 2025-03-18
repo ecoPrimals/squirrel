@@ -20,7 +20,7 @@ pub mod sync;
 /// Recovery functionality for handling context state failures
 pub mod recovery;
 /// Tracking functionality for monitoring context state changes
-pub mod tracker;
+// pub mod tracker; // Temporarily commented out due to encoding issues
 
 /// A snapshot of context state at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,36 +49,33 @@ pub struct ContextState {
 /// Errors that can occur during context operations
 #[derive(Debug, Error)]
 pub enum ContextError {
-    /// Error when state is invalid
-    #[error("Invalid state: {0}")]
-    InvalidState(String),
-    /// Error during state recovery
-    #[error("Recovery error: {0}")]
-    RecoveryError(String),
-    /// Error during state persistence
-    #[error("Persistence error: {0}")]
-    PersistenceError(String),
-    /// Error when snapshot is not found
+    /// Invalid context state
+    #[error("Invalid context state")]
+    InvalidState,
+    
+    /// Snapshot not found
     #[error("Snapshot not found")]
     SnapshotNotFound,
-    /// Error when no valid snapshot exists
-    #[error("No valid snapshot available")]
+    
+    /// No valid snapshot
+    #[error("No valid snapshot")]
     NoValidSnapshot,
+    
+    /// Persistence error
+    #[error("Persistence error: {0}")]
+    PersistenceError(String),
+    
+    /// Synchronization error
+    #[error("Synchronization error: {0}")]
+    SyncError(String),
 }
 
-/// Subscriber for context state changes and errors
-pub trait ContextSubscriber: Send + Sync + std::fmt::Debug {
-    /// Called when context state changes
-    ///
-    /// # Arguments
-    /// * `old_state` - Previous state
-    /// * `new_state` - New state
+/// Context subscriber for monitoring context state changes
+pub trait ContextSubscriber: Send + Sync {
+    /// Called when the context state changes
     fn on_state_change(&self, old_state: &ContextState, new_state: &ContextState);
-
-    /// Called when a context error occurs
-    ///
-    /// # Arguments
-    /// * `error` - The error that occurred
+    
+    /// Called when an error occurs
     fn on_error(&self, error: &ContextError);
 }
 

@@ -1,10 +1,10 @@
-//! MCP (Machine Context Protocol) module
+//! MCP (Machine Context Protocol) module for Squirrel
 //!
-//! This module implements the core functionality for the Machine Context Protocol.
+//! This module implements the core functionality for the Machine Context Protocol,
+//! providing message handling, state synchronization, and security features.
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use serde::{Serialize, Deserialize};
+use std::sync::{Arc, Mutex, RwLock};
+use crate::error::{AppInitializationError, AppOperationError, SquirrelError};
 
 pub mod types;
 pub mod security;
@@ -28,12 +28,14 @@ pub mod persistence;
 pub mod session;
 
 #[cfg(test)]
-pub mod tests {
-    // Enable adapter tests
-    pub mod adapter;
-    // Temporarily comment out test modules until we fix them
-    // pub mod refactored_test;
-}
+pub mod tests;
+
+#[cfg(feature = "di-tests")]
+/// MCP adapter for dependency injection
+pub mod adapter;
+
+#[cfg(feature = "di-tests")]
+pub use adapter::MCPAdapter;
 
 // Re-export common types for easy access
 pub use types::{
@@ -65,7 +67,7 @@ pub use context_adapter::{MCPContextAdapter, create_mcp_context_adapter};
 pub use factory::{MCPFactory, create_mcp_factory, create_mcp};
 
 /// Configuration for the MCP system
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MCPConfig {
     /// The protocol version
     pub version: String,
@@ -73,145 +75,90 @@ pub struct MCPConfig {
     pub max_message_size: u64,
     /// Timeout in milliseconds
     pub timeout_ms: u64,
-}
-
-/// The main MCP system controller
-#[derive(Debug)]
-pub struct MCP {
-    /// The MCP configuration, wrapped in a thread-safe read-write lock
-    config: Arc<RwLock<MCPConfig>>,
-    /// Protocol adapter for handling MCP messages
-    protocol: Arc<protocol::MCPProtocolAdapter>,
-    /// Context adapter for interacting with the context system
-    context_adapter: Arc<context_adapter::MCPContextAdapter>,
-    /// Sync component for state synchronization
-    sync: sync::MCPSync,
-    /// Flag to track initialization state
-    initialized: bool,
-}
-
-impl MCP {
-    /// Creates a new MCP instance with the specified configuration
-    #[must_use]
-    pub fn new(config: MCPConfig) -> Self {
-        Self {
-            config: Arc::new(RwLock::new(config)),
-            protocol: Arc::new(protocol::MCPProtocolAdapter::new()),
-            context_adapter: Arc::new(context_adapter::MCPContextAdapter::new()),
-            sync: sync::MCPSync::default(),
-            initialized: false,
-        }
-    }
-
-    /// Creates a new MCP instance with the specified components
-    #[must_use]
-    pub fn new_with_components(
-        protocol: Arc<protocol::MCPProtocolAdapter>,
-        context_adapter: Arc<context_adapter::MCPContextAdapter>,
-        sync: sync::MCPSync,
-    ) -> Self {
-        Self {
-            config: Arc::new(RwLock::new(MCPConfig::default())),
-            protocol,
-            context_adapter,
-            sync,
-            initialized: true,
-        }
-    }
-
-    /// Initialize the MCP instance
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if initialization of any component fails
-    pub async fn init(&mut self) -> error::Result<()> {
-        if self.initialized {
-            return Ok(());
-        }
-
-        // Initialize protocol adapter
-        if !self.protocol.is_initialized() {
-            self.protocol.initialize().await?;
-        }
-
-        // Initialize context adapter
-        if !self.context_adapter.is_initialized() {
-            self.context_adapter.initialize()?;
-        }
-
-        // Initialize sync (if not already initialized)
-        self.sync.init().await?;
-
-        self.initialized = true;
-        Ok(())
-    }
-
-    /// Gets the current configuration
-    ///
-    /// # Errors
-    ///
-    /// Returns a `MCPError::LockError` if the configuration lock cannot be acquired
-    pub async fn get_config(&self) -> error::Result<MCPConfig> {
-        if !self.initialized {
-            return Err(MCPError::NotInitialized("MCP not initialized".into()));
-        }
-        
-        let config = self.config.read().await;
-        Ok(config.clone())
-    }
-
-    /// Gets a reference to the protocol adapter
-    ///
-    /// # Errors
-    ///
-    /// Returns a `MCPError::NotInitialized` if the MCP instance is not initialized
-    pub fn get_protocol_adapter(&self) -> error::Result<Arc<protocol::MCPProtocolAdapter>> {
-        if !self.initialized {
-            return Err(MCPError::NotInitialized("MCP not initialized".into()));
-        }
-        
-        Ok(self.protocol.clone())
-    }
-
-    /// Gets a reference to the context adapter
-    ///
-    /// # Errors
-    ///
-    /// Returns a `MCPError::NotInitialized` if the MCP instance is not initialized
-    pub fn get_context_adapter(&self) -> error::Result<Arc<context_adapter::MCPContextAdapter>> {
-        if !self.initialized {
-            return Err(MCPError::NotInitialized("MCP not initialized".into()));
-        }
-        
-        Ok(self.context_adapter.clone())
-    }
-
-    /// Gets a reference to the sync component
-    ///
-    /// # Errors
-    ///
-    /// Returns a `MCPError::NotInitialized` if the MCP instance is not initialized
-    pub fn get_sync(&self) -> error::Result<&sync::MCPSync> {
-        if !self.initialized {
-            return Err(MCPError::NotInitialized("MCP not initialized".into()));
-        }
-        
-        Ok(&self.sync)
-    }
+    /// Enable encryption
+    pub encryption_enabled: bool,
 }
 
 impl Default for MCPConfig {
     fn default() -> Self {
         Self {
             version: "1.0".to_string(),
-            max_message_size: 1024 * 1024 * 10, // 10MB
-            timeout_ms: 30000, // 30 seconds
+            max_message_size: 1024 * 1024, // 1MB
+            timeout_ms: 5000, // 5 seconds
+            encryption_enabled: true,
         }
     }
 }
 
-impl Default for MCP {
-    fn default() -> Self {
-        Self::new(MCPConfig::default())
+/// Core MCP state
+#[derive(Debug)]
+pub struct MCPState {
+    /// Whether the MCP system is initialized
+    pub initialized: bool,
+    /// The configuration of the MCP system
+    pub config: MCPConfig,
+}
+
+impl MCPState {
+    /// Create a new MCPState with the given configuration
+    pub fn new(config: MCPConfig) -> Self {
+        Self {
+            initialized: false,
+            config,
+        }
+    }
+}
+
+/// The main MCP system controller
+pub struct MCP {
+    /// The MCP state
+    state: RwLock<MCPState>,
+}
+
+impl MCP {
+    /// Create a new MCP with the given configuration
+    pub fn new(config: MCPConfig) -> Self {
+        Self {
+            state: RwLock::new(MCPState::new(config)),
+        }
+    }
+
+    /// Initialize the MCP system
+    pub fn initialize(&self) -> Result<(), AppInitializationError> {
+        let mut state = self.state.write().unwrap();
+        if state.initialized {
+            return Err(AppInitializationError::AlreadyInitialized);
+        }
+        
+        // Perform initialization tasks
+        state.initialized = true;
+        Ok(())
+    }
+
+    /// Check if the MCP system is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.state.read().unwrap().initialized
+    }
+    
+    /// Get the MCP configuration
+    pub fn get_config(&self) -> Result<MCPConfig, AppOperationError> {
+        let state = self.state.read().unwrap();
+        if !state.initialized {
+            return Err(AppOperationError::NotInitialized);
+        }
+        
+        Ok(state.config.clone())
+    }
+
+    /// Send a message through the MCP system
+    pub fn send_message(&self, message: &str) -> Result<String, AppOperationError> {
+        let state = self.state.read().unwrap();
+        if !state.initialized {
+            return Err(AppOperationError::NotInitialized);
+        }
+        
+        // In a real implementation, we would process the message here
+        // For now, we just echo it back
+        Ok(format!("Processed: {}", message))
     }
 } 

@@ -2,6 +2,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use clap::{Parser, CommandFactory};
+use tokio::test;
 
 use crate::commands::{
     Command,
@@ -11,6 +12,8 @@ use crate::commands::{
     lifecycle::{LifecycleHook, LifecycleStage},
 };
 use crate::test_utils::{TestError, TestFactory};
+
+// Test implementations
 
 #[derive(Parser)]
 #[command(name = "test")]
@@ -51,11 +54,11 @@ struct TestValidationRule;
 
 impl ValidationRule for TestValidationRule {
     fn name(&self) -> &'static str {
-        "TestValidationRule"
+        "test-validation"
     }
     
     fn description(&self) -> &'static str {
-        "A test validation rule for unit tests"
+        "A test validation rule"
     }
     
     fn validate(&self, _cmd: &dyn Command, _context: &ValidationContext) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -67,16 +70,16 @@ impl ValidationRule for TestValidationRule {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct TestLifecycleHandler;
 
 impl LifecycleHook for TestLifecycleHandler {
     fn name(&self) -> &'static str {
-        "TestLifecycleHandler"
+        "test-lifecycle"
     }
     
     fn stages(&self) -> Vec<LifecycleStage> {
-        vec![LifecycleStage::Validation]
+        vec![LifecycleStage::PreExecution]
     }
     
     fn on_stage(&self, _stage: &LifecycleStage, _command: &dyn Command) -> Result<(), Box<dyn Error>> {
@@ -88,78 +91,155 @@ impl LifecycleHook for TestLifecycleHandler {
     }
 }
 
+// Helper functions for test setup
+
+/// Creates a test command registry with DI pattern
+fn create_test_registry() -> CommandRegistry {
+    // ARRANGE: Create a command registry
+    CommandRegistry::new()
+}
+
+/// Creates a test command for testing
+fn create_test_command() -> Box<dyn Command> {
+    // ARRANGE: Create a test command
+    Box::new(TestCommand)
+}
+
+/// Creates a test validation rule
+fn create_test_validation_rule() -> Box<dyn ValidationRule> {
+    // ARRANGE: Create a test validation rule
+    Box::new(TestValidationRule)
+}
+
+/// Creates a test lifecycle hook
+fn create_test_lifecycle_hook() -> Box<dyn LifecycleHook> {
+    // ARRANGE: Create a test lifecycle hook
+    Box::new(TestLifecycleHandler)
+}
+
+// Tests with AAA pattern
+
 #[test]
 fn test_command_registration() {
-    let mut registry = CommandRegistry::new();
-    assert!(registry.register(Box::new(TestCommand)).is_ok());
-    assert!(registry.get("test").unwrap().is_some());
+    // ARRANGE: Create test registry and command
+    let mut registry = create_test_registry();
+    let command = create_test_command();
+    
+    // ACT: Register the command
+    let result = registry.register_command(command);
+    
+    // ASSERT: Verify command was registered
+    assert!(result.is_ok(), "Command registration should succeed");
+    
+    // Verify command is in the registry
+    let commands = registry.list_commands();
+    assert_eq!(commands.len(), 1, "Registry should have one command");
+    assert_eq!(commands[0].name(), "test", "Command should have correct name");
 }
 
 #[test]
 fn test_command_execution() {
-    let mut registry = CommandRegistry::new();
-    registry.register(Box::new(TestCommand)).unwrap();
+    // ARRANGE: Create test registry and command
+    let mut registry = create_test_registry();
+    let command = create_test_command();
     
-    let args = vec!["test".to_string(), "--value".to_string(), "test".to_string()];
-    assert!(registry.execute("test", args).is_ok());
+    // Register the command
+    registry.register_command(command).unwrap();
+    
+    // ACT: Execute the command
+    let result = registry.execute_command("test", &[]);
+    
+    // ASSERT: Verify command execution
+    assert!(result.is_ok(), "Command execution should succeed");
 }
 
 #[test]
 fn test_command_listing() {
-    let mut registry = CommandRegistry::new();
-    registry.register(Box::new(TestCommand)).unwrap();
+    // ARRANGE: Create test registry with multiple commands
+    let mut registry = create_test_registry();
     
-    let commands = registry.list().unwrap();
-    assert_eq!(commands.len(), 1);
-    assert_eq!(commands[0], "test");
+    // Register several test commands
+    registry.register_command(create_test_command()).unwrap();
+    
+    // Create and register a second test command
+    #[derive(Clone)]
+    struct AnotherCommand;
+    impl Command for AnotherCommand {
+        fn name(&self) -> &'static str { "another-test" }
+        fn description(&self) -> &'static str { "Another test command" }
+        fn execute(&self) -> Result<(), Box<dyn Error>> { Ok(()) }
+        fn parser(&self) -> clap::Command { TestArgs::command() }
+        fn clone_box(&self) -> Box<dyn Command> { Box::new(self.clone()) }
+    }
+    
+    registry.register_command(Box::new(AnotherCommand)).unwrap();
+    
+    // ACT: List all commands
+    let commands = registry.list_commands();
+    
+    // ASSERT: Verify commands are listed correctly
+    assert_eq!(commands.len(), 2, "Registry should have two commands");
+    
+    // Check command names
+    let names: Vec<&str> = commands.iter().map(|c| c.name()).collect();
+    assert!(names.contains(&"test"), "Registry should contain 'test' command");
+    assert!(names.contains(&"another-test"), "Registry should contain 'another-test' command");
 }
 
 #[test]
 fn test_command_registry_factory_create() {
+    // ARRANGE: Create factory
     let factory = CommandRegistryFactory::new();
-    let registry = factory.create().unwrap();
     
-    // Registry should be empty
-    assert!(registry.list().unwrap().is_empty());
+    // ACT: Create registry with factory
+    let registry = factory.create();
+    
+    // ASSERT: Verify registry is created
+    assert_eq!(registry.list_commands().len(), 0, "Registry should start empty");
 }
 
 #[test]
 fn test_command_registry_factory_with_validation() {
-    let factory = CommandRegistryFactory::new()
-        .with_validation_rule(Box::new(TestValidationRule));
+    // ARRANGE: Create factory with validation rule
+    let mut factory = CommandRegistryFactory::new();
+    factory.add_validation_rule(create_test_validation_rule());
     
-    // Just assert that we have a factory
-    assert!(factory.validation_rules.len() > 0);
+    // ACT: Create registry with factory
+    let registry = factory.create();
+    
+    // ASSERT: Verify registry has validation rule
+    assert_eq!(registry.list_validation_rules().len(), 1, "Registry should have one validation rule");
+    assert_eq!(registry.list_validation_rules()[0].name(), "test-validation", "Validation rule should have correct name");
 }
 
 #[test]
 fn test_command_registry_factory_with_lifecycle() {
-    let factory = CommandRegistryFactory::new()
-        .with_lifecycle_handler(Box::new(TestLifecycleHandler));
-    let registry = factory.create().unwrap();
+    // ARRANGE: Create factory with lifecycle hook
+    let mut factory = CommandRegistryFactory::new();
+    factory.add_lifecycle_hook(create_test_lifecycle_hook());
     
-    // Just assert we can create a registry with the factory
-    assert!(registry.list().unwrap().is_empty());
+    // ACT: Create registry with factory
+    let registry = factory.create();
+    
+    // ASSERT: Verify registry has lifecycle hook
+    assert_eq!(registry.list_lifecycle_hooks().len(), 1, "Registry should have one lifecycle hook");
+    assert_eq!(registry.list_lifecycle_hooks()[0].name(), "test-lifecycle", "Lifecycle hook should have correct name");
 }
 
 #[test]
 fn test_command_registry_factory_with_builtins() {
-    let registry = CommandRegistryFactory::new().create_with_builtins().unwrap();
+    // ARRANGE: Create factory with builtins
+    let mut factory = CommandRegistryFactory::new();
+    factory.with_builtins(true);
     
-    // Registry should have builtin commands
-    assert!(!registry.list().unwrap().is_empty());
-    // Should include the version command
-    assert!(registry.get("version").unwrap().is_some());
-}
-
-#[test]
-fn test_create_command_registry() {
-    let registry = crate::commands::create_command_registry().unwrap();
-    assert!(registry.list().unwrap().is_empty());
-}
-
-#[test]
-fn test_create_command_registry_with_builtins() {
-    let registry = crate::commands::create_command_registry_with_builtins().unwrap();
-    assert!(!registry.list().unwrap().is_empty());
+    // ACT: Create registry with factory
+    let registry = factory.create();
+    
+    // ASSERT: Verify registry has builtin commands
+    assert!(registry.list_commands().len() > 0, "Registry should have builtin commands");
+    
+    // Check for help command which should be part of builtins
+    let commands = registry.list_commands();
+    let has_help = commands.iter().any(|c| c.name() == "help");
+    assert!(has_help, "Registry should have 'help' command");
 } 

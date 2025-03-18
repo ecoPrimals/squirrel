@@ -4,44 +4,48 @@
 //! It includes mock implementations of core dependencies and factory functions
 //! to create test harnesses.
 
+#[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
 use std::error::Error;
-use std::fmt;
 use tokio::sync::RwLock;
 use serde_json::Value;
+use std::path::PathBuf;
+use tempfile::TempDir;
+use crate::error::Result;
 
 use crate::context::{ContextManager, ContextTracker, ContextConfig};
 use crate::context_adapter::{ContextAdapter, ContextAdapterConfig};
 use crate::mcp::protocol::{ProtocolAdapter, ProtocolConfig};
-use crate::mcp::sync::{SyncConfig, MCPSync};
 use crate::error::SquirrelError;
 use crate::mcp::security::{SecurityManager, Credentials, SecurityConfig};
 use crate::mcp::types::{SecurityLevel, EncryptionFormat};
 
-/// Error type for test failures
-#[derive(Debug)]
-pub struct TestError {
-    pub message: String,
+// Integration tests module
+pub mod integration_tests;
+pub use integration_tests::IntegrationTestContext;
+
+/// Test data for testing persistence.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestData {
+    /// The name of the test data.
+    pub name: String,
+    /// The value of the test data.
+    pub value: String,
 }
 
-impl fmt::Display for TestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Test error: {}", self.message)
-    }
-}
-
-impl Error for TestError {}
-
-impl From<String> for TestError {
-    fn from(message: String) -> Self {
-        Self { message }
-    }
-}
-
-impl From<&str> for TestError {
-    fn from(message: &str) -> Self {
-        Self { message: message.to_owned() }
-    }
+/// Error type for test utilities.
+#[derive(Debug, thiserror::Error)]
+pub enum TestError {
+    /// Invalid test data.
+    #[error("Invalid test data: {0}")]
+    InvalidData(String),
+    /// Error during test initialization.
+    #[error("Test initialization error: {0}")]
+    InitError(String),
+    /// Error during test execution.
+    #[error("Test execution error: {0}")]
+    ExecError(String),
 }
 
 /// Mock context adapter for testing
@@ -157,8 +161,11 @@ impl MockSecurityManager {
             is_initialized: false,
             auth_result: true, // Default to successful authentication
             config: SecurityConfig {
-                security_level: SecurityLevel::None,
-                encryption_format: EncryptionFormat::None,
+                min_security_level: SecurityLevel::Medium,
+                encryption_format: EncryptionFormat::Aes256Gcm,
+                token_validity: 3600,
+                max_auth_attempts: 5,
+                default_roles: Vec::new(),
             },
         }
     }
@@ -224,9 +231,9 @@ pub struct TestEnvironment {
 }
 
 /// Test data generator for common test scenarios
-pub struct TestData;
+pub struct TestDataGenerator;
 
-impl TestData {
+impl TestDataGenerator {
     /// Create a simple JSON test state
     pub fn create_test_state() -> Value {
         serde_json::json!({
@@ -256,4 +263,92 @@ impl TestData {
             auto_save_interval: Some(60),
         }
     }
+}
+
+/// Security test utilities
+pub mod security {
+    use crate::mcp::security::{RBACManager, Permission, Action, SecurityConfig, Credentials};
+    use crate::mcp::types::{SecurityLevel, EncryptionFormat};
+    
+    /// Creates a test RBAC manager with predefined roles and permissions
+    pub fn create_test_rbac_manager() -> RBACManager {
+        let mut rbac = RBACManager::new();
+        
+        // Create base permissions
+        let read_perm = Permission {
+            id: "perm-read".to_string(),
+            name: "Read".to_string(),
+            resource: "Document".to_string(),
+            action: Action::Read,
+        };
+        
+        let write_perm = Permission {
+            id: "perm-write".to_string(),
+            name: "Write".to_string(),
+            resource: "Document".to_string(),
+            action: Action::Write,
+        };
+        
+        let admin_perm = Permission {
+            id: "perm-admin".to_string(),
+            name: "Admin".to_string(),
+            resource: "System".to_string(),
+            action: Action::Admin,
+        };
+        
+        // Create roles
+        rbac.create_role("reader", "Reader", vec![read_perm.clone()]);
+        
+        let editor_id = rbac.create_role_with_parent(
+            "editor", 
+            "Editor", 
+            vec![write_perm.clone()], 
+            vec![String::from("reader")]
+        );
+        
+        rbac.create_role_with_parent(
+            "admin", 
+            "Admin", 
+            vec![admin_perm.clone()], 
+            vec![editor_id]
+        );
+        
+        rbac
+    }
+    
+    /// Creates a test security config
+    pub fn create_test_security_config() -> SecurityConfig {
+        SecurityConfig {
+            min_security_level: SecurityLevel::Medium,
+            encryption_format: EncryptionFormat::Aes256Gcm,
+            token_validity: 3600,
+            max_auth_attempts: 5,
+            default_roles: Vec::new(),
+        }
+    }
+    
+    /// Creates test credentials
+    pub fn create_test_credentials(client_id: &str, client_secret: &str) -> Credentials {
+        Credentials {
+            client_id: client_id.to_string(),
+            client_secret: client_secret.to_string(),
+            security_level: SecurityLevel::Medium,
+            requested_roles: None,
+        }
+    }
+}
+
+/// Creates a temporary test environment.
+pub fn create_test_env() -> Result<TempDir> {
+    let temp_dir = tempfile::tempdir()
+        .map_err(|e| crate::error::SquirrelError::other(format!("Failed to create temp dir: {}", e)))?;
+    Ok(temp_dir)
+}
+
+/// Creates a test file in the given directory.
+pub fn create_test_file(dir: &TempDir, name: &str, content: &str) -> Result<PathBuf> {
+    let path = dir.path().join(name);
+    std::fs::write(&path, content)
+        .map_err(|e| crate::error::SquirrelError::other(format!("Failed to write test file: {}", e)))?;
+    Ok(path)
 } 

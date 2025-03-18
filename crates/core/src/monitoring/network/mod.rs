@@ -3,14 +3,15 @@
 #![allow(clippy::unused_async)] // Allow unused async functions
 
 use std::sync::{Arc, RwLock};
-use sysinfo::{NetworkExt, System, SystemExt};
-use thiserror::Error;
+use sysinfo::{Networks, System};
 use std::collections::HashMap;
 use crate::error::{Result, SquirrelError};
 use serde::{Serialize, Deserialize};
 
 pub mod adapter;
+pub mod error;
 pub use adapter::{NetworkMonitorAdapter, create_monitor_adapter, create_monitor_adapter_with_monitor, SystemInfoAdapter, create_system_info_adapter, create_system_info_adapter_with_system};
+pub use error::{NetworkError, system_error, config_error, monitoring_error, interface_error, stats_error};
 
 /// System information manager for monitoring system resources
 #[derive(Debug)]
@@ -59,7 +60,7 @@ impl SystemInfoManager {
         Ok(sys.global_cpu_info().cpu_usage())
     }
 
-    /// Gets memory usage
+    /// Gets memory usage (used, total)
     pub async fn memory_usage(&self) -> Result<(u64, u64)> {
         let sys = self.system.read().map_err(|e| {
             NetworkError::System(format!("Failed to acquire system lock: {e}"))
@@ -67,12 +68,13 @@ impl SystemInfoManager {
         Ok((sys.used_memory(), sys.total_memory()))
     }
 
-    /// Gets network statistics
+    /// Gets network statistics for all interfaces
     pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
         let sys = self.system.read().map_err(|e| {
             NetworkError::System(format!("Failed to acquire system lock: {e}"))
         })?;
         let mut stats = Vec::new();
+        
         for (interface_name, data) in sys.networks() {
             stats.push((
                 interface_name.clone(),
@@ -80,6 +82,7 @@ impl SystemInfoManager {
                 data.transmitted(),
             ));
         }
+        
         Ok(stats)
     }
 }
@@ -91,42 +94,41 @@ impl Default for SystemInfoManager {
 }
 
 /// Factory for creating system info managers
-#[derive(Debug, Default)]
 pub struct SystemInfoManagerFactory;
 
 impl SystemInfoManagerFactory {
-    /// Creates a new factory
+    /// Creates a new system info manager factory
     #[must_use]
     pub fn new() -> Self {
-        Self
+        Self {}
     }
-
+    
     /// Creates a new system info manager
     #[must_use]
     pub fn create_manager(&self) -> Arc<SystemInfoManager> {
         Arc::new(SystemInfoManager::new())
     }
-
+    
     /// Creates a new system info manager with dependencies
     #[must_use]
     pub fn create_manager_with_dependencies(&self, system: Arc<RwLock<System>>) -> Arc<SystemInfoManager> {
         Arc::new(SystemInfoManager::with_dependencies(system))
     }
-
+    
     /// Creates a new system info adapter
     #[must_use]
     pub fn create_adapter(&self) -> Arc<SystemInfoAdapter> {
         create_system_info_adapter()
     }
-
-    /// Creates a new system info adapter with an existing system
+    
+    /// Creates a new system info adapter with system
     #[must_use]
     pub fn create_adapter_with_system(&self, system: Arc<RwLock<System>>) -> Arc<SystemInfoAdapter> {
         create_system_info_adapter_with_system(system)
     }
 }
 
-/// Configuration for network monitoring
+/// Network monitoring configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
     /// Interval in seconds between network stat updates
@@ -136,12 +138,12 @@ pub struct NetworkConfig {
 impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
-            interval: 60,
+            interval: 60, // Default to 60 seconds
         }
     }
 }
 
-/// Network interface statistics
+/// Network statistics for an interface
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkStats {
     /// Network interface name
@@ -164,18 +166,7 @@ pub struct NetworkStats {
     pub errors_on_transmitted: u64,
 }
 
-/// Errors that can occur during network monitoring
-#[derive(Debug, Error)]
-pub enum NetworkError {
-    /// Error accessing system information
-    #[error("System error: {0}")]
-    System(String),
-    /// Error with network interface
-    #[error("Interface error: {0}")]
-    Interface(String),
-}
-
-/// Monitors network interface statistics
+/// Network monitor for tracking network usage
 #[derive(Debug)]
 pub struct NetworkMonitor {
     /// Configuration for the network monitor
@@ -187,11 +178,11 @@ pub struct NetworkMonitor {
 }
 
 impl NetworkMonitor {
-    /// Creates a new network monitor with the given configuration
+    /// Creates a new network monitor
     #[must_use]
     pub fn new(config: NetworkConfig) -> Self {
         let mut system = System::new();
-        system.refresh_networks_list();
+        system.refresh_networks();
 
         Self {
             config,
@@ -206,110 +197,48 @@ impl NetworkMonitor {
         Self::new(config)
     }
 
-    /// Gets current network statistics for all interfaces
-    /// 
-    /// # Errors
-    /// Returns error if unable to access system information or network interfaces
+    /// Gets all network interface statistics
     pub async fn get_stats(&self) -> Result<HashMap<String, NetworkStats>> {
-        let mut system = self.system.write().map_err(|e| {
-            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        let stats = self.stats.read().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire stats lock: {e}"))
         })?;
 
-        system.refresh_networks();
-
+        // Create a copy of the current stats
         let mut result = HashMap::new();
-        for (interface_name, network_data) in system.networks() {
-            result.insert(interface_name.to_string(), NetworkStats {
-                interface: interface_name.to_string(),
-                received_bytes: network_data.received(),
-                transmitted_bytes: network_data.transmitted(),
-                receive_rate: network_data.received() as f64 / self.config.interval as f64,
-                transmit_rate: network_data.transmitted() as f64 / self.config.interval as f64,
-                packets_received: network_data.packets_received(),
-                packets_transmitted: network_data.packets_transmitted(),
-                errors_on_received: network_data.errors_on_received(),
-                errors_on_transmitted: network_data.errors_on_transmitted(),
-            });
+        for (k, v) in stats.iter() {
+            result.insert(k.clone(), v.clone());
         }
-        drop(system);
 
         Ok(result)
     }
 
     /// Gets statistics for a specific network interface
-    /// 
-    /// # Errors
-    /// Returns error if unable to access system information or if interface not found
     pub async fn get_interface_stats(&self, interface_name: &str) -> Result<Option<NetworkStats>> {
-        let system = self.system.write().map_err(|e| {
-            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        let stats = self.stats.read().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire stats lock: {e}"))
         })?;
 
-        for (name, network) in system.networks() {
-            if name == interface_name {
-                let stats = NetworkStats {
-                    interface: name.clone(),
-                    received_bytes: network.received(),
-                    transmitted_bytes: network.transmitted(),
-                    packets_received: network.packets_received(),
-                    packets_transmitted: network.packets_transmitted(),
-                    errors_on_received: network.errors_on_received(),
-                    errors_on_transmitted: network.errors_on_transmitted(),
-                    receive_rate: network.received() as f64,
-                    transmit_rate: network.transmitted() as f64,
-                };
-                drop(system);
-                return Ok(Some(stats));
-            }
-        }
-        drop(system);
-        Ok(None)
+        // Create a copy of the requested interface stats
+        let result = stats.get(interface_name).cloned();
+
+        Ok(result)
     }
 
     /// Starts the network monitor
-    /// 
-    /// # Errors
-    /// Returns error if unable to access system information
     pub async fn start(&self) -> Result<()> {
-        self.system.write().map_err(|e| {
-            NetworkError::System(format!("Failed to acquire system lock: {e}"))
-        })?.refresh_networks_list();
+        // Initial update
+        self.update_stats()?;
+
+        // TODO: Implement periodic updates
         Ok(())
     }
 
     /// Updates network statistics
-    /// 
-    /// # Errors
-    /// Returns error if unable to access system information
     pub fn update_stats(&self) -> Result<()> {
-        let mut system = match self.system.write() {
-            Ok(guard) => guard,
-            Err(e) => {
-                return Err(NetworkError::System(format!(
-                    "Failed to acquire system lock: {e}"
-                )).into());
-            }
-        };
-
-        system.refresh_networks();
-
-        for (interface_name, network_data) in system.networks() {
-            self.stats.write().map_err(|e| {
-                NetworkError::System(format!("Failed to acquire stats lock: {e}"))
-            })?.insert(interface_name.to_string(), NetworkStats {
-                interface: interface_name.to_string(),
-                received_bytes: network_data.received(),
-                transmitted_bytes: network_data.transmitted(),
-                receive_rate: network_data.received() as f64 / self.config.interval as f64,
-                transmit_rate: network_data.transmitted() as f64 / self.config.interval as f64,
-                packets_received: network_data.packets_received(),
-                packets_transmitted: network_data.packets_transmitted(),
-                errors_on_received: network_data.errors_on_received(),
-                errors_on_transmitted: network_data.errors_on_transmitted(),
-            });
-        }
-        drop(system);
-
+        // Refresh network data
+        self.system.write().map_err(|e| {
+            NetworkError::System(format!("Failed to acquire system lock: {e}"))
+        })?.refresh_networks();
         Ok(())
     }
 
@@ -336,7 +265,7 @@ impl Default for NetworkStats {
 }
 
 impl NetworkStats {
-    /// Creates a new network stats instance
+    /// Creates a new network stats instance with default values
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -354,21 +283,21 @@ impl NetworkStats {
 }
 
 /// Factory for creating network monitors
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct NetworkMonitorFactory {
     /// Configuration for creating monitors
     config: NetworkConfig,
 }
 
 impl NetworkMonitorFactory {
-    /// Creates a new factory with default configuration
+    /// Creates a new network monitor factory
     #[must_use] pub fn new() -> Self {
         Self {
             config: NetworkConfig::default(),
         }
     }
 
-    /// Creates a new factory with the specified configuration
+    /// Creates a new network monitor factory with config
     #[must_use] pub const fn with_config(config: NetworkConfig) -> Self {
         Self { config }
     }

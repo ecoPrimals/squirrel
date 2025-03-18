@@ -1,71 +1,302 @@
-//! Error types for the Squirrel project
-//!
-//! This module defines the main error types and results used throughout the project.
+//! Error types for the Squirrel core library.
 
-use thiserror::Error;
+use std::error::Error;
+use std::fmt;
+use log::error;
+use serde::Serialize;
 
-/// Main error type for the Squirrel project
-#[derive(Debug, Error)]
-pub enum SquirrelError {
-    /// Errors originating from the app module
-    #[error("App error: {0}")]
-    App(String),
+/// Result type alias for SquirrelError
+pub type Result<T> = std::result::Result<T, SquirrelError>;
 
-    /// Errors originating from the MCP module
-    #[error("MCP error: {0}")]
-    MCP(String),
-    
-    /// Errors originating from the monitoring module
-    #[error("Monitoring error: {0}")]
-    Monitoring(String),
-    
-    /// Errors related to security operations
-    #[error("Security error: {0}")]
-    Security(String),
-    
-    /// Other miscellaneous errors that don't fit into specific categories
-    #[error("Other error: {0}")]
-    Other(String),
-
-    /// Error from a lock operation
-    #[error("Lock error: {0}")]
-    Lock(String),
-    
-    /// Error from a command operation
-    #[error("Command error: {0}")]
-    Command(Box<dyn std::error::Error + Send + Sync>),
+/// Persistence errors
+#[derive(Debug)]
+pub enum PersistenceError {
+    /// IO error
+    IO(String),
+    /// Configuration error
+    Config(String),
+    /// Storage error
+    Storage(String),
+    /// Format error
+    Format(String),
 }
 
-impl SquirrelError {
-    /// Determines if the error is recoverable
-    pub fn is_recoverable(&self) -> bool {
+impl fmt::Display for PersistenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SquirrelError::App(_) => false,
-            SquirrelError::MCP(_) => false,
-            SquirrelError::Monitoring(_) => true,
-            SquirrelError::Security(_) => false,
-            SquirrelError::Other(_) => false,
-            SquirrelError::Lock(_) => true,
-            SquirrelError::Command(_) => false,
+            Self::IO(msg) => write!(f, "Persistence IO error: {msg}"),
+            Self::Config(msg) => write!(f, "Persistence configuration error: {msg}"),
+            Self::Storage(msg) => write!(f, "Persistence storage error: {msg}"),
+            Self::Format(msg) => write!(f, "Persistence format error: {msg}"),
         }
     }
 }
 
-// Implement From for &str for SquirrelError
-impl From<&str> for SquirrelError {
-    fn from(s: &str) -> Self {
-        SquirrelError::Other(s.to_string())
+impl Error for PersistenceError {}
+
+/// Create an IO persistence error
+#[must_use]
+pub fn io_error(msg: &str) -> PersistenceError {
+    PersistenceError::IO(msg.to_string())
+}
+
+/// Create a configuration persistence error
+#[must_use]
+pub fn config_error(msg: &str) -> PersistenceError {
+    PersistenceError::Config(msg.to_string())
+}
+
+/// Create a storage persistence error
+#[must_use]
+pub fn storage_error(msg: &str) -> PersistenceError {
+    PersistenceError::Storage(msg.to_string())
+}
+
+/// Create a format persistence error
+#[must_use]
+pub fn format_error(msg: &str) -> PersistenceError {
+    PersistenceError::Format(msg.to_string())
+}
+
+/// Main error type for the Squirrel core library.
+#[derive(Debug)]
+pub enum SquirrelError {
+    /// App initialization errors
+    AppInitialization(AppInitializationError),
+    /// App operation errors
+    AppOperation(AppOperationError),
+    /// Generic error with message
+    Generic(String),
+    /// IO errors
+    IO(std::io::Error),
+    /// Security-related errors
+    Security(String),
+    /// MCP module errors
+    MCP(String),
+    /// Other errors
+    Other(String),
+    /// Health monitoring errors
+    Health(String),
+    /// Metric collection errors
+    Metric(String),
+    /// Dashboard errors
+    Dashboard(String),
+    /// Serialization errors
+    Serialization(String),
+    /// Network monitoring errors
+    Network(String),
+    /// Alert errors
+    Alert(String),
+}
+
+impl Error for SquirrelError {}
+
+impl fmt::Display for SquirrelError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SquirrelError::AppInitialization(e) => write!(f, "App initialization error: {}", e),
+            SquirrelError::AppOperation(e) => write!(f, "App operation error: {}", e),
+            SquirrelError::Generic(msg) => write!(f, "Error: {}", msg),
+            SquirrelError::IO(e) => write!(f, "IO error: {}", e),
+            SquirrelError::Security(msg) => write!(f, "Security error: {}", msg),
+            SquirrelError::MCP(msg) => write!(f, "MCP error: {}", msg),
+            SquirrelError::Other(msg) => write!(f, "Other error: {}", msg),
+            SquirrelError::Health(msg) => write!(f, "Health error: {}", msg),
+            SquirrelError::Metric(msg) => write!(f, "Metric error: {}", msg),
+            SquirrelError::Dashboard(msg) => write!(f, "Dashboard error: {}", msg),
+            SquirrelError::Serialization(msg) => write!(f, "Serialization error: {}", msg),
+            SquirrelError::Network(msg) => write!(f, "Network error: {}", msg),
+            SquirrelError::Alert(msg) => write!(f, "Alert error: {}", msg),
+        }
     }
 }
 
-// Implement From for String for SquirrelError
+impl From<std::io::Error> for SquirrelError {
+    fn from(err: std::io::Error) -> Self {
+        SquirrelError::IO(err)
+    }
+}
+
+impl From<AppInitializationError> for SquirrelError {
+    fn from(err: AppInitializationError) -> Self {
+        SquirrelError::AppInitialization(err)
+    }
+}
+
+impl From<AppOperationError> for SquirrelError {
+    fn from(err: AppOperationError) -> Self {
+        SquirrelError::AppOperation(err)
+    }
+}
+
 impl From<String> for SquirrelError {
-    fn from(s: String) -> Self {
-        SquirrelError::Other(s)
+    fn from(err: String) -> Self {
+        SquirrelError::Generic(err)
     }
 }
 
-// MCP-specific errors are now defined in crate::mcp::error
+impl From<&str> for SquirrelError {
+    fn from(err: &str) -> Self {
+        SquirrelError::Generic(err.to_string())
+    }
+}
 
-/// A Result type alias for operations that may return a `SquirrelError`
-pub type Result<T> = std::result::Result<T, SquirrelError>; 
+impl From<serde_json::Error> for SquirrelError {
+    fn from(err: serde_json::Error) -> Self {
+        SquirrelError::Serialization(err.to_string())
+    }
+}
+
+/// Errors that can occur during application initialization.
+#[derive(Debug)]
+pub enum AppInitializationError {
+    /// The application has already been initialized
+    AlreadyInitialized,
+    /// Invalid configuration
+    InvalidConfiguration(String),
+    /// Failed to load resources
+    ResourceLoadFailure(String),
+}
+
+impl Error for AppInitializationError {}
+
+impl fmt::Display for AppInitializationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppInitializationError::AlreadyInitialized => {
+                write!(f, "Application already initialized")
+            }
+            AppInitializationError::InvalidConfiguration(msg) => {
+                write!(f, "Invalid configuration: {}", msg)
+            }
+            AppInitializationError::ResourceLoadFailure(msg) => {
+                write!(f, "Failed to load resources: {}", msg)
+            }
+        }
+    }
+}
+
+/// Errors that can occur during application operations.
+#[derive(Debug)]
+pub enum AppOperationError {
+    /// The application has not been initialized
+    NotInitialized,
+    /// Operation is not supported
+    UnsupportedOperation(String),
+    /// Failed to complete operation
+    OperationFailure(String),
+}
+
+impl Error for AppOperationError {}
+
+impl fmt::Display for AppOperationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppOperationError::NotInitialized => {
+                write!(f, "Application not initialized")
+            }
+            AppOperationError::UnsupportedOperation(msg) => {
+                write!(f, "Unsupported operation: {}", msg)
+            }
+            AppOperationError::OperationFailure(msg) => {
+                write!(f, "Operation failed: {}", msg)
+            }
+        }
+    }
+}
+
+impl SquirrelError {
+    /// Create a new security error
+    pub fn security(msg: impl Into<String>) -> Self {
+        Self::Security(msg.into())
+    }
+
+    /// Create a new MCP error
+    pub fn mcp(msg: impl Into<String>) -> Self {
+        Self::MCP(msg.into())
+    }
+
+    /// Create a new generic error
+    pub fn generic(msg: impl Into<String>) -> Self {
+        Self::Generic(msg.into())
+    }
+
+    /// Create a new other error
+    pub fn other(msg: impl Into<String>) -> Self {
+        Self::Other(msg.into())
+    }
+
+    /// Create a new health error
+    pub fn health(msg: impl Into<String>) -> Self {
+        Self::Health(msg.into())
+    }
+
+    /// Create a new metric error
+    pub fn metric(msg: impl Into<String>) -> Self {
+        Self::Metric(msg.into())
+    }
+
+    /// Create a new dashboard error
+    pub fn dashboard(msg: impl Into<String>) -> Self {
+        Self::Dashboard(msg.into())
+    }
+
+    /// Create a new serialization error
+    pub fn serialization(msg: impl Into<String>) -> Self {
+        Self::Serialization(msg.into())
+    }
+
+    /// Create a new network error
+    pub fn network(msg: impl Into<String>) -> Self {
+        Self::Network(msg.into())
+    }
+
+    /// Create a new alert error
+    pub fn alert(msg: impl Into<String>) -> Self {
+        Self::Alert(msg.into())
+    }
+
+    /// Check if the error is recoverable
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            SquirrelError::IO(_) => false,
+            SquirrelError::Generic(_) => false,
+            SquirrelError::AppInitialization(_) => false,
+            SquirrelError::AppOperation(e) => {
+                !matches!(e, AppOperationError::NotInitialized)
+            },
+            _ => true,
+        }
+    }
+}
+
+impl From<crate::monitoring::network::NetworkError> for SquirrelError {
+    fn from(err: crate::monitoring::network::NetworkError) -> Self {
+        SquirrelError::Network(err.to_string())
+    }
+}
+
+#[derive(Debug)]
+pub enum AlertError {
+    Configuration(String),
+    Notification(String),
+    Internal(String),
+}
+
+impl fmt::Display for AlertError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AlertError::Configuration(msg) => write!(f, "Alert configuration error: {}", msg),
+            AlertError::Notification(msg) => write!(f, "Alert notification error: {}", msg),
+            AlertError::Internal(msg) => write!(f, "Alert internal error: {}", msg),
+        }
+    }
+}
+
+impl Error for AlertError {}
+
+impl From<AlertError> for SquirrelError {
+    fn from(err: AlertError) -> Self {
+        SquirrelError::Alert(err.to_string())
+    }
+} 

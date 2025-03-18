@@ -7,7 +7,7 @@ description.workspace = true
 
 [dependencies]
 # Core dependencies
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["full"], optional = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
 thiserror.workspace = true
@@ -22,6 +22,12 @@ ring = { workspace = true }
 clap = { version = "4.5", features = ["derive"] }
 regex = "1.10"
 sysinfo = "0.30"
+time = { workspace = true }
+prometheus = { workspace = true }
+handlebars = { workspace = true }
+sha2 = "0.10"
+opentelemetry = "0.20"
+opentelemetry_sdk = "0.20"
 
 # Monitoring and logging
 tracing = { workspace = true }
@@ -48,6 +54,7 @@ snapbox = { workspace = true }
 
 [features]
 default = ["async"]
+di-tests = []
 async = ["dep:tokio"]
 
 [lib]

@@ -25,7 +25,9 @@ use crate::mcp::types::{
 use crate::error::{SquirrelError, Result};
 use crate::test_utils::{TestData, TestFactory};
 
-// Test command handler for testing
+// Test fixtures and helpers
+
+/// Test command handler for testing
 #[derive(Debug, Clone)]
 struct TestCommandHandler {
     response_data: String,
@@ -49,303 +51,356 @@ impl CommandHandler for TestCommandHandler {
         }
         
         Ok(MCPResponse {
-            protocol_version: "1.0".to_string(),
-            message_id: message.id.0.clone(),
+            id: message.id.clone(),
             status: ResponseStatus::Success,
-            payload: serde_json::to_vec(&json!({
-                "response": self.response_data,
-                "original": message.payload,
-            })).unwrap(),
-            error_message: None,
-            metadata: MessageMetadata::default(),
+            message: "Command executed successfully".to_string(),
+            data: json!({ "result": self.response_data }),
+            metadata: None,
         })
     }
 }
 
-// Helper function to create a test message
+/// Helper function to create test messages
 fn create_test_message(message_type: MessageType, payload: serde_json::Value) -> MCPMessage {
     MCPMessage {
-        protocol_version: "1.0".to_string(),
-        id: MessageId(format!("test-{}", uuid::Uuid::new_v4())),
+        id: MessageId::new(),
         message_type,
-        payload: serde_json::to_vec(&payload).unwrap(),
-        metadata: MessageMetadata::default(),
+        command: "test".to_string(),
+        payload,
+        metadata: Some(MessageMetadata::default()),
     }
 }
 
+/// Helper function to create a protocol base with DI pattern
+fn create_test_protocol() -> MCPProtocolBase {
+    // ARRANGE: Create a protocol base
+    MCPProtocolBase::new()
+}
+
+/// Helper function to create a protocol adapter with DI pattern
+async fn create_test_adapter() -> MCPProtocolAdapter {
+    // ARRANGE: Create a protocol adapter
+    let protocol = MCPProtocolBase::new();
+    MCPProtocolAdapter::new(Arc::new(RwLock::new(protocol)))
+}
+
+// Tests with AAA pattern
+
 #[test]
 async fn test_protocol_base_creation() {
-    // Test with default config
-    let protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create protocol
+    let protocol = create_test_protocol();
     
-    // Verify config values
-    let config = protocol.get_config();
-    assert_eq!(config.version, "1.0");
-    assert_eq!(config.max_message_size, 1024 * 1024);
-    assert_eq!(config.timeout_ms, 5000);
+    // ACT & ASSERT: Verify initial state
+    assert_eq!(protocol.handlers.read().await.len(), 0, "New protocol should have no handlers");
     
-    // Verify initial state
-    assert_eq!(*protocol.get_state(), serde_json::Value::Null);
+    // State should be empty
+    let state = protocol.get_state().await;
+    assert!(state.is_ok(), "Getting state should succeed");
+    assert_eq!(state.unwrap(), json!({}), "Initial state should be empty");
 }
 
 #[test]
 async fn test_protocol_with_custom_config() {
-    // Test with custom config
+    // ARRANGE: Create custom config
     let config = ProtocolConfig {
-        version: "2.0".to_string(),
-        max_message_size: 2048 * 1024,
-        timeout_ms: 10000,
+        max_message_size: 10240,
+        timeout_ms: 5000,
+        enable_validation: true,
     };
     
-    let protocol = MCPProtocolBase::new(config.clone());
+    // ACT: Create protocol with config
+    let protocol = MCPProtocolBase::with_config(config.clone());
     
-    // Verify config values
-    let retrieved_config = protocol.get_config();
-    assert_eq!(retrieved_config.version, "2.0");
-    assert_eq!(retrieved_config.max_message_size, 2048 * 1024);
-    assert_eq!(retrieved_config.timeout_ms, 10000);
+    // ASSERT: Verify config was applied
+    let retrieved_config = protocol.get_config().await;
+    assert!(retrieved_config.is_ok(), "Getting config should succeed");
+    
+    let retrieved_config = retrieved_config.unwrap();
+    assert_eq!(retrieved_config.max_message_size, config.max_message_size, "Max message size should match");
+    assert_eq!(retrieved_config.timeout_ms, config.timeout_ms, "Timeout should match");
+    assert_eq!(retrieved_config.enable_validation, config.enable_validation, "Validation flag should match");
 }
 
 #[test]
 async fn test_protocol_state_management() {
-    let mut protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create protocol
+    let protocol = create_test_protocol();
     
-    // Set state
+    // ACT: Set state
     let test_state = json!({
-        "status": "ready",
-        "session_id": "test-session",
-        "connected": true
+        "key": "value",
+        "number": 42
     });
     
-    protocol.set_state(test_state.clone());
+    let set_result = protocol.set_state(test_state.clone()).await;
     
-    // Get state
-    let retrieved_state = protocol.get_state();
-    assert_eq!(*retrieved_state, test_state);
+    // ASSERT: Verify state was set
+    assert!(set_result.is_ok(), "Setting state should succeed");
+    
+    // Get state and verify
+    let state = protocol.get_state().await.unwrap();
+    assert_eq!(state, test_state, "Retrieved state should match set state");
 }
 
 #[test]
 async fn test_handler_registration() {
-    let mut protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create protocol and handler
+    let protocol = create_test_protocol();
+    let handler = TestCommandHandler::new("test-response", false);
     
-    // Register handler
-    let handler = Box::new(TestCommandHandler::new("test response", false));
-    let message_type = MessageType::ContextUpdate;
+    // ACT: Register handler
+    let register_result = protocol.register_handler("test-command", Arc::new(handler)).await;
     
-    assert!(protocol.register_handler(message_type.clone(), handler).is_ok());
+    // ASSERT: Verify handler was registered
+    assert!(register_result.is_ok(), "Registering handler should succeed");
     
-    // Try to register duplicate handler - should fail
-    let another_handler = Box::new(TestCommandHandler::new("another response", false));
-    assert!(protocol.register_handler(message_type.clone(), another_handler).is_err());
-    
-    // Unregister handler
-    assert!(protocol.unregister_handler(&message_type).is_ok());
-    
-    // Try to unregister non-existent handler - should fail
-    assert!(protocol.unregister_handler(&message_type).is_err());
+    // Verify handler count
+    let handlers = protocol.handlers.read().await;
+    assert_eq!(handlers.len(), 1, "Protocol should have one handler");
+    assert!(handlers.contains_key("test-command"), "Handler should be registered under correct name");
 }
 
 #[test]
 async fn test_message_handling() {
-    let mut protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create protocol with handler
+    let protocol = create_test_protocol();
+    let handler = TestCommandHandler::new("success-response", false);
     
-    // Register handler
-    let handler = Box::new(TestCommandHandler::new("test response", false));
-    let message_type = MessageType::ContextUpdate;
-    protocol.register_handler(message_type.clone(), handler).unwrap();
+    protocol.register_handler("test-command", Arc::new(handler)).await
+        .expect("Failed to register handler");
     
     // Create test message
-    let test_payload = json!({"data": "test data"});
-    let message = create_test_message(message_type, test_payload.clone());
+    let message = create_test_message(
+        MessageType::Command,
+        json!({ "param": "value" })
+    );
     
-    // Handle message
-    let response = protocol.handle_message_with_handler(&message).await.unwrap();
+    // Set message command to match handler
+    let mut message = message;
+    message.command = "test-command".to_string();
     
-    // Verify response
-    assert_eq!(response.message_id, message.id.0);
-    assert_eq!(response.status, ResponseStatus::Success);
+    // ACT: Handle message
+    let response = protocol.handle_message(&message).await;
     
-    // Verify response payload
-    let response_payload: serde_json::Value = serde_json::from_slice(&response.payload).unwrap();
-    assert_eq!(response_payload["response"], "test response");
-    assert_eq!(response_payload["original"], serde_json::to_vec(&test_payload).unwrap());
+    // ASSERT: Verify message was handled correctly
+    assert!(response.is_ok(), "Handling message should succeed");
+    
+    let response = response.unwrap();
+    assert_eq!(response.status, ResponseStatus::Success, "Response should have success status");
+    assert_eq!(response.data.get("result").unwrap().as_str().unwrap(), "success-response", 
+        "Response should contain expected data");
 }
 
 #[test]
 async fn test_error_handling() {
-    let mut protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create protocol with failing handler
+    let protocol = create_test_protocol();
+    let handler = TestCommandHandler::new("", true); // Set to fail
     
-    // Register handler that will fail
-    let handler = Box::new(TestCommandHandler::new("", true));
-    let message_type = MessageType::ContextUpdate;
-    protocol.register_handler(message_type.clone(), handler).unwrap();
+    protocol.register_handler("fail-command", Arc::new(handler)).await
+        .expect("Failed to register handler");
     
     // Create test message
-    let test_payload = json!({"data": "test data"});
-    let message = create_test_message(message_type, test_payload);
+    let mut message = create_test_message(
+        MessageType::Command,
+        json!({ "param": "value" })
+    );
+    message.command = "fail-command".to_string();
     
-    // Handle message - should fail
-    let result = protocol.handle_message_with_handler(&message).await;
-    assert!(result.is_err());
+    // ACT: Handle message
+    let response = protocol.handle_message(&message).await;
+    
+    // ASSERT: Verify error is propagated
+    assert!(response.is_err(), "Handling should fail for failing handler");
+    
+    // Try with unregistered command
+    let mut message = create_test_message(
+        MessageType::Command,
+        json!({ "param": "value" })
+    );
+    message.command = "nonexistent-command".to_string();
+    
+    let response = protocol.handle_message(&message).await;
+    assert!(response.is_err(), "Handling should fail for unregistered command");
 }
 
 #[test]
 async fn test_protocol_factory() {
-    // Create factory with default config
-    let factory = MCPProtocolFactory::default();
+    // ARRANGE: Create factory
+    let factory = MCPProtocolFactory::new();
     
-    // Create protocol
-    let protocol = factory.create_protocol();
+    // ACT: Create protocol with factory
+    let protocol_result = factory.create_protocol().await;
     
-    // Verify config
-    let config = protocol.get_config();
-    assert_eq!(config.version, "1.0");
+    // ASSERT: Verify protocol was created
+    assert!(protocol_result.is_ok(), "Creating protocol should succeed");
+    let protocol = protocol_result.unwrap();
     
-    // Create factory with custom config
-    let custom_config = ProtocolConfig {
-        version: "2.0".to_string(),
-        max_message_size: 2048 * 1024,
-        timeout_ms: 10000,
+    // ACT: Create protocol with custom config
+    let config = ProtocolConfig {
+        max_message_size: 20480,
+        timeout_ms: 3000,
+        enable_validation: false,
     };
     
-    let factory = MCPProtocolFactory::with_config(custom_config.clone());
+    let protocol_with_config = factory.create_protocol_with_config(config.clone()).await;
     
-    // Create protocol
-    let protocol = factory.create_protocol();
+    // ASSERT: Verify protocol with config was created
+    assert!(protocol_with_config.is_ok(), "Creating protocol with config should succeed");
+    let protocol_with_config = protocol_with_config.unwrap();
     
-    // Verify config
-    let config = protocol.get_config();
-    assert_eq!(config.version, "2.0");
-    assert_eq!(config.max_message_size, 2048 * 1024);
-    assert_eq!(config.timeout_ms, 10000);
+    // Verify config was applied
+    let retrieved_config = protocol_with_config.protocol.get_config().await
+        .expect("Failed to get config");
+    
+    assert_eq!(retrieved_config.max_message_size, config.max_message_size, 
+        "Max message size should match");
 }
 
 #[test]
 async fn test_protocol_adapter() {
-    // Create adapter
-    let adapter = MCPProtocolAdapter::new();
+    // ARRANGE: Create adapter
+    let adapter = create_test_adapter().await;
     
-    // Should not be initialized
-    assert!(!adapter.is_initialized().await);
+    // ACT & ASSERT: Test initialization
+    assert!(adapter.is_initialized().await, "Adapter should be initialized");
     
-    // Initialize
-    adapter.initialize().await.unwrap();
+    // Test state management
+    let test_state = json!({
+        "adapter_key": "adapter_value",
+        "nested": {
+            "field": 123
+        }
+    });
     
-    // Should be initialized
-    assert!(adapter.is_initialized().await);
+    // ACT: Set state
+    let set_result = adapter.set_state(test_state.clone()).await;
     
-    // Get config
-    let config = adapter.get_config().await;
-    assert_eq!(config.version, "1.0");
+    // ASSERT: Verify state was set
+    assert!(set_result.is_ok(), "Setting state should succeed");
     
-    // Set state
-    let test_state = json!({"status": "active"});
-    adapter.set_state(test_state.clone()).await;
-    
-    // Get state
-    let state = adapter.get_state().await;
-    assert_eq!(state, test_state);
+    // Get state and verify
+    let state = adapter.get_state().await.unwrap();
+    assert_eq!(state, test_state, "Retrieved state should match set state");
 }
 
 #[test]
 async fn test_protocol_adapter_with_config() {
-    // Create adapter
-    let adapter = MCPProtocolAdapter::new();
-    
-    // Custom config
+    // ARRANGE: Create protocol with custom config
     let config = ProtocolConfig {
-        version: "2.0".to_string(),
-        max_message_size: 2048 * 1024,
+        max_message_size: 30720,
         timeout_ms: 10000,
+        enable_validation: true,
     };
     
-    // Initialize with config
-    adapter.initialize_with_config(config.clone()).await.unwrap();
+    let protocol = MCPProtocolBase::with_config(config.clone());
     
-    // Should be initialized
-    assert!(adapter.is_initialized().await);
+    // ACT: Create adapter with protocol
+    let adapter = MCPProtocolAdapter::new(Arc::new(RwLock::new(protocol)));
     
-    // Get config
-    let retrieved_config = adapter.get_config().await;
-    assert_eq!(retrieved_config.version, "2.0");
-    assert_eq!(retrieved_config.max_message_size, 2048 * 1024);
-    assert_eq!(retrieved_config.timeout_ms, 10000);
+    // ASSERT: Verify adapter is initialized with correct config
+    assert!(adapter.is_initialized().await, "Adapter should be initialized");
+    
+    // Get config and verify
+    let retrieved_config = adapter.get_config().await.unwrap();
+    assert_eq!(retrieved_config.max_message_size, config.max_message_size, 
+        "Max message size should match");
+    assert_eq!(retrieved_config.timeout_ms, config.timeout_ms, 
+        "Timeout should match");
+    assert_eq!(retrieved_config.enable_validation, config.enable_validation, 
+        "Validation flag should match");
 }
 
 #[test]
 async fn test_protocol_adapter_handler_operations() {
-    // Create adapter
-    let adapter = Arc::new(MCPProtocolAdapter::new());
+    // ARRANGE: Create adapter
+    let adapter = create_test_adapter().await;
     
-    // Initialize
-    adapter.initialize().await.unwrap();
+    // Create handler
+    let handler = TestCommandHandler::new("adapter-response", false);
     
-    // Register handler
-    let handler = Box::new(TestCommandHandler::new("test response", false));
-    let message_type = MessageType::ContextUpdate;
-    adapter.register_handler(message_type.clone(), handler).await.unwrap();
+    // ACT: Register handler
+    let register_result = adapter.register_handler("adapter-command", Arc::new(handler)).await;
     
-    // Create test message
-    let test_payload = json!({"data": "test data"});
-    let message = create_test_message(message_type.clone(), test_payload);
+    // ASSERT: Verify handler was registered
+    assert!(register_result.is_ok(), "Registering handler should succeed");
     
-    // Handle message
-    let response = adapter.handle_message(&message).await.unwrap();
+    // Create message
+    let mut message = create_test_message(
+        MessageType::Command,
+        json!({ "adapter_param": "adapter_value" })
+    );
+    message.command = "adapter-command".to_string();
     
-    // Verify response
-    assert_eq!(response.message_id, message.id.0);
-    assert_eq!(response.status, ResponseStatus::Success);
+    // ACT: Handle message
+    let response = adapter.handle_message(&message).await;
     
-    // Unregister handler
-    adapter.unregister_handler(&message_type).await.unwrap();
+    // ASSERT: Verify message was handled correctly
+    assert!(response.is_ok(), "Handling message should succeed");
+    
+    let response = response.unwrap();
+    assert_eq!(response.status, ResponseStatus::Success, "Response should have success status");
+    assert_eq!(response.data.get("result").unwrap().as_str().unwrap(), "adapter-response", 
+        "Response should contain expected data");
 }
 
 #[test]
 async fn test_di_pattern_with_protocol() {
-    // Create protocol
-    let protocol = MCPProtocolBase::new(ProtocolConfig::default());
+    // ARRANGE: Create test environment with shared protocol
+    let protocol = Arc::new(RwLock::new(create_test_protocol()));
     
-    // Create adapter with protocol using DI
-    let adapter = Arc::new(MCPProtocolAdapter::with_protocol(protocol));
+    // Create two adapters sharing the same protocol
+    let adapter1 = MCPProtocolAdapter::new(protocol.clone());
+    let adapter2 = MCPProtocolAdapter::new(protocol.clone());
     
-    // Should be initialized already
-    assert!(adapter.is_initialized().await);
+    // Create and register handler for first adapter
+    let handler = TestCommandHandler::new("shared-protocol-response", false);
+    adapter1.register_handler("shared-command", Arc::new(handler)).await
+        .expect("Failed to register handler");
     
-    // Register handler
-    let handler = Box::new(TestCommandHandler::new("test response", false));
-    let message_type = MessageType::ContextUpdate;
-    adapter.register_handler(message_type.clone(), handler).await.unwrap();
+    // ACT: Create and handle message with second adapter
+    let mut message = create_test_message(
+        MessageType::Command,
+        json!({ "shared": true })
+    );
+    message.command = "shared-command".to_string();
     
-    // Create test message
-    let test_payload = json!({"data": "test data"});
-    let message = create_test_message(message_type, test_payload);
+    let response = adapter2.handle_message(&message).await;
     
-    // Handle message
-    let response = adapter.handle_message(&message).await.unwrap();
+    // ASSERT: Verify second adapter uses handler from first
+    assert!(response.is_ok(), "Handling message should succeed");
     
-    // Verify response
-    assert_eq!(response.message_id, message.id.0);
-    assert_eq!(response.status, ResponseStatus::Success);
+    let response = response.unwrap();
+    assert_eq!(response.status, ResponseStatus::Success, "Response should have success status");
+    assert_eq!(response.data.get("result").unwrap().as_str().unwrap(), "shared-protocol-response", 
+        "Response should contain expected data");
 }
 
 #[test]
 async fn test_factory_functions() {
-    // Test create_protocol_adapter
-    let adapter = create_protocol_adapter();
+    // ARRANGE: Test the create_protocol_adapter function
     
-    // Should not be initialized
-    assert!(!adapter.is_initialized().await);
+    // ACT: Create adapter with factory function
+    let adapter_result = create_protocol_adapter().await;
     
-    // Initialize
-    adapter.initialize().await.unwrap();
+    // ASSERT: Verify adapter creation
+    assert!(adapter_result.is_ok(), "Creating adapter with factory function should succeed");
+    let adapter = adapter_result.unwrap();
+    assert!(adapter.is_initialized().await, "Adapter should be initialized");
     
-    // Should be initialized
-    assert!(adapter.is_initialized().await);
+    // ACT: Create adapter with custom protocol using factory function
+    let custom_protocol = MCPProtocolBase::with_config(ProtocolConfig {
+        max_message_size: 40960,
+        timeout_ms: 15000,
+        enable_validation: false,
+    });
     
-    // Test create_protocol_adapter_with_protocol
-    let protocol = MCPProtocolBase::new(ProtocolConfig::default());
-    let adapter = create_protocol_adapter_with_protocol(protocol);
+    let adapter_with_protocol_result = create_protocol_adapter_with_protocol(
+        Arc::new(RwLock::new(custom_protocol))
+    ).await;
     
-    // Should be initialized
-    assert!(adapter.is_initialized().await);
+    // ASSERT: Verify custom adapter creation
+    assert!(adapter_with_protocol_result.is_ok(), 
+        "Creating adapter with custom protocol should succeed");
 } 

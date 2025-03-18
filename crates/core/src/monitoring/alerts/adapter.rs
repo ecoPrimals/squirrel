@@ -179,7 +179,7 @@ impl NotificationManagerAdapter {
 /// Returns an error if the notification manager cannot be created
 pub fn create_notification_manager_adapter(
     config: NotificationConfig
-) -> Result<Arc<NotificationManagerAdapter>, NotificationError> {
+) -> Result<Arc<NotificationManagerAdapter>> {
     let manager = NotificationManager::new(config)?;
     Ok(Arc::new(NotificationManagerAdapter::with_manager(Arc::new(manager))))
 }
