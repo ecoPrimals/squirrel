@@ -1,0 +1,17 @@
+{
+  "id": "ebb675f8-2031-4e27-82fa-04447cf85e5b",
+  "context_id": "afaab36d-64fe-42bf-81e0-e62735d94469",
+  "operation": "Create",
+  "data": {
+    "created_at": "2025-03-19T23:41:37.588050Z",
+    "data": {},
+    "expires_at": null,
+    "id": "afaab36d-64fe-42bf-81e0-e62735d94469",
+    "metadata": null,
+    "name": "parent",
+    "parent_id": null,
+    "updated_at": "2025-03-19T23:41:37.588050100Z"
+  },
+  "timestamp": "2025-03-19T23:41:37.588081500Z",
+  "version": 95
+}

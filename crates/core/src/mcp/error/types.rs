@@ -81,11 +81,9 @@ impl From<MCPError> for CoreError {
             MCPError::Protocol(e) => CoreError::MCP(format!("Protocol error: {e}")),
             MCPError::Io(e) => CoreError::MCP(format!("IO error: {e}")),
             MCPError::SerdeJson(e) => CoreError::MCP(format!("Serialization error: {e}")),
-            MCPError::InvalidMessage(e) => CoreError::MCP(e),
+            MCPError::InvalidMessage(e) | MCPError::Event(e) | MCPError::State(e) => CoreError::MCP(e),
             MCPError::Security(e) => CoreError::MCP(format!("Security error: {e}")),
-            MCPError::Event(e) => CoreError::MCP(e),
             MCPError::Connection(e) => CoreError::MCP(format!("Connection error: {e}")),
-            MCPError::State(e) => CoreError::MCP(e),
             MCPError::NotInitialized(e) => CoreError::MCP(format!("Not initialized: {e}")),
             MCPError::AlreadyInitialized(e) => CoreError::MCP(format!("Already initialized: {e}")),
             MCPError::StorageError(e) => CoreError::MCP(format!("Storage error: {e}")),
@@ -231,11 +229,21 @@ impl ErrorContext {
         self
     }
 
+    /// Sets the error code for this context
+    /// 
+    /// # Returns
+    /// Returns self for method chaining
+    #[must_use]
     pub fn with_error_code(mut self, code: impl Into<String>) -> Self {
         self.error_code = code.into();
         self
     }
 
+    /// Sets the source location for this context
+    /// 
+    /// # Returns
+    /// Returns self for method chaining
+    #[must_use]
     pub fn with_source_location(mut self, location: impl Into<String>) -> Self {
         self.source_location = Some(location.into());
         self
@@ -249,40 +257,53 @@ impl ErrorContext {
 impl MCPError {
     #[must_use] pub fn is_recoverable(&self) -> bool {
         match self {
-            MCPError::Protocol(ProtocolError::InvalidVersion(_)) => false,
-            MCPError::Protocol(ProtocolError::ConfigurationError(_)) => false,
-            MCPError::Security(SecurityError::AuthenticationFailed(_)) => true,
-            MCPError::Security(SecurityError::TokenExpired) => true,
-            MCPError::Connection(ConnectionError::Timeout(_)) => true,
-            MCPError::Connection(ConnectionError::Reset) => true,
-            MCPError::NotInitialized(_) => true,
-            MCPError::AlreadyInitialized(_) => false,
-            MCPError::StorageError(_) => true,
-            MCPError::SyncError(_) => true,
-            MCPError::VersionMismatch { .. } => false,
-            MCPError::SecurityLevelTooLow { .. } => false,
-            MCPError::ValidationError(_) => false,
-            MCPError::HandlerError(_) => true,
+            // Recoverable errors
+            MCPError::Security(SecurityError::AuthenticationFailed(_) | 
+                           SecurityError::TokenExpired) |
+            MCPError::Connection(ConnectionError::Timeout(_) | 
+                              ConnectionError::Reset) |
+            MCPError::NotInitialized(_) | 
+            MCPError::StorageError(_) |
+            MCPError::SyncError(_) | 
+            MCPError::HandlerError(_) | 
             MCPError::Timeout { .. } => true,
+            
+            // Default case - all other errors are non-recoverable
             _ => false,
         }
     }
 
     #[must_use] pub fn severity(&self) -> ErrorSeverity {
         match self {
-            MCPError::Protocol(_) => ErrorSeverity::High,
-            MCPError::Security(_) => ErrorSeverity::Critical,
-            MCPError::Connection(ConnectionError::Timeout(_)) => ErrorSeverity::Medium,
-            MCPError::Connection(_) => ErrorSeverity::High,
-            MCPError::NotInitialized(_) => ErrorSeverity::Medium,
-            MCPError::AlreadyInitialized(_) => ErrorSeverity::Low,
-            MCPError::StorageError(_) => ErrorSeverity::High,
-            MCPError::SyncError(_) => ErrorSeverity::Medium,
-            MCPError::VersionMismatch { .. } => ErrorSeverity::Critical,
+            // Critical severity errors
+            MCPError::Security(_) | 
+            MCPError::VersionMismatch { .. } | 
             MCPError::SecurityLevelTooLow { .. } => ErrorSeverity::Critical,
-            MCPError::ValidationError(_) => ErrorSeverity::Medium,
-            MCPError::HandlerError(_) => ErrorSeverity::Medium,
+            
+            // High severity errors - general connection errors except timeout
+            MCPError::Connection(
+                ConnectionError::ConnectionFailed(_) |
+                ConnectionError::Closed(_) |
+                ConnectionError::Reset |
+                ConnectionError::Refused |
+                ConnectionError::Unreachable |
+                ConnectionError::TooManyConnections |
+                ConnectionError::LimitReached(_)
+            ) => ErrorSeverity::High,
+            
+            // High severity errors - other types
+            MCPError::Protocol(_) | 
+            MCPError::StorageError(_) => ErrorSeverity::High,
+            
+            // Medium severity errors
+            MCPError::Connection(ConnectionError::Timeout(_)) |
+            MCPError::NotInitialized(_) |
+            MCPError::SyncError(_) |
+            MCPError::ValidationError(_) |
+            MCPError::HandlerError(_) |
             MCPError::Timeout { .. } => ErrorSeverity::Medium,
+            
+            // All other errors are low severity
             _ => ErrorSeverity::Low,
         }
     }

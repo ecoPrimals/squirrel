@@ -12,6 +12,7 @@ use uuid::Uuid;
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::StateChange;
+use crate::mcp::error::types::MCPError;
 use async_trait::async_trait;
 use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
 use serde_json;
@@ -147,28 +148,31 @@ impl MCPPersistence {
         Ok(())
     }
 
-    /// Loads the persistent state from storage
-    ///
+    /// Loads the state from persistent storage
+    /// 
     /// # Returns
-    ///
-    /// A Result containing the loaded state (if available) or an error
+    /// Returns the loaded state if found, or None if no state exists
+    /// 
+    /// # Errors
+    /// Returns an error if there is an issue reading from the file system
+    /// or if the state file is corrupted
     pub async fn load_state(&self) -> Result<Option<PersistentState>> {
         // Try to find any state file in the data directory
         let entries = match fs::read_dir(&self.config.data_dir) {
             Ok(entries) => entries,
             Err(_) => return Ok(None),
         };
-        
+
+        // Find the first state file
         for entry in entries {
             let entry = entry?;
-            let path = entry.path();
+            let file_name = entry.file_name();
+            let file_name = file_name.to_string_lossy();
             
-            // Look for files matching the pattern "state_*.json"
-            if path.file_name()
-                .and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("state_") && name.ends_with(".json"))
-            {
-                let state_json = fs::read_to_string(&path)?;
-                let state = serde_json::from_str(&state_json)?;
+            // Check if this is a state file
+            if file_name.starts_with("state_") && file_name.ends_with(".json") {
+                let data = fs::read_to_string(entry.path())?;
+                let state: PersistentState = serde_json::from_str(&data)?;
                 return Ok(Some(state));
             }
         }
@@ -176,15 +180,14 @@ impl MCPPersistence {
         Ok(None)
     }
 
-    /// Saves a state change to storage
-    ///
-    /// # Parameters
-    ///
+    /// Saves a state change to persistent storage
+    /// 
+    /// # Arguments
     /// * `change` - The state change to save
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating success or an error
+    /// 
+    /// # Errors
+    /// Returns an error if there is an issue writing to the file system
+    /// or if serialization fails
     pub async fn save_change(&self, change: StateChange) -> Result<()> {
         // Ensure the changes directory exists
         let changes_dir = self.config.data_dir.join("changes");
@@ -192,56 +195,84 @@ impl MCPPersistence {
             fs::create_dir_all(&changes_dir)?;
         }
         
+        // Save the change to a file
         let change_path = self.get_change_path(change.id);
         let change_json = serde_json::to_string_pretty(&change)?;
+        fs::write(change_path, change_json)?;
         
-        fs::write(&change_path, &change_json)?;
+        // Check if we need to compact changes directly
+        let mut size = 0;
+        let entries = fs::read_dir(&self.config.data_dir)?;
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if let Ok(metadata) = entry.metadata() {
+                    size += metadata.len() as usize;
+                }
+            }
+        }
+        
+        // Use Box::pin to handle the recursive async call
+        if size > self.config.auto_compact_threshold {
+            let fut = Box::pin(self.compact_changes());
+            fut.await?;
+        }
         
         Ok(())
     }
 
-    /// Loads all state changes from storage
-    ///
+    /// Loads all state changes from persistent storage
+    /// 
     /// # Returns
-    ///
-    /// A Result containing a vector of state changes or an error
+    /// Returns a vector of all persisted state changes
+    /// 
+    /// # Errors
+    /// Returns an error if there is an issue reading from the file system
+    /// or if any change files are corrupted
     pub async fn load_changes(&self) -> Result<Vec<StateChange>> {
         let mut changes = Vec::new();
-        
+
         let dir_path = self.config.data_dir.join("changes");
         if !dir_path.exists() {
             return Ok(changes);
         }
         
-        let entries = fs::read_dir(&dir_path)?;
-        for entry in entries {
+        for entry in fs::read_dir(dir_path)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "json") {
-                let change_json = fs::read_to_string(&path)?;
-                let change: StateChange = serde_json::from_str(&change_json)?;
-                changes.push(change);
+            
+            if let Some(ext) = path.extension() {
+                if ext == "json" {
+                    let change_json = fs::read_to_string(&path)?;
+                    let change = serde_json::from_str(&change_json)?;
+                    changes.push(change);
+                }
             }
         }
         
         Ok(changes)
     }
 
+    /// Checks if the storage needs to be compacted and performs compaction if necessary
+    /// 
+    /// # Errors
+    /// Returns an error if there is an issue accessing or modifying the file system
     async fn compact_if_needed(&self) -> Result<()> {
         let mut size = 0;
         let entries = fs::read_dir(&self.config.data_dir)?;
-
         for entry in entries {
-            let entry = entry?;
-            if entry.path().extension().is_some_and(|ext| ext == "change") {
-                size += entry.metadata()?.len() as usize;
+            if let Ok(entry) = entry {
+                if let Ok(metadata) = entry.metadata() {
+                    size += metadata.len() as usize;
+                }
             }
         }
-
+        
+        // Instead of calling compact_changes() which could lead to recursion,
+        // we just return a flag to the caller to indicate if compaction is needed
         if size > self.config.auto_compact_threshold {
-            self.compact_changes().await?;
+            return Err(MCPError::StorageError("Storage size exceeded, compaction needed".to_string()).into());
         }
-
+        
         Ok(())
     }
 
@@ -265,25 +296,38 @@ impl MCPPersistence {
         Ok(())
     }
 
+    /// Gets the path to a state file
+    ///
+    /// # Arguments
+    /// * `id` - The state ID
+    ///
+    /// # Returns
+    /// The full path to the state file
     fn get_state_path(&self, id: &str) -> PathBuf {
         self.config.data_dir.join(format!("state_{id}.json"))
     }
 
-    fn get_change_path<'a>(&self, id: impl Into<Uuid>) -> PathBuf {
+    /// Gets the path to a change file
+    ///
+    /// # Arguments
+    /// * `id` - The change ID
+    ///
+    /// # Returns
+    /// The full path to the change file
+    fn get_change_path(&self, id: impl Into<Uuid>) -> PathBuf {
         let uuid: Uuid = id.into();
         self.config.data_dir.join("changes").join(format!("{uuid}.json"))
     }
 
-    /// Saves data with the specified key
-    ///
-    /// # Parameters
-    ///
-    /// * `_key` - The key to use for storing the data
-    /// * `_data` - The data to store
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating success or an error
+    /// Saves data to persistent storage
+    /// 
+    /// # Arguments
+    /// * `key` - The key under which to store the data
+    /// * `data` - The data to store
+    /// 
+    /// # Errors
+    /// This function currently returns no errors, but in a real implementation
+    /// it could return storage-related errors
     pub async fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
         // Stub implementation
         Ok(())

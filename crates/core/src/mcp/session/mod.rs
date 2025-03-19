@@ -182,6 +182,19 @@ impl SessionManager {
     }
 
     /// Create a session for a user
+    ///
+    /// # Arguments
+    /// * `credentials` - User credentials for authentication
+    ///
+    /// # Returns
+    /// A new Session object if successful
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Authentication fails with invalid credentials
+    /// - The user account is locked or disabled
+    /// - The session could not be created due to internal errors
+    /// - The session could not be persisted to storage
     pub async fn create_session(
         &self,
         credentials: &Credentials,
@@ -214,6 +227,19 @@ impl SessionManager {
     }
 
     /// Get a session by token
+    ///
+    /// # Arguments
+    /// * `token` - The session token to look up
+    ///
+    /// # Returns
+    /// The Session object if found and not expired
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The session token is invalid or cannot be found
+    /// - The session has expired and is no longer valid
+    /// - The persistence layer encounters an error while loading the session
+    /// - The session data is corrupted or in an invalid format
     pub async fn get_session(&self, token: &SessionToken) -> Result<Session> {
         // Check in-memory sessions first
         let mut sessions = self.sessions.write().await;
@@ -247,7 +273,15 @@ impl SessionManager {
         Err(SessionError::Validation("Invalid session token".to_string()).into())
     }
 
-    /// Delete a session
+    /// Delete a session by token
+    ///
+    /// # Arguments
+    /// * `token` - The session token to delete
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The persistence layer encounters an error while deleting the session
+    /// - The session data cannot be removed from storage
     pub async fn delete_session(&self, token: &SessionToken) -> Result<()> {
         self.sessions.write().await.remove(token);
         
@@ -261,6 +295,14 @@ impl SessionManager {
     }
 
     /// Delete all sessions for a user
+    ///
+    /// # Arguments
+    /// * `user_id` - The user ID whose sessions should be deleted
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The persistence layer encounters an error while deleting the sessions
+    /// - One or more sessions cannot be removed from storage
     pub async fn delete_user_sessions(&self, user_id: &UserId) -> Result<()> {
         let mut sessions = self.sessions.write().await;
         let tokens_to_delete: Vec<SessionToken> = sessions
@@ -284,7 +326,20 @@ impl SessionManager {
         Ok(())
     }
 
-    /// Refresh a session
+    /// Refresh a session, updating its expiration time
+    ///
+    /// # Arguments
+    /// * `token` - The session token to refresh
+    ///
+    /// # Returns
+    /// The refreshed Session object
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The original session token is invalid or not found
+    /// - The original session has expired
+    /// - The session data cannot be persisted to storage
+    /// - The original session cannot be deleted
     pub async fn refresh_session(&self, token: &SessionToken) -> Result<Session> {
         let session = self.get_session(token).await?;
         
@@ -297,9 +352,9 @@ impl SessionManager {
         
         // Copy over relevant data
         let mut new_session = new_session;
-        new_session.account_id = session.account_id.clone();
-        new_session.auth_token = session.auth_token.clone();
-        new_session.metadata = session.metadata.clone();
+        new_session.account_id.clone_from(&session.account_id);
+        new_session.auth_token.clone_from(&session.auth_token);
+        new_session.metadata.clone_from(&session.metadata);
         
         // Save the new session
         self.sessions.write().await.insert(new_session.token.clone(), new_session.clone());
@@ -317,7 +372,15 @@ impl SessionManager {
         Ok(new_session)
     }
 
-    /// Cleanup expired sessions
+    /// Clean up expired sessions
+    ///
+    /// # Returns
+    /// The number of expired sessions removed
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The persistence layer encounters errors while removing expired sessions
+    /// - Session data cannot be properly accessed or modified
     pub async fn cleanup_expired_sessions(&self) -> Result<usize> {
         let mut count = 0;
         let mut sessions = self.sessions.write().await;
