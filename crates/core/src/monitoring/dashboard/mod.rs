@@ -426,7 +426,7 @@ impl Manager {
         let data_store = self.data_store.read().await;
         data_store.get(component_id)
             .cloned()
-            .ok_or_else(|| SquirrelError::dashboard(format!("Component data not found: {}", component_id)))
+            .ok_or_else(|| SquirrelError::dashboard(format!("Component data not found: {component_id}")))
     }
 
     /// Gets widget data for a specific component

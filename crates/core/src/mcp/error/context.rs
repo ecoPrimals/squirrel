@@ -29,14 +29,22 @@ pub enum ErrorHandlerError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalErrorContext {
-    id: Uuid,
-    timestamp: DateTime<Utc>,
-    error_type: String,
-    message: String,
-    component: String,
-    severity: ErrorSeverity,
-    metadata: Option<serde_json::Value>,
-    recovery_attempts: u32,
+    /// Unique identifier for the error context
+    pub id: Uuid,
+    /// Timestamp when the error occurred
+    pub timestamp: DateTime<Utc>,
+    /// Type of error that occurred
+    pub error_type: String,
+    /// Detailed error message
+    pub message: String,
+    /// Component or module where the error occurred
+    pub component: String,
+    /// Severity level of the error
+    pub severity: ErrorSeverity,
+    /// Additional metadata about the error in JSON format
+    pub metadata: Option<serde_json::Value>,
+    /// Number of recovery attempts that have been made
+    pub recovery_attempts: u32,
 }
 
 impl LocalErrorContext {
@@ -125,9 +133,13 @@ pub struct ErrorRecord {
     pub details: Option<String>,
 }
 
+/// Tracks and manages error history
 #[derive(Debug)]
 pub struct ErrorHandler {
+    /// Maximum number of error records to keep in history
+    /// This prevents unbounded memory usage for error tracking
     max_history_size: usize,
+    /// History of error records stored in a thread-safe, lockable queue
     error_history: Arc<RwLock<VecDeque<ErrorRecord>>>,
 }
 
@@ -240,29 +252,56 @@ impl ErrorHandler {
         Ok(())
     }
 
-    #[instrument(skip(self))]
-    pub fn apply_recovery_strategy(
-        &self,
-        _context: &mut LocalErrorContext,
-        _strategy: &RecoveryStrategy,
-    ) -> bool {
-        // This method is marked as unused but kept for future implementation
-        true
-    }
-
-    #[allow(dead_code)]
+    /// Attempts to recover a connection
+    /// 
+    /// # Arguments
+    /// 
+    /// * `_context` - The error context containing information about the error
+    /// 
+    /// # Returns
+    /// 
+    /// Result indicating if recovery was successful
     async fn recover_connection(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /// Attempts to recover state after an error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `_context` - The error context containing information about the error
+    /// 
+    /// # Returns
+    /// 
+    /// Result indicating if recovery was successful
     async fn recover_state(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /// Attempts to recover protocol functionality after an error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `_context` - The error context containing information about the error
+    /// 
+    /// # Returns
+    /// 
+    /// Result indicating if recovery was successful
     async fn recover_protocol(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
         Ok(())
+    }
+
+    pub fn apply_recovery_strategy(
+        &self,
+        // These parameters are intentionally unused in this implementation
+        // but may be used by derived implementations
+        #[allow(unused_variables)]
+        context: &mut LocalErrorContext,
+        #[allow(unused_variables)]
+        strategy: &RecoveryStrategy,
+    ) -> bool {
+        // Default implementation returns true
+        true
     }
 }
 

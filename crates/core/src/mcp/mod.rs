@@ -153,13 +153,13 @@ impl MCP {
     /// Initialize the MCP system
     ///
     /// # Errors
-    /// Returns an error if the MCP system is already initialized or if the RwLock is poisoned
+    /// Returns an error if the MCP system is already initialized or if the `RwLock` is poisoned
     ///
     /// # Panics
     /// This function no longer panics and properly handles all error cases
     pub fn initialize(&self) -> Result<()> {
         let state = self.state.write()
-            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {e}")))?;
             
         if state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::AlreadyInitialized("MCP already initialized".into()));
@@ -176,10 +176,10 @@ impl MCP {
     /// `true` if the MCP system is initialized, `false` otherwise
     /// 
     /// # Errors
-    /// This function now returns a Result to handle RwLock poisoning errors properly
+    /// This function now returns a Result to handle `RwLock` poisoning errors properly
     pub fn is_initialized(&self) -> Result<bool> {
         self.state.read()
-            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {e}")))
             .map(|state| state.initialized.load(Ordering::SeqCst))
     }
     
@@ -189,10 +189,10 @@ impl MCP {
     /// The current MCP configuration
     ///
     /// # Errors
-    /// Returns an error if the MCP system is not initialized or if the RwLock is poisoned
+    /// Returns an error if the MCP system is not initialized or if the `RwLock` is poisoned
     pub fn get_config(&self) -> Result<MCPConfig> {
         let state = self.state.read()
-            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {e}")))?;
             
         if !state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::NotInitialized("MCP not initialized".into()));
@@ -210,10 +210,10 @@ impl MCP {
     /// A `Result` containing the response message
     ///
     /// # Errors
-    /// Returns an error if the MCP system is not initialized or if the RwLock is poisoned
+    /// Returns an error if the MCP system is not initialized or if the `RwLock` is poisoned
     pub fn send_message(&self, message: &str) -> Result<String> {
         let state = self.state.read()
-            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {e}")))?;
             
         if !state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::NotInitialized("MCP not initialized".into()));

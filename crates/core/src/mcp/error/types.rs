@@ -308,8 +308,14 @@ impl MCPError {
 
 #[derive(Debug)]
 pub struct ErrorHandler {
+    /// Maximum number of retry attempts
+    /// This defines how many times the handler will retry an operation before giving up
     max_retries: u32,
+    /// Delay between retry attempts
+    /// Specifies how long to wait between retry attempts
     retry_delay: std::time::Duration,
+    /// Context information for errors
+    /// Contains metadata and context about the errors being handled
     error_context: ErrorContext,
 }
 
@@ -327,6 +333,17 @@ impl ErrorHandler {
         }
     }
 
+    /// Handles operation errors with automatic retries
+    /// 
+    /// # Arguments
+    /// * `operation` - A closure that returns a `CoreResult<T>`
+    /// 
+    /// # Returns
+    /// * `CoreResult<T>` - The result of the operation or the last error encountered
+    /// 
+    /// # Errors
+    /// Returns an error if the operation failed after all retry attempts or
+    /// if the error is not recoverable
     pub async fn handle_error<F, T>(&mut self, operation: F) -> CoreResult<T>
     where
         F: Fn() -> CoreResult<T> + Send + Sync,

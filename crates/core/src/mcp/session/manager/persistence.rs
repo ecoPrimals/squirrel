@@ -7,6 +7,7 @@ use serde::{Serialize, Deserialize};
 use tracing::{error, info, instrument};
 use thiserror::Error;
 use sha2::Digest;
+use hex;
 
 // TODO: Uncomment when state module is implemented
 // use super::state::{State, StateError};
@@ -69,7 +70,9 @@ pub struct PersistentMetadata {
 
 /// Handles the persistence of state objects
 pub struct StatePersistence {
+    /// Path to the storage directory
     storage_path: PathBuf,
+    /// Cache of loaded states
     states: HashMap<String, PersistentState>,
 }
 
@@ -108,7 +111,7 @@ impl StatePersistence {
             version: 1, // Use a hardcoded version since State doesn't have a version field
             created_at: state.created_at,
             updated_at: Utc::now(),
-            checksum: self.calculate_checksum(&state)?,
+            checksum: Self::calculate_checksum(&state)?,
         };
 
         let persistent_state = PersistentState {
@@ -155,7 +158,7 @@ impl StatePersistence {
         let persistent_state: PersistentState = serde_json::from_str(&state_json)?;
 
         // Validate checksum
-        let calculated_checksum = self.calculate_checksum(&persistent_state.state)?;
+        let calculated_checksum = Self::calculate_checksum(&persistent_state.state)?;
         if calculated_checksum != persistent_state.metadata.checksum {
             return Err(PersistenceError::InvalidData(
                 format!("Checksum mismatch for state: {state_id}")
@@ -206,8 +209,8 @@ impl StatePersistence {
         let mut entries = fs::read_dir(&self.storage_path).await?;
         while let Some(entry) = entries.next_entry().await? {
             if let Some(file_name) = entry.file_name().to_str() {
-                if file_name.ends_with(".json") {
-                    states.push(file_name[..file_name.len() - 5].to_string());
+                if let Some(stripped) = file_name.strip_suffix(".json") {
+                    states.push(stripped.to_string());
                 }
             }
         }
@@ -231,16 +234,18 @@ impl StatePersistence {
     /// Calculates a checksum for a state
     ///
     /// # Parameters
-    ///
     /// * `state` - The state to calculate a checksum for
     ///
     /// # Returns
+    /// A hex-encoded checksum string
     ///
-    /// A Result containing the checksum as a string or an error
-    fn calculate_checksum(&self, state: &State) -> Result<String, PersistenceError> {
-        let state_json = serde_json::to_string(state)?;
+    /// # Errors
+    /// Returns an error if serialization fails
+    fn calculate_checksum(state: &State) -> Result<String, PersistenceError> {
+        let json = serde_json::to_string(state)?;
         let mut hasher = sha2::Sha256::new();
-        hasher.update(state_json.as_bytes());
-        Ok(format!("{:x}", hasher.finalize()))
+        hasher.update(json.as_bytes());
+        let result = hasher.finalize();
+        Ok(hex::encode(result))
     }
 } 
