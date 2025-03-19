@@ -64,6 +64,43 @@ impl HealthCheckerAdapter {
     pub fn is_initialized(&self) -> bool {
         self.inner.is_some()
     }
+
+    /// Register a component for health monitoring
+    ///
+    /// Adds a new component to the health monitoring system.
+    /// If a component with the same name already exists, it will be replaced.
+    ///
+    /// # Arguments
+    /// * `component` - The component health information to register
+    ///
+    /// # Errors
+    /// This function will not produce errors, but returns a Result type for consistency
+    /// with the async interface.
+    pub async fn register_component(&self, component: ComponentHealth) -> Result<()> {
+        if let Some(checker) = &self.inner {
+            checker.register_component(component).await
+        } else {
+            // Cannot register component if checker is not initialized
+            Ok(())
+        }
+    }
+
+    /// Get all registered components
+    ///
+    /// Retrieves all components currently registered with the health checker
+    ///
+    /// # Returns
+    /// A vector of component health information
+    ///
+    /// # Errors
+    /// This function will not produce errors, but returns a Result type for consistency
+    pub async fn get_components(&self) -> Result<Vec<ComponentHealth>> {
+        if let Some(checker) = &self.inner {
+            checker.get_components().await
+        } else {
+            Ok(Vec::new())
+        }
+    }
 }
 
 #[async_trait]

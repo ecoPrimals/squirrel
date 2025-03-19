@@ -153,15 +153,28 @@ impl MCPPersistence {
     ///
     /// A Result containing the loaded state (if available) or an error
     pub async fn load_state(&self) -> Result<Option<PersistentState>> {
-        let state_path = self.config.data_dir.join("state.json");
-
-        if !state_path.exists() {
-            return Ok(None);
+        // Try to find any state file in the data directory
+        let entries = match fs::read_dir(&self.config.data_dir) {
+            Ok(entries) => entries,
+            Err(_) => return Ok(None),
+        };
+        
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            
+            // Look for files matching the pattern "state_*.json"
+            if path.file_name()
+                .and_then(|name| name.to_str())
+                .map_or(false, |name| name.starts_with("state_") && name.ends_with(".json"))
+            {
+                let state_json = fs::read_to_string(&path)?;
+                let state = serde_json::from_str(&state_json)?;
+                return Ok(Some(state));
+            }
         }
-
-        let state_json = fs::read_to_string(&state_path)?;
-        let state = serde_json::from_str(&state_json)?;
-        Ok(Some(state))
+        
+        Ok(None)
     }
 
     /// Saves a state change to storage
@@ -174,6 +187,12 @@ impl MCPPersistence {
     ///
     /// A Result indicating success or an error
     pub async fn save_change(&self, change: StateChange) -> Result<()> {
+        // Ensure the changes directory exists
+        let changes_dir = self.config.data_dir.join("changes");
+        if !changes_dir.exists() {
+            fs::create_dir_all(&changes_dir)?;
+        }
+        
         let change_path = self.get_change_path(change.id);
         let change_json = serde_json::to_string_pretty(&change)?;
         
@@ -253,7 +272,7 @@ impl MCPPersistence {
 
     fn get_change_path<'a>(&self, id: impl Into<Uuid>) -> PathBuf {
         let uuid: Uuid = id.into();
-        self.config.data_dir.join(format!("{}.change", uuid))
+        self.config.data_dir.join("changes").join(format!("{}.json", uuid))
     }
 
     /// Saves data with the specified key
@@ -419,8 +438,9 @@ mod tests_persistence_impl {
         assert!(persistence.init().await.is_ok());
 
         // Create test change
+        let change_id = Uuid::new_v4();
         let change = StateChange {
-            id: Uuid::new_v4(),
+            id: change_id,
             context_id: Uuid::new_v4(),
             operation: crate::mcp::sync::StateOperation::Create,
             data: serde_json::json!({}),
@@ -434,7 +454,7 @@ mod tests_persistence_impl {
         // Load changes
         let changes = persistence.load_changes().await.unwrap();
         assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].id, change.id);
+        assert_eq!(changes[0].id, change_id);
     }
 }
 

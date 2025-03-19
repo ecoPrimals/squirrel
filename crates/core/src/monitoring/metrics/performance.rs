@@ -52,13 +52,16 @@ pub enum OperationType {
 impl fmt::Display for OperationType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DatabaseRead => write!(f, "Database Read"),
-            Self::DatabaseWrite => write!(f, "Database Write"),
-            Self::NetworkRequest => write!(f, "Network Request"),
-            Self::FileSystem => write!(f, "File System"),
-            Self::Cache => write!(f, "Cache"),
-            Self::Custom(name) => write!(f, "Custom: {name}"),
-            Self::Unknown => write!(f, "Unknown"),
+            Self::DatabaseRead => write!(f, "database_read"),
+            Self::DatabaseWrite => write!(f, "database_write"),
+            Self::NetworkRequest => write!(f, "network_request"),
+            Self::FileSystem => write!(f, "file_system"),
+            Self::Cache => write!(f, "cache"),
+            Self::Custom(name) => {
+                let formatted_name = name.replace(' ', "_").to_lowercase();
+                write!(f, "custom_{formatted_name}")
+            },
+            Self::Unknown => write!(f, "unknown"),
         }
     }
 }

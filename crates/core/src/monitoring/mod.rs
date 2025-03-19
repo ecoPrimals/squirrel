@@ -514,6 +514,53 @@ impl MonitoringService {
         
         Ok(())
     }
+
+    /// Record a metric with the given name and value
+    ///
+    /// Convenience method to record a metric directly through the service
+    ///
+    /// # Arguments
+    /// * `name` - The name of the metric
+    /// * `value` - The value to record
+    ///
+    /// # Errors
+    /// Returns an error if recording the metric fails
+    pub async fn record_metric(&self, name: &str, value: f64) -> Result<()> {
+        let metric = metrics::Metric::new(
+            name.to_string(),
+            value,
+            metrics::MetricType::Gauge, // Default to gauge type
+            std::collections::HashMap::new(),
+        );
+        self.metric_collector.record_metric(metric).await
+    }
+
+    /// Add an alert to the alert manager
+    ///
+    /// Convenience method to add an alert directly through the service
+    ///
+    /// # Arguments
+    /// * `alert` - The alert to add
+    ///
+    /// # Errors
+    /// Returns an error if adding the alert fails
+    pub async fn add_alert(&self, alert: Alert) -> Result<()> {
+        self.alert_manager.add_alert(alert).await
+    }
+
+    /// Send an alert through the alert manager
+    ///
+    /// Convenience method to send an alert directly through the service
+    /// This is an alias for add_alert for backward compatibility
+    ///
+    /// # Arguments
+    /// * `alert` - The alert to send
+    ///
+    /// # Errors
+    /// Returns an error if sending the alert fails
+    pub async fn send_alert(&self, alert: Alert) -> Result<()> {
+        self.add_alert(alert).await
+    }
 }
 
 impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'static> MonitoringServiceFactory<N> {

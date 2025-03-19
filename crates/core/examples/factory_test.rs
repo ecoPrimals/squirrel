@@ -47,6 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             interval: 15, // 15 seconds interval
             ..Default::default()
         },
+        intervals: Default::default(),
     };
     
     // Create factory with custom configuration

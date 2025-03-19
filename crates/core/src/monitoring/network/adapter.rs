@@ -28,6 +28,34 @@ impl NetworkMonitorAdapter {
         }
     }
 
+    /// Checks if the adapter is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    /// Initializes the adapter with default configuration
+    pub fn initialize(&mut self) -> Result<()> {
+        if self.is_initialized() {
+            return Err(format!("Network monitor adapter already initialized").into());
+        }
+        
+        let config = NetworkConfig::default();
+        let monitor = NetworkMonitor::new(config);
+        self.inner = Some(Arc::new(monitor));
+        Ok(())
+    }
+
+    /// Initializes the adapter with custom configuration
+    pub fn initialize_with_config(&mut self, config: NetworkConfig) -> Result<()> {
+        if self.is_initialized() {
+            return Err(format!("Network monitor adapter already initialized").into());
+        }
+        
+        let monitor = NetworkMonitor::new(config);
+        self.inner = Some(Arc::new(monitor));
+        Ok(())
+    }
+
     /// Gets current network statistics for all interfaces
     ///
     /// # Errors

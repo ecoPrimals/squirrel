@@ -16,11 +16,12 @@ use crate::error::Result;
 use std::collections::HashSet;
 use chrono::{Utc};
 use uuid::Uuid;
+use std::collections::HashMap;
+use std::time::Duration;
 
 // Fix the imports
 use crate::context::manager::ContextManager;
 use crate::context::ContextTracker;
-use crate::app::context::ContextConfig;
 use crate::context_adapter::{ContextAdapterConfig};
 use crate::mcp::protocol::{ProtocolConfig};
 use crate::mcp::security::{SecurityManager, Credentials, SecurityConfig, Session, Permission, Role};
@@ -28,6 +29,7 @@ use crate::mcp::types::SecurityLevel;
 use crate::mcp::types::EncryptionFormat;
 use crate::mcp::error::Result as MCPResult;
 use crate::mcp::context_manager::Context;
+use crate::mcp::security::Action;
 
 // Integration tests module
 pub mod integration_tests;
@@ -220,6 +222,7 @@ impl SecurityManager for MockSecurityManager {
             security_level: SecurityLevel::Standard,
             created_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
+            active_roles: Vec::new(),
         })
     }
     
@@ -366,15 +369,6 @@ impl TestDataGenerator {
         })
     }
     
-    /// Create a simple context configuration
-    pub fn create_test_context_config() -> ContextConfig {
-        ContextConfig {
-            persistence_enabled: true,
-            auto_save: true,
-            history_size: 10,
-        }
-    }
-    
     /// Create a test adapter configuration
     pub fn create_test_adapter_config() -> ContextAdapterConfig {
         ContextAdapterConfig {
@@ -387,8 +381,10 @@ impl TestDataGenerator {
 
 /// Security test utilities
 pub mod security {
+    use std::collections::HashSet;
     use crate::mcp::security::{RBACManager, Permission, Action, SecurityConfig, Credentials};
     use crate::mcp::types::{SecurityLevel, EncryptionFormat};
+    use crate::mcp::security::rbac::Role;
     
     /// Creates a test RBAC manager with predefined roles and permissions
     pub fn create_test_rbac_manager() -> RBACManager {
@@ -416,22 +412,47 @@ pub mod security {
             action: Action::Admin,
         };
         
+        // Create HashSets for permissions 
+        let mut read_perms = HashSet::new();
+        read_perms.insert(read_perm.clone());
+        
+        let mut write_perms = HashSet::new();
+        write_perms.insert(write_perm.clone());
+        
+        let mut admin_perms = HashSet::new();
+        admin_perms.insert(admin_perm.clone());
+        
+        let empty_parents = HashSet::new();
+        
         // Create roles
-        rbac.create_role("reader", "Reader", vec![read_perm.clone()]);
+        rbac.create_role(
+            "reader".to_string(), 
+            Some("Reader".to_string()), 
+            read_perms.clone(),
+            empty_parents.clone()
+        ).expect("Failed to create reader role");
         
-        let editor_id = rbac.create_role_with_parent(
-            "editor", 
-            "Editor", 
-            vec![write_perm.clone()], 
-            vec![String::from("reader")]
-        );
+        // Create editor role with reader as parent
+        let mut editor_parents = HashSet::new();
+        editor_parents.insert("reader".to_string());
         
-        rbac.create_role_with_parent(
-            "admin", 
-            "Admin", 
-            vec![admin_perm.clone()], 
-            vec![editor_id]
-        );
+        rbac.create_role(
+            "editor".to_string(),
+            Some("Editor".to_string()),
+            write_perms.clone(),
+            editor_parents
+        ).expect("Failed to create editor role");
+        
+        // Create admin role with editor as parent
+        let mut admin_parents = HashSet::new();
+        admin_parents.insert("editor".to_string());
+        
+        rbac.create_role(
+            "admin".to_string(),
+            Some("Admin".to_string()),
+            admin_perms.clone(),
+            admin_parents
+        ).expect("Failed to create admin role");
         
         rbac
     }
@@ -460,6 +481,7 @@ pub mod security {
     /// Creates a basic RBAC setup with reader, editor, and admin roles
     pub fn setup_basic_rbac() -> RBACManager {
         let mut rbac = RBACManager::new();
+        
         let read_perm = Permission {
             id: "perm-read".to_string(),
             name: "Read".to_string(),
@@ -498,32 +520,32 @@ pub mod security {
         // Create roles
         let reader_role = rbac.create_role(
             "reader".to_string(), 
-            Some("Reader".to_string()), 
+            Some("Reader".to_string()),
             read_perms,
             empty_parents.clone()
-        ).unwrap();
+        ).expect("Failed to create reader role");
         
-        // Create a HashSet for reader parent
-        let mut reader_parent = HashSet::new();
-        reader_parent.insert(reader_role.id.clone());
+        // Collect reader as parent for editor
+        let mut editor_parents = HashSet::new();
+        editor_parents.insert(reader_role.id.clone());
         
         let editor_role = rbac.create_role(
-            "editor".to_string(), 
-            Some("Editor".to_string()), 
+            "editor".to_string(),
+            Some("Editor".to_string()),
             editor_perms,
-            reader_parent
-        ).unwrap();
+            editor_parents
+        ).expect("Failed to create editor role");
         
-        // Create a HashSet for editor parent
-        let mut editor_parent = HashSet::new();
-        editor_parent.insert(editor_role.id.clone());
+        // Collect editor as parent for admin
+        let mut admin_parents = HashSet::new();
+        admin_parents.insert(editor_role.id.clone());
         
         rbac.create_role(
-            "admin".to_string(), 
-            Some("Admin".to_string()), 
+            "admin".to_string(),
+            Some("Admin".to_string()),
             admin_perms,
-            editor_parent
-        ).unwrap();
+            admin_parents
+        ).expect("Failed to create admin role");
         
         rbac
     }
@@ -646,7 +668,7 @@ pub fn create_context_with_tracking() -> (Context, ContextTracker) {
     (context, context_tracker)
 }
 
-/// Creates a test configuration for the context adapter
+/// Creates a test context adapter config
 pub fn create_test_context_adapter_config() -> ContextAdapterConfig {
     ContextAdapterConfig {
         max_contexts: 100,
@@ -723,4 +745,16 @@ pub fn create_test_context() -> Context {
         updated_at: Utc::now(),
         expires_at: None,
     }
+}
+
+pub fn create_test_session(client_id: &str, security_level: SecurityLevel) -> Result<Session> {
+    Ok(Session {
+        id: Uuid::new_v4().to_string(),
+        token: Uuid::new_v4().to_string(),
+        client_id: client_id.to_string(),
+        security_level,
+        created_at: Utc::now(),
+        expires_at: Utc::now() + chrono::Duration::seconds(3600),
+        active_roles: Vec::new(),
+    })
 } 

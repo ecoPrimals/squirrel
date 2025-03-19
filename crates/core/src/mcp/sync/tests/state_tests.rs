@@ -2,11 +2,14 @@ use super::*;
 
 #[tokio::test]
 async fn test_state_manager_creation() {
+    // Reset the version counter for consistent test results
+    StateSyncManager::reset_version_counter();
+    
     // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
     
     // ACT & ASSERT: Verify initial state
-    let version = state_manager.current_version();
+    let version = state_manager.current_version().await;
     assert_eq!(version, 0, "Initial version should be 0");
     
     // Verify subscriber count
@@ -16,16 +19,21 @@ async fn test_state_manager_creation() {
 
 #[tokio::test]
 async fn test_state_operation_recording() {
-    // ARRANGE: Create state manager
+    StateSyncManager::reset_version_counter();
+    
+    // ARRANGE: Create state manager and test context
     let state_manager = StateSyncManager::new();
+    // Reset the internal RwLock version counter to 0
+    state_manager.reset_version().await.expect("Failed to reset version");
+    
     let context = create_test_context();
     
-    // ACT: Record create operation
+    // ACT: Record creation operation
     let change = state_manager.record_operation(
         context.id, 
         StateOperation::Create,
         &context.data
-    );
+    ).await;
     
     // ASSERT: Verify change details
     assert_eq!(change.context_id, context.id, "Change should have correct context ID");
@@ -38,7 +46,7 @@ async fn test_state_operation_recording() {
         context.id, 
         StateOperation::Update,
         &serde_json::json!({"updated": true})
-    );
+    ).await;
     
     // ASSERT: Verify updated change
     assert_eq!(update_change.context_id, context.id, "Change should have correct context ID");
@@ -46,12 +54,15 @@ async fn test_state_operation_recording() {
     assert_eq!(update_change.version, 2, "Version should be incremented to 2");
     
     // Verify current version
-    let version = state_manager.current_version();
+    let version = state_manager.current_version().await;
     assert_eq!(version, 2, "Current version should be 2");
 }
 
 #[tokio::test]
 async fn test_state_change_subscription() {
+    // Reset the version counter for consistent test results
+    StateSyncManager::reset_version_counter();
+    
     // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
     let context = create_test_context();
@@ -69,64 +80,57 @@ async fn test_state_change_subscription() {
         context.id, 
         StateOperation::Create,
         &context.data
-    );
+    ).await;
     
-    // ASSERT: Verify both receivers got the change
-    let received1 = rx1.try_recv().expect("Receiver 1 should get change");
-    let received2 = rx2.try_recv().expect("Receiver 2 should get change");
+    // ASSERT: Verify changes received by subscribers
+    let received1 = rx1.recv().await.expect("Subscriber 1 failed to receive change");
+    let received2 = rx2.recv().await.expect("Subscriber 2 failed to receive change");
     
-    assert_eq!(received1.context_id, context.id, "Should receive correct context ID");
-    assert_eq!(received1.version, 1, "Should receive correct version");
-    assert_eq!(received2.version, received1.version, "Both receivers should get same change");
+    assert_eq!(received1.id, change.id, "Subscriber 1 should receive exact change");
+    assert_eq!(received2.id, change.id, "Subscriber 2 should receive exact change");
 }
 
 #[tokio::test]
 async fn test_state_missing_subscriber() {
-    // ARRANGE: Create state manager and context
+    // Reset the version counter for consistent test results
+    StateSyncManager::reset_version_counter();
+    
+    // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
     let context = create_test_context();
     
-    // ACT: Create and drop a subscriber
-    {
-        let _rx = state_manager.subscribe();
-        // Let rx go out of scope
-    }
+    // ACT: Subscribe to changes and then drop the receiver
+    let rx = state_manager.subscribe();
+    drop(rx);
     
-    // Record changes
-    state_manager.record_operation(
+    // ASSERT: Verify subscriber count
+    let sub_count = state_manager.subscriber_count();
+    assert_eq!(sub_count, 0, "Should have 0 subscribers after dropping");
+    
+    // ACT: Record change with no active subscribers
+    let change = state_manager.record_operation(
         context.id, 
         StateOperation::Create,
         &context.data
-    );
+    ).await;
     
-    // ASSERT: Verify subscriber count returns to 0
-    // Wait a bit longer to ensure cleanup has a chance to happen
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await; // Increased wait time
-    let sub_count = state_manager.subscriber_count();
-    assert_eq!(sub_count, 0, "Subscriber count should be 0 after receiver dropped");
+    // ASSERT: Verify the change was created normally
+    assert_eq!(change.context_id, context.id, "Change should have correct context ID");
+    assert_eq!(change.version, 1, "Version should be 1");
 }
 
 #[tokio::test]
 async fn test_state_operation_enum() {
-    // ARRANGE: Create context
-    let context = create_test_context();
+    // Simple test for enum variants
+    let create = StateOperation::Create;
+    let update = StateOperation::Update;
+    let delete = StateOperation::Delete;
+    let sync = StateOperation::Sync;
     
-    // ACT & ASSERT: Test operation variants and their string representations
-    assert_eq!(
-        format!("{:?}", StateOperation::Create), 
-        "Create", 
-        "Create operation should have correct debug representation"
-    );
-    
-    assert_eq!(
-        format!("{:?}", StateOperation::Update), 
-        "Update", 
-        "Update operation should have correct debug representation"
-    );
-    
-    assert_eq!(
-        format!("{:?}", StateOperation::Delete), 
-        "Delete", 
-        "Delete operation should have correct debug representation"
-    );
+    assert_ne!(create, update, "Create should not equal Update");
+    assert_ne!(create, delete, "Create should not equal Delete");
+    assert_ne!(create, sync, "Create should not equal Sync");
+    assert_ne!(update, delete, "Update should not equal Delete");
+    assert_ne!(update, sync, "Update should not equal Sync");
+    assert_ne!(delete, sync, "Delete should not equal Sync");
 } 

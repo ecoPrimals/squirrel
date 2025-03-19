@@ -305,9 +305,8 @@ impl ContextManager {
         
         if let Some(validation) = validations.get(&context.name) {
             for rule in &validation.rules {
-                if !rule_validator(rule, context) {
-                    return Err(ContextError::ValidationError(format!("Rule '{}' failed for context '{}'", rule, context.name)));
-                }
+                // Apply each validation rule
+                self.apply_validation_rule(context, rule).await?;
             }
             
             // Comment out or remove the jsonschema validation for now
@@ -329,6 +328,26 @@ impl ContextManager {
                 if context.data.as_object().map_or(true, |obj| obj.is_empty()) {
                     return Err(ContextError::ValidationError("Context data cannot be empty".into()));
                 }
+                
+                // Check for required fields based on the schema
+                let validations = self.validations.read().await;
+                if let Some(validation) = validations.get(&context.name) {
+                    if let Some(schema) = validation.schema.as_object() {
+                        if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
+                            if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
+                                for req in required {
+                                    if let Some(field_name) = req.as_str() {
+                                        if !context.data.as_object().map_or(false, |obj| obj.contains_key(field_name)) {
+                                            return Err(ContextError::ValidationError(
+                                                format!("Required field '{}' is missing", field_name)
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             "expiration_check" => {
                 if let Some(expires_at) = context.expires_at {
@@ -338,7 +357,10 @@ impl ContextManager {
                 }
             }
             _ => {
-                warn!(rule = %rule, "Unknown validation rule");
+                // Fall back to simple rule validator for other rules
+                if !rule_validator(rule, context) {
+                    return Err(ContextError::ValidationError(format!("Rule '{}' failed for context '{}'", rule, context.name)));
+                }
             }
         }
 
@@ -423,7 +445,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_context_lifecycle() {
-        let manager = ContextManager::new().await;
+        // Use the helper to create a pre-initialized MCPSync instance
+        let sync_config = SyncConfig::default();
+        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        
+        // Create ContextManager with pre-initialized sync
+        let manager = ContextManager {
+            contexts: Arc::new(RwLock::new(HashMap::new())),
+            hierarchy: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
+            sync: Arc::new(sync),
+        };
+        
         let context = Context {
             id: Uuid::new_v4(),
             name: "test_context".to_string(),
@@ -460,7 +493,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_context_hierarchy() {
-        let manager = ContextManager::new().await;
+        // Use the helper to create a pre-initialized MCPSync instance
+        let sync_config = SyncConfig::default();
+        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        
+        // Create ContextManager with pre-initialized sync
+        let manager = ContextManager {
+            contexts: Arc::new(RwLock::new(HashMap::new())),
+            hierarchy: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
+            sync: Arc::new(sync),
+        };
+        
         let parent_id = Uuid::new_v4();
         let child_id = Uuid::new_v4();
 
@@ -498,7 +542,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_context_validation() {
-        let manager = ContextManager::new().await;
+        // Use the helper to create a pre-initialized MCPSync instance
+        let sync_config = SyncConfig::default();
+        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        
+        // Create ContextManager with pre-initialized sync
+        let manager = ContextManager {
+            contexts: Arc::new(RwLock::new(HashMap::new())),
+            hierarchy: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
+            sync: Arc::new(sync),
+        };
         
         // Register validation
         let validation = ContextValidation {

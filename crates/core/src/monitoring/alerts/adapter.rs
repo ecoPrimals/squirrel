@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::fmt::Debug;
 use crate::error::{Result, SquirrelError};
 use super::{NotificationManager, NotificationConfig, NotificationError};
-use super::{Alert, AlertManager, DefaultAlertManager, AlertNotification, NotificationManagerTrait};
+use super::{Alert, AlertManager, DefaultAlertManager, AlertNotification, NotificationManagerTrait, AlertConfig};
 use async_trait::async_trait;
 
 /// Adapter for the alert manager to support dependency injection
@@ -22,6 +22,34 @@ impl<T: NotificationManagerTrait + 'static> AlertManagerAdapter<T> {
         Self {
             inner: Some(manager),
         }
+    }
+    
+    /// Checks if the adapter is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_some()
+    }
+    
+    /// Initializes the adapter with default configuration
+    pub fn initialize(&mut self) -> Result<()> {
+        if self.is_initialized() {
+            return Err(SquirrelError::alert("AlertManager already initialized"));
+        }
+        
+        let config = AlertConfig::default();
+        let manager = DefaultAlertManager::new(config);
+        self.inner = Some(Arc::new(manager));
+        Ok(())
+    }
+    
+    /// Initializes the adapter with custom configuration
+    pub fn initialize_with_config(&mut self, config: AlertConfig) -> Result<()> {
+        if self.is_initialized() {
+            return Err(SquirrelError::alert("AlertManager already initialized"));
+        }
+        
+        let manager = DefaultAlertManager::new(config);
+        self.inner = Some(Arc::new(manager));
+        Ok(())
     }
 
     /// Send an alert through the manager
@@ -128,6 +156,28 @@ pub fn create_manager_adapter_with_manager<T: NotificationManagerTrait + 'static
     manager: Arc<DefaultAlertManager<T>>
 ) -> Arc<AlertManagerAdapter<T>> {
     Arc::new(AlertManagerAdapter::with_manager(manager))
+}
+
+/// Creates and initializes an alert manager adapter with default configuration
+///
+/// # Errors
+/// Returns an error if initialization fails
+pub fn create_initialized_manager_adapter<T: NotificationManagerTrait + 'static>() -> Result<Arc<AlertManagerAdapter<T>>> {
+    let mut adapter = AlertManagerAdapter::new();
+    adapter.initialize()?;
+    Ok(Arc::new(adapter))
+}
+
+/// Creates and initializes an alert manager adapter with custom configuration
+///
+/// # Errors
+/// Returns an error if initialization fails
+pub fn create_manager_adapter_with_config<T: NotificationManagerTrait + 'static>(
+    config: AlertConfig
+) -> Result<Arc<AlertManagerAdapter<T>>> {
+    let mut adapter = AlertManagerAdapter::new();
+    adapter.initialize_with_config(config)?;
+    Ok(Arc::new(adapter))
 }
 
 /// Adapter for the Notification Manager to provide backward compatibility 

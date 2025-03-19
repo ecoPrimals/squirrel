@@ -180,18 +180,20 @@ impl KeyManager {
 /// Represents an authenticated user session
 #[derive(Debug, Clone)]
 pub struct Session {
-    /// Unique identifier for the session
+    /// Unique identifier for this session
     pub id: String,
-    /// Authentication token used for subsequent requests
+    /// Authentication token for this session
     pub token: String,
-    /// Identifier of the client that owns this session
+    /// Client identifier this session is for
     pub client_id: String,
-    /// Security level assigned to this session
+    /// Security level associated with this session
     pub security_level: SecurityLevel,
-    /// Timestamp when the session was created
+    /// When the session was created
     pub created_at: DateTime<Utc>,
     /// Timestamp when the session will expire
     pub expires_at: DateTime<Utc>,
+    /// Active roles for this session
+    pub active_roles: Vec<Role>,
 }
 
 /// Session-specific encryption key
@@ -282,7 +284,7 @@ impl SecurityManagerImpl {
     pub async fn authenticate(&self, credentials: &Credentials) -> Result<String> {
         // Check auth attempts
         self.check_auth_attempts(credentials).await?;
-
+        
         // Verify credentials
         if !Self::verify_credentials(credentials) {
             self.record_failed_attempt(credentials).await?;
@@ -305,7 +307,7 @@ impl SecurityManagerImpl {
                 }
             }
         }
-
+        
         Ok(session.token)
     }
 
@@ -445,19 +447,48 @@ impl SecurityManagerImpl {
         Ok(())
     }
 
-    /// Creates a new session for authenticated credentials.
+    /// Creates a session from credentials.
+    ///
+    /// # Errors
+    /// Returns an error if the session cannot be created
     async fn create_session(&self, credentials: &Credentials) -> Result<Session> {
+        let token = Uuid::new_v4().to_string();
+        let session_id = Uuid::new_v4().to_string();
+        let created_at = Utc::now();
+        let expires_at = created_at + chrono::Duration::seconds(self.config.token_validity as i64);
+        
+        // If roles were requested, collect them for the session
+        let mut active_roles = Vec::new();
+        if let Some(role_ids) = &credentials.requested_roles {
+            for role_id in role_ids {
+                if let Some(role) = self.get_role_by_id(role_id).await {
+                    active_roles.push(role);
+                }
+            }
+        } else {
+            // If no roles were requested, use default roles
+            active_roles = self.config.default_roles.clone();
+            
+            // Assign default roles to the user
+            let mut rbac_manager = self.rbac_manager.write().await;
+            for role in &active_roles {
+                let _ = rbac_manager.assign_role(credentials.client_id.clone(), role.id.clone());
+            }
+        }
+        
         let session = Session {
-            id: Uuid::new_v4().to_string(),
-            token: Uuid::new_v4().to_string(),
+            id: session_id,
+            token,
             client_id: credentials.client_id.clone(),
             security_level: credentials.security_level,
-            created_at: Utc::now(),
-            expires_at: Utc::now() + Duration::seconds(TOKEN_VALIDITY),
+            created_at,
+            expires_at,
+            active_roles,
         };
-
-        self.state.write().await.active_sessions.push(session.clone());
-
+        
+        let mut state = self.state.write().await;
+        state.active_sessions.push(session.clone());
+        
         Ok(session)
     }
 
@@ -737,6 +768,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rbac_integration() {
+        // Create a security config with custom roles
         let mut config = SecurityConfig::default();
         
         // Create custom roles for testing
@@ -782,7 +814,7 @@ mod tests {
         // Add roles to config
         config.default_roles = vec![read_role, write_role];
         
-        // Create security manager
+        // Create security manager with proper initialization
         let security = SecurityManagerImpl::new(config).await.unwrap();
         
         // Test authentication with custom roles
@@ -794,7 +826,10 @@ mod tests {
         };
         
         // Authenticate and check permissions
-        let _token = security.authenticate(&credentials).await.unwrap();
+        let token = security.authenticate(&credentials).await.unwrap();
+        let _session = security.authorize(&token, SecurityLevel::Standard, None).await.unwrap();
+        
+        // Verify that the user has both permissions from the default roles
         assert!(security.has_permission(&credentials.client_id, &read_perm).await);
         assert!(security.has_permission(&credentials.client_id, &write_perm).await);
     }

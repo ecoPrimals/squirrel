@@ -6,12 +6,17 @@ use crate::monitoring::{
     health::HealthConfig,
     metrics::MetricConfig,
     network::NetworkConfig,
+    metrics::DefaultMetricCollector,
+    health::HealthCheckerAdapter,
+    alerts::AlertManagerAdapter,
+    network::NetworkMonitorAdapter,
 };
+use std::sync::Arc;
 
 #[tokio::test]
 async fn test_factory_creates_service() -> Result<()> {
     // Create a monitoring service factory with default config
-    let factory = MonitoringServiceFactory::new();
+    let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::new();
     
     // Create a service
     let service = factory.create_service();
@@ -41,7 +46,7 @@ async fn test_factory_with_custom_config() -> Result<()> {
     };
     
     // Create a monitoring service factory with custom config
-    let factory = MonitoringServiceFactory::with_config(config.clone());
+    let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(config.clone());
     
     // Create a service
     let service = factory.create_service_with_config(config);
@@ -53,4 +58,36 @@ async fn test_factory_with_custom_config() -> Result<()> {
     service.stop().await?;
     
     Ok(())
-} 
+}
+
+// Remove runner tests until the service runner is implemented
+/*
+#[tokio::test]
+async fn test_service_factory_runner() {
+    // Create factory with explicit type annotation
+    let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::new();
+    
+    // Create a service with runner
+    let runner = factory.create_runner().await.unwrap();
+    
+    // Start the runner
+    runner.start().await.unwrap();
+    
+    // Wait for a short time
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    
+    // Verify the service is running
+    assert!(runner.is_running());
+    
+    // Stop the runner
+    runner.stop().await.unwrap();
+    
+    // Verify the service has stopped
+    assert!(!runner.is_running());
+}
+
+#[tokio::test]
+async fn test_service_factory_runner_with_config() {
+    // Test removed due to mismatch with actual API
+}
+*/ 

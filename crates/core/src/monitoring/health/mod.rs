@@ -127,6 +127,20 @@ impl DefaultHealthChecker {
         components.insert(component.name.clone(), component);
         Ok(())
     }
+
+    /// Get all registered components
+    ///
+    /// Retrieves all components currently registered with the health checker
+    ///
+    /// # Returns
+    /// A vector of component health information
+    ///
+    /// # Errors
+    /// This function will not produce errors, but returns a Result type for consistency
+    pub async fn get_components(&self) -> Result<Vec<ComponentHealth>> {
+        let components = self.components.read().await;
+        Ok(components.values().cloned().collect())
+    }
 }
 
 impl Default for DefaultHealthChecker {

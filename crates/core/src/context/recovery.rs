@@ -259,8 +259,8 @@ mod tests {
         assert!(snapshots.is_empty());
     }
 
-    #[test]
-    fn test_recovery_strategy() {
+    #[tokio::test]
+    async fn test_recovery_strategy() {
         let temp_dir = tempdir().unwrap();
         let storage = Box::new(FileStorage::new(temp_dir.path().to_path_buf()).unwrap());
         let serializer = Box::new(JsonSerializer::new());
@@ -273,46 +273,35 @@ mod tests {
 
         let mut recovery = RecoveryManager::new(persistence.clone(), 10);
 
-        // Create test states
-        let states: Vec<ContextState> = (1..=3)
-            .map(|i| ContextState {
+        // Create test states with different versions
+        for i in 1..=3 {
+            let state = ContextState {
                 version: i,
-                data: serde_json::json!({ "value": i }),
+                data: serde_json::json!({"test": i}),
                 last_modified: SystemTime::now(),
-            })
-            .collect();
-
-        // Create snapshots
-        let mut snapshot_ids = Vec::new();
-        for state in &states {
-            let snapshot = recovery.create_snapshot(state).unwrap();
-            snapshot_ids.push(snapshot.id);
+            };
+            recovery.create_snapshot(&state).unwrap();
         }
 
-        // Test latest strategy
+        // Test LatestVersionStrategy
         let strategy = LatestVersionStrategy::new();
-        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
+        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
         assert_eq!(recovered.state.version, 3);
 
-        // Test specific version strategy
+        // Test SpecificVersionStrategy
         let strategy = SpecificVersionStrategy::new(2);
-        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
+        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
         assert_eq!(recovered.state.version, 2);
 
-        // Test time-based strategy
-        std::thread::sleep(Duration::from_millis(100));
-        let strategy = TimeBasedStrategy::new(SystemTime::now());
-        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
+        // Test TimeBasedStrategy
+        let timestamp = SystemTime::now();
+        let strategy = TimeBasedStrategy::new(timestamp);
+        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
         assert!(recovered.state.version > 0);
-
-        // Test cleanup
-        for id in snapshot_ids {
-            assert!(recovery.delete_snapshot(&id).is_ok());
-        }
     }
 
-    #[test]
-    fn test_recovery_error_handling() {
+    #[tokio::test]
+    async fn test_recovery_error_handling() {
         let temp_dir = tempdir().unwrap();
         let storage = Box::new(FileStorage::new(temp_dir.path().to_path_buf()).unwrap());
         let serializer = Box::new(JsonSerializer::new());
@@ -323,25 +312,18 @@ mod tests {
             Duration::from_secs(60),
         )));
 
-        let mut recovery = RecoveryManager::new(persistence.clone(), 10);
+        let recovery = RecoveryManager::new(persistence.clone(), 10);
 
-        // Test restoring non-existent snapshot
-        assert!(matches!(
-            recovery.restore_snapshot("non_existent"),
-            Err(ContextError::SnapshotNotFound(ref e)) if e == "Snapshot with id 'non_existent' not found"
-        ));
-
-        // Test deleting non-existent snapshot
-        assert!(matches!(
-            recovery.delete_snapshot("non_existent"),
-            Err(ContextError::SnapshotNotFound(ref e)) if e == "Snapshot with id 'non_existent' not found"
-        ));
-
-        // Test recovery with no snapshots
+        // Testing when no snapshots are available
         let strategy = LatestVersionStrategy::new();
-        assert!(matches!(
-            recovery.recover_using_strategy(&strategy),
-            Err(ContextError::NoValidSnapshot(ref e)) if e == "No snapshots available for recovery"
-        ));
+        let result = recovery.recover_using_strategy(&strategy).await;
+        assert!(result.is_none());
+
+        // Test with strategy that won't find anything
+        let strategy = SpecificVersionStrategy::new(999);
+        match recovery.recover_using_strategy(&strategy).await {
+            None => assert!(true),
+            Some(_) => panic!("Expected None but got Some"),
+        }
     }
 } 

@@ -192,6 +192,17 @@ impl StateSyncManager {
         
         Ok((original_len - changes.len()) as u64)
     }
+
+    /// Resets the current version to 0 (for testing purposes)
+    ///
+    /// # Errors
+    /// Returns an error if the version cannot be reset
+    #[cfg(test)]
+    pub async fn reset_version(&self) -> Result<()> {
+        let mut version = self.current_version.write().await;
+        *version = 0;
+        Ok(())
+    }
 }
 
 impl Default for StateSyncManager {

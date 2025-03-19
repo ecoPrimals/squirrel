@@ -283,6 +283,39 @@ impl DefaultMetricCollector {
             protocol_collector: None,
         }
     }
+    
+    /// Checks if the metric collector is ready to use
+    #[must_use] pub fn is_initialized(&self) -> bool {
+        // DefaultMetricCollector doesn't have a separate initialization step,
+        // it's always ready after creation
+        true
+    }
+    
+    /// Initializes the metric collector
+    ///
+    /// Since DefaultMetricCollector is always initialized after creation,
+    /// this method exists only for API compatibility with other adapters.
+    ///
+    /// # Returns
+    /// Always returns Ok(())
+    pub fn initialize(&mut self) -> Result<()> {
+        // Always initialized
+        Ok(())
+    }
+    
+    /// Initializes the metric collector with a specific config
+    ///
+    /// Sets the configuration to the provided value.
+    ///
+    /// # Parameters
+    /// * `config` - Configuration to use
+    ///
+    /// # Returns
+    /// Always returns Ok(())
+    pub fn initialize_with_config(&mut self, config: MetricConfig) -> Result<()> {
+        self.config = config;
+        Ok(())
+    }
 
     /// Creates a new default metric collector with dependencies
     ///

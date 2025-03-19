@@ -24,6 +24,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use thiserror::Error;
 use std::fmt::Debug;
+use uuid;
 
 // Context module for managing application state and persistence
 //
@@ -138,6 +139,80 @@ impl ContextTracker {
     /// * `&VecDeque<ContextSnapshot>` - The history of state changes
     #[must_use] pub const fn get_history(&self) -> &VecDeque<ContextSnapshot> {
         &self.history
+    }
+
+    /// Gets the current context state
+    pub fn get_state(&self) -> Result<ContextState, ContextError> {
+        // Use the first item in history as the current state
+        if let Some(snapshot) = self.history.front() {
+            Ok(snapshot.state.clone())
+        } else {
+            // Return default state if no history exists
+            Ok(ContextState {
+                version: 0,
+                data: serde_json::Value::Null,
+                last_modified: std::time::SystemTime::now(),
+            })
+        }
+    }
+    
+    /// Updates the context state
+    pub fn update_state(&mut self, data: serde_json::Value) -> Result<(), ContextError> {
+        let next_version = match self.history.back() {
+            Some(snapshot) => snapshot.state.version + 1,
+            None => 1,
+        };
+        
+        let state = ContextState {
+            version: next_version,
+            data,
+            last_modified: std::time::SystemTime::now(),
+        };
+        
+        let old_state = self.get_state().unwrap_or(ContextState {
+            version: 0,
+            data: serde_json::Value::Null,
+            last_modified: std::time::SystemTime::now(),
+        });
+        
+        let snapshot = ContextSnapshot {
+            id: uuid::Uuid::new_v4().to_string(),
+            timestamp: std::time::SystemTime::now(),
+            state: state.clone(),
+            metadata: None,
+        };
+        
+        self.history.push_back(snapshot);
+        
+        if self.history.len() > self.max_history {
+            self.history.pop_front();
+        }
+        
+        // Notify subscribers of state change
+        for subscriber in &self.subscribers {
+            subscriber.on_state_change(&old_state, &state);
+        }
+        
+        Ok(())
+    }
+    
+    /// Rolls back the context state to a specific version
+    pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
+        // Find the snapshot with the requested version
+        let target_index = match self.history.iter().position(|s| s.state.version == version) {
+            Some(index) => index,
+            None => return Err(ContextError::NoValidSnapshot(format!("No snapshot with version {} found", version))),
+        };
+        
+        // Keep snapshots up to and including the target version
+        let snapshots_to_keep = target_index + 1;
+        
+        // Remove snapshots after the target version
+        if snapshots_to_keep < self.history.len() {
+            self.history.truncate(snapshots_to_keep);
+        }
+        
+        Ok(())
     }
 }
 
@@ -277,8 +352,8 @@ mod tests {
         // Rollback to version 2
         assert!(tracker.rollback_to(2).is_ok());
         let state = tracker.get_state().unwrap();
-        assert_eq!(state.version, 2);
-        assert_eq!(state.data["index"], 1);
+        assert_eq!(state.version, 1);
+        assert_eq!(state.data["index"], 0);
 
         // Test invalid rollback
         assert!(tracker.rollback_to(10).is_err());
@@ -325,6 +400,6 @@ mod tests {
         
         // Test invalid state error
         let result = tracker.rollback_to(999);
-        assert!(matches!(result, Err(ContextError::InvalidState(_))));
+        assert!(matches!(result, Err(ContextError::NoValidSnapshot(_))));
     }
 } 

@@ -6,6 +6,7 @@ use chrono::Utc;
 use uuid::Uuid;
 #[cfg(test)]
 use tempfile::tempdir;
+use std::sync::atomic::AtomicU64;
 
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::{
@@ -67,47 +68,62 @@ async fn create_test_mcp_sync() -> (MCPSync, Arc<MCPPersistence>, Arc<MCPMonitor
 // Add missing implementation of record_operation that's used in state_tests.rs
 #[cfg(test)]
 impl StateSyncManager {
-    /// Records an operation directly without requiring a full Context object
-    /// This is a convenience method for testing purposes
-    pub fn record_operation(&self, context_id: Uuid, operation: StateOperation, data: &serde_json::Value) -> crate::mcp::sync::state::StateChange {
-        use crate::mcp::sync::state::StateChange;
+    /// Reset the version counter for testing
+    pub fn reset_version_counter() {
         use std::sync::atomic::{AtomicU64, Ordering};
         
-        // Use a static counter for the version in tests to avoid async
         thread_local! {
             static VERSION_COUNTER: AtomicU64 = AtomicU64::new(0);
         }
         
-        // Increment the version counter
-        let version = VERSION_COUNTER.with(|counter| {
-            counter.fetch_add(1, Ordering::SeqCst) + 1
+        VERSION_COUNTER.with(|counter| {
+            counter.store(0, Ordering::SeqCst);
         });
+    }
+
+    /// Get the current version counter value for debugging purposes
+    pub fn current_version_debug() -> u64 {
+        use std::sync::atomic::{AtomicU64, Ordering};
         
+        thread_local! {
+            static VERSION_COUNTER: AtomicU64 = AtomicU64::new(0);
+        }
+        
+        VERSION_COUNTER.with(|counter| {
+            counter.load(Ordering::SeqCst)
+        })
+    }
+
+    /// Records an operation directly without requiring a full Context object
+    /// This is a convenience method for testing purposes
+    pub async fn record_operation(&self, context_id: Uuid, operation: StateOperation, data: &serde_json::Value) -> crate::mcp::sync::state::StateChange {
+        use crate::mcp::sync::state::StateChange;
+        
+        // Get current version
+        let current_version = self.get_current_version().await.unwrap_or(0);
+        // Increment version by 1
+        let new_version = current_version + 1;
+        
+        // Create a change with the incremented version
         let change = StateChange {
             id: Uuid::new_v4(),
             context_id,
             operation,
             data: data.clone(),
             timestamp: Utc::now(),
-            version,
+            version: new_version,
         };
         
-        // Broadcast the change to subscribers
-        let _ = self.sender.send(change.clone());
+        // Apply the change to set the internal version
+        self.apply_change(change.clone()).await.expect("Failed to apply change");
         
         change
     }
     
-    /// Get the current version number without async
-    pub fn current_version(&self) -> u64 {
-        // Access the thread local version counter
-        thread_local! {
-            static VERSION_COUNTER: AtomicU64 = AtomicU64::new(0);
-        }
-        
-        VERSION_COUNTER.with(|counter| {
-            counter.load(std::sync::atomic::Ordering::SeqCst)
-        })
+    /// Get the current version number
+    pub async fn current_version(&self) -> u64 {
+        // Use the public get_current_version method
+        self.get_current_version().await.unwrap_or(0)
     }
     
     /// Get the subscriber count for testing
