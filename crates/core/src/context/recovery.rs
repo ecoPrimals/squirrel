@@ -167,7 +167,7 @@ impl RecoveryManager {
         if let Some(snapshot) = self.snapshots.iter().find(|s| s.id == id) {
             Ok(snapshot.state.clone())
         } else {
-            Err(ContextError::SnapshotNotFound)
+            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{}' not found", id)))
         }
     }
 
@@ -185,7 +185,7 @@ impl RecoveryManager {
             }
             Ok(())
         } else {
-            Err(ContextError::SnapshotNotFound)
+            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{}' not found", id)))
         }
     }
 
@@ -194,12 +194,19 @@ impl RecoveryManager {
     /// # Errors
     ///
     /// Returns a `ContextError::NoValidSnapshot` if the strategy cannot find a valid snapshot to recover
-    pub fn recover_using_strategy(&self, strategy: &dyn RecoveryStrategy) -> Result<ContextState, ContextError> {
-        let snapshots: Vec<_> = self.snapshots.iter().cloned().collect();
+    pub async fn recover_using_strategy<S: RecoveryStrategy + Send + Sync>(&self, strategy: &S) -> Option<ContextSnapshot> {
+        if self.snapshots.is_empty() {
+            return None;
+        }
+        
+        // Create a temporary Vec of owned ContextSnapshot objects
+        let snapshots: Vec<ContextSnapshot> = self.snapshots.iter().cloned().collect();
+        
+        // Now pass a slice of them to the strategy
         if let Some(snapshot) = strategy.select_state(&snapshots) {
-            Ok(snapshot.state.clone())
+            Some(snapshot.clone())
         } else {
-            Err(ContextError::NoValidSnapshot)
+            None
         }
     }
 }
@@ -285,18 +292,18 @@ mod tests {
         // Test latest strategy
         let strategy = LatestVersionStrategy::new();
         let recovered = recovery.recover_using_strategy(&strategy).unwrap();
-        assert_eq!(recovered.version, 3);
+        assert_eq!(recovered.state.version, 3);
 
         // Test specific version strategy
         let strategy = SpecificVersionStrategy::new(2);
         let recovered = recovery.recover_using_strategy(&strategy).unwrap();
-        assert_eq!(recovered.version, 2);
+        assert_eq!(recovered.state.version, 2);
 
         // Test time-based strategy
         std::thread::sleep(Duration::from_millis(100));
         let strategy = TimeBasedStrategy::new(SystemTime::now());
         let recovered = recovery.recover_using_strategy(&strategy).unwrap();
-        assert!(recovered.version > 0);
+        assert!(recovered.state.version > 0);
 
         // Test cleanup
         for id in snapshot_ids {
@@ -321,20 +328,20 @@ mod tests {
         // Test restoring non-existent snapshot
         assert!(matches!(
             recovery.restore_snapshot("non_existent"),
-            Err(ContextError::SnapshotNotFound)
+            Err(ContextError::SnapshotNotFound(ref e)) if e == "Snapshot with id 'non_existent' not found"
         ));
 
         // Test deleting non-existent snapshot
         assert!(matches!(
             recovery.delete_snapshot("non_existent"),
-            Err(ContextError::SnapshotNotFound)
+            Err(ContextError::SnapshotNotFound(ref e)) if e == "Snapshot with id 'non_existent' not found"
         ));
 
         // Test recovery with no snapshots
         let strategy = LatestVersionStrategy::new();
         assert!(matches!(
             recovery.recover_using_strategy(&strategy),
-            Err(ContextError::NoValidSnapshot)
+            Err(ContextError::NoValidSnapshot(ref e)) if e == "No snapshots available for recovery"
         ));
     }
 } 

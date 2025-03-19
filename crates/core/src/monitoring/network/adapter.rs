@@ -9,6 +9,7 @@ use sysinfo::System;
 /// Adapter for the network monitor to support dependency injection
 #[derive(Debug)]
 pub struct NetworkMonitorAdapter {
+    /// Underlying network monitor implementation
     inner: Option<Arc<NetworkMonitor>>,
 }
 
@@ -57,7 +58,7 @@ impl NetworkMonitorAdapter {
     /// Returns an error if the network monitor is not initialized via dependency injection
     pub async fn update_stats(&self) -> Result<()> {
         if let Some(monitor) = &self.inner {
-            monitor.update_stats()
+            monitor.update_stats().await
         } else {
             Err(format!("Network monitor not initialized via dependency injection").into())
         }

@@ -6,22 +6,29 @@
 //! - Command execution
 //! - Monitoring operations
 
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 use crate::monitoring::metrics::{Metric, MetricCollector};
 use std::fmt;
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use prometheus::{Histogram, HistogramOpts};
 use std::hash::Hash;
 use std::cmp::Eq;
 use crate::monitoring::metrics::MetricType;
 use async_trait::async_trait;
+use crate::error::SquirrelError;
+use std::time::Instant;
 
+/// Module for adapter implementations of performance metric functionality
+/// 
+/// This module provides adapters for connecting performance metric collectors to dependency injection systems,
+/// allowing for proper initialization and management of performance monitoring.
 pub mod adapter;
-pub use adapter::{PerformanceCollectorAdapter, create_collector_adapter, create_collector_adapter_with_collector};
+// Re-export the adapter publicly for other modules to use
+pub use self::adapter::PerformanceCollectorAdapter;
 
 /// Types of operations that can be monitored for performance
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -163,22 +170,22 @@ impl PerformanceCollector {
             let count = histogram.get_sample_count();
             let sum = histogram.get_sample_sum();
 
-            metrics.push(Metric::new(
-                format!("operation_{}_count", op_type),
+            metrics.push(Metric::with_optional_labels(
+                format!("operation.{}.count", op_type),
                 count as f64,
                 MetricType::Counter,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
             ));
 
-            metrics.push(Metric::new(
-                format!("operation_{}_duration_sum", op_type),
+            metrics.push(Metric::with_optional_labels(
+                format!("operation.{}.total_time", op_type),
                 sum,
-                MetricType::Counter,
+                MetricType::Gauge,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
             ));
 
-            metrics.push(Metric::new(
-                format!("operation_{}_duration_avg", op_type),
+            metrics.push(Metric::with_optional_labels(
+                format!("operation.{}.min_duration", op_type),
                 if count > 0 { sum / count as f64 } else { 0.0 },
                 MetricType::Gauge,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
@@ -197,19 +204,25 @@ impl Default for PerformanceCollector {
 
 #[async_trait]
 impl MetricCollector for PerformanceCollector {
-    async fn get_metrics(&self) -> Result<Vec<Metric>> {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
         self.get_metrics().await
     }
 
-    async fn record_metrics(&self, metrics: &[Metric]) -> Result<()> {
-        for metric in metrics {
-            if let Some(labels) = &metric.labels {
-                if let Some(op_type) = labels.get("operation") {
-                    let duration = Duration::from_secs_f64(metric.value);
-                    self.record_operation(&OperationType::Custom(op_type.clone()), duration).await?;
-                }
-            }
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        if let Some(op_type) = metric.labels.get("operation") {
+            let duration = Duration::from_secs_f64(metric.value);
+            self.record_operation(&OperationType::Custom(op_type.clone()), duration).await?;
         }
+        Ok(())
+    }
+
+    async fn start(&self) -> Result<()> {
+        // Nothing to do for start in this implementation
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<()> {
+        // Nothing to do for stop in this implementation
         Ok(())
     }
 }
@@ -264,6 +277,42 @@ pub fn create_collector_adapter_with_collector(
     collector: Arc<PerformanceCollector>
 ) -> Arc<PerformanceCollectorAdapter> {
     Arc::new(PerformanceCollectorAdapter::with_collector(collector))
+}
+
+/// Performance metrics data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceMetrics {
+    /// Operation type
+    pub operation_type: OperationType,
+    /// Total time in milliseconds
+    pub total_time_ms: f64,
+    /// Number of operations
+    pub count: u64,
+    /// Average time in milliseconds
+    pub average_time_ms: f64,
+}
+
+impl PerformanceMetrics {
+    /// Create new performance metrics
+    pub fn new(operation_type: OperationType) -> Self {
+        Self {
+            operation_type,
+            total_time_ms: 0.0,
+            count: 0,
+            average_time_ms: 0.0,
+        }
+    }
+    
+    /// Record an operation time
+    pub fn record(&mut self, time_ms: f64) {
+        self.total_time_ms += time_ms;
+        self.count += 1;
+        self.average_time_ms = if self.count > 0 {
+            self.total_time_ms / self.count as f64
+        } else {
+            0.0
+        };
+    }
 }
 
 #[cfg(test)]

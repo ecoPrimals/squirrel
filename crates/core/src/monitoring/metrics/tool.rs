@@ -18,8 +18,23 @@ use tokio::sync::RwLock;
 use async_trait;
 use crate::error::SquirrelError;
 
+/// Module for adapter implementations of tool metric functionality
+/// 
+/// This module provides adapters for connecting tool metric collectors to dependency injection systems,
+/// allowing for proper initialization and management of tool usage monitoring.
 pub mod adapter;
 pub use adapter::{ToolMetricsCollectorAdapter, create_collector_adapter, create_collector_adapter_with_collector};
+
+/// Represents a tool activity event with timestamp and metadata
+#[derive(Debug, Clone)]
+pub struct ToolActivity {
+    /// Unix timestamp of the activity
+    pub timestamp: u64,
+    /// Type of activity
+    pub activity_type: String,
+    /// Additional metadata about the activity
+    pub metadata: HashMap<String, String>,
+}
 
 /// Tool execution metrics
 #[derive(Debug, Clone, Default)]
@@ -34,6 +49,14 @@ pub struct ToolMetrics {
     pub failure_count: u64,
     /// Average duration of tool executions in milliseconds
     pub average_duration: f64,
+    /// Total execution time in milliseconds
+    pub execution_time: u64,
+    /// CPU usage percentage (0-100)
+    pub cpu_usage: f64,
+    /// Memory usage in bytes
+    pub memory_size: u64,
+    /// Last activity timestamp
+    pub last_activity: Option<ToolActivity>,
 }
 
 impl ToolMetrics {
@@ -51,6 +74,10 @@ impl ToolMetrics {
             success_count: 0,
             failure_count: 0,
             average_duration: 0.0,
+            execution_time: 0,
+            cpu_usage: 0.0,
+            memory_size: 0,
+            last_activity: None,
         }
     }
 
@@ -201,7 +228,8 @@ impl ToolMetricsCollector {
 
         // Record performance metrics if available
         if let Some(perf_collector) = &self.performance_collector {
-            perf_collector.record_operation_duration(tool_name, duration).await?;
+            let op_type = crate::monitoring::metrics::performance::OperationType::Custom(tool_name.to_string());
+            perf_collector.record_operation(&op_type, std::time::Duration::from_secs_f64(duration)).await?;
         }
 
         Ok(())
@@ -256,15 +284,15 @@ impl MetricCollector for ToolMetricsCollector {
             let mut labels = HashMap::new();
             labels.insert("tool".to_string(), tool_name.clone());
             
-            result.push(Metric::new(
-                "tool.usage_count".to_string(),
+            result.push(Metric::with_optional_labels(
+                format!("tool.{}.usage_count", tool_name),
                 tool_metrics.usage_count as f64,
                 MetricType::Counter,
                 Some(labels.clone()),
             ));
             
             // Tool success count
-            result.push(Metric::new(
+            result.push(Metric::with_optional_labels(
                 "tool.success_count".to_string(),
                 tool_metrics.success_count as f64,
                 MetricType::Counter,
@@ -272,7 +300,7 @@ impl MetricCollector for ToolMetricsCollector {
             ));
             
             // Tool failure count
-            result.push(Metric::new(
+            result.push(Metric::with_optional_labels(
                 "tool.failure_count".to_string(),
                 tool_metrics.failure_count as f64,
                 MetricType::Counter,
@@ -280,7 +308,7 @@ impl MetricCollector for ToolMetricsCollector {
             ));
             
             // Tool average duration
-            result.push(Metric::new(
+            result.push(Metric::with_optional_labels(
                 "tool.average_duration".to_string(),
                 tool_metrics.average_duration,
                 MetricType::Gauge,
@@ -289,11 +317,43 @@ impl MetricCollector for ToolMetricsCollector {
             
             // Tool success rate
             if tool_metrics.usage_count > 0 {
-                result.push(Metric::new(
+                let success_rate_labels = labels.clone();
+                result.push(Metric::with_optional_labels(
                     "tool.success_rate".to_string(),
                     tool_metrics.success_rate(),
                     MetricType::Gauge,
-                    Some(labels),
+                    Some(success_rate_labels),
+                ));
+            }
+
+            result.push(Metric::with_optional_labels(
+                format!("tool.{}.execution_time", tool_name),
+                tool_metrics.execution_time as f64,
+                MetricType::Gauge,
+                Some(labels.clone()),
+            ));
+
+            result.push(Metric::with_optional_labels(
+                format!("tool.{}.cpu_usage", tool_name),
+                tool_metrics.cpu_usage as f64,
+                MetricType::Gauge,
+                Some(labels.clone()),
+            ));
+
+            result.push(Metric::with_optional_labels(
+                format!("tool.{}.memory_size", tool_name),
+                tool_metrics.memory_size as f64,
+                MetricType::Gauge,
+                Some(labels.clone()),
+            ));
+
+            if let Some(activity) = &tool_metrics.last_activity {
+                let activity_labels = labels.clone();
+                result.push(Metric::with_optional_labels(
+                    format!("tool.{}.last_activity", tool_name),
+                    activity.timestamp as f64,
+                    MetricType::Gauge,
+                    Some(activity_labels),
                 ));
             }
         }

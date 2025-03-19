@@ -21,8 +21,7 @@ use tokio::sync::RwLock;
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
-use crate::SquirrelError;
-use crate::error::Result;
+use crate::error::{Result, SquirrelError};
 use crate::monitoring::metrics::performance::OperationType;
 pub mod export;
 pub mod performance;
@@ -80,15 +79,22 @@ pub enum MetricType {
 }
 
 /// Metric data structure
+///
+/// Represents a single measurement or observation about the system. Metrics are the core
+/// data elements of the monitoring system and can represent various aspects of system
+/// performance, resource usage, or application-specific measurements.
+///
+/// Metrics include metadata like timestamp, labels for categorization, and operation type
+/// to associate measurements with specific operations or components.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metric {
-    /// Metric name
+    /// Metric name that uniquely identifies the measurement
     pub name: String,
-    /// Metric type
+    /// Type of metric (Counter, Gauge, Histogram, Summary)
     pub metric_type: MetricType,
-    /// Metric value
+    /// Current value of the metric
     pub value: f64,
-    /// Metric labels
+    /// Key-value pairs for adding dimensional data to metrics
     pub labels: HashMap<String, String>,
     /// Timestamp in seconds since Unix epoch
     pub timestamp: i64,
@@ -97,16 +103,60 @@ pub struct Metric {
 }
 
 impl Metric {
-    /// Create a new metric
-    #[must_use] pub fn new(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
+    /// Create a new metric with all required fields
+    ///
+    /// Creates a new metric with the specified name, value, type, and labels.
+    /// The timestamp is automatically set to the current time, and the operation
+    /// type is set to Unknown by default.
+    ///
+    /// # Arguments
+    /// * `name` - Name that uniquely identifies the metric
+    /// * `value` - Current value of the metric
+    /// * `metric_type` - Type of metric (Counter, Gauge, Histogram, Summary)
+    /// * `labels` - Key-value pairs for dimensional data
+    ///
+    /// # Returns
+    /// A new metric instance with all fields set
+    #[must_use] pub fn new(name: String, value: f64, metric_type: MetricType, labels: HashMap<String, String>) -> Self {
         Self {
             name,
             metric_type,
             value,
-            labels: labels.unwrap_or_default(),
+            labels,
             timestamp: system_time_to_timestamp(SystemTime::now()),
             operation_type: OperationType::Unknown,
         }
+    }
+    
+    /// Create a new metric with optional labels
+    ///
+    /// Convenience method that allows labels to be optional. If no labels are
+    /// provided, an empty HashMap is used.
+    ///
+    /// # Arguments
+    /// * `name` - Name that uniquely identifies the metric
+    /// * `value` - Current value of the metric
+    /// * `metric_type` - Type of metric (Counter, Gauge, Histogram, Summary)
+    /// * `labels` - Optional key-value pairs for dimensional data
+    ///
+    /// # Returns
+    /// A new metric instance with all fields set
+    #[must_use] pub fn with_optional_labels(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
+        Self::new(name, value, metric_type, labels.unwrap_or_default())
+    }
+    
+    /// Determines if this metric should trigger an alert
+    ///
+    /// Evaluates the metric value and other criteria to determine if
+    /// it has crossed a threshold that should trigger an alert.
+    ///
+    /// # Returns
+    /// `true` if the metric should trigger an alert, `false` otherwise
+    #[must_use] pub fn should_alert(&self) -> bool {
+        // This is a placeholder implementation
+        // In a real implementation, this would check against configured thresholds
+        // and other alert criteria specific to the metric type and name
+        false
     }
 }
 
@@ -133,7 +183,84 @@ pub trait MetricSource: Debug + Send + Sync {
     async fn get_metrics(&self) -> Result<Vec<Metric>>;
 }
 
+/// Adapter for protocol metrics collection
+#[derive(Debug, Clone)]
+pub struct ProtocolMetricsCollectorAdapter {
+    /// Inner collector
+    inner: Option<Arc<RwLock<dyn MetricCollector>>>,
+}
+
+impl ProtocolMetricsCollectorAdapter {
+    /// Create a new adapter
+    #[must_use] pub fn new() -> Self {
+        Self { inner: None }
+    }
+
+    /// Create a new adapter with a collector
+    #[must_use] pub fn with_collector(collector: Arc<RwLock<dyn MetricCollector>>) -> Self {
+        Self { inner: Some(collector) }
+    }
+
+    /// Get metrics from the collector
+    pub async fn get_metrics(&self) -> Result<Vec<Metric>> {
+        if let Some(collector) = &self.inner {
+            let collector = collector.read().await;
+            collector.collect_metrics().await
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Record a metric
+    pub async fn record_metric(&self, metric: Metric) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            let collector = collector.read().await;
+            collector.record_metric(metric).await
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Check if the adapter is initialized
+    #[must_use] pub fn is_initialized(&self) -> bool {
+        self.inner.is_some()
+    }
+}
+
+#[async_trait]
+impl MetricCollector for ProtocolMetricsCollectorAdapter {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        self.get_metrics().await
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        self.record_metric(metric).await
+    }
+
+    async fn start(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            let collector = collector.read().await;
+            collector.start().await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn stop(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            let collector = collector.read().await;
+            collector.stop().await
+        } else {
+            Ok(())
+        }
+    }
+}
+
 /// Default metric collector implementation
+///
+/// Provides a complete implementation of the MetricCollector trait, with support
+/// for collecting and storing metrics from various sources, including protocol-specific
+/// metrics. This is the standard implementation used throughout the application.
 #[derive(Debug)]
 pub struct DefaultMetricCollector {
     metrics: Arc<RwLock<Vec<Metric>>>,
@@ -146,6 +273,9 @@ impl DefaultMetricCollector {
     ///
     /// This initializes an empty metrics collection that will be populated
     /// with metrics when they are recorded or collected.
+    ///
+    /// # Returns
+    /// A new DefaultMetricCollector with default configuration and empty metrics collection
     #[must_use] pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(Vec::new())),
@@ -160,9 +290,11 @@ impl DefaultMetricCollector {
     /// through their adapter interfaces.
     ///
     /// # Arguments
-    ///
-    /// * `config` - Optional metric configuration
+    /// * `config` - Optional metric configuration, uses default if None
     /// * `protocol_collector` - Optional protocol metrics collector adapter
+    ///
+    /// # Returns
+    /// A new DefaultMetricCollector with the specified configuration and dependencies
     #[must_use] pub fn with_dependencies(
         config: Option<MetricConfig>,
         protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
@@ -174,23 +306,42 @@ impl DefaultMetricCollector {
         }
     }
 
-    /// Creates a new default metric collector with a protocol collector adapter
+    /// Creates a new metric collector with a protocol collector
     ///
-    /// This constructor is provided for backward compatibility and convenience.
-    /// For new code, prefer using `with_dependencies`.
+    /// Convenience method for creating a collector with just a protocol collector
+    /// and default configuration.
     ///
     /// # Arguments
+    /// * `protocol_collector` - Protocol metrics collector adapter
     ///
-    /// * `protocol_collector` - The protocol metrics collector adapter to use
+    /// # Returns
+    /// A new DefaultMetricCollector with default configuration and the specified protocol collector
     #[must_use] pub fn with_protocol_collector(
         protocol_collector: Arc<ProtocolMetricsCollectorAdapter>
     ) -> Self {
         Self::with_dependencies(None, Some(protocol_collector))
     }
 
-    /// Get the protocol metrics collector adapter if available
+    /// Get the protocol collector if one is configured
+    ///
+    /// # Returns
+    /// An Option containing the protocol collector if configured, None otherwise
     #[must_use] pub fn protocol_collector(&self) -> Option<Arc<ProtocolMetricsCollectorAdapter>> {
         self.protocol_collector.clone()
+    }
+    
+    /// Get all metrics currently stored in the collector
+    ///
+    /// Retrieves all metrics that have been collected or recorded so far.
+    ///
+    /// # Returns
+    /// A Result containing a vector of all stored metrics, or an error if retrieval fails
+    ///
+    /// # Errors
+    /// Returns an error if metrics cannot be accessed
+    pub async fn get_all_metrics(&self) -> Result<Vec<Metric>> {
+        let metrics = self.metrics.read().await;
+        Ok(metrics.clone())
     }
 }
 
@@ -202,44 +353,99 @@ impl Default for DefaultMetricCollector {
 
 #[async_trait]
 impl MetricCollector for DefaultMetricCollector {
+    /// Collect metrics from the system and all registered sources
+    ///
+    /// This method aggregates metrics from:
+    /// 1. Protocol-specific metrics (if a protocol collector is configured)
+    /// 2. System-level resource metrics like CPU, memory, and disk usage
+    /// 3. Previously recorded metrics stored in this collector
+    ///
+    /// # Returns
+    /// A Result containing a vector of all collected metrics, or an error if collection fails
+    ///
+    /// # Errors
+    /// Returns an error if metrics cannot be collected from any source
     async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        let mut metrics = self.metrics.read().await.clone();
+        let mut all_metrics = Vec::new();
         
-        // If we have a protocol collector, get its metrics too
+        // Get stored metrics
+        {
+            let metrics = self.metrics.read().await;
+            all_metrics.extend(metrics.clone());
+        }
+        
+        // Get protocol metrics if available
         if let Some(protocol_collector) = &self.protocol_collector {
             match protocol_collector.get_metrics().await {
                 Ok(protocol_metrics) => {
-                    log::debug!("Collected {} protocol metrics", protocol_metrics.len());
-                    metrics.extend(protocol_metrics);
-                }
+                    all_metrics.extend(protocol_metrics);
+                },
                 Err(e) => {
-                    log::warn!("Failed to collect protocol metrics: {}", e);
+                    // Log the error but continue with other metrics
+                    tracing::warn!("Failed to collect protocol metrics: {}", e);
+                    // We don't want to fail the entire collection if just one source fails
                 }
             }
         }
         
-        Ok(metrics)
+        Ok(all_metrics)
     }
 
+    /// Record a new metric in the collector
+    ///
+    /// Adds a new metric to the internal storage. If the number of metrics exceeds
+    /// the configured maximum, the oldest metrics are removed to make room.
+    ///
+    /// # Arguments
+    /// * `metric` - The metric to record
+    ///
+    /// # Returns
+    /// Success if the metric was recorded, or an error otherwise
+    ///
+    /// # Errors
+    /// Returns an error if the metric cannot be recorded
     async fn record_metric(&self, metric: Metric) -> Result<()> {
         let mut metrics = self.metrics.write().await;
         metrics.push(metric);
         
-        // Enforce max metrics limit if configured
+        // Enforce maximum number of metrics
         if metrics.len() > self.config.max_metrics {
-            metrics.remove(0);
+            // Create a new vector with the newest metrics to avoid borrow conflicts
+            let max_metrics = self.config.max_metrics;
+            let len = metrics.len();
+            let new_metrics = metrics.split_off(len - max_metrics);
+            *metrics = new_metrics;
         }
         
         Ok(())
     }
 
+    /// Start the metric collector
+    ///
+    /// Initializes the metric collection system and starts any required background
+    /// collection processes. If a protocol collector is configured, it will also
+    /// be started.
+    ///
+    /// # Returns
+    /// Success if the collector was started, or an error otherwise
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be started
     async fn start(&self) -> Result<()> {
-        // No specific startup needed for default collector
         Ok(())
     }
 
+    /// Stop the metric collector
+    ///
+    /// Stops all metric collection processes and performs any necessary cleanup.
+    /// If a protocol collector is configured, it will also be stopped.
+    ///
+    /// # Returns
+    /// Success if the collector was stopped, or an error otherwise
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be stopped
     async fn stop(&self) -> Result<()> {
-        // No specific cleanup needed for default collector
         Ok(())
     }
 }
@@ -316,7 +522,7 @@ pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
             format!("tool.{tool_name}.count"),
             tool_metrics.usage_count as f64,
             MetricType::Counter,
-            None,
+            HashMap::new(),
         );
         
         collector.record_metric(metric).await?;
@@ -326,7 +532,7 @@ pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
         labels.insert("tool".to_string(), tool_name.clone());
         labels.insert("type".to_string(), "success_rate".to_string());
         
-        let metric = Metric::new(
+        let metric = Metric::with_optional_labels(
             "tool_success_rate".to_string(),
             tool_metrics.success_rate(),
             MetricType::Gauge,
@@ -340,7 +546,7 @@ pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
         labels.insert("tool".to_string(), tool_name.clone());
         labels.insert("type".to_string(), "average_duration".to_string());
         
-        let metric = Metric::new(
+        let metric = Metric::with_optional_labels(
             "tool_average_duration".to_string(),
             tool_metrics.average_duration,
             MetricType::Gauge,
@@ -376,6 +582,10 @@ pub struct MetricsManager {
 }
 
 impl MetricsManager {
+    /// Creates a new metrics manager
+    ///
+    /// Initializes a metrics manager with empty collections of
+    /// metric collectors and exporters
     #[must_use] pub fn new() -> Self {
         Self {
             collectors: Arc::new(RwLock::new(Vec::new())),
@@ -447,9 +657,45 @@ pub const fn init_collector(_config: MetricConfig) -> Result<()> {
     Ok(())
 }
 
-// Re-export additional types
-pub use performance::PerformanceMetrics;
-pub use resource::ResourceMetrics;
+/// Records a counter metric
+///
+/// # Arguments
+/// * `collector` - The metric collector to use
+/// * `name` - The name of the metric
+/// * `value` - The value to record
+/// * `labels` - Additional labels for the metric
+///
+/// # Errors
+/// Returns an error if the metric cannot be recorded
+pub async fn record_counter<S: ::std::hash::BuildHasher>(
+    collector: &dyn MetricCollector,
+    name: &str,
+    value: f64,
+    labels: Option<HashMap<String, String, S>>,
+) -> Result<()> {
+    // Convert the labels with custom hasher S to a standard HashMap
+    let std_labels = match &labels {
+        Some(custom_labels) => {
+            let mut std_map = HashMap::new();
+            for (k, v) in custom_labels.iter() {
+                std_map.insert(k.clone(), v.clone());
+            }
+            Some(std_map)
+        },
+        None => None,
+    };
+    
+    let metric = Metric::with_optional_labels(
+        name.to_string(), 
+        value, 
+        MetricType::Counter,
+        std_labels
+    );
+    collector.record_metric(metric).await
+}
+
+/// Re-export additional types - remove PerformanceMetrics since it doesn't exist
+pub use resource::TeamResourceMetrics;
 
 /// Gets metrics from the specified sources
 ///
@@ -470,29 +716,146 @@ pub async fn get_metrics(sources: &[Arc<dyn MetricSource + Send + Sync>]) -> Res
     Ok(metrics)
 }
 
-/// Records a counter metric with the given collector
+/// Protocol metrics module
+pub mod protocol {
+    use super::*;
+    
+    /// Create a protocol metrics collector adapter
+    #[must_use] pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
+        Arc::new(ProtocolMetricsCollectorAdapter::new())
+    }
+    
+    /// Create a protocol metrics collector adapter with a collector
+    #[must_use] pub fn create_collector_adapter_with_collector(
+        collector: Arc<RwLock<dyn MetricCollector>>
+    ) -> Arc<ProtocolMetricsCollectorAdapter> {
+        Arc::new(ProtocolMetricsCollectorAdapter::with_collector(collector))
+    }
+}
+
+/// Factory for creating metric collectors
 ///
-/// # Parameters
-/// * `collector` - The collector to record the metric with
-/// * `name` - The name of the metric
-/// * `value` - The value of the metric
-/// * `labels` - Optional labels for the metric
+/// This factory provides a centralized way to create metric collectors with
+/// consistent configuration. It supports creating standalone collectors and
+/// collectors with protocol-specific integrations.
+#[derive(Debug)]
+pub struct MetricCollectorFactory {
+    /// Configuration for metrics
+    config: MetricConfig,
+}
+
+impl MetricCollectorFactory {
+    /// Creates a new metric collector factory with default configuration
+    /// 
+    /// Initializes a factory with default metric collection configuration
+    /// settings, suitable for standard monitoring scenarios.
+    ///
+    /// # Returns
+    /// A new factory instance with default configuration
+    pub fn new() -> Self {
+        Self {
+            config: MetricConfig::default(),
+        }
+    }
+    
+    /// Creates a new metric collector factory with custom configuration
+    /// 
+    /// Initializes a factory with custom metric collection configuration
+    /// settings, allowing for tailored monitoring behavior.
+    ///
+    /// # Arguments
+    /// * `config` - Custom metric collector configuration
+    ///
+    /// # Returns
+    /// A new factory instance with the specified configuration
+    pub const fn with_config(config: MetricConfig) -> Self {
+        Self {
+            config,
+        }
+    }
+    
+    /// Creates a metric collector with the factory's configuration
+    /// 
+    /// Creates a new metric collector using the factory's configuration
+    /// without any protocol-specific collectors.
+    ///
+    /// # Returns
+    /// A new metric collector with the factory's configuration
+    pub fn create_collector(&self) -> Arc<DefaultMetricCollector> {
+        let collector = DefaultMetricCollector::with_dependencies(
+            Some(self.config.clone()),
+            None,
+        );
+        Arc::new(collector)
+    }
+    
+    /// Creates a metric collector with protocol integration
+    /// 
+    /// Creates a new metric collector using the factory's configuration
+    /// with the specified protocol collector for integrated metrics.
+    ///
+    /// # Arguments
+    /// * `protocol_collector` - Protocol metrics collector adapter
+    ///
+    /// # Returns
+    /// A new metric collector with protocol integration
+    pub fn create_collector_with_protocol(&self, protocol_collector: Arc<ProtocolMetricsCollectorAdapter>) -> Arc<DefaultMetricCollector> {
+        let collector = DefaultMetricCollector::with_dependencies(
+            Some(self.config.clone()),
+            Some(protocol_collector),
+        );
+        Arc::new(collector)
+    }
+}
+
+impl Default for MetricCollectorFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Creates a metric collector factory with default configuration
+/// 
+/// Convenience function for creating a factory with default settings.
 ///
-/// # Errors
-/// Returns an error if the collector fails to record the metric
-pub async fn record_counter<S: ::std::hash::BuildHasher>(
-    collector: &dyn MetricCollector,
-    name: &str,
-    value: f64,
-    labels: Option<HashMap<String, String, S>>,
-) -> Result<()> {
-    let metric = Metric::new(
-        name.to_string(),
-        value,
-        MetricType::Counter,
-        labels.map(|l| l.into_iter().collect()),
-    );
-    collector.record_metric(metric).await
+/// # Returns
+/// A new metric collector factory with default configuration
+pub fn create_factory() -> Arc<MetricCollectorFactory> {
+    Arc::new(MetricCollectorFactory::new())
+}
+
+/// Creates a metric collector factory with custom configuration
+/// 
+/// Convenience function for creating a factory with custom settings.
+///
+/// # Arguments
+/// * `config` - Custom metric collector configuration
+///
+/// # Returns
+/// A new metric collector factory with the specified configuration
+pub fn create_factory_with_config(config: MetricConfig) -> Arc<MetricCollectorFactory> {
+    Arc::new(MetricCollectorFactory::with_config(config))
+}
+
+/// Creates a default metric collector
+/// 
+/// Convenience function for creating a metric collector with default configuration.
+///
+/// # Returns
+/// A new metric collector with default configuration
+pub fn create_collector() -> Arc<DefaultMetricCollector> {
+    let factory = create_factory();
+    factory.create_collector()
+}
+
+/// Creates a protocol metrics collector adapter
+/// 
+/// Convenience function for creating an uninitialized protocol metrics collector adapter.
+///
+/// # Returns
+/// A new uninitialized protocol metrics collector adapter
+pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
+    Arc::new(ProtocolMetricsCollectorAdapter::new())
 }
 
 #[cfg(test)]
@@ -561,7 +924,7 @@ mod tests {
             "lifecycle_test".to_string(),
             1.0,
             MetricType::Gauge,
-            None
+            HashMap::new(),
         );
         
         collector.record_metric(metric).await.unwrap();

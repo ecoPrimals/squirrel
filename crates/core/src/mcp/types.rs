@@ -1,6 +1,7 @@
 //! Common types used throughout the MCP system
 
 use serde::{Serialize, Deserialize};
+use uuid;
 
 /// Security level for MCP operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
@@ -232,6 +233,152 @@ pub enum ProtocolState {
 impl Default for ProtocolState {
     fn default() -> Self {
         Self::Uninitialized
+    }
+}
+
+/// User ID type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserId(pub String);
+
+impl UserId {
+    /// Create a new user ID
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for UserId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for UserId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for UserId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// Account ID type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AccountId(pub String);
+
+impl AccountId {
+    /// Create a new account ID
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for AccountId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for AccountId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for AccountId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// Session token type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SessionToken(pub String);
+
+impl SessionToken {
+    /// Create a new session token
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for SessionToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for SessionToken {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for SessionToken {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// Authentication token type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AuthToken(pub String);
+
+impl AuthToken {
+    /// Create a new authentication token
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for AuthToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for AuthToken {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for AuthToken {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// User role
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum UserRole {
+    /// Administrator role
+    Admin,
+    /// User role
+    User,
+    /// Guest role
+    Guest,
+    /// Custom role
+    Custom(String),
+}
+
+impl Default for UserRole {
+    fn default() -> Self {
+        Self::User
+    }
+}
+
+impl std::fmt::Display for UserRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UserRole::Admin => write!(f, "Admin"),
+            UserRole::User => write!(f, "User"),
+            UserRole::Guest => write!(f, "Guest"),
+            UserRole::Custom(role) => write!(f, "Custom({})", role),
+        }
     }
 }
 

@@ -1,15 +1,17 @@
-// MCP Session Manager
+/// Module for session manager functionality.
+///
+/// Contains the persistence layer for sessions and handles
+/// session creation, validation, and lifecycle operations.
 pub mod persistence;
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::error::Result;
-use super::MCPSession;
+use super::Session;
 
 /// MCP Session Manager
 #[derive(Debug)]
 pub struct MCPSessionManager {
-    sessions: RwLock<Vec<Arc<dyn MCPSession>>>,
+    sessions: RwLock<Vec<Arc<Session>>>,
 }
 
 impl MCPSessionManager {
@@ -21,7 +23,7 @@ impl MCPSessionManager {
     }
     
     /// Get all active sessions
-    pub async fn get_sessions(&self) -> Vec<Arc<dyn MCPSession>> {
+    pub async fn get_sessions(&self) -> Vec<Arc<Session>> {
         self.sessions.read().await.clone()
     }
 }

@@ -1,6 +1,8 @@
 //! Test program for Dependency Injection pattern
 
 use std::sync::{Arc, Mutex, RwLock};
+use crate::app::AppInterface;
+use crate::mcp::MCPInterface;
 
 /// Error types
 mod error {

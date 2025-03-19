@@ -1,7 +1,9 @@
-// MCP Session module
+/// Module for handling sessions in the MCP system.
+///
+/// This module contains the session management functionality including
+/// persistence, authentication, and session lifecycle operations.
 pub mod manager;
 
-use std::sync::Arc;
 use crate::error::Result;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
@@ -10,9 +12,10 @@ use serde::{Serialize, Deserialize};
 use log::{debug, error, info, warn};
 use rand::Rng;
 use uuid::Uuid;
+use std::sync::Arc;
 
-use crate::error::{Result, SquirrelError};
-use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
+use crate::error::SquirrelError;
+use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
 use crate::mcp::security::{Credentials, SecurityManager};
 use crate::mcp::persistence::{Persistence, SessionData};
 
@@ -185,13 +188,17 @@ impl SessionManager {
         &self,
         credentials: &Credentials,
     ) -> Result<Session> {
-        // Authenticate the user
-        let user = self.security.authenticate(credentials).await?;
+        // Authenticate the user - this returns a user ID as a String
+        let user_id_str = self.security.authenticate(credentials).await?;
+        
+        // Convert the string to a UserId and use a default role
+        let user_id = UserId::from(user_id_str);
+        let role = UserRole::User;
         
         // Create the session
         let session = Session::new(
-            user.id.clone(),
-            user.role.clone(),
+            user_id,
+            role,
             self.config.timeout,
         );
         

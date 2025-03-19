@@ -5,19 +5,28 @@ use crate::monitoring::health::{
     HealthStatus,
     ComponentHealth,
     DefaultHealthChecker,
+    HealthConfig,
 };
 use async_trait::async_trait;
 
 /// Adapter for the health checker to support dependency injection
 #[derive(Debug)]
 pub struct HealthCheckerAdapter {
-    inner: Option<Arc<DefaultHealthChecker>>,
+    pub(crate) inner: Option<Arc<DefaultHealthChecker>>,
 }
 
 impl HealthCheckerAdapter {
-    /// Creates a new health checker adapter
+    /// Creates a new health checker adapter without initializing it
     #[must_use] pub fn new() -> Self {
         Self { inner: None }
+    }
+
+    /// Creates a new health checker adapter with a specific config
+    #[must_use] pub fn new_with_config(config: HealthConfig) -> Self {
+        let checker = DefaultHealthChecker::with_dependencies(Some(config));
+        Self {
+            inner: Some(Arc::new(checker)),
+        }
     }
 
     /// Creates a new health checker adapter with an existing checker
@@ -25,6 +34,35 @@ impl HealthCheckerAdapter {
         Self {
             inner: Some(checker),
         }
+    }
+
+    /// Initializes the adapter with default configuration
+    pub fn initialize(&mut self) -> Result<()> {
+        if self.inner.is_some() {
+            // Already initialized
+            return Ok(());
+        }
+
+        let checker = DefaultHealthChecker::with_dependencies(None);
+        self.inner = Some(Arc::new(checker));
+        Ok(())
+    }
+
+    /// Initializes the adapter with custom configuration
+    pub fn initialize_with_config(&mut self, config: HealthConfig) -> Result<()> {
+        if self.inner.is_some() {
+            // Already initialized
+            return Ok(());
+        }
+
+        let checker = DefaultHealthChecker::with_dependencies(Some(config));
+        self.inner = Some(Arc::new(checker));
+        Ok(())
+    }
+
+    /// Checks if the adapter is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.inner.is_some()
     }
 }
 
@@ -76,4 +114,18 @@ impl Default for HealthCheckerAdapter {
 /// Creates a new health checker adapter
 #[must_use] pub fn create_checker_adapter() -> Arc<HealthCheckerAdapter> {
     Arc::new(HealthCheckerAdapter::new())
+}
+
+/// Creates a new health checker adapter with default configuration and initializes it
+pub fn create_initialized_checker_adapter() -> Result<HealthCheckerAdapter> {
+    let mut adapter = HealthCheckerAdapter::new();
+    adapter.initialize()?;
+    Ok(adapter)
+}
+
+/// Creates a new health checker adapter with custom configuration
+pub fn create_checker_adapter_with_config(config: HealthConfig) -> Result<HealthCheckerAdapter> {
+    let mut adapter = HealthCheckerAdapter::new();
+    adapter.initialize_with_config(config)?;
+    Ok(adapter)
 } 

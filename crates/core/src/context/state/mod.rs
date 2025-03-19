@@ -2,7 +2,7 @@
 // TODO: Implement context state functionality
 
 use serde::{Serialize, Deserialize};
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 
 /// State structure to maintain context state
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn test_rbac_manager_creation() {
     let rbac = RBACManager::new();
-    assert!(rbac.roles.is_empty());
+    assert!(rbac.roles_by_id.is_empty());
 }
 
 #[test]
@@ -18,19 +18,28 @@ fn test_rbac_role_creation() {
         action: Action::Read,
     };
     
+    // Create HashSet for permissions
+    let mut permissions = HashSet::new();
+    permissions.insert(permission);
+    
     // Create role with permission
-    let role_id = rbac.create_role("test-role", "Test Role", vec![permission]);
+    let role = rbac.create_role(
+        "test-role".to_string(), 
+        Some("Test Role".to_string()), 
+        permissions,
+        HashSet::new()
+    ).unwrap();
     
     // Verify role was created
-    assert!(!role_id.is_empty());
+    assert!(!role.id.is_empty());
     
     // Verify role can be retrieved
     let found_role = rbac.get_role_by_name("test-role");
-    assert!(found_role.is_some());
+    assert!(found_role.is_some(), "Role should be found by name");
     
     let role = found_role.unwrap();
     assert_eq!(role.name, "test-role");
-    assert_eq!(role.display_name, "Test Role");
+    assert_eq!(role.description, Some("Test Role".to_string()));
     assert_eq!(role.permissions.len(), 1);
 }
 
@@ -51,16 +60,24 @@ fn test_permission_check() {
         id: "perm-write".to_string(),
         name: "Write".to_string(),
         resource: "Document".to_string(),
-        action: Action::Write,
+        action: Action::Update,
     };
     
     // Create role with read permission only
-    let role_id = rbac.create_role("reader", "Reader", vec![read_permission]);
+    let mut permissions = HashSet::new();
+    permissions.insert(read_permission);
+    
+    let role_id = rbac.create_role(
+        "reader".to_string(),
+        Some("Reader".to_string()),
+        permissions,
+        HashSet::new()
+    ).unwrap().id;
     
     // Verify role has read permission but not write
     let role = rbac.get_role_by_id(&role_id).unwrap();
-    assert!(rbac.role_has_permission(&role, "Document", Action::Read));
-    assert!(!rbac.role_has_permission(&role, "Document", Action::Write));
+    assert!(rbac.has_permission_for_role(&role, "Document", Action::Read));
+    assert!(!rbac.has_permission_for_role(&role, "Document", Action::Update));
 }
 
 #[test]
@@ -79,7 +96,7 @@ fn test_role_inheritance() {
         id: "perm-write".to_string(),
         name: "Write".to_string(),
         resource: "Document".to_string(),
-        action: Action::Write,
+        action: Action::Update,
     };
     
     let admin_permission = Permission {
@@ -89,42 +106,57 @@ fn test_role_inheritance() {
         action: Action::Admin,
     };
     
-    // Create reader role
-    let reader_id = rbac.create_role("reader", "Reader", vec![read_permission]);
+    // Create reader role with read permission
+    let mut read_permissions = HashSet::new();
+    read_permissions.insert(read_permission);
+    
+    let reader_role = rbac.create_role(
+        "reader".to_string(),
+        Some("Reader".to_string()),
+        read_permissions,
+        HashSet::new()
+    ).unwrap();
     
     // Create editor role that inherits from reader
-    let editor_id = rbac.create_role_with_parent(
-        "editor", 
-        "Editor", 
-        vec![write_permission], 
-        vec![reader_id.clone()]
-    );
+    let mut write_permissions = HashSet::new();
+    write_permissions.insert(write_permission);
+    
+    let mut editor_parent_roles = HashSet::new();
+    editor_parent_roles.insert(reader_role.id.clone());
+    
+    let editor_role = rbac.create_role(
+        "editor".to_string(),
+        Some("Editor".to_string()),
+        write_permissions,
+        editor_parent_roles
+    ).unwrap();
     
     // Create admin role that inherits from editor
-    let admin_id = rbac.create_role_with_parent(
-        "admin", 
-        "Admin", 
-        vec![admin_permission], 
-        vec![editor_id.clone()]
-    );
+    let mut admin_permissions = HashSet::new();
+    admin_permissions.insert(admin_permission);
     
-    // Get admin role
-    let admin_role = rbac.get_role_by_id(&admin_id).unwrap();
+    let mut admin_parent_roles = HashSet::new();
+    admin_parent_roles.insert(editor_role.id.clone());
+    
+    let admin_role = rbac.create_role(
+        "admin".to_string(),
+        Some("Admin".to_string()),
+        admin_permissions,
+        admin_parent_roles
+    ).unwrap();
     
     // Admin should have all permissions
-    assert!(rbac.role_has_permission(&admin_role, "Document", Action::Read));
-    assert!(rbac.role_has_permission(&admin_role, "Document", Action::Write));
-    assert!(rbac.role_has_permission(&admin_role, "System", Action::Admin));
+    assert!(rbac.has_permission_for_role(&admin_role, "Document", Action::Read));
+    assert!(rbac.has_permission_for_role(&admin_role, "Document", Action::Update));
+    assert!(rbac.has_permission_for_role(&admin_role, "System", Action::Admin));
     
     // Editor should have read and write but not admin
-    let editor_role = rbac.get_role_by_id(&editor_id).unwrap();
-    assert!(rbac.role_has_permission(&editor_role, "Document", Action::Read));
-    assert!(rbac.role_has_permission(&editor_role, "Document", Action::Write));
-    assert!(!rbac.role_has_permission(&editor_role, "System", Action::Admin));
+    assert!(rbac.has_permission_for_role(&editor_role, "Document", Action::Read));
+    assert!(rbac.has_permission_for_role(&editor_role, "Document", Action::Update));
+    assert!(!rbac.has_permission_for_role(&editor_role, "System", Action::Admin));
     
     // Reader should only have read
-    let reader_role = rbac.get_role_by_id(&reader_id).unwrap();
-    assert!(rbac.role_has_permission(&reader_role, "Document", Action::Read));
-    assert!(!rbac.role_has_permission(&reader_role, "Document", Action::Write));
-    assert!(!rbac.role_has_permission(&reader_role, "System", Action::Admin));
+    assert!(rbac.has_permission_for_role(&reader_role, "Document", Action::Read));
+    assert!(!rbac.has_permission_for_role(&reader_role, "Document", Action::Update));
+    assert!(!rbac.has_permission_for_role(&reader_role, "System", Action::Admin));
 } 

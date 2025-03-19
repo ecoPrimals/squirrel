@@ -1,35 +1,44 @@
-//! Alert management for system monitoring
-//! 
-//! This module provides functionality for:
-//! - Alert rule management
-//! - Alert generation and notification
-//! - Alert history tracking
-//! - Alert severity levels
-//! - Alert routing and escalation
+/// Module for monitoring alert functionality
+///
+/// This module provides alert generation, management, and notification capabilities
+/// for system monitoring.
 
 // Allow certain linting issues that are too numerous to fix individually
-#![allow(clippy::module_name_repetitions)] // Allow module name in type names
-#![allow(clippy::unused_async)] // Allow unused async functions
+#[allow(clippy::module_name_repetitions)] // Allow module name in type names
+#[allow(clippy::unused_async)] // Allow unused async functions
 
 use serde::{Serialize, Deserialize};
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    fmt::Debug,
-};
-use tokio::sync::RwLock;
-use thiserror::Error;
 use uuid::Uuid;
-use crate::error::{Result, SquirrelError};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use std::collections::HashSet;
+use std::path::PathBuf;
+use thiserror::Error;
+use chrono::{DateTime, Utc};
 use async_trait::async_trait;
+use crate::error::{Result, SquirrelError};
+use std::collections::HashMap;
+use std::fmt::{self, Debug};
+use std::time::{SystemTime, UNIX_EPOCH};
+use serde_json::{json, Value};
 use time::OffsetDateTime;
+use std::marker::PhantomData;
+use log;
 
+/// Module for alert configuration
 pub mod config;
+
+/// Module for alert manager implementations
 pub mod manager;
-pub mod notify;
+
+/// Module for alert status tracking
 pub mod status;
+
+/// Module for adapter implementations of alert functionality
 pub mod adapter;
+
+/// Module for alert notification functionality
+pub mod notify;
 
 /// Alert severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -226,6 +235,29 @@ impl From<Alert> for AlertNotification {
     }
 }
 
+/// Trait for notification managers that can send alert notifications
+#[async_trait]
+pub trait NotificationManagerTrait: Send + Sync + Debug {
+    /// Send a notification about an alert
+    ///
+    /// # Arguments
+    /// * `notification` - The notification to send
+    ///
+    /// # Returns
+    /// A result indicating success or error
+    async fn send_notification(&self, notification: &AlertNotification) -> Result<()>;
+}
+
+/// Implementation for unit type to allow () to be used as a default notification manager
+#[async_trait]
+impl NotificationManagerTrait for () {
+    /// No-op implementation that just returns success
+    async fn send_notification(&self, _notification: &AlertNotification) -> Result<()> {
+        // Unit type doesn't actually send notifications
+        Ok(())
+    }
+}
+
 /// Alert manager trait
 #[async_trait]
 pub trait AlertManager: Debug + Send + Sync {
@@ -284,13 +316,13 @@ pub trait AlertManager: Debug + Send + Sync {
 
 /// Default alert manager implementation
 #[derive(Debug)]
-pub struct DefaultAlertManager {
+pub struct DefaultAlertManager<N: NotificationManagerTrait + 'static = ()> {
     alerts: Arc<RwLock<Vec<Alert>>>,
     config: AlertConfig,
-    notification_manager: Option<Arc<NotificationManager>>,
+    notification_manager: Option<Arc<N>>,
 }
 
-impl DefaultAlertManager {
+impl<N: NotificationManagerTrait + 'static> DefaultAlertManager<N> {
     /// Creates a new default alert manager with the specified configuration
     ///
     /// # Arguments
@@ -316,7 +348,7 @@ impl DefaultAlertManager {
     /// A new instance of `DefaultAlertManager` with the specified dependencies
     #[must_use] pub fn with_dependencies(
         config: AlertConfig,
-        notification_manager: Option<Arc<NotificationManager>>,
+        notification_manager: Option<Arc<N>>,
     ) -> Self {
         Self {
             alerts: Arc::new(RwLock::new(Vec::new())),
@@ -326,22 +358,22 @@ impl DefaultAlertManager {
     }
 }
 
-impl Default for DefaultAlertManager {
+impl<N: NotificationManagerTrait + 'static> Default for DefaultAlertManager<N> {
     fn default() -> Self {
         Self::new(AlertConfig::default())
     }
 }
 
 #[async_trait]
-impl AlertManager for DefaultAlertManager {
+impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager<N> {
     /// Sends an alert through configured notification channels and stores it
     ///
     /// # Arguments
-    /// * `alert` - The alert to send and store
+    /// * `alert` - The alert to send
     ///
-    /// # Errors
-    /// This function may return errors if:
-    /// * The notification system fails to send the alert
+    /// # Returns
+    /// A Result indicating success or containing an error if:
+    /// * There are issues sending the notification through configured channels
     /// * There are issues storing the alert in the internal storage
     async fn send_alert(&self, alert: Alert) -> Result<()> {
         // Store the alert
@@ -454,24 +486,30 @@ impl From<AlertError> for SquirrelError {
 
 /// Factory for creating alert managers
 #[derive(Debug, Clone)]
-pub struct AlertManagerFactory {
+pub struct AlertManagerFactory<N: NotificationManagerTrait + 'static = ()> {
     /// Configuration for creating alert managers
     config: AlertConfig,
+    /// Phantom type parameter for notification manager type
+    _phantom: std::marker::PhantomData<N>,
 }
 
-impl AlertManagerFactory {
+impl<N: NotificationManagerTrait + 'static> AlertManagerFactory<N> {
     /// Creates a new factory with default configuration
     #[must_use]
     pub fn new() -> Self {
         Self {
             config: AlertConfig::default(),
+            _phantom: std::marker::PhantomData,
         }
     }
 
     /// Creates a new factory with specific configuration
     #[must_use]
     pub const fn with_config(config: AlertConfig) -> Self {
-        Self { config }
+        Self { 
+            config,
+            _phantom: std::marker::PhantomData,
+        }
     }
 
     /// Creates an alert manager with dependencies
@@ -484,8 +522,8 @@ impl AlertManagerFactory {
     #[must_use]
     pub fn create_manager_with_dependencies(
         &self,
-        notification_manager: Option<Arc<NotificationManager>>,
-    ) -> Arc<DefaultAlertManager> {
+        notification_manager: Option<Arc<N>>,
+    ) -> Arc<DefaultAlertManager<N>> {
         Arc::new(DefaultAlertManager::with_dependencies(
             self.config.clone(),
             notification_manager,
@@ -494,19 +532,19 @@ impl AlertManagerFactory {
 
     /// Creates an alert manager with default configuration
     #[must_use]
-    pub fn create_manager(&self) -> Arc<DefaultAlertManager> {
+    pub fn create_manager(&self) -> Arc<DefaultAlertManager<N>> {
         self.create_manager_with_dependencies(None)
     }
 
     /// Creates an alert manager adapter
     #[must_use]
-    pub fn create_manager_adapter(&self) -> Arc<AlertManagerAdapter> {
+    pub fn create_manager_adapter(&self) -> Arc<AlertManagerAdapter<N>> {
         let manager = self.create_manager();
         create_manager_adapter_with_manager(manager)
     }
 }
 
-impl Default for AlertManagerFactory {
+impl<N: NotificationManagerTrait + 'static> Default for AlertManagerFactory<N> {
     fn default() -> Self {
         Self::new()
     }
@@ -514,22 +552,22 @@ impl Default for AlertManagerFactory {
 
 /// Create a new alert manager adapter
 #[must_use]
-pub fn create_manager_adapter() -> Arc<AlertManagerAdapter> {
+pub fn create_manager_adapter() -> Arc<AlertManagerAdapter<()>> {
     AlertManagerFactory::new().create_manager_adapter()
 }
 
-/// Create a new alert manager adapter with a specific manager
+/// Create a new alert manager adapter with an existing manager
 #[must_use]
-pub fn create_manager_adapter_with_manager(
-    manager: Arc<DefaultAlertManager>
-) -> Arc<AlertManagerAdapter> {
+pub fn create_manager_adapter_with_manager<N: NotificationManagerTrait + 'static>(
+    manager: Arc<DefaultAlertManager<N>>
+) -> Arc<AlertManagerAdapter<N>> {
     Arc::new(AlertManagerAdapter::with_manager(manager))
 }
 
 // Re-export adapter types
-pub use adapter::{AlertManagerAdapter, create_manager_adapter, create_manager_adapter_with_manager};
+pub use adapter::AlertManagerAdapter;
 
-// Re-export modules
+// Public re-exports
 pub use self::config::*;
 pub use self::manager::*;
 pub use self::notify::*;

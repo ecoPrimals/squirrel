@@ -11,18 +11,44 @@ use crate::monitoring::metrics::{Metric, MetricCollector, MetricType};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use sysinfo::{System, SystemExt, ProcessExt, Process, DiskExt, NetworkExt, PidExt, CpuExt, NetworksExt};
 use serde::{Serialize, Deserialize};
+use sysinfo::{System, Process, Disks, Networks, CpuRefreshKind, RefreshKind, ThreadKind};
 use async_trait::async_trait;
+use crate::monitoring::metrics::performance::PerformanceCollectorAdapter;
+use opentelemetry_sdk::metrics::data::ResourceMetrics;
+use std::sync::atomic::{AtomicBool, Ordering};
+use sysinfo::Pid;
+use sysinfo::ProcessStatus;
+use chrono;
 
-/// Resource usage metrics for a team.
-/// 
-/// This struct tracks various resource usage metrics for a specific team,
-/// including memory, storage, network, and process information.
+/// Information about a process
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessInfo {
+    /// Process ID
+    pub pid: u32,
+    /// Process name
+    pub name: String,
+    /// CPU usage percentage
+    pub cpu_usage: f32,
+    /// Memory usage in bytes
+    pub memory_usage: u64,
+    /// Number of threads
+    pub thread_count: u32,
+    /// Disk read bytes
+    pub disk_read_bytes: u64,
+    /// Disk write bytes
+    pub disk_write_bytes: u64,
+    /// Process status
+    pub status: String,
+}
+
+/// Represents resource metrics for a team
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamResourceMetrics {
+    /// Team identifier
+    pub team_id: String,
     /// Memory usage in bytes.
     pub memory_usage: f64,
     /// Storage usage in bytes.
@@ -37,6 +63,10 @@ pub struct TeamResourceMetrics {
     pub cpu_usage: f64,
     /// List of processes owned by the team.
     pub processes: Vec<ProcessInfo>,
+    /// Timestamp of the metrics
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Labels for the metrics
+    pub labels: HashMap<String, String>,
 }
 
 /// Disk I/O statistics
@@ -64,6 +94,7 @@ impl Default for DiskIOStats {
 }
 
 /// Resource metrics collector that monitors system and team resource usage
+#[derive(Debug)]
 pub struct ResourceMetricsCollector {
     /// System information collector
     system: System,
@@ -119,7 +150,6 @@ impl ResourceMetricsCollector {
     pub async fn update_metrics(&mut self) -> Result<()> {
         self.system.refresh_all();
 
-        let mut metrics = self.metrics.write().await;
         let team_paths = self.team_paths.read().await;
         let mut prev_disk_io = self.prev_disk_io.write().await;
         
@@ -133,13 +163,14 @@ impl ResourceMetricsCollector {
                 .map(|p| Self::collect_process_info(p))
                 .collect();
             
-            // Calculate total memory usage
+            // Calculate aggregate team metrics
             let memory_usage = process_info.iter()
-                .map(|p| p.memory_usage)
+                .map(|p| p.memory_usage as f64)
                 .sum::<f64>();
 
-            // Calculate thread count
-            let thread_count = Self::calculate_thread_count(&self.system, team_name);
+            let thread_count: u32 = process_info.iter()
+                .map(|p| p.thread_count)
+                .sum();
 
             // Update storage usage if team path is configured
             let storage_usage = Self::calculate_storage_usage(&self.system, team_path);
@@ -162,8 +193,8 @@ impl ResourceMetricsCollector {
             let network_bandwidth = Self::calculate_network_bandwidth(&self.system, team_name);
 
             // Update metrics
-            let mut team_metric = Metric::new(
-                team_name.to_string(),
+            let mut team_metric = Metric::with_optional_labels(
+                format!("resource.team.{}", team_name),
                 memory_usage,
                 MetricType::Gauge,
                 Some(HashMap::new()),
@@ -177,43 +208,53 @@ impl ResourceMetricsCollector {
             team_metric.labels.insert("network_bandwidth".to_string(), network_bandwidth.to_string());
             team_metric.labels.insert("process_count".to_string(), process_info.len().to_string());
             
-            metrics.push(team_metric);
+            self.metrics.write().await.push(team_metric);
         }
         Ok(())
     }
 
     /// Calculate storage usage for a team's workspace
-    fn calculate_storage_usage(system: &System, path: &Path) -> f64 {
-        let mut total_usage = 0.0;
+    fn calculate_storage_usage(_system: &System, path: &Path) -> f64 {
+        // Create a fresh Disks instance with refreshed data
+        let disks = Disks::new_with_refreshed_list();
+        
+        // Calculate storage usage for the given path
+        if let Ok(metadata) = std::fs::metadata(path) {
+            let total_space = metadata.len() as f64;
+            let free_space = disks.iter()
+                .filter(|disk| Path::new(disk.mount_point()).starts_with(path))
+                .map(|disk| disk.available_space() as f64)
+                .sum::<f64>();
 
-        // Get disk containing the path
-        if let Some(disk) = system.disks().iter().find(|d| path.starts_with(d.mount_point())) {
-            // Get available space
-            let _total_space = disk.total_space();
-            let _available_space = disk.available_space();
-            
-            // Calculate used space for the team's directory
-            if let Ok(dir_size) = Self::calculate_dir_size(path) {
-                total_usage = dir_size as f64;
+            if total_space > 0.0 {
+                (total_space - free_space) / total_space
+            } else {
+                0.0
             }
+        } else {
+            0.0
         }
-
-        total_usage
     }
 
     /// Calculate disk I/O statistics for a team's workspace
-    fn calculate_disk_io(system: &System, path: &Path) -> DiskIOStats {
-        let mut stats = DiskIOStats::default();
+    fn calculate_disk_io(_system: &System, path: &Path) -> DiskIOStats {
+        // Create a fresh Disks instance with refreshed data
+        let disks = Disks::new_with_refreshed_list();
+        
+        // Calculate disk I/O for the given path
+        let disk_io = disks.iter()
+            .filter(|disk| Path::new(disk.mount_point()).starts_with(path))
+            .fold(DiskIOStats::default(), |mut acc, disk| {
+                // In sysinfo 0.30, disks don't provide direct read/write bytes
+                // We'll use available/total space as a proxy
+                let total = disk.total_space();
+                let available = disk.available_space();
+                acc.bytes_read += total - available;
+                acc.bytes_written += 0; // Not directly available
+                acc
+            });
 
-        // Get disk containing the path
-        if let Some(disk) = system.disks().iter().find(|d| path.starts_with(d.mount_point())) {
-            stats.bytes_read = disk.total_space() - disk.available_space();
-            // Note: sysinfo doesn't provide direct disk I/O stats
-            // In a production system, we would use platform-specific APIs
-            // or tools like iostat for more accurate I/O statistics
-        }
-
-        stats
+        disk_io
     }
 
     /// Calculate the total size of a directory using a non-recursive approach
@@ -279,14 +320,36 @@ impl ResourceMetricsCollector {
         false
     }
 
-    /// Calculate thread count for a team
-    fn calculate_thread_count(system: &System, team_name: &str) -> u32 {
-        // Count the number of processes for the team as a simple approximation
-        u32::try_from(system.processes()
-            .iter()
-            .filter(|(_, p)| p.name().contains(team_name))
-            .count())
-            .unwrap_or(0)
+    /// Collect process information
+    fn collect_process_info(process: &Process) -> ProcessInfo {
+        let status = match process.status() {
+            ProcessStatus::Run => "running",
+            ProcessStatus::Sleep => "sleeping",
+            ProcessStatus::Zombie => "zombie",
+            ProcessStatus::Stop => "stopped",
+            ProcessStatus::Idle => "idle",
+            _ => "unknown",
+        };
+
+        // Get thread count safely
+        let thread_count = match process.thread_kind() {
+            Some(_) => 1u32, // If it's a thread, count it as 1
+            None => 0u32,    // If it's not a thread, count as 0
+        };
+        
+        // Get disk usage from process
+        let disk_usage = process.disk_usage();
+        
+        ProcessInfo {
+            pid: process.pid().as_u32(),
+            name: process.name().to_string(),
+            cpu_usage: process.cpu_usage(),
+            memory_usage: process.memory(),
+            thread_count,
+            disk_read_bytes: disk_usage.read_bytes,
+            disk_write_bytes: disk_usage.written_bytes,
+            status: status.to_string(),
+        }
     }
 
     /// Get current resource metrics for a team
@@ -299,6 +362,7 @@ impl ResourceMetricsCollector {
                     if team_label == team_name {
                         // Create a TeamResourceMetrics from the metric data
                         return Some(TeamResourceMetrics {
+                            team_id: team_name.to_string(),
                             memory_usage: metric.value,
                             storage_usage: metric.labels.get("storage_usage")
                                 .and_then(|v| v.parse::<f64>().ok())
@@ -316,6 +380,8 @@ impl ResourceMetricsCollector {
                                 .and_then(|v| v.parse::<f64>().ok())
                                 .unwrap_or(0.0),
                             processes: Vec::new(),
+                            timestamp: chrono::Utc::now(),
+                            labels: HashMap::new(),
                         });
                     }
                 }
@@ -335,7 +401,7 @@ impl ResourceMetricsCollector {
         labels.insert("team".to_string(), team_name.clone());
         labels.insert("type".to_string(), "resource".to_string());
         
-        metrics.push(Metric::new(
+        metrics.push(Metric::with_optional_labels(
             team_name,
             0.0, // Initial memory usage
             MetricType::Gauge,
@@ -365,24 +431,73 @@ impl ResourceMetricsCollector {
         });
     }
 
-    /// Collect process information
-    fn collect_process_info(process: &Process) -> ProcessInfo {
-        ProcessInfo {
-            pid: process.pid().as_u32(),
-            name: process.name().to_string(),
-            cpu_usage: f64::from(process.cpu_usage()),
-            memory_usage: process.memory() as f64,
-            disk_read: process.disk_usage().read_bytes,
-            disk_write: process.disk_usage().written_bytes,
-        }
-    }
-
-    /// Collect system metrics
-    pub fn collect_system_metrics(&self) -> Result<ResourceMetrics> {
+    /// Collect system resource metrics
+    pub fn collect_system_metrics(&self) -> Result<TeamResourceMetrics> {
+        // Create a new System and refresh all components
         let mut system = System::new_all();
         system.refresh_all();
         
-        Ok(ResourceMetrics::new(&system))
+        // Calculate CPU usage
+        let cpu_usage = system.global_cpu_info().cpu_usage();
+        
+        // Calculate memory usage
+        let memory_usage = (system.used_memory() as f64 / system.total_memory() as f64) * 100.0;
+        
+        // Calculate storage usage
+        let storage_usage = {
+            // In sysinfo 0.30, system.disks() doesn't exist, so we need to create a fresh Disks instance
+            let disks = Disks::new_with_refreshed_list();
+            disks.iter()
+                .map(|disk| {
+                    let total = disk.total_space();
+                    let available = disk.available_space();
+                    if total == 0 {
+                        0.0
+                    } else {
+                        ((total - available) as f64 / total as f64) * 100.0
+                    }
+                })
+                .fold(0.0, |acc, x| acc + x) / disks.len() as f64
+        };
+        
+        // Collect network bandwidth (simplified)
+        let network_bandwidth = {
+            // In sysinfo 0.30, system.networks() doesn't exist, so we need to create a fresh Networks instance
+            let networks = Networks::new_with_refreshed_list();
+            networks.iter()
+                .map(|(_, network)| (network.received() + network.transmitted()) as f64)
+                .fold(0.0, |acc, x| acc + x)
+        };
+
+        // Calculate thread count safely
+        let thread_count: u32 = system.processes()
+            .values()
+            .map(|process| {
+                // In sysinfo 0.30, thread_kind() returns an Option<ThreadKind>
+                // We just want to count threads, so we'll return 1 if it has a thread_kind
+                match process.thread_kind() {
+                    Some(_) => 1u32, // If it's a thread, count it as 1
+                    None => 0u32,    // If it's not a thread, count as 0
+                }
+            })
+            .sum();
+        
+        // Calculate disk I/O
+        let disk_io = Self::calculate_disk_io(&system, &std::env::current_dir()?);
+        
+        // Return system metrics as a TeamResourceMetrics
+        Ok(TeamResourceMetrics {
+            team_id: "system".to_string(),
+            memory_usage,
+            storage_usage,
+            network_bandwidth,
+            thread_count,
+            disk_io: disk_io.bytes_read as f64,
+            cpu_usage: cpu_usage as f64, // Convert f32 to f64
+            processes: Vec::new(), // Don't include all system processes
+            timestamp: chrono::Utc::now(),
+            labels: HashMap::new(),
+        })
     }
 
     /// Calculate CPU usage for a team
@@ -403,7 +518,8 @@ impl ResourceMetricsCollector {
         
         // Sum up network usage from all network interfaces
         let mut total_bandwidth = 0.0;
-        for (_, network) in system.networks() {
+        let networks = sysinfo::Networks::new_with_refreshed_list();
+        for (_, network) in &networks {
             total_bandwidth += (network.received() + network.transmitted()) as f64;
         }
         
@@ -411,16 +527,106 @@ impl ResourceMetricsCollector {
         let process_ratio = team_processes.len() as f64 / system.processes().len() as f64;
         total_bandwidth * process_ratio
     }
+
+    /// Gets disk usage for a specific path
+    pub fn get_disk_usage(&self, path: &Path) -> Option<f64> {
+        // Create a new disks instance to get fresh disk data
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        
+        if let Some(disk) = disks.iter().find(|d| path.starts_with(d.mount_point())) {
+            let total = disk.total_space();
+            let available = disk.available_space();
+            let used = total.saturating_sub(available);
+            Some(used as f64 / total as f64 * 100.0)
+        } else {
+            None
+        }
+    }
+
+    /// Gets disk space for a specific path (used, total)
+    pub fn get_disk_space(&self, path: &Path) -> Option<(u64, u64)> {
+        // Create a new disks instance to get fresh disk data
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        
+        if let Some(disk) = disks.iter().find(|d| path.starts_with(d.mount_point())) {
+            let total = disk.total_space();
+            let available = disk.available_space();
+            let used = total.saturating_sub(available);
+            Some((used, total))
+        } else {
+            None
+        }
+    }
+
+    /// Collect team metrics
+    pub async fn collect_team_metrics(&self) -> Result<HashMap<String, TeamResourceMetrics>> {
+        // Create a new System instance
+        let mut system = System::new_all();
+        system.refresh_all();
+        
+        // Create fresh Networks instance with refreshed data
+        let networks = Networks::new_with_refreshed_list();
+        
+        let team_paths = self.team_paths.read().await;
+        
+        let mut results = HashMap::new();
+        for (team_name, path) in team_paths.iter() {
+            let team_processes = Self::get_team_processes(&system, team_name);
+            
+            let process_info: Vec<ProcessInfo> = team_processes.iter()
+                .map(|p| Self::collect_process_info(p))
+                .collect();
+            
+            // Calculate aggregate team metrics
+            let memory_usage = process_info.iter()
+                .map(|p| p.memory_usage as f64)
+                .sum::<f64>();
+            
+            let storage_usage = Self::calculate_storage_usage(&system, path);
+            
+            // Calculate network bandwidth
+            let network_bandwidth = networks.iter()
+                .map(|(_, network)| {
+                    let received = network.received() as f64;
+                    let transmitted = network.transmitted() as f64;
+                    received + transmitted
+                })
+                .fold(0.0, |acc, x| acc + x);
+            
+            let thread_count: u32 = process_info.iter()
+                .map(|p| p.thread_count)
+                .sum();
+            
+            let disk_io = Self::calculate_disk_io(&system, path);
+            
+            let cpu_usage = Self::calculate_cpu_usage(&system, team_name);
+            
+            results.insert(team_name.clone(), TeamResourceMetrics {
+                team_id: team_name.clone(),
+                memory_usage,
+                storage_usage,
+                network_bandwidth,
+                thread_count,
+                disk_io: disk_io.bytes_read as f64,
+                cpu_usage,
+                processes: process_info,
+                timestamp: chrono::Utc::now(),
+                labels: HashMap::new(),
+            });
+        }
+        
+        Ok(results)
+    }
 }
 
 impl Clone for ResourceMetricsCollector {
     fn clone(&self) -> Self {
         Self {
-            system: System::new_all(),  // Create a new System instance instead of cloning
-            metrics: self.metrics.clone(),
-            team_paths: self.team_paths.clone(),
-            prev_disk_io: self.prev_disk_io.clone(),
-            performance_collector: self.performance_collector.clone(),
+            system: System::new_all(),
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            team_paths: Arc::new(RwLock::new(HashMap::new())),
+            prev_disk_io: Arc::new(RwLock::new(HashMap::new())),
+            performance_collector: None,
             config: self.config.clone(),
         }
     }
@@ -441,6 +647,8 @@ pub struct ResourceConfig {
     pub interval: u64,
     /// Maximum history size
     pub history_size: usize,
+    /// Max process age to track in seconds
+    pub max_process_age: u64,
 }
 
 impl Default for ResourceConfig {
@@ -449,6 +657,7 @@ impl Default for ResourceConfig {
             enabled: true,
             interval: 60,
             history_size: 100,
+            max_process_age: 300,
         }
     }
 }
@@ -525,6 +734,200 @@ pub fn create_collector_adapter_with_collector(
     Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
 }
 
+/// Adapter for the Resource Metrics Collector to support dependency injection
+#[derive(Debug)]
+pub struct ResourceMetricsCollectorAdapter {
+    /// The inner collector instance
+    inner: Option<Arc<ResourceMetricsCollector>>,
+}
+
+impl ResourceMetricsCollectorAdapter {
+    /// Create a new adapter with no inner collector
+    #[must_use] pub fn new() -> Self {
+        Self { inner: None }
+    }
+
+    /// Create a new adapter with a specific collector
+    #[must_use] pub fn with_collector(collector: Arc<ResourceMetricsCollector>) -> Self {
+        Self {
+            inner: Some(collector),
+        }
+    }
+
+    /// Check if the adapter has a valid inner collector
+    #[must_use] pub fn is_valid(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    /// Get resource metrics from the collector
+    pub async fn get_team_metrics(&self) -> Result<HashMap<String, TeamResourceMetrics>> {
+        if let Some(collector) = &self.inner {
+            collector.collect_team_metrics().await
+        } else {
+            Err(SquirrelError::Generic("ResourceMetricsCollectorAdapter not initialized".to_string()))
+        }
+    }
+
+    /// Get system metrics from the collector
+    pub fn get_system_metrics(&self) -> Result<TeamResourceMetrics> {
+        if let Some(collector) = &self.inner {
+            collector.collect_system_metrics()
+        } else {
+            Err(SquirrelError::Generic("ResourceMetricsCollectorAdapter not initialized".to_string()))
+        }
+    }
+}
+
+impl Clone for ResourceMetricsCollectorAdapter {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+#[async_trait]
+impl MetricCollector for ResourceMetricsCollectorAdapter {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        if let Some(collector) = &self.inner {
+            collector.collect_metrics().await
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.record_metric(metric).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn start(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.start().await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn stop(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.stop().await
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl TeamResourceMetrics {
+    /// Create a team metrics object from a system
+    #[allow(unused)]
+    pub fn new(system: &System) -> Self {
+        // Calculate CPU usage
+        let cpu_usage = system.global_cpu_info().cpu_usage();
+        
+        // Calculate memory usage
+        let memory_usage = (system.used_memory() as f64 / system.total_memory() as f64) * 100.0;
+        
+        // Calculate storage usage - using fresh disks since system.disks() is not available
+        let storage_usage = {
+            let disks = Disks::new_with_refreshed_list();
+            if disks.len() == 0 {
+                0.0
+            } else {
+                disks.iter()
+                    .map(|disk| {
+                        let total = disk.total_space();
+                        let available = disk.available_space();
+                        if total == 0 {
+                            0.0
+                        } else {
+                            ((total - available) as f64 / total as f64) * 100.0
+                        }
+                    })
+                    .fold(0.0, |acc, x| acc + x) / disks.len() as f64
+            }
+        };
+        
+        // Calculate network bandwidth (simplified)
+        let network_bandwidth = {
+            // In sysinfo 0.30, system.networks() doesn't exist, so we need to create a fresh Networks instance
+            let networks = Networks::new_with_refreshed_list();
+            networks.iter()
+                .map(|(_, network)| (network.received() + network.transmitted()) as f64)
+                .fold(0.0, |acc, x| acc + x)
+        };
+        
+        // Get thread count from all processes
+        let thread_count: u32 = system.processes().iter()
+            .map(|(_, process)| {
+                // In sysinfo 0.30, thread_kind() returns an Option<ThreadKind>
+                // We just want to count threads, so we'll return 1 if it has a thread_kind
+                match process.thread_kind() {
+                    Some(_) => 1u32, // If it's a thread, count it as 1
+                    None => 0u32,    // If it's not a thread, count as 0
+                }
+            })
+            .sum();
+            
+        // Calculate disk I/O (simplified)
+        let disk_io = 0.0; // In a real system, this would track disk read/write rates
+        
+        // Collect process information
+        let processes = system.processes().iter()
+            .take(10) // Limit to top 10 processes by CPU
+            .map(|(_, process)| Self::collect_process_info(process))
+            .collect();
+        
+        Self {
+            team_id: "system".to_string(),
+            memory_usage,
+            storage_usage,
+            network_bandwidth,
+            thread_count,
+            disk_io,
+            cpu_usage: cpu_usage as f64,
+            processes,
+            timestamp: chrono::Utc::now(),
+            labels: HashMap::new(),
+        }
+    }
+    
+    // Helper method to collect process info
+    fn collect_process_info(process: &Process) -> ProcessInfo {
+        let status = match process.status() {
+            ProcessStatus::Run => "running",
+            ProcessStatus::Sleep => "sleeping",
+            ProcessStatus::Zombie => "zombie",
+            ProcessStatus::Stop => "stopped",
+            ProcessStatus::Idle => "idle",
+            _ => "unknown",
+        };
+
+        // Get thread count safely
+        let thread_count = match process.thread_kind() {
+            Some(_) => 1u32, // If it's a thread, count it as 1
+            None => 0u32,    // If it's not a thread, count as 0
+        };
+        
+        // Get disk usage from process
+        let disk_usage = process.disk_usage();
+        
+        ProcessInfo {
+            pid: process.pid().as_u32(),
+            name: process.name().to_string(),
+            cpu_usage: process.cpu_usage(),
+            memory_usage: process.memory(),
+            thread_count,
+            disk_read_bytes: disk_usage.read_bytes,
+            disk_write_bytes: disk_usage.written_bytes,
+            status: status.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -573,7 +976,34 @@ mod tests {
         assert!(!metrics.is_empty());
         
         // Get team metrics
-        let team_metrics = adapter.get_team_metrics("test_team").await;
-        assert!(team_metrics.is_some());
+        let team_metrics = adapter.get_team_metrics().await;
+        assert!(team_metrics.is_ok());
+    }
+}
+
+#[async_trait]
+impl MetricCollector for ResourceMetricsCollector {
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        // Implementation depends on the existing code
+        // For now, we'll just log it
+        tracing::info!("Recording metric: {:?}", metric);
+        Ok(())
+    }
+
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        // This should return all metrics
+        Ok(self.metrics.read().await.clone())
+    }
+
+    async fn start(&self) -> Result<()> {
+        // Implementation depends on the existing code
+        tracing::info!("Starting ResourceMetricsCollector");
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<()> {
+        // Implementation depends on the existing code
+        tracing::info!("Stopping ResourceMetricsCollector");
+        Ok(())
     }
 } 

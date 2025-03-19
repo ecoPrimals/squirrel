@@ -6,17 +6,24 @@ use super::{
     MonitoringServiceFactory,
     HealthCheckerAdapter,
     DefaultMetricCollector,
-    DefaultAlertManager,
-    NetworkMonitor,
 };
+use super::alerts::AlertManagerAdapter;
+use super::network::NetworkMonitorAdapter;
+use super::alerts::NotificationManagerTrait;
+use super::health::create_checker_adapter;
 
-/// Adapter for the monitoring service factory to support dependency injection
-#[derive(Debug, Clone)]
-pub struct MonitoringServiceFactoryAdapter {
-    inner: Option<Arc<MonitoringServiceFactory>>,
+/// Adapter for monitoring service factory
+/// 
+/// This adapter wraps a monitoring service factory to provide a consistent interface
+/// and additional functionality while delegating to the underlying implementation.
+#[derive(Debug)]
+pub struct MonitoringServiceFactoryAdapter<N: NotificationManagerTrait + 'static = ()> {
+    /// Underlying factory instance that will be used to create monitoring services
+    /// The adapter delegates creation requests to this inner factory.
+    pub inner: Option<Arc<MonitoringServiceFactory<N>>>,
 }
 
-impl MonitoringServiceFactoryAdapter {
+impl<N: NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'static> MonitoringServiceFactoryAdapter<N> {
     /// Creates a new factory adapter
     #[must_use]
     pub fn new() -> Self {
@@ -25,7 +32,7 @@ impl MonitoringServiceFactoryAdapter {
 
     /// Creates a new adapter with an existing factory
     #[must_use]
-    pub fn with_factory(factory: Arc<MonitoringServiceFactory>) -> Self {
+    pub fn with_factory(factory: Arc<MonitoringServiceFactory<N>>) -> Self {
         Self {
             inner: Some(factory),
         }
@@ -38,7 +45,7 @@ impl MonitoringServiceFactoryAdapter {
             factory.create_service()
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(MonitoringConfig::default());
             Arc::new(factory).create_service()
         }
     }
@@ -50,7 +57,7 @@ impl MonitoringServiceFactoryAdapter {
             factory.create_service_with_config(config)
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(config.clone());
             Arc::new(factory).create_service_with_config(config)
         }
     }
@@ -62,8 +69,8 @@ impl MonitoringServiceFactoryAdapter {
         config: MonitoringConfig,
         health_checker: Arc<HealthCheckerAdapter>,
         metric_collector: Arc<DefaultMetricCollector>,
-        alert_manager: Arc<DefaultAlertManager>,
-        network_monitor: Arc<NetworkMonitor>,
+        alert_manager: Arc<AlertManagerAdapter>,
+        network_monitor: Arc<NetworkMonitorAdapter>,
     ) -> Arc<MonitoringService> {
         if let Some(factory) = &self.inner {
             factory.create_service_with_dependencies(
@@ -75,7 +82,7 @@ impl MonitoringServiceFactoryAdapter {
             )
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(config.clone());
             Arc::new(factory).create_service_with_dependencies(
                 config,
                 health_checker,
@@ -93,7 +100,7 @@ impl MonitoringServiceFactoryAdapter {
             factory.create_service_with_adapters()
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(MonitoringConfig::default());
             Arc::new(factory).create_service_with_adapters()
         }
     }
@@ -104,7 +111,7 @@ impl MonitoringServiceFactoryAdapter {
             factory.start_service().await
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(MonitoringConfig::default());
             Arc::new(factory).start_service().await
         }
     }
@@ -115,13 +122,13 @@ impl MonitoringServiceFactoryAdapter {
             factory.start_service_with_config(config).await
         } else {
             // Initialize on-demand with default configuration
-            let factory = MonitoringServiceFactory::new(MonitoringConfig::default());
+            let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(config.clone());
             Arc::new(factory).start_service_with_config(config).await
         }
     }
 }
 
-impl Default for MonitoringServiceFactoryAdapter {
+impl<N: NotificationManagerTrait + 'static> Default for MonitoringServiceFactoryAdapter<N> {
     fn default() -> Self {
         Self::new()
     }
@@ -129,12 +136,14 @@ impl Default for MonitoringServiceFactoryAdapter {
 
 /// Creates a new monitoring service factory adapter
 #[must_use]
-pub fn create_factory_adapter() -> Arc<MonitoringServiceFactoryAdapter> {
+pub fn create_factory_adapter<N: NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'static>() -> Arc<MonitoringServiceFactoryAdapter<N>> {
     Arc::new(MonitoringServiceFactoryAdapter::new())
 }
 
 /// Creates a new monitoring service factory adapter with an existing factory
 #[must_use]
-pub fn create_factory_adapter_with_factory(factory: Arc<MonitoringServiceFactory>) -> Arc<MonitoringServiceFactoryAdapter> {
+pub fn create_factory_adapter_with_factory<N: NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'static>(
+    factory: Arc<MonitoringServiceFactory<N>>
+) -> Arc<MonitoringServiceFactoryAdapter<N>> {
     Arc::new(MonitoringServiceFactoryAdapter::with_factory(factory))
 } 

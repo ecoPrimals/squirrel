@@ -27,7 +27,8 @@ prometheus = { workspace = true }
 handlebars = { workspace = true }
 sha2 = "0.10"
 opentelemetry = "0.20"
-opentelemetry_sdk = "0.20"
+opentelemetry_sdk = { version = "0.20", features = ["metrics", "rt-tokio"] }
+reqwest = { version = "0.11", features = ["json"] }
 
 # Monitoring and logging
 tracing = { workspace = true }
@@ -51,6 +52,7 @@ mockall = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }
 snapbox = { workspace = true }
+proptest = "1.6.0"
 
 [features]
 default = ["async"]

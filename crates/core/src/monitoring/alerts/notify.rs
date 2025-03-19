@@ -9,10 +9,15 @@
 //! - Rate limiting
 
 use std::sync::Arc;
+use tokio::sync::RwLock;
+use std::time::{Duration, SystemTime};
+use std::format as fmt;
 use thiserror::Error;
 use time::OffsetDateTime;
 use handlebars::Handlebars;
 use serde::{Serialize, Deserialize};
+use serde_json::json;
+use async_trait::async_trait;
 
 use super::{AlertNotification, AlertSeverity};
 use super::adapter::{NotificationManagerAdapter, create_notification_manager_adapter_with_manager};
@@ -411,7 +416,8 @@ impl NotificationManager {
         
         if let Some(last_notification) = limiter.get(channel_id) {
             let elapsed = now - *last_notification;
-            if elapsed.whole_seconds() < rate_limit as i64 {
+            let elapsed_secs = elapsed.as_seconds_f64() as i64;
+            if elapsed_secs < rate_limit as i64 {
                 return Ok(true); // Rate limited
             }
         }

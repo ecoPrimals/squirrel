@@ -4,14 +4,20 @@
 #![allow(clippy::manual_let_else)] // Allow manual let-else patterns
 #![allow(clippy::unused_async)] // Allow unused async functions
 
-//! Monitoring module for system health and performance tracking
+//! # Monitoring Module
+//!
+//! Comprehensive monitoring system for application health, metrics, and performance tracking.
 //! 
 //! This module provides functionality for:
 //! - Health checks and status monitoring
-//! - Resource usage tracking
-//! - Performance metrics collection
-//! - Alert management
-//! - Monitoring agent coordination
+//! - Resource usage tracking and metrics collection
+//! - Performance evaluation and benchmarking
+//! - Alert generation and notification
+//! - Real-time dashboard visualization
+//! - Network traffic analysis and statistics
+//!
+//! The monitoring system is designed with a modular architecture, allowing components
+//! to be used independently or as part of a comprehensive monitoring solution.
 
 /// Health monitoring and status checking functionality
 pub mod health;
@@ -23,35 +29,40 @@ pub mod alerts;
 pub mod dashboard;
 /// Network monitoring and statistics functionality
 pub mod network;
-/// Adapter functionality
+/// Adapter functionality for dependency injection and testing
 pub mod adapter;
 
 #[cfg(test)]
 mod tests;
 
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use thiserror::Error;
-use tokio::sync::Mutex;
-use crate::error::{Result, SquirrelError};
-use crate::monitoring::metrics::{MetricConfig, MetricCollector, DefaultMetricCollector, Metric};
-use crate::monitoring::alerts::{AlertConfig, AlertManager, Alert, DefaultAlertManager};
-use crate::monitoring::health::{HealthConfig, HealthChecker, HealthStatus, HealthCheckerAdapter, create_checker_adapter};
-use crate::monitoring::network::{NetworkConfig, NetworkStats, NetworkMonitor};
 use time::OffsetDateTime;
-use tokio::time::sleep;
-use serde_json;
+use crate::error::Result;
+use crate::monitoring::health::{HealthCheckerAdapter, create_checker_adapter, HealthStatus, HealthConfig, checker::HealthChecker};
+use crate::monitoring::health::status::Status;
+use crate::monitoring::metrics::{MetricCollector, DefaultMetricCollector, Metric, MetricConfig, MetricType};
+use crate::monitoring::alerts::{Alert, AlertConfig, AlertManagerAdapter, AlertManager, AlertSeverity};
+use crate::monitoring::network::{NetworkStats, NetworkConfig, NetworkMonitorAdapter};
+use log::error;
+use serde::{Serialize, Deserialize};
 use tokio::sync::mpsc;
 use tracing::debug;
-use crate::monitoring::adapter::{MonitoringServiceFactoryAdapter, create_factory_adapter, create_factory_adapter_with_factory};
-use log::error;
 
 /// Converts a `SystemTime` to a Unix timestamp (seconds since Unix epoch)
+/// 
+/// This utility function handles the conversion from Rust's `SystemTime` to 
+/// a standard Unix timestamp (seconds since January 1, 1970 00:00:00 UTC).
+/// 
+/// # Arguments
+/// 
+/// * `time` - The `SystemTime` to convert
+/// 
+/// # Returns
+/// 
+/// The Unix timestamp as an i64
 #[must_use] pub fn system_time_to_timestamp(time: SystemTime) -> i64 {
     time.duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -59,6 +70,9 @@ use log::error;
 }
 
 /// Monitoring intervals configuration
+/// 
+/// Defines the frequency at which different monitoring operations are performed.
+/// Each interval is specified in seconds.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonitoringIntervals {
     /// Health check interval in seconds
@@ -80,6 +94,11 @@ impl Default for MonitoringIntervals {
 }
 
 /// Configuration for the monitoring service
+/// 
+/// Holds configuration settings for all monitoring components,
+/// allowing centralized configuration of the entire monitoring system.
+/// Each component's configuration is stored in a separate field, enabling
+/// fine-grained control over the monitoring behavior.
 #[derive(Debug, Clone)]
 pub struct MonitoringConfig {
     /// Health check configuration
@@ -90,6 +109,9 @@ pub struct MonitoringConfig {
     pub alerts: AlertConfig,
     /// Network monitoring configuration
     pub network: NetworkConfig,
+    /// Monitoring intervals for various components
+    /// Defines frequency of health checks, metric collection, and network monitoring
+    pub intervals: MonitoringIntervals,
 }
 
 impl Default for MonitoringConfig {
@@ -99,11 +121,15 @@ impl Default for MonitoringConfig {
             metrics: MetricConfig::default(),
             alerts: AlertConfig::default(),
             network: NetworkConfig::default(),
+            intervals: MonitoringIntervals::default(),
         }
     }
 }
 
-/// Monitoring message types
+/// Monitoring message types for internal communication
+/// 
+/// Used for async communication between monitoring components
+/// via channels.
 #[derive(Debug, Clone)]
 pub enum MonitoringMessage {
     /// Metrics have been collected
@@ -119,6 +145,9 @@ pub enum MonitoringMessage {
 }
 
 /// Events emitted by the monitoring service
+/// 
+/// External events that can be subscribed to by consumers
+/// of the monitoring service.
 #[derive(Debug, Clone)]
 pub enum MonitoringEvent {
     /// Health status has changed
@@ -129,7 +158,10 @@ pub enum MonitoringEvent {
     Shutdown,
 }
 
-/// Monitoring service for managing system monitoring components
+/// Core monitoring service implementation
+/// 
+/// Central service that coordinates all monitoring components
+/// and provides a unified interface for monitoring operations.
 #[derive(Debug)]
 pub struct MonitoringService {
     /// Service configuration
@@ -139,24 +171,33 @@ pub struct MonitoringService {
     /// Metric collector component
     pub metric_collector: Arc<DefaultMetricCollector>,
     /// Alert manager component
-    pub alert_manager: Arc<DefaultAlertManager>,
+    pub alert_manager: Arc<AlertManagerAdapter>,
     /// Network monitor component
-    pub network_monitor: Arc<NetworkMonitor>,
+    pub network_monitor: Arc<NetworkMonitorAdapter>,
 }
 
-/// Factory for creating and managing monitoring service instances
-#[derive(Debug, Clone)]
-pub struct MonitoringServiceFactory {
+/// Factory for creating monitoring service instances
+/// 
+/// Provides a flexible way to create and configure monitoring services
+/// with various component implementations.
+#[derive(Debug)]
+pub struct MonitoringServiceFactory<N: alerts::NotificationManagerTrait + 'static = ()> {
     /// Default configuration to use when creating services
     pub default_config: MonitoringConfig,
-    /// Component factories
+    /// Factory for creating health checker components
     health_factory: Option<Arc<health::HealthCheckerFactory>>,
+    /// Factory for creating metric collector components
     metric_factory: Option<Arc<metrics::MetricCollectorFactory>>,
-    alert_factory: Option<Arc<alerts::AlertManagerFactory>>,
+    /// Factory for creating alert manager components
+    alert_factory: Option<Arc<alerts::AlertManagerFactory<N>>>,
+    /// Factory for creating network monitor components
     network_factory: Option<Arc<network::NetworkMonitorFactory>>,
 }
 
 /// Monitoring errors
+/// 
+/// Comprehensive error type for all monitoring-related errors
+/// with specific variants for different monitoring components.
 #[derive(Debug, Error)]
 pub enum MonitoringError {
     /// Errors related to health checks and status monitoring
@@ -186,32 +227,36 @@ pub enum MonitoringError {
 }
 
 impl MonitoringService {
-    /// Create a new monitoring service
+    /// Create a new monitoring service with default implementations
+    /// 
+    /// Creates a monitoring service using the provided configuration
+    /// and default implementations for all components.
     #[must_use] pub fn new(config: MonitoringConfig) -> Self {
         // Create components with adapters for DI
         let health_checker = create_checker_adapter();
         let metric_collector = Arc::new(DefaultMetricCollector::new());
-        let alert_manager = Arc::new(DefaultAlertManager::new(config.alerts.clone()));
-        let network_monitor = Arc::new(NetworkMonitor::new(config.network.clone()));
+        let alert_manager = alerts::create_manager_adapter();
+        let network_monitor = network::create_monitor_adapter();
 
-        Self::with_dependencies(
+        Self {
             config,
             health_checker,
             metric_collector,
             alert_manager,
             network_monitor
-        )
+        }
     }
     
     /// Create a new monitoring service with explicit dependencies
     /// 
-    /// This constructor allows explicit dependency injection for all components
+    /// This constructor allows explicit dependency injection for all components,
+    /// providing maximum flexibility for testing and custom implementations.
     #[must_use] pub fn with_dependencies(
         config: MonitoringConfig,
         health_checker: Arc<HealthCheckerAdapter>,
         metric_collector: Arc<DefaultMetricCollector>,
-        alert_manager: Arc<DefaultAlertManager>,
-        network_monitor: Arc<NetworkMonitor>,
+        alert_manager: Arc<AlertManagerAdapter>,
+        network_monitor: Arc<NetworkMonitorAdapter>,
     ) -> Self {
         Self {
             config,
@@ -223,6 +268,9 @@ impl MonitoringService {
     }
 
     /// Start the monitoring service
+    ///
+    /// Initializes and starts all monitoring components,
+    /// preparing them to collect metrics, check health, etc.
     ///
     /// # Errors
     /// Returns an error if any component fails to start
@@ -237,6 +285,9 @@ impl MonitoringService {
 
     /// Stop the monitoring service
     ///
+    /// Stops all monitoring components gracefully,
+    /// ensuring any in-progress operations are completed.
+    ///
     /// # Errors
     /// Returns an error if any component fails to stop
     pub async fn stop(&self) -> Result<()> {
@@ -248,175 +299,233 @@ impl MonitoringService {
         Ok(())
     }
 
-    /// Check the overall system health
+    /// Retrieves the current health status of the system
     ///
     /// # Errors
-    /// Returns an error if the health check fails
-    pub async fn check_health(&self) -> Result<HealthStatus> {
+    /// Returns an error if querying health status fails
+    pub async fn health_status(&self) -> Result<HealthStatus> {
         self.health_checker.check_health().await
     }
 
     /// Get the health checker component
+    ///
+    /// Provides access to the health checker for more detailed operations.
     #[must_use] pub fn health_checker(&self) -> Arc<HealthCheckerAdapter> {
         self.health_checker.clone()
     }
 
     /// Get the metric collector component
+    ///
+    /// Provides access to the metric collector for more detailed operations.
     #[must_use] pub fn metric_collector(&self) -> Arc<DefaultMetricCollector> {
         self.metric_collector.clone()
     }
 
     /// Get the alert manager component
-    #[must_use] pub fn alert_manager(&self) -> Arc<DefaultAlertManager> {
+    ///
+    /// Provides access to the alert manager for more detailed operations.
+    #[must_use] pub fn alert_manager(&self) -> Arc<AlertManagerAdapter> {
         self.alert_manager.clone()
     }
 
     /// Get the network monitor component
-    #[must_use] pub fn network_monitor(&self) -> Arc<NetworkMonitor> {
+    ///
+    /// Provides access to the network monitor for more detailed operations.
+    #[must_use] pub fn network_monitor(&self) -> Arc<NetworkMonitorAdapter> {
         self.network_monitor.clone()
     }
 
-    /// Check the overall system health and return the status
+    /// Get all collected metrics
+    ///
+    /// Returns all metrics that have been collected by the metric collector.
     ///
     /// # Errors
-    /// Returns an error if the health check fails
-    pub async fn health_status(&self) -> Result<HealthStatus> {
-        self.health_checker.check_health().await
-    }
-
-    /// Get all collected metrics
+    /// Returns an error if retrieving metrics fails
     pub async fn get_metrics(&self) -> Result<Vec<Metric>> {
-        self.metric_collector.collect_metrics().await
+        self.metric_collector.get_all_metrics().await
     }
 
-    /// Get network statistics for all monitored interfaces
+    /// Get all network statistics
+    ///
+    /// Returns network statistics for all available network interfaces.
+    ///
+    /// # Errors
+    /// Returns an error if retrieving network stats fails
     pub async fn get_network_stats(&self) -> Result<HashMap<String, NetworkStats>> {
         self.network_monitor.get_stats().await
     }
 
-    /// Get network statistics for a specific interface
+    /// Get statistics for a specific network interface
+    ///
+    /// Returns network statistics for the specified interface if available.
+    ///
+    /// # Errors
+    /// Returns an error if retrieving interface stats fails
     pub async fn get_interface_stats(&self, interface: &str) -> Result<Option<NetworkStats>> {
         self.network_monitor.get_interface_stats(interface).await
     }
 
-    /// Get all alerts
+    /// Get all active alerts
+    ///
+    /// Returns all currently active alerts managed by the alert manager.
+    ///
+    /// # Errors
+    /// Returns an error if retrieving alerts fails
     pub async fn get_alerts(&self) -> Result<Vec<Alert>> {
         self.alert_manager.get_alerts().await
     }
 
-    /// Runs the metrics collection and alert processing pipeline
+    /// Run and process metrics in a single operation
     ///
-    /// This method collects metrics from the metric collector and processes
-    /// any alerts that may be triggered based on those metrics.
+    /// Collects metrics and processes them, potentially triggering alerts
+    /// if conditions are met.
     ///
-    /// # Returns
-    /// Ok(()) if the metrics and alerts were processed successfully
+    /// # Errors
+    /// Returns an error if collecting or processing metrics fails
     pub async fn run_and_process_metrics(&self) -> Result<()> {
-        debug!("Running metric and alert handlers");
-
-        // Process metrics from the metric collector
-        let _metrics = self.metric_collector.collect_metrics().await?;
+        // Collect metrics
+        let metrics = self.metric_collector.collect_metrics().await?;
         
-        // Process alerts based on collected metrics
-        let _alerts = self.alert_manager.get_alerts().await?;
-        
-        // Handle metrics and alerts
-        // self.alert_manager.handle_alerts(&alerts).await?;
+        // Process metrics for potential alerts
+        for metric in &metrics {
+            if metric.should_alert() {
+                // Generate alerts for metrics exceeding thresholds
+                let alert = Alert::new(
+                    format!("Metric Alert: {}", metric.name),
+                    format!("Metric {} exceeded threshold: {}", metric.name, metric.value),
+                    AlertSeverity::Medium, // Default medium severity
+                    HashMap::new(), // No labels for now
+                    format!("Value: {}", metric.value),
+                    "metrics".to_string(),
+                );
+                self.alert_manager.add_alert(alert).await?;
+            }
+        }
         
         Ok(())
     }
 
-    /// Collects metrics from the metric collector
+    /// Run metric collection
     ///
-    /// This method collects metrics and retrieves current alerts
-    /// without processing them further.
+    /// Collects metrics but does not process them for alerts.
     ///
-    /// # Returns
-    /// Ok(()) if the metrics were collected successfully
+    /// # Errors
+    /// Returns an error if collecting metrics fails
     pub async fn run_metrics(&self) -> Result<()> {
-        // Collect metrics from the metric collector
-        let _metrics = self.metric_collector.collect_metrics().await?;
-        
-        // Process alerts based on collected metrics
-        let _alerts = self.alert_manager.get_alerts().await?;
-        
+        let metrics = self.metric_collector.collect_metrics().await?;
+        debug!("Collected {} metrics", metrics.len());
         Ok(())
     }
 
-    /// Runs a single metrics collection cycle and sends results through the provided channel
+    /// Run a single monitoring cycle
     ///
-    /// # Arguments
-    /// * `sender` - Channel to send monitoring messages through
+    /// Performs a complete monitoring cycle (health checks, metrics, etc.)
+    /// and sends results through the provided channel.
     ///
-    /// # Returns
-    /// Ok(()) if the metrics collection was initiated successfully
+    /// # Errors
+    /// Returns an error if the monitoring cycle fails
     pub fn run_once(
         &self,
         sender: mpsc::Sender<MonitoringMessage>,
     ) -> Result<()> {
-        let metric_collector = self.metric_collector.clone();
-        let alert_manager = self.alert_manager.clone();
+        // Get tokio runtime for async tasks
+        let rt = tokio::runtime::Handle::current();
         
-        tokio::spawn(async move {
-            let metrics = match metric_collector.collect_metrics().await {
-                Ok(m) => m,
-                Err(_) => return,
-            };
-
-            // Check for alerts
-            let _ = alert_manager.get_alerts().await;
-
-            // Process metrics result
-            let _ = sender.send(MonitoringMessage::MetricsCollected(metrics)).await;
+        // Spawn health check task
+        let health_checker = self.health_checker.clone();
+        let health_sender = sender.clone();
+        rt.spawn(async move {
+            match health_checker.check_health().await {
+                Ok(status) => {
+                    if let Err(e) = health_sender.send(MonitoringMessage::HealthStatusChanged(status)).await {
+                        error!("Failed to send health status: {}", e);
+                    }
+                },
+                Err(e) => error!("Health check failed: {}", e),
+            }
         });
-
+        
+        // Spawn metrics collection task
+        let metric_collector = self.metric_collector.clone();
+        let metrics_sender = sender.clone();
+        rt.spawn(async move {
+            match metric_collector.collect_metrics().await {
+                Ok(metrics) => {
+                    if let Err(e) = metrics_sender.send(MonitoringMessage::MetricsCollected(metrics)).await {
+                        error!("Failed to send metrics: {}", e);
+                    }
+                },
+                Err(e) => error!("Metrics collection failed: {}", e),
+            }
+        });
+        
         Ok(())
     }
 
-    /// Runs continuous metrics collection at the specified interval
+    /// Run continuous monitoring
     ///
-    /// # Arguments
-    /// * `interval` - Time between collection cycles
-    /// * `sender` - Channel to send monitoring messages through
+    /// Starts a background task that performs monitoring cycles
+    /// at the specified interval and sends results through the provided channel.
     ///
-    /// # Returns
-    /// Ok(()) if the continuous metrics collection was initiated successfully
+    /// # Errors
+    /// Returns an error if setting up continuous monitoring fails
     pub fn run_continuous(
         &self,
         interval: Duration,
         sender: mpsc::Sender<MonitoringMessage>,
     ) -> Result<()> {
-        let interval_clone = interval;
-        let metric_collector = self.metric_collector.clone();
-        let alert_manager = self.alert_manager.clone();
+        // Get tokio runtime for async tasks
+        let rt = tokio::runtime::Handle::current();
         
-        tokio::spawn(async move {
+        // Clone components for async task
+        let health_checker = self.health_checker.clone();
+        let metric_collector = self.metric_collector.clone();
+        let network_monitor = self.network_monitor.clone();
+        
+        // Spawn continuous monitoring task
+        rt.spawn(async move {
             loop {
-                let metrics = match metric_collector.collect_metrics().await {
-                    Ok(m) => m,
-                    Err(_) => break,
-                };
-
-                // Check for alerts
-                let _ = alert_manager.get_alerts().await;
-
-                // Process metrics result
-                let _ = sender.send(MonitoringMessage::MetricsCollected(metrics)).await;
+                // Check health
+                match health_checker.check_health().await {
+                    Ok(status) => {
+                        if let Err(e) = sender.send(MonitoringMessage::HealthStatusChanged(status)).await {
+                            error!("Failed to send health status: {}", e);
+                            break;
+                        }
+                    },
+                    Err(e) => error!("Health check failed: {}", e),
+                }
                 
-                sleep(interval_clone).await;
+                // Collect metrics
+                match metric_collector.collect_metrics().await {
+                    Ok(metrics) => {
+                        if let Err(e) = sender.send(MonitoringMessage::MetricsCollected(metrics)).await {
+                            error!("Failed to send metrics: {}", e);
+                            break;
+                        }
+                    },
+                    Err(e) => error!("Metrics collection failed: {}", e),
+                }
+                
+                // Wait for next interval
+                tokio::time::sleep(interval).await;
             }
         });
-
+        
         Ok(())
     }
 }
 
-impl MonitoringServiceFactory {
-    /// Create a new factory with default configuration
+impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'static> MonitoringServiceFactory<N> {
+    /// Create a new factory with default settings
+    /// 
+    /// Initializes a monitoring service factory with default configuration and no
+    /// specialized component factories. This is the simplest way to create a factory
+    /// when you don't need custom component implementations.
     #[must_use]
-    pub fn new(default_config: MonitoringConfig) -> Self {
+    pub fn new() -> Self {
         Self {
-            default_config,
+            default_config: MonitoringConfig::default(),
             health_factory: None,
             metric_factory: None,
             alert_factory: None,
@@ -424,119 +533,223 @@ impl MonitoringServiceFactory {
         }
     }
 
-    /// Create a new factory with dependencies
+    /// Create a new factory with the specified configuration
+    /// 
+    /// Initializes a monitoring service factory with custom configuration but default
+    /// component factories. This allows customizing monitoring behavior while using
+    /// standard component implementations.
+    /// 
+    /// # Arguments
+    /// * `config` - Custom configuration to use for created services
     #[must_use]
-    pub fn with_dependencies(
-        default_config: MonitoringConfig,
+    pub fn with_config(config: MonitoringConfig) -> Self {
+        Self {
+            default_config: config,
+            health_factory: None,
+            metric_factory: None,
+            alert_factory: None,
+            network_factory: None,
+        }
+    }
+
+    /// Creates a new factory with all component factories
+    ///
+    /// Initializes a fully customized monitoring service factory with specialized
+    /// factories for each monitoring component. This provides maximum flexibility
+    /// for creating services with custom implementations.
+    ///
+    /// # Arguments
+    /// * `config` - Configuration to use for created services
+    /// * `health_factory` - Factory for creating custom health checkers
+    /// * `metric_factory` - Factory for creating custom metric collectors
+    /// * `alert_factory` - Factory for creating custom alert managers
+    /// * `network_factory` - Factory for creating custom network monitors
+    ///
+    /// # Returns
+    /// A new factory instance with all component factories set
+    #[must_use]
+    pub fn with_factories(
+        config: MonitoringConfig,
         health_factory: Arc<health::HealthCheckerFactory>,
         metric_factory: Arc<metrics::MetricCollectorFactory>,
-        alert_factory: Arc<alerts::AlertManagerFactory>,
+        alert_factory: Arc<alerts::AlertManagerFactory<N>>,
         network_factory: Arc<network::NetworkMonitorFactory>,
     ) -> Self {
         Self {
-            default_config,
+            default_config: config,
             health_factory: Some(health_factory),
             metric_factory: Some(metric_factory),
             alert_factory: Some(alert_factory),
             network_factory: Some(network_factory),
         }
     }
-    
-    /// Create a service using the default configuration
+
+    /// Creates a monitoring service with the default configuration
+    ///
+    /// Creates and returns a new monitoring service using the factory's default
+    /// configuration and component implementations.
+    ///
+    /// # Returns
+    /// A new monitoring service with default configuration wrapped in an Arc
     #[must_use]
     pub fn create_service(&self) -> Arc<MonitoringService> {
-        Arc::new(MonitoringService::new(self.default_config.clone()))
-    }
-    
-    /// Create a service with a custom configuration
-    #[must_use]
-    pub fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<MonitoringService> {
-        Arc::new(MonitoringService::new(config))
-    }
-    
-    /// Start a new service with the default configuration and return it
-    pub async fn start_service(&self) -> Result<Arc<MonitoringService>> {
-        let service = self.create_service();
-        service.start().await?;
-        Ok(service)
-    }
-    
-    /// Start a new service with a custom configuration and return it
-    pub async fn start_service_with_config(&self, config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
-        let service = self.create_service_with_config(config);
-        service.start().await?;
-        Ok(service)
+        self.create_service_with_config(self.default_config.clone())
     }
 
-    /// Create a service with explicit dependencies
+    /// Creates a monitoring service with a custom configuration
+    ///
+    /// Creates and returns a new monitoring service using the provided configuration
+    /// but with default component implementations.
+    ///
+    /// # Arguments
+    /// * `config` - Configuration to use for the service
+    ///
+    /// # Returns
+    /// A new monitoring service with the specified configuration wrapped in an Arc
+    #[must_use]
+    pub fn create_service_with_config(&self, config: MonitoringConfig) -> Arc<MonitoringService> {
+        // Create components with adapters
+        let health_checker = create_checker_adapter();
+        let metric_collector = Arc::new(DefaultMetricCollector::new());
+        let alert_manager = alerts::create_manager_adapter();
+        let network_monitor = network::create_monitor_adapter();
+
+        Arc::new(MonitoringService {
+            config,
+            health_checker,
+            metric_collector,
+            alert_manager,
+            network_monitor
+        })
+    }
+
+    /// Creates a monitoring service with explicit dependencies
+    ///
+    /// Creates and returns a new monitoring service using the provided configuration
+    /// and explicitly provided component implementations. This provides maximum control
+    /// over the service's behavior and is primarily used for testing.
+    ///
+    /// # Arguments
+    /// * `config` - Configuration to use for the service
+    /// * `health_checker` - Health checker component to use
+    /// * `metric_collector` - Metric collector component to use
+    /// * `alert_manager` - Alert manager component to use
+    /// * `network_monitor` - Network monitor component to use
+    ///
+    /// # Returns
+    /// A new monitoring service with the specified dependencies wrapped in an Arc
     #[must_use]
     pub fn create_service_with_dependencies(
         &self,
         config: MonitoringConfig,
         health_checker: Arc<HealthCheckerAdapter>,
         metric_collector: Arc<DefaultMetricCollector>,
-        alert_manager: Arc<DefaultAlertManager>,
-        network_monitor: Arc<NetworkMonitor>,
+        alert_manager: Arc<AlertManagerAdapter>,
+        network_monitor: Arc<NetworkMonitorAdapter>,
     ) -> Arc<MonitoringService> {
-        Arc::new(MonitoringService::with_dependencies(
+        Arc::new(MonitoringService {
             config,
             health_checker,
             metric_collector,
             alert_manager,
             network_monitor
-        ))
+        })
     }
 
-    /// Create a service using adapter pattern for ongoing transition
+    /// Creates a monitoring service using adapter pattern for ongoing transition
+    ///
+    /// Creates and returns a new monitoring service using adapters for all components.
+    /// This method supports the transition to a fully dependency-injected architecture
+    /// and provides a bridge between old and new implementation approaches.
+    ///
+    /// # Returns
+    /// A new monitoring service with components created from adapters wrapped in an Arc
     #[must_use]
     pub fn create_service_with_adapters(&self) -> Arc<MonitoringService> {
-        // Get base configuration
-        let config = self.default_config.clone();
-        
-        // Create components with adapters where needed
-        let health_checker = if let Some(factory) = &self.health_factory {
-            factory.create_checker_adapter()
-        } else {
-            Arc::new(HealthCheckerAdapter::new())
-        };
-        
-        // Create protocol metrics collector adapter
-        let protocol_adapter = if let Some(factory) = &self.metric_factory {
-            factory.create_collector_adapter()
-        } else {
-            metrics::protocol::create_collector_adapter()
-        };
-        
-        // Create metric collector with protocol adapter
-        let metric_collector = Arc::new(DefaultMetricCollector::with_protocol_collector(protocol_adapter));
-        
-        let alert_manager = if let Some(factory) = &self.alert_factory {
-            factory.create_manager_adapter()
-        } else {
-            Arc::new(DefaultAlertManager::new(config.alerts.clone()))
-        };
+        // Create components with adapters
+        let health_checker = create_checker_adapter();
+        let metric_collector = Arc::new(DefaultMetricCollector::new());
+        let alert_manager = alerts::create_manager_adapter();
+        let network_monitor = network::create_monitor_adapter();
 
-        let network_monitor = if let Some(factory) = &self.network_factory {
-            factory.create_monitor_adapter()
-        } else {
-            Arc::new(NetworkMonitor::new(config.network.clone()))
-        };
-        
-        // Create service with the configured components
-        self.create_service_with_dependencies(
-            config,
+        Arc::new(MonitoringService {
+            config: self.default_config.clone(),
             health_checker,
             metric_collector,
             alert_manager,
             network_monitor
-        )
+        })
+    }
+
+    /// Starts a new service with the default configuration
+    ///
+    /// Creates a new monitoring service with the factory's default configuration,
+    /// starts all monitoring components, and returns the started service.
+    ///
+    /// # Returns
+    /// A Result containing the started service if successful, or an error if any
+    /// component fails to start
+    ///
+    /// # Errors
+    /// Returns an error if any monitoring component fails to start
+    pub async fn start_service(&self) -> Result<Arc<MonitoringService>> {
+        let service = self.create_service();
+        service.start().await?;
+        Ok(service)
+    }
+
+    /// Starts a new service with a custom configuration
+    ///
+    /// Creates a new monitoring service with the provided configuration,
+    /// starts all monitoring components, and returns the started service.
+    ///
+    /// # Arguments
+    /// * `config` - Configuration to use for the service
+    ///
+    /// # Returns
+    /// A Result containing the started service if successful, or an error if any
+    /// component fails to start
+    ///
+    /// # Errors
+    /// Returns an error if any monitoring component fails to start
+    pub async fn start_service_with_config(&self, config: MonitoringConfig) -> Result<Arc<MonitoringService>> {
+        let service = self.create_service_with_config(config);
+        service.start().await?;
+        Ok(service)
     }
 }
 
-/// Wrapper for `OffsetDateTime` to implement From for `SystemTime`
+impl<N: alerts::NotificationManagerTrait + 'static> Clone for MonitoringServiceFactory<N> {
+    fn clone(&self) -> Self {
+        Self {
+            default_config: self.default_config.clone(),
+            health_factory: self.health_factory.clone(),
+            metric_factory: self.metric_factory.clone(),
+            alert_factory: self.alert_factory.clone(),
+            network_factory: self.network_factory.clone(),
+        }
+    }
+}
+
+impl<N: alerts::NotificationManagerTrait + 'static> Default for MonitoringServiceFactory<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Wrapper struct for time conversion between OffsetDateTime and SystemTime
+/// 
+/// This provides a convenient way to convert between different time representations,
+/// allowing for seamless integration between crates that use different time types.
+/// The wrapped value is an OffsetDateTime that can be converted to SystemTime.
 pub struct TimeWrapper(pub OffsetDateTime);
 
 impl From<TimeWrapper> for SystemTime {
+    /// Converts a TimeWrapper to SystemTime
+    /// 
+    /// This conversion enables interoperability between the time crate's OffsetDateTime
+    /// and the standard library's SystemTime, making it easier to work with
+    /// both time representations in monitoring code.
     fn from(wrapper: TimeWrapper) -> Self {
         let dt = wrapper.0;
         let unix_timestamp = dt.unix_timestamp();
@@ -549,63 +762,3 @@ impl From<TimeWrapper> for SystemTime {
         }
     }
 }
-
-/// Create a monitoring service using adapters for dependencies
-pub fn create_service_with_adapters() -> Result<Arc<MonitoringService>> {
-    // Create adapters for each component
-    let health_checker = health::create_checker_adapter();
-    let metric_collector = metrics::create_collector_adapter();
-    let alert_manager = alerts::create_manager_adapter();
-    let network_monitor = network::create_monitor_adapter();
-    
-    // Create service with adapters
-    let config = MonitoringConfig::default();
-    Ok(Arc::new(MonitoringService::with_dependencies(
-        config,
-        health_checker,
-        metric_collector,
-        alert_manager,
-        network_monitor,
-    )))
-}
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_monitoring_service_factory_new() {
-        let config = MonitoringConfig::default();
-        let factory = MonitoringServiceFactory::new(config.clone());
-        
-        assert_eq!(factory.default_config, config);
-    }
-    
-    #[test]
-    fn test_monitoring_service_factory_create_service() {
-        let config = MonitoringConfig::default();
-        let factory = MonitoringServiceFactory::new(config);
-        
-        let service = factory.create_service();
-        assert!(Arc::strong_count(&service) > 0);
-    }
-    
-    #[test]
-    fn test_monitoring_service_factory_create_service_with_config() {
-        let default_config = MonitoringConfig::default();
-        let factory = MonitoringServiceFactory::new(default_config);
-        
-        let custom_config = MonitoringConfig {
-            health: HealthConfig::default(),
-            metrics: MetricConfig::default(),
-            alerts: AlertConfig::default(),
-            network: NetworkConfig::default(),
-        };
-        
-        let service = factory.create_service_with_config(custom_config.clone());
-        assert_eq!(service.config, custom_config);
-    }
-} 

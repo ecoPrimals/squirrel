@@ -1,8 +1,29 @@
+//! # Context Module
+//!
+//! The Context module is responsible for managing application state and persistence.
+//! It provides a comprehensive framework for handling context-based operations
+//! throughout the application.
+//!
+//! ## Features
+//!
+//! - **State Management**: Track and manage application state changes
+//! - **Persistence**: Store and retrieve state across application restarts
+//! - **Synchronization**: Coordinate state across distributed systems
+//! - **Recovery**: Handle state recovery after failures
+//! - **State Tracking**: Monitor and audit state changes
+//!
+//! ## Architecture
+//!
+//! The context system is built around the concept of snapshots and state transitions.
+//! Each state change is recorded, allowing for versioning, rollback, and audit capabilities.
+//! The system supports both in-memory and persistent storage options.
+
 use std::collections::VecDeque;
 use std::time::SystemTime;
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use thiserror::Error;
+use std::fmt::Debug;
 
 // Context module for managing application state and persistence
 //
@@ -50,16 +71,16 @@ pub struct ContextState {
 #[derive(Debug, Error)]
 pub enum ContextError {
     /// Invalid context state
-    #[error("Invalid context state")]
-    InvalidState,
+    #[error("Invalid context state: {0}")]
+    InvalidState(String),
     
     /// Snapshot not found
-    #[error("Snapshot not found")]
-    SnapshotNotFound,
+    #[error("Snapshot not found: {0}")]
+    SnapshotNotFound(String),
     
     /// No valid snapshot
-    #[error("No valid snapshot")]
-    NoValidSnapshot,
+    #[error("No valid snapshot: {0}")]
+    NoValidSnapshot(String),
     
     /// Persistence error
     #[error("Persistence error: {0}")]
@@ -71,7 +92,7 @@ pub enum ContextError {
 }
 
 /// Context subscriber for monitoring context state changes
-pub trait ContextSubscriber: Send + Sync {
+pub trait ContextSubscriber: Send + Sync + Debug {
     /// Called when the context state changes
     fn on_state_change(&self, old_state: &ContextState, new_state: &ContextState);
     
@@ -144,7 +165,9 @@ impl Default for ContextData {
     }
 }
 
+/// Context manager module for handling context instances and operations
 pub mod manager;
+/// State management module for handling context state transitions
 pub mod state;
 // pub mod tracker;
 

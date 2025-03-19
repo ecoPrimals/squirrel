@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::RwLock;
 use tracing::{error, info, instrument, warn};
 use thiserror::Error;
 use chrono::{DateTime, Utc};
@@ -8,64 +8,109 @@ use serde::{Serialize, Deserialize};
 use crate::mcp::sync::state::{StateOperation, StateChange};
 use crate::mcp::sync::{MCPSync, SyncConfig};
 use std::sync::Arc;
-use std::collections::HashSet;
 use std::default::Default;
+use crate::mcp::persistence::{MCPPersistence, PersistenceConfig};
+use crate::mcp::monitoring::MCPMonitor;
+use crate::mcp::sync::state::StateSyncManager;
 
+/// Errors that can occur during context operations
 #[derive(Debug, Error)]
 pub enum ContextError {
+    /// Error when a context with the specified ID is not found
     #[error("Context not found: {0}")]
     NotFound(Uuid),
 
+    /// Error when context data is invalid or malformed
     #[error("Invalid context data: {0}")]
     InvalidData(String),
 
+    /// Error when context fails validation against rules
     #[error("Context validation error: {0}")]
     ValidationError(String),
 
+    /// Error when synchronization of context data fails
     #[error("Context sync error: {0}")]
     SyncError(String),
 
+    /// Error from JSON serialization/deserialization
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
 }
 
+/// Context representation in the MCP system
+///
+/// A Context is the primary data structure in the MCP system, representing
+/// a piece of contextual information that can be synchronized across instances.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
+    /// Unique identifier for the context
     pub id: Uuid,
+    /// Human-readable name for the context
     pub name: String,
+    /// Primary data content of the context
     pub data: serde_json::Value,
+    /// Optional metadata associated with the context
     pub metadata: Option<serde_json::Value>,
+    /// Optional parent context ID, for hierarchical relationships
     pub parent_id: Option<Uuid>,
+    /// Timestamp when the context was created
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the context was last updated
     pub updated_at: DateTime<Utc>,
+    /// Optional timestamp when the context should expire
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+/// Validation rules and schema for context data
+///
+/// Contains the JSON schema and validation rules that are applied
+/// to context data to ensure validity and consistency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextValidation {
+    /// JSON schema for validating context data structure
     pub schema: serde_json::Value,
+    /// List of validation rule identifiers to apply
     pub rules: Vec<String>,
 }
 
+/// Manager for context operations and synchronization
+///
+/// The ContextManager is responsible for creating, updating, deleting, and
+/// validating contexts, as well as managing their hierarchical relationships
+/// and synchronization across distributed instances.
+#[derive(Debug)]
 pub struct ContextManager {
+    /// Map of context IDs to Context instances
     contexts: Arc<RwLock<HashMap<Uuid, Context>>>,
+    /// Map of parent IDs to child IDs, representing the context hierarchy
     hierarchy: Arc<RwLock<HashMap<Uuid, Vec<Uuid>>>>,
+    /// Map of context types to validation rules
     validations: Arc<RwLock<HashMap<String, ContextValidation>>>,
+    /// Synchronization engine for distributed context operations
     sync: Arc<MCPSync>,
 }
 
 impl ContextManager {
+    /// Creates a new context manager with default configuration
+    ///
+    /// Initializes the context manager with a default sync configuration
+    /// and creates necessary dependencies like persistence, monitoring,
+    /// and state management.
     #[instrument]
     pub async fn new() -> Self {
         let sync_config = SyncConfig::default();
-        let sync = match MCPSync::new(sync_config).await {
-            Ok(sync) => Arc::new(sync),
-            Err(e) => {
-                error!("Failed to initialize MCPSync: {}", e);
-                // Fallback to a default implementation if initialization fails
-                Arc::new(MCPSync::default())
-            }
-        };
+        
+        // Create required dependencies
+        let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
+        let monitor = Arc::new(MCPMonitor::default());
+        let state_manager = Arc::new(StateSyncManager::new());
+        
+        let sync = Arc::new(MCPSync::new(
+            sync_config,
+            persistence,
+            monitor,
+            state_manager
+        ));
 
         Self {
             contexts: Arc::new(RwLock::new(HashMap::new())),
@@ -75,6 +120,16 @@ impl ContextManager {
         }
     }
 
+    /// Creates a new context in the system
+    ///
+    /// Validates the context data according to registered validation rules,
+    /// updates the context hierarchy if a parent is specified, and triggers
+    /// synchronization of the context across distributed instances.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::ValidationError` if the context fails validation.
+    /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self, context))]
     pub async fn create_context(&self, context: Context) -> Result<Uuid, ContextError> {
         // Validate context data
@@ -105,6 +160,11 @@ impl ContextManager {
         Ok(context_id)
     }
 
+    /// Retrieves a context by its ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::NotFound` if the context does not exist.
     #[instrument(skip(self))]
     pub async fn get_context(&self, id: Uuid) -> Result<Context, ContextError> {
         let contexts = self.contexts.read().await;
@@ -114,6 +174,15 @@ impl ContextManager {
             .ok_or(ContextError::NotFound(id))
     }
 
+    /// Updates an existing context's data and metadata
+    ///
+    /// Updates the context with new data and metadata and triggers
+    /// synchronization of the updated context.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::NotFound` if the context does not exist.
+    /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self, data))]
     pub async fn update_context(
         &self,
@@ -141,6 +210,15 @@ impl ContextManager {
         Ok(())
     }
 
+    /// Deletes a context and all its children
+    ///
+    /// Recursively deletes the context and all its children from the system
+    /// and triggers synchronization of these deletions.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::NotFound` if the context does not exist.
+    /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self))]
     pub async fn delete_context(&self, id: Uuid) -> Result<(), ContextError> {
         // Get context for sync before removal
@@ -150,12 +228,47 @@ impl ContextManager {
         let mut contexts = self.contexts.write().await;
         contexts.remove(&id).ok_or(ContextError::NotFound(id))?;
 
+        // Collect children to delete iteratively
+        let mut children_to_delete = Vec::new();
+        
         // Remove from hierarchy
         let mut hierarchy = self.hierarchy.write().await;
         if let Some(children) = hierarchy.remove(&id) {
-            // Recursively delete child contexts
-            for child_id in children {
-                self.delete_context(child_id).await?;
+            // Add children to the list to delete
+            children_to_delete.extend(children);
+        }
+        
+        // Release locks before deleting children
+        drop(contexts);
+        drop(hierarchy);
+
+        // Delete children iteratively
+        while let Some(child_id) = children_to_delete.pop() {
+            // Get child context
+            let child_context = match self.get_context(child_id).await {
+                Ok(ctx) => ctx,
+                Err(e) => {
+                    error!("Failed to get child context {}: {}", child_id, e);
+                    continue;
+                }
+            };
+            
+            // Remove child from contexts
+            let mut contexts = self.contexts.write().await;
+            contexts.remove(&child_id);
+            drop(contexts);
+            
+            // Remove child from hierarchy and collect its children
+            let mut hierarchy = self.hierarchy.write().await;
+            if let Some(grandchildren) = hierarchy.remove(&child_id) {
+                // Add grandchildren to the list to delete
+                children_to_delete.extend(grandchildren);
+            }
+            drop(hierarchy);
+            
+            // Record deletion for sync
+            if let Err(e) = self.sync.record_context_change(&child_context, StateOperation::Delete).await {
+                error!("Failed to record child context deletion: {}", e);
             }
         }
 
@@ -169,6 +282,12 @@ impl ContextManager {
         Ok(())
     }
 
+    /// Registers validation rules for a specific context type
+    ///
+    /// # Errors
+    ///
+    /// This operation currently does not return errors, but the result
+    /// type is maintained for future extensibility.
     #[instrument(skip(self))]
     pub async fn register_validation(&self, context_type: String, validation: ContextValidation) -> Result<(), ContextError> {
         let mut validations = self.validations.write().await;
@@ -226,6 +345,11 @@ impl ContextManager {
         Ok(())
     }
 
+    /// Retrieves all child contexts for a given parent ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::NotFound` if the parent context does not exist.
     #[instrument(skip(self))]
     pub async fn get_child_contexts(&self, parent_id: Uuid) -> Result<Vec<Context>, ContextError> {
         let hierarchy = self.hierarchy.read().await;
@@ -243,6 +367,14 @@ impl ContextManager {
             .unwrap_or_default())
     }
 
+    /// Synchronizes context data with other instances
+    ///
+    /// Triggers a synchronization operation that sends and receives
+    /// context changes to and from other distributed instances.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self))]
     pub async fn sync(&self) -> Result<(), ContextError> {
         if let Err(e) = self.sync.sync().await {
@@ -252,9 +384,13 @@ impl ContextManager {
         Ok(())
     }
 
+    /// Subscribes to context change notifications
+    ///
+    /// Returns a receiver that will be notified of all context changes,
+    /// allowing reactive handling of context updates.
     #[instrument(skip(self))]
-    pub async fn subscribe_changes(&self) -> tokio::sync::broadcast::Receiver<crate::mcp::sync::state::StateChange> {
-        self.sync.subscribe_changes().await
+    pub async fn subscribe_changes(&self) -> tokio::sync::broadcast::Receiver<StateChange> {
+        self.sync.subscribe_changes().await.expect("Failed to subscribe to changes")
     }
 }
 

@@ -58,9 +58,8 @@ pub struct NetworkMonitor {
 impl NetworkMonitor {
     /// Create a new network monitor
     pub fn new() -> Self {
-        let mut sys = System::new();
-        sys.refresh_networks();
-
+        let sys = System::new();
+        
         Self {
             sys: Arc::new(RwLock::new(sys)),
             prev_stats: Arc::new(RwLock::new(HashMap::new())),
@@ -71,7 +70,9 @@ impl NetworkMonitor {
     /// Update network statistics
     pub async fn update_stats(&self) -> HashMap<String, NetworkStats> {
         let mut sys = self.sys.write().await;
-        sys.refresh_networks();
+        
+        // Create a new Networks instance with refreshed data
+        let networks = sysinfo::Networks::new_with_refreshed_list();
 
         let mut current_stats = HashMap::new();
         let mut prev_stats = self.prev_stats.write().await;
@@ -80,7 +81,7 @@ impl NetworkMonitor {
         *last_update = Instant::now();
 
         // Collect network interface statistics
-        for (interface_name, data) in sys.networks() {
+        for (interface_name, data) in networks.iter() {
             let prev = prev_stats
                 .get(interface_name)
                 .cloned()

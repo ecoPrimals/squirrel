@@ -112,27 +112,19 @@ impl ProtocolMetricsCollector {
                             timestamp: chrono::Utc::now(),
                         });
                         
-                        // Additional team metrics
+                        // Storage usage - using the correct field name
                         metrics_vec.push(SuperMetric {
-                            name: format!("team.{}.disk_usage", team),
-                            value: metrics.disk_usage as f64,
+                            name: format!("team.{}.storage_usage", team),
+                            value: metrics.storage_usage as f64,
                             metric_type: crate::monitoring::metrics::MetricType::Gauge,
                             labels: vec![("team".to_string(), team.clone())],
                             timestamp: chrono::Utc::now(),
                         });
                         
-                        // Add network metrics
+                        // Network metrics - use network_bandwidth
                         metrics_vec.push(SuperMetric {
-                            name: format!("team.{}.network_in", team),
-                            value: metrics.network_in as f64,
-                            metric_type: crate::monitoring::metrics::MetricType::Counter,
-                            labels: vec![("team".to_string(), team.clone())],
-                            timestamp: chrono::Utc::now(),
-                        });
-                        
-                        metrics_vec.push(SuperMetric {
-                            name: format!("team.{}.network_out", team),
-                            value: metrics.network_out as f64,
+                            name: format!("team.{}.network_bandwidth", team),
+                            value: metrics.network_bandwidth as f64,
                             metric_type: crate::monitoring::metrics::MetricType::Counter,
                             labels: vec![("team".to_string(), team.clone())],
                             timestamp: chrono::Utc::now(),

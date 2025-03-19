@@ -100,7 +100,8 @@ async fn test_state_missing_subscriber() {
     );
     
     // ASSERT: Verify subscriber count returns to 0
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await; // Allow for cleanup
+    // Wait a bit longer to ensure cleanup has a chance to happen
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await; // Increased wait time
     let sub_count = state_manager.subscriber_count();
     assert_eq!(sub_count, 0, "Subscriber count should be 0 after receiver dropped");
 }

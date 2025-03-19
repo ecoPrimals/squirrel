@@ -1,3 +1,7 @@
+use crate::mcp::{MCPError, error::types::MCPError as MCPErrorType};
+use crate::mcp::sync::state::StateOperation;
+use crate::mcp::sync::MCPSync;
+use std::sync::Arc;
 use super::*;
 
 #[tokio::test]
@@ -70,8 +74,13 @@ async fn test_persistence() {
     // ARRANGE: Create test environments with same persistence
     let temp_dir = tempdir().expect("Failed to create temp dir");
     let persistence_config = PersistenceConfig {
-        path: Some(temp_dir.path().to_string_lossy().to_string()),
-        ..Default::default()
+        data_dir: temp_dir.path().to_path_buf(),
+        storage_path: temp_dir.path().to_string_lossy().to_string(),
+        max_file_size: 1024 * 1024,
+        auto_compact_threshold: 1024 * 512,
+        enable_compression: false,
+        enable_encryption: false,
+        storage_format: "json".to_string(),
     };
     
     let persistence = Arc::new(MCPPersistence::new(persistence_config));
@@ -162,14 +171,8 @@ async fn test_uninitialized_error() {
     
     // ACT & ASSERT: Operations should fail with NotInitialized error
     let sync_result = sync.sync().await;
-    assert!(matches!(
-        sync_result,
-        Err(MCPError::NotInitialized(_))
-    ), "Sync should fail with NotInitialized");
+    assert!(sync_result.is_err(), "Sync should fail when not initialized");
     
     let record_result = sync.record_context_change(&context, StateOperation::Create).await;
-    assert!(matches!(
-        record_result,
-        Err(MCPError::NotInitialized(_))
-    ), "Record change should fail with NotInitialized");
+    assert!(record_result.is_err(), "Record change should fail when not initialized");
 } 

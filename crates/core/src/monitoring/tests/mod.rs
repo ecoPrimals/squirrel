@@ -3,9 +3,10 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use crate::error::Result;
 use crate::monitoring::{
-    MonitoringConfig, MonitoringService,
-    alerts::{AlertConfig, AlertManager, AlertManagerAdapter, create_manager_adapter},
-    health::{HealthConfig, HealthCheckerAdapter, create_checker_adapter},
+    MonitoringConfig, MonitoringService, MonitoringIntervals,
+    Alert, NetworkStats, Metric, MetricType,
+    alerts::{AlertConfig, AlertManager, AlertManagerAdapter, create_manager_adapter, AlertSeverity},
+    health::{HealthConfig, HealthCheckerAdapter, create_checker_adapter, ComponentHealth, status::Status},
     metrics::{MetricConfig, DefaultMetricCollector},
     network::{NetworkConfig, NetworkMonitor, NetworkMonitorAdapter, create_monitor_adapter},
 };
@@ -13,6 +14,11 @@ use mockall::predicate::*;
 use mockall::mock;
 use std::collections::HashMap;
 use crate::test_utils::{TestError, TestData};
+
+// Include factory tests module
+mod factory_tests;
+// Include factory runner
+mod factory_runner;
 
 // Mock implementations for testing
 mock! {

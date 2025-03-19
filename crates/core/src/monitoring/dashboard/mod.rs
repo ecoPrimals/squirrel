@@ -25,7 +25,10 @@ use crate::monitoring::{
 use crate::error::{Result, SquirrelError};
 use serde_json::{Value, to_value};
 
-// Make the adapter module public
+/// Module for adapter implementations of dashboard functionality
+/// 
+/// This module provides adapters for connecting dashboard managers to dependency injection systems,
+/// allowing for proper initialization and management of monitoring dashboards.
 pub mod adapter;
 use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter, create_dashboard_manager_adapter_with_manager};
 
@@ -64,32 +67,50 @@ impl Default for Config {
 pub enum Component {
     /// Performance graph showing metrics over time
     PerformanceGraph {
+        /// Unique identifier for the component
         id: String,
+        /// Display title of the component
         title: String,
+        /// Detailed description of the component's purpose
         description: String,
+        /// Type of operation to display metrics for
         operation_type: OperationType,
+        /// Time range to display data for
         time_range: Duration,
     },
     /// Alert list showing current alerts
     AlertList {
+        /// Unique identifier for the component
         id: String,
+        /// Display title of the component
         title: String,
+        /// Detailed description of the component's purpose
         description: String,
+        /// Optional filter for alert severity level
         severity: Option<AlertSeverity>,
+        /// Optional filter for alert status
         status: Option<AlertStatus>,
     },
     /// Health status display
     HealthStatus {
+        /// Unique identifier for the component
         id: String,
+        /// Display title of the component
         title: String,
+        /// Detailed description of the component's purpose
         description: String,
+        /// Service name to display health status for
         service: String,
     },
     /// Custom component with arbitrary data
     Custom {
+        /// Unique identifier for the component
         id: String,
+        /// Display title of the component
         title: String,
+        /// Detailed description of the component's purpose
         description: String,
+        /// Custom data to display
         data: Value,
     },
 }
@@ -287,11 +308,17 @@ pub fn create_adapter(config: Option<DashboardConfig>) -> Arc<DashboardManagerAd
 
 /// Manager for dashboard operations
 pub struct Manager {
+    /// Health checker for monitoring system components
     health_checker: Arc<RwLock<Box<dyn HealthChecker + Send + Sync>>>,
+    /// Metric collector for gathering system performance metrics
     metric_collector: Arc<RwLock<Box<dyn MetricCollector + Send + Sync>>>,
+    /// Alert manager for handling and processing system alerts
     alert_manager: Arc<RwLock<Box<dyn AlertManager + Send + Sync>>>,
+    /// Collection of dashboard layouts indexed by their IDs
     layouts: Arc<RwLock<HashMap<String, Layout>>>,
+    /// Dashboard configuration settings
     config: Arc<RwLock<Config>>,
+    /// Storage for component update history, indexed by component ID
     data_store: Arc<RwLock<HashMap<String, Vec<Update>>>>,
 }
 
@@ -453,6 +480,3 @@ impl Manager {
 pub fn create_default() -> Config {
     Config::default()
 }
-
-// Re-export adapter types
-pub use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter, create_dashboard_manager_adapter_with_manager};

@@ -2,36 +2,54 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc, Duration};
-use crate::error::{MCPError, Result};
-use crate::mcp::types::ProtocolVersion;
+use crate::error::Result;
+use crate::mcp::MCPError;
+use crate::mcp::sync::state::StateSyncManager;
 use crate::mcp::context_manager::Context;
 use crate::mcp::persistence::{MCPPersistence, PersistenceConfig, PersistentState};
 use crate::mcp::monitoring::MCPMonitor;
 use std::time::Instant;
+use uuid;
 
-mod state;
-pub use state::{StateChange, StateOperation, StateSyncManager};
+/// State synchronization for MCP
+pub mod state;
+pub use state::{StateOperation, StateChange};
 
 #[cfg(test)]
 mod tests;
 
+/// Configuration for MCP state synchronization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncConfig {
+    /// Interval in seconds between synchronization attempts
     pub sync_interval: u64,
+    /// Maximum number of retries for failed sync operations
     pub max_retries: u32,
+    /// Timeout in milliseconds for sync operations
     pub timeout_ms: u64,
+    /// Number of days after which old sync records should be cleaned up
     pub cleanup_older_than_days: i64,
 }
 
+/// Current state of the synchronization system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncState {
+    /// Whether a sync operation is currently in progress
     pub is_syncing: bool,
+    /// Timestamp of the last successful sync operation
     pub last_sync: DateTime<Utc>,
+    /// Total number of successful sync operations
     pub sync_count: u64,
+    /// Number of failed sync operations
     pub error_count: u64,
+    /// Latest version number of synchronized data
     pub last_version: u64,
 }
 
+/// Main synchronization engine for MCP state
+/// 
+/// Responsible for coordinating state changes across distributed instances
+/// and ensuring consistency of context data.
 #[derive(Debug)]
 pub struct MCPSync {
     config: Arc<RwLock<SyncConfig>>,
@@ -114,11 +132,17 @@ impl MCPSync {
         Ok(())
     }
 
-    /// Helper function to check initialization status and return error if not initialized
+    /// Ensures the MCPSync instance is initialized
+    ///
+    /// This method is called before performing any synchronization operations
+    /// to ensure the instance is properly initialized.
+    ///
+    /// # Errors
+    /// Returns an error if initialization fails
     async fn ensure_initialized(&self) -> Result<()> {
         if !self.initialized {
             self.monitor.record_error("not_initialized").await;
-            return Err(MCPError::NotInitialized("MCPSync not initialized".into()));
+            return Err(MCPError::NotInitialized("MCPSync not initialized".into()).into());
         }
         Ok(())
     }
@@ -139,6 +163,13 @@ impl MCPSync {
         Ok(())
     }
 
+    /// Perform a synchronization operation
+    ///
+    /// Synchronizes the local state with remote instances, ensuring
+    /// consistent state across the distributed system.
+    ///
+    /// # Errors
+    /// Returns an error if synchronization fails
     pub async fn sync(&self) -> Result<()> {
         self.ensure_initialized().await?;
 
@@ -176,8 +207,9 @@ impl MCPSync {
             changes,
             last_version: current_version,
             last_sync: Utc::now(),
+            id: uuid::Uuid::new_v4().to_string(),
         };
-        if let Err(e) = self.persistence.save_state(&persistent_state).await {
+        if let Err(e) = self.persistence.save_state(persistent_state).await {
             tracing::error!("Failed to persist state: {}", e);
             self.monitor.record_error("persist_state_failed").await;
             state.error_count += 1;
@@ -205,6 +237,17 @@ impl MCPSync {
         Ok(())
     }
 
+    /// Record a context change for synchronization
+    ///
+    /// When a context is created, updated, or deleted, this method
+    /// records the change for synchronization across instances.
+    ///
+    /// # Arguments
+    /// * `context` - The context being changed
+    /// * `operation` - The type of operation performed
+    ///
+    /// # Errors
+    /// Returns an error if the change cannot be recorded
     pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         self.ensure_initialized().await?;
 
@@ -223,7 +266,7 @@ impl MCPSync {
                 version: current_version,
             };
             
-            if let Err(e) = self.persistence.save_change(&change).await {
+            if let Err(e) = self.persistence.save_change(change).await {
                 tracing::error!("Failed to persist change: {}", e);
                 self.monitor.record_error("persist_change_failed").await;
             }
@@ -239,11 +282,24 @@ impl MCPSync {
         result
     }
 
+    /// Subscribe to state change notifications
+    ///
+    /// Returns a receiver that will be notified of all state changes.
+    ///
+    /// # Errors
+    /// Returns an error if unable to create the subscription
     pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
         self.ensure_initialized().await?;
         Ok(self.state_manager.subscribe_changes().await)
     }
 
+    /// Update the synchronization configuration
+    ///
+    /// # Arguments
+    /// * `config` - The new configuration to use
+    ///
+    /// # Errors
+    /// Returns an error if the configuration cannot be updated
     pub async fn update_config(&self, config: SyncConfig) -> Result<()> {
         self.ensure_initialized().await?;
         let mut current_config = self.config.write().await;
@@ -252,18 +308,32 @@ impl MCPSync {
         Ok(())
     }
 
+    /// Get the current synchronization configuration
+    ///
+    /// # Errors
+    /// Returns an error if the configuration cannot be retrieved
     pub async fn get_config(&self) -> Result<SyncConfig> {
         self.ensure_initialized().await?;
         let config = self.config.read().await;
         Ok(config.clone())
     }
 
+    /// Get the current synchronization state
+    ///
+    /// # Errors
+    /// Returns an error if the state cannot be retrieved
     pub async fn get_state(&self) -> Result<SyncState> {
         self.ensure_initialized().await?;
         let state = self.state.read().await;
         Ok(state.clone())
     }
 
+    /// Record a synchronization error
+    ///
+    /// Increments the error counter and logs the error.
+    ///
+    /// # Errors
+    /// Returns an error if the error counter cannot be updated
     pub async fn record_error(&self) -> Result<()> {
         self.ensure_initialized().await?;
         let mut state = self.state.write().await;
@@ -272,11 +342,19 @@ impl MCPSync {
         Ok(())
     }
 
+    /// Get the current version number
+    ///
+    /// # Errors
+    /// Returns an error if the version cannot be retrieved
     pub async fn get_current_version(&self) -> Result<u64> {
         self.ensure_initialized().await?;
         self.state_manager.get_current_version().await
     }
 
+    /// Get the monitor instance
+    ///
+    /// # Errors
+    /// Returns an error if the monitor cannot be retrieved
     pub async fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
         self.ensure_initialized().await?;
         Ok(self.monitor.clone())

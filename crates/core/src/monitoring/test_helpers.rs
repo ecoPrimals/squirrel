@@ -43,7 +43,7 @@ impl Default for TestMonitoringConfig {
 /// Creates a test monitoring service factory
 pub fn create_test_factory(config: Option<TestMonitoringConfig>) -> MonitoringServiceFactory {
     let config = config.unwrap_or_default();
-    MonitoringServiceFactory::new(config.config)
+    MonitoringServiceFactory::with_config(config.config)
 }
 
 /// Creates a test monitoring service

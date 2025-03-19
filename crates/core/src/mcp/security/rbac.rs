@@ -262,6 +262,30 @@ impl RBACManager {
         
         users
     }
+
+    /// Checks if a role has permission for a resource and action
+    /// This replaces the old role_has_permission method
+    pub fn has_permission_for_role(&self, role: &Role, resource: &str, action: Action) -> bool {
+        // Check if the role has the permission directly
+        let has_direct_permission = role.permissions.iter().any(|p| {
+            p.resource == resource && p.action == action
+        });
+        
+        if has_direct_permission {
+            return true;
+        }
+        
+        // Check parent roles recursively
+        for parent_id in &role.parent_roles {
+            if let Some(parent_role) = self.get_role_by_id(parent_id) {
+                if self.has_permission_for_role(parent_role, resource, action) {
+                    return true;
+                }
+            }
+        }
+        
+        false
+    }
 }
 
 #[cfg(test)]

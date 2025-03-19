@@ -33,9 +33,11 @@ fn main() {
 fn main() {
     println!("Running without di-tests feature");
     
-    // Original implementation
-    let _core = Core::new();
-    println!("Core created successfully");
+    // Run the application
+    println!("Squirrel Core v{}", squirrel_core::VERSION);
+    
+    // Create a core instance
+    let _core = Core::new(squirrel_core::app::AppConfig::default());
 
     // Create a new command registry with built-in commands
     let registry = match CommandRegistry::with_builtins() {

@@ -1,44 +1,66 @@
+/// Module for handling persistence operations in the MCP system.
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
-use crate::error::{MCPError, Result};
-use crate::mcp::types::{ProtocolVersion};
-use tokio::fs;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use std::time::SystemTime;
+use crate::error::Result;
+use crate::error::PersistenceError;
+use std::path::PathBuf;
+use std::fs;
+use uuid::Uuid;
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::StateChange;
-use std::time::SystemTime;
 use async_trait::async_trait;
-use crate::error::{PersistenceError, io_error, config_error, storage_error, format_error};
-use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
+use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
+use serde_json;
 
+/// Configuration settings for the persistence layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistenceConfig {
+    /// Directory path where data is stored
     pub data_dir: PathBuf,
+    /// Maximum file size in bytes
     pub max_file_size: usize,
+    /// Threshold in bytes that triggers auto-compaction
     pub auto_compact_threshold: usize,
+    /// Base storage path for data
     pub storage_path: String,
+    /// Whether to compress stored data
     pub enable_compression: bool,
+    /// Whether to encrypt stored data
     pub enable_encryption: bool,
+    /// Format for data storage (e.g., "json")
     pub storage_format: String,
 }
 
+/// Metadata about storage operations and status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageMetadata {
+    /// Protocol version used for storage
     pub version: ProtocolVersion,
+    /// When the storage was created
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// When the storage was last modified
     pub last_modified: chrono::DateTime<chrono::Utc>,
+    /// Total size in bytes of stored data
     pub size: u64,
 }
 
+/// State information persisted to storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentState {
+    /// List of contexts
     pub contexts: Vec<Context>,
+    /// List of state changes
     pub changes: Vec<StateChange>,
+    /// Latest version number
     pub last_version: u64,
+    /// When the state was last synchronized
     pub last_sync: DateTime<Utc>,
+    /// Unique identifier for this state
+    pub id: String,
 }
 
 /// Persistence layer for MCP
@@ -47,9 +69,19 @@ pub struct MCPPersistence {
     config: PersistenceConfig,
     metadata: Arc<RwLock<StorageMetadata>>,
     state: Arc<RwLock<PersistentState>>,
+    initialized: AtomicBool,
 }
 
 impl MCPPersistence {
+    /// Creates a new instance of the persistence layer
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Configuration settings for the persistence layer
+    ///
+    /// # Returns
+    ///
+    /// A new MCPPersistence instance
     pub fn new(config: PersistenceConfig) -> Self {
         let metadata = StorageMetadata {
             version: ProtocolVersion::default(),
@@ -66,35 +98,60 @@ impl MCPPersistence {
                 changes: Vec::new(),
                 last_version: 0,
                 last_sync: Utc::now(),
+                id: Uuid::new_v4().to_string(),
             })),
+            initialized: AtomicBool::new(false),
         }
     }
 
+    /// Initializes the persistence layer
+    ///
+    /// Creates necessary directories if they don't exist and
+    /// prepares the persistence layer for use.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
     pub async fn init(&self) -> Result<()> {
-        // Create data directory if it doesn't exist
-        if !self.config.data_dir.exists() {
-            fs::create_dir_all(&self.config.data_dir).await?;
+        if self.initialized.load(Ordering::Relaxed) {
+            return Ok(());
         }
+
+        if !self.config.data_dir.exists() {
+            fs::create_dir_all(&self.config.data_dir)?;
+        }
+
+        self.initialized.store(true, Ordering::Relaxed);
         Ok(())
     }
 
-    pub async fn save_state(&self, state: &PersistentState) -> Result<()> {
-        let state_path = self.config.data_dir.join("state.json");
-        let temp_path = self.config.data_dir.join("state.json.tmp");
-
-        // Write to temporary file first
-        let state_json = serde_json::to_string_pretty(state)?;
-        fs::write(&temp_path, state_json).await?;
-
-        // Atomically replace old state file
-        fs::rename(&temp_path, &state_path).await?;
-
-        // Cleanup old changes if needed
-        self.compact_if_needed().await?;
-
+    /// Saves the persistent state to storage
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - The state to save
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
+    pub async fn save_state(&self, state: PersistentState) -> Result<()> {
+        let state_path = self.get_state_path(&state.id);
+        let temp_path = state_path.with_extension("tmp");
+        
+        let state_json = serde_json::to_string_pretty(&state)?;
+        
+        fs::write(&temp_path, &state_json)?;
+        
+        fs::rename(&temp_path, &state_path)?;
+        
         Ok(())
     }
 
+    /// Loads the persistent state from storage
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the loaded state (if available) or an error
     pub async fn load_state(&self) -> Result<Option<PersistentState>> {
         let state_path = self.config.data_dir.join("state.json");
 
@@ -102,43 +159,64 @@ impl MCPPersistence {
             return Ok(None);
         }
 
-        let state_json = fs::read_to_string(&state_path).await?;
+        let state_json = fs::read_to_string(&state_path)?;
         let state = serde_json::from_str(&state_json)?;
         Ok(Some(state))
     }
 
-    pub async fn save_change(&self, change: &StateChange) -> Result<()> {
+    /// Saves a state change to storage
+    ///
+    /// # Parameters
+    ///
+    /// * `change` - The state change to save
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
+    pub async fn save_change(&self, change: StateChange) -> Result<()> {
         let change_path = self.get_change_path(change.id);
-        let change_json = serde_json::to_string_pretty(change)?;
-        fs::write(&change_path, change_json).await?;
+        let change_json = serde_json::to_string_pretty(&change)?;
+        
+        fs::write(&change_path, &change_json)?;
+        
         Ok(())
     }
 
+    /// Loads all state changes from storage
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a vector of state changes or an error
     pub async fn load_changes(&self) -> Result<Vec<StateChange>> {
         let mut changes = Vec::new();
-        let mut entries = fs::read_dir(&self.config.data_dir).await?;
-
-        while let Some(entry) = entries.next_entry().await? {
+        
+        let dir_path = self.config.data_dir.join("changes");
+        if !dir_path.exists() {
+            return Ok(changes);
+        }
+        
+        let entries = fs::read_dir(&dir_path)?;
+        for entry in entries {
+            let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "change") {
-                let change_json = fs::read_to_string(&path).await?;
+            if path.extension().map_or(false, |ext| ext == "json") {
+                let change_json = fs::read_to_string(&path)?;
                 let change: StateChange = serde_json::from_str(&change_json)?;
                 changes.push(change);
             }
         }
-
-        // Sort changes by version
-        changes.sort_by_key(|c| c.version);
+        
         Ok(changes)
     }
 
     async fn compact_if_needed(&self) -> Result<()> {
         let mut size = 0;
-        let mut entries = fs::read_dir(&self.config.data_dir).await?;
+        let entries = fs::read_dir(&self.config.data_dir)?;
 
-        while let Some(entry) = entries.next_entry().await? {
+        for entry in entries {
+            let entry = entry?;
             if entry.path().extension().map_or(false, |ext| ext == "change") {
-                size += entry.metadata().await?.len() as usize;
+                size += entry.metadata()?.len() as usize;
             }
         }
 
@@ -151,56 +229,105 @@ impl MCPPersistence {
 
     async fn compact_changes(&self) -> Result<()> {
         let changes = self.load_changes().await?;
-        let mut entries = fs::read_dir(&self.config.data_dir).await?;
+        let entries = fs::read_dir(&self.config.data_dir)?;
 
         // Remove old change files
-        while let Some(entry) = entries.next_entry().await? {
+        for entry in entries {
+            let entry = entry?;
             if entry.path().extension().map_or(false, |ext| ext == "change") {
-                fs::remove_file(entry.path()).await?;
+                fs::remove_file(entry.path())?;
             }
         }
 
         // Save only the most recent changes
         for change in changes.iter().rev().take(100) {
-            self.save_change(change).await?;
+            self.save_change(change.clone()).await?;
         }
 
         Ok(())
     }
 
-    fn get_change_path(&self, id: Uuid) -> PathBuf {
-        self.config.data_dir.join(format!("{}.change", id))
+    fn get_state_path(&self, id: &str) -> PathBuf {
+        self.config.data_dir.join(format!("state_{}.json", id))
     }
 
-    pub async fn save(&self, key: &str, data: &[u8]) -> Result<()> {
-        // TODO: Implement actual persistence
-        let mut metadata = self.metadata.write().await;
-        metadata.last_modified = chrono::Utc::now();
-        metadata.size += data.len() as u64;
+    fn get_change_path<'a>(&self, id: impl Into<Uuid>) -> PathBuf {
+        let uuid: Uuid = id.into();
+        self.config.data_dir.join(format!("{}.change", uuid))
+    }
+
+    /// Saves data with the specified key
+    ///
+    /// # Parameters
+    ///
+    /// * `_key` - The key to use for storing the data
+    /// * `_data` - The data to store
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
+    pub async fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
+        // Stub implementation
         Ok(())
     }
 
-    pub async fn load(&self, key: &str) -> Result<Vec<u8>> {
-        // TODO: Implement actual loading
+    /// Loads data with the specified key
+    ///
+    /// # Parameters
+    ///
+    /// * `_key` - The key of the data to load
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the loaded data or an error
+    pub async fn load(&self, _key: &str) -> Result<Vec<u8>> {
+        // Stub implementation
         Ok(Vec::new())
     }
 
-    pub async fn delete(&self, key: &str) -> Result<()> {
-        // TODO: Implement actual deletion
+    /// Deletes data with the specified key
+    ///
+    /// # Parameters
+    ///
+    /// * `_key` - The key of the data to delete
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
+    pub async fn delete(&self, _key: &str) -> Result<()> {
+        // Stub implementation
         Ok(())
     }
 
-    pub async fn update_config(&self, config: PersistenceConfig) -> Result<()> {
-        let mut current_config = self.config.write().await;
-        *current_config = config;
+    /// Updates the configuration settings
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - The new configuration settings
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error
+    pub fn update_config(&mut self, config: PersistenceConfig) -> Result<()> {
+        // Simply update the config field directly
+        self.config = config;
         Ok(())
     }
 
-    pub async fn get_config(&self) -> Result<PersistenceConfig> {
-        let config = self.config.read().await;
-        Ok(config.clone())
+    /// Gets the current configuration settings
+    ///
+    /// # Returns
+    ///
+    /// A clone of the current configuration
+    pub fn get_config(&self) -> PersistenceConfig {
+        self.config.clone()
     }
 
+    /// Gets the storage metadata
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the metadata or an error
     pub async fn get_metadata(&self) -> Result<StorageMetadata> {
         let metadata = self.metadata.read().await;
         Ok(metadata.clone())
@@ -228,7 +355,7 @@ impl Default for MCPPersistence {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_persistence_impl {
     use super::*;
     use tempfile::tempdir;
 
@@ -263,10 +390,11 @@ mod tests {
             changes: vec![],
             last_version: 1,
             last_sync: Utc::now(),
+            id: Uuid::new_v4().to_string(),
         };
 
         // Save state
-        assert!(persistence.save_state(&state).await.is_ok());
+        assert!(persistence.save_state(state).await.is_ok());
 
         // Load state
         let loaded = persistence.load_state().await.unwrap().unwrap();
@@ -301,7 +429,7 @@ mod tests {
         };
 
         // Save change
-        assert!(persistence.save_change(&change).await.is_ok());
+        assert!(persistence.save_change(change).await.is_ok());
 
         // Load changes
         let changes = persistence.load_changes().await.unwrap();
@@ -375,7 +503,7 @@ pub struct AccountData {
 
 /// Persistence trait for storage operations
 #[async_trait]
-pub trait Persistence: Send + Sync {
+pub trait Persistence: Send + Sync + std::fmt::Debug {
     /// Initialize the persistence layer
     async fn init(&self) -> Result<()>;
     
@@ -426,20 +554,23 @@ pub trait Persistence: Send + Sync {
 }
 
 /// File-based persistence implementation
+#[derive(Debug)]
 pub struct FilePersistence {
-    /// Persistence configuration
-    config: PersistenceConfig,
+    /// Base directory for all files
+    base_dir: String,
 }
 
 impl FilePersistence {
     /// Create a new file persistence
     pub fn new(config: PersistenceConfig) -> Self {
-        Self { config }
+        Self {
+            base_dir: config.storage_path,
+        }
     }
     
     /// Get the path for a key
     fn get_path(&self, key: &str) -> String {
-        format!("{}/{}", self.config.storage_path, key)
+        format!("{}/{}", self.base_dir, key)
     }
 }
 
@@ -447,7 +578,7 @@ impl FilePersistence {
 impl Persistence for FilePersistence {
     async fn init(&self) -> Result<()> {
         // Create the storage directory if it doesn't exist
-        tokio::fs::create_dir_all(&self.config.storage_path).await
+        fs::create_dir_all(&self.base_dir)
             .map_err(|e| PersistenceError::IO(format!("Failed to create storage directory: {}", e)))?;
         Ok(())
     }
@@ -541,18 +672,18 @@ impl Persistence for FilePersistence {
         
         // Ensure directory exists
         if let Some(parent) = std::path::Path::new(&path).parent() {
-            tokio::fs::create_dir_all(parent).await
+            fs::create_dir_all(parent)
                 .map_err(|e| PersistenceError::IO(format!("Failed to create directory: {}", e)))?;
         }
         
-        tokio::fs::write(&path, value).await
+        fs::write(&path, value)
             .map_err(|e| PersistenceError::IO(format!("Failed to write file: {}", e)))?;
         Ok(())
     }
     
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>> {
         let path = self.get_path(key);
-        match tokio::fs::read(&path).await {
+        match fs::read(&path) {
             Ok(data) => Ok(Some(data)),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(PersistenceError::IO(format!("Failed to read file: {}", e)).into()),
@@ -561,7 +692,7 @@ impl Persistence for FilePersistence {
     
     async fn delete_data(&self, key: &str) -> Result<()> {
         let path = self.get_path(key);
-        match tokio::fs::remove_file(&path).await {
+        match fs::remove_file(&path) {
             Ok(_) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(PersistenceError::IO(format!("Failed to delete file: {}", e)).into()),
@@ -569,20 +700,21 @@ impl Persistence for FilePersistence {
     }
     
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let dir_path = format!("{}/{}", self.config.storage_path, prefix);
+        let dir_path = format!("{}/{}", self.base_dir, prefix);
         let dir_path = std::path::Path::new(&dir_path);
         
         if !dir_path.exists() {
             return Ok(Vec::new());
         }
         
-        let prefix_path = std::path::Path::new(&self.config.storage_path);
+        let prefix_path = std::path::Path::new(&self.base_dir);
         let mut entries = Vec::new();
         
-        let mut read_dir = tokio::fs::read_dir(dir_path).await
+        let read_dir = fs::read_dir(dir_path)
             .map_err(|e| PersistenceError::IO(format!("Failed to read directory: {}", e)))?;
         
-        while let Ok(Some(entry)) = read_dir.next_entry().await {
+        for entry in read_dir {
+            let entry = entry.map_err(|e| PersistenceError::IO(format!("Failed to read entry: {}", e)))?;
             let path = entry.path();
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(prefix_path) {
@@ -602,17 +734,18 @@ impl Persistence for FilePersistence {
     }
 }
 
-/// Memory-based persistence implementation
+/// Memory-based persistence implementation for testing
+#[derive(Debug)]
 pub struct MemoryPersistence {
     /// In-memory data store
-    data: tokio::sync::RwLock<std::collections::HashMap<String, Vec<u8>>>,
+    data: std::sync::RwLock<std::collections::HashMap<String, Vec<u8>>>,
 }
 
 impl MemoryPersistence {
     /// Create a new memory persistence
     pub fn new() -> Self {
         Self {
-            data: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            data: std::sync::RwLock::new(std::collections::HashMap::new()),
         }
     }
 }
@@ -672,7 +805,7 @@ impl Persistence for MemoryPersistence {
     }
     
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>> {
-        let data = self.data.read().await;
+        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
         for (key, value) in data.iter() {
             if key.starts_with("users/") {
                 if let Ok(user) = serde_json::from_slice::<UserData>(value) {
@@ -714,22 +847,24 @@ impl Persistence for MemoryPersistence {
     }
     
     async fn save_data(&self, key: &str, value: &[u8]) -> Result<()> {
-        self.data.write().await.insert(key.to_string(), value.to_vec());
+        let mut data = self.data.write().map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
+        data.insert(key.to_string(), value.to_vec());
         Ok(())
     }
     
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let data = self.data.read().await;
+        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
         Ok(data.get(key).cloned())
     }
     
     async fn delete_data(&self, key: &str) -> Result<()> {
-        self.data.write().await.remove(key);
+        let mut data = self.data.write().map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
+        data.remove(key);
         Ok(())
     }
     
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let data = self.data.read().await;
+        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
         let keys: Vec<String> = data.keys()
             .filter(|k| k.starts_with(prefix))
             .cloned()

@@ -13,10 +13,10 @@ use squirrel_core::{Core, app::AppConfig};
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize the core
-    let core = Core::new();
-    let _mcp = MCP::new()?;
+    let core = Core::new(squirrel_core::app::AppConfig::default());
+    let _mcp = MCP::new(squirrel_core::mcp::MCPConfig::default());
 
-    println!("Core version: {}", core.version());
+    println!("Core initialized successfully");
     Ok(())
 }
 

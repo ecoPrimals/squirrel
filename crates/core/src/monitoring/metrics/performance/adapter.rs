@@ -75,13 +75,29 @@ impl Clone for PerformanceCollectorAdapter {
 
 #[async_trait]
 impl MetricCollector for PerformanceCollectorAdapter {
-    async fn get_metrics(&self) -> Result<Vec<Metric>> {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
         self.get_metrics().await
     }
 
-    async fn record_metrics(&self, metrics: &[Metric]) -> Result<()> {
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
         if let Some(collector) = &self.inner {
-            collector.record_metrics(metrics).await
+            collector.record_metric(metric).await
+        } else {
+            Ok(()) // Silently ignore if no collector is configured
+        }
+    }
+
+    async fn start(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.start().await
+        } else {
+            Ok(()) // Silently ignore if no collector is configured
+        }
+    }
+
+    async fn stop(&self) -> Result<()> {
+        if let Some(collector) = &self.inner {
+            collector.stop().await
         } else {
             Ok(()) // Silently ignore if no collector is configured
         }

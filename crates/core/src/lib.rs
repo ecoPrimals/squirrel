@@ -34,6 +34,10 @@ pub mod error;
 pub mod app;
 
 #[cfg(not(feature = "di-tests"))]
+/// Command-line interface and command handling functionality
+///
+/// This module provides the command-line interface for Squirrel,
+/// including command parsing, execution, and result handling.
 pub mod commands;
 
 #[cfg(not(feature = "di-tests"))]

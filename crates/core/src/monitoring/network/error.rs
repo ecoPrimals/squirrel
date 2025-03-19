@@ -14,6 +14,10 @@ pub enum NetworkError {
     Interface(String),
     /// Stat collection errors
     Stats(String),
+    /// Adapter not initialized
+    AdapterNotInitialized,
+    /// Adapter already initialized
+    AdapterAlreadyInitialized,
 }
 
 impl fmt::Display for NetworkError {
@@ -24,6 +28,8 @@ impl fmt::Display for NetworkError {
             NetworkError::Monitoring(msg) => write!(f, "Network monitoring error: {}", msg),
             NetworkError::Interface(msg) => write!(f, "Network interface error: {}", msg),
             NetworkError::Stats(msg) => write!(f, "Network stats error: {}", msg),
+            NetworkError::AdapterNotInitialized => write!(f, "Network adapter not initialized"),
+            NetworkError::AdapterAlreadyInitialized => write!(f, "Network adapter already initialized"),
         }
     }
 }

@@ -6,18 +6,19 @@
 
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
-use prometheus::{Registry, Encoder, TextEncoder};
-use async_trait::async_trait;
+use prometheus::Registry;
 use tokio::sync::RwLock;
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 use super::Metric;
 use serde::{Serialize, Deserialize};
 use serde_json;
-use thiserror::Error;
 
+/// Module for adapter implementations of the metric export functionality
+/// 
+/// This module provides adapters for connecting metric exporters to dependency injection systems,
+/// allowing for proper initialization and management of metric export functionality.
 pub mod adapter;
 pub use adapter::{MetricExporterAdapter, create_exporter_adapter, create_exporter_adapter_with_exporter};
 

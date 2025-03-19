@@ -1,7 +1,7 @@
 // Context manager module
 // TODO: Implement context management functionality
 
-use crate::error::{Result, SquirrelError};
+use crate::error::{Result};
 
 /// Context manager structure
 #[derive(Debug)]

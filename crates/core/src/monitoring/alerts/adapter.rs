@@ -1,81 +1,76 @@
 use std::sync::Arc;
-use crate::error::Result;
-use super::{Alert, AlertManager, DefaultAlertManager};
+use std::fmt::Debug;
+use crate::error::{Result, SquirrelError};
+use super::{NotificationManager, NotificationConfig, NotificationError};
+use super::{Alert, AlertManager, DefaultAlertManager, AlertNotification, NotificationManagerTrait};
 use async_trait::async_trait;
-use super::{NotificationManager, NotificationConfig, AlertNotification, NotificationError};
 
 /// Adapter for the alert manager to support dependency injection
 #[derive(Debug)]
-pub struct AlertManagerAdapter {
-    inner: Option<Arc<DefaultAlertManager>>,
+pub struct AlertManagerAdapter<T: NotificationManagerTrait + 'static = ()> {
+    inner: Option<Arc<DefaultAlertManager<T>>>,
 }
 
-impl AlertManagerAdapter {
-    /// Creates a new alert manager adapter
-    #[must_use]
-    pub fn new() -> Self {
+impl<T: NotificationManagerTrait + 'static> AlertManagerAdapter<T> {
+    /// Creates a new adapter without initializing it
+    #[must_use] pub fn new() -> Self {
         Self { inner: None }
     }
-
-    /// Creates a new adapter with an existing alert manager
-    #[must_use]
-    pub fn with_manager(manager: Arc<DefaultAlertManager>) -> Self {
+    
+    /// Creates an adapter with an existing manager
+    #[must_use] pub fn with_manager(manager: Arc<DefaultAlertManager<T>>) -> Self {
         Self {
             inner: Some(manager),
         }
     }
 
-    /// Sends an alert through configured notification channels and stores it
+    /// Send an alert through the manager
     ///
     /// # Errors
-    /// Returns an error if the alert cannot be sent or if no manager is available
+    /// Returns an error if the manager is not initialized or if the alert cannot be sent
     pub async fn send_alert(&self, alert: Alert) -> Result<()> {
-        if let Some(manager) = &self.inner {
-            manager.send_alert(alert).await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.send_alert(alert).await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 
-    /// Adds a new alert to the storage without sending notifications
+    /// Add an alert to the manager
     ///
     /// # Errors
-    /// Returns an error if the alert cannot be added or if no manager is available
+    /// Returns an error if the manager is not initialized or if the alert cannot be added
     pub async fn add_alert(&self, alert: Alert) -> Result<()> {
-        if let Some(manager) = &self.inner {
-            manager.add_alert(alert).await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.add_alert(alert).await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 
-    /// Updates an existing alert in the storage
+    /// Update an alert in the manager
     ///
     /// # Errors
-    /// Returns an error if the alert cannot be updated or if no manager is available
+    /// Returns an error if the manager is not initialized or if the alert cannot be updated
     pub async fn update_alert(&self, alert: Alert) -> Result<()> {
-        if let Some(manager) = &self.inner {
-            manager.update_alert(alert).await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.update_alert(alert).await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 
-    /// Retrieves all stored alerts
+    /// Get all alerts from the manager
     ///
     /// # Errors
-    /// Returns an error if the alerts cannot be retrieved or if no manager is available
+    /// Returns an error if the manager is not initialized
     pub async fn get_alerts(&self) -> Result<Vec<Alert>> {
-        if let Some(manager) = &self.inner {
-            manager.get_alerts().await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.get_alerts().await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 }
 
 #[async_trait]
-impl AlertManager for AlertManagerAdapter {
+impl<T: NotificationManagerTrait + 'static> AlertManager for AlertManagerAdapter<T> {
     async fn send_alert(&self, alert: Alert) -> Result<()> {
         self.send_alert(alert).await
     }
@@ -93,23 +88,21 @@ impl AlertManager for AlertManagerAdapter {
     }
 
     async fn start(&self) -> Result<()> {
-        if let Some(manager) = &self.inner {
-            manager.start().await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.start().await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 
     async fn stop(&self) -> Result<()> {
-        if let Some(manager) = &self.inner {
-            manager.stop().await
-        } else {
-            Err(format!("Alert manager not initialized via dependency injection").into())
+        match &self.inner {
+            Some(manager) => manager.stop().await,
+            None => Err(SquirrelError::alert("AlertManager not initialized")),
         }
     }
 }
 
-impl Clone for AlertManagerAdapter {
+impl<T: NotificationManagerTrait + 'static> Clone for AlertManagerAdapter<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -117,21 +110,23 @@ impl Clone for AlertManagerAdapter {
     }
 }
 
-impl Default for AlertManagerAdapter {
+impl<T: NotificationManagerTrait + 'static> Default for AlertManagerAdapter<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Creates a new alert manager adapter
+/// Creates a new AlertManagerAdapter with default settings.
 #[must_use]
-pub fn create_manager_adapter() -> Arc<AlertManagerAdapter> {
+pub fn create_manager_adapter<T: NotificationManagerTrait + 'static>() -> Arc<AlertManagerAdapter<T>> {
     Arc::new(AlertManagerAdapter::new())
 }
 
-/// Creates a new alert manager adapter with an existing manager
+/// Creates a new AlertManagerAdapter with an existing DefaultAlertManager.
 #[must_use]
-pub fn create_manager_adapter_with_manager(manager: Arc<DefaultAlertManager>) -> Arc<AlertManagerAdapter> {
+pub fn create_manager_adapter_with_manager<T: NotificationManagerTrait + 'static>(
+    manager: Arc<DefaultAlertManager<T>>
+) -> Arc<AlertManagerAdapter<T>> {
     Arc::new(AlertManagerAdapter::with_manager(manager))
 }
 
@@ -160,16 +155,19 @@ impl NotificationManagerAdapter {
     ///
     /// # Errors
     /// Returns a error if the notification cannot be sent
-    pub async fn send_notification(&self, alert: &AlertNotification) -> Result<(), NotificationError> {
-        self.inner.send_notification(alert).await
+    pub async fn send_notification(&self, alert: Alert) -> Result<()> {
+        // Convert Alert to AlertNotification using the From implementation
+        let notification: AlertNotification = alert.into();
+        
+        self.inner.send_notification(&notification).await.map_err(|e| SquirrelError::Alert(format!("Failed to send notification: {}", e)))
     }
 
     /// Updates the notification configuration
     ///
     /// # Errors
     /// Returns an error if the configuration is invalid
-    pub async fn update_config(&self, config: NotificationConfig) -> Result<(), NotificationError> {
-        self.inner.update_config(config).await
+    pub async fn update_config(&self, config: NotificationConfig) -> Result<()> {
+        self.inner.update_config(config).await.map_err(|e| SquirrelError::Alert(format!("Failed to update notification config: {}", e)))
     }
 }
 

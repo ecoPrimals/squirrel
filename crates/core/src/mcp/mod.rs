@@ -1,10 +1,32 @@
-//! MCP (Machine Context Protocol) module for Squirrel
+//! # MCP (Machine Context Protocol) Module
 //!
 //! This module implements the core functionality for the Machine Context Protocol,
 //! providing message handling, state synchronization, and security features.
+//!
+//! ## Core Functionality
+//!
+//! - **Message Handling**: Process and route protocol messages between components
+//! - **State Synchronization**: Maintain consistent state across distributed systems
+//! - **Security**: Implement encryption, authentication, and authorization
+//! - **Session Management**: Handle client sessions and connection state
+//! - **Persistence**: Store and retrieve protocol state
+//!
+//! ## Architecture
+//!
+//! The MCP module follows a layered architecture:
+//!
+//! 1. **Transport Layer**: Handles raw message transmission
+//! 2. **Protocol Layer**: Implements the MCP protocol specification
+//! 3. **Security Layer**: Manages encryption and authentication
+//! 4. **Context Layer**: Connects to the application context system
+//!
+//! ## Dependencies
+//!
+//! MCP relies on the context system for state management and integrates with
+//! the monitoring system for performance metrics and health status.
 
-use std::sync::{Arc, Mutex, RwLock};
-use crate::error::{AppInitializationError, AppOperationError, SquirrelError};
+use std::sync::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod types;
 pub mod security;
@@ -48,10 +70,12 @@ pub use types::{
     MCPMessage,
     MCPResponse,
     MCPCommand,
+    ProtocolVersion,
 };
 
 // Re-export error types
-pub use error::types::{MCPError, SecurityError, ProtocolError};
+pub use error::types::{SecurityError, ProtocolError};
+pub use error::types::MCPError;
 pub use error::Result;
 
 // Re-export protocols
@@ -65,6 +89,9 @@ pub use context_adapter::{MCPContextAdapter, create_mcp_context_adapter};
 
 // Re-export factory
 pub use factory::{MCPFactory, create_mcp_factory, create_mcp};
+
+// Re-export session for backward compatibility
+pub use session::Session as MCPSession;
 
 /// Configuration for the MCP system
 #[derive(Debug, Clone)]
@@ -94,7 +121,7 @@ impl Default for MCPConfig {
 #[derive(Debug)]
 pub struct MCPState {
     /// Whether the MCP system is initialized
-    pub initialized: bool,
+    pub initialized: AtomicBool,
     /// The configuration of the MCP system
     pub config: MCPConfig,
 }
@@ -103,7 +130,7 @@ impl MCPState {
     /// Create a new MCPState with the given configuration
     pub fn new(config: MCPConfig) -> Self {
         Self {
-            initialized: false,
+            initialized: AtomicBool::new(false),
             config,
         }
     }
@@ -124,37 +151,34 @@ impl MCP {
     }
 
     /// Initialize the MCP system
-    pub fn initialize(&self) -> Result<(), AppInitializationError> {
-        let mut state = self.state.write().unwrap();
-        if state.initialized {
-            return Err(AppInitializationError::AlreadyInitialized);
+    pub fn initialize(&self) -> Result<()> {
+        if self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+            return Err(MCPError::AlreadyInitialized("MCP already initialized".into()));
         }
         
         // Perform initialization tasks
-        state.initialized = true;
+        self.state.write().unwrap().initialized.store(true, Ordering::SeqCst);
         Ok(())
     }
 
     /// Check if the MCP system is initialized
     pub fn is_initialized(&self) -> bool {
-        self.state.read().unwrap().initialized
+        self.state.read().unwrap().initialized.load(Ordering::SeqCst)
     }
     
     /// Get the MCP configuration
-    pub fn get_config(&self) -> Result<MCPConfig, AppOperationError> {
-        let state = self.state.read().unwrap();
-        if !state.initialized {
-            return Err(AppOperationError::NotInitialized);
+    pub fn get_config(&self) -> Result<MCPConfig> {
+        if !self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+            return Err(MCPError::NotInitialized("MCP not initialized".into()));
         }
         
-        Ok(state.config.clone())
+        Ok(self.state.read().unwrap().config.clone())
     }
 
     /// Send a message through the MCP system
-    pub fn send_message(&self, message: &str) -> Result<String, AppOperationError> {
-        let state = self.state.read().unwrap();
-        if !state.initialized {
-            return Err(AppOperationError::NotInitialized);
+    pub fn send_message(&self, message: &str) -> Result<String> {
+        if !self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+            return Err(MCPError::NotInitialized("MCP not initialized".into()));
         }
         
         // In a real implementation, we would process the message here
