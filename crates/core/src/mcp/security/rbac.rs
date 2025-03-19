@@ -71,7 +71,7 @@ impl Default for RBACManager {
 
 impl RBACManager {
     /// Creates a new RBAC manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             roles_by_id: HashMap::new(),
             roles_by_name: HashMap::new(),
@@ -80,17 +80,17 @@ impl RBACManager {
     }
 
     /// Gets a role by name
-    pub fn get_role_by_name(&self, name: &str) -> Option<&Role> {
+    #[must_use] pub fn get_role_by_name(&self, name: &str) -> Option<&Role> {
         self.roles_by_name.get(name).and_then(|id| self.roles_by_id.get(id))
     }
 
     /// Gets a role by ID
-    pub fn get_role_by_id(&self, id: &str) -> Option<&Role> {
+    #[must_use] pub fn get_role_by_id(&self, id: &str) -> Option<&Role> {
         self.roles_by_id.get(id)
     }
 
     /// Gets a role by either ID or name
-    pub fn get_role(&self, id_or_name: &str) -> Option<&Role> {
+    #[must_use] pub fn get_role(&self, id_or_name: &str) -> Option<&Role> {
         // First try as ID
         if let Some(role) = self.get_role_by_id(id_or_name) {
             return Some(role);
@@ -110,7 +110,7 @@ impl RBACManager {
     ) -> Result<Role> {
         // Check if role name already exists
         if self.roles_by_name.contains_key(&name) {
-            return Err(SquirrelError::Security(format!("Role with name '{}' already exists", name)));
+            return Err(SquirrelError::Security(format!("Role with name '{name}' already exists")));
         }
         
         // Verify parent roles exist
@@ -134,12 +134,12 @@ impl RBACManager {
     ) -> Result<Role> {
         // Check if role ID already exists
         if self.roles_by_id.contains_key(&id) {
-            return Err(SquirrelError::Security(format!("Role with ID '{}' already exists", id)));
+            return Err(SquirrelError::Security(format!("Role with ID '{id}' already exists")));
         }
         
         // Check if role name already exists
         if self.roles_by_name.contains_key(&name) {
-            return Err(SquirrelError::Security(format!("Role with name '{}' already exists", name)));
+            return Err(SquirrelError::Security(format!("Role with name '{name}' already exists")));
         }
         
         // Verify parent roles exist
@@ -164,7 +164,7 @@ impl RBACManager {
     fn verify_parent_roles(&self, parent_roles: &HashSet<String>) -> Result<()> {
         for parent_id in parent_roles {
             if !self.roles_by_id.contains_key(parent_id) {
-                return Err(SquirrelError::Security(format!("Role '{}' not found in system", parent_id)));
+                return Err(SquirrelError::Security(format!("Role '{parent_id}' not found in system")));
             }
         }
         Ok(())
@@ -174,11 +174,11 @@ impl RBACManager {
     pub fn assign_role(&mut self, user_id: String, role_id: String) -> Result<()> {
         // Check if role exists
         if !self.roles_by_id.contains_key(&role_id) {
-            return Err(SquirrelError::Security(format!("Role '{}' not found in system", role_id)));
+            return Err(SquirrelError::Security(format!("Role '{role_id}' not found in system")));
         }
         
         // Get or create user roles set
-        let user_roles = self.user_roles.entry(user_id).or_insert_with(HashSet::new);
+        let user_roles = self.user_roles.entry(user_id).or_default();
         
         // Add role ID to user roles
         user_roles.insert(role_id);
@@ -190,7 +190,7 @@ impl RBACManager {
     pub fn assign_role_by_name(&mut self, user_id: String, role_name: String) -> Result<()> {
         // Check if role exists
         let role_id = self.roles_by_name.get(&role_name)
-            .ok_or_else(|| SquirrelError::Security(format!("Role '{}' not found in system", role_name)))?
+            .ok_or_else(|| SquirrelError::Security(format!("Role '{role_name}' not found in system")))?
             .clone();
         
         // Assign role by ID
@@ -198,7 +198,7 @@ impl RBACManager {
     }
 
     /// Gets all permissions for a user
-    pub fn get_user_permissions(&self, user_id: &str) -> HashSet<Permission> {
+    #[must_use] pub fn get_user_permissions(&self, user_id: &str) -> HashSet<Permission> {
         let mut permissions = HashSet::new();
         
         // Get user's role IDs
@@ -230,13 +230,13 @@ impl RBACManager {
     }
 
     /// Checks if a user has a specific permission
-    pub fn has_permission(&self, user_id: &str, permission: &Permission) -> bool {
+    #[must_use] pub fn has_permission(&self, user_id: &str, permission: &Permission) -> bool {
         let user_permissions = self.get_user_permissions(user_id);
         user_permissions.contains(permission)
     }
     
     /// Gets all roles assigned to a user
-    pub fn get_user_roles(&self, user_id: &str) -> Vec<Role> {
+    #[must_use] pub fn get_user_roles(&self, user_id: &str) -> Vec<Role> {
         let mut roles = Vec::new();
         
         if let Some(role_ids) = self.user_roles.get(user_id) {
@@ -251,7 +251,7 @@ impl RBACManager {
     }
     
     /// Gets all users assigned to a role
-    pub fn get_role_users(&self, role_id: &str) -> Vec<String> {
+    #[must_use] pub fn get_role_users(&self, role_id: &str) -> Vec<String> {
         let mut users = Vec::new();
         
         for (user_id, role_ids) in &self.user_roles {
@@ -264,8 +264,8 @@ impl RBACManager {
     }
 
     /// Checks if a role has permission for a resource and action
-    /// This replaces the old role_has_permission method
-    pub fn has_permission_for_role(&self, role: &Role, resource: &str, action: Action) -> bool {
+    /// This replaces the old `role_has_permission` method
+    #[must_use] pub fn has_permission_for_role(&self, role: &Role, resource: &str, action: Action) -> bool {
         // Check if the role has the permission directly
         let has_direct_permission = role.permissions.iter().any(|p| {
             p.resource == resource && p.action == action

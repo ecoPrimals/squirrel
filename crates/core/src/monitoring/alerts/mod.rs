@@ -2,7 +2,6 @@
 ///
 /// This module provides alert generation, management, and notification capabilities
 /// for system monitoring.
-
 // Allow certain linting issues that are too numerous to fix individually
 #[allow(clippy::module_name_repetitions)] // Allow module name in type names
 #[allow(clippy::unused_async)] // Allow unused async functions
@@ -11,18 +10,12 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashSet;
-use std::path::PathBuf;
 use thiserror::Error;
-use chrono::{DateTime, Utc};
 use async_trait::async_trait;
 use crate::error::{Result, SquirrelError};
 use std::collections::HashMap;
-use std::fmt::{self, Debug};
+use std::fmt::{Debug};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde_json::{json, Value};
-use time::OffsetDateTime;
-use std::marker::PhantomData;
 use log;
 
 /// Module for alert configuration
@@ -73,8 +66,7 @@ impl AlertSeverity {
         match self {
             Self::Critical => "red",
             Self::High => "orange",
-            Self::Medium => "yellow",
-            Self::Warning => "yellow",
+            Self::Medium | Self::Warning => "yellow",
             Self::Low => "blue",
         }
     }
@@ -163,7 +155,7 @@ impl Alert {
         }
     }
 
-    /// Updates the status of the alert and sets the updated_at timestamp
+    /// Updates the status of the alert and sets the `updated_at` timestamp
     ///
     /// # Arguments
     /// * `status` - The new status to set for the alert
@@ -228,8 +220,8 @@ impl From<Alert> for AlertNotification {
             id: alert.id.clone(),
             name: alert.name.clone(),
             description: alert.description.clone(),
-            severity: alert.severity.clone(),
-            status: alert.status.clone(),
+            severity: alert.severity,
+            status: alert.status,
             labels: alert.labels.clone(),
             created_at: alert.created_at,
             updated_at: alert.updated_at,
@@ -318,11 +310,14 @@ pub trait AlertManager: Debug + Send + Sync {
     async fn stop(&self) -> Result<()>;
 }
 
-/// Default alert manager implementation
+/// Default implementation of the alert manager
 #[derive(Debug)]
 pub struct DefaultAlertManager<N: NotificationManagerTrait + 'static = ()> {
+    /// Storage for alert records
     alerts: Arc<RwLock<Vec<Alert>>>,
+    /// Alert manager configuration
     config: AlertConfig,
+    /// Optional notification manager for sending alerts
     notification_manager: Option<Arc<N>>,
 }
 
@@ -415,7 +410,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
     /// This function may return errors if there are issues accessing the internal alert storage
     async fn add_alert(&self, alert: Alert) -> Result<()> {
         // Skip alerts below the minimum severity threshold
-        if !self.config.enabled || severity_value(&alert.severity) < severity_value(&self.config.min_severity) {
+        if !self.config.enabled || severity_value(alert.severity) < severity_value(self.config.min_severity) {
             log::debug!("Alert filtered out due to severity: {:?}", alert.severity);
             return Ok(());
         }
@@ -447,7 +442,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
             alerts[idx] = alert;
             Ok(())
         } else {
-            Err(SquirrelError::alert(&format!("Alert not found: {alert_id}", alert_id = alert.id)))
+            Err(SquirrelError::alert(format!("Alert not found: {alert_id}", alert_id = alert.id)))
         }
     }
 
@@ -469,7 +464,11 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
 }
 
 // Helper function to get numeric values for severity levels for comparison
-fn severity_value(severity: &AlertSeverity) -> u8 {
+/// Converts an alert severity enum to a numeric value for comparison
+/// 
+/// This function is used internally to compare severity levels,
+/// with higher values indicating more severe alerts.
+fn severity_value(severity: AlertSeverity) -> u8 {
     match severity {
         AlertSeverity::Critical => 5,
         AlertSeverity::High => 4,
@@ -501,7 +500,7 @@ pub enum AlertError {
 
 impl From<AlertError> for SquirrelError {
     fn from(err: AlertError) -> Self {
-        Self::alert(&err.to_string())
+        Self::alert(err.to_string())
     }
 }
 
@@ -574,7 +573,14 @@ impl<N: NotificationManagerTrait + 'static> Default for AlertManagerFactory<N> {
 /// Create a new alert manager adapter
 #[must_use]
 pub fn create_manager_adapter() -> Arc<AlertManagerAdapter<()>> {
-    AlertManagerFactory::new().create_manager_adapter()
+    match create_initialized_manager_adapter() {
+        Ok(adapter) => adapter,
+        Err(e) => {
+            log::error!("Failed to initialize AlertManagerAdapter: {}", e);
+            // Fall back to uninitialized adapter, but log the error
+            Arc::new(AlertManagerAdapter::new())
+        }
+    }
 }
 
 /// Create a new alert manager adapter with an existing manager
@@ -589,10 +595,7 @@ pub fn create_manager_adapter_with_manager<N: NotificationManagerTrait + 'static
 pub use adapter::AlertManagerAdapter;
 
 // Public re-exports
-pub use self::config::*;
-pub use self::manager::*;
 pub use self::notify::*;
-pub use self::status::*;
 pub use self::adapter::*;
 
 #[cfg(test)]
@@ -687,12 +690,21 @@ mod tests {
         );
         
         // Test alerts with different severities
+        println!("Sending low severity alert");
         manager.send_alert(low_alert).await.unwrap();
+        
+        println!("Sending high severity alert");
         manager.send_alert(high_alert).await.unwrap();
         
         // Verify filtering (low severity should be filtered out)
         let alerts = manager.get_alerts().await.unwrap();
-        assert_eq!(alerts.len(), 1);
-        assert_eq!(alerts[0].name, "High Alert");
+        println!("Retrieved {} alerts: {:?}", alerts.len(), alerts.iter().map(|a| &a.name).collect::<Vec<_>>());
+        
+        // Given our min_severity is High, we should only see the high alert
+        assert_eq!(alerts.len(), 1, "Expected exactly 1 alert (High), but got {} alerts", alerts.len());
+        
+        // Make sure it's the High severity alert that passed through
+        assert_eq!(alerts[0].name, "High Alert", "Expected High alert, but got {}", alerts[0].name);
+        assert_eq!(alerts[0].severity, AlertSeverity::High, "Alert should have High severity");
     }
 } 

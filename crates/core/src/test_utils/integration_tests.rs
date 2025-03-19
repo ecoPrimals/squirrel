@@ -85,7 +85,7 @@ mod tests {
         
         // Create MCPSync but don't initialize
         let sync_config = SyncConfig::default();
-        let sync = MCPSync::create(sync_config).await.expect("Failed to create MCPSync");
+        let _sync = MCPSync::create(sync_config).await.expect("Failed to create MCPSync");
         
         // ACT & ASSERT: Verify app is not initialized
         assert!(!app.is_initialized());
@@ -94,7 +94,7 @@ mod tests {
     #[tokio::test]
     async fn test_error_propagation() {
         // ARRANGE: Set up test context
-        let context = IntegrationTestContext::new().await.expect("Failed to create integration test context");
+        let _context = IntegrationTestContext::new().await.expect("Failed to create integration test context");
         
         // ACT: Create a complex operation that will fail
         let result = async {

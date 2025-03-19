@@ -12,6 +12,7 @@ use async_trait::async_trait;
 /// Adapter for the health checker to support dependency injection
 #[derive(Debug)]
 pub struct HealthCheckerAdapter {
+    /// The inner health checker instance
     pub(crate) inner: Option<Arc<DefaultHealthChecker>>,
 }
 
@@ -61,7 +62,7 @@ impl HealthCheckerAdapter {
     }
 
     /// Checks if the adapter is initialized
-    pub fn is_initialized(&self) -> bool {
+    #[must_use] pub fn is_initialized(&self) -> bool {
         self.inner.is_some()
     }
 

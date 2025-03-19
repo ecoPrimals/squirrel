@@ -75,7 +75,7 @@ pub struct ContextValidation {
 
 /// Manager for context operations and synchronization
 ///
-/// The ContextManager is responsible for creating, updating, deleting, and
+/// The `ContextManager` is responsible for creating, updating, deleting, and
 /// validating contexts, as well as managing their hierarchical relationships
 /// and synchronization across distributed instances.
 #[derive(Debug)]
@@ -325,7 +325,7 @@ impl ContextManager {
         match rule {
             "required_fields" => {
                 // Example validation
-                if context.data.as_object().map_or(true, |obj| obj.is_empty()) {
+                if context.data.as_object().is_none_or(serde_json::Map::is_empty) {
                     return Err(ContextError::ValidationError("Context data cannot be empty".into()));
                 }
                 
@@ -334,12 +334,12 @@ impl ContextManager {
                 if let Some(validation) = validations.get(&context.name) {
                     if let Some(schema) = validation.schema.as_object() {
                         if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
-                            if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
+                            if let Some(_properties) = schema.get("properties").and_then(|p| p.as_object()) {
                                 for req in required {
                                     if let Some(field_name) = req.as_str() {
-                                        if !context.data.as_object().map_or(false, |obj| obj.contains_key(field_name)) {
+                                        if !context.data.as_object().is_some_and(|obj| obj.contains_key(field_name)) {
                                             return Err(ContextError::ValidationError(
-                                                format!("Required field '{}' is missing", field_name)
+                                                format!("Required field '{field_name}' is missing")
                                             ));
                                         }
                                     }

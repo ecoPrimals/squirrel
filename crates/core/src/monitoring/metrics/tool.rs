@@ -16,7 +16,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use async_trait;
-use crate::error::SquirrelError;
 
 /// Module for adapter implementations of tool metric functionality
 /// 
@@ -285,7 +284,7 @@ impl MetricCollector for ToolMetricsCollector {
             labels.insert("tool".to_string(), tool_name.clone());
             
             result.push(Metric::with_optional_labels(
-                format!("tool.{}.usage_count", tool_name),
+                format!("tool.{tool_name}.usage_count"),
                 tool_metrics.usage_count as f64,
                 MetricType::Counter,
                 Some(labels.clone()),
@@ -327,21 +326,21 @@ impl MetricCollector for ToolMetricsCollector {
             }
 
             result.push(Metric::with_optional_labels(
-                format!("tool.{}.execution_time", tool_name),
+                format!("tool.{tool_name}.execution_time"),
                 tool_metrics.execution_time as f64,
                 MetricType::Gauge,
                 Some(labels.clone()),
             ));
 
             result.push(Metric::with_optional_labels(
-                format!("tool.{}.cpu_usage", tool_name),
-                tool_metrics.cpu_usage as f64,
+                format!("tool.{tool_name}.cpu_usage"),
+                tool_metrics.cpu_usage,
                 MetricType::Gauge,
                 Some(labels.clone()),
             ));
 
             result.push(Metric::with_optional_labels(
-                format!("tool.{}.memory_size", tool_name),
+                format!("tool.{tool_name}.memory_size"),
                 tool_metrics.memory_size as f64,
                 MetricType::Gauge,
                 Some(labels.clone()),
@@ -350,7 +349,7 @@ impl MetricCollector for ToolMetricsCollector {
             if let Some(activity) = &tool_metrics.last_activity {
                 let activity_labels = labels.clone();
                 result.push(Metric::with_optional_labels(
-                    format!("tool.{}.last_activity", tool_name),
+                    format!("tool.{tool_name}.last_activity"),
                     activity.timestamp as f64,
                     MetricType::Gauge,
                     Some(activity_labels),

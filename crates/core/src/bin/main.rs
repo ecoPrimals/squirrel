@@ -1,19 +1,19 @@
 //! Entry point for the Squirrel Core binary.
 
 #[cfg(not(feature = "di-tests"))]
-use squirrel_core::{Core, MCP};
+use squirrel_core::{app::Core, MCP};
 
 #[cfg(not(feature = "di-tests"))]
 use squirrel_core::error::Result;
 
 #[cfg(feature = "di-tests")]
-use squirrel_core::{Core, app::AppConfig};
+use squirrel_core::{app::Core, app::AppConfig};
 
 #[cfg(not(feature = "di-tests"))]
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize the core
-    let core = Core::new(squirrel_core::app::AppConfig::default());
+    let _core = Core::new(squirrel_core::app::AppConfig::default());
     let _mcp = MCP::new(squirrel_core::mcp::MCPConfig::default());
 
     println!("Core initialized successfully");

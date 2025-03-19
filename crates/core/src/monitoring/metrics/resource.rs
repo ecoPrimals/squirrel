@@ -14,12 +14,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use sysinfo::{System, Process, Disks, Networks, CpuRefreshKind, RefreshKind, ThreadKind, ProcessStatus};
+use sysinfo::{System, Process, Disks, Networks, ProcessStatus};
 use async_trait::async_trait;
 use crate::monitoring::metrics::performance::PerformanceCollectorAdapter;
-use opentelemetry_sdk::metrics::data::ResourceMetrics;
-use std::sync::atomic::{AtomicBool, Ordering};
-use sysinfo::Pid;
 use chrono;
 
 /// Information about a process
@@ -178,7 +175,7 @@ impl ResourceMetricsCollector {
             
             // Update disk I/O statistics
             let current_io = self.calculate_disk_io_locked(team_path).await;
-            let prev_io = prev_disk_io.get(team_name).cloned().unwrap_or_default();
+            let _prev_io = prev_disk_io.get(team_name).cloned().unwrap_or_default();
             
             // Calculate disk I/O changes
             let disk_io = current_io.writes_per_sec + current_io.reads_per_sec;
@@ -194,7 +191,7 @@ impl ResourceMetricsCollector {
 
             // Update metrics
             let mut team_metric = Metric::with_optional_labels(
-                format!("resource.team.{}", team_name),
+                format!("resource.team.{team_name}"),
                 memory_usage,
                 MetricType::Gauge,
                 Some(HashMap::new()),
@@ -219,7 +216,7 @@ impl ResourceMetricsCollector {
         let mut result = Vec::new();
         
         // Iterate over all processes
-        for (pid, process) in system.processes() {
+        for process in system.processes().values() {
             if Self::is_team_process(process, team_name) {
                 result.push(Self::collect_process_info(process));
             }
@@ -247,7 +244,7 @@ impl ResourceMetricsCollector {
     }
 
     /// Helper method for network bandwidth that works with RwLockReadGuard
-    async fn calculate_network_bandwidth_locked(&self, team_name: &str) -> f64 {
+    async fn calculate_network_bandwidth_locked(&self, _team_name: &str) -> f64 {
         // In sysinfo 0.30, Networks needs to be created freshly
         let networks = Networks::new_with_refreshed_list();
         
@@ -520,7 +517,7 @@ impl ResourceMetricsCollector {
             network_bandwidth,
             thread_count,
             disk_io: disk_io.bytes_read as f64,
-            cpu_usage: cpu_usage as f64, // Convert f32 to f64
+            cpu_usage: f64::from(cpu_usage), // Convert f32 to f64
             processes: Vec::new(), // Don't include all system processes
             timestamp: chrono::Utc::now(),
             labels: HashMap::new(),
@@ -536,7 +533,7 @@ impl ResourceMetricsCollector {
     }
 
     /// Gets disk usage for a specific path
-    pub fn get_disk_usage(&self, path: &Path) -> Option<f64> {
+    #[must_use] pub fn get_disk_usage(&self, path: &Path) -> Option<f64> {
         // Create a new disks instance to get fresh disk data
         let disks = sysinfo::Disks::new_with_refreshed_list();
         
@@ -551,7 +548,7 @@ impl ResourceMetricsCollector {
     }
 
     /// Gets disk space for a specific path (used, total)
-    pub fn get_disk_space(&self, path: &Path) -> Option<(u64, u64)> {
+    #[must_use] pub fn get_disk_space(&self, path: &Path) -> Option<(u64, u64)> {
         // Create a new disks instance to get fresh disk data
         let disks = sysinfo::Disks::new_with_refreshed_list();
         
@@ -734,6 +731,12 @@ pub struct ResourceMetricsCollectorAdapter {
     inner: Option<Arc<ResourceMetricsCollector>>,
 }
 
+impl Default for ResourceMetricsCollectorAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceMetricsCollectorAdapter {
     /// Create a new adapter with no inner collector
     #[must_use] pub fn new() -> Self {
@@ -829,7 +832,7 @@ impl MetricCollector for ResourceMetricsCollectorAdapter {
 impl TeamResourceMetrics {
     /// Create a team metrics object from a system
     #[allow(unused)]
-    pub fn new(system: &System) -> Self {
+    #[must_use] pub fn new(system: &System) -> Self {
         // Calculate CPU usage
         let cpu_usage = system.global_cpu_info().cpu_usage();
         
@@ -893,7 +896,7 @@ impl TeamResourceMetrics {
             network_bandwidth,
             thread_count,
             disk_io,
-            cpu_usage: cpu_usage as f64,
+            cpu_usage: f64::from(cpu_usage),
             processes,
             timestamp: chrono::Utc::now(),
             labels: HashMap::new(),
@@ -1028,7 +1031,7 @@ impl MetricCollector for ResourceMetricsCollector {
         // Generate at least some basic system metrics
         let cpu_metric = Metric::new(
             "system_cpu_usage".to_string(),
-            self.system.read().await.global_cpu_info().cpu_usage() as f64,
+            f64::from(self.system.read().await.global_cpu_info().cpu_usage()),
             MetricType::Gauge,
             HashMap::new(),
         );

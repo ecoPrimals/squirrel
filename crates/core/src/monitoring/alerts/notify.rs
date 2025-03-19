@@ -10,17 +10,13 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::time::{Duration, SystemTime};
-use std::format as fmt;
 use thiserror::Error;
 use time::OffsetDateTime;
 use handlebars::Handlebars;
 use serde::{Serialize, Deserialize};
-use serde_json::json;
-use async_trait::async_trait;
 
 use super::{AlertNotification, AlertSeverity};
-use super::adapter::{NotificationManagerAdapter, create_notification_manager_adapter_with_manager};
+use super::adapter::NotificationManagerAdapter;
 
 /// Notification channel type
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -297,7 +293,7 @@ impl NotificationManager {
         alert: &AlertNotification,
     ) -> Result<(), NotificationError> {
         // Prepare slack message
-        let color = get_severity_color(&alert.severity);
+        let color = get_severity_color(alert.severity);
         
         let payload = serde_json::json!({
             "channel": channel,
@@ -478,7 +474,11 @@ impl NotificationManager {
     }
 }
 
-const fn get_severity_color(severity: &AlertSeverity) -> &'static str {
+/// Returns the color associated with the alert severity level
+/// 
+/// This helper function is used to determine the appropriate color
+/// to use when displaying or sending alerts based on their severity.
+const fn get_severity_color(severity: AlertSeverity) -> &'static str {
     severity.color()
 }
 

@@ -2,14 +2,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-use uuid::Uuid;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 use thiserror::Error;
 use sha2::Digest;
-use crate::error::SquirrelError;
 
 // TODO: Uncomment when state module is implemented
 // use super::state::{State, StateError};
@@ -77,7 +74,7 @@ pub struct StatePersistence {
 }
 
 impl StatePersistence {
-    /// Creates a new StatePersistence instance
+    /// Creates a new `StatePersistence` instance
     ///
     /// # Parameters
     ///
@@ -85,7 +82,7 @@ impl StatePersistence {
     ///
     /// # Returns
     ///
-    /// A new StatePersistence instance
+    /// A new `StatePersistence` instance
     pub fn new<P: AsRef<Path>>(storage_path: P) -> Self {
         Self {
             storage_path: storage_path.as_ref().to_path_buf(),
@@ -161,7 +158,7 @@ impl StatePersistence {
         let calculated_checksum = self.calculate_checksum(&persistent_state.state)?;
         if calculated_checksum != persistent_state.metadata.checksum {
             return Err(PersistenceError::InvalidData(
-                format!("Checksum mismatch for state: {}", state_id)
+                format!("Checksum mismatch for state: {state_id}")
             ));
         }
 
@@ -228,7 +225,7 @@ impl StatePersistence {
     ///
     /// The path where the state is stored
     fn get_state_path(&self, state_id: &str) -> PathBuf {
-        self.storage_path.join(format!("{}.json", state_id))
+        self.storage_path.join(format!("{state_id}.json"))
     }
 
     /// Calculates a checksum for a state

@@ -1,11 +1,10 @@
+#![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
+#![allow(clippy::unused_async)] // Allow unused async functions
+
 /// Network monitoring functionality
 ///
 /// This module provides network interface monitoring, bandwidth tracking,
 /// and network health diagnostics.
-
-// Allow certain linting issues that are too numerous to fix individually
-#[allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
-#[allow(clippy::unused_async)] // Allow unused async functions
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -31,7 +30,7 @@ pub use system_info::{SystemInfoAdapter, create_system_info_adapter, create_syst
 pub use adapter::NetworkMonitorAdapter;
 pub use error::{NetworkError, system_error, config_error, monitoring_error, interface_error, stats_error};
 
-/// Type alias for sysinfo::System to simplify usage in the network module
+/// Type alias for `sysinfo::System` to simplify usage in the network module
 type S = System;
 
 /// System information manager for monitoring system resources
@@ -108,7 +107,7 @@ impl SystemInfoManager {
     ///
     /// # Returns
     ///
-    /// A Result containing a vector of NetworkInterface objects or an error
+    /// A Result containing a vector of `NetworkInterface` objects or an error
     pub async fn get_interfaces(&self) -> Result<Vec<NetworkInterface>> {
         // Create fresh Networks instance
         let networks = Networks::new_with_refreshed_list();
@@ -130,7 +129,7 @@ impl SystemInfoManager {
     ///
     /// # Returns
     ///
-    /// A Result containing NetworkInterfaceStats or an error
+    /// A Result containing `NetworkInterfaceStats` or an error
     pub async fn get_interface_stats(&self, interface_name: &str) -> Result<NetworkInterfaceStats> {
         // We'll just create a placeholder stats object for now
         Ok(NetworkInterfaceStats {
@@ -148,7 +147,7 @@ impl SystemInfoManager {
     ///
     /// # Returns
     ///
-    /// A Result containing NetworkStats or an error
+    /// A Result containing `NetworkStats` or an error
     pub async fn get_all_stats(&self) -> Result<NetworkStats> {
         // Create fresh Networks instance
         let networks = Networks::new_with_refreshed_list();
@@ -171,11 +170,11 @@ impl SystemInfoManager {
         Ok(stats)
     }
 
-    /// Gets the overall network usage
+    /// Gets the current network usage
     ///
     /// # Returns
     ///
-    /// A Result containing NetworkUsage or an error
+    /// A Result containing `NetworkUsage` or an error
     pub async fn get_network_usage(&self) -> Result<NetworkUsage> {
         let _sys = self.system.read().await;
         let usage = NetworkUsage {
@@ -196,10 +195,11 @@ impl Default for SystemInfoManager {
 }
 
 /// Factory for creating system info managers
+#[derive(Debug, Default)]
 pub struct SystemInfoManagerFactory;
 
 impl SystemInfoManagerFactory {
-    /// Creates a new system info manager factory
+    /// Creates a new `SystemInfoManagerFactory`
     #[must_use]
     pub fn new() -> Self {
         Self {}
@@ -420,7 +420,7 @@ impl NetworkMonitorFactory {
     /// * `config` - Optional configuration override
     ///
     /// # Returns
-    /// A new NetworkMonitor instance wrapped in an Arc
+    /// A new `NetworkMonitor` instance wrapped in an Arc
     #[must_use]
     pub fn create_monitor_with_config(
         &self,

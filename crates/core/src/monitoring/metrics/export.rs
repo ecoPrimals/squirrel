@@ -286,7 +286,7 @@ impl PrometheusExporter {
         Self {
             name: "prometheus".to_string(),
             config,
-            registry: registry.unwrap_or_else(Registry::new),
+            registry: registry.unwrap_or_default(),
             metrics: metrics.unwrap_or_else(|| Arc::new(RwLock::new(HashMap::new()))),
         }
     }

@@ -201,7 +201,7 @@ impl ContextTracker {
         // Find the snapshot with the requested version
         let target_index = match self.history.iter().position(|s| s.state.version == version) {
             Some(index) => index,
-            None => return Err(ContextError::NoValidSnapshot(format!("No snapshot with version {} found", version))),
+            None => return Err(ContextError::NoValidSnapshot(format!("No snapshot with version {version} found"))),
         };
         
         // Keep snapshots up to and including the target version

@@ -11,7 +11,7 @@ pub struct ContextManager {
 
 impl ContextManager {
     /// Create a new context manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
     

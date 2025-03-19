@@ -14,6 +14,7 @@ use crate::mcp::types::{MCPMessage, MessageType, MCPResponse};
 
 /// Protocol adapter state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default)]
 pub struct State {
     /// Whether the adapter is initialized
     pub initialized: bool,
@@ -21,14 +22,6 @@ pub struct State {
     pub config: ProtocolConfig,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            initialized: false, 
-            config: ProtocolConfig::default(),
-        }
-    }
-}
 
 /// Implementation of the MCP Protocol
 #[derive(Debug)]
@@ -37,23 +30,29 @@ pub struct MCPProtocolImpl {
     pub base: MCPProtocolBase,
 }
 
+impl Default for MCPProtocolImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MCPProtocolImpl {
     /// Creates a new protocol implementation with default configuration
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             base: MCPProtocolBase::new(ProtocolConfig::default()),
         }
     }
 
     /// Creates a new protocol implementation with custom configuration
-    pub fn with_config(config: ProtocolConfig) -> Self {
+    #[must_use] pub fn with_config(config: ProtocolConfig) -> Self {
         Self {
             base: MCPProtocolBase::new(config),
         }
     }
 
     /// Gets a reference to the base protocol
-    pub fn base(&self) -> &MCPProtocolBase {
+    #[must_use] pub fn base(&self) -> &MCPProtocolBase {
         &self.base
     }
 
@@ -67,7 +66,7 @@ impl MCPProtocolImpl {
     }
 
     /// Gets the current protocol state
-    pub fn get_state(&self) -> &Value {
+    #[must_use] pub fn get_state(&self) -> &Value {
         self.base.get_state()
     }
 
@@ -77,7 +76,7 @@ impl MCPProtocolImpl {
     }
 
     /// Gets the protocol configuration
-    pub fn get_config(&self) -> &ProtocolConfig {
+    #[must_use] pub fn get_config(&self) -> &ProtocolConfig {
         self.base.get_config()
     }
 
@@ -91,12 +90,12 @@ impl MCPProtocolImpl {
     pub fn get_internal_state(&self) -> Result<State> {
         let state_value = self.base.get_state();
         let state = serde_json::from_value::<State>(state_value.clone())
-            .map_err(|e| SquirrelError::MCP(format!("Failed to deserialize state: {}", e)))?;
+            .map_err(|e| SquirrelError::MCP(format!("Failed to deserialize state: {e}")))?;
         Ok(state)
     }
 
     /// Checks if the protocol is initialized
-    pub fn is_initialized(&self) -> bool {
+    #[must_use] pub fn is_initialized(&self) -> bool {
         let state_value = self.base.get_state();
         if let Ok(state) = serde_json::from_value::<State>(state_value.clone()) {
             state.initialized
@@ -117,7 +116,7 @@ impl MCPProtocolImpl {
         };
         
         let state_value = serde_json::to_value(state)
-            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {}", e)))?;
+            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {e}")))?;
             
         self.base.set_state(state_value);
         Ok(())
@@ -135,7 +134,7 @@ impl MCPProtocolImpl {
         };
         
         let state_value = serde_json::to_value(state)
-            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {}", e)))?;
+            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {e}")))?;
             
         self.base.set_state(state_value);
         Ok(())
@@ -158,7 +157,7 @@ impl MCPProtocolImpl {
         }
         
         let wrapper = Box::new(CommandHandlerWrapper { inner: handler });
-        self.base.register_handler(message_type.clone(), wrapper)
+        self.base.register_handler(*message_type, wrapper)
     }
 
     /// Unregisters a handler for the specified message type
@@ -172,7 +171,7 @@ impl MCPProtocol for MCPProtocolImpl {
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         let state = match self.get_internal_state() {
             Ok(s) => s,
-            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {}", e))),
+            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {e}"))),
         };
         
         if !state.initialized {
@@ -184,7 +183,7 @@ impl MCPProtocol for MCPProtocolImpl {
     async fn validate_message(&self, _msg: &MCPMessage) -> ValidationResult {
         let state = match self.get_internal_state() {
             Ok(s) => s,
-            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {}", e))),
+            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {e}"))),
         };
         
         if !state.initialized {
@@ -197,7 +196,7 @@ impl MCPProtocol for MCPProtocolImpl {
     async fn route_message(&self, _msg: &MCPMessage) -> RoutingResult {
         let state = match self.get_internal_state() {
             Ok(s) => s,
-            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {}", e))),
+            Err(e) => return Err(SquirrelError::MCP(format!("Failed to get internal state: {e}"))),
         };
         
         if !state.initialized {
@@ -214,12 +213,12 @@ impl MCPProtocol for MCPProtocolImpl {
         };
         
         let state_value = serde_json::to_value(state)
-            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {}", e)))?;
+            .map_err(|e| SquirrelError::MCP(format!("Failed to serialize state: {e}")))?;
             
         // We need to cast away the mutability constraint since the trait requires &self
         // In a real implementation, this would need proper synchronization
         unsafe {
-            let base_ptr = &self.base as *const MCPProtocolBase as *mut MCPProtocolBase;
+            let base_ptr = (&raw const self.base).cast_mut();
             (*base_ptr).set_state(state_value);
         }
         

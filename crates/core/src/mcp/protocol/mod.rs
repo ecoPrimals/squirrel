@@ -75,7 +75,7 @@ pub struct MCPProtocolBase {
 
 impl MCPProtocolBase {
     /// Creates a new protocol instance with the specified configuration
-    pub fn new(config: ProtocolConfig) -> Self {
+    #[must_use] pub fn new(config: ProtocolConfig) -> Self {
         Self {
             config,
             handlers: HashMap::new(),
@@ -84,7 +84,7 @@ impl MCPProtocolBase {
     }
 
     /// Creates a new protocol instance with custom dependencies
-    pub fn with_dependencies(
+    #[must_use] pub fn with_dependencies(
         config: ProtocolConfig,
         handlers: HashMap<String, Box<dyn CommandHandler>>,
         initial_state: Value,
@@ -97,7 +97,7 @@ impl MCPProtocolBase {
     }
 
     /// Creates a response message from a request message
-    pub fn create_response(&self, message: &MCPMessage, status: ResponseStatus) -> MCPResponse {
+    #[must_use] pub fn create_response(&self, message: &MCPMessage, status: ResponseStatus) -> MCPResponse {
         MCPResponse {
             protocol_version: self.config.version.clone(),
             message_id: message.id.0.clone(),
@@ -120,7 +120,7 @@ impl MCPProtocolBase {
     /// Registers a command handler for a specific message type
     pub fn register_handler(&mut self, message_type: MessageType, handler: Box<dyn CommandHandler>) -> Result<()> {
         if self.handlers.contains_key(&message_type.to_string()) {
-            return Err(crate::error::SquirrelError::MCP(format!("Handler already exists for message type: {:?}", message_type)));
+            return Err(crate::error::SquirrelError::MCP(format!("Handler already exists for message type: {message_type:?}")));
         }
         self.handlers.insert(message_type.to_string(), handler);
         Ok(())
@@ -129,12 +129,12 @@ impl MCPProtocolBase {
     /// Unregisters a command handler for a specific message type
     pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.handlers.remove(&message_type.to_string())
-            .ok_or_else(|| crate::error::SquirrelError::MCP(format!("No handler found for message type: {:?}", message_type)))?;
+            .ok_or_else(|| crate::error::SquirrelError::MCP(format!("No handler found for message type: {message_type:?}")))?;
         Ok(())
     }
 
     /// Gets the current protocol state
-    pub fn get_state(&self) -> &Value {
+    #[must_use] pub fn get_state(&self) -> &Value {
         &self.state
     }
 
@@ -144,7 +144,7 @@ impl MCPProtocolBase {
     }
 
     /// Gets the protocol configuration
-    pub fn get_config(&self) -> &ProtocolConfig {
+    #[must_use] pub fn get_config(&self) -> &ProtocolConfig {
         &self.config
     }
 }
@@ -158,22 +158,22 @@ pub struct MCPProtocolFactory {
 
 impl MCPProtocolFactory {
     /// Creates a new factory with the specified configuration
-    pub fn new(config: ProtocolConfig) -> Self {
+    #[must_use] pub fn new(config: ProtocolConfig) -> Self {
         Self { config }
     }
 
     /// Creates a new factory with the specified configuration
-    pub fn with_config(config: ProtocolConfig) -> Self {
+    #[must_use] pub fn with_config(config: ProtocolConfig) -> Self {
         Self { config }
     }
 
     /// Creates a new protocol instance
-    pub fn create_protocol(&self) -> MCPProtocolBase {
+    #[must_use] pub fn create_protocol(&self) -> MCPProtocolBase {
         MCPProtocolBase::new(self.config.clone())
     }
 
     /// Creates a new protocol instance with custom dependencies
-    pub fn create_protocol_with_dependencies(
+    #[must_use] pub fn create_protocol_with_dependencies(
         &self,
         handlers: HashMap<String, Box<dyn CommandHandler>>,
         initial_state: Value,
@@ -186,7 +186,7 @@ impl MCPProtocolFactory {
     }
 
     /// Creates a new protocol adapter
-    pub fn create_protocol_adapter(&self) -> Arc<MCPProtocolAdapter> {
+    #[must_use] pub fn create_protocol_adapter(&self) -> Arc<MCPProtocolAdapter> {
         let protocol = self.create_protocol_with_dependencies(
             HashMap::new(),
             Value::Null,

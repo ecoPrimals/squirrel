@@ -18,7 +18,7 @@ pub enum AlertSeverity {
 
 impl AlertSeverity {
     /// Get the name of the severity level
-    pub fn name(&self) -> &'static str {
+    #[must_use] pub fn name(&self) -> &'static str {
         match self {
             Self::Info => "Info",
             Self::Warning => "Warning",
@@ -28,17 +28,17 @@ impl AlertSeverity {
     }
     
     /// Check if the severity is at least warning level
-    pub fn is_warning_or_higher(&self) -> bool {
+    #[must_use] pub fn is_warning_or_higher(&self) -> bool {
         matches!(self, Self::Warning | Self::Error | Self::Critical)
     }
     
     /// Check if the severity is at least error level
-    pub fn is_error_or_higher(&self) -> bool {
+    #[must_use] pub fn is_error_or_higher(&self) -> bool {
         matches!(self, Self::Error | Self::Critical)
     }
     
     /// Check if the severity is critical
-    pub fn is_critical(&self) -> bool {
+    #[must_use] pub fn is_critical(&self) -> bool {
         matches!(self, Self::Critical)
     }
 }
@@ -58,7 +58,7 @@ pub struct AlertStatus {
 
 impl AlertStatus {
     /// Create a new alert status
-    pub fn new(
+    #[must_use] pub fn new(
         severity: AlertSeverity,
         message: String,
         component: String,

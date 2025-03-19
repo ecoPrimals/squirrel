@@ -193,12 +193,12 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Creates a new protocol version
-    pub fn new(major: u32, minor: u32) -> Self {
+    #[must_use] pub fn new(major: u32, minor: u32) -> Self {
         Self { major, minor }
     }
 
     /// Returns the version as a string
-    pub fn to_string(&self) -> String {
+    #[must_use] pub fn to_string(&self) -> String {
         format!("{}.{}", self.major, self.minor)
     }
 }
@@ -240,9 +240,15 @@ impl Default for ProtocolState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(pub String);
 
+impl Default for UserId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserId {
     /// Create a new user ID
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -269,9 +275,15 @@ impl From<&str> for UserId {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AccountId(pub String);
 
+impl Default for AccountId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AccountId {
     /// Create a new account ID
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -298,9 +310,15 @@ impl From<&str> for AccountId {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionToken(pub String);
 
+impl Default for SessionToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionToken {
     /// Create a new session token
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -327,9 +345,15 @@ impl From<&str> for SessionToken {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuthToken(pub String);
 
+impl Default for AuthToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuthToken {
     /// Create a new authentication token
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -377,7 +401,7 @@ impl std::fmt::Display for UserRole {
             UserRole::Admin => write!(f, "Admin"),
             UserRole::User => write!(f, "User"),
             UserRole::Guest => write!(f, "Guest"),
-            UserRole::Custom(role) => write!(f, "Custom({})", role),
+            UserRole::Custom(role) => write!(f, "Custom({role})"),
         }
     }
 }

@@ -10,7 +10,6 @@ use super::{
 use super::alerts::AlertManagerAdapter;
 use super::network::NetworkMonitorAdapter;
 use super::alerts::NotificationManagerTrait;
-use super::health::create_checker_adapter;
 
 /// Adapter for monitoring service factory
 /// 

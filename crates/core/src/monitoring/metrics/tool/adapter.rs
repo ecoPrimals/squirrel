@@ -8,6 +8,7 @@ use async_trait::async_trait;
 /// Adapter for the tool metrics collector to support dependency injection
 #[derive(Debug)]
 pub struct ToolMetricsCollectorAdapter {
+    /// The inner tool metrics collector instance
     inner: Option<Arc<ToolMetricsCollector>>,
 }
 
@@ -27,6 +28,9 @@ impl ToolMetricsCollectorAdapter {
     }
 
     /// Retrieves metrics for a specific tool
+    /// 
+    /// # Errors
+    /// Returns an error if the tool metrics collector is not available
     pub async fn get_tool_metrics(&self, tool_name: &str) -> Result<Option<ToolMetrics>> {
         if let Some(collector) = &self.inner {
             collector.get_tool_metrics(tool_name).await
@@ -37,6 +41,9 @@ impl ToolMetricsCollectorAdapter {
     }
 
     /// Retrieves metrics for all tracked tools
+    /// 
+    /// # Errors
+    /// Returns an error if the tool metrics collector is not available
     pub async fn get_all_metrics(&self) -> Result<HashMap<String, ToolMetrics>> {
         if let Some(collector) = &self.inner {
             collector.get_all_metrics().await
@@ -47,6 +54,9 @@ impl ToolMetricsCollectorAdapter {
     }
 
     /// Records a tool usage event
+    /// 
+    /// # Errors
+    /// Returns an error if the tool metrics collector is not available
     pub async fn record_tool_usage(&self, tool_name: &str, duration: f64, success: bool) -> Result<()> {
         if let Some(collector) = &self.inner {
             collector.record_tool_usage(tool_name, duration, success).await

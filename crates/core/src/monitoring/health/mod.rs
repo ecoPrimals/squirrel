@@ -82,10 +82,12 @@ impl Default for HealthConfig {
     }
 }
 
-/// Default health checker implementation
+/// Default implementation of the health checker
 #[derive(Debug)]
 pub struct DefaultHealthChecker {
+    /// Map of component health status records
     components: Arc<RwLock<HashMap<String, ComponentHealth>>>,
+    /// Health checker configuration
     config: HealthConfig,
 }
 
@@ -231,6 +233,7 @@ impl HealthChecker for DefaultHealthChecker {
 /// standalone checkers and globally shared instances.
 #[derive(Debug, Clone)]
 pub struct HealthCheckerFactory {
+    /// Configuration for creating health checkers
     config: HealthConfig,
 }
 
@@ -242,7 +245,7 @@ impl HealthCheckerFactory {
     ///
     /// # Returns
     /// A new factory instance with default configuration
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             config: HealthConfig::default(),
         }
@@ -258,7 +261,7 @@ impl HealthCheckerFactory {
     ///
     /// # Returns
     /// A new factory instance with the specified configuration
-    pub fn with_config(config: HealthConfig) -> Self {
+    #[must_use] pub fn with_config(config: HealthConfig) -> Self {
         Self {
             config,
         }
@@ -271,7 +274,7 @@ impl HealthCheckerFactory {
     ///
     /// # Returns
     /// An uninitialized health checker adapter
-    pub fn create_checker_adapter(&self) -> HealthCheckerAdapter {
+    #[must_use] pub fn create_checker_adapter(&self) -> HealthCheckerAdapter {
         adapter::HealthCheckerAdapter::new()
     }
     
@@ -286,11 +289,10 @@ impl HealthCheckerFactory {
     /// # Errors
     /// Returns an error if the adapter initialization fails
     pub fn create_initialized_checker(&self) -> Result<HealthCheckerAdapter> {
-        let mut adapter = self.create_checker_adapter();
         let checker = Arc::new(DefaultHealthChecker::with_dependencies(Some(self.config.clone())));
         
         // Initialize the adapter with the created checker
-        adapter = adapter::HealthCheckerAdapter::with_checker(checker);
+        let adapter = adapter::HealthCheckerAdapter::with_checker(checker);
         
         Ok(adapter)
     }
@@ -309,11 +311,10 @@ impl HealthCheckerFactory {
     /// # Errors
     /// Returns an error if the adapter initialization fails
     pub fn create_checker_with_config(&self, config: HealthConfig) -> Result<HealthCheckerAdapter> {
-        let mut adapter = self.create_checker_adapter();
         let checker = Arc::new(DefaultHealthChecker::with_dependencies(Some(config)));
         
         // Initialize the adapter with the created checker
-        adapter = adapter::HealthCheckerAdapter::with_checker(checker);
+        let adapter = adapter::HealthCheckerAdapter::with_checker(checker);
         
         Ok(adapter)
     }
@@ -367,9 +368,8 @@ impl Default for HealthCheckerFactory {
 /// # Errors
 /// Returns an error if the adapter initialization fails
 pub fn create_initialized_checker_adapter(config: Option<HealthConfig>) -> Result<HealthCheckerAdapter> {
-    let mut adapter = adapter::HealthCheckerAdapter::new();
     let checker = Arc::new(DefaultHealthChecker::with_dependencies(config));
-    adapter = adapter::HealthCheckerAdapter::with_checker(checker);
+    let adapter = adapter::HealthCheckerAdapter::with_checker(checker);
     Ok(adapter)
 }
 
@@ -445,7 +445,7 @@ pub fn get_factory() -> Option<HealthCheckerFactory> {
 /// # Returns
 /// A health checker factory instance
 #[must_use] pub fn ensure_factory() -> HealthCheckerFactory {
-    get_factory().unwrap_or_else(HealthCheckerFactory::new)
+    get_factory().unwrap_or_default()
 }
 
 /// Initializes the global health checker implementation

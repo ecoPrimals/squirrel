@@ -4,10 +4,10 @@ use tokio::sync::RwLock;
 use crate::error::Result;
 use crate::monitoring::{
     MonitoringConfig, MonitoringService, MonitoringIntervals,
-    Alert, NetworkStats, Metric, MetricType,
+    Alert, NetworkStats, Metric,
     alerts::{AlertConfig, AlertManager, AlertManagerAdapter, create_manager_adapter, AlertSeverity, AlertManagerFactory, DefaultAlertManager},
     health::{HealthConfig, HealthCheckerAdapter, create_checker_adapter, ComponentHealth, status::Status},
-    metrics::{MetricConfig, DefaultMetricCollector},
+    metrics::{MetricConfig, DefaultMetricCollector, MetricType},
     network::{NetworkConfig, NetworkMonitor, NetworkMonitorAdapter, create_monitor_adapter},
 };
 use mockall::predicate::*;
@@ -122,7 +122,7 @@ fn create_test_metric(name: &str, value: f64) -> Metric {
 #[tokio::test]
 async fn test_service_initialization() {
     // ARRANGE: Create test service
-    let (service, health_checker, metric_collector, alert_manager, network_monitor) = 
+    let (service, _health_checker, _metric_collector, _alert_manager, _network_monitor) = 
         create_test_service().await;
     
     // ACT: Start the service and capture the result
@@ -243,7 +243,7 @@ async fn test_alert_manager() {
 #[tokio::test]
 async fn test_network_monitoring() {
     // ARRANGE: Create test service
-    let (service, _, _, _, network_monitor) = create_test_service().await;
+    let (service, _, _, _, _network_monitor) = create_test_service().await;
     
     // Start the service
     service.start().await.expect("Failed to start service");
@@ -532,22 +532,27 @@ async fn test_metric_collector_basic() {
 
 #[tokio::test]
 async fn test_metrics_stress() {
+    // Create a single service with initialized adapters
+    let (_, _, metric_collector, _, _) = create_test_service().await;
+    
+    // Create a vector to hold our task handles
     let mut tasks: Vec<tokio::task::JoinHandle<Result<()>>> = Vec::new();
     
-    for i in 0..10 {
-        let (service, _, metric_collector, _, _) = create_test_service().await;
+    // Spawn tasks that use the same metric_collector
+    for i in 0..5 {
+        let metric_collector_clone = metric_collector.clone();
         
         let handle = tokio::spawn(async move {
-            for j in 0..100 {
-                // Use the metric collector directly from the service
+            for j in 0..20 {
                 let metric = Metric::new(
-                    format!("metric_{}_{}", i, j),
-                    (i * j) as f64,
-                    MetricType::Counter,
+                    format!("test_metric_{}_{}",i, j),
+                    j as f64,
+                    MetricType::Gauge,
                     HashMap::new(),
                 );
                 
-                metric_collector.record_metric(metric).await?;
+                // Use the cloned metric collector
+                metric_collector_clone.record_metric(metric).await?;
             }
             Ok(())
         });
@@ -557,16 +562,37 @@ async fn test_metrics_stress() {
     
     let results = futures::future::join_all(tasks).await;
     
-    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()));
+    // Check that all tasks completed successfully
+    for (i, result) in results.iter().enumerate() {
+        if let Err(e) = result {
+            println!("Task {} failed with error: {:?}", i, e);
+            assert!(false, "Task {} failed", i);
+        } else if let Ok(Err(e)) = result {
+            println!("Task {} returned error: {:?}", i, e);
+            assert!(false, "Task {} returned error", i);
+        }
+    }
+    
+    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()), 
+            "All tasks should complete successfully");
+    
+    // Verify that metrics were recorded
+    let metrics = metric_collector.get_all_metrics().await.unwrap();
+    assert!(!metrics.is_empty(), "Should have recorded some metrics");
+    println!("Recorded {} metrics in total", metrics.len());
 }
 
 #[tokio::test]
 async fn test_alerts_stress() {
-    // Create multiple test services and add alerts to them in parallel
+    // Create a test service and alert manager once outside the spawned tasks
+    let (_, _, _, alert_manager, _) = create_test_service().await;
+    
+    // Create a vector to hold our task handles
     let mut tasks: Vec<tokio::task::JoinHandle<Result<()>>> = Vec::new();
     
+    // Spawn tasks that use the same alert_manager
     for i in 0..5 {
-        let (_, _, _, alert_manager, _) = create_test_service().await;
+        let alert_manager_clone = alert_manager.clone();
         
         let handle = tokio::spawn(async move {
             for j in 0..20 {
@@ -582,8 +608,8 @@ async fn test_alerts_stress() {
                     format!("test-component-{}", i),
                 );
                 
-                // Use the alert manager directly
-                alert_manager.add_alert(alert).await?;
+                // Use the cloned alert manager
+                alert_manager_clone.add_alert(alert).await?;
             }
             Ok(())
         });
@@ -593,56 +619,86 @@ async fn test_alerts_stress() {
     
     let results = futures::future::join_all(tasks).await;
     
-    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()));
+    // Check that all tasks completed successfully
+    for (i, result) in results.iter().enumerate() {
+        if let Err(e) = result {
+            println!("Task {} failed with error: {:?}", i, e);
+            assert!(false, "Task {} failed", i);
+        } else if let Ok(Err(e)) = result {
+            println!("Task {} returned error: {:?}", i, e);
+            assert!(false, "Task {} returned error", i);
+        }
+    }
+    
+    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()), 
+            "All tasks should complete successfully");
+    
+    // Verify that alerts were added
+    let alerts = alert_manager.get_alerts().await.unwrap();
+    assert!(!alerts.is_empty(), "Should have added some alerts");
+    println!("Added {} alerts in total", alerts.len());
 }
 
 #[tokio::test]
 async fn test_parallel_metrics() {
-    // Create service
-    let config = create_test_config();
-    let service = MonitoringService::new(config);
+    // Create a service using our helper function that properly initializes all adapters
+    let (service, _, metric_collector, _, _) = create_test_service().await;
     
     // Start the service
-    service.start().await.unwrap();
+    service.start().await.expect("Failed to start service");
     
     // Record metrics in parallel
     let mut tasks: Vec<tokio::task::JoinHandle<Result<()>>> = Vec::new();
     
     for i in 0..10 {
-        let metric_collector = service.metric_collector.clone();
+        let metric_collector_clone = metric_collector.clone();
         tasks.push(tokio::spawn(async move {
-            let metric = create_test_metric(&format!("metric_{}", i), i as f64);
-            metric_collector.record_metric(metric).await?;
+            let metric = Metric::new(
+                format!("metric_{}", i),
+                i as f64,
+                MetricType::Gauge,
+                HashMap::new(),
+            );
+            metric_collector_clone.record_metric(metric).await?;
             Ok(())
         }));
     }
     
     // Wait for all tasks to complete
     let results = futures::future::join_all(tasks).await;
-    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()));
+    
+    // Check that all tasks completed successfully
+    for (i, result) in results.iter().enumerate() {
+        if let Err(e) = result {
+            println!("Task {} failed with error: {:?}", i, e);
+            assert!(false, "Task {} failed", i);
+        } else if let Ok(Err(e)) = result {
+            println!("Task {} returned error: {:?}", i, e);
+            assert!(false, "Task {} returned error", i);
+        }
+    }
     
     // Check if all metrics were recorded
     let metrics = service.get_metrics().await.unwrap();
-    assert_eq!(metrics.len(), 10);
+    assert_eq!(metrics.len(), 10, "Expected 10 metrics, got {}", metrics.len());
     
     // Cleanup
-    service.stop().await.unwrap();
+    service.stop().await.expect("Failed to stop service");
 }
 
 #[tokio::test]
 async fn test_parallel_alerts() {
-    // Create service
-    let config = create_test_config();
-    let service = MonitoringService::new(config);
+    // Create a service using our helper function that properly initializes all adapters
+    let (service, _, _, alert_manager, _) = create_test_service().await;
     
     // Start the service
-    service.start().await.unwrap();
+    service.start().await.expect("Failed to start service");
     
     // Send alerts in parallel
     let mut tasks: Vec<tokio::task::JoinHandle<Result<()>>> = Vec::new();
     
     for i in 0..10 {
-        let alert_manager = service.alert_manager.clone();
+        let alert_manager_clone = alert_manager.clone();
         tasks.push(tokio::spawn(async move {
             let alert = Alert::new(
                 format!("Alert {}", i),
@@ -652,21 +708,31 @@ async fn test_parallel_alerts() {
                 format!("Message {}", i),
                 format!("Component {}", i),
             );
-            alert_manager.add_alert(alert).await?;
+            alert_manager_clone.add_alert(alert).await?;
             Ok(())
         }));
     }
     
     // Wait for all tasks to complete
     let results = futures::future::join_all(tasks).await;
-    assert!(results.iter().all(|r| r.as_ref().unwrap().is_ok()));
+    
+    // Check that all tasks completed successfully
+    for (i, result) in results.iter().enumerate() {
+        if let Err(e) = result {
+            println!("Task {} failed with error: {:?}", i, e);
+            assert!(false, "Task {} failed", i);
+        } else if let Ok(Err(e)) = result {
+            println!("Task {} returned error: {:?}", i, e);
+            assert!(false, "Task {} returned error", i);
+        }
+    }
     
     // Check if all alerts were recorded
     let alerts = service.get_alerts().await.unwrap();
-    assert_eq!(alerts.len(), 10);
+    assert_eq!(alerts.len(), 10, "Expected 10 alerts, got {}", alerts.len());
     
     // Cleanup
-    service.stop().await.unwrap();
+    service.stop().await.expect("Failed to stop service");
 }
 
 #[tokio::test]

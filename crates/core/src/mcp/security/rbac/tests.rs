@@ -56,7 +56,7 @@ fn test_permission_check() {
     };
     
     // Create write permission
-    let write_permission = Permission {
+    let _write_permission = Permission {
         id: "perm-write".to_string(),
         name: "Write".to_string(),
         resource: "Document".to_string(),

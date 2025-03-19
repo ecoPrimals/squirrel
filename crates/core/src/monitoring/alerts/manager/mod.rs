@@ -2,19 +2,20 @@
 // TODO: Implement alert management functionality
 
 use std::sync::Arc;
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 use super::config::AlertConfig;
 
 /// Alert manager for handling system alerts
 #[derive(Debug)]
 pub struct AlertManager {
+    /// Alert manager configuration
     config: AlertConfig,
     // TODO: Implement additional fields
 }
 
 impl AlertManager {
     /// Create a new alert manager with the given configuration
-    pub fn new(config: AlertConfig) -> Self {
+    #[must_use] pub fn new(config: AlertConfig) -> Self {
         Self {
             config,
         }
@@ -36,12 +37,13 @@ impl AlertManager {
 /// Alert manager adapter for interacting with the alert manager
 #[derive(Debug)]
 pub struct AlertManagerAdapter {
+    /// The inner alert manager instance
     manager: Arc<AlertManager>,
 }
 
 impl AlertManagerAdapter {
     /// Create a new alert manager adapter with the given manager
-    pub fn with_manager(manager: Arc<AlertManager>) -> Self {
+    #[must_use] pub fn with_manager(manager: Arc<AlertManager>) -> Self {
         Self {
             manager,
         }
@@ -49,13 +51,13 @@ impl AlertManagerAdapter {
 }
 
 /// Create a new alert manager adapter
-pub fn create_manager_adapter() -> Arc<AlertManagerAdapter> {
+#[must_use] pub fn create_manager_adapter() -> Arc<AlertManagerAdapter> {
     let config = AlertConfig::default();
     let manager = AlertManager::new(config);
     Arc::new(AlertManagerAdapter::with_manager(Arc::new(manager)))
 }
 
 /// Create a new alert manager adapter with an existing manager
-pub fn create_manager_adapter_with_manager(manager: Arc<AlertManager>) -> Arc<AlertManagerAdapter> {
+#[must_use] pub fn create_manager_adapter_with_manager(manager: Arc<AlertManager>) -> Arc<AlertManagerAdapter> {
     Arc::new(AlertManagerAdapter::with_manager(manager))
 } 

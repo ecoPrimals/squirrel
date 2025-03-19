@@ -31,6 +31,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub mod types;
 pub mod security;
 pub mod protocol;
+/// Persistence for MCP state and operations
+pub mod persistence;
 /// State synchronization for MCP
 pub mod sync;
 /// Context manager for storing and retrieving context data
@@ -44,8 +46,6 @@ pub mod error;
 pub mod monitoring;
 /// Factory for creating MCP components
 pub mod factory;
-/// Persistence for MCP state data
-pub mod persistence;
 /// Session management for MCP
 pub mod session;
 
@@ -127,8 +127,8 @@ pub struct MCPState {
 }
 
 impl MCPState {
-    /// Create a new MCPState with the given configuration
-    pub fn new(config: MCPConfig) -> Self {
+    /// Create a new `MCPState` with the given configuration
+    #[must_use] pub fn new(config: MCPConfig) -> Self {
         Self {
             initialized: AtomicBool::new(false),
             config,
@@ -144,45 +144,83 @@ pub struct MCP {
 
 impl MCP {
     /// Create a new MCP with the given configuration
-    pub fn new(config: MCPConfig) -> Self {
+    #[must_use] pub fn new(config: MCPConfig) -> Self {
         Self {
             state: RwLock::new(MCPState::new(config)),
         }
     }
 
     /// Initialize the MCP system
+    ///
+    /// # Errors
+    /// Returns an error if the MCP system is already initialized or if the RwLock is poisoned
+    ///
+    /// # Panics
+    /// This function no longer panics and properly handles all error cases
     pub fn initialize(&self) -> Result<()> {
-        if self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+        let state = self.state.write()
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            
+        if state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::AlreadyInitialized("MCP already initialized".into()));
         }
         
         // Perform initialization tasks
-        self.state.write().unwrap().initialized.store(true, Ordering::SeqCst);
+        state.initialized.store(true, Ordering::SeqCst);
         Ok(())
     }
 
     /// Check if the MCP system is initialized
-    pub fn is_initialized(&self) -> bool {
-        self.state.read().unwrap().initialized.load(Ordering::SeqCst)
+    ///
+    /// # Returns
+    /// `true` if the MCP system is initialized, `false` otherwise
+    /// 
+    /// # Errors
+    /// This function now returns a Result to handle RwLock poisoning errors properly
+    pub fn is_initialized(&self) -> Result<bool> {
+        self.state.read()
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))
+            .map(|state| state.initialized.load(Ordering::SeqCst))
     }
     
     /// Get the MCP configuration
+    ///
+    /// # Returns
+    /// The current MCP configuration
+    ///
+    /// # Errors
+    /// Returns an error if the MCP system is not initialized or if the RwLock is poisoned
     pub fn get_config(&self) -> Result<MCPConfig> {
-        if !self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+        let state = self.state.read()
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            
+        if !state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::NotInitialized("MCP not initialized".into()));
         }
         
-        Ok(self.state.read().unwrap().config.clone())
+        Ok(state.config.clone())
     }
 
     /// Send a message through the MCP system
+    ///
+    /// # Arguments
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    /// A `Result` containing the response message
+    ///
+    /// # Errors
+    /// Returns an error if the MCP system is not initialized or if the RwLock is poisoned
     pub fn send_message(&self, message: &str) -> Result<String> {
-        if !self.state.read().unwrap().initialized.load(Ordering::SeqCst) {
+        let state = self.state.read()
+            .map_err(|e| MCPError::State(format!("RwLock poisoned: {}", e)))?;
+            
+        if !state.initialized.load(Ordering::SeqCst) {
             return Err(MCPError::NotInitialized("MCP not initialized".into()));
         }
         
         // In a real implementation, we would process the message here
         // For now, we just echo it back
-        Ok(format!("Processed: {}", message))
+        Ok(format!("Processed: {message}"))
     }
 } 

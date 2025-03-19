@@ -62,10 +62,10 @@ impl Clone for StateSyncManager {
 }
 
 impl StateSyncManager {
-    /// Creates a new StateSyncManager instance
+    /// Creates a new `StateSyncManager` instance
     ///
     /// Initializes a new state synchronization manager with default configuration.
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let (tx, _rx) = broadcast::channel(1024); // Buffer size for change notifications
         
         Self {

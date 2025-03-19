@@ -23,11 +23,11 @@ pub enum NetworkError {
 impl fmt::Display for NetworkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NetworkError::System(msg) => write!(f, "Network system error: {}", msg),
-            NetworkError::Configuration(msg) => write!(f, "Network configuration error: {}", msg),
-            NetworkError::Monitoring(msg) => write!(f, "Network monitoring error: {}", msg),
-            NetworkError::Interface(msg) => write!(f, "Network interface error: {}", msg),
-            NetworkError::Stats(msg) => write!(f, "Network stats error: {}", msg),
+            NetworkError::System(msg) => write!(f, "Network system error: {msg}"),
+            NetworkError::Configuration(msg) => write!(f, "Network configuration error: {msg}"),
+            NetworkError::Monitoring(msg) => write!(f, "Network monitoring error: {msg}"),
+            NetworkError::Interface(msg) => write!(f, "Network interface error: {msg}"),
+            NetworkError::Stats(msg) => write!(f, "Network stats error: {msg}"),
             NetworkError::AdapterNotInitialized => write!(f, "Network adapter not initialized"),
             NetworkError::AdapterAlreadyInitialized => write!(f, "Network adapter already initialized"),
         }

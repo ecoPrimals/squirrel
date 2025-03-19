@@ -1,15 +1,14 @@
 use std::sync::Arc;
 use std::pin::Pin;
-use std::future::Future;
 use crate::error::Result;
 use crate::monitoring::metrics::Metric;
 use super::MetricExporter;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
 
 /// Adapter for the metric exporter to support dependency injection
 #[derive(Debug)]
 pub struct MetricExporterAdapter {
+    /// The inner metric exporter instance
     inner: Option<Arc<RwLock<Arc<dyn MetricExporter + Send + Sync>>>>,
 }
 
@@ -37,7 +36,7 @@ impl MetricExporterAdapter {
             let exporter = exporter_lock.read().await;
             Pin::from(exporter.export(metrics)).await
         } else {
-            Err(format!("Metric exporter not initialized via dependency injection").into())
+            Err("Metric exporter not initialized via dependency injection".to_string().into())
         }
     }
 
@@ -50,7 +49,7 @@ impl MetricExporterAdapter {
             let exporter = exporter_lock.read().await;
             Ok(exporter.name().to_string())
         } else {
-            Err(format!("Metric exporter not initialized via dependency injection").into())
+            Err("Metric exporter not initialized via dependency injection".to_string().into())
         }
     }
 }

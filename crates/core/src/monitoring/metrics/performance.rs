@@ -19,8 +19,6 @@ use std::hash::Hash;
 use std::cmp::Eq;
 use crate::monitoring::metrics::MetricType;
 use async_trait::async_trait;
-use crate::error::SquirrelError;
-use std::time::Instant;
 
 /// Module for adapter implementations of performance metric functionality
 /// 
@@ -149,8 +147,8 @@ impl PerformanceCollector {
         let mut histograms = self.histograms.write().await;
         let histogram = histograms.entry(op_type.clone()).or_insert_with(|| {
             let opts = HistogramOpts::new(
-                format!("operation_{}", op_type),
-                format!("Histogram for {} operations", op_type),
+                format!("operation_{op_type}"),
+                format!("Histogram for {op_type} operations"),
             )
             .buckets(self.config.histogram_buckets.clone());
             Histogram::with_opts(opts).expect("Failed to create histogram")
@@ -174,21 +172,21 @@ impl PerformanceCollector {
             let sum = histogram.get_sample_sum();
 
             metrics.push(Metric::with_optional_labels(
-                format!("operation.{}.count", op_type),
+                format!("operation.{op_type}.count"),
                 count as f64,
                 MetricType::Counter,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
             ));
 
             metrics.push(Metric::with_optional_labels(
-                format!("operation.{}.total_time", op_type),
+                format!("operation.{op_type}.total_time"),
                 sum,
                 MetricType::Gauge,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
             ));
 
             metrics.push(Metric::with_optional_labels(
-                format!("operation.{}.min_duration", op_type),
+                format!("operation.{op_type}.min_duration"),
                 if count > 0 { sum / count as f64 } else { 0.0 },
                 MetricType::Gauge,
                 Some(HashMap::from([("operation".to_string(), op_type.to_string())])),
@@ -297,7 +295,7 @@ pub struct PerformanceMetrics {
 
 impl PerformanceMetrics {
     /// Create new performance metrics
-    pub fn new(operation_type: OperationType) -> Self {
+    #[must_use] pub fn new(operation_type: OperationType) -> Self {
         Self {
             operation_type,
             total_time_ms: 0.0,

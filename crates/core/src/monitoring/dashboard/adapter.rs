@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use crate::error::Result;
-use crate::monitoring::dashboard::{
-    DashboardManager, DashboardConfig, Layout, Component, Update, Data
-};
+use crate::monitoring::dashboard::DashboardManager;
 
 /// Adapter for the Dashboard Manager to provide backward compatibility 
 /// during the transition to dependency injection.
@@ -10,6 +8,12 @@ use crate::monitoring::dashboard::{
 pub struct DashboardManagerAdapter {
     /// Inner Dashboard Manager instance
     inner: Arc<DashboardManager>,
+}
+
+impl Default for DashboardManagerAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DashboardManagerAdapter {

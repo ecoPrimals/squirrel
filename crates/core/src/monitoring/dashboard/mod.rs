@@ -30,7 +30,7 @@ use serde_json::{Value, to_value};
 /// This module provides adapters for connecting dashboard managers to dependency injection systems,
 /// allowing for proper initialization and management of monitoring dashboards.
 pub mod adapter;
-use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter, create_dashboard_manager_adapter_with_manager};
+use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter_with_manager};
 
 /// Configuration for the dashboard
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -201,16 +201,10 @@ pub struct DashboardManager {
 }
 
 impl DashboardManager {
-    /// Create a new dashboard manager with the given configuration
+    /// Creates a new dashboard manager with a specific config
     #[must_use]
     pub const fn new(config: DashboardConfig) -> Self {
         Self { config }
-    }
-
-    /// Create a new dashboard manager with default configuration
-    #[must_use]
-    pub fn default() -> Self {
-        Self::new(DashboardConfig::default())
     }
 
     /// Start the dashboard manager
@@ -229,6 +223,12 @@ impl DashboardManager {
     pub async fn stop(&self) -> Result<()> {
         // Implementation will be added in future PRs
         Ok(())
+    }
+}
+
+impl Default for DashboardManager {
+    fn default() -> Self {
+        Self::new(DashboardConfig::default())
     }
 }
 
@@ -273,10 +273,13 @@ impl DashboardManagerFactory {
         self.create_manager()
     }
 
-    /// Creates an adapter for the dashboard manager with default configuration
+    /// Creates a new dashboard manager adapter using dependency injection
     ///
-    /// This method is used for backward compatibility during the
-    /// transition to dependency injection.
+    /// This function is a convenience method for creating an adapter
+    /// using dependency injection.
+    ///
+    /// # Arguments
+    /// * `config` - Optional dashboard configuration, uses default if `None`
     #[must_use]
     pub fn create_adapter(&self) -> Arc<DashboardManagerAdapter> {
         let manager = self.create_manager();
@@ -290,13 +293,13 @@ impl Default for DashboardManagerFactory {
     }
 }
 
-/// Create a dashboard manager adapter using dependency injection
+/// Creates a new dashboard manager adapter using dependency injection
 ///
 /// This function is a convenience method for creating an adapter
 /// using dependency injection.
 ///
 /// # Arguments
-/// * `config` - Optional dashboard configuration, uses default if None
+/// * `config` - Optional dashboard configuration, uses default if `None`
 #[must_use]
 pub fn create_adapter(config: Option<DashboardConfig>) -> Arc<DashboardManagerAdapter> {
     let factory = match config {
@@ -379,17 +382,18 @@ impl Manager {
     pub async fn remove_layout(&self, layout_id: &str) -> Result<()> {
         let mut layouts = self.layouts.write().await;
         if layouts.remove(layout_id).is_none() {
-            return Err(SquirrelError::dashboard(&format!("Layout '{layout_id}' not found")));
+            return Err(SquirrelError::dashboard(format!("Layout '{layout_id}' not found")));
         }
         Ok(())
     }
 
-    /// Gets all dashboard layouts
+    /// Gets layouts from the dashboard
     /// 
     /// # Errors
-    /// Returns error if unable to acquire lock
+    /// Returns error if unable to get layouts
     pub async fn get_layouts(&self) -> Result<Vec<Layout>> {
-        Ok(self.layouts.read().await.values().cloned().collect())
+        let layouts = self.layouts.read().await;
+        Ok(layouts.values().cloned().collect())
     }
 
     /// Updates dashboard data
@@ -414,24 +418,21 @@ impl Manager {
         Ok(())
     }
 
-    /// Retrieves dashboard data for `WebSocket` updates
-    /// 
-    /// # Returns
-    /// * `Result<Data>` - Current dashboard state for `WebSocket` clients
+    /// Gets data for a specific component
     /// 
     /// # Errors
-    /// Returns error if unable to acquire lock
+    /// Returns error if component data cannot be retrieved
     pub async fn get_data(&self, component_id: &str) -> Result<Vec<Update>> {
-        Ok(self.data_store.read().await
-            .get(component_id)
+        let data_store = self.data_store.read().await;
+        data_store.get(component_id)
             .cloned()
-            .unwrap_or_default())
+            .ok_or_else(|| SquirrelError::dashboard(format!("Component data not found: {}", component_id)))
     }
 
-    /// Gets widget data
+    /// Gets widget data for a specific component
     /// 
     /// # Errors
-    /// Returns error if unable to get widget data
+    /// Returns error if component data cannot be retrieved
     pub async fn get_widget_data(&self, component: &Component) -> Result<Value> {
         match component {
             Component::PerformanceGraph { operation_type, time_range, .. } => {
@@ -443,7 +444,7 @@ impl Manager {
                     .take(time_range.as_secs() as usize)
                     .collect::<Vec<_>>();
                 
-                to_value(metrics).map_err(|e| SquirrelError::serialization(&e.to_string()))
+                to_value(metrics).map_err(|e| SquirrelError::serialization(e.to_string()))
             },
             Component::AlertList { severity, status, .. } => {
                 let alerts = self.alert_manager.read().await
@@ -451,12 +452,12 @@ impl Manager {
                     .await?
                     .into_iter()
                     .filter(|alert| {
-                        severity.as_ref().map_or(true, |s| alert.severity == *s) &&
-                        status.as_ref().map_or(true, |s| alert.status == *s)
+                        severity.as_ref().is_none_or(|s| alert.severity == *s) &&
+                        status.as_ref().is_none_or(|s| alert.status == *s)
                     })
                     .collect::<Vec<_>>();
                 
-                to_value(alerts).map_err(|e| SquirrelError::serialization(&e.to_string()))
+                to_value(alerts).map_err(|e| SquirrelError::serialization(e.to_string()))
             },
             Component::HealthStatus { service, .. } => {
                 let mut status = self.health_checker.read().await
@@ -466,7 +467,7 @@ impl Manager {
                 // Add service information to the status
                 status.service = service.clone();
                 
-                to_value(status).map_err(|e| SquirrelError::serialization(&e.to_string()))
+                to_value(status).map_err(|e| SquirrelError::serialization(e.to_string()))
             },
             Component::Custom { data, .. } => {
                 Ok(data.clone())

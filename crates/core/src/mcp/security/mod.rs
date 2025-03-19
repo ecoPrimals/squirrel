@@ -256,7 +256,7 @@ impl SecurityManagerImpl {
                 return Err(match e {
                     crate::error::SquirrelError::Security(msg) => 
                         MCPError::Security(SecurityError::InvalidRole(msg)),
-                    _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+                    _ => MCPError::Security(SecurityError::InvalidRole(format!("{e}"))),
                 });
             }
         }
@@ -455,7 +455,7 @@ impl SecurityManagerImpl {
         let token = Uuid::new_v4().to_string();
         let session_id = Uuid::new_v4().to_string();
         let created_at = Utc::now();
-        let expires_at = created_at + chrono::Duration::seconds(self.config.token_validity as i64);
+        let expires_at = created_at + chrono::Duration::seconds(self.config.token_validity);
         
         // If roles were requested, collect them for the session
         let mut active_roles = Vec::new();
@@ -543,7 +543,7 @@ impl SecurityManagerImpl {
         rbac_manager.assign_role(user_id, role_id)
             .map_err(|e| match e {
                 SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
-                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{}", e))),
+                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{e}"))),
             })
     }
 
@@ -553,7 +553,7 @@ impl SecurityManagerImpl {
         rbac_manager.assign_role_by_name(user_id, role_name)
             .map_err(|e| match e {
                 SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
-                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{}", e))),
+                _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{e}"))),
             })
     }
 
@@ -582,7 +582,7 @@ impl SecurityManagerImpl {
         rbac_manager.create_role(name, description, permissions, parent_roles)
             .map_err(|e| match e {
                 SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
-                _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+                _ => MCPError::Security(SecurityError::InvalidRole(format!("{e}"))),
             })
     }
 
@@ -599,7 +599,7 @@ impl SecurityManagerImpl {
         rbac_manager.create_role_with_id(id, name, description, permissions, parent_roles)
             .map_err(|e| match e {
                 SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
-                _ => MCPError::Security(SecurityError::InvalidRole(format!("{}", e))),
+                _ => MCPError::Security(SecurityError::InvalidRole(format!("{e}"))),
             })
     }
 

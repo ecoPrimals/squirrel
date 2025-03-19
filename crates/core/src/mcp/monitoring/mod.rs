@@ -7,9 +7,6 @@ use opentelemetry::{
     metrics::{Counter, Histogram, Meter, MeterProvider, Unit},
     KeyValue,
 };
-use opentelemetry_sdk::{
-    metrics::{MeterProvider as SdkMeterProvider},
-};
 use crate::error::Result;
 use crate::mcp::sync::StateOperation;
 use crate::mcp::context_manager::Context;
@@ -81,7 +78,7 @@ pub struct ResourceHealth {
 
 /// Monitoring system for the Machine Context Protocol
 ///
-/// The MCPMonitor provides real-time tracking of MCP operations, performance metrics,
+/// The `MCPMonitor` provides real-time tracking of MCP operations, performance metrics,
 /// and health status information. It integrates with OpenTelemetry for metrics collection
 /// and supports both synchronous and asynchronous monitoring operations.
 #[derive(Debug)]
@@ -103,11 +100,13 @@ pub struct MCPMonitor {
 }
 
 impl MCPMonitor {
-    /// Creates a new MCPMonitor instance
+    /// Creates a new `MCPMonitor` instance
     ///
     /// # Returns
+    /// A Result containing the new `MCPMonitor` instance or an error
     ///
-    /// A Result containing the new MCPMonitor instance or an error
+    /// # Errors
+    /// Returns an error if the OpenTelemetry metrics initialization fails
     pub async fn new() -> Result<Self> {
         // Initialize OpenTelemetry MeterProvider
         let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder().build();
@@ -180,15 +179,15 @@ impl MCPMonitor {
         Ok(monitor)
     }
 
-    /// Creates a default MCPMonitor instance with synchronous initialization
+    /// Creates a default `MCPMonitor` instance with synchronous initialization
     ///
     /// This is primarily used in default implementations where async initialization
     /// is not available. Creates fallback metrics without full OpenTelemetry setup.
     ///
     /// # Returns
     ///
-    /// A new MCPMonitor instance with default settings
-    pub fn default_sync() -> Self {
+    /// A new `MCPMonitor` instance with default settings
+    #[must_use] pub fn default_sync() -> Self {
         // Create fallback metrics without OpenTelemetry
         let metrics = Arc::new(RwLock::new(Metrics {
             total_messages: 0,
@@ -238,7 +237,12 @@ impl MCPMonitor {
             .init();
 
         // Create instance with initialized values
-        let monitor = Self {
+        
+
+        // This is a synchronous method, so we can't use .await here,
+        // but we've explicitly set is_healthy to true in the HealthStatus initialization above
+        
+        Self {
             metrics,
             health,
             meter,
@@ -246,12 +250,7 @@ impl MCPMonitor {
             error_counter,
             sync_duration,
             context_operation_counter,
-        };
-
-        // This is a synchronous method, so we can't use .await here,
-        // but we've explicitly set is_healthy to true in the HealthStatus initialization above
-        
-        monitor
+        }
     }
 
     /// Records a message processing event
@@ -328,19 +327,21 @@ impl MCPMonitor {
         }
 
         self.context_operation_counter.add(1, &[
-            KeyValue::new("operation", format!("{:?}", operation)),
+            KeyValue::new("operation", format!("{operation:?}")),
             KeyValue::new("context_type", context.name.clone()),
         ]);
     }
 
-    /// Updates the health status by checking various system components
+    /// Updates the health status with the latest information
     ///
-    /// This performs checks on system resources, persistence layer, and sync status
-    /// to determine the overall health of the MCP system.
+    /// Collects system information like CPU usage, memory usage, and disk usage
+    /// to update the health status metrics.
     ///
     /// # Returns
+    /// A Result indicating success or failure
     ///
-    /// A Result indicating success or containing an error if the health check fails
+    /// # Errors
+    /// Returns an error if system information cannot be collected
     pub async fn update_health(&self) -> Result<()> {
         let mut health = self.health.write().await;
         health.last_check = Utc::now();
@@ -355,7 +356,7 @@ impl MCPMonitor {
         let disks = sysinfo::Disks::new_with_refreshed_list();
         
         health.resource_status = ResourceHealth {
-            cpu_usage_percent: sys_info.global_cpu_info().cpu_usage() as f64,
+            cpu_usage_percent: f64::from(sys_info.global_cpu_info().cpu_usage()),
             memory_usage_percent: (sys_info.used_memory() as f64 / sys_info.total_memory() as f64) * 100.0,
             disk_usage_percent: if disks.len() > 0 {
                 disks.iter()
@@ -385,23 +386,31 @@ impl MCPMonitor {
         Ok(())
     }
 
-    /// Retrieves the current metrics
+    /// Gets the current metrics
+    ///
+    /// Retrieves the current metrics for MCP operations.
     ///
     /// # Returns
+    /// A Result containing the current metrics or an error
     ///
-    /// A Result containing the current Metrics or an error
+    /// # Errors
+    /// Returns an error if the metrics cannot be read
     pub async fn get_metrics(&self) -> Result<Metrics> {
         Ok(self.metrics.read().await.clone())
     }
 
-    /// Retrieves the current health status
+    /// Gets the current health status
+    ///
+    /// Retrieves the current health status information.
     ///
     /// # Returns
+    /// A Result containing the current health status or an error
     ///
-    /// A Result containing the current HealthStatus or an error
+    /// # Errors
+    /// Returns an error if the health status cannot be read
     pub async fn get_health(&self) -> Result<HealthStatus> {
         // Get current health status first so we don't lose it
-        let current_health = {
+        let _current_health = {
             self.health.read().await.clone()
         };
         

@@ -12,7 +12,7 @@ pub struct State {
 
 impl State {
     /// Create a new empty state
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
     

@@ -1,10 +1,10 @@
 //! Main executable for the Squirrel Core library.
 
 #[cfg(not(feature = "di-tests"))]
-use squirrel_core::{Core, MCP};
+use squirrel_core::app::Core;
 
 #[cfg(feature = "di-tests")]
-use squirrel_core::{Core, app::AppConfig};
+use squirrel_core::{app::Core, app::AppConfig};
 
 #[cfg(not(feature = "di-tests"))]
 mod commands;

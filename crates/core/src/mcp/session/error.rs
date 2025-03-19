@@ -1,4 +1,3 @@
-use std::fmt;
 use thiserror::Error;
 use crate::error::SquirrelError;
 
@@ -28,31 +27,31 @@ pub enum SessionError {
 
 impl From<SessionError> for SquirrelError {
     fn from(err: SessionError) -> Self {
-        SquirrelError::Session(format!("{}", err))
+        SquirrelError::Session(format!("{err}"))
     }
 }
 
 /// Create an authentication error
-pub fn auth_error(msg: &str) -> SquirrelError {
+#[must_use] pub fn auth_error(msg: &str) -> SquirrelError {
     SessionError::Authentication(msg.to_string()).into()
 }
 
 /// Create a token error
-pub fn token_error(msg: &str) -> SquirrelError {
+#[must_use] pub fn token_error(msg: &str) -> SquirrelError {
     SessionError::Token(msg.to_string()).into()
 }
 
 /// Create a timeout error
-pub fn timeout_error(msg: &str) -> SquirrelError {
+#[must_use] pub fn timeout_error(msg: &str) -> SquirrelError {
     SessionError::Timeout(msg.to_string()).into()
 }
 
 /// Create a validation error
-pub fn validation_error(msg: &str) -> SquirrelError {
+#[must_use] pub fn validation_error(msg: &str) -> SquirrelError {
     SessionError::Validation(msg.to_string()).into()
 }
 
 /// Create a persistence error
-pub fn persistence_error(msg: &str) -> SquirrelError {
+#[must_use] pub fn persistence_error(msg: &str) -> SquirrelError {
     SessionError::Persistence(msg.to_string()).into()
 } 

@@ -9,13 +9,11 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use serde::{Serialize, Deserialize};
-use log::{debug, error, info, warn};
-use rand::Rng;
+use log::error;
 use uuid::Uuid;
 use std::sync::Arc;
 
-use crate::error::SquirrelError;
-use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
+use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
 use crate::mcp::security::{Credentials, SecurityManager};
 use crate::mcp::persistence::{Persistence, SessionData};
 
@@ -72,7 +70,7 @@ pub struct Session {
 
 impl Session {
     /// Create a new session
-    pub fn new(user_id: UserId, role: UserRole, timeout: u64) -> Self {
+    #[must_use] pub fn new(user_id: UserId, role: UserRole, timeout: u64) -> Self {
         let now = SystemTime::now();
         Self {
             token: SessionToken(Uuid::new_v4().to_string()),
@@ -88,7 +86,7 @@ impl Session {
     }
 
     /// Check if the session is expired
-    pub fn is_expired(&self) -> bool {
+    #[must_use] pub fn is_expired(&self) -> bool {
         if let Ok(elapsed) = self.last_accessed.elapsed() {
             elapsed.as_secs() > self.timeout
         } else {
@@ -117,7 +115,7 @@ impl Session {
     }
 
     /// Get session age in seconds
-    pub fn age(&self) -> u64 {
+    #[must_use] pub fn age(&self) -> u64 {
         self.created_at
             .elapsed()
             .unwrap_or_else(|_| Duration::from_secs(0))
@@ -125,7 +123,7 @@ impl Session {
     }
 
     /// Convert to session data for persistence
-    pub fn to_session_data(&self) -> SessionData {
+    #[must_use] pub fn to_session_data(&self) -> SessionData {
         SessionData {
             token: self.token.clone(),
             user_id: self.user_id.clone(),
@@ -140,7 +138,7 @@ impl Session {
     }
 
     /// Create from session data
-    pub fn from_session_data(data: SessionData) -> Self {
+    #[must_use] pub fn from_session_data(data: SessionData) -> Self {
         Self {
             token: data.token,
             user_id: data.user_id,
@@ -358,7 +356,7 @@ pub struct SessionManagerFactory {
 
 impl SessionManagerFactory {
     /// Create a new session manager factory
-    pub fn new(config: SessionConfig) -> Self {
+    #[must_use] pub fn new(config: SessionConfig) -> Self {
         Self { config }
     }
     

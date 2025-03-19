@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use async_trait::async_trait;
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 use crate::monitoring::metrics::{Metric, MetricCollector};
 use super::{PerformanceCollector, OperationType};
 use std::time::{Duration, Instant};
@@ -10,6 +10,12 @@ use std::time::{Duration, Instant};
 pub struct PerformanceCollectorAdapter {
     /// The inner collector instance
     inner: Option<Arc<PerformanceCollector>>,
+}
+
+impl Default for PerformanceCollectorAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PerformanceCollectorAdapter {

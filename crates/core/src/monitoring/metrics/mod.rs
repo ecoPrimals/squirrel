@@ -190,6 +190,12 @@ pub struct ProtocolMetricsCollectorAdapter {
     inner: Option<Arc<RwLock<dyn MetricCollector>>>,
 }
 
+impl Default for ProtocolMetricsCollectorAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProtocolMetricsCollectorAdapter {
     /// Create a new adapter
     #[must_use] pub fn new() -> Self {
@@ -256,15 +262,14 @@ impl MetricCollector for ProtocolMetricsCollectorAdapter {
     }
 }
 
-/// Default metric collector implementation
-///
-/// Provides a complete implementation of the MetricCollector trait, with support
-/// for collecting and storing metrics from various sources, including protocol-specific
-/// metrics. This is the standard implementation used throughout the application.
+/// Default implementation of the metric collector
 #[derive(Debug)]
 pub struct DefaultMetricCollector {
+    /// Collection of metric records
     metrics: Arc<RwLock<Vec<Metric>>>,
+    /// Metric collector configuration
     config: MetricConfig,
+    /// Optional protocol metrics collector
     protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
 }
 
@@ -505,7 +510,7 @@ pub enum MetricError {
 
 impl From<MetricError> for SquirrelError {
     fn from(err: MetricError) -> Self {
-        Self::metric(&err.to_string())
+        Self::metric(err.to_string())
     }
 }
 
@@ -710,7 +715,7 @@ pub async fn record_counter<S: ::std::hash::BuildHasher>(
     let std_labels = match &labels {
         Some(custom_labels) => {
             let mut std_map = HashMap::new();
-            for (k, v) in custom_labels.iter() {
+            for (k, v) in custom_labels {
                 std_map.insert(k.clone(), v.clone());
             }
             Some(std_map)
@@ -751,7 +756,7 @@ pub async fn get_metrics(sources: &[Arc<dyn MetricSource + Send + Sync>]) -> Res
 
 /// Protocol metrics module
 pub mod protocol {
-    use super::*;
+    use super::{Arc, MetricCollector, ProtocolMetricsCollectorAdapter, RwLock};
     
     /// Create a protocol metrics collector adapter
     #[must_use] pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
@@ -785,7 +790,7 @@ impl MetricCollectorFactory {
     ///
     /// # Returns
     /// A new factory instance with default configuration
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             config: MetricConfig::default(),
         }
@@ -801,7 +806,7 @@ impl MetricCollectorFactory {
     ///
     /// # Returns
     /// A new factory instance with the specified configuration
-    pub const fn with_config(config: MetricConfig) -> Self {
+    #[must_use] pub const fn with_config(config: MetricConfig) -> Self {
         Self {
             config,
         }
@@ -814,7 +819,7 @@ impl MetricCollectorFactory {
     ///
     /// # Returns
     /// A new metric collector with the factory's configuration
-    pub fn create_collector(&self) -> Arc<DefaultMetricCollector> {
+    #[must_use] pub fn create_collector(&self) -> Arc<DefaultMetricCollector> {
         let collector = DefaultMetricCollector::with_dependencies(
             Some(self.config.clone()),
             None,
@@ -832,7 +837,7 @@ impl MetricCollectorFactory {
     ///
     /// # Returns
     /// A new metric collector with protocol integration
-    pub fn create_collector_with_protocol(&self, protocol_collector: Arc<ProtocolMetricsCollectorAdapter>) -> Arc<DefaultMetricCollector> {
+    #[must_use] pub fn create_collector_with_protocol(&self, protocol_collector: Arc<ProtocolMetricsCollectorAdapter>) -> Arc<DefaultMetricCollector> {
         let collector = DefaultMetricCollector::with_dependencies(
             Some(self.config.clone()),
             Some(protocol_collector),
@@ -853,7 +858,7 @@ impl Default for MetricCollectorFactory {
 ///
 /// # Returns
 /// A new metric collector factory with default configuration
-pub fn create_factory() -> Arc<MetricCollectorFactory> {
+#[must_use] pub fn create_factory() -> Arc<MetricCollectorFactory> {
     Arc::new(MetricCollectorFactory::new())
 }
 
@@ -866,7 +871,7 @@ pub fn create_factory() -> Arc<MetricCollectorFactory> {
 ///
 /// # Returns
 /// A new metric collector factory with the specified configuration
-pub fn create_factory_with_config(config: MetricConfig) -> Arc<MetricCollectorFactory> {
+#[must_use] pub fn create_factory_with_config(config: MetricConfig) -> Arc<MetricCollectorFactory> {
     Arc::new(MetricCollectorFactory::with_config(config))
 }
 
@@ -876,7 +881,7 @@ pub fn create_factory_with_config(config: MetricConfig) -> Arc<MetricCollectorFa
 ///
 /// # Returns
 /// A new metric collector with default configuration
-pub fn create_collector() -> Arc<DefaultMetricCollector> {
+#[must_use] pub fn create_collector() -> Arc<DefaultMetricCollector> {
     let factory = create_factory();
     factory.create_collector()
 }
@@ -887,8 +892,17 @@ pub fn create_collector() -> Arc<DefaultMetricCollector> {
 ///
 /// # Returns
 /// A new uninitialized protocol metrics collector adapter
-pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
+#[must_use] pub fn create_collector_adapter() -> Arc<ProtocolMetricsCollectorAdapter> {
     Arc::new(ProtocolMetricsCollectorAdapter::new())
+}
+
+/// Aggregates metrics from multiple collectors
+#[derive(Debug)]
+pub struct AggregateMetricCollector {
+    /// Collection of metric collectors
+    collectors: Arc<RwLock<Vec<Arc<dyn MetricCollector + Send + Sync>>>>,
+    /// Collection of metric exporters
+    exporters: Arc<RwLock<Vec<Arc<dyn MetricExporter + Send + Sync>>>>,
 }
 
 #[cfg(test)]
@@ -976,4 +990,4 @@ mod tests {
         let metrics_after_stop = collector.collect_metrics().await;
         assert!(metrics_after_stop.is_ok(), "Collecting metrics should work after stopping");
     }
-} 
+}

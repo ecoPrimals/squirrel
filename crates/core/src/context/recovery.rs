@@ -167,7 +167,7 @@ impl RecoveryManager {
         if let Some(snapshot) = self.snapshots.iter().find(|s| s.id == id) {
             Ok(snapshot.state.clone())
         } else {
-            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{}' not found", id)))
+            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{id}' not found")))
         }
     }
 
@@ -185,7 +185,7 @@ impl RecoveryManager {
             }
             Ok(())
         } else {
-            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{}' not found", id)))
+            Err(ContextError::SnapshotNotFound(format!("Snapshot with id '{id}' not found")))
         }
     }
 
@@ -203,11 +203,7 @@ impl RecoveryManager {
         let snapshots: Vec<ContextSnapshot> = self.snapshots.iter().cloned().collect();
         
         // Now pass a slice of them to the strategy
-        if let Some(snapshot) = strategy.select_state(&snapshots) {
-            Some(snapshot.clone())
-        } else {
-            None
-        }
+        strategy.select_state(&snapshots).cloned()
     }
 }
 

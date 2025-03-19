@@ -40,8 +40,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Create a new AppState with the given configuration
-    pub fn new(config: AppConfig) -> Self {
+    /// Create a new `AppState` with the given configuration
+    #[must_use] pub fn new(config: AppConfig) -> Self {
         Self {
             initialized: false,
             config,
@@ -57,7 +57,7 @@ pub struct App {
 
 impl App {
     /// Create a new App with the given configuration
-    pub fn new(config: AppConfig) -> Self {
+    #[must_use] pub fn new(config: AppConfig) -> Self {
         Self {
             state: RwLock::new(AppState::new(config)),
         }
@@ -112,15 +112,15 @@ pub struct AppAdapter {
 }
 
 impl AppAdapter {
-    /// Create a new AppAdapter
-    pub fn new(config: AppConfig) -> Self {
+    /// Create a new `AppAdapter`
+    #[must_use] pub fn new(config: AppConfig) -> Self {
         Self {
             app: Arc::new(App::new(config)),
             init_mutex: Mutex::new(()),
         }
     }
     
-    /// Create a new AppAdapter that is already initialized
+    /// Create a new `AppAdapter` that is already initialized
     pub fn new_initialized(config: AppConfig) -> Result<Self, SquirrelError> {
         let adapter = Self::new(config);
         adapter.initialize()?;

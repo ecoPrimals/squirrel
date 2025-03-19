@@ -16,7 +16,7 @@ pub struct MCPSessionManager {
 
 impl MCPSessionManager {
     /// Create a new session manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             sessions: RwLock::new(Vec::new()),
         }

@@ -747,6 +747,16 @@ pub fn create_test_context() -> Context {
     }
 }
 
+/// Creates a test session for a client with the specified security level.
+///
+/// # Arguments
+///
+/// * `client_id` - The identifier of the client for which to create the session
+/// * `security_level` - The security level to assign to the created session
+///
+/// # Returns
+///
+/// A `Result` containing the created `Session` on success
 pub fn create_test_session(client_id: &str, security_level: SecurityLevel) -> Result<Session> {
     Ok(Session {
         id: Uuid::new_v4().to_string(),

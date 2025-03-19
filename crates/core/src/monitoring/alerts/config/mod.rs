@@ -2,7 +2,7 @@
 // TODO: Implement alert configuration functionality
 
 use serde::{Serialize, Deserialize};
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 
 /// Configuration for the alert system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,7 +12,7 @@ pub struct AlertConfig {
 
 impl AlertConfig {
     /// Create a new alert configuration with default settings
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
     

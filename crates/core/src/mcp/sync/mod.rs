@@ -62,7 +62,7 @@ pub struct MCPSync {
 }
 
 impl MCPSync {
-    /// Creates a new MCPSync instance with the given configuration and dependencies
+    /// Creates a new `MCPSync` instance with the given configuration and dependencies
     pub fn new(
         config: SyncConfig,
         persistence: Arc<MCPPersistence>,
@@ -86,7 +86,7 @@ impl MCPSync {
         }
     }
 
-    /// Creates a new MCPSync instance with default dependencies
+    /// Creates a new `MCPSync` instance with default dependencies
     pub async fn create(config: SyncConfig) -> Result<Self> {
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
         let monitor = Arc::new(MCPMonitor::new().await?);
@@ -95,7 +95,7 @@ impl MCPSync {
         Ok(Self::new(config, persistence, monitor, state_manager))
     }
 
-    /// Initializes the MCPSync instance
+    /// Initializes the `MCPSync` instance
     pub async fn init(&mut self) -> Result<()> {
         if self.initialized {
             return Ok(());
@@ -132,7 +132,7 @@ impl MCPSync {
         Ok(())
     }
 
-    /// Ensures the MCPSync instance is initialized
+    /// Ensures the `MCPSync` instance is initialized
     ///
     /// This method is called before performing any synchronization operations
     /// to ensure the instance is properly initialized.
@@ -192,7 +192,7 @@ impl MCPSync {
         
         let mut success = true;
         // Apply changes in order
-        for change in changes.iter() {
+        for change in &changes {
             if let Err(e) = self.state_manager.apply_change(change.clone()).await {
                 tracing::error!("Failed to apply change: {}", e);
                 self.monitor.record_error("apply_change_failed").await;
@@ -361,7 +361,7 @@ impl MCPSync {
     }
 
     /// Returns a clone of this instance
-    pub fn clone(&self) -> Self {
+    #[must_use] pub fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
             state: self.state.clone(),
@@ -374,14 +374,14 @@ impl MCPSync {
     }
 }
 
-/// Helper function for creating and initializing an MCPSync instance
+/// Helper function for creating and initializing an `MCPSync` instance
 pub async fn create_mcp_sync(config: SyncConfig) -> Result<MCPSync> {
     let mut sync = MCPSync::create(config).await?;
     sync.init().await?;
     Ok(sync)
 }
 
-/// Helper function for creating a customized MCPSync instance with provided dependencies
+/// Helper function for creating a customized `MCPSync` instance with provided dependencies
 pub async fn create_mcp_sync_with_deps(
     config: SyncConfig,
     persistence: Arc<MCPPersistence>,

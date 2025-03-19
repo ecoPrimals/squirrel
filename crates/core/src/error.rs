@@ -4,7 +4,7 @@ use std::fmt;
 use std::error::Error;
 use crate::context_adapter::ContextAdapterError;
 
-/// Result type alias for SquirrelError
+/// Result type alias for `SquirrelError`
 pub type Result<T> = std::result::Result<T, SquirrelError>;
 
 /// Persistence errors
@@ -101,23 +101,23 @@ impl Error for SquirrelError {}
 impl fmt::Display for SquirrelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SquirrelError::AppInitialization(e) => write!(f, "App initialization error: {}", e),
-            SquirrelError::AppOperation(e) => write!(f, "App operation error: {}", e),
-            SquirrelError::Generic(msg) => write!(f, "Error: {}", msg),
-            SquirrelError::IO(e) => write!(f, "IO error: {}", e),
-            SquirrelError::Security(msg) => write!(f, "Security error: {}", msg),
-            SquirrelError::MCP(msg) => write!(f, "MCP error: {}", msg),
-            SquirrelError::Other(msg) => write!(f, "Other error: {}", msg),
-            SquirrelError::Health(msg) => write!(f, "Health error: {}", msg),
-            SquirrelError::Metric(msg) => write!(f, "Metric error: {}", msg),
-            SquirrelError::Dashboard(msg) => write!(f, "Dashboard error: {}", msg),
-            SquirrelError::Serialization(msg) => write!(f, "Serialization error: {}", msg),
-            SquirrelError::Network(msg) => write!(f, "Network error: {}", msg),
-            SquirrelError::Alert(msg) => write!(f, "Alert error: {}", msg),
-            SquirrelError::Session(msg) => write!(f, "Session error: {}", msg),
-            SquirrelError::Persistence(e) => write!(f, "Persistence error: {}", e),
-            SquirrelError::ProtocolVersion(msg) => write!(f, "Protocol version error: {}", msg),
-            SquirrelError::Context(msg) => write!(f, "Context error: {}", msg),
+            SquirrelError::AppInitialization(e) => write!(f, "App initialization error: {e}"),
+            SquirrelError::AppOperation(e) => write!(f, "App operation error: {e}"),
+            SquirrelError::Generic(msg) => write!(f, "Error: {msg}"),
+            SquirrelError::IO(e) => write!(f, "IO error: {e}"),
+            SquirrelError::Security(msg) => write!(f, "Security error: {msg}"),
+            SquirrelError::MCP(msg) => write!(f, "MCP error: {msg}"),
+            SquirrelError::Other(msg) => write!(f, "Other error: {msg}"),
+            SquirrelError::Health(msg) => write!(f, "Health error: {msg}"),
+            SquirrelError::Metric(msg) => write!(f, "Metric error: {msg}"),
+            SquirrelError::Dashboard(msg) => write!(f, "Dashboard error: {msg}"),
+            SquirrelError::Serialization(msg) => write!(f, "Serialization error: {msg}"),
+            SquirrelError::Network(msg) => write!(f, "Network error: {msg}"),
+            SquirrelError::Alert(msg) => write!(f, "Alert error: {msg}"),
+            SquirrelError::Session(msg) => write!(f, "Session error: {msg}"),
+            SquirrelError::Persistence(e) => write!(f, "Persistence error: {e}"),
+            SquirrelError::ProtocolVersion(msg) => write!(f, "Protocol version error: {msg}"),
+            SquirrelError::Context(msg) => write!(f, "Context error: {msg}"),
         }
     }
 }
@@ -190,10 +190,10 @@ impl fmt::Display for AppInitializationError {
                 write!(f, "Application already initialized")
             }
             AppInitializationError::InvalidConfiguration(msg) => {
-                write!(f, "Invalid configuration: {}", msg)
+                write!(f, "Invalid configuration: {msg}")
             }
             AppInitializationError::ResourceLoadFailure(msg) => {
-                write!(f, "Failed to load resources: {}", msg)
+                write!(f, "Failed to load resources: {msg}")
             }
         }
     }
@@ -219,10 +219,10 @@ impl fmt::Display for AppOperationError {
                 write!(f, "Application not initialized")
             }
             AppOperationError::UnsupportedOperation(msg) => {
-                write!(f, "Unsupported operation: {}", msg)
+                write!(f, "Unsupported operation: {msg}")
             }
             AppOperationError::OperationFailure(msg) => {
-                write!(f, "Operation failed: {}", msg)
+                write!(f, "Operation failed: {msg}")
             }
         }
     }
@@ -295,7 +295,7 @@ impl SquirrelError {
     }
 
     /// Check if the error is recoverable
-    pub fn is_recoverable(&self) -> bool {
+    #[must_use] pub fn is_recoverable(&self) -> bool {
         match self {
             SquirrelError::IO(_) => false,
             SquirrelError::Generic(_) => false,
@@ -316,7 +316,7 @@ impl From<crate::monitoring::network::NetworkError> for SquirrelError {
 
 impl From<crate::monitoring::alerts::notify::NotificationError> for SquirrelError {
     fn from(err: crate::monitoring::alerts::notify::NotificationError) -> Self {
-        SquirrelError::Alert(format!("Notification error: {}", err))
+        SquirrelError::Alert(format!("Notification error: {err}"))
     }
 }
 
@@ -334,9 +334,9 @@ pub enum AlertError {
 impl fmt::Display for AlertError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AlertError::Configuration(msg) => write!(f, "Alert configuration error: {}", msg),
-            AlertError::Notification(msg) => write!(f, "Alert notification error: {}", msg),
-            AlertError::Internal(msg) => write!(f, "Alert internal error: {}", msg),
+            AlertError::Configuration(msg) => write!(f, "Alert configuration error: {msg}"),
+            AlertError::Notification(msg) => write!(f, "Alert notification error: {msg}"),
+            AlertError::Internal(msg) => write!(f, "Alert internal error: {msg}"),
         }
     }
 }
@@ -380,7 +380,7 @@ impl From<ContextAdapterError> for SquirrelError {
             ContextAdapterError::NotInitialized => SquirrelError::Context("Context adapter not initialized".to_string()),
             ContextAdapterError::AlreadyInitialized => SquirrelError::Context("Context adapter already initialized".to_string()),
             ContextAdapterError::OperationFailed(msg) => SquirrelError::Context(msg),
-            ContextAdapterError::ContextError(e) => SquirrelError::Context(format!("Context error: {}", e)),
+            ContextAdapterError::ContextError(e) => SquirrelError::Context(format!("Context error: {e}")),
         }
     }
 }

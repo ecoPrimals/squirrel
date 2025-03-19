@@ -78,24 +78,24 @@ pub enum MCPError {
 impl From<MCPError> for CoreError {
     fn from(err: MCPError) -> Self {
         match err {
-            MCPError::Protocol(e) => CoreError::MCP(format!("Protocol error: {}", e)),
-            MCPError::Io(e) => CoreError::MCP(format!("IO error: {}", e)),
-            MCPError::SerdeJson(e) => CoreError::MCP(format!("Serialization error: {}", e)),
+            MCPError::Protocol(e) => CoreError::MCP(format!("Protocol error: {e}")),
+            MCPError::Io(e) => CoreError::MCP(format!("IO error: {e}")),
+            MCPError::SerdeJson(e) => CoreError::MCP(format!("Serialization error: {e}")),
             MCPError::InvalidMessage(e) => CoreError::MCP(e),
-            MCPError::Security(e) => CoreError::MCP(format!("Security error: {}", e)),
+            MCPError::Security(e) => CoreError::MCP(format!("Security error: {e}")),
             MCPError::Event(e) => CoreError::MCP(e),
-            MCPError::Connection(e) => CoreError::MCP(format!("Connection error: {}", e)),
+            MCPError::Connection(e) => CoreError::MCP(format!("Connection error: {e}")),
             MCPError::State(e) => CoreError::MCP(e),
-            MCPError::NotInitialized(e) => CoreError::MCP(format!("Not initialized: {}", e)),
-            MCPError::AlreadyInitialized(e) => CoreError::MCP(format!("Already initialized: {}", e)),
-            MCPError::StorageError(e) => CoreError::MCP(format!("Storage error: {}", e)),
-            MCPError::SyncError(e) => CoreError::MCP(format!("Sync error: {}", e)),
+            MCPError::NotInitialized(e) => CoreError::MCP(format!("Not initialized: {e}")),
+            MCPError::AlreadyInitialized(e) => CoreError::MCP(format!("Already initialized: {e}")),
+            MCPError::StorageError(e) => CoreError::MCP(format!("Storage error: {e}")),
+            MCPError::SyncError(e) => CoreError::MCP(format!("Sync error: {e}")),
             MCPError::VersionMismatch { .. } => CoreError::MCP("Version mismatch".to_string()),
             MCPError::SecurityLevelTooLow { .. } => CoreError::MCP("Security level too low".to_string()),
-            MCPError::UnknownMessageType(msg) => CoreError::MCP(format!("Unknown message type: {}", msg)),
-            MCPError::ValidationError(msg) => CoreError::MCP(format!("Message validation failed: {}", msg)),
-            MCPError::RoutingError(msg) => CoreError::MCP(format!("Message routing failed: {}", msg)),
-            MCPError::HandlerError(msg) => CoreError::MCP(format!("Handler error: {}", msg)),
+            MCPError::UnknownMessageType(msg) => CoreError::MCP(format!("Unknown message type: {msg}")),
+            MCPError::ValidationError(msg) => CoreError::MCP(format!("Message validation failed: {msg}")),
+            MCPError::RoutingError(msg) => CoreError::MCP(format!("Message routing failed: {msg}")),
+            MCPError::HandlerError(msg) => CoreError::MCP(format!("Handler error: {msg}")),
             MCPError::Timeout { .. } => CoreError::MCP("Timeout".to_string()),
         }
     }
@@ -216,17 +216,17 @@ impl ErrorContext {
         }
     }
 
-    pub fn with_message_type(mut self, message_type: MessageType) -> Self {
+    #[must_use] pub fn with_message_type(mut self, message_type: MessageType) -> Self {
         self.message_type = Some(message_type);
         self
     }
 
-    pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
+    #[must_use] pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
-    pub fn with_details(mut self, details: Map<String, serde_json::Value>) -> Self {
+    #[must_use] pub fn with_details(mut self, details: Map<String, serde_json::Value>) -> Self {
         self.details = details;
         self
     }
@@ -247,7 +247,7 @@ impl ErrorContext {
 }
 
 impl MCPError {
-    pub fn is_recoverable(&self) -> bool {
+    #[must_use] pub fn is_recoverable(&self) -> bool {
         match self {
             MCPError::Protocol(ProtocolError::InvalidVersion(_)) => false,
             MCPError::Protocol(ProtocolError::ConfigurationError(_)) => false,
@@ -268,7 +268,7 @@ impl MCPError {
         }
     }
 
-    pub fn severity(&self) -> ErrorSeverity {
+    #[must_use] pub fn severity(&self) -> ErrorSeverity {
         match self {
             MCPError::Protocol(_) => ErrorSeverity::High,
             MCPError::Security(_) => ErrorSeverity::Critical,
@@ -287,7 +287,7 @@ impl MCPError {
         }
     }
 
-    pub fn error_code(&self) -> String {
+    #[must_use] pub fn error_code(&self) -> String {
         match self {
             MCPError::Protocol(_) => "MCP-001",
             MCPError::Security(_) => "MCP-002",
@@ -347,7 +347,7 @@ impl ErrorHandler {
         }
     }
 
-    pub fn error_context(&self) -> &ErrorContext {
+    #[must_use] pub fn error_context(&self) -> &ErrorContext {
         &self.error_context
     }
 }

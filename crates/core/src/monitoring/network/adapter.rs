@@ -2,9 +2,6 @@ use std::sync::Arc;
 use crate::error::Result;
 use super::{NetworkMonitor, NetworkStats, NetworkConfig};
 use std::collections::HashMap;
-use async_trait::async_trait;
-use tokio::sync::RwLock;
-use sysinfo::System;
 
 /// Adapter for the network monitor to support dependency injection
 #[derive(Debug)]
@@ -29,6 +26,7 @@ impl NetworkMonitorAdapter {
     }
 
     /// Checks if the adapter is initialized
+    #[must_use]
     pub fn is_initialized(&self) -> bool {
         self.inner.is_some()
     }
@@ -36,7 +34,7 @@ impl NetworkMonitorAdapter {
     /// Initializes the adapter with default configuration
     pub fn initialize(&mut self) -> Result<()> {
         if self.is_initialized() {
-            return Err(format!("Network monitor adapter already initialized").into());
+            return Err("Network monitor adapter already initialized".to_string().into());
         }
         
         let config = NetworkConfig::default();
@@ -48,7 +46,7 @@ impl NetworkMonitorAdapter {
     /// Initializes the adapter with custom configuration
     pub fn initialize_with_config(&mut self, config: NetworkConfig) -> Result<()> {
         if self.is_initialized() {
-            return Err(format!("Network monitor adapter already initialized").into());
+            return Err("Network monitor adapter already initialized".to_string().into());
         }
         
         let monitor = NetworkMonitor::new(config);
@@ -64,7 +62,7 @@ impl NetworkMonitorAdapter {
         if let Some(monitor) = &self.inner {
             monitor.get_stats().await
         } else {
-            Err(format!("Network monitor not initialized via dependency injection").into())
+            Err("Network monitor not initialized via dependency injection".to_string().into())
         }
     }
 
@@ -76,7 +74,7 @@ impl NetworkMonitorAdapter {
         if let Some(monitor) = &self.inner {
             monitor.get_interface_stats(interface).await
         } else {
-            Err(format!("Network monitor not initialized via dependency injection").into())
+            Err("Network monitor not initialized via dependency injection".to_string().into())
         }
     }
 
@@ -88,7 +86,7 @@ impl NetworkMonitorAdapter {
         if let Some(monitor) = &self.inner {
             monitor.update_stats().await
         } else {
-            Err(format!("Network monitor not initialized via dependency injection").into())
+            Err("Network monitor not initialized via dependency injection".to_string().into())
         }
     }
 
@@ -100,7 +98,7 @@ impl NetworkMonitorAdapter {
         if let Some(monitor) = &self.inner {
             monitor.start().await
         } else {
-            Err(format!("Network monitor not initialized via dependency injection").into())
+            Err("Network monitor not initialized via dependency injection".to_string().into())
         }
     }
 
@@ -112,7 +110,7 @@ impl NetworkMonitorAdapter {
         if let Some(monitor) = &self.inner {
             monitor.stop().await
         } else {
-            Err(format!("Network monitor not initialized via dependency injection").into())
+            Err("Network monitor not initialized via dependency injection".to_string().into())
         }
     }
 }

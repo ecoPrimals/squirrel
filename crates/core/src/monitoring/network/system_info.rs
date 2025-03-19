@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
-use crate::error::Result;
-use sysinfo::{System, Disk, Networks, Disks};
+use crate::error::{Result, SquirrelError};
+use sysinfo::{System, Networks, Disks};
 use crate::monitoring::network::{NetworkError, NetworkStats};
 // use crate::monitoring::network::SystemInfoManager;
 
@@ -16,6 +16,12 @@ pub struct SystemInfoAdapter {
     inner: Option<Arc<S>>,
     /// Shared system info object
     system: Option<Arc<RwLock<S>>>,
+}
+
+impl Default for SystemInfoAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Disk information structure
@@ -82,7 +88,7 @@ impl SystemInfoAdapter {
             let sys = system.read().await;
             Ok(sys.global_cpu_info().cpu_usage())
         } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+            Err(Self::not_initialized_error())
         }
     }
 
@@ -94,13 +100,13 @@ impl SystemInfoAdapter {
             let sys = system.read().await;
             Ok((sys.used_memory(), sys.total_memory()))
         } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+            Err(Self::not_initialized_error())
         }
     }
 
     /// Refreshes all system information
     pub async fn refresh_all(&self) -> Result<()> {
-        if let Some(_) = &self.inner {
+        if self.inner.is_some() {
             // We can't modify Arc<System> directly, so we'll initialize a new System
             // and return Ok since we can't update the immutable inner system
             Ok(())
@@ -112,13 +118,13 @@ impl SystemInfoAdapter {
             *sys = new_system;
             Ok(())
         } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+            Err(Self::not_initialized_error())
         }
     }
     
     /// Refreshes network information
     pub async fn refresh_networks(&self) -> Result<()> {
-        if let Some(_) = &self.inner {
+        if self.inner.is_some() {
             // Can't modify immutable system, just return Ok
             Ok(())
         } else if let Some(system) = &self.system {
@@ -129,135 +135,93 @@ impl SystemInfoAdapter {
             *sys = new_system;
             Ok(())
         } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+            Err(Self::not_initialized_error())
         }
     }
     
-    /// Gets network stats as (interface_name, received_bytes, transmitted_bytes)
+    /// Creates an error when adapter is not initialized
+    fn not_initialized_error() -> SquirrelError {
+        NetworkError::System("SystemInfoAdapter not initialized".to_string()).into()
+    }
+
+    /// Gets network stats as (`interface_name`, `received_bytes`, `transmitted_bytes`)
     pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
-        if let Some(_) = &self.inner {
-            let mut stats = Vec::new();
-            
-            // Create fresh Networks instance with refreshed data
-            let networks = Networks::new_with_refreshed_list();
-            
-            for (name, network) in &networks {
-                stats.push((name.clone(), network.received(), network.transmitted()));
-            }
-            Ok(stats)
-        } else if let Some(_) = &self.system {
-            let mut stats = Vec::new();
-            
-            // Create fresh Networks instance with refreshed data
-            let networks = Networks::new_with_refreshed_list();
-            
-            for (name, network) in &networks {
-                stats.push((name.clone(), network.received(), network.transmitted()));
-            }
-            Ok(stats)
-        } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+        if !self.is_initialized() {
+            return Err(Self::not_initialized_error());
         }
+        
+        // Create fresh Networks instance with refreshed data
+        let networks = Networks::new_with_refreshed_list();
+        
+        // Get networks using iteration
+        let mut stats = Vec::new();
+        for (name, network) in &networks {
+            stats.push((name.clone(), network.received(), network.transmitted()));
+        }
+        Ok(stats)
     }
 
     /// Get access to the networks information
     pub async fn networks(&self) -> Result<HashMap<String, NetworkStats>> {
-        if let Some(_) = &self.inner {
-            // Create fresh Networks instance with refreshed data
-            let networks = Networks::new_with_refreshed_list();
-            
-            // Create a HashMap that owns the NetworkStats
-            let mut result = HashMap::new();
-            for (name, network) in networks.iter() {
-                // Create a new NetworkStats that owns the data
-                let network_stats = NetworkStats {
-                    interface: name.clone(),
-                    received_bytes: network.total_received(),
-                    transmitted_bytes: network.total_transmitted(),
-                    receive_rate: network.received() as f64,
-                    transmit_rate: network.transmitted() as f64,
-                    packets_received: network.total_packets_received(),
-                    packets_transmitted: network.total_packets_transmitted(),
-                    errors_on_received: network.total_errors_on_received(),
-                    errors_on_transmitted: network.total_errors_on_transmitted(),
-                };
-                result.insert(name.clone(), network_stats);
-            }
-            Ok(result)
-        } else if let Some(_) = &self.system {
-            // Create fresh Networks instance with refreshed data
-            let networks = Networks::new_with_refreshed_list();
-            
-            // Create a HashMap that owns the NetworkStats
-            let mut result = HashMap::new();
-            for (name, network) in networks.iter() {
-                // Create a new NetworkStats that owns the data
-                let network_stats = NetworkStats {
-                    interface: name.clone(),
-                    received_bytes: network.total_received(),
-                    transmitted_bytes: network.total_transmitted(),
-                    receive_rate: network.received() as f64,
-                    transmit_rate: network.transmitted() as f64,
-                    packets_received: network.total_packets_received(),
-                    packets_transmitted: network.total_packets_transmitted(),
-                    errors_on_received: network.total_errors_on_received(),
-                    errors_on_transmitted: network.total_errors_on_transmitted(),
-                };
-                result.insert(name.clone(), network_stats);
-            }
-            Ok(result)
-        } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+        if !self.is_initialized() {
+            return Err(Self::not_initialized_error());
         }
+        
+        // Create fresh Networks instance with refreshed data
+        let networks = Networks::new_with_refreshed_list();
+        
+        // Create a HashMap that owns the NetworkStats
+        let mut result = HashMap::new();
+        for (name, network) in &networks {
+            // Create a new NetworkStats that owns the data
+            let network_stats = NetworkStats {
+                interface: name.clone(),
+                received_bytes: network.total_received(),
+                transmitted_bytes: network.total_transmitted(),
+                receive_rate: network.received() as f64,
+                transmit_rate: network.transmitted() as f64,
+                packets_received: network.total_packets_received(),
+                packets_transmitted: network.total_packets_transmitted(),
+                errors_on_received: network.total_errors_on_received(),
+                errors_on_transmitted: network.total_errors_on_transmitted(),
+            };
+            result.insert(name.clone(), network_stats);
+        }
+        Ok(result)
     }
 
     /// Get access to the disks information
     pub async fn disks(&self) -> Result<Vec<DiskInfo>> {
-        if let Some(_) = &self.inner {
-            // Create fresh Disks instance with refreshed data
-            let disks = Disks::new_with_refreshed_list();
-            
-            // Create a Vec of DiskInfo objects
-            let mut disk_info_vec = Vec::new();
-            for disk in disks.iter() {
-                let disk_info = DiskInfo {
-                    name: disk.name().to_string_lossy().to_string(),
-                    mount_point: disk.mount_point().to_string_lossy().to_string(),
-                    total_space: disk.total_space(),
-                    available_space: disk.available_space(),
-                    disk_type: format!("{:?}", disk.kind()),
-                    file_system: disk.file_system().to_string_lossy().to_string(),
-                    is_removable: disk.is_removable(),
-                };
-                disk_info_vec.push(disk_info);
-            }
-            Ok(disk_info_vec)
-        } else if let Some(_) = &self.system {
-            // Create fresh Disks instance with refreshed data
-            let disks = Disks::new_with_refreshed_list();
-            
-            // Create a Vec of DiskInfo objects
-            let mut disk_info_vec = Vec::new();
-            for disk in disks.iter() {
-                let disk_info = DiskInfo {
-                    name: disk.name().to_string_lossy().to_string(),
-                    mount_point: disk.mount_point().to_string_lossy().to_string(),
-                    total_space: disk.total_space(),
-                    available_space: disk.available_space(),
-                    disk_type: format!("{:?}", disk.kind()),
-                    file_system: disk.file_system().to_string_lossy().to_string(),
-                    is_removable: disk.is_removable(),
-                };
-                disk_info_vec.push(disk_info);
-            }
-            Ok(disk_info_vec)
-        } else {
-            Err(NetworkError::System("SystemInfoAdapter not initialized".to_string()).into())
+        if !self.is_initialized() {
+            return Err(Self::not_initialized_error());
         }
+        
+        // Create fresh Disks instance with refreshed data
+        let disks = Disks::new_with_refreshed_list();
+        
+        // Create a Vec of DiskInfo objects
+        let mut disk_info_vec = Vec::new();
+        for disk in &disks {
+            let disk_info = DiskInfo {
+                name: disk.name().to_string_lossy().to_string(),
+                mount_point: disk.mount_point().to_string_lossy().to_string(),
+                total_space: disk.total_space(),
+                available_space: disk.available_space(),
+                disk_type: format!("{:?}", disk.kind()),
+                file_system: disk.file_system().to_string_lossy().to_string(),
+                is_removable: disk.is_removable(),
+            };
+            disk_info_vec.push(disk_info);
+        }
+        Ok(disk_info_vec)
     }
 }
 
-/// Create a system info adapter
+/// Creates a new system info adapter
+/// 
+/// # Panics
+/// 
+/// Panics if the adapter fails to initialize
 #[must_use]
 pub fn create_system_info_adapter() -> Arc<SystemInfoAdapter> {
     let mut adapter = SystemInfoAdapter::new();

@@ -42,8 +42,7 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use crate::error::Result;
 use crate::monitoring::health::{HealthCheckerAdapter, create_checker_adapter, HealthStatus, HealthConfig, checker::HealthChecker};
-use crate::monitoring::health::status::Status;
-use crate::monitoring::metrics::{MetricCollector, DefaultMetricCollector, Metric, MetricConfig, MetricType};
+use crate::monitoring::metrics::{MetricCollector, DefaultMetricCollector, Metric, MetricConfig};
 use crate::monitoring::alerts::{Alert, AlertConfig, AlertManagerAdapter, AlertManager, AlertSeverity};
 use crate::monitoring::network::{NetworkStats, NetworkConfig, NetworkMonitorAdapter};
 use log::error;
@@ -99,7 +98,7 @@ impl Default for MonitoringIntervals {
 /// allowing centralized configuration of the entire monitoring system.
 /// Each component's configuration is stored in a separate field, enabling
 /// fine-grained control over the monitoring behavior.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MonitoringConfig {
     /// Health check configuration
     pub health: HealthConfig,
@@ -112,18 +111,6 @@ pub struct MonitoringConfig {
     /// Monitoring intervals for various components
     /// Defines frequency of health checks, metric collection, and network monitoring
     pub intervals: MonitoringIntervals,
-}
-
-impl Default for MonitoringConfig {
-    fn default() -> Self {
-        Self {
-            health: HealthConfig::default(),
-            metrics: MetricConfig::default(),
-            alerts: AlertConfig::default(),
-            network: NetworkConfig::default(),
-            intervals: MonitoringIntervals::default(),
-        }
-    }
 }
 
 /// Monitoring message types for internal communication
@@ -417,16 +404,13 @@ impl MonitoringService {
         Ok(())
     }
 
-    /// Run a single monitoring cycle
+    /// Run metrics collection once and send results through the channel
     ///
-    /// Performs a complete monitoring cycle (health checks, metrics, etc.)
-    /// and sends results through the provided channel.
-    ///
-    /// # Errors
-    /// Returns an error if the monitoring cycle fails
+    /// This function collects metrics from all registered sources and sends the results
+    /// through the provided channel.
     pub fn run_once(
         &self,
-        sender: mpsc::Sender<MonitoringMessage>,
+        sender: &mpsc::Sender<MonitoringMessage>,
     ) -> Result<()> {
         // Get tokio runtime for async tasks
         let rt = tokio::runtime::Handle::current();
@@ -480,7 +464,7 @@ impl MonitoringService {
         // Clone components for async task
         let health_checker = self.health_checker.clone();
         let metric_collector = self.metric_collector.clone();
-        let network_monitor = self.network_monitor.clone();
+        let _network_monitor = self.network_monitor.clone();
         
         // Spawn continuous monitoring task
         rt.spawn(async move {
@@ -548,16 +532,9 @@ impl MonitoringService {
         self.alert_manager.add_alert(alert).await
     }
 
-    /// Send an alert through the alert manager
+    /// Send an alert to the alert manager
     ///
-    /// Convenience method to send an alert directly through the service
-    /// This is an alias for add_alert for backward compatibility
-    ///
-    /// # Arguments
-    /// * `alert` - The alert to send
-    ///
-    /// # Errors
-    /// Returns an error if sending the alert fails
+    /// This is an alias for `add_alert` for backward compatibility
     pub async fn send_alert(&self, alert: Alert) -> Result<()> {
         self.add_alert(alert).await
     }
@@ -784,19 +761,21 @@ impl<N: alerts::NotificationManagerTrait + 'static> Default for MonitoringServic
     }
 }
 
-/// Wrapper struct for time conversion between OffsetDateTime and SystemTime
+/// Wrapper struct for time conversion between `OffsetDateTime` and `SystemTime`
 /// 
-/// This provides a convenient way to convert between different time representations,
-/// allowing for seamless integration between crates that use different time types.
-/// The wrapped value is an OffsetDateTime that can be converted to SystemTime.
+/// This struct provides conversion utilities between the time crate's time types
+/// and the standard library's time types.
+#[derive(Debug, Clone)]
 pub struct TimeWrapper(pub OffsetDateTime);
 
+/// The wrapped value is an `OffsetDateTime` that can be converted to `SystemTime`.
 impl From<TimeWrapper> for SystemTime {
-    /// Converts a TimeWrapper to SystemTime
+    /// Converts a `TimeWrapper` to `SystemTime`
     /// 
-    /// This conversion enables interoperability between the time crate's OffsetDateTime
-    /// and the standard library's SystemTime, making it easier to work with
-    /// both time representations in monitoring code.
+    /// This conversion enables interoperability between the time crate's `OffsetDateTime` 
+    /// and the standard library's `SystemTime`, making it easier to work with
+    /// both APIs in the monitoring system.
+    #[must_use]
     fn from(wrapper: TimeWrapper) -> Self {
         let dt = wrapper.0;
         let unix_timestamp = dt.unix_timestamp();

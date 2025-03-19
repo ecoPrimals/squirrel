@@ -53,44 +53,44 @@ impl LocalErrorContext {
         }
     }
 
-    pub fn id(&self) -> Uuid {
+    #[must_use] pub fn id(&self) -> Uuid {
         self.id
     }
 
-    pub fn timestamp(&self) -> DateTime<Utc> {
+    #[must_use] pub fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
 
-    pub fn error_type(&self) -> &str {
+    #[must_use] pub fn error_type(&self) -> &str {
         &self.error_type
     }
 
-    pub fn message(&self) -> &str {
+    #[must_use] pub fn message(&self) -> &str {
         &self.message
     }
 
-    pub fn component(&self) -> &str {
+    #[must_use] pub fn component(&self) -> &str {
         &self.component
     }
 
-    pub fn severity(&self) -> ErrorSeverity {
+    #[must_use] pub fn severity(&self) -> ErrorSeverity {
         self.severity
     }
 
-    pub fn metadata(&self) -> Option<&serde_json::Value> {
+    #[must_use] pub fn metadata(&self) -> Option<&serde_json::Value> {
         self.metadata.as_ref()
     }
 
-    pub fn recovery_attempts(&self) -> u32 {
+    #[must_use] pub fn recovery_attempts(&self) -> u32 {
         self.recovery_attempts
     }
 
-    pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
+    #[must_use] pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
-    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+    #[must_use] pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
         self
     }
@@ -132,7 +132,7 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
-    pub fn new(max_history_size: usize) -> Self {
+    #[must_use] pub fn new(max_history_size: usize) -> Self {
         Self {
             max_history_size,
             error_history: Arc::new(RwLock::new(VecDeque::with_capacity(max_history_size))),
@@ -198,7 +198,7 @@ impl ErrorHandler {
         self.record_error(
             context.error_type.clone(),
             context.message.clone(),
-            Some(format!("{:?}", context))
+            Some(format!("{context:?}"))
         ).await?;
 
         // Attempt recovery if strategy exists
