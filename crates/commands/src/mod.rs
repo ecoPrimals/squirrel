@@ -84,6 +84,13 @@ pub trait Command: Send + Sync {
     /// This description provides information about what the command does.
     fn description(&self) -> &'static str;
     
+    /// Returns the type of the command.
+    /// 
+    /// This is used for command routing in the command handler system.
+    fn command_type(&self) -> String {
+        self.name().to_string()
+    }
+    
     /// Executes the command.
     /// 
     /// # Errors
@@ -501,19 +508,19 @@ mod tests {
         }
         
         fn description(&self) -> &'static str {
-            "A test command for registry"
+            "A test command"
         }
-
+        
         fn execute(&self) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
-
+        
         fn parser(&self) -> clap::Command {
-            TestArgs::command()
+            clap::Command::new(self.name()).arg(clap::Arg::new("value").short('v').long("value"))
         }
-
+        
         fn clone_box(&self) -> Box<dyn Command> {
-            Box::new(self.clone())
+            Box::new(TestCommand)
         }
     }
 

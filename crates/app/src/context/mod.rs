@@ -9,13 +9,13 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
-use crate::app::events::Event;
+use crate::events::Event;
 use serde_json::Value;
 use uuid;
 use std::time::Duration;
-use crate::app::events::DefaultEventEmitter;
-use crate::app::AppConfig;
-use crate::app::Metrics;
+use crate::events::DefaultEventEmitter;
+use crate::core::AppConfig;
+use crate::metrics::Metrics;
 use thiserror::Error;
 use crate::error::Result;
 
@@ -602,21 +602,9 @@ pub enum ContextError {
     InvalidState(String),
 }
 
-impl From<ContextError> for crate::error::SquirrelError {
+impl From<ContextError> for squirrel_core::error::SquirrelError {
     fn from(err: ContextError) -> Self {
-        match err {
-            ContextError::Initialization(msg) => Self::Other(format!("Initialization error: {msg}")),
-            ContextError::Lifecycle(msg) => Self::Other(format!("Lifecycle error: {msg}")),
-            ContextError::Data(msg) => Self::Other(format!("Data error: {msg}")),
-            ContextError::Metadata(msg) => Self::Other(format!("Metadata error: {msg}")),
-            ContextError::Other(e) => Self::Other(e.to_string()),
-            ContextError::AlreadyInitialized => Self::Other("Context already initialized".to_string()),
-            ContextError::NotInitialized => Self::Other("Context not initialized".to_string()),
-            ContextError::AlreadyShuttingDown => Self::Other("Context already shutting down".to_string()),
-            ContextError::ContextExists(id) => Self::Other(format!("Context with id {id} already exists")),
-            ContextError::ContextNotFound(id) => Self::Other(format!("Context with id {id} not found")),
-            ContextError::InvalidState(msg) => Self::Other(format!("Invalid context state: {msg}")),
-        }
+        Self::other(err.to_string())
     }
 }
 

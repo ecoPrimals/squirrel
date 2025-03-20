@@ -1,21 +1,11 @@
 use std::fmt::Debug;
 use std::sync::RwLock;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
-use crate::error::{Result, SquirrelError};
-
-/// Alert information
-#[derive(Debug, Clone)]
-pub struct Alert {
-    /// Alert name
-    pub name: String,
-    /// Alert message
-    pub message: String,
-    /// Alert severity
-    pub severity: String,
-    /// Timestamp of the alert
-    pub timestamp: u64,
-}
+use crate::error::{Result, CoreError};
+use squirrel_core::error::SquirrelError;
+use squirrel_monitoring::alerts::Alert;
 
 /// Alert configuration
 #[derive(Debug, Clone)]
@@ -63,25 +53,53 @@ impl AlertManagerImpl {
 impl super::AlertManagerTrait for AlertManagerImpl {
     async fn send_alert(&self, alert: Alert) -> Result<()> {
         let mut alerts = self.alerts.write()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire write lock: {e}")))?;
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire write lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
+        
         alerts.push(alert);
         Ok(())
     }
     
+    /// Gets all alerts
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if unable to access the alerts
     async fn get_alerts(&self) -> Result<Vec<Alert>> {
         let alerts = self.alerts.read()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire read lock: {e}")))?;
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire read lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
+        
         Ok(alerts.clone())
     }
     
+    /// Gets alerts within a time range
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if unable to access the alerts
+    async fn get_alerts_in_range(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Alert>> {
+        let alerts = self.alerts.read()
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire read lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
+        
+        // Filter alerts by timestamps within range
+        Ok(alerts.iter()
+            .filter(|a| {
+                let timestamp = DateTime::<Utc>::from_timestamp(a.created_at, 0).unwrap_or_default();
+                timestamp >= from && timestamp <= to
+            })
+            .cloned()
+            .collect())
+    }
+    
     async fn start(&self) -> Result<()> {
-        // In a real implementation, this might start a background task
-        // that monitors metrics and generates alerts
+        // Nothing to do for now
         Ok(())
     }
     
     async fn stop(&self) -> Result<()> {
-        // In a real implementation, this would stop the background task
+        // Nothing to do for now
         Ok(())
     }
 }

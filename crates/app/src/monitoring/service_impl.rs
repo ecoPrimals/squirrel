@@ -1,57 +1,80 @@
-use async_trait::async_trait;
+//! Monitoring service implementation
+//!
+//! Implements the monitoring service functionality
 use std::collections::HashMap;
-use std::fmt::Debug;
-use std::sync::Mutex;
+use std::fmt;
+use tokio::sync::Mutex;
+use serde::{Serialize, Deserialize};
 
-use crate::app::monitoring::{
-    HealthStatus, Metric, MonitoringConfig
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+
+use crate::error::{CoreError, Result};
+use super::{
+    Alert, AppHealthStatus, Metric, MonitoringConfigType, MonitoringServiceTrait,
+    MetricCollectorTrait
 };
-use crate::app::monitoring::alert::{Alert, AlertManagerImpl};
-use crate::error::{Result, SquirrelError};
+use squirrel_core::error::SquirrelError;
+use squirrel_monitoring::metrics::performance::PerformanceCollector;
+use squirrel_monitoring::health::HealthChecker;
+use squirrel_monitoring::alerts::AlertManager;
+use squirrel_monitoring::alerts::manager::AlertManager as SquirrelAlertManager;
 
 /// System status information
-#[derive(Debug, Default)]
-#[allow(clippy::struct_field_names)]
-struct SystemStatus {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemStatus {
     /// CPU usage percentage
     pub cpu_usage: f64,
-    /// Memory usage in bytes
-    pub memory_usage: u64,
-    /// Disk usage in bytes
-    pub disk_usage: u64,
-    /// Network usage in bytes
-    pub network_usage: u64,
+    /// Memory usage percentage
+    pub memory_usage: f64,
+    /// Disk usage percentage
+    pub disk_usage: f64,
+    /// Network usage (bytes/sec)
+    pub network_usage: f64,
+}
+
+impl Default for SystemStatus {
+    fn default() -> Self {
+        Self {
+            cpu_usage: 0.0,
+            memory_usage: 0.0,
+            disk_usage: 0.0,
+            network_usage: 0.0,
+        }
+    }
 }
 
 /// `MonitoringService` implementation
 #[derive(Debug)]
 pub struct MonitoringServiceImpl {
     /// Configuration
-    #[allow(dead_code)]
-    config: MonitoringConfig,
+    config: MonitoringConfigType,
     /// System status
     status: std::sync::Arc<Mutex<SystemStatus>>,
     /// Health status
-    health_status: std::sync::RwLock<HealthStatus>,
+    health_status: std::sync::RwLock<AppHealthStatus>,
     /// Started flag
     started: Mutex<bool>,
     /// Stopped flag
     stopped: Mutex<bool>,
     /// Alert manager
-    alert_manager: Box<dyn crate::app::monitoring::AlertManagerTrait + Send + Sync>,
+    alert_manager: Box<dyn super::AlertManagerTrait>,
+    /// Metric collector
+    metric_collector: Box<dyn super::MetricCollectorTrait>,
 }
 
 impl MonitoringServiceImpl {
     /// Create a new `MonitoringServiceImpl`
     #[must_use]
-    pub fn new(config: MonitoringConfig) -> Self {
+    pub fn new(config: MonitoringConfigType) -> Self {
         Self {
             config,
             status: std::sync::Arc::new(Mutex::new(SystemStatus::default())),
-            health_status: std::sync::RwLock::new(HealthStatus::default()),
+            health_status: std::sync::RwLock::new(AppHealthStatus::default()),
             started: Mutex::new(false),
             stopped: Mutex::new(false),
-            alert_manager: Box::new(AlertManagerImpl::new()),
+            alert_manager: Box::new(super::alert::AlertManagerImpl::new()),
+            metric_collector: Box::new(super::metrics::MetricCollectorImpl::new()),
         }
     }
     
@@ -60,65 +83,96 @@ impl MonitoringServiceImpl {
     /// # Returns
     /// 
     /// Returns `true` if the service has been started, `false` otherwise
-    #[must_use]
-    pub fn is_initialized(&self) -> bool {
-        match self.started.lock() {
-            Ok(started) => *started,
-            Err(_) => false, // If we can't acquire the lock, assume we're not started
+    pub async fn is_initialized(&self) -> bool {
+        match self.started.lock().await {
+            started => *started
         }
     }
 }
 
 #[async_trait]
-impl crate::app::monitoring::MonitoringServiceTrait for MonitoringServiceImpl {
+impl MonitoringServiceTrait for MonitoringServiceImpl {
+    /// Starts the monitoring service
+    /// 
+    /// # Errors
+    /// Returns an error if the service fails to start
     async fn start(&self) -> Result<()> {
-        let mut started = self.started.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire started lock: {e}")))?;
-        *started = true;
+        let mut service_started = self.started.lock()
+            .await;
+        
+        // Check if already started
+        if *service_started {
+            return Ok(());
+        }
+        
+        // Start the services
+        self.alert_manager.start().await?;
+        
+        // Set started flag
+        *service_started = true;
         Ok(())
     }
 
     async fn stop(&self) -> Result<()> {
         let mut stopped = self.stopped.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire stopped lock: {e}")))?;
+            .await;
+        
+        // Check if already stopped
+        if *stopped {
+            return Ok(());
+        }
+        
+        // Stop the services
+        self.alert_manager.stop().await?;
+        
+        // Set stopped flag
         *stopped = true;
         Ok(())
     }
 
-    async fn get_health(&self) -> Result<HealthStatus> {
-        let health = self.health_status.read()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire health_status read lock: {e}")))?;
-        Ok(health.clone())
+    /// Checks the health status of the monitoring service
+    /// 
+    /// # Errors
+    /// Returns an error if unable to check health status
+    async fn health_status(&self) -> Result<AppHealthStatus> {
+        let status = self.health_status.read()
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
+        
+        Ok(status.clone())
     }
 
+    /// Gets the health status
+    /// 
+    /// # Errors
+    /// Returns an error if unable to check health status
+    async fn get_health(&self) -> Result<AppHealthStatus> {
+        // Simply delegate to health_status method for consistency
+        self.health_status().await
+    }
+
+    /// Gets the current system status
+    /// 
+    /// # Errors
+    /// Returns an error if unable to check system status
     async fn get_system_status(&self) -> Result<HashMap<String, String>> {
-        let status = self.status.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire status lock: {e}")))?;
+        let status = self.status.lock().await;
+        
         let mut result = HashMap::new();
-        
-        result.insert("cpu_usage".to_string(), format!("{:.2}", status.cpu_usage));
-        result.insert("memory_usage".to_string(), format!("{}", status.memory_usage));
-        result.insert("disk_usage".to_string(), format!("{}", status.disk_usage));
-        result.insert("network_usage".to_string(), format!("{}", status.network_usage));
-        
+        result.insert("cpu".to_string(), format!("{}%", status.cpu_usage));
+        result.insert("memory".to_string(), format!("{}%", status.memory_usage));
+        result.insert("disk".to_string(), format!("{}%", status.disk_usage));
+        result.insert("network".to_string(), format!("{} bytes/sec", status.network_usage));
         Ok(result)
     }
 
     async fn get_metrics(&self) -> Result<Vec<HashMap<String, Metric>>> {
-        // Create some dummy metrics for now
+        // Collect metrics from the metric collector
+        let metrics_map = self.metric_collector.collect().await?;
+        
+        // Convert to the expected format
         let mut metrics = Vec::new();
-        
-        // CPU metrics
-        let mut cpu_metrics = HashMap::new();
-        cpu_metrics.insert("cpu_usage".to_string(), 0.5);
-        cpu_metrics.insert("cpu_temperature".to_string(), 45.0);
-        metrics.push(cpu_metrics);
-        
-        // Memory metrics
-        let mut mem_metrics = HashMap::new();
-        mem_metrics.insert("memory_usage".to_string(), 1024.0 * 1024.0 * 500.0); // 500 MB
-        mem_metrics.insert("memory_available".to_string(), 1024.0 * 1024.0 * 1500.0); // 1.5 GB
-        metrics.push(mem_metrics);
+        metrics.push(metrics_map);
         
         Ok(metrics)
     }
@@ -131,30 +185,30 @@ impl crate::app::monitoring::MonitoringServiceTrait for MonitoringServiceImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::monitoring::HealthLevel;
-    use crate::app::monitoring::MonitoringServiceTrait;
+    use crate::monitoring::HealthLevel;
+    use crate::monitoring::MonitoringServiceTrait;
     
     #[tokio::test]
     async fn test_monitoring_service() {
-        let config = MonitoringConfig::default();
+        let config = MonitoringConfigType::default();
         let service = MonitoringServiceImpl::new(config);
         
         // Test if service is initialized before starting
-        assert!(!service.is_initialized());
+        assert!(!service.is_initialized().await);
         
         // Test starting the service
         service.start().await.unwrap();
         
         // Test if service is initialized after starting
-        assert!(service.is_initialized());
+        assert!(service.is_initialized().await);
         
         // Test getting health
-        let health = service.get_health().await.unwrap();
+        let health = service.health_status().await.unwrap();
         assert_eq!(health.level, HealthLevel::Healthy);
         
         // Test getting system status
         let status = service.get_system_status().await.unwrap();
-        assert!(status.contains_key("cpu_usage"));
+        assert!(status.cpu_usage > 0.0);
         
         // Test getting metrics
         let metrics = service.get_metrics().await.unwrap();

@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use crate::error::Result;
 use serde::{Serialize, Deserialize};
-use std::fmt::Debug;
-use crate::app::monitoring::MonitoringConfig;
+use std::fmt::{self, Debug};
+use crate::monitoring::MonitoringConfig;
 
 /// Configuration for performance monitoring
 #[derive(Debug, Clone, Serialize, Deserialize)]

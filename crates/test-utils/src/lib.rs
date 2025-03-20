@@ -45,7 +45,16 @@ pub mod test_data;
 pub use squirrel_core::error::Result;
 
 /// Creates a temporary test environment
-pub fn create_test_env() -> Result<TempDir>;
+pub fn create_test_env() -> Result<TempDir> {
+    let temp_dir = tempfile::tempdir()
+        .map_err(|e| squirrel_core::error::SquirrelError::IO(e))?;
+    Ok(temp_dir)
+}
 
 /// Creates a test file in the given directory
-pub fn create_test_file(dir: &TempDir, name: &str, content: &str) -> Result<PathBuf>; 
+pub fn create_test_file(dir: &TempDir, name: &str, content: &str) -> Result<PathBuf> {
+    let file_path = dir.path().join(name);
+    std::fs::write(&file_path, content)
+        .map_err(|e| squirrel_core::error::SquirrelError::IO(e))?;
+    Ok(file_path)
+} 

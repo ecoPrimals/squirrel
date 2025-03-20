@@ -18,7 +18,51 @@ pub enum CoreError {
     /// A configuration error occurred
     #[error("Configuration error: {0}")]
     Config(String),
+    
+    /// A context error occurred
+    #[error("Context error: {0}")]
+    Context(String),
+    
+    /// A monitoring error occurred
+    #[error("Monitoring error: {0}")]
+    Monitoring(String),
+    
+    /// A command error occurred
+    #[error("Command error: {0}")]
+    Command(String),
 }
 
 /// A Result type alias for core error handling
 pub type Result<T> = std::result::Result<T, CoreError>; 
+
+/// Re-export SquirrelError from squirrel_core
+pub use squirrel_core::error::SquirrelError;
+
+/// Import from context module
+use crate::context::ContextError;
+/// Import from event module
+use crate::event::EventError;
+
+impl From<ContextError> for CoreError {
+    fn from(err: ContextError) -> Self {
+        Self::Context(err.to_string())
+    }
+}
+
+impl From<EventError> for CoreError {
+    fn from(err: EventError) -> Self {
+        Self::Config(err.to_string())
+    }
+}
+
+impl From<SquirrelError> for CoreError {
+    fn from(err: SquirrelError) -> Self {
+        match err {
+            SquirrelError::Security(msg) => Self::Config(format!("Security: {}", msg)),
+            SquirrelError::Metric(msg) => Self::Monitoring(format!("Metric: {}", msg)),
+            SquirrelError::Health(msg) => Self::Monitoring(format!("Health: {}", msg)),
+            SquirrelError::Alert(msg) => Self::Monitoring(format!("Alert: {}", msg)),
+            _ => Self::Config(format!("Core: {}", err)),
+        }
+    }
+} 

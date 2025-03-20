@@ -86,7 +86,10 @@ impl MCPInterface for MCPAdapter {
             runtime.block_on(async {
                 let reader = self.mcp.read().await;
                 match &*reader {
-                    Some(mcp) => Ok(mcp.get_config().clone()),
+                    Some(mcp) => {
+                        // Call get_config() and then clone the resulting McpConfig if Ok
+                        mcp.get_config().map(|config| config.clone())
+                    },
                     None => Err(SquirrelError::mcp(
                         "MCP is not initialized. Call initialize() first."
                     ))

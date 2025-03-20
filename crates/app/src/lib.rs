@@ -13,6 +13,9 @@
 pub use crate::core::Core;
 pub use crate::adapter::AppAdapter;
 
+/// The current application version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Core application functionality
 pub mod core;
 

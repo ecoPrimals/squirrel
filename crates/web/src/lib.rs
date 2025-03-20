@@ -16,11 +16,55 @@ pub mod auth;
 pub mod handlers;
 pub mod state;
 
+/// Mock MCP client trait for the web interface
+pub trait MockMCPClient: Send + Sync {
+    /// Send a message to the MCP
+    fn send_message(&self, message: &str) -> Result<String>;
+    
+    /// Receive a message from the MCP
+    fn receive_message(&self) -> Result<String>;
+}
+
+/// Default implementation of MockMCPClient
+#[derive(Debug)]
+struct DefaultMockMCPClient;
+
+impl MockMCPClient for DefaultMockMCPClient {
+    fn send_message(&self, message: &str) -> Result<String> {
+        Ok(format!("Sent: {}", message))
+    }
+    
+    fn receive_message(&self) -> Result<String> {
+        Ok("Mock response".to_string())
+    }
+}
+
+/// Mock MCP session configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MockSessionConfig {
+    /// Host address
+    pub host: String,
+    /// Port
+    pub port: u16,
+    /// Connection timeout in seconds
+    pub timeout: u64,
+}
+
+impl Default for MockSessionConfig {
+    fn default() -> Self {
+        Self {
+            host: "localhost".to_string(),
+            port: 8080,
+            timeout: 30,
+        }
+    }
+}
+
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
     /// MCP client for interacting with services
-    pub mcp_client: Arc<Box<dyn squirrel_mcp::McpClient>>,
+    pub mcp_client: Arc<Box<dyn MockMCPClient>>,
     /// Database connection pool
     pub db_pool: Arc<sqlx::SqlitePool>,
 }
@@ -35,7 +79,7 @@ pub struct ServerConfig {
     /// Database connection URL
     pub database_url: String,
     /// MCP server configuration
-    pub mcp_config: squirrel_mcp::SessionConfig,
+    pub mcp_config: MockSessionConfig,
     /// CORS configuration
     pub cors_config: CorsConfig,
 }
@@ -105,9 +149,8 @@ pub async fn init_app(config: ServerConfig) -> Result<Router> {
     );
 
     // Initialize MCP client
-    let mcp_client: Arc<Box<dyn squirrel_mcp::McpClient>> = Arc::new(Box::new(
-        // TODO: Implement actual MCP client
-        todo!("Implement MCP client"),
+    let mcp_client: Arc<Box<dyn MockMCPClient>> = Arc::new(Box::new(
+        DefaultMockMCPClient
     ));
 
     // Create application state
@@ -124,10 +167,7 @@ pub async fn init_app(config: ServerConfig) -> Result<Router> {
         .route("/api/jobs/:id/report", get(handlers::jobs::report))
         .layer(
             CorsLayer::new()
-                // Convert Vec<String> to Vec<HeaderValue>
-                .allow_origin(config.cors_config.allowed_origins.iter().map(|origin| {
-                    origin.parse().unwrap_or_else(|_| panic!("Invalid origin: {}", origin))
-                }).collect::<Vec<_>>())
+                .allow_origin(tower_http::cors::AllowOrigin::any())
                 .allow_methods(config.cors_config.allowed_methods.iter().map(|method| {
                     method.parse().unwrap_or_else(|_| panic!("Invalid method: {}", method))
                 }).collect::<Vec<_>>())

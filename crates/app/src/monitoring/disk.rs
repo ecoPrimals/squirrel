@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crate::error::Result;
-use crate::app::monitoring::MonitoringConfig;
+use crate::monitoring::MonitoringConfig;
 use std::fmt::Debug;
 use std::default::Default;
 

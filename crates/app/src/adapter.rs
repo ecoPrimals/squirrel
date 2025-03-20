@@ -5,20 +5,26 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::error::{Result, SquirrelError};
-use super::{App, AppConfig};
+use squirrel_core::error::{Result, SquirrelError};
+use super::Core;
+use crate::prelude::AppConfig;
+use crate::context::AppContext;
+use crate::events::DefaultEventEmitter;
 
 /// Adapter for the App module to support dependency injection
 #[derive(Debug)]
 pub struct AppAdapter {
-    /// Inner App instance wrapped in Arc<RwLock>
-    inner: Option<Arc<RwLock<App>>>,
-    /// Flag indicating if the adapter has been initialized
+    /// The inner app instance
+    inner: Option<Arc<RwLock<Core>>>,
+    /// Whether the adapter has been initialized
     initialized: bool,
 }
 
 impl AppAdapter {
-    /// Create a new uninitialized AppAdapter
+    /// Creates a new AppAdapter
+    /// 
+    /// The adapter will be in an uninitialized state and must be
+    /// explicitly initialized before use.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -26,22 +32,21 @@ impl AppAdapter {
             initialized: false,
         }
     }
-
-    /// Initialize the adapter with the given configuration
-    ///
+    
+    /// Initializes the adapter with the given config
+    /// 
     /// # Errors
     /// 
-    /// Returns an error if:
-    /// - The adapter is already initialized
-    /// - The App initialization fails
+    /// Returns an error if the initialization fails
     pub async fn initialize(&mut self, config: AppConfig) -> Result<()> {
         if self.initialized {
-            return Err(SquirrelError::AlreadyInitialized("AppAdapter already initialized".to_string()));
+            return Err(SquirrelError::generic("AppAdapter already initialized".to_string()));
         }
-
-        let app = App::from_config(config).await?;
+        
+        let app = Core::default();
         self.inner = Some(Arc::new(RwLock::new(app)));
         self.initialized = true;
+        
         Ok(())
     }
 
@@ -51,15 +56,23 @@ impl AppAdapter {
         self.initialized
     }
 
-    /// Ensure that the adapter is initialized
-    ///
+    /// Ensure the adapter is initialized
+    /// 
     /// # Errors
-    ///
+    /// 
     /// Returns an error if the adapter is not initialized
-    async fn ensure_initialized(&self) -> Result<()> {
+    pub async fn ensure_initialized(&self) -> Result<()> {
         if !self.initialized {
-            return Err(SquirrelError::NotInitialized("AppAdapter not initialized".to_string()));
+            return Err(SquirrelError::generic("AppAdapter not initialized".to_string()));
         }
+        
+        let inner = self.inner.as_ref()
+            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
+            
+        if inner.read().await.version().is_empty() {
+            return Err(SquirrelError::generic("AppAdapter inner is invalid".to_string()));
+        }
+        
         Ok(())
     }
 
@@ -74,9 +87,9 @@ impl AppAdapter {
         self.ensure_initialized().await?;
         
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::NotInitialized("AppAdapter inner is None".to_string()))?;
+            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
             
-        app.write().await.start().await
+        app.write().await.start().await.map_err(|e| SquirrelError::generic(e.to_string()))
     }
 
     /// Stop the application
@@ -90,37 +103,29 @@ impl AppAdapter {
         self.ensure_initialized().await?;
         
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::App("AppAdapter inner is None".to_string()))?;
+            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
             
-        app.write().await.stop().await
+        app.write().await.stop().await.map_err(|e| SquirrelError::generic(e.to_string()))
     }
 
-    /// Get the app context
-    ///
+    /// Get the application context
+    /// 
     /// # Errors
-    ///
-    /// Returns an error if the adapter is not initialized
-    pub async fn context(&self) -> Result<Arc<crate::app::context::AppContext>> {
-        self.ensure_initialized().await?;
-        
-        let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::App("AppAdapter inner is None".to_string()))?;
-            
-        Ok(app.read().await.context())
+    /// 
+    /// Returns an error if the context cannot be accessed
+    pub async fn context(&self) -> Result<Arc<crate::context::AppContext>> {
+        // Implementation placeholder - actual implementation will depend on the state storage
+        Err(SquirrelError::generic("Context access not yet implemented".to_string()))
     }
 
     /// Get the event emitter
-    ///
+    /// 
     /// # Errors
-    ///
-    /// Returns an error if the adapter is not initialized
-    pub async fn event_emitter(&self) -> Result<Arc<crate::app::events::DefaultEventEmitter>> {
-        self.ensure_initialized().await?;
-        
-        let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::App("AppAdapter inner is None".to_string()))?;
-            
-        Ok(app.read().await.event_emitter())
+    /// 
+    /// Returns an error if the event emitter cannot be accessed
+    pub async fn event_emitter(&self) -> Result<Arc<crate::events::DefaultEventEmitter>> {
+        // Implementation placeholder - actual implementation will depend on the state storage
+        Err(SquirrelError::generic("Event emitter access not yet implemented".to_string()))
     }
 
     /// Get the app configuration
@@ -132,9 +137,23 @@ impl AppAdapter {
         self.ensure_initialized().await?;
         
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::App("AppAdapter inner is None".to_string()))?;
+            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
             
         Ok(app.read().await.config.clone())
+    }
+
+    /// Get the application version
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the adapter is not initialized
+    pub async fn version(&self) -> Result<String> {
+        self.ensure_initialized().await?;
+        
+        let app = self.inner.as_ref()
+            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
+            
+        Ok(app.read().await.version().to_string())
     }
 }
 

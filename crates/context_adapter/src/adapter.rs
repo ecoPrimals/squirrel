@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use squirrel_context::{ContextState, ContextError as GenericContextError};
 use squirrel_core::error::{Result, SquirrelError};
@@ -253,10 +254,7 @@ impl ContextAdapter {
         Ok(())
     }
 
-    // This method would be used to convert between the general context system
-    // and the MCP-specific context representation
-    #[allow(dead_code)]
-    /// Converts a general context state to the adapter-specific format
+    /// Converts a ContextState to AdapterContextData
     ///
     /// # Arguments
     /// * `state` - The context state to convert
@@ -265,8 +263,10 @@ impl ContextAdapter {
     /// The converted adapter context data with appropriate ID and timestamps
     fn convert_context_state(state: &ContextState) -> AdapterContextData {
         let now = Utc::now();
+        // Generate a new UUID for the ID since ContextState doesn't have an id field
+        let id = Uuid::new_v4().to_string();
         AdapterContextData {
-            id: state.id.clone(),
+            id,
             data: serde_json::Value::from(state.data.clone()),
             created_at: now,
             updated_at: now,

@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 description = "Web interface for the Squirrel system"
 
+[[bin]]
+name = "web_server"
+path = "src/bin/web_server.rs"
+
 [dependencies]
 tokio = { workspace = true }
 axum = { workspace = true }

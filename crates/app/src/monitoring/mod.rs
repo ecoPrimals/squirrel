@@ -1,56 +1,46 @@
-// Application monitoring functionality
-//
-// This module provides functionality for monitoring various aspects of the application,
-// including disk usage, network activity, process information, and performance metrics.
+//! Monitoring module
+//!
+//! This module provides functionality for monitoring system performance, health, and metrics.
 
-/// Disk monitoring functionality
-pub mod disk;
-/// Network monitoring functionality 
-pub mod network;
-/// Process monitoring functionality
-pub mod process;
-/// Performance monitoring functionality
-pub mod performance;
-/// Alert management functionality
-pub mod alert;
-/// Metrics collection functionality
-pub mod metrics;
-/// Service implementation
-pub mod service_impl;
-
-use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::collections::HashMap;
+use tokio::sync::RwLock;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
+use std::sync::MutexGuard;
 
-use crate::error::{Result, SquirrelError};
-use crate::app::events::EventHandler;
-use crate::app::metrics::Metrics;
-use crate::app::monitoring::alert::Alert;
+use crate::error::{Result, CoreError};
+use squirrel_core::error::SquirrelError;
+
+// Re-export public API
+pub use metrics::MetricCollectorImpl;
+pub use self::service_impl::SystemStatus;
+
+// Import squirrel monitoring modules
+use squirrel_monitoring::health::HealthStatus as MonitoringHealthStatus;
+use squirrel_monitoring::alerts::Alert;
+use squirrel_monitoring::alerts::manager::AlertManager;
+
+// Local imports
+use crate::events::EventHandler;
+
+// Import at the top of the file with the other imports
+use crate::monitoring::metrics::Metrics;
+
+/// Monitoring modules
+pub mod disk;
+pub mod network;
+pub mod process;
+pub mod performance;
+pub mod alert;
+pub mod metrics;
+pub mod service_impl;
 
 /// Type alias for metrics
 pub type Metric = f64;
-
-/// Health status for the application or service
-#[derive(Debug, Clone)]
-pub struct HealthStatus {
-    /// Overall health level of the application.
-    pub level: HealthLevel,
-    /// Specific health statuses for different components.
-    pub components: HashMap<String, AppHealth>,
-}
-
-impl Default for HealthStatus {
-    fn default() -> Self {
-        Self {
-            level: HealthLevel::Healthy,
-            components: HashMap::new(),
-        }
-    }
-}
 
 /// Health level of the application.
 #[derive(Debug, Clone, PartialEq)]
@@ -63,6 +53,58 @@ pub enum HealthLevel {
     Degraded,
     /// Application is unhealthy.
     Unhealthy,
+}
+
+/// Health status for the application or service
+#[derive(Debug, Clone)]
+pub struct AppHealthStatus {
+    /// Overall health level of the application.
+    pub level: HealthLevel,
+    /// Specific health statuses for different components.
+    pub components: HashMap<String, AppHealth>,
+}
+
+impl Default for AppHealthStatus {
+    fn default() -> Self {
+        Self {
+            level: HealthLevel::Healthy,
+            components: HashMap::new(),
+        }
+    }
+}
+
+/// Trait for alert management
+#[async_trait]
+pub trait AlertManagerTrait: Send + Sync + Debug {
+    /// Send an alert
+    /// 
+    /// # Errors
+    /// Returns an error if the alert cannot be sent
+    async fn send_alert(&self, alert: Alert) -> Result<()>;
+    
+    /// Get all alerts
+    /// 
+    /// # Errors
+    /// Returns an error if alerts cannot be retrieved
+    async fn get_alerts(&self) -> Result<Vec<Alert>>;
+    
+    /// Get alerts in a specific time range
+    /// 
+    /// # Errors
+    /// Returns an error if alerts cannot be retrieved
+    async fn get_alerts_in_range(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Alert>>;
+    
+    /// Start the alert manager
+    /// 
+    /// # Errors
+    /// Returns an error if the alert manager cannot be started
+    async fn start(&self) -> Result<()>;
+    
+    /// Stop the alert manager
+    /// 
+    /// # Errors
+    /// Returns an error if the alert manager cannot be stopped
+    async fn stop(&self) -> Result<()>;
 }
 
 /// Health of a specific application component.
@@ -127,14 +169,22 @@ impl Default for MonitoringConfig {
 pub trait MonitoringServiceTrait: Debug + Send + Sync {
     /// Start the monitoring service.
     async fn start(&self) -> Result<()>;
+    
     /// Stop the monitoring service.
     async fn stop(&self) -> Result<()>;
+    
     /// Get the current health status.
-    async fn get_health(&self) -> Result<HealthStatus>;
+    async fn get_health(&self) -> Result<AppHealthStatus>;
+    
+    /// Get detailed health status information.
+    async fn health_status(&self) -> Result<AppHealthStatus>;
+    
     /// Get the current system status.
     async fn get_system_status(&self) -> Result<HashMap<String, String>>;
+    
     /// Get metrics.
     async fn get_metrics(&self) -> Result<Vec<HashMap<String, Metric>>>;
+    
     /// Get alerts.
     async fn get_alerts(&self) -> Result<Vec<Alert>>;
 }
@@ -142,11 +192,20 @@ pub trait MonitoringServiceTrait: Debug + Send + Sync {
 /// `MonitoringService` type alias for convenience.
 pub type MonitoringService = Box<dyn MonitoringServiceTrait + Send + Sync>;
 
-/// Trait for metric collectors.
+/// Trait for metric collection
 #[async_trait]
-pub trait MetricCollectorTrait: Debug + Send + Sync {
-    /// Collect metrics.
+pub trait MetricCollectorTrait: Send + Sync + Debug {
+    /// Collect metrics
+    /// 
+    /// # Errors
+    /// Returns an error if metrics cannot be collected
     async fn collect(&self) -> Result<HashMap<String, Metric>>;
+    
+    /// Get a specific metric by name
+    /// 
+    /// # Errors
+    /// Returns an error if the metric cannot be found
+    async fn get_metric(&self, name: &str) -> Result<Option<f64>>;
 }
 
 /// Alias for metric collector.
@@ -159,22 +218,6 @@ pub type MonitoringConfigType = HashMap<String, String>;
 // Define network and performance configuration types
 use network::NetworkConfig;
 use performance::PerformanceConfig;
-
-/// The alert manager trait that defines the interface for all alert managers
-#[async_trait]
-pub trait AlertManagerTrait: Send + Sync + std::fmt::Debug {
-    /// Send an alert
-    async fn send_alert(&self, alert: Alert) -> Result<()>;
-    
-    /// Get all alerts
-    async fn get_alerts(&self) -> Result<Vec<Alert>>;
-
-    /// Start the alert manager
-    async fn start(&self) -> Result<()>;
-    
-    /// Stop the alert manager
-    async fn stop(&self) -> Result<()>;
-}
 
 /// Factory trait for creating monitoring services
 pub trait MonitoringServiceFactoryTrait: Send + Sync + std::fmt::Debug {
@@ -240,7 +283,7 @@ impl MonitoringServiceImpl {
     pub fn new(config: MonitoringConfigType) -> Self {
         Self {
             config,
-            metric_collector: Box::new(crate::app::monitoring::metrics::MetricCollectorImpl::new()),
+            metric_collector: Box::new(MetricCollectorImpl::new()),
             alert_manager: Box::new(AlertManagerImpl::new()),
             started: std::sync::Mutex::new(false),
             stopped: std::sync::Mutex::new(false),
@@ -252,20 +295,26 @@ impl MonitoringServiceImpl {
 impl MonitoringServiceTrait for MonitoringServiceImpl {
     async fn start(&self) -> Result<()> {
         let mut started = self.started.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire started lock: {e}")))?;
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire started lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
         *started = true;
         Ok(())
     }
     
     async fn stop(&self) -> Result<()> {
         let mut stopped = self.stopped.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire stopped lock: {e}")))?;
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire stopped lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
         *stopped = true;
         Ok(())
     }
     
-    async fn get_health(&self) -> Result<HealthStatus> {
-        Ok(HealthStatus::default())
+    async fn get_health(&self) -> Result<AppHealthStatus> {
+        Ok(AppHealthStatus::default())
+    }
+    
+    async fn health_status(&self) -> Result<AppHealthStatus> {
+        Ok(AppHealthStatus::default())
     }
     
     async fn get_system_status(&self) -> Result<HashMap<String, String>> {
@@ -321,7 +370,7 @@ impl MonitoringServiceFactoryTrait for MonitoringServiceFactoryImpl {
         // Create the monitoring service
         Arc::new(MonitoringServiceImpl {
             config,
-            metric_collector: Box::new(crate::app::monitoring::metrics::MetricCollectorImpl::new()),
+            metric_collector: Box::new(MetricCollectorImpl::new()),
             alert_manager: Box::new(AlertManagerImpl::new()),
             started: std::sync::Mutex::new(false),
             stopped: std::sync::Mutex::new(false),
@@ -347,7 +396,7 @@ impl MonitoringServiceFactoryImpl {
     /// Initialize a metrics collector
     #[must_use]
     pub fn initialize_metrics_collector(&self) -> Box<dyn MetricCollectorTrait> {
-        Box::new(crate::app::monitoring::metrics::MetricCollectorImpl::new())
+        Box::new(MetricCollectorImpl::new())
     }
 }
 
@@ -361,16 +410,27 @@ pub struct AlertManagerImpl {
 #[async_trait]
 impl AlertManagerTrait for AlertManagerImpl {
     async fn send_alert(&self, alert: Alert) -> Result<()> {
-        let mut alerts = self.alerts.write()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire write lock for alerts: {e}")))?;
+        let mut alerts = self.alerts.write().await;
         alerts.push(alert);
         Ok(())
     }
-
+    
     async fn get_alerts(&self) -> Result<Vec<Alert>> {
-        let alerts = self.alerts.read()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire read lock for alerts: {e}")))?;
+        let alerts = self.alerts.read().await;
         Ok(alerts.clone())
+    }
+    
+    async fn get_alerts_in_range(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Alert>> {
+        let alerts = self.alerts.read().await;
+        
+        // Filter alerts by timestamps within range
+        Ok(alerts.iter()
+            .filter(|a| {
+                let timestamp = DateTime::<Utc>::from_timestamp(a.created_at, 0).unwrap_or_default();
+                timestamp >= from && timestamp <= to
+            })
+            .cloned()
+            .collect())
     }
 
     async fn start(&self) -> Result<()> {
@@ -403,7 +463,7 @@ impl AppMonitor {
     #[must_use]
     pub fn new(config: MonitoringConfigType) -> Self {
         // Create the metric collector
-        let metric_collector: Box<dyn MetricCollectorTrait> = Box::new(crate::app::monitoring::metrics::MetricCollectorImpl::new());
+        let metric_collector: Box<dyn MetricCollectorTrait> = Box::new(MetricCollectorImpl::new());
         
         // Create the alert manager
         let alert_manager: Box<dyn AlertManagerTrait> = Box::new(AlertManagerImpl::new());
@@ -452,7 +512,8 @@ impl AppMonitor {
     /// Returns an error if the metric collector lock is poisoned
     pub fn get_metric_collector(&self) -> Result<MutexGuard<'_, Box<dyn MetricCollectorTrait>>> {
         self.metric_collector.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire metric_collector lock: {e}")))
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire metric_collector lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))
     }
     
     /// Get the alert manager
@@ -462,7 +523,8 @@ impl AppMonitor {
     /// Returns an error if the alert manager lock is poisoned
     pub fn get_alert_manager(&self) -> Result<MutexGuard<'_, Box<dyn AlertManagerTrait>>> {
         self.alert_manager.lock()
-            .map_err(|e| SquirrelError::Monitoring(format!("Failed to acquire alert_manager lock: {e}")))
+            .map_err(|e| SquirrelError::generic(format!("Failed to acquire alert_manager lock: {e}")))
+            .map_err(|e| CoreError::Monitoring(e.to_string()))
     }
     
     /// Get the configuration

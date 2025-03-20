@@ -1,11 +1,11 @@
 #[allow(unused_imports)]
 use std::sync::{Arc, RwLock};
 #[allow(unused_imports)]
-use crate::error::{Result, SquirrelError};
+use squirrel_core::error::{Result, SquirrelError};
 #[allow(unused_imports)]
-use crate::commands::Command;
+use squirrel_commands::Command;
 #[allow(unused_imports)]
-use crate::app::command::{CommandProcessor, DefaultCommandProcessor};
+use crate::command::{CommandProcessor, DefaultCommandProcessor};
 use thiserror::Error;
 
 /// Errors specific to command handler adapter operations
@@ -32,7 +32,7 @@ pub struct CommandHandlerAdapter {
 }
 
 impl CommandHandlerAdapter {
-    /// Create a new command handler adapter
+    /// Create a new uninitialized adapter
     #[must_use]
     pub fn new() -> Self {
         Self { inner: None }
@@ -45,30 +45,28 @@ impl CommandHandlerAdapter {
         self
     }
     
-    /// Initializes the adapter with a default command processor
+    /// Initialize with a command processor
     /// 
     /// # Errors
     /// 
-    /// Returns `CommandHandlerAdapterError::AlreadyInitialized` if the adapter
-    /// is already initialized.
-    pub fn initialize(&mut self) -> Result<()> {
+    /// Returns an error if already initialized
+    pub fn initialize(&mut self, handler: Arc<RwLock<dyn CommandProcessor>>) -> Result<()> {
         if self.inner.is_some() {
-            return Err(SquirrelError::Other(CommandHandlerAdapterError::AlreadyInitialized.to_string()));
+            return Err(SquirrelError::generic(CommandHandlerAdapterError::AlreadyInitialized.to_string()));
         }
         
-        let processor = DefaultCommandProcessor::new();
-        self.inner = Some(Arc::new(RwLock::new(processor)));
+        self.inner = Some(handler);
         Ok(())
     }
 
-    /// Get the inner command handler
+    /// Get the wrapped command processor
     /// 
     /// # Errors
     /// 
-    /// Returns `CommandHandlerAdapterError::NotInitialized` if the adapter is not initialized.
+    /// Returns an error if not initialized
     pub fn get_handler(&self) -> Result<Arc<RwLock<dyn CommandProcessor>>> {
-        self.inner.clone().ok_or_else(|| 
-            SquirrelError::Other(CommandHandlerAdapterError::NotInitialized.to_string()))
+        self.inner.clone().ok_or_else(||
+            SquirrelError::generic(CommandHandlerAdapterError::NotInitialized.to_string()))
     }
 
     /// Handles a command by delegating to the underlying processor.
@@ -138,6 +136,6 @@ pub fn create_handler_adapter() -> Arc<CommandHandlerAdapter> {
 /// Returns an error if initialization fails.
 pub fn create_initialized_handler_adapter() -> Result<Arc<CommandHandlerAdapter>> {
     let mut adapter = CommandHandlerAdapter::new();
-    adapter.initialize()?;
+    adapter.initialize(Arc::new(RwLock::new(DefaultCommandProcessor::new())))?;
     Ok(Arc::new(adapter))
 } 

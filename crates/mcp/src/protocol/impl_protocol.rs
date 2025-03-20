@@ -276,18 +276,18 @@ impl MCPProtocol for MCPProtocolImpl {
 
 /// Create a protocol adapter with the provided protocol
 #[allow(dead_code)]
-pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolAdapter> {
+pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
     let mut protocol = protocol;
     protocol.initialize()?;
-    Ok(MCPProtocolAdapter::with_protocol(protocol.base))
+    Ok(protocol.base)
 }
 
 /// Create a protocol adapter with the provided protocol and config
 #[allow(dead_code)]
-pub fn create_protocol_adapter_with_config(protocol: MCPProtocolImpl, config: ProtocolConfig) -> Result<MCPProtocolAdapter> {
+pub fn create_protocol_adapter_with_config(protocol: MCPProtocolImpl, config: ProtocolConfig) -> Result<MCPProtocolBase> {
     let mut protocol = protocol;
     protocol.initialize_with_config(config)?;
-    Ok(MCPProtocolAdapter::with_protocol(protocol.base))
+    Ok(protocol.base)
 }
 
 #[cfg(test)]

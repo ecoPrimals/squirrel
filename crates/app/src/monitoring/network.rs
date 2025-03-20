@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::error::Result;
-use crate::app::monitoring::MonitoringConfig;
+use crate::monitoring::MonitoringConfig;
 
 /// Configuration for network monitoring
 #[derive(Debug, Clone, Serialize, Deserialize)]

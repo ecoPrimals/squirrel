@@ -16,6 +16,9 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 tempfile = { workspace = true }
+rand = { version = "0.8.5" }
+reqwest = { version = "0.11", features = ["json"] }
+anyhow = { workspace = true }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }

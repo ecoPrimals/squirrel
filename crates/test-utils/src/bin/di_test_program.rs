@@ -1,12 +1,12 @@
 //! Test program for dependency injection.
 
-use squirrel_app::{Core, core::AppConfig};
+use squirrel_mcp::{MCPConfig, MCPAdapter};
 
 fn main() {
-    // Create a simple app with our new structure
-    let config = AppConfig::default();
-    let adapter = Core::new(config);
+    // Create a simple MCP adapter with our new structure
+    let config = MCPConfig::default();
+    let adapter = MCPAdapter::new(config);
     
     println!("Di-tests mode active");
-    println!("Core initialized: {}", adapter.is_initialized());
+    println!("MCP adapter initialized");
 } 

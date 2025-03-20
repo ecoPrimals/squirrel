@@ -60,10 +60,4 @@ impl std::error::Error for EventError {
     }
 }
 
-impl From<EventError> for crate::core::error::Error {
-    fn from(err: EventError) -> Self {
-        crate::core::error::Error::Other(Box::new(err))
-    }
-}
-
 pub type Result<T> = std::result::Result<T, EventError>; 

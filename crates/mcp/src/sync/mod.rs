@@ -57,7 +57,7 @@ impl Default for SyncConfig {
     }
 }
 
-/// State for the synchronization subsystem
+/// State of the sync engine
 #[derive(Debug, Clone)]
 pub struct SyncState {
     /// Whether a sync operation is currently in progress
@@ -72,6 +72,21 @@ pub struct SyncState {
     pub error_count: u64,
     /// The version of the last successful sync
     pub last_version: Option<u64>,
+}
+
+impl SyncState {
+    /// Creates a new SyncState with default values
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            is_syncing: false,
+            last_sync: None,
+            last_error: None,
+            sync_count: 0,
+            error_count: 0,
+            last_version: None,
+        }
+    }
 }
 
 /// Result of a synchronization operation
@@ -122,14 +137,7 @@ impl MCPSync {
     ) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
-            state: Arc::new(RwLock::new(SyncState {
-                is_syncing: false,
-                last_sync: None,
-                last_error: None,
-                sync_count: 0,
-                error_count: 0,
-                last_version: None,
-            })),
+            state: Arc::new(RwLock::new(SyncState::new())),
             state_manager,
             persistence,
             monitor,
@@ -271,7 +279,7 @@ impl MCPSync {
                     id: Uuid::new_v4().to_string(),
                 };
                 
-                // Return the default_state directly, not wrapped in Some
+                // Return the default state directly (not wrapped in Some)
                 default_state
             }
         };
@@ -335,17 +343,8 @@ impl MCPSync {
                 self.monitor.record_error("load_state_failed").await;
                 tracing::warn!("Failed to load persisted state: {}", e);
                 
-                // If we can't load the state, create a default state
-                let default_state = PersistentState {
-                    contexts: Vec::new(),
-                    changes: Vec::new(),
-                    last_version: 0,
-                    last_sync: Utc::now(),
-                    id: Uuid::new_v4().to_string(),
-                };
-                
-                // Return the default_state directly, not wrapped in Some
-                default_state
+                // If we can't load the state, return None
+                None
             }
         };
         
@@ -461,8 +460,8 @@ impl MCPSync {
     /// * `context` - The context being modified
     /// * `operation` - The type of operation being performed
     ///
-    /// # Returns
-    /// A Result indicating success or failure
+    /// # Errors
+    /// Returns an error if the operation fails
     pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         // Record the change in the state manager
         let result = self.state_manager.record_change(context, operation.clone()).await;
@@ -472,6 +471,14 @@ impl MCPSync {
         
         // Convert and return the result
         to_core_error(result)
+    }
+
+    /// Get the monitor instance
+    ///
+    /// # Errors
+    /// Returns an error if the monitor cannot be retrieved
+    pub fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
+        Ok(Arc::clone(&self.monitor))
     }
 
     /// Subscribe to state change notifications
@@ -485,60 +492,6 @@ impl MCPSync {
         Ok(self.state_manager.subscribe_changes())
     }
 
-    /// Updates the configuration for the sync engine
-    ///
-    /// # Arguments
-    /// * `config` - The new configuration to apply
-    ///
-    /// # Returns
-    /// A Result indicating success or failure
-    pub async fn update_config(&self, config: SyncConfig) -> Result<()> {
-        to_core_error(self.update_config_internal(config).await)
-    }
-
-    /// Internal implementation of update_config that returns MCPError
-    async fn update_config_internal(&self, config: SyncConfig) -> std::result::Result<(), MCPError> {
-        self.ensure_initialized_internal().await?;
-        let mut current_config = self.config.write().await;
-        *current_config = config;
-        self.monitor.record_message("config_updated").await;
-        Ok(())
-    }
-    
-    /// Records an error that occurred during a sync operation
-    ///
-    /// # Returns
-    /// A Result indicating success or failure
-    pub async fn record_error(&self) -> Result<()> {
-        to_core_error(self.record_error_internal().await)
-    }
-    
-    /// Internal implementation of record_error that returns MCPError
-    async fn record_error_internal(&self) -> std::result::Result<(), MCPError> {
-        self.ensure_initialized_internal().await?;
-        let mut state = self.state.write().await;
-        state.error_count += 1;
-        state.last_error = Some(Utc::now());
-        self.monitor.record_error("sync_failed").await;
-        Ok(())
-    }
-
-    /// Gets the current version of the sync state
-    ///
-    /// # Returns
-    /// The current version number of the sync state
-    pub async fn get_current_version(&self) -> Result<u64> {
-        to_core_error(self.state_manager.get_current_version().await)
-    }
-
-    /// Get the monitor instance
-    ///
-    /// # Errors
-    /// Returns an error if the monitor cannot be retrieved
-    pub fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
-        Ok(Arc::clone(&self.monitor))
-    }
-
     /// Alias for sync() method
     /// 
     /// This is provided for backward compatibility with code that expects
@@ -550,36 +503,6 @@ impl MCPSync {
         match self.sync().await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
-        }
-    }
-}
-
-impl Clone for MCPSync {
-    fn clone(&self) -> Self {
-        Self {
-            config: Arc::clone(&self.config),
-            state: Arc::clone(&self.state),
-            state_manager: Arc::clone(&self.state_manager),
-            persistence: Arc::clone(&self.persistence),
-            monitor: Arc::clone(&self.monitor),
-            lock: Arc::clone(&self.lock),
-            initialized: Arc::clone(&self.initialized),
-            changes: Arc::clone(&self.changes),
-        }
-    }
-}
-
-/// Implementation of SyncState
-impl SyncState {
-    /// Creates a new SyncState with default values
-    pub fn new() -> Self {
-        Self {
-            is_syncing: false,
-            last_sync: None,
-            last_error: None,
-            sync_count: 0,
-            error_count: 0,
-            last_version: None,
         }
     }
 }
