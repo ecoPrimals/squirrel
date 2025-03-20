@@ -1,4 +1,4 @@
-//! Web interface for code analysis and reporting services.
+//! Web interface for the Squirrel system.
 
 use anyhow::Result;
 use axum::{
@@ -19,10 +19,10 @@ pub mod state;
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
-    /// MCP client for interacting with analysis services
-    pub mcp_client: Arc<Box<dyn mcp::McpClient>>,
+    /// MCP client for interacting with services
+    pub mcp_client: Arc<Box<dyn squirrel_mcp::McpClient>>,
     /// Database connection pool
-    pub db_pool: Arc<sqlx::PgPool>,
+    pub db_pool: Arc<sqlx::SqlitePool>,
 }
 
 /// Configuration for the web server
@@ -35,7 +35,7 @@ pub struct ServerConfig {
     /// Database connection URL
     pub database_url: String,
     /// MCP server configuration
-    pub mcp_config: mcp::SessionConfig,
+    pub mcp_config: squirrel_mcp::SessionConfig,
     /// CORS configuration
     pub cors_config: CorsConfig,
 }
@@ -51,27 +51,27 @@ pub struct CorsConfig {
     pub allowed_headers: Vec<String>,
 }
 
-/// Request to create a new analysis job
+/// Request to create a new job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateAnalysisJobRequest {
-    /// Repository URL to analyze
+pub struct CreateJobRequest {
+    /// Repository URL 
     pub repository_url: String,
-    /// Branch or commit to analyze
+    /// Branch or commit
     pub git_ref: String,
-    /// Analysis configuration
-    pub config: analysis::AnalysisConfig,
+    /// Configuration
+    pub config: serde_json::Value,
 }
 
-/// Response for a created analysis job
+/// Response for a created job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateAnalysisJobResponse {
+pub struct CreateJobResponse {
     /// Job ID
     pub job_id: Uuid,
     /// Status URL to check job progress
     pub status_url: String,
 }
 
-/// Status of an analysis job
+/// Status of a job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobStatus {
     /// Job ID
@@ -86,13 +86,11 @@ pub struct JobStatus {
     pub result_url: Option<String>,
 }
 
-/// State of an analysis job
+/// State of a job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum JobState {
     Queued,
-    Cloning,
-    Analyzing,
-    GeneratingReport,
+    Running,
     Completed,
     Failed,
 }
@@ -101,13 +99,13 @@ pub enum JobState {
 pub async fn init_app(config: ServerConfig) -> Result<Router> {
     // Initialize database connection
     let db_pool = Arc::new(
-        sqlx::PgPool::connect(&config.database_url)
+        sqlx::SqlitePool::connect(&config.database_url)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?,
     );
 
     // Initialize MCP client
-    let mcp_client: Arc<Box<dyn mcp::McpClient>> = Arc::new(Box::new(
+    let mcp_client: Arc<Box<dyn squirrel_mcp::McpClient>> = Arc::new(Box::new(
         // TODO: Implement actual MCP client
         todo!("Implement MCP client"),
     ));
@@ -126,9 +124,16 @@ pub async fn init_app(config: ServerConfig) -> Result<Router> {
         .route("/api/jobs/:id/report", get(handlers::jobs::report))
         .layer(
             CorsLayer::new()
-                .allow_origin(config.cors_config.allowed_origins)
-                .allow_methods(config.cors_config.allowed_methods)
-                .allow_headers(config.cors_config.allowed_headers),
+                // Convert Vec<String> to Vec<HeaderValue>
+                .allow_origin(config.cors_config.allowed_origins.iter().map(|origin| {
+                    origin.parse().unwrap_or_else(|_| panic!("Invalid origin: {}", origin))
+                }).collect::<Vec<_>>())
+                .allow_methods(config.cors_config.allowed_methods.iter().map(|method| {
+                    method.parse().unwrap_or_else(|_| panic!("Invalid method: {}", method))
+                }).collect::<Vec<_>>())
+                .allow_headers(config.cors_config.allowed_headers.iter().map(|header| {
+                    header.parse().unwrap_or_else(|_| panic!("Invalid header: {}", header))
+                }).collect::<Vec<_>>()),
         )
         .with_state(state);
 

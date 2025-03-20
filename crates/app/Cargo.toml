@@ -1,0 +1,34 @@
+[package]
+name = "squirrel-app"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Application components for Squirrel"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Shared squirrel dependencies
+squirrel-core = { path = "../core" }
+squirrel-context = { path = "../context" }
+squirrel-monitoring = { path = "../monitoring" }
+squirrel-mcp = { path = "../mcp" }
+squirrel-commands = { path = "../commands" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+mockall = { workspace = true }
+
+[lib]
+name = "squirrel_app"
+path = "src/lib.rs" 

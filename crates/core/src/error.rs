@@ -2,7 +2,6 @@
 
 use std::fmt;
 use std::error::Error;
-use crate::context_adapter::ContextAdapterError;
 
 /// Result type alias for `SquirrelError`
 pub type Result<T> = std::result::Result<T, SquirrelError>;
@@ -164,12 +163,6 @@ impl From<PersistenceError> for SquirrelError {
     }
 }
 
-impl From<crate::mcp::session::manager::persistence::PersistenceError> for SquirrelError {
-    fn from(err: crate::mcp::session::manager::persistence::PersistenceError) -> Self {
-        SquirrelError::Session(err.to_string())
-    }
-}
-
 /// Errors that can occur during application initialization.
 #[derive(Debug)]
 pub enum AppInitializationError {
@@ -306,18 +299,6 @@ impl SquirrelError {
     }
 }
 
-impl From<crate::monitoring::network::NetworkError> for SquirrelError {
-    fn from(err: crate::monitoring::network::NetworkError) -> Self {
-        SquirrelError::Network(err.to_string())
-    }
-}
-
-impl From<crate::monitoring::alerts::notify::NotificationError> for SquirrelError {
-    fn from(err: crate::monitoring::alerts::notify::NotificationError) -> Self {
-        SquirrelError::Alert(format!("Notification error: {err}"))
-    }
-}
-
 #[derive(Debug)]
 /// Error types related to the alert system
 pub enum AlertError {
@@ -344,41 +325,5 @@ impl Error for AlertError {}
 impl From<AlertError> for SquirrelError {
     fn from(err: AlertError) -> Self {
         SquirrelError::Alert(err.to_string())
-    }
-}
-
-impl From<crate::context::ContextError> for SquirrelError {
-    fn from(err: crate::context::ContextError) -> Self {
-        match err {
-            crate::context::ContextError::InvalidState(msg) => Self::Context(format!("Invalid context state: {msg}")),
-            crate::context::ContextError::SnapshotNotFound(msg) => Self::Context(format!("Snapshot not found: {msg}")),
-            crate::context::ContextError::NoValidSnapshot(msg) => Self::Context(format!("No valid snapshot: {msg}")),
-            crate::context::ContextError::PersistenceError(msg) => Self::Context(format!("Persistence error: {msg}")),
-            crate::context::ContextError::SyncError(msg) => Self::Context(format!("Synchronization error: {msg}")),
-        }
-    }
-}
-
-impl From<crate::mcp::context_adapter::MCPContextAdapterError> for SquirrelError {
-    fn from(err: crate::mcp::context_adapter::MCPContextAdapterError) -> Self {
-        match err {
-            crate::mcp::context_adapter::MCPContextAdapterError::NotInitialized => 
-                Self::Context("MCP context adapter not initialized".to_string()),
-            crate::mcp::context_adapter::MCPContextAdapterError::AlreadyInitialized => 
-                Self::Context("MCP context adapter already initialized".to_string()),
-            crate::mcp::context_adapter::MCPContextAdapterError::OperationFailed(msg) => 
-                Self::Context(format!("MCP context adapter operation failed: {msg}")),
-        }
-    }
-}
-
-impl From<ContextAdapterError> for SquirrelError {
-    fn from(err: ContextAdapterError) -> Self {
-        match err {
-            ContextAdapterError::NotInitialized => SquirrelError::Context("Context adapter not initialized".to_string()),
-            ContextAdapterError::AlreadyInitialized => SquirrelError::Context("Context adapter already initialized".to_string()),
-            ContextAdapterError::OperationFailed(msg) => SquirrelError::Context(msg),
-            ContextAdapterError::ContextError(e) => SquirrelError::Context(format!("Context error: {e}")),
-        }
     }
 }

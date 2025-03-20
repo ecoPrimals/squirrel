@@ -1,44 +1,33 @@
 [package]
-name = "squirrel-core"
+name = "squirrel-context"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "Core functionality for Squirrel"
+description = "Context management system for Squirrel"
 
 [dependencies]
 # Core dependencies
-tokio = { workspace = true, features = ["full"], optional = true }
+tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
-anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-
-# Logging dependencies
+sled = { workspace = true }
+rand = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-log = "0.4.26"
+
+# Shared squirrel dependencies
+squirrel-core = { path = "../core" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 mockall = { workspace = true }
-criterion = { workspace = true }
-insta = { workspace = true }
-snapbox = { workspace = true }
-proptest = { workspace = true }
-
-[features]
-default = ["async"]
-di-tests = []
-async = ["dep:tokio"]
 
 [lib]
-name = "squirrel_core"
-path = "src/lib.rs"
-
-[build-dependencies]
-built = "0.7"
+name = "squirrel_context"
+path = "src/lib.rs" 

@@ -10,6 +10,7 @@ mod error {
     use std::fmt;
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     pub enum SquirrelError {
         AppInitialization(AppInitializationError),
         AppOperation(AppOperationError),
@@ -41,6 +42,7 @@ mod error {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     pub enum AppInitializationError {
         AlreadyInitialized,
         InvalidConfiguration(String),
@@ -62,6 +64,7 @@ mod error {
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     pub enum AppOperationError {
         NotInitialized,
         UnsupportedOperation(String),
@@ -172,6 +175,7 @@ mod app {
             }
         }
         
+        #[allow(dead_code)]
         pub fn new_initialized(config: AppConfig) -> Result<Self, SquirrelError> {
             let adapter = Self::new(config);
             adapter.initialize()?;
@@ -203,8 +207,10 @@ mod mcp {
     #[derive(Debug, Clone)]
     pub struct MCPConfig {
         pub version: String,
+        #[allow(dead_code)]
         pub max_message_size: u64,
         pub timeout_ms: u64,
+        #[allow(dead_code)]
         pub encryption_enabled: bool,
     }
 

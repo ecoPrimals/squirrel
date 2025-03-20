@@ -1,0 +1,36 @@
+[package]
+name = "squirrel-monitoring"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Monitoring and metrics system for Squirrel"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+prometheus = { workspace = true }
+sysinfo = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+reqwest = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+
+# Shared squirrel dependencies
+squirrel-core = { path = "../core" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+mockall = { workspace = true }
+proptest = { workspace = true }
+
+[lib]
+name = "squirrel_monitoring"
+path = "src/lib.rs" 

@@ -1,7 +1,9 @@
 [package]
-name = "web"
-version = "0.1.0"
-edition = "2021"
+name = "squirrel-web"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Web interface for the Squirrel system"
 
 [dependencies]
 tokio = { workspace = true }
@@ -18,11 +20,11 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-sqlx = { workspace = true }
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
 
-analysis = { path = "../analysis" }
-reporting = { path = "../reporting" }
-mcp = { path = "../mcp" }
+# Squirrel dependencies
+squirrel-core = { path = "../core" }
+squirrel-mcp = { path = "../mcp" }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] } 
+tokio-test = { workspace = true } 
