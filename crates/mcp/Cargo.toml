@@ -1,0 +1,42 @@
+[package]
+name = "squirrel-mcp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Machine Context Protocol (MCP) implementation for Squirrel"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+sled = { workspace = true }
+ring = { workspace = true }
+bytes = { workspace = true }
+futures-util = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rand = { workspace = true }
+anyhow = { workspace = true }
+sysinfo = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+
+# Shared squirrel dependencies
+squirrel-core = { path = "../core" }
+squirrel-context = { path = "../context" }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+mockall = { workspace = true }
+
+[lib]
+name = "squirrel_mcp"
+path = "src/lib.rs" 
