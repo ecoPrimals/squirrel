@@ -463,8 +463,7 @@ impl Default for ContextManager {
     fn default() -> Self {
         match tokio::runtime::Runtime::new() {
             Ok(rt) => {
-                let manager = rt.block_on(async { Self::new().await });
-                manager
+                rt.block_on(async { Self::new().await })
             },
             Err(e) => {
                 panic!("Failed to create Tokio runtime for ContextManager: {e}");

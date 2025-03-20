@@ -9,13 +9,13 @@ use crate::error::PersistenceError;
 use std::path::PathBuf;
 use std::fs;
 use uuid::Uuid;
-use std::sync::atomic::{AtomicBool, Ordering};
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::StateChange;
 use async_trait::async_trait;
 use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
 use serde_json;
 use std::io::Write;
+use std::fmt::Debug;
 
 /// Configuration settings for the persistence layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,37 +67,27 @@ pub struct PersistentState {
 /// Persistence layer for MCP
 #[derive(Debug)]
 pub struct MCPPersistence {
-    /// Configuration for the persistence layer
+    /// Database connection string
+    #[allow(dead_code)]
+    connection_string: String,
+    /// Configuration options
     config: PersistenceConfig,
-    /// Metadata about stored data
-    metadata: Arc<RwLock<StorageMetadata>>,
-    /// Current state stored in memory
+    /// Database client
+    #[allow(dead_code)]
+    client: Option<Box<dyn PersistenceClient>>,
+    /// Whether persistence is initialized
+    initialized: bool,
+    /// Persisted state
+    #[allow(dead_code)]
     state: Arc<RwLock<PersistentState>>,
-    /// Whether the persistence layer has been initialized
-    initialized: AtomicBool,
 }
 
 impl MCPPersistence {
-    /// Creates a new instance of the persistence layer
-    ///
-    /// # Parameters
-    ///
-    /// * `config` - Configuration settings for the persistence layer
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPPersistence` instance
-    #[must_use] pub fn new(config: PersistenceConfig) -> Self {
-        let metadata = StorageMetadata {
-            version: ProtocolVersion::default(),
-            created_at: chrono::Utc::now(),
-            last_modified: chrono::Utc::now(),
-            size: 0,
-        };
-
+    /// Creates a new instance of `MCPPersistence`
+    #[must_use]
+    pub fn new(config: PersistenceConfig) -> Self {
         Self {
             config,
-            metadata: Arc::new(RwLock::new(metadata)),
             state: Arc::new(RwLock::new(PersistentState {
                 contexts: Vec::new(),
                 changes: Vec::new(),
@@ -105,28 +95,33 @@ impl MCPPersistence {
                 last_sync: Utc::now(),
                 id: Uuid::new_v4().to_string(),
             })),
-            initialized: AtomicBool::new(false),
+            initialized: false,
+            client: None,
+            connection_string: String::new(),
         }
     }
 
-    /// Initializes the persistence system
+    /// Initializes the persistence layer
     ///
-    /// Sets up necessary directories and loads any existing state.
+    /// This method creates the necessary directory structure and initializes
+    /// the database connection or file storage mechanism.
     ///
     /// # Errors
     ///
-    /// Returns an error if the initialization fails, which might happen if:
-    /// - Unable to create required directories
+    /// Returns an error if:
+    /// - The data directory cannot be created
     /// - Unable to load existing state data
-    pub fn init(&self) -> Result<()> {
-        if self.initialized.load(Ordering::Relaxed) {
+    pub fn init(&mut self) -> Result<()> {
+        if self.initialized {
             return Ok(());
         }
-        
+
+        // Create necessary directories
         fs::create_dir_all(&self.config.data_dir)?;
+        fs::create_dir_all(self.config.data_dir.join("states"))?;
         fs::create_dir_all(self.config.data_dir.join("changes"))?;
         
-        self.initialized.store(true, Ordering::Relaxed);
+        self.initialized = true;
         Ok(())
     }
 
@@ -207,12 +202,13 @@ impl MCPPersistence {
     ///
     /// # Errors
     /// Returns an error if there is an issue with filesystem operations
+    #[allow(dead_code)]
     fn compact_if_needed(&self) -> Result<()> {
         let mut size = 0;
         let entries = fs::read_dir(&self.config.data_dir)?;
         for entry in entries.flatten() {
             if let Ok(metadata) = entry.metadata() {
-                size += metadata.len() as usize;
+                size += usize::try_from(metadata.len()).unwrap_or(0);
             }
         }
         
@@ -373,23 +369,35 @@ impl MCPPersistence {
         Ok(())
     }
 
-    /// Gets the current configuration settings
-    ///
+    /// Gets the current configuration
+    /// 
     /// # Returns
-    ///
-    /// A clone of the current configuration
+    /// 
+    /// Returns a copy of the current configuration
+    #[must_use]
     pub fn get_config(&self) -> PersistenceConfig {
         self.config.clone()
     }
 
-    /// Gets the current metadata
+    /// Gets metadata about the persistence storage
+    ///
+    /// # Returns
+    ///
+    /// Returns statistics and information about the storage mechanism
     ///
     /// # Errors
     ///
     /// Returns an error if metadata cannot be accessed.
-    pub async fn get_metadata(&self) -> Result<StorageMetadata> {
-        let metadata = self.metadata.read().await;
-        Ok(metadata.clone())
+    pub fn get_metadata(&self) -> Result<StorageMetadata> {
+        // Create a new StorageMetadata instance
+        let metadata = StorageMetadata {
+            version: ProtocolVersion::new(1, 0),
+            created_at: Utc::now(),
+            last_modified: Utc::now(),
+            size: self.get_data_dir_size()? as u64,
+        };
+        
+        Ok(metadata)
     }
 
     /// Gets the total size of files in the data directory
@@ -415,7 +423,7 @@ impl MCPPersistence {
             let entry = entry?;
             if let Ok(metadata) = entry.metadata() {
                 if metadata.is_file() {
-                    total_size += metadata.len() as usize;
+                    total_size += usize::try_from(metadata.len()).unwrap_or(0);
                 }
             }
         }
@@ -462,7 +470,7 @@ mod tests_persistence_impl {
             storage_format: "json".to_string(),
         };
 
-        let persistence = MCPPersistence::new(config);
+        let mut persistence = MCPPersistence::new(config);
         assert!(persistence.init().is_ok());
 
         // Create test state
@@ -505,7 +513,7 @@ mod tests_persistence_impl {
             storage_format: "json".to_string(),
         };
 
-        let persistence = MCPPersistence::new(config);
+        let mut persistence = MCPPersistence::new(config);
         assert!(persistence.init().is_ok());
 
         // Create test change
@@ -590,6 +598,54 @@ pub struct AccountData {
     pub created_at: SystemTime,
     /// Account metadata
     pub metadata: std::collections::HashMap<String, String>,
+}
+
+/// Client interface for persistence operations
+pub trait PersistenceClient: Send + Sync + Debug {
+    /// Initialize the client
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if initialization fails, which can happen if the storage 
+    /// mechanism is inaccessible or if there are permission issues.
+    fn init(&self) -> Result<()>;
+    
+    /// Store data with the given key
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - Unique identifier for storing the data
+    /// * `data` - Byte array containing the data to store
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if storing fails, which can happen due to I/O errors,
+    /// permission issues, or if the storage system is full.
+    fn store(&self, key: &str, data: &[u8]) -> Result<()>;
+    
+    /// Retrieve data by key
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - Unique identifier for the data to retrieve
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if retrieval fails, which can happen if the key doesn't exist,
+    /// if there are I/O errors, or if the data is corrupted.
+    fn retrieve(&self, key: &str) -> Result<Vec<u8>>;
+    
+    /// Delete data by key
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - Unique identifier for the data to delete
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if deletion fails, which can happen if the key doesn't exist,
+    /// if there are permission issues, or if there are I/O errors.
+    fn delete(&self, key: &str) -> Result<()>;
 }
 
 /// Persistence trait for storage operations

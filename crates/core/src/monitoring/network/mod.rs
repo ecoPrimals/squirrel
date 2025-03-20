@@ -273,10 +273,11 @@ pub struct NetworkStats {
 pub struct NetworkMonitor {
     /// Configuration for the network monitor
     config: NetworkConfig,
-    /// System information handle
-    system: Arc<RwLock<S>>,
-    /// Network interface statistics
+    /// Network statistics collector
     stats: Arc<RwLock<HashMap<String, NetworkStats>>>,
+    /// System information provider
+    #[allow(dead_code)]
+    system: Arc<RwLock<S>>,
 }
 
 impl NetworkMonitor {

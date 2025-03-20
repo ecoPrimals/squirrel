@@ -88,6 +88,7 @@ pub struct DefaultHealthChecker {
     /// Map of component health status records
     components: Arc<RwLock<HashMap<String, ComponentHealth>>>,
     /// Health checker configuration
+    #[allow(dead_code)]
     config: HealthConfig,
 }
 

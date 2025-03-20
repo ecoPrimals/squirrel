@@ -14,6 +14,7 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use handlebars::Handlebars;
 use serde::{Serialize, Deserialize};
+// use chrono::Utc;
 
 use super::{AlertNotification, AlertSeverity};
 use super::adapter::NotificationManagerAdapter;
@@ -410,8 +411,11 @@ impl NotificationManager {
         let mut limiter = self.rate_limiter.write().await;
         let now = OffsetDateTime::now_utc();
         
+        // Check if still rate limited
         if let Some(last_notification) = limiter.get(channel_id) {
             let elapsed = now - *last_notification;
+            // Truncation is acceptable here as we're just checking if enough time has passed
+            #[allow(clippy::cast_possible_truncation)]
             let elapsed_secs = elapsed.as_seconds_f64() as i64;
             if elapsed_secs < rate_limit as i64 {
                 return Ok(true); // Rate limited

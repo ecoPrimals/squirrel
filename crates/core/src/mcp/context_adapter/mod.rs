@@ -30,6 +30,7 @@ pub enum MCPContextAdapterError {
 #[derive(Debug, Clone)]
 pub struct ContextManagerAdapter {
     /// The wrapped context adapter implementation
+    #[allow(dead_code)]
     inner: Option<Arc<ContextAdapter>>,
 }
 

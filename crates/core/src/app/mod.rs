@@ -64,8 +64,27 @@ impl App {
     }
 
     /// Initialize the application
+    /// 
+    /// This method sets up the application and marks it as initialized.
+    /// Once initialized, the application can perform its regular operations.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `AppInitializationError::AlreadyInitialized` if the application is already initialized.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the internal state `RwLock` is poisoned, which can happen if a thread
+    /// holding the write lock panicked.
     pub fn initialize(&self) -> Result<(), AppInitializationError> {
-        let mut state = self.state.write().unwrap();
+        let mut state = match self.state.write() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                // We can still recover the guard from a poisoned lock
+                poisoned.into_inner()
+            }
+        };
+        
         if state.initialized {
             return Err(AppInitializationError::AlreadyInitialized);
         }
@@ -76,13 +95,44 @@ impl App {
     }
 
     /// Check if the application is initialized
+    /// 
+    /// Returns true if the application has been initialized, false otherwise.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the internal state `RwLock` is poisoned, which can happen if a thread
+    /// holding the write lock panicked.
     pub fn is_initialized(&self) -> bool {
-        self.state.read().unwrap().initialized
+        match self.state.read() {
+            Ok(state) => state.initialized,
+            Err(poisoned) => {
+                // We can still recover the guard from a poisoned lock
+                poisoned.into_inner().initialized
+            }
+        }
     }
     
     /// Get the application configuration
+    /// 
+    /// Returns the current configuration of the application.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns `AppOperationError::NotInitialized` if the application is not initialized.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the internal state `RwLock` is poisoned, which can happen if a thread
+    /// holding the write lock panicked.
     pub fn get_config(&self) -> Result<AppConfig, AppOperationError> {
-        let state = self.state.read().unwrap();
+        let state = match self.state.read() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                // We can still recover the guard from a poisoned lock
+                poisoned.into_inner()
+            }
+        };
+        
         if !state.initialized {
             return Err(AppOperationError::NotInitialized);
         }
@@ -94,12 +144,22 @@ impl App {
 /// Interface for the application
 pub trait AppInterface {
     /// Initialize the application
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the application is already initialized
+    /// or if initialization fails for any reason.
     fn initialize(&self) -> Result<(), SquirrelError>;
     
     /// Check if the application is initialized
     fn is_initialized(&self) -> bool;
     
     /// Get the application configuration
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the application is not initialized
+    /// or if retrieving the configuration fails.
     fn get_config(&self) -> Result<AppConfig, SquirrelError>;
 }
 
@@ -121,6 +181,12 @@ impl AppAdapter {
     }
     
     /// Create a new `AppAdapter` that is already initialized
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the application initialization fails,
+    /// which can occur if there's an issue with the provided configuration
+    /// or if the initialization process encounters a problem.
     pub fn new_initialized(config: AppConfig) -> Result<Self, SquirrelError> {
         let adapter = Self::new(config);
         adapter.initialize()?;
@@ -130,7 +196,9 @@ impl AppAdapter {
 
 impl AppInterface for AppAdapter {
     fn initialize(&self) -> Result<(), SquirrelError> {
-        let _lock = self.init_mutex.lock().unwrap();
+        let _lock = self.init_mutex.lock().map_err(|e| {
+            SquirrelError::other(format!("Failed to acquire initialization lock: {e}"))
+        })?;
         self.app.initialize().map_err(Into::into)
     }
     

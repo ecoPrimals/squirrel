@@ -615,7 +615,9 @@ pub async fn get_all_metrics() -> Result<Vec<Metric>> {
 /// Metrics manager for coordinating multiple collectors and exporters
 #[derive(Debug)]
 pub struct MetricsManager {
+    /// Collection of metric collectors that gather data from different sources
     collectors: Arc<RwLock<Vec<Arc<dyn MetricCollector + Send + Sync>>>>,
+    /// Collection of metric exporters that send data to external systems
     exporters: Arc<RwLock<Vec<Arc<dyn MetricExporter + Send + Sync>>>>,
 }
 
@@ -899,9 +901,11 @@ impl Default for MetricCollectorFactory {
 /// Aggregates metrics from multiple collectors
 #[derive(Debug)]
 pub struct AggregateMetricCollector {
-    /// Collection of metric collectors
+    /// Collection of metric collectors that gather different types of metrics from various sources
+    #[allow(dead_code)]
     collectors: Arc<RwLock<Vec<Arc<dyn MetricCollector + Send + Sync>>>>,
-    /// Collection of metric exporters
+    /// Collection of metric exporters that send metrics to different destinations for storage or visualization
+    #[allow(dead_code)]
     exporters: Arc<RwLock<Vec<Arc<dyn MetricExporter + Send + Sync>>>>,
 }
 

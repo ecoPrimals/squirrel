@@ -70,6 +70,7 @@ pub struct MCPSync {
 
 impl MCPSync {
     /// Creates a new `MCPSync` instance with the given configuration and dependencies
+    #[must_use]
     pub fn new(
         config: SyncConfig,
         persistence: Arc<MCPPersistence>,
@@ -100,7 +101,17 @@ impl MCPSync {
     /// Returns an error if creating the monitor fails or if any of the dependencies
     /// cannot be initialized properly.
     pub async fn create(config: SyncConfig) -> Result<Self> {
-        let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
+        // Create persistence with default config
+        let mut persistence = MCPPersistence::new(PersistenceConfig::default());
+        
+        // Initialize persistence directly
+        if let Err(e) = persistence.init() {
+            return Err(MCPError::StorageError(format!("Failed to initialize persistence: {e}")).into());
+        }
+        
+        // Wrap in Arc after initialization
+        let persistence = Arc::new(persistence);
+        
         let monitor = Arc::new(MCPMonitor::new().await?);
         let state_manager = Arc::new(StateSyncManager::new());
         
@@ -120,9 +131,8 @@ impl MCPSync {
 
         self.monitor.record_message("initializing_sync").await;
         
-        // Initialize persistence
-        self.persistence.init()?;
-
+        // Persistence is already initialized in create()
+        
         // Try to load persisted state
         if let Some(persisted) = self.persistence.load_state()? {
             self.monitor.record_message("state_loaded").await;
@@ -183,7 +193,9 @@ impl MCPSync {
         }
 
         self.monitor.record_message("persisted_changes_loaded").await;
-        self.monitor.record_sync_operation(start.elapsed().as_millis() as f64, true).await;
+        let elapsed_millis = start.elapsed().as_millis();
+        #[allow(clippy::cast_precision_loss)]
+        self.monitor.record_sync_operation(elapsed_millis as f64, true).await;
         Ok(())
     }
 
@@ -246,8 +258,12 @@ impl MCPSync {
         state.last_version = current_version;
         state.is_syncing = false;
 
+        self.monitor.record_message("sync_complete").await;
+        
         // Record sync metrics
-        let duration_ms = start.elapsed().as_millis() as f64;
+        let elapsed_millis = start.elapsed().as_millis();
+        #[allow(clippy::cast_possible_truncation)]
+        let duration_ms = f64::from(elapsed_millis as u32);
         self.monitor.record_sync_operation(duration_ms, success).await;
 
         // Cleanup old changes

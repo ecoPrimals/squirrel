@@ -4,20 +4,28 @@
 use std::sync::Arc;
 use crate::error::Result;
 use super::config::AlertConfig;
+use std::sync::RwLock;
+use crate::monitoring::Alert;
 
 /// Alert manager for handling system alerts
 #[derive(Debug)]
 pub struct AlertManager {
     /// Alert manager configuration
+    #[allow(dead_code)]
     config: AlertConfig,
+    /// Active alerts
+    #[allow(dead_code)]
+    alerts: Arc<RwLock<Vec<Alert>>>,
     // TODO: Implement additional fields
 }
 
 impl AlertManager {
-    /// Create a new alert manager with the given configuration
-    #[must_use] pub fn new(config: AlertConfig) -> Self {
+    /// Creates a new alert manager with the specified configuration
+    #[must_use]
+    pub fn new(config: AlertConfig) -> Self {
         Self {
             config,
+            alerts: Arc::new(RwLock::new(Vec::new())),
         }
     }
     
@@ -38,6 +46,7 @@ impl AlertManager {
 #[derive(Debug)]
 pub struct AlertManagerAdapter {
     /// The inner alert manager instance
+    #[allow(dead_code)]
     manager: Arc<AlertManager>,
 }
 

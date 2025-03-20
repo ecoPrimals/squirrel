@@ -136,6 +136,7 @@ pub struct ToolMetricsCollector {
     /// Storage for tool metrics by tool name
     metrics: Arc<RwLock<HashMap<String, ToolMetrics>>>,
     /// Configuration for the collector
+    #[allow(dead_code)]
     config: ToolMetricsConfig,
     /// Performance collector adapter for additional metrics
     performance_collector: Option<Arc<crate::monitoring::metrics::performance::PerformanceCollectorAdapter>>,

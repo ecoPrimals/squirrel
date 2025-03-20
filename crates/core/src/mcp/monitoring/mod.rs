@@ -1,3 +1,6 @@
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::module_name_repetitions)]
+
 /// Contains the monitoring functionality for the MCP module.
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -357,19 +360,25 @@ impl MCPMonitor {
         
         health.resource_status = ResourceHealth {
             cpu_usage_percent: f64::from(sys_info.global_cpu_info().cpu_usage()),
-            memory_usage_percent: (sys_info.used_memory() as f64 / sys_info.total_memory() as f64) * 100.0,
+            memory_usage_percent: if sys_info.total_memory() > 0 {
+                100.0 * (f64::from_bits(sys_info.used_memory()) / f64::from_bits(sys_info.total_memory()))
+            } else {
+                0.0
+            },
+            #[allow(clippy::cast_possible_truncation)]
             disk_usage_percent: if disks.len() > 0 {
                 disks.iter()
                     .map(|disk| {
                         let total = disk.total_space();
                         let available = disk.available_space();
                         if total > 0 {
-                            (total - available) as f64 / total as f64 * 100.0
+                            let used_space = total - available;
+                            100.0 * (f64::from_bits(used_space) / f64::from_bits(total))
                         } else {
                             0.0
                         }
                     })
-                    .sum::<f64>() / disks.len() as f64
+                    .sum::<f64>() / f64::from(disks.len() as u32)
             } else {
                 0.0
             },

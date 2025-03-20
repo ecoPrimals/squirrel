@@ -198,6 +198,7 @@ impl Default for DashboardConfig {
 #[derive(Debug)]
 pub struct DashboardManager {
     /// Dashboard configuration
+    #[allow(dead_code)]
     config: DashboardConfig,
 }
 
@@ -495,7 +496,7 @@ impl Manager {
                     .await?
                     .into_iter()
                     .filter(|m| m.operation_type == *operation_type)
-                    .take(time_range.as_secs() as usize)
+                    .take(usize::try_from(time_range.as_secs()).unwrap_or(usize::MAX))
                     .collect::<Vec<_>>();
                 
                 to_value(metrics).map_err(|e| SquirrelError::serialization(e.to_string()))
@@ -519,7 +520,7 @@ impl Manager {
                     .await?;
                 
                 // Add service information to the status
-                status.service = service.clone();
+                status.service.clone_from(service);
                 
                 to_value(status).map_err(|e| SquirrelError::serialization(e.to_string()))
             },

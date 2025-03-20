@@ -232,7 +232,7 @@ impl SystemInfoAdapter {
 pub fn create_system_info_adapter() -> Arc<SystemInfoAdapter> {
     let mut adapter = SystemInfoAdapter::new();
     match adapter.initialize() {
-        Ok(_) => Arc::new(adapter),
+        Ok(()) => Arc::new(adapter),
         Err(e) => {
             panic!("Failed to initialize system info adapter: {e}");
         }
@@ -240,7 +240,27 @@ pub fn create_system_info_adapter() -> Arc<SystemInfoAdapter> {
 }
 
 /// Create a system info adapter with an existing system
+///
+/// # Arguments
+///
+/// * `system` - An Arc-wrapped `RwLock` containing the system to wrap
+///
+/// # Returns
+///
+/// A system info adapter wrapped in an Arc
+///
+/// # Panics
+///
+/// Panics if the adapter fails to initialize, which can happen if system
+/// resources are unavailable or if the operating system doesn't provide
+/// access to the required system information.
 #[must_use]
 pub fn create_system_info_adapter_with_system(system: Arc<RwLock<S>>) -> Arc<SystemInfoAdapter> {
-    Arc::new(SystemInfoAdapter::with_system(system))
+    let mut adapter = SystemInfoAdapter::with_system(system);
+    
+    if let Err(e) = adapter.initialize() {
+        panic!("Failed to initialize system info adapter: {e}");
+    }
+    
+    Arc::new(adapter)
 } 

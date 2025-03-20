@@ -214,7 +214,11 @@ impl ContextAdapter {
     /// This function does not currently return errors, but maintains the Result
     /// return type for compatibility with other methods and potential future error cases.
     pub async fn cleanup_expired_contexts(&self) -> Result<()> {
-        let config = self.config.read().await;
+        let config = {
+            let config_guard = self.config.read().await;
+            config_guard.clone()
+        };
+        
         if !config.enable_auto_cleanup {
             return Ok(());
         }
@@ -224,7 +228,10 @@ impl ContextAdapter {
         
         contexts.retain(|_, context| {
             let age = now.signed_duration_since(context.updated_at);
-            age.num_seconds() < config.ttl_seconds as i64
+            match i64::try_from(config.ttl_seconds) {
+                Ok(ttl) => age.num_seconds() < ttl,
+                Err(_) => true, // If conversion fails, retain the context to be safe
+            }
         });
 
         Ok(())

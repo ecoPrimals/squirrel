@@ -104,6 +104,7 @@ pub struct ResourceMetricsCollector {
     /// Previous disk I/O measurements
     prev_disk_io: Arc<RwLock<HashMap<String, DiskIOStats>>>,
     /// Performance collector adapter
+    #[allow(dead_code)]
     performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
     /// Configuration
     config: ResourceConfig,
@@ -308,6 +309,7 @@ impl ResourceMetricsCollector {
     }
 
     /// Calculate the total size of a directory using a non-recursive approach
+    #[allow(dead_code)]
     fn calculate_dir_size(start_path: &Path) -> std::io::Result<u64> {
         let mut total_size = 0u64;
         let mut dirs_to_visit = vec![start_path.to_path_buf()];
@@ -350,18 +352,18 @@ impl ResourceMetricsCollector {
         process_name.contains(&team_name.to_lowercase())
     }
 
-    /// Collects detailed information about a process into a ProcessInfo struct
+    /// Collects information about a process and converts it into a ProcessInfo struct
     /// 
-    /// This function extracts key metrics from a process, including CPU and memory usage,
-    /// thread count, disk I/O statistics, and process status.
+    /// This function extracts various metrics from a system process including CPU usage,
+    /// memory usage, thread count, disk I/O, and status information.
     /// 
-    /// # Parameters
+    /// # Arguments
     /// 
-    /// * `process` - A reference to the Process object from which to extract information
+    /// * `process` - Reference to a Process object to collect information from
     /// 
     /// # Returns
     /// 
-    /// Returns a ProcessInfo struct containing all relevant metrics for the process
+    /// A ProcessInfo struct containing the collected metrics
     fn collect_process_info(process: &Process) -> ProcessInfo {
         let status = match process.status() {
             ProcessStatus::Run => "running",
@@ -940,7 +942,15 @@ impl TeamResourceMetrics {
         }
     }
     
-    // Helper method to collect process info
+    /// Collects detailed information about a process into a ProcessInfo struct
+    /// 
+    /// # Arguments
+    /// 
+    /// * `process` - A reference to the Process object to extract information from
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a ProcessInfo struct with CPU, memory, disk, and status information
     fn collect_process_info(process: &Process) -> ProcessInfo {
         let status = match process.status() {
             ProcessStatus::Run => "running",

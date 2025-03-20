@@ -2,6 +2,10 @@ use std::path::PathBuf;
 use std::fs;
 use std::time::Duration;
 use super::{ContextState, ContextError, ContextSnapshot};
+use std::collections::HashMap;
+// Imported for use in #[allow(dead_code)] structs
+// use chrono::{DateTime, Utc};
+// use serde_json::Value;
 
 /// Storage interface for persisting context data
 pub trait Storage: Send + Sync + std::fmt::Debug {
@@ -132,6 +136,12 @@ impl FileStorage {
     ///
     /// # Returns
     /// * `Result<Self, ContextError>` - Storage instance or error
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::PersistenceError` if there's a failure creating 
+    /// the base directory, typically due to filesystem permission issues or 
+    /// path validity problems.
     pub fn new(base_path: PathBuf) -> Result<Self, ContextError> {
         fs::create_dir_all(&base_path).map_err(|e| {
             ContextError::PersistenceError(format!("Failed to create directory: {e}"))
@@ -212,11 +222,11 @@ impl Serializer for JsonSerializer {
     }
 }
 
-/// In-memory cache for context data to improve performance
-#[derive(Debug)]
+/// Cache for context data to improve read performance
+#[allow(dead_code)]
 struct ContextCache {
     /// Cache entries mapping keys to data and expiration
-    entries: std::collections::HashMap<String, CacheEntry>,
+    entries: HashMap<String, CacheEntry>,
     /// Maximum number of entries to store in the cache
     max_size: usize,
     /// Time-to-live duration for cache entries
@@ -224,7 +234,7 @@ struct ContextCache {
 }
 
 /// Entry in the context cache
-#[derive(Debug)]
+#[allow(dead_code)]
 struct CacheEntry {
     /// The cached data
     data: Vec<u8>,
