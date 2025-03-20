@@ -233,6 +233,13 @@ impl ContextAdapter {
     // This method would be used to convert between the general context system
     // and the MCP-specific context representation
     #[allow(dead_code)]
+    /// Converts a general context state to the adapter-specific format
+    ///
+    /// # Arguments
+    /// * `state` - The context state to convert
+    ///
+    /// # Returns
+    /// The converted adapter context data with appropriate ID and timestamps
     fn convert_context_state(state: &ContextState) -> AdapterContextData {
         // Implementation would convert between the general context system format
         // and the MCP-specific format

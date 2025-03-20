@@ -272,14 +272,14 @@ impl MCPPersistence {
 
     /// Gets the path for a change file
     fn get_change_path(&self, change_id: &Uuid) -> PathBuf {
-        self.config.data_dir.join(format!("{}.change", change_id))
+        self.config.data_dir.join(format!("{change_id}.change"))
     }
 
     /// Loads all changes from disk
     ///
     /// # Returns
     ///
-    /// A vector of StateChange objects
+    /// A vector of `StateChange` objects
     ///
     /// # Errors
     ///

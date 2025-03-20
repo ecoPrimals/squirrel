@@ -233,7 +233,7 @@ impl SecurityManagerImpl {
     /// # Errors
     ///
     /// Returns an error if role creation fails or if the configuration contains invalid roles.
-    pub async fn new(config: SecurityConfig) -> Result<Arc<Self>> {
+    pub fn new(config: SecurityConfig) -> Result<Arc<Self>> {
         // Create key manager
         let key_manager = KeyManager::new();
         
@@ -770,7 +770,7 @@ mod tests {
     #[tokio::test]
     async fn test_authentication() {
         let config = SecurityConfig::default();
-        let security = SecurityManagerImpl::new(config).await.unwrap();
+        let security = SecurityManagerImpl::new(config).unwrap();
         
         let credentials = Credentials {
             client_id: "test-client".to_string(),
@@ -786,7 +786,7 @@ mod tests {
     #[tokio::test]
     async fn test_authorization() {
         let config = SecurityConfig::default();
-        let security = SecurityManagerImpl::new(config).await.unwrap();
+        let security = SecurityManagerImpl::new(config).unwrap();
         
         let credentials = Credentials {
             client_id: "test-client".to_string(),
@@ -803,7 +803,7 @@ mod tests {
     #[tokio::test]
     async fn test_encryption() {
         let config = SecurityConfig::default();
-        let security = SecurityManagerImpl::new(config).await.unwrap();
+        let security = SecurityManagerImpl::new(config).unwrap();
         
         let credentials = Credentials {
             client_id: "test-client".to_string(),
@@ -871,7 +871,7 @@ mod tests {
         config.default_roles = vec![read_role, write_role];
         
         // Create security manager with proper initialization
-        let security = SecurityManagerImpl::new(config).await.unwrap();
+        let security = SecurityManagerImpl::new(config).unwrap();
         
         // Test authentication with custom roles
         let credentials = Credentials {

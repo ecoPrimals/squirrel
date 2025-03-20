@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use uuid::Uuid;
 use super::{ContextState, ContextError, ContextSnapshot};
-use super::persistence::ContextPersistence;
+use super::persistence::PersistenceManager;
 
 /// Defines a strategy for selecting a context snapshot for recovery
 ///
@@ -44,6 +44,7 @@ impl RecoveryStrategy for LatestVersionStrategy {
 
 /// Strategy that selects a context snapshot with a specific version number
 pub struct SpecificVersionStrategy {
+    /// The specific version number to look for when recovering
     version: u64,
 }
 
@@ -91,7 +92,7 @@ impl RecoveryStrategy for TimeBasedStrategy {
 /// Manages context snapshots and recovery operations
 pub struct RecoveryManager {
     /// Persistence layer for storing snapshots
-    persistence: Arc<Mutex<ContextPersistence>>,
+    persistence: Arc<Mutex<PersistenceManager>>,
     /// Collection of context snapshots stored in memory
     snapshots: VecDeque<ContextSnapshot>,
     /// Maximum number of snapshots to keep in memory
@@ -105,7 +106,7 @@ impl RecoveryManager {
     /// * `persistence` - The persistence layer for storing snapshots
     /// * `max_snapshots` - Maximum number of snapshots to keep in memory
     pub const fn new(
-        persistence: Arc<Mutex<ContextPersistence>>,
+        persistence: Arc<Mutex<PersistenceManager>>,
         max_snapshots: usize,
     ) -> Self {
         Self {
@@ -133,14 +134,14 @@ impl RecoveryManager {
             metadata: None,
         };
 
-        if let Ok(mut persistence) = self.persistence.lock() {
+        if let Ok(persistence) = self.persistence.lock() {
             persistence.save_snapshot(&snapshot)?;
         }
 
         self.snapshots.push_back(snapshot.clone());
         if self.snapshots.len() > self.max_snapshots {
             if let Some(old_snapshot) = self.snapshots.pop_front() {
-                if let Ok(mut persistence) = self.persistence.lock() {
+                if let Ok(persistence) = self.persistence.lock() {
                     let _ = persistence.delete_snapshot(&old_snapshot.id);
                 }
             }
@@ -184,7 +185,7 @@ impl RecoveryManager {
     pub fn delete_snapshot(&mut self, id: &str) -> Result<(), ContextError> {
         if let Some(index) = self.snapshots.iter().position(|s| s.id == id) {
             self.snapshots.remove(index);
-            if let Ok(mut persistence) = self.persistence.lock() {
+            if let Ok(persistence) = self.persistence.lock() {
                 persistence.delete_snapshot(id)?;
             }
             Ok(())
@@ -216,18 +217,16 @@ mod tests {
     use super::*;
     use std::time::Duration;
     use tempfile::tempdir;
-    use crate::context::persistence::{ContextPersistence, FileStorage, JsonSerializer};
+    use crate::context::persistence::{FileStorage, JsonSerializer};
 
     #[test]
     fn test_recovery_manager() {
         let temp_dir = tempdir().unwrap();
         let storage = Box::new(FileStorage::new(temp_dir.path().to_path_buf()).unwrap());
         let serializer = Box::new(JsonSerializer::new());
-        let persistence = Arc::new(Mutex::new(ContextPersistence::new(
+        let persistence = Arc::new(Mutex::new(PersistenceManager::new(
             storage,
             serializer,
-            10,
-            Duration::from_secs(60),
         )));
 
         let mut recovery = RecoveryManager::new(persistence.clone(), 10);
@@ -264,11 +263,9 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let storage = Box::new(FileStorage::new(temp_dir.path().to_path_buf()).unwrap());
         let serializer = Box::new(JsonSerializer::new());
-        let persistence = Arc::new(Mutex::new(ContextPersistence::new(
+        let persistence = Arc::new(Mutex::new(PersistenceManager::new(
             storage,
             serializer,
-            10,
-            Duration::from_secs(60),
         )));
 
         let mut recovery = RecoveryManager::new(persistence.clone(), 10);
@@ -305,11 +302,9 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let storage = Box::new(FileStorage::new(temp_dir.path().to_path_buf()).unwrap());
         let serializer = Box::new(JsonSerializer::new());
-        let persistence = Arc::new(Mutex::new(ContextPersistence::new(
+        let persistence = Arc::new(Mutex::new(PersistenceManager::new(
             storage,
             serializer,
-            10,
-            Duration::from_secs(60),
         )));
 
         let recovery = RecoveryManager::new(persistence.clone(), 10);

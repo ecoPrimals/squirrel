@@ -26,9 +26,17 @@ pub enum MCPContextAdapterError {
     OperationFailed(String),
 }
 
+/// Adapter for working with the Context Manager
+#[derive(Debug, Clone)]
+pub struct ContextManagerAdapter {
+    /// The wrapped context adapter implementation
+    inner: Option<Arc<ContextAdapter>>,
+}
+
 /// Adapter for connecting MCP to the general context system
 #[derive(Debug)]
 pub struct MCPContextAdapter {
+    /// The wrapped context adapter implementation
     inner: Option<Arc<ContextAdapter>>,
 }
 

@@ -416,7 +416,17 @@ impl ContextManager {
     }
 }
 
-// Simple rule validator function
+/// Validates if a rule applies to a context
+///
+/// This function checks whether a given rule applies to a specific context
+/// based on its properties.
+///
+/// # Arguments
+/// * `rule` - The rule string to validate
+/// * `context` - The context to validate against
+///
+/// # Returns
+/// `true` if the rule applies to the context, `false` otherwise
 fn rule_validator(rule: &str, context: &Context) -> bool {
     // This is a placeholder implementation - add real validation logic as needed
     match rule {

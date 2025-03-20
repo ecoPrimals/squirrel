@@ -41,7 +41,7 @@ pub mod persistence;
 pub mod sync;
 /// Recovery functionality for handling context state failures
 pub mod recovery;
-/// Tracking functionality for monitoring context state changes
+// Tracking functionality for monitoring context state changes
 // pub mod tracker; // Temporarily commented out due to encoding issues
 
 /// A snapshot of context state at a point in time

@@ -117,7 +117,8 @@ impl StateSyncManager {
     /// Subscribes to change notifications
     ///
     /// Returns a receiver that will be notified of all context changes.
-    pub async fn subscribe_changes(&self) -> broadcast::Receiver<StateChange> {
+    #[must_use]
+    pub fn subscribe_changes(&self) -> broadcast::Receiver<StateChange> {
         self.sender.subscribe()
     }
 
@@ -238,7 +239,7 @@ mod tests {
     #[tokio::test]
     async fn test_change_subscription() {
         let manager = StateSyncManager::new();
-        let mut rx = manager.subscribe_changes().await;
+        let mut rx = manager.subscribe_changes();
 
         let context = Context {
             id: Uuid::new_v4(),

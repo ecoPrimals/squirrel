@@ -126,7 +126,7 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - The protocol is already initialized
     /// - The state cannot be serialized to the internal representation
-    pub async fn initialize(&mut self) -> Result<()> {
+    pub fn initialize(&mut self) -> Result<()> {
         if self.is_initialized() {
             return Err(SquirrelError::MCP("Protocol already initialized".to_string()));
         }
@@ -150,7 +150,7 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - The protocol is already initialized
     /// - The state cannot be serialized to the internal representation
-    pub async fn initialize_with_config(&mut self, config: ProtocolConfig) -> Result<()> {
+    pub fn initialize_with_config(&mut self, config: ProtocolConfig) -> Result<()> {
         if self.is_initialized() {
             return Err(SquirrelError::MCP("Protocol already initialized".to_string()));
         }
@@ -174,10 +174,11 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - A handler is already registered for the message type
     /// - The handler registration fails for any reason
-    pub async fn register_handler(&mut self, message_type: &MessageType, handler: Arc<dyn CommandHandler>) -> Result<()> {
+    pub fn register_handler(&mut self, message_type: &MessageType, handler: Arc<dyn CommandHandler>) -> Result<()> {
         // Create a wrapper that converts Arc<dyn CommandHandler> to a compatible Box<dyn CommandHandler>
         #[derive(Debug)]
         struct CommandHandlerWrapper {
+            /// The wrapped command handler implementation
             inner: Arc<dyn CommandHandler>,
         }
         
@@ -200,7 +201,7 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - No handler is registered for the message type
     /// - The handler unregistration fails for any reason
-    pub async fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
+    pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.base.unregister_handler(message_type)
     }
 }
@@ -283,17 +284,17 @@ impl MCPProtocol for MCPProtocolImpl {
 
 /// Create a protocol adapter with the provided protocol
 #[allow(dead_code)]
-pub async fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolAdapter> {
+pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolAdapter> {
     let mut protocol = protocol;
-    protocol.initialize().await?;
+    protocol.initialize()?;
     Ok(MCPProtocolAdapter::with_protocol(protocol.base))
 }
 
 /// Create a protocol adapter with the provided protocol and config
 #[allow(dead_code)]
-pub async fn create_protocol_adapter_with_config(protocol: MCPProtocolImpl, config: ProtocolConfig) -> Result<MCPProtocolAdapter> {
+pub fn create_protocol_adapter_with_config(protocol: MCPProtocolImpl, config: ProtocolConfig) -> Result<MCPProtocolAdapter> {
     let mut protocol = protocol;
-    protocol.initialize_with_config(config).await?;
+    protocol.initialize_with_config(config)?;
     Ok(MCPProtocolAdapter::with_protocol(protocol.base))
 }
 

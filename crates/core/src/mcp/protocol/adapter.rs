@@ -18,9 +18,10 @@ pub enum ProtocolAdapterError {
     AlreadyInitialized,
 }
 
-/// Adapter for the MCP protocol to support dependency injection
+/// Protocol adapter that provides a clean interface for working with the MCP protocol
 #[derive(Debug)]
 pub struct MCPProtocolAdapter {
+    /// Inner protocol implementation wrapped in a thread-safe container
     inner: Arc<RwLock<Option<MCPProtocolBase>>>,
 }
 

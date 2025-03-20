@@ -164,6 +164,13 @@ impl MCPSync {
         Ok(())
     }
 
+    /// Loads persisted changes from storage
+    ///
+    /// This method loads previously saved state changes from persistent storage
+    /// and applies them to the current state.
+    ///
+    /// # Returns
+    /// Ok(()) if successful, or an error if the changes couldn't be loaded
     async fn load_persisted_changes(&self) -> Result<()> {
         let start = Instant::now();
         let changes = self.persistence.load_changes()?;
@@ -307,7 +314,7 @@ impl MCPSync {
     /// Returns an error if unable to create the subscription
     pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
         self.ensure_initialized().await?;
-        Ok(self.state_manager.subscribe_changes().await)
+        Ok(self.state_manager.subscribe_changes())
     }
 
     /// Update the synchronization configuration
@@ -372,7 +379,7 @@ impl MCPSync {
     ///
     /// # Errors
     /// Returns an error if the monitor cannot be retrieved
-    pub async fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
+    pub fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
         Ok(Arc::clone(&self.monitor))
     }
 }

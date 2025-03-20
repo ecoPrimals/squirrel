@@ -257,12 +257,8 @@ impl ErrorHandler {
     /// # Arguments
     /// 
     /// * `_context` - The error context containing information about the error
-    /// 
-    /// # Returns
-    /// 
-    /// Result indicating if recovery was successful
-    async fn recover_connection(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
-        Ok(())
+    fn recover_connection(_context: &LocalErrorContext) {
+        // Implementation would go here
     }
 
     /// Attempts to recover state after an error
@@ -270,12 +266,8 @@ impl ErrorHandler {
     /// # Arguments
     /// 
     /// * `_context` - The error context containing information about the error
-    /// 
-    /// # Returns
-    /// 
-    /// Result indicating if recovery was successful
-    async fn recover_state(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
-        Ok(())
+    fn recover_state(_context: &LocalErrorContext) {
+        // Implementation would go here
     }
 
     /// Attempts to recover protocol functionality after an error
@@ -283,12 +275,8 @@ impl ErrorHandler {
     /// # Arguments
     /// 
     /// * `_context` - The error context containing information about the error
-    /// 
-    /// # Returns
-    /// 
-    /// Result indicating if recovery was successful
-    async fn recover_protocol(&self, _context: &LocalErrorContext) -> Result<(), ErrorHandlerError> {
-        Ok(())
+    fn recover_protocol(_context: &LocalErrorContext) {
+        // Implementation would go here
     }
 
     pub fn apply_recovery_strategy(
