@@ -297,9 +297,7 @@ impl SquirrelError {
     /// Check if the error is recoverable
     #[must_use] pub fn is_recoverable(&self) -> bool {
         match self {
-            SquirrelError::IO(_) => false,
-            SquirrelError::Generic(_) => false,
-            SquirrelError::AppInitialization(_) => false,
+            SquirrelError::IO(_) | SquirrelError::Generic(_) | SquirrelError::AppInitialization(_) => false,
             SquirrelError::AppOperation(e) => {
                 !matches!(e, AppOperationError::NotInitialized)
             },

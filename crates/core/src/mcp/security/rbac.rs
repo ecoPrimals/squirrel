@@ -100,7 +100,20 @@ impl RBACManager {
         self.get_role_by_name(id_or_name)
     }
 
-    /// Creates a new role
+    /// Creates a new role with the given properties
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Name of the role
+    /// * `description` - Optional description of the role
+    /// * `permissions` - Set of permissions granted by this role
+    /// * `parent_roles` - Set of parent role IDs that this role inherits from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - A role with the given name already exists
+    /// - Any of the parent roles don't exist
     pub fn create_role(
         &mut self,
         name: String,
@@ -108,7 +121,7 @@ impl RBACManager {
         permissions: HashSet<Permission>,
         parent_roles: HashSet<String>,
     ) -> Result<Role> {
-        // Check if role name already exists
+        // Check if a role with this name already exists
         if self.roles_by_name.contains_key(&name) {
             return Err(SquirrelError::Security(format!("Role with name '{name}' already exists")));
         }
@@ -116,35 +129,10 @@ impl RBACManager {
         // Verify parent roles exist
         self.verify_parent_roles(&parent_roles)?;
         
-        // Create new role with UUID
+        // Create a unique ID for the role
         let id = Uuid::new_v4().to_string();
         
         // Create the role
-        self.create_role_with_id(id, name, description, permissions, parent_roles)
-    }
-    
-    /// Creates a new role with a specific ID (useful for testing)
-    pub fn create_role_with_id(
-        &mut self,
-        id: String,
-        name: String,
-        description: Option<String>,
-        permissions: HashSet<Permission>,
-        parent_roles: HashSet<String>,
-    ) -> Result<Role> {
-        // Check if role ID already exists
-        if self.roles_by_id.contains_key(&id) {
-            return Err(SquirrelError::Security(format!("Role with ID '{id}' already exists")));
-        }
-        
-        // Check if role name already exists
-        if self.roles_by_name.contains_key(&name) {
-            return Err(SquirrelError::Security(format!("Role with name '{name}' already exists")));
-        }
-        
-        // Verify parent roles exist
-        self.verify_parent_roles(&parent_roles)?;
-        
         let role = Role {
             id: id.clone(),
             name: name.clone(),
@@ -153,7 +141,60 @@ impl RBACManager {
             parent_roles,
         };
         
-        // Store role
+        // Store the role
+        self.roles_by_id.insert(id.clone(), role.clone());
+        self.roles_by_name.insert(name, id);
+        
+        Ok(role)
+    }
+    
+    /// Creates a new role with the specified ID
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - ID to use for the role
+    /// * `name` - Name of the role
+    /// * `description` - Optional description of the role
+    /// * `permissions` - Set of permissions granted by this role
+    /// * `parent_roles` - Set of parent role IDs that this role inherits from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - A role with the given ID already exists
+    /// - A role with the given name already exists
+    /// - Any of the parent roles don't exist
+    pub fn create_role_with_id(
+        &mut self,
+        id: String,
+        name: String,
+        description: Option<String>,
+        permissions: HashSet<Permission>,
+        parent_roles: HashSet<String>,
+    ) -> Result<Role> {
+        // Check if a role with this ID already exists
+        if self.roles_by_id.contains_key(&id) {
+            return Err(SquirrelError::Security(format!("Role with ID '{id}' already exists")));
+        }
+        
+        // Check if a role with this name already exists
+        if self.roles_by_name.contains_key(&name) {
+            return Err(SquirrelError::Security(format!("Role with name '{name}' already exists")));
+        }
+        
+        // Verify parent roles exist
+        self.verify_parent_roles(&parent_roles)?;
+        
+        // Create the role
+        let role = Role {
+            id: id.clone(),
+            name: name.clone(),
+            description,
+            permissions,
+            parent_roles,
+        };
+        
+        // Store the role
         self.roles_by_id.insert(id.clone(), role.clone());
         self.roles_by_name.insert(name, id);
         
@@ -171,6 +212,16 @@ impl RBACManager {
     }
 
     /// Assigns a role to a user
+    ///
+    /// # Parameters
+    ///
+    /// * `user_id` - ID of the user to assign the role to
+    /// * `role_id` - ID of the role to assign
+    ///
+    /// # Errors
+    ///
+    /// Returns a `SquirrelError::Security` error if:
+    /// - The role with the specified ID doesn't exist in the system
     pub fn assign_role(&mut self, user_id: String, role_id: String) -> Result<()> {
         // Check if role exists
         if !self.roles_by_id.contains_key(&role_id) {
@@ -186,10 +237,20 @@ impl RBACManager {
         Ok(())
     }
     
-    /// Assigns a role to a user by name
-    pub fn assign_role_by_name(&mut self, user_id: String, role_name: String) -> Result<()> {
+    /// Assigns a role to a user by role name
+    ///
+    /// # Arguments
+    /// * `user_id` - ID of the user
+    /// * `role_name` - Name of the role to assign
+    ///
+    /// # Errors
+    ///
+    /// Returns a `SquirrelError::Security` error if:
+    /// - The role with the specified name doesn't exist in the system
+    /// - The underlying `assign_role` operation fails
+    pub fn assign_role_by_name(&mut self, user_id: String, role_name: &str) -> Result<()> {
         // Check if role exists
-        let role_id = self.roles_by_name.get(&role_name)
+        let role_id = self.roles_by_name.get(role_name)
             .ok_or_else(|| SquirrelError::Security(format!("Role '{role_name}' not found in system")))?
             .clone();
         

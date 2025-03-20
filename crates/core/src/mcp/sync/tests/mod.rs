@@ -6,7 +6,6 @@ use chrono::Utc;
 use uuid::Uuid;
 #[cfg(test)]
 use tempfile::tempdir;
-use std::sync::atomic::AtomicU64;
 
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::{

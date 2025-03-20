@@ -12,10 +12,10 @@ use uuid::Uuid;
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::mcp::context_manager::Context;
 use crate::mcp::sync::StateChange;
-use crate::mcp::error::types::MCPError;
 use async_trait::async_trait;
 use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
 use serde_json;
+use std::io::Write;
 
 /// Configuration settings for the persistence layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,9 +67,13 @@ pub struct PersistentState {
 /// Persistence layer for MCP
 #[derive(Debug)]
 pub struct MCPPersistence {
+    /// Configuration for the persistence layer
     config: PersistenceConfig,
+    /// Metadata about stored data
     metadata: Arc<RwLock<StorageMetadata>>,
+    /// Current state stored in memory
     state: Arc<RwLock<PersistentState>>,
+    /// Whether the persistence layer has been initialized
     initialized: AtomicBool,
 }
 
@@ -105,73 +109,63 @@ impl MCPPersistence {
         }
     }
 
-    /// Initializes the persistence layer
+    /// Initializes the persistence system
     ///
-    /// Creates necessary directories if they don't exist and
-    /// prepares the persistence layer for use.
+    /// Sets up necessary directories and loads any existing state.
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A Result indicating success or an error
-    pub async fn init(&self) -> Result<()> {
+    /// Returns an error if the initialization fails, which might happen if:
+    /// - Unable to create required directories
+    /// - Unable to load existing state data
+    pub fn init(&self) -> Result<()> {
         if self.initialized.load(Ordering::Relaxed) {
             return Ok(());
         }
-
-        if !self.config.data_dir.exists() {
-            fs::create_dir_all(&self.config.data_dir)?;
-        }
-
+        
+        fs::create_dir_all(&self.config.data_dir)?;
+        fs::create_dir_all(self.config.data_dir.join("changes"))?;
+        
         self.initialized.store(true, Ordering::Relaxed);
         Ok(())
     }
 
-    /// Saves the persistent state to storage
+    /// Save the current state
     ///
-    /// # Parameters
+    /// # Errors
     ///
-    /// * `state` - The state to save
-    ///
-    /// # Returns
-    ///
-    /// A Result indicating success or an error
-    pub async fn save_state(&self, state: PersistentState) -> Result<()> {
+    /// Returns an error if the state cannot be saved due to:
+    /// - File system errors
+    /// - Serialization errors
+    pub fn save_state(&self, state: &PersistentState) -> Result<()> {
         let state_path = self.get_state_path(&state.id);
         let temp_path = state_path.with_extension("tmp");
         
-        let state_json = serde_json::to_string_pretty(&state)?;
+        let data = serde_json::to_string_pretty(state)?;
+        fs::write(&temp_path, data)?;
         
-        fs::write(&temp_path, &state_json)?;
-        
-        fs::rename(&temp_path, &state_path)?;
+        // Atomic rename
+        fs::rename(temp_path, state_path)?;
         
         Ok(())
     }
 
-    /// Loads the state from persistent storage
-    /// 
-    /// # Returns
-    /// Returns the loaded state if found, or None if no state exists
-    /// 
+    /// Loads state from persistent storage
+    ///
     /// # Errors
-    /// Returns an error if there is an issue reading from the file system
-    /// or if the state file is corrupted
-    pub async fn load_state(&self) -> Result<Option<PersistentState>> {
+    ///
+    /// Returns an error if the state cannot be loaded due to:
+    /// - File system errors
+    /// - Deserialization errors
+    pub fn load_state(&self) -> Result<Option<PersistentState>> {
         // Try to find any state file in the data directory
-        let entries = match fs::read_dir(&self.config.data_dir) {
-            Ok(entries) => entries,
-            Err(_) => return Ok(None),
-        };
-
-        // Find the first state file
-        for entry in entries {
-            let entry = entry?;
-            let file_name = entry.file_name();
-            let file_name = file_name.to_string_lossy();
+        let Ok(entries) = fs::read_dir(&self.config.data_dir) else { return Ok(None) };
+        
+        for entry in entries.flatten() {
+            let path = entry.path();
             
-            // Check if this is a state file
-            if file_name.starts_with("state_") && file_name.ends_with(".json") {
-                let data = fs::read_to_string(entry.path())?;
+            if path.extension().is_some_and(|ext| ext == "json") && path.to_string_lossy().contains("state_") {
+                let data = fs::read_to_string(path)?;
                 let state: PersistentState = serde_json::from_str(&data)?;
                 return Ok(Some(state));
             }
@@ -180,104 +174,68 @@ impl MCPPersistence {
         Ok(None)
     }
 
-    /// Saves a state change to persistent storage
-    /// 
-    /// # Arguments
-    /// * `change` - The state change to save
-    /// 
+    /// Saves a state change to a file.
+    ///
     /// # Errors
-    /// Returns an error if there is an issue writing to the file system
-    /// or if serialization fails
-    pub async fn save_change(&self, change: StateChange) -> Result<()> {
-        // Ensure the changes directory exists
-        let changes_dir = self.config.data_dir.join("changes");
-        if !changes_dir.exists() {
-            fs::create_dir_all(&changes_dir)?;
+    ///
+    /// Returns an error if the file cannot be created, the data cannot be serialized, or the write
+    /// mechanism fails.
+    pub fn save_change(&self, change: &StateChange) -> Result<()> {
+        // Make sure the changes directory exists
+        if !self.config.data_dir.exists() {
+            fs::create_dir_all(&self.config.data_dir)?;
         }
         
-        // Save the change to a file
-        let change_path = self.get_change_path(change.id);
-        let change_json = serde_json::to_string_pretty(&change)?;
-        fs::write(change_path, change_json)?;
+        // Serialize the change to JSON
+        let json = serde_json::to_string_pretty(change)?;
         
-        // Check if we need to compact changes directly
-        let mut size = 0;
-        let entries = fs::read_dir(&self.config.data_dir)?;
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if let Ok(metadata) = entry.metadata() {
-                    size += metadata.len() as usize;
-                }
-            }
-        }
+        // Write to a file
+        let path = self.get_change_path(&change.id);
+        let mut file = fs::File::create(path)?;
+        file.write_all(json.as_bytes())?;
         
-        // Use Box::pin to handle the recursive async call
-        if size > self.config.auto_compact_threshold {
-            let fut = Box::pin(self.compact_changes());
-            fut.await?;
+        // Check if we need to compact changes
+        let total_size = self.get_data_dir_size()?;
+        if total_size > self.config.auto_compact_threshold {
+            self.compact_changes()?;
         }
         
         Ok(())
     }
 
-    /// Loads all state changes from persistent storage
-    /// 
-    /// # Returns
-    /// Returns a vector of all persisted state changes
-    /// 
+    /// Compacts changes in storage to reduce disk usage
+    ///
     /// # Errors
-    /// Returns an error if there is an issue reading from the file system
-    /// or if any change files are corrupted
-    pub async fn load_changes(&self) -> Result<Vec<StateChange>> {
-        let mut changes = Vec::new();
-
-        let dir_path = self.config.data_dir.join("changes");
-        if !dir_path.exists() {
-            return Ok(changes);
-        }
-        
-        for entry in fs::read_dir(dir_path)? {
-            let entry = entry?;
-            let path = entry.path();
-            
-            if let Some(ext) = path.extension() {
-                if ext == "json" {
-                    let change_json = fs::read_to_string(&path)?;
-                    let change = serde_json::from_str(&change_json)?;
-                    changes.push(change);
-                }
-            }
-        }
-        
-        Ok(changes)
-    }
-
-    /// Checks if the storage needs to be compacted and performs compaction if necessary
-    /// 
-    /// # Errors
-    /// Returns an error if there is an issue accessing or modifying the file system
-    async fn compact_if_needed(&self) -> Result<()> {
+    /// Returns an error if there is an issue with filesystem operations
+    fn compact_if_needed(&self) -> Result<()> {
         let mut size = 0;
         let entries = fs::read_dir(&self.config.data_dir)?;
-        for entry in entries {
-            if let Ok(entry) = entry {
-                if let Ok(metadata) = entry.metadata() {
-                    size += metadata.len() as usize;
-                }
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                size += metadata.len() as usize;
             }
         }
         
-        // Instead of calling compact_changes() which could lead to recursion,
-        // we just return a flag to the caller to indicate if compaction is needed
+        // Check if compaction is needed and perform it
         if size > self.config.auto_compact_threshold {
-            return Err(MCPError::StorageError("Storage size exceeded, compaction needed".to_string()).into());
+            self.compact_changes()?;
         }
         
         Ok(())
     }
 
-    async fn compact_changes(&self) -> Result<()> {
-        let changes = self.load_changes().await?;
+    /// Compacts changes to save disk space
+    ///
+    /// # Errors
+    /// Returns an error if there is an issue with filesystem operations or serialization
+    fn compact_changes(&self) -> Result<()> {
+        let changes = self.load_changes()?;
+        
+        // If there are no changes, nothing to compact
+        if changes.is_empty() {
+            return Ok(());
+        }
+        
         let entries = fs::read_dir(&self.config.data_dir)?;
 
         // Remove old change files
@@ -289,10 +247,15 @@ impl MCPPersistence {
         }
 
         // Save only the most recent changes
-        for change in changes.iter().rev().take(100) {
-            self.save_change(change.clone()).await?;
+        // A more sophisticated implementation could keep only changes newer than a certain threshold
+        // or merge changes for the same context
+        for change in changes.iter().skip(changes.len().saturating_sub(100)) {
+            let json = serde_json::to_string_pretty(&change)?;
+            let path = self.get_change_path(&change.id);
+            let mut file = fs::File::create(path)?;
+            file.write_all(json.as_bytes())?;
         }
-
+        
         Ok(())
     }
 
@@ -307,28 +270,61 @@ impl MCPPersistence {
         self.config.data_dir.join(format!("state_{id}.json"))
     }
 
-    /// Gets the path to a change file
-    ///
-    /// # Arguments
-    /// * `id` - The change ID
-    ///
-    /// # Returns
-    /// The full path to the change file
-    fn get_change_path(&self, id: impl Into<Uuid>) -> PathBuf {
-        let uuid: Uuid = id.into();
-        self.config.data_dir.join("changes").join(format!("{uuid}.json"))
+    /// Gets the path for a change file
+    fn get_change_path(&self, change_id: &Uuid) -> PathBuf {
+        self.config.data_dir.join(format!("{}.change", change_id))
     }
 
-    /// Saves data to persistent storage
-    /// 
-    /// # Arguments
-    /// * `key` - The key under which to store the data
-    /// * `data` - The data to store
-    /// 
+    /// Loads all changes from disk
+    ///
+    /// # Returns
+    ///
+    /// A vector of StateChange objects
+    ///
     /// # Errors
-    /// This function currently returns no errors, but in a real implementation
-    /// it could return storage-related errors
-    pub async fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
+    ///
+    /// Returns an error if the changes cannot be loaded or if the underlying storage
+    /// mechanism fails.
+    pub fn load_changes(&self) -> Result<Vec<StateChange>> {
+        let mut changes = Vec::new();
+        
+        // Make sure the data directory exists
+        if !self.config.data_dir.exists() {
+            return Ok(changes);
+        }
+
+        // Read all files with .change extension
+        let entries = fs::read_dir(&self.config.data_dir)?;
+        
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            
+            if path.extension().is_some_and(|ext| ext == "change") {
+                let file_contents = fs::read_to_string(&path)?;
+                let change: StateChange = serde_json::from_str(&file_contents)?;
+                changes.push(change);
+            }
+        }
+        
+        // Sort changes by version to ensure they're processed in order
+        changes.sort_by(|a, b| a.version.cmp(&b.version));
+        
+        Ok(changes)
+    }
+
+    /// Saves data with the specified key
+    ///
+    /// # Parameters
+    ///
+    /// * `_key` - The key to save the data under
+    /// * `_data` - The data to save
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the data cannot be saved or if the underlying storage
+    /// mechanism fails.
+    pub fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
         // Stub implementation
         Ok(())
     }
@@ -339,10 +335,11 @@ impl MCPPersistence {
     ///
     /// * `_key` - The key of the data to load
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A Result containing the loaded data or an error
-    pub async fn load(&self, _key: &str) -> Result<Vec<u8>> {
+    /// Returns an error if the data cannot be loaded or if the underlying storage
+    /// mechanism fails.
+    pub fn load(&self, _key: &str) -> Result<Vec<u8>> {
         // Stub implementation
         Ok(Vec::new())
     }
@@ -353,25 +350,25 @@ impl MCPPersistence {
     ///
     /// * `_key` - The key of the data to delete
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A Result indicating success or an error
-    pub async fn delete(&self, _key: &str) -> Result<()> {
+    /// Returns an error if the data cannot be deleted or if the underlying storage
+    /// mechanism fails.
+    pub fn delete(&self, _key: &str) -> Result<()> {
         // Stub implementation
         Ok(())
     }
 
-    /// Updates the configuration settings
+    /// Updates the configuration
     ///
     /// # Parameters
     ///
-    /// * `config` - The new configuration settings
+    /// * `config` - The new configuration
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A Result indicating success or an error
+    /// Returns an error if the configuration is invalid or if applying it fails.
     pub fn update_config(&mut self, config: PersistenceConfig) -> Result<()> {
-        // Simply update the config field directly
         self.config = config;
         Ok(())
     }
@@ -385,14 +382,45 @@ impl MCPPersistence {
         self.config.clone()
     }
 
-    /// Gets the storage metadata
+    /// Gets the current metadata
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A Result containing the metadata or an error
+    /// Returns an error if metadata cannot be accessed.
     pub async fn get_metadata(&self) -> Result<StorageMetadata> {
         let metadata = self.metadata.read().await;
         Ok(metadata.clone())
+    }
+
+    /// Gets the total size of files in the data directory
+    ///
+    /// # Returns
+    ///
+    /// The total size in bytes
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory cannot be read
+    fn get_data_dir_size(&self) -> Result<usize> {
+        let mut total_size = 0;
+        
+        // Make sure the data directory exists
+        if !self.config.data_dir.exists() {
+            return Ok(0);
+        }
+        
+        // Iterate through all files and sum their sizes
+        let entries = fs::read_dir(&self.config.data_dir)?;
+        for entry in entries {
+            let entry = entry?;
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    total_size += metadata.len() as usize;
+                }
+            }
+        }
+        
+        Ok(total_size)
     }
 }
 
@@ -435,7 +463,7 @@ mod tests_persistence_impl {
         };
 
         let persistence = MCPPersistence::new(config);
-        assert!(persistence.init().await.is_ok());
+        assert!(persistence.init().is_ok());
 
         // Create test state
         let state = PersistentState {
@@ -456,10 +484,10 @@ mod tests_persistence_impl {
         };
 
         // Save state
-        assert!(persistence.save_state(state).await.is_ok());
+        assert!(persistence.save_state(&state).is_ok());
 
         // Load state
-        let loaded = persistence.load_state().await.unwrap().unwrap();
+        let loaded = persistence.load_state().unwrap().unwrap();
         assert_eq!(loaded.contexts.len(), 1);
         assert_eq!(loaded.contexts[0].name, "test");
     }
@@ -478,7 +506,7 @@ mod tests_persistence_impl {
         };
 
         let persistence = MCPPersistence::new(config);
-        assert!(persistence.init().await.is_ok());
+        assert!(persistence.init().is_ok());
 
         // Create test change
         let change_id = Uuid::new_v4();
@@ -492,10 +520,10 @@ mod tests_persistence_impl {
         };
 
         // Save change
-        assert!(persistence.save_change(change).await.is_ok());
+        assert!(persistence.save_change(&change).is_ok());
 
         // Load changes
-        let changes = persistence.load_changes().await.unwrap();
+        let changes = persistence.load_changes().unwrap();
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].id, change_id);
     }

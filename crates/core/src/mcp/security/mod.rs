@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use crate::mcp::types::{SecurityLevel, EncryptionFormat};
 use crate::mcp::error::types::{MCPError, SecurityError};
 use crate::mcp::error::Result;
-use crate::error::SquirrelError;
 
 /// Role-Based Access Control (RBAC) implementation
 pub mod rbac;
@@ -230,6 +229,10 @@ impl NonceSequence for NonceGen {
 
 impl SecurityManagerImpl {
     /// Creates a new security manager with the given configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if role creation fails or if the configuration contains invalid roles.
     pub async fn new(config: SecurityConfig) -> Result<Arc<Self>> {
         // Create key manager
         let key_manager = KeyManager::new();
@@ -300,11 +303,21 @@ impl SecurityManagerImpl {
         self.generate_session_key(&session.id).await?;
 
         // Assign requested roles if provided
-        if let Some(roles) = &credentials.requested_roles {
-            for role_id in roles {
-                if let Err(e) = self.assign_role(credentials.client_id.clone(), role_id.to_string()).await {
-                    tracing::warn!("Failed to assign role: {}", e);
+        if let Some(role_ids) = &credentials.requested_roles {
+            for role_id in role_ids {
+                if let Some(_role) = self.get_role_by_id(role_id).await {
+                    let _ = self.assign_role(credentials.client_id.clone(), role_id.to_string()).await;
                 }
+            }
+        } else {
+            // If no roles were requested, use default roles
+            let mut rbac_manager = self.rbac_manager.write().await;
+            let mut active_roles = Vec::new();
+            active_roles.clone_from(&self.config.default_roles);
+            
+            // Assign default roles to the user
+            for role in &active_roles {
+                let _ = rbac_manager.assign_role(credentials.client_id.clone(), role.id.clone());
             }
         }
         
@@ -467,7 +480,7 @@ impl SecurityManagerImpl {
             }
         } else {
             // If no roles were requested, use default roles
-            active_roles = self.config.default_roles.clone();
+            active_roles.clone_from(&self.config.default_roles);
             
             // Assign default roles to the user
             let mut rbac_manager = self.rbac_manager.write().await;
@@ -538,21 +551,39 @@ impl SecurityManagerImpl {
     }
 
     /// Assigns a role to a user
+    ///
+    /// # Parameters
+    ///
+    /// * `user_id` - Identifier of the user
+    /// * `role_id` - Identifier of the role to assign
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the role doesn't exist or if the assignment fails.
     pub async fn assign_role(&self, user_id: String, role_id: String) -> Result<()> {
         let mut rbac_manager = self.rbac_manager.write().await;
         rbac_manager.assign_role(user_id, role_id)
             .map_err(|e| match e {
-                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
+                crate::error::SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
                 _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{e}"))),
             })
     }
 
     /// Assigns a role to a user by name
+    ///
+    /// # Parameters
+    ///
+    /// * `user_id` - Identifier of the user
+    /// * `role_name` - Name of the role to assign
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the role with the given name doesn't exist or if the assignment fails.
     pub async fn assign_role_by_name(&self, user_id: String, role_name: String) -> Result<()> {
         let mut rbac_manager = self.rbac_manager.write().await;
-        rbac_manager.assign_role_by_name(user_id, role_name)
+        rbac_manager.assign_role_by_name(user_id, &role_name)
             .map_err(|e| match e {
-                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
+                crate::error::SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidCredentials(msg)),
                 _ => MCPError::Security(SecurityError::InvalidCredentials(format!("{e}"))),
             })
     }
@@ -571,6 +602,18 @@ impl SecurityManagerImpl {
     }
 
     /// Creates a new role
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - Name of the role
+    /// * `description` - Optional description
+    /// * `permissions` - Set of permissions for this role
+    /// * `parent_roles` - Set of parent role IDs that this role inherits from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the role with this name already exists or if any parent
+    /// role doesn't exist.
     pub async fn create_role(
         &self, 
         name: String,
@@ -581,12 +624,25 @@ impl SecurityManagerImpl {
         let mut rbac_manager = self.rbac_manager.write().await;
         rbac_manager.create_role(name, description, permissions, parent_roles)
             .map_err(|e| match e {
-                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
+                crate::error::SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
                 _ => MCPError::Security(SecurityError::InvalidRole(format!("{e}"))),
             })
     }
 
-    /// Creates a role with a specific ID (useful for testing)
+    /// Creates a role with a specific ID
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - Specific ID to use for the role
+    /// * `name` - Name of the role
+    /// * `description` - Optional description
+    /// * `permissions` - Set of permissions for this role
+    /// * `parent_roles` - Set of parent role IDs that this role inherits from
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a role with this ID or name already exists, or if any
+    /// parent role doesn't exist.
     pub async fn create_role_with_id(
         &self, 
         id: String,
@@ -598,7 +654,7 @@ impl SecurityManagerImpl {
         let mut rbac_manager = self.rbac_manager.write().await;
         rbac_manager.create_role_with_id(id, name, description, permissions, parent_roles)
             .map_err(|e| match e {
-                SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
+                crate::error::SquirrelError::Security(msg) => MCPError::Security(SecurityError::InvalidRole(msg)),
                 _ => MCPError::Security(SecurityError::InvalidRole(format!("{e}"))),
             })
     }
@@ -709,7 +765,7 @@ pub struct Credentials {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::types::{SecurityLevel, EncryptionFormat};
+    use crate::mcp::types::SecurityLevel;
 
     #[tokio::test]
     async fn test_authentication() {

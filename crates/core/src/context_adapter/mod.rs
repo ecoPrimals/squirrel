@@ -72,7 +72,9 @@ pub struct AdapterContextData {
 /// Context adapter for connecting the general context system to MCP
 #[derive(Debug)]
 pub struct ContextAdapter {
+    /// Configuration for the context adapter
     config: Arc<RwLock<ContextAdapterConfig>>,
+    /// Map of context ID to context data
     contexts: Arc<RwLock<HashMap<String, AdapterContextData>>>,
     // Additional fields for integration with the general context system would go here
 }
@@ -86,14 +88,20 @@ impl ContextAdapter {
             contexts: Arc::new(RwLock::new(HashMap::new())),
         }
     }
+}
 
-    /// Creates a new context adapter with default configuration
-    #[must_use]
-    pub fn default() -> Self {
+impl Default for ContextAdapter {
+    fn default() -> Self {
         Self::new(ContextAdapterConfig::default())
     }
+}
 
+impl ContextAdapter {
     /// Creates a new context
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the maximum number of contexts has been reached.
     pub async fn create_context(&self, id: String, data: Value) -> Result<()> {
         let config = self.config.read().await;
         let mut contexts = self.contexts.write().await;
@@ -117,6 +125,10 @@ impl ContextAdapter {
     }
 
     /// Gets a context by ID
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the context with the specified ID doesn't exist.
     pub async fn get_context(&self, id: &str) -> Result<AdapterContextData> {
         let contexts = self.contexts.read().await;
         contexts.get(id)
@@ -127,6 +139,10 @@ impl ContextAdapter {
     }
 
     /// Updates a context
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the context with the specified ID doesn't exist.
     pub async fn update_context(&self, id: &str, data: Value) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         
@@ -142,6 +158,10 @@ impl ContextAdapter {
     }
 
     /// Deletes a context
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the context with the specified ID doesn't exist.
     pub async fn delete_context(&self, id: &str) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         if contexts.remove(id).is_some() {
@@ -154,12 +174,22 @@ impl ContextAdapter {
     }
 
     /// Lists all contexts
+    ///
+    /// # Errors
+    ///
+    /// This function does not currently return errors, but maintains the Result
+    /// return type for compatibility with other methods and potential future error cases.
     pub async fn list_contexts(&self) -> Result<Vec<AdapterContextData>> {
         let contexts = self.contexts.read().await;
         Ok(contexts.values().cloned().collect())
     }
 
     /// Updates the context configuration
+    ///
+    /// # Errors
+    ///
+    /// This function does not currently return errors, but maintains the Result
+    /// return type for compatibility with other methods and potential future error cases.
     pub async fn update_config(&self, config: ContextAdapterConfig) -> Result<()> {
         let mut current_config = self.config.write().await;
         *current_config = config;
@@ -167,12 +197,22 @@ impl ContextAdapter {
     }
 
     /// Gets the current configuration
+    ///
+    /// # Errors
+    ///
+    /// This function does not currently return errors, but maintains the Result
+    /// return type for compatibility with other methods and potential future error cases.
     pub async fn get_config(&self) -> Result<ContextAdapterConfig> {
         let config = self.config.read().await;
         Ok((*config).clone())
     }
 
     /// Cleans up expired contexts
+    ///
+    /// # Errors
+    ///
+    /// This function does not currently return errors, but maintains the Result
+    /// return type for compatibility with other methods and potential future error cases.
     pub async fn cleanup_expired_contexts(&self) -> Result<()> {
         let config = self.config.read().await;
         if !config.enable_auto_cleanup {
@@ -193,18 +233,18 @@ impl ContextAdapter {
     // This method would be used to convert between the general context system
     // and the MCP-specific context representation
     #[allow(dead_code)]
-    fn convert_context_state(&self, state: &ContextState) -> Result<AdapterContextData> {
+    fn convert_context_state(state: &ContextState) -> AdapterContextData {
         // Implementation would convert between the general context system format
         // and the MCP-specific format
         let id = state.version.to_string();
         let now = Utc::now();
         
-        Ok(AdapterContextData {
+        AdapterContextData {
             id,
             data: state.data.clone(),
             created_at: now,
             updated_at: now,
-        })
+        }
     }
 }
 

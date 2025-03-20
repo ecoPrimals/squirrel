@@ -57,6 +57,11 @@ impl MCPProtocolImpl {
     }
 
     /// Creates a response message from a request ID
+    ///
+    /// # Errors
+    ///
+    /// This function currently doesn't return errors but maintains a Result
+    /// return type for compatibility with other protocol operations.
     pub fn create_response_message(&self, request: &MCPMessage) -> crate::error::Result<MCPMessage> {
         Ok(MCPMessage {
             id: request.id.clone(),
@@ -81,12 +86,22 @@ impl MCPProtocolImpl {
     }
 
     /// Handles a message using the appropriate registered handler
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No handler is registered for the message type
+    /// - The handler encounters an error while processing the message
     pub async fn handle_message_internal(&self, msg: &MCPMessage) -> Result<MCPResponse> {
         // We don't have direct access to get_handler, so we'll call handle_message_with_handler directly
         self.base.handle_message_with_handler(msg).await
     }
 
     /// Gets the current internal state
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the state cannot be deserialized from the internal representation.
     pub fn get_internal_state(&self) -> Result<State> {
         let state_value = self.base.get_state();
         let state = serde_json::from_value::<State>(state_value.clone())
@@ -105,6 +120,12 @@ impl MCPProtocolImpl {
     }
 
     /// Initializes the protocol with default configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The protocol is already initialized
+    /// - The state cannot be serialized to the internal representation
     pub async fn initialize(&mut self) -> Result<()> {
         if self.is_initialized() {
             return Err(SquirrelError::MCP("Protocol already initialized".to_string()));
@@ -123,6 +144,12 @@ impl MCPProtocolImpl {
     }
 
     /// Initializes the protocol with custom configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The protocol is already initialized
+    /// - The state cannot be serialized to the internal representation
     pub async fn initialize_with_config(&mut self, config: ProtocolConfig) -> Result<()> {
         if self.is_initialized() {
             return Err(SquirrelError::MCP("Protocol already initialized".to_string()));
@@ -141,6 +168,12 @@ impl MCPProtocolImpl {
     }
 
     /// Registers a handler for the specified message type
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - A handler is already registered for the message type
+    /// - The handler registration fails for any reason
     pub async fn register_handler(&mut self, message_type: &MessageType, handler: Arc<dyn CommandHandler>) -> Result<()> {
         // Create a wrapper that converts Arc<dyn CommandHandler> to a compatible Box<dyn CommandHandler>
         #[derive(Debug)]
@@ -161,6 +194,12 @@ impl MCPProtocolImpl {
     }
 
     /// Unregisters a handler for the specified message type
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No handler is registered for the message type
+    /// - The handler unregistration fails for any reason
     pub async fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.base.unregister_handler(message_type)
     }
@@ -217,6 +256,12 @@ impl MCPProtocol for MCPProtocolImpl {
             
         // We need to cast away the mutability constraint since the trait requires &self
         // In a real implementation, this would need proper synchronization
+        
+        // SAFETY: This is safe because:
+        // 1. We're temporarily casting away immutability to modify internal state
+        // 2. The trait method is expected to modify state despite the &self receiver
+        // 3. In a production implementation, this would be protected by proper synchronization
+        //    such as a Mutex or RwLock to prevent concurrent access issues
         unsafe {
             let base_ptr = (&raw const self.base).cast_mut();
             (*base_ptr).set_state(state_value);

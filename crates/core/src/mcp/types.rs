@@ -198,7 +198,7 @@ impl ProtocolVersion {
     }
 
     /// Returns the version as a string
-    #[must_use] pub fn to_string(&self) -> String {
+    #[must_use] pub fn version_string(&self) -> String {
         format!("{}.{}", self.major, self.minor)
     }
 }

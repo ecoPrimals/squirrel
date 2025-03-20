@@ -65,6 +65,7 @@ impl RecoveryStrategy for SpecificVersionStrategy {
 
 /// Strategy that selects the most recent context snapshot before a specific timestamp
 pub struct TimeBasedStrategy {
+    /// The timestamp to use as the upper bound for recovery
     timestamp: SystemTime,
 }
 
@@ -89,8 +90,11 @@ impl RecoveryStrategy for TimeBasedStrategy {
 
 /// Manages context snapshots and recovery operations
 pub struct RecoveryManager {
+    /// Persistence layer for storing snapshots
     persistence: Arc<Mutex<ContextPersistence>>,
+    /// Collection of context snapshots stored in memory
     snapshots: VecDeque<ContextSnapshot>,
+    /// Maximum number of snapshots to keep in memory
     max_snapshots: usize,
 }
 
@@ -194,7 +198,7 @@ impl RecoveryManager {
     /// # Errors
     ///
     /// Returns a `ContextError::NoValidSnapshot` if the strategy cannot find a valid snapshot to recover
-    pub async fn recover_using_strategy<S: RecoveryStrategy + Send + Sync>(&self, strategy: &S) -> Option<ContextSnapshot> {
+    pub fn recover_using_strategy<S: RecoveryStrategy + Send + Sync>(&self, strategy: &S) -> Option<ContextSnapshot> {
         if self.snapshots.is_empty() {
             return None;
         }
@@ -281,18 +285,18 @@ mod tests {
 
         // Test LatestVersionStrategy
         let strategy = LatestVersionStrategy::new();
-        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
+        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
         assert_eq!(recovered.state.version, 3);
 
         // Test SpecificVersionStrategy
         let strategy = SpecificVersionStrategy::new(2);
-        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
+        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
         assert_eq!(recovered.state.version, 2);
 
         // Test TimeBasedStrategy
         let timestamp = SystemTime::now();
         let strategy = TimeBasedStrategy::new(timestamp);
-        let recovered = recovery.recover_using_strategy(&strategy).await.unwrap();
+        let recovered = recovery.recover_using_strategy(&strategy).unwrap();
         assert!(recovered.state.version > 0);
     }
 
@@ -312,12 +316,12 @@ mod tests {
 
         // Testing when no snapshots are available
         let strategy = LatestVersionStrategy::new();
-        let result = recovery.recover_using_strategy(&strategy).await;
+        let result = recovery.recover_using_strategy(&strategy);
         assert!(result.is_none());
 
         // Test with strategy that won't find anything
         let strategy = SpecificVersionStrategy::new(999);
-        match recovery.recover_using_strategy(&strategy).await {
+        match recovery.recover_using_strategy(&strategy) {
             None => assert!(true),
             Some(_) => panic!("Expected None but got Some"),
         }

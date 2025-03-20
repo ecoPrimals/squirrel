@@ -109,6 +109,10 @@ impl MCPProtocolBase {
     }
 
     /// Handles a message using the appropriate registered handler
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no handler is registered for the message type
     pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> Result<MCPResponse> {
         let handler = self.handlers.get(&message.message_type.to_string())
             .ok_or_else(|| crate::error::SquirrelError::MCP(format!("No handler for message type: {:?}", message.message_type)))?;
@@ -118,6 +122,10 @@ impl MCPProtocolBase {
     }
 
     /// Registers a command handler for a specific message type
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a handler is already registered for the message type
     pub fn register_handler(&mut self, message_type: MessageType, handler: Box<dyn CommandHandler>) -> Result<()> {
         if self.handlers.contains_key(&message_type.to_string()) {
             return Err(crate::error::SquirrelError::MCP(format!("Handler already exists for message type: {message_type:?}")));
@@ -127,6 +135,10 @@ impl MCPProtocolBase {
     }
 
     /// Unregisters a command handler for a specific message type
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no handler is found for the message type
     pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.handlers.remove(&message_type.to_string())
             .ok_or_else(|| crate::error::SquirrelError::MCP(format!("No handler found for message type: {message_type:?}")))?;

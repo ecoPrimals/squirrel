@@ -104,8 +104,11 @@ pub trait ContextSubscriber: Send + Sync + Debug {
 /// Tracks context state changes and notifies subscribers
 #[derive(Debug)]
 pub struct ContextTracker {
+    /// Subscribers to context state changes
     subscribers: Vec<Box<dyn ContextSubscriber>>,
+    /// History of context state changes
     history: VecDeque<ContextSnapshot>,
+    /// Maximum number of state changes to keep in history
     max_history: usize,
 }
 
@@ -142,6 +145,23 @@ impl ContextTracker {
     }
 
     /// Gets the current context state
+    ///
+    /// Retrieves the most recent state from the history, or creates a default state
+    /// if no history exists.
+    ///
+    /// # Returns
+    ///
+    /// Returns the current `ContextState` if available, or a default state with
+    /// version 0 if no history exists.
+    ///
+    /// # Errors
+    ///
+    /// This function doesn't typically return errors in the current implementation.
+    /// The `Result` return type allows for future extension where errors might occur
+    /// during state retrieval, such as:
+    /// - State corruption
+    /// - Access permission issues
+    /// - Storage failures
     pub fn get_state(&self) -> Result<ContextState, ContextError> {
         // Use the first item in history as the current state
         if let Some(snapshot) = self.history.front() {
@@ -156,7 +176,20 @@ impl ContextTracker {
         }
     }
     
-    /// Updates the context state
+    /// Updates the context state with new data
+    ///
+    /// This function creates a new state with an incremented version number,
+    /// adds it to the history, and notifies subscribers of the change.
+    ///
+    /// # Parameters
+    ///
+    /// * `data` - The new state data to store
+    ///
+    /// # Errors
+    ///
+    /// This function doesn't currently return errors, but the return type allows
+    /// for potential future error conditions like permission issues, validation failures,
+    /// or storage constraints.
     pub fn update_state(&mut self, data: serde_json::Value) -> Result<(), ContextError> {
         let next_version = match self.history.back() {
             Some(snapshot) => snapshot.state.version + 1,
@@ -197,11 +230,22 @@ impl ContextTracker {
     }
     
     /// Rolls back the context state to a specific version
+    ///
+    /// This function finds the snapshot with the specified version number and
+    /// truncates the history to that point, effectively reverting to that state.
+    ///
+    /// # Parameters
+    ///
+    /// * `version` - The version number to roll back to
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::NoValidSnapshot` error if:
+    /// - No snapshot with the specified version number exists in the history
     pub fn rollback_to(&mut self, version: u64) -> Result<(), ContextError> {
         // Find the snapshot with the requested version
-        let target_index = match self.history.iter().position(|s| s.state.version == version) {
-            Some(index) => index,
-            None => return Err(ContextError::NoValidSnapshot(format!("No snapshot with version {version} found"))),
+        let Some(target_index) = self.history.iter().position(|s| s.state.version == version) else {
+            return Err(ContextError::NoValidSnapshot(format!("No snapshot with version {version} found")));
         };
         
         // Keep snapshots up to and including the target version

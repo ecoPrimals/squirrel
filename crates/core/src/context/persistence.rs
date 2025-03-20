@@ -263,6 +263,7 @@ impl Cache {
 pub struct ContextPersistence {
     storage: Box<dyn Storage>,
     serializer: Box<dyn Serializer>,
+    /// In-memory cache for frequently accessed data to reduce storage operations
     cache: Cache,
 }
 
@@ -294,6 +295,9 @@ impl ContextPersistence {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns `ContextError` if serialization fails or storage operations fail
     pub fn save_state(&mut self, state: &ContextState) -> Result<(), ContextError> {
         let key = format!("state_{}", state.version);
         let data = self.serializer.serialize_state(state)?;
@@ -309,6 +313,9 @@ impl ContextPersistence {
     ///
     /// # Returns
     /// * `Result<ContextState, ContextError>` - Loaded state or error
+    /// 
+    /// # Errors
+    /// * Returns `ContextError` if the state doesn't exist, can't be loaded, or deserialization fails
     pub fn load_state(&self, version: u64) -> Result<ContextState, ContextError> {
         let key = format!("state_{version}");
         
@@ -329,6 +336,9 @@ impl ContextPersistence {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns `ContextError::PersistenceError` if serialization or storage operations fail
     pub fn save_snapshot(&mut self, snapshot: &ContextSnapshot) -> Result<(), ContextError> {
         let serialized = self.serializer.serialize_snapshot(snapshot)
             .map_err(|e| ContextError::PersistenceError(e.to_string()))?;
@@ -343,6 +353,9 @@ impl ContextPersistence {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns `ContextError::PersistenceError` if the deletion operation fails
     pub fn delete_snapshot(&mut self, id: &str) -> Result<(), ContextError> {
         self.storage.delete(id)
             .map_err(|e| ContextError::PersistenceError(e.to_string()))
@@ -355,6 +368,9 @@ impl ContextPersistence {
     ///
     /// # Returns
     /// * `Result<ContextSnapshot, ContextError>` - Loaded snapshot or error
+    /// 
+    /// # Errors
+    /// * Returns `ContextError` if the snapshot doesn't exist, can't be loaded, or deserialization fails
     pub fn load_snapshot(&self, id: &str) -> Result<ContextSnapshot, ContextError> {
         // Try cache first
         if let Some(data) = self.cache.get(id) {

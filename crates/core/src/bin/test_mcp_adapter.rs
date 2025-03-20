@@ -3,8 +3,9 @@
 #[cfg(feature = "di-tests")]
 use squirrel_core::mcp::{MCPAdapter, MCPConfig, adapter::MCPInterface};
 
-#[cfg(not(feature = "di-tests"))]
-use squirrel_core::mcp::MCPConfig;
+// Removed unused import
+// #[cfg(not(feature = "di-tests"))]
+// use squirrel_core::mcp::MCPConfig;
 
 fn main() {
     println!("Testing MCPAdapter...");

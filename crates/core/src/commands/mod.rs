@@ -335,6 +335,7 @@ impl CommandRegistryFactory {
     /// # Errors
     ///
     /// Returns an error if the registry creation fails
+    #[allow(dead_code)]
     pub fn create(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
@@ -361,6 +362,7 @@ impl CommandRegistryFactory {
     /// # Errors
     ///
     /// Returns an error if a built-in command could not be registered.
+    #[allow(dead_code)]
     pub fn create_with_builtins(&self) -> Result<Arc<CommandRegistry>, CommandError> {
         let mut registry = CommandRegistry::new();
         
@@ -391,6 +393,7 @@ impl CommandRegistryFactory {
 /// # Errors
 ///
 /// Returns an error if the registry creation fails
+#[allow(dead_code)]
 pub fn create_command_registry() -> Result<Arc<CommandRegistry>, CommandError> {
     CommandRegistryFactory::new().create()
 }
@@ -405,6 +408,7 @@ pub fn create_command_registry() -> Result<Arc<CommandRegistry>, CommandError> {
 /// # Errors
 ///
 /// Returns an error if a built-in command could not be registered.
+#[allow(dead_code)]
 pub fn create_command_registry_with_builtins() -> Result<Arc<CommandRegistry>, CommandError> {
     CommandRegistryFactory::new().create_with_builtins()
 }

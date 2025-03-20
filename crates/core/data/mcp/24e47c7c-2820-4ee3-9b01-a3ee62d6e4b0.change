@@ -1,0 +1,19 @@
+{
+  "id": "24e47c7c-2820-4ee3-9b01-a3ee62d6e4b0",
+  "context_id": "dd7b5dd0-9593-4b9b-858f-dbbc6a8aadbb",
+  "operation": "Delete",
+  "data": {
+    "created_at": "2025-03-20T00:39:20.011344600Z",
+    "data": {
+      "key": "new_value"
+    },
+    "expires_at": null,
+    "id": "dd7b5dd0-9593-4b9b-858f-dbbc6a8aadbb",
+    "metadata": null,
+    "name": "test_context",
+    "parent_id": null,
+    "updated_at": "2025-03-20T00:39:20.012466900Z"
+  },
+  "timestamp": "2025-03-20T00:39:20.013338800Z",
+  "version": 14
+}

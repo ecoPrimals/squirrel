@@ -1,4 +1,3 @@
-use crate::mcp::{MCPError, error::types::MCPError as MCPErrorType};
 use crate::mcp::sync::state::StateOperation;
 use crate::mcp::sync::MCPSync;
 use std::sync::Arc;

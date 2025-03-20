@@ -1,6 +1,6 @@
 //! Test program for Dependency Injection pattern
 
-use std::sync::{Arc, Mutex, RwLock};
+// Remove unused imports at the top level
 use crate::app::AppInterface;
 use crate::mcp::MCPInterface;
 

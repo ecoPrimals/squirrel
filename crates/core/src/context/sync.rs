@@ -72,6 +72,7 @@ pub enum SyncEvent {
 /// Manages synchronization between nodes in a distributed system
 #[derive(Debug)]
 pub struct SyncManager {
+    /// Collection of subscribers to sync events, mapped by their unique ID
     subscribers: HashMap<String, Sender<SyncEvent>>,
 }
 
@@ -96,6 +97,9 @@ impl SyncManager {
     ///
     /// # Returns
     /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns an error if the subscription ID is not found
     pub fn unsubscribe(&mut self, id: &str) -> Result<(), Box<dyn std::error::Error>> {
         if self.subscribers.remove(id).is_none() {
             return Err("Subscription not found".into());
@@ -110,6 +114,9 @@ impl SyncManager {
     ///
     /// # Returns
     /// * `Result<(), Box<dyn std::error::Error>>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns an error if broadcasting to all subscribers fails
     pub async fn broadcast_event(&mut self, event: SyncEvent) -> Result<(), Box<dyn std::error::Error>> {
         let mut failed_ids = Vec::new();
         for (id, sender) in &self.subscribers {
@@ -151,6 +158,9 @@ pub trait ConflictResolver: Send + Sync + std::fmt::Debug {
     ///
     /// # Returns
     /// * `Result<ContextState, ContextError>` - Resolved state or error
+    /// 
+    /// # Errors
+    /// * Returns a `ContextError` if the conflict cannot be resolved
     fn resolve(&self, conflict: &ConflictInfo) -> Result<ContextState, ContextError>;
 }
 
@@ -191,20 +201,34 @@ impl ConflictResolver for DefaultConflictResolver {
 /// Coordinates synchronization between nodes in a distributed system
 #[derive(Debug)]
 pub struct SyncCoordinator {
+    /// Unique identifier for this node in the network
     node_id: String,
+    /// Map of peers and their information, shared across threads
     peers: Arc<RwLock<HashMap<String, PeerInfo>>>,
+    /// Channel sender for outgoing sync messages
     message_tx: Sender<SyncMessage>,
+    /// Channel receiver for incoming sync messages
     message_rx: mpsc::Receiver<SyncMessage>,
+    /// Strategy for resolving conflicts between concurrent updates
     conflict_resolver: Box<dyn ConflictResolver>,
 }
 
+/// Information about a connected peer in the sync network
+///
+/// Tracks when the peer was last seen and their current state version
 #[derive(Debug)]
 struct PeerInfo {
+    /// Last time the peer was seen/communicated with
     last_seen: SystemTime,
+    /// Current version of the peer's state
     state_version: u64,
 }
 
 impl PeerInfo {
+    /// Creates a new `PeerInfo` with the given state version
+    ///
+    /// # Arguments
+    /// * `state_version` - The initial state version for this peer
     fn new(state_version: u64) -> Self {
         Self {
             last_seen: SystemTime::now(),
@@ -212,6 +236,7 @@ impl PeerInfo {
         }
     }
 
+    /// Updates the `last_seen` timestamp to the current time
     fn update_last_seen(&mut self) {
         self.last_seen = SystemTime::now();
     }
@@ -241,6 +266,9 @@ impl SyncCoordinator {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    /// 
+    /// # Errors
+    /// * Returns a `ContextError` if message handling fails
     pub async fn start(&mut self) -> Result<(), ContextError> {
         while let Some(message) = self.message_rx.recv().await {
             self.handle_sync_message(message).await?;
@@ -248,6 +276,13 @@ impl SyncCoordinator {
         Ok(())
     }
 
+    /// Handles incoming sync messages and routes them to the appropriate handler
+    ///
+    /// # Arguments
+    /// * `message` - The sync message to handle
+    ///
+    /// # Errors
+    /// * Returns a `ContextError` if handling the message fails
     async fn handle_sync_message(&mut self, message: SyncMessage) -> Result<(), ContextError> {
         // Update peer info
         self.update_peer_info(&message.source, message.timestamp)?;
@@ -270,6 +305,14 @@ impl SyncCoordinator {
         Ok(())
     }
 
+    /// Updates the peer information in the peers registry
+    ///
+    /// # Arguments
+    /// * `peer_id` - The ID of the peer to update
+    /// * `_timestamp` - The timestamp of the message from the peer
+    ///
+    /// # Errors
+    /// * Returns a `ContextError` if the peers lock cannot be acquired
     fn update_peer_info(&self, peer_id: &str, _timestamp: SystemTime) -> Result<(), ContextError> {
         let mut peers = self.peers.write().map_err(|_| {
             ContextError::InvalidState("Failed to acquire peers lock".to_string())
@@ -285,6 +328,17 @@ impl SyncCoordinator {
         Ok(())
     }
 
+    /// Handles a state update from another peer
+    ///
+    /// Checks for potential conflicts with the current state and broadcasts
+    /// either a conflict message or the state update to other peers.
+    ///
+    /// # Arguments
+    /// * `state` - The updated state from another peer
+    /// * `source` - The ID of the peer that sent the update
+    ///
+    /// # Errors
+    /// * Returns a `ContextError` if the peers lock cannot be acquired or broadcasting fails
     async fn handle_state_update(&self, state: ContextState, source: &str) -> Result<(), ContextError> {
         // Check for conflicts
         let conflict = {
@@ -318,19 +372,77 @@ impl SyncCoordinator {
         Ok(())
     }
 
+    /// Handles a snapshot creation event from another node
+    ///
+    /// This method processes a snapshot creation message received from another node
+    /// and updates the local state accordingly.
+    ///
+    /// # Arguments
+    /// * `snapshot` - The snapshot to be created
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error
+    ///
+    /// # Errors
+    /// Returns a `ContextError` if there are issues processing the snapshot
     async fn handle_snapshot_create(&self, snapshot: ContextSnapshot) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotCreate(snapshot)).await
     }
 
+    /// Handles a snapshot deletion event from another node
+    ///
+    /// This method processes a snapshot deletion message received from another node
+    /// and updates the local state accordingly.
+    ///
+    /// # Arguments
+    /// * `id` - The ID of the snapshot to be deleted
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error
+    ///
+    /// # Errors
+    /// Returns a `ContextError` if there are issues processing the deletion
     async fn handle_snapshot_delete(&self, id: String) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotDelete(id)).await
     }
 
+    /// Handles a conflict detected between different versions of state
+    ///
+    /// This method resolves conflicts between different state versions using
+    /// the configured conflict resolution strategy.
+    ///
+    /// # Arguments
+    /// * `conflict` - Information about the conflict to be resolved
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error
+    ///
+    /// # Errors
+    /// Returns a `ContextError` if:
+    /// - The conflict cannot be resolved
+    /// - The resolution strategy fails
+    /// - The resolved state cannot be broadcast
     async fn handle_conflict(&self, conflict: ConflictInfo) -> Result<(), ContextError> {
         let resolved_state = self.conflict_resolver.resolve(&conflict)?;
         self.broadcast_message(SyncOperation::StateUpdate(resolved_state)).await
     }
 
+    /// Broadcasts a sync message to all connected nodes
+    ///
+    /// This method creates and sends a sync message containing the specified
+    /// operation to all connected nodes.
+    ///
+    /// # Arguments
+    /// * `operation` - The sync operation to broadcast
+    ///
+    /// # Returns
+    /// * `Result<(), ContextError>` - Success or error
+    ///
+    /// # Errors
+    /// Returns a `ContextError::SyncError` if:
+    /// - The message cannot be created
+    /// - The message channel is closed
+    /// - There are network issues
     async fn broadcast_message(&self, operation: SyncOperation) -> Result<(), ContextError> {
         let message = SyncMessage {
             id: Uuid::new_v4().to_string(),
@@ -338,19 +450,26 @@ impl SyncCoordinator {
             operation,
             source: self.node_id.clone(),
         };
-
+        
         self.message_tx.send(message).await.map_err(|e| {
-            ContextError::InvalidState(format!("Failed to broadcast message: {e}"))
+            ContextError::SyncError(format!("Failed to broadcast message: {e}"))
         })
     }
 
-    /// Sends a state update to other nodes
+    /// Sends a state update event to other nodes
     ///
     /// # Arguments
     /// * `state` - New state to propagate
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::SyncError` if:
+    /// - Broadcasting the message fails
+    /// - Network communication issues occur
+    /// - Message serialization fails
     pub async fn send_state_update(&self, state: ContextState) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::StateUpdate(state)).await
     }
@@ -362,6 +481,14 @@ impl SyncCoordinator {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::SyncError` if:
+    /// - Broadcasting the message fails
+    /// - Network communication issues occur
+    /// - Message serialization fails
+    /// - The snapshot data is invalid or corrupted
     pub async fn send_snapshot_create(&self, snapshot: ContextSnapshot) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotCreate(snapshot)).await
     }
@@ -373,6 +500,14 @@ impl SyncCoordinator {
     ///
     /// # Returns
     /// * `Result<(), ContextError>` - Success or error status
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ContextError::SyncError` if:
+    /// - Broadcasting the message fails
+    /// - Network communication issues occur
+    /// - Message serialization fails
+    /// - The snapshot ID is invalid or not found
     pub async fn send_snapshot_delete(&self, id: String) -> Result<(), ContextError> {
         self.broadcast_message(SyncOperation::SnapshotDelete(id)).await
     }

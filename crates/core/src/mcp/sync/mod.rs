@@ -52,12 +52,19 @@ pub struct SyncState {
 /// and ensuring consistency of context data.
 #[derive(Debug)]
 pub struct MCPSync {
+    /// Configuration for the sync engine
     config: Arc<RwLock<SyncConfig>>,
+    /// Current state of synchronization
     state: Arc<RwLock<SyncState>>,
+    /// Manager for state synchronization
     state_manager: Arc<StateSyncManager>,
+    /// Persistence layer for storing sync data
     persistence: Arc<MCPPersistence>,
+    /// Monitoring for sync operations
     monitor: Arc<MCPMonitor>,
+    /// Mutex for synchronizing operations
     lock: Arc<Mutex<()>>,
+    /// Whether the sync engine has been initialized
     initialized: bool,
 }
 
@@ -87,6 +94,11 @@ impl MCPSync {
     }
 
     /// Creates a new `MCPSync` instance with default dependencies
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if creating the monitor fails or if any of the dependencies
+    /// cannot be initialized properly.
     pub async fn create(config: SyncConfig) -> Result<Self> {
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
         let monitor = Arc::new(MCPMonitor::new().await?);
@@ -96,6 +108,11 @@ impl MCPSync {
     }
 
     /// Initializes the `MCPSync` instance
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the persistence layer cannot be initialized,
+    /// if loading the persisted state fails, or if applying persisted changes fails.
     pub async fn init(&mut self) -> Result<()> {
         if self.initialized {
             return Ok(());
@@ -104,10 +121,10 @@ impl MCPSync {
         self.monitor.record_message("initializing_sync").await;
         
         // Initialize persistence
-        self.persistence.init().await?;
+        self.persistence.init()?;
 
         // Try to load persisted state
-        if let Some(persisted) = self.persistence.load_state().await? {
+        if let Some(persisted) = self.persistence.load_state()? {
             self.monitor.record_message("state_loaded").await;
             let mut state = self.state.write().await;
             *state = SyncState {
@@ -149,7 +166,7 @@ impl MCPSync {
 
     async fn load_persisted_changes(&self) -> Result<()> {
         let start = Instant::now();
-        let changes = self.persistence.load_changes().await?;
+        let changes = self.persistence.load_changes()?;
         
         for change in changes {
             if let Err(e) = self.state_manager.apply_change(change).await {
@@ -209,7 +226,7 @@ impl MCPSync {
             last_sync: Utc::now(),
             id: uuid::Uuid::new_v4().to_string(),
         };
-        if let Err(e) = self.persistence.save_state(persistent_state).await {
+        if let Err(e) = self.persistence.save_state(&persistent_state) {
             tracing::error!("Failed to persist state: {}", e);
             self.monitor.record_error("persist_state_failed").await;
             state.error_count += 1;
@@ -266,7 +283,7 @@ impl MCPSync {
                 version: current_version,
             };
             
-            if let Err(e) = self.persistence.save_change(change).await {
+            if let Err(e) = self.persistence.save_change(&change) {
                 tracing::error!("Failed to persist change: {}", e);
                 self.monitor.record_error("persist_change_failed").await;
             }
@@ -356,32 +373,48 @@ impl MCPSync {
     /// # Errors
     /// Returns an error if the monitor cannot be retrieved
     pub async fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
-        self.ensure_initialized().await?;
-        Ok(self.monitor.clone())
+        Ok(Arc::clone(&self.monitor))
     }
+}
 
-    /// Returns a clone of this instance
-    #[must_use] pub fn clone(&self) -> Self {
+impl Clone for MCPSync {
+    fn clone(&self) -> Self {
         Self {
-            config: self.config.clone(),
-            state: self.state.clone(),
-            state_manager: self.state_manager.clone(),
-            persistence: self.persistence.clone(),
-            monitor: self.monitor.clone(),
-            lock: self.lock.clone(),
+            config: Arc::clone(&self.config),
+            state: Arc::clone(&self.state),
+            state_manager: Arc::clone(&self.state_manager),
+            persistence: Arc::clone(&self.persistence),
+            monitor: Arc::clone(&self.monitor),
+            lock: Arc::clone(&self.lock),
             initialized: self.initialized,
         }
     }
 }
 
-/// Helper function for creating and initializing an `MCPSync` instance
+/// Creates a new `MCPSync` instance with provided configuration
+///
+/// # Errors
+///
+/// Returns an error if the instance cannot be created or if any of its
+/// dependencies fail to initialize.
 pub async fn create_mcp_sync(config: SyncConfig) -> Result<MCPSync> {
     let mut sync = MCPSync::create(config).await?;
     sync.init().await?;
     Ok(sync)
 }
 
-/// Helper function for creating a customized `MCPSync` instance with provided dependencies
+/// Creates a new `MCPSync` instance with explicitly provided dependencies
+///
+/// # Parameters
+///
+/// * `config` - Synchronization configuration
+/// * `persistence` - Persistence layer for storing sync data
+/// * `monitor` - Monitoring component for sync operations
+/// * `state_manager` - State synchronization manager
+///
+/// # Errors
+///
+/// Returns an error if the instance cannot be created with the provided dependencies.
 pub async fn create_mcp_sync_with_deps(
     config: SyncConfig,
     persistence: Arc<MCPPersistence>,

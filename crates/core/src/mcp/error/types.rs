@@ -275,12 +275,10 @@ impl MCPError {
 
     #[must_use] pub fn severity(&self) -> ErrorSeverity {
         match self {
-            // Critical severity errors
-            MCPError::Security(_) | 
             MCPError::VersionMismatch { .. } | 
             MCPError::SecurityLevelTooLow { .. } => ErrorSeverity::Critical,
             
-            // High severity errors - general connection errors except timeout
+            // High severity errors - general connection errors except timeout and protocol/storage errors
             MCPError::Connection(
                 ConnectionError::ConnectionFailed(_) |
                 ConnectionError::Closed(_) |
@@ -289,11 +287,8 @@ impl MCPError {
                 ConnectionError::Unreachable |
                 ConnectionError::TooManyConnections |
                 ConnectionError::LimitReached(_)
-            ) => ErrorSeverity::High,
-            
-            // High severity errors - other types
-            MCPError::Protocol(_) | 
-            MCPError::StorageError(_) => ErrorSeverity::High,
+            ) | MCPError::Protocol(_) | 
+              MCPError::StorageError(_) => ErrorSeverity::High,
             
             // Medium severity errors
             MCPError::Connection(ConnectionError::Timeout(_)) |
