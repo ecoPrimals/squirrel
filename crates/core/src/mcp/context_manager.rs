@@ -410,9 +410,21 @@ impl ContextManager {
     ///
     /// Returns a receiver that will be notified of all context changes,
     /// allowing reactive handling of context updates.
+    ///
+    /// # Errors
+    ///
+    /// This method returns a Result that will contain an error if the subscription
+    /// process fails, which can happen if there are issues with the underlying
+    /// synchronization system.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if it fails to subscribe to context changes due to
+    /// internal errors in the synchronization system.
     #[instrument(skip(self))]
-    pub async fn subscribe_changes(&self) -> tokio::sync::broadcast::Receiver<StateChange> {
-        self.sync.subscribe_changes().await.expect("Failed to subscribe to changes")
+    pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>, ContextError> {
+        self.sync.subscribe_changes().await
+            .map_err(|e| ContextError::SyncError(format!("Failed to subscribe to changes: {e}")))
     }
 }
 
@@ -442,10 +454,22 @@ fn rule_validator(rule: &str, context: &Context) -> bool {
 
 // Add a Default implementation for ContextManager
 impl Default for ContextManager {
+    /// Creates a default instance of `ContextManager`
+    /// 
+    /// # Panics
+    /// 
+    /// This function panics if it fails to create a Tokio runtime or
+    /// if the `ContextManager` initialization in the async block fails.
     fn default() -> Self {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(async { Self::new().await })
+        match tokio::runtime::Runtime::new() {
+            Ok(rt) => {
+                let manager = rt.block_on(async { Self::new().await });
+                manager
+            },
+            Err(e) => {
+                panic!("Failed to create Tokio runtime for ContextManager: {e}");
+            }
+        }
     }
 }
 

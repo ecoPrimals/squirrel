@@ -19,6 +19,7 @@ use std::hash::Hash;
 use std::cmp::Eq;
 use crate::monitoring::metrics::MetricType;
 use async_trait::async_trait;
+use crate::error::SquirrelError;
 
 /// Module for adapter implementations of performance metric functionality
 /// 
@@ -138,23 +139,80 @@ impl PerformanceCollector {
         }
     }
 
-    /// Record an operation with a specific duration
+    /// Records a metric for an operation
+    ///
+    /// This function records the duration of an operation for metrics tracking.
+    /// It creates or reuses a histogram based on the operation type and adds
+    /// the duration value to it.
+    ///
+    /// # Parameters
+    ///
+    /// * `op_type` - The type of operation being recorded
+    /// * `duration` - The duration of the operation
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result with Ok(()) if the operation was recorded successfully,
+    /// or an error if there was a problem recording the metric.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// 
+    /// * There is an issue accessing or manipulating the metrics registry
+    /// * The operation name cannot be formatted properly
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the metrics registry fails to create a histogram
+    /// with the specified options. This can happen if there are issues with the
+    /// underlying metrics system or if the histogram configuration is invalid.
     pub async fn record_operation(&self, op_type: &OperationType, duration: Duration) -> Result<()> {
         if !self.config.enabled {
             return Ok(());
         }
 
+        let duration_ms = duration.as_secs_f64() * 1000.0;
         let mut histograms = self.histograms.write().await;
-        let histogram = histograms.entry(op_type.clone()).or_insert_with(|| {
+        
+        // Use the operation type directly as the key
+        if !histograms.contains_key(op_type) {
+            // Configure histogram buckets for latency metrics
+            let op_name = match op_type {
+                OperationType::DatabaseRead => "database_read",
+                OperationType::DatabaseWrite => "database_write",
+                OperationType::NetworkRequest => "network_request",
+                OperationType::FileSystem => "file_system",
+                OperationType::Cache => "cache",
+                OperationType::Custom(name) => name,
+                OperationType::Unknown => "unknown",
+            };
+            
+            let buckets = self.config.histogram_buckets.clone();
             let opts = HistogramOpts::new(
-                format!("operation_{op_type}"),
-                format!("Histogram for {op_type} operations"),
-            )
-            .buckets(self.config.histogram_buckets.clone());
-            Histogram::with_opts(opts).expect("Failed to create histogram")
-        });
-
-        histogram.observe(duration.as_secs_f64());
+                format!("operation_{op_name}"),
+                format!("Histogram for {op_name} operations")
+            ).buckets(buckets);
+            
+            // Create histogram and add to metrics collection
+            match Histogram::with_opts(opts) {
+                Ok(histogram) => {
+                    histograms.insert(op_type.clone(), histogram);
+                },
+                Err(e) => {
+                    // Return a SquirrelError instead of using anyhow
+                    return Err(SquirrelError::metric(
+                        format!("Failed to create histogram for {op_type:?}: {e}")
+                    ));
+                }
+            }
+        }
+        
+        // Get histogram and observe duration
+        if let Some(histogram) = histograms.get(op_type) {
+            histogram.observe(duration_ms);
+        }
+        
         Ok(())
     }
 

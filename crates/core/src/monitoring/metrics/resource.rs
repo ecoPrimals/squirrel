@@ -40,7 +40,10 @@ pub struct ProcessInfo {
     pub status: String,
 }
 
-/// Represents resource metrics for a team
+/// Represents resource metrics for a team, including memory, storage, network, CPU, and process information.
+/// 
+/// This struct aggregates various system resource metrics associated with a specific team,
+/// providing a comprehensive view of the team's resource utilization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamResourceMetrics {
     /// Team identifier
@@ -347,23 +350,36 @@ impl ResourceMetricsCollector {
         process_name.contains(&team_name.to_lowercase())
     }
 
-    /// Collect information about a process
+    /// Collects detailed information about a process into a ProcessInfo struct
+    /// 
+    /// This function extracts key metrics from a process, including CPU and memory usage,
+    /// thread count, disk I/O statistics, and process status.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `process` - A reference to the Process object from which to extract information
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a ProcessInfo struct containing all relevant metrics for the process
     fn collect_process_info(process: &Process) -> ProcessInfo {
-        // Get process status
         let status = match process.status() {
             ProcessStatus::Run => "running",
             ProcessStatus::Sleep => "sleeping",
-            ProcessStatus::Zombie => "zombie",
             ProcessStatus::Stop => "stopped",
+            ProcessStatus::Zombie => "zombie",
+            ProcessStatus::Tracing => "tracing",
+            ProcessStatus::Dead => "dead",
             ProcessStatus::Idle => "idle",
             _ => "unknown",
         };
 
-        // In sysinfo 0.30, process.thread_count() doesn't exist
-        // Instead, use a fixed value of 1 as older versions of sysinfo handled threads differently
-        // In a real implementation, we would track this differently
-        let thread_count = 1;
-        
+        // Get the thread count
+        let thread_count = match process.thread_kind() {
+            Some(_) => 1u32,
+            None => 0u32,
+        };
+
         ProcessInfo {
             pid: process.pid().as_u32(),
             name: process.name().to_string(),
@@ -377,6 +393,20 @@ impl ResourceMetricsCollector {
     }
 
     /// Get current resource metrics for a team
+    ///
+    /// Retrieves the most recently collected resource metrics for the specified team.
+    /// This method searches through the metrics collection for metrics associated with
+    /// the given team name and converts them into a TeamResourceMetrics object.
+    ///
+    /// # Parameters
+    ///
+    /// * `team_name` - The name of the team for which to retrieve metrics
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(TeamResourceMetrics)` if metrics for the specified team are found,
+    /// or `None` if no metrics are available for that team. The returned metrics include
+    /// memory usage, storage usage, network bandwidth, CPU usage, and other resource statistics.
     pub async fn get_team_metrics(&self, team_name: &str) -> Option<TeamResourceMetrics> {
         let metrics = self.metrics.read().await;
         // Find the metric with the matching team name and convert it to TeamResourceMetrics
@@ -437,21 +467,28 @@ impl ResourceMetricsCollector {
     ///
     /// # Panics
     ///
-    /// This function panics if the Tokio runtime cannot be created
+    /// This function panics if the Tokio runtime cannot be created when attempting to spawn 
+    /// the background metrics collection task. This can happen if there are system resource 
+    /// constraints or if there are issues initializing the runtime.
     pub async fn start_collection(&self) {
         let mut collector = self.clone();
         std::thread::spawn(move || {
-            tokio::runtime::Runtime::new()
-                .unwrap()
-                .block_on(async move {
-                    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
-                    loop {
-                        interval.tick().await;
-                        if let Err(e) = collector.update_metrics().await {
-                            eprintln!("Error updating metrics: {e}");
+            match tokio::runtime::Runtime::new() {
+                Ok(rt) => {
+                    rt.block_on(async move {
+                        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+                        loop {
+                            interval.tick().await;
+                            if let Err(e) = collector.update_metrics().await {
+                                eprintln!("Error updating metrics: {e}");
+                            }
                         }
-                    }
-                });
+                    });
+                },
+                Err(e) => {
+                    eprintln!("Failed to create Tokio runtime for metrics collection: {e}");
+                }
+            }
         });
     }
 

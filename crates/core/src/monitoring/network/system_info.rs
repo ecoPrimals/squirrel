@@ -219,14 +219,24 @@ impl SystemInfoAdapter {
 
 /// Creates a new system info adapter
 /// 
+/// # Returns
+/// 
+/// Returns a system info adapter wrapped in an Arc
+/// 
 /// # Panics
 /// 
-/// Panics if the adapter fails to initialize
+/// Panics if the adapter fails to initialize, which can happen if there
+/// are system resource issues or if the operating system doesn't provide
+/// access to the required system information.
 #[must_use]
 pub fn create_system_info_adapter() -> Arc<SystemInfoAdapter> {
     let mut adapter = SystemInfoAdapter::new();
-    adapter.initialize().expect("Failed to initialize system info adapter");
-    Arc::new(adapter)
+    match adapter.initialize() {
+        Ok(_) => Arc::new(adapter),
+        Err(e) => {
+            panic!("Failed to initialize system info adapter: {e}");
+        }
+    }
 }
 
 /// Create a system info adapter with an existing system
