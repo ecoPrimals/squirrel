@@ -443,7 +443,7 @@ mod tests {
         
         // Set a new state
         let new_state = json!({"status": "connected", "client_id": "test-client"});
-        adapter.set_state(new_state.clone()).await;
+        adapter.set_state(new_state.clone()).await.expect("Failed to set state");
         
         // Get the state again
         let updated_state = adapter.get_state().await;

@@ -704,8 +704,6 @@ impl Default for ContextManager {
 pub struct ContextTrackerFactory {
     /// The default context manager to use
     manager: Option<Arc<ContextManager>>,
-    /// Configuration for the context tracker
-    config: Option<ContextConfig>,
 }
 
 impl ContextTrackerFactory {
@@ -717,7 +715,6 @@ impl ContextTrackerFactory {
     #[must_use] pub fn new(manager: Option<Arc<ContextManager>>) -> Self {
         Self { 
             manager,
-            config: None
         }
     }
 
@@ -727,10 +724,9 @@ impl ContextTrackerFactory {
     ///
     /// * `manager` - Optional default context manager to use
     /// * `config` - Configuration for the context tracker
-    #[must_use] pub fn with_config(manager: Option<Arc<ContextManager>>, config: ContextConfig) -> Self {
+    #[must_use] pub fn with_config(manager: Option<Arc<ContextManager>>, _config: ContextConfig) -> Self {
         Self {
             manager,
-            config: Some(config)
         }
     }
 
@@ -992,7 +988,6 @@ mod tests {
         let factory = ContextTrackerFactory::with_config(Some(manager.clone()), config);
         
         assert!(factory.manager.is_some());
-        assert!(factory.config.is_some());
         
         let tracker = factory.create().unwrap();
         assert!(Arc::ptr_eq(&tracker.manager, &manager));

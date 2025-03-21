@@ -1,9 +1,8 @@
 //! Tests for the AppAdapter implementation.
 
+use squirrel_core::error::{SquirrelError, AppInitializationError, AppOperationError};
 use crate::{AppAdapter};
 use crate::prelude::AppConfig;
-use squirrel_core::error::SquirrelError;
-use squirrel_core::error::{AppInitializationError, AppOperationError};
 
 #[tokio::test]
 async fn test_initialize() {
@@ -39,7 +38,7 @@ async fn test_app_adapter_initialization() {
     assert!(adapter.is_initialized());
     
     // Get the config
-    let config_result = adapter.config().await;
+    let config_result = adapter.config();
     assert!(config_result.is_ok());
     
     // The config should match what we set
@@ -82,7 +81,7 @@ async fn test_app_adapter_uninitialized_operations() {
     assert!(!adapter.is_initialized());
     
     // Try to get the config without initializing
-    let config_result = adapter.config().await;
+    let config_result = adapter.config();
     assert!(config_result.is_err());
     
     // Verify that the error is the expected NotInitialized
@@ -109,7 +108,7 @@ async fn test_app_adapter_factory() {
     };
     
     // Create an initialized adapter
-    let adapter_result = crate::adapter::create_initialized_app_adapter(config).await;
+    let adapter_result = crate::adapter::create_initialized_app_adapter(config);
     assert!(adapter_result.is_ok());
     
     let adapter = adapter_result.unwrap();
@@ -118,7 +117,7 @@ async fn test_app_adapter_factory() {
     assert!(adapter.is_initialized());
     
     // Get the config and verify it
-    let config_result = adapter.config().await;
+    let config_result = adapter.config();
     assert!(config_result.is_ok());
     
     let config = config_result.unwrap();
@@ -133,7 +132,7 @@ async fn test_app_adapter_factory() {
 #[tokio::test]
 async fn test_start_not_initialized() {
     let mut adapter = AppAdapter::new();
-    let start_result = adapter.start().await;
+    let start_result = adapter.start();
     assert!(start_result.is_err());
 }
 
@@ -143,10 +142,10 @@ async fn test_start_already_started() {
     let mut adapter = AppAdapter::new();
     assert!(adapter.initialize(config).is_ok());
     
-    let start_result = adapter.start().await;
+    let start_result = adapter.start();
     assert!(start_result.is_ok());
     
-    let start_result = adapter.start().await;
+    let start_result = adapter.start();
     assert!(start_result.is_err());
 }
 
@@ -156,7 +155,7 @@ async fn test_stop_not_started() {
     let config = AppConfig::default();
     assert!(adapter.initialize(config).is_ok());
     
-    let stop_result = adapter.stop().await;
+    let stop_result = adapter.stop();
     assert!(stop_result.is_err());
 }
 
@@ -166,13 +165,13 @@ async fn test_stop_already_stopped() {
     let config = AppConfig::default();
     assert!(adapter.initialize(config).is_ok());
     
-    let start_result = adapter.start().await;
+    let start_result = adapter.start();
     assert!(start_result.is_ok());
     
-    let stop_result = adapter.stop().await;
+    let stop_result = adapter.stop();
     assert!(stop_result.is_ok());
     
-    let stop_result = adapter.stop().await;
+    let stop_result = adapter.stop();
     assert!(stop_result.is_err());
 }
 
@@ -180,4 +179,103 @@ async fn test_stop_already_stopped() {
 fn test_default_config() {
     let config = AppConfig::default();
     assert!(!config.debug);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::AppConfig;
+
+    #[tokio::test]
+    async fn test_config_access() {
+        // ARRANGE
+        let mut adapter = AppAdapter::new();
+        let config = AppConfig::default();
+        
+        // ACT
+        adapter.initialize(config).unwrap();
+        let config_result = adapter.config();
+        
+        // ASSERT
+        assert!(config_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_config_access_uninitialized() {
+        // ARRANGE
+        let adapter = AppAdapter::new();
+        
+        // ACT
+        let config_result = adapter.config();
+        
+        // ASSERT
+        assert!(config_result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_adapter_factory() {
+        // ARRANGE
+        let config = AppConfig {
+            name: "TestApp".to_string(),
+            version: "0.1.0".to_string(),
+            environment: "test".to_string(),
+            debug: true,
+        };
+        
+        // ACT
+        let adapter_result = crate::adapter::create_initialized_app_adapter(config);
+        
+        // ASSERT
+        assert!(adapter_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_start_stop() {
+        // ARRANGE
+        let mut adapter = AppAdapter::new();
+        let config = AppConfig::default();
+        adapter.initialize(config).unwrap();
+        
+        // ACT & ASSERT - First start
+        let start_result = adapter.start();
+        assert!(start_result.is_ok());
+        
+        // ACT & ASSERT - Second start should fail
+        let start_result = adapter.start();
+        assert!(start_result.is_err());
+        
+        // ACT & ASSERT - First stop
+        let stop_result = adapter.stop();
+        assert!(stop_result.is_ok());
+        
+        // ACT & ASSERT - Second stop should fail
+        let stop_result = adapter.stop();
+        assert!(stop_result.is_err());
+    }
+
+    #[test]
+    fn test_lifecycle() {
+        // ARRANGE
+        let mut adapter = AppAdapter::new();
+        let config = AppConfig::default();
+        adapter.initialize(config).unwrap();
+        
+        // ACT & ASSERT - Start
+        let start_result = adapter.start();
+        assert!(start_result.is_ok());
+        
+        // ACT & ASSERT - Stop
+        let stop_result = adapter.stop();
+        assert!(stop_result.is_ok());
+        
+        // ACT & ASSERT - Start again (should fail because app is stopped)
+        let start_result = adapter.start();
+        assert!(start_result.is_err());
+        println!("Got error: {:?}", start_result);
+        if let Err(SquirrelError::AppOperation(AppOperationError::AlreadyStopped)) = start_result {
+            // This is the expected error
+        } else {
+            panic!("Expected SquirrelError::AppOperation(AppOperationError::AlreadyStopped)");
+        }
+    }
 } 

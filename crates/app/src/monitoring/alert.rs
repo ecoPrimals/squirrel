@@ -4,13 +4,10 @@ use std::fmt::Debug;
 use std::sync::RwLock;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 
 use crate::error::{Result, CoreError};
 use squirrel_core::error::SquirrelError;
 use squirrel_monitoring::alerts::Alert;
-use squirrel_monitoring::AlertSeverity;
-
 
 /// Alert configuration
 #[derive(Debug, Clone)]
@@ -118,6 +115,8 @@ impl Default for AlertManagerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use squirrel_monitoring::AlertSeverity;
     use crate::monitoring::AlertManagerTrait;
     
     #[tokio::test]

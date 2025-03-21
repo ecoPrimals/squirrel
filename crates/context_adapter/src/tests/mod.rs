@@ -5,13 +5,16 @@ use tokio::test;
 
 use crate::{ContextAdapter, ContextAdapterConfig, ContextAdapterFactory, create_context_adapter, create_context_adapter_with_config};
 
-// Define a simple TestData struct for testing
+/// Test data structure used for context adapter testing
 pub struct TestData {
+    /// The test message content
     pub message: String,
+    /// The test numeric value
     pub value: i32,
 }
 
 impl TestData {
+    /// Creates a new test data value as JSON
     #[must_use] pub fn new(message: &str, value: i32) -> serde_json::Value {
         serde_json::json!({
             "message": message,

@@ -3,12 +3,9 @@
 //! These tests verify the interaction between different modules
 //! using the new dependency injection pattern.
 
-#[cfg(test)]
 use std::path::PathBuf;
-use std::path::PathBuf as StdPathBuf;
 use squirrel_core::error::Result;
 use std::fmt::Debug;
-use squirrel_core::error::SquirrelError;
 
 /// Test harness for integration tests
 pub struct IntegrationTestContext {
@@ -17,7 +14,7 @@ pub struct IntegrationTestContext {
     /// MCPSync instance - using placeholder types until mcp is fixed
     pub sync: MockMCPSync,
     /// Temporary directory for test data
-    temp_dir: StdPathBuf,
+    temp_dir: PathBuf,
 }
 
 /// Mock app adapter for testing
@@ -121,6 +118,7 @@ impl Drop for IntegrationTestContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use squirrel_core::error::SquirrelError;
     
     #[tokio::test]
     async fn test_integration_app_with_mcp() {

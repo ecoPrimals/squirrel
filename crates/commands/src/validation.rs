@@ -7,7 +7,7 @@ use regex::Regex;
 use sysinfo::System;
 use serde::{Serialize, Deserialize};
 use super::Command;
-use crate::CommandResult;
+use std::fmt::Debug;
 
 /// Trait for implementing command validation rules.
 /// 
@@ -713,6 +713,7 @@ impl ValidationRule for ResourceValidationRule {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use crate::CommandResult;
 
     #[derive(Debug, Clone)]
     struct TestCommand;

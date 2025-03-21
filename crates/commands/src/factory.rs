@@ -10,7 +10,7 @@ use std::{
     error::Error,
     fmt::Debug,
     sync::{Arc, Mutex},
-    time::{Instant, Duration},
+    time::Instant,
 };
 
 use log::{debug, info, warn, error};
@@ -170,7 +170,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
+    use std::time::{Instant, Duration};
     use log::{debug, info};
     use crate::{Command, CommandResult};
     

@@ -5,6 +5,9 @@ edition.workspace = true
 authors.workspace = true
 description = "Machine Context Protocol (MCP) implementation for Squirrel"
 
+[features]
+di-tests = []
+
 [dependencies]
 # Core dependencies
 tokio = { workspace = true, features = ["full"] }

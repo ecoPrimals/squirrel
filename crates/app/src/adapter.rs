@@ -6,6 +6,7 @@
 use std::sync::{Arc, RwLock};
 use squirrel_core::error::{Result, SquirrelError, AppOperationError, AppInitializationError};
 use crate::core::{Core, AppConfig};
+use crate::error::CoreError;
 
 /// Adapter for the App module to support dependency injection
 #[derive(Debug)]
@@ -64,13 +65,13 @@ impl AppAdapter {
     /// # Errors
     /// 
     /// Returns an error if the adapter is not initialized
-    pub async fn ensure_initialized(&self) -> Result<()> {
+    pub fn ensure_initialized(&self) -> Result<()> {
         if !self.initialized {
             return Err(SquirrelError::AppOperation(AppOperationError::NotInitialized));
         }
         
         let inner = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::AppOperation(AppOperationError::OperationFailure("AppAdapter inner is None".to_string())))?;
+            .ok_or(SquirrelError::AppOperation(AppOperationError::NotInitialized))?;
             
         if inner.read().map_err(|_| SquirrelError::generic("Failed to acquire read lock"))?.version().is_empty() {
             return Err(SquirrelError::AppOperation(AppOperationError::OperationFailure("AppAdapter inner is invalid".to_string())));
@@ -86,11 +87,16 @@ impl AppAdapter {
     /// Returns an error if:
     /// - The adapter is not initialized
     /// - The App start operation fails
-    pub async fn start(&mut self) -> Result<()> {
+    pub fn start(&mut self) -> Result<()> {
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::generic("App not initialized"))?;
-        app.write().map_err(|_| SquirrelError::generic("Failed to acquire write lock"))?.start()
-            .map_err(|e| SquirrelError::generic(e.to_string()))
+            .ok_or(SquirrelError::AppOperation(AppOperationError::NotInitialized))?;
+        let mut core = app.write().map_err(|_| SquirrelError::generic("Failed to acquire write lock"))?;
+        core.start().map_err(|e| match e {
+            CoreError::Config(msg) if msg.contains("App operation error: Application is already stopped") => {
+                SquirrelError::AppOperation(AppOperationError::AlreadyStopped)
+            }
+            _ => SquirrelError::generic(e.to_string())
+        })
     }
 
     /// Stop the application
@@ -100,11 +106,16 @@ impl AppAdapter {
     /// Returns an error if:
     /// - The adapter is not initialized
     /// - The App stop operation fails
-    pub async fn stop(&mut self) -> Result<()> {
+    pub fn stop(&mut self) -> Result<()> {
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::generic("App not initialized"))?;
-        app.write().map_err(|_| SquirrelError::generic("Failed to acquire write lock"))?.stop()
-            .map_err(|e| SquirrelError::generic(e.to_string()))
+            .ok_or(SquirrelError::AppOperation(AppOperationError::NotInitialized))?;
+        let mut core = app.write().map_err(|_| SquirrelError::generic("Failed to acquire write lock"))?;
+        core.stop().map_err(|e| match e {
+            CoreError::Config(msg) if msg.contains("App operation error: Application is already stopped") => {
+                SquirrelError::AppOperation(AppOperationError::AlreadyStopped)
+            }
+            _ => SquirrelError::generic(e.to_string())
+        })
     }
 
     /// Gets the app context
@@ -136,11 +147,11 @@ impl AppAdapter {
     /// # Errors
     ///
     /// Returns an error if the adapter is not initialized
-    pub async fn config(&self) -> Result<AppConfig> {
-        self.ensure_initialized().await?;
+    pub fn config(&self) -> Result<AppConfig> {
+        self.ensure_initialized()?;
         
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
+            .ok_or(SquirrelError::AppOperation(AppOperationError::NotInitialized))?;
             
         Ok(app.read().map_err(|_| SquirrelError::generic("Failed to acquire read lock"))?.config.clone())
     }
@@ -150,11 +161,11 @@ impl AppAdapter {
     /// # Errors
     /// 
     /// Returns an error if the adapter is not initialized
-    pub async fn version(&self) -> Result<String> {
-        self.ensure_initialized().await?;
+    pub fn version(&self) -> Result<String> {
+        self.ensure_initialized()?;
         
         let app = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
+            .ok_or(SquirrelError::AppOperation(AppOperationError::NotInitialized))?;
             
         Ok(app.read().map_err(|_| SquirrelError::generic("Failed to acquire read lock"))?.version().to_string())
     }
@@ -167,7 +178,7 @@ impl AppAdapter {
 /// Returns an error if:
 /// - The `AppAdapter` initialization fails
 /// - The App creation fails
-pub async fn create_initialized_app_adapter(config: AppConfig) -> Result<AppAdapter> {
+pub fn create_initialized_app_adapter(config: AppConfig) -> Result<AppAdapter> {
     let mut adapter = AppAdapter::new();
     adapter.initialize(config)?;
     Ok(adapter)
@@ -180,8 +191,8 @@ pub async fn create_initialized_app_adapter(config: AppConfig) -> Result<AppAdap
 /// Returns an error if:
 /// - The `AppAdapter` initialization fails
 /// - The App creation fails
-pub async fn create_default_app_adapter() -> Result<AppAdapter> {
-    create_initialized_app_adapter(AppConfig::default()).await
+pub fn create_default_app_adapter() -> Result<AppAdapter> {
+    create_initialized_app_adapter(AppConfig::default())
 }
 
 #[cfg(test)]
@@ -233,7 +244,7 @@ mod tests {
             debug: true,
         };
         
-        let adapter_result = create_initialized_app_adapter(config).await;
+        let adapter_result = create_initialized_app_adapter(config);
         
         // ASSERT
         assert!(adapter_result.is_ok());
@@ -244,7 +255,7 @@ mod tests {
     #[tokio::test]
     async fn test_app_adapter_default_factory() {
         // ARRANGE & ACT
-        let adapter_result = create_default_app_adapter().await;
+        let adapter_result = create_default_app_adapter();
         
         // ASSERT
         assert!(adapter_result.is_ok());
@@ -260,10 +271,10 @@ mod tests {
         // ACT & ASSERT
         assert!(!adapter.is_initialized());
         
-        let start_result = adapter.start().await;
+        let start_result = adapter.start();
         assert!(start_result.is_err());
         
-        let stop_result = adapter.stop().await;
+        let stop_result = adapter.stop();
         assert!(stop_result.is_err());
         
         let context_result = adapter.context();
@@ -279,10 +290,10 @@ mod tests {
         let config = AppConfig::default();
         assert!(adapter.initialize(config).is_ok());
         
-        let start_result = adapter.start().await;
+        let start_result = adapter.start();
         assert!(start_result.is_ok());
         
-        let stop_result = adapter.stop().await;
+        let stop_result = adapter.stop();
         assert!(stop_result.is_ok());
         
         let context_result = adapter.context();
