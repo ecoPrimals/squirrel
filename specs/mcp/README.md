@@ -212,7 +212,7 @@ mcp/
 - [Tool Integration](tool-integration.md)
 - [Security Model](security-model.md)
 - [Performance](performance.md)
-- [Resource Management](resource-management.md)
+- [Resource Management](resource-management-completed.md) ✅ (Archived: [Original Spec](../archived/mcp/resource-management.md))
 - [Error Recovery](error-recovery.md)
 
 ## Security Standards
@@ -235,4 +235,5 @@ mcp/
 - [API Reference](api-reference.md)
 - [Example Implementations](examples.md)
 - [Testing Guide](testing.md)
-- [Resource Management Guide](resource-management.md) 
+- [Resource Management Guide](resource-management-completed.md)
+- [Next Steps](next-steps.md) 

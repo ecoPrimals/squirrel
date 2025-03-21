@@ -27,7 +27,7 @@ pub enum ResourceStatus {
 }
 
 /// Type of resource being tracked
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ResourceType {
     /// Memory allocation
     Memory,
