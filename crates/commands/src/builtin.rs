@@ -8,6 +8,10 @@ use log::{debug, info, warn, error};
 
 use crate::{Command, CommandResult, CommandError};
 use super::registry::CommandRegistry;
+use clap::{Arg, ArgAction, Command as ClapCommand};
+use std::time::{UNIX_EPOCH, SystemTime};
+
+use crate::history::{CommandHistory, HistoryEntry};
 
 /// Command for displaying help information
 ///
@@ -429,6 +433,173 @@ impl Command for KillCommand {
     fn clone_box(&self) -> Box<dyn Command> {
         debug!("KillCommand: Cloning command");
         Box::new(Self)
+    }
+}
+
+/// Command for managing command history
+pub struct HistoryCommand {
+    /// Command history manager
+    history: Arc<CommandHistory>,
+}
+
+impl HistoryCommand {
+    /// Creates a new history command
+    #[must_use] pub fn new(history: Arc<CommandHistory>) -> Self {
+        debug!("HistoryCommand: Creating new instance");
+        Self { history }
+    }
+    
+    /// Helper to format a list of history entries
+    fn format_entries(&self, entries: &[HistoryEntry], limit: usize) -> String {
+        let mut output = String::new();
+        let count = std::cmp::min(entries.len(), limit);
+        
+        if count == 0 {
+            return "No history entries found.".to_string();
+        }
+        
+        for (i, entry) in entries.iter().take(count).enumerate() {
+            output.push_str(&format!("{}: {}\n", i + 1, entry.formatted()));
+        }
+        
+        if entries.len() > limit {
+            output.push_str(&format!("\n... and {} more entries (use --limit to show more)\n", 
+                entries.len() - limit));
+        }
+        
+        output
+    }
+}
+
+impl Command for HistoryCommand {
+    fn name(&self) -> &str {
+        "history"
+    }
+    
+    fn description(&self) -> &str {
+        "View and manage command history"
+    }
+    
+    fn execute(&self, args: &[String]) -> CommandResult<String> {
+        debug!("HistoryCommand: Executing with args: {:?}", args);
+        
+        let matches = self.parser().try_get_matches_from(
+            std::iter::once(self.name().to_string()).chain(args.iter().cloned())
+        ).map_err(|e| {
+            CommandError::ExecutionError(format!("Invalid arguments: {}", e))
+        })?;
+        
+        if matches.get_flag("clear") {
+            // Clear history
+            self.history.clear().map_err(|e| {
+                CommandError::ExecutionError(format!("Failed to clear history: {}", e))
+            })?;
+            
+            return Ok("Command history cleared.".to_string());
+        }
+        
+        if let Some(days) = matches.get_one::<u64>("cleanup") {
+            // Calculate timestamp for cleanup
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+                
+            let days_in_secs = days * 24 * 60 * 60;
+            let cutoff = if now > days_in_secs { now - days_in_secs } else { 0 };
+            
+            // Cleanup entries older than the cutoff
+            let removed = self.history.cleanup_older_than(cutoff).map_err(|e| {
+                CommandError::ExecutionError(format!("Failed to cleanup history: {}", e))
+            })?;
+            
+            return Ok(format!("Removed {} history entries older than {} days.", removed, days));
+        }
+        
+        let limit = matches.get_one::<usize>("limit")
+            .cloned()
+            .unwrap_or(10);
+            
+        if let Some(query) = matches.get_one::<String>("search") {
+            // Search history
+            let entries = self.history.search(query).map_err(|e| {
+                CommandError::ExecutionError(format!("Failed to search history: {}", e))
+            })?;
+            
+            let output = if entries.is_empty() {
+                format!("No command history entries found matching '{}'.", query)
+            } else {
+                format!("Search results for '{}':\n\n{}", 
+                    query, self.format_entries(&entries, limit))
+            };
+            
+            return Ok(output);
+        }
+        
+        if let Some(command) = matches.get_one::<String>("command") {
+            // Get history for specific command
+            let entry = self.history.get_last_for_command(command).map_err(|e| {
+                CommandError::ExecutionError(format!("Failed to get command history: {}", e))
+            })?;
+            
+            let output = match entry {
+                Some(entry) => format!("Last execution of '{}':\n\n{}", command, entry.formatted()),
+                None => format!("No history found for command '{}'.", command),
+            };
+            
+            return Ok(output);
+        }
+        
+        // Default: show last N entries
+        let entries = self.history.get_last(limit).map_err(|e| {
+            CommandError::ExecutionError(format!("Failed to get command history: {}", e))
+        })?;
+        
+        let output = if entries.is_empty() {
+            "Command history is empty.".to_string()
+        } else {
+            format!("Command history (most recent first):\n\n{}", 
+                self.format_entries(&entries, limit))
+        };
+        
+        Ok(output)
+    }
+    
+    fn parser(&self) -> ClapCommand {
+        // Use string literals rather than accessing self to avoid lifetime issues
+        ClapCommand::new("history")
+            .about("View and manage command history")
+            .arg(Arg::new("limit")
+                .short('n')
+                .long("limit")
+                .help("Limit the number of entries displayed")
+                .value_name("COUNT")
+                .value_parser(clap::value_parser!(usize)))
+            .arg(Arg::new("search")
+                .short('s')
+                .long("search")
+                .help("Search command history")
+                .value_name("QUERY"))
+            .arg(Arg::new("command")
+                .short('c')
+                .long("command")
+                .help("Show history for a specific command")
+                .value_name("COMMAND"))
+            .arg(Arg::new("clear")
+                .long("clear")
+                .help("Clear command history")
+                .action(ArgAction::SetTrue))
+            .arg(Arg::new("cleanup")
+                .long("cleanup")
+                .help("Remove entries older than the specified number of days")
+                .value_name("DAYS")
+                .value_parser(clap::value_parser!(u64)))
+    }
+    
+    fn clone_box(&self) -> Box<dyn Command> {
+        Box::new(Self {
+            history: Arc::clone(&self.history),
+        })
     }
 }
 
