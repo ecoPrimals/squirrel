@@ -21,6 +21,7 @@ tracing-subscriber = { workspace = true }
 sysinfo = "0.30.0"
 log = "0.4.20"
 simple_logger = "4.3.3"
+chrono = "0.4.40"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
@@ -28,6 +29,7 @@ squirrel-core = { path = "../core" }
 [dev-dependencies]
 tokio-test = { workspace = true }
 mockall = { workspace = true }
+tempfile = "3.10.1"
 
 [lib]
 name = "squirrel_commands"

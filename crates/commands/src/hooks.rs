@@ -10,6 +10,9 @@ use super::lifecycle::{LifecycleHook, LifecycleStage};
 use std::sync::Arc;
 use crate::CommandResult;
 use clap::Parser;
+use crate::history::CommandHistory;
+use log::{debug, error};
+use std::fmt::Debug;
 
 /// Error type for hook failures.
 #[derive(Debug)]
@@ -557,6 +560,103 @@ pub struct PostExecutionHook {
     /// The validator component that performs post-execution validation
     #[allow(dead_code)]
     validator: Arc<RwLock<CommandValidator>>,
+}
+
+/// Result type for command processors
+pub type CommandProcessorResult = Result<(), Box<dyn Error>>;
+
+/// Command processor trait
+/// 
+/// This trait is implemented by types that process commands before or after execution
+pub trait CommandProcessor: Send + Sync + Debug {
+    /// Returns the name of the processor
+    fn name(&self) -> &'static str;
+    
+    /// Pre-process a command before execution
+    /// 
+    /// # Arguments
+    /// 
+    /// * `command` - The command to process
+    /// * `args` - The arguments to the command
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if processing succeeded, or an error if it failed
+    fn pre_process(&self, _command: &dyn Command, _args: &[String]) -> CommandProcessorResult {
+        // Default implementation does nothing
+        Ok(())
+    }
+    
+    /// Post-process a command after execution
+    /// 
+    /// # Arguments
+    /// 
+    /// * `command` - The command that was executed
+    /// * `args` - The arguments to the command
+    /// * `result` - The result of the command execution
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if processing succeeded, or an error if it failed
+    fn post_process(&self, _command: &dyn Command, _args: &[String], _result: &CommandResult<String>) -> CommandProcessorResult {
+        // Default implementation does nothing
+        Ok(())
+    }
+}
+
+/// Hook for recording command executions in history
+#[derive(Debug, Clone)]
+pub struct HistoryHook {
+    /// Command history manager
+    history: Arc<CommandHistory>,
+}
+
+impl HistoryHook {
+    /// Creates a new history hook
+    #[must_use] pub fn new(history: Arc<CommandHistory>) -> Self {
+        debug!("HistoryHook: Creating new instance");
+        Self { history }
+    }
+}
+
+impl CommandProcessor for HistoryHook {
+    fn name(&self) -> &'static str {
+        "history_hook"
+    }
+    
+    fn post_process(&self, command: &dyn Command, args: &[String], result: &CommandResult<String>) -> CommandProcessorResult {
+        debug!("HistoryHook: Recording command execution");
+        
+        // Determine if command succeeded and get error message if it failed
+        let (success, error_message) = match result {
+            Ok(_) => (true, None),
+            Err(e) => (false, Some(e.to_string())),
+        };
+        
+        // Record execution
+        match self.history.add(
+            command.name().to_string(),
+            args.to_vec(),
+            success,
+            error_message,
+            None, // No metadata for now
+        ) {
+            Ok(_) => {
+                debug!("HistoryHook: Command execution recorded");
+                Ok(())
+            },
+            Err(e) => {
+                error!("HistoryHook: Failed to record command execution: {}", e);
+                // We don't want to fail the command because of history recording
+                Ok(())
+            },
+        }
+    }
+}
+
+/// Factory function to create a history hook
+pub fn create_history_hook(history: Arc<CommandHistory>) -> Box<dyn CommandProcessor> {
+    Box::new(HistoryHook::new(history))
 }
 
 #[cfg(test)]

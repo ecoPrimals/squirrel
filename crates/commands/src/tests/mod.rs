@@ -12,6 +12,12 @@ use crate::{
     lifecycle::{LifecycleHook, LifecycleStage},
 };
 
+// Include history tests
+mod history_test;
+
+// Include suggestions tests
+mod suggestions_test;
+
 // Test implementations
 
 #[derive(Parser)]

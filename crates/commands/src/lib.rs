@@ -20,6 +20,12 @@ pub mod resources;
 /// Command validation
 pub mod validation;
 
+/// Command history system
+pub mod history;
+
+/// Command suggestions system
+pub mod suggestions;
+
 /// Command registry
 mod registry;
 pub use registry::{Command, CommandRegistry, CommandResult};

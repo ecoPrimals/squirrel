@@ -4,7 +4,8 @@
 
 use crate::{
     registry::CommandRegistry,
-    builtin::{VersionCommand, HelpCommand, EchoCommand, ExitCommand, KillCommand},
+    builtin::{VersionCommand, HelpCommand, EchoCommand, ExitCommand, KillCommand, HistoryCommand},
+    history::CommandHistory,
 };
 use std::{
     error::Error,
@@ -13,7 +14,7 @@ use std::{
     time::Instant,
 };
 
-use log::{debug, info, warn, error};
+use log::{debug, info};
 
 /// The command registry factory trait
 /// 
@@ -101,68 +102,66 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
         debug!("Factory: Registering built-in commands");
         let start = Instant::now();
         
-        // First register commands that don't depend on the registry
+        // Create a history manager
+        let history = Arc::new(CommandHistory::new()?);
+        
+        // Add the history hook to Record command executions
         {
-            debug!("Factory: Acquiring lock to register standard commands");
-            let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                error!("Factory: {}", err_msg);
-                Box::<dyn Error>::from(err_msg)
+            let _registry_guard = registry.lock().map_err(|e| {
+                Box::<dyn Error>::from(format!(
+                    "Failed to acquire lock on registry to register history hook: {}", e
+                ))
             })?;
             
-            // Register standard commands
-            registry_lock.register("version", Arc::new(VersionCommand))
-                .map_err(|e| {
-                    warn!("Factory: Failed to register version command: {}", e);
-                    Box::<dyn Error>::from(e)
-                })?;
-                
-            registry_lock.register("echo", Arc::new(EchoCommand::new()))
-                .map_err(|e| {
-                    warn!("Factory: Failed to register echo command: {}", e);
-                    Box::<dyn Error>::from(e)
-                })?;
-                
-            registry_lock.register("exit", Arc::new(ExitCommand::new()))
-                .map_err(|e| {
-                    warn!("Factory: Failed to register exit command: {}", e);
-                    Box::<dyn Error>::from(e)
-                })?;
-                
-            registry_lock.register("kill", Arc::new(KillCommand::new()))
-                .map_err(|e| {
-                    warn!("Factory: Failed to register kill command: {}", e);
-                    Box::<dyn Error>::from(e)
-                })?;
-            
-            debug!("Factory: Standard commands registered successfully");
-        } // Release the lock
+            // TODO: Implement add_post_hook in CommandRegistry
+            // registry_guard.add_post_hook(create_history_hook(Arc::clone(&history)))?;
+            debug!("Factory: History hook not added - function not implemented in CommandRegistry");
+        }
         
-        // Now create and register the help command with the already registered commands
-        // This ensures that the HelpCommand has the correct information at creation time
-        debug!("Factory: Creating help command with registry reference");
-        let help_command = HelpCommand::new(registry.clone());
-        
-        // Register the help command
+        // Step 1: Register non-help commands
         {
-            debug!("Factory: Acquiring lock to register help command");
-            let registry_lock = registry.lock().map_err(|e| {
-                let err_msg = format!("Failed to acquire lock on command registry: {}", e);
-                error!("Factory: {}", err_msg);
-                Box::<dyn Error>::from(err_msg)
+            debug!("Factory: Registering non-help commands (acquiring lock)");
+            let registry_guard = registry.lock().map_err(|e| {
+                Box::<dyn Error>::from(format!(
+                    "Failed to acquire lock on registry to register non-help commands: {}", e
+                ))
             })?;
             
-            registry_lock.register("help", Arc::new(help_command))
-                .map_err(|e| {
-                    warn!("Factory: Failed to register help command: {}", e);
-                    Box::<dyn Error>::from(e)
-                })?;
-                
-            debug!("Factory: Help command registered successfully");
-        } // Release the lock
+            // Register basic commands
+            registry_guard.register("version", Arc::new(VersionCommand::new()))?;
+            registry_guard.register("echo", Arc::new(EchoCommand::new()))?;
+            registry_guard.register("exit", Arc::new(ExitCommand::new()))?;
+            registry_guard.register("kill", Arc::new(KillCommand::new()))?;
+            
+            // Register the history command
+            registry_guard.register("history", Arc::new(HistoryCommand::new(Arc::clone(&history))))?;
+            
+            // TODO: Implement set_resource in CommandRegistry
+            // registry_guard.set_resource("command_history", Box::new(Arc::clone(&history)))?;
+            debug!("Factory: Resource not set - function not implemented in CommandRegistry");
+            
+            debug!("Factory: Non-help commands registered (releasing lock)");
+        }
+        
+        // Step 2: Create HelpCommand with pre-loaded command information
+        let help_command = HelpCommand::new(Arc::clone(registry));
+        
+        // Step 3: Register the HelpCommand
+        {
+            debug!("Factory: Registering help command (acquiring lock)");
+            let registry_guard = registry.lock().map_err(|e| {
+                Box::<dyn Error>::from(format!(
+                    "Failed to acquire lock on registry to register help command: {}", e
+                ))
+            })?;
+            
+            registry_guard.register("help", Arc::new(help_command))?;
+            
+            debug!("Factory: Help command registered (releasing lock)");
+        }
         
         let duration = start.elapsed();
-        info!("Factory: All built-in commands registered in {:?}", duration);
+        info!("Factory: Built-in commands registered in {:?}", duration);
         Ok(())
     }
 }
