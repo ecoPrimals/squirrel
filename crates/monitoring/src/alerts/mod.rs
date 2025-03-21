@@ -29,9 +29,29 @@ pub mod adapter;
 /// Module for notification management
 pub mod notify;
 
-/// Alert severity levels
+/// Re-export key types from submodules
+pub use config::AlertConfig;
+pub use config::NotificationChannel;
+pub use manager::AlertManager;
+pub use manager::AlertManagerAdapter;
+pub use manager::create_manager_adapter;
+pub use manager::create_manager_adapter_with_manager;
+pub use manager::AlertError;
+pub use status::Alert;
+pub use status::AlertSeverity;
+pub use status::AlertType;
+pub use status::ThresholdType;
+pub use status::ResourceType;
+pub use status::ErrorType;
+pub use status::HealthStatus;
+pub use status::PerformanceAlert;
+pub use status::ResourceAlert;
+pub use status::ErrorAlert;
+pub use status::HealthAlert;
+
+/// Legacy alert severity levels (deprecated, use status::AlertSeverity instead)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum AlertSeverity {
+pub enum LegacyAlertSeverity {
     /// Critical alerts require immediate attention
     Critical,
     /// High severity alerts should be addressed soon
@@ -44,7 +64,7 @@ pub enum AlertSeverity {
     Low,
 }
 
-impl std::fmt::Display for AlertSeverity {
+impl std::fmt::Display for LegacyAlertSeverity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Critical => write!(f, "Critical"),
@@ -56,7 +76,7 @@ impl std::fmt::Display for AlertSeverity {
     }
 }
 
-impl AlertSeverity {
+impl LegacyAlertSeverity {
     /// Get the color associated with this severity level
     #[must_use] pub const fn color(&self) -> &'static str {
         match self {
@@ -68,7 +88,30 @@ impl AlertSeverity {
     }
 }
 
-/// Alert status
+impl From<status::AlertSeverity> for LegacyAlertSeverity {
+    fn from(severity: status::AlertSeverity) -> Self {
+        match severity {
+            status::AlertSeverity::Info => LegacyAlertSeverity::Low,
+            status::AlertSeverity::Warning => LegacyAlertSeverity::Warning,
+            status::AlertSeverity::Error => LegacyAlertSeverity::High,
+            status::AlertSeverity::Critical => LegacyAlertSeverity::Critical,
+        }
+    }
+}
+
+impl From<LegacyAlertSeverity> for status::AlertSeverity {
+    fn from(severity: LegacyAlertSeverity) -> Self {
+        match severity {
+            LegacyAlertSeverity::Low => status::AlertSeverity::Info,
+            LegacyAlertSeverity::Warning => status::AlertSeverity::Warning,
+            LegacyAlertSeverity::Medium => status::AlertSeverity::Warning,
+            LegacyAlertSeverity::High => status::AlertSeverity::Error,
+            LegacyAlertSeverity::Critical => status::AlertSeverity::Critical,
+        }
+    }
+}
+
+/// Legacy alert status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AlertStatus {
     /// Alert is active and unacknowledged
@@ -89,9 +132,9 @@ impl std::fmt::Display for AlertStatus {
     }
 }
 
-/// Alert notification for a system event
+/// Legacy alert notification for a system event (deprecated, use status::Alert instead)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Alert {
+pub struct LegacyAlert {
     /// Unique identifier for the alert
     pub id: String,
     /// Short name describing the alert
@@ -99,7 +142,7 @@ pub struct Alert {
     /// Detailed description of the alert
     pub description: String,
     /// Severity level of the alert
-    pub severity: AlertSeverity,
+    pub severity: LegacyAlertSeverity,
     /// Current status of the alert
     pub status: AlertStatus,
     /// Key-value pairs for additional alert metadata
@@ -114,7 +157,7 @@ pub struct Alert {
     pub component: String,
 }
 
-impl Alert {
+impl LegacyAlert {
     /// Creates a new alert with the given parameters
     ///
     /// # Arguments
@@ -127,7 +170,7 @@ impl Alert {
     #[must_use] pub fn new(
         name: String,
         description: String,
-        severity: AlertSeverity,
+        severity: LegacyAlertSeverity,
         labels: HashMap<String, String>,
         message: String,
         component: String,
@@ -164,9 +207,9 @@ impl Alert {
     }
 }
 
-/// Alert configuration
+/// Legacy alert configuration (deprecated, use config::AlertConfig instead)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AlertConfig {
+pub struct LegacyAlertConfig {
     /// Enable alert generation
     pub enabled: bool,
     /// Alert check interval in seconds
@@ -174,16 +217,16 @@ pub struct AlertConfig {
     /// Maximum number of alerts to store
     pub max_alerts: usize,
     /// Minimum severity level for alerts to be processed
-    pub min_severity: AlertSeverity,
+    pub min_severity: LegacyAlertSeverity,
 }
 
-impl Default for AlertConfig {
+impl Default for LegacyAlertConfig {
     fn default() -> Self {
         Self {
             enabled: true,
             interval: 60,
             max_alerts: 1000,
-            min_severity: AlertSeverity::Low,
+            min_severity: LegacyAlertSeverity::Low,
         }
     }
 }
@@ -198,7 +241,7 @@ pub struct AlertNotification {
     /// Alert description
     pub description: String,
     /// Alert severity
-    pub severity: AlertSeverity,
+    pub severity: LegacyAlertSeverity,
     /// Alert status
     pub status: AlertStatus,
     /// Alert labels
@@ -213,8 +256,8 @@ pub struct AlertNotification {
     pub component: String,
 }
 
-impl From<Alert> for AlertNotification {
-    fn from(alert: Alert) -> Self {
+impl From<LegacyAlert> for AlertNotification {
+    fn from(alert: LegacyAlert) -> Self {
         Self {
             id: alert.id.clone(),
             name: alert.name.clone(),
@@ -253,9 +296,18 @@ impl NotificationManagerTrait for () {
     }
 }
 
-/// Alert manager trait
+/// Implementation for boxed trait object to enable dynamic notification managers
 #[async_trait]
-pub trait AlertManager: Debug + Send + Sync {
+impl NotificationManagerTrait for Box<dyn NotificationManagerTrait> {
+    /// Delegates to the contained trait implementation
+    async fn send_notification(&self, notification: &AlertNotification) -> Result<()> {
+        (**self).send_notification(notification).await
+    }
+}
+
+/// Legacy alert manager trait (deprecated, use manager::AlertManager instead)
+#[async_trait]
+pub trait LegacyAlertManager: Debug + Send + Sync {
     /// Sends an alert through configured notification channels and stores it
     ///
     /// # Arguments
@@ -265,7 +317,7 @@ pub trait AlertManager: Debug + Send + Sync {
     /// This function may return errors if:
     /// * The notification system fails to send the alert
     /// * There are issues storing the alert in the internal storage
-    async fn send_alert(&self, alert: Alert) -> Result<()>;
+    async fn send_alert(&self, alert: LegacyAlert) -> Result<()>;
     
     /// Retrieves all stored alerts
     ///
@@ -274,7 +326,7 @@ pub trait AlertManager: Debug + Send + Sync {
     ///
     /// # Errors
     /// This function may return errors if there are issues accessing the internal alert storage
-    async fn get_alerts(&self) -> Result<Vec<Alert>>;
+    async fn get_alerts(&self) -> Result<Vec<LegacyAlert>>;
     
     /// Adds a new alert to the storage without sending notifications
     ///
@@ -283,7 +335,7 @@ pub trait AlertManager: Debug + Send + Sync {
     ///
     /// # Errors
     /// This function may return errors if there are issues accessing the internal alert storage
-    async fn add_alert(&self, alert: Alert) -> Result<()>;
+    async fn add_alert(&self, alert: LegacyAlert) -> Result<()>;
     
     /// Updates an existing alert in the storage
     ///
@@ -294,7 +346,7 @@ pub trait AlertManager: Debug + Send + Sync {
     /// This function may return errors if:
     /// * The alert does not exist
     /// * There are issues accessing the internal alert storage
-    async fn update_alert(&self, alert: Alert) -> Result<()>;
+    async fn update_alert(&self, alert: LegacyAlert) -> Result<()>;
     
     /// Starts the alert manager and initializes resources
     ///
@@ -313,9 +365,9 @@ pub trait AlertManager: Debug + Send + Sync {
 #[derive(Debug)]
 pub struct DefaultAlertManager<N: NotificationManagerTrait + 'static = ()> {
     /// Storage for alert records
-    alerts: Arc<RwLock<Vec<Alert>>>,
+    alerts: Arc<RwLock<Vec<LegacyAlert>>>,
     /// Alert manager configuration
-    config: AlertConfig,
+    config: LegacyAlertConfig,
     /// Optional notification manager for sending alerts
     notification_manager: Option<Arc<N>>,
 }
@@ -328,7 +380,7 @@ impl<N: NotificationManagerTrait + 'static> DefaultAlertManager<N> {
     ///
     /// # Returns
     /// A new instance of `DefaultAlertManager` initialized with the provided configuration
-    #[must_use] pub fn new(config: AlertConfig) -> Self {
+    #[must_use] pub fn new(config: LegacyAlertConfig) -> Self {
         Self {
             alerts: Arc::new(RwLock::new(Vec::new())),
             config,
@@ -345,7 +397,7 @@ impl<N: NotificationManagerTrait + 'static> DefaultAlertManager<N> {
     /// # Returns
     /// A new instance of `DefaultAlertManager` with the specified dependencies
     #[must_use] pub fn with_dependencies(
-        config: AlertConfig,
+        config: LegacyAlertConfig,
         notification_manager: Option<Arc<N>>,
     ) -> Self {
         Self {
@@ -358,12 +410,12 @@ impl<N: NotificationManagerTrait + 'static> DefaultAlertManager<N> {
 
 impl<N: NotificationManagerTrait + 'static> Default for DefaultAlertManager<N> {
     fn default() -> Self {
-        Self::new(AlertConfig::default())
+        Self::new(LegacyAlertConfig::default())
     }
 }
 
 #[async_trait]
-impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager<N> {
+impl<N: NotificationManagerTrait + 'static> LegacyAlertManager for DefaultAlertManager<N> {
     /// Sends an alert through configured notification channels and stores it
     ///
     /// # Arguments
@@ -373,7 +425,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
     /// A Result indicating success or containing an error if:
     /// * There are issues sending the notification through configured channels
     /// * There are issues storing the alert in the internal storage
-    async fn send_alert(&self, alert: Alert) -> Result<()> {
+    async fn send_alert(&self, alert: LegacyAlert) -> Result<()> {
         // Store the alert
         self.add_alert(alert.clone()).await?;
 
@@ -395,7 +447,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
     ///
     /// # Errors
     /// This function may return errors if there are issues accessing the internal alert storage
-    async fn get_alerts(&self) -> Result<Vec<Alert>> {
+    async fn get_alerts(&self) -> Result<Vec<LegacyAlert>> {
         let alerts = self.alerts.read().await;
         Ok(alerts.clone())
     }
@@ -407,7 +459,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
     ///
     /// # Errors
     /// This function may return errors if there are issues accessing the internal alert storage
-    async fn add_alert(&self, alert: Alert) -> Result<()> {
+    async fn add_alert(&self, alert: LegacyAlert) -> Result<()> {
         let mut alerts = self.alerts.write().await;
         alerts.push(alert);
         Ok(())
@@ -422,7 +474,7 @@ impl<N: NotificationManagerTrait + 'static> AlertManager for DefaultAlertManager
     /// This function may return errors if:
     /// * The alert does not exist
     /// * There are issues accessing the internal alert storage
-    async fn update_alert(&self, alert: Alert) -> Result<()> {
+    async fn update_alert(&self, alert: LegacyAlert) -> Result<()> {
         let mut alerts = self.alerts.write().await;
         if let Some(index) = alerts.iter().position(|a| a.id == alert.id) {
             alerts[index] = alert;

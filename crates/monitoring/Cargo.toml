@@ -26,6 +26,7 @@ log = "0.4"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
+time.workspace = true
 
 [dev-dependencies]
 tokio-test = { workspace = true }

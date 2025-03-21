@@ -429,7 +429,7 @@ impl AlertManagerTrait for AlertManagerImpl {
         // Filter alerts by timestamps within range
         Ok(alerts.iter()
             .filter(|a| {
-                let timestamp = DateTime::<Utc>::from_timestamp(a.created_at, 0).unwrap_or_default();
+                let timestamp = a.timestamp;
                 timestamp >= from && timestamp <= to
             })
             .cloned()

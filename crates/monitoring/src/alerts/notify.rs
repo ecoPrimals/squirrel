@@ -17,7 +17,7 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 // use chrono::Utc;
 
-use super::{AlertNotification, AlertSeverity};
+use super::{AlertNotification, LegacyAlertSeverity};
 use super::adapter::NotificationManagerAdapter;
 
 /// Notification channel type
@@ -92,7 +92,7 @@ pub struct RoutingRule {
     /// Rule name
     pub name: String,
     /// Severity filter
-    pub severity: Option<AlertSeverity>,
+    pub severity: Option<LegacyAlertSeverity>,
     /// Component filter
     pub component: Option<String>,
     /// Target channels
@@ -115,7 +115,7 @@ pub enum NotificationError {
     #[error("Rate limit error: {0}")]
     RateLimitError(String),
     /// Error related to notification routing.
-    #[error("Routing error: {0}")]
+    #[error("Routing Error: {0}")]
     RoutingError(String),
     /// System-level error during notification processing.
     #[error("System error: {0}")]
@@ -462,18 +462,24 @@ impl NotificationManager {
     /// Returns true if the rule matches the alert.
     fn check_routing_rule(rule: &RoutingRule, alert: &AlertNotification) -> bool {
         // Check severity filter
-        let severity_match = match &rule.severity {
-            None => true,
-            Some(s) => &alert.severity == s,
-        };
-        
+        if let Some(severity) = &rule.severity {
+            match (severity, alert.severity) {
+                (LegacyAlertSeverity::Critical, s) if s != LegacyAlertSeverity::Critical => return false,
+                (LegacyAlertSeverity::High, s) if s != LegacyAlertSeverity::High && s != LegacyAlertSeverity::Critical => return false,
+                (LegacyAlertSeverity::Medium, s) if s == LegacyAlertSeverity::Low || s == LegacyAlertSeverity::Warning => return false,
+                (LegacyAlertSeverity::Warning, s) if s == LegacyAlertSeverity::Low => return false,
+                _ => {}
+            }
+        }
+
         // Check component filter
-        let component_match = match &rule.component {
-            None => true,
-            Some(c) => alert.component.contains(c),
-        };
-        
-        severity_match && component_match
+        if let Some(component) = &rule.component {
+            if alert.component != *component {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -481,7 +487,7 @@ impl NotificationManager {
 /// 
 /// This helper function is used to determine the appropriate color
 /// to use when displaying or sending alerts based on their severity.
-const fn get_severity_color(severity: AlertSeverity) -> &'static str {
+const fn get_severity_color(severity: LegacyAlertSeverity) -> &'static str {
     severity.color()
 }
 
