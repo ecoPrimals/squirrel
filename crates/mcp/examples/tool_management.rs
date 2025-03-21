@@ -22,7 +22,7 @@ use squirrel_mcp::tool::{
     Parameter,
     ParameterType,
     RemoteToolExecutor,
-    SecurityLifecycleHook,
+    lifecycle::SecurityLifecycleHook,
     Tool,
     ToolError,
     ToolManager,
