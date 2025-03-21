@@ -2,9 +2,9 @@
 
 use anyhow::Result;
 use axum::{
-    extract::State,
     routing::{get, post},
     Router,
+    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

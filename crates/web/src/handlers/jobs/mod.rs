@@ -11,7 +11,7 @@ use crate::{AppState, CreateJobRequest, CreateJobResponse, JobStatus};
 
 /// Create a new job
 pub async fn create(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Json(request): Json<CreateJobRequest>,
 ) -> impl IntoResponse {
     // TODO: Implement job creation
@@ -25,7 +25,7 @@ pub async fn create(
 
 /// Get job status
 pub async fn status(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> impl IntoResponse {
     // TODO: Implement job status retrieval
@@ -40,7 +40,7 @@ pub async fn status(
 
 /// Get job report
 pub async fn report(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> impl IntoResponse {
     // TODO: Implement report retrieval
@@ -48,4 +48,24 @@ pub async fn report(
         "job_id": job_id.to_string(),
         "message": "Report not implemented yet",
     }))
+}
+
+pub async fn create_job(
+    State(_state): State<AppState>,
+    Json(_request): Json<CreateJobRequest>,
+) -> impl IntoResponse {
+    // Implementation...
+}
+
+pub async fn list_jobs(
+    State(_state): State<AppState>,
+) -> impl IntoResponse {
+    // Implementation...
+}
+
+pub async fn get_job(
+    State(_state): State<AppState>,
+    Path(job_id): Path<String>,
+) -> impl IntoResponse {
+    // Implementation...
 } 

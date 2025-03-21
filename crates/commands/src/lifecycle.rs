@@ -95,18 +95,21 @@ impl CommandLifecycle {
     /// 
     /// Returns an error if any lifecycle hook fails during execution
     pub fn execute_stage(&self, stage: LifecycleStage, command: &dyn Command) -> Result<(), Box<dyn Error>> {
-        let hooks = self.hooks.read().map_err(|e| Box::new(ValidationError {
-            rule_name: "LifecycleHook".to_string(),
-            message: format!("Failed to acquire read lock: {e}"),
-        }))?;
+        // Get a copy of the hooks while holding the lock
+        let hooks_copy = {
+            let hooks = self.hooks.read().map_err(|e| Box::new(ValidationError {
+                rule_name: "LifecycleHook".to_string(),
+                message: format!("Failed to acquire read lock: {e}"),
+            }))?;
+            
+            // Clone the hooks into a temporary vector
+            hooks.iter()
+                .map(|hook| hook.clone_box())
+                .collect::<Vec<_>>()
+        }; // Lock is released here
         
-        // Execute pre-stage hooks
-        for hook in hooks.iter() {
-            hook.on_stage(&stage, command)?;
-        }
-        
-        // Execute post-stage hooks
-        for hook in hooks.iter() {
+        // Execute hooks after the lock is released
+        for hook in &hooks_copy {
             hook.on_stage(&stage, command)?;
         }
         

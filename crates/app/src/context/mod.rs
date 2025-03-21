@@ -1009,16 +1009,16 @@ mod tests {
         assert!(Arc::ptr_eq(&tracker.manager, &manager));
     }
     
-    #[test]
-    fn test_helper_create_context_tracker() {
+    #[tokio::test]
+    async fn test_helper_create_context_tracker() {
         let tracker = create_context_tracker().unwrap();
-        assert!(tracker.active_context.read().unwrap().is_none());
+        assert!(tracker.active_context.read().await.is_none());
     }
     
-    #[test]
-    fn test_helper_create_context_tracker_with_config() {
+    #[tokio::test]
+    async fn test_helper_create_context_tracker_with_config() {
         let config = ContextConfig::default();
         let tracker = create_context_tracker_with_config(config).unwrap();
-        assert!(tracker.active_context.read().unwrap().is_none());
+        assert!(tracker.active_context.read().await.is_none());
     }
 }

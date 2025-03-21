@@ -4,99 +4,157 @@ use serde_json::json;
 use tokio::sync::RwLock;
 use tokio::test;
 
-use crate::context_adapter::{ContextAdapter, ContextAdapterConfig, ContextAdapterFactory, create_context_adapter, create_context_adapter_with_config};
-use crate::mcp::protocol::adapter::MCPContextAdapter;
-use crate::test_utils::TestData;
+use crate::{ContextAdapter, ContextAdapterConfig, ContextAdapterFactory, create_context_adapter, create_context_adapter_with_config};
+
+// Define a simple TestData struct for testing
+pub struct TestData {
+    pub message: String,
+    pub value: i32,
+}
+
+impl TestData {
+    pub fn new(message: &str, value: i32) -> serde_json::Value {
+        serde_json::json!({
+            "message": message,
+            "value": value
+        })
+    }
+}
 
 #[test]
 async fn test_adapter_initialization() {
-    let mut adapter = MCPContextAdapter::new();
-    assert!(!adapter.is_initialized());
+    let adapter = ContextAdapter::default();
     
-    // Test initialization
-    let result = adapter.initialize();
-    assert!(result.is_ok());
-    assert!(adapter.is_initialized());
+    // Verify adapter state
+    let initial_config = adapter.get_config().await.unwrap();
+    assert_eq!(initial_config.max_contexts, 1000);
+    
+    // Test context operations
+    let context_id = "test-init";
+    let data = json!({ "test": true });
+    
+    // Create a context
+    let create_result = adapter.create_context(context_id.to_string(), data.clone()).await;
+    assert!(create_result.is_ok());
+    
+    // Verify context was created
+    let contexts = adapter.list_contexts().await.unwrap();
+    assert_eq!(contexts.len(), 1);
 }
 
 #[test]
 async fn test_adapter_with_config() {
-    let mut adapter = MCPContextAdapter::new();
-    
     // Create test config
     let config = ContextAdapterConfig {
-        persistence_path: Some(String::from("/tmp/test")),
-        auto_save_interval: Some(60),
+        max_contexts: 200,
+        ttl_seconds: 3600,
+        enable_auto_cleanup: true,
     };
     
     // Initialize with config
-    adapter.initialize_with_config(config.clone()).unwrap();
-    assert!(adapter.is_initialized());
+    let adapter = ContextAdapter::new(config.clone());
     
     // Check config is applied
     let retrieved_config = adapter.get_config().await.unwrap();
-    assert_eq!(retrieved_config.persistence_path, config.persistence_path);
-    assert_eq!(retrieved_config.auto_save_interval, config.auto_save_interval);
+    assert_eq!(retrieved_config.max_contexts, config.max_contexts);
+    assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
+    assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
 }
 
 #[test]
 async fn test_state_operations() {
-    let mut adapter = MCPContextAdapter::new();
-    adapter.initialize().unwrap();
+    let adapter = ContextAdapter::default();
     
-    // Create test state
-    let test_state = TestData::create_test_state();
-    
-    // Set state
-    adapter.set_state(test_state.clone()).await.unwrap();
-    
-    // Get state
-    let state = adapter.get_state().await.unwrap();
-    assert_eq!(state, test_state);
-}
-
-#[test]
-async fn test_multiple_initialization() {
-    let mut adapter = MCPContextAdapter::new();
-    
-    // First initialization
-    adapter.initialize().unwrap();
-    assert!(adapter.is_initialized());
-    
-    // Second initialization should still work
-    let result = adapter.initialize();
-    assert!(result.is_ok());
-}
-
-#[test]
-async fn test_integration_with_context() {
-    // Create adapter and context manager
-    let adapter = Arc::new(RwLock::new(MCPContextAdapter::new()));
-    
-    // Initialize adapter
-    {
-        let mut write_adapter = adapter.write().await;
-        write_adapter.initialize().unwrap();
-    }
-    
-    // Set state
+    // Create test context
+    let context_id = "test-state";
     let test_state = json!({
-        "test": true,
-        "value": "DI pattern test"
+        "message": "Test message",
+        "value": 42
     });
     
-    {
-        let read_adapter = adapter.read().await;
-        read_adapter.set_state(test_state.clone()).await.unwrap();
-    }
+    // Set state by creating a context
+    adapter.create_context(context_id.to_string(), test_state.clone()).await.unwrap();
     
-    // Get state
-    let state = {
-        let read_adapter = adapter.read().await;
-        read_adapter.get_state().await.unwrap()
-    };
+    // Get state by retrieving the context
+    let context = adapter.get_context(context_id).await.unwrap();
+    assert_eq!(context.data, test_state);
     
-    assert_eq!(state, test_state);
+    // Update state
+    let updated_state = json!({
+        "message": "Updated message",
+        "value": 100
+    });
+    
+    adapter.update_context(context_id, updated_state.clone()).await.unwrap();
+    
+    // Verify state was updated
+    let updated_context = adapter.get_context(context_id).await.unwrap();
+    assert_eq!(updated_context.data, updated_state);
+}
+
+#[test]
+async fn test_multiple_contexts() {
+    let adapter = ContextAdapter::default();
+    
+    // Create multiple contexts
+    adapter.create_context("context1".to_string(), json!({"id": 1})).await.unwrap();
+    adapter.create_context("context2".to_string(), json!({"id": 2})).await.unwrap();
+    adapter.create_context("context3".to_string(), json!({"id": 3})).await.unwrap();
+    
+    // Verify all contexts were created
+    let contexts = adapter.list_contexts().await.unwrap();
+    assert_eq!(contexts.len(), 3);
+    
+    // Verify context retrieval
+    let context1 = adapter.get_context("context1").await.unwrap();
+    let context2 = adapter.get_context("context2").await.unwrap();
+    let context3 = adapter.get_context("context3").await.unwrap();
+    
+    assert_eq!(context1.data, json!({"id": 1}));
+    assert_eq!(context2.data, json!({"id": 2}));
+    assert_eq!(context3.data, json!({"id": 3}));
+    
+    // Delete a context
+    adapter.delete_context("context2").await.unwrap();
+    
+    // Verify context was deleted
+    let remaining_contexts = adapter.list_contexts().await.unwrap();
+    assert_eq!(remaining_contexts.len(), 2);
+    assert!(adapter.get_context("context2").await.is_err());
+}
+
+#[test]
+async fn test_thread_safety() {
+    // Create shared adapter
+    let adapter = Arc::new(ContextAdapter::default());
+    
+    // Test concurrent operations
+    let adapter_clone1 = adapter.clone();
+    let adapter_clone2 = adapter.clone();
+    
+    // Create contexts from different threads
+    let handle1 = tokio::spawn(async move {
+        adapter_clone1.create_context("thread1".to_string(), json!({"source": "thread1"})).await
+    });
+    
+    let handle2 = tokio::spawn(async move {
+        adapter_clone2.create_context("thread2".to_string(), json!({"source": "thread2"})).await
+    });
+    
+    // Wait for both operations to complete
+    let _ = handle1.await.unwrap();
+    let _ = handle2.await.unwrap();
+    
+    // Verify both contexts were created successfully
+    let contexts = adapter.list_contexts().await.unwrap();
+    assert_eq!(contexts.len(), 2);
+    
+    // Verify we can retrieve both contexts
+    let context1 = adapter.get_context("thread1").await.unwrap();
+    let context2 = adapter.get_context("thread2").await.unwrap();
+    
+    assert_eq!(context1.data, json!({"source": "thread1"}));
+    assert_eq!(context2.data, json!({"source": "thread2"}));
 }
 
 #[test]
@@ -199,29 +257,31 @@ async fn test_context_operations() {
 }
 
 #[test]
-async fn test_config_update() {
-    // Create an adapter
-    let adapter = ContextAdapter::default();
+async fn test_configuration_update() {
+    // Create adapter with default config
+    let adapter = create_context_adapter();
     
-    // Initial config
-    let initial_config = adapter.get_config().await.unwrap();
-    assert_eq!(initial_config.max_contexts, 1000);
+    // Verify default config
+    let default_config = adapter.get_config().await.unwrap();
+    assert!(default_config.max_contexts > 0);
     
-    // Update config
-    let new_config = ContextAdapterConfig {
-        max_contexts: 2000,
-        ttl_seconds: 7200,
+    // Create a new config
+    let config = ContextAdapterConfig {
+        max_contexts: 200,
+        ttl_seconds: 7200, 
         enable_auto_cleanup: false,
     };
     
-    let update_result = adapter.update_config(new_config).await;
-    assert!(update_result.is_ok());
+    // Update the config
+    adapter.update_config(config.clone()).await.unwrap();
     
-    // Check updated config
-    let updated_config = adapter.get_config().await.unwrap();
-    assert_eq!(updated_config.max_contexts, 2000);
-    assert_eq!(updated_config.ttl_seconds, 7200);
-    assert_eq!(updated_config.enable_auto_cleanup, false);
+    // Retrieve the updated config
+    let retrieved_config = adapter.get_config().await.unwrap();
+    
+    // Verify config values match
+    assert_eq!(retrieved_config.max_contexts, config.max_contexts);
+    assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
+    assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
 }
 
 #[test]
@@ -252,4 +312,25 @@ async fn test_cleanup_expired_contexts() {
     
     // Contexts should be removed
     assert_eq!(adapter.list_contexts().await.unwrap().len(), 0);
+}
+
+#[test]
+async fn test_context_adapter_config() {
+    // Create a config
+    let config = ContextAdapterConfig {
+        max_contexts: 100,
+        ttl_seconds: 3600,
+        enable_auto_cleanup: true,
+    };
+    
+    // Create adapter with config
+    let adapter = create_context_adapter_with_config(config.clone());
+    
+    // Get the config back
+    let retrieved_config = adapter.get_config().await.unwrap();
+    
+    // Verify config values match
+    assert_eq!(retrieved_config.max_contexts, config.max_contexts);
+    assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
+    assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
 } 

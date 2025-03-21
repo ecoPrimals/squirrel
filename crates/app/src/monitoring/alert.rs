@@ -1,11 +1,19 @@
+//! Alert manager implementation for app monitoring.
+
 use std::fmt::Debug;
 use std::sync::RwLock;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 use crate::error::{Result, CoreError};
 use squirrel_core::error::SquirrelError;
 use squirrel_monitoring::alerts::Alert;
+
+use crate::monitoring::AlertManagerTrait;
+use squirrel_monitoring::alerts::manager::AlertManager as SquirrelAlertManager;
+use squirrel_monitoring::alerts::AlertSeverity;
+use squirrel_monitoring::alerts::AlertStatus;
 
 /// Alert configuration
 #[derive(Debug, Clone)]
@@ -113,7 +121,7 @@ impl Default for AlertManagerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::monitoring::AlertManagerTrait;
+    use crate::monitoring::AlertManagerTrait;
     
     #[tokio::test]
     async fn test_alert_manager() {
@@ -123,12 +131,17 @@ mod tests {
         alert_manager.start().await.unwrap();
         
         // Create and send an alert
-        let alert = Alert {
-            name: "high_cpu".to_string(),
-            message: "CPU usage is high".to_string(),
-            severity: "critical".to_string(),
-            timestamp: 12345,
-        };
+        let mut labels = HashMap::new();
+        labels.insert("source".to_string(), "test".to_string());
+        
+        let alert = Alert::new(
+            "high_cpu".to_string(),
+            "CPU usage exceeded threshold".to_string(),
+            AlertSeverity::Critical,
+            labels,
+            "CPU usage is high".to_string(),
+            "monitoring".to_string(),
+        );
         
         alert_manager.send_alert(alert).await.unwrap();
         
@@ -136,6 +149,8 @@ mod tests {
         let alerts = alert_manager.get_alerts().await.unwrap();
         assert_eq!(alerts.len(), 1);
         assert_eq!(alerts[0].name, "high_cpu");
+        assert_eq!(alerts[0].message, "CPU usage is high");
+        assert_eq!(alerts[0].component, "monitoring");
         
         // Stop the alert manager
         alert_manager.stop().await.unwrap();

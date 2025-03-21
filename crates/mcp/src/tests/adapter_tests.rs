@@ -1,6 +1,6 @@
 //! Tests for the MCPAdapter implementation.
 
-use crate::mcp::{MCPAdapter, MCPConfig, adapter::MCPInterface};
+use crate::{MCPAdapter, MCPConfig, adapter::MCPInterface};
 use crate::error::{AppInitializationError, AppOperationError};
 
 #[test]

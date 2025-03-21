@@ -7,6 +7,9 @@ use async_trait::async_trait;
 /// Health checker interface
 #[async_trait]
 pub trait HealthChecker: Send + Sync + Debug {
+    /// Initialize the health checker
+    async fn initialize(&self) -> Result<()>;
+
     /// Check the health of all components
     async fn check_health(&self) -> Result<HealthStatus>;
 

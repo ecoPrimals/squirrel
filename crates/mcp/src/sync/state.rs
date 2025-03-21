@@ -2,13 +2,11 @@ use tokio::sync::RwLock;
 use std::sync::Arc;
 use crate::context_manager::Context;
 use crate::error::Result;
-use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use std::collections::VecDeque;
 use tokio::sync::broadcast;
-use async_trait::async_trait;
 
 /// Represents a change in state that needs to be synchronized
 #[derive(Debug, Clone, Serialize, Deserialize)]

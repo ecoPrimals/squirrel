@@ -5,8 +5,6 @@
 
 #![allow(dead_code)] // Temporarily allow dead code during migration
 
-use serde::{Serialize, Deserialize};
-use squirrel_core::error::SquirrelError;
 
 /// MCP context manager
 pub mod context_manager;

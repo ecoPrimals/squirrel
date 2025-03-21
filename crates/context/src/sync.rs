@@ -141,7 +141,7 @@ impl SyncManager {
     #[must_use] pub fn resolve_conflict(&self, state1: &ContextState, state2: &ContextState) -> ContextState {
         if state1.version > state2.version {
             state1.clone()
-        } else if state2.version > state1.version || state2.last_modified() > state1.last_modified() {
+        } else if state2.version > state1.version || state2.last_updated > state1.last_updated {
             state2.clone()
         } else {
             state1.clone()
@@ -173,13 +173,13 @@ impl ConflictResolver for DefaultConflictResolver {
         match conflict.resolution_strategy {
             ConflictResolutionStrategy::KeepLatest => {
                 conflict.conflicting_versions.iter()
-                    .max_by_key(|state| state.last_modified())
+                    .max_by_key(|state| state.last_updated)
                     .cloned()
                     .ok_or_else(|| ContextError::InvalidState("No states to resolve".to_string()))
             },
             ConflictResolutionStrategy::KeepOldest => {
                 conflict.conflicting_versions.iter()
-                    .min_by_key(|state| state.last_modified())
+                    .min_by_key(|state| state.last_updated)
                     .cloned()
                     .ok_or_else(|| ContextError::InvalidState("No states to resolve".to_string()))
             },
@@ -187,7 +187,7 @@ impl ConflictResolver for DefaultConflictResolver {
                 // Implement custom merge logic here
                 // For now, just keep the latest version
                 conflict.conflicting_versions.iter()
-                    .max_by_key(|state| state.last_modified())
+                    .max_by_key(|state| state.last_updated)
                     .cloned()
                     .ok_or_else(|| ContextError::InvalidState("No states to resolve".to_string()))
             },
@@ -243,21 +243,35 @@ impl PeerInfo {
 }
 
 impl SyncCoordinator {
-    /// Creates a new sync coordinator
-    ///
-    /// # Arguments
-    /// * `node_id` - Identifier for this node
-    /// * `conflict_resolver` - Strategy for resolving conflicts
+    /// Creates a new sync coordinator with the given node ID and conflict resolver
     #[must_use] pub fn new(
         node_id: String,
         conflict_resolver: Box<dyn ConflictResolver>,
     ) -> Self {
+        // Create channels for message passing
         let (tx, rx) = mpsc::channel(100);
+        
         Self {
             node_id,
             peers: Arc::new(RwLock::new(HashMap::new())),
             message_tx: tx,
             message_rx: rx,
+            conflict_resolver,
+        }
+    }
+    
+    /// Creates a new sync coordinator with provided channels
+    #[must_use] pub fn with_channels(
+        node_id: String,
+        conflict_resolver: Box<dyn ConflictResolver>,
+        message_tx: Sender<SyncMessage>,
+        message_rx: mpsc::Receiver<SyncMessage>,
+    ) -> Self {
+        Self {
+            node_id,
+            peers: Arc::new(RwLock::new(HashMap::new())),
+            message_tx,
+            message_rx,
             conflict_resolver,
         }
     }
@@ -516,45 +530,66 @@ impl SyncCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn test_conflict_resolver() {
-        let resolver = DefaultConflictResolver;
+        let resolver = DefaultConflictResolver::default();
+        
         let state1 = ContextState {
             version: 1,
-            last_modified: SystemTime::now(),
-            data: serde_json::json!({"key": "value1"}),
+            last_updated: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            data: serde_json::to_vec(&serde_json::json!({"key": "value1"})).unwrap(),
         };
+        
         let state2 = ContextState {
             version: 2,
-            last_modified: SystemTime::now() + Duration::from_secs(1),
-            data: serde_json::json!({"key": "value2"}),
+            last_updated: (SystemTime::now() + Duration::from_secs(1))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            data: serde_json::to_vec(&serde_json::json!({"key": "value2"})).unwrap(),
         };
-
+        
+        // Create a conflict
         let conflict = ConflictInfo {
-            state_id: "test".to_string(),
+            state_id: "test-state".to_string(),
             conflicting_versions: vec![state1.clone(), state2.clone()],
             resolution_strategy: ConflictResolutionStrategy::KeepLatest,
         };
-
+        
+        // Resolve the conflict
         let resolved = resolver.resolve(&conflict).unwrap();
+        
+        // The resolver should pick the state with the higher version (state2)
         assert_eq!(resolved.version, 2);
     }
-
+    
     #[tokio::test]
     async fn test_sync_coordinator() {
-        let coordinator = SyncCoordinator::new(
-            "test_node".to_string(),
-            Box::new(DefaultConflictResolver),
+        // Create a sync coordinator with the default conflict resolver
+        let (tx, rx) = mpsc::channel(10);
+        let coordinator = SyncCoordinator::with_channels(
+            "test-node".to_string(),
+            Box::new(DefaultConflictResolver::default()),
+            tx,
+            rx,
         );
-
+        
+        // Test state creation
         let state = ContextState {
             version: 1,
-            last_modified: SystemTime::now(),
-            data: serde_json::json!({"key": "value"}),
+            last_updated: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            data: serde_json::to_vec(&serde_json::json!({"key": "value"})).unwrap(),
         };
-
-        assert!(coordinator.send_state_update(state).await.is_ok());
+        
+        // Send a state update
+        coordinator.send_state_update(state).await.unwrap();
     }
 } 

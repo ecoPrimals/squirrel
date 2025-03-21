@@ -5,6 +5,11 @@ edition.workspace = true
 authors.workspace = true
 description = "Test utilities for Squirrel"
 
+# Specify a different name for the di_test_program binary
+[[bin]]
+name = "test_utils_di_test_program"
+path = "src/bin/di_test_program.rs"
+
 [dependencies]
 # Core dependencies
 tokio = { workspace = true, features = ["full"] }

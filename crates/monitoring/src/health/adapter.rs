@@ -106,6 +106,18 @@ impl HealthCheckerAdapter {
 
 #[async_trait]
 impl HealthChecker for HealthCheckerAdapter {
+    async fn initialize(&self) -> Result<()> {
+        if let Some(_checker) = &self.inner {
+            // Already initialized with a checker
+            Ok(())
+        } else {
+            // We can't initialize self because self is immutable in this trait method
+            // This is expected to be called on an already initialized adapter,
+            // or manually initialized before use
+            Err(crate::health::HealthCheckError::NotInitialized.into())
+        }
+    }
+
     async fn check_health(&self) -> Result<HealthStatus> {
         if let Some(checker) = &self.inner {
             checker.check_health().await
@@ -155,15 +167,23 @@ impl Default for HealthCheckerAdapter {
 }
 
 /// Creates a new health checker adapter with default configuration and initializes it
-pub fn create_initialized_checker_adapter() -> Result<HealthCheckerAdapter> {
-    let mut adapter = HealthCheckerAdapter::new();
-    adapter.initialize()?;
+pub fn create_and_init_checker_adapter() -> Result<HealthCheckerAdapter> {
+    // Create the default health checker directly
+    let checker = DefaultHealthChecker::with_dependencies(None);
+    // Create an adapter with the checker directly
+    let adapter = HealthCheckerAdapter {
+        inner: Some(Arc::new(checker)),
+    };
     Ok(adapter)
 }
 
 /// Creates a new health checker adapter with custom configuration
 pub fn create_checker_adapter_with_config(config: HealthConfig) -> Result<HealthCheckerAdapter> {
-    let mut adapter = HealthCheckerAdapter::new();
-    adapter.initialize_with_config(config)?;
+    // Create the health checker with the config directly
+    let checker = DefaultHealthChecker::with_dependencies(Some(config));
+    // Create an adapter with the checker directly
+    let adapter = HealthCheckerAdapter {
+        inner: Some(Arc::new(checker)),
+    };
     Ok(adapter)
 } 

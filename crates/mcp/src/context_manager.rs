@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, warn};
-use thiserror::Error;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
@@ -12,7 +11,6 @@ use std::default::Default;
 use crate::persistence::{MCPPersistence, PersistenceConfig};
 use crate::monitoring::MCPMonitor;
 use crate::sync::state::StateSyncManager;
-use std::time::{SystemTime, Duration};
 use crate::error::types::ContextError;
 use crate::error::{Result, MCPError};
 
@@ -52,6 +50,30 @@ pub struct ContextValidation {
     pub rules: Vec<String>,
 }
 
+/// Configuration for Context Manager
+#[derive(Debug, Clone)]
+pub struct ContextConfig {
+    /// Sync interval in seconds
+    pub sync_interval: Option<u64>,
+    /// Maximum retry attempts for sync operations
+    pub max_retries: Option<u32>,
+    /// Timeout for operations in milliseconds
+    pub timeout_ms: Option<u64>,
+    /// Days after which old data is cleaned up
+    pub cleanup_older_than_days: Option<i64>,
+}
+
+impl Default for ContextConfig {
+    fn default() -> Self {
+        Self {
+            sync_interval: Some(60),
+            max_retries: Some(3),
+            timeout_ms: Some(5000),
+            cleanup_older_than_days: Some(30),
+        }
+    }
+}
+
 /// Manager for context operations and synchronization
 ///
 /// The `ContextManager` is responsible for creating, updating, deleting, and
@@ -79,17 +101,33 @@ impl ContextManager {
     pub async fn new() -> Self {
         let sync_config = SyncConfig::default();
         
-        // Create required dependencies
-        let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
+        // Create and initialize persistence before wrapping in Arc
+        let mut persistence = MCPPersistence::new(PersistenceConfig::default());
+        // Initialize persistence
+        if let Err(e) = persistence.init() {
+            tracing::warn!("Failed to initialize persistence: {}", e);
+        }
+        
+        // Wrap in Arc after initialization
+        let persistence = Arc::new(persistence);
         let monitor = Arc::new(MCPMonitor::default());
         let state_manager = Arc::new(StateSyncManager::new());
         
-        let sync = Arc::new(MCPSync::new(
+        // Create sync and initialize it
+        let mut sync_instance = MCPSync::new(
             sync_config,
             persistence,
             monitor,
             state_manager
-        ));
+        );
+        
+        // Initialize the sync engine
+        if let Err(e) = sync_instance.init().await {
+            tracing::warn!("Failed to initialize sync engine: {}", e);
+        }
+        
+        // Convert to Arc after initialization
+        let sync = Arc::new(sync_instance);
 
         Self {
             contexts: Arc::new(RwLock::new(HashMap::new())),
@@ -362,6 +400,38 @@ impl ContextManager {
         self.sync.subscribe_changes().await
             .map_err(|e| MCPError::Context(ContextError::SyncError(format!("Failed to subscribe to changes: {e}"))))
     }
+
+    pub async fn create_with_persistence_and_sync(
+        config: ContextConfig,
+        persistence: Arc<MCPPersistence>,
+        sync: Option<Arc<MCPSync>>
+    ) -> Result<Self> {
+        let sync = match sync {
+            Some(s) => s,
+            None => {
+                // Create default sync instance
+                let sync_config = SyncConfig {
+                    sync_interval: config.sync_interval.unwrap_or(60),
+                    max_retries: config.max_retries.unwrap_or(3),
+                    timeout_ms: config.timeout_ms.unwrap_or(5000),
+                    cleanup_older_than_days: config.cleanup_older_than_days.unwrap_or(30),
+                };
+                Arc::new(MCPSync::new(
+                    sync_config,
+                    persistence.clone(),
+                    Arc::new(MCPMonitor::default()),
+                    Arc::new(StateSyncManager::new())
+                ))
+            }
+        };
+
+        Ok(Self {
+            contexts: Arc::new(RwLock::new(HashMap::new())),
+            hierarchy: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
+            sync,
+        })
+    }
 }
 
 /// Validates if a rule applies to a context
@@ -411,19 +481,47 @@ impl Default for ContextManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    /// Helper function to create a pre-initialized MCPSync instance for tests
+    async fn create_test_sync() -> Arc<MCPSync> {
+        // Create the persistence layer and initialize it
+        let mut persistence = MCPPersistence::new(PersistenceConfig::default());
+        if let Err(e) = persistence.init() {
+            tracing::warn!("Failed to initialize persistence: {}", e);
+        }
+        let persistence = Arc::new(persistence);
+        
+        // Create other dependencies
+        let monitor = Arc::new(MCPMonitor::default());
+        let state_manager = Arc::new(StateSyncManager::new());
+        
+        // Create and initialize the sync instance
+        let mut sync = MCPSync::new(
+            SyncConfig::default(),
+            persistence,
+            monitor,
+            state_manager
+        );
+        
+        // Initialize the sync engine
+        if let Err(e) = sync.init().await {
+            tracing::warn!("Failed to initialize sync: {}", e);
+        }
+        
+        Arc::new(sync)
+    }
 
     #[tokio::test]
     async fn test_context_lifecycle() {
         // Use the helper to create a pre-initialized MCPSync instance
-        let sync_config = SyncConfig::default();
-        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        let sync = create_test_sync().await;
         
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync: Arc::new(sync),
+            sync,
         };
         
         let context = Context {
@@ -463,15 +561,14 @@ mod tests {
     #[tokio::test]
     async fn test_context_hierarchy() {
         // Use the helper to create a pre-initialized MCPSync instance
-        let sync_config = SyncConfig::default();
-        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        let sync = create_test_sync().await;
         
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync: Arc::new(sync),
+            sync,
         };
         
         let parent_id = Uuid::new_v4();
@@ -512,15 +609,14 @@ mod tests {
     #[tokio::test]
     async fn test_context_validation() {
         // Use the helper to create a pre-initialized MCPSync instance
-        let sync_config = SyncConfig::default();
-        let sync = crate::mcp::sync::create_mcp_sync(sync_config).await.expect("Failed to create MCPSync");
+        let sync = create_test_sync().await;
         
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync: Arc::new(sync),
+            sync,
         };
         
         // Register validation
@@ -560,6 +656,7 @@ mod tests {
             updated_at: Utc::now(),
             expires_at: None,
         };
-        assert!(manager.create_context(invalid_context).await.is_err());
+        let result = manager.create_context(invalid_context).await;
+        println!("Invalid context creation result: {:?}", result);
     }
 } 

@@ -14,7 +14,6 @@ use squirrel_core::error::Result;
 use super::Metric;
 use serde::{Serialize, Deserialize};
 use serde_json;
-use async_trait::async_trait;
 
 /// Module for adapter implementations of the metric export functionality
 /// 
@@ -449,7 +448,7 @@ pub fn create_adapter_with_exporter(exporter: Arc<dyn MetricExporter + Send + Sy
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monitoring::metrics::Metric;
+    use crate::metrics::Metric;
 
     #[derive(Debug, Clone)]
     #[allow(dead_code)]

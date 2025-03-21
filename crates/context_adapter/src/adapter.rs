@@ -261,6 +261,7 @@ impl ContextAdapter {
     ///
     /// # Returns
     /// The converted adapter context data with appropriate ID and timestamps
+    #[allow(dead_code)]
     fn convert_context_state(state: &ContextState) -> AdapterContextData {
         let now = Utc::now();
         // Generate a new UUID for the ID since ContextState doesn't have an id field

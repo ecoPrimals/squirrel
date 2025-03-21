@@ -19,6 +19,8 @@ regex = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 sysinfo = "0.30.0"
+log = "0.4.20"
+simple_logger = "4.3.3"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }

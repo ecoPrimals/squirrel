@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::RwLock;
@@ -7,6 +8,8 @@ use super::validation::ValidationError;
 use crate::validation::CommandValidator;
 use super::lifecycle::{LifecycleHook, LifecycleStage};
 use std::sync::Arc;
+use crate::CommandResult;
+use clap::Parser;
 
 /// Error type for hook failures.
 #[derive(Debug)]
@@ -574,21 +577,21 @@ mod tests {
     struct TestCommand;
 
     impl Command for TestCommand {
-        fn name(&self) -> &'static str {
+        fn name(&self) -> &str {
             "test"
         }
         
-        fn description(&self) -> &'static str {
+        fn description(&self) -> &str {
             "A test command"
         }
         
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("Test command executed".to_string())
         }
         
         fn parser(&self) -> clap::Command {
-            clap::Command::new(self.name())
-                .about(self.description())
+            clap::Command::new("test")
+                .about("A test command")
         }
         
         fn clone_box(&self) -> Box<dyn Command> {

@@ -5,8 +5,6 @@
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use squirrel_core::error::{Result, SquirrelError};
 
 /// Role in the RBAC system

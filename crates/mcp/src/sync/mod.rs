@@ -5,18 +5,14 @@ use crate::sync::state::StateSyncManager;
 use crate::context_manager::Context;
 use crate::persistence::{MCPPersistence, PersistenceConfig, PersistentState};
 use crate::monitoring::MCPMonitor;
-use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc, Duration as ChronoDuration};
-use async_trait::async_trait;
-use std::time::{Duration, Instant};
-use tokio::time;
+use chrono::{DateTime, Utc};
+use std::time::Instant;
 use std::fmt::Debug;
 use uuid;
 use std::sync::Mutex;
 use squirrel_core::error::{Result, SquirrelError};
-use tracing::{info, warn, error, instrument};
 
 /// Convert an MCPError to a SquirrelError
 fn to_core_error<T>(result: std::result::Result<T, MCPError>) -> Result<T> {
@@ -155,7 +151,7 @@ impl MCPSync {
     /// # Returns
     /// A Result containing the new MCPSync instance, or an error
     pub async fn create(config: SyncConfig) -> Result<Self> {
-        let start = Instant::now();
+        let _start = Instant::now();
         
         // Create components
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
@@ -173,7 +169,7 @@ impl MCPSync {
             lock: Arc::new(Mutex::new(())),
         };
         
-        let duration = start.elapsed();
+        let duration = _start.elapsed();
         instance.monitor.record_message(&format!("sync_creation_time_ms_{}", duration.as_millis())).await;
         
         Ok(instance)
@@ -230,7 +226,7 @@ impl MCPSync {
     ///
     /// Returns an error if initialization fails
     pub async fn init(&mut self) -> Result<()> {
-        let start = Instant::now();
+        let _start = Instant::now();
         self.monitor.record_message("sync_initializing").await;
         
         // Result is converted from MCPError to SquirrelError
@@ -297,11 +293,16 @@ impl MCPSync {
             };
         }
         
+        // Set the initialized flag *before* loading persisted changes
+        // to avoid circular dependency
+        {
+            let mut initialized = self.initialized.write().await;
+            *initialized = true;
+        }
+        
         // Load persisted changes
         self.load_persisted_changes_internal().await?;
         
-        let mut initialized = self.initialized.write().await;
-        *initialized = true;
         self.monitor.record_message("sync_initialized").await;
         
         Ok(())
@@ -334,7 +335,8 @@ impl MCPSync {
     
     /// Internal implementation of load_persisted_changes that returns MCPError
     async fn load_persisted_changes_internal(&self) -> std::result::Result<(), MCPError> {
-        self.ensure_initialized_internal().await?;
+        // Remove the ensure_initialized check to avoid circular dependency
+        // The caller (init_internal) will have already set initialized to true
         
         // load the persisted state
         let persisted = match self.persistence.load_state() {
@@ -375,7 +377,7 @@ impl MCPSync {
     
     /// Internal implementation of sync that returns MCPError
     async fn sync_internal(&self) -> std::result::Result<SyncResult, MCPError> {
-        let start = Instant::now();
+        let _start = Instant::now();
         self.ensure_initialized_internal().await?;
         
         // Check if sync is already in progress
@@ -441,7 +443,7 @@ impl MCPSync {
         self.monitor.record_message("sync_complete").await;
         
         // Record sync metrics
-        let elapsed_millis = start.elapsed().as_millis();
+        let elapsed_millis = _start.elapsed().as_millis();
         self.monitor.record_message(&format!("sync_duration_ms_{}", elapsed_millis)).await;
         
         Ok(SyncResult {
@@ -463,6 +465,9 @@ impl MCPSync {
     /// # Errors
     /// Returns an error if the operation fails
     pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
+        // Check if initialized before proceeding
+        self.ensure_initialized().await?;
+        
         // Record the change in the state manager
         let result = self.state_manager.record_change(context, operation.clone()).await;
         

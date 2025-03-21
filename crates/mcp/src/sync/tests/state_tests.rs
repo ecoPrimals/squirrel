@@ -1,27 +1,26 @@
 use super::*;
+use crate::sync::state::StateSyncManager;
+use crate::context_manager::Context;
 
 #[tokio::test]
 async fn test_state_manager_creation() {
-    // Reset the version counter for consistent test results
-    StateSyncManager::reset_version_counter();
-    
     // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
+    // Reset the version counter for consistent test results
+    state_manager.reset_version().await.expect("Failed to reset version");
     
     // ACT & ASSERT: Verify initial state
-    let version = state_manager.current_version().await;
+    let version = state_manager.get_current_version().await.expect("Failed to get version");
     assert_eq!(version, 0, "Initial version should be 0");
     
     // Verify subscriber count
-    let sub_count = state_manager.subscriber_count();
+    let sub_count = state_manager.sender.receiver_count();
     assert_eq!(sub_count, 0, "Initial subscriber count should be 0");
 }
 
 #[tokio::test]
 async fn test_state_operation_recording() {
-    StateSyncManager::reset_version_counter();
-    
-    // ARRANGE: Create state manager and test context
+    // Create state manager and test context
     let state_manager = StateSyncManager::new();
     // Reset the internal RwLock version counter to 0
     state_manager.reset_version().await.expect("Failed to reset version");
@@ -29,11 +28,16 @@ async fn test_state_operation_recording() {
     let context = create_test_context();
     
     // ACT: Record creation operation
-    let change = state_manager.record_operation(
-        context.id, 
-        StateOperation::Create,
-        &context.data
-    ).await;
+    let change = StateChange {
+        id: Uuid::new_v4(),
+        context_id: context.id,
+        operation: StateOperation::Create,
+        data: context.data.clone(),
+        timestamp: Utc::now(),
+        version: 1,
+    };
+    
+    state_manager.apply_change(change.clone()).await.expect("Failed to apply change");
     
     // ASSERT: Verify change details
     assert_eq!(change.context_id, context.id, "Change should have correct context ID");
@@ -42,11 +46,16 @@ async fn test_state_operation_recording() {
     assert!(!change.data.is_null(), "Data should be included");
     
     // ACT: Record update operation and verify version increments
-    let update_change = state_manager.record_operation(
-        context.id, 
-        StateOperation::Update,
-        &serde_json::json!({"updated": true})
-    ).await;
+    let update_change = StateChange {
+        id: Uuid::new_v4(),
+        context_id: context.id,
+        operation: StateOperation::Update,
+        data: serde_json::json!({"updated": true}),
+        timestamp: Utc::now(),
+        version: 2,
+    };
+    
+    state_manager.apply_change(update_change.clone()).await.expect("Failed to apply change");
     
     // ASSERT: Verify updated change
     assert_eq!(update_change.context_id, context.id, "Change should have correct context ID");
@@ -54,33 +63,37 @@ async fn test_state_operation_recording() {
     assert_eq!(update_change.version, 2, "Version should be incremented to 2");
     
     // Verify current version
-    let version = state_manager.current_version().await;
+    let version = state_manager.get_current_version().await.expect("Failed to get version");
     assert_eq!(version, 2, "Current version should be 2");
 }
 
 #[tokio::test]
 async fn test_state_change_subscription() {
-    // Reset the version counter for consistent test results
-    StateSyncManager::reset_version_counter();
-    
     // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
+    state_manager.reset_version().await.expect("Failed to reset version");
+    
     let context = create_test_context();
     
     // ACT: Subscribe to changes
-    let mut rx1 = state_manager.subscribe();
-    let mut rx2 = state_manager.subscribe();
+    let mut rx1 = state_manager.subscribe_changes();
+    let mut rx2 = state_manager.subscribe_changes();
     
     // ASSERT: Verify subscriber count
-    let sub_count = state_manager.subscriber_count();
+    let sub_count = state_manager.sender.receiver_count();
     assert_eq!(sub_count, 2, "Should have 2 subscribers");
     
     // ACT: Record change
-    let change = state_manager.record_operation(
-        context.id, 
-        StateOperation::Create,
-        &context.data
-    ).await;
+    let change = StateChange {
+        id: Uuid::new_v4(),
+        context_id: context.id,
+        operation: StateOperation::Create,
+        data: context.data.clone(),
+        timestamp: Utc::now(),
+        version: 1,
+    };
+    
+    state_manager.apply_change(change.clone()).await.expect("Failed to apply change");
     
     // ASSERT: Verify changes received by subscribers
     let received1 = rx1.recv().await.expect("Subscriber 1 failed to receive change");
@@ -92,27 +105,31 @@ async fn test_state_change_subscription() {
 
 #[tokio::test]
 async fn test_state_missing_subscriber() {
-    // Reset the version counter for consistent test results
-    StateSyncManager::reset_version_counter();
-    
     // ARRANGE: Create state manager
     let state_manager = StateSyncManager::new();
+    state_manager.reset_version().await.expect("Failed to reset version");
+    
     let context = create_test_context();
     
     // ACT: Subscribe to changes and then drop the receiver
-    let rx = state_manager.subscribe();
+    let rx = state_manager.subscribe_changes();
     drop(rx);
     
     // ASSERT: Verify subscriber count
-    let sub_count = state_manager.subscriber_count();
+    let sub_count = state_manager.sender.receiver_count();
     assert_eq!(sub_count, 0, "Should have 0 subscribers after dropping");
     
     // ACT: Record change with no active subscribers
-    let change = state_manager.record_operation(
-        context.id, 
-        StateOperation::Create,
-        &context.data
-    ).await;
+    let change = StateChange {
+        id: Uuid::new_v4(),
+        context_id: context.id,
+        operation: StateOperation::Create,
+        data: context.data.clone(),
+        timestamp: Utc::now(),
+        version: 1,
+    };
+    
+    state_manager.apply_change(change.clone()).await.expect("Failed to apply change");
     
     // ASSERT: Verify the change was created normally
     assert_eq!(change.context_id, context.id, "Change should have correct context ID");

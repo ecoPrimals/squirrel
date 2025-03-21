@@ -159,10 +159,10 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
         let status = self.status.lock().await;
         
         let mut result = HashMap::new();
-        result.insert("cpu".to_string(), format!("{}%", status.cpu_usage));
-        result.insert("memory".to_string(), format!("{}%", status.memory_usage));
-        result.insert("disk".to_string(), format!("{}%", status.disk_usage));
-        result.insert("network".to_string(), format!("{} bytes/sec", status.network_usage));
+        result.insert("cpu_usage".to_string(), format!("{}", status.cpu_usage));
+        result.insert("memory_usage".to_string(), format!("{}", status.memory_usage));
+        result.insert("disk_usage".to_string(), format!("{}", status.disk_usage));
+        result.insert("network_usage".to_string(), format!("{}", status.network_usage));
         Ok(result)
     }
 
@@ -208,7 +208,12 @@ mod tests {
         
         // Test getting system status
         let status = service.get_system_status().await.unwrap();
-        assert!(status.cpu_usage > 0.0);
+        assert!(status.contains_key("cpu_usage"));
+        if let Some(cpu_usage) = status.get("cpu_usage") {
+            assert!(!cpu_usage.is_empty(), "CPU usage should not be empty");
+        } else {
+            panic!("Expected 'cpu_usage' key in system status");
+        }
         
         // Test getting metrics
         let metrics = service.get_metrics().await.unwrap();

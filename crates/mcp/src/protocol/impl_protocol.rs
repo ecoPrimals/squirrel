@@ -1,15 +1,7 @@
 use std::sync::Arc;
 use std::fmt::Debug;
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
-use tokio::sync::RwLock;
-use std::io;
-use serde_json::{Value, json};
+use serde_json::Value;
 use serde::{Serialize, Deserialize};
-use async_trait::async_trait;
-use uuid::Uuid;
 
 use crate::error::{Result, MCPError, ProtocolError};
 use crate::protocol::{
@@ -17,12 +9,10 @@ use crate::protocol::{
     MCPProtocolBase,
     ProtocolConfig,
     ProtocolResult,
-    ValidationResult,
     RoutingResult,
     CommandHandler
 };
-use crate::types::{MCPMessage, MessageType, MCPResponse, ProtocolState, ResponseStatus, MessageMetadata};
-use squirrel_core::error::SquirrelError;
+use crate::types::{MCPMessage, MessageType, MCPResponse, ProtocolState};
 
 /// Protocol adapter state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

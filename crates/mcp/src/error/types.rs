@@ -2,7 +2,7 @@ use thiserror::Error;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::Map;
-use crate::types::{MessageType, SecurityLevel, ProtocolVersion};
+use crate::types::{MessageType, SecurityLevel};
 use squirrel_core::error::{SquirrelError as CoreError, Result as CoreResult};
 use crate::error::context::ErrorSeverity;
 use uuid;

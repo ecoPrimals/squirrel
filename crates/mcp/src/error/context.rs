@@ -7,7 +7,8 @@ use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use serde_json;
-use anyhow::{Result, Error};
+use anyhow::Result;
+use crate::error::MCPError;
 
 #[derive(Debug, Error)]
 pub enum ErrorHandlerError {
@@ -232,11 +233,11 @@ impl ErrorHandler {
         None
     }
 
-    #[instrument(skip(self, context, strategy))]
+    #[instrument(skip(self, _context, _strategy))]
     async fn attempt_recovery(
         &self,
-        context: &mut LocalErrorContext,
-        strategy: &RecoveryStrategy,
+        _context: &mut LocalErrorContext,
+        _strategy: &RecoveryStrategy,
     ) -> Result<(), ErrorHandlerError> {
         // Implementation of attempt_recovery method
         Ok(())
@@ -290,6 +291,15 @@ impl ErrorHandler {
     ) -> bool {
         // Default implementation returns true
         true
+    }
+
+    pub fn recover_context(
+        &self,
+        _context: &mut LocalErrorContext,
+        _strategy: &RecoveryStrategy,
+    ) -> Result<(), MCPError> {
+        // Basic implementation that returns Ok(())
+        Ok(())
     }
 }
 

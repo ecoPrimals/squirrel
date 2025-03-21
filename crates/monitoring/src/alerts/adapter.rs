@@ -1,11 +1,11 @@
 use std::sync::Arc;
-use std::fmt::Debug;
-use squirrel_core::error::{Result, SquirrelError};
-use super::{NotificationManager, NotificationConfig};
-use super::{Alert, AlertManager, DefaultAlertManager, AlertNotification, NotificationManagerTrait, AlertConfig};
 use async_trait::async_trait;
-use tokio::sync::RwLock;
-use thiserror::Error;
+use squirrel_core::error::{Result, SquirrelError};
+use crate::alerts::{Alert, AlertConfig, DefaultAlertManager};
+use crate::alerts::AlertManager;
+use super::{NotificationManager, NotificationConfig};
+use super::NotificationManagerTrait;
+use super::AlertNotification;
 
 /// Adapter for the alert manager to support dependency injection
 #[derive(Debug)]
@@ -225,7 +225,7 @@ impl NotificationManagerAdapter {
         // Convert Alert to AlertNotification using the From implementation
         let notification: AlertNotification = alert.into();
         
-        self.inner.send_notification(&notification).await.map_err(|e| SquirrelError::Alert(format!("Failed to send notification: {e}")))
+        self.inner.send_notification(&notification).await.map_err(|e| SquirrelError::alert(format!("Failed to send notification: {e}")))
     }
 
     /// Updates the notification configuration
@@ -233,7 +233,7 @@ impl NotificationManagerAdapter {
     /// # Errors
     /// Returns an error if the configuration is invalid
     pub async fn update_config(&self, config: NotificationConfig) -> Result<()> {
-        self.inner.update_config(config).await.map_err(|e| SquirrelError::Alert(format!("Failed to update notification config: {e}")))
+        self.inner.update_config(config).await.map_err(|e| SquirrelError::alert(format!("Failed to update notification config: {e}")))
     }
 }
 

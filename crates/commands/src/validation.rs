@@ -7,8 +7,7 @@ use regex::Regex;
 use sysinfo::System;
 use serde::{Serialize, Deserialize};
 use super::Command;
-#[allow(unused_imports)]
-use clap::Command as ClapCommand;
+use crate::CommandResult;
 
 /// Trait for implementing command validation rules.
 /// 
@@ -732,8 +731,8 @@ mod tests {
                 .about("A test command")
         }
 
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("Test command executed".to_string())
         }
 
         fn clone_box(&self) -> Box<dyn Command> {
@@ -750,7 +749,7 @@ mod tests {
         }
 
         fn description(&self) -> &'static str {
-            "Short name command"
+            "A test command"
         }
 
         fn parser(&self) -> clap::Command {
@@ -758,8 +757,8 @@ mod tests {
                 .about("A test command")
         }
 
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("Test command executed".to_string())
         }
 
         fn clone_box(&self) -> Box<dyn Command> {
@@ -772,11 +771,11 @@ mod tests {
 
     impl Command for LongNameCommand {
         fn name(&self) -> &'static str {
-            "very_long_command_name_that_exceeds_the_limit"
+            "verylongname"
         }
 
         fn description(&self) -> &'static str {
-            "Long name command"
+            "A test command"
         }
 
         fn parser(&self) -> clap::Command {
@@ -784,8 +783,8 @@ mod tests {
                 .about("A test command")
         }
 
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("Long name command executed".to_string())
         }
 
         fn clone_box(&self) -> Box<dyn Command> {
@@ -798,20 +797,20 @@ mod tests {
 
     impl Command for ShortDescCommand {
         fn name(&self) -> &'static str {
-            "short_desc"
+            "test"
         }
-        
+
         fn description(&self) -> &'static str {
-            "Shrt"
+            "test"
         }
-        
+
         fn parser(&self) -> clap::Command {
             clap::Command::new("test")
                 .about("test")
         }
 
-        fn execute(&self) -> Result<(), Box<dyn Error>> {
-            Ok(())
+        fn execute(&self, _args: &[String]) -> CommandResult<String> {
+            Ok("Short description command executed".to_string())
         }
 
         fn clone_box(&self) -> Box<dyn Command> {

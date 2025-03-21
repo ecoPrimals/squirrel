@@ -8,11 +8,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
-use async_trait::async_trait;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 use crate::error::{Result, MCPError, ProtocolError};
-use squirrel_core::error::SquirrelError;
 
 // Import common types from types module
 use crate::types::{
@@ -22,7 +18,6 @@ use crate::types::{
     ResponseStatus,
     MessageMetadata,
     ProtocolState,
-    SecurityLevel,
 };
 
 /// Protocol-specific result type for operations that return a value

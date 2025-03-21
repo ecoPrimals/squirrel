@@ -34,8 +34,9 @@ impl MockAppAdapter {
     }
     
     /// Initialize the mock app
-    pub fn initialize(&self) -> Result<()> {
+    pub fn initialize(&mut self) -> Result<()> {
         // Simple implementation just for testing
+        self.initialized = true;
         Ok(())
     }
     
@@ -112,7 +113,9 @@ impl IntegrationTestContext {
         };
         
         // Create app adapter
-        let app = MockAppAdapter::new(app_config);
+        let mut app = MockAppAdapter::new(app_config);
+        // Initialize the app
+        app.initialize()?;
         
         // Create MCPSync with custom config
         let sync_config = MockSyncConfig::default();

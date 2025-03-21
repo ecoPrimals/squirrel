@@ -42,6 +42,18 @@ pub enum CommandError {
     /// Error during command resource management
     #[error("Resource error: {0}")]
     ResourceError(String),
+    
+    /// Error when command is not found
+    #[error("Command not found: {0}")]
+    CommandNotFound(String),
+    
+    /// Error related to command registry operations
+    #[error("Registry error: {0}")]
+    RegistryError(String),
+    
+    /// Error when attempting to register a command that already exists
+    #[error("Command already exists: {0}")]
+    CommandAlreadyExists(String),
 }
 
 /// Command factory for creating command registries

@@ -16,9 +16,7 @@ use squirrel_core::error::{Result, SquirrelError};
 use async_trait::async_trait;
 use self::status::Status;
 use thiserror::Error;
-use tokio::time::{Duration, sleep};
-use uuid::Uuid;
-use std::time::{SystemTime, UNIX_EPOCH};
+use chrono;
 
 // Define error types
 /// Health check related errors
@@ -83,6 +81,17 @@ impl Default for HealthConfig {
             interval: 60,
         }
     }
+}
+
+/// System health status overview
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemHealth {
+    /// Overall system status
+    pub status: status::Status,
+    /// Health of each component
+    pub components: HashMap<String, ComponentHealth>,
+    /// Timestamp of the last health check
+    pub last_check: chrono::DateTime<chrono::Utc>,
 }
 
 /// Default implementation of the health checker
@@ -157,6 +166,12 @@ impl Default for DefaultHealthChecker {
 
 #[async_trait]
 impl HealthChecker for DefaultHealthChecker {
+    /// Initialize the health checker
+    async fn initialize(&self) -> Result<()> {
+        // Nothing to initialize in the default implementation
+        Ok(())
+    }
+
     /// Check the overall health status of all registered components
     ///
     /// Determines the overall health status based on the status of individual components:
@@ -194,38 +209,31 @@ impl HealthChecker for DefaultHealthChecker {
         Ok(HealthStatus::healthy(String::from("system"), String::from("All systems operational")))
     }
 
-    /// Retrieves the health status of a specific component
+    /// Get the health of a specific component
     ///
     /// # Arguments
     /// * `component` - The name of the component to check
     ///
     /// # Returns
-    /// * `Ok(Some(ComponentHealth))` - The health status of the specified component
-    /// * `Ok(None)` - The component is not registered with the health checker
-    ///
-    /// # Errors
-    /// This function will not produce errors, but returns a Result type for consistency
-    /// with the health checker interface.
+    /// The component health information, or None if the component is not registered
     async fn get_component_health<'a>(&'a self, component: &'a str) -> Result<Option<ComponentHealth>> {
         let components = self.components.read().await;
         Ok(components.get(component).cloned())
     }
 
-    /// Starts the health checker service
+    /// Start background health checks
     ///
-    /// # Errors
-    /// This function will not produce errors, but returns a Result type for consistency
-    /// with the health checker interface and future extensibility.
+    /// This is a placeholder in the default implementation
     async fn start(&self) -> Result<()> {
+        // Placeholder - implementation would start a background task here
         Ok(())
     }
 
-    /// Stops the health checker service
+    /// Stop background health checks
     ///
-    /// # Errors
-    /// This function will not produce errors, but returns a Result type for consistency
-    /// with the health checker interface and future extensibility.
+    /// This is a placeholder in the default implementation
     async fn stop(&self) -> Result<()> {
+        // Placeholder - implementation would stop a background task here
         Ok(())
     }
 }
@@ -371,7 +379,7 @@ impl Default for HealthCheckerFactory {
 ///
 /// # Errors
 /// Returns an error if the adapter initialization fails
-pub fn create_initialized_checker_adapter(config: Option<HealthConfig>) -> Result<HealthCheckerAdapter> {
+pub fn create_and_init_checker_adapter(config: Option<HealthConfig>) -> Result<HealthCheckerAdapter> {
     let checker = Arc::new(DefaultHealthChecker::with_dependencies(config));
     let adapter = adapter::HealthCheckerAdapter::with_checker(checker);
     Ok(adapter)
@@ -391,7 +399,7 @@ pub fn create_initialized_checker_adapter(config: Option<HealthConfig>) -> Resul
 /// # Errors
 /// Returns an error if the adapter initialization fails
 pub fn create_checker_adapter_with_config(config: HealthConfig) -> Result<HealthCheckerAdapter> {
-    create_initialized_checker_adapter(Some(config))
+    create_and_init_checker_adapter(Some(config))
 }
 
 /// Creates a new uninitialized health checker adapter

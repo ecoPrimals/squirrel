@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc, Duration};
-use ring::digest;
 use std::collections::HashMap;
 use crate::types::{SecurityLevel, EncryptionFormat};
 use crate::error::types::{MCPError, SecurityError};
@@ -870,7 +869,7 @@ impl From<SecurityError> for squirrel_core::error::SquirrelError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::types::SecurityLevel;
+    use crate::types::SecurityLevel;
 
     #[tokio::test]
     async fn test_authentication() {

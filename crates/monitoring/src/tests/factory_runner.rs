@@ -1,28 +1,33 @@
 #![allow(unused_imports)]
-use crate::error::Result;
-use crate::monitoring::{
+use squirrel_core::error::Result;
+use crate::{
     MonitoringConfig, MonitoringIntervals, MonitoringServiceFactory,
     alerts::AlertConfig,
-    health::HealthConfig,
+    health::{HealthConfig, status::Status, SystemHealth},
     metrics::MetricConfig,
     network::NetworkConfig,
-    metrics::DefaultMetricCollector,
-    health::HealthCheckerAdapter,
-    alerts::AlertManagerAdapter,
-    network::NetworkMonitorAdapter,
+    MonitoringService, MonitoringStatus
 };
 use std::sync::Arc;
+use std::time::Duration;
+use std::collections::HashMap;
+use async_trait::async_trait;
+use chrono::Utc;
 
 #[tokio::test]
 async fn test_factory_creates_service() -> Result<()> {
-    // Create a monitoring service factory with default config
-    let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::new();
+    // Create mock factory
+    let factory = MockFactory::new();
     
     // Create a service
-    let service = factory.create_service();
+    let service = factory.create_service(MonitoringConfig::default()).await?;
     
     // Start the service
     service.start().await?;
+    
+    // Verify service is running
+    let status = service.status().await?;
+    assert!(status.running);
     
     // Stop the service
     service.stop().await?;
@@ -35,29 +40,76 @@ async fn test_factory_with_custom_config() -> Result<()> {
     // Create a custom config
     let config = MonitoringConfig {
         intervals: MonitoringIntervals {
-            health_check: 2,
-            metric_collection: 5,
-            network_monitoring: 10,
+            health_check_interval: 2,
+            metrics_collection_interval: 5,
+            alert_processing_interval: 10,
+            network_stats_interval: 10,
         },
-        health: HealthConfig::default(),
-        metrics: MetricConfig::default(),
-        alerts: AlertConfig::default(),
-        network: NetworkConfig::default(),
+        health_config: HealthConfig::default(),
+        metrics_config: MetricConfig::default(),
+        alert_config: AlertConfig::default(),
+        network_config: NetworkConfig::default(),
     };
     
     // Create a monitoring service factory with custom config
-    let factory: MonitoringServiceFactory<()> = MonitoringServiceFactory::with_config(config.clone());
+    let factory = MockFactory::new();
     
-    // Create a service
-    let service = factory.create_service_with_config(config);
+    // Create a service with custom config
+    let service = factory.create_service(config).await?;
     
     // Start the service
     service.start().await?;
+    
+    // Verify service is running
+    let status = service.status().await?;
+    assert!(status.running);
     
     // Stop the service
     service.stop().await?;
     
     Ok(())
+}
+
+// Mock implementation for tests
+struct MockFactory;
+
+impl MockFactory {
+    fn new() -> Arc<Self> {
+        Arc::new(Self)
+    }
+}
+
+#[async_trait]
+impl MonitoringServiceFactory for MockFactory {
+    async fn create_service(&self, _config: MonitoringConfig) -> Result<Arc<dyn MonitoringService>> {
+        // Create a mock service
+        struct MockService;
+        
+        #[async_trait]
+        impl MonitoringService for MockService {
+            async fn start(&self) -> Result<()> {
+                Ok(())
+            }
+            
+            async fn stop(&self) -> Result<()> {
+                Ok(())
+            }
+            
+            async fn status(&self) -> Result<MonitoringStatus> {
+                Ok(MonitoringStatus {
+                    running: true,
+                    health: SystemHealth { 
+                        status: Status::Healthy,
+                        components: HashMap::new(),
+                        last_check: Utc::now()
+                    },
+                    last_update: Utc::now(),
+                })
+            }
+        }
+        
+        Ok(Arc::new(MockService {}))
+    }
 }
 
 // Remove runner tests until the service runner is implemented

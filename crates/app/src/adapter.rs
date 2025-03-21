@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use squirrel_core::error::{Result, SquirrelError};
+use squirrel_core::error::{Result, SquirrelError, AppInitializationError, AppOperationError};
 use super::Core;
 use crate::prelude::AppConfig;
 use crate::context::AppContext;
@@ -40,7 +40,7 @@ impl AppAdapter {
     /// Returns an error if the initialization fails
     pub async fn initialize(&mut self, config: AppConfig) -> Result<()> {
         if self.initialized {
-            return Err(SquirrelError::generic("AppAdapter already initialized".to_string()));
+            return Err(SquirrelError::AppInitialization(AppInitializationError::AlreadyInitialized));
         }
         
         let app = Core::default();
@@ -63,14 +63,14 @@ impl AppAdapter {
     /// Returns an error if the adapter is not initialized
     pub async fn ensure_initialized(&self) -> Result<()> {
         if !self.initialized {
-            return Err(SquirrelError::generic("AppAdapter not initialized".to_string()));
+            return Err(SquirrelError::AppOperation(AppOperationError::NotInitialized));
         }
         
         let inner = self.inner.as_ref()
-            .ok_or_else(|| SquirrelError::generic("AppAdapter inner is None".to_string()))?;
+            .ok_or_else(|| SquirrelError::AppOperation(AppOperationError::OperationFailure("AppAdapter inner is None".to_string())))?;
             
         if inner.read().await.version().is_empty() {
-            return Err(SquirrelError::generic("AppAdapter inner is invalid".to_string()));
+            return Err(SquirrelError::AppOperation(AppOperationError::OperationFailure("AppAdapter inner is invalid".to_string())));
         }
         
         Ok(())
@@ -214,10 +214,10 @@ mod tests {
         
         // ASSERT
         assert!(result.is_err());
-        if let Err(SquirrelError::AlreadyInitialized(msg)) = result {
-            assert_eq!(msg, "AppAdapter already initialized");
+        if let Err(SquirrelError::AppInitialization(AppInitializationError::AlreadyInitialized)) = result {
+            // No need to assert anything here, the error type is correct
         } else {
-            panic!("Expected SquirrelError::AlreadyInitialized");
+            panic!("Expected SquirrelError::AppInitialization(AppInitializationError::AlreadyInitialized)");
         }
     }
     
@@ -225,8 +225,10 @@ mod tests {
     async fn test_app_adapter_factory() {
         // ARRANGE & ACT
         let config = AppConfig {
-            data_dir: PathBuf::from("test_data"),
-            monitoring: None,
+            name: "TestApp".to_string(),
+            version: "0.1.0".to_string(),
+            environment: "test".to_string(),
+            debug: true,
         };
         
         let adapter_result = create_initialized_app_adapter(config).await;

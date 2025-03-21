@@ -8,7 +8,7 @@ pub mod adapter_tests;
 
 #[cfg(test)]
 mod security_tests {
-    use crate::mcp::security::*;
+    use crate::security::*;
     
     #[test]
     fn test_security_module() {

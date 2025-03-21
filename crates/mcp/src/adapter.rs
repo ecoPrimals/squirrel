@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
 use squirrel_core::error::SquirrelError;
 use crate::config::McpConfig as MCPConfig;
 
@@ -31,7 +30,7 @@ pub struct MCPAdapter {
 
 impl MCPAdapter {
     /// Create a new MCPAdapter
-    pub fn new(config: MCPConfig) -> Self {
+    pub fn new(_config: MCPConfig) -> Self {
         Self {
             mcp: Arc::new(RwLock::new(None)),
             init_mutex: RwLock::new(()),

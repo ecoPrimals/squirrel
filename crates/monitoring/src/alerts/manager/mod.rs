@@ -7,9 +7,6 @@ use super::config::AlertConfig;
 use std::sync::RwLock;
 use super::Alert;
 use std::fmt::Debug;
-use crate::alerts::NotificationManagerTrait;
-use std::collections::HashMap;
-use tokio::sync::RwLock as TokioRwLock;
 
 /// Alert manager for handling system alerts
 #[derive(Debug)]

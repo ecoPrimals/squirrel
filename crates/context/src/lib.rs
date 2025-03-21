@@ -3,7 +3,6 @@
 //! This crate provides functionality for managing application context,
 //! including state tracking, persistence, and recovery.
 
-use std::sync::Arc;
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
 
@@ -55,6 +54,10 @@ pub enum ContextError {
     /// Error when no valid snapshot is found
     #[error("No valid snapshot: {0}")]
     NoValidSnapshot(String),
+    
+    /// Error when the context is not initialized
+    #[error("Context not initialized")]
+    NotInitialized,
 }
 
 /// Result type for context operations
