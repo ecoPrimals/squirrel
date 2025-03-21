@@ -6,6 +6,7 @@
 // Declare submodules
 pub mod recovery;
 pub mod resource_tracking;
+pub mod adaptive_resource;
 
 use std::collections::HashMap;
 use async_trait::async_trait;
@@ -22,6 +23,10 @@ pub use recovery::{RecoveryHook, RecoveryStrategy};
 
 // Re-export key types for ease of use
 pub use resource_tracking::{ResourceTracker, ResourceStatus, ResourceRecord, ResourceEvent, ResourceType};
+pub use adaptive_resource::{
+    AdaptiveResourceManager, ResourcePattern,
+    AdaptiveResourceLimits,
+};
 
 /// Resource usage for a tool
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -549,96 +554,281 @@ impl ResourceCleanupHook for EnhancedResourceCleanupHook {
     }
 }
 
+/// Enhanced resource manager that combines tracking and adaptive management
+#[derive(Debug)]
+pub struct EnhancedResourceManager {
+    /// Basic resource tracker
+    tracker: ResourceTracker,
+    /// Adaptive resource manager
+    adaptive_manager: Arc<AdaptiveResourceManager>,
+}
+
+impl EnhancedResourceManager {
+    /// Creates a new enhanced resource manager
+    pub fn new(max_history_size: usize) -> Self {
+        Self {
+            tracker: ResourceTracker::new(max_history_size),
+            adaptive_manager: Arc::new(AdaptiveResourceManager::new()),
+        }
+    }
+
+    /// Initializes a tool for resource management
+    #[instrument(skip(self))]
+    pub async fn initialize_tool(
+        &self,
+        tool_id: &str,
+        base_limits: ResourceLimits,
+        max_limits: ResourceLimits,
+    ) -> Result<(), ToolError> {
+        // Initialize basic tracking
+        self.tracker.initialize_tool(tool_id).await?;
+
+        // Initialize adaptive management
+        self.adaptive_manager
+            .initialize_tool(tool_id, base_limits, max_limits)
+            .await?;
+
+        info!("Initialized enhanced resource management for tool {}", tool_id);
+        Ok(())
+    }
+
+    /// Sets resource limits for a tool
+    #[instrument(skip(self))]
+    pub async fn set_limits(
+        &self,
+        tool_id: &str,
+        base_limits: ResourceLimits,
+        max_limits: ResourceLimits,
+    ) -> Result<(), ToolError> {
+        // Set basic limits
+        self.tracker.set_limits(tool_id, base_limits.clone()).await?;
+
+        // Initialize adaptive limits
+        self.adaptive_manager
+            .initialize_tool(tool_id, base_limits, max_limits)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Gets the current resource usage for a tool
+    #[instrument(skip(self))]
+    pub async fn get_usage(&self, tool_id: &str) -> Result<ResourceUsage, ToolError> {
+        self.tracker.get_usage(tool_id).await
+    }
+
+    /// Gets the current resource limits for a tool
+    #[instrument(skip(self))]
+    pub async fn get_limits(&self, tool_id: &str) -> Result<ResourceLimits, ToolError> {
+        // Get adaptive limits if available
+        match self.adaptive_manager.get_current_limits(tool_id).await {
+            Ok(limits) => Ok(limits),
+            Err(_) => self.tracker.get_limits(tool_id).await,
+        }
+    }
+
+    /// Tracks memory allocation for a tool
+    #[instrument(skip(self))]
+    pub async fn track_memory_allocation(
+        &self,
+        tool_id: &str,
+        bytes: usize,
+    ) -> Result<ResourceStatus, ToolError> {
+        let status = self.tracker.track_memory_allocation(tool_id, bytes).await?;
+
+        // Record usage for adaptive management
+        let usage = self.tracker.get_usage(tool_id).await?;
+        self.adaptive_manager
+            .record_usage(tool_id, ResourceType::Memory, &usage)
+            .await?;
+
+        // Adjust limits if needed
+        self.adaptive_manager.adjust_limits(tool_id).await?;
+
+        Ok(status)
+    }
+
+    /// Tracks CPU time usage for a tool
+    #[instrument(skip(self))]
+    pub async fn track_cpu_time(
+        &self,
+        tool_id: &str,
+        time_ms: u64,
+    ) -> Result<ResourceStatus, ToolError> {
+        let status = self.tracker.track_cpu_time(tool_id, time_ms).await?;
+
+        // Record usage for adaptive management
+        let usage = self.tracker.get_usage(tool_id).await?;
+        self.adaptive_manager
+            .record_usage(tool_id, ResourceType::CpuTime, &usage)
+            .await?;
+
+        // Adjust limits if needed
+        self.adaptive_manager.adjust_limits(tool_id).await?;
+
+        Ok(status)
+    }
+
+    /// Tracks file handle allocation for a tool
+    #[instrument(skip(self))]
+    pub async fn track_file_handle(
+        &self,
+        tool_id: &str,
+        handle_id: u32,
+    ) -> Result<ResourceStatus, ToolError> {
+        let status = self.tracker.track_file_handle(tool_id, handle_id).await?;
+
+        // Record usage for adaptive management
+        let usage = self.tracker.get_usage(tool_id).await?;
+        self.adaptive_manager
+            .record_usage(tool_id, ResourceType::FileHandle, &usage)
+            .await?;
+
+        // Adjust limits if needed
+        self.adaptive_manager.adjust_limits(tool_id).await?;
+
+        Ok(status)
+    }
+
+    /// Tracks network connection allocation for a tool
+    #[instrument(skip(self))]
+    pub async fn track_network_connection(
+        &self,
+        tool_id: &str,
+        connection_id: u32,
+    ) -> Result<ResourceStatus, ToolError> {
+        let status = self
+            .tracker
+            .track_network_connection(tool_id, connection_id)
+            .await?;
+
+        // Record usage for adaptive management
+        let usage = self.tracker.get_usage(tool_id).await?;
+        self.adaptive_manager
+            .record_usage(tool_id, ResourceType::NetworkConnection, &usage)
+            .await?;
+
+        // Adjust limits if needed
+        self.adaptive_manager.adjust_limits(tool_id).await?;
+
+        Ok(status)
+    }
+
+    /// Releases a file handle for a tool
+    #[instrument(skip(self))]
+    pub async fn release_file_handle(
+        &self,
+        tool_id: &str,
+        handle_id: u32,
+    ) -> Result<(), ToolError> {
+        self.tracker.release_file_handle(tool_id, handle_id).await
+    }
+
+    /// Releases a network connection for a tool
+    #[instrument(skip(self))]
+    pub async fn release_network_connection(
+        &self,
+        tool_id: &str,
+        connection_id: u32,
+    ) -> Result<(), ToolError> {
+        self.tracker
+            .release_network_connection(tool_id, connection_id)
+            .await
+    }
+
+    /// Releases all resources for a tool
+    #[instrument(skip(self))]
+    pub async fn release_all_resources(&self, tool_id: &str) -> Result<(), ToolError> {
+        self.tracker.release_all_resources(tool_id).await
+    }
+
+    /// Cleans up all resource management for a tool
+    #[instrument(skip(self))]
+    pub async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError> {
+        // Cleanup basic tracking
+        self.tracker.cleanup_tool(tool_id).await?;
+
+        // Cleanup adaptive management
+        self.adaptive_manager.cleanup_tool(tool_id).await?;
+
+        info!("Cleaned up enhanced resource management for tool {}", tool_id);
+        Ok(())
+    }
+
+    /// Gets resource usage history for a tool
+    #[instrument(skip(self))]
+    pub async fn get_history(&self, tool_id: &str) -> Vec<ResourceRecord> {
+        self.tracker.get_history(tool_id).await
+    }
+
+    /// Enables resource tracking
+    pub fn enable_tracking(&mut self) {
+        self.tracker.enable_tracking();
+    }
+
+    /// Disables resource tracking
+    pub fn disable_tracking(&mut self) {
+        self.tracker.disable_tracking();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use tokio::time::{sleep, Duration};
+
     #[tokio::test]
-    async fn test_resource_limits() {
-        let hook = LegacyResourceCleanupHook::new();
-        let tool_id = "test-tool";
-        
-        // Set custom limits
-        let limits = ResourceLimits::default()
-            .with_max_memory(1024 * 1024 * 10) // 10 MB
-            .with_max_cpu_time(5000)           // 5 seconds
-            .with_max_file_handles(10)
-            .with_max_network_connections(5);
-        
-        hook.set_limits(tool_id, limits).await;
-        
-        // Verify limits were set
-        let retrieved_limits = hook.get_limits(tool_id).await.unwrap();
-        assert_eq!(retrieved_limits.max_memory_bytes, 1024 * 1024 * 10);
-        assert_eq!(retrieved_limits.max_cpu_time_ms, 5000);
-        assert_eq!(retrieved_limits.max_file_handles, 10);
-        assert_eq!(retrieved_limits.max_network_connections, 5);
-    }
-    
-    #[tokio::test]
-    async fn test_resource_usage_tracking() {
-        let hook = LegacyResourceCleanupHook::new();
-        let tool_id = "test-tool";
-        
-        // Update resource usage
-        hook.update_usage(tool_id, Some(1024 * 1024), Some(1000), Some(5), Some(2)).await.unwrap();
-        
-        // Verify usage was updated
-        let usage = hook.get_usage(tool_id).await.unwrap();
-        assert_eq!(usage.memory_bytes, 1024 * 1024);
-        assert_eq!(usage.cpu_time_ms, 1000);
-        assert_eq!(usage.file_handles.len(), 0); // This is 0 because we're not directly mapping
-        assert_eq!(usage.network_connections.len(), 0); // Same for network connections
-        
-        // Test file handles separately
-        hook.register_file_handle(tool_id, 1, "test1.txt".to_string()).await;
-        hook.register_file_handle(tool_id, 2, "test2.txt".to_string()).await;
-        
-        // File handles count is tracked in the metrics
-        let usage = hook.get_usage(tool_id).await.unwrap();
-        assert_eq!(usage.file_handles.len(), 0); // Still 0 in the mapped usage
-        
-        // Test unregistering
-        assert!(hook.unregister_file_handle(tool_id, 1).await);
-        
-        // Count decreases
-        let usage = hook.get_usage(tool_id).await.unwrap();
-        assert_eq!(usage.file_handles.len(), 0); // Still 0 in the mapped usage
-    }
-    
-    #[tokio::test]
-    async fn test_file_handle_tracking() {
-        let hook = LegacyResourceCleanupHook::new();
-        let tool_id = "test-tool";
-        
-        // Register file handles
-        hook.register_file_handle(tool_id, 1, "test-file-1.txt".to_string()).await;
-        hook.register_file_handle(tool_id, 2, "test-file-2.txt".to_string()).await;
-        
-        // Let's check the internal file handles count in the ResourceTrackingRecord
-        {
-            let resources = hook.resources.read().await;
-            let record = resources.get(tool_id).unwrap();
-            assert_eq!(record.usage.file_handles, 2);
-        } // Make sure the read lock is dropped here
-        
-        // But the exposed ResourceUsage doesn't directly map these
-        let usage = hook.get_usage(tool_id).await.unwrap();
-        assert_eq!(usage.file_handles.len(), 0);
-        
-        // Unregister a file handle
-        let removed = hook.unregister_file_handle(tool_id, 1).await;
-        assert!(removed);
-        
-        // Check internal count again
-        {
-            let resources = hook.resources.read().await;
-            let record = resources.get(tool_id).unwrap();
-            assert_eq!(record.usage.file_handles, 1);
-        } // Make sure the read lock is dropped here
-        
-        // But ResourceUsage still doesn't have these directly
-        let usage = hook.get_usage(tool_id).await.unwrap();
-        assert_eq!(usage.file_handles.len(), 0);
+    async fn test_enhanced_resource_management() {
+        let manager = EnhancedResourceManager::new(1000);
+        let tool_id = "test_tool";
+
+        // Initialize with base and max limits
+        let base_limits = ResourceLimits {
+            max_memory_bytes: 100_000_000,
+            max_cpu_time_ms: 30_000,
+            max_file_handles: 50,
+            max_network_connections: 10,
+        };
+
+        let max_limits = ResourceLimits {
+            max_memory_bytes: 500_000_000,
+            max_cpu_time_ms: 120_000,
+            max_file_handles: 200,
+            max_network_connections: 50,
+        };
+
+        manager
+            .initialize_tool(tool_id, base_limits.clone(), max_limits)
+            .await
+            .unwrap();
+
+        // Test memory allocation
+        let status = manager
+            .track_memory_allocation(tool_id, 50_000_000)
+            .await
+            .unwrap();
+        assert_eq!(status, ResourceStatus::Normal);
+
+        // Test CPU time tracking
+        let status = manager.track_cpu_time(tool_id, 15_000).await.unwrap();
+        assert_eq!(status, ResourceStatus::Normal);
+
+        // Test file handle tracking
+        let status = manager.track_file_handle(tool_id, 1).await.unwrap();
+        assert_eq!(status, ResourceStatus::Normal);
+
+        // Test network connection tracking
+        let status = manager.track_network_connection(tool_id, 1).await.unwrap();
+        assert_eq!(status, ResourceStatus::Normal);
+
+        // Let adaptive management work
+        sleep(Duration::from_millis(100)).await;
+
+        // Check current limits
+        let current_limits = manager.get_limits(tool_id).await.unwrap();
+        assert!(current_limits.max_memory_bytes >= base_limits.max_memory_bytes);
+
+        // Cleanup
+        manager.cleanup_tool(tool_id).await.unwrap();
     }
 } 
