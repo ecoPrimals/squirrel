@@ -5,9 +5,15 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::missing_docs_in_private_items)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![doc(html_root_url = "https://docs.rs/squirrel-app")]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
+#![warn(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
 #![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::module_name_repetitions)]
+#![warn(clippy::todo)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 pub use crate::core::Core;

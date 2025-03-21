@@ -88,7 +88,7 @@ impl CommandHandlerAdapter {
     /// # Errors
     /// 
     /// Returns an error if the handler registration fails or if the adapter is not initialized.
-    pub fn register_handler(&self, _command_type: &str, _handler: Box<dyn CommandProcessor>) -> Result<()> {
+    pub fn register_handler(&self, _command_type: &str, _handler: &dyn CommandProcessor) -> Result<()> {
         // Check if initialized
         let _existing_handler = self.get_handler()?;
         // Since CommandProcessor trait doesn't have register_handler, we need to handle this differently

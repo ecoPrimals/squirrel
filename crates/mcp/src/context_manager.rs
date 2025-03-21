@@ -274,7 +274,7 @@ impl ContextManager {
     #[instrument(skip(self, validation))]
     pub async fn register_validation(&self, context_type: String, validation: ContextValidation) -> Result<()> {
         // Validate schema
-        if validation.schema.is_null() || validation.schema.as_object().is_none_or(|o| o.is_empty()) {
+        if validation.schema.is_null() || validation.schema.as_object().map_or(true, |o| o.is_empty()) {
             return Err(MCPError::Context(ContextError::ValidationError("Invalid validation schema".into())));
         }
         

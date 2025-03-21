@@ -313,7 +313,7 @@ impl CommandHandlerFactory {
 
     /// Creates a new command handler adapter with an existing handler
     #[must_use]
-    pub fn create_adapter_with_handler(&self, _handler: Arc<CommandHandler>) -> Arc<CommandHandlerAdapter> {
+    pub fn create_adapter_with_handler(_handler: &Arc<CommandHandler>) -> Arc<CommandHandlerAdapter> {
         Arc::new(CommandHandlerAdapter::new())
     }
 } 

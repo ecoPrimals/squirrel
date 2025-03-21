@@ -1,0 +1,2 @@
+# Allow module name repetitions for implementation types and where it adds clarity
+allowed-prefixes = ["to", "as", "into", "from", "try_into", "try_from", "impl", "adapter", "error", "config", "context", "command", "metrics", "monitoring", "disk", "network", "process", "performance", "alert"] 

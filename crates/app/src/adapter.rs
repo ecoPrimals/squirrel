@@ -43,7 +43,7 @@ impl AppAdapter {
     /// Returns an error if:
     /// - The adapter is already initialized
     /// - The initialization fails
-    pub fn initialize(&mut self, _config: AppConfig) -> Result<()> {
+    pub fn initialize(&mut self, _config: &AppConfig) -> Result<()> {
         if self.initialized {
             return Err(SquirrelError::AppInitialization(AppInitializationError::AlreadyInitialized));
         }
@@ -178,7 +178,7 @@ impl AppAdapter {
 /// Returns an error if:
 /// - The `AppAdapter` initialization fails
 /// - The App creation fails
-pub fn create_initialized_app_adapter(config: AppConfig) -> Result<AppAdapter> {
+pub fn create_initialized_app_adapter(config: &AppConfig) -> Result<AppAdapter> {
     let mut adapter = AppAdapter::new();
     adapter.initialize(config)?;
     Ok(adapter)
@@ -192,7 +192,7 @@ pub fn create_initialized_app_adapter(config: AppConfig) -> Result<AppAdapter> {
 /// - The `AppAdapter` initialization fails
 /// - The App creation fails
 pub fn create_default_app_adapter() -> Result<AppAdapter> {
-    create_initialized_app_adapter(AppConfig::default())
+    create_initialized_app_adapter(&AppConfig::default())
 }
 
 #[cfg(test)]
@@ -206,7 +206,7 @@ mod tests {
         let config = AppConfig::default();
         
         // ACT
-        let result = adapter.initialize(config);
+        let result = adapter.initialize(&config);
         
         // ASSERT
         assert!(result.is_ok());
@@ -220,10 +220,10 @@ mod tests {
         let config = AppConfig::default();
         
         // First initialization should succeed
-        let _ = adapter.initialize(config.clone());
+        let _ = adapter.initialize(&config.clone());
         
         // ACT
-        let result = adapter.initialize(config);
+        let result = adapter.initialize(&config);
         
         // ASSERT
         assert!(result.is_err());
@@ -244,7 +244,7 @@ mod tests {
             debug: true,
         };
         
-        let adapter_result = create_initialized_app_adapter(config);
+        let adapter_result = create_initialized_app_adapter(&config);
         
         // ASSERT
         assert!(adapter_result.is_ok());
@@ -288,7 +288,7 @@ mod tests {
     async fn test_stop_not_started() {
         let mut adapter = AppAdapter::new();
         let config = AppConfig::default();
-        assert!(adapter.initialize(config).is_ok());
+        assert!(adapter.initialize(&config).is_ok());
         
         let start_result = adapter.start();
         assert!(start_result.is_ok());

@@ -10,7 +10,7 @@ members = [
     "crates/web",
     "crates/cli",
     "crates/app",
-    "crates/context_adapter"
+    "crates/context-adapter"
 ]
 
 [workspace.package]

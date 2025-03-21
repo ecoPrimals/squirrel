@@ -7,6 +7,7 @@
 #![warn(clippy::unwrap_used)]
 #![warn(clippy::expect_used)]
 #![allow(clippy::needless_raw_string_hashes)]
+#![allow(clippy::module_name_repetitions)]
 #![warn(clippy::todo)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 #![cfg_attr(test, allow(clippy::expect_used))]

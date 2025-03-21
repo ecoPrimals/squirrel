@@ -237,13 +237,10 @@ impl ContextAdapter {
         
         for (id, context) in contexts.iter() {
             let age = now.signed_duration_since(context.updated_at);
-            match i64::try_from(config.ttl_seconds) {
-                Ok(ttl) => {
-                    if age.num_seconds() >= ttl {
-                        to_remove.push(id.clone());
-                    }
-                },
-                Err(_) => {}, // If conversion fails, retain the context to be safe
+            if let Ok(ttl) = i64::try_from(config.ttl_seconds) {
+                if age.num_seconds() >= ttl {
+                    to_remove.push(id.clone());
+                }
             }
         }
         

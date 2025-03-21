@@ -724,7 +724,7 @@ impl ContextTrackerFactory {
     ///
     /// * `manager` - Optional default context manager to use
     /// * `config` - Configuration for the context tracker
-    #[must_use] pub fn with_config(manager: Option<Arc<ContextManager>>, _config: ContextConfig) -> Self {
+    #[must_use] pub fn with_config(manager: Option<Arc<ContextManager>>, _config: &ContextConfig) -> Self {
         Self {
             manager,
         }
@@ -759,7 +759,7 @@ impl ContextTrackerFactory {
     /// # Errors
     ///
     /// Returns `ContextError::NotInitialized` if no default manager was provided during factory creation
-    pub fn create_with_config(&self, _config: ContextConfig) -> Result<ContextTracker> {
+    pub fn create_with_config(&self, _config: &ContextConfig) -> Result<ContextTracker> {
         match &self.manager {
             Some(manager) => {
                 let tracker = ContextTracker::new(manager.clone());
@@ -880,7 +880,7 @@ pub fn create_context_tracker() -> Result<ContextTracker> {
 /// # Errors
 ///
 /// Returns an error if the context tracker creation fails
-pub fn create_context_tracker_with_config(_config: ContextConfig) -> Result<ContextTracker> {
+pub fn create_context_tracker_with_config(_config: &ContextConfig) -> Result<ContextTracker> {
     let manager = Arc::new(ContextManager::new());
     let tracker = ContextTracker::new(manager);
     // Apply configuration if needed
@@ -985,7 +985,7 @@ mod tests {
     fn test_context_tracker_factory_with_config() {
         let manager = Arc::new(ContextManager::new());
         let config = ContextConfig::default();
-        let factory = ContextTrackerFactory::with_config(Some(manager.clone()), config);
+        let factory = ContextTrackerFactory::with_config(Some(manager.clone()), &config);
         
         assert!(factory.manager.is_some());
         
@@ -999,7 +999,7 @@ mod tests {
         let factory = ContextTrackerFactory::new(Some(manager.clone()));
         
         let config = ContextConfig::default();
-        let tracker = factory.create_with_config(config).unwrap();
+        let tracker = factory.create_with_config(&config).unwrap();
         
         assert!(Arc::ptr_eq(&tracker.manager, &manager));
     }
@@ -1013,7 +1013,7 @@ mod tests {
     #[tokio::test]
     async fn test_helper_create_context_tracker_with_config() {
         let config = ContextConfig::default();
-        let tracker = create_context_tracker_with_config(config).unwrap();
+        let tracker = create_context_tracker_with_config(&config).unwrap();
         assert!(tracker.active_context.read().await.is_none());
     }
 }
