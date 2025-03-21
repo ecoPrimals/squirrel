@@ -345,7 +345,7 @@ impl MCPProtocol for MCPProtocolImpl {
             MessageType::Response => {
                 // For responses, we need to match with the original request
                 // This is typically handled by the client side, but we should validate
-                if !msg.payload.get("message_id").is_some() {
+                if msg.payload.get("message_id").is_none() {
                     return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
                         "Response missing original message_id".to_string()
                     )));

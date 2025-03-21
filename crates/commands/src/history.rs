@@ -295,10 +295,8 @@ impl CommandHistory {
     /// Removes entries older than the specified timestamp
     pub fn cleanup_older_than(&self, timestamp: u64) -> HistoryResult<usize> {
         // Initialize removal count
-        let mut removed_count = 0;
-        
         // Remove from memory
-        {
+        let removed_count = {
             let mut entries = self.entries.write().map_err(|err| {
                 CommandError::ResourceError(format!(
                     "Failed to acquire write lock on history entries: {}", err
@@ -308,8 +306,8 @@ impl CommandHistory {
             // Filter out old entries
             let original_len = entries.len();
             entries.retain(|entry| entry.timestamp > timestamp);
-            removed_count = original_len - entries.len();
-        }
+            original_len - entries.len()
+        };
         
         // Persist changes
         self.save_all()?;

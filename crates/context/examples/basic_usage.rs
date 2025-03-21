@@ -1,7 +1,5 @@
-use std::sync::Arc;
 use squirrel_context::{
-    create_manager, create_adapter,
-    ContextState, ContextError, Result,
+    create_manager, create_adapter, Result,
 };
 
 #[tokio::main]

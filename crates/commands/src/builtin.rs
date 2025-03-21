@@ -506,7 +506,7 @@ impl Command for HistoryCommand {
                 .unwrap_or(0);
                 
             let days_in_secs = days * 24 * 60 * 60;
-            let cutoff = if now > days_in_secs { now - days_in_secs } else { 0 };
+            let cutoff = now.saturating_sub(days_in_secs);
             
             // Cleanup entries older than the cutoff
             let removed = self.history.cleanup_older_than(cutoff).map_err(|e| {

@@ -157,9 +157,10 @@ impl SuggestionContext {
     /// Creates a suggestion context with the current time of day
     pub fn with_current_time() -> Self {
         let now = chrono::Local::now();
-        let mut context = Self::default();
-        context.hour_of_day = Some(now.hour() as u8);
-        context
+        Self {
+            hour_of_day: Some(now.hour() as u8),
+            ..Default::default()
+        }
     }
     
     /// Sets the previous command
