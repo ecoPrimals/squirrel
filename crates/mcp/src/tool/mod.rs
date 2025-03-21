@@ -6,10 +6,12 @@
 // Declare submodules
 pub mod executor;
 pub mod lifecycle;
+pub mod cleanup;
 
 // Re-export implementations
 pub use executor::{BasicToolExecutor, RemoteToolExecutor};
 pub use lifecycle::{BasicLifecycleHook, SecurityLifecycleHook, CompositeLifecycleHook};
+pub use cleanup::{ResourceCleanupHook, RecoveryHook, ResourceUsage, ResourceLimits, RecoveryStrategy};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -137,7 +139,7 @@ impl fmt::Display for ToolState {
 }
 
 /// Tool error
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone)]
 pub enum ToolError {
     /// Error during tool registration
     #[error("Failed to register tool: {0}")]
