@@ -49,12 +49,16 @@ pub mod metrics;
 /// Application monitoring
 pub mod monitoring;
 
+/// Application plugin system
+pub mod plugin;
+
 /// Re-exports
 #[doc = "Common types for convenience"]
 pub mod prelude {
     pub use crate::core::Core;
     pub use crate::adapter::AppAdapter;
     pub use crate::core::AppConfig;
+    pub use crate::plugin::{Plugin, PluginManager, PluginLoader};
 }
 
 /// Module containing application tests
