@@ -487,11 +487,13 @@ mod tests {
         // Test with strategy that won't find anything
         let strategy = SpecificVersionStrategy::new(999);
         match recovery.recover_using_strategy(&strategy) {
-            None => assert!(true),
+            None => { /* Expected case, no snapshot found */ },
             Some(_) => panic!("Expected None but got Some"),
         }
     }
 
+    // Add allow attribute to suppress the dead code warning
+    #[allow(dead_code)]
     pub fn test_snapshot(version: u64, marker: &u8) -> ContextSnapshot {
         ContextSnapshot {
             id: format!("test-snapshot-{}", version),
@@ -569,29 +571,33 @@ mod tests {
 
 // Define MockStrategy
 /// A mock strategy for testing recovery
+#[allow(clippy::items_after_test_module)]
 pub struct MockStrategy;
 
+#[allow(clippy::items_after_test_module)]
 impl MockStrategy {
-    /// Creates a new instance of the mock strategy
-    #[must_use] pub const fn new() -> Self {
+    /// Create a new mock strategy
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 impl Default for MockStrategy {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(clippy::items_after_test_module)]
 impl RecoveryStrategy for MockStrategy {
     fn select_state<'a>(&self, snapshots: &'a [ContextSnapshot]) -> Option<&'a ContextSnapshot> {
-        // Simple selection - always return the first snapshot if there is one
         snapshots.first()
     }
 }
 
-#[allow(dead_code)]
+#[allow(clippy::items_after_test_module)]
 fn create_mock_snapshot(marker: &u8) -> ContextSnapshot {
     // Create a snapshot with a marker to distinguish between snapshots in tests
     let state_id = format!("test-state-{}", marker);

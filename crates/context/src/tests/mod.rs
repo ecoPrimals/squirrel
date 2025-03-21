@@ -30,10 +30,12 @@ impl TestData {
         }
     }
 
-    pub async fn create_test_context(&self, id: &str, data: &str) -> Result<ContextState> {
+    #[allow(dead_code)]
+    pub async fn create_test_context(&self, _id: &str, _data: &str) -> Result<ContextState> {
         Ok(TestData::create_test_state())
     }
 
+    #[allow(dead_code)]
     pub fn create_test_config() -> ContextState {
         TestData::create_test_state()
     }
@@ -41,8 +43,11 @@ impl TestData {
 
 // We need to define a trait for ContextSubscriber or import it
 pub trait ContextSubscriber: Send + Sync {
+    #[allow(dead_code)]
     async fn on_context_change(&self, context_id: &str);
+    #[allow(dead_code)]
     async fn on_context_create(&self, context_id: &str);
+    #[allow(dead_code)]
     async fn on_context_delete(&self, _context_id: &str);
 }
 
@@ -56,7 +61,9 @@ pub struct ContextConfig {
 // Define a test state struct
 #[derive(Debug, Clone, Default)]
 pub struct MockState {
+    #[allow(dead_code)]
     pub context_ids: Vec<String>,
+    #[allow(dead_code)]
     pub contexts: HashMap<String, ContextState>,
 }
 
@@ -122,7 +129,7 @@ impl ContextAdapter {
         Ok(())
     }
 
-    pub async fn create_context(&self, id: &str, data: serde_json::Value) -> Result<()> {
+    pub async fn create_context(&self, id: &str, _data: serde_json::Value) -> Result<()> {
         let config = self.config.read().await;
         let mut contexts = self.contexts.write().await;
         
@@ -143,7 +150,7 @@ impl ContextAdapter {
             .ok_or_else(|| ContextError::NotFound(format!("Context not found: {}", id)))
     }
 
-    pub async fn update_context(&self, id: &str, data: serde_json::Value) -> Result<()> {
+    pub async fn update_context(&self, id: &str, _data: serde_json::Value) -> Result<()> {
         let mut contexts = self.contexts.write().await;
         if let Some(state) = contexts.get_mut(id) {
             state.version += 1;
@@ -228,7 +235,7 @@ impl ContextSubscriber for TestSubscriber {
 #[tokio::test]
 async fn test_context_manager_creation() {
     let mut manager = ContextManager::new();
-    assert!(manager.initialize().is_ok());
+    assert!(manager.initialize().await.is_ok());
 }
 
 #[tokio::test]
@@ -347,11 +354,11 @@ async fn test_subscriber_with_adapter() {
 async fn test_context_state_management() {
     // Create a test adapter
     let adapter = ContextAdapter::new();
-    assert_eq!(adapter.is_initialized().await, false);
+    assert!(!(adapter.is_initialized().await));
     
     // Initialize the adapter
     assert!(adapter.initialize().await.is_ok());
-    assert_eq!(adapter.is_initialized().await, true);
+    assert!(adapter.is_initialized().await);
     
     // Create a test context
     let context_id = "test-context";
@@ -445,6 +452,7 @@ async fn test_context_adapter_multiple_contexts() {
 }
 
 /// Type alias for context adapter configuration
+#[allow(dead_code)]
 pub type ContextAdapterConfig = ContextConfig;
 
 #[tokio::test]
@@ -503,13 +511,13 @@ async fn test_context_adapter_config_update() {
     // Verify the config was updated
     let limited_config_retrieved = limited_adapter.get_config().await.unwrap();
     assert_eq!(limited_config_retrieved.max_contexts, restricted_config.max_contexts);
-    assert_eq!(limited_config_retrieved.auto_cleanup, restricted_config.auto_cleanup);
+    assert!(!limited_config_retrieved.auto_cleanup);
 }
 
 #[tokio::test]
 async fn test_context_serialization() {
     // Create a test manager
-    let manager = Arc::new(ContextManager::new());
+    let _manager = Arc::new(ContextManager::new());
     let adapter = ContextAdapter::new();
     adapter.initialize().await.unwrap();
     
@@ -542,7 +550,7 @@ async fn test_context_config_restrictions() {
     // Verify the config was set correctly
     let retrieved_config = adapter.get_config().await.unwrap();
     assert_eq!(retrieved_config.max_contexts, 5);
-    assert_eq!(retrieved_config.auto_cleanup, false);
+    assert!(!retrieved_config.auto_cleanup);
     
     // Update the config to be more restrictive
     let restricted_config = ContextConfig {
@@ -555,7 +563,7 @@ async fn test_context_config_restrictions() {
     // Check that the config was updated
     let updated_config = adapter.get_config().await.unwrap();
     assert_eq!(updated_config.max_contexts, 1);
-    assert_eq!(updated_config.auto_cleanup, true);
+    assert!(updated_config.auto_cleanup);
     
     // This is a successful test that doesn't rely on creating contexts
 }

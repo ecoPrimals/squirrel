@@ -14,14 +14,14 @@ async fn main() -> Result<()> {
     adapter.initialize().await?;
     
     // Get the current context ID
-    let current_id = adapter.get_current_context_id()?;
+    let current_id = adapter.get_current_context_id().await?;
     println!("Current context ID: {}", current_id);
     
     // Get the current context tracker
-    let tracker = adapter.get_current_tracker()?;
+    let tracker = adapter.get_current_tracker().await?;
     
     // Get the current state
-    let mut state = tracker.get_state()?;
+    let mut state = tracker.get_state().await?;
     println!("Initial state: {:?}", state);
     
     // Update the state
@@ -29,10 +29,10 @@ async fn main() -> Result<()> {
     state.set("key2".to_string(), "value2".to_string());
     
     // Update the tracker with the new state
-    tracker.update_state(state)?;
+    tracker.update_state(state).await?;
     
     // Get the updated state
-    let updated_state = tracker.get_state()?;
+    let updated_state = tracker.get_state().await?;
     println!("Updated state: {:?}", updated_state);
     
     // Create a new context
@@ -40,19 +40,19 @@ async fn main() -> Result<()> {
     let new_tracker = adapter.create_and_activate_context(new_context_id).await?;
     
     // Verify the current context ID
-    let current_id = adapter.get_current_context_id()?;
+    let current_id = adapter.get_current_context_id().await?;
     println!("New current context ID: {}", current_id);
     
     // Update the new context state
-    let mut new_state = new_tracker.get_state()?;
+    let mut new_state = new_tracker.get_state().await?;
     new_state.set("app".to_string(), "example".to_string());
     new_state.set("version".to_string(), "1.0".to_string());
     
     // Update the tracker with the new state
-    new_tracker.update_state(new_state)?;
+    new_tracker.update_state(new_state).await?;
     
     // Get the updated state
-    let updated_state = new_tracker.get_state()?;
+    let updated_state = new_tracker.get_state().await?;
     println!("New context state: {:?}", updated_state);
     
     // Create a recovery point for the current context
@@ -63,26 +63,26 @@ async fn main() -> Result<()> {
     let default_tracker = adapter.switch_context("default").await?;
     
     // Verify the current context ID
-    let current_id = adapter.get_current_context_id()?;
+    let current_id = adapter.get_current_context_id().await?;
     println!("Switched back to context ID: {}", current_id);
     
     // Get the state of the default context
-    let default_state = default_tracker.get_state()?;
+    let default_state = default_tracker.get_state().await?;
     println!("Default context state: {:?}", default_state);
     
     // List all context IDs
-    let context_ids = adapter.list_context_ids()?;
+    let context_ids = adapter.list_context_ids().await?;
     println!("All context IDs: {:?}", context_ids);
     
     // List active context IDs
-    let active_ids = adapter.list_active_context_ids()?;
+    let active_ids = adapter.list_active_context_ids().await?;
     println!("Active context IDs: {:?}", active_ids);
     
     // Deactivate the new context
     adapter.deactivate_context(new_context_id).await?;
     
     // Verify active contexts after deactivation
-    let active_ids = adapter.list_active_context_ids()?;
+    let active_ids = adapter.list_active_context_ids().await?;
     println!("Active context IDs after deactivation: {:?}", active_ids);
     
     Ok(())
