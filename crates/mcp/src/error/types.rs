@@ -269,6 +269,18 @@ pub enum ProtocolError {
     HandlerNotFound(String),
     #[error("Invalid payload: {0}")]
     InvalidPayload(String),
+    #[error("Message too large: {0}")]
+    MessageTooLarge(String),
+    #[error("Invalid timestamp: {0}")]
+    InvalidTimestamp(String),
+    #[error("Message timeout: {0}")]
+    MessageTimeout(String),
+    #[error("Invalid security metadata: {0}")]
+    InvalidSecurityMetadata(String),
+    #[error("Message validation failed: {0}")]
+    ValidationFailed(String),
+    #[error("Recovery failed: {0}")]
+    RecoveryFailed(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
