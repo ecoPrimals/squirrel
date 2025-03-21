@@ -331,3 +331,39 @@ impl PersistenceManager {
         self.storage.delete(id)
     }
 }
+
+impl crate::state::StateStorage for PersistenceManager {
+    fn load_state(&self, id: &str) -> Result<crate::state::State, ContextError> {
+        let data = self.storage.load(id)?;
+        self.serializer.deserialize_state(&data)
+    }
+    
+    fn save_state(&self, id: &str, state: &crate::state::State) -> Result<(), ContextError> {
+        let data = self.serializer.serialize_state(state)?;
+        self.storage.save(id, &data)
+    }
+    
+    fn delete_state(&self, id: &str) -> Result<(), ContextError> {
+        self.storage.delete(id)
+    }
+    
+    fn list_states(&self) -> Result<Vec<String>, ContextError> {
+        // For now, return empty list since Storage trait doesn't support listing
+        Ok(Vec::new())
+    }
+    
+    fn save_snapshot(&self, snapshot: &crate::state::StateSnapshot) -> Result<(), ContextError> {
+        let data = self.serializer.serialize_snapshot(snapshot)?;
+        self.storage.save(&snapshot.id, &data)
+    }
+    
+    fn load_snapshot(&self, id: &str) -> Result<crate::state::StateSnapshot, ContextError> {
+        let data = self.storage.load(id)?;
+        self.serializer.deserialize_snapshot(&data)
+    }
+    
+    fn list_snapshots(&self, _state_id: &str) -> Result<Vec<crate::state::StateSnapshot>, ContextError> {
+        // For now, return empty list since Storage trait doesn't support listing
+        Ok(Vec::new())
+    }
+}
