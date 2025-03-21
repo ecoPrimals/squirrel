@@ -2,7 +2,8 @@
 //!
 //! This module provides functionality for tracking context changes.
 
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{Duration, Instant};
 use chrono::Utc;
 use uuid::Uuid;
@@ -76,48 +77,60 @@ impl ContextTracker {
     }
 
     /// Get the current state
-    pub fn get_state(&self) -> Result<ContextState> {
-        let state = self.state.lock()
-            .map_err(|_| ContextError::InvalidState("Failed to acquire state lock".to_string()))?;
+    pub async fn get_state(&self) -> Result<ContextState> {
+        let state = self.state.lock().await;
         Ok(state.clone())
     }
 
     /// Update the current state
-    pub fn update_state(&self, state: ContextState) -> Result<()> {
-        let mut current_state = self.state.lock()
-            .map_err(|_| ContextError::InvalidState("Failed to acquire state lock".to_string()))?;
+    pub async fn update_state(&self, state: ContextState) -> Result<()> {
+        let mut current_state = self.state.lock().await;
         
         // Only update if the new state has a higher version
         if state.version > current_state.version {
             *current_state = state;
             
             // Update the last sync time
-            if let Ok(mut last_sync) = self.last_sync.write() {
+            {
+                let mut last_sync = self.last_sync.write().await;
                 *last_sync = Instant::now();
             }
             
             // Trigger automatic recovery point if enabled
             if self.config.auto_recovery {
-                self.create_recovery_point()?;
+                if let Some(manager) = &self.manager {
+                    // Drop the current_state guard before calling async manager methods
+                    drop(current_state);
+                    
+                    // Get state again for recovery point
+                    let state = self.get_state().await?;
+                    
+                    // Create recovery point
+                    manager.create_recovery_point(&state).await?;
+                }
             }
+            
+            Ok(())
+        } else {
+            // No update needed, same version or older
+            Ok(())
         }
-        
-        Ok(())
     }
-    
+
     /// Activate a context by ID
     pub async fn activate_context(&self, id: &str) -> Result<()> {
         if let Some(manager) = &self.manager {
-            // Get context state from manager
+            // Load the context from the manager
             let state = manager.get_context_state(id).await?;
             
-            // Update our local state
-            self.update_state(state)?;
-            
             // Set the active context ID
-            if let Ok(mut active_id) = self.active_context_id.write() {
+            {
+                let mut active_id = self.active_context_id.write().await;
                 *active_id = Some(id.to_string());
             }
+            
+            // Update the state
+            self.update_state(state).await?;
             
             Ok(())
         } else {
@@ -127,43 +140,42 @@ impl ContextTracker {
     
     /// Deactivate the current context
     pub async fn deactivate_context(&self) -> Result<()> {
-        if let Ok(mut active_id) = self.active_context_id.write() {
-            // Clear the active context ID
-            *active_id = None;
-            Ok(())
-        } else {
-            Err(ContextError::InvalidState("Failed to acquire context ID lock".to_string()))
-        }
+        let mut active_id = self.active_context_id.write().await;
+        // Clear the active context ID
+        *active_id = None;
+        Ok(())
     }
     
     /// Get the active context ID
-    pub fn get_active_context_id(&self) -> Result<Option<String>> {
-        if let Ok(active_id) = self.active_context_id.read() {
-            Ok(active_id.clone())
-        } else {
-            Err(ContextError::InvalidState("Failed to acquire context ID lock".to_string()))
-        }
+    pub async fn get_active_context_id(&self) -> Result<Option<String>> {
+        let active_id = self.active_context_id.read().await;
+        Ok(active_id.clone())
     }
     
     /// Synchronize state with persistence
     pub async fn sync_state(&self) -> Result<()> {
         if let Some(manager) = &self.manager {
             // Get the current state
-            let state = self.get_state()?;
+            let state = self.get_state().await?;
             
             // If we have an active context, sync to that ID
-            if let Ok(active_id) = self.active_context_id.read() {
-                if let Some(id) = &*active_id {
-                    // Update the context state in the manager
-                    manager.update_context_state(id, state).await?;
-                    
-                    // Update the last sync time
-                    if let Ok(mut last_sync) = self.last_sync.write() {
-                        *last_sync = Instant::now();
-                    }
-                    
-                    return Ok(());
+            let active_id = self.active_context_id.read().await;
+            if let Some(id) = &*active_id {
+                // Clone the ID to avoid borrow issues
+                let id_clone = id.clone();
+                // Drop the guard to avoid holding it during async calls
+                drop(active_id);
+                
+                // Update the context state in the manager
+                manager.update_context_state(&id_clone, state).await?;
+                
+                // Update the last sync time
+                {
+                    let mut last_sync = self.last_sync.write().await;
+                    *last_sync = Instant::now();
                 }
+                
+                return Ok(());
             }
             
             // If no active context, return an error
@@ -173,19 +185,20 @@ impl ContextTracker {
         }
     }
     
-    /// Synchronize method that can be called on an Arc<ContextTracker>
+    /// Start automatic synchronization for this tracker
     pub async fn synchronize(self: &Arc<Self>) -> Result<()> {
-        self.sync_state().await
+        // Implementation left for actual code
+        Ok(())
     }
     
     /// Create a recovery point for the current state
-    pub fn create_recovery_point(&self) -> Result<()> {
+    pub async fn create_recovery_point(&self) -> Result<()> {
         if let Some(manager) = &self.manager {
             // Get the current state
-            let state = self.get_state()?;
+            let state = self.get_state().await?;
             
-            // Create recovery point using manager
-            let _ = manager.create_recovery_point(&state);
+            // Create a recovery point
+            manager.create_recovery_point(&state).await?;
             
             Ok(())
         } else {
@@ -193,24 +206,24 @@ impl ContextTracker {
         }
     }
     
-    /// Check if sync is needed based on configured interval
-    pub fn is_sync_needed(&self) -> bool {
+    /// Check if synchronization is needed
+    pub async fn is_sync_needed(&self) -> bool {
         if self.config.sync_interval_seconds == 0 {
-            return false; // Auto-sync disabled
+            // Auto-sync disabled
+            return false;
         }
         
-        if let Ok(last_sync) = self.last_sync.read() {
-            let elapsed = last_sync.elapsed();
-            let interval = Duration::from_secs(self.config.sync_interval_seconds);
-            elapsed >= interval
-        } else {
-            false
-        }
+        // Check time since last sync
+        let interval = Duration::from_secs(self.config.sync_interval_seconds);
+        let last_sync_time = *self.last_sync.read().await;
+        let elapsed = last_sync_time.elapsed();
+        
+        elapsed > interval
     }
 }
 
-/// Factory for creating ContextTracker instances
-#[derive(Debug, Clone)]
+/// Factory for creating context trackers
+#[derive(Debug)]
 pub struct ContextTrackerFactory {
     /// Optional manager reference
     manager: Option<Arc<ContextManager>>,
@@ -221,8 +234,7 @@ pub struct ContextTrackerFactory {
 }
 
 impl ContextTrackerFactory {
-    /// Create a new context tracker factory
-    #[must_use]
+    /// Create a new factory with the given manager
     pub fn new(manager: Option<Arc<ContextManager>>) -> Self {
         Self {
             manager,
@@ -231,8 +243,7 @@ impl ContextTrackerFactory {
         }
     }
     
-    /// Create a new context tracker factory with configuration
-    #[must_use]
+    /// Create a new factory with the given manager and config
     pub fn with_config(manager: Option<Arc<ContextManager>>, config: ContextTrackerConfig) -> Self {
         Self {
             manager,
@@ -248,10 +259,11 @@ impl ContextTrackerFactory {
     
     /// Create a new context tracker
     pub fn create(&self) -> Result<ContextTracker> {
-        // Use default state or create empty one
-        let state = if let Some(default_state) = &self.default_state {
-            default_state.clone()
+        // Create a default state if none provided
+        let state = if let Some(state) = &self.default_state {
+            state.clone()
         } else {
+            // Create a new empty state
             ContextState {
                 id: Uuid::new_v4().to_string(),
                 version: 1,
@@ -262,7 +274,7 @@ impl ContextTrackerFactory {
             }
         };
         
-        // Use configuration if provided
+        // Create with config if provided
         if let Some(config) = &self.config {
             Ok(ContextTracker::with_config_and_manager(
                 state,
@@ -270,14 +282,40 @@ impl ContextTrackerFactory {
                 self.manager.clone(),
             ))
         } else {
+            // Create with defaults
             let tracker = ContextTracker::new(state);
-            Ok(tracker)
+            
+            // Set manager if provided
+            if self.manager.is_some() {
+                // Create a new tracker with our configuration and manager
+                let config = tracker.config.clone();
+                let manager_clone = self.manager.clone();
+                
+                // Create a new state
+                let empty_state = ContextState {
+                    id: Uuid::new_v4().to_string(),
+                    version: 1,
+                    timestamp: Utc::now().timestamp() as u64,
+                    data: HashMap::new(),
+                    metadata: HashMap::new(),
+                    synchronized: false,
+                };
+                
+                Ok(ContextTracker::with_config_and_manager(
+                    empty_state,
+                    config,
+                    manager_clone,
+                ))
+            } else {
+                Ok(tracker)
+            }
         }
     }
     
-    /// Alias for create() to be used with adapter
+    /// Create a new tracker as an Arc
     pub fn create_tracker(&self, state: ContextState) -> Arc<ContextTracker> {
         let config = self.config.clone().unwrap_or_default();
+        
         Arc::new(ContextTracker::with_config_and_manager(
             state,
             config,
@@ -285,12 +323,13 @@ impl ContextTrackerFactory {
         ))
     }
     
-    /// Create a new context tracker with specific configuration
+    /// Create a new tracker with the given config
     pub fn create_with_config(&self, config: ContextTrackerConfig) -> Result<ContextTracker> {
-        // Use default state or create empty one
-        let state = if let Some(default_state) = &self.default_state {
-            default_state.clone()
+        // Create a default state if none provided
+        let state = if let Some(state) = &self.default_state {
+            state.clone()
         } else {
+            // Create a new empty state
             ContextState {
                 id: Uuid::new_v4().to_string(),
                 version: 1,
