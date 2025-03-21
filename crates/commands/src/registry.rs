@@ -7,7 +7,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use log::{debug, info, warn, error};
+use tracing::{debug, info, warn, error};
 
 use crate::CommandError;
 

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crate::CommandResult;
 use clap::Parser;
 use crate::history::CommandHistory;
-use log::{debug, error};
+use tracing::{debug, error};
 use std::fmt::Debug;
 
 /// Error type for hook failures.
