@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use crate::{MonitoringConfig, MonitoringService, MonitoringIntervals, MonitoringStatus};
-use crate::alerts::{Alert, AlertConfig, AlertManager, AlertSeverity};
+use crate::alerts::{LegacyAlertManager, AlertConfig};
 use crate::alerts::adapter::AlertManagerAdapter;
+use crate::alerts::status::{Alert, AlertType, AlertSeverity};
 use crate::health::{HealthConfig, HealthCheckerAdapter, ComponentHealth, status::Status, SystemHealth};
 use crate::metrics::{Metric, MetricConfig, DefaultMetricCollector, MetricType, MetricCollector};
 use crate::network::{NetworkConfig, NetworkMonitorAdapter, NetworkStats};
@@ -149,7 +150,7 @@ async fn create_test_service() -> (
     let metric_collector = Arc::new(metric_collector_adapter);
     
     // Create a properly initialized alert manager adapter
-    let alert_config = AlertConfig::default();
+    let alert_config = crate::alerts::LegacyAlertConfig::default();
     let mut alert_manager_adapter = AlertManagerAdapter::<()>::new();
     alert_manager_adapter.initialize_with_config(alert_config).expect("Failed to initialize alert manager");
     let alert_manager = Arc::new(alert_manager_adapter);
@@ -292,35 +293,38 @@ async fn test_metric_collection() {
 
 #[tokio::test]
 async fn test_alert_manager() {
-    // ARRANGE: Create test service
+    // ARRANGE: Create test service with its dependencies
     let (service, _, _, alert_manager, _) = create_test_service().await;
     
     // Start the service
     service.start().await.expect("Failed to start service");
     
-    // ACT: Create and add an alert
-    let test_alert = Alert::new(
-        "Test Alert".to_string(),
-        "This is a test alert".to_string(),
-        AlertSeverity::Warning,
-        HashMap::new(),
-        "Test alert message".to_string(),
-        "test-component".to_string(),
-    );
+    // ACT: Create a test alert using the new Alert struct format
+    let mut details = HashMap::new();
+    details.insert("source".to_string(), serde_json::Value::String("test".to_string()));
     
-    alert_manager.add_alert(test_alert.clone()).await
-        .expect("Failed to add alert");
+    let test_alert = Alert::new(
+        AlertType::Generic,
+        AlertSeverity::Warning,
+        "Test Alert".to_string(), // source
+        "This is a test alert".to_string(), // message
+    ).with_details(details);
+    
+    // Send the alert
+    // Note: We're converting the Alert to a LegacyAlert internally in the adapter
+    alert_manager.send_alert(test_alert).await.expect("Failed to send alert");
     
     // ACT: Get alerts
-    let alerts = service.get_alerts().await
-        .expect("Failed to get alerts");
+    let alerts = service.get_alerts().await.expect("Failed to get alerts");
     
-    // ASSERT: Verify alert was added
-    assert!(!alerts.is_empty(), "Alerts should not be empty");
-    let found = alerts.iter().any(|a| a.name == "Test Alert");
-    assert!(found, "Test alert should be present");
+    // ASSERT: Verify the alert was added
+    assert!(!alerts.is_empty(), "No alerts found");
     
-    // Cleanup
+    // Check that we have the test alert
+    let found = alerts.iter().any(|a| a.source == "Test Alert");
+    assert!(found, "Test alert not found in alerts");
+    
+    // Stop the service
     service.stop().await.expect("Failed to stop service");
 }
 
@@ -443,35 +447,38 @@ async fn test_metric_collection_with_monitoring_service_alias() {
 
 #[tokio::test]
 async fn test_alert_manager_with_monitoring_service_alias() {
-    // ARRANGE: Create test service
+    // ARRANGE: Create test service with its dependencies  
     let (service, _, _, alert_manager, _) = create_test_service().await;
     
     // Start the service
     service.start().await.expect("Failed to start service");
     
-    // ACT: Create and add an alert
-    let test_alert = Alert::new(
-        "Test Alert".to_string(),
-        "This is a test alert".to_string(),
-        AlertSeverity::Warning,
-        HashMap::new(),
-        "Test alert message".to_string(),
-        "test-component".to_string(),
-    );
+    // ACT: Create a test alert using the new Alert struct format
+    let mut details = HashMap::new();
+    details.insert("source".to_string(), serde_json::Value::String("test".to_string()));
     
-    alert_manager.add_alert(test_alert.clone()).await
-        .expect("Failed to add alert");
+    let test_alert = Alert::new(
+        AlertType::Generic,
+        AlertSeverity::Warning,
+        "Test Alert".to_string(), // source
+        "This is a test alert".to_string(), // message
+    ).with_details(details);
+    
+    // Send the alert
+    // Note: We're converting the Alert to a LegacyAlert internally in the adapter
+    alert_manager.send_alert(test_alert).await.expect("Failed to send alert");
     
     // ACT: Get alerts
-    let alerts = service.get_alerts().await
-        .expect("Failed to get alerts");
+    let alerts = service.get_alerts().await.expect("Failed to get alerts");
     
-    // ASSERT: Verify alert was added
-    assert!(!alerts.is_empty(), "Alerts should not be empty");
-    let found = alerts.iter().any(|a| a.name == "Test Alert");
-    assert!(found, "Test alert should be present");
+    // ASSERT: Verify the alert was added
+    assert!(!alerts.is_empty(), "No alerts found");
     
-    // Cleanup
+    // Check that we have the test alert
+    let found = alerts.iter().any(|a| a.source == "Test Alert");
+    assert!(found, "Test alert not found in alerts");
+    
+    // Stop the service
     service.stop().await.expect("Failed to stop service");
 }
 

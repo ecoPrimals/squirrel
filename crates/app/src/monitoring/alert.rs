@@ -88,7 +88,7 @@ impl super::AlertManagerTrait for AlertManagerImpl {
         // Filter alerts by timestamps within range
         Ok(alerts.iter()
             .filter(|a| {
-                let timestamp = DateTime::<Utc>::from_timestamp(a.created_at, 0).unwrap_or_default();
+                let timestamp = a.timestamp;
                 timestamp >= from && timestamp <= to
             })
             .cloned()
@@ -116,7 +116,7 @@ impl Default for AlertManagerImpl {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use squirrel_monitoring::AlertSeverity;
+    use squirrel_monitoring::alerts::status::{Alert, AlertSeverity, AlertType};
     use crate::monitoring::AlertManagerTrait;
     
     #[tokio::test]
@@ -127,26 +127,24 @@ mod tests {
         alert_manager.start().await.unwrap();
         
         // Create and send an alert
-        let mut labels = HashMap::new();
-        labels.insert("source".to_string(), "test".to_string());
+        let mut details = HashMap::new();
+        details.insert("source".to_string(), serde_json::Value::String("test".to_string()));
         
         let alert = Alert::new(
-            "high_cpu".to_string(),
-            "CPU usage exceeded threshold".to_string(),
+            AlertType::Generic,
             AlertSeverity::Critical,
-            labels,
-            "CPU usage is high".to_string(),
             "monitoring".to_string(),
-        );
+            "CPU usage is high".to_string(),
+        ).with_details(details);
         
         alert_manager.send_alert(alert).await.unwrap();
         
         // Get alerts
         let alerts = alert_manager.get_alerts().await.unwrap();
         assert_eq!(alerts.len(), 1);
-        assert_eq!(alerts[0].name, "high_cpu");
+        assert_eq!(alerts[0].source, "monitoring");
         assert_eq!(alerts[0].message, "CPU usage is high");
-        assert_eq!(alerts[0].component, "monitoring");
+        assert_eq!(alerts[0].severity, AlertSeverity::Critical);
         
         // Stop the alert manager
         alert_manager.stop().await.unwrap();
