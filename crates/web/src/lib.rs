@@ -4,7 +4,6 @@ use anyhow::Result;
 use axum::{
     routing::{get, post},
     Router,
-    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -162,8 +161,8 @@ pub async fn init_app(config: ServerConfig) -> Result<Router> {
     // Create router with routes
     let app = Router::new()
         .route("/api/health", get(handlers::health::check))
-        .route("/api/jobs", post(handlers::jobs::create))
-        .route("/api/jobs/:id", get(handlers::jobs::status))
+        .route("/api/jobs", post(handlers::jobs::create_job))
+        .route("/api/jobs/:id", get(handlers::jobs::get_job))
         .route("/api/jobs/:id/report", get(handlers::jobs::report))
         .layer(
             CorsLayer::new()
@@ -175,7 +174,7 @@ pub async fn init_app(config: ServerConfig) -> Result<Router> {
                     header.parse().unwrap_or_else(|_| panic!("Invalid header: {}", header))
                 }).collect::<Vec<_>>()),
         )
-        .with_state(state);
+        .with_state(Arc::new(state));
 
     Ok(app)
 } 

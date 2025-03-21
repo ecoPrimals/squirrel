@@ -18,8 +18,8 @@ async fn test_sync_flow() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -122,8 +122,8 @@ async fn test_change_subscription() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -198,8 +198,8 @@ async fn test_persistence() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -244,8 +244,8 @@ async fn test_persistence() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir2).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir2.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir2.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir2.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir2.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path2).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -295,8 +295,8 @@ async fn test_helper_functions() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -338,8 +338,8 @@ async fn test_helper_functions() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir2).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir2.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir2.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir2.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir2.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path2).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -383,8 +383,8 @@ async fn test_sync_helper_functions() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -423,8 +423,8 @@ async fn test_sync_helper_functions() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir2).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir2.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir2.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir2.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir2.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path2).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence
@@ -470,8 +470,8 @@ async fn test_uninitialized_error() {
     
     // Create the directory structure
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
-    std::fs::create_dir_all(&data_dir.join("states")).expect("Failed to create states directory");
-    std::fs::create_dir_all(&data_dir.join("changes")).expect("Failed to create changes directory");
+    std::fs::create_dir_all(data_dir.join("states")).expect("Failed to create states directory");
+    std::fs::create_dir_all(data_dir.join("changes")).expect("Failed to create changes directory");
     std::fs::create_dir_all(&persistence_path).expect("Failed to create persistence directory");
     
     // Create a new test instance with configured persistence

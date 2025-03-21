@@ -15,12 +15,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use squirrel_core::error::Result;
 use crate::metrics::{Metric, MetricCollector, MetricType};
-use serde::{Serialize, Deserialize};
-use async_trait::async_trait;
-use squirrel_core::error::SquirrelError;
-use std::time::{SystemTime, Duration, Instant};
-use chrono;
-use std::fmt;
+use std::time::Duration;
 use crate::metrics::performance;
 
 /// Module for adapter implementations of tool metric functionality
@@ -191,11 +186,24 @@ impl ToolMetricCollector {
         Ok(metrics.clone())
     }
 
-    /// Records tool execution
+    /// Records a tool execution with its duration and success status
+    ///
+    /// # Arguments
+    ///
+    /// * `tool_name` - The name of the tool that was executed
+    /// * `duration_ms` - The duration of the execution in milliseconds
+    /// * `success` - Whether the execution was successful
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * The metrics collector fails to record the data
+    /// * The tool name is invalid
+    /// * The duration is negative
     pub async fn record_tool_execution(
-        &self, 
-        tool_name: &str, 
-        duration_ms: f64, 
+        &self,
+        tool_name: &str,
+        duration_ms: f64,
         success: bool
     ) -> Result<()> {
         if let Some(pc) = &self.performance_collector {

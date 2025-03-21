@@ -279,7 +279,7 @@ mod tests {
         let mut recovery = RecoveryManager::new(persistence, 10);
 
         // Create test markers for each state - we'll use readable ASCII characters
-        let markers = vec!['A', 'B', 'C'];
+        let markers = ['A', 'B', 'C'];
 
         // Create a few snapshots with simple data
         for (i, marker) in markers.iter().enumerate() {

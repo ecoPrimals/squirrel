@@ -20,9 +20,7 @@ pub use metrics::MetricCollectorImpl;
 pub use self::service_impl::SystemStatus;
 
 // Import squirrel monitoring modules
-use squirrel_monitoring::health::HealthStatus as MonitoringHealthStatus;
 use squirrel_monitoring::alerts::Alert;
-use squirrel_monitoring::alerts::manager::AlertManager;
 
 // Local imports
 use crate::events::EventHandler;
@@ -32,10 +30,15 @@ use crate::monitoring::metrics::Metrics;
 
 /// Monitoring modules
 pub mod disk;
+/// Network monitoring functionality
 pub mod network;
+/// Process monitoring functionality
 pub mod process;
+/// Performance monitoring functionality
 pub mod performance;
+/// Alert management functionality
 pub mod alert;
+/// Metrics collection functionality
 pub mod metrics;
 pub mod service_impl;
 

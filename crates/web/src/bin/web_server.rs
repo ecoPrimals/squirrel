@@ -1,6 +1,5 @@
 use anyhow::Result;
 use squirrel_web::{init_app, ServerConfig, CorsConfig, MockSessionConfig};
-use tower_http::cors::AllowOrigin;
 
 #[tokio::main]
 async fn main() -> Result<()> {

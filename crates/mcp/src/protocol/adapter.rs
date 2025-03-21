@@ -94,9 +94,7 @@ impl MCPProtocolAdapter {
             }
             
             // Validate and route the message
-            if let Err(e) = protocol.validate_message(&msg) {
-                return Err(e);
-            }
+            protocol.validate_message(&msg)?;
             
             protocol.handle_protocol_message(&msg).await
         } else {
@@ -233,9 +231,7 @@ impl MCPProtocol for MCPProtocolAdapter {
             }
             
             // Validate and route the message
-            if let Err(e) = protocol.validate_message(&msg) {
-                return Err(e);
-            }
+            protocol.validate_message(&msg)?;
             
             protocol.handle_protocol_message(&msg).await
         } else {

@@ -9,7 +9,7 @@ use tempfile::tempdir;
 
 use crate::context_manager::Context;
 use crate::sync::{
-    SyncConfig, SyncState, SyncResult, MCPSync,
+    SyncConfig, MCPSync,
     state::{StateOperation, StateChange, StateSyncManager},
 };
 use crate::persistence::{MCPPersistence, PersistenceConfig};

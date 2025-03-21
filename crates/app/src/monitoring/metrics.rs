@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 use std::f64;

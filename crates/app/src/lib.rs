@@ -44,8 +44,8 @@ pub mod metrics;
 pub mod monitoring;
 
 /// Re-exports
+#[doc = "Common types for convenience"]
 pub mod prelude {
-    //! Common types for convenience
     pub use crate::core::Core;
     pub use crate::adapter::AppAdapter;
     pub use crate::core::AppConfig;

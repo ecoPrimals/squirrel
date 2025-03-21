@@ -9,11 +9,8 @@ use std::collections::HashMap;
 use crate::error::{Result, CoreError};
 use squirrel_core::error::SquirrelError;
 use squirrel_monitoring::alerts::Alert;
+use squirrel_monitoring::AlertSeverity;
 
-use crate::monitoring::AlertManagerTrait;
-use squirrel_monitoring::alerts::manager::AlertManager as SquirrelAlertManager;
-use squirrel_monitoring::alerts::AlertSeverity;
-use squirrel_monitoring::alerts::AlertStatus;
 
 /// Alert configuration
 #[derive(Debug, Clone)]

@@ -76,8 +76,8 @@ fn test_permission_check() {
     
     // Verify role has read permission but not write
     let role = rbac.get_role_by_id(&role_id).unwrap();
-    assert!(rbac.has_permission_for_role(&role, "Document", Action::Read));
-    assert!(!rbac.has_permission_for_role(&role, "Document", Action::Update));
+    assert!(rbac.has_permission_for_role(role, "Document", Action::Read));
+    assert!(!rbac.has_permission_for_role(role, "Document", Action::Update));
 }
 
 #[test]

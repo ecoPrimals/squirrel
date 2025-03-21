@@ -763,10 +763,10 @@ impl ContextTrackerFactory {
     /// # Errors
     ///
     /// Returns `ContextError::NotInitialized` if no default manager was provided during factory creation
-    pub fn create_with_config(&self, config: ContextConfig) -> Result<ContextTracker> {
+    pub fn create_with_config(&self, _config: ContextConfig) -> Result<ContextTracker> {
         match &self.manager {
             Some(manager) => {
-                let mut tracker = ContextTracker::new(manager.clone());
+                let tracker = ContextTracker::new(manager.clone());
                 // Apply configuration if needed
                 // Currently ContextTracker doesn't have a configure method, so we'd need to add that
                 // For now, we just return the tracker
@@ -884,7 +884,7 @@ pub fn create_context_tracker() -> Result<ContextTracker> {
 /// # Errors
 ///
 /// Returns an error if the context tracker creation fails
-pub fn create_context_tracker_with_config(config: ContextConfig) -> Result<ContextTracker> {
+pub fn create_context_tracker_with_config(_config: ContextConfig) -> Result<ContextTracker> {
     let manager = Arc::new(ContextManager::new());
     let tracker = ContextTracker::new(manager);
     // Apply configuration if needed

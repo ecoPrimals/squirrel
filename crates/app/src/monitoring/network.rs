@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::error::Result;
 use crate::monitoring::MonitoringConfig;

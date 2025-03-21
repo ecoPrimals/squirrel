@@ -201,6 +201,12 @@ pub enum AppOperationError {
     UnsupportedOperation(String),
     /// Failed to complete operation
     OperationFailure(String),
+    /// The application is already started
+    AlreadyStarted,
+    /// The application is already stopped
+    AlreadyStopped,
+    /// The application is not started
+    NotStarted,
 }
 
 impl Error for AppOperationError {}
@@ -216,6 +222,15 @@ impl fmt::Display for AppOperationError {
             }
             AppOperationError::OperationFailure(msg) => {
                 write!(f, "Operation failed: {msg}")
+            }
+            AppOperationError::AlreadyStarted => {
+                write!(f, "Application is already started")
+            }
+            AppOperationError::AlreadyStopped => {
+                write!(f, "Application is already stopped")
+            }
+            AppOperationError::NotStarted => {
+                write!(f, "Application is not started")
             }
         }
     }

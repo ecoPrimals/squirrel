@@ -4,17 +4,13 @@
 /// enable the application to handle incoming commands, execute them,
 /// and process them through pre and post hooks.
 use crate::error::{Result, CoreError};
-use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::pin::Pin;
-use std::future::Future;
 use std::fmt::Debug;
 use async_trait::async_trait;
 use squirrel_commands::Command;
 
-use serde_json;
 
 /// Adapter module for command handling
 pub mod adapter;
@@ -28,7 +24,7 @@ pub struct CommandHandler {
 }
 
 impl CommandHandler {
-    /// Creates a new CommandHandler with default settings
+    /// Creates a new `CommandHandler` with default settings
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -36,7 +32,7 @@ impl CommandHandler {
         }
     }
     
-    /// Creates a new CommandHandler with dependencies
+    /// Creates a new `CommandHandler` with dependencies
     #[must_use]
     pub fn with_dependencies(handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>) -> Self {
         Self { handlers }
@@ -64,7 +60,7 @@ impl CommandHandler {
         if let Some(processor) = handlers.get(command_name) {
             processor.process(command).await
         } else {
-            Err(CoreError::Command(format!("Command not found: {}", command_name)))
+            Err(CoreError::Command(format!("Command not found: {command_name}")))
         }
     }
 }
@@ -136,7 +132,7 @@ pub struct HookedCommandProcessor {
 }
 
 impl HookedCommandProcessor {
-    /// Creates a new HookedCommandProcessor
+    /// Creates a new `HookedCommandProcessor`
     #[must_use]
     pub fn new(processor: Box<dyn CommandProcessor>) -> Self {
         Self {

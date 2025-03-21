@@ -1,6 +1,5 @@
 use super::*;
 use crate::sync::state::StateSyncManager;
-use crate::context_manager::Context;
 
 #[tokio::test]
 async fn test_state_manager_creation() {

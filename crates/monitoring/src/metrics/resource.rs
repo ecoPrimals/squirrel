@@ -993,6 +993,62 @@ impl TeamResourceMetrics {
     }
 }
 
+#[async_trait]
+impl MetricCollector for ResourceMetricsCollector {
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        let mut metrics = self.metrics.write().await;
+        metrics.push(metric.clone());
+        Ok(())
+    }
+
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        // Update system information before collecting metrics
+        self.system.write().await.refresh_all();
+        
+        // Generate at least some basic system metrics
+        let cpu_metric = Metric::new(
+            "system_cpu_usage".to_string(),
+            f64::from(self.system.read().await.global_cpu_info().cpu_usage()),
+            MetricType::Gauge,
+            HashMap::new(),
+        );
+        
+        let memory_metric = Metric::new(
+            "system_memory_usage".to_string(),
+            self.system.read().await.used_memory() as f64,
+            MetricType::Gauge,
+            HashMap::new(),
+        );
+        
+        // Record the new metrics
+        let mut metrics = self.metrics.write().await;
+        metrics.push(cpu_metric.clone());
+        metrics.push(memory_metric.clone());
+        
+        // Return all metrics
+        Ok(crate::metrics::write_guard_to_vec(&metrics))
+    }
+
+    async fn start(&self) -> Result<()> {
+        // Implementation depends on the existing code
+        tracing::info!("Starting ResourceMetricsCollector");
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<()> {
+        // Implementation depends on the existing code
+        tracing::info!("Stopping ResourceMetricsCollector");
+        Ok(())
+    }
+}
+
+/// Collects resource metrics from the system
+/// Returns a vector of resource metrics
+pub async fn collect_resource_metrics() -> Result<Vec<Metric>> {
+    let adapter = create_collector_adapter();
+    adapter.collect_metrics().await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1072,60 +1128,4 @@ mod tests {
         let team_metrics = adapter.get_team_metrics().await;
         assert!(team_metrics.is_ok());
     }
-}
-
-#[async_trait]
-impl MetricCollector for ResourceMetricsCollector {
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let mut metrics = self.metrics.write().await;
-        metrics.push(metric.clone());
-        Ok(())
-    }
-
-    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        // Update system information before collecting metrics
-        self.system.write().await.refresh_all();
-        
-        // Generate at least some basic system metrics
-        let cpu_metric = Metric::new(
-            "system_cpu_usage".to_string(),
-            f64::from(self.system.read().await.global_cpu_info().cpu_usage()),
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        let memory_metric = Metric::new(
-            "system_memory_usage".to_string(),
-            self.system.read().await.used_memory() as f64,
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        // Record the new metrics
-        let mut metrics = self.metrics.write().await;
-        metrics.push(cpu_metric.clone());
-        metrics.push(memory_metric.clone());
-        
-        // Return all metrics
-        Ok(crate::metrics::write_guard_to_vec(&metrics))
-    }
-
-    async fn start(&self) -> Result<()> {
-        // Implementation depends on the existing code
-        tracing::info!("Starting ResourceMetricsCollector");
-        Ok(())
-    }
-
-    async fn stop(&self) -> Result<()> {
-        // Implementation depends on the existing code
-        tracing::info!("Stopping ResourceMetricsCollector");
-        Ok(())
-    }
-}
-
-/// Collects resource metrics from the system
-/// Returns a vector of resource metrics
-pub async fn collect_resource_metrics() -> Result<Vec<Metric>> {
-    let adapter = create_collector_adapter();
-    adapter.collect_metrics().await
 } 

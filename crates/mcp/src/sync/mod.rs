@@ -70,6 +70,12 @@ pub struct SyncState {
     pub last_version: Option<u64>,
 }
 
+impl Default for SyncState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SyncState {
     /// Creates a new SyncState with default values
     #[must_use]
@@ -267,16 +273,16 @@ impl MCPSync {
                 tracing::warn!("Failed to load persisted state: {}", err);
                 
                 // If we can't load the state, create a default state
-                let default_state = PersistentState {
+                
+                
+                // Return the default state directly (not wrapped in Some)
+                PersistentState {
                     contexts: Vec::new(),
                     changes: Vec::new(),
                     last_version: 0,
                     last_sync: Utc::now(),
                     id: Uuid::new_v4().to_string(),
-                };
-                
-                // Return the default state directly (not wrapped in Some)
-                default_state
+                }
             }
         };
         

@@ -254,7 +254,7 @@ impl ContextAdapter {
         Ok(())
     }
 
-    /// Converts a ContextState to AdapterContextData
+    /// Converts a `ContextState` to `AdapterContextData`
     ///
     /// # Arguments
     /// * `state` - The context state to convert

@@ -287,9 +287,7 @@ impl SecurityManagerImpl {
     /// - Session creation fails
     pub async fn authenticate(&self, credentials: &Credentials) -> Result<String> {
         // Check if too many failed attempts for this client
-        if let Err(e) = self.check_auth_attempts(credentials).await {
-            return Err(e);
-        }
+        self.check_auth_attempts(credentials).await?;
         
         // For now, we just verify that the credentials are valid
         // In a real system, this would validate against a user database
@@ -637,7 +635,7 @@ impl SecurityManagerImpl {
                 };
                 
                 Ok(Permission {
-                    id: format!("{resource}:{}", action.to_string()),
+                    id: format!("{resource}:{}", action),
                     name: p.clone(),
                     resource,
                     action,
@@ -698,7 +696,7 @@ impl SecurityManagerImpl {
                 };
                 
                 Ok(Permission {
-                    id: format!("{resource}:{}", action.to_string()),
+                    id: format!("{resource}:{}", action),
                     name: p.clone(),
                     resource,
                     action,

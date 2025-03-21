@@ -6,21 +6,27 @@ use axum::{
     Json,
 };
 use uuid::Uuid;
+use std::sync::Arc;
 
-use crate::{AppState, CreateJobRequest, CreateJobResponse, JobStatus};
+use crate::{
+    AppState,
+    CreateJobRequest,
+    CreateJobResponse,
+    JobStatus,
+    JobState,
+};
+use crate::api::error::AppError;
 
 /// Create a new job
-pub async fn create(
-    State(_state): State<AppState>,
-    Json(request): Json<CreateJobRequest>,
-) -> impl IntoResponse {
-    // TODO: Implement job creation
+pub async fn create_job(
+    State(_state): State<Arc<AppState>>,
+    Json(_request): Json<CreateJobRequest>,
+) -> Result<Json<CreateJobResponse>, AppError> {
     let job_id = Uuid::new_v4();
-    
-    Json(CreateJobResponse {
+    Ok(Json(CreateJobResponse {
         job_id,
         status_url: format!("/api/jobs/{}", job_id),
-    })
+    }))
 }
 
 /// Get job status
@@ -40,21 +46,17 @@ pub async fn status(
 
 /// Get job report
 pub async fn report(
-    State(_state): State<AppState>,
-    Path(job_id): Path<Uuid>,
-) -> impl IntoResponse {
-    // TODO: Implement report retrieval
-    Json(serde_json::json!({
-        "job_id": job_id.to_string(),
-        "message": "Report not implemented yet",
+    State(_state): State<Arc<AppState>>,
+    Path(_job_id): Path<String>,
+) -> Result<Json<JobStatus>, AppError> {
+    let job_id = Uuid::new_v4();
+    Ok(Json(JobStatus {
+        job_id,
+        status: JobState::Queued,
+        progress: 0.0,
+        error: None,
+        result_url: None,
     }))
-}
-
-pub async fn create_job(
-    State(_state): State<AppState>,
-    Json(_request): Json<CreateJobRequest>,
-) -> impl IntoResponse {
-    // Implementation...
 }
 
 pub async fn list_jobs(
@@ -63,9 +65,17 @@ pub async fn list_jobs(
     // Implementation...
 }
 
+/// Get a job by ID
 pub async fn get_job(
-    State(_state): State<AppState>,
-    Path(job_id): Path<String>,
-) -> impl IntoResponse {
-    // Implementation...
+    State(_state): State<Arc<AppState>>,
+    Path(_job_id): Path<String>,
+) -> Result<Json<JobStatus>, AppError> {
+    let job_id = Uuid::new_v4();
+    Ok(Json(JobStatus {
+        job_id,
+        status: JobState::Queued,
+        progress: 0.0,
+        error: None,
+        result_url: None,
+    }))
 } 

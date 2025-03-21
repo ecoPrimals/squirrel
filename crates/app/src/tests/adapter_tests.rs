@@ -6,6 +6,24 @@ use squirrel_core::error::SquirrelError;
 use squirrel_core::error::{AppInitializationError, AppOperationError};
 
 #[tokio::test]
+async fn test_initialize() {
+    let config = AppConfig::default();
+    let mut adapter = AppAdapter::new();
+    let init_result = adapter.initialize(config);
+    assert!(init_result.is_ok());
+}
+
+#[tokio::test]
+async fn test_initialize_already_initialized() {
+    let config = AppConfig::default();
+    let mut adapter = AppAdapter::new();
+    assert!(adapter.initialize(config.clone()).is_ok());
+    
+    let init_result = adapter.initialize(config);
+    assert!(matches!(init_result, Err(SquirrelError::AppInitialization(AppInitializationError::AlreadyInitialized))));
+}
+
+#[tokio::test]
 async fn test_app_adapter_initialization() {
     let config = AppConfig::default();
     let mut adapter = AppAdapter::new();
@@ -14,7 +32,7 @@ async fn test_app_adapter_initialization() {
     assert!(!adapter.is_initialized());
     
     // Initialize the adapter
-    let init_result = adapter.initialize(config).await;
+    let init_result = adapter.initialize(config);
     assert!(init_result.is_ok());
     
     // After initialization, is_initialized should return true
@@ -36,10 +54,10 @@ async fn test_app_adapter_double_initialization() {
     let mut adapter = AppAdapter::new();
     
     // First initialization should succeed
-    assert!(adapter.initialize(config.clone()).await.is_ok());
+    assert!(adapter.initialize(config.clone()).is_ok());
     
     // Second initialization should fail with AlreadyInitialized
-    let init_result = adapter.initialize(config).await;
+    let init_result = adapter.initialize(config);
     assert!(init_result.is_err());
     
     // Verify that the error is the expected AlreadyInitialized
@@ -109,5 +127,57 @@ async fn test_app_adapter_factory() {
     assert_eq!(config.name, "Squirrel");
     assert_eq!(config.version, "0.1.0");
     assert_eq!(config.environment, "development");
+    assert!(!config.debug);
+}
+
+#[tokio::test]
+async fn test_start_not_initialized() {
+    let mut adapter = AppAdapter::new();
+    let start_result = adapter.start().await;
+    assert!(start_result.is_err());
+}
+
+#[tokio::test]
+async fn test_start_already_started() {
+    let config = AppConfig::default();
+    let mut adapter = AppAdapter::new();
+    assert!(adapter.initialize(config).is_ok());
+    
+    let start_result = adapter.start().await;
+    assert!(start_result.is_ok());
+    
+    let start_result = adapter.start().await;
+    assert!(start_result.is_err());
+}
+
+#[tokio::test]
+async fn test_stop_not_started() {
+    let mut adapter = AppAdapter::new();
+    let config = AppConfig::default();
+    assert!(adapter.initialize(config).is_ok());
+    
+    let stop_result = adapter.stop().await;
+    assert!(stop_result.is_err());
+}
+
+#[tokio::test]
+async fn test_stop_already_stopped() {
+    let mut adapter = AppAdapter::new();
+    let config = AppConfig::default();
+    assert!(adapter.initialize(config).is_ok());
+    
+    let start_result = adapter.start().await;
+    assert!(start_result.is_ok());
+    
+    let stop_result = adapter.stop().await;
+    assert!(stop_result.is_ok());
+    
+    let stop_result = adapter.stop().await;
+    assert!(stop_result.is_err());
+}
+
+#[test]
+fn test_default_config() {
+    let config = AppConfig::default();
     assert!(!config.debug);
 } 

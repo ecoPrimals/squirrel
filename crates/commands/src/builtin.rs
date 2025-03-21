@@ -218,6 +218,12 @@ impl Command for HelpCommand {
 #[derive(Debug, Clone)]
 pub struct VersionCommand;
 
+impl Default for VersionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VersionCommand {
     /// Creates a new version command
     #[must_use] pub fn new() -> Self {
@@ -260,6 +266,12 @@ impl Command for VersionCommand {
 #[derive(Debug, Clone)]
 pub struct EchoCommand {
     prefix: String,
+}
+
+impl Default for EchoCommand {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EchoCommand {
@@ -316,6 +328,12 @@ impl Command for EchoCommand {
 #[derive(Debug, Clone)]
 pub struct ExitCommand;
 
+impl Default for ExitCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExitCommand {
     /// Creates a new exit command
     #[must_use] pub fn new() -> Self {
@@ -353,6 +371,12 @@ impl Command for ExitCommand {
 /// Kill command to terminate processes
 #[derive(Debug, Clone)]
 pub struct KillCommand;
+
+impl Default for KillCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl KillCommand {
     /// Creates a new kill command

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use squirrel_core::error::Result;
-use uuid::Uuid;
+use std::fmt::Debug;
 
 /// Mock implementation of a context adapter for testing
 #[derive(Debug, Default)]

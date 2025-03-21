@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 use crate::{MonitoringConfig, MonitoringService, MonitoringIntervals, MonitoringStatus};
 use crate::alerts::{Alert, AlertConfig, AlertManager, AlertManagerAdapter, AlertSeverity};
 use crate::health::{HealthConfig, HealthCheckerAdapter, ComponentHealth, status::Status, SystemHealth};
@@ -8,7 +7,6 @@ use crate::network::{NetworkConfig, NetworkMonitorAdapter, NetworkStats};
 use mockall::predicate::*;
 use mockall::mock;
 use std::collections::HashMap;
-use crate::MonitoringError;
 use crate::health::HealthChecker;
 use std::default::Default;
 use async_trait::async_trait;

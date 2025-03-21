@@ -2,23 +2,17 @@
 //!
 //! Implements the monitoring service functionality
 use std::collections::HashMap;
-use std::fmt;
 use tokio::sync::Mutex;
 use serde::{Serialize, Deserialize};
+use crate::error::CoreError;
+use crate::monitoring::MonitoringConfigType;
+use crate::monitoring::MonitoringServiceTrait;
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 
-use crate::error::{CoreError, Result};
 use super::{
-    Alert, AppHealthStatus, Metric, MonitoringConfigType, MonitoringServiceTrait,
-    MetricCollectorTrait
+    Alert as SuperAlert, AppHealthStatus, Metric,
 };
-use squirrel_core::error::SquirrelError;
-use squirrel_monitoring::metrics::performance::PerformanceCollector;
-use squirrel_monitoring::health::HealthChecker;
-use squirrel_monitoring::alerts::AlertManager;
-use squirrel_monitoring::alerts::manager::AlertManager as SquirrelAlertManager;
 
 /// System status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +42,7 @@ impl Default for SystemStatus {
 #[derive(Debug)]
 pub struct MonitoringServiceImpl {
     /// Configuration
+    #[allow(dead_code)]
     config: MonitoringConfigType,
     /// System status
     status: std::sync::Arc<Mutex<SystemStatus>>,
@@ -84,9 +79,8 @@ impl MonitoringServiceImpl {
     /// 
     /// Returns `true` if the service has been started, `false` otherwise
     pub async fn is_initialized(&self) -> bool {
-        match self.started.lock().await {
-            started => *started
-        }
+        let started = self.started.lock().await;
+        *started
     }
 }
 
@@ -96,36 +90,32 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
     /// 
     /// # Errors
     /// Returns an error if the service fails to start
-    async fn start(&self) -> Result<()> {
-        let mut service_started = self.started.lock()
-            .await;
+    async fn start(&self) -> std::result::Result<(), CoreError> {
+        let mut service_started = self.started.lock().await;
         
-        // Check if already started
         if *service_started {
             return Ok(());
         }
         
-        // Start the services
-        self.alert_manager.start().await?;
+        self.alert_manager.start().await.map_err(|e| CoreError::Monitoring(e.to_string()))?;
         
-        // Set started flag
         *service_started = true;
         Ok(())
     }
 
-    async fn stop(&self) -> Result<()> {
-        let mut stopped = self.stopped.lock()
-            .await;
+    /// Stops the monitoring service
+    /// 
+    /// # Errors
+    /// Returns an error if the service fails to stop
+    async fn stop(&self) -> std::result::Result<(), CoreError> {
+        let mut stopped = self.stopped.lock().await;
         
-        // Check if already stopped
         if *stopped {
             return Ok(());
         }
         
-        // Stop the services
-        self.alert_manager.stop().await?;
+        self.alert_manager.stop().await.map_err(|e| CoreError::Monitoring(e.to_string()))?;
         
-        // Set stopped flag
         *stopped = true;
         Ok(())
     }
@@ -134,10 +124,9 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
     /// 
     /// # Errors
     /// Returns an error if unable to check health status
-    async fn health_status(&self) -> Result<AppHealthStatus> {
+    async fn health_status(&self) -> std::result::Result<AppHealthStatus, CoreError> {
         let status = self.health_status.read()
-            .map_err(|e| SquirrelError::generic(format!("Failed to acquire lock: {e}")))
-            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
+            .map_err(|e| CoreError::Monitoring(format!("Failed to acquire lock: {e}")))?;
         
         Ok(status.clone())
     }
@@ -146,8 +135,7 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
     /// 
     /// # Errors
     /// Returns an error if unable to check health status
-    async fn get_health(&self) -> Result<AppHealthStatus> {
-        // Simply delegate to health_status method for consistency
+    async fn get_health(&self) -> std::result::Result<AppHealthStatus, CoreError> {
         self.health_status().await
     }
 
@@ -155,7 +143,7 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
     /// 
     /// # Errors
     /// Returns an error if unable to check system status
-    async fn get_system_status(&self) -> Result<HashMap<String, String>> {
+    async fn get_system_status(&self) -> std::result::Result<HashMap<String, String>, CoreError> {
         let status = self.status.lock().await;
         
         let mut result = HashMap::new();
@@ -166,19 +154,26 @@ impl MonitoringServiceTrait for MonitoringServiceImpl {
         Ok(result)
     }
 
-    async fn get_metrics(&self) -> Result<Vec<HashMap<String, Metric>>> {
-        // Collect metrics from the metric collector
-        let metrics_map = self.metric_collector.collect().await?;
+    /// Gets the metrics from the monitoring service
+    /// 
+    /// # Errors
+    /// Returns an error if unable to collect metrics
+    async fn get_metrics(&self) -> std::result::Result<Vec<HashMap<String, Metric>>, CoreError> {
+        let metrics_map = self.metric_collector.collect().await
+            .map_err(|e| CoreError::Monitoring(e.to_string()))?;
         
-        // Convert to the expected format
-        let mut metrics = Vec::new();
-        metrics.push(metrics_map);
+        let metrics = vec![metrics_map];
         
         Ok(metrics)
     }
 
-    async fn get_alerts(&self) -> Result<Vec<Alert>> {
+    /// Gets the alerts from the monitoring service
+    /// 
+    /// # Errors
+    /// Returns an error if unable to collect alerts
+    async fn get_alerts(&self) -> std::result::Result<Vec<SuperAlert>, CoreError> {
         self.alert_manager.get_alerts().await
+            .map_err(|e| CoreError::Monitoring(e.to_string()))
     }
 }
 

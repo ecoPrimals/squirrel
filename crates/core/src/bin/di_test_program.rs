@@ -240,11 +240,11 @@ mod mcp {
         }
     }
 
-    pub struct MCP {
+    pub struct Mcp {
         state: RwLock<MCPState>,
     }
 
-    impl MCP {
+    impl Mcp {
         pub fn new(config: MCPConfig) -> Self {
             Self {
                 state: RwLock::new(MCPState::new(config)),
@@ -292,14 +292,14 @@ mod mcp {
     }
 
     pub struct MCPAdapter {
-        mcp: Arc<MCP>,
+        mcp: Arc<Mcp>,
         init_mutex: Mutex<()>,
     }
 
     impl MCPAdapter {
         pub fn new(config: MCPConfig) -> Self {
             Self {
-                mcp: Arc::new(MCP::new(config)),
+                mcp: Arc::new(Mcp::new(config)),
                 init_mutex: Mutex::new(()),
             }
         }

@@ -7,6 +7,7 @@
 use std::path::PathBuf;
 use std::path::PathBuf as StdPathBuf;
 use squirrel_core::error::Result;
+use std::fmt::Debug;
 use squirrel_core::error::SquirrelError;
 
 /// Test harness for integration tests
@@ -54,20 +55,10 @@ pub struct MockAppConfig {
     pub options: Vec<(String, String)>,
 }
 
-impl MockAppConfig {
-    /// Create a default mock app config
-    pub fn default() -> Self {
-        Self {
-            name: "Test App".to_string(),
-            version: "0.1.0".to_string(),
-            options: Vec::new(),
-        }
-    }
-}
-
 /// Mock MCP sync for testing
 #[derive(Debug)]
 pub struct MockMCPSync {
+    #[allow(dead_code)]
     initialized: bool,
 }
 
@@ -84,15 +75,6 @@ impl MockMCPSync {
 #[derive(Debug, Default)]
 pub struct MockSyncConfig {
     pub timeout_ms: u64,
-}
-
-impl MockSyncConfig {
-    /// Create a default mock sync config
-    pub fn default() -> Self {
-        Self {
-            timeout_ms: 5000,
-        }
-    }
 }
 
 impl IntegrationTestContext {

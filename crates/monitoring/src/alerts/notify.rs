@@ -423,7 +423,7 @@ impl NotificationManager {
             
             // Truncation is acceptable here as we're just checking if enough time has passed
             #[allow(clippy::cast_possible_truncation)]
-            let elapsed_secs = elapsed.num_seconds() as i64;
+            let elapsed_secs = elapsed.num_seconds();
             if elapsed_secs < rate_limit as i64 {
                 return Ok(true); // Rate limited
             }

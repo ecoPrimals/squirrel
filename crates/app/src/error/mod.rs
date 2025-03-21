@@ -35,7 +35,7 @@ pub enum CoreError {
 /// A Result type alias for core error handling
 pub type Result<T> = std::result::Result<T, CoreError>; 
 
-/// Re-export SquirrelError from squirrel_core
+/// Re-export `SquirrelError` from `squirrel_core`
 pub use squirrel_core::error::SquirrelError;
 
 /// Import from context module
@@ -58,11 +58,11 @@ impl From<EventError> for CoreError {
 impl From<SquirrelError> for CoreError {
     fn from(err: SquirrelError) -> Self {
         match err {
-            SquirrelError::Security(msg) => Self::Config(format!("Security: {}", msg)),
-            SquirrelError::Metric(msg) => Self::Monitoring(format!("Metric: {}", msg)),
-            SquirrelError::Health(msg) => Self::Monitoring(format!("Health: {}", msg)),
-            SquirrelError::Alert(msg) => Self::Monitoring(format!("Alert: {}", msg)),
-            _ => Self::Config(format!("Core: {}", err)),
+            SquirrelError::Security(msg) => Self::Config(format!("Security: {msg}")),
+            SquirrelError::Metric(msg) => Self::Monitoring(format!("Metric: {msg}")),
+            SquirrelError::Health(msg) => Self::Monitoring(format!("Health: {msg}")),
+            SquirrelError::Alert(msg) => Self::Monitoring(format!("Alert: {msg}")),
+            _ => Self::Config(format!("Core: {err}")),
         }
     }
 } 

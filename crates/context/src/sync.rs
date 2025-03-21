@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_conflict_resolver() {
-        let resolver = DefaultConflictResolver::default();
+        let resolver = DefaultConflictResolver;
         
         let state1 = ContextState {
             version: 1,
@@ -574,7 +574,7 @@ mod tests {
         let (tx, rx) = mpsc::channel(10);
         let coordinator = SyncCoordinator::with_channels(
             "test-node".to_string(),
-            Box::new(DefaultConflictResolver::default()),
+            Box::new(DefaultConflictResolver),
             tx,
             rx,
         );

@@ -3,6 +3,7 @@
 //! This module provides the main Core struct that represents the application's core functionality.
 
 use crate::VERSION;
+use squirrel_core::error::{SquirrelError, AppOperationError};
 
 /// Application configuration
 #[derive(Debug, Clone)]
@@ -28,6 +29,17 @@ impl Default for AppConfig {
     }
 }
 
+/// Application state
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppState {
+    /// Application is initialized but not started
+    Initialized,
+    /// Application is running
+    Running,
+    /// Application is stopped
+    Stopped,
+}
+
 /// Core application struct
 #[derive(Debug)]
 pub struct Core {
@@ -35,6 +47,8 @@ pub struct Core {
     version: String,
     /// Application configuration
     pub config: AppConfig,
+    /// Application state
+    state: AppState,
 }
 
 impl Core {
@@ -44,6 +58,7 @@ impl Core {
         Self {
             version: VERSION.to_string(),
             config: AppConfig::default(),
+            state: AppState::Initialized,
         }
     }
 
@@ -53,6 +68,7 @@ impl Core {
         Self {
             version: VERSION.to_string(),
             config,
+            state: AppState::Initialized,
         }
     }
 
@@ -62,24 +78,40 @@ impl Core {
         &self.version
     }
     
-    /// Start the application
+    /// Starts the app
     /// 
     /// # Errors
     /// 
-    /// Returns an error if the application fails to start
-    pub async fn start(&mut self) -> crate::error::Result<()> {
-        // Implementation placeholder - will be expanded as needed
-        Ok(())
+    /// Returns an error if:
+    /// - The app is already running
+    /// - The app is stopped
+    pub fn start(&mut self) -> crate::error::Result<()> {
+        match self.state {
+            AppState::Running => Err(SquirrelError::AppOperation(AppOperationError::AlreadyStarted).into()),
+            AppState::Stopped => Err(SquirrelError::AppOperation(AppOperationError::AlreadyStopped).into()),
+            AppState::Initialized => {
+                self.state = AppState::Running;
+                Ok(())
+            }
+        }
     }
     
-    /// Stop the application
+    /// Stops the app
     /// 
     /// # Errors
     /// 
-    /// Returns an error if the application fails to stop
-    pub async fn stop(&mut self) -> crate::error::Result<()> {
-        // Implementation placeholder - will be expanded as needed
-        Ok(())
+    /// Returns an error if:
+    /// - The app is not running
+    /// - The app is already stopped
+    pub fn stop(&mut self) -> crate::error::Result<()> {
+        match self.state {
+            AppState::Initialized => Err(SquirrelError::AppOperation(AppOperationError::NotStarted).into()),
+            AppState::Stopped => Err(SquirrelError::AppOperation(AppOperationError::AlreadyStopped).into()),
+            AppState::Running => {
+                self.state = AppState::Stopped;
+                Ok(())
+            }
+        }
     }
 }
 
@@ -88,6 +120,7 @@ impl Default for Core {
         Self {
             version: VERSION.to_string(),
             config: AppConfig::default(),
+            state: AppState::Initialized,
         }
     }
 } 

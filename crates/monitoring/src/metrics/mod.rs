@@ -560,7 +560,6 @@ fn system_time_to_timestamp(time: SystemTime) -> i64 {
 }
 
 /// Helper functions for working with RwLock-guarded metrics
-
 /// Converts a read guard into a Vec by cloning each element
 pub fn read_guard_to_vec<T: Clone>(guard: &tokio::sync::RwLockReadGuard<'_, Vec<T>>) -> Vec<T> {
     let mut result = Vec::with_capacity(guard.len());

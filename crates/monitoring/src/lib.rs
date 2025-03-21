@@ -8,7 +8,6 @@
 use std::sync::Arc;
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
-use async_trait;
 
 /// Module for alert functionality
 pub mod alerts;
@@ -51,9 +50,6 @@ pub struct MonitoringIntervals {
 }
 
 /// Monitoring service for managing all monitoring components
-// pub mod service;
-// pub use service::MonitoringService;
-
 /// Common types used throughout the monitoring system
 pub use alerts::{Alert, AlertSeverity};
 pub use health::ComponentHealth;

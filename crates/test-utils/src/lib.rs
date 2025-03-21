@@ -2,12 +2,11 @@
 //!
 //! This crate provides test utilities, mocks, and fixtures for testing Squirrel components.
 
-use std::sync::Arc;
 use thiserror::Error;
 use std::path::PathBuf;
-use std::error::Error;
-use tokio::sync::RwLock;
 use tempfile::TempDir;
+use std::fs;
+use std::path::Path;
 
 /// Integration test utilities
 pub mod integration_tests;
@@ -29,6 +28,12 @@ pub enum TestError {
     ExecError(String),
 }
 
+impl From<TestError> for squirrel_core::error::SquirrelError {
+    fn from(err: TestError) -> Self {
+        squirrel_core::error::SquirrelError::Other(err.to_string())
+    }
+}
+
 /// Mock implementation for context adapter
 pub mod mock_context;
 
@@ -47,7 +52,7 @@ pub use squirrel_core::error::Result;
 /// Creates a temporary test environment
 pub fn create_test_env() -> Result<TempDir> {
     let temp_dir = tempfile::tempdir()
-        .map_err(|e| squirrel_core::error::SquirrelError::IO(e))?;
+        .map_err(squirrel_core::error::SquirrelError::IO)?;
     Ok(temp_dir)
 }
 
@@ -55,6 +60,17 @@ pub fn create_test_env() -> Result<TempDir> {
 pub fn create_test_file(dir: &TempDir, name: &str, content: &str) -> Result<PathBuf> {
     let file_path = dir.path().join(name);
     std::fs::write(&file_path, content)
-        .map_err(|e| squirrel_core::error::SquirrelError::IO(e))?;
+        .map_err(squirrel_core::error::SquirrelError::IO)?;
     Ok(file_path)
+}
+
+/// Copies a test file from one directory to another
+pub fn copy_test_file(src_path: &Path, dest_path: &Path) -> Result<()> {
+    fs::create_dir_all(dest_path.parent().ok_or_else(|| TestError::InvalidData("Invalid destination path".to_string()))?)
+        .map_err(squirrel_core::error::SquirrelError::IO)?;
+
+    fs::copy(src_path, dest_path)
+        .map_err(squirrel_core::error::SquirrelError::IO)?;
+
+    Ok(())
 } 

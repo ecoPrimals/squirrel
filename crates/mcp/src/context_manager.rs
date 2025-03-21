@@ -274,7 +274,7 @@ impl ContextManager {
     #[instrument(skip(self, validation))]
     pub async fn register_validation(&self, context_type: String, validation: ContextValidation) -> Result<()> {
         // Validate schema
-        if validation.schema.is_null() || validation.schema.as_object().map_or(true, |o| o.is_empty()) {
+        if validation.schema.is_null() || validation.schema.as_object().is_none_or(|o| o.is_empty()) {
             return Err(MCPError::Context(ContextError::ValidationError("Invalid validation schema".into())));
         }
         
@@ -336,12 +336,10 @@ impl ContextManager {
         // Required fields validation
         if rule.starts_with("required:") {
             let field_name = rule.strip_prefix("required:").unwrap_or("");
-            if !field_name.is_empty() {
-                if !context.data.get(field_name).is_some() {
-                    return Err(MCPError::Context(ContextError::ValidationError(
-                        format!("Required field '{field_name}' is missing")
-                    )));
-                }
+            if !field_name.is_empty() && context.data.get(field_name).is_none() {
+                return Err(MCPError::Context(ContextError::ValidationError(
+                    format!("Required field '{field_name}' is missing")
+                )));
             }
             return Ok(());
         }

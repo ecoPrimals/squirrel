@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use serde_json::json;
-use tokio::sync::RwLock;
 use tokio::test;
 
 use crate::{ContextAdapter, ContextAdapterConfig, ContextAdapterFactory, create_context_adapter, create_context_adapter_with_config};
@@ -13,7 +12,7 @@ pub struct TestData {
 }
 
 impl TestData {
-    pub fn new(message: &str, value: i32) -> serde_json::Value {
+    #[must_use] pub fn new(message: &str, value: i32) -> serde_json::Value {
         serde_json::json!({
             "message": message,
             "value": value
@@ -174,7 +173,7 @@ async fn test_context_adapter_creation() {
     let adapter_config = adapter.get_config().await.unwrap();
     assert_eq!(adapter_config.max_contexts, 500);
     assert_eq!(adapter_config.ttl_seconds, 1800);
-    assert_eq!(adapter_config.enable_auto_cleanup, false);
+    assert!(!adapter_config.enable_auto_cleanup);
 }
 
 #[test]
@@ -194,7 +193,7 @@ async fn test_context_adapter_factory() {
     let adapter_config = adapter.get_config().await.unwrap();
     assert_eq!(adapter_config.max_contexts, 200);
     assert_eq!(adapter_config.ttl_seconds, 900);
-    assert_eq!(adapter_config.enable_auto_cleanup, true);
+    assert!(adapter_config.enable_auto_cleanup);
     
     // Test helper functions
     let adapter1 = create_context_adapter();
