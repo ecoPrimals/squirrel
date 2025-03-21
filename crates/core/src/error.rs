@@ -302,6 +302,13 @@ impl SquirrelError {
         Self::Context(msg.into())
     }
 
+    /// Create a new monitoring error
+    /// 
+    /// This creates a `Metric` error which is used for general monitoring functionality
+    pub fn monitoring(msg: impl Into<String>) -> Self {
+        Self::Metric(msg.into())
+    }
+
     /// Check if the error is recoverable
     #[must_use] pub fn is_recoverable(&self) -> bool {
         match self {

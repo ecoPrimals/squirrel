@@ -1,5 +1,4 @@
 #![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
-#![allow(clippy::unused_async)] // Allow unused async functions
 
 /// Network monitoring functionality
 ///
@@ -13,6 +12,7 @@ use std::collections::HashMap;
 use squirrel_core::error::Result;
 use serde::{Serialize, Deserialize};
 use std::time::SystemTime;
+use log::debug;
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;
@@ -28,7 +28,7 @@ pub use system_info::{SystemInfoAdapter, create_system_info_adapter, create_syst
 
 // Re-export adapter and error types
 pub use adapter::NetworkMonitorAdapter;
-pub use error::{NetworkError, system_error, config_error, monitoring_error, interface_error, stats_error};
+pub use error::{interface_error, stats_error, system_error, NetworkError};
 
 /// Type alias for `sysinfo::System` to simplify usage in the network module
 type S = System;
@@ -51,11 +51,15 @@ impl SystemInfoManager {
 
     /// Creates a new system info manager with dependencies
     #[must_use]
-    pub fn with_dependencies(system: Arc<RwLock<System>>) -> Self {
+    pub fn with_dependencies(system: Arc<RwLock<S>>) -> Self {
         Self { system }
     }
 
     /// Refreshes all system information
+    /// 
+    /// # Errors
+    /// Returns an error if the system information cannot be refreshed due to
+    /// resource constraints or if the system lock cannot be acquired
     pub async fn refresh_all(&self) -> Result<()> {
         let mut sys = self.system.write().await;
         sys.refresh_all();
@@ -63,33 +67,60 @@ impl SystemInfoManager {
     }
 
     /// Refreshes network information
+    /// 
+    /// # Errors
+    /// Returns an error if the network information cannot be refreshed due to
+    /// resource constraints, permission issues, or if the system lock cannot be acquired
     pub async fn refresh_networks(&self) -> Result<()> {
-        let mut sys = self.system.write().await;
+        // Create a new system and refresh all components
         let mut system_clone = System::new_all();
         system_clone.refresh_all();
+        
+        // Update our stored system with the fresh data
+        let mut sys = self.system.write().await;
         *sys = system_clone;
+        
         Ok(())
     }
 
     /// Gets CPU usage
+    /// 
+    /// # Returns
+    /// The CPU usage as a percentage (0-100)
+    /// 
+    /// # Errors
+    /// Returns an error if CPU usage information cannot be retrieved or if
+    /// the system lock cannot be acquired
     pub async fn cpu_usage(&self) -> Result<f32> {
         let sys = self.system.read().await;
         Ok(sys.global_cpu_info().cpu_usage())
     }
 
     /// Gets memory usage (used, total)
+    /// 
+    /// # Returns
+    /// A tuple containing (used memory in bytes, total memory in bytes)
+    /// 
+    /// # Errors
+    /// Returns an error if memory usage information cannot be retrieved or if
+    /// the system lock cannot be acquired
     pub async fn memory_usage(&self) -> Result<(u64, u64)> {
         let sys = self.system.read().await;
         Ok((sys.used_memory(), sys.total_memory()))
     }
 
     /// Gets network statistics for all interfaces
+    /// 
+    /// # Returns
+    /// A vector of tuples containing (interface name, received bytes, transmitted bytes)
+    /// 
+    /// # Errors
+    /// Returns an error if network statistics cannot be retrieved, interfaces
+    /// are inaccessible, or if the system lock cannot be acquired
     pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
-        let _sys = self.system.read().await;
-        let mut stats = Vec::new();
-        
-        // Create fresh Networks instance with refreshed data instead of using system.networks()
+        // Create fresh Networks instance with refreshed data 
         let networks = Networks::new_with_refreshed_list();
+        let mut stats = Vec::with_capacity(networks.len());
         
         // Get networks using iteration over Networks
         for (interface_name, data) in &networks {
@@ -100,91 +131,98 @@ impl SystemInfoManager {
             ));
         }
         
+        if stats.is_empty() {
+            debug!("No network interfaces found or accessible");
+        }
+        
         Ok(stats)
     }
 
     /// Gets a list of all network interfaces
     ///
     /// # Returns
-    ///
     /// A Result containing a vector of `NetworkInterface` objects or an error
-    pub async fn get_interfaces(&self) -> Result<Vec<NetworkInterface>> {
-        // Create fresh Networks instance
+    pub fn get_interfaces(&self) -> Result<Vec<NetworkInterface>> {
+        // Create fresh Networks instance - no need for async since we're not using the system lock
         let networks = Networks::new_with_refreshed_list();
+        let mut interfaces = Vec::with_capacity(networks.len());
         
-        let mut interfaces = Vec::new();
-        for (name, _) in &networks {
+        for (name, data) in &networks {
             interfaces.push(NetworkInterface {
                 name: name.clone(),
+                received: data.received(),
+                transmitted: data.transmitted(),
+                packets_received: data.packets_received(),
+                packets_transmitted: data.packets_transmitted(),
             });
         }
+        
         Ok(interfaces)
     }
-
+    
     /// Gets statistics for a specific network interface
     ///
-    /// # Parameters
-    ///
-    /// * `interface_name` - The name of the interface to get statistics for
+    /// # Arguments
+    /// * `interface_name` - The name of the network interface
     ///
     /// # Returns
+    /// A Result containing network statistics for the interface or an error
     ///
-    /// A Result containing `NetworkInterfaceStats` or an error
-    pub async fn get_interface_stats(&self, interface_name: &str) -> Result<NetworkInterfaceStats> {
-        // We'll just create a placeholder stats object for now
-        Ok(NetworkInterfaceStats {
-            name: interface_name.to_string(),
-            rx_bytes: 0,
-            tx_bytes: 0,
-            rx_errors: 0,
-            tx_errors: 0,
-            rx_packets: 0,
-            tx_packets: 0,
-        })
+    /// # Errors
+    /// Returns an error if the interface is not found or if stats cannot be retrieved
+    pub fn get_interface_stats(&self, interface_name: &str) -> Result<NetworkInterface> {
+        // No need for the system read guard since we're using Networks directly
+        let networks = Networks::new_with_refreshed_list();
+        
+        if let Some(data) = networks.get(interface_name) {
+            Ok(NetworkInterface {
+                name: interface_name.to_string(),
+                received: data.received(),
+                transmitted: data.transmitted(),
+                packets_received: data.packets_received(),
+                packets_transmitted: data.packets_transmitted(),
+            })
+        } else {
+            Err(interface_error(format!("Network interface not found: {}", interface_name)).into())
+        }
+    }
+    
+    /// Gets all network statistics
+    ///
+    /// # Returns
+    /// A Result containing a vector of NetworkInterface objects for all interfaces
+    ///
+    /// # Errors
+    /// Returns an error if network stats cannot be retrieved
+    pub fn get_all_stats(&self) -> Result<Vec<NetworkInterface>> {
+        self.get_interfaces()
     }
 
-    /// Gets statistics for all network interfaces
+    /// Gets overall network usage rates
     ///
     /// # Returns
+    /// A Result containing (total received bytes per second, total transmitted bytes per second)
     ///
-    /// A Result containing `NetworkStats` or an error
-    pub async fn get_all_stats(&self) -> Result<NetworkStats> {
+    /// # Errors
+    /// Returns an error if network usage rates cannot be calculated
+    pub fn get_network_usage(&self) -> Result<(f64, f64)> {
         // Create fresh Networks instance
         let networks = Networks::new_with_refreshed_list();
         
-        // Get the first network interface, or use empty string if none found
-        let interface_name = networks.iter().next()
-            .map_or_else(String::new, |(name, _)| name.clone());
-            
-        let stats = NetworkStats {
-            interface: interface_name,
-            received_bytes: 0,
-            transmitted_bytes: 0,
-            receive_rate: 0.0,
-            transmit_rate: 0.0,
-            packets_received: 0,
-            packets_transmitted: 0,
-            errors_on_received: 0,
-            errors_on_transmitted: 0,
-        };
-        Ok(stats)
-    }
-
-    /// Gets the current network usage
-    ///
-    /// # Returns
-    ///
-    /// A Result containing `NetworkUsage` or an error
-    pub async fn get_network_usage(&self) -> Result<NetworkUsage> {
-        let _sys = self.system.read().await;
-        let usage = NetworkUsage {
-            interfaces: Vec::new(),
-            total_rx_bytes_per_sec: 0.0,
-            total_tx_bytes_per_sec: 0.0,
-            timestamp: std::time::SystemTime::now(),
-        };
+        // Calculate total received and transmitted across all interfaces
+        let mut total_received = 0;
+        let mut total_transmitted = 0;
         
-        Ok(usage)
+        for (_, data) in &networks {
+            total_received += data.received();
+            total_transmitted += data.transmitted();
+        }
+        
+        // Calculate rates based on a 60-second window (approximate)
+        let received_rate = total_received as f64 / 60.0;
+        let transmitted_rate = total_transmitted as f64 / 60.0;
+        
+        Ok((received_rate, transmitted_rate))
     }
 }
 
@@ -469,6 +507,14 @@ pub fn create_monitor_adapter_with_monitor(
 pub struct NetworkInterface {
     /// Name of the interface
     pub name: String,
+    /// Total bytes received
+    pub received: u64,
+    /// Total bytes transmitted
+    pub transmitted: u64,
+    /// Total packets received
+    pub packets_received: u64,
+    /// Total packets transmitted
+    pub packets_transmitted: u64,
 }
 
 /// Statistics for a network interface

@@ -2,7 +2,6 @@
 #![allow(clippy::cast_possible_wrap)] // Allow u64 to i64 casts for timestamps
 #![allow(clippy::missing_errors_doc)] // Temporarily allow missing error documentation
 #![allow(clippy::manual_let_else)] // Allow manual let-else patterns
-#![allow(clippy::unused_async)] // Allow unused async functions
 
 //! # Monitoring Module
 //!

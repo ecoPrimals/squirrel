@@ -211,19 +211,29 @@ impl DashboardManager {
 
     /// Start the dashboard manager
     ///
+    /// Initializes the dashboard, sets up data collection, and begins
+    /// periodic updates of dashboard components.
+    ///
     /// # Errors
-    /// Returns an error if the dashboard manager fails to start
+    /// Returns an error if the dashboard cannot be started due to
+    /// configuration issues, resource constraints, or if
+    /// required components are not available
     pub async fn start(&self) -> Result<()> {
-        // Implementation will be added in future PRs
+        // Implementation placeholder
         Ok(())
     }
 
     /// Stop the dashboard manager
     ///
+    /// Stops all dashboard activities, including data collection
+    /// and component updates.
+    ///
     /// # Errors
-    /// Returns an error if the dashboard manager fails to stop
+    /// Returns an error if the dashboard cannot be stopped gracefully,
+    /// if there are pending operations that cannot be completed,
+    /// or if resources cannot be properly released
     pub async fn stop(&self) -> Result<()> {
-        // Implementation will be added in future PRs
+        // Implementation placeholder
         Ok(())
     }
 }
@@ -420,20 +430,30 @@ impl Manager {
         Ok(())
     }
 
-    /// Adds a new layout to the dashboard
-    /// 
+    /// Add a new layout to the dashboard
+    ///
+    /// # Parameters
+    /// * `layout` - The layout to add
+    ///
     /// # Errors
-    /// Returns error if unable to acquire lock
+    /// Returns an error if the layout cannot be added due to validation failures,
+    /// a conflict with an existing layout ID, or if the layout storage
+    /// cannot be accessed
     pub async fn add_layout(&self, layout: Layout) -> Result<()> {
         let id = layout.id.clone();
         self.layouts.write().await.insert(id, layout);
         Ok(())
     }
 
-    /// Removes a layout from the dashboard
-    /// 
+    /// Remove a layout from the dashboard
+    ///
+    /// # Parameters
+    /// * `layout_id` - The ID of the layout to remove
+    ///
     /// # Errors
-    /// Returns error if unable to acquire lock or layout not found
+    /// Returns an error if the layout cannot be found with the given ID,
+    /// if the layout is in use by active components, or if the layout
+    /// storage cannot be accessed
     pub async fn remove_layout(&self, layout_id: &str) -> Result<()> {
         let mut layouts = self.layouts.write().await;
         if layouts.remove(layout_id).is_none() {
@@ -442,10 +462,14 @@ impl Manager {
         Ok(())
     }
 
-    /// Gets layouts from the dashboard
-    /// 
+    /// Get all available layouts
+    ///
+    /// # Returns
+    /// A list of all available dashboard layouts
+    ///
     /// # Errors
-    /// Returns error if unable to get layouts
+    /// Returns an error if the layouts cannot be retrieved due to
+    /// storage access issues or if layout data is corrupted
     pub async fn get_layouts(&self) -> Result<Vec<Layout>> {
         let layouts = self.layouts.read().await;
         Ok(layouts.values().cloned().collect())

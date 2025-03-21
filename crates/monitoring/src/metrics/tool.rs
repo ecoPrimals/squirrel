@@ -1,7 +1,6 @@
 // Allow certain linting issues that are too numerous to fix individually
 #![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
 #![warn(clippy::missing_errors_doc)] // Enable warnings for missing error documentation
-#![allow(clippy::unused_async)] // Allow unused async functions
 #![allow(clippy::redundant_closure_for_method_calls)] // Allow redundant closures
 
 //! Tool metrics collection and monitoring

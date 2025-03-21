@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use squirrel_core::error::{Result, SquirrelError};
 use crate::alerts::{Alert, AlertConfig, DefaultAlertManager};
 use crate::alerts::AlertManager;
-use super::{NotificationManager, NotificationConfig};
+use crate::alerts::notify::{NotificationManager, NotificationConfig};
 use super::NotificationManagerTrait;
 use super::AlertNotification;
 
