@@ -104,15 +104,22 @@ impl ContextAdapter {
     ///
     /// Returns an error if the maximum number of contexts has been reached.
     pub async fn create_context(&self, id: String, data: Value) -> Result<()> {
-        let config = self.config.read().await;
-        let mut contexts = self.contexts.write().await;
+        // First check if we can create the context
+        let max_contexts = {
+            let config = self.config.read().await;
+            config.max_contexts
+        }; // Config lock is dropped here
+        
+        {
+            let contexts = self.contexts.read().await;
+            if contexts.len() >= max_contexts {
+                return Err(SquirrelError::Other(
+                    ContextAdapterError::OperationFailed("Maximum number of contexts reached".to_string()).to_string()
+                ));
+            }
+        } // Read lock is dropped here
 
-        if contexts.len() >= config.max_contexts {
-            return Err(SquirrelError::Other(
-                ContextAdapterError::OperationFailed("Maximum number of contexts reached".to_string()).to_string()
-            ));
-        }
-
+        // Create the context with write lock
         let now = Utc::now();
         let context_data = AdapterContextData {
             id: id.clone(),
@@ -121,6 +128,7 @@ impl ContextAdapter {
             updated_at: now,
         };
 
+        let mut contexts = self.contexts.write().await;
         contexts.insert(id, context_data);
         Ok(())
     }
@@ -221,33 +229,43 @@ impl ContextAdapter {
     /// This function does not currently return errors, but maintains the Result
     /// return type for compatibility with other methods and potential future error cases.
     pub async fn cleanup_expired_contexts(&self) -> Result<()> {
-        let config = {
-            let config_guard = self.config.read().await;
-            config_guard.clone()
-        };
+        // First get the configuration
+        let (enable_auto_cleanup, ttl_seconds) = {
+            let config = self.config.read().await;
+            (config.enable_auto_cleanup, config.ttl_seconds)
+        }; // Config lock is dropped here
         
-        if !config.enable_auto_cleanup {
+        if !enable_auto_cleanup {
             return Ok(());
         }
 
         let now = Utc::now();
-        let mut contexts = self.contexts.write().await;
         
-        let mut to_remove = Vec::new();
-        
-        for (id, context) in contexts.iter() {
-            let age = now.signed_duration_since(context.updated_at);
-            if let Ok(ttl) = i64::try_from(config.ttl_seconds) {
-                if age.num_seconds() >= ttl {
-                    to_remove.push(id.clone());
+        // First collect the IDs to remove
+        let to_remove = {
+            let contexts = self.contexts.read().await;
+            let mut expired = Vec::new();
+            
+            for (id, context) in contexts.iter() {
+                let age = now.signed_duration_since(context.updated_at);
+                if let Ok(ttl) = i64::try_from(ttl_seconds) {
+                    if age.num_seconds() >= ttl {
+                        expired.push(id.clone());
+                    }
                 }
+            }
+            
+            expired
+        }; // Read lock is dropped here
+        
+        // Then remove the expired contexts with write lock
+        if !to_remove.is_empty() {
+            let mut contexts = self.contexts.write().await;
+            for id in to_remove {
+                contexts.remove(&id);
             }
         }
         
-        for id in to_remove {
-            contexts.remove(&id);
-        }
-
         Ok(())
     }
 
@@ -310,4 +328,4 @@ pub fn create_context_adapter() -> Arc<ContextAdapter> {
 #[must_use]
 pub fn create_context_adapter_with_config(config: ContextAdapterConfig) -> Arc<ContextAdapter> {
     ContextAdapterFactory::create_adapter_with_config(config)
-} 
+}

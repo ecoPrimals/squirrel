@@ -84,25 +84,29 @@ impl ContextTracker {
 
     /// Update the current state
     pub async fn update_state(&self, state: ContextState) -> Result<()> {
-        let mut current_state = self.state.lock().await;
+        // First check if we need to update
+        let should_update = {
+            let current_state = self.state.lock().await;
+            state.version > current_state.version
+        }; // Lock is dropped here
         
-        // Only update if the new state has a higher version
-        if state.version > current_state.version {
-            *current_state = state;
+        if should_update {
+            // Update the state
+            {
+                let mut current_state = self.state.lock().await;
+                *current_state = state.clone();
+            } // Lock is dropped here
             
             // Update the last sync time
             {
                 let mut last_sync = self.last_sync.write().await;
                 *last_sync = Instant::now();
-            }
+            } // Lock is dropped here
             
             // Trigger automatic recovery point if enabled
             if self.config.auto_recovery {
                 if let Some(manager) = &self.manager {
-                    // Drop the current_state guard before calling async manager methods
-                    drop(current_state);
-                    
-                    // Get state again for recovery point
+                    // Get state for recovery point
                     let state = self.get_state().await?;
                     
                     // Create recovery point
@@ -154,34 +158,37 @@ impl ContextTracker {
     
     /// Synchronize state with persistence
     pub async fn sync_state(&self) -> Result<()> {
-        if let Some(manager) = &self.manager {
+        // First check if we have a manager
+        let manager = if let Some(manager) = &self.manager {
+            manager
+        } else {
+            return Err(ContextError::NotInitialized("Context manager not set".to_string()));
+        };
+        
+        // Get the active context ID
+        let active_id = {
+            let active_id = self.active_context_id.read().await;
+            active_id.clone()
+        }; // Lock is dropped here
+        
+        // If we have an active context, sync to that ID
+        if let Some(id) = active_id {
             // Get the current state
             let state = self.get_state().await?;
             
-            // If we have an active context, sync to that ID
-            let active_id = self.active_context_id.read().await;
-            if let Some(id) = &*active_id {
-                // Clone the ID to avoid borrow issues
-                let id_clone = id.clone();
-                // Drop the guard to avoid holding it during async calls
-                drop(active_id);
-                
-                // Update the context state in the manager
-                manager.update_context_state(&id_clone, state).await?;
-                
-                // Update the last sync time
-                {
-                    let mut last_sync = self.last_sync.write().await;
-                    *last_sync = Instant::now();
-                }
-                
-                return Ok(());
-            }
+            // Update the context state in the manager
+            manager.update_context_state(&id, state).await?;
             
+            // Update the last sync time
+            {
+                let mut last_sync = self.last_sync.write().await;
+                *last_sync = Instant::now();
+            } // Lock is dropped here
+            
+            Ok(())
+        } else {
             // If no active context, return an error
             Err(ContextError::NotInitialized("No active context".to_string()))
-        } else {
-            Err(ContextError::NotInitialized("Context manager not set".to_string()))
         }
     }
     
