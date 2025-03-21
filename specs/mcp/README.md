@@ -1,6 +1,6 @@
 ---
-version: 1.0.0
-last_updated: 2024-03-15
+version: 1.1.0
+last_updated: 2024-03-26
 status: implemented
 ---
 
@@ -23,6 +23,7 @@ The Machine Context Protocol (MCP) is the core communication protocol for the Da
    - Execution framework
    - Lifecycle management
    - Error handling
+   - Resource cleanup and recovery ✅ (Added March 2024)
 
 3. Context Management ✅
    - State tracking
@@ -57,6 +58,8 @@ mcp/
 ├── monitoring/      # System monitoring
 ├── error/           # Error handling
 ├── context/         # Context management
+├── tool/            # Tool management
+│   ├── cleanup/     # Tool cleanup and recovery
 └── tests/           # Test suite
 ```
 
@@ -66,6 +69,7 @@ mcp/
 - Memory per instance: < 512MB
 - Message throughput: 5000/sec
 - Thread safety: Verified
+- Recovery success rate: > 90%
 
 ## Core Features
 1. Thread-Safe Operations
@@ -86,11 +90,18 @@ mcp/
    - SHA-256 hashing
    - JWT authentication
 
+4. Tool Lifecycle Management
+   - Resource tracking and monitoring
+   - Graceful shutdown procedures
+   - Adaptive error recovery strategies
+   - Resource usage limits and enforcement
+
 ## Integration Points
 - Command System: ✅ Complete
 - Error Handling: ✅ Complete
 - State Management: ✅ Complete
 - Security System: ✅ Complete
+- Resource Management: ✅ Complete
 
 ## Best Practices
 1. Use thread-safe access patterns
@@ -98,6 +109,8 @@ mcp/
 3. Follow security protocols
 4. Maintain state consistency
 5. Document protocol changes
+6. Implement resource cleanup hooks
+7. Apply appropriate recovery strategies
 
 ## Future Enhancements
 1. Advanced Protocol Features
@@ -141,6 +154,13 @@ mcp/
 4. Handle errors
 5. Document metrics
 
+### Resource Management Implementation
+1. Track resource usage
+2. Implement cleanup procedures
+3. Set appropriate resource limits
+4. Apply recovery strategies
+5. Log cleanup and recovery events
+
 ## Testing Requirements
 
 ### Unit Tests
@@ -149,6 +169,7 @@ mcp/
 3. Error handling
 4. State management
 5. Resource cleanup
+6. Recovery strategies
 
 ### Integration Tests
 1. End-to-end flows
@@ -156,6 +177,7 @@ mcp/
 3. Error recovery
 4. State persistence
 5. Resource management
+6. System resilience
 
 ### Performance Tests
 1. Message handling
@@ -163,6 +185,7 @@ mcp/
 3. Error handling
 4. State management
 5. Security overhead
+6. Recovery success rates
 
 ## Monitoring Requirements
 
@@ -172,6 +195,7 @@ mcp/
 3. Resource usage
 4. State changes
 5. Security events
+6. Recovery success rates
 
 ### Logging
 1. Protocol events
@@ -179,6 +203,8 @@ mcp/
 3. Error conditions
 4. State changes
 5. Performance metrics
+6. Resource cleanup events
+7. Recovery attempts and outcomes
 
 ## Detailed Specifications
 - [Protocol Core](protocol-core.md)
@@ -186,6 +212,8 @@ mcp/
 - [Tool Integration](tool-integration.md)
 - [Security Model](security-model.md)
 - [Performance](performance.md)
+- [Resource Management](resource-management.md)
+- [Error Recovery](error-recovery.md)
 
 ## Security Standards
 - TLS 1.3 for transport
@@ -199,9 +227,12 @@ mcp/
 3. Follow security requirements
 4. Test against performance targets
 5. Validate error handling
+6. Implement resource cleanup hooks
+7. Set appropriate recovery strategies
 
 ## Development Resources
 - [Protocol Documentation](protocol.md)
 - [API Reference](api-reference.md)
 - [Example Implementations](examples.md)
-- [Testing Guide](testing.md) 
+- [Testing Guide](testing.md)
+- [Resource Management Guide](resource-management.md) 
