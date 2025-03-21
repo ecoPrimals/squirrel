@@ -354,8 +354,8 @@ async fn test_basic_registry() {
         // Get the command with lock
         let command = {
             let registry_lock = registry.lock().unwrap();
-            let cmd = registry_lock.get_command("test").unwrap();
-            cmd
+            
+            registry_lock.get_command("test").unwrap()
         }; // Lock is released here
         
         // Execute without holding the lock
@@ -400,8 +400,8 @@ async fn test_factory_registry_creation() {
         // Get command with lock
         let command = {
             let registry_lock = registry.lock().unwrap();
-            let cmd = registry_lock.get_command("version").unwrap();
-            cmd
+            
+            registry_lock.get_command("version").unwrap()
         }; // Lock is released here
         
         // Execute without holding the lock
@@ -475,8 +475,8 @@ async fn test_factory_add_commands() {
         // Get command with lock
         let command = {
             let registry_lock = registry.lock().unwrap();
-            let cmd = registry_lock.get_command("custom").unwrap();
-            cmd
+            
+            registry_lock.get_command("custom").unwrap()
         }; // Lock is released here
         
         // Execute without holding the lock
@@ -504,8 +504,8 @@ async fn test_factory_execute_commands() {
         // Get command with lock
         let command = {
             let registry_lock = registry.lock().unwrap();
-            let cmd = registry_lock.get_command("version").unwrap();
-            cmd
+            
+            registry_lock.get_command("version").unwrap()
         }; // Lock is released here
         
         // Execute without holding the lock
@@ -526,8 +526,8 @@ async fn test_factory_execute_commands() {
         // Get command with lock
         let command = {
             let registry_lock = registry.lock().unwrap();
-            let cmd = registry_lock.get_command("echo").unwrap();
-            cmd
+            
+            registry_lock.get_command("echo").unwrap()
         }; // Lock is released here
         
         // Execute without holding the lock

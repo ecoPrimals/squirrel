@@ -290,7 +290,7 @@ mod tests {
             .init();
             
         info!("Test: Starting test_default_factory");
-        let factory = DefaultCommandRegistryFactory::default();
+        let factory = DefaultCommandRegistryFactory;
         let registry = factory.create_registry()?;
         
         // First, verify commands exist in the registry
@@ -380,7 +380,7 @@ mod tests {
         }
         
         // Create registry with factory
-        let factory = DefaultCommandRegistryFactory::default();
+        let factory = DefaultCommandRegistryFactory;
         let registry = factory.create_registry()?;
         
         // Register custom command

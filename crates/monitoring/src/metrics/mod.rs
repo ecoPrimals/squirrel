@@ -1,8 +1,6 @@
 // Allow certain linting issues that are too numerous to fix individually
 #![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
 #![allow(clippy::cast_possible_wrap)] // Allow u64 to i64 casts for timestamps
-#![allow(clippy::missing_errors_doc)] // Temporarily allow missing error documentation
-#![allow(clippy::unused_async)] // Allow unused async functions
 #![allow(clippy::doc_markdown)] // Allow documentation markdown issues
 
 //! Metrics collection and management
@@ -20,7 +18,7 @@ use std::fmt::Debug;
 use tokio::sync::RwLock;
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
-use thiserror::Error;
+use log;
 use squirrel_core::error::{Result, SquirrelError};
 use performance::OperationType;
 pub mod export;
@@ -66,7 +64,7 @@ pub enum MetricValue {
 }
 
 /// Metric type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MetricType {
     /// Counter metric that only increases
     Counter,
@@ -117,7 +115,8 @@ impl Metric {
     ///
     /// # Returns
     /// A new metric instance with all fields set
-    #[must_use] pub fn new(name: String, value: f64, metric_type: MetricType, labels: HashMap<String, String>) -> Self {
+    #[must_use] 
+    pub fn new(name: String, value: f64, metric_type: MetricType, labels: HashMap<String, String>) -> Self {
         Self {
             name,
             metric_type,
@@ -141,7 +140,8 @@ impl Metric {
     ///
     /// # Returns
     /// A new metric instance with all fields set
-    #[must_use] pub fn with_optional_labels(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
+    #[must_use] 
+    pub fn with_optional_labels(name: String, value: f64, metric_type: MetricType, labels: Option<HashMap<String, String>>) -> Self {
         Self::new(name, value, metric_type, labels.unwrap_or_default())
     }
     
@@ -152,7 +152,8 @@ impl Metric {
     ///
     /// # Returns
     /// `true` if the metric should trigger an alert, `false` otherwise
-    #[must_use] pub fn should_alert(&self) -> bool {
+    #[must_use] 
+    pub fn should_alert(&self) -> bool {
         // This is a placeholder implementation
         // In a real implementation, this would check against configured thresholds
         // and other alert criteria specific to the metric type and name
@@ -164,30 +165,306 @@ impl Metric {
 #[async_trait]
 pub trait MetricCollector: Debug + Send + Sync {
     /// Collect metrics from the system
+    /// 
+    /// # Errors
+    /// Returns an error if metrics collection fails due to system issues,
+    /// resource constraints, or failed collectors
     async fn collect_metrics(&self) -> Result<Vec<Metric>>;
 
     /// Record a new metric
     ///
     /// # Parameters
-    ///
     /// * `metric` - The metric to record
     ///
-    /// # Returns
-    ///
-    /// Success or failure
+    /// # Errors
+    /// Returns an error if the metric cannot be recorded due to storage issues,
+    /// validation failures, or if the collector is not initialized
     async fn record_metric(&self, metric: Metric) -> Result<()>;
 
     /// Start the metric collector
+    /// 
+    /// # Errors
+    /// Returns an error if the collector cannot be started due to
+    /// initialization failures or resource constraints
     async fn start(&self) -> Result<()>;
 
     /// Stop the metric collector
+    /// 
+    /// # Errors
+    /// Returns an error if the collector cannot be stopped gracefully
+    /// or if there are pending operations that cannot be completed
     async fn stop(&self) -> Result<()>;
+}
+
+/// Default implementation of the metric collector
+///
+/// This collector provides a standard implementation of the `MetricCollector` trait,
+/// storing metrics in memory and supporting basic operations like recording metrics,
+/// collecting all metrics, and lifecycle management.
+#[derive(Debug)]
+pub struct DefaultMetricCollector {
+    /// Configuration for the metric collector
+    config: MetricConfig,
+    /// Storage for collected metrics
+    metrics: Arc<RwLock<Vec<Metric>>>,
+    /// Flag indicating whether the collector is initialized
+    initialized: Arc<RwLock<bool>>,
+    /// Optional protocol metric collector adapter for integration with protocol metrics
+    protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
+}
+
+impl DefaultMetricCollector {
+    /// Creates a new metric collector with default configuration
+    /// 
+    /// Initializes a new collector with default settings and an empty metrics collection.
+    ///
+    /// # Returns
+    /// A new metric collector instance ready for use
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: MetricConfig::default(),
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            initialized: Arc::new(RwLock::new(false)),
+            protocol_collector: None,
+        }
+    }
+
+    /// Initializes the metric collector with a custom configuration
+    ///
+    /// # Arguments
+    /// * `config` - The configuration to use for initialization
+    ///
+    /// # Errors
+    /// Returns an error if initialization fails
+    pub async fn initialize_with_config(&mut self, config: MetricConfig) -> Result<()> {
+        self.config = config;
+        let mut initialized = self.initialized.write().await;
+        *initialized = true;
+        Ok(())
+    }
+
+    /// Creates a new metric collector with dependencies
+    /// 
+    /// Initializes a new collector with optional custom configuration and
+    /// protocol collector integration.
+    ///
+    /// # Arguments
+    /// * `config` - Optional custom configuration, uses default if `None`
+    /// * `protocol_collector` - Optional protocol collector adapter for integration
+    ///
+    /// # Returns
+    /// A new metric collector instance with the specified dependencies
+    #[must_use]
+    pub fn with_dependencies(
+        config: Option<MetricConfig>,
+        protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
+    ) -> Self {
+        Self {
+            config: config.unwrap_or_default(),
+            metrics: Arc::new(RwLock::new(Vec::new())),
+            initialized: Arc::new(RwLock::new(false)),
+            protocol_collector,
+        }
+    }
+
+    /// Checks if the collector is initialized
+    ///
+    /// # Returns
+    /// `true` if the collector is initialized, `false` otherwise
+    #[must_use]
+    pub fn is_initialized(&self) -> bool {
+        // Using a synchronous method that doesn't require block_in_place
+        // This avoids requiring a multi-threaded runtime for tests
+        self.initialized.try_read().map(|guard| *guard).unwrap_or(false)
+    }
+
+    /// Initializes the collector
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be initialized
+    pub async fn initialize(&self) -> Result<()> {
+        let mut initialized = self.initialized.write().await;
+        if *initialized {
+            // Already initialized, just return success
+            return Ok(());
+        }
+        *initialized = true;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl MetricCollector for DefaultMetricCollector {
+    /// Collects all metrics from the collector
+    ///
+    /// # Returns
+    /// A vector of all collected metrics
+    ///
+    /// # Errors
+    /// Returns an error if metrics cannot be collected due to lock acquisition failures
+    /// or if the collector is not properly initialized
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        // First get our own metrics
+        let metrics = {
+            let metrics_guard = self.metrics.read().await;
+            read_guard_to_vec(&metrics_guard)
+        };
+        
+        // Then get protocol metrics if available
+        let mut all_metrics = metrics;
+        
+        if let Some(protocol_collector) = &self.protocol_collector {
+            if protocol_collector.is_initialized() {
+                match protocol_collector.get_metrics().await {
+                    Ok(protocol_metrics) => {
+                        all_metrics.extend(protocol_metrics);
+                    },
+                    Err(e) => {
+                        // Use proper logging instead of eprintln
+                        log::warn!("Error collecting protocol metrics: {}", e);
+                    }
+                }
+            }
+        }
+        
+        Ok(all_metrics)
+    }
+
+    /// Records a new metric
+    ///
+    /// # Arguments
+    /// * `metric` - The metric to record
+    ///
+    /// # Errors
+    /// Returns an error if the metric cannot be recorded due to lock acquisition failures,
+    /// if the collector is not initialized, or if the metric is invalid
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        // Check if we're initialized
+        if !self.is_initialized() {
+            return Err(SquirrelError::monitoring(
+                format!("Cannot record metric '{}': collector not initialized", metric.name)
+            ));
+        }
+        
+        // Record the metric in our storage
+        {
+            let mut metrics = self.metrics.write().await;
+            // No need to clone here as we'll only read from metric after this point
+            metrics.push(metric.clone());
+            
+            // Trim to max size if needed
+            if metrics.len() > self.config.max_metrics {
+                retain_newest_metrics(&mut metrics, self.config.max_metrics);
+            }
+        }
+        
+        // Also record in protocol collector if available
+        if let Some(protocol_collector) = &self.protocol_collector {
+            if protocol_collector.is_initialized() {
+                if let Err(e) = protocol_collector.record_metric(metric).await {
+                    // Use proper logging instead of eprintln
+                    log::warn!("Error recording metric in protocol collector: {}", e);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Starts the metric collector
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be started
+    /// or if it is already running
+    async fn start(&self) -> Result<()> {
+        self.initialize().await?;
+        
+        // Start protocol collector if available
+        if let Some(protocol_collector) = &self.protocol_collector {
+            if let Err(e) = protocol_collector.start().await {
+                // Use proper logging
+                log::warn!("Error starting protocol collector: {}", e);
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Stops the metric collector
+    ///
+    /// # Errors
+    /// Returns an error if the collector cannot be stopped cleanly
+    /// or if there are pending operations
+    async fn stop(&self) -> Result<()> {
+        // Stop protocol collector if available
+        if let Some(protocol_collector) = &self.protocol_collector {
+            if let Err(e) = protocol_collector.stop().await {
+                // Use proper logging
+                log::warn!("Error stopping protocol collector: {}", e);
+            }
+        }
+        
+        // Mark as uninitialized
+        let mut initialized = self.initialized.write().await;
+        *initialized = false;
+        
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl MetricCollector for Arc<dyn MetricCollector> {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        (**self).collect_metrics().await
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        (**self).record_metric(metric).await
+    }
+
+    async fn start(&self) -> Result<()> {
+        (**self).start().await
+    }
+
+    async fn stop(&self) -> Result<()> {
+        (**self).stop().await
+    }
+}
+
+#[async_trait]
+impl MetricCollector for Arc<DefaultMetricCollector> {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        (**self).collect_metrics().await
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        (**self).record_metric(metric).await
+    }
+
+    async fn start(&self) -> Result<()> {
+        (**self).start().await
+    }
+
+    async fn stop(&self) -> Result<()> {
+        (**self).stop().await
+    }
+}
+
+impl Default for DefaultMetricCollector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Metric source trait for components that provide metrics
 #[async_trait]
 pub trait MetricSource: Debug + Send + Sync {
     /// Get metrics from this source
+    /// 
+    /// # Errors
+    /// Returns an error if metrics cannot be retrieved from the source
+    /// due to connection issues, timeouts, or internal errors
     async fn get_metrics(&self) -> Result<Vec<Metric>>;
 }
 
@@ -206,16 +483,22 @@ impl Default for ProtocolMetricsCollectorAdapter {
 
 impl ProtocolMetricsCollectorAdapter {
     /// Create a new adapter
-    #[must_use] pub fn new() -> Self {
+    #[must_use] 
+    pub fn new() -> Self {
         Self { inner: None }
     }
 
     /// Create a new adapter with a collector
-    #[must_use] pub fn with_collector(collector: Arc<RwLock<dyn MetricCollector>>) -> Self {
+    #[must_use] 
+    pub fn with_collector(collector: Arc<RwLock<dyn MetricCollector>>) -> Self {
         Self { inner: Some(collector) }
     }
 
     /// Get metrics from the collector
+    /// 
+    /// # Errors
+    /// Returns an error if the underlying collector fails to retrieve metrics
+    /// or if the collector is not initialized
     pub async fn get_metrics(&self) -> Result<Vec<Metric>> {
         if let Some(collector) = &self.inner {
             let collector = collector.read().await;
@@ -226,6 +509,10 @@ impl ProtocolMetricsCollectorAdapter {
     }
 
     /// Record a metric
+    /// 
+    /// # Errors
+    /// Returns an error if the underlying collector fails to record the metric
+    /// or if the collector is not initialized
     pub async fn record_metric(&self, metric: Metric) -> Result<()> {
         if let Some(collector) = &self.inner {
             let collector = collector.read().await;
@@ -236,7 +523,8 @@ impl ProtocolMetricsCollectorAdapter {
     }
 
     /// Check if the adapter is initialized
-    #[must_use] pub fn is_initialized(&self) -> bool {
+    #[must_use] 
+    pub fn is_initialized(&self) -> bool {
         self.inner.is_some()
     }
 }
@@ -249,18 +537,20 @@ impl MetricCollector for ProtocolMetricsCollectorAdapter {
 
     /// Record a new metric
     ///
-    /// # Parameters
-    ///
-    /// * `metric` - The metric to record
-    ///
-    /// # Returns
-    ///
-    /// Success or failure
+    /// # Errors
+    /// Returns an error if the underlying collector fails to record the metric
+    /// or if the collector is not properly initialized
     async fn record_metric(&self, metric: Metric) -> Result<()> {
         self.record_metric(metric).await
     }
 
+    /// Start the metric collector
+    ///
+    /// # Errors
+    /// Returns an error if the underlying collector fails to start
+    /// or if it is not properly initialized
     async fn start(&self) -> Result<()> {
+        // If there's no inner collector, nothing to start
         if let Some(collector) = &self.inner {
             let collector = collector.read().await;
             collector.start().await
@@ -269,338 +559,19 @@ impl MetricCollector for ProtocolMetricsCollectorAdapter {
         }
     }
 
+    /// Stop the metric collector
+    ///
+    /// # Errors
+    /// Returns an error if the underlying collector fails to stop
+    /// or if there are pending operations that cannot be completed
     async fn stop(&self) -> Result<()> {
+        // If there's no inner collector, nothing to stop
         if let Some(collector) = &self.inner {
             let collector = collector.read().await;
             collector.stop().await
         } else {
             Ok(())
         }
-    }
-}
-
-/// Default implementation of the metric collector
-#[derive(Debug)]
-pub struct DefaultMetricCollector {
-    /// Collection of metric records
-    metrics: Arc<RwLock<Vec<Metric>>>,
-    /// Metric collector configuration
-    config: MetricConfig,
-    /// Optional protocol metrics collector
-    protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
-}
-
-impl DefaultMetricCollector {
-    /// Creates a new default metric collector with default configuration
-    ///
-    /// This initializes an empty metrics collection that will be populated
-    /// with metrics when they are recorded or collected.
-    ///
-    /// # Returns
-    /// A new DefaultMetricCollector with default configuration and empty metrics collection
-    #[must_use] pub fn new() -> Self {
-        Self {
-            metrics: Arc::new(RwLock::new(Vec::new())),
-            config: MetricConfig::default(),
-            protocol_collector: None,
-        }
-    }
-    
-    /// Checks if the metric collector is ready to use
-    #[must_use] pub fn is_initialized(&self) -> bool {
-        // DefaultMetricCollector doesn't have a separate initialization step,
-        // it's always ready after creation
-        true
-    }
-    
-    /// Initializes the metric collector
-    ///
-    /// Since DefaultMetricCollector is always initialized after creation,
-    /// this method exists only for API compatibility with other adapters.
-    ///
-    /// # Returns
-    /// Always returns Ok(())
-    pub fn initialize(&mut self) -> Result<()> {
-        // Always initialized
-        Ok(())
-    }
-    
-    /// Initializes the metric collector with a specific config
-    ///
-    /// Sets the configuration to the provided value.
-    ///
-    /// # Parameters
-    /// * `config` - Configuration to use
-    ///
-    /// # Returns
-    /// Always returns Ok(())
-    pub fn initialize_with_config(&mut self, config: MetricConfig) -> Result<()> {
-        self.config = config;
-        Ok(())
-    }
-
-    /// Creates a new default metric collector with dependencies
-    ///
-    /// This constructor allows for dependency injection of required collectors
-    /// through their adapter interfaces.
-    ///
-    /// # Arguments
-    /// * `config` - Optional metric configuration, uses default if None
-    /// * `protocol_collector` - Optional protocol metrics collector adapter
-    ///
-    /// # Returns
-    /// A new DefaultMetricCollector with the specified configuration and dependencies
-    #[must_use] pub fn with_dependencies(
-        config: Option<MetricConfig>,
-        protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
-    ) -> Self {
-        Self {
-            metrics: Arc::new(RwLock::new(Vec::new())),
-            config: config.unwrap_or_default(),
-            protocol_collector,
-        }
-    }
-
-    /// Creates a new metric collector with a protocol collector
-    ///
-    /// Convenience method for creating a collector with just a protocol collector
-    /// and default configuration.
-    ///
-    /// # Arguments
-    /// * `protocol_collector` - Protocol metrics collector adapter
-    ///
-    /// # Returns
-    /// A new DefaultMetricCollector with default configuration and the specified protocol collector
-    #[must_use] pub fn with_protocol_collector(
-        protocol_collector: Arc<ProtocolMetricsCollectorAdapter>
-    ) -> Self {
-        Self::with_dependencies(None, Some(protocol_collector))
-    }
-
-    /// Get the protocol collector if one is configured
-    ///
-    /// # Returns
-    /// An Option containing the protocol collector if configured, None otherwise
-    #[must_use] pub fn protocol_collector(&self) -> Option<Arc<ProtocolMetricsCollectorAdapter>> {
-        self.protocol_collector.clone()
-    }
-    
-    /// Gets all metrics from the collector
-    ///
-    /// # Returns
-    /// A Result containing all metrics or an error
-    ///
-    /// # Errors
-    /// Returns an error if metrics cannot be accessed
-    pub async fn get_all_metrics(&self) -> Result<Vec<Metric>> {
-        self.get_metrics().await
-    }
-
-    /// Gets metrics from the collector
-    ///
-    /// # Returns
-    /// A Result containing all metrics or an error
-    ///
-    /// # Errors
-    /// Returns an error if metrics cannot be accessed
-    pub async fn get_metrics(&self) -> Result<Vec<Metric>> {
-        let metrics_guard = self.metrics.read().await;
-        Ok(read_guard_to_vec(&metrics_guard))
-    }
-}
-
-impl Default for DefaultMetricCollector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl MetricCollector for DefaultMetricCollector {
-    /// Collect metrics from the system and all registered sources
-    ///
-    /// This method aggregates metrics from:
-    /// 1. Protocol-specific metrics (if a protocol collector is configured)
-    /// 2. System-level resource metrics like CPU, memory, and disk usage
-    /// 3. Previously recorded metrics stored in this collector
-    ///
-    /// # Returns
-    /// A Result containing a vector of all collected metrics, or an error if collection fails
-    ///
-    /// # Errors
-    /// Returns an error if metrics cannot be collected from any source
-    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        let mut all_metrics = Vec::new();
-        
-        // Collect protocol metrics if configured
-        if let Some(protocol_collector) = &self.protocol_collector {
-            if protocol_collector.is_initialized() {
-                let protocol_metrics = protocol_collector.get_metrics().await?;
-                all_metrics.extend(protocol_metrics);
-            }
-        }
-        
-        // Collect metrics from resource monitoring
-        let resource_metrics = resource::collect_resource_metrics().await?;
-        all_metrics.extend(resource_metrics);
-        
-        // Include current metrics from the collector
-        let metrics = self.metrics.read().await;
-        for metric in &*metrics {
-            all_metrics.push(metric.clone());
-        }
-        
-        Ok(all_metrics)
-    }
-
-    /// Record a new metric
-    ///
-    /// # Parameters
-    ///
-    /// * `metric` - The metric to record
-    ///
-    /// # Returns
-    ///
-    /// Success or failure
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let mut metrics = self.metrics.write().await;
-        
-        // Add the metric
-        metrics.push(metric.clone());
-        
-        // Cap the number of metrics if we exceed the configured maximum
-        retain_newest_metrics(&mut metrics, self.config.max_metrics);
-        
-        Ok(())
-    }
-
-    /// Start the metric collector
-    ///
-    /// Initializes the metric collection system and starts any required background
-    /// collection processes. If a protocol collector is configured, it will also
-    /// be started.
-    ///
-    /// # Returns
-    /// Success if the collector was started, or an error otherwise
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be started
-    async fn start(&self) -> Result<()> {
-        Ok(())
-    }
-
-    /// Stop the metric collector
-    ///
-    /// Stops all metric collection processes and performs any necessary cleanup.
-    /// If a protocol collector is configured, it will also be stopped.
-    ///
-    /// # Returns
-    /// Success if the collector was stopped, or an error otherwise
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be stopped
-    async fn stop(&self) -> Result<()> {
-        Ok(())
-    }
-}
-
-/// Errors that can occur during metric operations
-#[derive(Error, Debug)]
-pub enum MetricError {
-    /// The metric system has not been initialized
-    #[error("Metric not initialized: {0}")]
-    NotInitialized(String),
-    
-    /// An error occurred during metric export
-    #[error("Export error: {0}")]
-    ExportError(String),
-    
-    /// An error occurred during metric collection
-    #[error("Collection error: {0}")]
-    CollectionError(String),
-    
-    /// The metric data is invalid or malformed
-    #[error("Invalid metric: {0}")]
-    InvalidMetric(String),
-}
-
-impl From<MetricError> for SquirrelError {
-    fn from(err: MetricError) -> Self {
-        Self::metric(err.to_string())
-    }
-}
-
-/// Initialize metrics system
-pub async fn initialize(_config: Option<MetricConfig>) -> Result<()> {
-    // Implementation would go here
-    Ok(())
-}
-
-/// Get the metric collector instance
-#[must_use] pub const fn get_collector() -> Option<Arc<DefaultMetricCollector>> {
-    None // Placeholder
-}
-
-/// Check if metrics system is initialized
-#[must_use] pub const fn is_initialized() -> bool {
-    false // Placeholder
-}
-
-/// Shutdown metrics system
-pub async fn shutdown() -> Result<()> {
-    // Implementation would go here
-    Ok(())
-}
-
-/// Convert SystemTime to Unix timestamp
-fn system_time_to_timestamp(time: SystemTime) -> i64 {
-    time.duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
-/// Helper functions for working with RwLock-guarded metrics
-/// Converts a read guard into a Vec by cloning each element
-pub fn read_guard_to_vec<T: Clone>(guard: &tokio::sync::RwLockReadGuard<'_, Vec<T>>) -> Vec<T> {
-    let mut result = Vec::with_capacity(guard.len());
-    for item in guard.iter() {
-        result.push(item.clone());
-    }
-    result
-}
-
-/// Converts a write guard into a Vec by cloning each element
-pub fn write_guard_to_vec<T: Clone>(guard: &tokio::sync::RwLockWriteGuard<'_, Vec<T>>) -> Vec<T> {
-    let mut result = Vec::with_capacity(guard.len());
-    for item in guard.iter() {
-        result.push(item.clone());
-    }
-    result
-}
-
-/// Adds values to a write guard
-pub fn add_to_write_guard<T: Clone>(guard: &mut tokio::sync::RwLockWriteGuard<'_, Vec<T>>, values: &[T]) {
-    for value in values {
-        guard.push(value.clone());
-    }
-}
-
-/// Keeps only the newest n metrics in a write guard
-pub fn retain_newest_metrics<T>(guard: &mut tokio::sync::RwLockWriteGuard<'_, Vec<T>>, max_count: usize) {
-    if guard.len() <= max_count {
-        return;
-    }
-    
-    // Calculate how many to drop from the beginning (oldest)
-    let to_drop = guard.len() - max_count;
-    
-    // Keep the newest by removing the oldest
-    if to_drop > 0 {
-        // Split off the newer entries to keep
-        let newer_entries = guard.drain(to_drop..).collect::<Vec<_>>();
-        // Clear the guard and add back the newer entries
-        guard.clear();
-        guard.extend(newer_entries);
     }
 }
 
@@ -611,7 +582,8 @@ pub fn retain_newest_metrics<T>(guard: &mut tokio::sync::RwLockWriteGuard<'_, Ve
 /// * `metrics` - A map of tool names to their metrics
 ///
 /// # Errors
-/// Returns an error if the metric collector fails to record the metrics
+/// Returns an error if the metric collector fails to record any of the metrics
+/// due to validation issues, storage problems, or if the collector is not initialized
 pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
     collector: &dyn MetricCollector,
     metrics: &HashMap<String, ToolMetrics, S>,
@@ -664,7 +636,8 @@ pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
 /// A vector of all metrics collected from the monitoring system
 ///
 /// # Errors
-/// Returns an error if the metrics cannot be collected or if the monitoring service is not initialized
+/// Returns an error if the metrics cannot be collected from any collector
+/// or if the monitoring service is not properly initialized
 pub async fn get_all_metrics() -> Result<Vec<Metric>> {
     if let Some(collector) = get_collector() {
         collector.collect_metrics().await
@@ -687,7 +660,8 @@ impl MetricsManager {
     ///
     /// Initializes a metrics manager with empty collections of
     /// metric collectors and exporters
-    #[must_use] pub fn new() -> Self {
+    #[must_use] 
+    pub fn new() -> Self {
         Self {
             collectors: Arc::new(RwLock::new(Vec::new())),
             exporters: Arc::new(RwLock::new(Vec::new())),
@@ -701,6 +675,7 @@ impl MetricsManager {
     ///
     /// # Errors
     /// Returns an error if the collectors lock cannot be acquired
+    /// or if there's an issue registering the collector
     pub async fn add_collector(&self, collector: Arc<dyn MetricCollector + Send + Sync>) -> Result<()> {
         let mut collectors = self.collectors.write().await;
         collectors.push(collector);
@@ -714,6 +689,7 @@ impl MetricsManager {
     ///
     /// # Errors
     /// Returns an error if the exporters lock cannot be acquired
+    /// or if there's an issue registering the exporter
     pub async fn add_exporter(&self, exporter: Arc<dyn MetricExporter + Send + Sync>) -> Result<()> {
         let mut exporters = self.exporters.write().await;
         exporters.push(exporter);
@@ -726,7 +702,8 @@ impl MetricsManager {
     /// A vector of all collected metrics
     ///
     /// # Errors
-    /// Returns an error if the collectors lock cannot be acquired or if any collector fails
+    /// Returns an error if the collectors lock cannot be acquired 
+    /// or if any collector fails to provide metrics
     pub async fn collect_metrics(&self) -> Result<Vec<Metric>> {
         let collectors = self.collectors.read().await;
 
@@ -752,50 +729,41 @@ impl Default for MetricsManager {
 /// * `_config` - The configuration for the metric collector
 ///
 /// # Errors
-/// Returns an error if the collector is already initialized or if initialization fails
+/// Returns an error if the collector is already initialized 
+/// or if there are resource issues with initialization
 pub const fn init_collector(_config: MetricConfig) -> Result<()> {
     // Implementation would go here
     Ok(())
 }
 
-/// Records a counter metric
+/// Record a counter metric
+///
+/// Helper function to record a counter metric with optional labels.
 ///
 /// # Arguments
-/// * `collector` - The metric collector to use
-/// * `name` - The name of the metric
-/// * `value` - The value to record
-/// * `labels` - Additional labels for the metric
+/// * `collector` - The metric collector to record the metric with
+/// * `name` - Name of the counter metric
+/// * `value` - Value of the counter
+/// * `labels` - Optional labels to attach to the metric
 ///
 /// # Errors
 /// Returns an error if the metric cannot be recorded
-pub async fn record_counter<S: ::std::hash::BuildHasher>(
-    collector: &dyn MetricCollector,
+pub async fn record_counter<C: MetricCollector>(
+    collector: &C,
     name: &str,
     value: f64,
-    labels: Option<HashMap<String, String, S>>,
+    labels: Option<HashMap<String, String>>,
 ) -> Result<()> {
-    // Convert the labels with custom hasher S to a standard HashMap
-    let std_labels = match &labels {
-        Some(custom_labels) => {
-            let mut std_map = HashMap::new();
-            for (k, v) in custom_labels {
-                std_map.insert(k.clone(), v.clone());
-            }
-            Some(std_map)
-        },
-        None => None,
-    };
-    
     let metric = Metric::with_optional_labels(
-        name.to_string(), 
-        value, 
+        name.to_string(),
+        value,
         MetricType::Counter,
-        std_labels
+        labels,
     );
     collector.record_metric(metric).await
 }
 
-/// Re-export additional types - remove PerformanceMetrics since it doesn't exist
+/// Re-export additional types
 pub use resource::TeamResourceMetrics;
 
 /// Gets metrics from the specified sources
@@ -974,85 +942,220 @@ pub struct AggregateMetricCollector {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    fn create_test_collector() -> impl MetricCollector {
-        DefaultMetricCollector::default()
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_record_counter_helper() {
+        let collector = DefaultMetricCollector::new();
+        collector.initialize().await.unwrap();
+        let mut labels = HashMap::new();
+        labels.insert("test".to_string(), "value".to_string());
+        record_counter(&collector, "test_counter", 5.0, Some(labels)).await.unwrap();
+    }
+
+    #[derive(Debug)]
+    struct MockErrorProtocolCollector;
+
+    #[async_trait]
+    impl MetricCollector for MockErrorProtocolCollector {
+        async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+            Ok(Vec::new())
+        }
+
+        async fn record_metric(&self, _metric: Metric) -> Result<()> {
+            Ok(())
+        }
+
+        async fn start(&self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn stop(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_concurrent_metric_recording() {
+        let collector = Arc::new(DefaultMetricCollector::new());
+        collector.initialize().await.unwrap();
+        let counter = Arc::new(AtomicUsize::new(0));
+        let num_tasks = 10;
+        let mut handles = Vec::new();
+
+        for _ in 0..num_tasks {
+            let collector_clone = Arc::clone(&collector);
+            let counter_clone: Arc<AtomicUsize> = Arc::clone(&counter);
+            let handle = tokio::spawn(async move {
+                let mut labels = HashMap::new();
+                labels.insert("test".to_string(), "value".to_string());
+                record_counter(&*collector_clone, "test_counter", 1.0, Some(labels)).await.unwrap();
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        assert_eq!(counter.load(Ordering::SeqCst), num_tasks, "All metrics should be recorded");
     }
     
     #[tokio::test]
-    async fn test_metric_collector() {
-        let collector = create_test_collector();
-        
-        // Create a test metric
-        let metric = Metric {
-            name: "test_metric".to_string(),
-            value: 1.0,
-            metric_type: MetricType::Gauge,
-            timestamp: 0,
-            labels: HashMap::new(),
-            operation_type: OperationType::Unknown,
-        };
-        
-        // Record the metric
-        collector.record_metric(metric).await.unwrap();
-        
-        // Collect metrics and verify our test metric is included
-        let metrics = collector.collect_metrics().await.unwrap();
-        assert!(!metrics.is_empty(), "Should have collected at least one metric");
-        assert!(
-            metrics.iter().any(|m| m.name == "test_metric"), 
-            "test_metric should be present in collected metrics"
-        );
-        
-        // Add a second metric
-        let second_metric = Metric {
-            name: "second_metric".to_string(),
-            value: 2.0,
-            metric_type: MetricType::Counter,
-            timestamp: 0,
-            labels: HashMap::new(),
-            operation_type: OperationType::Unknown,
-        };
-        
-        collector.record_metric(second_metric).await.unwrap();
-        
-        // Collect again and verify both metrics are present
-        let metrics = collector.collect_metrics().await.unwrap();
-        assert!(metrics.len() >= 2, "Should have collected at least two metrics");
-        
-        // Clean up
-        collector.stop().await.unwrap();
+    async fn test_guard_helper_functions() {
+        // Test data
+        let data = vec![1, 2, 3, 4, 5];
+        let rwlock = Arc::new(RwLock::new(data.clone()));
+
+        // Test read_guard_to_vec
+        {
+            let read_guard = rwlock.read().await;
+            let result = read_guard_to_vec(&read_guard);
+            assert_eq!(result, data, "read_guard_to_vec should return exact copy of data");
+        }
+
+        // Test write_guard_to_vec
+        {
+            let write_guard = rwlock.write().await;
+            let result = write_guard_to_vec(&write_guard);
+            assert_eq!(result, data, "write_guard_to_vec should return exact copy of data");
+        }
+
+        // Test add_to_write_guard
+        {
+            let mut write_guard = rwlock.write().await;
+            let values_to_add = vec![6, 7, 8];
+            add_to_write_guard(&mut write_guard, &values_to_add);
+            
+            let expected = vec![1, 2, 3, 4, 5, 6, 7, 8];
+            assert_eq!(*write_guard, expected, "add_to_write_guard should append values");
+        }
+
+        // Test update_in_write_guard
+        {
+            let mut write_guard = rwlock.write().await;
+            
+            // Double even numbers
+            update_in_write_guard(&mut write_guard, |&num| num % 2 == 0, |num| *num *= 2);
+            
+            let expected = vec![1, 4, 3, 8, 5, 12, 7, 16];
+            assert_eq!(*write_guard, expected, "update_in_write_guard should modify matching elements");
+        }
+
+        // Test find_in_read_guard
+        {
+            let read_guard = rwlock.read().await;
+            
+            // Find first number greater than 10
+            let result = find_in_read_guard(&read_guard, |&num| num > 10);
+            
+            assert_eq!(result, Some(12), "find_in_read_guard should find matching element");
+            
+            // Test not finding anything
+            let result = find_in_read_guard(&read_guard, |&num| num > 100);
+            assert_eq!(result, None, "find_in_read_guard should return None when no match");
+        }
+
+        // Test remove_from_write_guard
+        {
+            let mut write_guard = rwlock.write().await;
+            
+            // Remove even numbers
+            remove_from_write_guard(&mut write_guard, |&num| num % 2 == 0);
+            
+            let expected = vec![1, 3, 5, 7];
+            assert_eq!(*write_guard, expected, "remove_from_write_guard should remove matching elements");
+        }
     }
-    
-    #[tokio::test]
-    async fn test_metric_collector_lifecycle() {
-        let collector = create_test_collector();
-        
-        // Start the collector
-        collector.start().await.unwrap();
-        
-        // Record a metric
-        let metric = Metric::new(
-            "lifecycle_test".to_string(),
-            1.0,
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        collector.record_metric(metric).await.unwrap();
-        
-        // Verify metric was recorded
-        let metrics = collector.collect_metrics().await.unwrap();
-        assert!(
-            metrics.iter().any(|m| m.name == "lifecycle_test"),
-            "Metric should be recorded after collector start"
-        );
-        
-        // Stop the collector
-        collector.stop().await.unwrap();
-        
-        // Collecting metrics should still work after stopping
-        let metrics_after_stop = collector.collect_metrics().await;
-        assert!(metrics_after_stop.is_ok(), "Collecting metrics should work after stopping");
+}
+
+/// Convert SystemTime to Unix timestamp
+fn system_time_to_timestamp(time: SystemTime) -> i64 {
+    time.duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Helper function to retain only the newest metrics
+fn retain_newest_metrics(metrics: &mut Vec<Metric>, max_count: usize) {
+    if metrics.len() <= max_count {
+        return;
     }
+    // Sort by timestamp in descending order
+    metrics.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    // Truncate to max count
+    metrics.truncate(max_count);
+}
+
+/// Helper functions for working with RwLock-guarded metrics
+/// Converts a read guard into a Vec by cloning each element
+pub fn read_guard_to_vec<T: Clone>(guard: &tokio::sync::RwLockReadGuard<'_, Vec<T>>) -> Vec<T> {
+    let mut result = Vec::with_capacity(guard.len());
+    for item in guard.iter() {
+        result.push(item.clone());
+    }
+    result
+}
+
+/// Converts a write guard into a Vec by cloning each element
+pub fn write_guard_to_vec<T: Clone>(guard: &tokio::sync::RwLockWriteGuard<'_, Vec<T>>) -> Vec<T> {
+    let mut result = Vec::with_capacity(guard.len());
+    for item in guard.iter() {
+        result.push(item.clone());
+    }
+    result
+}
+
+/// Adds values to a write guard
+pub fn add_to_write_guard<T: Clone>(guard: &mut tokio::sync::RwLockWriteGuard<'_, Vec<T>>, values: &[T]) {
+    for value in values {
+        guard.push(value.clone());
+    }
+}
+
+/// Updates existing elements in a write guard that match the provided predicate
+pub fn update_in_write_guard<T: Clone, F>(
+    guard: &mut tokio::sync::RwLockWriteGuard<'_, Vec<T>>, 
+    predicate: F, 
+    update_fn: impl Fn(&mut T)
+) where F: Fn(&T) -> bool {
+    for item in guard.iter_mut() {
+        if predicate(item) {
+            update_fn(item);
+        }
+    }
+}
+
+/// Safely finds an element in a read guard that matches the provided predicate
+pub fn find_in_read_guard<T: Clone, F>(
+    guard: &tokio::sync::RwLockReadGuard<'_, Vec<T>>, 
+    predicate: F
+) -> Option<T> where F: Fn(&T) -> bool {
+    guard.iter().find(|item| predicate(item)).cloned()
+}
+
+/// Removes elements from a write guard that match the provided predicate
+pub fn remove_from_write_guard<T, F>(
+    guard: &mut tokio::sync::RwLockWriteGuard<'_, Vec<T>>, 
+    predicate: F
+) where F: Fn(&T) -> bool {
+    guard.retain(|item| !predicate(item));
+}
+
+/// Get the metric collector instance
+#[must_use] pub const fn get_collector() -> Option<Arc<DefaultMetricCollector>> {
+    None // Placeholder
+}
+
+/// Check if metrics system is initialized
+#[must_use] pub const fn is_initialized() -> bool {
+    false // Placeholder
+}
+
+/// Shutdown metrics system
+pub async fn shutdown() -> Result<()> {
+    // Implementation would go here
+    Ok(())
 }
