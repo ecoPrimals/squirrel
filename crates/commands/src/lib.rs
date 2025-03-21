@@ -26,6 +26,9 @@ pub mod history;
 /// Command suggestions system
 pub mod suggestions;
 
+/// Command authentication and authorization system
+pub mod auth;
+
 /// Command registry
 mod registry;
 pub use registry::{Command, CommandRegistry, CommandResult};
@@ -60,6 +63,14 @@ pub enum CommandError {
     /// Error when attempting to register a command that already exists
     #[error("Command already exists: {0}")]
     CommandAlreadyExists(String),
+    
+    /// Error related to authentication
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
+    
+    /// Error related to authorization
+    #[error("Authorization error: {0}")]
+    AuthorizationError(String),
 }
 
 /// Command factory for creating command registries
