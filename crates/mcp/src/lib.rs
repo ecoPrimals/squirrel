@@ -15,6 +15,9 @@ pub mod error;
 /// Protocol-related functionality
 pub mod protocol;
 
+/// Tool management system
+pub mod tool;
+
 /// Monitoring and metrics
 pub mod monitoring;
 

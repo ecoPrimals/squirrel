@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 use crate::error::{Result, MCPError, ProtocolError};
+use std::str::FromStr;
 
 // Import common types from types module
 use crate::types::{
@@ -243,6 +244,70 @@ impl MCPProtocolBase {
         
         Ok(())
     }
+
+    /// Recovers from a protocol error, if possible
+    pub fn recover_from_error(&mut self, error: ProtocolError) -> std::result::Result<(), ProtocolError> {
+        match error {
+            // Handle recoverable errors
+            ProtocolError::InvalidFormat(_) | 
+            ProtocolError::InvalidPayload(_) | 
+            ProtocolError::MessageTooLarge(_) |
+            ProtocolError::InvalidTimestamp(_) |
+            ProtocolError::MessageTimeout(_) => {
+                // Log the error but don't take action
+                tracing::warn!("Recoverable error encountered: {}", error);
+                Ok(())
+            },
+            ProtocolError::HandlerNotFound(ref message_type) => {
+                // Register a default handler for unknown message types
+                tracing::warn!("Registering default handler for unhandled message type: {}", message_type);
+                
+                // Create a default handler that returns an error response
+                #[derive(Debug)]
+                struct DefaultHandler;
+                
+                #[async_trait::async_trait]
+                impl CommandHandler for DefaultHandler {
+                    async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
+                        let response = MCPResponse {
+                            protocol_version: "1.0".to_string(),
+                            message_id: message.id.0.clone(),
+                            status: ResponseStatus::Error,
+                            payload: Vec::new(),
+                            error_message: Some("No handler registered for this message type".to_string()),
+                            metadata: MessageMetadata::default(),
+                        };
+                        
+                        Ok(response)
+                    }
+                }
+                
+                // Extract message type string
+                let type_str = message_type.to_string();
+                if let Ok(message_type) = MessageType::from_str(&type_str) {
+                    // Register a default handler for this message type
+                    let _ = self.register_handler(message_type, Box::new(DefaultHandler));
+                    Ok(())
+                } else {
+                    Err(ProtocolError::RecoveryFailed(
+                        format!("Failed to parse message type: {}", message_type)
+                    ))
+                }
+            },
+            ProtocolError::InvalidState(ref state) => {
+                // Try to reset the protocol state
+                tracing::warn!("Resetting protocol state from invalid state: {}", state);
+                self.set_protocol_state(ProtocolState::Initialized);
+                Ok(())
+            },
+            // Non-recoverable errors
+            _ => {
+                // If we get here, we couldn't recover
+                tracing::error!("Non-recoverable error: {}", error);
+                Err(error)
+            }
+        }
+    }
 }
 
 /// Factory for creating protocol instances
@@ -333,6 +398,22 @@ pub trait MessageHandler: Send + Sync + std::fmt::Debug {
     
     /// Returns the message types this handler can process
     fn supported_types(&self) -> Vec<MessageType>;
+}
+
+/// Implementation of FromStr for MessageType to convert strings to message types
+impl FromStr for MessageType {
+    type Err = ProtocolError;
+    
+    fn from_str(s: &str) -> std::result::Result<Self, ProtocolError> {
+        match s {
+            "Command" => Ok(MessageType::Command),
+            "Response" => Ok(MessageType::Response),
+            "Event" => Ok(MessageType::Event),
+            "Error" => Ok(MessageType::Error),
+            "Setup" => Ok(MessageType::Setup),
+            _ => Err(ProtocolError::InvalidFormat(format!("Invalid message type: {}", s))),
+        }
+    }
 }
 
 #[cfg(test)]
