@@ -1,6 +1,6 @@
 ---
-version: 1.0.0
-last_updated: 2024-03-15
+version: 1.1.0
+last_updated: 2024-03-26
 status: active
 ---
 
@@ -11,128 +11,182 @@ The Context Management System handles workspace, user, and tool contexts across 
 
 ## Core Components
 
-### Context Management
+### Context State
 ```rust
-pub trait ContextManager {
-    async fn get_context(&self) -> Result<Context>;
-    async fn update_context(&mut self, context: Context) -> Result<()>;
-    async fn validate_context(&self, context: &Context) -> Result<bool>;
-}
-
-#[derive(Debug, Clone)]
-pub struct Context {
-    pub workspace: WorkspaceContext,
-    pub tools: ToolContext,
-    pub user: UserContext,
-    pub metadata: ContextMetadata,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ContextState {
+    /// Current version of the state
+    pub version: u64,
+    /// Timestamp of the last update
+    pub last_updated: u64,
+    /// State data
+    pub data: Vec<u8>,
 }
 ```
 
-### Workspace Context
+### Context Snapshot
 ```rust
-pub struct WorkspaceContext {
-    pub root_path: PathBuf,
-    pub active_files: Vec<ActiveFile>,
-    pub git_info: Option<GitInfo>,
-    pub environment: Environment,
-}
-
-pub struct ActiveFile {
-    pub path: PathBuf,
-    pub cursor_position: CursorPosition,
-    pub scroll_position: ScrollPosition,
-    pub modification_time: DateTime<Utc>,
-}
-```
-
-### Tool Context
-```rust
-pub struct ToolContext {
-    pub available_tools: Vec<ToolInfo>,
-    pub active_tools: HashMap<String, ToolState>,
-    pub tool_history: VecDeque<ToolExecution>,
-}
-
-pub struct ToolInfo {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ContextSnapshot {
+    /// Unique identifier for the snapshot
     pub id: String,
-    pub capabilities: Vec<Capability>,
-    pub state: ToolState,
+    /// Timestamp when the snapshot was created
+    pub timestamp: u64,
+    /// Serialized state data
+    pub data: Vec<u8>,
 }
 ```
 
-### User Context
+### Context Tracker
 ```rust
-pub struct UserContext {
-    pub preferences: UserPreferences,
-    pub session_info: SessionInfo,
-    pub permissions: Vec<Permission>,
-    pub recent_actions: VecDeque<UserAction>,
+pub struct ContextTracker {
+    /// Current state of the context
+    state: Arc<Mutex<ContextState>>,
+}
+
+impl ContextTracker {
+    /// Create a new context tracker with the given state
+    pub fn new(state: ContextState) -> Self;
+    
+    /// Get the current state
+    pub fn get_state(&self) -> Result<ContextState, ContextError>;
+    
+    /// Update the current state
+    pub fn update_state(&self, state: ContextState) -> Result<(), ContextError>;
+}
+```
+
+### Context Factory Pattern
+```rust
+pub struct ContextTrackerFactory {
+    manager: Option<Arc<ContextManager>>,
+    config: Option<ContextConfig>,
+}
+
+impl ContextTrackerFactory {
+    /// Create a new factory with the given manager
+    pub fn new(manager: Option<Arc<ContextManager>>) -> Self;
+    
+    /// Create a new factory with the given manager and config
+    pub fn with_config(manager: Option<Arc<ContextManager>>, config: ContextConfig) -> Self;
+    
+    /// Create a new context tracker
+    pub fn create(&self) -> Result<ContextTracker>;
+    
+    /// Create a new context tracker with the given config
+    pub fn create_with_config(&self, config: ContextConfig) -> Result<ContextTracker>;
 }
 ```
 
 ## Context Operations
 
+### Context Activation and Deactivation
+```rust
+pub trait ContextActivation {
+    /// Activate a context by ID
+    async fn activate_context(&self, id: &str) -> Result<()>;
+    
+    /// Deactivate the current context
+    async fn deactivate_context(&self) -> Result<()>;
+    
+    /// Get the active context
+    async fn get_active_context(&self) -> Result<Option<ContextState>>;
+}
+```
+
 ### Context Synchronization
 ```rust
 pub trait ContextSync {
-    async fn sync_workspace(&mut self) -> Result<()>;
-    async fn sync_tools(&mut self) -> Result<()>;
-    async fn sync_user(&mut self) -> Result<()>;
+    /// Synchronize context state with storage
+    async fn sync_state(&mut self) -> Result<()>;
+    
+    /// Pull latest changes from storage
+    async fn pull_changes(&mut self) -> Result<()>;
+    
+    /// Push local changes to storage
+    async fn push_changes(&mut self) -> Result<()>;
 }
 ```
 
 ### Context Validation
-- Validate workspace paths
-- Check tool availability
-- Verify user permissions
-- Ensure context consistency
-
-### Context Events
 ```rust
-pub enum ContextEvent {
-    WorkspaceChanged(WorkspaceChange),
-    ToolStateChanged(ToolStateChange),
-    UserActionPerformed(UserAction),
+pub trait ContextValidation {
+    /// Validate the context state
+    async fn validate_state(&self, state: &ContextState) -> Result<bool>;
+    
+    /// Check if the context is valid
+    async fn is_valid(&self) -> Result<bool>;
+}
+```
+
+## Error Handling
+```rust
+pub enum ContextError {
+    /// Error related to state operations
+    StateError(String),
+    
+    /// Error related to persistence operations
+    PersistenceError(String),
+    
+    /// Error related to recovery operations
+    RecoveryError(String),
+    
+    /// Error when a snapshot is not found
+    SnapshotNotFound(String),
+
+    /// Error related to invalid state
+    InvalidState(String),
+
+    /// Error related to synchronization operations
+    SyncError(String),
+
+    /// Error when no valid snapshot is found
+    NoValidSnapshot(String),
+    
+    /// Error when the context is not initialized
+    NotInitialized,
 }
 ```
 
 ## Implementation Guidelines
 
-### 1. Context Updates
-- Atomic context updates
-- Event-driven synchronization
-- Proper error handling
-- Change notification system
+### 1. Dependency Injection
+- Use factory pattern for creating context components
+- Enable testability through dependency injection
+- Support different configurations
+- Allow mock implementations for testing
 
-### 2. Performance Considerations
+### 2. Asynchronous Programming
+- Use async/await for I/O operations
+- Handle concurrent access properly
+- Implement proper error handling for async code
+- Use tokio for runtime implementation
+
+### 3. Context State Management
+- Implement atomic state updates
+- Track state versions for conflict resolution
+- Handle concurrent state modifications
+- Implement proper state validation
+
+### 4. Performance Considerations
 - Minimize context size
 - Implement efficient updates
 - Cache frequent accesses
 - Batch related changes
 
-### 3. Security
+### 5. Security
 - Validate context changes
 - Enforce access controls
 - Audit context modifications
 - Secure sensitive data
 
-## Error Handling
-```rust
-pub enum ContextError {
-    InvalidContext(String),
-    SyncFailed(String),
-    ValidationFailed(String),
-    AccessDenied(String),
-}
-```
-
 ## Best Practices
 
 1. **Context Management**
-   - Keep contexts focused and minimal
+   - Keep context state minimalistic
    - Implement proper validation
    - Handle updates atomically
-   - Document context requirements
+   - Document state requirements
 
 2. **Synchronization**
    - Use efficient sync strategies
@@ -152,6 +206,12 @@ pub enum ContextError {
    - Audit sensitive operations
    - Protect user data
 
+5. **Testing**
+   - Test concurrent operations
+   - Verify error handling
+   - Validate state transitions
+   - Test recovery mechanisms
+
 ## Version History
 
 - 1.0.0: Initial context management specification
@@ -160,4 +220,10 @@ pub enum ContextError {
   - Documented best practices
   - Implemented error handling
 
-<version>1.0.0</version> 
+- 1.1.0: Updated specification to align with implementation
+  - Updated data structures to match implementation
+  - Added factory pattern documentation
+  - Aligned error handling with implementation
+  - Updated interface definitions
+
+<version>1.1.0</version> 

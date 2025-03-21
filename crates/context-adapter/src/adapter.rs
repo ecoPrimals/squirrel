@@ -263,9 +263,19 @@ impl ContextAdapter {
         let now = Utc::now();
         // Generate a new UUID for the ID since ContextState doesn't have an id field
         let id = Uuid::new_v4().to_string();
+        
+        // Convert HashMap<String, String> to a serde_json::Value
+        let json_data = {
+            let mut map = serde_json::Map::new();
+            for (k, v) in &state.data {
+                map.insert(k.clone(), serde_json::Value::String(v.clone()));
+            }
+            serde_json::Value::Object(map)
+        };
+        
         AdapterContextData {
             id,
-            data: serde_json::Value::from(state.data.clone()),
+            data: json_data,
             created_at: now,
             updated_at: now,
         }

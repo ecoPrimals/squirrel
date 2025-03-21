@@ -1,6 +1,6 @@
 ---
-version: 1.0.0
-last_updated: 2024-03-15
+version: 1.1.0
+last_updated: 2024-03-26
 status: active
 ---
 
@@ -11,92 +11,157 @@ The State Management System handles application state persistence, transitions, 
 
 ## Core Components
 
-### State Management
+### State Manager
 ```rust
-pub trait StateManager {
-    async fn get_state(&self) -> Result<State>;
-    async fn update_state(&mut self, state: State) -> Result<()>;
-    async fn sync_state(&mut self) -> Result<()>;
+pub struct StateManager {
+    /// Repository for state storage
+    repository: Arc<dyn StateRepository>,
+    /// Current active state
+    current_state: RwLock<Option<ContextState>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct State {
-    pub id: StateId,
-    pub data: StateData,
-    pub metadata: StateMetadata,
-    pub version: StateVersion,
-}
-```
-
-### State Operations
-
-#### State Registration
-```rust
-pub trait StateRegistry {
-    async fn register_state(&mut self, name: String, state: State) -> Result<()>;
-    async fn unregister_state(&mut self, name: &str) -> Result<()>;
-    async fn get_state(&self, name: &str) -> Option<&State>;
+impl StateManager {
+    /// Create a new state manager with the given repository
+    pub fn new(repository: Arc<dyn StateRepository>) -> Self;
+    
+    /// Get the current state
+    pub async fn get_state(&self) -> Result<ContextState>;
+    
+    /// Update the state
+    pub async fn update_state(&self, state: ContextState) -> Result<()>;
+    
+    /// Sync state with the repository
+    pub async fn sync_state(&self) -> Result<()>;
 }
 ```
 
-#### State Transitions
+### State Repository
 ```rust
-pub trait StateTransition {
-    async fn transition_state(
-        &mut self,
-        from: &str,
-        to: &str,
-        data: Option<Value>,
-    ) -> Result<()>;
+pub trait StateRepository: Send + Sync {
+    /// Store a state
+    async fn store_state(&self, state: &ContextState) -> Result<()>;
+    
+    /// Load a state
+    async fn load_state(&self) -> Result<Option<ContextState>>;
+    
+    /// Create a snapshot
+    async fn create_snapshot(&self, state: &ContextState) -> Result<ContextSnapshot>;
+    
+    /// Load a snapshot
+    async fn load_snapshot(&self, id: &str) -> Result<Option<ContextSnapshot>>;
+    
+    /// List all snapshots
+    async fn list_snapshots(&self) -> Result<Vec<ContextSnapshot>>;
+}
+```
+
+### Persistence Manager
+```rust
+pub struct PersistenceManager {
+    /// Path to the state file
+    state_path: PathBuf,
+    /// Path to the snapshots directory
+    snapshots_path: PathBuf,
+}
+
+impl PersistenceManager {
+    /// Create a new persistence manager
+    pub fn new(state_path: PathBuf, snapshots_path: PathBuf) -> Self;
+    
+    /// Save state to disk
+    pub async fn save_state(&self, state: &ContextState) -> Result<()>;
+    
+    /// Load state from disk
+    pub async fn load_state(&self) -> Result<Option<ContextState>>;
+    
+    /// Create a snapshot of the current state
+    pub async fn create_snapshot(&self, state: &ContextState) -> Result<ContextSnapshot>;
+    
+    /// Load a snapshot by ID
+    pub async fn load_snapshot(&self, id: &str) -> Result<Option<ContextSnapshot>>;
+    
+    /// List all available snapshots
+    pub async fn list_snapshots(&self) -> Result<Vec<ContextSnapshot>>;
 }
 ```
 
 ### Recovery System
 
-#### Recovery Points
 ```rust
-pub struct RecoveryPoint {
-    pub id: String,
-    pub state_name: String,
-    pub state_data: StateData,
-    pub created_at: DateTime<Utc>,
-    pub metadata: RecoveryMetadata,
+pub struct RecoveryManager {
+    /// Persistence manager for state recovery
+    persistence: Arc<PersistenceManager>,
+    /// Maximum number of recovery points to maintain
+    max_recovery_points: usize,
 }
 
-pub trait RecoveryManager {
-    async fn create_recovery_point(&mut self, state: &State) -> Result<RecoveryPoint>;
-    async fn recover_state(&mut self, point: &RecoveryPoint) -> Result<()>;
-    async fn list_recovery_points(&self, state_name: &str) -> Result<Vec<RecoveryPoint>>;
+impl RecoveryManager {
+    /// Create a new recovery manager
+    pub fn new(persistence: Arc<PersistenceManager>, max_recovery_points: usize) -> Self;
+    
+    /// Create a recovery point for the current state
+    pub async fn create_recovery_point(&self, state: &ContextState) -> Result<ContextSnapshot>;
+    
+    /// Recover state from a specific snapshot
+    pub async fn recover_from_snapshot(&self, snapshot_id: &str) -> Result<ContextState>;
+    
+    /// List all available recovery points
+    pub async fn list_recovery_points(&self) -> Result<Vec<ContextSnapshot>>;
+    
+    /// Clean up old recovery points
+    pub async fn cleanup_recovery_points(&self) -> Result<()>;
 }
 ```
 
 ## Implementation Guidelines
 
 ### 1. State Persistence
-- Implement atomic state updates
-- Maintain state history
-- Handle concurrent updates
-- Ensure data integrity
+- Use atomic file operations for state persistence
+- Implement proper error handling for I/O operations
+- Store state in a structured format (JSON)
+- Handle concurrent access to state files
 
 ### 2. Recovery Management
-- Create regular recovery points
-- Implement efficient recovery
-- Validate recovery data
-- Clean up old recovery points
+- Create snapshots at strategic points
+- Store snapshots in a dedicated directory
+- Implement snapshot rotation to limit disk usage
+- Provide recovery options for failed operations
 
-### 3. Performance
-- Optimize state size
-- Implement efficient storage
-- Cache frequent states
-- Batch state updates
+### 3. Synchronization
+- Use proper locking for concurrent access
+- Implement proper error handling for synchronization failures
+- Provide mechanisms for conflict resolution
+- Support automatic recovery from synchronization failures
+
+### 4. Performance
+- Optimize file I/O operations
+- Implement caching to reduce disk access
+- Batch operations when possible
+- Monitor performance metrics
 
 ## Error Handling
 ```rust
 pub enum StateError {
+    /// Error when saving state
+    SaveError(String),
+    
+    /// Error when loading state
+    LoadError(String),
+    
+    /// Error when creating a snapshot
+    SnapshotCreationError(String),
+    
+    /// Error when loading a snapshot
+    SnapshotLoadError(String),
+    
+    /// Error when snapshot not found
+    SnapshotNotFound(String),
+    
+    /// Error when state is invalid
     InvalidState(String),
-    TransitionFailed(String),
-    RecoveryFailed(String),
-    PersistenceError(String),
+    
+    /// Error when IO operation fails
+    IoError(std::io::Error),
 }
 ```
 
@@ -104,56 +169,51 @@ pub enum StateError {
 
 ```rust
 // Initialize state manager
-let manager = StateManager::new();
+let persistence = PersistenceManager::new(
+    PathBuf::from("state.json"),
+    PathBuf::from("snapshots")
+);
+let state_manager = StateManager::new(Arc::new(persistence));
+let recovery_manager = RecoveryManager::new(Arc::new(persistence), 10);
 
-// Register a state
-let state = State {
-    name: "processing",
-    data: json!({ "status": "idle" }),
-    created_at: Utc::now(),
-    updated_at: Utc::now(),
-};
-manager.register_state("processing".to_string(), state).await?;
+// Get current state
+let state = state_manager.get_state().await?;
 
-// Transition state
-manager.transition_state(
-    "processing",
-    "processing",
-    Some(json!({ "status": "running" }))
-).await?;
+// Update state
+state_manager.update_state(updated_state).await?;
 
 // Create recovery point
-let point = manager.create_recovery_point("processing").await?;
+let snapshot = recovery_manager.create_recovery_point(&state).await?;
 
-// Recover if needed
-manager.recover_state(&point).await?;
+// Recover from snapshot if needed
+let recovered_state = recovery_manager.recover_from_snapshot(&snapshot.id).await?;
 ```
 
 ## Best Practices
 
 1. **State Management**
-   - Keep states minimal
-   - Document transitions
-   - Validate state changes
-   - Handle errors gracefully
+   - Keep state minimal and focused
+   - Use versioning for conflict resolution
+   - Validate state before persistence
+   - Handle partial state updates
 
 2. **Recovery**
-   - Regular recovery points
-   - Validate recovery data
-   - Clean up old points
-   - Test recovery paths
+   - Create regular recovery points
+   - Implement automatic recovery for critical operations
+   - Validate recovered state
+   - Cleanup old recovery points
 
 3. **Performance**
-   - Optimize state size
-   - Batch updates
-   - Cache effectively
-   - Monitor performance
+   - Optimize file operations
+   - Use appropriate serialization methods
+   - Implement caching strategies
+   - Monitor I/O performance
 
 4. **Security**
-   - Validate state changes
-   - Audit transitions
-   - Secure storage
-   - Access control
+   - Validate state before persistence
+   - Secure sensitive data
+   - Implement access controls
+   - Audit state changes
 
 ## Version History
 
@@ -163,4 +223,10 @@ manager.recover_state(&point).await?;
   - Established best practices
   - Added usage examples
 
-<version>1.0.0</version> 
+- 1.1.0: Updated specification to align with implementation
+  - Updated component interfaces
+  - Refined error handling
+  - Improved recovery system documentation
+  - Aligned with current code structure
+
+<version>1.1.0</version> 

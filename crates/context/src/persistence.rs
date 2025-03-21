@@ -139,12 +139,12 @@ impl FileStorage {
     ///
     /// # Errors
     ///
-    /// Returns a `ContextError::PersistenceError` if there's a failure creating 
+    /// Returns a `ContextError::Persistence` if there's a failure creating 
     /// the base directory, typically due to filesystem permission issues or 
     /// path validity problems.
     pub fn new(base_path: PathBuf) -> Result<Self, ContextError> {
         fs::create_dir_all(&base_path).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to create directory: {e}"))
+            ContextError::Persistence(format!("Failed to create directory: {e}"))
         })?;
         Ok(Self { base_path })
     }
@@ -164,19 +164,19 @@ impl FileStorage {
 impl Storage for FileStorage {
     fn save(&self, key: &str, data: &[u8]) -> Result<(), ContextError> {
         fs::write(self.get_path(key), data).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to write file: {e}"))
+            ContextError::Persistence(format!("Failed to write file: {e}"))
         })
     }
 
     fn load(&self, key: &str) -> Result<Vec<u8>, ContextError> {
         fs::read(self.get_path(key)).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to read file: {e}"))
+            ContextError::Persistence(format!("Failed to read file: {e}"))
         })
     }
 
     fn delete(&self, key: &str) -> Result<(), ContextError> {
         fs::remove_file(self.get_path(key)).map_err(|e| {
-            ContextError::PersistenceError(format!("Failed to delete file: {e}"))
+            ContextError::Persistence(format!("Failed to delete file: {e}"))
         })
     }
 
@@ -199,25 +199,25 @@ impl JsonSerializer {
 impl Serializer for JsonSerializer {
     fn serialize_state(&self, state: &ContextState) -> Result<Vec<u8>, ContextError> {
         serde_json::to_vec(state).map_err(|e| {
-            ContextError::PersistenceError(format!("State serialization failed: {e}"))
+            ContextError::Persistence(format!("State serialization failed: {e}"))
         })
     }
 
     fn deserialize_state(&self, data: &[u8]) -> Result<ContextState, ContextError> {
         serde_json::from_slice(data).map_err(|e| {
-            ContextError::PersistenceError(format!("State deserialization failed: {e}"))
+            ContextError::Persistence(format!("State deserialization failed: {e}"))
         })
     }
 
     fn serialize_snapshot(&self, snapshot: &ContextSnapshot) -> Result<Vec<u8>, ContextError> {
         serde_json::to_vec(snapshot).map_err(|e| {
-            ContextError::PersistenceError(format!("Snapshot serialization failed: {e}"))
+            ContextError::Persistence(format!("Snapshot serialization failed: {e}"))
         })
     }
 
     fn deserialize_snapshot(&self, data: &[u8]) -> Result<ContextSnapshot, ContextError> {
         serde_json::from_slice(data).map_err(|e| {
-            ContextError::PersistenceError(format!("Snapshot deserialization failed: {e}"))
+            ContextError::Persistence(format!("Snapshot deserialization failed: {e}"))
         })
     }
 }
@@ -273,16 +273,17 @@ impl PersistenceManager {
     /// Saves context state to storage
     ///
     /// # Arguments
+    /// * `id` - State identifier
     /// * `state` - State to save
     ///
     /// # Returns
-    /// * `Result<(), ContextError>` - Success or error
+    /// * `Result<(), ContextError>` - Success or error status
     ///
     /// # Errors
     /// Returns an error if serialization or storage fails
-    pub fn save_state(&self, state: &ContextState) -> Result<(), ContextError> {
+    pub fn save_state(&self, id: &str, state: &ContextState) -> Result<(), ContextError> {
         let data = self.serializer.serialize_state(state)?;
-        self.storage.save(&state.version.to_string(), &data)
+        self.storage.save(id, &data)
     }
 
     /// Loads context state from storage
