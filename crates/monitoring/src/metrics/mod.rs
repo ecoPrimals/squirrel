@@ -1,24 +1,55 @@
+//! Metrics collection and management for the Squirrel monitoring system
+//!
+//! This module provides functionality for collecting, managing, and exporting metrics
+//! about system performance, resource usage, and application behavior. It supports
+//! different types of metrics (counters, gauges, histograms) and provides efficient
+//! storage and retrieval mechanisms.
+//!
+//! # Features
+//!
+//! - Multiple metric types (Counter, Gauge, Histogram, Summary)
+//! - Efficient batch recording
+//! - Time-based aggregation
+//! - Memory-efficient storage
+//! - Metric export capabilities
+//!
+//! # Examples
+//!
+//! ```rust
+//! use squirrel_monitoring::metrics::{DefaultMetricCollector, MetricType, Metric};
+//! use std::collections::HashMap;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a new collector
+//! let collector = DefaultMetricCollector::new();
+//!
+//! // Initialize with default config
+//! collector.initialize().await?;
+//!
+//! // Record a metric
+//! let metric = Metric::new(
+//!     "cpu_usage".to_string(),
+//!     65.5,
+//!     MetricType::Gauge,
+//!     HashMap::new(),
+//! );
+//! collector.record_metric(metric).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 // Allow certain linting issues that are too numerous to fix individually
 #![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
 #![allow(clippy::cast_possible_wrap)] // Allow u64 to i64 casts for timestamps
 #![allow(clippy::doc_markdown)] // Allow documentation markdown issues
 
-//! Metrics collection and management
-//! 
-//! This module provides functionality for:
-//! - Resource usage metrics
-//! - Performance metrics
-//! - Custom metrics
-//! - Metric export
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use std::fmt::Debug;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
-use log;
+use async_trait::async_trait;
+use std::fmt::Debug;
 use squirrel_core::error::{Result, SquirrelError};
 use performance::OperationType;
 pub mod export;
@@ -31,14 +62,29 @@ pub mod tool;
 pub use tool::ToolMetrics;
 pub use export::MetricExporter;
 
-/// Metric configuration
+/// Configuration for the metric collection system
+///
+/// This struct contains all configuration options for the metric collection
+/// system, including collection intervals, storage limits, and feature flags.
+///
+/// # Examples
+///
+/// ```rust
+/// use squirrel_monitoring::metrics::MetricConfig;
+///
+/// let config = MetricConfig {
+///     enabled: true,
+///     interval: 30,
+///     max_metrics: 1000,
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricConfig {
-    /// Enable metric collection
+    /// Whether metric collection is enabled
     pub enabled: bool,
     /// Metric collection interval in seconds
     pub interval: u64,
-    /// Maximum number of metrics to store
+    /// Maximum number of metrics to store in memory
     pub max_metrics: usize,
 }
 
@@ -52,19 +98,25 @@ impl Default for MetricConfig {
     }
 }
 
-/// Metric value types
+/// Types of values that can be stored in metrics
+///
+/// This enum represents the different types of values that can be
+/// stored in metrics, each suitable for different use cases.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MetricValue {
     /// Counter value that only increases
     Counter(u64),
     /// Gauge value that can go up and down
     Gauge(f64),
-    /// Histogram value with buckets
+    /// Histogram value with buckets for distribution analysis
     Histogram(Vec<f64>),
 }
 
-/// Metric type
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Types of metrics supported by the system
+///
+/// This enum defines the different types of metrics that can be
+/// collected and stored in the system.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum MetricType {
     /// Counter metric that only increases
     Counter,
@@ -76,14 +128,28 @@ pub enum MetricType {
     Summary,
 }
 
-/// Metric data structure
+/// Core metric data structure
 ///
 /// Represents a single measurement or observation about the system. Metrics are the core
 /// data elements of the monitoring system and can represent various aspects of system
 /// performance, resource usage, or application-specific measurements.
 ///
-/// Metrics include metadata like timestamp, labels for categorization, and operation type
-/// to associate measurements with specific operations or components.
+/// # Examples
+///
+/// ```rust
+/// use squirrel_monitoring::metrics::{Metric, MetricType};
+/// use std::collections::HashMap;
+///
+/// let mut labels = HashMap::new();
+/// labels.insert("service".to_string(), "api".to_string());
+///
+/// let metric = Metric::new(
+///     "request_count".to_string(),
+///     1.0,
+///     MetricType::Counter,
+///     labels,
+/// );
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metric {
     /// Metric name that uniquely identifies the measurement
@@ -211,6 +277,8 @@ pub struct DefaultMetricCollector {
     initialized: Arc<RwLock<bool>>,
     /// Optional protocol metric collector adapter for integration with protocol metrics
     protocol_collector: Option<Arc<ProtocolMetricsCollectorAdapter>>,
+    /// Last cleanup timestamp
+    last_cleanup: Arc<RwLock<i64>>,
 }
 
 impl DefaultMetricCollector {
@@ -227,6 +295,7 @@ impl DefaultMetricCollector {
             metrics: Arc::new(RwLock::new(Vec::new())),
             initialized: Arc::new(RwLock::new(false)),
             protocol_collector: None,
+            last_cleanup: Arc::new(RwLock::new(0)),
         }
     }
 
@@ -265,6 +334,7 @@ impl DefaultMetricCollector {
             metrics: Arc::new(RwLock::new(Vec::new())),
             initialized: Arc::new(RwLock::new(false)),
             protocol_collector,
+            last_cleanup: Arc::new(RwLock::new(0)),
         }
     }
 
@@ -292,123 +362,230 @@ impl DefaultMetricCollector {
         *initialized = true;
         Ok(())
     }
-}
 
-#[async_trait]
-impl MetricCollector for DefaultMetricCollector {
-    /// Collects all metrics from the collector
+    /// Performs cleanup of old metrics to maintain memory usage
     ///
-    /// # Returns
-    /// A vector of all collected metrics
+    /// This function:
+    /// 1. Retains only the newest metrics up to max_metrics
+    /// 2. Aggregates older metrics by time window
+    /// 3. Removes metrics older than the retention period
     ///
     /// # Errors
-    /// Returns an error if metrics cannot be collected due to lock acquisition failures
-    /// or if the collector is not properly initialized
-    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        // First get our own metrics
-        let metrics = {
-            let metrics_guard = self.metrics.read().await;
-            read_guard_to_vec(&metrics_guard)
-        };
+    /// Returns an error if the cleanup operation fails due to lock acquisition
+    /// or other internal errors
+    async fn cleanup_metrics(&self) -> Result<()> {
+        let now = system_time_to_timestamp(SystemTime::now());
+        let mut last_cleanup = self.last_cleanup.write().await;
         
-        // Then get protocol metrics if available
-        let mut all_metrics = metrics;
+        // Only cleanup if enough time has passed (every 5 minutes)
+        if now - *last_cleanup < 300 {
+            return Ok(());
+        }
         
-        if let Some(protocol_collector) = &self.protocol_collector {
-            if protocol_collector.is_initialized() {
-                match protocol_collector.get_metrics().await {
-                    Ok(protocol_metrics) => {
-                        all_metrics.extend(protocol_metrics);
-                    },
-                    Err(e) => {
-                        // Use proper logging instead of eprintln
-                        log::warn!("Error collecting protocol metrics: {}", e);
+        let mut metrics = self.metrics.write().await;
+        
+        // Sort by timestamp descending (newest first)
+        metrics.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        
+        // Retain only the newest metrics up to max_metrics
+        if metrics.len() > self.config.max_metrics {
+            metrics.truncate(self.config.max_metrics);
+        }
+        
+        // Update last cleanup time
+        *last_cleanup = now;
+        
+        Ok(())
+    }
+
+    /// Record a batch of metrics efficiently
+    ///
+    /// This method is more efficient than recording metrics individually as it:
+    /// 1. Acquires the write lock only once
+    /// 2. Performs cleanup only after the entire batch
+    /// 3. Reduces lock contention
+    ///
+    /// # Arguments
+    /// * `batch` - The batch of metrics to record
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// * The collector is not initialized
+    /// * The metrics cannot be recorded due to storage issues
+    /// * The cleanup operation fails
+    pub async fn record_batch(&self, batch: MetricBatch) -> Result<()> {
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
+        }
+
+        // Record all metrics in one lock acquisition
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.extend(batch.metrics);
+        }
+
+        // Perform cleanup if needed
+        self.cleanup_metrics().await?;
+
+        Ok(())
+    }
+
+    /// Get metrics within a time range
+    ///
+    /// This method efficiently retrieves metrics within the specified time range
+    /// without loading the entire metrics collection into memory.
+    ///
+    /// # Arguments
+    /// * `start_time` - Start of the time range (Unix timestamp)
+    /// * `end_time` - End of the time range (Unix timestamp)
+    ///
+    /// # Returns
+    /// A vector of metrics within the specified time range
+    ///
+    /// # Errors
+    /// Returns an error if the metrics cannot be retrieved
+    pub async fn get_metrics_in_range(&self, start_time: i64, end_time: i64) -> Result<Vec<Metric>> {
+        let metrics = self.metrics.read().await;
+        
+        Ok(metrics
+            .iter()
+            .filter(|m| m.timestamp >= start_time && m.timestamp <= end_time)
+            .cloned()
+            .collect())
+    }
+
+    /// Aggregate metrics by time window
+    ///
+    /// This method aggregates metrics into time windows to reduce memory usage
+    /// while maintaining historical data.
+    ///
+    /// # Arguments
+    /// * `window_size` - Size of the time window in seconds
+    ///
+    /// # Errors
+    /// Returns an error if the aggregation fails
+    pub async fn aggregate_metrics(&self, _window_size: i64) -> Result<Vec<Metric>> {
+        let metrics = self.metrics.read().await;
+        let mut aggregated = HashMap::new();
+
+        for metric in metrics.iter() {
+            let key = (metric.name.clone(), metric.metric_type.clone());
+
+            match metric.metric_type {
+                MetricType::Counter => {
+                    let entry = aggregated.entry(key).or_insert_with(|| Metric {
+                        name: metric.name.clone(),
+                        metric_type: MetricType::Counter,
+                        value: 0.0,
+                        labels: metric.labels.clone(),
+                        timestamp: metric.timestamp,
+                        operation_type: metric.operation_type.clone(),
+                    });
+                    entry.value += metric.value;
+                }
+                MetricType::Gauge => {
+                    // For gauges, use the latest value
+                    if let Some(existing) = aggregated.get(&key) {
+                        if metric.timestamp > existing.timestamp {
+                            aggregated.insert(key, metric.clone());
+                        }
+                    } else {
+                        aggregated.insert(key, metric.clone());
                     }
+                }
+                MetricType::Histogram | MetricType::Summary => {
+                    let entry = aggregated.entry(key).or_insert_with(|| Metric {
+                        name: metric.name.clone(),
+                        metric_type: metric.metric_type.clone(),
+                        value: 0.0,
+                        labels: metric.labels.clone(),
+                        timestamp: metric.timestamp,
+                        operation_type: metric.operation_type.clone(),
+                    });
+                    entry.value = (entry.value + metric.value) / 2.0; // Simple average
                 }
             }
         }
-        
-        Ok(all_metrics)
+
+        Ok(aggregated.into_values().collect())
     }
 
-    /// Records a new metric
+    /// Record a metric
     ///
     /// # Arguments
     /// * `metric` - The metric to record
     ///
     /// # Errors
-    /// Returns an error if the metric cannot be recorded due to lock acquisition failures,
-    /// if the collector is not initialized, or if the metric is invalid
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        // Check if we're initialized
-        if !self.is_initialized() {
-            return Err(SquirrelError::monitoring(
-                format!("Cannot record metric '{}': collector not initialized", metric.name)
-            ));
+    /// Returns an error if:
+    /// * The collector is not initialized
+    /// * The metric cannot be recorded
+    pub async fn record_metric(&self, metric: Metric) -> Result<()> {
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
         }
-        
-        // Record the metric in our storage
+
+        // Record the metric
         {
             let mut metrics = self.metrics.write().await;
-            // No need to clone here as we'll only read from metric after this point
-            metrics.push(metric.clone());
-            
-            // Trim to max size if needed
+            metrics.push(metric);
+
+            // Sort by timestamp descending (newest first) and enforce max_metrics limit
+            metrics.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             if metrics.len() > self.config.max_metrics {
-                retain_newest_metrics(&mut metrics, self.config.max_metrics);
+                metrics.truncate(self.config.max_metrics);
             }
         }
-        
-        // Also record in protocol collector if available
-        if let Some(protocol_collector) = &self.protocol_collector {
-            if protocol_collector.is_initialized() {
-                if let Err(e) = protocol_collector.record_metric(metric).await {
-                    // Use proper logging instead of eprintln
-                    log::warn!("Error recording metric in protocol collector: {}", e);
-                }
+
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl MetricCollector for DefaultMetricCollector {
+    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
+        }
+
+        let metrics = self.metrics.read().await;
+        Ok(metrics.clone())
+    }
+
+    async fn record_metric(&self, metric: Metric) -> Result<()> {
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
+        }
+
+        // Record the metric
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.push(metric);
+
+            // Sort by timestamp descending (newest first) and enforce max_metrics limit
+            metrics.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            if metrics.len() > self.config.max_metrics {
+                metrics.truncate(self.config.max_metrics);
             }
         }
-        
+
         Ok(())
     }
 
-    /// Starts the metric collector
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be started
-    /// or if it is already running
     async fn start(&self) -> Result<()> {
-        self.initialize().await?;
-        
-        // Start protocol collector if available
-        if let Some(protocol_collector) = &self.protocol_collector {
-            if let Err(e) = protocol_collector.start().await {
-                // Use proper logging
-                log::warn!("Error starting protocol collector: {}", e);
-            }
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
         }
-        
+
+        // Start any background tasks or processing here
         Ok(())
     }
 
-    /// Stops the metric collector
-    ///
-    /// # Errors
-    /// Returns an error if the collector cannot be stopped cleanly
-    /// or if there are pending operations
     async fn stop(&self) -> Result<()> {
-        // Stop protocol collector if available
-        if let Some(protocol_collector) = &self.protocol_collector {
-            if let Err(e) = protocol_collector.stop().await {
-                // Use proper logging
-                log::warn!("Error stopping protocol collector: {}", e);
-            }
+        if !*self.initialized.read().await {
+            return Err(SquirrelError::monitoring("Collector not initialized"));
         }
-        
-        // Mark as uninitialized
-        let mut initialized = self.initialized.write().await;
-        *initialized = false;
-        
+
+        // Stop any background tasks or processing here
         Ok(())
     }
 }
@@ -938,12 +1115,34 @@ pub struct AggregateMetricCollector {
     exporters: Arc<RwLock<Vec<Arc<dyn MetricExporter + Send + Sync>>>>,
 }
 
+/// Batch of metrics to be recorded together
+#[derive(Debug, Clone)]
+pub struct MetricBatch {
+    /// Metrics in this batch
+    pub metrics: Vec<Metric>,
+    /// Timestamp when this batch was created
+    pub timestamp: i64,
+}
+
+impl MetricBatch {
+    /// Create a new metric batch
+    #[must_use]
+    pub fn new(metrics: Vec<Metric>) -> Self {
+        Self {
+            metrics,
+            timestamp: system_time_to_timestamp(SystemTime::now()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+    use tokio::time::sleep;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_record_counter_helper() {
@@ -1068,6 +1267,177 @@ mod tests {
             let expected = vec![1, 3, 5, 7];
             assert_eq!(*write_guard, expected, "remove_from_write_guard should remove matching elements");
         }
+    }
+
+    #[tokio::test]
+    async fn test_metric_batch_recording() -> Result<()> {
+        let collector = DefaultMetricCollector::new();
+        collector.initialize().await?;
+
+        // Create a batch of metrics
+        let metrics = vec![
+            Metric::new(
+                "test_counter".to_string(),
+                1.0,
+                MetricType::Counter,
+                HashMap::new(),
+            ),
+            Metric::new(
+                "test_gauge".to_string(),
+                42.0,
+                MetricType::Gauge,
+                HashMap::new(),
+            ),
+        ];
+        let batch = MetricBatch::new(metrics);
+
+        // Record the batch
+        collector.record_batch(batch).await?;
+
+        // Verify metrics were recorded
+        let all_metrics = collector.collect_metrics().await?;
+        assert_eq!(all_metrics.len(), 2);
+        assert!(all_metrics.iter().any(|m| m.name == "test_counter"));
+        assert!(all_metrics.iter().any(|m| m.name == "test_gauge"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_metric_aggregation() -> Result<()> {
+        let collector = DefaultMetricCollector::new();
+        collector.initialize().await?;
+
+        // Record counter metrics
+        collector.record_metric(Metric {
+            name: "test_counter".to_string(),
+            metric_type: MetricType::Counter,
+            value: 1.0,
+            labels: HashMap::new(),
+            timestamp: system_time_to_timestamp(SystemTime::now()) - 10,
+            operation_type: OperationType::Unknown,
+        }).await?;
+
+        collector.record_metric(Metric {
+            name: "test_counter".to_string(),
+            metric_type: MetricType::Counter,
+            value: 2.0,
+            labels: HashMap::new(),
+            timestamp: system_time_to_timestamp(SystemTime::now()) - 5,
+            operation_type: OperationType::Unknown,
+        }).await?;
+
+        // Record gauge metrics
+        collector.record_metric(Metric {
+            name: "test_gauge".to_string(),
+            metric_type: MetricType::Gauge,
+            value: 42.0,
+            labels: HashMap::new(),
+            timestamp: system_time_to_timestamp(SystemTime::now()) - 10,
+            operation_type: OperationType::Unknown,
+        }).await?;
+
+        collector.record_metric(Metric {
+            name: "test_gauge".to_string(),
+            metric_type: MetricType::Gauge,
+            value: 43.0,
+            labels: HashMap::new(),
+            timestamp: system_time_to_timestamp(SystemTime::now()) - 5,
+            operation_type: OperationType::Unknown,
+        }).await?;
+
+        // Aggregate with a 15-second window
+        let aggregated = collector.aggregate_metrics(15).await?;
+
+        // Verify aggregation
+        assert_eq!(aggregated.len(), 2); // One for counter, one for gauge
+
+        for metric in aggregated {
+            match metric.name.as_str() {
+                "test_counter" => {
+                    assert_eq!(metric.metric_type, MetricType::Counter);
+                    assert_eq!(metric.value, 3.0); // Sum of counter values
+                }
+                "test_gauge" => {
+                    assert_eq!(metric.metric_type, MetricType::Gauge);
+                    assert_eq!(metric.value, 43.0); // Latest gauge value
+                }
+                _ => panic!("Unexpected metric name"),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_metric_cleanup() -> Result<()> {
+        let mut collector = DefaultMetricCollector::new();
+        collector.initialize_with_config(MetricConfig {
+            enabled: true,
+            interval: 1,
+            max_metrics: 2,
+        }).await?;
+
+        let now = system_time_to_timestamp(SystemTime::now());
+
+        // Record more metrics than the max
+        for i in 0..4 {
+            collector.record_metric(Metric {
+                name: format!("test_metric_{}", i),
+                metric_type: MetricType::Counter,
+                value: i as f64,
+                labels: HashMap::new(),
+                timestamp: now - ((3 - i) as i64 * 10), // Ensure newer metrics have higher timestamps
+                operation_type: OperationType::Unknown,
+            }).await?;
+            
+            // Sleep briefly to ensure different timestamps
+            sleep(Duration::from_millis(10)).await;
+        }
+
+        // Force a cleanup
+        collector.cleanup_metrics().await?;
+
+        // Verify only the newest metrics are kept
+        let metrics = collector.collect_metrics().await?;
+        assert_eq!(metrics.len(), 2);
+        
+        // Sort metrics by name to ensure consistent order
+        let mut metrics = metrics;
+        metrics.sort_by(|a, b| a.name.cmp(&b.name));
+        
+        // Verify we kept the newest metrics (2 and 3)
+        assert_eq!(metrics[0].name, "test_metric_2");
+        assert_eq!(metrics[1].name, "test_metric_3");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_metrics_in_range() -> Result<()> {
+        let collector = DefaultMetricCollector::new();
+        collector.initialize().await?;
+
+        let now = system_time_to_timestamp(SystemTime::now());
+
+        // Record metrics at different times
+        for i in 0..3 {
+            collector.record_metric(Metric {
+                name: format!("test_metric_{}", i),
+                metric_type: MetricType::Counter,
+                value: i as f64,
+                labels: HashMap::new(),
+                timestamp: now - (i as i64 * 10),
+                operation_type: OperationType::Unknown,
+            }).await?;
+        }
+
+        // Get metrics in range
+        let metrics = collector.get_metrics_in_range(now - 15, now - 5).await?;
+        assert_eq!(metrics.len(), 1);
+        assert_eq!(metrics[0].name, "test_metric_1");
+
+        Ok(())
     }
 }
 

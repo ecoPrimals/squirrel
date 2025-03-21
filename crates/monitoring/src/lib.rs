@@ -16,6 +16,29 @@ pub mod alerts;
 pub mod health;
 
 /// Module for metrics collection and reporting
+///
+/// # Examples
+///
+/// ```rust
+/// use squirrel_monitoring::metrics::{Metric, MetricType, DefaultMetricCollector};
+/// use std::collections::HashMap;
+///
+/// # async fn example() -> squirrel_monitoring::Result<()> {
+/// let mut collector = DefaultMetricCollector::new();
+/// collector.initialize().await?;
+///
+/// let metric = Metric::new(
+///     "request_count".to_string(),
+///     1.0,
+///     MetricType::Counter,
+///     HashMap::new(),
+/// );
+///
+/// // Record the metric using the collector's method
+/// collector.record_metric(metric).await?;
+/// # Ok(())
+/// # }
+/// ```
 pub mod metrics;
 
 /// Module for network monitoring

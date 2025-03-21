@@ -10,6 +10,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::{ContextError, ContextState, ContextSnapshot, Result, persistence::PersistenceManager};
+use crate::state::StateStorage;
 
 /// Context manager configuration
 #[derive(Debug, Clone)]
@@ -129,30 +130,27 @@ impl ContextManager {
     /// - Failed to acquire lock
     /// - Failed to persist context
     pub async fn create_context(&self, id: &str, state: ContextState) -> Result<()> {
-        // Ensure we don't exceed max contexts
+        // First check if we can create the context
         {
             let contexts = self.contexts.read().await;
             if contexts.len() >= self.config.max_contexts {
                 return Err(ContextError::InvalidState("Maximum number of contexts reached".to_string()));
             }
             
-            // Check if context already exists
             if contexts.contains_key(id) {
                 return Err(ContextError::InvalidState(format!("Context already exists: {}", id)));
             }
-        }
+        } // Read lock is dropped here
         
-        // Store context in memory
+        // Store context in memory with write lock
         {
             let mut contexts = self.contexts.write().await;
             contexts.insert(id.to_string(), state.clone());
-        }
+        } // Write lock is dropped here
         
-        // Persist to storage if enabled
+        // Persist to storage if enabled (without holding any locks)
         if self.config.persistence_enabled {
             if let Some(persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
                 persistence.save_state(id, &state)?;
             }
         }
@@ -169,22 +167,23 @@ impl ContextManager {
     /// - Failed to acquire lock
     /// - Failed to persist context
     pub async fn update_context_state(&self, id: &str, state: ContextState) -> Result<()> {
-        // Check if context exists and update it
+        // First check if the context exists
         {
-            let mut contexts = self.contexts.write().await;
+            let contexts = self.contexts.read().await;
             if !contexts.contains_key(id) {
                 return Err(ContextError::NotFound(format!("Context not found: {}", id)));
             }
-            
-            // Update context
-            contexts.insert(id.to_string(), state.clone());
-        }
+        } // Read lock is dropped here
         
-        // Persist to storage if enabled
+        // Update context with write lock
+        {
+            let mut contexts = self.contexts.write().await;
+            contexts.insert(id.to_string(), state.clone());
+        } // Write lock is dropped here
+        
+        // Persist to storage if enabled (without holding any locks)
         if self.config.persistence_enabled {
             if let Some(persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
                 persistence.save_state(id, &state)?;
             }
         }
@@ -201,33 +200,30 @@ impl ContextManager {
     /// - Failed to acquire lock
     /// - Failed to delete from persistence
     pub async fn delete_context(&self, id: &str) -> Result<()> {
-        // Check if context exists
+        // First check if the context exists
         {
             let contexts = self.contexts.read().await;
             if !contexts.contains_key(id) {
                 return Err(ContextError::NotFound(format!("Context not found: {}", id)));
             }
-        }
+        } // Read lock is dropped here
         
-        // Remove from memory
+        // Remove from memory with write lock
         {
             let mut contexts = self.contexts.write().await;
             contexts.remove(id);
-        }
+        } // Write lock is dropped here
         
-        // Delete recovery points
+        // Delete recovery points with write lock
         {
             let mut recovery_points = self.recovery_points.write().await;
             recovery_points.remove(id);
-        }
+        } // Write lock is dropped here
         
-        // Delete from persistence if enabled
+        // Delete from persistence if enabled (without holding any locks)
         if self.config.persistence_enabled {
-            if let Some(_persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
-                // In a real implementation, we'd delete the state using the persistence manager
-                // persistence.delete_state(id)?;
+            if let Some(persistence) = &self.persistence {
+                persistence.delete_state(id)?;
             }
         }
         
