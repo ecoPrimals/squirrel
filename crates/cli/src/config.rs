@@ -555,8 +555,8 @@ mod tests {
         assert_eq!(config.output_format, "text");
         assert_eq!(config.mcp_host, "localhost");
         assert_eq!(config.mcp_port, 9000);
-        assert_eq!(config.verbose, false);
-        assert_eq!(config.quiet, false);
+        assert!(!config.verbose);
+        assert!(!config.quiet);
         assert!(config.custom.is_empty());
     }
     

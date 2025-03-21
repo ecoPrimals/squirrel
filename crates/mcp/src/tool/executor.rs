@@ -16,6 +16,9 @@ use crate::tool::{
     ExecutionStatus
 };
 
+/// Type alias for capability handler functions
+pub type CapabilityHandler = Box<dyn Fn(ToolContext) -> Result<serde_json::Value, ToolError> + Send + Sync>;
+
 /// A simple tool executor that performs basic operations
 pub struct BasicToolExecutor {
     /// Tool ID this executor is associated with
@@ -23,7 +26,7 @@ pub struct BasicToolExecutor {
     /// Capabilities this executor can handle
     capabilities: Vec<String>,
     /// Custom handlers for specific capabilities
-    handlers: HashMap<String, Box<dyn Fn(ToolContext) -> Result<serde_json::Value, ToolError> + Send + Sync>>,
+    handlers: HashMap<String, CapabilityHandler>,
 }
 
 impl std::fmt::Debug for BasicToolExecutor {

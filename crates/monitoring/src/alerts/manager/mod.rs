@@ -144,11 +144,7 @@ where
                             status: super::AlertStatus::Active,
                             labels: alert.details.iter()
                                 .filter_map(|(k, v)| {
-                                    if let Some(s) = v.as_str() {
-                                        Some((k.clone(), s.to_string()))
-                                    } else {
-                                        None
-                                    }
+                                    v.as_str().map(|s| (k.clone(), s.to_string()))
                                 })
                                 .collect(),
                             created_at: alert.timestamp.timestamp(),
@@ -207,7 +203,7 @@ where
         // Get the alert
         let mut alerts = self.alerts.write().unwrap();
         let alert = alerts.get_mut(&alert_id)
-            .ok_or_else(|| AlertError::NotFound(alert_id))?;
+            .ok_or(AlertError::NotFound(alert_id))?;
         
         // Acknowledge it
         alert.acknowledge(by);

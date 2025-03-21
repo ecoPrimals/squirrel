@@ -229,11 +229,7 @@ impl From<Alert> for AlertNotification {
             status: AlertStatus::Active,
             labels: alert.details.iter()
                 .filter_map(|(k, v)| {
-                    if let Some(s) = v.as_str() {
-                        Some((k.clone(), s.to_string()))
-                    } else {
-                        None
-                    }
+                    v.as_str().map(|s| (k.clone(), s.to_string()))
                 })
                 .collect(),
             created_at: alert.timestamp.timestamp(),

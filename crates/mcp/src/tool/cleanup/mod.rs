@@ -159,6 +159,12 @@ pub struct ResourceCleanupHook {
     resources: RwLock<HashMap<String, ResourceRecord>>,
 }
 
+impl Default for ResourceCleanupHook {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceCleanupHook {
     /// Creates a new resource cleanup hook
     pub fn new() -> Self {

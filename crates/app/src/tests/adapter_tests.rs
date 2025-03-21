@@ -1,4 +1,4 @@
-//! Tests for the AppAdapter implementation.
+//! Tests for the `AppAdapter` implementation.
 
 #![allow(clippy::module_name_repetitions)]
 
@@ -78,7 +78,7 @@ async fn test_app_adapter_uninitialized_operations() {
                 SquirrelError::AppOperation(AppOperationError::NotInitialized) => {
                     // This is the expected error
                 }
-                _ => panic!("Unexpected error: {:?}", err),
+                _ => panic!("Unexpected error: {err:?}"),
             }
         }
         Ok(_) => panic!("Expected error, got Ok"),

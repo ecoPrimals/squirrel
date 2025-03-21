@@ -10,6 +10,12 @@ use chrono::{DateTime, Utc};
 
 use crate::tool::{Tool, ToolError, ToolState, ToolLifecycleHook};
 
+/// Type alias for tool error history entry
+pub type ErrorHistoryEntry = (DateTime<Utc>, ToolError);
+
+/// Type alias for tool error history map
+pub type ErrorHistoryMap = HashMap<String, Vec<ErrorHistoryEntry>>;
+
 /// Recovery strategy type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryStrategy {
@@ -52,7 +58,7 @@ struct RecoveryAttempt {
 #[derive(Debug)]
 pub struct RecoveryHook {
     /// Tool error history
-    error_history: RwLock<HashMap<String, Vec<(DateTime<Utc>, ToolError)>>>,
+    error_history: RwLock<ErrorHistoryMap>,
     /// Recovery attempts history
     recovery_history: RwLock<HashMap<String, Vec<RecoveryAttempt>>>,
     /// Maximum number of recovery attempts before unregistering
@@ -61,6 +67,12 @@ pub struct RecoveryHook {
     retry_interval_ms: u64,
     /// Penalty timeout for failed recovery (milliseconds)
     penalty_timeout_ms: u64,
+}
+
+impl Default for RecoveryHook {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RecoveryHook {

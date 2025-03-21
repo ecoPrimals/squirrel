@@ -467,7 +467,7 @@ impl NotificationManager {
                 (LegacyAlertSeverity::Critical, s) if s != LegacyAlertSeverity::Critical => return false,
                 (LegacyAlertSeverity::High, s) if s != LegacyAlertSeverity::High && s != LegacyAlertSeverity::Critical => return false,
                 (LegacyAlertSeverity::Medium, s) if s == LegacyAlertSeverity::Low || s == LegacyAlertSeverity::Warning => return false,
-                (LegacyAlertSeverity::Warning, s) if s == LegacyAlertSeverity::Low => return false,
+                (LegacyAlertSeverity::Warning, LegacyAlertSeverity::Low) => return false,
                 _ => {}
             }
         }

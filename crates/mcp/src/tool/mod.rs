@@ -285,14 +285,17 @@ impl ToolManager {
             lifecycle_hook: Arc::new(lifecycle_hook),
         }
     }
-    
-    /// Creates a new tool manager with default lifecycle hooks
-    pub fn default() -> Self {
+}
+
+impl Default for ToolManager {
+    fn default() -> Self {
         let mut composite_hook = CompositeLifecycleHook::new();
         composite_hook.add_hook(BasicLifecycleHook::new());
         Self::new(composite_hook)
     }
-    
+}
+
+impl ToolManager {
     /// Registers a tool
     #[instrument(skip(self, tool, executor))]
     pub async fn register_tool(

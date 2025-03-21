@@ -16,13 +16,25 @@ use crate::tool::{
     ToolState,
 };
 
+/// Type alias for tool state history entries
+pub type StateHistoryEntry = (ToolState, chrono::DateTime<Utc>);
+
+/// Type alias for tool state history map
+pub type StateHistoryMap = HashMap<String, Vec<StateHistoryEntry>>;
+
 /// A basic tool lifecycle hook that logs events and maintains state history
 #[derive(Debug)]
 pub struct BasicLifecycleHook {
     /// History of state changes for each tool
-    state_history: Arc<RwLock<HashMap<String, Vec<(ToolState, chrono::DateTime<Utc>)>>>>,
+    state_history: Arc<RwLock<StateHistoryMap>>,
     /// Maximum history entries to keep per tool
     max_history_entries: usize,
+}
+
+impl Default for BasicLifecycleHook {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BasicLifecycleHook {
@@ -129,6 +141,12 @@ pub struct SecurityLifecycleHook {
     allowed_tool_ids: Vec<String>,
     /// Whether to enforce allowed tool IDs
     enforce_allowed_tools: bool,
+}
+
+impl Default for SecurityLifecycleHook {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SecurityLifecycleHook {
