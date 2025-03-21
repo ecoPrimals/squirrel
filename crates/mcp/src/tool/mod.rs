@@ -8,10 +8,16 @@ pub mod executor;
 pub mod lifecycle;
 pub mod cleanup;
 
-// Re-export implementations
-pub use executor::{BasicToolExecutor, RemoteToolExecutor};
-pub use lifecycle::{BasicLifecycleHook, SecurityLifecycleHook, CompositeLifecycleHook};
-pub use cleanup::{ResourceCleanupHook, RecoveryHook, ResourceUsage, ResourceLimits, RecoveryStrategy};
+// Re-export implementations from modules
+pub use self::executor::{BasicToolExecutor, RemoteToolExecutor};
+pub use self::lifecycle::{BasicLifecycleHook, CompositeLifecycleHook};
+pub use self::cleanup::{
+    ResourceCleanupHook, BasicResourceCleanupHook, EnhancedResourceCleanupHook,
+    ResourceTracker, ResourceStatus, ResourceEvent, ResourceType, 
+    ResourceUsage, ResourceLimits
+};
+// Import RecoveryHook from the cleanup module
+pub use self::cleanup::recovery::RecoveryHook;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -289,9 +295,16 @@ impl ToolManager {
 
 impl Default for ToolManager {
     fn default() -> Self {
-        let mut composite_hook = CompositeLifecycleHook::new();
-        composite_hook.add_hook(BasicLifecycleHook::new());
-        Self::new(composite_hook)
+        // Create a composite lifecycle hook with basic functionality
+        let mut lifecycle_hook = CompositeLifecycleHook::new();
+        
+        lifecycle_hook.add_hook(BasicLifecycleHook::new());
+        lifecycle_hook.add_hook(RecoveryHook::new());
+        
+        // Add the enhanced resource hook
+        lifecycle_hook.add_hook(EnhancedResourceCleanupHook::new());
+        
+        Self::new(lifecycle_hook)
     }
 }
 
