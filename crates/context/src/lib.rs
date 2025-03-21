@@ -1,104 +1,119 @@
-//! Context management system for Squirrel
+//! Context management system
 //!
-//! This crate provides functionality for managing application context,
-//! including state tracking, persistence, and recovery.
+//! This crate provides a robust context management system for tracking,
+//! persisting, and synchronizing application state.
 
-use thiserror::Error;
-use serde::{Serialize, Deserialize};
+use std::sync::Arc;
+use std::fmt;
 
-/// Module for context state management
+// Internal modules
 pub mod state;
-
-/// Module for context tracking
+pub mod manager;
 pub mod tracker;
-
-/// Module for context persistence
 pub mod persistence;
-
-/// Module for context recovery
 pub mod recovery;
+pub mod adapter;
 
-/// Module for context synchronization
-pub mod sync;
+// Public re-exports
+pub use manager::{ContextManager, ContextManagerConfig};
+pub use tracker::{ContextTracker, ContextTrackerFactory, ContextTrackerConfig};
+pub use state::{State as ContextState, StateSnapshot as ContextSnapshot};
+pub use adapter::{ContextAdapter, ContextAdapterConfig, ContextStatus};
 
-/// Module for error types
-pub mod error;
-
-/// Errors that can occur during context operations
-#[derive(Debug, Error)]
+/// Error types for context operations
+#[derive(Debug, PartialEq, Eq)]
 pub enum ContextError {
-    /// Error related to state operations
-    #[error("State error: {0}")]
-    StateError(String),
-    
-    /// Error related to persistence operations
-    #[error("Persistence error: {0}")]
-    PersistenceError(String),
-    
-    /// Error related to recovery operations
-    #[error("Recovery error: {0}")]
-    RecoveryError(String),
-    
-    /// Error when a snapshot is not found
-    #[error("Snapshot not found: {0}")]
-    SnapshotNotFound(String),
-
-    /// Error related to invalid state
-    #[error("Invalid state: {0}")]
+    /// Not initialized
+    NotInitialized(String),
+    /// Invalid state
     InvalidState(String),
-
-    /// Error related to synchronization operations
-    #[error("Synchronization error: {0}")]
-    SyncError(String),
-
-    /// Error when no valid snapshot is found
-    #[error("No valid snapshot: {0}")]
-    NoValidSnapshot(String),
-    
-    /// Error when the context is not initialized
-    #[error("Context not initialized")]
-    NotInitialized,
+    /// Persistence error
+    Persistence(String),
+    /// State error
+    StateError(String),
+    /// State not found
+    NotFound(String),
+    /// Snapshot not found
+    SnapshotNotFound(String),
+    /// No recovery points available
+    NoRecoveryPoints(String),
 }
 
-/// Result type for context operations
+// Implement Display for ContextError
+impl fmt::Display for ContextError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ContextError::NotInitialized(msg) => write!(f, "Not initialized: {}", msg),
+            ContextError::InvalidState(msg) => write!(f, "Invalid state: {}", msg),
+            ContextError::Persistence(msg) => write!(f, "Persistence error: {}", msg),
+            ContextError::StateError(msg) => write!(f, "State error: {}", msg),
+            ContextError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            ContextError::SnapshotNotFound(msg) => write!(f, "Snapshot not found: {}", msg),
+            ContextError::NoRecoveryPoints(msg) => write!(f, "No recovery points: {}", msg),
+        }
+    }
+}
+
+// Implement std::error::Error for ContextError
+impl std::error::Error for ContextError {}
+
+/// Result type alias
 pub type Result<T> = std::result::Result<T, ContextError>;
 
-/// Manager for context module
-pub mod manager;
-
-/// Public exports for commonly used types
-pub use persistence::PersistenceManager;
-pub use tracker::ContextTracker;
-
-/// Context state snapshot representation
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContextSnapshot {
-    /// Unique identifier for the snapshot
-    pub id: String,
-    /// Timestamp when the snapshot was created
-    pub timestamp: u64,
-    /// Serialized state data
-    pub data: Vec<u8>,
+/// Create a new context manager with default configuration
+///
+/// # Returns
+///
+/// A new context manager instance with default configuration
+#[must_use]
+pub fn create_manager() -> Arc<ContextManager> {
+    Arc::new(ContextManager::new())
 }
 
-/// Context state representation
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ContextState {
-    /// Current version of the state
-    pub version: u64,
-    /// Timestamp of the last update - also accessible as last_modified for compatibility
-    #[serde(rename = "last_modified")]
-    pub last_updated: u64,
-    /// State data
-    pub data: Vec<u8>,
+/// Create a new context manager with custom configuration
+///
+/// # Arguments
+///
+/// * `config` - Configuration for the context manager
+///
+/// # Returns
+///
+/// A new context manager instance with the specified configuration
+#[must_use]
+pub fn create_manager_with_config(config: ContextManagerConfig) -> Arc<ContextManager> {
+    Arc::new(ContextManager::with_config(config))
 }
 
-impl ContextState {
-    /// Get the last modified timestamp
-    #[must_use]
-    pub fn last_modified(&self) -> u64 {
-        self.last_updated
-    }
+/// Create a new context adapter with default configuration
+///
+/// # Arguments
+///
+/// * `manager` - Reference to a context manager
+///
+/// # Returns
+///
+/// A new context adapter instance with default configuration
+#[must_use]
+pub fn create_adapter(manager: Arc<ContextManager>) -> ContextAdapter {
+    ContextAdapter::new(manager)
+}
+
+/// Create a new context adapter with custom configuration
+///
+/// # Arguments
+///
+/// * `manager` - Reference to a context manager
+/// * `config` - Configuration for the context adapter
+///
+/// # Returns
+///
+/// A new context adapter instance with the specified configuration
+#[must_use]
+pub fn create_adapter_with_config(
+    manager: Arc<ContextManager>,
+    config: ContextAdapterConfig,
+) -> ContextAdapter {
+    ContextAdapter::with_config(manager, config)
 }
 
 #[cfg(test)]
