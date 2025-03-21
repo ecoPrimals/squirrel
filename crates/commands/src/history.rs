@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use log::{debug, warn};
+use tracing::{debug, warn};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

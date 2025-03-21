@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use log::{debug, info, warn, error};
+use tracing::{debug, info, warn, error};
 
 use crate::{Command, CommandResult, CommandError};
 use super::registry::CommandRegistry;
