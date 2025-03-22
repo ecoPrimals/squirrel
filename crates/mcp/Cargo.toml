@@ -30,6 +30,7 @@ anyhow = { workspace = true }
 sysinfo = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
+reqwest = { workspace = true }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }

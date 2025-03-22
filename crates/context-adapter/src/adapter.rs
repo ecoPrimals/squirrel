@@ -3,6 +3,21 @@
 //! This module provides an adapter layer between the general context system
 //! and the MCP-specific context requirements. It establishes a clear boundary
 //! between these systems and enables proper separation of concerns.
+//!
+//! ## Concurrency and Locking
+//!
+//! The context adapter uses tokio's asynchronous locks (`RwLock`) to ensure 
+//! thread safety while maintaining good performance in an async environment. 
+//! Key locking practices implemented in this module:
+//!
+//! - Using scope-based locking to minimize lock duration
+//! - Avoiding holding locks across `.await` points
+//! - Using read locks for operations that don't modify data
+//! - Using write locks for operations that modify data
+//! - Dropping locks explicitly before async operations
+//!
+//! When working with the context adapter in asynchronous code, it's important to
+//! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -100,19 +115,32 @@ impl Default for ContextAdapter {
 impl ContextAdapter {
     /// Creates a new context
     ///
+    /// This method creates a new context with the specified ID and data.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock 
+    /// 3. Using separate lock scopes to minimize lock duration
+    ///
     /// # Errors
     ///
     /// Returns an error if the maximum number of contexts has been reached.
     pub async fn create_context(&self, id: String, data: Value) -> Result<()> {
-        let config = self.config.read().await;
-        let mut contexts = self.contexts.write().await;
+        // First check if we can create the context
+        let max_contexts = {
+            let config = self.config.read().await;
+            config.max_contexts
+        }; // Config lock is dropped here
+        
+        {
+            let contexts = self.contexts.read().await;
+            if contexts.len() >= max_contexts {
+                return Err(SquirrelError::Other(
+                    ContextAdapterError::OperationFailed("Maximum number of contexts reached".to_string()).to_string()
+                ));
+            }
+        } // Read lock is dropped here
 
-        if contexts.len() >= config.max_contexts {
-            return Err(SquirrelError::Other(
-                ContextAdapterError::OperationFailed("Maximum number of contexts reached".to_string()).to_string()
-            ));
-        }
-
+        // Create the context with write lock
         let now = Utc::now();
         let context_data = AdapterContextData {
             id: id.clone(),
@@ -121,6 +149,7 @@ impl ContextAdapter {
             updated_at: now,
         };
 
+        let mut contexts = self.contexts.write().await;
         contexts.insert(id, context_data);
         Ok(())
     }
@@ -216,38 +245,50 @@ impl ContextAdapter {
 
     /// Cleans up expired contexts
     ///
+    /// This method removes contexts that have exceeded their time-to-live.
+    /// It follows best practices for async lock management by:
+    /// 1. Reading configuration without holding the contexts lock
+    /// 2. Creating a list of expired IDs before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    ///
     /// # Errors
     ///
     /// This function does not currently return errors, but maintains the Result
     /// return type for compatibility with other methods and potential future error cases.
     pub async fn cleanup_expired_contexts(&self) -> Result<()> {
-        let config = {
-            let config_guard = self.config.read().await;
-            config_guard.clone()
-        };
+        // Get the TTL from config
+        let ttl_seconds = {
+            let config = self.config.read().await;
+            config.ttl_seconds
+        }; // Config lock is dropped here
         
-        if !config.enable_auto_cleanup {
-            return Ok(());
-        }
-
+        // Get current time
         let now = Utc::now();
-        let mut contexts = self.contexts.write().await;
         
-        let mut to_remove = Vec::new();
+        // Collect expired context IDs
+        let expired_ids = {
+            let contexts = self.contexts.read().await;
+            contexts
+                .iter()
+                .filter_map(|(id, data)| {
+                    let age = now.signed_duration_since(data.updated_at);
+                    if age.num_seconds() > ttl_seconds as i64 {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<String>>()
+        }; // Read lock is dropped here
         
-        for (id, context) in contexts.iter() {
-            let age = now.signed_duration_since(context.updated_at);
-            if let Ok(ttl) = i64::try_from(config.ttl_seconds) {
-                if age.num_seconds() >= ttl {
-                    to_remove.push(id.clone());
-                }
+        // Remove expired contexts
+        if !expired_ids.is_empty() {
+            let mut contexts = self.contexts.write().await;
+            for id in expired_ids {
+                contexts.remove(&id);
             }
-        }
+        } // Write lock is dropped here
         
-        for id in to_remove {
-            contexts.remove(&id);
-        }
-
         Ok(())
     }
 
@@ -310,4 +351,4 @@ pub fn create_context_adapter() -> Arc<ContextAdapter> {
 #[must_use]
 pub fn create_context_adapter_with_config(config: ContextAdapterConfig) -> Arc<ContextAdapter> {
     ContextAdapterFactory::create_adapter_with_config(config)
-} 
+}

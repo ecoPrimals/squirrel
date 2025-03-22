@@ -1,6 +1,21 @@
 //! Context tracking functionality
 //!
 //! This module provides functionality for tracking context changes.
+//!
+//! ## Concurrency and Locking
+//!
+//! The context tracker uses tokio's asynchronous locks (`Mutex`, `RwLock`) to ensure 
+//! thread safety while maintaining good performance in an async environment. 
+//! Key locking practices implemented in this module:
+//!
+//! - Using scope-based locking to minimize lock duration
+//! - Avoiding holding locks across `.await` points
+//! - Using read locks for operations that don't modify data
+//! - Using write locks for operations that modify data
+//! - Dropping locks explicitly before async operations
+//!
+//! When working with the context tracker in asynchronous code, it's important to
+//! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
@@ -83,26 +98,44 @@ impl ContextTracker {
     }
 
     /// Update the current state
+    ///
+    /// This method updates the current context state.
+    /// It follows best practices for async lock management by:
+    /// 1. Acquiring a lock only to read the current state
+    /// 2. Dropping the lock before conditional logic
+    /// 3. Acquiring a separate lock for the update operation
+    /// 4. Using separate lock scopes to minimize lock duration
+    /// 5. Not holding any locks during manager operations
+    ///
+    /// # Errors
+    ///
+    /// Returns errors when:
+    /// - Failed to acquire lock
+    /// - Failed to create recovery point (if auto_recovery is enabled)
     pub async fn update_state(&self, state: ContextState) -> Result<()> {
-        let mut current_state = self.state.lock().await;
+        // First check if we need to update
+        let should_update = {
+            let current_state = self.state.lock().await;
+            state.version > current_state.version
+        }; // Lock is dropped here
         
-        // Only update if the new state has a higher version
-        if state.version > current_state.version {
-            *current_state = state;
+        if should_update {
+            // Update the state
+            {
+                let mut current_state = self.state.lock().await;
+                *current_state = state.clone();
+            } // Lock is dropped here
             
             // Update the last sync time
             {
                 let mut last_sync = self.last_sync.write().await;
                 *last_sync = Instant::now();
-            }
+            } // Lock is dropped here
             
             // Trigger automatic recovery point if enabled
             if self.config.auto_recovery {
                 if let Some(manager) = &self.manager {
-                    // Drop the current_state guard before calling async manager methods
-                    drop(current_state);
-                    
-                    // Get state again for recovery point
+                    // Get state for recovery point
                     let state = self.get_state().await?;
                     
                     // Create recovery point
@@ -153,27 +186,39 @@ impl ContextTracker {
     }
     
     /// Synchronize state with persistence
+    ///
+    /// This method synchronizes the current state with the manager.
+    /// It follows best practices for async lock management by:
+    /// 1. Getting references outside of locks
+    /// 2. Getting state without holding other locks
+    /// 3. Reading active context ID without holding state lock
+    /// 4. Using separate lock scopes to minimize lock duration
+    /// 5. Not holding any locks during manager operations
+    ///
+    /// # Errors
+    ///
+    /// Returns errors when:
+    /// - No active context
+    /// - Context manager not set
+    /// - Failed to acquire lock
+    /// - Failed to update context state
     pub async fn sync_state(&self) -> Result<()> {
         if let Some(manager) = &self.manager {
             // Get the current state
             let state = self.get_state().await?;
             
-            // If we have an active context, sync to that ID
-            let active_id = self.active_context_id.read().await;
-            if let Some(id) = &*active_id {
-                // Clone the ID to avoid borrow issues
-                let id_clone = id.clone();
-                // Drop the guard to avoid holding it during async calls
-                drop(active_id);
-                
+            // Get active context ID without holding lock across await
+            let active_id_option = self.active_context_id.read().await.clone();
+            
+            if let Some(id) = active_id_option {
                 // Update the context state in the manager
-                manager.update_context_state(&id_clone, state).await?;
+                manager.update_context_state(&id, state).await?;
                 
                 // Update the last sync time
                 {
                     let mut last_sync = self.last_sync.write().await;
                     *last_sync = Instant::now();
-                }
+                } // Lock is dropped here
                 
                 return Ok(());
             }

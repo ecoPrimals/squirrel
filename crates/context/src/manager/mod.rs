@@ -2,6 +2,21 @@
 //!
 //! This module provides context management functionality for storing, retrieving,
 //! and synchronizing context data across the application.
+//!
+//! ## Concurrency and Locking
+//!
+//! The context manager uses tokio's asynchronous locks (`RwLock`, `Mutex`) to ensure 
+//! thread safety while maintaining good performance in an async environment. 
+//! Key locking practices implemented in this module:
+//!
+//! - Using scope-based locking to minimize lock duration
+//! - Avoiding holding locks across `.await` points 
+//! - Using read locks for operations that don't modify data
+//! - Using write locks for operations that modify data
+//! - Dropping locks explicitly before async operations
+//!
+//! When working with the context manager in asynchronous code, it's important to
+//! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -10,6 +25,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::{ContextError, ContextState, ContextSnapshot, Result, persistence::PersistenceManager};
+use crate::state::StateStorage;
 
 /// Context manager configuration
 #[derive(Debug, Clone)]
@@ -121,6 +137,13 @@ impl ContextManager {
     
     /// Create a new context with the given ID and state
     ///
+    /// This method creates a new context with the specified ID and initial state.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
+    ///
     /// # Errors
     ///
     /// Returns errors when:
@@ -129,30 +152,27 @@ impl ContextManager {
     /// - Failed to acquire lock
     /// - Failed to persist context
     pub async fn create_context(&self, id: &str, state: ContextState) -> Result<()> {
-        // Ensure we don't exceed max contexts
+        // First check if we can create the context
         {
             let contexts = self.contexts.read().await;
             if contexts.len() >= self.config.max_contexts {
                 return Err(ContextError::InvalidState("Maximum number of contexts reached".to_string()));
             }
             
-            // Check if context already exists
             if contexts.contains_key(id) {
                 return Err(ContextError::InvalidState(format!("Context already exists: {}", id)));
             }
-        }
+        } // Read lock is dropped here
         
-        // Store context in memory
+        // Store context in memory with write lock
         {
             let mut contexts = self.contexts.write().await;
             contexts.insert(id.to_string(), state.clone());
-        }
+        } // Write lock is dropped here
         
-        // Persist to storage if enabled
+        // Persist to storage if enabled (without holding any locks)
         if self.config.persistence_enabled {
             if let Some(persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
                 persistence.save_state(id, &state)?;
             }
         }
@@ -160,74 +180,84 @@ impl ContextManager {
         Ok(())
     }
     
-    /// Update a context state
+    /// Update an existing context state
+    ///
+    /// This method updates an existing context with a new state.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
     ///
     /// # Errors
     ///
     /// Returns errors when:
     /// - Context not found
     /// - Failed to acquire lock
-    /// - Failed to persist context
     pub async fn update_context_state(&self, id: &str, state: ContextState) -> Result<()> {
-        // Check if context exists and update it
-        {
-            let mut contexts = self.contexts.write().await;
-            if !contexts.contains_key(id) {
-                return Err(ContextError::NotFound(format!("Context not found: {}", id)));
-            }
-            
-            // Update context
-            contexts.insert(id.to_string(), state.clone());
-        }
-        
-        // Persist to storage if enabled
-        if self.config.persistence_enabled {
-            if let Some(persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
-                persistence.save_state(id, &state)?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Delete a context
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found
-    /// - Failed to acquire lock
-    /// - Failed to delete from persistence
-    pub async fn delete_context(&self, id: &str) -> Result<()> {
-        // Check if context exists
+        // First check if the context exists
         {
             let contexts = self.contexts.read().await;
             if !contexts.contains_key(id) {
                 return Err(ContextError::NotFound(format!("Context not found: {}", id)));
             }
+        } // Read lock is dropped here
+        
+        // Update context with write lock
+        {
+            let mut contexts = self.contexts.write().await;
+            contexts.insert(id.to_string(), state.clone());
+        } // Write lock is dropped here
+        
+        // Persist to storage if enabled (without holding any locks)
+        if self.config.persistence_enabled {
+            if let Some(persistence) = &self.persistence {
+                persistence.save_state(id, &state)?;
+            }
         }
         
-        // Remove from memory
+        Ok(())
+    }
+    
+    /// Delete a context by ID
+    ///
+    /// This method removes a context from the manager.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
+    ///
+    /// # Errors
+    ///
+    /// Returns errors when:
+    /// - Context not found
+    /// - Failed to acquire lock
+    pub async fn delete_context(&self, id: &str) -> Result<()> {
+        // First check if the context exists
+        {
+            let contexts = self.contexts.read().await;
+            if !contexts.contains_key(id) {
+                return Err(ContextError::NotFound(format!("Context not found: {}", id)));
+            }
+        } // Read lock is dropped here
+        
+        // Remove context with write lock
         {
             let mut contexts = self.contexts.write().await;
             contexts.remove(id);
-        }
+        } // Write lock is dropped here
         
-        // Delete recovery points
+        // Remove from recovery points with separate write lock
         {
             let mut recovery_points = self.recovery_points.write().await;
             recovery_points.remove(id);
-        }
+        } // Write lock is dropped here
         
-        // Delete from persistence if enabled
+        // Remove from persistence if enabled (without holding any locks)
         if self.config.persistence_enabled {
-            if let Some(_persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
-                // In a real implementation, we'd delete the state using the persistence manager
-                // persistence.delete_state(id)?;
+            if let Some(persistence) = &self.persistence {
+                persistence.delete_state(id)?;
             }
         }
         

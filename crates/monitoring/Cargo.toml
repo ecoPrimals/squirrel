@@ -9,6 +9,7 @@ description = "Monitoring and metrics system for Squirrel"
 # Core dependencies
 tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true }
+futures-util = { version = "0.3", features = ["sink"] }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
@@ -22,17 +23,28 @@ reqwest = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
-log = "0.4"
+opentelemetry-jaeger = { workspace = true }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["cors"] }
+tower = "0.4"
+rand = "0.8"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
 time.workspace = true
+log = { version = "0.4.26", default-features = false }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 mockall = { workspace = true }
 proptest = { workspace = true }
+tokio-tungstenite = "0.21"
+url = "2.5"
 
 [lib]
 name = "squirrel_monitoring"
-path = "src/lib.rs" 
+path = "src/lib.rs"
+
+[[example]]
+name = "websocket_client"
+path = "examples/websocket_client.rs" 

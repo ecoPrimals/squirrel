@@ -15,6 +15,9 @@ pub mod commands;
 /// MCP module
 pub mod mcp;
 
+/// Plugin system
+pub mod plugins;
+
 /// Re-export types from dependencies
 pub use squirrel_commands::{Command, CommandResult};
 

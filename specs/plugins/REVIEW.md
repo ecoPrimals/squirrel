@@ -26,6 +26,7 @@ The plugin system specifications are approximately 40% complete, with well-struc
 | [ui-plugins.md](ui-plugins.md) | ✅ Complete | UI plugin types and implementation details |
 | [mcp-plugins.md](mcp-plugins.md) | 🔄 Partial | MCP plugin types (missing implementation details) |
 | [tool-plugins.md](tool-plugins.md) | 🔄 Partial | Tool plugin types (missing implementation details) |
+| [plugin-state-persistence.md](plugin-state-persistence.md) | ✅ Complete | State persistence architecture and implementation details |
 | [security.md](security.md) | ❌ Missing | Security model for the plugin system |
 | [testing.md](testing.md) | ❌ Missing | Testing requirements and strategies |
 | [development.md](development.md) | ❌ Missing | Development guidelines and best practices |

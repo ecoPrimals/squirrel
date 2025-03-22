@@ -30,6 +30,14 @@ pub enum CoreError {
     /// A command error occurred
     #[error("Command error: {0}")]
     Command(String),
+    
+    /// A serialization/deserialization error occurred
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    
+    /// A plugin error occurred
+    #[error("Plugin error: {0}")]
+    Plugin(String),
 }
 
 /// A Result type alias for core error handling
@@ -55,6 +63,12 @@ impl From<EventError> for CoreError {
     }
 }
 
+impl From<crate::plugin::PluginError> for CoreError {
+    fn from(err: crate::plugin::PluginError) -> Self {
+        Self::Plugin(err.to_string())
+    }
+}
+
 impl From<SquirrelError> for CoreError {
     fn from(err: SquirrelError) -> Self {
         match err {
@@ -64,5 +78,17 @@ impl From<SquirrelError> for CoreError {
             SquirrelError::Alert(msg) => Self::Monitoring(format!("Alert: {msg}")),
             _ => Self::Config(format!("Core: {err}")),
         }
+    }
+}
+
+impl From<serde_json::Error> for CoreError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Serialization(format!("JSON error: {err}"))
+    }
+}
+
+impl From<toml::de::Error> for CoreError {
+    fn from(err: toml::de::Error) -> Self {
+        Self::Serialization(format!("TOML error: {err}"))
     }
 } 

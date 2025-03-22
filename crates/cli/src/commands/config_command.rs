@@ -5,10 +5,11 @@
 use clap::{Args, Subcommand, FromArgMatches};
 use std::path::{PathBuf, Path};
 use log::debug;
+use serde::Serialize;
 
-use squirrel_commands::{Command, CommandResult, CommandError};
+use squirrel_commands::{Command, CommandError};
 use crate::config::{ConfigManager, ConfigError};
-use crate::formatter::{OutputFormatter, FormatterError};
+use crate::formatter::{FormatterFactory, OutputFormat, Formatter};
 
 /// Configuration command arguments
 #[derive(Debug, Args)]
@@ -69,6 +70,17 @@ pub enum ConfigSubcommand {
     },
 }
 
+#[derive(Debug, Serialize)]
+struct ConfigValue {
+    key: String,
+    value: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ConfigList {
+    values: Vec<ConfigValue>,
+}
+
 /// Command for managing configuration
 #[derive(Debug, Clone)]
 pub struct ConfigCommand;
@@ -88,7 +100,7 @@ impl Command for ConfigCommand {
         "Manage CLI configuration"
     }
     
-    fn execute(&self, args: &[String]) -> CommandResult<String> {
+    fn execute(&self, args: &[String]) -> Result<String, CommandError> {
         debug!("Executing config command with args: {:?}", args);
         
         // Parse arguments using clap
@@ -109,25 +121,23 @@ impl Command for ConfigCommand {
             }
         };
         
-        // Create an output formatter using the configuration's output format
-        let output_format = match config_manager.get("output_format") {
-            Ok(format) => format,
-            Err(_) => "text".to_string(), // Default to text if not found
+        // Determine output format
+        let format = if args.contains(&"--json".to_string()) {
+            OutputFormat::Json
+        } else if args.contains(&"--yaml".to_string()) {
+            OutputFormat::Yaml
+        } else if args.contains(&"--table".to_string()) {
+            OutputFormat::Table
+        } else {
+            OutputFormat::Text
         };
         
-        let formatter = match OutputFormatter::from_format_str(&output_format) {
-            Ok(fmt) => fmt,
-            Err(e) => {
-                return Err(CommandError::ExecutionError(
-                    format!("Failed to create output formatter: {}", e)
-                ));
-            }
-        };
+        let formatter = FormatterFactory::create(format);
         
         // Process subcommand
         match &config_args.subcommand {
-            ConfigSubcommand::Get { .. } => {
-                self.handle_get(&config_args, &config_manager, &formatter)
+            ConfigSubcommand::Get { key } => {
+                self.handle_get(&config_manager, key, &formatter)
             },
             ConfigSubcommand::Set { key, value } => {
                 self.handle_set(&mut config_manager, key, value)
@@ -148,7 +158,24 @@ impl Command for ConfigCommand {
     }
     
     fn parser(&self) -> clap::Command {
-        ConfigArgs::augment_args(clap::Command::new("config").about("Manage configuration"))
+        let mut cmd = ConfigArgs::augment_args(clap::Command::new("config").about("Manage configuration"));
+        
+        // Add output format arguments
+        cmd = cmd
+            .arg(clap::Arg::new("json")
+                .long("json")
+                .help("Output in JSON format")
+                .conflicts_with_all(["yaml", "table"]))
+            .arg(clap::Arg::new("yaml")
+                .long("yaml")
+                .help("Output in YAML format")
+                .conflicts_with_all(["json", "table"]))
+            .arg(clap::Arg::new("table")
+                .long("table")
+                .help("Output in table format")
+                .conflicts_with_all(["json", "yaml"]));
+        
+        cmd
     }
     
     fn clone_box(&self) -> Box<dyn Command> {
@@ -165,35 +192,31 @@ impl ConfigCommand {
     /// Handle the 'get' subcommand
     fn handle_get(
         &self,
-        args: &ConfigArgs,
         config_manager: &ConfigManager,
-        formatter: &OutputFormatter,
-    ) -> CommandResult<String> {
-        if let ConfigSubcommand::Get { key } = &args.subcommand {
-            debug!("Getting configuration value for key: {}", key);
-            
-            match config_manager.get(key) {
-                Ok(value) => {
-                    let formatted = formatter.format_value(&serde_json::Value::String(value))
-                        .map_err(|e: FormatterError| CommandError::ExecutionError(e.to_string()))?;
-                    Ok(format!("{}={}", key, formatted))
-                },
-                Err(ConfigError::KeyNotFound(_)) => {
-                    Err(CommandError::ExecutionError(
-                        format!("Configuration key '{}' not found", key)
-                    ))
-                },
-                Err(e) => {
-                    Err(CommandError::ExecutionError(
-                        format!("Error getting configuration: {}", e)
-                    ))
-                },
-            }
-        } else {
-            // This should never happen if called correctly
-            Err(CommandError::ExecutionError(
-                "Invalid subcommand for handle_get".to_string()
-            ))
+        key: &str,
+        formatter: &Formatter,
+    ) -> Result<String, CommandError> {
+        debug!("Getting configuration value for key: {}", key);
+        
+        match config_manager.get(key) {
+            Ok(value) => {
+                let config_value = ConfigValue {
+                    key: key.to_string(),
+                    value: value.clone(),
+                };
+                formatter.format(config_value)
+                    .map_err(|e| CommandError::ExecutionError(e.to_string()))
+            },
+            Err(ConfigError::KeyNotFound(_)) => {
+                Err(CommandError::ExecutionError(
+                    format!("Configuration key '{}' not found", key)
+                ))
+            },
+            Err(e) => {
+                Err(CommandError::ExecutionError(
+                    format!("Error getting configuration: {}", e)
+                ))
+            },
         }
     }
     
@@ -203,7 +226,7 @@ impl ConfigCommand {
         config_manager: &mut ConfigManager,
         key: &str,
         value: &str,
-    ) -> CommandResult<String> {
+    ) -> Result<String, CommandError> {
         debug!("Setting configuration value: {} = {}", key, value);
         
         match config_manager.set(key, value.to_string()) {
@@ -229,87 +252,43 @@ impl ConfigCommand {
     fn handle_list(
         &self,
         config_manager: &ConfigManager,
-        formatter: &OutputFormatter,
+        formatter: &Formatter,
         filter: &Option<String>,
-    ) -> CommandResult<String> {
+    ) -> Result<String, CommandError> {
         debug!("Listing configuration values with filter: {:?}", filter);
         
         // Get all configuration values
         let all_values = config_manager.list();
         
         // Apply filter if specified
-        let filtered_values: Vec<(String, String)> = if let Some(prefix) = filter {
+        let filtered_values: Vec<ConfigValue> = if let Some(prefix) = filter {
             all_values
                 .into_iter()
                 .filter(|(key, _)| key.starts_with(prefix))
+                .map(|(key, value)| ConfigValue { key, value })
                 .collect()
         } else {
-            all_values.into_iter().collect()
+            all_values
+                .into_iter()
+                .map(|(key, value)| ConfigValue { key, value })
+                .collect()
         };
         
-        // Format the results
-        let mut result = String::new();
-        for (key, value) in filtered_values {
-            let formatted_value = formatter.format_value(&serde_json::Value::String(value))
-                .map_err(|e: FormatterError| CommandError::ExecutionError(e.to_string()))?;
-            result.push_str(&format!("{}={}\n", key, formatted_value));
-        }
+        let config_list = ConfigList {
+            values: filtered_values,
+        };
         
-        if result.is_empty() {
-            if let Some(filter_value) = filter {
-                result = format!("No configuration values found with prefix '{}'", filter_value);
-            } else {
-                result = "No configuration values found".to_string();
-            }
-        } else {
-            // Remove trailing newline
-            result.pop();
-        }
-        
-        Ok(result)
+        formatter.format(config_list)
+            .map_err(|e| CommandError::ExecutionError(e.to_string()))
     }
     
     /// Handle the 'edit' subcommand
     fn handle_edit(
         &self,
-        config_manager: &ConfigManager,
-    ) -> CommandResult<String> {
-        debug!("Editing configuration file");
-        
-        // Check if config file exists
-        let config_path = if let Some(path) = config_manager.config_path() {
-            path.clone()
-        } else {
-            return Err(CommandError::ExecutionError(
-                "No configuration file found to edit".to_string()
-            ));
-        };
-        
-        // Open the editor
-        let editor = std::env::var("EDITOR").unwrap_or_else(|_| {
-            if cfg!(windows) {
-                "notepad".to_string()
-            } else {
-                "vi".to_string()
-            }
-        });
-        
-        debug!("Using editor: {}", editor);
-        
-        let status = std::process::Command::new(editor)
-            .arg(&config_path)
-            .status()
-            .map_err(|e| CommandError::ExecutionError(
-                format!("Failed to launch editor: {}", e)
-            ))?;
-        
-        if !status.success() {
-            return Err(CommandError::ExecutionError(
-                format!("Editor exited with non-zero status: {}", status)
-            ));
-        }
-        
-        Ok(format!("Edited configuration at {}", config_path.display()))
+        _config_manager: &ConfigManager, // Prefix with underscore since unused
+    ) -> Result<String, CommandError> {
+        // TODO: Implement edit functionality
+        Err(CommandError::ExecutionError("Edit command not yet implemented".to_string()))
     }
     
     /// Handle the 'import' subcommand
@@ -317,20 +296,11 @@ impl ConfigCommand {
         &self,
         config_manager: &mut ConfigManager,
         path: &Path,
-    ) -> CommandResult<String> {
-        debug!("Importing configuration from {}", path.display());
+    ) -> Result<String, CommandError> {
+        debug!("Importing configuration from: {:?}", path);
         
         match config_manager.import(path.to_path_buf()) {
-            Ok(()) => {
-                // Save the configuration
-                if let Err(e) = config_manager.save(None) {
-                    return Err(CommandError::ExecutionError(
-                        format!("Failed to save imported configuration: {}", e)
-                    ));
-                }
-                
-                Ok(format!("Imported configuration from {}", path.display()))
-            },
+            Ok(()) => Ok(format!("Successfully imported configuration from {:?}", path)),
             Err(e) => Err(CommandError::ExecutionError(
                 format!("Failed to import configuration: {}", e)
             )),
@@ -342,11 +312,11 @@ impl ConfigCommand {
         &self,
         config_manager: &ConfigManager,
         path: &Path,
-    ) -> CommandResult<String> {
-        debug!("Exporting configuration to {}", path.display());
+    ) -> Result<String, CommandError> {
+        debug!("Exporting configuration to: {:?}", path);
         
         match config_manager.export(path.to_path_buf()) {
-            Ok(()) => Ok(format!("Exported configuration to {}", path.display())),
+            Ok(()) => Ok(format!("Successfully exported configuration to {:?}", path)),
             Err(e) => Err(CommandError::ExecutionError(
                 format!("Failed to export configuration: {}", e)
             )),

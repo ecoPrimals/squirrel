@@ -14,6 +14,7 @@ use std::default::Default;
 use async_trait::async_trait;
 use chrono::Utc;
 use squirrel_core::error::Result;
+use crate::dashboard;
 
 // Include factory tests module
 mod factory_tests;
@@ -55,6 +56,7 @@ fn create_test_config() -> MonitoringConfig {
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
         network_config: NetworkConfig::default(),
+        dashboard_config: dashboard::DashboardConfig::default(),
     }
 }
 
@@ -184,24 +186,6 @@ fn create_test_metric(name: &str, value: f64) -> Metric {
         MetricType::Gauge,
         HashMap::new(),
     )
-}
-
-/// Implementation of Default for MonitoringConfig to make tests work
-impl Default for MonitoringConfig {
-    fn default() -> Self {
-        Self {
-            intervals: MonitoringIntervals {
-                health_check_interval: 5,
-                metrics_collection_interval: 10,
-                alert_processing_interval: 15,
-                network_stats_interval: 20,
-            },
-            health_config: HealthConfig::default(),
-            metrics_config: MetricConfig::default(),
-            alert_config: AlertConfig::default(),
-            network_config: NetworkConfig::default(),
-        }
-    }
 }
 
 #[tokio::test]
@@ -499,4 +483,21 @@ async fn test_network_monitoring_with_monitoring_service_alias() {
     
     // Cleanup
     service.stop().await.expect("Failed to stop service");
+}
+
+pub fn test_monitoring_config() {
+    // Create a config with custom settings
+    let _config = MonitoringConfig {
+        intervals: MonitoringIntervals {
+            health_check_interval: 5,
+            metrics_collection_interval: 10,
+            alert_processing_interval: 15,
+            network_stats_interval: 20,
+        },
+        health_config: HealthConfig::default(),
+        metrics_config: MetricConfig::default(),
+        alert_config: AlertConfig::default(),
+        network_config: NetworkConfig::default(),
+        dashboard_config: dashboard::DashboardConfig::default(),
+    };
 } 

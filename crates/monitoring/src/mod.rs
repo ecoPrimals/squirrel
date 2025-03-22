@@ -48,6 +48,7 @@ use log::error;
 use serde::{Serialize, Deserialize};
 use tokio::sync::mpsc;
 use tracing::debug;
+use tokio::sync::RwLock;
 
 /// Converts a `SystemTime` to a Unix timestamp (seconds since Unix epoch)
 /// 
@@ -160,6 +161,8 @@ pub struct MonitoringService {
     pub alert_manager: Arc<AlertManagerAdapter>,
     /// Network monitor component
     pub network_monitor: Arc<NetworkMonitorAdapter>,
+    /// Dashboard manager component
+    pub dashboard_manager: Arc<RwLock<DashboardManager>>,
 }
 
 /// Factory for creating monitoring service instances
@@ -223,13 +226,15 @@ impl MonitoringService {
         let metric_collector = Arc::new(DefaultMetricCollector::new());
         let alert_manager = alerts::create_manager_adapter();
         let network_monitor = network::create_monitor_adapter();
+        let dashboard_manager = Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone())));
 
         Self {
             config,
             health_checker,
             metric_collector,
             alert_manager,
-            network_monitor
+            network_monitor,
+            dashboard_manager,
         }
     }
     
@@ -244,12 +249,15 @@ impl MonitoringService {
         alert_manager: Arc<AlertManagerAdapter>,
         network_monitor: Arc<NetworkMonitorAdapter>,
     ) -> Self {
+        let dashboard_manager = Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone())));
+        
         Self {
             config,
             health_checker,
             metric_collector,
             alert_manager,
             network_monitor,
+            dashboard_manager,
         }
     }
 
@@ -266,6 +274,11 @@ impl MonitoringService {
         self.metric_collector.start().await?;
         self.alert_manager.start().await?;
         self.network_monitor.start().await?;
+        
+        // Start the dashboard manager
+        let mut dashboard = self.dashboard_manager.write().await;
+        dashboard.start().await?;
+        
         Ok(())
     }
 
@@ -282,6 +295,11 @@ impl MonitoringService {
         self.metric_collector.stop().await?;
         self.alert_manager.stop().await?;
         self.network_monitor.stop().await?;
+        
+        // Stop the dashboard manager
+        let mut dashboard = self.dashboard_manager.write().await;
+        dashboard.stop().await?;
+        
         Ok(())
     }
 
@@ -319,6 +337,13 @@ impl MonitoringService {
     /// Provides access to the network monitor for more detailed operations.
     #[must_use] pub fn network_monitor(&self) -> Arc<NetworkMonitorAdapter> {
         self.network_monitor.clone()
+    }
+    
+    /// Get the dashboard manager component
+    ///
+    /// Provides access to the dashboard manager for more detailed operations.
+    #[must_use] pub fn dashboard_manager(&self) -> Arc<RwLock<DashboardManager>> {
+        self.dashboard_manager.clone()
     }
 
     /// Get all collected metrics
@@ -642,7 +667,8 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             health_checker,
             metric_collector,
             alert_manager,
-            network_monitor
+            network_monitor,
+            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone()))),
         })
     }
 
@@ -675,7 +701,8 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             health_checker,
             metric_collector,
             alert_manager,
-            network_monitor
+            network_monitor,
+            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone()))),
         })
     }
 
@@ -700,7 +727,8 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             health_checker,
             metric_collector,
             alert_manager,
-            network_monitor
+            network_monitor,
+            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(self.default_config.dashboard_config.clone()))),
         })
     }
 
