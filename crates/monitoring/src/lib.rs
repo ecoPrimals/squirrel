@@ -44,8 +44,12 @@ pub mod metrics;
 /// Module for network monitoring
 pub mod network;
 
+/// Module for dashboard functionality
+pub mod dashboard;
+
 /// Configuration for the monitoring system
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MonitoringConfig {
     /// Alert configuration settings
     pub alert_config: alerts::AlertConfig,
@@ -55,9 +59,12 @@ pub struct MonitoringConfig {
     pub metrics_config: metrics::MetricConfig,
     /// Network monitoring configuration settings
     pub network_config: network::NetworkConfig,
+    /// Dashboard configuration settings
+    pub dashboard_config: dashboard::DashboardConfig,
     /// Monitoring intervals in seconds
     pub intervals: MonitoringIntervals,
 }
+
 
 /// Interval settings for different monitoring components
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +77,17 @@ pub struct MonitoringIntervals {
     pub alert_processing_interval: u64,
     /// Network stats collection interval in seconds
     pub network_stats_interval: u64,
+}
+
+impl Default for MonitoringIntervals {
+    fn default() -> Self {
+        Self {
+            health_check_interval: 60,
+            metrics_collection_interval: 15,
+            alert_processing_interval: 30,
+            network_stats_interval: 60,
+        }
+    }
 }
 
 /// Monitoring service for managing all monitoring components

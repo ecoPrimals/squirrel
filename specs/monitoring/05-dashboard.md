@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_updated: 2024-03-28
+version: 1.2.0
+last_updated: 2024-03-31
 status: in_progress
 priority: high
 ---
@@ -474,7 +474,7 @@ pub enum ColorScheme {
 - [x] Web dashboard implementation (UI components and structure)
 - [x] Console dashboard implementation 
 - [x] Historical data storage
-- [ ] Real-time updates via WebSocket (In Progress)
+- [x] Real-time updates via WebSocket
 - [x] Alert integration
 - [x] Configurable visualization
 - [x] API endpoints for external access
@@ -548,4 +548,4 @@ warp::serve(routes)
 5. **User Authentication**: Add user-specific dashboard views
 6. **Plugin System**: Allow third-party dashboard extensions
 
-<version>1.1.0</version> 
+<version>1.2.0</version> 

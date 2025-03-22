@@ -145,4 +145,5 @@ proptest = "1.6"
 # OpenTelemetry dependencies
 opentelemetry = { version = "0.20", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.20", features = ["metrics", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.13", features = ["metrics"] } 
+opentelemetry-otlp = { version = "0.13", features = ["metrics"] }
+opentelemetry-jaeger = { version = "0.19" } 
