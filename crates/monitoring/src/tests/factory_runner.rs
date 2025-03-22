@@ -2,11 +2,13 @@
 use squirrel_core::error::Result;
 use crate::{
     MonitoringConfig, MonitoringIntervals, MonitoringServiceFactory,
-    alerts::AlertConfig,
-    health::{HealthConfig, status::Status, SystemHealth},
-    metrics::MetricConfig,
-    network::NetworkConfig,
-    MonitoringService, MonitoringStatus
+    alerts::{AlertConfig, AlertManager},
+    health::{HealthConfig, HealthChecker, status::Status, SystemHealth},
+    metrics::{MetricConfig, MetricCollector},
+    network::{NetworkConfig, NetworkMonitor},
+    dashboard,
+    MonitoringService, MonitoringStatus,
+    dashboard::DashboardConfig
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,6 +51,7 @@ async fn test_factory_with_custom_config() -> Result<()> {
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
         network_config: NetworkConfig::default(),
+        dashboard_config: dashboard::DashboardConfig::default(),
     };
     
     // Create a monitoring service factory with custom config
