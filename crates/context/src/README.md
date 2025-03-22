@@ -1,194 +1,256 @@
-# Context Module
+# Context Management System
 
-## Overview
+The Context Management System provides robust functionality for storing, tracking, and synchronizing application state across different components.
 
-The Context module provides functionality for managing application state, persistence, and synchronization. This module implements dependency injection (DI) patterns to ensure testability, maintainability, and proper initialization control.
+## Features
 
-## Core Components
+- Thread-safe state management
+- Version-based state tracking
+- Persistent state storage
+- Snapshot-based recovery
+- Concurrent access support
 
-- `ContextManager`: Manages multiple contexts and their lifecycle
-- `ContextTracker`: Tracks the active context and provides context switching
-- `ContextTrackerFactory`: Creates context trackers with configurable options
-- `Context`: Represents a single application context with state
-- `ContextConfig`: Configuration for context behavior
+## Components
 
-## Dependency Injection Patterns
+- **Context Manager**: Core component for managing context states
+- **Context Tracker**: Handles tracking of state changes
+- **Context Adapter**: Provides adapter pattern for system integration
+- **Persistence Manager**: Handles state persistence
+- **Recovery System**: Manages recovery points and state restoration
 
-The Context module implements proper DI patterns through factories and explicit initialization:
+## Usage Examples
 
-### Using Factory Pattern
-
-The `ContextTrackerFactory` creates instances of `ContextTracker` with proper initialization:
-
-```rust
-// Create a factory with a default context manager
-let manager = Arc::new(ContextManager::new());
-let factory = ContextTrackerFactory::new(Some(manager));
-
-// Create a context tracker
-let tracker = factory.create()?;
-```
-
-### Using Factory with Configuration
-
-You can customize the factory with configuration parameters:
+### Basic Usage
 
 ```rust
-// Create a context config
-let config = ContextConfig {
-    id: "main-context".to_string(),
-    name: "Main Application Context".to_string(),
-    description: "Primary application context".to_string(),
-    environment: "development".to_string(),
-    version: "1.0".to_string(),
-    metadata: HashMap::new(),
-    persistence: true,
-    max_entries: 100,
-};
+use squirrel_context::{create_manager, ContextState};
+use std::sync::Arc;
+use std::collections::HashMap;
 
-// Create a factory with config
-let factory = ContextTrackerFactory::with_config(Some(manager), config);
-
-// Create a context tracker with config
-let tracker = factory.create_with_config(config)?;
-```
-
-### Using Helper Functions
-
-For simpler use cases, helper functions are available:
-
-```rust
-// Create a context tracker with default settings
-let tracker = create_context_tracker()?;
-
-// Create a context tracker with custom configuration
-let custom_tracker = create_context_tracker_with_config(config)?;
-```
-
-## Working with Context
-
-Once you have a `ContextTracker`, you can manage contexts:
-
-```rust
-// Create a context in the manager
-let context_id = "my-context";
-let context = tracker.manager.create_context(context_id.to_string()).await?;
-
-// Activate a context
-tracker.activate_context(context_id).await?;
-
-// Get the active context
-if let Some(context) = tracker.get_active_context().await? {
-    // Work with the context
-    context.update_data("key", json!("value")).await?;
+#[tokio::main]
+async fn main() {
+    // Create a context manager
+    let manager = create_manager();
+    
+    // Create a context state
+    let mut state = ContextState {
+        id: "example-1".to_string(),
+        version: 1,
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        data: HashMap::new(),
+        metadata: HashMap::new(),
+        synchronized: false,
+    };
+    
+    // Add some data
+    state.data.insert("key1".to_string(), "value1".to_string());
+    
+    // Create context
+    manager.create_context("context-1", state).await.unwrap();
+    
+    // Get context state
+    let retrieved_state = manager.get_context_state("context-1").await.unwrap();
+    
+    // Update context state
+    let mut updated_state = retrieved_state.clone();
+    updated_state.version += 1;
+    updated_state.data.insert("key2".to_string(), "value2".to_string());
+    
+    manager.update_context_state("context-1", updated_state).await.unwrap();
 }
-
-// Deactivate the context
-tracker.deactivate_context().await?;
 ```
+
+### Concurrent Access
+
+The context system is designed for safe concurrent access using tokio's asynchronous locks.
+Here's an example of proper concurrent access patterns:
+
+```rust
+use squirrel_context::{create_manager, ContextState};
+use std::sync::Arc;
+use std::collections::HashMap;
+use tokio::task;
+
+#[tokio::main]
+async fn main() {
+    // Create a shared context manager
+    let manager = Arc::new(create_manager());
+    
+    // Create initial context
+    let initial_state = ContextState {
+        id: "initial".to_string(),
+        version: 1,
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        data: HashMap::new(),
+        metadata: HashMap::new(),
+        synchronized: false,
+    };
+    
+    manager.create_context("shared-context", initial_state).await.unwrap();
+    
+    // Spawn multiple tasks that access the same context
+    let mut handles = Vec::new();
+    
+    for i in 0..10 {
+        let manager_clone = manager.clone();
+        
+        let handle = task::spawn(async move {
+            // Read the current state
+            let mut state = manager_clone.get_context_state("shared-context").await.unwrap();
+            
+            // Modify the state
+            state.version += 1;
+            state.data.insert(format!("key-{}", i), format!("value-{}", i));
+            
+            // Update the state
+            manager_clone.update_context_state("shared-context", state).await.unwrap();
+            
+            // The manager handles locking internally, so concurrent access is safe
+        });
+        
+        handles.push(handle);
+    }
+    
+    // Wait for all tasks to complete
+    for handle in handles {
+        handle.await.unwrap();
+    }
+    
+    // Get the final state
+    let final_state = manager.get_context_state("shared-context").await.unwrap();
+    println!("Final version: {}", final_state.version);
+    println!("Number of keys: {}", final_state.data.len());
+}
+```
+
+### Context Adapter Example
+
+```rust
+use squirrel_context::{create_manager, create_adapter, ContextState};
+use std::sync::Arc;
+use std::collections::HashMap;
+
+#[tokio::main]
+async fn main() {
+    // Create a context manager
+    let manager = create_manager();
+    
+    // Create a context adapter
+    let adapter = create_adapter(manager.clone());
+    
+    // Initialize the adapter
+    adapter.initialize().await.unwrap();
+    
+    // Create a context using the adapter
+    adapter.create_and_activate_context("adapter-context").await.unwrap();
+    
+    // Use the current context
+    let tracker = adapter.get_active_context().await.unwrap();
+    
+    // Update state through the tracker
+    let mut state = tracker.get_state().await.unwrap();
+    state.version += 1;
+    state.data.insert("adapter-key".to_string(), "adapter-value".to_string());
+    
+    tracker.update_state(state).await.unwrap();
+    
+    // Sync state back to the manager
+    tracker.sync_state().await.unwrap();
+}
+```
+
+## Async Lock Best Practices
+
+When working with the context system, follow these best practices for handling async locks:
+
+1. **Minimize Lock Duration**: 
+   ```rust
+   // Good: Short lock duration
+   let value = {
+       let data = lock.read().await;
+       data.get_value().clone()
+   }; // Lock is released here
+   
+   // Process value without holding the lock
+   process_value(value);
+   ```
+
+2. **Avoid Holding Locks Across Await Points**:
+   ```rust
+   // Bad:
+   let data = lock.read().await;
+   let result = some_async_operation().await; // Lock is held across await
+   use_data(&data, result);
+   
+   // Good:
+   let data_copy = {
+       let data = lock.read().await;
+       data.clone()
+   }; // Lock is released here
+   
+   let result = some_async_operation().await;
+   use_data(&data_copy, result);
+   ```
+
+3. **Use Separate Locks for Read and Write Operations**:
+   ```rust
+   // First read to check
+   let should_update = {
+       let data = lock.read().await;
+       data.needs_update()
+   }; // Read lock is released
+   
+   if should_update {
+       // Then write to update
+       let mut data = lock.write().await;
+       data.update();
+   } // Write lock is released
+   ```
+
+4. **Explicitly Drop Locks Before Long Operations**:
+   ```rust
+   let item_id = {
+       let items = items_lock.read().await;
+       items.get(0).map(|item| item.id.clone())
+   }; // Lock is explicitly dropped here
+   
+   if let Some(id) = item_id {
+       // Long operation without holding the lock
+       process_item(&id).await;
+   }
+   ```
+
+## Performance Considerations
+
+- Using read locks for read-only operations allows concurrent reads
+- Minimize the duration for which write locks are held
+- Use clone or copy to avoid holding locks for long operations
+- Consider using lock-free data structures for high-contention scenarios
+
+## Thread Safety
+
+All components in the context system are designed to be thread-safe and can be safely shared across tasks using `Arc`.
 
 ## Error Handling
 
-The Context module provides clear error handling:
+The context system uses a robust error handling system with specific error types:
 
 ```rust
-// Check if context exists before activating
-match tracker.activate_context("unknown-id").await {
-    Ok(_) => println!("Context activated"),
-    Err(e) => {
-        if let Some(ContextError::ContextNotFound(_)) = e.downcast_ref::<ContextError>() {
-            println!("Context not found, creating it now");
-            tracker.manager.create_context("unknown-id".to_string()).await?;
-        } else {
-            println!("Unexpected error: {}", e);
-        }
-    }
-}
+// All operations return a Result type
+let result = manager.get_context_state("non-existent").await;
 
-// Handle result from factory pattern
-match factory.create() {
-    Ok(tracker) => println!("Tracker created successfully"),
-    Err(e) => {
-        if let Some(ContextError::NotInitialized) = e.downcast_ref::<ContextError>() {
-            println!("Factory not initialized with a manager");
-        } else {
-            println!("Error creating tracker: {}", e);
-        }
-    }
-}
-```
-
-## Context State Management
-
-Contexts maintain state that can be accessed and updated:
-
-```rust
-// Get current state
-let state = context.get_state().await?;
-
-// Update specific data
-context.update_data("user", json!({ "name": "Alice", "role": "Admin" })).await?;
-
-// Replace entire state
-context.set_state(HashMap::from([
-    ("user".to_string(), json!({ "name": "Bob" })),
-    ("settings".to_string(), json!({ "theme": "dark" }))
-])).await?;
-
-// Get a snapshot
-let snapshot = context.get_snapshot().await?;
-```
-
-## Migration from Global State
-
-### Before (using global state or implicit initialization)
-
-```rust
-// Old approach using global state
-let tracker = ContextTracker::new(); // No manager provided, might use global state
-tracker.activate_context("default").unwrap(); // Might create context on-demand
-```
-
-### After (using explicit DI)
-
-```rust
-// Approach 1: Explicit initialization
-let manager = Arc::new(ContextManager::new());
-let tracker = ContextTracker::new(manager);
-tracker.activate_context("default").await?; // Will error if context doesn't exist
-
-// Approach 2: Using factory
-let factory = ContextTrackerFactory::new(Some(Arc::new(ContextManager::new())));
-let tracker = factory.create()?;
-
-// Approach 3: Using helper function
-let tracker = create_context_tracker()?;
-```
-
-## Testing
-
-The module is designed to be easily testable:
-
-```rust
-#[tokio::test]
-async fn test_context_tracker() {
-    // Create a context tracker for testing
-    let tracker = create_context_tracker().unwrap();
-    
-    // Create a test context
-    let context_id = "test-context";
-    tracker.manager.create_context(context_id.to_string()).await.unwrap();
-    
-    // Activate the context
-    tracker.activate_context(context_id).await.unwrap();
-    
-    // Get the context
-    let active = tracker.get_active_context().await.unwrap();
-    assert!(active.is_some());
-    
-    // Verify context ID
-    let context = active.unwrap();
-    let state = context.get_state().await.unwrap();
-    assert_eq!(state.id, context_id);
+match result {
+    Ok(state) => println!("Found state: {:?}", state),
+    Err(err) => match err {
+        ContextError::NotFound(msg) => println!("Context not found: {}", msg),
+        ContextError::InvalidState(msg) => println!("Invalid state: {}", msg),
+        _ => println!("Other error: {}", err),
+    },
 }
 ``` 

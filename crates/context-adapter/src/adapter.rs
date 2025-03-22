@@ -3,6 +3,21 @@
 //! This module provides an adapter layer between the general context system
 //! and the MCP-specific context requirements. It establishes a clear boundary
 //! between these systems and enables proper separation of concerns.
+//!
+//! ## Concurrency and Locking
+//!
+//! The context adapter uses tokio's asynchronous locks (`RwLock`) to ensure 
+//! thread safety while maintaining good performance in an async environment. 
+//! Key locking practices implemented in this module:
+//!
+//! - Using scope-based locking to minimize lock duration
+//! - Avoiding holding locks across `.await` points
+//! - Using read locks for operations that don't modify data
+//! - Using write locks for operations that modify data
+//! - Dropping locks explicitly before async operations
+//!
+//! When working with the context adapter in asynchronous code, it's important to
+//! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -99,6 +114,12 @@ impl Default for ContextAdapter {
 
 impl ContextAdapter {
     /// Creates a new context
+    ///
+    /// This method creates a new context with the specified ID and data.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock 
+    /// 3. Using separate lock scopes to minimize lock duration
     ///
     /// # Errors
     ///
@@ -224,47 +245,49 @@ impl ContextAdapter {
 
     /// Cleans up expired contexts
     ///
+    /// This method removes contexts that have exceeded their time-to-live.
+    /// It follows best practices for async lock management by:
+    /// 1. Reading configuration without holding the contexts lock
+    /// 2. Creating a list of expired IDs before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    ///
     /// # Errors
     ///
     /// This function does not currently return errors, but maintains the Result
     /// return type for compatibility with other methods and potential future error cases.
     pub async fn cleanup_expired_contexts(&self) -> Result<()> {
-        // First get the configuration
-        let (enable_auto_cleanup, ttl_seconds) = {
+        // Get the TTL from config
+        let ttl_seconds = {
             let config = self.config.read().await;
-            (config.enable_auto_cleanup, config.ttl_seconds)
+            config.ttl_seconds
         }; // Config lock is dropped here
         
-        if !enable_auto_cleanup {
-            return Ok(());
-        }
-
+        // Get current time
         let now = Utc::now();
         
-        // First collect the IDs to remove
-        let to_remove = {
+        // Collect expired context IDs
+        let expired_ids = {
             let contexts = self.contexts.read().await;
-            let mut expired = Vec::new();
-            
-            for (id, context) in contexts.iter() {
-                let age = now.signed_duration_since(context.updated_at);
-                if let Ok(ttl) = i64::try_from(ttl_seconds) {
-                    if age.num_seconds() >= ttl {
-                        expired.push(id.clone());
+            contexts
+                .iter()
+                .filter_map(|(id, data)| {
+                    let age = now.signed_duration_since(data.updated_at);
+                    if age.num_seconds() > ttl_seconds as i64 {
+                        Some(id.clone())
+                    } else {
+                        None
                     }
-                }
-            }
-            
-            expired
+                })
+                .collect::<Vec<String>>()
         }; // Read lock is dropped here
         
-        // Then remove the expired contexts with write lock
-        if !to_remove.is_empty() {
+        // Remove expired contexts
+        if !expired_ids.is_empty() {
             let mut contexts = self.contexts.write().await;
-            for id in to_remove {
+            for id in expired_ids {
                 contexts.remove(&id);
             }
-        }
+        } // Write lock is dropped here
         
         Ok(())
     }

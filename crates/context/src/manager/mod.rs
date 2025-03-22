@@ -2,6 +2,21 @@
 //!
 //! This module provides context management functionality for storing, retrieving,
 //! and synchronizing context data across the application.
+//!
+//! ## Concurrency and Locking
+//!
+//! The context manager uses tokio's asynchronous locks (`RwLock`, `Mutex`) to ensure 
+//! thread safety while maintaining good performance in an async environment. 
+//! Key locking practices implemented in this module:
+//!
+//! - Using scope-based locking to minimize lock duration
+//! - Avoiding holding locks across `.await` points 
+//! - Using read locks for operations that don't modify data
+//! - Using write locks for operations that modify data
+//! - Dropping locks explicitly before async operations
+//!
+//! When working with the context manager in asynchronous code, it's important to
+//! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -122,6 +137,13 @@ impl ContextManager {
     
     /// Create a new context with the given ID and state
     ///
+    /// This method creates a new context with the specified ID and initial state.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
+    ///
     /// # Errors
     ///
     /// Returns errors when:
@@ -158,14 +180,20 @@ impl ContextManager {
         Ok(())
     }
     
-    /// Update a context state
+    /// Update an existing context state
+    ///
+    /// This method updates an existing context with a new state.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
     ///
     /// # Errors
     ///
     /// Returns errors when:
     /// - Context not found
     /// - Failed to acquire lock
-    /// - Failed to persist context
     pub async fn update_context_state(&self, id: &str, state: ContextState) -> Result<()> {
         // First check if the context exists
         {
@@ -191,14 +219,20 @@ impl ContextManager {
         Ok(())
     }
     
-    /// Delete a context
+    /// Delete a context by ID
+    ///
+    /// This method removes a context from the manager.
+    /// It follows best practices for async lock management by:
+    /// 1. Using a read lock for initial validation
+    /// 2. Dropping the read lock before acquiring a write lock
+    /// 3. Using separate lock scopes to minimize lock duration
+    /// 4. Not holding any locks during persistence operations
     ///
     /// # Errors
     ///
     /// Returns errors when:
     /// - Context not found
     /// - Failed to acquire lock
-    /// - Failed to delete from persistence
     pub async fn delete_context(&self, id: &str) -> Result<()> {
         // First check if the context exists
         {
@@ -208,19 +242,19 @@ impl ContextManager {
             }
         } // Read lock is dropped here
         
-        // Remove from memory with write lock
+        // Remove context with write lock
         {
             let mut contexts = self.contexts.write().await;
             contexts.remove(id);
         } // Write lock is dropped here
         
-        // Delete recovery points with write lock
+        // Remove from recovery points with separate write lock
         {
             let mut recovery_points = self.recovery_points.write().await;
             recovery_points.remove(id);
         } // Write lock is dropped here
         
-        // Delete from persistence if enabled (without holding any locks)
+        // Remove from persistence if enabled (without holding any locks)
         if self.config.persistence_enabled {
             if let Some(persistence) = &self.persistence {
                 persistence.delete_state(id)?;
