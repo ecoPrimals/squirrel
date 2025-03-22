@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
@@ -148,12 +148,12 @@ pub enum SecurityError {
 impl From<SecurityError> for crate::error::SquirrelError {
     fn from(err: SecurityError) -> Self {
         match err {
-            SecurityError::PermissionDenied(msg) => Self::security(format!("Permission denied: {}", msg)),
-            SecurityError::ResourceLimitExceeded(msg) => Self::security(format!("Resource limit exceeded: {}", msg)),
-            SecurityError::SandboxViolation(msg) => Self::security(format!("Sandbox violation: {}", msg)),
-            SecurityError::ValidationFailed(msg) => Self::security(format!("Security validation failed: {}", msg)),
-            SecurityError::PathAccessDenied(msg) => Self::security(format!("Path access denied: {}", msg)),
-            SecurityError::CapabilityNotAllowed(msg) => Self::security(format!("Capability not allowed: {}", msg)),
+            SecurityError::PermissionDenied(msg) => Self::security(format!("Permission denied: {msg}")),
+            SecurityError::ResourceLimitExceeded(msg) => Self::security(format!("Resource limit exceeded: {msg}")),
+            SecurityError::SandboxViolation(msg) => Self::security(format!("Sandbox violation: {msg}")),
+            SecurityError::ValidationFailed(msg) => Self::security(format!("Security validation failed: {msg}")),
+            SecurityError::PathAccessDenied(msg) => Self::security(format!("Path access denied: {msg}")),
+            SecurityError::CapabilityNotAllowed(msg) => Self::security(format!("Capability not allowed: {msg}")),
         }
     }
 }
@@ -161,7 +161,7 @@ impl From<SecurityError> for crate::error::SquirrelError {
 // Add the implementation for CoreError conversion
 impl From<SecurityError> for crate::error::CoreError {
     fn from(err: SecurityError) -> Self {
-        Self::Plugin(format!("Security error: {}", err))
+        Self::Plugin(format!("Security error: {err}"))
     }
 }
 
@@ -181,7 +181,7 @@ pub trait PluginSandbox: Send + Sync + std::fmt::Debug {
     async fn track_resources(&self, plugin_id: Uuid) -> Result<ResourceUsage>;
     
     /// Check if a path is allowed for access
-    async fn check_path_access(&self, plugin_id: Uuid, path: &PathBuf, write: bool) -> Result<()>;
+    async fn check_path_access(&self, plugin_id: Uuid, path: &Path, write: bool) -> Result<()>;
     
     /// Check if a capability is allowed for the plugin
     async fn check_capability(&self, plugin_id: Uuid, capability: &str) -> Result<()>;
@@ -196,9 +196,15 @@ pub struct BasicPluginSandbox {
     resource_usage: Arc<RwLock<std::collections::HashMap<Uuid, ResourceUsage>>>,
 }
 
+impl Default for BasicPluginSandbox {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BasicPluginSandbox {
     /// Create a new basic plugin sandbox
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             security_contexts: Arc::new(RwLock::new(std::collections::HashMap::new())),
             resource_usage: Arc::new(RwLock::new(std::collections::HashMap::new())),
@@ -206,6 +212,19 @@ impl BasicPluginSandbox {
     }
     
     /// Add a security context for a plugin
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin
+    /// * `context` - The security context to add
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the security context cannot be added or updated
     pub async fn add_security_context(&self, plugin_id: Uuid, context: SecurityContext) -> Result<()> {
         let mut contexts = self.security_contexts.write().await;
         contexts.insert(plugin_id, context);
@@ -224,6 +243,19 @@ impl BasicPluginSandbox {
     }
     
     /// Update resource usage for a plugin
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin
+    /// * `usage` - The current resource usage data
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if resource usage cannot be updated or if resource limits are exceeded
     pub async fn update_resource_usage(&self, plugin_id: Uuid, usage: ResourceUsage) -> Result<()> {
         // Check if resources exceed limits
         let exceed_check = {
@@ -305,17 +337,15 @@ impl PluginSandbox for BasicPluginSandbox {
             
             // Check if operation is allowed for the current permission level
             match (context.permission_level, operation) {
-                (PermissionLevel::User, "read") => Ok(()),
-                (PermissionLevel::User, "write") => Ok(()),
-                (PermissionLevel::User, "network") => Ok(()),
-                (PermissionLevel::Restricted, "read") => Ok(()),
+                (PermissionLevel::User | PermissionLevel::Restricted, "read") |
+                (PermissionLevel::User, "write" | "network") => Ok(()),
                 _ => Err(SecurityError::PermissionDenied(format!(
                     "Operation '{}' not allowed for permission level {:?}", 
                     operation, context.permission_level)).into()),
             }
         } else {
             Err(SecurityError::ValidationFailed(format!(
-                "No security context found for plugin: {}", plugin_id)).into())
+                "No security context found for plugin: {plugin_id}")).into())
         }
     }
     
@@ -331,7 +361,7 @@ impl PluginSandbox for BasicPluginSandbox {
         }
     }
     
-    async fn check_path_access(&self, plugin_id: Uuid, path: &PathBuf, write: bool) -> Result<()> {
+    async fn check_path_access(&self, plugin_id: Uuid, path: &Path, write: bool) -> Result<()> {
         let contexts = self.security_contexts.read().await;
         
         if let Some(context) = contexts.get(&plugin_id) {
@@ -360,7 +390,7 @@ impl PluginSandbox for BasicPluginSandbox {
             }
         } else {
             Err(SecurityError::ValidationFailed(format!(
-                "No security context found for plugin: {}", plugin_id)).into())
+                "No security context found for plugin: {plugin_id}")).into())
         }
     }
     
@@ -378,11 +408,11 @@ impl PluginSandbox for BasicPluginSandbox {
                 Ok(())
             } else {
                 Err(SecurityError::CapabilityNotAllowed(format!(
-                    "Capability '{}' not allowed", capability)).into())
+                    "Capability '{capability}' not allowed")).into())
             }
         } else {
             Err(SecurityError::ValidationFailed(format!(
-                "No security context found for plugin: {}", plugin_id)).into())
+                "No security context found for plugin: {plugin_id}")).into())
         }
     }
 }
@@ -390,6 +420,7 @@ impl PluginSandbox for BasicPluginSandbox {
 /// Security validator for plugins
 #[derive(Debug)]
 pub struct SecurityValidator {
+    /// The sandbox implementation used for security checks
     sandbox: Arc<dyn PluginSandbox>,
 }
 
@@ -400,29 +431,69 @@ impl SecurityValidator {
     }
     
     /// Create a new security validator with a basic sandbox
-    pub fn with_basic_sandbox() -> Self {
+    #[must_use] pub fn with_basic_sandbox() -> Self {
         Self {
             sandbox: Arc::new(BasicPluginSandbox::new()),
         }
     }
     
     /// Validate that a plugin can perform an operation
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin
+    /// * `operation` - The operation to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating whether the operation is allowed
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `SecurityError` if the operation is not allowed or if the plugin does not have sufficient permissions
     pub async fn validate_operation(&self, plugin_id: Uuid, operation: &str) -> Result<()> {
         self.sandbox.check_permission(plugin_id, operation).await
     }
     
     /// Validate that a plugin can access a path
-    pub async fn validate_path_access(&self, plugin_id: Uuid, path: &PathBuf, write: bool) -> Result<()> {
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin
+    /// * `path` - The path to validate
+    /// * `write` - Whether write access is requested
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating whether the path access is allowed
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `SecurityError` if the path access is not allowed or if the plugin does not have sufficient permissions
+    pub async fn validate_path_access(&self, plugin_id: Uuid, path: &Path, write: bool) -> Result<()> {
         self.sandbox.check_path_access(plugin_id, path, write).await
     }
     
     /// Validate that a plugin can use a capability
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin
+    /// * `capability` - The capability to validate
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating whether the capability is allowed
+    /// 
+    /// # Errors
+    /// 
+    /// Returns a `SecurityError` if the capability is not allowed or if the plugin does not have sufficient permissions
     pub async fn validate_capability(&self, plugin_id: Uuid, capability: &str) -> Result<()> {
         self.sandbox.check_capability(plugin_id, capability).await
     }
     
     /// Get the sandbox implementation
-    pub fn sandbox(&self) -> Arc<dyn PluginSandbox> {
+    #[must_use] pub fn sandbox(&self) -> Arc<dyn PluginSandbox> {
         self.sandbox.clone()
     }
 }
@@ -482,15 +553,15 @@ mod tests {
         
         // Access to plugins directory should be allowed
         assert!(sandbox.check_path_access(
-            plugin_id, &PathBuf::from("./plugins/test.txt"), false).await.is_ok());
+            plugin_id, &PathBuf::from("./plugins/test.txt").as_path(), false).await.is_ok());
         
         // Write access should be denied for restricted plugins
         assert!(sandbox.check_path_access(
-            plugin_id, &PathBuf::from("./plugins/test.txt"), true).await.is_err());
+            plugin_id, &PathBuf::from("./plugins/test.txt").as_path(), true).await.is_err());
         
         // Access to system directory should be denied
         assert!(sandbox.check_path_access(
-            plugin_id, &PathBuf::from("/etc/passwd"), false).await.is_err());
+            plugin_id, &PathBuf::from("/etc/passwd").as_path(), false).await.is_err());
         
         // Create a user level security context
         let mut user_context = SecurityContext::default();
@@ -499,6 +570,6 @@ mod tests {
         
         // Now write access should be allowed
         assert!(sandbox.check_path_access(
-            plugin_id, &PathBuf::from("./plugins/test.txt"), true).await.is_ok());
+            plugin_id, &PathBuf::from("./plugins/test.txt").as_path(), true).await.is_ok());
     }
 } 

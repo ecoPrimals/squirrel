@@ -26,7 +26,7 @@ pub struct ContextState {
 
 impl ContextState {
     /// Create a new context state
-    pub fn new(data: serde_json::Value, source: String) -> Self {
+    #[must_use] pub fn new(data: serde_json::Value, source: String) -> Self {
         Self {
             version: 1,
             data,
@@ -61,7 +61,7 @@ pub struct ChangeRecord {
 
 impl ChangeRecord {
     /// Create a new change record
-    pub fn new(
+    #[must_use] pub fn new(
         path: String,
         previous_value: Option<serde_json::Value>,
         new_value: serde_json::Value,
@@ -78,7 +78,7 @@ impl ChangeRecord {
     }
     
     /// Check if this change conflicts with another change
-    pub fn conflicts_with(&self, other: &ChangeRecord) -> bool {
+    #[must_use] pub fn conflicts_with(&self, other: &ChangeRecord) -> bool {
         // Same path changes conflict
         if self.path == other.path {
             // Unless they are identical changes
@@ -117,11 +117,11 @@ pub enum SyncError {
 impl From<SyncError> for crate::error::SquirrelError {
     fn from(err: SyncError) -> Self {
         match err {
-            SyncError::ConflictDetected(msg) => Self::context(format!("Sync conflict detected: {}", msg)),
-            SyncError::InvalidPath(msg) => Self::context(format!("Invalid JSON path: {}", msg)),
-            SyncError::InvalidState(msg) => Self::context(format!("Invalid sync state: {}", msg)),
-            SyncError::VersionMismatch(msg) => Self::context(format!("Version mismatch: {}", msg)),
-            SyncError::SyncFailed(msg) => Self::context(format!("Sync failed: {}", msg)),
+            SyncError::ConflictDetected(msg) => Self::context(format!("Sync conflict detected: {msg}")),
+            SyncError::InvalidPath(msg) => Self::context(format!("Invalid JSON path: {msg}")),
+            SyncError::InvalidState(msg) => Self::context(format!("Invalid sync state: {msg}")),
+            SyncError::VersionMismatch(msg) => Self::context(format!("Version mismatch: {msg}")),
+            SyncError::SyncFailed(msg) => Self::context(format!("Sync failed: {msg}")),
         }
     }
 }
@@ -129,7 +129,7 @@ impl From<SyncError> for crate::error::SquirrelError {
 // Add implementation for CoreError conversion
 impl From<SyncError> for crate::error::CoreError {
     fn from(err: SyncError) -> Self {
-        Self::Context(format!("Sync error: {}", err))
+        Self::Context(format!("Sync error: {err}"))
     }
 }
 
@@ -147,9 +147,15 @@ pub trait ConflictResolution: Send + Sync + std::fmt::Debug {
 #[derive(Debug)]
 pub struct LatestWinsResolution;
 
+impl Default for LatestWinsResolution {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LatestWinsResolution {
     /// Create a new latest-wins resolution strategy
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {}
     }
 }
@@ -179,9 +185,15 @@ pub struct OriginPriorityResolution {
     pub default_priority: u32,
 }
 
+impl Default for OriginPriorityResolution {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OriginPriorityResolution {
     /// Create a new origin priority resolution strategy
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut priorities = HashMap::new();
         priorities.insert("user".to_string(), 100);
         priorities.insert("system".to_string(), 50);
@@ -206,16 +218,16 @@ impl ConflictResolution for OriginPriorityResolution {
         let local_priority = self.get_priority(&local.origin);
         let remote_priority = self.get_priority(&remote.origin);
         
-        if local_priority > remote_priority {
-            Ok(local.clone())
-        } else if remote_priority > local_priority {
-            Ok(remote.clone())
-        } else {
-            // If equal priority, choose the latest change
-            if local.timestamp > remote.timestamp {
-                Ok(local.clone())
-            } else {
-                Ok(remote.clone())
+        match local_priority.cmp(&remote_priority) {
+            std::cmp::Ordering::Greater => Ok(local.clone()),
+            std::cmp::Ordering::Less => Ok(remote.clone()),
+            std::cmp::Ordering::Equal => {
+                // If equal priority, choose the latest change
+                if local.timestamp > remote.timestamp {
+                    Ok(local.clone())
+                } else {
+                    Ok(remote.clone())
+                }
             }
         }
     }
@@ -243,7 +255,7 @@ pub struct SyncManager {
 
 impl SyncManager {
     /// Create a new sync manager with latest-wins conflict resolution
-    pub fn new(initial_state: ContextState, source: String) -> Self {
+    #[must_use] pub fn new(initial_state: ContextState, source: String) -> Self {
         Self {
             state: Arc::new(RwLock::new(initial_state)),
             change_history: Arc::new(RwLock::new(VecDeque::with_capacity(100))),
@@ -254,7 +266,7 @@ impl SyncManager {
     }
     
     /// Create a new sync manager with custom conflict resolution
-    pub fn with_resolution_strategy(
+    #[must_use] pub fn with_resolution_strategy(
         initial_state: ContextState,
         source: String,
         strategy: Box<dyn ConflictResolution>,
@@ -274,7 +286,22 @@ impl SyncManager {
         self.state.read().await.clone()
     }
     
-    /// Apply a change to the state
+    /// Apply a change to the context state
+    /// 
+    /// # Arguments
+    /// 
+    /// * `change` - The change record to apply
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the change was applied successfully
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - The change cannot be applied due to a conflict
+    /// - The JSON path is invalid
+    /// - The state cannot be accessed due to a lock error
     pub async fn apply_change(&self, change: ChangeRecord) -> Result<()> {
         // Get current state
         let mut state = self.state.write().await;
@@ -294,8 +321,7 @@ impl SyncManager {
         if let Some(prev) = &change.previous_value {
             if current_value.is_none() || current_value.as_ref() != Some(prev) {
                 return Err(SyncError::VersionMismatch(format!(
-                    "Previous value mismatch at {}: expected {:?}, found {:?}",
-                    path, prev, current_value
+                    "Previous value mismatch at {path}: expected {prev:?}, found {current_value:?}"
                 )).into());
             }
         }
@@ -306,16 +332,16 @@ impl SyncManager {
         
         // Navigate to the parent location
         for (_i, token) in tokens.iter().enumerate().take(tokens.len().saturating_sub(1)) {
-            if let Some(idx) = token.parse::<usize>().ok() {
+            if let Ok(idx) = token.parse::<usize>() {
                 // Array access
                 if let serde_json::Value::Array(arr) = ref_val {
                     if idx < arr.len() {
                         ref_val = &mut arr[idx];
                     } else {
-                        return Err(SyncError::InvalidPath(format!("Array index out of bounds: {}", idx)).into());
+                        return Err(SyncError::InvalidPath(format!("Array index out of bounds: {idx}")).into());
                     }
                 } else {
-                    return Err(SyncError::InvalidPath(format!("Expected array at {}", token)).into());
+                    return Err(SyncError::InvalidPath(format!("Expected array at {token}")).into());
                 }
             } else {
                 // Object access
@@ -323,10 +349,10 @@ impl SyncManager {
                     if let Some(value) = obj.get_mut(*token) {
                         ref_val = value;
                     } else {
-                        return Err(SyncError::InvalidPath(format!("Object key not found: {}", token)).into());
+                        return Err(SyncError::InvalidPath(format!("Object key not found: {token}")).into());
                     }
                 } else {
-                    return Err(SyncError::InvalidPath(format!("Expected object at {}", token)).into());
+                    return Err(SyncError::InvalidPath(format!("Expected object at {token}")).into());
                 }
             }
         }
@@ -335,7 +361,7 @@ impl SyncManager {
         if let Some(last_token) = tokens.last() {
             match ref_val {
                 serde_json::Value::Object(obj) => {
-                    obj.insert(last_token.to_string(), change.new_value.clone());
+                    obj.insert((*last_token).to_string(), change.new_value.clone());
                     Ok::<(), crate::error::CoreError>(())
                 },
                 serde_json::Value::Array(arr) => {
@@ -344,13 +370,13 @@ impl SyncManager {
                             arr[idx] = change.new_value.clone();
                             Ok::<(), crate::error::CoreError>(())
                         } else {
-                            Err(SyncError::InvalidPath(format!("Array index out of bounds: {}", idx)).into())
+                            Err(SyncError::InvalidPath(format!("Array index out of bounds: {idx}")).into())
                         }
                     } else {
-                        Err(SyncError::InvalidPath(format!("Invalid array index: {}", last_token)).into())
+                        Err(SyncError::InvalidPath(format!("Invalid array index: {last_token}")).into())
                     }
                 },
-                _ => Err::<(), crate::error::CoreError>(SyncError::InvalidPath(format!("Cannot set value on primitive at {}", last_token)).into())
+                _ => Err::<(), crate::error::CoreError>(SyncError::InvalidPath(format!("Cannot set value on primitive at {last_token}")).into())
             }
         } else {
             // If path is empty or just "/", replace the entire data
@@ -360,7 +386,7 @@ impl SyncManager {
 
         // Update state version and timestamp after setting the value
         state.increment_version();
-        state.source = self.source.clone();
+        state.source.clone_from(&self.source);
         
         // Add to change history
         let mut history = self.change_history.write().await;
@@ -375,6 +401,21 @@ impl SyncManager {
     }
     
     /// Merge a remote state with the local state
+    /// 
+    /// # Arguments
+    /// 
+    /// * `remote` - The remote state to merge
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the state was merged successfully
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - The state cannot be merged due to conflicts
+    /// - The local state cannot be accessed due to a lock error
+    /// - The version checking fails
     pub async fn merge_state(&self, remote: ContextState) -> Result<()> {
         if remote.version < self.state.read().await.version {
             // Remote state is older, ignore
@@ -441,16 +482,16 @@ impl SyncManager {
             
             // Navigate to the parent location
             for (_i, token) in tokens.iter().enumerate().take(tokens.len().saturating_sub(1)) {
-                if let Some(idx) = token.parse::<usize>().ok() {
+                if let Ok(idx) = token.parse::<usize>() {
                     // Array access
                     if let serde_json::Value::Array(arr) = ref_val {
                         if idx < arr.len() {
                             ref_val = &mut arr[idx];
                         } else {
-                            return Err(SyncError::InvalidPath(format!("Array index out of bounds: {}", idx)).into());
+                            return Err(SyncError::InvalidPath(format!("Array index out of bounds: {idx}")).into());
                         }
                     } else {
-                        return Err(SyncError::InvalidPath(format!("Expected array at {}", token)).into());
+                        return Err(SyncError::InvalidPath(format!("Expected array at {token}")).into());
                     }
                 } else {
                     // Object access
@@ -458,10 +499,10 @@ impl SyncManager {
                         if let Some(value) = obj.get_mut(*token) {
                             ref_val = value;
                         } else {
-                            return Err(SyncError::InvalidPath(format!("Object key not found: {}", token)).into());
+                            return Err(SyncError::InvalidPath(format!("Object key not found: {token}")).into());
                         }
                     } else {
-                        return Err(SyncError::InvalidPath(format!("Expected object at {}", token)).into());
+                        return Err(SyncError::InvalidPath(format!("Expected object at {token}")).into());
                     }
                 }
             }
@@ -470,20 +511,20 @@ impl SyncManager {
             if let Some(last_token) = tokens.last() {
                 match ref_val {
                     serde_json::Value::Object(obj) => {
-                        obj.insert(last_token.to_string(), change.new_value.clone());
+                        obj.insert((*last_token).to_string(), change.new_value.clone());
                     },
                     serde_json::Value::Array(arr) => {
                         if let Ok(idx) = last_token.parse::<usize>() {
                             if idx < arr.len() {
                                 arr[idx] = change.new_value.clone();
                             } else {
-                                return Err(SyncError::InvalidPath(format!("Array index out of bounds: {}", idx)).into());
+                                return Err(SyncError::InvalidPath(format!("Array index out of bounds: {idx}")).into());
                             }
                         } else {
-                            return Err(SyncError::InvalidPath(format!("Invalid array index: {}", last_token)).into());
+                            return Err(SyncError::InvalidPath(format!("Invalid array index: {last_token}")).into());
                         }
                     },
-                    _ => return Err(SyncError::InvalidPath(format!("Cannot set value on primitive at {}", last_token)).into())
+                    _ => return Err(SyncError::InvalidPath(format!("Cannot set value on primitive at {last_token}")).into())
                 }
             } else {
                 // If path is empty or just "/", replace the entire data
@@ -529,9 +570,9 @@ fn collect_paths_recursive(value: &serde_json::Value, prefix: &str, paths: &mut 
         serde_json::Value::Object(obj) => {
             for (key, val) in obj {
                 let new_prefix = if prefix.is_empty() {
-                    format!("/{}", key)
+                    format!("/{key}")
                 } else {
-                    format!("{}/{}", prefix, key)
+                    format!("{prefix}/{key}")
                 };
                 collect_paths_recursive(val, &new_prefix, paths);
             }
@@ -539,9 +580,9 @@ fn collect_paths_recursive(value: &serde_json::Value, prefix: &str, paths: &mut 
         serde_json::Value::Array(arr) => {
             for (i, val) in arr.iter().enumerate() {
                 let new_prefix = if prefix.is_empty() {
-                    format!("/{}", i)
+                    format!("/{i}")
                 } else {
-                    format!("{}/{}", prefix, i)
+                    format!("{prefix}/{i}")
                 };
                 collect_paths_recursive(val, &new_prefix, paths);
             }

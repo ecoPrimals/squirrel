@@ -443,7 +443,7 @@ impl Context {
         Ok(())
     }
 
-    /// Enables real-time synchronization with the specified strategy
+    /// Enables synchronization with a custom conflict resolution strategy
     /// 
     /// # Arguments
     /// 
@@ -452,6 +452,10 @@ impl Context {
     /// # Returns
     /// 
     /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if serialization of the state fails or if there's an issue setting up synchronization
     pub async fn enable_sync<T: sync::ConflictResolution + 'static>(&mut self, strategy: T) -> Result<()> {
         let state = self.state_store.read().await;
         let context_state = sync::ContextState::new(
@@ -472,6 +476,14 @@ impl Context {
     }
     
     /// Enables synchronization with the default latest-wins strategy
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if serialization of the state fails or if there's an issue setting up synchronization
     pub async fn enable_default_sync(&mut self) -> Result<()> {
         let state = self.state_store.read().await;
         let context_state = sync::ContextState::new(
@@ -490,11 +502,23 @@ impl Context {
     }
     
     /// Gets the synchronization manager if enabled
-    pub fn sync_manager(&self) -> Option<Arc<sync::SyncManager>> {
+    #[must_use] pub fn sync_manager(&self) -> Option<Arc<sync::SyncManager>> {
         self.sync_manager.clone()
     }
     
-    /// Synchronizes with a remote state
+    /// Synchronize with a remote context state
+    /// 
+    /// # Arguments
+    /// 
+    /// * `remote_state` - The remote context state to sync with
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the sync manager is not initialized or if there's an issue during synchronization
     pub async fn sync_with(&self, remote_state: sync::ContextState) -> Result<()> {
         if let Some(manager) = &self.sync_manager {
             manager.merge_state(remote_state).await?;
@@ -516,19 +540,21 @@ impl Context {
         }
     }
 
-    /// Updates the context data and synchronizes if sync is enabled
-    /// 
-    /// This updates a specific key in the context data and optionally synchronizes
-    /// the change with remote contexts.
+    /// Updates data with synchronization enabled
     /// 
     /// # Arguments
     /// 
-    /// * `key` - The key to update.
-    /// * `value` - The new value to set.
+    /// * `key` - The key to update
+    /// * `value` - The value to set
     /// 
     /// # Returns
     /// 
-    /// Returns a `Result` indicating success or failure.
+    /// Returns a `Result` indicating success or failure
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the sync manager is not initialized, if there's an issue during data update,
+    /// or if there's a synchronization conflict that cannot be resolved
     pub async fn update_data_with_sync(&self, key: &str, value: Value) -> Result<()> {
         // First update the local state
         let previous_value = {
@@ -542,7 +568,7 @@ impl Context {
         // Then synchronize if enabled
         if let Some(sync_manager) = &self.sync_manager {
             let change = sync::ChangeRecord::new(
-                format!("state/{}", key),
+                format!("state/{key}"),
                 previous_value,
                 value.clone(),
                 "context".to_string(),
@@ -554,11 +580,15 @@ impl Context {
         Ok(())
     }
     
-    /// Takes a synchronization snapshot
+    /// Gets a snapshot of the current sync state
     /// 
     /// # Returns
     /// 
-    /// Returns a `Result` containing the context snapshot if successful.
+    /// Returns a `Result` containing the current context state for synchronization
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the sync manager is not initialized or if there's an issue retrieving the sync state
     pub async fn get_sync_snapshot(&self) -> Result<sync::ContextState> {
         if let Some(manager) = &self.sync_manager {
             Ok(manager.get_state().await)
@@ -572,11 +602,15 @@ impl Context {
         }
     }
     
-    /// Gets the synchronization history
+    /// Gets the sync history
     /// 
     /// # Returns
     /// 
-    /// Returns a vector of change records if sync is enabled.
+    /// Returns a `Result` containing the history of sync changes
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the sync manager is not initialized or if there's an issue retrieving the sync history
     pub async fn get_sync_history(&self) -> Result<Vec<sync::ChangeRecord>> {
         if let Some(manager) = &self.sync_manager {
             Ok(manager.get_change_history().await)

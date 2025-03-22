@@ -349,6 +349,16 @@ impl Default for DashboardManager {
     }
 }
 
+impl Clone for DashboardManager {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            // JoinHandle doesn't implement Clone, so we set it to None for the clone
+            websocket_handle: None,
+        }
+    }
+}
+
 /// Factory for creating and managing dashboard manager instances
 #[derive(Debug, Clone)]
 pub struct DashboardManagerFactory {

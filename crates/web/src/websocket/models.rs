@@ -67,18 +67,6 @@ pub enum ChannelCategory {
 }
 
 impl ChannelCategory {
-    /// Convert a string to a ChannelCategory
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "job" => Some(Self::Job),
-            "command" => Some(Self::Command),
-            "notification" => Some(Self::Notification),
-            "user" => Some(Self::User),
-            "system" => Some(Self::System),
-            _ => None,
-        }
-    }
-    
     /// Convert a ChannelCategory to a string
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -87,6 +75,22 @@ impl ChannelCategory {
             Self::Notification => "notification",
             Self::User => "user",
             Self::System => "system",
+        }
+    }
+}
+
+impl std::str::FromStr for ChannelCategory {
+    type Err = ();
+
+    /// Parse a string into a ChannelCategory
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "job" => Ok(Self::Job),
+            "command" => Ok(Self::Command),
+            "notification" => Ok(Self::Notification),
+            "user" => Ok(Self::User),
+            "system" => Ok(Self::System),
+            _ => Err(()),
         }
     }
 }

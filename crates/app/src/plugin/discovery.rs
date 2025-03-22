@@ -354,19 +354,19 @@ impl Plugin for PlaceholderPlugin {
         &self.metadata
     }
     
-    fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+    fn initialize(&self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
     
-    fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+    fn shutdown(&self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
     
-    fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+    fn get_state(&self) -> BoxFuture<'_, Result<Option<PluginState>>> {
         Box::pin(async move { Ok(None) })
     }
     
-    fn set_state<'a>(&'a self, _state: PluginState) -> BoxFuture<'a, Result<()>> {
+    fn set_state(&self, _state: PluginState) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
     

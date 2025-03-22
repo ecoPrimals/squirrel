@@ -14,6 +14,7 @@ use serde_json::json;
 use chrono::{DateTime, Utc};
 #[cfg(feature = "db")]
 use sqlx::sqlite::SqliteQueryResult;
+use serde::Deserialize;
 
 use crate::{
     api::{
@@ -24,6 +25,13 @@ use crate::{
     auth::Claims,
     auth::extractor::AuthClaims,
 };
+
+/// Job params for path extraction
+#[derive(Debug, Deserialize)]
+pub struct JobParams {
+    /// Job ID
+    pub job_id: String,
+}
 
 /// Database Job model
 #[derive(Debug, Serialize)]
@@ -55,13 +63,13 @@ pub fn job_routes() -> Router {
 
 /// Create a new job
 pub async fn create_job(
-    State(state): State<Arc<AppState>>,
-    Extension(claims): Extension<AuthClaims>,
+    State(_state): State<Arc<AppState>>,
+    Extension(_claims): Extension<AuthClaims>,
     Json(req): Json<CreateJobRequest>,
 ) -> Result<Json<ApiResponse<CreateJobResponse>>, AppError> {
     #[cfg(feature = "db")]
-    if let Some(_) = state.db {
-        let response = create_job_with_db(&state, &claims, &req).await?;
+    if let Some(_) = _state.db {
+        let response = create_job_with_db(&_state, &_claims, &req).await?;
         return Ok(api_success(response));
     }
     
@@ -201,13 +209,14 @@ pub async fn report(
 pub async fn list_jobs(
     State(_state): State<Arc<AppState>>,
     Extension(_claims): Extension<AuthClaims>,
+    query: Option<Query<PaginationQuery>>,
 ) -> Result<Json<ApiResponse<Vec<JobStatus>>>, AppError> {
     // Get total count for pagination
     let total_count = sqlx::query!(
         "SELECT COUNT(*) as count FROM jobs WHERE user_id = ?",
-        claims.sub.to_string()
+        _claims.sub.to_string()
     )
-    .fetch_one(&state.db)
+    .fetch_one(&_state.db)
     .await?
     .count as u64;
     
@@ -224,7 +233,7 @@ pub async fn list_jobs(
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
         "#,
-        claims.sub.to_string(),
+        _claims.sub.to_string(),
         limit,
         offset
     )
@@ -457,7 +466,7 @@ async fn report_stub() -> impl IntoResponse {
 
 /// Get the status of a job
 pub async fn get_job_status(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Path(job_id): Path<String>,
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // In a real implementation, this would fetch the job from the database
@@ -483,7 +492,7 @@ pub async fn get_job_status(
 
 /// Get the result of a job
 pub async fn get_job_result(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Path(job_id): Path<String>,
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // In a real implementation, this would fetch the job result from the database or storage
@@ -512,11 +521,11 @@ pub async fn get_job_result(
 
 /// Cancel a job
 pub async fn cancel_job(
-    State(state): State<Arc<AppState>>,
-    Path(job_id): Path<String>,
+    State(_state): State<Arc<AppState>>,
+    Path(params): Path<JobParams>,
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // In a real implementation, this would cancel the job in the database
-    let job_id = Uuid::parse_str(&job_id).unwrap_or_default();
+    let job_id = Uuid::parse_str(&params.job_id).unwrap_or_default();
     
     // Create a mock cancelled job
     let status = JobStatus {
@@ -597,4 +606,18 @@ async fn download_logs_stub(
     State(_state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     "Download logs endpoint"
+}
+
+pub async fn restart_job(
+    State(_state): State<Arc<AppState>>,
+    Path(_params): Path<JobParams>,
+) -> impl IntoResponse {
+    // ... existing code ...
+}
+
+pub async fn delete_job(
+    State(_state): State<Arc<AppState>>,
+    Path(_params): Path<JobParams>,
+) -> impl IntoResponse {
+    // ... existing code ...
 } 

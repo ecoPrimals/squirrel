@@ -43,9 +43,17 @@ impl DashboardManagerAdapter {
     /// # Errors
     /// Returns an error if the dashboard manager fails to start
     pub async fn start(&self) -> Result<()> {
-        let lock = self.inner.write();
-        let mut manager = lock.map_err(|e| SquirrelError::other(format!("Failed to acquire lock: {}", e)))?;
-        manager.start().await
+        // Clone the manager to avoid holding the lock across the await point
+        let mut manager_clone = {
+            let manager = self.inner.read().map_err(|e| 
+                SquirrelError::other(format!("Failed to acquire read lock: {}", e))
+            )?;
+            // Clone the DashboardManager inside the guard, not the guard itself
+            DashboardManager::clone(&*manager)
+        };
+        
+        // Now use the cloned manager without holding any locks
+        manager_clone.start().await
     }
 
     /// Stop the dashboard manager
@@ -53,9 +61,17 @@ impl DashboardManagerAdapter {
     /// # Errors
     /// Returns an error if the dashboard manager fails to stop
     pub async fn stop(&self) -> Result<()> {
-        let lock = self.inner.write();
-        let mut manager = lock.map_err(|e| SquirrelError::other(format!("Failed to acquire lock: {}", e)))?;
-        manager.stop().await
+        // Clone the manager to avoid holding the lock across the await point
+        let mut manager_clone = {
+            let manager = self.inner.read().map_err(|e| 
+                SquirrelError::other(format!("Failed to acquire read lock: {}", e))
+            )?;
+            // Clone the DashboardManager inside the guard, not the guard itself
+            DashboardManager::clone(&*manager)
+        };
+        
+        // Now use the cloned manager without holding any locks
+        manager_clone.stop().await
     }
 }
 

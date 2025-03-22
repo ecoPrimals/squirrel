@@ -28,6 +28,7 @@ squirrel-context = { path = "../context" }
 squirrel-monitoring = { path = "../monitoring" }
 squirrel-mcp = { path = "../mcp" }
 squirrel-commands = { path = "../commands" }
+timeout = "0.1.0"
 
 [dev-dependencies]
 tokio-test = "0.4"

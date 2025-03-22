@@ -160,13 +160,14 @@ impl Metrics {
     /// Create a new metrics instance with performance monitoring enabled
     #[must_use]
     pub fn with_performance_monitoring() -> Self {
-        let mut metrics = Self::default();
-        metrics.perf_monitor = Some(perf::PerfMonitor::new());
-        metrics
+        Self {
+            perf_monitor: Some(perf::PerfMonitor::new()),
+            ..Self::default()
+        }
     }
     
     /// Get the performance monitor, if enabled
-    pub fn perf_monitor(&self) -> Option<Arc<perf::PerfMonitor>> {
+    #[must_use] pub fn perf_monitor(&self) -> Option<Arc<perf::PerfMonitor>> {
         self.perf_monitor.clone()
     }
     
@@ -184,6 +185,14 @@ impl Metrics {
     
     /// Time an operation with the given name and category
     /// Returns a guard that will record the duration when dropped
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing a timing guard
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the performance monitor fails to create a timing guard
     pub async fn time(&self, name: &str, category: perf::PerfCategory) -> crate::error::Result<perf::TimingGuard> {
         if let Some(monitor) = &self.perf_monitor {
             Ok(monitor.time(name, category).await)
@@ -193,6 +202,20 @@ impl Metrics {
     }
     
     /// Update memory usage metrics
+    /// 
+    /// # Arguments
+    /// 
+    /// * `current_bytes` - Current memory usage in bytes
+    /// * `allocated_bytes` - Total allocated memory in bytes
+    /// 
+    /// # Returns
+    /// 
+    /// Returns `Ok(())` if the update was successful
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if updating memory metrics fails, such as when
+    /// the performance monitor encounters an error
     pub async fn update_memory(&self, current_bytes: u64, allocated_bytes: u64) -> crate::error::Result<()> {
         if let Some(monitor) = &self.perf_monitor {
             monitor.update_memory(current_bytes, allocated_bytes).await?;
@@ -200,13 +223,28 @@ impl Metrics {
         
         // Also update regular metrics
         let mut gauges = self.gauges.write().await;
-        gauges.insert("memory.current_bytes".to_string(), current_bytes as f64);
-        gauges.insert("memory.allocated_bytes".to_string(), allocated_bytes as f64);
+        
+        // It's safe to cast u64 to f64 here even with potential precision loss
+        // because we don't need exact precision for memory metrics visualization
+        #[allow(clippy::cast_precision_loss)]
+        {
+            gauges.insert("memory.current_bytes".to_string(), current_bytes as f64);
+            gauges.insert("memory.allocated_bytes".to_string(), allocated_bytes as f64);
+        }
         
         Ok(())
     }
     
     /// Generate a performance report
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing an optional performance report
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if generating the performance report fails, such as when
+    /// accessing the performance monitor data fails
     pub async fn generate_perf_report(&self) -> crate::error::Result<Option<perf::PerfReport>> {
         if let Some(monitor) = &self.perf_monitor {
             let report = monitor.generate_report().await?;
@@ -217,6 +255,14 @@ impl Metrics {
     }
 
     /// Record a metric
+    ///
+    /// # Arguments
+    ///
+    /// * `metric` - The metric to record
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the metric was recorded successfully
     ///
     /// # Errors
     ///
@@ -257,6 +303,14 @@ impl Metrics {
 
     /// Get the current value of a counter metric
     ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the counter metric
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the counter value
+    ///
     /// # Errors
     ///
     /// Returns an error if the counter metric cannot be accessed
@@ -266,6 +320,14 @@ impl Metrics {
     }
 
     /// Get the current value of a gauge metric
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the gauge metric
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the gauge value
     ///
     /// # Errors
     ///
@@ -277,6 +339,14 @@ impl Metrics {
 
     /// Get the current values of a histogram metric
     ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the histogram metric
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the histogram values
+    ///
     /// # Errors
     ///
     /// Returns an error if the histogram metric cannot be accessed
@@ -286,6 +356,10 @@ impl Metrics {
     }
 
     /// Create a snapshot of all current metrics
+    ///
+    /// # Returns
+    ///
+    /// Returns a `MetricsSnapshot` containing the current metrics state
     #[must_use]
     pub async fn snapshot(&self) -> MetricsSnapshot {
         let counters = self.counters.read().await.clone();
@@ -300,18 +374,27 @@ impl Metrics {
     }
 
     /// Create a snapshot with enhanced metrics including performance metrics
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing a map of metrics with their values
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if creating the snapshot fails or if accessing performance metrics fails,
+    /// such as when locks cannot be acquired
     pub async fn enhanced_snapshot(&self) -> Result<HashMap<String, serde_json::Value>> {
         let mut result = HashMap::new();
         
         // Add standard metrics
         let counters = self.counters.read().await;
         for (key, value) in counters.iter() {
-            result.insert(format!("counter.{}", key), serde_json::to_value(value).unwrap_or_default());
+            result.insert(format!("counter.{key}"), serde_json::to_value(value).unwrap_or_default());
         }
         
         let gauges = self.gauges.read().await;
         for (key, value) in gauges.iter() {
-            result.insert(format!("gauge.{}", key), serde_json::to_value(value).unwrap_or_default());
+            result.insert(format!("gauge.{key}"), serde_json::to_value(value).unwrap_or_default());
         }
         
         // Add performance metrics if available

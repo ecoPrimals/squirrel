@@ -39,18 +39,6 @@ pub enum CommandStatus {
 }
 
 impl CommandStatus {
-    /// Convert a string to CommandStatus
-    pub fn from_str(status: &str) -> Self {
-        match status.to_lowercase().as_str() {
-            "queued" => Self::Queued,
-            "running" => Self::Running,
-            "completed" => Self::Completed,
-            "failed" => Self::Failed,
-            "cancelled" => Self::Cancelled,
-            _ => Self::Failed, // Default to failed for unknown status
-        }
-    }
-    
     /// Convert CommandStatus to string
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -59,6 +47,22 @@ impl CommandStatus {
             Self::Completed => "completed",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+impl std::str::FromStr for CommandStatus {
+    type Err = ();
+
+    /// Parse a string into a CommandStatus
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Ok(Self::Failed), // Default to failed for unknown status
         }
     }
 }

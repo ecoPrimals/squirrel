@@ -272,7 +272,16 @@ impl ContextAdapter {
                 .iter()
                 .filter_map(|(id, data)| {
                     let age = now.signed_duration_since(data.updated_at);
-                    if age.num_seconds() > ttl_seconds as i64 {
+                    
+                    // Safe conversion from u64 to i64, capping at i64::MAX if needed
+                    #[allow(clippy::cast_possible_wrap)]
+                    let ttl_seconds_i64 = if ttl_seconds > i64::MAX as u64 {
+                        i64::MAX
+                    } else {
+                        ttl_seconds as i64
+                    };
+                    
+                    if age.num_seconds() > ttl_seconds_i64 {
                         Some(id.clone())
                     } else {
                         None

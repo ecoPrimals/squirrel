@@ -5,9 +5,12 @@ use super::{Plugin, PluginMetadata};
 use std::sync::Arc;
 use squirrel_commands::CommandRegistry;
 use crate::plugin::{PluginState};
-use std::sync::RwLock;
+use tokio::sync::RwLock;
 use futures::future::BoxFuture;
 use std::any::Any;
+use std::marker::PhantomData;
+use std::path::Path;
+use uuid::Uuid;
 
 /// Command plugin for extending command functionality
 #[async_trait]
@@ -83,32 +86,26 @@ impl Plugin for CommandPluginImpl {
         &self.metadata
     }
 
-    fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+    fn initialize(&self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
 
-    fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+    fn shutdown(&self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
 
-    fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+    fn get_state(&self) -> BoxFuture<'_, Result<Option<PluginState>>> {
         Box::pin(async move { 
-            match self.state.read() {
-                Ok(guard) => Ok(guard.clone()),
-                Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire read lock").into())
-            }
+            let guard = self.state.read().await;
+            Ok(guard.clone())
         })
     }
 
-    fn set_state<'a>(&'a self, state: PluginState) -> BoxFuture<'a, Result<()>> {
+    fn set_state(&self, state: PluginState) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            match self.state.write() {
-                Ok(mut guard) => {
-                    *guard = Some(state);
-                    Ok(())
-                },
-                Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock").into())
-            }
+            let mut guard = self.state.write().await;
+            *guard = Some(state);
+            Ok(())
         })
     }
 
@@ -117,10 +114,12 @@ impl Plugin for CommandPluginImpl {
     }
 
     fn clone_box(&self) -> Box<dyn Plugin> {
+        // Create a new CommandPluginImpl with a fresh state RwLock
+        // This avoids blocking on async operations in a sync context
         Box::new(Self {
             metadata: self.metadata.clone(),
             registry: self.registry.clone(),
-            state: RwLock::new(self.state.read().ok().and_then(|guard| guard.clone())),
+            state: RwLock::new(None),
         })
     }
 }

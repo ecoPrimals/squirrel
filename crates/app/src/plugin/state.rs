@@ -8,7 +8,6 @@ use uuid::Uuid;
 use tracing::{debug, warn};
 use crate::error::Result;
 use super::{Plugin, PluginState};
-use std::any::Any;
 
 /// Plugin state storage trait
 #[async_trait]
@@ -330,7 +329,6 @@ mod tests {
     
     #[derive(Debug, Clone)]
     struct TestPlugin {
-        id: Uuid,
         state: Arc<RwLock<Option<PluginState>>>,
         metadata: PluginMetadata,
     }
@@ -368,7 +366,11 @@ mod tests {
         }
         
         fn clone_box(&self) -> Box<dyn Plugin> {
-            Box::new(self.clone())
+            // Share the state between the original and the clone
+            Box::new(TestPlugin {
+                metadata: self.metadata.clone(),
+                state: self.state.clone(), // Keep the same shared state
+            })
         }
     }
     
@@ -409,7 +411,6 @@ mod tests {
         // Create a test plugin
         let plugin_id = Uuid::new_v4();
         let test_plugin = TestPlugin {
-            id: plugin_id,
             state: Arc::new(RwLock::new(None)),
             metadata: PluginMetadata {
                 id: plugin_id,

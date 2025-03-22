@@ -11,7 +11,7 @@ members = [
     "crates/cli",
     "crates/app",
     "crates/context-adapter"
-]
+, "test_plugin_fix"]
 
 [workspace.package]
 version = "0.1.0"
