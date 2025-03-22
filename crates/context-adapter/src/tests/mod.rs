@@ -293,7 +293,7 @@ async fn test_cleanup_expired_contexts() {
     // Create adapter with short TTL for testing
     let config = ContextAdapterConfig {
         max_contexts: 100,
-        ttl_seconds: 1, // 1 second TTL
+        ttl_seconds: 2, // 2 second TTL
         enable_auto_cleanup: true,
     };
     
@@ -307,7 +307,7 @@ async fn test_cleanup_expired_contexts() {
     assert_eq!(adapter.list_contexts().await.unwrap().len(), 2);
     
     // Wait for TTL to expire
-    sleep(Duration::from_millis(1500)).await;
+    sleep(Duration::from_secs(3)).await; // Wait 3 seconds to ensure expiry
     
     // Run cleanup
     adapter.cleanup_expired_contexts().await.unwrap();
