@@ -13,10 +13,16 @@ use crate::{
 };
 
 // Include history tests
-mod history_test;
+pub mod history_test;
 
 // Include suggestions tests
-mod suggestions_test;
+pub mod suggestions_test;
+
+// Include auth tests
+pub mod auth_test;
+
+// Include MCP integration test
+pub mod mcp_integration_test;
 
 // Test implementations
 

@@ -93,13 +93,30 @@ impl AuthManager {
             CommandError::RegistryError("No authentication provider available".to_string())
         })?;
 
-        match first_provider.authenticate(credentials) {
+        println!("DEBUG: Authenticating with provider: {}", first_provider.name());
+        
+        if let AuthCredentials::Basic { username, password } = credentials {
+            println!("DEBUG: Username: {}, Password length: {}", username, password.len());
+        }
+        
+        // Clone credentials for audit logging in case of failure
+        let cloned_credentials = credentials.clone();
+        
+        // Call the synchronous authenticate method
+        let result = first_provider.authenticate(credentials);
+        
+        println!("DEBUG: Authentication result: {:?}", result.is_ok());
+        
+        // Handle the result in the async context
+        match result {
             Ok(user) => {
+                println!("DEBUG: Authentication successful for user: {}", user.name);
                 self.audit_logger.log_authentication_success(&user).await;
                 Ok(user)
             }
             Err(e) => {
-                self.audit_logger.log_authentication_failure(credentials, &e.to_string()).await;
+                println!("DEBUG: Authentication failed: {}", e);
+                self.audit_logger.log_authentication_failure(&cloned_credentials, &e.to_string()).await;
                 Err(e)
             }
         }
@@ -107,13 +124,18 @@ impl AuthManager {
 
     /// Authorizes a user to execute a command using role-based permissions
     pub async fn authorize(&self, user: &User, command: &dyn Command) -> AuthResult<bool> {
+        println!("AuthManager.authorize: User {} (level {:?}) with command {}", 
+            user.name, user.permission_level, command.name());
+        
         self.audit_logger.log_authorization_attempt(user, command).await;
 
         // Check role-based authorization first
         let rbac_result = self.role_manager.authorize_command(&user.id, command).await?;
+        println!("AuthManager.authorize: RBAC result: {}", rbac_result);
         
         if rbac_result {
             // User has role-based permission
+            println!("AuthManager.authorize: User has role-based permission");
             self.audit_logger.log_authorization_success(user, command).await;
             return Ok(true);
         }
@@ -121,28 +143,37 @@ impl AuthManager {
         // If there are command permissions defined but user doesn't have the roles needed,
         // don't fall back to legacy permission system
         let command_permissions = self.role_manager.get_command_permissions(command.name()).await?;
+        println!("AuthManager.authorize: Command permissions count: {}", command_permissions.len());
+        
         if !command_permissions.is_empty() {
             // Command has specific RBAC permissions defined, but user doesn't have them
+            println!("AuthManager.authorize: Command has specific RBAC permissions, but user doesn't have them");
             self.audit_logger.log_authorization_failure(user, command, "No required role permissions").await;
             return Ok(false);
         }
 
         // Fall back to permission level-based authorization
+        println!("AuthManager.authorize: Falling back to permission level-based authorization");
+        
         let provider = self.providers.read().await;
         let first_provider = provider.first().ok_or_else(|| {
             CommandError::RegistryError("No authentication provider available".to_string())
         })?;
 
+        println!("AuthManager.authorize: Calling provider.authorize");
         match first_provider.authorize(user, command) {
             Ok(true) => {
+                println!("AuthManager.authorize: Provider authorized user");
                 self.audit_logger.log_authorization_success(user, command).await;
                 Ok(true)
             }
             Ok(false) => {
+                println!("AuthManager.authorize: Provider denied authorization");
                 self.audit_logger.log_authorization_failure(user, command, "Not authorized").await;
                 Ok(false)
             }
             Err(e) => {
+                println!("AuthManager.authorize: Provider returned error: {}", e);
                 self.audit_logger.log_authorization_failure(user, command, &e.to_string()).await;
                 Err(e)
             }
