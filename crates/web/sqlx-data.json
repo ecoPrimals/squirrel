@@ -1,0 +1,153 @@
+{
+  "db": "SQLite",
+  "3ae82bb95f01cd07da5b5e53f9de4a01bce1a5ff26eb69cb9171a8431ca307a0": {
+    "describe": {
+      "columns": [{
+        "name": "username",
+        "ordinal": 0,
+        "type_info": "Text"
+      }],
+      "nullable": [true],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "SELECT username FROM users WHERE username = ? OR email = ?"
+  },
+  "queries": [
+    {
+      "query": "SELECT username FROM users WHERE username = ? OR email = ?",
+      "describe": {
+        "columns": [{"name": "username", "ordinal": 0, "type_info": "Text"}],
+        "parameters": {"Right": 2},
+        "nullable": [true]
+      }
+    },
+    {
+      "query": "INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 7},
+        "nullable": []
+      }
+    },
+    {
+      "query": "SELECT id as \"id: Uuid\", username, email, password_hash, role as \"role: Role\", created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM users WHERE username = ? OR email = ?",
+      "describe": {
+        "columns": [
+          {"name": "id: Uuid", "ordinal": 0, "type_info": "Text"},
+          {"name": "username", "ordinal": 1, "type_info": "Text"},
+          {"name": "email", "ordinal": 2, "type_info": "Text"},
+          {"name": "password_hash", "ordinal": 3, "type_info": "Text"},
+          {"name": "role: Role", "ordinal": 4, "type_info": "Text"},
+          {"name": "created_at: DateTime<Utc>", "ordinal": 5, "type_info": "Text"},
+          {"name": "updated_at: DateTime<Utc>", "ordinal": 6, "type_info": "Text"}
+        ],
+        "parameters": {"Right": 2},
+        "nullable": [false, false, false, false, false, false, false]
+      }
+    },
+    {
+      "query": "DELETE FROM refresh_tokens WHERE user_id = ?",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 1},
+        "nullable": []
+      }
+    },
+    {
+      "query": "INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 5},
+        "nullable": []
+      }
+    },
+    {
+      "query": "SELECT id as \"id: Uuid\", user_id as \"user_id: Uuid\", token, expires_at as \"expires_at: DateTime<Utc>\", created_at as \"created_at: DateTime<Utc>\" FROM refresh_tokens WHERE token = ?",
+      "describe": {
+        "columns": [
+          {"name": "id: Uuid", "ordinal": 0, "type_info": "Text"},
+          {"name": "user_id: Uuid", "ordinal": 1, "type_info": "Text"},
+          {"name": "token", "ordinal": 2, "type_info": "Text"},
+          {"name": "expires_at: DateTime<Utc>", "ordinal": 3, "type_info": "Text"},
+          {"name": "created_at: DateTime<Utc>", "ordinal": 4, "type_info": "Text"}
+        ],
+        "parameters": {"Right": 1},
+        "nullable": [false, false, false, false, false]
+      }
+    },
+    {
+      "query": "DELETE FROM refresh_tokens WHERE id = ?",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 1},
+        "nullable": []
+      }
+    },
+    {
+      "query": "INSERT INTO jobs (id, user_id, repository_url, git_ref, config, status, progress, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 9},
+        "nullable": []
+      }
+    },
+    {
+      "query": "SELECT COUNT(*) as count FROM jobs WHERE user_id = ?",
+      "describe": {
+        "columns": [{"name": "count", "ordinal": 0, "type_info": "Int64"}],
+        "parameters": {"Right": 1},
+        "nullable": [false]
+      }
+    },
+    {
+      "query": "SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+      "describe": {
+        "columns": [
+          {"name": "id", "ordinal": 0, "type_info": "Text"},
+          {"name": "user_id", "ordinal": 1, "type_info": "Text"},
+          {"name": "repository_url", "ordinal": 2, "type_info": "Text"},
+          {"name": "git_ref", "ordinal": 3, "type_info": "Text"},
+          {"name": "config", "ordinal": 4, "type_info": "Text"},
+          {"name": "status", "ordinal": 5, "type_info": "Text"},
+          {"name": "progress", "ordinal": 6, "type_info": "Float"},
+          {"name": "error", "ordinal": 7, "type_info": "Text"},
+          {"name": "result_url", "ordinal": 8, "type_info": "Text"},
+          {"name": "created_at", "ordinal": 9, "type_info": "Text"},
+          {"name": "updated_at", "ordinal": 10, "type_info": "Text"}
+        ],
+        "parameters": {"Right": 3},
+        "nullable": [false, false, false, false, false, false, false, true, true, false, false]
+      }
+    },
+    {
+      "query": "SELECT * FROM jobs WHERE id = ? AND user_id = ?",
+      "describe": {
+        "columns": [
+          {"name": "id", "ordinal": 0, "type_info": "Text"},
+          {"name": "user_id", "ordinal": 1, "type_info": "Text"},
+          {"name": "repository_url", "ordinal": 2, "type_info": "Text"},
+          {"name": "git_ref", "ordinal": 3, "type_info": "Text"},
+          {"name": "config", "ordinal": 4, "type_info": "Text"},
+          {"name": "status", "ordinal": 5, "type_info": "Text"},
+          {"name": "progress", "ordinal": 6, "type_info": "Float"},
+          {"name": "error", "ordinal": 7, "type_info": "Text"},
+          {"name": "result_url", "ordinal": 8, "type_info": "Text"},
+          {"name": "created_at", "ordinal": 9, "type_info": "Text"},
+          {"name": "updated_at", "ordinal": 10, "type_info": "Text"}
+        ],
+        "parameters": {"Right": 2},
+        "nullable": [false, false, false, false, false, false, false, true, true, false, false]
+      }
+    },
+    {
+      "query": "UPDATE jobs SET status = ?, progress = ?, error = ?, result_url = ?, updated_at = ? WHERE id = ?",
+      "describe": {
+        "columns": [],
+        "parameters": {"Right": 6},
+        "nullable": []
+      }
+    }
+  ]
+} 

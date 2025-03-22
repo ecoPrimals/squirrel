@@ -353,3 +353,51 @@ The command system follows a clean architecture with:
 
 ### Contact
 Please reach out to us in the commands worktree for any questions or clarifications.
+
+# Web Crate Structure Updates
+
+## From: DataScienceBioLab
+### Working in: web worktree
+### To: app worktree
+## Date: 2024-05-08
+
+### Summary
+Fixed structural issues in the web crate to ensure proper functionality and address compilation errors due to mismatches between component implementations.
+
+### Findings
+#### 1. AppState Structure Mismatch
+- **Issue**: The `AppState` structure was missing an `auth` field that route handlers were attempting to access.
+- **Location**: `crates/web/src/state/mod.rs`
+- **Impact**: Route handlers were failing due to missing fields.
+- **Solution**: Added an `auth` field to the `AppState` structure and properly initialized it.
+
+#### 2. Axum Compatibility Issues
+- **Issue**: The `FromRequest` implementation for `AuthClaims` was using outdated Axum API.
+- **Location**: `crates/web/src/auth/extractor/mod.rs`
+- **Impact**: Authentication was failing due to incorrect trait implementation.
+- **Solution**: Updated the implementation to match Axum 0.6 requirements.
+
+#### 3. Field Name Inconsistency
+- **Issue**: Code was accessing `mcp_client` when the field was called `mcp`.
+- **Location**: Multiple handlers
+- **Impact**: MCP integration was failing.
+- **Solution**: Updated references to use correct field name and properly handle optional state.
+
+### Action Items
+1. Review the updated structure in your code that interacts with the web crate.
+2. Update any dependencies that expect the previous structure.
+3. Ensure that routes properly initialize the auth service.
+
+### Benefits
+- Improved code consistency
+- Fixed compilation errors
+- Better error handling for optional components
+- Clearer structure for the application state
+
+### Next Steps
+1. Add a more robust authentication implementation
+2. Consider creating a middleware layer for auth consistency
+3. Update tests to match the new structure
+
+### Contact
+Reach out to us in the web worktree for clarification.
