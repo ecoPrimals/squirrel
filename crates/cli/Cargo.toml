@@ -13,6 +13,7 @@ squirrel-core = { path = "../core" }
 
 # Async runtime
 tokio = { version = "1.36", features = ["full"] }
+async-trait = "0.1.74"
 
 # Command-line parsing
 clap = { version = "4.4", features = ["derive"] }
@@ -32,6 +33,7 @@ anyhow = "1.0"
 log = "0.4"
 fern = "0.6"
 env_logger = "0.10"
+tracing = "0.1"
 
 # Utility
 directories = "5.0"
@@ -41,6 +43,7 @@ colored = "2.0"
 regex = "1.10"
 prettytable-rs = "0.10"
 lazy_static = "1.4"
+libloading = "0.8"
 
 [dev-dependencies]
 assert_cmd = "2.0"

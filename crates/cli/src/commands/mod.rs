@@ -8,15 +8,61 @@ pub mod help_command;
 pub mod version_command;
 pub mod status_command;
 pub mod plugin_command;
+pub mod secrets_command;
+pub mod executor;
+pub mod mcp_command;
+pub mod registry;
+pub mod context;
 
 pub use config_command::ConfigCommand;
 pub use help_command::HelpCommand;
 pub use version_command::VersionCommand;
 pub use status_command::StatusCommand;
 pub use plugin_command::PluginCommand;
+pub use secrets_command::SecretsCommand;
+pub use executor::ExecutionContext;
+pub use mcp_command::MCPCommand;
 
 use clap::{Command as ClapCommand, Arg, ArgAction};
+
 use squirrel_commands::{Command, CommandRegistry};
+
+/// Register all CLI commands
+///
+/// This function registers all commands provided by the CLI crate.
+///
+/// # Arguments
+///
+/// * `registry` - The command registry to register commands with
+pub fn register_commands(registry: &mut CommandRegistry) {
+    // Create command instances
+    let help_command = HelpCommand::new();
+    let version_command = VersionCommand::new();
+    let status_command = StatusCommand::new();
+    let config_command = ConfigCommand::new();
+    let plugin_command = PluginCommand::new();
+    let secrets_command = SecretsCommand::new();
+    let mcp_command = mcp_command::MCPCommand::new();
+    
+    // Convert to Arc<dyn Command>
+    let help_arc = std::sync::Arc::new(help_command);
+    let version_arc = std::sync::Arc::new(version_command);
+    let status_arc = std::sync::Arc::new(status_command);
+    let config_arc = std::sync::Arc::new(config_command);
+    let plugin_arc = std::sync::Arc::new(plugin_command);
+    let secrets_arc = std::sync::Arc::new(secrets_command);
+    let mcp_arc = std::sync::Arc::new(mcp_command);
+    
+    // Register commands
+    let _ = registry.register("help", help_arc);
+    let _ = registry.register("version", version_arc);
+    let _ = registry.register("status", status_arc);
+    let _ = registry.register("config", config_arc);
+    let _ = registry.register("plugin", plugin_arc);
+    let _ = registry.register("secrets", secrets_arc);
+    let _ = registry.register("mcp", mcp_arc);
+    // Register additional commands here as they are implemented
+}
 
 /// Create the command-line interface
 ///
@@ -116,33 +162,7 @@ pub fn create_cli() -> ClapCommand {
         )
 }
 
-/// Register all CLI commands
-///
-/// This function registers all commands provided by the CLI crate.
-///
-/// # Arguments
-///
-/// * `registry` - The command registry to register commands with
-pub fn register_commands(registry: &mut CommandRegistry) {
-    // Create command instances
-    let help_command = HelpCommand::new();
-    let version_command = VersionCommand::new();
-    let status_command = StatusCommand::new();
-    let config_command = ConfigCommand::new();
-    let plugin_command = PluginCommand::new();
-    
-    // Convert to Arc<dyn Command>
-    let help_arc = std::sync::Arc::new(help_command);
-    let version_arc = std::sync::Arc::new(version_command);
-    let status_arc = std::sync::Arc::new(status_command);
-    let config_arc = std::sync::Arc::new(config_command);
-    let plugin_arc = std::sync::Arc::new(plugin_command);
-    
-    // Register commands
-    let _ = registry.register("help", help_arc);
-    let _ = registry.register("version", version_arc);
-    let _ = registry.register("status", status_arc);
-    let _ = registry.register("config", config_arc);
-    let _ = registry.register("plugin", plugin_arc);
-    // Register additional commands here as they are implemented
+/// Creates a CLI instance from the command registry
+pub fn create_cli_from_registry(registry: &registry::CommandRegistry) -> registry::cli::Cli {
+    registry::cli::Cli::new(registry)
 } 

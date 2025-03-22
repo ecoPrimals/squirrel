@@ -1,127 +1,148 @@
-# Code Analysis and Reporting System
+# Squirrel CLI
 
-A comprehensive system for analyzing code, generating reports, and providing insights through a web interface. Built with Rust for performance and reliability.
-
-## Project Structure
-
-The project is organized as a Rust workspace with the following crates:
-
-- `analysis`: Core code analysis functionality
-- `reporting`: Report generation and management
-- `mcp`: Machine Context Protocol implementation
-- `web`: Web interface and API
+A command-line interface for the Squirrel platform with a powerful plugin system.
 
 ## Features
 
-- Code analysis with support for:
-  - Security scanning
-  - Performance analysis
-  - Style checking
-  - Best practices validation
-- Report generation in multiple formats:
-  - Markdown
-  - HTML
-  - PDF
-  - JSON
-- Machine Context Protocol (MCP) for client-server communication
-- Web interface for:
-  - Submitting analysis jobs
-  - Tracking job progress
-  - Viewing and downloading reports
+- Extensible plugin architecture
+- Command registry for uniform command handling
+- Support for multiple output formats (text, JSON, YAML)
+- Dynamic loading of plugin libraries
+- Plugin lifecycle management
+- Machine Context Protocol (MCP) integration
 
-## Prerequisites
+## Built-in Commands
 
-- Rust (latest stable version)
-- PostgreSQL (14.0 or later)
-- OpenSSL development libraries
-- Git
+- `help`: Display help information
+- `version`: Display version information
+- `status`: Show system status
+- `config`: Manage configuration settings
+- `plugin`: Manage plugins
+- `secrets`: Manage secrets
+- `mcp`: Machine Context Protocol operations
 
-## Setup
+### MCP Command
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd <repository-name>
-   ```
+The MCP command provides functionality for working with the Machine Context Protocol, which enables communication between various components and services. 
 
-2. Set up the database:
-   ```bash
-   # Create a new PostgreSQL database
-   createdb code_analysis
-   
-   # Run migrations (once implemented)
-   cargo run -p web -- migrate
-   ```
+Subcommands:
 
-3. Configure the environment:
-   ```bash
-   # Copy the example configuration
-   cp config.example.toml config.toml
-   
-   # Edit the configuration file with your settings
-   vim config.toml
-   ```
+- `mcp server`: Start an MCP server
+- `mcp client`: Connect to an MCP server
+- `mcp status`: Check MCP server status
+- `mcp protocol`: Manage MCP protocol operations
+  - `validate`: Validate an MCP message
+  - `generate`: Generate an MCP message template
+  - `convert`: Convert between protocol versions
 
-4. Build the project:
-   ```bash
-   cargo build --release
-   ```
+## Plugin Management
 
-## Usage
+The CLI includes a robust plugin system that allows for extending functionality through plugins. Plugins can add new commands, modify existing functionality, or provide additional services.
 
-1. Start the web server:
-   ```bash
-   cargo run -p web
-   ```
+### Plugin Commands
 
-2. Start the MCP server:
-   ```bash
-   cargo run -p mcp -- server
-   ```
+- `plugin list`: List installed plugins
+- `plugin info <name>`: Show information about a specific plugin
+- `plugin enable <name>`: Enable a plugin
+- `plugin disable <name>`: Disable a plugin
+- `plugin install <path>`: Install a plugin from a path
+- `plugin uninstall <name>`: Uninstall a plugin
+- `plugin reload`: Reload all plugins
 
-3. Access the web interface at `http://localhost:3000`
+### Creating Plugins
 
-## API Documentation
+Plugins can be created as Rust libraries that implement the `Plugin` trait. Here's a simple example:
 
-The web interface provides a RESTful API:
+```rust
+use async_trait::async_trait;
+use squirrel_cli::plugins::{Plugin, PluginError};
+use squirrel_commands::CommandRegistry;
 
-- `POST /api/jobs`: Create a new analysis job
-- `GET /api/jobs/:id`: Get job status
-- `GET /api/jobs/:id/report`: Download job report
+pub struct MyPlugin;
 
-For detailed API documentation, see [API.md](docs/API.md).
+#[async_trait]
+impl Plugin for MyPlugin {
+    fn name(&self) -> &str {
+        "my-plugin"
+    }
+    
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+    
+    fn description(&self) -> Option<&str> {
+        Some("My awesome plugin")
+    }
+    
+    async fn initialize(&self) -> Result<(), PluginError> {
+        // Initialize plugin
+        Ok(())
+    }
+    
+    fn register_commands(&self, registry: &mut CommandRegistry) -> Result<(), PluginError> {
+        // Register plugin commands
+        Ok(())
+    }
+    
+    async fn execute(&self, args: &[String]) -> Result<String, PluginError> {
+        // Execute plugin functionality
+        Ok("Plugin executed".to_string())
+    }
+    
+    async fn cleanup(&self) -> Result<(), PluginError> {
+        // Clean up resources
+        Ok(())
+    }
+}
+
+#[no_mangle]
+pub fn create_plugin() -> Result<std::sync::Arc<dyn Plugin>, PluginError> {
+    Ok(std::sync::Arc::new(MyPlugin))
+}
+```
+
+### Plugin Directory Structure
+
+Plugins should follow this directory structure:
+
+```
+my-plugin/
+├── Cargo.toml         # Rust package manifest
+├── plugin.toml        # Plugin metadata
+└── src/
+    └── lib.rs         # Plugin implementation
+```
+
+The `plugin.toml` file should contain:
+
+```toml
+name = "my-plugin"
+version = "1.0.0"
+description = "My awesome plugin"
+author = "Your Name"
+homepage = "https://example.com"
+```
+
+## Building and Running
+
+To build the CLI, run:
+
+```
+cargo build
+```
+
+To run the CLI:
+
+```
+cargo run -- [command] [options]
+```
 
 ## Development
 
-1. Install development dependencies:
-   ```bash
-   rustup component add clippy rustfmt
-   cargo install cargo-audit cargo-watch
-   ```
+To create a new built-in command, create a new file in `crates/cli/src/commands/` and register it in `crates/cli/src/commands/mod.rs`.
 
-2. Run tests:
-   ```bash
-   cargo test --all-features
-   ```
-
-3. Run lints:
-   ```bash
-   cargo clippy --all-targets --all-features
-   ```
-
-4. Format code:
-   ```bash
-   cargo fmt --all
-   ```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+To create a new plugin, use the structure outlined above and place it in the plugins directory.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+MIT License 
