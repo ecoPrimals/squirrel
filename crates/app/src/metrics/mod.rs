@@ -12,6 +12,9 @@ use tokio::sync::RwLock;
 use thiserror::Error;
 use crate::error::SquirrelError;
 
+/// Performance monitoring and metrics collection
+pub mod perf;
+
 /// The type of metric
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MetricType {
@@ -132,6 +135,8 @@ pub struct Metrics {
     gauges: Arc<RwLock<HashMap<String, f64>>>,
     /// Histogram metrics (distribution of values)
     histograms: Arc<RwLock<HashMap<String, Vec<f64>>>>,
+    /// Performance monitor for detailed timing metrics
+    perf_monitor: Option<Arc<perf::PerfMonitor>>,
 }
 
 impl Default for Metrics {
@@ -140,6 +145,7 @@ impl Default for Metrics {
             counters: Arc::new(RwLock::new(HashMap::new())),
             gauges: Arc::new(RwLock::new(HashMap::new())),
             histograms: Arc::new(RwLock::new(HashMap::new())),
+            perf_monitor: None,
         }
     }
 }
@@ -149,6 +155,65 @@ impl Metrics {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+    
+    /// Create a new metrics instance with performance monitoring enabled
+    #[must_use]
+    pub fn with_performance_monitoring() -> Self {
+        let mut metrics = Self::default();
+        metrics.perf_monitor = Some(perf::PerfMonitor::new());
+        metrics
+    }
+    
+    /// Get the performance monitor, if enabled
+    pub fn perf_monitor(&self) -> Option<Arc<perf::PerfMonitor>> {
+        self.perf_monitor.clone()
+    }
+    
+    /// Enable performance monitoring if not already enabled
+    pub fn enable_performance_monitoring(&mut self) {
+        if self.perf_monitor.is_none() {
+            self.perf_monitor = Some(perf::PerfMonitor::new());
+        }
+    }
+    
+    /// Disable performance monitoring
+    pub fn disable_performance_monitoring(&mut self) {
+        self.perf_monitor = None;
+    }
+    
+    /// Time an operation with the given name and category
+    /// Returns a guard that will record the duration when dropped
+    pub async fn time(&self, name: &str, category: perf::PerfCategory) -> crate::error::Result<perf::TimingGuard> {
+        if let Some(monitor) = &self.perf_monitor {
+            Ok(monitor.time(name, category).await)
+        } else {
+            Ok(perf::TimingGuard::disabled())
+        }
+    }
+    
+    /// Update memory usage metrics
+    pub async fn update_memory(&self, current_bytes: u64, allocated_bytes: u64) -> crate::error::Result<()> {
+        if let Some(monitor) = &self.perf_monitor {
+            monitor.update_memory(current_bytes, allocated_bytes).await?;
+        }
+        
+        // Also update regular metrics
+        let mut gauges = self.gauges.write().await;
+        gauges.insert("memory.current_bytes".to_string(), current_bytes as f64);
+        gauges.insert("memory.allocated_bytes".to_string(), allocated_bytes as f64);
+        
+        Ok(())
+    }
+    
+    /// Generate a performance report
+    pub async fn generate_perf_report(&self) -> crate::error::Result<Option<perf::PerfReport>> {
+        if let Some(monitor) = &self.perf_monitor {
+            let report = monitor.generate_report().await?;
+            Ok(Some(report))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Record a metric
@@ -232,6 +297,42 @@ impl Metrics {
             gauges,
             histograms,
         }
+    }
+
+    /// Create a snapshot with enhanced metrics including performance metrics
+    pub async fn enhanced_snapshot(&self) -> Result<HashMap<String, serde_json::Value>> {
+        let mut result = HashMap::new();
+        
+        // Add standard metrics
+        let counters = self.counters.read().await;
+        for (key, value) in counters.iter() {
+            result.insert(format!("counter.{}", key), serde_json::to_value(value).unwrap_or_default());
+        }
+        
+        let gauges = self.gauges.read().await;
+        for (key, value) in gauges.iter() {
+            result.insert(format!("gauge.{}", key), serde_json::to_value(value).unwrap_or_default());
+        }
+        
+        // Add performance metrics if available
+        if let Some(perf_monitor) = &self.perf_monitor {
+            if let Ok(metrics) = perf_monitor.get_metrics().await {
+                for (_key, metric) in metrics {
+                    let prefix = format!("perf.{}", metric.category);
+                    result.insert(format!("{}.{}.count", prefix, metric.name), serde_json::to_value(metric.count).unwrap_or_default());
+                    result.insert(format!("{}.{}.avg_us", prefix, metric.name), serde_json::to_value(metric.avg_us()).unwrap_or_default());
+                    result.insert(format!("{}.{}.max_us", prefix, metric.name), serde_json::to_value(metric.max_us).unwrap_or_default());
+                }
+            }
+            
+            if let Ok(memory) = perf_monitor.get_memory().await {
+                result.insert("perf.memory.current_bytes".to_string(), serde_json::to_value(memory.current_bytes).unwrap_or_default());
+                result.insert("perf.memory.peak_bytes".to_string(), serde_json::to_value(memory.peak_bytes).unwrap_or_default());
+                result.insert("perf.memory.allocated_bytes".to_string(), serde_json::to_value(memory.allocated_bytes).unwrap_or_default());
+            }
+        }
+        
+        Ok(result)
     }
 }
 

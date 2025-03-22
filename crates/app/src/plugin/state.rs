@@ -8,6 +8,7 @@ use uuid::Uuid;
 use tracing::{debug, warn};
 use crate::error::Result;
 use super::{Plugin, PluginState};
+use std::any::Any;
 
 /// Plugin state storage trait
 #[async_trait]
@@ -323,13 +324,15 @@ mod tests {
     use async_trait::async_trait;
     use chrono::Utc;
     use std::sync::Arc;
+    use std::any::Any;
     use tokio::sync::RwLock;
-    use crate::plugin::{Plugin, PluginMetadata, PluginState};
+    use crate::plugin::{Plugin, PluginMetadata, PluginState, BoxFuture};
     
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestPlugin {
-        metadata: PluginMetadata,
+        id: Uuid,
         state: Arc<RwLock<Option<PluginState>>>,
+        metadata: PluginMetadata,
     }
     
     #[async_trait]
@@ -338,21 +341,34 @@ mod tests {
             &self.metadata
         }
         
-        async fn initialize(&self) -> Result<()> {
-            Ok(())
+        fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move { Ok(()) })
         }
         
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
+        fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move { Ok(()) })
         }
         
-        async fn get_state(&self) -> Result<Option<PluginState>> {
-            Ok(self.state.read().await.clone())
+        fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+            Box::pin(async move {
+                Ok(self.state.read().await.clone())
+            })
         }
         
-        async fn set_state(&self, state: PluginState) -> Result<()> {
-            *self.state.write().await = Some(state);
-            Ok(())
+        fn set_state<'a>(&'a self, state: PluginState) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move {
+                let mut s = self.state.write().await;
+                *s = Some(state);
+                Ok(())
+            })
+        }
+        
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        
+        fn clone_box(&self) -> Box<dyn Plugin> {
+            Box::new(self.clone())
         }
     }
     
@@ -392,17 +408,18 @@ mod tests {
         
         // Create a test plugin
         let plugin_id = Uuid::new_v4();
-        let plugin = TestPlugin {
+        let test_plugin = TestPlugin {
+            id: plugin_id,
+            state: Arc::new(RwLock::new(None)),
             metadata: PluginMetadata {
                 id: plugin_id,
                 name: "test".to_string(),
                 version: "0.1.0".to_string(),
                 description: "Test plugin".to_string(),
-                author: "Test Author".to_string(),
+                author: "Test".to_string(),
                 dependencies: vec![],
-                capabilities: vec!["test".to_string()],
+                capabilities: vec![],
             },
-            state: Arc::new(RwLock::new(None)),
         };
         
         // Create a test state
@@ -413,19 +430,19 @@ mod tests {
         };
         
         // Set plugin state
-        plugin.set_state(state.clone()).await.unwrap();
+        test_plugin.set_state(state.clone()).await.unwrap();
         
         // Save state
-        manager.save_state(&plugin).await.unwrap();
+        manager.save_state(&test_plugin).await.unwrap();
         
         // Clear plugin state
-        *plugin.state.write().await = None;
+        *test_plugin.state.write().await = None;
         
         // Load state
-        manager.load_state(&plugin).await.unwrap();
+        manager.load_state(&test_plugin).await.unwrap();
         
         // Verify state was loaded
-        let loaded_state = plugin.get_state().await.unwrap().unwrap();
+        let loaded_state = test_plugin.get_state().await.unwrap().unwrap();
         assert_eq!(loaded_state.plugin_id, state.plugin_id);
         assert_eq!(loaded_state.data, state.data);
     }

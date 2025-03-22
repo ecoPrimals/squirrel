@@ -5,6 +5,9 @@ use super::{Plugin, PluginMetadata};
 use std::sync::Arc;
 use squirrel_commands::CommandRegistry;
 use crate::plugin::{PluginState};
+use std::sync::RwLock;
+use futures::future::BoxFuture;
+use std::any::Any;
 
 /// Command plugin for extending command functionality
 #[async_trait]
@@ -71,28 +74,54 @@ pub struct CommandPluginImpl {
     pub metadata: PluginMetadata,
     /// Command registry
     pub registry: Arc<CommandRegistry>,
+    /// Command state
+    pub state: RwLock<Option<PluginState>>,
 }
 
-#[async_trait]
 impl Plugin for CommandPluginImpl {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        Ok(())
+    fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
+    fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
-    async fn get_state(&self) -> Result<Option<PluginState>> {
-        Ok(None)
+    fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+        Box::pin(async move { 
+            match self.state.read() {
+                Ok(guard) => Ok(guard.clone()),
+                Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire read lock").into())
+            }
+        })
     }
 
-    async fn set_state(&self, _state: PluginState) -> Result<()> {
-        Ok(())
+    fn set_state<'a>(&'a self, state: PluginState) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move {
+            match self.state.write() {
+                Ok(mut guard) => {
+                    *guard = Some(state);
+                    Ok(())
+                },
+                Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to acquire write lock").into())
+            }
+        })
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn Plugin> {
+        Box::new(Self {
+            metadata: self.metadata.clone(),
+            registry: self.registry.clone(),
+            state: RwLock::new(self.state.read().ok().and_then(|guard| guard.clone())),
+        })
     }
 }
 
@@ -139,6 +168,7 @@ mod tests {
                 capabilities: vec!["command".to_string()],
             },
             registry: Arc::new(CommandRegistry::new()),
+            state: RwLock::new(None),
         };
         
         // Test plugin interface

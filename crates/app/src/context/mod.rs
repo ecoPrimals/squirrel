@@ -19,6 +19,9 @@ use crate::metrics::Metrics;
 use thiserror::Error;
 use crate::error::Result;
 
+/// Synchronization functionality for context data
+pub mod sync;
+
 /// Configuration for a context instance.
 /// 
 /// This struct holds the configuration parameters that define how a context
@@ -145,6 +148,8 @@ pub struct Context {
     metrics: Arc<Metrics>,
     /// Event history for this context.
     events: Arc<RwLock<Vec<Event>>>,
+    /// Synchronization manager for real-time context sync
+    sync_manager: Option<Arc<sync::SyncManager>>,
 }
 
 impl Context {
@@ -167,6 +172,7 @@ impl Context {
             state_store: Arc::new(RwLock::new(ContextState::default())),
             metrics: Arc::new(Metrics::new()),
             events: Arc::new(RwLock::new(Vec::new())),
+            sync_manager: None,
         })
     }
 
@@ -435,6 +441,148 @@ impl Context {
         ctx_state.lifecycle_stage = stage;
         ctx_state.updated_at = Utc::now();
         Ok(())
+    }
+
+    /// Enables real-time synchronization with the specified strategy
+    /// 
+    /// # Arguments
+    /// 
+    /// * `strategy` - The conflict resolution strategy to use
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure
+    pub async fn enable_sync<T: sync::ConflictResolution + 'static>(&mut self, strategy: T) -> Result<()> {
+        let state = self.state_store.read().await;
+        let context_state = sync::ContextState::new(
+            serde_json::to_value(&*state)?,
+            state.id.clone(),
+        );
+        
+        self.sync_manager = Some(Arc::new(
+            sync::SyncManager::with_resolution_strategy(
+                context_state,
+                state.id.clone(),
+                Box::new(strategy),
+                1000,
+            )
+        ));
+        
+        Ok(())
+    }
+    
+    /// Enables synchronization with the default latest-wins strategy
+    pub async fn enable_default_sync(&mut self) -> Result<()> {
+        let state = self.state_store.read().await;
+        let context_state = sync::ContextState::new(
+            serde_json::to_value(&*state)?,
+            state.id.clone(),
+        );
+        
+        self.sync_manager = Some(Arc::new(
+            sync::SyncManager::new(
+                context_state,
+                state.id.clone(),
+            )
+        ));
+        
+        Ok(())
+    }
+    
+    /// Gets the synchronization manager if enabled
+    pub fn sync_manager(&self) -> Option<Arc<sync::SyncManager>> {
+        self.sync_manager.clone()
+    }
+    
+    /// Synchronizes with a remote state
+    pub async fn sync_with(&self, remote_state: sync::ContextState) -> Result<()> {
+        if let Some(manager) = &self.sync_manager {
+            manager.merge_state(remote_state).await?;
+            
+            // Update the context's state from the sync manager
+            let sync_state = manager.get_state().await;
+            let mut state = self.state_store.write().await;
+            
+            // Deserialize the state from the sync manager
+            let updated_state: ContextState = serde_json::from_value(sync_state.data.clone())?;
+            
+            // Update only the state field, preserving other context properties
+            state.state = updated_state.state;
+            state.updated_at = Utc::now();
+            
+            Ok(())
+        } else {
+            Err(ContextError::InvalidState("Synchronization not enabled".to_string()).into())
+        }
+    }
+
+    /// Updates the context data and synchronizes if sync is enabled
+    /// 
+    /// This updates a specific key in the context data and optionally synchronizes
+    /// the change with remote contexts.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `key` - The key to update.
+    /// * `value` - The new value to set.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` indicating success or failure.
+    pub async fn update_data_with_sync(&self, key: &str, value: Value) -> Result<()> {
+        // First update the local state
+        let previous_value = {
+            let mut state = self.state_store.write().await;
+            let previous = state.state.get(key).cloned();
+            state.state.insert(key.to_string(), value.clone());
+            state.updated_at = Utc::now();
+            previous
+        };
+        
+        // Then synchronize if enabled
+        if let Some(sync_manager) = &self.sync_manager {
+            let change = sync::ChangeRecord::new(
+                format!("state/{}", key),
+                previous_value,
+                value.clone(),
+                "context".to_string(),
+            );
+            
+            sync_manager.apply_change(change).await?;
+        }
+        
+        Ok(())
+    }
+    
+    /// Takes a synchronization snapshot
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a `Result` containing the context snapshot if successful.
+    pub async fn get_sync_snapshot(&self) -> Result<sync::ContextState> {
+        if let Some(manager) = &self.sync_manager {
+            Ok(manager.get_state().await)
+        } else {
+            let state = self.state_store.read().await;
+            let context_state = sync::ContextState::new(
+                serde_json::to_value(&*state)?,
+                state.id.clone(),
+            );
+            Ok(context_state)
+        }
+    }
+    
+    /// Gets the synchronization history
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a vector of change records if sync is enabled.
+    pub async fn get_sync_history(&self) -> Result<Vec<sync::ChangeRecord>> {
+        if let Some(manager) = &self.sync_manager {
+            Ok(manager.get_change_history().await)
+        } else {
+            Ok(Vec::new())
+        }
     }
 }
 
