@@ -63,6 +63,12 @@ impl From<EventError> for CoreError {
     }
 }
 
+impl From<crate::plugin::PluginError> for CoreError {
+    fn from(err: crate::plugin::PluginError) -> Self {
+        Self::Plugin(err.to_string())
+    }
+}
+
 impl From<SquirrelError> for CoreError {
     fn from(err: SquirrelError) -> Self {
         match err {
