@@ -1,12 +1,12 @@
-use tokio::sync::RwLock;
-use std::sync::Arc;
 use crate::context_manager::Context;
 use crate::error::Result;
-use serde::{Serialize, Deserialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::sync::Arc;
 use tokio::sync::broadcast;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 /// Represents a change in state that needs to be synchronized
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,9 +66,10 @@ impl StateSyncManager {
     /// Creates a new `StateSyncManager` instance
     ///
     /// Initializes a new state synchronization manager with default configuration.
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let (tx, _rx) = broadcast::channel(1024); // Buffer size for change notifications
-        
+
         Self {
             changes: Arc::new(RwLock::new(VecDeque::new())),
             sender: tx,
@@ -91,7 +92,7 @@ impl StateSyncManager {
     pub async fn record_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         let mut version = self.current_version.write().await;
         *version += 1;
-        
+
         let change = StateChange {
             id: Uuid::new_v4(),
             context_id: context.id,
@@ -100,18 +101,18 @@ impl StateSyncManager {
             timestamp: Utc::now(),
             version: *version,
         };
-        
+
         let mut changes = self.changes.write().await;
         changes.push_back(change.clone());
-        
+
         // If we have too many changes, remove the oldest ones
         while changes.len() > self.max_changes {
             changes.pop_front();
         }
-        
+
         // Broadcast the change to any subscribers
         let _ = self.sender.send(change);
-        
+
         Ok(())
     }
 
@@ -137,7 +138,7 @@ impl StateSyncManager {
             .filter(|change| change.version > version)
             .cloned()
             .collect();
-        
+
         Ok(result)
     }
 
@@ -154,20 +155,20 @@ impl StateSyncManager {
             // We've already applied this change or have a newer version
             return Ok(());
         }
-        
+
         *version = change.version;
-        
+
         let mut changes = self.changes.write().await;
         changes.push_back(change.clone());
-        
+
         // If we have too many changes, remove the oldest ones
         while changes.len() > self.max_changes {
             changes.pop_front();
         }
-        
+
         // Broadcast the change to any subscribers
         let _ = self.sender.send(change);
-        
+
         Ok(())
     }
 
@@ -189,9 +190,9 @@ impl StateSyncManager {
     pub async fn cleanup_old_changes(&self, before: DateTime<Utc>) -> Result<u64> {
         let mut changes = self.changes.write().await;
         let original_len = changes.len();
-        
+
         changes.retain(|change| change.timestamp >= before);
-        
+
         Ok((original_len - changes.len()) as u64)
     }
 
@@ -231,8 +232,11 @@ mod tests {
             expires_at: None,
         };
 
-        assert!(manager.record_change(&context, StateOperation::Create).await.is_ok());
-        
+        assert!(manager
+            .record_change(&context, StateOperation::Create)
+            .await
+            .is_ok());
+
         let version = manager.get_current_version().await.unwrap();
         assert_eq!(version, 1);
     }
@@ -257,7 +261,10 @@ mod tests {
             let manager = manager.clone();
             let context = context.clone();
             async move {
-                manager.record_change(&context, StateOperation::Create).await.unwrap();
+                manager
+                    .record_change(&context, StateOperation::Create)
+                    .await
+                    .unwrap();
             }
         });
 
@@ -265,4 +272,4 @@ mod tests {
         assert_eq!(change.context_id, context.id);
         assert_eq!(change.version, 1);
     }
-} 
+}

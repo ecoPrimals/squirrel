@@ -1,18 +1,28 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::module_name_repetitions)]
 
-/// Contains the monitoring functionality for the MCP module.
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use serde::{Serialize, Deserialize};
+use crate::context_manager::Context;
+use crate::error::Result;
+use crate::sync::StateOperation;
 use chrono::{DateTime, Utc};
 use opentelemetry::{
     metrics::{Counter, Histogram, Meter, MeterProvider, Unit},
     KeyValue,
 };
-use crate::error::Result;
-use crate::sync::StateOperation;
-use crate::context_manager::Context;
+use serde::{Deserialize, Serialize};
+/// Contains the monitoring functionality for the MCP module.
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{error, info};
+use crate::MCPError;
+
+pub mod alerts;
+pub mod dashboard;
+pub mod metrics;
+
+pub use self::alerts::{Alert, AlertAction, AlertCondition, AlertManager, AlertSeverity};
+/// Module exports
+pub use self::metrics::{Metric, MetricType, MetricValue, MetricsCollector};
 
 /// Metrics collected for MCP operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,24 +124,24 @@ impl MCPMonitor {
         // Initialize OpenTelemetry MeterProvider
         let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder().build();
         let meter = meter_provider.meter("mcp_monitor");
-        
+
         // Create metrics
         let message_counter = meter
             .u64_counter("mcp.messages")
             .with_description("Total number of messages processed")
             .init();
-        
+
         let error_counter = meter
             .u64_counter("mcp.errors")
             .with_description("Total number of errors encountered")
             .init();
-        
+
         let sync_duration = meter
             .f64_histogram("mcp.sync_duration")
             .with_description("Duration of sync operations in milliseconds")
             .with_unit(Unit::new("ms"))
             .init();
-        
+
         let context_operation_counter = meter
             .u64_counter("mcp.context_operations")
             .with_description("Number of context operations performed")
@@ -148,7 +158,7 @@ impl MCPMonitor {
                 last_sync_duration_ms: 0.0,
             })),
             health: Arc::new(RwLock::new(HealthStatus {
-                is_healthy: true,  // Explicitly set to true for initial state
+                is_healthy: true, // Explicitly set to true for initial state
                 last_check: Utc::now(),
                 sync_status: SyncHealth {
                     is_syncing: false,
@@ -190,7 +200,8 @@ impl MCPMonitor {
     /// # Returns
     ///
     /// A new `MCPMonitor` instance with default settings
-    #[must_use] pub fn default_sync() -> Self {
+    #[must_use]
+    pub fn default_sync() -> Self {
         // Create fallback metrics without OpenTelemetry
         let metrics = Arc::new(RwLock::new(Metrics {
             total_messages: 0,
@@ -202,7 +213,7 @@ impl MCPMonitor {
         }));
 
         let health = Arc::new(RwLock::new(HealthStatus {
-            is_healthy: true,  // Explicitly setting this to true
+            is_healthy: true, // Explicitly setting this to true
             last_check: Utc::now(),
             sync_status: SyncHealth {
                 is_syncing: false,
@@ -226,25 +237,16 @@ impl MCPMonitor {
         let meter = meter_provider.meter("mcp_monitor_fallback");
 
         // Create no-op metrics
-        let message_counter = meter
-            .u64_counter("mcp.messages")
-            .init();
-        let error_counter = meter
-            .u64_counter("mcp.errors")
-            .init();
-        let sync_duration = meter
-            .f64_histogram("mcp.sync_duration")
-            .init();
-        let context_operation_counter = meter
-            .u64_counter("mcp.context_operations")
-            .init();
+        let message_counter = meter.u64_counter("mcp.messages").init();
+        let error_counter = meter.u64_counter("mcp.errors").init();
+        let sync_duration = meter.f64_histogram("mcp.sync_duration").init();
+        let context_operation_counter = meter.u64_counter("mcp.context_operations").init();
 
         // Create instance with initialized values
-        
 
         // This is a synchronous method, so we can't use .await here,
         // but we've explicitly set is_healthy to true in the HealthStatus initialization above
-        
+
         Self {
             metrics,
             health,
@@ -264,7 +266,8 @@ impl MCPMonitor {
     pub async fn record_message(&self, message_type: &str) {
         let mut metrics = self.metrics.write().await;
         metrics.total_messages += 1;
-        self.message_counter.add(1, &[KeyValue::new("type", message_type.to_string())]);
+        self.message_counter
+            .add(1, &[KeyValue::new("type", message_type.to_string())]);
     }
 
     /// Records an error event
@@ -275,7 +278,8 @@ impl MCPMonitor {
     pub async fn record_error(&self, error_type: &str) {
         let mut metrics = self.metrics.write().await;
         metrics.total_errors += 1;
-        self.error_counter.add(1, &[KeyValue::new("type", error_type.to_string())]);
+        self.error_counter
+            .add(1, &[KeyValue::new("type", error_type.to_string())]);
     }
 
     /// Records a sync operation and updates metrics
@@ -288,29 +292,32 @@ impl MCPMonitor {
         let mut metrics = self.metrics.write().await;
         metrics.sync_operations += 1;
         metrics.last_sync_duration_ms = duration_ms;
-        
+
         // Update health information
         let mut health = self.health.write().await;
         if success {
             health.sync_status.last_successful_sync = Utc::now();
             health.sync_status.consecutive_failures = 0;
-            
+
             // A successful sync always sets health to true as long as resources are good
             health.is_healthy = true;
-                
+
             health.sync_status.is_syncing = false;
         } else {
             health.sync_status.consecutive_failures += 1;
-            
+
             // Immediately mark as unhealthy if there are 3 or more consecutive failures
             if health.sync_status.consecutive_failures >= 3 {
                 health.is_healthy = false;
             }
-            
+
             health.sync_status.is_syncing = false;
         }
-        
-        self.sync_duration.record(duration_ms, &[KeyValue::new("success", success.to_string())]);
+
+        self.sync_duration.record(
+            duration_ms,
+            &[KeyValue::new("success", success.to_string())],
+        );
     }
 
     /// Records a context operation
@@ -322,17 +329,22 @@ impl MCPMonitor {
     pub async fn record_context_operation(&self, operation: StateOperation, context: &Context) {
         let mut metrics = self.metrics.write().await;
         metrics.context_operations += 1;
-        
+
         match operation {
             StateOperation::Create => metrics.active_contexts += 1,
-            StateOperation::Delete => metrics.active_contexts = metrics.active_contexts.saturating_sub(1),
+            StateOperation::Delete => {
+                metrics.active_contexts = metrics.active_contexts.saturating_sub(1)
+            }
             _ => {}
         }
 
-        self.context_operation_counter.add(1, &[
-            KeyValue::new("operation", format!("{operation:?}")),
-            KeyValue::new("context_type", context.name.clone()),
-        ]);
+        self.context_operation_counter.add(
+            1,
+            &[
+                KeyValue::new("operation", format!("{operation:?}")),
+                KeyValue::new("context_type", context.name.clone()),
+            ],
+        );
     }
 
     /// Updates the health status with the latest information
@@ -357,17 +369,20 @@ impl MCPMonitor {
         let sys_info = sysinfo::System::new_all();
         // Create fresh Disks instance with refreshed data
         let disks = sysinfo::Disks::new_with_refreshed_list();
-        
+
         health.resource_status = ResourceHealth {
             cpu_usage_percent: f64::from(sys_info.global_cpu_info().cpu_usage()),
             memory_usage_percent: if sys_info.total_memory() > 0 {
-                100.0 * (f64::from_bits(sys_info.used_memory()) / f64::from_bits(sys_info.total_memory()))
+                100.0
+                    * (f64::from_bits(sys_info.used_memory())
+                        / f64::from_bits(sys_info.total_memory()))
             } else {
                 0.0
             },
             #[allow(clippy::cast_possible_truncation)]
             disk_usage_percent: if disks.len() > 0 {
-                disks.iter()
+                disks
+                    .iter()
                     .map(|disk| {
                         let total = disk.total_space();
                         let available = disk.available_space();
@@ -378,7 +393,8 @@ impl MCPMonitor {
                             0.0
                         }
                     })
-                    .sum::<f64>() / f64::from(disks.len() as u32)
+                    .sum::<f64>()
+                    / f64::from(disks.len() as u32)
             } else {
                 0.0
             },
@@ -428,13 +444,11 @@ impl MCPMonitor {
     /// Returns an error if the health status cannot be read
     pub async fn get_health(&self) -> Result<HealthStatus> {
         // Get current health status first so we don't lose it
-        let _current_health = {
-            self.health.read().await.clone()
-        };
-        
+        let _current_health = { self.health.read().await.clone() };
+
         // Update resource metrics in a way that preserves health state
         let _ = self.update_health().await;
-        
+
         // Return the current health status
         Ok(self.health.read().await.clone())
     }
@@ -497,7 +511,9 @@ mod tests {
             updated_at: Utc::now(),
             expires_at: None,
         };
-        monitor.record_context_operation(StateOperation::Create, &context).await;
+        monitor
+            .record_context_operation(StateOperation::Create, &context)
+            .await;
 
         // Verify metrics
         let metrics = monitor.get_metrics().await.unwrap();
@@ -523,36 +539,298 @@ mod tests {
 
         // Initial health check
         let health = monitor.get_health().await.unwrap();
-        println!("Initial health: is_healthy={}, consecutive_failures={}", 
-            health.is_healthy, health.sync_status.consecutive_failures);
+        println!(
+            "Initial health: is_healthy={}, consecutive_failures={}",
+            health.is_healthy, health.sync_status.consecutive_failures
+        );
         assert!(health.is_healthy, "Initial health check should be healthy");
         assert_eq!(health.sync_status.consecutive_failures, 0);
 
         // Record failed sync operations
         monitor.record_sync_operation(100.0, false).await;
         let health1 = monitor.get_health().await.unwrap();
-        println!("After 1st failure: is_healthy={}, consecutive_failures={}", 
-            health1.is_healthy, health1.sync_status.consecutive_failures);
-        
+        println!(
+            "After 1st failure: is_healthy={}, consecutive_failures={}",
+            health1.is_healthy, health1.sync_status.consecutive_failures
+        );
+
         monitor.record_sync_operation(100.0, false).await;
         let health2 = monitor.get_health().await.unwrap();
-        println!("After 2nd failure: is_healthy={}, consecutive_failures={}", 
-            health2.is_healthy, health2.sync_status.consecutive_failures);
-        
+        println!(
+            "After 2nd failure: is_healthy={}, consecutive_failures={}",
+            health2.is_healthy, health2.sync_status.consecutive_failures
+        );
+
         // Third failure should make it unhealthy
         monitor.record_sync_operation(100.0, false).await;
         let health3 = monitor.get_health().await.unwrap();
-        println!("After 3rd failure: is_healthy={}, consecutive_failures={}", 
-            health3.is_healthy, health3.sync_status.consecutive_failures);
-        assert!(!health3.is_healthy, "Health should be unhealthy after 3 failures");
+        println!(
+            "After 3rd failure: is_healthy={}, consecutive_failures={}",
+            health3.is_healthy, health3.sync_status.consecutive_failures
+        );
+        assert!(
+            !health3.is_healthy,
+            "Health should be unhealthy after 3 failures"
+        );
         assert_eq!(health3.sync_status.consecutive_failures, 3);
-        
+
         // Successful sync should restore health
         monitor.record_sync_operation(100.0, true).await;
         let health4 = monitor.get_health().await.unwrap();
-        println!("After success: is_healthy={}, consecutive_failures={}", 
-            health4.is_healthy, health4.sync_status.consecutive_failures);
+        println!(
+            "After success: is_healthy={}, consecutive_failures={}",
+            health4.is_healthy, health4.sync_status.consecutive_failures
+        );
         assert!(health4.is_healthy, "Health should be healthy after success");
         assert_eq!(health4.sync_status.consecutive_failures, 0);
     }
-} 
+}
+
+/// Monitoring system for MCP
+#[derive(Debug)]
+pub struct MonitoringSystem {
+    /// Metrics collector
+    metrics_collector: Arc<MetricsCollector>,
+    /// Alert manager
+    alert_manager: Arc<AlertManager>,
+    /// Dashboard server (optional)
+    dashboard_server: Option<Arc<DashboardServer>>,
+    /// Monitoring status
+    status: Arc<RwLock<MonitoringStatus>>,
+    /// Whether the dashboard is enabled
+    dashboard_enabled: bool,
+}
+
+impl MonitoringSystem {
+    /// Create a new monitoring system
+    pub fn new() -> Self {
+        Self {
+            metrics_collector: Arc::new(MetricsCollector::new()),
+            alert_manager: Arc::new(AlertManager::new()),
+            dashboard_server: None,
+            status: Arc::new(RwLock::new(MonitoringStatus::Stopped)),
+            dashboard_enabled: false,
+        }
+    }
+
+    /// Get the metrics collector
+    pub fn metrics_collector(&self) -> Arc<MetricsCollector> {
+        self.metrics_collector.clone()
+    }
+
+    /// Get the alert manager
+    pub fn alert_manager(&self) -> Arc<AlertManager> {
+        self.alert_manager.clone()
+    }
+
+    /// Enable the dashboard server
+    pub fn enable_dashboard(&mut self, port: u16) {
+        self.dashboard_server = Some(Arc::new(DashboardServer::new(
+            port,
+            self.metrics_collector.clone(),
+            self.alert_manager.clone(),
+        )));
+        self.dashboard_enabled = true;
+    }
+
+    /// Start the monitoring system
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the system is already running or if there's an issue starting services
+    pub async fn start(&self) -> Result<()> {
+        let mut status = self.status.write().await;
+        if *status != MonitoringStatus::Stopped {
+            return Err(MCPError::Monitoring("Monitoring system is already running".to_string()));
+        }
+
+        // Start metrics collector - no explicit start method needed for metrics collector
+        info!("Starting metrics collector");
+        
+        // Start alert manager
+        info!("Starting alert manager");
+        self.alert_manager.start().await.map_err(|e| MCPError::Monitoring(e.to_string()))?;
+
+        // Start dashboard server if enabled
+        if self.dashboard_enabled && self.dashboard_server.is_some() {
+            info!("Starting dashboard server");
+            if let Some(dashboard) = &self.dashboard_server {
+                dashboard.start().await.map_err(|e| MCPError::Monitoring(format!("Failed to start dashboard: {}", e)))?;
+            }
+        }
+
+        // Update status
+        *status = MonitoringStatus::Running;
+        info!("Monitoring system started");
+
+        Ok(())
+    }
+
+    /// Stop the monitoring system
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there's an issue stopping services
+    pub async fn stop(&self) -> Result<()> {
+        let mut status = self.status.write().await;
+        if *status != MonitoringStatus::Running {
+            return Err(MCPError::Monitoring("Monitoring system is not running".to_string()));
+        }
+
+        // Stop alert manager
+        info!("Stopping alert manager");
+        self.alert_manager.stop().await.map_err(|e| MCPError::Monitoring(e.to_string()))?;
+
+        // Stop dashboard server if enabled
+        if self.dashboard_enabled && self.dashboard_server.is_some() {
+            info!("Stopping dashboard server");
+            if let Some(dashboard) = &self.dashboard_server {
+                dashboard.stop().await.map_err(|e| MCPError::Monitoring(format!("Failed to stop dashboard: {}", e)))?;
+            }
+        }
+
+        // Update status
+        *status = MonitoringStatus::Stopped;
+        info!("Monitoring system stopped");
+
+        Ok(())
+    }
+}
+
+impl Default for MonitoringSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Dashboard server
+#[derive(Debug)]
+pub struct DashboardServer {
+    /// HTTP port for the dashboard
+    port: u16,
+    /// Metrics collector
+    metrics_collector: Arc<MetricsCollector>,
+    /// Alert manager
+    alert_manager: Arc<AlertManager>,
+    /// Whether the server is running
+    running: Arc<RwLock<bool>>,
+}
+
+impl DashboardServer {
+    /// Create a new dashboard server
+    pub fn new(
+        port: u16,
+        metrics_collector: Arc<MetricsCollector>,
+        alert_manager: Arc<AlertManager>,
+    ) -> Self {
+        Self {
+            port,
+            metrics_collector,
+            alert_manager,
+            running: Arc::new(RwLock::new(false)),
+        }
+    }
+
+    /// Start the dashboard server
+    pub async fn start(&self) -> Result<()> {
+        let mut running = self.running.write().await;
+
+        // Check if already running
+        if *running {
+            return Err(MCPError::Monitoring("Dashboard server already running".to_string()));
+        }
+
+        // Set running flag
+        *running = true;
+        drop(running); // Drop the lock before we continue
+
+        // In a real implementation, this would start a web server
+        // For this example, we'll just simulate the server running
+        let running_state = self.running.clone();
+        let port = self.port;
+
+        tokio::spawn(async move {
+            info!("Dashboard server started on port {}", port);
+            
+            // Monitor for shutdown signal
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                
+                // Check if we should stop
+                if !*running_state.read().await {
+                    break;
+                }
+            }
+            
+            info!("Dashboard server stopped");
+        });
+
+        Ok(())
+    }
+
+    /// Stop the dashboard server
+    pub async fn stop(&self) -> Result<()> {
+        let mut running = self.running.write().await;
+
+        // Check if already stopped
+        if !*running {
+            return Ok(());
+        }
+
+        // Set running flag to false
+        *running = false;
+
+        Ok(())
+    }
+}
+
+/// Monitoring error
+#[derive(Debug, thiserror::Error)]
+pub enum MonitoringError {
+    /// System is already running
+    #[error("Already running: {0}")]
+    AlreadyRunning(String),
+
+    /// System is not running
+    #[error("Not running: {0}")]
+    NotRunning(String),
+
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+
+    /// IO error
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// Metrics error
+    #[error("Metrics error: {0}")]
+    Metrics(String),
+
+    /// Alert error
+    #[error("Alert error: {0}")]
+    Alert(String),
+
+    /// Dashboard error
+    #[error("Dashboard error: {0}")]
+    Dashboard(String),
+
+    /// Other error
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+/// Monitoring system status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonitoringStatus {
+    /// Monitoring system is running
+    Running,
+    /// Monitoring system is stopped
+    Stopped,
+    /// Monitoring system is starting
+    Starting,
+    /// Monitoring system is stopping
+    Stopping,
+    /// Monitoring system is in error state
+    Error,
+}

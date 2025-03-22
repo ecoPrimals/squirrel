@@ -1,14 +1,14 @@
+use crate::error::MCPError;
+use anyhow::Result;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{info, warn, error, instrument};
-use chrono::{DateTime, Utc};
 use thiserror::Error;
-use serde::{Serialize, Deserialize};
+use tokio::sync::RwLock;
+use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
-use serde_json;
-use anyhow::Result;
-use crate::error::MCPError;
 
 #[derive(Debug, Error)]
 pub enum ErrorHandlerError {
@@ -49,7 +49,11 @@ pub struct LocalErrorContext {
 }
 
 impl LocalErrorContext {
-    pub fn new(error_type: impl Into<String>, message: impl Into<String>, component: impl Into<String>) -> Self {
+    pub fn new(
+        error_type: impl Into<String>,
+        message: impl Into<String>,
+        component: impl Into<String>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             timestamp: Utc::now(),
@@ -62,44 +66,54 @@ impl LocalErrorContext {
         }
     }
 
-    #[must_use] pub fn id(&self) -> Uuid {
+    #[must_use]
+    pub fn id(&self) -> Uuid {
         self.id
     }
 
-    #[must_use] pub fn timestamp(&self) -> DateTime<Utc> {
+    #[must_use]
+    pub fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
 
-    #[must_use] pub fn error_type(&self) -> &str {
+    #[must_use]
+    pub fn error_type(&self) -> &str {
         &self.error_type
     }
 
-    #[must_use] pub fn message(&self) -> &str {
+    #[must_use]
+    pub fn message(&self) -> &str {
         &self.message
     }
 
-    #[must_use] pub fn component(&self) -> &str {
+    #[must_use]
+    pub fn component(&self) -> &str {
         &self.component
     }
 
-    #[must_use] pub fn severity(&self) -> ErrorSeverity {
+    #[must_use]
+    pub fn severity(&self) -> ErrorSeverity {
         self.severity
     }
 
-    #[must_use] pub fn metadata(&self) -> Option<&serde_json::Value> {
+    #[must_use]
+    pub fn metadata(&self) -> Option<&serde_json::Value> {
         self.metadata.as_ref()
     }
 
-    #[must_use] pub fn recovery_attempts(&self) -> u32 {
+    #[must_use]
+    pub fn recovery_attempts(&self) -> u32 {
         self.recovery_attempts
     }
 
-    #[must_use] pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
+    #[must_use]
+    pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
-    #[must_use] pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+    #[must_use]
+    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
         self
     }
@@ -145,7 +159,8 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
-    #[must_use] pub fn new(max_history_size: usize) -> Self {
+    #[must_use]
+    pub fn new(max_history_size: usize) -> Self {
         Self {
             max_history_size,
             error_history: Arc::new(RwLock::new(VecDeque::with_capacity(max_history_size))),
@@ -200,7 +215,10 @@ impl Clone for ErrorHandler {
 
 impl ErrorHandler {
     #[instrument]
-    pub async fn handle_error(&self, mut context: LocalErrorContext) -> Result<(), ErrorHandlerError> {
+    pub async fn handle_error(
+        &self,
+        mut context: LocalErrorContext,
+    ) -> Result<(), ErrorHandlerError> {
         info!(
             error_id = %context.id,
             error_type = %context.error_type,
@@ -211,8 +229,9 @@ impl ErrorHandler {
         self.record_error(
             context.error_type.clone(),
             context.message.clone(),
-            Some(format!("{context:?}"))
-        ).await?;
+            Some(format!("{context:?}")),
+        )
+        .await?;
 
         // Attempt recovery if strategy exists
         if let Some(strategy) = self.get_recovery_strategy(&context.error_type).await {
@@ -254,27 +273,27 @@ impl ErrorHandler {
     }
 
     /// Attempts to recover a connection
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `_context` - The error context containing information about the error
     fn recover_connection(_context: &LocalErrorContext) {
         // Implementation would go here
     }
 
     /// Attempts to recover state after an error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `_context` - The error context containing information about the error
     fn recover_state(_context: &LocalErrorContext) {
         // Implementation would go here
     }
 
     /// Attempts to recover protocol functionality after an error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `_context` - The error context containing information about the error
     fn recover_protocol(_context: &LocalErrorContext) {
         // Implementation would go here
@@ -284,10 +303,8 @@ impl ErrorHandler {
         &self,
         // These parameters are intentionally unused in this implementation
         // but may be used by derived implementations
-        #[allow(unused_variables)]
-        context: &mut LocalErrorContext,
-        #[allow(unused_variables)]
-        strategy: &RecoveryStrategy,
+        #[allow(unused_variables)] context: &mut LocalErrorContext,
+        #[allow(unused_variables)] strategy: &RecoveryStrategy,
     ) -> bool {
         // Default implementation returns true
         true
@@ -310,11 +327,11 @@ mod tests {
     use super::*;
     use serde_json::json;
     use chrono::Utc;
-    
+
     #[tokio::test]
     async fn test_error_context_add_error() {
         let mut context = ErrorContext::new(10);
-        
+
         context.add_error(
             "test_error",
             "Test message",
@@ -322,18 +339,18 @@ mod tests {
             None,
             Some(json!({"key": "value"})),
         ).await.unwrap();
-        
+
         let history = context.get_error_history().await;
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].error_type, "test_error");
         assert_eq!(history[0].message, "Test message");
         assert_eq!(history[0].details, Some("Test details".to_string()));
     }
-    
+
     #[tokio::test]
     async fn test_error_context_max_size() {
         let mut context = ErrorContext::new(10);
-        
+
         // Add 15 errors, should only keep the last 10
         for i in 0..15 {
             context.add_error(
@@ -344,26 +361,26 @@ mod tests {
                 None,
             ).await.unwrap();
         }
-        
+
         let history = context.get_error_history().await;
         assert_eq!(history.len(), 10);
-        
+
         // Should have errors 5-14
         for i in 0..10 {
             assert_eq!(history[i].error_type, format!("error_{}", i + 5));
         }
     }
-    
+
     #[tokio::test]
     async fn test_error_context_recovery() {
         let mut context = ErrorContext::new(10);
-        
+
         // Register a recovery handler
         context.register_recovery_handler("test_error", Box::new(|ctx| {
             println!("Recovering from error: {:?}", ctx);
             Ok(())
         })).await.unwrap();
-        
+
         // Add an error
         context.add_error(
             "test_error",
@@ -372,19 +389,19 @@ mod tests {
             None,
             None,
         ).await.unwrap();
-        
+
         // Try recovery
         let result = context.try_recover("test_error", json!({})).await;
         assert!(result.is_ok());
-        
+
         let history = context.get_error_history().await;
         assert_eq!(history.len(), 1);
     }
-    
+
     #[tokio::test]
     async fn test_error_context_no_recovery() {
         let mut context = ErrorContext::new(10);
-        
+
         // Add an error without a recovery handler
         context.add_error(
             "test_error",
@@ -393,11 +410,11 @@ mod tests {
             None,
             None,
         ).await.unwrap();
-        
+
         // Try recovery
         let result = context.try_recover("test_error", json!({})).await;
         assert!(result.is_err());
-        
+
         // Add a second error
         context.add_error(
             "test_error_2",
@@ -406,9 +423,9 @@ mod tests {
             None,
             None,
         ).await.unwrap();
-        
+
         let history = context.get_error_history().await;
         assert_eq!(history.len(), 2);
     }
     */
-} 
+}
