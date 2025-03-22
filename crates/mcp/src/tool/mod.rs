@@ -8,10 +8,16 @@ pub mod executor;
 pub mod lifecycle;
 pub mod cleanup;
 
-// Re-export implementations
-pub use executor::{BasicToolExecutor, RemoteToolExecutor};
-pub use lifecycle::{BasicLifecycleHook, SecurityLifecycleHook, CompositeLifecycleHook};
-pub use cleanup::{ResourceCleanupHook, RecoveryHook, ResourceUsage, ResourceLimits, RecoveryStrategy};
+// Re-export implementations from modules
+pub use self::executor::{BasicToolExecutor, RemoteToolExecutor};
+pub use self::lifecycle::{BasicLifecycleHook, CompositeLifecycleHook};
+pub use self::cleanup::{
+    ResourceCleanupHook, BasicResourceCleanupHook, EnhancedResourceCleanupHook,
+    ResourceTracker, ResourceStatus, ResourceEvent, ResourceType, 
+    ResourceUsage, ResourceLimits
+};
+// Import RecoveryHook from the cleanup module
+pub use self::cleanup::recovery::RecoveryHook;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -22,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument};
+use uuid::Uuid;
 
 /// Tool capability parameter type
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,7 +266,7 @@ pub trait ToolLifecycleHook: fmt::Debug + Send + Sync {
     async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError>;
 }
 
-/// Tool manager
+/// Tool manager that handles tool registration, execution, and lifecycle
 #[derive(Debug)]
 pub struct ToolManager {
     /// Registered tools
@@ -272,10 +279,12 @@ pub struct ToolManager {
     capability_map: RwLock<HashMap<String, HashMap<String, String>>>,
     /// Lifecycle hook
     lifecycle_hook: Arc<dyn ToolLifecycleHook>,
+    /// Enhanced resource manager
+    resource_manager: Arc<cleanup::EnhancedResourceManager>,
 }
 
 impl ToolManager {
-    /// Creates a new tool manager
+    /// Creates a new tool manager with the specified lifecycle hook
     pub fn new(lifecycle_hook: impl ToolLifecycleHook + 'static) -> Self {
         Self {
             tools: RwLock::new(HashMap::new()),
@@ -283,26 +292,38 @@ impl ToolManager {
             executors: RwLock::new(HashMap::new()),
             capability_map: RwLock::new(HashMap::new()),
             lifecycle_hook: Arc::new(lifecycle_hook),
+            resource_manager: Arc::new(cleanup::EnhancedResourceManager::new(1000)),
         }
     }
-}
 
-impl Default for ToolManager {
-    fn default() -> Self {
-        let mut composite_hook = CompositeLifecycleHook::new();
-        composite_hook.add_hook(BasicLifecycleHook::new());
-        Self::new(composite_hook)
-    }
-}
-
-impl ToolManager {
-    /// Registers a tool
-    #[instrument(skip(self, tool, executor))]
+    /// Registers a tool with the manager
+    #[instrument(skip(self, executor))]
     pub async fn register_tool(
         &self,
         tool: Tool,
         executor: impl ToolExecutor + 'static,
     ) -> Result<(), ToolError> {
+        let tool_id = tool.id.clone();
+
+        // Initialize resource management with default limits
+        let base_limits = cleanup::ResourceLimits {
+            max_memory_bytes: 100_000_000, // 100 MB
+            max_cpu_time_ms: 30_000,       // 30 seconds
+            max_file_handles: 50,
+            max_network_connections: 10,
+        };
+
+        let max_limits = cleanup::ResourceLimits {
+            max_memory_bytes: 500_000_000, // 500 MB
+            max_cpu_time_ms: 120_000,      // 120 seconds
+            max_file_handles: 200,
+            max_network_connections: 50,
+        };
+
+        self.resource_manager
+            .initialize_tool(&tool_id, base_limits, max_limits)
+            .await?;
+
         // Validate the executor handles this tool
         if executor.get_tool_id() != tool.id {
             return Err(ToolError::ValidationFailed(format!(
@@ -328,8 +349,6 @@ impl ToolManager {
         })?;
         
         // Register the tool
-        let tool_id = tool.id.clone();
-        
         {
             let mut tools = self.tools.write().await;
             let mut states = self.states.write().await;
@@ -356,9 +375,12 @@ impl ToolManager {
         Ok(())
     }
     
-    /// Unregisters a tool
+    /// Unregisters a tool from the manager
     #[instrument(skip(self))]
     pub async fn unregister_tool(&self, tool_id: &str) -> Result<(), ToolError> {
+        // Cleanup resources first
+        self.resource_manager.cleanup_tool(tool_id).await?;
+
         // Check if the tool exists
         {
             let tools = self.tools.read().await;
@@ -493,7 +515,7 @@ impl ToolManager {
         Ok(())
     }
     
-    /// Executes a tool capability
+    /// Executes a capability with the given parameters
     #[instrument(skip(self, parameters))]
     pub async fn execute_capability(
         &self,
@@ -503,98 +525,48 @@ impl ToolManager {
         security_token: Option<String>,
         session_id: Option<String>,
     ) -> Result<ToolExecutionResult, ToolError> {
-        // Check if the tool exists and is active
-        let tool = {
-            let tools = self.tools.read().await;
-            match tools.get(tool_id) {
-                Some(tool) => tool.clone(),
-                None => return Err(ToolError::ToolNotFound(tool_id.to_string())),
-            }
-        };
-        
-        let state = {
-            let states = self.states.read().await;
-            match states.get(tool_id) {
-                Some(state) => *state,
-                None => return Err(ToolError::ToolNotFound(tool_id.to_string())),
-            }
-        };
-        
-        // Check if the tool is active
-        if state != ToolState::Active {
-            return Err(ToolError::ValidationFailed(format!(
-                "Tool '{}' is not active (current state: {})",
-                tool_id, state
-            )));
+        let start_time = Utc::now();
+
+        // Track CPU time and memory for the execution
+        let status = self.resource_manager
+            .track_cpu_time(tool_id, 0)
+            .await?;
+
+        if status == ResourceStatus::Critical {
+            return Err(ToolError::ExecutionFailed(
+                "Resource limits exceeded".to_string(),
+            ));
         }
-        
-        // Check if the capability exists
-        let capability_exists = tool.capabilities.iter().any(|c| c.name == capability);
-        if !capability_exists {
-            return Err(ToolError::CapabilityNotFound(capability.to_string(), tool_id.to_string()));
-        }
-        
-        // Get the executor
-        let executor = {
-            let executors = self.executors.read().await;
-            match executors.get(tool_id) {
-                Some(executor) => executor.clone(),
-                None => return Err(ToolError::ExecutionFailed(format!(
-                    "No executor found for tool '{}'",
-                    tool_id
-                ))),
-            }
-        };
-        
-        // Validate the parameters
-        let capability_def = tool.capabilities.iter()
-            .find(|c| c.name == capability)
-            .unwrap(); // Safe because we checked existence above
-        
-        for param in &capability_def.parameters {
-            if param.required && !parameters.contains_key(&param.name) {
-                return Err(ToolError::ValidationFailed(format!(
-                    "Required parameter '{}' is missing for capability '{}'",
-                    param.name, capability
-                )));
-            }
-        }
-        
-        // Create the context
+
+        // Create execution context
         let context = ToolContext {
             tool_id: tool_id.to_string(),
             capability: capability.to_string(),
             parameters,
             security_token,
             session_id,
-            request_id: uuid::Uuid::new_v4().to_string(),
-            timestamp: Utc::now(),
+            request_id: Uuid::new_v4().to_string(),
+            timestamp: start_time,
         };
-        
+
+        // Get the executor
+        let executors = self.executors.read().await;
+        let executor = executors.get(tool_id).ok_or_else(|| {
+            ToolError::ToolNotFound(format!("Tool {} not found", tool_id))
+        })?;
+
         // Execute the capability
-        match executor.execute(context).await {
-            Ok(result) => {
-                // Check if execution failed
-                if result.status == ExecutionStatus::Failure {
-                    // Call the lifecycle hook on error
-                    if let Some(error_message) = &result.error_message {
-                        let error = ToolError::ExecutionFailed(error_message.clone());
-                        let _ = self.lifecycle_hook.on_error(tool_id, &error).await;
-                    }
-                }
-                
-                Ok(result)
-            },
-            Err(error) => {
-                // Call the lifecycle hook on error
-                let _ = self.lifecycle_hook.on_error(tool_id, &error).await;
-                
-                // Update the tool state to error
-                let _ = self.update_tool_state(tool_id, ToolState::Error).await;
-                
-                Err(error)
-            },
-        }
+        let result = executor.execute(context).await?;
+
+        // Track resource usage
+        let end_time = Utc::now();
+        let execution_time = (end_time - start_time).num_milliseconds() as u64;
+        
+        self.resource_manager
+            .track_cpu_time(tool_id, execution_time)
+            .await?;
+
+        Ok(result)
     }
 }
 

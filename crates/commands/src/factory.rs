@@ -9,18 +9,18 @@ use crate::{
 };
 use std::{
     error::Error,
-    fmt::Debug,
+    fmt,
     sync::{Arc, Mutex},
     time::Instant,
 };
 
-use log::{debug, info};
+use tracing::{debug, info};
 
 /// The command registry factory trait
 /// 
 /// Implementations of this trait are responsible for creating and configuring
 /// command registries.
-pub trait CommandRegistryFactory: Debug {
+pub trait CommandRegistryFactory: fmt::Debug {
     /// Create a new command registry
     /// 
     /// # Returns
@@ -170,7 +170,7 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
 mod tests {
     use super::*;
     use std::time::{Instant, Duration};
-    use log::{debug, info};
+    use tracing::{debug, info};
     use crate::{Command, CommandResult};
     
     /// Helper structure to track lock timing in tests

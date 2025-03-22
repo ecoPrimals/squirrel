@@ -40,6 +40,18 @@ pub mod build_info {
         // Just return the package version for now
         version.to_string()
     }
+    
+    /// Get the build date
+    #[must_use]
+    pub fn build_date() -> String {
+        // Since BUILT_TIME_UTC may not be available, let's use a fallback
+        // that will work in any environment
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Current time is before UNIX epoch");
+        format!("{}", now.as_secs())
+    }
 }
 
 /// Core application struct
@@ -47,6 +59,21 @@ pub mod build_info {
 pub struct Core {
     /// The version of the application
     version: String,
+}
+
+/// Status information for the Core
+#[derive(Debug, Clone)]
+pub struct Status {
+    /// Current status message
+    pub status: String,
+    /// Uptime in seconds
+    pub uptime: u64,
+    /// Memory usage in MB
+    pub memory_usage: u64,
+    /// Number of active commands
+    pub active_commands: u32,
+    /// Number of connected clients
+    pub connected_clients: u32,
 }
 
 impl Core {
@@ -62,6 +89,22 @@ impl Core {
     #[must_use]
     pub fn version(&self) -> &str {
         &self.version
+    }
+    
+    /// Get the current status
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if status information cannot be retrieved
+    pub fn get_status(&self) -> crate::error::Result<Status> {
+        // In a real implementation, these would be actual values
+        Ok(Status {
+            status: "Running".to_string(),
+            uptime: 3600, // Example: 1 hour
+            memory_usage: 128, // Example: 128 MB
+            active_commands: 5,
+            connected_clients: 2,
+        })
     }
 }
 

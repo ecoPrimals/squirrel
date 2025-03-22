@@ -42,11 +42,15 @@ The plugin system enables extensibility of the Groundhog AI Coding Assistant thr
 - Startup impact: < 200ms
 
 ## Detailed Specifications
-- [Architecture](architecture.md)
-- [Plugin API](api.md)
-- [Security Model](security.md)
-- [Development Guide](development.md)
-- [Testing](testing.md)
+- [Architecture](plugin-system.md)
+- [Core Plugins](core-plugins.md)
+- [UI Plugins](ui-plugins.md)
+- [MCP Plugins](mcp-plugins.md)
+- [Tool Plugins](tool-plugins.md)
+- [State Persistence](plugin-state-persistence.md)
+- [Security Model](security.md) *(Todo)*
+- [Development Guide](development.md) *(Todo)*
+- [Testing](testing.md) *(Todo)*
 
 ## Plugin Categories
 1. Language Support

@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::Timelike;
-use log::{debug, info};
+use tracing::{debug, info};
 use serde::{Deserialize, Serialize};
 
 use crate::CommandError;

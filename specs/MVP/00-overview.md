@@ -1,33 +1,41 @@
 ---
-version: 1.3.0
-last_updated: 2024-03-25
-status: final-review
+version: 1.4.0
+last_updated: 2024-03-30
+status: expanded-scope
 priority: high
 ---
 
 # Squirrel AI Coding Assistant MVP Overview
 
 ## Introduction
-This document provides an overview of the Minimal Viable Product (MVP) for the Squirrel AI Coding Assistant. The MVP focuses on delivering essential functionality while maintaining reliability, security, and usability.
+This document provides an overview of the expanded Minimum Viable Product (MVP) for the Squirrel AI Coding Assistant. The MVP focuses on delivering essential functionality while maintaining reliability, security, and usability, with targeted enhancements to improve the overall product quality.
 
-## Current Status: 🔍 FINAL REVIEW
-The project implementation is approximately 85% complete and entering final review phase before release.
+## Current Status: 🔄 EXPANDED SCOPE
+The project implementation is approximately 85-90% complete for the original MVP scope. We are now expanding the scope to include additional features while finalizing the core components.
 
 ## MVP Components
 
-### Core Features (In Progress)
-- [ ] Command system with essential commands
-- [ ] Context management system
-- [ ] Error handling and recovery
-- [ ] Performance optimization
+### Core Features (85-90% Complete)
+- [x] Command system with essential commands (90%)
+- [x] Context management system (95%)
+- [x] Error handling and recovery (85%)
+- [ ] Performance optimization (70%)
 - See [01-core-features.md](01-core-features.md) for details
+- See [04-core-enhancements.md](04-core-enhancements.md) for expanded scope
 
-### MCP Features (In Progress)
-- [ ] Protocol implementation
-- [ ] Tool management system
-- [ ] Basic security measures
-- [ ] Context management
+### MCP Features (90% Complete)
+- [x] Protocol implementation (95%)
+- [x] Tool management system (90%)
+- [x] Basic security measures (85%)
+- [x] Context management (90%)
 - See [02-mcp-features.md](02-mcp-features.md) for details
+- See [05-mcp-enhancements.md](05-mcp-enhancements.md) for expanded scope
+
+### Integration Features (New)
+- [ ] Cross-component integration (0%)
+- [ ] Performance verification system (0%)
+- [ ] Advanced monitoring (0%)
+- See [06-integration-features.md](06-integration-features.md) for details
 
 ### UI Features (Sunsetted)
 - UI features have been sunsetted as part of the MVP scope adjustment
@@ -46,28 +54,45 @@ The project implementation is approximately 85% complete and entering final revi
    - End-to-end workflow validation
    - Security verification
 
+3. Expanded Feature Implementation
+   - Command history and suggestions
+   - Context intelligence
+   - Tool marketplace foundations
+   - Advanced security features
+
 ### Planned Features
-1. Core System
-   - Command history
-   - Advanced validation
+1. Core System Enhancements
+   - Command history and suggestions
+   - Advanced context intelligence
+   - Enhanced error recovery
    - Performance optimization
 
-2. MCP Protocol
-   - Advanced security features
-   - Enhanced tool management
-   - Improved context handling
+2. MCP Protocol Enhancements
+   - Batch processing
+   - Protocol streaming
+   - Enhanced security
+   - Tool versioning
+
+3. Integration Features
+   - Cross-component integration
+   - Metrics collection
+   - Feedback system
 
 ## Performance Targets
-- Command execution: < 50ms
-- Memory usage: < 100MB
-- Error rate: < 1%
-- Test coverage: > 90%
+- Command execution: < 40ms (previously 50ms)
+- Memory usage: < 80MB (previously 100MB)
+- Error rate: < 0.5% (previously 1%)
+- Test coverage: > 95% (previously 90%)
+- Startup time: < 200ms (new metric)
+- Tool execution: < 30ms (new metric)
 
 ## Success Criteria
 - [ ] Essential commands working reliably
-- [ ] Basic AI assistance functional
-- [ ] Stable MCP communication
-- [ ] Clear command feedback
+- [ ] Command history and suggestions functional
+- [ ] Context intelligence providing meaningful insights
+- [ ] Advanced error recovery demonstrating value
+- [ ] Batch processing and streaming improving performance
+- [ ] Security measures preventing unauthorized access
 - [ ] Performance targets met
 - [ ] Comprehensive test coverage
 - [ ] Security requirements satisfied
@@ -78,22 +103,27 @@ The project implementation is approximately 85% complete and entering final revi
   - tokio = "1.0"
   - serde = "1.0"
   - thiserror = "1.0"
+  - tracing = "0.1"
 
 ## Timeline
-- Phase 1: Core System (Completed)
-  - Command system foundation
-  - Basic context management
-  - Error handling framework
+- Phase 1: Complete Existing MVP Tasks (1 week)
+  - Finish command history
+  - Complete advanced recovery features
+  - Implement batch processing
+  - Add tool versioning
 
-- Phase 2: MCP Protocol (Completed)
-  - Protocol implementation
-  - Tool management
-  - Security foundation
+- Phase 2: Enhanced Features (2 weeks)
+  - Command system enhancements
+  - Context intelligence
+  - Error learning system
+  - Protocol streaming
+  - Tool marketplace foundation
 
-- Phase 3: Polish & Testing (In Progress)
-  - Performance optimization
+- Phase 3: Polish & Integration (1 week)
+  - Comprehensive testing
   - Security hardening
   - Documentation
+  - Integration verification
 
 ## Post-MVP Roadmap
 1. Enhanced AI Capabilities
@@ -104,7 +134,7 @@ The project implementation is approximately 85% complete and entering final revi
 2. Extended Features
    - Plugin system
    - Custom tool integration
-   - Advanced UI customization
+   - Advanced UI customization (potential reintroduction)
 
 3. Performance Enhancements
    - Caching system
@@ -115,6 +145,12 @@ The project implementation is approximately 85% complete and entering final revi
    - Advanced authentication
    - Sandboxing
    - Audit logging
+
+## Progress Tracking
+- Component Progress Dashboard (see PROGRESS.md)
+- Weekly Progress Reviews
+- Automated Integration Tests
+- Performance Metrics Collection
 
 ## Integration Verification
 - Component interoperability verification
@@ -129,4 +165,5 @@ The project implementation is approximately 85% complete and entering final revi
 - Document as we build
 - Regular security reviews
 - Monitor resource usage
-- Continuous testing 
+- Continuous testing
+- Weekly progress reviews 

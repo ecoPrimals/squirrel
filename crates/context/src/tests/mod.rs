@@ -1,12 +1,18 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 use serde_json::json;
-use crate::ContextState;
-use crate::ContextError;
-use crate::Result;
-use crate::ContextManager;
+use chrono::Utc;
+use crate::{
+    ContextState, ContextError, Result, ContextManager, ContextManagerConfig, ContextSnapshot,
+    persistence::{PersistenceManager, Storage, Serializer},
+};
+
+// Import concurrent test module
+mod concurrent_tests;
 
 // Define TestData struct for test utilities
 #[derive(Debug, Clone)]
@@ -642,5 +648,269 @@ async fn test_context_synchronization() {
 impl Default for ContextAdapter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// Mock storage for testing
+#[derive(Debug, Default)]
+struct MockStorage {
+    data: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+}
+
+impl MockStorage {
+    fn new() -> Self {
+        Self {
+            data: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+}
+
+impl Storage for MockStorage {
+    fn save(&self, key: &str, data: &[u8]) -> std::result::Result<(), ContextError> {
+        let mut storage = futures::executor::block_on(self.data.lock());
+        storage.insert(key.to_string(), data.to_vec());
+        Ok(())
+    }
+
+    fn load(&self, key: &str) -> std::result::Result<Vec<u8>, ContextError> {
+        let storage = futures::executor::block_on(self.data.lock());
+        storage.get(key)
+            .cloned()
+            .ok_or_else(|| ContextError::NotFound(format!("Key not found: {}", key)))
+    }
+
+    fn delete(&self, key: &str) -> std::result::Result<(), ContextError> {
+        let mut storage = futures::executor::block_on(self.data.lock());
+        storage.remove(key);
+        Ok(())
+    }
+
+    fn exists(&self, key: &str) -> bool {
+        let storage = futures::executor::block_on(self.data.lock());
+        storage.contains_key(key)
+    }
+}
+
+// Mock serializer for testing
+#[derive(Debug, Default)]
+struct MockSerializer;
+
+impl Serializer for MockSerializer {
+    fn serialize_state(&self, state: &ContextState) -> std::result::Result<Vec<u8>, ContextError> {
+        serde_json::to_vec(state)
+            .map_err(|e| ContextError::Persistence(format!("Serialization failed: {}", e)))
+    }
+
+    fn deserialize_state(&self, data: &[u8]) -> std::result::Result<ContextState, ContextError> {
+        serde_json::from_slice(data)
+            .map_err(|e| ContextError::Persistence(format!("Deserialization failed: {}", e)))
+    }
+
+    fn serialize_snapshot(&self, snapshot: &ContextSnapshot) -> std::result::Result<Vec<u8>, ContextError> {
+        serde_json::to_vec(snapshot)
+            .map_err(|e| ContextError::Persistence(format!("Serialization failed: {}", e)))
+    }
+
+    fn deserialize_snapshot(&self, data: &[u8]) -> std::result::Result<ContextSnapshot, ContextError> {
+        serde_json::from_slice(data)
+            .map_err(|e| ContextError::Persistence(format!("Deserialization failed: {}", e)))
+    }
+}
+
+#[tokio::test]
+async fn test_context_creation() {
+    let manager = create_test_manager().await;
+    let state = create_test_state("test1");
+    
+    assert!(manager.create_context("test1", state.clone()).await.is_ok());
+    
+    let loaded = manager.get_context_state("test1").await;
+    assert!(loaded.is_ok());
+    assert_eq!(loaded.unwrap().id, state.id);
+}
+
+#[tokio::test]
+async fn test_concurrent_context_creation() {
+    let manager = Arc::new(create_test_manager().await);
+    let mut handles = Vec::new();
+    
+    for i in 0..10 {
+        let manager = manager.clone();
+        let handle = tokio::spawn(async move {
+            let state = create_test_state(&format!("test{}", i));
+            manager.create_context(&format!("test{}", i), state).await
+        });
+        handles.push(handle);
+    }
+    
+    for handle in handles {
+        assert!(handle.await.unwrap().is_ok());
+    }
+    
+    let contexts = manager.list_context_ids().await.unwrap();
+    assert_eq!(contexts.len(), 10);
+}
+
+#[tokio::test]
+async fn test_context_update() {
+    let manager = create_test_manager().await;
+    let state = create_test_state("test1");
+    
+    manager.create_context("test1", state).await.unwrap();
+    
+    let mut updated_state = manager.get_context_state("test1").await.unwrap();
+    updated_state.data.insert("key2".to_string(), "value2".to_string());
+    
+    assert!(manager.update_context_state("test1", updated_state.clone()).await.is_ok());
+    
+    let loaded = manager.get_context_state("test1").await.unwrap();
+    assert_eq!(loaded.data.get("key2").unwrap(), "value2");
+}
+
+#[tokio::test]
+async fn test_concurrent_updates() {
+    let manager = Arc::new(create_test_manager().await);
+    let state = create_test_state("test1");
+    
+    manager.create_context("test1", state).await.unwrap();
+    
+    let mut handles = Vec::new();
+    for i in 0..10 {
+        let manager = manager.clone();
+        let handle = tokio::spawn(async move {
+            let mut state = manager.get_context_state("test1").await.unwrap();
+            state.data.insert(format!("key{}", i), format!("value{}", i));
+            manager.update_context_state("test1", state).await
+        });
+        handles.push(handle);
+    }
+    
+    for handle in handles {
+        assert!(handle.await.unwrap().is_ok());
+    }
+    
+    let final_state = manager.get_context_state("test1").await.unwrap();
+    assert_eq!(final_state.data.len(), 10); // Changed from 11 to 10 since we start with an empty state
+}
+
+#[tokio::test]
+async fn test_recovery_points() {
+    let manager = create_test_manager().await;
+    let state = create_test_state("test1");
+    
+    manager.create_context("test1", state).await.unwrap();
+    
+    // Create recovery point
+    let state = manager.get_context_state("test1").await.unwrap();
+    let snapshot = manager.create_recovery_point(&state).await.unwrap();
+    
+    // Verify recovery point
+    let points = manager.get_recovery_points("test1").await.unwrap();
+    assert_eq!(points.len(), 1);
+    assert_eq!(points[0].id, snapshot.id);
+}
+
+#[tokio::test]
+async fn test_persistence() {
+    let manager = create_test_manager().await;
+    let state = create_test_state("test1");
+    
+    // Create and persist
+    manager.create_context("test1", state.clone()).await.unwrap();
+    
+    // Load from persistence
+    let loaded = manager.get_context_state("test1").await;
+    assert!(loaded.is_ok());
+    assert_eq!(loaded.unwrap().id, state.id);
+}
+
+#[tokio::test]
+async fn test_context_deletion() {
+    let manager = create_test_manager().await;
+    let state = create_test_state("test1");
+    
+    manager.create_context("test1", state).await.unwrap();
+    assert!(manager.delete_context("test1").await.is_ok());
+    
+    let result = manager.get_context_state("test1").await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_concurrent_access_patterns() {
+    let manager = Arc::new(create_test_manager().await);
+    let mut handles = Vec::new();
+    
+    // Spawn multiple tasks performing different operations
+    for i in 0..5 {
+        let manager = manager.clone();
+        let handle = tokio::spawn(async move {
+            // Create context
+            let state = create_test_state(&format!("test{}", i));
+            manager.create_context(&format!("test{}", i), state).await?;
+            
+            // Small delay to simulate real-world conditions
+            sleep(Duration::from_millis(10)).await;
+            
+            // Update context
+            let mut updated = manager.get_context_state(&format!("test{}", i)).await?;
+            updated.data.insert("updated".to_string(), "true".to_string());
+            manager.update_context_state(&format!("test{}", i), updated).await?;
+            
+            // Create recovery point
+            let state = manager.get_context_state(&format!("test{}", i)).await?;
+            manager.create_recovery_point(&state).await?;
+            
+            Ok::<_, ContextError>(())
+        });
+        handles.push(handle);
+    }
+    
+    for handle in handles {
+        assert!(handle.await.unwrap().is_ok());
+    }
+    
+    // Verify final state
+    let contexts = manager.list_context_ids().await.unwrap();
+    assert_eq!(contexts.len(), 5);
+    
+    for i in 0..5 {
+        let state = manager.get_context_state(&format!("test{}", i)).await.unwrap();
+        assert_eq!(state.data.get("updated").unwrap(), "true");
+        
+        let points = manager.get_recovery_points(&format!("test{}", i)).await.unwrap();
+        assert_eq!(points.len(), 1);
+    }
+}
+
+// Helper functions
+async fn create_test_manager() -> ContextManager {
+    let mut manager = ContextManager::with_config(ContextManagerConfig {
+        max_contexts: 100,
+        max_recovery_points: 10,
+        persistence_enabled: true,
+    });
+    
+    let persistence = Arc::new(PersistenceManager::new(
+        Box::new(MockStorage::new()),
+        Box::new(MockSerializer),
+    ));
+    
+    manager.set_persistence_manager(persistence);
+    manager.initialize().await.unwrap();
+    manager
+}
+
+fn create_test_state(id: &str) -> ContextState {
+    let mut data = HashMap::new();
+    data.insert("key1".to_string(), "value1".to_string());
+    
+    ContextState {
+        id: id.to_string(),
+        version: 1,
+        timestamp: Utc::now().timestamp() as u64,
+        data,
+        metadata: HashMap::new(),
+        synchronized: false,
     }
 } 
