@@ -1,8 +1,7 @@
 use std::sync::Arc;
 use squirrel_core::error::Result;
 use crate::dashboard::DashboardManager;
-use std::sync::RwLock;
-use squirrel_core::error::SquirrelError;
+use tokio::sync::RwLock;
 
 /// Adapter for the Dashboard Manager to provide backward compatibility 
 /// during the transition to dependency injection.
@@ -43,8 +42,7 @@ impl DashboardManagerAdapter {
     /// # Errors
     /// Returns an error if the dashboard manager fails to start
     pub async fn start(&self) -> Result<()> {
-        let lock = self.inner.write();
-        let mut manager = lock.map_err(|e| SquirrelError::other(format!("Failed to acquire lock: {}", e)))?;
+        let mut manager = self.inner.write().await;
         manager.start().await
     }
 
@@ -53,8 +51,7 @@ impl DashboardManagerAdapter {
     /// # Errors
     /// Returns an error if the dashboard manager fails to stop
     pub async fn stop(&self) -> Result<()> {
-        let lock = self.inner.write();
-        let mut manager = lock.map_err(|e| SquirrelError::other(format!("Failed to acquire lock: {}", e)))?;
+        let mut manager = self.inner.write().await;
         manager.stop().await
     }
 }

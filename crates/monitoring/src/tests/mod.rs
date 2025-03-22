@@ -20,6 +20,8 @@ use crate::dashboard;
 mod factory_tests;
 // Include factory runner
 mod factory_runner;
+// Include WebSocket tests module
+mod websocket_tests;
 
 // Mock implementations for testing
 mock! {

@@ -4,32 +4,47 @@
 // that allows clients to receive live updates about system metrics, health status,
 // and other monitoring information.
 
-use std::sync::Arc;
+use std::collections::HashSet;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::net::SocketAddr;
 use std::time::Duration;
+use std::io::Write;
+
 use axum::{
     extract::{State, WebSocketUpgrade, Path},
     response::IntoResponse,
     routing::get,
-    Json, Router,
+    Router,
+    Json,
+    http::StatusCode,
 };
 use axum::extract::ws::{WebSocket, Message};
-use axum::http::{StatusCode, Method};
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{StreamExt, SinkExt};
+use futures_util::stream::SplitSink;
 use serde::{Serialize, Deserialize};
-use serde_json::{json, Value};
-use tokio::sync::broadcast;
-use tower_http::cors::{Any, CorsLayer};
-use time::OffsetDateTime;
-use tracing::{info, error, debug};
-use uuid;
+use serde_json::Value;
+use flate2::{Compression, write::GzEncoder};
+use base64;
+use base64::Engine;
+use tokio::{net::TcpListener, time};
+use tokio::sync::mpsc;
+use tracing::{info, error};
 
-use squirrel_core::error::{Result, SquirrelError};
-use super::{Manager, Layout, Component, Update};
+use squirrel_core::error::SquirrelError;
+use super::{Manager, Layout, Update};
 
 /// Maximum number of messages to buffer in the broadcast channel
 const MAX_BROADCAST_CAPACITY: usize = 1024;
+
+/// Maximum number of updates to batch in a single WebSocket message
+const MAX_BATCH_SIZE: usize = 50;
+
+/// Maximum time to wait before sending a batch (milliseconds)
+const MAX_BATCH_WAIT_MS: u64 = 100;
+
+/// Minimum size (in bytes) for compressing a payload
+const COMPRESSION_THRESHOLD: usize = 1024;
 
 /// Subscription message received from a client
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,13 +59,37 @@ struct SubscriptionMessage {
     data: Option<Value>,
 }
 
-/// Shared server state
-#[derive(Debug, Clone)]
+/// Batched update response sent to clients
+#[derive(Debug, Serialize)]
+struct BatchedUpdate {
+    updates: Vec<Update>,
+}
+
+/// State shared between all connections
+#[derive(Clone)]
 struct ServerState {
-    /// Dashboard manager instance
     manager: Arc<Manager>,
-    /// Broadcast channel for sending updates to connected clients
-    update_tx: broadcast::Sender<Update>,
+    config: ServerConfig,
+}
+
+/// Configuration for the dashboard server
+#[derive(Clone)]
+struct ServerConfig {
+    update_interval_ms: u64,
+}
+
+/// Client message types for WebSocket communication
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+enum ClientMessage {
+    #[serde(rename = "subscribe")]
+    Subscribe {
+        component_ids: HashSet<String>,
+    },
+    #[serde(rename = "unsubscribe")]
+    Unsubscribe {
+        component_ids: HashSet<String>,
+    },
 }
 
 /// Query parameters for layout listing
@@ -62,17 +101,42 @@ struct ListQuery {
     limit: Option<usize>,
 }
 
-/// Function to start the dashboard server
-pub async fn start_server(addr: SocketAddr, manager: Arc<Manager>) -> Result<()> {
-    info!("Starting dashboard server on {}", addr);
+/// Starts a WebSocket server that provides dashboard data to clients
+///
+/// # Arguments
+/// * `manager` - Dashboard manager instance
+/// * `addr` - Socket address to bind the server to
+///
+/// # Returns
+/// * `Result` - Ok if server starts successfully, Error otherwise
+pub async fn start_server(
+    manager: Arc<Manager>,
+    addr: SocketAddr,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    // Create router for handling different routes
+    info!("Creating dashboard WebSocket server router");
     
-    // Create router with routes
-    let router = create_router(manager);
+    // Create state for the server
+    let state = ServerState {
+        manager: manager.clone(),
+        config: ServerConfig { update_interval_ms: 1000 },
+    };
+    
+    // Set up routes
+    let app = Router::new()
+        .route("/ws", get(websocket_handler))
+        .route("/components", get(list_available_components))
+        .with_state(state);
     
     // Start the server
-    axum::serve(tokio::net::TcpListener::bind(addr).await?, router)
+    info!("Starting dashboard WebSocket server on {}", addr);
+    let listener = TcpListener::bind(addr).await
+        .map_err(|e| Box::new(SquirrelError::other(format!("Failed to bind to address: {}", e))) as Box<dyn std::error::Error>)?;
+    
+    // Serve until shutdown
+    axum::serve(listener, app)
         .await
-        .map_err(|e| SquirrelError::other(format!("Failed to start dashboard server: {}", e)))
+        .map_err(|e| Box::new(SquirrelError::other(format!("Failed to start dashboard server: {}", e))) as Box<dyn std::error::Error>)
 }
 
 /// Handler for WebSocket connections
@@ -80,164 +144,208 @@ async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<ServerState>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_websocket(socket, state))
+    ws.on_upgrade(move |socket| {
+        // Wrap handle_socket_connection in a future that returns ()
+        async move {
+            handle_socket_connection(socket, state).await;
+            // Return () to satisfy the Output = () requirement
+        }
+    })
 }
 
-/// Handles an individual WebSocket connection
-async fn handle_websocket(socket: WebSocket, state: ServerState) {
-    // Split socket into sender and receiver
-    let (sender, receiver) = socket.split();
-    
+/// Handler for WebSocket connections providing dashboard updates to clients
+/// and receiving client interactions
+async fn handle_socket_connection(socket: WebSocket, state: ServerState) {
+    // Split the socket into sender and receiver parts
+    let (sender, mut receiver) = socket.split();
     let sender = Arc::new(tokio::sync::Mutex::new(sender));
-    let _client_id = uuid::Uuid::new_v4().to_string();
     
-    // Subscribe to broadcast channel
-    let mut update_rx = state.update_tx.subscribe();
+    // Each connection has a unique set of component subscriptions
+    let subscriptions: Arc<tokio::sync::RwLock<Option<HashSet<String>>>> = Arc::new(tokio::sync::RwLock::new(None));
     
-    // Create subscription map for this client
-    let subscriptions = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+    // Create a channel for signaling exit of background tasks
+    let (exit_tx, mut exit_rx) = mpsc::channel::<()>(1);
     
-    // Clone for the send task
-    let sender_clone = sender.clone();
-    let subscriptions_clone = subscriptions.clone();
+    // Client UUID for identifying the connection
+    let client_id = uuid::Uuid::new_v4().to_string();
     
-    // Spawn a task to send updates to the client
-    let send_task_handle = tokio::spawn(async move {
-        while let Ok(update) = update_rx.recv().await {
-            let should_send = {
-                let subs = subscriptions_clone.lock().await;
-                subs.contains(&update.component_id)
-            };
+    // Spawn a task to send periodic updates
+    let update_task = {
+        let sender = sender.clone();
+        let subscriptions_guard = subscriptions.clone();
+        let state = state.clone();
+        
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_millis(state.config.update_interval_ms));
+            let mut pending_updates: Vec<Update> = Vec::new();
             
-            if should_send {
-                if let Ok(json) = serde_json::to_string(&update) {
-                    let mut sender = sender_clone.lock().await;
-                    if sender.send(Message::Text(json)).await.is_err() {
+            loop {
+                tokio::select! {
+                    // Handle interval-based updates
+                    _ = interval.tick() => {
+                        if pending_updates.is_empty() {
+                            continue;
+                        }
+                        
+                        let mut sender_lock = sender.lock().await;
+                        if let Err(e) = send_batched_updates(&mut sender_lock, pending_updates.clone(), false).await {
+                            error!("Error sending batched updates: {}", e);
+                            break;
+                        }
+                        pending_updates.clear();
+                    }
+                    
+                    // Handle exit signal
+                    _ = exit_rx.recv() => {
                         break;
                     }
-                }
-            }
-        }
-    });
-    
-    // Process incoming messages
-    let recv_task_handle = tokio::spawn(async move {
-        let mut receiver_stream = receiver;
-        
-        while let Some(Ok(msg)) = receiver_stream.next().await {
-            if let Message::Text(text) = msg {
-                debug!("Received message: {}", text);
-                
-                // Try to parse as a subscription message
-                if let Ok(sub_msg) = serde_json::from_str::<SubscriptionMessage>(&text) {
-                    if let Some(component_id) = sub_msg.component_id {
-                        // Add to subscriptions
-                        {
-                            let mut subs = subscriptions.lock().await;
-                            if !subs.contains(&component_id) {
-                                subs.push(component_id.clone());
+                    
+                    // Handle new updates
+                    else => {
+                        // Check for any new updates from components the client is subscribed to
+                        if let Some(subscriptions) = &*subscriptions_guard.read().await {
+                            pending_updates.clear();
+                            
+                            // Collect updates from all subscribed components
+                            for component_id in subscriptions.iter() {
+                                if let Some(update_vec) = state.manager.get_component_data(component_id) {
+                                    // Add all updates from this component to our pending updates
+                                    pending_updates.extend(update_vec.clone());
+                                }
+                            }
+                            
+                            // If we have updates, send them immediately
+                            if !pending_updates.is_empty() {
+                                let mut sender_lock = sender.lock().await;
+                                if let Err(e) = send_batched_updates(&mut sender_lock, pending_updates.clone(), false).await {
+                                    error!("Error sending immediate updates: {}", e);
+                                    break;
+                                }
+                                pending_updates.clear();
                             }
                         }
                         
-                        // Send acknowledgment
-                        let response = json!({
-                            "type": "subscription_ack",
-                            "component_id": component_id,
-                            "timestamp": OffsetDateTime::now_utc(),
-                        });
-                        
-                        let mut sender = sender.lock().await;
-                        if let Ok(json) = serde_json::to_string(&response) {
-                            if sender.send(Message::Text(json)).await.is_err() {
-                                break;
-                            }
-                        }
+                        // Sleep a bit to avoid tight loop
+                        tokio::time::sleep(Duration::from_millis(10)).await;
                     }
                 }
-            } else if let Message::Close(_) = msg {
+            }
+        })
+    };
+    
+    // Process incoming messages from the client
+    while let Some(msg) = receiver.next().await {
+        match msg {
+            Ok(Message::Text(text)) => {
+                match serde_json::from_str::<ClientMessage>(&text) {
+                    Ok(client_msg) => {
+                        match client_msg {
+                            ClientMessage::Subscribe { component_ids } => {
+                                info!("Client {} subscribing to components: {:?}", client_id, component_ids);
+                                let mut subs = subscriptions.write().await;
+                                *subs = Some(component_ids);
+                                
+                                // Send initial data for all components
+                                let mut updates = Vec::new();
+                                if let Some(component_ids) = &*subs {
+                                    for component_id in component_ids.iter() {
+                                        if let Some(update_vec) = state.manager.get_component_data(component_id) {
+                                            // Add all updates from this component
+                                            updates.extend(update_vec.clone());
+                                        }
+                                    }
+                                }
+                                
+                                if !updates.is_empty() {
+                                    let mut sender_lock = sender.lock().await;
+                                    if let Err(e) = send_batched_updates(&mut sender_lock, updates, false).await {
+                                        error!("Error sending initial updates: {}", e);
+                                        break;
+                                    }
+                                }
+                            }
+                            ClientMessage::Unsubscribe { component_ids } => {
+                                info!("Client {} unsubscribing from components: {:?}", client_id, component_ids);
+                                let mut subs = subscriptions.write().await;
+                                
+                                if let Some(current_subs) = &mut *subs {
+                                    current_subs.retain(|id| !component_ids.contains(id));
+                                }
+                            }
+                            // Handle other client message types here
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error parsing client message: {}", e);
+                    }
+                }
+            }
+            Ok(Message::Close(_)) => {
+                info!("Client {} connection closed", client_id);
                 break;
             }
-        }
-    });
-    
-    // Wait for either task to complete
-    let send_result = tokio::spawn(send_task_handle);
-
-    let recv_result = tokio::spawn(recv_task_handle);
-
-    tokio::select! {
-        _ = send_result => {
-            debug!("Send task completed");
-        }
-        _ = recv_result => {
-            debug!("Receive task completed");
+            Err(e) => {
+                error!("Error from client {}: {}", client_id, e);
+                break;
+            }
+            _ => {} // Ignore other message types
         }
     }
     
-    debug!("WebSocket connection closed");
+    // Client disconnected, clean up tasks
+    let _ = exit_tx.send(()).await;
+    update_task.abort();
+    
+    info!("Client {} disconnected, cleaned up resources", client_id);
 }
 
-/// Update components periodically
-async fn start_update_task(state: ServerState) {
-    // Get config once
-    let config = state.manager.config.read().await;
-    let update_interval = Duration::from_secs(config.update_interval);
-    drop(config);
+/// Send batched updates to a client
+async fn send_batched_updates(
+    sender: &mut SplitSink<WebSocket, Message>, 
+    updates: Vec<Update>, 
+    force_compression: bool
+) -> std::result::Result<(), String> {
+    if updates.is_empty() {
+        return Ok(());
+    }
     
-    let update_tx = state.update_tx.clone();
+    // Create the JSON message containing all updates
+    let json_data = match serde_json::to_string(&BatchedUpdate { updates }) {
+        Ok(json) => json,
+        Err(e) => return Err(format!("Failed to serialize updates: {}", e)),
+    };
     
-    loop {
-        // Get all layouts and components
-        match state.manager.get_layouts().await {
-            Ok(layouts) => {
-                for layout in layouts {
-                    for component in layout.components {
-                        // Get data for this component
-                        match state.manager.get_widget_data(&component).await {
-                            Ok(widget_data) => {
-                                // Extract component ID based on component type
-                                let component_id = match &component {
-                                    Component::PerformanceGraph { id, .. } => id.clone(),
-                                    Component::AlertList { id, .. } => id.clone(),
-                                    Component::HealthStatus { id, .. } => id.clone(),
-                                    Component::Custom { id, .. } => id.clone(),
-                                };
-                                
-                                // Create update
-                                let update = Update {
-                                    component_id: component_id.clone(),
-                                    timestamp: OffsetDateTime::now_utc(),
-                                    data: widget_data.clone(),
-                                };
-                                
-                                // Broadcast update to WebSocket clients
-                                if update_tx.send(update.clone()).is_err() {
-                                    // No receivers, which is fine if no clients are connected
-                                    debug!("No WebSocket clients connected to receive updates");
-                                }
-                                
-                                // Also store the update in the manager's data store
-                                let mut store = HashMap::new();
-                                store.insert(component_id.clone(), widget_data);
-                                if let Err(e) = state.manager.update_data(store).await {
-                                    error!("Failed to update component data: {}", e);
-                                }
-                            },
-                            Err(e) => {
-                                error!("Failed to get data for component: {}", e);
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                error!("Failed to get layouts: {}", e);
-            }
+    // Check if compression is needed (for large payloads or if forced)
+    let compress = force_compression || json_data.len() > 8192;
+    
+    if compress {
+        // Compress the data using gzip
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        if encoder.write_all(json_data.as_bytes()).is_err() {
+            return Err("Failed to compress data".to_string());
         }
         
-        // Wait for next update
-        tokio::time::sleep(update_interval).await;
+        let compressed_data = match encoder.finish() {
+            Ok(data) => data,
+            Err(e) => return Err(format!("Failed to finalize compression: {}", e)),
+        };
+        
+        // Encode the compressed data as base64
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&compressed_data);
+        
+        // Send as a compressed message
+        let message = format!("{{\"compressed\":true,\"data\":\"{}\"}}", encoded);
+        if let Err(e) = sender.send(Message::Text(message)).await {
+            return Err(format!("Failed to send compressed message: {}", e));
+        }
+    } else {
+        // Send uncompressed JSON directly
+        if let Err(e) = sender.send(Message::Text(json_data)).await {
+            return Err(format!("Failed to send message: {}", e));
+        }
     }
+    
+    Ok(())
 }
 
 /// Handler for getting all layouts
@@ -343,40 +451,111 @@ async fn get_component_data(
     Ok(Json(data))
 }
 
-/// Function to create the router with routes
-fn create_router(manager: Arc<Manager>) -> Router {
-    // Create broadcast channel for updates
-    let (update_tx, _) = broadcast::channel(MAX_BROADCAST_CAPACITY);
+/// Handler for retrieving all current metrics
+async fn get_all_metrics(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<HashMap<String, Value>>, (StatusCode, String)> {
+    // Get all component data from the manager
+    let mut metrics = HashMap::new();
+    let components = state.manager.get_available_components();
     
-    // Create shared server state
-    let state = ServerState { 
-        manager,
-        update_tx: update_tx.clone(),
-    };
+    for component_id in components {
+        if let Some(data) = state.manager.get_component_data(&component_id) {
+            // Only include the latest update for each component
+            if let Some(latest) = data.last() {
+                metrics.insert(component_id, latest.data.clone());
+            }
+        }
+    }
     
-    // Set up CORS
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_origin(Any)
-        .allow_headers(Any);
-    
-    // Start update task in background
-    let state_clone = state.clone();
-    tokio::spawn(async move {
-        start_update_task(state_clone).await;
-    });
-    
-    // Create router with routes
-    Router::new()
-        // Dashboard data routes
-        .route("/api/layouts", get(get_layouts).post(create_layout))
-        .route("/api/layouts/:id", get(get_layout).put(update_layout).delete(delete_layout))
-        .route("/api/components/:id/data", get(get_component_data))
-        
-        // WebSocket route
-        .route("/ws", get(websocket_handler))
-        
-        // Apply middleware
-        .layer(cors)
-        .with_state(state)
+    Ok(Json(metrics))
+}
+
+/// Handler for retrieving a specific metric by ID
+async fn get_metric_by_id(
+    State(state): State<ServerState>,
+    Path(id): Path<String>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get component data from the manager
+    match state.manager.get_component_data(&id) {
+        Some(data) if !data.is_empty() => {
+            // Return the latest data point
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, format!("Metric '{}' not found", id)))
+    }
+}
+
+/// Handler for retrieving CPU metrics
+async fn get_cpu_metrics(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get CPU metrics from the manager
+    match state.manager.get_component_data("system_cpu") {
+        Some(data) if !data.is_empty() => {
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, "CPU metrics not available".to_string()))
+    }
+}
+
+/// Handler for retrieving memory metrics
+async fn get_memory_metrics(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get memory metrics from the manager
+    match state.manager.get_component_data("system_memory") {
+        Some(data) if !data.is_empty() => {
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, "Memory metrics not available".to_string()))
+    }
+}
+
+/// Handler for retrieving disk metrics
+async fn get_disk_metrics(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get disk metrics from the manager
+    match state.manager.get_component_data("disk_usage") {
+        Some(data) if !data.is_empty() => {
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, "Disk metrics not available".to_string()))
+    }
+}
+
+/// Handler for retrieving network metrics
+async fn get_network_metrics(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get network metrics from the manager
+    match state.manager.get_component_data("network_traffic") {
+        Some(data) if !data.is_empty() => {
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, "Network metrics not available".to_string()))
+    }
+}
+
+/// Handler for retrieving health status
+async fn get_health_status(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Value>, (StatusCode, String)> {
+    // Get health status from the manager
+    match state.manager.get_component_data("health_status") {
+        Some(data) if !data.is_empty() => {
+            Ok(Json(data.last().unwrap().data.clone()))
+        },
+        _ => Err((StatusCode::NOT_FOUND, "Health status not available".to_string()))
+    }
+}
+
+/// Handler for listing all available components
+async fn list_available_components(
+    State(state): State<ServerState>,
+) -> std::result::Result<Json<Vec<String>>, (StatusCode, String)> {
+    // Get list of available components from the manager
+    let components = state.manager.get_available_components();
+    Ok(Json(components))
 } 

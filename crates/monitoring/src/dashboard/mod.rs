@@ -25,6 +25,9 @@ use crate::{
 use squirrel_core::error::{Result, SquirrelError};
 use serde_json::{Value, json};
 use tracing::{info, error, debug};
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use std::net::SocketAddr;
 
 /// Module for adapter implementations of dashboard functionality
 /// 
@@ -36,6 +39,57 @@ use adapter::{DashboardManagerAdapter, create_dashboard_manager_adapter_with_man
 /// Module for WebSocket server implementation
 pub mod server;
 use server::start_server;
+
+/// Module for components
+pub mod components;
+
+/// Error types for dashboard operations
+#[derive(Debug, Error)]
+pub enum DashboardError {
+    /// Layout not found
+    #[error("Layout not found: {0}")]
+    LayoutNotFound(String),
+    /// Invalid configuration
+    #[error("Invalid configuration: {0}")]
+    InvalidConfig(String),
+    /// Data error
+    #[error("Data error: {0}")]
+    DataError(String),
+    /// Component error
+    #[error("Component error: {0}")]
+    ComponentError(String),
+    /// Server error
+    #[error("Server error: {0}")]
+    ServerError(String),
+}
+
+impl From<DashboardError> for SquirrelError {
+    fn from(e: DashboardError) -> Self {
+        SquirrelError::monitoring(e.to_string())
+    }
+}
+
+/// Dashboard component trait for custom components
+///
+/// This trait defines the interface for components that can be registered
+/// with the dashboard manager.
+#[async_trait]
+pub trait DashboardComponent: std::fmt::Debug + Send + Sync {
+    /// Get the component ID
+    fn id(&self) -> &str;
+    
+    /// Start the component
+    async fn start(&self) -> Result<()>;
+    
+    /// Get the current data for the component
+    async fn get_data(&self) -> Result<Value>;
+    
+    /// Get the last update timestamp
+    async fn last_update(&self) -> Option<DateTime<Utc>>;
+    
+    /// Get an update for the component
+    async fn get_update(&self) -> Result<Update>;
+}
 
 /// Configuration for the dashboard's WebSocket functionality
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +211,7 @@ pub struct Layout {
 }
 
 /// Data update for the dashboard
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Update {
     /// Component ID
     pub component_id: String,
@@ -178,32 +232,6 @@ pub struct Data {
     pub alerts: Vec<Alert>,
     /// Interval at which dashboard data is refreshed
     pub refresh_interval: Duration,
-}
-
-/// Error types for dashboard operations
-#[derive(Debug, Error)]
-pub enum DashboardError {
-    /// Layout not found
-    #[error("Layout not found: {0}")]
-    LayoutNotFound(String),
-    /// Invalid configuration
-    #[error("Invalid configuration: {0}")]
-    InvalidConfig(String),
-    /// Data error
-    #[error("Data error: {0}")]
-    DataError(String),
-    /// Component error
-    #[error("Component error: {0}")]
-    ComponentError(String),
-    /// Server error
-    #[error("Server error: {0}")]
-    ServerError(String),
-}
-
-impl From<DashboardError> for SquirrelError {
-    fn from(e: DashboardError) -> Self {
-        SquirrelError::monitoring(e.to_string())
-    }
 }
 
 /// Dashboard configuration
@@ -307,9 +335,9 @@ impl DashboardManager {
                 let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
                 
                 self.websocket_handle = Some(tokio::spawn(async move {
-                    match start_server(addr, manager_clone).await {
-                        Ok(_) => info!("Dashboard WebSocket server stopped gracefully"),
-                        Err(e) => error!("Dashboard WebSocket server error: {}", e),
+                    match start_server(manager_clone, addr).await {
+                        Ok(_) => info!("Dashboard server started successfully"),
+                        Err(e) => error!("Failed to start dashboard server: {}", e),
                     }
                 }));
                 
@@ -430,6 +458,8 @@ pub struct Manager {
     pub data_store: Arc<RwLock<HashMap<String, Vec<Update>>>>,
     /// WebSocket server handle
     pub websocket_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
+    /// Custom components registry
+    pub components: Arc<RwLock<HashMap<String, Box<dyn DashboardComponent>>>>,
 }
 
 impl Manager {
@@ -449,7 +479,31 @@ impl Manager {
             health_checker: Arc::new(RwLock::new(health_checker)),
             data_store: Arc::new(RwLock::new(HashMap::new())),
             websocket_handle: Arc::new(RwLock::new(None)),
+            components: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Creates a new dashboard manager with default configuration
+    #[must_use]
+    pub fn new_with_default_config() -> Self {
+        Self::new_from_dashboard_config(DashboardConfig::default())
+    }
+
+    /// Create a new dashboard manager directly from a DashboardConfig
+    pub fn new_from_dashboard_config(config: DashboardConfig) -> Self {
+        let full_config = Config::from(config);
+        
+        // Create mock implementations for dependencies
+        let metric_collector = Box::new(MockMetricCollector {});
+        let alert_manager = Box::new(MockAlertManager {});
+        let health_checker = Box::new(MockHealthChecker {});
+        
+        Self::new(
+            full_config,
+            metric_collector,
+            alert_manager,
+            health_checker,
+        )
     }
 
     /// Starts the dashboard manager to refresh and serve data
@@ -476,16 +530,20 @@ impl Manager {
             info!("Starting dashboard WebSocket server on port {}", websocket_port);
             
             // Create a clone for the server task
-            let self_clone = Arc::new(self.clone());
+            let self_arc = Arc::new(self.clone());
             
             // Create socket address
-            let addr = std::net::SocketAddr::from(([0, 0, 0, 0], websocket_port));
+            let addr = SocketAddr::from(([127, 0, 0, 1], websocket_port));
             
             // Start the server in a background task
             let server_handle = tokio::spawn(async move {
-                match start_server(addr, self_clone).await {
-                    Ok(_) => info!("Dashboard WebSocket server stopped gracefully"),
-                    Err(e) => error!("Dashboard WebSocket server error: {}", e),
+                match start_server(self_arc, addr).await {
+                    Ok(_) => {
+                        info!("Dashboard server started successfully");
+                    }
+                    Err(e) => {
+                        error!("Failed to start dashboard server: {}", e);
+                    }
                 }
             });
             
@@ -676,6 +734,66 @@ impl Manager {
         
         Ok(component_ids)
     }
+
+    /// Register a custom component with the dashboard
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the component cannot be registered
+    pub async fn register_component(&self, component: Box<dyn DashboardComponent>) -> Result<()> {
+        let component_id = component.id().to_string();
+        info!("Registering component: {}", component_id);
+        
+        // Start the component
+        component.start().await?;
+        
+        // Store the component
+        let mut components = self.components.write().await;
+        components.insert(component_id.clone(), component);
+        
+        // Create entry in data store if it doesn't exist
+        let mut data_store = self.data_store.write().await;
+        if !data_store.contains_key(&component_id) {
+            data_store.insert(component_id.clone(), Vec::new());
+        }
+        
+        Ok(())
+    }
+
+    /// Get data from a registered component
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the component cannot be found or data cannot be retrieved
+    pub fn get_component_data(&self, component_id: &str) -> Option<Vec<Update>> {
+        // This implementation is not async because it's called from synchronous contexts
+        match self.data_store.try_read() {
+            Ok(data_store) => data_store.get(component_id).cloned(),
+            Err(_) => None,
+        }
+    }
+
+    /// Get list of available components
+    pub fn get_available_components(&self) -> Vec<String> {
+        let mut components = Vec::new();
+        
+        // Try to get registered custom components
+        if let Ok(custom_components) = self.components.try_read() {
+            components.extend(custom_components.keys().cloned());
+        }
+        
+        // Add any standard components
+        // This is simplified for now - in the real implementation, we'd check the actual components
+        components.extend(vec![
+            "system_cpu".to_string(),
+            "system_memory".to_string(),
+            "disk_usage".to_string(),
+            "network_traffic".to_string(),
+            "health_status".to_string()
+        ]);
+        
+        components
+    }
 }
 
 impl Default for Manager {
@@ -705,6 +823,7 @@ impl Clone for Manager {
             config: self.config.clone(),
             data_store: self.data_store.clone(),
             websocket_handle: self.websocket_handle.clone(),
+            components: self.components.clone(),
         }
     }
 }
