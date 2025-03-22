@@ -192,9 +192,11 @@ impl Default for YamlFormatter {
 }
 
 /// Factory for creating formatters
-pub struct FormatterFactory;
+#[derive(Debug)]
+pub struct Factory;
 
-impl FormatterFactory {
+impl Factory {
+    /// Create a formatter from an OutputFormat enum
     pub fn create(format: OutputFormat) -> Formatter {
         match format {
             OutputFormat::Text => Formatter::Text(TextFormatter::new()),
@@ -203,7 +205,21 @@ impl FormatterFactory {
             OutputFormat::Table => Formatter::Text(TextFormatter::new()), // Uses text formatter's table implementation
         }
     }
+    
+    /// Create a formatter from a string format name
+    pub fn create_formatter(format: &str) -> Result<Formatter, Box<dyn Error>> {
+        match format.to_lowercase().as_str() {
+            "text" => Ok(Formatter::Text(TextFormatter::new())),
+            "json" => Ok(Formatter::Json(JsonFormatter::new())),
+            "yaml" | "yml" => Ok(Formatter::Yaml(YamlFormatter::new())),
+            "table" => Ok(Formatter::Text(TextFormatter::new())), // Uses text formatter's table implementation
+            _ => Err(format!("Unknown formatter: {}", format).into()),
+        }
+    }
 }
+
+/// Backward compatibility alias for FormatterFactory
+pub type FormatterFactory = Factory;
 
 #[cfg(test)]
 mod tests {
