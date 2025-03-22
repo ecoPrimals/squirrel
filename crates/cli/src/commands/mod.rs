@@ -7,11 +7,13 @@ pub mod config_command;
 pub mod help_command;
 pub mod version_command;
 pub mod status_command;
+pub mod plugin_command;
 
 pub use config_command::ConfigCommand;
 pub use help_command::HelpCommand;
 pub use version_command::VersionCommand;
 pub use status_command::StatusCommand;
+pub use plugin_command::PluginCommand;
 
 use clap::{Command as ClapCommand, Arg, ArgAction};
 use squirrel_commands::{Command, CommandRegistry};
@@ -109,6 +111,9 @@ pub fn create_cli() -> ClapCommand {
         .subcommand(
             config_command::ConfigCommand::new().parser()
         )
+        .subcommand(
+            plugin_command::PluginCommand::new().parser()
+        )
 }
 
 /// Register all CLI commands
@@ -124,17 +129,20 @@ pub fn register_commands(registry: &mut CommandRegistry) {
     let version_command = VersionCommand::new();
     let status_command = StatusCommand::new();
     let config_command = ConfigCommand::new();
+    let plugin_command = PluginCommand::new();
     
     // Convert to Arc<dyn Command>
     let help_arc = std::sync::Arc::new(help_command);
     let version_arc = std::sync::Arc::new(version_command);
     let status_arc = std::sync::Arc::new(status_command);
     let config_arc = std::sync::Arc::new(config_command);
+    let plugin_arc = std::sync::Arc::new(plugin_command);
     
     // Register commands
     let _ = registry.register("help", help_arc);
     let _ = registry.register("version", version_arc);
     let _ = registry.register("status", status_arc);
     let _ = registry.register("config", config_arc);
+    let _ = registry.register("plugin", plugin_arc);
     // Register additional commands here as they are implemented
 } 
