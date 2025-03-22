@@ -6,6 +6,9 @@ use super::{Plugin, PluginMetadata, PluginManager};
 use std::collections::HashMap;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use futures::future::BoxFuture;
+use std::any::Any;
+use crate::plugin::PluginState;
 
 /// Plugin discovery strategy trait
 #[async_trait]
@@ -340,32 +343,39 @@ impl PluginLoader {
 }
 
 /// Placeholder plugin for testing
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct PlaceholderPlugin {
     /// Plugin metadata containing identification and capability information
     metadata: PluginMetadata,
 }
 
-#[async_trait]
 impl Plugin for PlaceholderPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
     
-    async fn initialize(&self) -> Result<()> {
-        Ok(())
+    fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
     
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
+    fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
     
-    async fn get_state(&self) -> Result<Option<super::PluginState>> {
-        Ok(None)
+    fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+        Box::pin(async move { Ok(None) })
     }
     
-    async fn set_state(&self, _state: super::PluginState) -> Result<()> {
-        Ok(())
+    fn set_state<'a>(&'a self, _state: PluginState) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(()) })
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    
+    fn clone_box(&self) -> Box<dyn Plugin> {
+        Box::new(self.clone())
     }
 }
 

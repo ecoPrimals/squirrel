@@ -2,11 +2,12 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use tracing::{debug, error, info, warn};
 use crate::error::Result;
+use futures::future::BoxFuture;
+use async_trait::async_trait;
 
 /// Plugin type definitions and traits
 mod types;
@@ -14,10 +15,16 @@ mod types;
 mod discovery;
 /// Plugin state persistence functionality
 mod state;
+/// Plugin security and sandboxing functionality
+mod security;
 
 pub use types::{CommandPlugin, UiPlugin, ToolPlugin, McpPlugin};
 pub use discovery::{PluginDiscovery, FileSystemDiscovery, PluginLoader};
 pub use state::{PluginStateStorage, FileSystemStateStorage, MemoryStateStorage, PluginStateManager};
+pub use security::{
+    PermissionLevel, ResourceLimits, SecurityContext, ResourceUsage, 
+    PluginSandbox, BasicPluginSandbox, SecurityValidator, SecurityError
+};
 
 /// Plugin metadata containing information about a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,26 +100,33 @@ pub enum PluginError {
 }
 
 /// Core plugin trait that all plugins must implement
-#[async_trait]
 pub trait Plugin: Send + Sync + Any + std::fmt::Debug {
     /// Get plugin metadata
     fn metadata(&self) -> &PluginMetadata;
     
     /// Initialize the plugin
-    async fn initialize(&self) -> Result<()>;
+    fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>>;
     
     /// Shutdown the plugin
-    async fn shutdown(&self) -> Result<()>;
+    fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>>;
     
     /// Get plugin state
-    async fn get_state(&self) -> Result<Option<PluginState>>;
+    fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>>;
     
     /// Set plugin state
-    async fn set_state(&self, state: PluginState) -> Result<()>;
+    fn set_state<'a>(&'a self, state: PluginState) -> BoxFuture<'a, Result<()>>;
 
     /// Cast the plugin to Any
-    fn as_any(&self) -> &dyn Any where Self: 'static, Self: Sized {
-        self
+    fn as_any(&self) -> &dyn Any;
+    
+    /// Clone as a boxed Plugin trait object
+    fn clone_box(&self) -> Box<dyn Plugin>;
+}
+
+/// Manual implementation of Clone for Box<dyn Plugin>
+impl Clone for Box<dyn Plugin> {
+    fn clone(&self) -> Self {
+        self.clone_box()
     }
 }
 
@@ -127,6 +141,8 @@ pub struct PluginManager {
     state_manager: PluginStateManager,
     /// Plugin name to ID mapping
     name_to_id: Arc<RwLock<HashMap<String, Uuid>>>,
+    /// Security validator for plugins
+    security_validator: Option<Arc<SecurityValidator>>,
 }
 
 /// Visits a plugin and its dependencies in topological order
@@ -187,6 +203,7 @@ impl PluginManager {
             status: Arc::new(RwLock::new(HashMap::new())),
             state_manager: PluginStateManager::with_memory_storage(),
             name_to_id: Arc::new(RwLock::new(HashMap::new())),
+            security_validator: None,
         }
     }
 
@@ -201,6 +218,7 @@ impl PluginManager {
             status: Arc::new(RwLock::new(HashMap::new())),
             state_manager: PluginStateManager::with_file_storage(base_dir)?,
             name_to_id: Arc::new(RwLock::new(HashMap::new())),
+            security_validator: None,
         })
     }
 
@@ -212,7 +230,25 @@ impl PluginManager {
             status: Arc::new(RwLock::new(HashMap::new())),
             state_manager: PluginStateManager::new(storage),
             name_to_id: Arc::new(RwLock::new(HashMap::new())),
+            security_validator: None,
         }
+    }
+
+    /// Enable security validation for plugins
+    pub fn with_security(&mut self) -> &mut Self {
+        self.security_validator = Some(Arc::new(SecurityValidator::with_basic_sandbox()));
+        self
+    }
+
+    /// Enable security validation with custom sandbox
+    pub fn with_custom_sandbox(&mut self, sandbox: Arc<dyn PluginSandbox>) -> &mut Self {
+        self.security_validator = Some(Arc::new(SecurityValidator::new(sandbox)));
+        self
+    }
+
+    /// Get the security validator
+    pub fn security_validator(&self) -> Option<Arc<SecurityValidator>> {
+        self.security_validator.clone()
     }
     
     /// Register a new plugin
@@ -234,6 +270,11 @@ impl PluginManager {
             return Err(PluginError::AlreadyRegistered(id).into());
         }
         
+        // Create sandbox for the plugin if security is enabled
+        if let Some(security) = &self.security_validator {
+            security.sandbox().create_sandbox(id).await?;
+        }
+        
         plugins.insert(id, plugin);
         status.insert(id, PluginStatus::Registered);
         name_to_id.insert(name, id);
@@ -248,99 +289,220 @@ impl PluginManager {
     /// # Errors
     /// Returns an error if:
     /// - The plugin is not found
-    /// - The plugin initialization fails
+    /// - A dependency is missing
+    /// - Initialization fails
     pub async fn load_plugin(&self, id: Uuid) -> Result<()> {
-        let plugins = self.plugins.read().await;
-        let mut status = self.status.write().await;
-        
-        if let Some(plugin) = plugins.get(&id) {
-            let current_status = status.get(&id).copied().unwrap_or(PluginStatus::Registered);
-            
-            if current_status == PluginStatus::Active {
-                debug!("Plugin already active: {}", id);
-                return Ok(());
-            }
-            
-            if current_status == PluginStatus::Initializing {
-                warn!("Plugin already initializing: {}", id);
-                return Ok(());
-            }
-            
-            // Mark as initializing
-            status.insert(id, PluginStatus::Initializing);
-            
-            // Try to load state first
-            if let Err(e) = self.state_manager.load_state(plugin.as_ref()).await {
-                warn!("Failed to load state for plugin {}: {}", id, e);
-                // Continue with initialization even if state loading fails
-            }
-            
-            debug!("Initializing plugin: {}", id);
-            match plugin.initialize().await {
-                Ok(()) => {
-                    status.insert(id, PluginStatus::Active);
-                    info!("Plugin activated: {}", id);
-                    Ok(())
-                }
-                Err(e) => {
-                    status.insert(id, PluginStatus::Failed);
-                    error!("Plugin initialization failed: {}: {}", id, e);
-                    Err(PluginError::InitializationFailed(e.to_string()).into())
+        self.load_plugin_inner(id).await
+    }
+
+    /// Internal implementation of load_plugin to handle recursion
+    fn load_plugin_inner(&self, id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            // Check if plugin is already loaded
+            let status = self.status.read().await;
+            if let Some(status) = status.get(&id) {
+                match status {
+                    PluginStatus::Active => return Ok(()),
+                    PluginStatus::Initializing => return Ok(()),
+                    _ => {}
                 }
             }
-        } else {
-            Err(PluginError::NotFound(id).into())
-        }
+            drop(status);
+            
+            // Set status to initializing
+            {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::Initializing);
+            }
+            
+            // Get a clone of the plugin to avoid borrowing issues
+            let plugin: Box<dyn Plugin> = {
+                let plugins = self.plugins.read().await;
+                match plugins.get(&id) {
+                    Some(plugin) => plugin.clone(),
+                    None => return Err(PluginError::NotFound(id).into()),
+                }
+            };
+            
+            // Check for dependencies and load them first
+            let dependencies = {
+                let metadata = plugin.metadata();
+                metadata.dependencies.clone()
+            };
+            
+            // Load dependencies first
+            for dep_name in &dependencies {
+                let dep_id = {
+                    let name_to_id = self.name_to_id.read().await;
+                    match name_to_id.get(dep_name) {
+                        Some(id) => *id,
+                        None => return Err(PluginError::DependencyNotFound(dep_name.clone()).into()),
+                    }
+                };
+                
+                // Load dependency if not already loaded
+                let status = {
+                    let status = self.status.read().await;
+                    status.get(&dep_id).cloned().unwrap_or(PluginStatus::Registered)
+                };
+                
+                if status != PluginStatus::Active {
+                    self.load_plugin_inner(dep_id).await?;
+                }
+            }
+            
+            // Initialize plugin
+            if let Err(e) = plugin.initialize().await {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::Failed);
+                return Err(PluginError::InitializationFailed(format!("Plugin initialization failed: {}", e)).into());
+            }
+            
+            // Restore plugin state if available
+            if let Some(state) = self.state_manager.load_plugin_state(id).await? {
+                if let Err(e) = plugin.set_state(state).await {
+                    warn!("Failed to restore plugin state: {}", e);
+                }
+            }
+            
+            // Set status to active
+            {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::Active);
+            }
+            
+            info!("Loaded plugin: {}", id);
+            
+            Ok(())
+        })
     }
     
-    /// Unload and shutdown a plugin
+    /// Unload a plugin
     /// 
     /// # Errors
     /// Returns an error if:
     /// - The plugin is not found
-    /// - The plugin shutdown fails
+    /// - Shutdown fails
     pub async fn unload_plugin(&self, id: Uuid) -> Result<()> {
-        let plugins = self.plugins.read().await;
-        let mut status = self.status.write().await;
-        
-        if let Some(plugin) = plugins.get(&id) {
-            // Check current status
-            let current_status = status.get(&id).copied().unwrap_or(PluginStatus::Registered);
-            
-            if current_status == PluginStatus::Disabled {
-                debug!("Plugin already disabled: {}", id);
-                return Ok(());
-            }
-            
-            if current_status == PluginStatus::ShuttingDown {
-                warn!("Plugin already shutting down: {}", id);
-                return Ok(());
-            }
-            
-            // Mark as shutting down
-            status.insert(id, PluginStatus::ShuttingDown);
-            
-            // Save plugin state before shutdown
-            if let Err(e) = self.state_manager.save_state(plugin.as_ref()).await {
-                warn!("Failed to save state for plugin {}: {}", id, e);
-                // Continue with shutdown even if state saving fails
-            }
-            
-            debug!("Shutting down plugin: {}", id);
-            match plugin.shutdown().await {
-                Ok(()) => {
-                    status.insert(id, PluginStatus::Disabled);
-                    info!("Plugin disabled: {}", id);
-                    Ok(())
-                }
-                Err(e) => {
-                    status.insert(id, PluginStatus::Failed);
-                    error!("Plugin shutdown failed: {}: {}", id, e);
-                    Err(PluginError::ShutdownFailed(e.to_string()).into())
+        self.unload_plugin_inner(id).await
+    }
+
+    /// Internal implementation of unload_plugin to handle recursion
+    fn unload_plugin_inner(&self, id: Uuid) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            // Check if plugin is already unloaded
+            let status = self.status.read().await;
+            if let Some(status) = status.get(&id) {
+                match status {
+                    PluginStatus::Registered => return Ok(()),
+                    PluginStatus::ShuttingDown => return Ok(()),
+                    PluginStatus::Disabled => return Ok(()),
+                    _ => {}
                 }
             }
+            drop(status);
+            
+            // Set status to shutting down
+            {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::ShuttingDown);
+            }
+            
+            // Get a clone of the plugin to avoid borrowing issues
+            let plugin: Box<dyn Plugin> = {
+                let plugins = self.plugins.read().await;
+                match plugins.get(&id) {
+                    Some(plugin) => plugin.clone(),
+                    None => return Err(PluginError::NotFound(id).into()),
+                }
+            };
+            
+            // Check for plugins that depend on this one
+            let dependent_plugins = {
+                let plugins = self.plugins.read().await;
+                let _name_to_id = self.name_to_id.read().await;
+                
+                let plugin_name = plugin.metadata().name.clone();
+                let mut dependent_plugins = Vec::new();
+                
+                for (dep_id, dep_plugin) in plugins.iter() {
+                    if dep_plugin.metadata().dependencies.contains(&plugin_name) {
+                        dependent_plugins.push(*dep_id);
+                    }
+                }
+                
+                dependent_plugins
+            };
+            
+            // Unload dependent plugins first
+            for dep_id in dependent_plugins {
+                self.unload_plugin_inner(dep_id).await?;
+            }
+            
+            // Save plugin state
+            if let Ok(Some(state)) = plugin.get_state().await {
+                if let Err(e) = self.state_manager.save_plugin_state(&state).await {
+                    warn!("Failed to save plugin state: {}", e);
+                }
+            }
+            
+            // Shutdown plugin
+            if let Err(e) = plugin.shutdown().await {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::Failed);
+                return Err(PluginError::ShutdownFailed(format!("Plugin shutdown failed: {}", e)).into());
+            }
+            
+            // Set status to disabled
+            {
+                let mut status = self.status.write().await;
+                status.insert(id, PluginStatus::Disabled);
+            }
+            
+            info!("Unloaded plugin: {}", id);
+            
+            Ok(())
+        })
+    }
+    
+    /// Validate plugin operation with security context
+    pub async fn validate_operation(&self, id: Uuid, operation: &str) -> Result<()> {
+        if let Some(security) = &self.security_validator {
+            security.validate_operation(id, operation).await
         } else {
-            Err(PluginError::NotFound(id).into())
+            // If security is disabled, all operations are allowed
+            Ok(())
+        }
+    }
+    
+    /// Validate plugin path access with security context
+    pub async fn validate_path_access(&self, id: Uuid, path: &std::path::PathBuf, write: bool) -> Result<()> {
+        if let Some(security) = &self.security_validator {
+            security.validate_path_access(id, path, write).await
+        } else {
+            // If security is disabled, all paths are allowed
+            Ok(())
+        }
+    }
+    
+    /// Validate plugin capability with security context
+    pub async fn validate_capability(&self, id: Uuid, capability: &str) -> Result<()> {
+        if let Some(security) = &self.security_validator {
+            security.validate_capability(id, capability).await
+        } else {
+            // If security is disabled, all capabilities are allowed
+            Ok(())
+        }
+    }
+    
+    /// Track resource usage for a plugin
+    pub async fn track_resources(&self, id: Uuid) -> Result<Option<ResourceUsage>> {
+        if let Some(security) = &self.security_validator {
+            let usage = security.sandbox().track_resources(id).await?;
+            Ok(Some(usage))
+        } else {
+            // If security is disabled, no resource tracking
+            Ok(None)
         }
     }
     
@@ -641,8 +803,9 @@ impl Default for PluginManager {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use async_trait::async_trait;
     
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct TestPlugin {
         metadata: PluginMetadata,
         state: Arc<RwLock<Option<PluginState>>>,
@@ -654,21 +817,32 @@ mod tests {
             &self.metadata
         }
         
-        async fn initialize(&self) -> Result<()> {
-            Ok(())
+        fn initialize<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move { Ok(()) })
         }
         
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
+        fn shutdown<'a>(&'a self) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move { Ok(()) })
         }
         
-        async fn get_state(&self) -> Result<Option<PluginState>> {
-            Ok(self.state.read().await.clone())
+        fn get_state<'a>(&'a self) -> BoxFuture<'a, Result<Option<PluginState>>> {
+            Box::pin(async move { Ok(self.state.read().await.clone()) })
         }
         
-        async fn set_state(&self, state: PluginState) -> Result<()> {
-            *self.state.write().await = Some(state);
-            Ok(())
+        fn set_state<'a>(&'a self, state: PluginState) -> BoxFuture<'a, Result<()>> {
+            Box::pin(async move {
+                let mut s = self.state.write().await;
+                *s = Some(state);
+                Ok(())
+            })
+        }
+        
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        
+        fn clone_box(&self) -> Box<dyn Plugin> {
+            Box::new(self.clone())
         }
     }
     
