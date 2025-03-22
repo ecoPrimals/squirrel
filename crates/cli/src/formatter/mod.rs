@@ -82,6 +82,13 @@ impl TextFormatter {
     }
 }
 
+// TextFormatter Default implementation
+impl Default for TextFormatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// JSON output formatter
 #[derive(Debug, Clone)]
 pub struct JsonFormatter;
@@ -121,6 +128,13 @@ impl JsonFormatter {
         }
         
         serde_json::to_string_pretty(&table_data).unwrap_or_default()
+    }
+}
+
+// JsonFormatter Default implementation
+impl Default for JsonFormatter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -167,6 +181,13 @@ impl YamlFormatter {
         }
         
         serde_yaml::to_string(&table_data).unwrap_or_default()
+    }
+}
+
+// YamlFormatter Default implementation
+impl Default for YamlFormatter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

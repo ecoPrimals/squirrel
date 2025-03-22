@@ -21,6 +21,12 @@ pub struct StatusCommand {
     core: Core,
 }
 
+impl Default for StatusCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StatusCommand {
     /// Create a new status command
     pub fn new() -> Self {

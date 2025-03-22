@@ -13,6 +13,12 @@ struct VersionInfo {
 /// Version command implementation
 pub struct VersionCommand;
 
+impl Default for VersionCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VersionCommand {
     /// Create a new version command
     pub fn new() -> Self {
@@ -71,7 +77,7 @@ impl Command for VersionCommand {
         // Check if version requirement check is requested
         if let Some(pos) = args.iter().position(|arg| arg == "--check") {
             if let Some(check_version) = args.get(pos + 1) {
-                if version_info.version < check_version.to_string() {
+                if version_info.version < *check_version {
                     return Err(CommandError::ValidationError(format!(
                         "Version requirement not met: {} < {}",
                         version_info.version,

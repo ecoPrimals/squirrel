@@ -20,6 +20,12 @@ pub struct HelpCommand {
     registry: CommandRegistry,
 }
 
+impl Default for HelpCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HelpCommand {
     /// Create a new help command
     pub fn new() -> Self {
