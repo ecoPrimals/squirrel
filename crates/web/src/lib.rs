@@ -1,51 +1,51 @@
-//! Web interface for the Squirrel system.
-
-use anyhow::Result;
-use axum::{
-    routing::{get, post},
-    Router,
-};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
-use uuid::Uuid;
+use anyhow::Result;
+use axum::{Router, http::Method, routing::get, Extension};
+use tower_http::cors::{CorsLayer, Any};
+#[cfg(feature = "db")]
+use sqlx::{SqlitePool, migrate::MigrateDatabase, Sqlite};
+#[cfg(feature = "mock-db")]
+use sqlx::{SqlitePool};
+use serde::{Deserialize, Serialize};
 
-pub mod api;
 pub mod auth;
-pub mod handlers;
+mod handlers;
+mod mcp;
+pub mod api;
 pub mod state;
+pub mod websocket;
+pub mod config;
+pub mod db;
 
-/// Mock MCP client trait for the web interface
-pub trait MockMCPClient: Send + Sync {
-    /// Send a message to the MCP
-    fn send_message(&self, message: &str) -> Result<String>;
-    
-    /// Receive a message from the MCP
-    fn receive_message(&self) -> Result<String>;
+use crate::state::AppState;
+use crate::config::Config;
+use crate::db::SqlitePool as DbPool;
+use auth::{AuthConfig, AuthService};
+use state::{MachineContextClient, DefaultMockMCPClient};
+
+pub use api::{CreateJobRequest, CreateJobResponse, JobStatus, JobState};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfig {
+    pub bind_address: String,
+    pub port: u16,
+    pub database_url: String,
+    pub mcp_config: MockSessionConfig,
+    pub cors_config: CorsConfig,
+    pub auth_config: AuthConfig,
 }
 
-/// Default implementation of MockMCPClient
-#[derive(Debug)]
-struct DefaultMockMCPClient;
-
-impl MockMCPClient for DefaultMockMCPClient {
-    fn send_message(&self, message: &str) -> Result<String> {
-        Ok(format!("Sent: {}", message))
-    }
-    
-    fn receive_message(&self) -> Result<String> {
-        Ok("Mock response".to_string())
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorsConfig {
+    pub allowed_origins: Vec<String>,
+    pub allowed_methods: Vec<String>,
+    pub allowed_headers: Vec<String>,
 }
 
-/// Mock MCP session configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MockSessionConfig {
-    /// Host address
     pub host: String,
-    /// Port
     pub port: u16,
-    /// Connection timeout in seconds
     pub timeout: u64,
 }
 
@@ -59,122 +59,92 @@ impl Default for MockSessionConfig {
     }
 }
 
-/// Application state shared across handlers
-#[derive(Clone)]
-pub struct AppState {
-    /// MCP client for interacting with services
-    pub mcp_client: Arc<Box<dyn MockMCPClient>>,
-    /// Database connection pool
-    pub db_pool: Arc<sqlx::SqlitePool>,
+#[cfg(feature = "mock-db")]
+impl Default for AppState {
+    fn default() -> Self {
+        // Create a mock database pool
+        let mock_db = SqlitePool::connect_lazy("sqlite::memory:")
+            .expect("Failed to create mock database pool");
+        
+        let auth_config = AuthConfig::default();
+        let config = Config::default();
+        
+        // Initialize WebSocket manager
+        let ws_manager = websocket::init();
+        
+        // Create auth service
+        let auth = AuthService::new(auth_config, mock_db.clone());
+        
+        Self {
+            db: mock_db,
+            config,
+            mcp: None,
+            ws_manager,
+            auth,
+        }
+    }
 }
 
-/// Configuration for the web server
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
-    /// Host address to bind to
-    pub bind_address: String,
-    /// Port to listen on
-    pub port: u16,
-    /// Database connection URL
-    pub database_url: String,
-    /// MCP server configuration
-    pub mcp_config: MockSessionConfig,
-    /// CORS configuration
-    pub cors_config: CorsConfig,
+/// Initialize the database with migrations
+#[cfg(feature = "db")]
+pub async fn setup_database(database_url: &str) -> Result<DbPool> {
+    // Create database if it doesn't exist
+    if !Sqlite::database_exists(database_url).await.unwrap_or(false) {
+        Sqlite::create_database(database_url).await?;
+    }
+
+    // Connect to the database
+    let pool = DbPool::connect(database_url).await?;
+
+    // Run migrations
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await?;
+
+    Ok(pool)
 }
 
-/// CORS configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CorsConfig {
-    /// Allowed origins
-    pub allowed_origins: Vec<String>,
-    /// Allowed methods
-    pub allowed_methods: Vec<String>,
-    /// Allowed headers
-    pub allowed_headers: Vec<String>,
+#[cfg(feature = "mock-db")]
+pub async fn setup_database(_database_url: &str) -> Result<DbPool> {
+    // For mock-db, we just create an in-memory database
+    let pool = DbPool::connect("sqlite::memory:").await?;
+    Ok(pool)
 }
 
-/// Request to create a new job
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateJobRequest {
-    /// Repository URL 
-    pub repository_url: String,
-    /// Branch or commit
-    pub git_ref: String,
-    /// Configuration
-    pub config: serde_json::Value,
+/// Create the application router
+pub async fn create_app(db: DbPool, config: Config) -> Router {
+    // Initialize WebSocket manager
+    let ws_manager = websocket::init();
+    
+    // Create auth service
+    let auth = AuthService::new(AuthConfig::default(), db.clone());
+    
+    // Create app state
+    let state = Arc::new(AppState {
+        db,
+        config,
+        mcp: None, // Will be initialized based on config if needed
+        ws_manager,
+        auth,
+    });
+
+    // Setup CORS
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::PUT, Method::PATCH])
+        .allow_headers(Any);
+
+    // Create router with all routes
+    (Router::new()
+        // Auth routes
+        .nest("/api/auth", auth::routes::auth_routes())
+        // Health routes
+        .nest("/api/health", handlers::health::health_routes())
+        // Job routes
+        .nest("/api/jobs", handlers::jobs::job_routes())
+        // WebSocket route
+        .route("/api/ws", get(websocket::ws_handler))
+        // Add state and middleware
+        .layer(Extension(state))
+        .layer(cors)) as Router<()>
 }
-
-/// Response for a created job
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateJobResponse {
-    /// Job ID
-    pub job_id: Uuid,
-    /// Status URL to check job progress
-    pub status_url: String,
-}
-
-/// Status of a job
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JobStatus {
-    /// Job ID
-    pub job_id: Uuid,
-    /// Current status
-    pub status: JobState,
-    /// Progress percentage
-    pub progress: f32,
-    /// Error message if any
-    pub error: Option<String>,
-    /// Result URL if completed
-    pub result_url: Option<String>,
-}
-
-/// State of a job
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum JobState {
-    Queued,
-    Running,
-    Completed,
-    Failed,
-}
-
-/// Initialize the web application
-pub async fn init_app(config: ServerConfig) -> Result<Router> {
-    // Initialize database connection
-    let db_pool = Arc::new(
-        sqlx::SqlitePool::connect(&config.database_url)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?,
-    );
-
-    // Initialize MCP client
-    let mcp_client: Arc<Box<dyn MockMCPClient>> = Arc::new(Box::new(
-        DefaultMockMCPClient
-    ));
-
-    // Create application state
-    let state = AppState {
-        mcp_client,
-        db_pool,
-    };
-
-    // Create router with routes
-    let app = Router::new()
-        .route("/api/health", get(handlers::health::check))
-        .route("/api/jobs", post(handlers::jobs::create_job))
-        .route("/api/jobs/:id", get(handlers::jobs::get_job))
-        .route("/api/jobs/:id/report", get(handlers::jobs::report))
-        .layer(
-            CorsLayer::new()
-                .allow_origin(tower_http::cors::AllowOrigin::any())
-                .allow_methods(config.cors_config.allowed_methods.iter().map(|method| {
-                    method.parse().unwrap_or_else(|_| panic!("Invalid method: {}", method))
-                }).collect::<Vec<_>>())
-                .allow_headers(config.cors_config.allowed_headers.iter().map(|header| {
-                    header.parse().unwrap_or_else(|_| panic!("Invalid header: {}", header))
-                }).collect::<Vec<_>>()),
-        )
-        .with_state(Arc::new(state));
-
-    Ok(app)
-} 

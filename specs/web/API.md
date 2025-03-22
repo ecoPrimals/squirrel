@@ -11,6 +11,8 @@ status: draft
 
 This document details the HTTP and WebSocket API endpoints exposed by the Squirrel Web Interface. It covers endpoint definitions, request/response formats, authentication requirements, and error handling.
 
+> **Overall Implementation Status**: The API now features a standardized response format with consistent error handling, authentication with JWT and refresh tokens, and job management endpoints with pagination support. Recent improvements include simplified authentication middleware with clear separation of public and protected routes, standardized error responses with unique request IDs, and a dual-mode approach (database and mock-database) for development flexibility.
+
 ## API Conventions
 
 ### Base URL
@@ -58,10 +60,18 @@ All responses follow a standard envelope format:
   } | null,
   "meta": {
     "requestId": "unique-request-id",
-    "timestamp": "ISO-8601 timestamp"
+    "timestamp": "ISO-8601 timestamp",
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "totalItems": 100,
+      "totalPages": 10
+    } | null
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - Standardized response format has been implemented with the `ApiResponse`, `ApiError`, and `ApiMeta` structures, along with helper functions `api_success` and `api_success_paginated` for consistent response generation. All error responses now include unique request IDs for better traceability.
 
 ### Error Codes
 
@@ -257,10 +267,13 @@ Authenticate a user and get an access token.
     }
   },
   "meta": {
+    "requestId": "unique-request-id",
     "timestamp": "2025-03-21T15:33:45Z"
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - Login endpoint implemented with JWT token generation and standardized response format. Supports both database and mock-database modes.
 
 #### POST /auth/logout
 
@@ -305,10 +318,13 @@ Refresh an access token.
     "expiresIn": 3600
   },
   "meta": {
+    "requestId": "unique-request-id",
     "timestamp": "2025-03-21T15:35:45Z"
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - Refresh token endpoint implemented with secure token rotation and standardized response format. Error handling follows the standardized pattern for invalid tokens.
 
 #### GET /auth/me
 
@@ -334,10 +350,13 @@ Get information about the currently authenticated user.
     "lastLogin": "2025-03-21T10:00:00Z"
   },
   "meta": {
+    "requestId": "unique-request-id",
     "timestamp": "2025-03-21T15:36:45Z"
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - User profile endpoint implemented with authentication checks. Protected route pattern ensures only authenticated users can access this endpoint.
 
 ### Job Management
 
@@ -377,6 +396,8 @@ Create a new job.
 }
 ```
 
+> **Implementation Status**: COMPLETE - Job creation endpoint implemented with standardized response format.
+
 #### GET /jobs/{id}
 
 Get the status of a specific job.
@@ -407,6 +428,8 @@ Get the status of a specific job.
 }
 ```
 
+> **Implementation Status**: COMPLETE - Job status endpoint implemented with authentication and error handling.
+
 #### DELETE /jobs/{id}
 
 Cancel a running job.
@@ -430,6 +453,8 @@ Cancel a running job.
   }
 }
 ```
+
+> **Implementation Status**: NOT IMPLEMENTED - Job cancellation endpoint planned for future implementation.
 
 #### GET /jobs
 
@@ -476,6 +501,8 @@ List jobs with pagination.
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - Job listing endpoint implemented with pagination support.
 
 ### Command Execution
 
@@ -812,6 +839,8 @@ All WebSocket messages use a JSON format:
   }
 }
 ```
+
+> **Implementation Status**: COMPLETE - Error handling system implemented with standard error codes and response format. The `IntoResponse` implementation for error types (such as `AuthError`) has been standardized to follow this format consistently across all endpoints. Each error response includes a unique request ID for traceability.
 
 ### Common Error Codes
 

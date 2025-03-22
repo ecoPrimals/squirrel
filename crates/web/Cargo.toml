@@ -1,7 +1,7 @@
 [package]
 name = "squirrel-web"
-version.workspace = true
-edition.workspace = true
+version = "0.1.0"
+edition = "2021"
 authors.workspace = true
 description = "Web interface for the Squirrel system"
 
@@ -10,25 +10,33 @@ name = "web_server"
 path = "src/bin/web_server.rs"
 
 [dependencies]
-tokio = { workspace = true }
-axum = { workspace = true }
+axum = { version = "0.6", features = ["headers", "macros", "ws"] }
+tokio = { version = "1", features = ["full"] }
 tower = { workspace = true }
-tower-http = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tracing = { workspace = true }
+tower-http = { version = "0.4", features = ["cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
 tracing-subscriber = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-async-trait = { workspace = true }
+tokio-stream = { version = "0.1", features = ["sync"] }
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
 futures = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
+uuid = { version = "1.0", features = ["serde", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-native-tls", "macros", "uuid", "chrono", "sqlite", "migrate"] }
+jsonwebtoken = "8.1"
+bcrypt = "0.10"
 
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
 
+[features]
+default = ["mock-db"]
+db = []
+mock-db = []
+
 [dev-dependencies]
-tokio-test = { workspace = true } 
+tokio-test = "0.4" 

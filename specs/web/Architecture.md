@@ -11,6 +11,8 @@ status: draft
 
 The Web Interface serves as the primary external API for the Squirrel platform, providing HTTP and WebSocket endpoints for client applications, external systems, and user interfaces. This document details the architectural design of the Web Interface, its components, and their interactions.
 
+> **Implementation Status**: The core architecture has been implemented with a focus on separation of concerns, API-first design, and a dual-mode approach (database and mock-database) to support both development and production scenarios. Current implementation includes standardized API responses, simplified authentication middleware, consistent error handling, and job management endpoints.
+
 ## Architecture Principles
 
 The Web Interface architecture follows these core principles:
@@ -73,6 +75,8 @@ The Transport Layer handles the communication protocols and is responsible for:
 - **WebSocketServer**: Manages WebSocket connections
 - **ConnectionManager**: Tracks active connections
 
+> **Implementation Status**: HTTP server management with Axum framework is implemented. WebSocket support will be added in future iterations.
+
 ### 2. API Layer
 
 The API Layer provides the interface contract and is responsible for:
@@ -89,6 +93,8 @@ The API Layer provides the interface contract and is responsible for:
 - **AuthMiddleware**: Authenticates and authorizes requests
 - **RateLimiter**: Enforces rate limits
 - **ResponseFormatter**: Formats responses according to API contract
+
+> **Implementation Status**: Router implementation complete with Axum. Authentication middleware supports JWT tokens with a simplified route-based approach that separates public and protected routes. Standardized response formatting is implemented with consistent error handling and unique request IDs.
 
 ### 3. Service Layer
 
@@ -107,6 +113,8 @@ The Service Layer contains the business logic and is responsible for:
 - **IntegrationService**: Communicates with other Squirrel components
 - **EventService**: Manages WebSocket events
 
+> **Implementation Status**: Authentication services for user registration, login, and token management are implemented. Job management services for creating, retrieving, and listing jobs are functional. Both services have mock implementations for development without a database.
+
 ### 4. Data Access Layer
 
 The Data Access Layer handles data persistence and is responsible for:
@@ -122,6 +130,8 @@ The Data Access Layer handles data persistence and is responsible for:
 - **Repository**: Provides data access patterns
 - **ExternalClient**: Communicates with external services
 - **CacheManager**: Manages data caching
+
+> **Implementation Status**: SQLite database integration is in place for development. Feature flags (`db` and `mock-db`) enable conditional compilation for different database access patterns. Database migrations are implemented for schema management.
 
 ## Component Interactions
 
@@ -207,11 +217,15 @@ The Web Interface implements a multi-layered security approach:
 - Token expiration and refresh
 - Multi-factor authentication support
 
+> **Implementation Status**: JWT-based authentication is implemented with token generation, validation, and refresh mechanisms. Role-based access is supported through claims in the JWT. Error responses for authentication failures follow the standardized API response format.
+
 ### 3. Authorization
 
 - Role-based access control
 - Resource-level permissions
 - Contextual access policies
+
+> **Implementation Status**: Basic role-based access control is implemented with User and Admin roles. More granular permissions will be added in future iterations.
 
 ### 4. Input Validation
 
@@ -251,6 +265,9 @@ The Web Interface implements a comprehensive error handling strategy:
    - Consistent error format in responses
    - HTTP status codes aligned with error types
    - Machine-readable error codes with human-readable messages
+   - Unique request IDs for error traceability
+
+> **Implementation Status**: Error handling is implemented with a consistent response format using the `ApiResponse` and `ApiError` structures. Authentication errors, database errors, and general application errors are properly categorized and handled with appropriate status codes and error messages.
 
 ## Database Architecture
 
@@ -444,6 +461,27 @@ The development of the Web Interface follows these practices:
    - Clear separation of interfaces and implementations
    - Dependency injection for testability
    - Error handling throughout the codebase
+
+## Feature Flags and Dual-Mode Operation
+
+The Web Interface supports two operational modes controlled by feature flags:
+
+1. **Database Mode** (`db` feature flag):
+   - Uses SQLite (or other SQL database) for persistent storage
+   - Requires database setup and migrations
+   - Full data model with all fields
+   - Enabled with `--no-default-features --features db`
+
+2. **Mock Database Mode** (`mock-db` feature flag):
+   - Uses in-memory storage
+   - No database setup required
+   - Simplified data models
+   - **Default mode** - enabled with standard build command
+   - Suitable for development and testing
+
+> **Implementation Status**: Both modes have been implemented and tested. The mock database mode is now the default to simplify development setup and eliminate SQLx offline mode errors during initial builds. The database mode can be enabled explicitly when needed for testing with actual database interactions. This approach provides the best developer experience while maintaining the flexibility to test with real database operations.
+
+This dual-mode approach allows developers to work on the API without requiring a full database setup, while ensuring the production system has proper persistence.
 
 ## Conclusion
 
