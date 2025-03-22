@@ -1,8 +1,15 @@
-//! Data models for WebSocket communication.
+//! WebSocket models and data structures
+//!
+//! This module defines the data structures used for WebSocket communication,
+//! including messages, contexts, and related types.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use tokio::sync::mpsc;
+
+use super::error::WebSocketError;
 
 /// WebSocket command sent by clients
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,4 +125,71 @@ pub struct Subscription {
     /// Optional filter criteria
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub filter: Value,
+}
+
+/// WebSocket message
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSocketMessage {
+    /// Action to perform
+    pub action: String,
+    /// Message data
+    pub data: Value,
+}
+
+/// WebSocket connection context
+pub struct WebSocketContext {
+    /// Connection ID
+    pub connection_id: String,
+    /// User ID (if authenticated)
+    pub user_id: Option<String>,
+    /// User roles (if authenticated)
+    pub roles: Vec<String>,
+    /// Subscribed channels
+    pub subscriptions: HashSet<String>,
+    /// Message sender
+    pub sender: mpsc::Sender<Result<String, WebSocketError>>,
+}
+
+impl WebSocketContext {
+    /// Create a new WebSocket context
+    pub fn new(
+        connection_id: String,
+        user_id: Option<String>,
+        roles: Vec<String>,
+        sender: mpsc::Sender<Result<String, WebSocketError>>,
+    ) -> Self {
+        Self {
+            connection_id,
+            user_id,
+            roles,
+            subscriptions: HashSet::new(),
+            sender,
+        }
+    }
+
+    /// Subscribe to a channel
+    pub async fn subscribe(&self, channel: &str) -> Result<(), WebSocketError> {
+        // In a real implementation, this would update the connection manager
+        // For now, just log the subscription
+        tracing::info!("Connection {} subscribed to channel {}", self.connection_id, channel);
+        Ok(())
+    }
+
+    /// Unsubscribe from a channel
+    pub async fn unsubscribe(&self, channel: &str) -> Result<(), WebSocketError> {
+        // In a real implementation, this would update the connection manager
+        // For now, just log the unsubscription
+        tracing::info!("Connection {} unsubscribed from channel {}", self.connection_id, channel);
+        Ok(())
+    }
+
+    /// Send a message to the client
+    pub async fn send(&self, message: WebSocketMessage) -> Result<(), WebSocketError> {
+        let json = serde_json::to_string(&message)
+            .map_err(WebSocketError::JsonError)?;
+        
+        self.sender.send(Ok(json)).await.map_err(|_| {
+            WebSocketError::SendError("Failed to send message to client".to_string())
+        })
+    }
 } 

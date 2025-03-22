@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use anyhow::Result;
-use axum::{Router, http::Method, routing::get, Extension};
+use axum::{Router, http::Method, routing::{get, post}};
 use tower_http::cors::{CorsLayer, Any};
 #[cfg(feature = "db")]
 use sqlx::{SqlitePool, migrate::MigrateDatabase, Sqlite};
@@ -21,9 +21,19 @@ use crate::state::AppState;
 use crate::config::Config;
 use crate::db::SqlitePool as DbPool;
 use auth::{AuthConfig, AuthService};
-use state::{MachineContextClient, DefaultMockMCPClient};
+use mcp::{McpCommandClient, MockMcpClient};
 
 pub use api::{CreateJobRequest, CreateJobResponse, JobStatus, JobState};
+pub use api::commands::{
+    CommandDefinition,
+    CommandExecution,
+    CommandStatus,
+    CreateCommandRequest,
+    CreateCommandResponse,
+    CommandStatusResponse,
+    CommandListResponse,
+    CommandHistoryResponse,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -75,12 +85,25 @@ impl Default for AppState {
         // Create auth service
         let auth = AuthService::new(auth_config, mock_db.clone());
         
+        // Create MCP clients
+        let mcp_command = Arc::new(MockMcpClient::new(
+            "localhost".to_string(), 
+            8080
+        )) as Arc<dyn McpCommandClient>;
+        
+        // Create command service
+        let command_service = Arc::new(handlers::commands::MockCommandService::new(
+            mcp_command.clone()
+        )) as Arc<dyn handlers::commands::CommandService>;
+        
         Self {
             db: mock_db,
             config,
             mcp: None,
+            mcp_command: Some(mcp_command),
             ws_manager,
             auth,
+            command_service: Some(command_service),
         }
     }
 }
@@ -108,6 +131,12 @@ pub async fn setup_database(database_url: &str) -> Result<DbPool> {
 pub async fn setup_database(_database_url: &str) -> Result<DbPool> {
     // For mock-db, we just create an in-memory database
     let pool = DbPool::connect("sqlite::memory:").await?;
+    
+    // Run migrations even for in-memory database
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await?;
+    
     Ok(pool)
 }
 
@@ -119,32 +148,62 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
     // Create auth service
     let auth = AuthService::new(AuthConfig::default(), db.clone());
     
+    // Create MCP clients
+    let mcp_command = Arc::new(MockMcpClient::new(
+        "localhost".to_string(), 
+        8080
+    )) as Arc<dyn McpCommandClient>;
+
+    // Create command service based on feature
+    #[cfg(feature = "mock-db")]
+    let command_service = Arc::new(handlers::commands::MockCommandService::new(
+        mcp_command.clone()
+    )) as Arc<dyn handlers::commands::CommandService>;
+    
+    #[cfg(feature = "db")]
+    let command_service = Arc::new(handlers::commands::DbCommandService::new(
+        db.clone(),
+        mcp_command.clone(),
+    )) as Arc<dyn handlers::commands::CommandService>;
+    
     // Create app state
     let state = Arc::new(AppState {
         db,
         config,
-        mcp: None, // Will be initialized based on config if needed
+        mcp: None, // Legacy client, deprecated
+        mcp_command: Some(mcp_command),
         ws_manager,
         auth,
+        command_service: Some(command_service),
     });
 
+    // Create WebSocket handler for commands
+    let _command_ws_handler = Arc::new(websocket::CommandWebSocketHandler::new(state.clone()));
+    
+    // Register the command WebSocket handler with the WebSocket manager
+    // This would need a proper registration mechanism in a real implementation
+
     // Setup CORS
-    let cors = CorsLayer::new()
+    let _cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::PUT, Method::PATCH])
         .allow_headers(Any);
 
-    // Create router with all routes
-    (Router::new()
-        // Auth routes
-        .nest("/api/auth", auth::routes::auth_routes())
-        // Health routes
-        .nest("/api/health", handlers::health::health_routes())
-        // Job routes
-        .nest("/api/jobs", handlers::jobs::job_routes())
-        // WebSocket route
-        .route("/api/ws", get(websocket::ws_handler))
-        // Add state and middleware
-        .layer(Extension(state))
-        .layer(cors)) as Router<()>
+    // Create the router with all routes
+    
+    
+    Router::new()
+        .route("/health", get(handlers::health::get_health))
+        .route("/api/health", get(handlers::health::get_health))
+        .nest("/api/commands", handlers::commands::command_routes())
+        .route("/api/jobs", post(handlers::jobs::create_job))
+        .route("/api/jobs", get(handlers::jobs::list_jobs))
+        .route("/api/jobs/:id/status", get(handlers::jobs::get_job_status))
+        .route("/api/jobs/:id/result", get(handlers::jobs::get_job_result))
+        .route("/api/jobs/:id/cancel", post(handlers::jobs::cancel_job))
+        .route("/api/auth/login", post(handlers::auth::login))
+        .route("/api/auth/refresh", post(handlers::auth::refresh_token))
+        .route("/ws", get(websocket::ws_handler))
+        .layer(CorsLayer::permissive())
+        .with_state(state)
 }

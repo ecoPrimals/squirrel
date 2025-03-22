@@ -8,6 +8,7 @@ use chrono::Utc;
 use axum::Json;
 
 pub mod error;
+pub mod commands;
 
 /// API Response envelope for standardized responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,8 +76,8 @@ pub fn api_success<T>(data: T) -> Json<ApiResponse<T>> {
 }
 
 /// Helper function to create a successful API response with pagination
-pub fn api_success_paginated<T>(
-    data: T, 
+pub fn api_success_with_pagination<T>(
+    data: T,
     page: u32,
     limit: u32,
     total_items: u64,
@@ -102,46 +103,68 @@ pub fn api_success_paginated<T>(
     })
 }
 
-/// Request to create a new job
+/// Request model for creating a new job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateJobRequest {
-    /// Repository URL 
-    pub repository_url: String,
-    /// Branch or commit
-    pub git_ref: String,
-    /// Configuration
-    pub config: serde_json::Value,
+    /// Name of the job to execute
+    pub name: String,
+    /// Job parameters
+    pub parameters: serde_json::Value,
 }
 
-/// Response for a created job
+/// Response model for a created job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateJobResponse {
     /// Job ID
-    pub job_id: Uuid,
-    /// Status URL to check job progress
-    pub status_url: String,
+    pub id: String,
+    /// Job name
+    pub name: String,
+    /// Job status
+    pub status: JobState,
 }
 
-/// Status of a job
+/// Job status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobStatus {
     /// Job ID
-    pub job_id: Uuid,
-    /// Current status
+    pub id: String,
+    /// Job name
+    pub name: String,
+    /// Job status
     pub status: JobState,
-    /// Progress percentage
+    /// Job progress (0.0 to 1.0)
     pub progress: f32,
-    /// Error message if any
+    /// Job result data (if completed)
+    pub result: Option<serde_json::Value>,
+    /// Error message (if failed)
     pub error: Option<String>,
-    /// Result URL if completed
-    pub result_url: Option<String>,
+    /// Timestamps for job lifecycle events
+    pub timestamps: JobTimestamps,
 }
 
-/// State of a job
+/// Job lifecycle timestamps
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobTimestamps {
+    /// When the job was created
+    pub created_at: String,
+    /// When the job started execution
+    pub started_at: Option<String>,
+    /// When the job completed or failed
+    pub completed_at: Option<String>,
+}
+
+/// Job state enumeration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum JobState {
+    /// Job is queued for execution
     Queued,
+    /// Job is currently running
     Running,
+    /// Job completed successfully
     Completed,
+    /// Job failed
     Failed,
-} 
+}
+
+// Re-export command types
+pub use commands::*; 

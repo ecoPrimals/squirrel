@@ -2,7 +2,7 @@ use std::fmt;
 use axum::{
     async_trait,
     extract::FromRequest,
-    http::{StatusCode, request::Parts},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,7 @@ where
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request(req: axum::http::Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(_req: axum::http::Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         // In a real implementation, this would extract and validate a JWT token
         // For now, we'll just return an error
         Err((StatusCode::UNAUTHORIZED, "Not authorized"))

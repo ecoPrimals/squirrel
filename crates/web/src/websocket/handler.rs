@@ -12,11 +12,10 @@ use tracing::{debug, error, info, warn};
 
 use crate::auth::extractor::AuthClaims;
 use crate::state::AppState;
-use super::{
-    CommandHandler,
-    WebSocketCommand,
+use crate::websocket::{
+    models::{WebSocketCommand, WebSocketResponse},
     WebSocketError,
-    WebSocketResponse,
+    CommandHandler,
 };
 
 /// Maximum number of queued messages for a connection
