@@ -58,6 +58,12 @@ pub struct ConnectionManager {
     event_tx: broadcast::Sender<WebSocketEvent>,
 }
 
+impl Default for ConnectionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConnectionManager {
     /// Create a new connection manager
     pub fn new() -> Self {
@@ -235,7 +241,7 @@ impl ConnectionManager {
         
         if let Some(connection) = connections.get(connection_id) {
             let json = serde_json::to_string(&message)
-                .map_err(|e| WebSocketError::JsonError(e))?;
+                .map_err(WebSocketError::JsonError)?;
             
             connection
                 .sender
@@ -259,7 +265,7 @@ impl ConnectionManager {
         
         if let Some(connections) = user_conns.get(user_id) {
             let json = serde_json::to_string(&message)
-                .map_err(|e| WebSocketError::JsonError(e))?;
+                .map_err(WebSocketError::JsonError)?;
             
             let mut sent_count = 0;
             let connections_lock = self.connections.read().await;
@@ -326,7 +332,7 @@ impl ConnectionManager {
         };
         
         let json = serde_json::to_string(&response)
-            .map_err(|e| WebSocketError::JsonError(e))?;
+            .map_err(WebSocketError::JsonError)?;
         
         // Send to all subscribers
         let connections_lock = self.connections.read().await;

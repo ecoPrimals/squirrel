@@ -1,7 +1,7 @@
 //! WebSocket command handlers for processing client commands.
 
 use serde_json::Value;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::error::WebSocketError;
 use super::manager::ConnectionManager;

@@ -1,6 +1,5 @@
 //! Error types specific to WebSocket operations.
 
-use std::fmt;
 use thiserror::Error;
 
 /// Errors that can occur in WebSocket operations

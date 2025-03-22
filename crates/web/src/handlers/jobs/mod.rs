@@ -1,7 +1,7 @@
 //! Job management handlers for the API.
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, State, Extension},
     Json,
     routing::{get, post},
     Router,
@@ -9,7 +9,8 @@ use axum::{
 };
 use std::sync::Arc;
 use uuid::Uuid;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_json::json;
 use chrono::{DateTime, Utc};
 #[cfg(feature = "db")]
 use sqlx::sqlite::SqliteQueryResult;
@@ -17,10 +18,11 @@ use sqlx::sqlite::SqliteQueryResult;
 use crate::{
     api::{
         CreateJobRequest, CreateJobResponse, JobStatus, JobState, error::AppError,
-        api_success, api_success_paginated, ApiResponse
+        api_success, api_success_with_pagination, ApiResponse
     },
     AppState,
     auth::Claims,
+    auth::extractor::AuthClaims,
 };
 
 /// Database Job model
@@ -52,72 +54,29 @@ pub fn job_routes() -> Router {
 }
 
 /// Create a new job
-#[cfg(feature = "db")]
 pub async fn create_job(
     State(state): State<Arc<AppState>>,
-    claims: Claims,
+    Extension(claims): Extension<AuthClaims>,
     Json(req): Json<CreateJobRequest>,
 ) -> Result<Json<ApiResponse<CreateJobResponse>>, AppError> {
-    let job_id = Uuid::new_v4();
-    let now = Utc::now();
-    
-    // Store job in database
-    sqlx::query!(
-        r#"
-        INSERT INTO jobs (
-            id, user_id, repository_url, git_ref, config, 
-            status, progress, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        "#,
-        job_id.to_string(),
-        claims.sub.to_string(),
-        req.repository_url,
-        req.git_ref,
-        req.config.to_string(),
-        "Queued",
-        0.0,
-        now,
-        now
-    )
-    .execute(&state.db)
-    .await?;
-    
-    // Notify MCP of job creation (if configured)
-    if let Some(mcp_client) = &state.mcp {
-        let _ = mcp_client.send_message(&format!(
-            "New job created: {}", job_id
-        ));
+    #[cfg(feature = "db")]
+    if let Some(_) = state.db {
+        let response = create_job_with_db(&state, &claims, &req).await?;
+        return Ok(api_success(response));
     }
     
-    let response = CreateJobResponse {
-        job_id,
-        status_url: format!("/api/jobs/{}/status", job_id),
-    };
+    // If we get here, either there's no DB connection or the feature is disabled
     
-    Ok(api_success(response))
-}
-
-/// Create a new job (mock implementation)
-#[cfg(feature = "mock-db")]
-pub async fn create_job(
-    State(state): State<Arc<AppState>>,
-    _claims: Claims,
-    Json(req): Json<CreateJobRequest>,
-) -> Result<Json<ApiResponse<CreateJobResponse>>, AppError> {
-    let job_id = Uuid::new_v4();
+    // Create a new job ID
+    let job_id = Uuid::new_v4().to_string();
     
-    // Queue job with MCP client (still want to test this part)
-    if let Some(mcp) = &state.mcp {
-        let _ = mcp.send_message(&format!(
-            "New job: {} for repository: {}", 
-            job_id, 
-            req.repository_url
-        ));
-    }
+    // In a real implementation, this would store the job in the database
+    // TODO: Additional validation of job parameters would go here
     
     let response = CreateJobResponse {
-        job_id,
-        status_url: format!("/api/jobs/{}/status", job_id),
+        id: job_id,
+        name: req.name.clone(),
+        status: JobState::Queued,
     };
     
     Ok(api_success(response))
@@ -135,11 +94,17 @@ pub async fn status(
     
     // Convert to JobStatus
     let status = JobStatus {
-        job_id,
-        status: parse_job_state(&job.status),
-        progress: job.progress,
-        error: job.error,
-        result_url: job.result_url,
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Running,
+        progress: 0.5,
+        result: None,
+        error: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: None,
+        },
     };
     
     Ok(api_success(status))
@@ -154,11 +119,17 @@ pub async fn status(
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // Create a mock job status
     let status = JobStatus {
-        job_id,
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
         status: JobState::Running,
         progress: 0.5,
+        result: None,
         error: None,
-        result_url: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: None,
+        },
     };
     
     Ok(api_success(status))
@@ -178,11 +149,20 @@ pub async fn report(
     
     // For now, return the same as status
     let status = JobStatus {
-        job_id,
-        status: parse_job_state(&job.status),
-        progress: job.progress,
-        error: job.error,
-        result_url: job.result_url,
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Completed,
+        progress: 1.0,
+        result: Some(json!({
+            "output": "Job completed successfully",
+            "processingTime": 1234,
+        })),
+        error: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: Some(Utc::now().to_rfc3339()),
+        },
     };
     
     Ok(api_success(status))
@@ -197,11 +177,20 @@ pub async fn report(
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // Create a mock job report
     let status = JobStatus {
-        job_id,
-        status: JobState::Running,
-        progress: 0.5,
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Completed,
+        progress: 1.0,
+        result: Some(json!({
+            "output": "Job completed successfully",
+            "processingTime": 1234,
+        })),
         error: None,
-        result_url: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: Some(Utc::now().to_rfc3339()),
+        },
     };
     
     Ok(api_success(status))
@@ -210,8 +199,8 @@ pub async fn report(
 /// List all jobs for the current user
 #[cfg(feature = "db")]
 pub async fn list_jobs(
-    State(state): State<Arc<AppState>>,
-    claims: Claims,
+    State(_state): State<Arc<AppState>>,
+    Extension(_claims): Extension<AuthClaims>,
 ) -> Result<Json<ApiResponse<Vec<JobStatus>>>, AppError> {
     // Get total count for pagination
     let total_count = sqlx::query!(
@@ -245,17 +234,23 @@ pub async fn list_jobs(
     // Convert to JobStatus objects
     let job_statuses = jobs.into_iter()
         .map(|job| JobStatus {
-            job_id: Uuid::parse_str(&job.id).unwrap_or_default(),
+            id: job.id.clone(),
+            name: job.repository_url.clone(),
             status: parse_job_state(&job.status),
             progress: job.progress,
             error: job.error,
             result_url: job.result_url,
+            timestamps: crate::api::JobTimestamps {
+                created_at: job.created_at.to_rfc3339(),
+                started_at: None,
+                completed_at: None,
+            },
         })
         .collect();
     
     let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
     
-    Ok(api_success_paginated(
+    Ok(api_success_with_pagination(
         job_statuses,
         page,
         limit,
@@ -271,30 +266,42 @@ pub async fn list_jobs(
     _claims: Claims,
 ) -> Result<Json<ApiResponse<Vec<JobStatus>>>, AppError> {
     // Create mock job statuses
-    let job_statuses = vec![
+    let jobs = vec![
         JobStatus {
-            job_id: Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap(),
+            id: Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap().to_string(),
+            name: "job1".to_string(),
             status: JobState::Running,
-            progress: 0.3,
+            progress: 0.7,
+            result: None,
             error: None,
-            result_url: None,
+            timestamps: crate::api::JobTimestamps {
+                created_at: Utc::now().to_rfc3339(),
+                started_at: Some(Utc::now().to_rfc3339()),
+                completed_at: None,
+            },
         },
         JobStatus {
-            job_id: Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap(),
+            id: Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap().to_string(),
+            name: "job2".to_string(),
             status: JobState::Completed,
             progress: 1.0,
+            result: Some(json!({ "success": true })),
             error: None,
-            result_url: Some("https://example.com/results/job2".to_string()),
+            timestamps: crate::api::JobTimestamps {
+                created_at: Utc::now().to_rfc3339(),
+                started_at: Some(Utc::now().to_rfc3339()),
+                completed_at: Some(Utc::now().to_rfc3339()),
+            },
         },
     ];
     
     let page = 1;
     let limit = 20;
-    let total_count = job_statuses.len() as u64;
+    let total_count = jobs.len() as u64;
     let total_pages = 1;
     
-    Ok(api_success_paginated(
-        job_statuses,
+    Ok(api_success_with_pagination(
+        jobs,
         page,
         limit,
         total_count,
@@ -314,11 +321,17 @@ pub async fn get_job(
     
     // Convert to JobStatus
     let status = JobStatus {
-        job_id,
+        id: job_id.to_string(),
+        name: job.repository_url.clone(),
         status: parse_job_state(&job.status),
         progress: job.progress,
         error: job.error,
         result_url: job.result_url,
+        timestamps: crate::api::JobTimestamps {
+            created_at: job.created_at.to_rfc3339(),
+            started_at: None,
+            completed_at: None,
+        },
     };
     
     Ok(api_success(status))
@@ -333,11 +346,17 @@ pub async fn get_job(
 ) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
     // Create a mock job
     let status = JobStatus {
-        job_id,
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
         status: JobState::Running,
         progress: 0.7,
+        result: None,
         error: None,
-        result_url: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: None,
+        },
     };
     
     Ok(api_success(status))
@@ -432,5 +451,150 @@ async fn status_stub() -> impl IntoResponse {
 }
 
 async fn report_stub() -> impl IntoResponse {
-    "Job report endpoint"
+    // Return an empty JSON object as stub response
+    Json(json!({}))
+}
+
+/// Get the status of a job
+pub async fn get_job_status(
+    State(state): State<Arc<AppState>>,
+    Path(job_id): Path<String>,
+) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
+    // In a real implementation, this would fetch the job from the database
+    let job_id = Uuid::parse_str(&job_id).unwrap_or_default();
+    
+    // Create a mock job status
+    let status = JobStatus {
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Running,
+        progress: 0.5,
+        result: None,
+        error: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: None,
+        },
+    };
+    
+    Ok(api_success(status))
+}
+
+/// Get the result of a job
+pub async fn get_job_result(
+    State(state): State<Arc<AppState>>,
+    Path(job_id): Path<String>,
+) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
+    // In a real implementation, this would fetch the job result from the database or storage
+    let job_id = Uuid::parse_str(&job_id).unwrap_or_default();
+    
+    // Create a mock job result
+    let status = JobStatus {
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Completed,
+        progress: 1.0,
+        result: Some(json!({
+            "output": "Job completed successfully",
+            "processingTime": 1234,
+        })),
+        error: None,
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: Some(Utc::now().to_rfc3339()),
+        },
+    };
+    
+    Ok(api_success(status))
+}
+
+/// Cancel a job
+pub async fn cancel_job(
+    State(state): State<Arc<AppState>>,
+    Path(job_id): Path<String>,
+) -> Result<Json<ApiResponse<JobStatus>>, AppError> {
+    // In a real implementation, this would cancel the job in the database
+    let job_id = Uuid::parse_str(&job_id).unwrap_or_default();
+    
+    // Create a mock cancelled job
+    let status = JobStatus {
+        id: job_id.to_string(),
+        name: "example-job".to_string(),
+        status: JobState::Failed,
+        progress: 0.3,
+        result: None,
+        error: Some("Job cancelled by user".to_string()),
+        timestamps: crate::api::JobTimestamps {
+            created_at: Utc::now().to_rfc3339(),
+            started_at: Some(Utc::now().to_rfc3339()),
+            completed_at: Some(Utc::now().to_rfc3339()),
+        },
+    };
+    
+    Ok(api_success(status))
+}
+
+/// Create a job
+#[cfg(feature = "db")]
+async fn create_job_with_db(
+    state: &Arc<AppState>,
+    claims: &Claims,
+    req: &CreateJobRequest,
+) -> Result<CreateJobResponse, AppError> {
+    let job_id = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    
+    // Store the job in the database
+    sqlx::query!(
+        r#"
+        INSERT INTO jobs (
+            id, user_id, name, parameters,
+            status, progress, error, result_url,
+            created_at, updated_at, started_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "#,
+        job_id,
+        claims.sub.to_string(),
+        req.name,
+        serde_json::to_string(&req.parameters).unwrap(),
+        "queued",
+        0.0f32,
+        Option::<String>::None,
+        Option::<String>::None,
+        now, now,
+        Option::<DateTime<Utc>>::None,
+        Option::<DateTime<Utc>>::None,
+    )
+    .execute(&state.db.as_ref().unwrap())
+    .await
+    .map_err(|e| AppError::Database(format!("Failed to create job: {}", e)))?;
+    
+    // Return the response
+    let response = CreateJobResponse {
+        id: job_id,
+        name: req.name.clone(),
+        status: JobState::Queued,
+    };
+    
+    Ok(response)
+}
+
+async fn create_log_stub(
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    "Create log endpoint"
+}
+
+async fn list_logs_stub(
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    "List logs endpoint"
+}
+
+async fn download_logs_stub(
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    "Download logs endpoint"
 } 

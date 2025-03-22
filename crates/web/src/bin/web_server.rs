@@ -3,8 +3,8 @@ use squirrel_web::{
     config::Config,
     create_app, ServerConfig, auth::AuthConfig,
     CorsConfig, MockSessionConfig,
+    setup_database,
 };
-use sqlx::SqlitePool;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,10 +25,10 @@ async fn main() -> Result<()> {
         auth_config: AuthConfig::default(),
     };
     
-    // Connect to the database
-    let db = SqlitePool::connect(&server_config.database_url)
+    // Connect to the database and run migrations
+    let db = setup_database(&server_config.database_url)
         .await
-        .expect("Failed to connect to database");
+        .expect("Failed to setup database");
     
     // Create a default config to pass to create_app
     let app_config = Config::default();

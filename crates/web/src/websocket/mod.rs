@@ -3,20 +3,25 @@
 //! This module handles WebSocket connections, message processing, and broadcasting
 //! to support real-time features in the Squirrel platform.
 
-pub mod commands;
 pub mod error;
 mod handler;
 mod manager;
 mod models;
+pub mod handlers;
+pub mod commands;
 
 #[cfg(test)]
 mod tests;
 
-pub use commands::CommandHandler;
 pub use error::WebSocketError;
 pub use handler::ws_handler;
 pub use manager::ConnectionManager;
-pub use models::{ChannelCategory, Subscription, WebSocketCommand, WebSocketEvent, WebSocketResponse};
+pub use models::{WebSocketMessage, WebSocketContext, ChannelCategory};
+pub use commands::CommandHandler;
+
+// Handler trait and implementations
+pub use crate::websocket::handlers::WebSocketHandler;
+pub use crate::websocket::handlers::commands::CommandWebSocketHandler;
 
 /// Initialize the WebSocket module
 pub fn init() -> ConnectionManager {
