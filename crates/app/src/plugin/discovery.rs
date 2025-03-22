@@ -3,6 +3,9 @@ use std::fs;
 use async_trait::async_trait;
 use crate::error::Result;
 use super::{Plugin, PluginMetadata, PluginManager};
+use std::collections::HashMap;
+use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 
 /// Plugin discovery strategy trait
 #[async_trait]
@@ -43,15 +46,19 @@ pub struct FileSystemDiscovery {
     extensions: Vec<String>,
     /// Plugin validation rules
     validation_rules: Vec<ValidationRule>,
+    /// Security level for validation
+    #[allow(dead_code)]
+    security_level: SecurityLevel,
 }
 
 impl FileSystemDiscovery {
     /// Create a new file system discovery
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(security_level: SecurityLevel) -> Self {
         Self {
             extensions: vec!["json".to_string(), "toml".to_string()],
             validation_rules: Vec::new(),
+            security_level,
         }
     }
     
@@ -121,6 +128,167 @@ impl PluginDiscovery for FileSystemDiscovery {
 }
 
 impl Default for FileSystemDiscovery {
+    fn default() -> Self {
+        Self::new(SecurityLevel::Basic)
+    }
+}
+
+/// Plugin loader trait
+#[async_trait]
+pub trait PluginLoaderTrait: Send + Sync {
+    /// Load a plugin from a manifest
+    #[allow(unused)]
+    async fn load_plugin(&self, manifest: &PluginManifest, path: &Path) -> Result<Box<dyn Plugin>>;
+    
+    /// Create plugin sandbox
+    #[allow(unused)]
+    async fn create_sandbox(&self, manifest: &PluginManifest) -> Result<PluginSandbox>;
+}
+
+/// Plugin sandbox for resource isolation
+#[derive(Debug)]
+pub struct PluginSandbox {
+    /// Plugin ID
+    #[allow(dead_code)]
+    pub id: Uuid,
+    /// Resource limits
+    #[allow(dead_code)]
+    pub limits: ResourceLimits,
+    /// Security metadata
+    #[allow(dead_code)]
+    pub security: SecurityMetadata,
+    /// Isolated working directory
+    #[allow(dead_code)]
+    pub work_dir: PathBuf,
+    /// Resource usage tracking
+    #[allow(dead_code)]
+    pub usage: HashMap<String, usize>,
+}
+
+impl PluginSandbox {
+    /// Create a new plugin sandbox
+    #[must_use]
+    pub fn new(id: Uuid, limits: ResourceLimits, security: SecurityMetadata, work_dir: PathBuf) -> Self {
+        Self {
+            id,
+            limits,
+            security,
+            work_dir,
+            usage: HashMap::new(),
+        }
+    }
+    
+    /// Check if an operation is allowed
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn is_operation_allowed(&self, operation: &str) -> bool {
+        match operation {
+            "file:read" | "file:write" => self.security.permissions.contains(&"file:access".to_string()),
+            "network:connect" => self.security.permissions.contains(&"network:access".to_string()),
+            "system:exec" => self.security.permissions.contains(&"system:exec".to_string()),
+            _ => false,
+        }
+    }
+    
+    /// Check if a resource limit is exceeded
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn check_resource_limits(&self, resource: &str, amount: usize) -> bool {
+        match resource {
+            "memory" => amount <= self.limits.memory_mb,
+            "cpu" => amount <= self.limits.cpu_percent,
+            "disk" => amount <= self.limits.disk_mb,
+            "network" => amount <= self.limits.network_mb,
+            "threads" => amount <= self.limits.threads,
+            "files" => amount <= self.limits.files,
+            _ => false,
+        }
+    }
+    
+    /// Update resource usage
+    #[allow(dead_code)]
+    pub fn update_usage(&mut self, resource: &str, amount: usize) {
+        self.usage.insert(resource.to_string(), amount);
+    }
+    
+    /// Get current resource usage
+    #[allow(dead_code)]
+    #[must_use]
+    pub fn get_usage(&self, resource: &str) -> usize {
+        *self.usage.get(resource).unwrap_or(&0)
+    }
+}
+
+/// Memory-based plugin loader for testing
+#[derive(Debug)]
+pub struct MemoryPluginLoader {
+    /// In-memory collection of plugins mapped by name
+    plugins: HashMap<String, Box<dyn Plugin>>,
+}
+
+impl MemoryPluginLoader {
+    /// Create a new memory-based plugin loader
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            plugins: HashMap::new(),
+        }
+    }
+    
+    /// Register a plugin
+    #[allow(dead_code)]
+    pub fn register_plugin(&mut self, name: &str, plugin: Box<dyn Plugin>) {
+        self.plugins.insert(name.to_string(), plugin);
+    }
+}
+
+#[async_trait]
+impl PluginLoaderTrait for MemoryPluginLoader {
+    async fn load_plugin(&self, manifest: &PluginManifest, _path: &Path) -> Result<Box<dyn Plugin>> {
+        // Check if plugin exists
+        let plugin_name = manifest.name.clone();
+        if !self.plugins.contains_key(&plugin_name) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Plugin not found: {plugin_name}")
+            ).into());
+        }
+
+        // Create a mock plugin for testing
+        let metadata = crate::plugin::PluginMetadata {
+            id: Uuid::new_v4(),
+            name: manifest.name.clone(),
+            version: manifest.version.clone(),
+            description: manifest.description.clone(),
+            author: manifest.author.clone(),
+            dependencies: manifest.dependencies.clone(),
+            capabilities: manifest.capabilities.clone(),
+        };
+
+        // Create a new placeholder plugin
+        let plugin = Box::new(PlaceholderPlugin { metadata });
+        Ok(plugin)
+    }
+    
+    async fn create_sandbox(&self, manifest: &PluginManifest) -> Result<PluginSandbox> {
+        let id = Uuid::new_v4();
+        let work_dir = std::env::temp_dir().join(format!("plugin-{id}"));
+        
+        // Create working directory if it doesn't exist
+        if !work_dir.exists() {
+            fs::create_dir_all(&work_dir)?;
+        }
+        
+        Ok(PluginSandbox::new(
+            id,
+            manifest.resource_limits.clone(),
+            manifest.security.clone(),
+            work_dir,
+        ))
+    }
+}
+
+impl Default for MemoryPluginLoader {
     fn default() -> Self {
         Self::new()
     }
@@ -201,6 +369,143 @@ impl Plugin for PlaceholderPlugin {
     }
 }
 
+/// Plugin manifest file format
+#[derive(Debug, Deserialize)]
+pub struct PluginManifest {
+    /// Plugin name
+    pub name: String,
+    /// Plugin version
+    pub version: String,
+    /// Plugin description
+    pub description: String,
+    /// Plugin author
+    pub author: String,
+    /// Plugin entry point
+    #[allow(dead_code)]
+    pub entry_point: String,
+    /// Plugin dependencies
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    /// Plugin capabilities
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    /// Plugin resource limits
+    #[serde(default)]
+    pub resource_limits: ResourceLimits,
+    /// Plugin security metadata
+    #[serde(default)]
+    pub security: SecurityMetadata,
+}
+
+/// Resource limits for a plugin sandbox
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ResourceLimits {
+    /// Maximum memory usage in MB
+    #[serde(default = "default_memory_limit")]
+    pub memory_mb: usize,
+    
+    /// Maximum CPU usage in percent
+    #[serde(default = "default_cpu_limit")]
+    pub cpu_percent: usize,
+    
+    /// Maximum disk space usage in MB
+    #[serde(default = "default_disk_limit")]
+    pub disk_mb: usize,
+    
+    /// Maximum network bandwidth in MB
+    #[serde(default = "default_network_limit")]
+    pub network_mb: usize,
+    
+    /// Maximum number of threads
+    #[serde(default = "default_thread_limit")]
+    pub threads: usize,
+    
+    /// Maximum number of open files
+    #[serde(default = "default_file_limit")]
+    pub files: usize,
+}
+
+/// Returns the default memory limit in MB.
+/// 
+/// Default is 100 MB.
+fn default_memory_limit() -> usize {
+    100 // 100 MB
+}
+
+/// Returns the default CPU usage limit in percent.
+/// 
+/// Default is 10%.
+fn default_cpu_limit() -> usize {
+    10 // 10%
+}
+
+/// Returns the default disk space limit in MB.
+/// 
+/// Default is 100 MB.
+fn default_disk_limit() -> usize {
+    100 // 100 MB
+}
+
+/// Returns the default network bandwidth limit in MB.
+/// 
+/// Default is 10 MB.
+fn default_network_limit() -> usize {
+    10 // 10 MB
+}
+
+/// Returns the default thread count limit.
+/// 
+/// Default is 5 threads.
+fn default_thread_limit() -> usize {
+    5 // 5 threads
+}
+
+/// Returns the default file count limit.
+/// 
+/// Default is 10 files.
+fn default_file_limit() -> usize {
+    10 // 10 files
+}
+
+/// Security metadata for a plugin
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct SecurityMetadata {
+    /// Plugin permissions
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub permissions: Vec<String>,
+    /// Plugin signature
+    #[allow(dead_code)]
+    pub signature: Option<String>,
+    /// Plugin publisher
+    #[allow(dead_code)]
+    pub publisher: Option<String>,
+    /// Plugin verification status
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub verified: bool,
+    /// Plugin sandboxed
+    #[serde(default = "default_sandboxed")]
+    #[allow(dead_code)]
+    pub sandboxed: bool,
+}
+
+/// Default for sandboxed
+fn default_sandboxed() -> bool {
+    true // Plugins are sandboxed by default
+}
+
+/// Security level for plugin verification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityLevel {
+    /// No verification, high risk
+    None,
+    /// Basic verification, medium risk
+    Basic,
+    /// Full verification, low risk
+    Full,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,7 +536,7 @@ mod tests {
         write!(file, "{}", serde_json::to_string_pretty(&metadata).unwrap()).unwrap();
         
         // Create discovery and loader
-        let mut discovery = FileSystemDiscovery::new();
+        let mut discovery = FileSystemDiscovery::new(SecurityLevel::Basic);
         discovery.add_validation_rule(|_| Ok(()));
         
         let manager = PluginManager::new();
