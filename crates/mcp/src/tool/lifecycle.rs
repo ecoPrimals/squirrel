@@ -72,6 +72,24 @@ impl BasicLifecycleHook {
             tool_history.drain(0..excess);
         }
     }
+
+    async fn recover_state(&self, tool_id: &str) -> Result<(), ToolError> {
+        // Check if the tool exists in our history
+        let history = self.state_history.read().await;
+        if let Some(tool_history) = history.get(tool_id) {
+            if let Some((last_state, _)) = tool_history.last() {
+                // Clone the last state instead of dropping the history while it's borrowed
+                let last_state_clone = *last_state;
+                // Release the read lock before making changes
+                drop(history);
+                // Record the state change with the cloned value
+                self.record_state_change(tool_id, last_state_clone).await;
+                return Ok(());
+            }
+        }
+        // If we get here, either the tool doesn't exist or has no history
+        Err(ToolError::NoStateHistory(tool_id.to_string()))
+    }
 }
 
 #[async_trait]
@@ -116,17 +134,97 @@ impl ToolLifecycleHook for BasicLifecycleHook {
         info!("Tool deactivated: {}", tool_id);
         
         // Record the state change
-        self.record_state_change(tool_id, ToolState::Inactive).await;
+        self.record_state_change(tool_id, ToolState::Stopped).await;
         
         Ok(())
     }
     
     #[instrument(skip(self, error))]
     async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
-        warn!("Tool error: {} - {}", tool_id, error);
+        error!("Tool error: {} - {}", tool_id, error);
         
-        // Record the error state
+        // Record the state change
         self.record_state_change(tool_id, ToolState::Error).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool pre-start: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Starting).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool post-start: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Started).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool pre-stop: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Stopping).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool post-stop: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Stopped).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_pause(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool paused: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Paused).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_resume(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool resumed: {}", tool_id);
+        
+        // Record the state change
+        self.record_state_change(tool_id, ToolState::Active).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self, tool))]
+    async fn on_update(&self, tool: &Tool) -> Result<(), ToolError> {
+        info!("Tool updated: {} ({})", tool.name, tool.id);
+        
+        // Record the state change
+        self.record_state_change(&tool.id, ToolState::Active).await;
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_cleanup(&self, tool_id: &str) -> Result<(), ToolError> {
+        info!("Tool cleanup: {}", tool_id);
+        
+        // No state change for cleanup, just record the event with current state
+        self.recover_state(tool_id).await?;
         
         Ok(())
     }
@@ -203,47 +301,126 @@ impl SecurityLifecycleHook {
 impl ToolLifecycleHook for SecurityLifecycleHook {
     #[instrument(skip(self, tool))]
     async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
-        info!("Validating security for tool: {} ({})", tool.name, tool.id);
-        
-        // Validate the tool's security metadata
+        // Validate tool security
         self.validate_tool_security(tool)?;
         
-        // Log the security level
-        info!(
-            "Tool '{}' registered with security level: {}",
-            tool.id, tool.security_level
-        );
+        // Check if tool ID is allowed
+        if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool.id) {
+            return Err(ToolError::SecurityViolation(format!(
+                "Tool ID '{}' is not in the allowed list",
+                tool.id
+            )));
+        }
         
+        debug!("Tool '{}' security validation passed", tool.id);
         Ok(())
     }
     
     #[instrument(skip(self))]
     async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
-        info!("Security hook: Tool unregistered: {}", tool_id);
+        // No security checks on unregister
+        debug!("Tool '{}' unregistered", tool_id);
         Ok(())
     }
     
     #[instrument(skip(self))]
     async fn on_activate(&self, tool_id: &str) -> Result<(), ToolError> {
-        // For a real security hook, we might revalidate the tool here
-        // or check if activation is allowed based on current security context
-        info!("Security hook: Tool activated: {}", tool_id);
+        // No additional security checks on activate
+        debug!("Tool '{}' activated", tool_id);
         Ok(())
     }
     
     #[instrument(skip(self))]
     async fn on_deactivate(&self, tool_id: &str) -> Result<(), ToolError> {
-        info!("Security hook: Tool deactivated: {}", tool_id);
+        // No additional security checks on deactivate
+        debug!("Tool '{}' deactivated", tool_id);
         Ok(())
     }
     
     #[instrument(skip(self, error))]
     async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
-        error!("Security critical tool error: {} - {}", tool_id, error);
+        // Log the error
+        warn!("Tool '{}' encountered error: {}", tool_id, error);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        // Verify security before starting
+        if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool_id.to_string()) {
+            return Err(ToolError::SecurityViolation(format!(
+                "Tool ID '{}' is not in the allowed list",
+                tool_id
+            )));
+        }
         
-        // In a real security hook, we might take different actions based on the error
-        // such as quarantining the tool or raising alerts
+        debug!("Tool '{}' pre-start security check passed", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        // No additional security checks after start
+        debug!("Tool '{}' started", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        // No additional security checks before stop
+        debug!("Tool '{}' stopping", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        // No additional security checks after stop
+        debug!("Tool '{}' stopped", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_pause(&self, tool_id: &str) -> Result<(), ToolError> {
+        // No additional security checks for pause
+        debug!("Tool '{}' paused", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_resume(&self, tool_id: &str) -> Result<(), ToolError> {
+        // Verify security before resuming
+        if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool_id.to_string()) {
+            return Err(ToolError::SecurityViolation(format!(
+                "Tool ID '{}' is not in the allowed list",
+                tool_id
+            )));
+        }
         
+        debug!("Tool '{}' resume security check passed", tool_id);
+        Ok(())
+    }
+
+    #[instrument(skip(self, tool))]
+    async fn on_update(&self, tool: &Tool) -> Result<(), ToolError> {
+        // Validate tool security on update
+        self.validate_tool_security(tool)?;
+        
+        // Check if tool ID is allowed
+        if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool.id) {
+            return Err(ToolError::SecurityViolation(format!(
+                "Tool ID '{}' is not in the allowed list",
+                tool.id
+            )));
+        }
+        
+        debug!("Tool '{}' update security validation passed", tool.id);
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_cleanup(&self, tool_id: &str) -> Result<(), ToolError> {
+        // No additional security checks for cleanup
+        debug!("Tool '{}' cleanup", tool_id);
         Ok(())
     }
 }
@@ -289,22 +466,24 @@ impl ToolLifecycleHook for CompositeLifecycleHook {
     async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
         for hook in &self.hooks {
             if let Err(err) = hook.on_register(tool).await {
-                warn!("Hook failed during registration of tool {}: {}", tool.id, err);
+                error!("Hook failed during on_register: {}", err);
                 return Err(err);
             }
         }
+        
         Ok(())
     }
     
     #[instrument(skip(self))]
     async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
+        // For unregistration, we want to call all hooks even if some fail
         let mut last_error = None;
         
-        // Try to execute all hooks even if some fail
         for hook in &self.hooks {
             if let Err(err) = hook.on_unregister(tool_id).await {
-                warn!("Hook failed during unregistration of tool {}: {}", tool_id, err);
+                error!("Hook failed during on_unregister: {}", err);
                 last_error = Some(err);
+                // Continue to next hook
             }
         }
         
@@ -319,22 +498,24 @@ impl ToolLifecycleHook for CompositeLifecycleHook {
     async fn on_activate(&self, tool_id: &str) -> Result<(), ToolError> {
         for hook in &self.hooks {
             if let Err(err) = hook.on_activate(tool_id).await {
-                warn!("Hook failed during activation of tool {}: {}", tool_id, err);
+                error!("Hook failed during on_activate: {}", err);
                 return Err(err);
             }
         }
+        
         Ok(())
     }
     
     #[instrument(skip(self))]
     async fn on_deactivate(&self, tool_id: &str) -> Result<(), ToolError> {
+        // For deactivation, we want to call all hooks even if some fail
         let mut last_error = None;
         
-        // Try to execute all hooks even if some fail
         for hook in &self.hooks {
             if let Err(err) = hook.on_deactivate(tool_id).await {
-                warn!("Hook failed during deactivation of tool {}: {}", tool_id, err);
+                error!("Hook failed during on_deactivate: {}", err);
                 last_error = Some(err);
+                // Continue to next hook
             }
         }
         
@@ -347,13 +528,131 @@ impl ToolLifecycleHook for CompositeLifecycleHook {
     
     #[instrument(skip(self, error))]
     async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
+        // For error handling, we want to call all hooks even if some fail
         let mut last_error = None;
         
-        // Try to execute all hooks even if some fail
         for hook in &self.hooks {
             if let Err(err) = hook.on_error(tool_id, error).await {
-                warn!("Hook failed during error handling for tool {}: {}", tool_id, err);
+                error!("Hook failed during on_error: {}", err);
                 last_error = Some(err);
+                // Continue to next hook
+            }
+        }
+        
+        if let Some(err) = last_error {
+            Err(err)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        for hook in &self.hooks {
+            if let Err(err) = hook.pre_start(tool_id).await {
+                error!("Hook failed during pre_start: {}", err);
+                return Err(err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_start(&self, tool_id: &str) -> Result<(), ToolError> {
+        let mut last_error = None;
+        
+        for hook in &self.hooks {
+            if let Err(err) = hook.post_start(tool_id).await {
+                error!("Hook failed during post_start: {}", err);
+                last_error = Some(err);
+                // Continue to ensure all hooks are called
+            }
+        }
+        
+        if let Some(err) = last_error {
+            Err(err)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[instrument(skip(self))]
+    async fn pre_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        for hook in &self.hooks {
+            if let Err(err) = hook.pre_stop(tool_id).await {
+                error!("Hook failed during pre_stop: {}", err);
+                return Err(err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn post_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+        let mut last_error = None;
+        
+        for hook in &self.hooks {
+            if let Err(err) = hook.post_stop(tool_id).await {
+                error!("Hook failed during post_stop: {}", err);
+                last_error = Some(err);
+                // Continue to ensure all hooks are called
+            }
+        }
+        
+        if let Some(err) = last_error {
+            Err(err)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[instrument(skip(self))]
+    async fn on_pause(&self, tool_id: &str) -> Result<(), ToolError> {
+        for hook in &self.hooks {
+            if let Err(err) = hook.on_pause(tool_id).await {
+                error!("Hook failed during on_pause: {}", err);
+                return Err(err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_resume(&self, tool_id: &str) -> Result<(), ToolError> {
+        for hook in &self.hooks {
+            if let Err(err) = hook.on_resume(tool_id).await {
+                error!("Hook failed during on_resume: {}", err);
+                return Err(err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self, tool))]
+    async fn on_update(&self, tool: &Tool) -> Result<(), ToolError> {
+        for hook in &self.hooks {
+            if let Err(err) = hook.on_update(tool).await {
+                error!("Hook failed during on_update: {}", err);
+                return Err(err);
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[instrument(skip(self))]
+    async fn on_cleanup(&self, tool_id: &str) -> Result<(), ToolError> {
+        let mut last_error = None;
+        
+        for hook in &self.hooks {
+            if let Err(err) = hook.on_cleanup(tool_id).await {
+                error!("Hook failed during on_cleanup: {}", err);
+                last_error = Some(err);
+                // Continue to ensure all hooks are called
             }
         }
         
@@ -404,7 +703,10 @@ mod tests {
         assert!(result.is_ok(), "Deactivation hook failed: {:?}", result);
         
         // Test the error hook
-        let error = ToolError::ExecutionFailed("Test error".to_string());
+        let error = ToolError::ExecutionFailed { 
+            tool_id: tool.id.clone(), 
+            reason: "Test error".to_string() 
+        };
         let result = hook.on_error(&tool.id, &error).await;
         assert!(result.is_ok(), "Error hook failed: {:?}", result);
         
@@ -418,7 +720,7 @@ mod tests {
         
         assert_eq!(history[0].0, ToolState::Registered);
         assert_eq!(history[1].0, ToolState::Active);
-        assert_eq!(history[2].0, ToolState::Inactive);
+        assert_eq!(history[2].0, ToolState::Stopped);
         assert_eq!(history[3].0, ToolState::Error);
         assert_eq!(history[4].0, ToolState::Unregistered);
     }
@@ -503,7 +805,10 @@ mod tests {
         assert!(result.is_ok(), "Composite activation hook failed: {:?}", result);
         
         // Test the error hook
-        let error = ToolError::ExecutionFailed("Test error".to_string());
+        let error = ToolError::ExecutionFailed { 
+            tool_id: tool.id.clone(), 
+            reason: "Test error".to_string() 
+        };
         let result = composite_hook.on_error(&tool.id, &error).await;
         assert!(result.is_ok(), "Composite error hook failed: {:?}", result);
     }
