@@ -1,21 +1,21 @@
+use crate::context_manager::Context;
+use crate::error::Result;
+use crate::sync::StateChange;
+use crate::types::{AccountId, AuthToken, ProtocolVersion, SessionToken, UserId, UserRole};
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json;
+use squirrel_core::error::PersistenceError;
+use std::fmt::Debug;
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 /// Module for handling persistence operations in the MCP system.
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
 use std::time::SystemTime;
-use crate::error::Result;
-use squirrel_core::error::PersistenceError;
-use std::path::PathBuf;
-use std::fs;
+use tokio::sync::RwLock;
 use uuid::Uuid;
-use crate::context_manager::Context;
-use crate::sync::StateChange;
-use async_trait::async_trait;
-use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole, ProtocolVersion};
-use serde_json;
-use std::io::Write;
-use std::fmt::Debug;
 
 /// Configuration settings for the persistence layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ impl MCPPersistence {
         fs::create_dir_all(&self.config.data_dir)?;
         fs::create_dir_all(self.config.data_dir.join("states"))?;
         fs::create_dir_all(self.config.data_dir.join("changes"))?;
-        
+
         self.initialized = true;
         Ok(())
     }
@@ -135,13 +135,13 @@ impl MCPPersistence {
     pub fn save_state(&self, state: &PersistentState) -> Result<()> {
         let state_path = self.get_state_path(&state.id);
         let temp_path = state_path.with_extension("tmp");
-        
+
         let data = serde_json::to_string_pretty(state)?;
         fs::write(&temp_path, data)?;
-        
+
         // Atomic rename
         fs::rename(temp_path, state_path)?;
-        
+
         Ok(())
     }
 
@@ -154,18 +154,22 @@ impl MCPPersistence {
     /// - Deserialization errors
     pub fn load_state(&self) -> Result<Option<PersistentState>> {
         // Try to find any state file in the data directory
-        let Ok(entries) = fs::read_dir(&self.config.data_dir) else { return Ok(None) };
-        
+        let Ok(entries) = fs::read_dir(&self.config.data_dir) else {
+            return Ok(None);
+        };
+
         for entry in entries.flatten() {
             let path = entry.path();
-            
-            if path.extension().is_some_and(|ext| ext == "json") && path.to_string_lossy().contains("state_") {
+
+            if path.extension().is_some_and(|ext| ext == "json")
+                && path.to_string_lossy().contains("state_")
+            {
                 let data = fs::read_to_string(path)?;
                 let state: PersistentState = serde_json::from_str(&data)?;
                 return Ok(Some(state));
             }
         }
-        
+
         Ok(None)
     }
 
@@ -180,21 +184,21 @@ impl MCPPersistence {
         if !self.config.data_dir.exists() {
             fs::create_dir_all(&self.config.data_dir)?;
         }
-        
+
         // Serialize the change to JSON
         let json = serde_json::to_string_pretty(change)?;
-        
+
         // Write to a file
         let path = self.get_change_path(&change.id);
         let mut file = fs::File::create(path)?;
         file.write_all(json.as_bytes())?;
-        
+
         // Check if we need to compact changes
         let total_size = self.get_data_dir_size()?;
         if total_size > self.config.auto_compact_threshold {
             self.compact_changes()?;
         }
-        
+
         Ok(())
     }
 
@@ -211,12 +215,12 @@ impl MCPPersistence {
                 size += usize::try_from(metadata.len()).unwrap_or(0);
             }
         }
-        
+
         // Check if compaction is needed and perform it
         if size > self.config.auto_compact_threshold {
             self.compact_changes()?;
         }
-        
+
         Ok(())
     }
 
@@ -226,12 +230,12 @@ impl MCPPersistence {
     /// Returns an error if there is an issue with filesystem operations or serialization
     fn compact_changes(&self) -> Result<()> {
         let changes = self.load_changes()?;
-        
+
         // If there are no changes, nothing to compact
         if changes.is_empty() {
             return Ok(());
         }
-        
+
         let entries = fs::read_dir(&self.config.data_dir)?;
 
         // Remove old change files
@@ -251,7 +255,7 @@ impl MCPPersistence {
             let mut file = fs::File::create(path)?;
             file.write_all(json.as_bytes())?;
         }
-        
+
         Ok(())
     }
 
@@ -283,7 +287,7 @@ impl MCPPersistence {
     /// mechanism fails.
     pub fn load_changes(&self) -> Result<Vec<StateChange>> {
         let mut changes = Vec::new();
-        
+
         // Make sure the data directory exists
         if !self.config.data_dir.exists() {
             return Ok(changes);
@@ -291,21 +295,21 @@ impl MCPPersistence {
 
         // Read all files with .change extension
         let entries = fs::read_dir(&self.config.data_dir)?;
-        
+
         for entry in entries {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.extension().is_some_and(|ext| ext == "change") {
                 let file_contents = fs::read_to_string(&path)?;
                 let change: StateChange = serde_json::from_str(&file_contents)?;
                 changes.push(change);
             }
         }
-        
+
         // Sort changes by version to ensure they're processed in order
         changes.sort_by(|a, b| a.version.cmp(&b.version));
-        
+
         Ok(changes)
     }
 
@@ -370,9 +374,9 @@ impl MCPPersistence {
     }
 
     /// Gets the current configuration
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Returns a copy of the current configuration
     #[must_use]
     pub fn get_config(&self) -> PersistenceConfig {
@@ -396,7 +400,7 @@ impl MCPPersistence {
             last_modified: Utc::now(),
             size: self.get_data_dir_size()? as u64,
         };
-        
+
         Ok(metadata)
     }
 
@@ -411,12 +415,12 @@ impl MCPPersistence {
     /// Returns an error if the directory cannot be read
     fn get_data_dir_size(&self) -> Result<usize> {
         let mut total_size = 0;
-        
+
         // Make sure the data directory exists
         if !self.config.data_dir.exists() {
             return Ok(0);
         }
-        
+
         // Iterate through all files and sum their sizes
         let entries = fs::read_dir(&self.config.data_dir)?;
         for entry in entries {
@@ -427,7 +431,7 @@ impl MCPPersistence {
                 }
             }
         }
-        
+
         Ok(total_size)
     }
 }
@@ -436,7 +440,7 @@ impl Default for PersistenceConfig {
     fn default() -> Self {
         Self {
             data_dir: PathBuf::from("data/mcp"),
-            max_file_size: 10 * 1024 * 1024, // 10MB
+            max_file_size: 10 * 1024 * 1024,           // 10MB
             auto_compact_threshold: 100 * 1024 * 1024, // 100MB
             storage_path: "data".to_string(),
             enable_compression: false,
@@ -603,46 +607,46 @@ pub struct AccountData {
 /// Client interface for persistence operations
 pub trait PersistenceClient: Send + Sync + Debug {
     /// Initialize the client
-    /// 
+    ///
     /// # Errors
-    /// 
-    /// Returns an error if initialization fails, which can happen if the storage 
+    ///
+    /// Returns an error if initialization fails, which can happen if the storage
     /// mechanism is inaccessible or if there are permission issues.
     fn init(&self) -> Result<()>;
-    
+
     /// Store data with the given key
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `key` - Unique identifier for storing the data
     /// * `data` - Byte array containing the data to store
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if storing fails, which can happen due to I/O errors,
     /// permission issues, or if the storage system is full.
     fn store(&self, key: &str, data: &[u8]) -> Result<()>;
-    
+
     /// Retrieve data by key
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `key` - Unique identifier for the data to retrieve
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if retrieval fails, which can happen if the key doesn't exist,
     /// if there are I/O errors, or if the data is corrupted.
     fn retrieve(&self, key: &str) -> Result<Vec<u8>>;
-    
+
     /// Delete data by key
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `key` - Unique identifier for the data to delete
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if deletion fails, which can happen if the key doesn't exist,
     /// if there are permission issues, or if there are I/O errors.
     fn delete(&self, key: &str) -> Result<()>;
@@ -653,49 +657,49 @@ pub trait PersistenceClient: Send + Sync + Debug {
 pub trait Persistence: Send + Sync + std::fmt::Debug {
     /// Initialize the persistence layer
     async fn init(&self) -> Result<()>;
-    
+
     /// Save session data
     async fn save_session(&self, session: &SessionData) -> Result<()>;
-    
+
     /// Load session data
     async fn load_session(&self, token: &SessionToken) -> Result<Option<SessionData>>;
-    
+
     /// Delete session data
     async fn delete_session(&self, token: &SessionToken) -> Result<()>;
-    
+
     /// Save user data
     async fn save_user(&self, user: &UserData) -> Result<()>;
-    
+
     /// Load user data by ID
     async fn load_user_by_id(&self, id: &UserId) -> Result<Option<UserData>>;
-    
+
     /// Load user data by username
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>>;
-    
+
     /// Delete user data
     async fn delete_user(&self, id: &UserId) -> Result<()>;
-    
+
     /// Save account data
     async fn save_account(&self, account: &AccountData) -> Result<()>;
-    
+
     /// Load account data
     async fn load_account(&self, id: &AccountId) -> Result<Option<AccountData>>;
-    
+
     /// Delete account data
     async fn delete_account(&self, id: &AccountId) -> Result<()>;
-    
+
     /// Save generic data
     async fn save_data(&self, key: &str, value: &[u8]) -> Result<()>;
-    
+
     /// Load generic data
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>>;
-    
+
     /// Delete generic data
     async fn delete_data(&self, key: &str) -> Result<()>;
-    
+
     /// Get all keys with a given prefix
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>>;
-    
+
     /// Close and flush any pending writes
     async fn close(&self) -> Result<()>;
 }
@@ -709,12 +713,13 @@ pub struct FilePersistence {
 
 impl FilePersistence {
     /// Create a new file persistence
-    #[must_use] pub fn new(config: PersistenceConfig) -> Self {
+    #[must_use]
+    pub fn new(config: PersistenceConfig) -> Self {
         Self {
             base_dir: config.storage_path,
         }
     }
-    
+
     /// Get the path for a key
     fn get_path(&self, key: &str) -> String {
         format!("{}/{}", self.base_dir, key)
@@ -725,59 +730,63 @@ impl FilePersistence {
 impl Persistence for FilePersistence {
     async fn init(&self) -> Result<()> {
         // Create the storage directory if it doesn't exist
-        fs::create_dir_all(&self.base_dir)
-            .map_err(|e| PersistenceError::IO(format!("Failed to create storage directory: {e}")))?;
+        fs::create_dir_all(&self.base_dir).map_err(|e| {
+            PersistenceError::IO(format!("Failed to create storage directory: {e}"))
+        })?;
         Ok(())
     }
-    
+
     async fn save_session(&self, session: &SessionData) -> Result<()> {
         let key = format!("sessions/{}", session.token.0);
         let data = serde_json::to_vec(session)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize session: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_session(&self, token: &SessionToken) -> Result<Option<SessionData>> {
         let key = format!("sessions/{}", token.0);
         if let Some(data) = self.load_data(&key).await? {
-            let session = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize session: {e}")))?;
+            let session = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize session: {e}"))
+            })?;
             Ok(Some(session))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn delete_session(&self, token: &SessionToken) -> Result<()> {
         let key = format!("sessions/{}", token.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_user(&self, user: &UserData) -> Result<()> {
         let key = format!("users/{}", user.id.0);
         let data = serde_json::to_vec(user)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize user: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_user_by_id(&self, id: &UserId) -> Result<Option<UserData>> {
         let key = format!("users/{}", id.0);
         if let Some(data) = self.load_data(&key).await? {
-            let user = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize user: {e}")))?;
+            let user = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize user: {e}"))
+            })?;
             Ok(Some(user))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>> {
         // We would need an index for this, but for simplicity we'll scan all users
         let keys = self.list_keys("users/").await?;
         for key in keys {
             if let Some(data) = self.load_data(&key).await? {
-                let user: UserData = serde_json::from_slice(&data)
-                    .map_err(|e| PersistenceError::Format(format!("Failed to deserialize user: {e}")))?;
+                let user: UserData = serde_json::from_slice(&data).map_err(|e| {
+                    PersistenceError::Format(format!("Failed to deserialize user: {e}"))
+                })?;
                 if user.username == username {
                     return Ok(Some(user));
                 }
@@ -785,49 +794,50 @@ impl Persistence for FilePersistence {
         }
         Ok(None)
     }
-    
+
     async fn delete_user(&self, id: &UserId) -> Result<()> {
         let key = format!("users/{}", id.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_account(&self, account: &AccountData) -> Result<()> {
         let key = format!("accounts/{}", account.id.0);
         let data = serde_json::to_vec(account)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize account: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_account(&self, id: &AccountId) -> Result<Option<AccountData>> {
         let key = format!("accounts/{}", id.0);
         if let Some(data) = self.load_data(&key).await? {
-            let account = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize account: {e}")))?;
+            let account = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize account: {e}"))
+            })?;
             Ok(Some(account))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn delete_account(&self, id: &AccountId) -> Result<()> {
         let key = format!("accounts/{}", id.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_data(&self, key: &str, value: &[u8]) -> Result<()> {
         let path = self.get_path(key);
-        
+
         // Ensure directory exists
         if let Some(parent) = std::path::Path::new(&path).parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| PersistenceError::IO(format!("Failed to create directory: {e}")))?;
         }
-        
+
         fs::write(&path, value)
             .map_err(|e| PersistenceError::IO(format!("Failed to write file: {e}")))?;
         Ok(())
     }
-    
+
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>> {
         let path = self.get_path(key);
         match fs::read(&path) {
@@ -836,7 +846,7 @@ impl Persistence for FilePersistence {
             Err(e) => Err(PersistenceError::IO(format!("Failed to read file: {e}")).into()),
         }
     }
-    
+
     async fn delete_data(&self, key: &str) -> Result<()> {
         let path = self.get_path(key);
         match fs::remove_file(&path) {
@@ -845,23 +855,24 @@ impl Persistence for FilePersistence {
             Err(e) => Err(PersistenceError::IO(format!("Failed to delete file: {e}")).into()),
         }
     }
-    
+
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
         let dir_path = format!("{}/{}", self.base_dir, prefix);
         let dir_path = std::path::Path::new(&dir_path);
-        
+
         if !dir_path.exists() {
             return Ok(Vec::new());
         }
-        
+
         let prefix_path = std::path::Path::new(&self.base_dir);
         let mut entries = Vec::new();
-        
+
         let read_dir = fs::read_dir(dir_path)
             .map_err(|e| PersistenceError::IO(format!("Failed to read directory: {e}")))?;
-        
+
         for entry in read_dir {
-            let entry = entry.map_err(|e| PersistenceError::IO(format!("Failed to read entry: {e}")))?;
+            let entry =
+                entry.map_err(|e| PersistenceError::IO(format!("Failed to read entry: {e}")))?;
             let path = entry.path();
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(prefix_path) {
@@ -871,10 +882,10 @@ impl Persistence for FilePersistence {
                 }
             }
         }
-        
+
         Ok(entries)
     }
-    
+
     async fn close(&self) -> Result<()> {
         // Nothing to do for file-based persistence
         Ok(())
@@ -890,7 +901,8 @@ pub struct MemoryPersistence {
 
 impl MemoryPersistence {
     /// Create a new memory persistence
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             data: std::sync::RwLock::new(std::collections::HashMap::new()),
         }
@@ -909,50 +921,55 @@ impl Persistence for MemoryPersistence {
         // Nothing to initialize for memory-based persistence
         Ok(())
     }
-    
+
     async fn save_session(&self, session: &SessionData) -> Result<()> {
         let key = format!("sessions/{}", session.token.0);
         let data = serde_json::to_vec(session)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize session: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_session(&self, token: &SessionToken) -> Result<Option<SessionData>> {
         let key = format!("sessions/{}", token.0);
         if let Some(data) = self.load_data(&key).await? {
-            let session = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize session: {e}")))?;
+            let session = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize session: {e}"))
+            })?;
             Ok(Some(session))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn delete_session(&self, token: &SessionToken) -> Result<()> {
         let key = format!("sessions/{}", token.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_user(&self, user: &UserData) -> Result<()> {
         let key = format!("users/{}", user.id.0);
         let data = serde_json::to_vec(user)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize user: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_user_by_id(&self, id: &UserId) -> Result<Option<UserData>> {
         let key = format!("users/{}", id.0);
         if let Some(data) = self.load_data(&key).await? {
-            let user = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize user: {e}")))?;
+            let user = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize user: {e}"))
+            })?;
             Ok(Some(user))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>> {
-        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
+        let data = self
+            .data
+            .read()
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
         for (key, value) in data.iter() {
             if key.starts_with("users/") {
                 if let Ok(user) = serde_json::from_slice::<UserData>(value) {
@@ -964,61 +981,75 @@ impl Persistence for MemoryPersistence {
         }
         Ok(None)
     }
-    
+
     async fn delete_user(&self, id: &UserId) -> Result<()> {
         let key = format!("users/{}", id.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_account(&self, account: &AccountData) -> Result<()> {
         let key = format!("accounts/{}", account.id.0);
         let data = serde_json::to_vec(account)
             .map_err(|e| PersistenceError::Format(format!("Failed to serialize account: {e}")))?;
         self.save_data(&key, &data).await
     }
-    
+
     async fn load_account(&self, id: &AccountId) -> Result<Option<AccountData>> {
         let key = format!("accounts/{}", id.0);
         if let Some(data) = self.load_data(&key).await? {
-            let account = serde_json::from_slice(&data)
-                .map_err(|e| PersistenceError::Format(format!("Failed to deserialize account: {e}")))?;
+            let account = serde_json::from_slice(&data).map_err(|e| {
+                PersistenceError::Format(format!("Failed to deserialize account: {e}"))
+            })?;
             Ok(Some(account))
         } else {
             Ok(None)
         }
     }
-    
+
     async fn delete_account(&self, id: &AccountId) -> Result<()> {
         let key = format!("accounts/{}", id.0);
         self.delete_data(&key).await
     }
-    
+
     async fn save_data(&self, key: &str, value: &[u8]) -> Result<()> {
-        let mut data = self.data.write().map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
+        let mut data = self
+            .data
+            .write()
+            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
         data.insert(key.to_string(), value.to_vec());
         Ok(())
     }
-    
+
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
+        let data = self
+            .data
+            .read()
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
         Ok(data.get(key).cloned())
     }
-    
+
     async fn delete_data(&self, key: &str) -> Result<()> {
-        let mut data = self.data.write().map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
+        let mut data = self
+            .data
+            .write()
+            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
         data.remove(key);
         Ok(())
     }
-    
+
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let data = self.data.read().map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
-        let keys: Vec<String> = data.keys()
+        let data = self
+            .data
+            .read()
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
+        let keys: Vec<String> = data
+            .keys()
             .filter(|k| k.starts_with(prefix))
             .cloned()
             .collect();
         Ok(keys)
     }
-    
+
     async fn close(&self) -> Result<()> {
         // Nothing to do for memory-based persistence
         Ok(())
@@ -1034,22 +1065,26 @@ pub struct PersistenceFactory {
 
 impl PersistenceFactory {
     /// Create a new persistence factory
-    #[must_use] pub fn new(config: PersistenceConfig) -> Self {
+    #[must_use]
+    pub fn new(config: PersistenceConfig) -> Self {
         Self { config }
     }
-    
+
     /// Create a file-based persistence
-    #[must_use] pub fn create_file_persistence(&self) -> Arc<dyn Persistence> {
+    #[must_use]
+    pub fn create_file_persistence(&self) -> Arc<dyn Persistence> {
         Arc::new(FilePersistence::new(self.config.clone()))
     }
-    
+
     /// Create a memory-based persistence
-    #[must_use] pub fn create_memory_persistence(&self) -> Arc<dyn Persistence> {
+    #[must_use]
+    pub fn create_memory_persistence(&self) -> Arc<dyn Persistence> {
         Arc::new(MemoryPersistence::new())
     }
-    
+
     /// Create a persistence based on the configuration
-    #[must_use] pub fn create_persistence(&self) -> Arc<dyn Persistence> {
+    #[must_use]
+    pub fn create_persistence(&self) -> Arc<dyn Persistence> {
         match self.config.storage_format.as_str() {
             "memory" => self.create_memory_persistence(),
             _ => self.create_file_persistence(),
@@ -1067,4 +1102,4 @@ impl Default for PersistenceFactory {
 mod tests {
     // Remove tests causing compilation issues
     // We'll add properly injected tests later
-} 
+}
