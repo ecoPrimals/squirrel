@@ -1,6 +1,6 @@
 ---
-version: 1.1.0
-last_updated: 2024-03-15
+version: 1.2.0
+last_updated: 2025-03-21
 status: active
 ---
 
@@ -8,6 +8,12 @@ status: active
 
 ## Overview
 The Machine Context Protocol (MCP) is a secure, efficient protocol for communication between AI tools and the DataScienceBioLab system. It provides reliable message delivery, security features, context management capabilities, and thread-safe operations.
+
+> **Note**: This document provides a high-level overview of the MCP. For detailed specifications, please refer to the following documents in the `protocol/` directory:
+>
+> - [Core Protocol Specification](protocol/README.md)
+> - [Tool Definition Specification](protocol/tool-definition.md)
+> - [Tool Execution Specification](protocol/tool-execution.md)
 
 ## Core Components
 
@@ -175,4 +181,15 @@ pub struct ErrorHandler {
 - < 500MB memory usage
 - < 1ms thread overhead
 
-<version>1.1.0</version>
+## Recent Updates
+
+### Version 1.2.0 (2025-03-21)
+- Added detailed protocol specifications in the `protocol/` directory
+- Created tool definition specification
+- Created tool execution specification
+- Added references to new protocol documentation
+
+### Version 1.1.0 (2024-03-15)
+- Initial protocol specification
+
+<version>1.2.0</version>
