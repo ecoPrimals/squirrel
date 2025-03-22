@@ -271,19 +271,19 @@ impl AuditLogger {
         events
             .iter()
             .filter(|event| {
-                match (&event.event_type, &event_type) {
-                    (AuditEventType::AuthenticationAttempt { .. }, AuditEventType::AuthenticationAttempt { .. }) => true,
-                    (AuditEventType::AuthenticationSuccess { .. }, AuditEventType::AuthenticationSuccess { .. }) => true,
-                    (AuditEventType::AuthenticationFailure { .. }, AuditEventType::AuthenticationFailure { .. }) => true,
-                    (AuditEventType::AuthorizationAttempt { .. }, AuditEventType::AuthorizationAttempt { .. }) => true,
-                    (AuditEventType::AuthorizationSuccess { .. }, AuditEventType::AuthorizationSuccess { .. }) => true,
-                    (AuditEventType::AuthorizationFailure { .. }, AuditEventType::AuthorizationFailure { .. }) => true,
-                    (AuditEventType::UserCreation { .. }, AuditEventType::UserCreation { .. }) => true,
-                    (AuditEventType::UserModification { .. }, AuditEventType::UserModification { .. }) => true,
-                    (AuditEventType::UserDeletion { .. }, AuditEventType::UserDeletion { .. }) => true,
-                    (AuditEventType::PermissionChange { .. }, AuditEventType::PermissionChange { .. }) => true,
-                    _ => false,
-                }
+                matches!(
+                    (&event.event_type, &event_type),
+                    (AuditEventType::AuthenticationAttempt { .. }, AuditEventType::AuthenticationAttempt { .. }) |
+                    (AuditEventType::AuthenticationSuccess { .. }, AuditEventType::AuthenticationSuccess { .. }) |
+                    (AuditEventType::AuthenticationFailure { .. }, AuditEventType::AuthenticationFailure { .. }) |
+                    (AuditEventType::AuthorizationAttempt { .. }, AuditEventType::AuthorizationAttempt { .. }) |
+                    (AuditEventType::AuthorizationSuccess { .. }, AuditEventType::AuthorizationSuccess { .. }) |
+                    (AuditEventType::AuthorizationFailure { .. }, AuditEventType::AuthorizationFailure { .. }) |
+                    (AuditEventType::UserCreation { .. }, AuditEventType::UserCreation { .. }) |
+                    (AuditEventType::UserModification { .. }, AuditEventType::UserModification { .. }) |
+                    (AuditEventType::UserDeletion { .. }, AuditEventType::UserDeletion { .. }) |
+                    (AuditEventType::PermissionChange { .. }, AuditEventType::PermissionChange { .. })
+                )
             })
             .cloned()
             .collect()

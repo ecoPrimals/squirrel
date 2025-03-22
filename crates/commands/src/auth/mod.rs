@@ -6,11 +6,13 @@
 pub mod audit;
 pub mod password;
 pub mod provider;
+pub mod roles;
 pub mod types;
 
 pub use audit::{AuditEvent, AuditEventType, AuditLogger};
 pub use password::{PasswordError, PasswordManager, PasswordResult};
 pub use provider::{AuthProvider, BasicAuthProvider};
+pub use roles::{Permission, Role, RoleManager, create_standard_permissions, create_standard_roles};
 pub use types::{AuthCredentials, AuthResult, CommandPermission, PermissionLevel, User};
 
 // Re-export commonly used types
@@ -24,6 +26,13 @@ use tokio::sync::RwLock;
 pub struct AuthManager {
     providers: Arc<RwLock<Vec<Box<dyn AuthProvider>>>>,
     audit_logger: Arc<AuditLogger>,
+    role_manager: Arc<RoleManager>,
+}
+
+impl Default for AuthManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AuthManager {
@@ -32,6 +41,7 @@ impl AuthManager {
         Self {
             providers: Arc::new(RwLock::new(Vec::new())),
             audit_logger: Arc::new(AuditLogger::new()),
+            role_manager: Arc::new(RoleManager::new()),
         }
     }
 
@@ -40,6 +50,7 @@ impl AuthManager {
         Self {
             providers: Arc::new(RwLock::new(vec![provider])),
             audit_logger: Arc::new(AuditLogger::new()),
+            role_manager: Arc::new(RoleManager::new()),
         }
     }
 
@@ -51,6 +62,28 @@ impl AuthManager {
     /// Gets a reference to the audit logger
     pub fn audit_logger(&self) -> &AuditLogger {
         &self.audit_logger
+    }
+
+    /// Gets a reference to the role manager
+    pub fn role_manager(&self) -> &RoleManager {
+        &self.role_manager
+    }
+
+    /// Initializes the RBAC system with standard roles and permissions
+    pub async fn initialize_rbac(&self) -> AuthResult<()> {
+        // Create standard permissions
+        let permissions = create_standard_permissions();
+        for permission in &permissions {
+            self.role_manager.create_permission(permission.clone()).await?;
+        }
+
+        // Create standard roles
+        let roles = create_standard_roles(&permissions);
+        for role in &roles {
+            self.role_manager.create_role(role.clone()).await?;
+        }
+
+        Ok(())
     }
 
     /// Authenticates a user with the given credentials
@@ -72,9 +105,30 @@ impl AuthManager {
         }
     }
 
-    /// Authorizes a user to execute a command
+    /// Authorizes a user to execute a command using role-based permissions
     pub async fn authorize(&self, user: &User, command: &dyn Command) -> AuthResult<bool> {
-        let provider = self.providers.write().await;
+        self.audit_logger.log_authorization_attempt(user, command).await;
+
+        // Check role-based authorization first
+        let rbac_result = self.role_manager.authorize_command(&user.id, command).await?;
+        
+        if rbac_result {
+            // User has role-based permission
+            self.audit_logger.log_authorization_success(user, command).await;
+            return Ok(true);
+        }
+
+        // If there are command permissions defined but user doesn't have the roles needed,
+        // don't fall back to legacy permission system
+        let command_permissions = self.role_manager.get_command_permissions(command.name()).await?;
+        if !command_permissions.is_empty() {
+            // Command has specific RBAC permissions defined, but user doesn't have them
+            self.audit_logger.log_authorization_failure(user, command, "No required role permissions").await;
+            return Ok(false);
+        }
+
+        // Fall back to permission level-based authorization
+        let provider = self.providers.read().await;
         let first_provider = provider.first().ok_or_else(|| {
             CommandError::RegistryError("No authentication provider available".to_string())
         })?;
@@ -93,6 +147,56 @@ impl AuthManager {
                 Err(e)
             }
         }
+    }
+
+    /// Assigns a role to a user
+    pub async fn assign_role_to_user(&self, user: &User, role_id: &str) -> AuthResult<()> {
+        // Get the role to verify it exists
+        let role = self.role_manager.get_role(role_id).await?;
+        
+        // Assign the role
+        let result = self.role_manager.assign_role_to_user(&user.id, role_id).await;
+        
+        if result.is_ok() {
+            // Log the role assignment
+            self.audit_logger
+                .log_user_modification(user, &format!("Assigned role: {}", role.name))
+                .await;
+        }
+        
+        result
+    }
+
+    /// Revokes a role from a user
+    pub async fn revoke_role_from_user(&self, user: &User, role_id: &str) -> AuthResult<()> {
+        // Get the role to verify it exists and get its name
+        let role = self.role_manager.get_role(role_id).await?;
+        
+        // Revoke the role
+        let result = self.role_manager.revoke_role_from_user(&user.id, role_id).await;
+        
+        if result.is_ok() {
+            // Log the role revocation
+            self.audit_logger
+                .log_user_modification(user, &format!("Revoked role: {}", role.name))
+                .await;
+        }
+        
+        result
+    }
+
+    /// Gets all roles assigned to a user
+    pub async fn get_user_roles(&self, user: &User) -> AuthResult<Vec<Role>> {
+        let role_ids = self.role_manager.get_user_roles(&user.id).await?;
+        let mut roles = Vec::new();
+        
+        for role_id in role_ids {
+            if let Ok(role) = self.role_manager.get_role(&role_id).await {
+                roles.push(role);
+            }
+        }
+        
+        Ok(roles)
     }
 
     /// Creates a new user
@@ -214,7 +318,7 @@ impl AuthManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::User;
+    use std::collections::HashSet;
     
     struct TestCommand;
     
@@ -278,5 +382,61 @@ mod tests {
         // Verify audit logs
         let audit_logs = auth_manager.audit_logger().get_events().await;
         assert!(audit_logs.len() >= 5); // Creation, auth success, authorization success, permission change, deletion
+    }
+
+    #[tokio::test]
+    async fn test_rbac() {
+        let auth_manager = AuthManager::with_basic_provider();
+        
+        // Initialize RBAC system
+        auth_manager.initialize_rbac().await.unwrap();
+        
+        // Create a test user
+        let username = "rbac_test";
+        let user = User::standard(username, username);
+        auth_manager.add_user_with_password(user.clone(), "password123").await.unwrap();
+        
+        // Test command
+        let command = TestCommand;
+        
+        // Get execute permission
+        let permissions = auth_manager.role_manager().list_permissions().await.unwrap();
+        let execute_perm = permissions
+            .iter()
+            .find(|p| p.resource == "command" && p.action == "execute")
+            .unwrap();
+        
+        // Set command permissions
+        let mut command_perms = HashSet::new();
+        command_perms.insert(execute_perm.id.clone());
+        auth_manager
+            .role_manager()
+            .set_command_permissions(command.name(), command_perms)
+            .await
+            .unwrap();
+        
+        // Get user role
+        let roles = auth_manager.role_manager().list_roles().await.unwrap();
+        let user_role = roles.iter().find(|r| r.name == "User").unwrap();
+        
+        // Assign role to user
+        auth_manager
+            .assign_role_to_user(&user, &user_role.id)
+            .await
+            .unwrap();
+        
+        // Test authorization with role
+        let auth_result = auth_manager.authorize(&user, &command).await.unwrap();
+        assert!(auth_result, "User should be authorized by role");
+        
+        // Revoke role
+        auth_manager
+            .revoke_role_from_user(&user, &user_role.id)
+            .await
+            .unwrap();
+        
+        // Test authorization without role
+        let auth_result = auth_manager.authorize(&user, &command).await.unwrap();
+        assert!(!auth_result, "User should not be authorized after role revocation");
     }
 } 
