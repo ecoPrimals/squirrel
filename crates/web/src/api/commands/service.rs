@@ -5,7 +5,7 @@ use thiserror::Error;
 use async_trait::async_trait;
 
 use crate::api::commands::models::{
-    CommandDefinition, CommandExecution, CommandStatus, 
+    CommandExecution, CommandStatus, 
     CommandSummary, CreateCommandRequest, CreateCommandResponse,
     CommandStatusResponse, AvailableCommand
 };

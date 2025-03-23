@@ -16,7 +16,6 @@ use crate::websocket::{
     WebSocketMessage,
     error::WebSocketError,
     ChannelCategory,
-    make_channel_id,
 };
 
 // Define the event types that were missing

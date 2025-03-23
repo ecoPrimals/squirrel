@@ -10,10 +10,5 @@ pub mod service;
 // pub mod v1;
 
 // Import types directly from API module instead
-use crate::api::commands::{
-    CommandDefinition,
-    CommandExecution,
-    CommandStatus,
-};
 
 pub use routes::command_routes; 

@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 
 use crate::error::{Result, CoreError};
 use squirrel_core::error::SquirrelError;
-use squirrel_monitoring::alerts::Alert;
+use squirrel_monitoring::alerts::status::Alert;
 
 /// Alert configuration
 #[derive(Debug, Clone)]

@@ -20,7 +20,7 @@ pub use metrics::MetricCollectorImpl;
 pub use self::service_impl::SystemStatus;
 
 // Import squirrel monitoring modules
-use squirrel_monitoring::alerts::Alert;
+use squirrel_monitoring::alerts::status::Alert;
 
 // Local imports
 use crate::events::EventHandler;

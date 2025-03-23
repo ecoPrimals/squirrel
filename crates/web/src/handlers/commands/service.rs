@@ -2,15 +2,12 @@
 //!
 //! This module contains the service layer for command execution and management.
 
-use axum::extract::Query;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
 use std::convert::TryInto;
 use std::sync::Arc;
 use async_trait::async_trait;
 #[cfg(feature = "db")]
 use sqlx::{Executor, Row, SqlitePool};
-use uuid::Uuid;
 
 use crate::api::error::AppError;
 use crate::api::commands::{
@@ -18,11 +15,9 @@ use crate::api::commands::{
     CommandExecution,
     CommandStatus,
 };
-use crate::mcp::{McpCommandClient, McpError, McpClient};
+use crate::mcp::{McpCommandClient, McpClient};
 // Import the CommandService trait from the new API for proper access to methods
 use crate::api::commands::service::CommandService as NewCommandService;
-use crate::api::commands::CommandServiceError;
-use crate::state::AppState;
 
 /// Command service trait
 #[async_trait]

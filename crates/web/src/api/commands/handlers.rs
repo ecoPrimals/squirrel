@@ -2,17 +2,14 @@ use axum::{
     extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
-    Json, Router,
+    Json,
 };
-use chrono::Utc;
 use serde::{Deserialize};
 use std::sync::Arc;
 use tracing::{info, error};
 
 use crate::{
     api::{api_success, ApiResponse, ApiError, api_success_paginated},
-    api::error::AppError,
     auth::extractor::AuthClaims,
     state::AppState,
 };

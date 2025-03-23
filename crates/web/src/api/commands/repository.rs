@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use chrono::{DateTime, Utc};
-use sqlx::SqlitePool;
+use chrono::Utc;
 use uuid::Uuid;
 use async_trait::async_trait;
 
 use crate::api::commands::models::{
-    CommandDefinition, CommandExecution, CommandStatus, CommandSummary
+    CommandDefinition, CommandExecution, CommandSummary
 };
 
 #[async_trait]

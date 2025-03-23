@@ -10,14 +10,12 @@ use crate::auth::extractor::AuthClaims;
 use crate::api::{
     api_success,
     commands::{
-        CreateCommandRequest, CreateCommandResponse, CommandStatus,
-        models::AvailableCommand
+        CreateCommandRequest, CreateCommandResponse, CommandStatus
     },
     error::AppError,
     ApiResponse,
 };
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use std::str::FromStr;
 
 /// Command routes
