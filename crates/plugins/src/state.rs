@@ -3,8 +3,7 @@
 //! This module provides functionality for managing plugin state persistence.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -30,7 +29,7 @@ pub struct PluginState {
 
 impl PluginState {
     /// Create new plugin state
-    pub fn new(plugin_id: Uuid, data: serde_json::Value) -> Self {
+    #[must_use] pub fn new(plugin_id: Uuid, data: serde_json::Value) -> Self {
         Self {
             plugin_id,
             data,
@@ -67,7 +66,7 @@ pub struct MemoryStateManager {
 
 impl MemoryStateManager {
     /// Create new memory state manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             states: RwLock::new(HashMap::new()),
         }
@@ -114,7 +113,7 @@ impl FileStateManager {
     
     /// Get state file path for plugin
     fn get_state_path(&self, plugin_id: Uuid) -> PathBuf {
-        self.state_dir.join(format!("{}.json", plugin_id))
+        self.state_dir.join(format!("{plugin_id}.json"))
     }
 }
 
@@ -130,7 +129,7 @@ impl PluginStateManager for FileStateManager {
         
         let content = fs::read_to_string(path).await?;
         let state = serde_json::from_str(&content)
-            .map_err(|e| PluginError::SerializationError(e))?;
+            .map_err(PluginError::SerializationError)?;
         
         Ok(Some(state))
     }
@@ -145,7 +144,7 @@ impl PluginStateManager for FileStateManager {
         }
         
         let content = serde_json::to_string_pretty(&state)
-            .map_err(|e| PluginError::SerializationError(e))?;
+            .map_err(PluginError::SerializationError)?;
         
         fs::write(path, content).await?;
         

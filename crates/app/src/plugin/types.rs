@@ -8,9 +8,6 @@ use crate::plugin::{PluginState};
 use tokio::sync::RwLock;
 use futures::future::BoxFuture;
 use std::any::Any;
-use std::marker::PhantomData;
-use std::path::Path;
-use uuid::Uuid;
 
 /// Command plugin for extending command functionality
 #[async_trait]

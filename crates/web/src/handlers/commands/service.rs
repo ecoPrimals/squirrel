@@ -428,7 +428,6 @@ impl MockCommandService {
                 // Forward to the inner client
                 self.inner.execute_command(command, payload)
                     .await
-                    .map(|id| id)
                     .map_err(|e| crate::mcp::McpError::CommandError(format!("{:?}", e)))
             }
         }
@@ -567,8 +566,8 @@ impl CommandService for MockCommandService {
                 let filtered: Vec<_> = summaries
                     .into_iter()
                     .filter(|s| {
-                        let status_match = status.as_ref().map_or(true, |st| &s.status == st);
-                        let command_match = command.as_ref().map_or(true, |cmd| &s.command == cmd);
+                        let status_match = status.as_ref().is_none_or(|st| &s.status == st);
+                        let command_match = command.as_ref().is_none_or(|cmd| &s.command == cmd);
                         status_match && command_match
                     })
                     .collect();

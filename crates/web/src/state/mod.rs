@@ -11,7 +11,7 @@ use crate::auth::AuthService;
 use crate::mcp::McpClient;
 use crate::api::commands::CommandService;
 use crate::api::commands::CommandServiceError;
-use squirrel_plugins::PluginManager;
+use crate::plugins::PluginManager;
 
 /// Machine Context Protocol client trait (legacy)
 #[async_trait]

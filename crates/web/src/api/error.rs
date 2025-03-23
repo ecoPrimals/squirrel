@@ -176,8 +176,8 @@ impl IntoResponse for AppError {
         );
 
         // Generate a request ID for tracking
-        let request_id = Uuid::new_v4().to_string();
-        let timestamp = Utc::now().to_rfc3339();
+        let _request_id = Uuid::new_v4().to_string();
+        let _timestamp = Utc::now().to_rfc3339();
 
         // Create a standard API response with error details
         let body = Json(ApiResponse::<()> {

@@ -28,18 +28,20 @@ chrono = { version = "0.4", features = ["serde"] }
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-native-tls", "macros", "uuid", "chrono", "sqlite", "migrate"] }
 jsonwebtoken = "8.1"
 bcrypt = "0.10"
+hyper = "0.14"
 
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
 
-# Plugin system
-squirrel-plugins = { path = "../plugins", features = ["web"] }
+# Removed the circular dependency
+# squirrel-plugins = { path = "../plugins", features = ["web"] }
 
 [features]
-default = ["mock-db"]
+default = ["mock-db", "server"]
 db = []
 mock-db = []
+server = []
 
 [dev-dependencies]
 tokio-test = "0.4" 

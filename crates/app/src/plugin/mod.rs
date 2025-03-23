@@ -112,6 +112,9 @@ pub enum PluginError {
     /// Security constraint
     #[error("Security constraint: {0}")]
     SecurityConstraint(String),
+    /// Cyclic dependency
+    #[error("Cyclic dependency detected")]
+    CyclicDependency,
 }
 
 /// Core plugin trait that all plugins must implement
@@ -151,7 +154,8 @@ impl Clone for Box<dyn Plugin> {
 }
 
 /// Visit plugin dependencies in topological order
-async fn visit_dependency(
+#[allow(dead_code)]
+fn _visit_dependency(
     id: Uuid,
     plugins: &HashMap<Uuid, Box<dyn Plugin>>,
     name_to_id: &HashMap<String, Uuid>,
@@ -181,8 +185,8 @@ async fn visit_dependency(
         let dep_id = name_to_id.get(dep_name)
             .ok_or_else(|| PluginError::DependencyNotFound(dep_name.clone()))?;
         
-        // Box the future to avoid infinitely sized futures due to recursion
-        Box::pin(visit_dependency(*dep_id, plugins, name_to_id, visited, temp, order)).await?;
+        // Recursively visit dependencies
+        _visit_dependency(*dep_id, plugins, name_to_id, visited, temp, order)?;
     }
     
     // Mark as visited
@@ -227,6 +231,9 @@ pub enum PluginStorageEnum {
 
 impl PluginStorageEnum {
     /// Save plugin state
+    ///
+    /// # Errors
+    /// Returns an error if saving the plugin state fails
     pub async fn save_plugin_state(&self, state: &PluginState) -> Result<()> {
         match self {
             Self::Memory(storage) => storage.save_plugin_state(state).await,
@@ -235,6 +242,9 @@ impl PluginStorageEnum {
     }
     
     /// Load plugin state
+    ///
+    /// # Errors
+    /// Returns an error if loading the plugin state fails
     pub async fn load_plugin_state(&self, plugin_id: Uuid) -> Result<Option<PluginState>> {
         match self {
             Self::Memory(storage) => storage.load_plugin_state(plugin_id).await,
@@ -243,6 +253,9 @@ impl PluginStorageEnum {
     }
     
     /// List all plugin states
+    ///
+    /// # Errors
+    /// Returns an error if listing plugin states fails
     pub async fn list_plugin_states(&self) -> Result<Vec<PluginState>> {
         match self {
             Self::Memory(storage) => storage.list_plugin_states().await,
@@ -255,12 +268,21 @@ impl PluginStorageEnum {
 #[async_trait]
 pub trait PluginStorage: Send + Sync + std::fmt::Debug + 'static {
     /// Save plugin state
+    ///
+    /// # Errors
+    /// Returns an error if saving the plugin state fails
     async fn save_plugin_state(&self, state: &PluginState) -> Result<()>;
     
     /// Load plugin state
+    ///
+    /// # Errors
+    /// Returns an error if loading the plugin state fails
     async fn load_plugin_state(&self, plugin_id: Uuid) -> Result<Option<PluginState>>;
     
     /// List all plugin states
+    ///
+    /// # Errors
+    /// Returns an error if listing plugin states fails
     async fn list_plugin_states(&self) -> Result<Vec<PluginState>>;
 }
 
@@ -271,9 +293,15 @@ pub struct MemoryStorage {
     states: Arc<RwLock<HashMap<Uuid, PluginState>>>,
 }
 
+impl Default for MemoryStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryStorage {
     /// Create a new memory storage
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             states: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -308,6 +336,9 @@ pub struct FileStorage {
 
 impl FileStorage {
     /// Create a new file storage
+    ///
+    /// # Errors
+    /// Returns an error if creating the base directory fails
     pub fn new(base_dir: &Path) -> Result<Self> {
         // Create directory if it doesn't exist
         if !base_dir.exists() {
@@ -321,7 +352,7 @@ impl FileStorage {
     
     /// Get path for a plugin state file
     fn get_state_path(&self, plugin_id: Uuid) -> PathBuf {
-        self.base_dir.join(format!("{}.json", plugin_id))
+        self.base_dir.join(format!("{plugin_id}.json"))
     }
 }
 
@@ -387,7 +418,7 @@ impl PluginStorage for FileStorage {
 
 impl PluginManager {
     /// Create a new plugin manager with memory storage
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             capabilities: Arc::new(RwLock::new(HashMap::new())),
@@ -401,6 +432,9 @@ impl PluginManager {
     }
     
     /// Create a new plugin manager with file storage
+    ///
+    /// # Errors
+    /// Returns an error if creating the file storage fails
     pub fn with_file_storage(base_dir: &Path) -> Result<Self> {
         Ok(Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
@@ -415,7 +449,7 @@ impl PluginManager {
     }
     
     /// Create a new plugin manager with custom storage
-    pub fn with_storage(storage: PluginStorageEnum) -> Self {
+    #[must_use] pub fn with_storage(storage: PluginStorageEnum) -> Self {
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             capabilities: Arc::new(RwLock::new(HashMap::new())),
@@ -582,17 +616,14 @@ impl PluginManager {
             let plugin = plugins.get(&id).ok_or(PluginError::NotFound(id))?;
             
             // Initialize with a timeout
-            match tokio::time::timeout(
+            if let Ok(result) = tokio::time::timeout(
                 Duration::from_secs(30),
                 plugin.initialize()
-            ).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    // Update status to failed and return an error
-                    let mut statuses = self.statuses.write().await;
-                    statuses.insert(id, PluginStatus::Failed);
-                    return Err(PluginError::InitializationTimeout.into());
-                }
+            ).await { result? } else {
+                // Update status to failed and return an error
+                let mut statuses = self.statuses.write().await;
+                statuses.insert(id, PluginStatus::Failed);
+                return Err(PluginError::InitializationTimeout.into());
             }
             
             // Update plugin status to active
@@ -625,7 +656,7 @@ impl PluginManager {
         // Ensure the plugin status is correctly set, even if we got an error
         // This fixes an issue where the plugin status wasn't being updated correctly
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 // Double-check that status is set to Disabled
                 let mut status = self.statuses.write().await;
                 status.insert(id, PluginStatus::Disabled);
@@ -687,9 +718,7 @@ impl PluginManager {
                     let status = self.get_plugin_status(other_id).await.unwrap_or(PluginStatus::Registered);
                     if status == PluginStatus::Active {
                         return Err(PluginError::DependencyNotFound(format!(
-                            "Plugin {} is still in use by {}",
-                            plugin_name,
-                            other_id
+                            "Plugin {plugin_name} is still in use by {other_id}"
                         )).into());
                     }
                 }
@@ -709,18 +738,15 @@ impl PluginManager {
             
             // Shutdown plugin with a timeout
             // Increased timeout from 5 to 10 seconds to avoid premature failures
-            match tokio::time::timeout(
+            if let Ok(result) = tokio::time::timeout(
                 Duration::from_secs(10),
                 plugin.shutdown()
-            ).await {
-                Ok(result) => result?,
-                Err(_) => {
-                    // Update status to failed if we time out
-                    if let Ok(mut statuses) = self.statuses.try_write() {
-                        statuses.insert(id, PluginStatus::Failed);
-                    }
-                    return Err(PluginError::ShutdownFailed("Timeout during shutdown".to_string()).into());
+            ).await { result? } else {
+                // Update status to failed if we time out
+                if let Ok(mut statuses) = self.statuses.try_write() {
+                    statuses.insert(id, PluginStatus::Failed);
                 }
+                return Err(PluginError::ShutdownFailed("Timeout during shutdown".to_string()).into());
             }
             
             // Update plugin status to unloaded
@@ -757,6 +783,10 @@ impl PluginManager {
     /// # Returns
     /// 
     /// Returns `Ok(())` if the operation is allowed, `Err` otherwise
+    ///
+    /// # Errors
+    /// 
+    /// Returns an error if the operation is not allowed by the security validator
     pub async fn validate_operation(&self, id: Uuid, operation: &str) -> Result<()> {
         // Check security validator
         if let Some(security) = &*self.security_validator.read().await {
@@ -835,6 +865,9 @@ impl PluginManager {
     }
     
     /// Resolve plugin dependencies
+    ///
+    /// # Errors
+    /// Returns an error if a plugin dependency cannot be found or if there is a cyclic dependency
     pub async fn resolve_dependencies(&self) -> Result<Vec<Uuid>> {
         let plugins = self.plugins.read().await;
         let name_to_id = self.name_to_id.read().await;
@@ -846,14 +879,14 @@ impl PluginManager {
         // Initialize graph and in-degrees
         for (id, plugin) in plugins.iter() {
             let deps = plugin.metadata().dependencies.iter()
-                .filter_map(|dep_name| name_to_id.get(dep_name).cloned())
+                .filter_map(|dep_name| name_to_id.get(dep_name).copied())
                 .collect::<Vec<_>>();
             
             graph.insert(*id, deps.clone());
             in_degrees.insert(*id, 0);
             
             // Initialize in-degrees for dependencies
-            for dep_id in deps.iter() {
+            for dep_id in &deps {
                 if !in_degrees.contains_key(dep_id) {
                     in_degrees.insert(*dep_id, 0);
                 }
@@ -861,7 +894,7 @@ impl PluginManager {
         }
         
         // Calculate in-degrees
-        for (_, deps) in graph.iter() {
+        for (_id, deps) in &graph {
             for dep_id in deps {
                 *in_degrees.entry(*dep_id).or_insert(0) += 1;
             }
@@ -869,7 +902,7 @@ impl PluginManager {
         
         // Start with nodes that have no dependencies
         let mut queue = VecDeque::new();
-        for (id, in_degree) in in_degrees.iter() {
+        for (id, in_degree) in &in_degrees {
             if *in_degree == 0 {
                 queue.push_back(*id);
             }
@@ -895,7 +928,7 @@ impl PluginManager {
         
         // Check if there's a cycle in the graph
         if order.len() != graph.len() {
-            return Err(PluginError::DependencyCycle(Uuid::nil()).into());
+            return Err(PluginError::CyclicDependency.into());
         }
         
         // Reverse the order to get dependency-first ordering
@@ -917,7 +950,10 @@ impl PluginManager {
         Ok(())
     }
     
-    /// Unload all plugins in reverse topological order
+    /// Unload all plugins
+    ///
+    /// # Errors
+    /// Returns an error if any plugin fails to unload
     pub async fn unload_all_plugins(&self) -> Result<()> {
         // Get the plugins in reverse topological order
         let ids = self.reverse_topological_order().await?;
@@ -935,7 +971,7 @@ impl PluginManager {
                 Ok(Ok(())) => continue,
                 Ok(Err(e)) => {
                     warn!("Failed to unload plugin {}: {}", id, e);
-                    failures.push((id, format!("{}", e)));
+                    failures.push((id, format!("{e}")));
                     
                     // Even if the unload process failed, we still want to ensure the status is set
                     let mut status = self.statuses.write().await;
@@ -975,7 +1011,7 @@ impl PluginManager {
             Ok(())
         } else {
             warn!("Failed to unload {} plugins", failures.len());
-            Err(PluginError::ShutdownFailed(format!("Failed to unload plugins: {:?}", failures)).into())
+            Err(PluginError::ShutdownFailed(format!("Failed to unload plugins: {failures:?}")).into())
         }
     }
     
@@ -1037,6 +1073,9 @@ impl PluginManager {
     }
     
     /// Set plugin state
+    ///
+    /// # Errors
+    /// Returns an error if saving the plugin state fails
     pub async fn set_plugin_state(&self, state: PluginState) -> Result<()> {
         let plugin_id = state.plugin_id;
         let plugins = self.plugins.read().await;
@@ -1070,6 +1109,9 @@ impl PluginManager {
     }
 
     /// List all plugin states
+    ///
+    /// # Errors
+    /// Returns an error if listing plugin states fails
     pub async fn list_plugin_states(&self) -> Result<Vec<PluginState>> {
         let plugins = self.plugins.read().await;
         let mut states = Vec::new();
@@ -1229,6 +1271,9 @@ impl PluginManager {
     }
 
     /// Get all plugin states
+    ///
+    /// # Errors
+    /// Returns an error if loading any plugin state fails
     pub async fn get_all_plugin_states(&self) -> Result<Vec<PluginState>> {
         let storage = self.storage.read().await;
         if let Some(storage) = storage.as_ref() {

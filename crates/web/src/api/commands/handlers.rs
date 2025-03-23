@@ -19,8 +19,7 @@ use crate::api::commands::models::{
 };
 use crate::api::commands::{
     AvailableCommand,
-    CommandServiceError,
-    CommandService
+    CommandServiceError
 };
 use crate::auth::Claims;
 

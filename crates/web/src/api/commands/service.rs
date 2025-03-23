@@ -85,7 +85,7 @@ impl CommandService for CommandServiceImpl {
         user_id: &str
     ) -> Result<CreateCommandResponse, CommandServiceError> {
         // Validate command exists
-        let command_def = self.repository
+        let _command_def = self.repository
             .get_command_definition(&request.command)
             .await?
             .ok_or_else(|| CommandServiceError::CommandNotFound(request.command.clone()))?;

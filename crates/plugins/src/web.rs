@@ -94,34 +94,6 @@ pub struct WebPluginEndpoint {
     pub metadata: serde_json::Value,
 }
 
-/// Web plugin manager trait
-#[async_trait]
-pub trait WebPluginManager: Send + Sync {
-    /// Initialize the web plugin system
-    async fn initialize(&self) -> Result<()>;
-    
-    /// Shutdown the web plugin system
-    async fn shutdown(&self) -> Result<()>;
-    
-    /// Register a web plugin
-    async fn register_plugin(&self, plugin: Arc<dyn WebPlugin>) -> Result<()>;
-    
-    /// Unregister a web plugin
-    async fn unregister_plugin(&self, id: Uuid) -> Result<()>;
-    
-    /// Get all web plugins
-    async fn get_plugins(&self) -> Result<Vec<Arc<dyn WebPlugin>>>;
-    
-    /// Get all web plugin routes
-    async fn get_routes(&self) -> Result<Vec<(Uuid, WebPluginRoute)>>;
-    
-    /// Get all web plugin components
-    async fn get_components(&self) -> Result<Vec<(Uuid, WebPluginComponent)>>;
-    
-    /// Get all web plugin endpoints
-    async fn get_endpoints(&self) -> Result<Vec<(Uuid, WebPluginEndpoint)>>;
-}
-
 /// Web plugin trait
 #[async_trait]
 pub trait WebPlugin: Plugin + Send + Sync {
@@ -158,7 +130,35 @@ pub trait WebPlugin: Plugin + Send + Sync {
     ) -> Result<serde_json::Value>;
 }
 
-/// Default web plugin implementation
+/// Web plugin manager trait
+#[async_trait]
+pub trait WebPluginManager: Send + Sync {
+    /// Initialize the web plugin system
+    async fn initialize(&self) -> Result<()>;
+    
+    /// Shutdown the web plugin system
+    async fn shutdown(&self) -> Result<()>;
+    
+    /// Register a web plugin
+    async fn register_plugin(&self, plugin: Arc<dyn WebPlugin>) -> Result<()>;
+    
+    /// Unregister a web plugin
+    async fn unregister_plugin(&self, id: Uuid) -> Result<()>;
+    
+    /// Get all web plugins
+    async fn get_plugins(&self) -> Result<Vec<Arc<dyn WebPlugin>>>;
+    
+    /// Get all web plugin routes
+    async fn get_routes(&self) -> Result<Vec<(Uuid, WebPluginRoute)>>;
+    
+    /// Get all web plugin components
+    async fn get_components(&self) -> Result<Vec<(Uuid, WebPluginComponent)>>;
+    
+    /// Get all web plugin endpoints
+    async fn get_endpoints(&self) -> Result<Vec<(Uuid, WebPluginEndpoint)>>;
+}
+
+/// Default web plugin manager implementation
 #[derive(Debug)]
 pub struct DefaultWebPluginManager {
     /// Web plugins

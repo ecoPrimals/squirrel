@@ -1,13 +1,18 @@
 use std::sync::Arc;
 use anyhow::Result;
-use axum::{Router, http::Method, routing::{get, post}};
+use axum::{
+    Router, 
+    http::Method, 
+    routing::{get, post}
+};
 use tower_http::cors::{CorsLayer, Any};
 #[cfg(feature = "db")]
 use sqlx::{migrate::MigrateDatabase, Sqlite};
 #[cfg(feature = "mock-db")]
 // use sqlx::SqlitePool; // Commented out since it's unused
 use serde::{Deserialize, Serialize};
-// use chrono; // Commented out since it's unused
+
+// Add hyper crate dependency if needed
 
 pub mod auth;
 mod handlers;
@@ -18,6 +23,7 @@ pub mod websocket;
 pub mod config;
 pub mod db;
 pub mod plugins;
+pub mod utils;
 
 use crate::state::AppState;
 use crate::config::Config;
@@ -25,7 +31,6 @@ use crate::db::SqlitePool as DbPool;
 use auth::{AuthConfig, AuthService};
 use mcp::{McpClient, MockMcpClient};
 use api::commands::{CommandService, CommandServiceImpl, CommandRepository};
-use squirrel_plugins::PluginManager;
 
 // Fix import for repositories
 #[cfg(feature = "db")]
@@ -140,7 +145,7 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
     // Initialize plugin manager
     let plugin_manager = Arc::new(plugins::init_plugin_system().await.unwrap_or_else(|e| {
         eprintln!("Failed to initialize plugin system: {}", e);
-        PluginManager::default()
+        plugins::PluginManager::new()
     }));
     
     // Create app state
@@ -177,8 +182,9 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         .route("/ws", get(websocket::ws_handler))
         .layer(CorsLayer::permissive());
     
-    // Add plugin routes
-    let app = plugins::create_plugin_routes(app.clone(), state.clone());
+    // Add plugin routes 
+    // We need to use the await keyword since the method is async now
+    let app_with_plugins = plugins::create_plugin_routes(app, state.clone()).await;
     
-    app.with_state(state)
+    app_with_plugins.with_state(state)
 }

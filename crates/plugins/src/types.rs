@@ -2,21 +2,22 @@
 //!
 //! This module defines the various plugin types supported by the system.
 
-use std::any::Any;
-use std::fmt::Debug;
-use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
 use crate::core::Plugin;
 use crate::Result;
 
 /// Plugin type identifiers
+/// Core plugin type for system extensions
 pub const PLUGIN_TYPE_CORE: &str = "core";
+/// Web plugin type for interface extensions
 pub const PLUGIN_TYPE_WEB: &str = "web";
+/// MCP (Machine Context Protocol) plugin type for protocol extensions
 pub const PLUGIN_TYPE_MCP: &str = "mcp";
+/// Tool plugin type for utility extensions
 pub const PLUGIN_TYPE_TOOL: &str = "tool";
+/// CLI plugin type for command-line interface extensions
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
 /// Core plugin trait for core system extensions

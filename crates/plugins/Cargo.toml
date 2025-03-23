@@ -16,17 +16,20 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 tracing = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
 
 # Optional dependencies for different plugin types
 squirrel-app = { path = "../app", optional = true }
-squirrel-web = { path = "../web", optional = true }
+# Remove squirrel-web dependency to break circular dependency
+# squirrel-web = { path = "../web", optional = true }
 squirrel-mcp = { path = "../mcp", optional = true }
 squirrel-cli = { path = "../cli", optional = true }
 
 [features]
 default = ["core"]
 core = []
-web = ["squirrel-web"]
+# Update web feature to not depend on squirrel-web
+web = []
 mcp = ["squirrel-mcp"]
 cli = ["squirrel-cli"]
 all = ["core", "web", "mcp", "cli"]

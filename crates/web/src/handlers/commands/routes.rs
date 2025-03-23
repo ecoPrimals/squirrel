@@ -77,7 +77,7 @@ async fn create_command(
 /// List available commands
 async fn list_commands(
     State(state): State<Arc<AppState>>,
-    Extension(user): Extension<AuthClaims>,
+    Extension(_user): Extension<AuthClaims>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<ApiResponse<CommandListResponse>>, AppError> {
     let command_service = state.get_command_service();
@@ -137,9 +137,9 @@ async fn get_command_status(
 
 /// Cancel command execution
 async fn cancel_command(
-    State(state): State<Arc<AppState>>,
-    Extension(user): Extension<AuthClaims>,
-    Path(id): Path<String>,
+    State(_state): State<Arc<AppState>>,
+    Extension(_user): Extension<AuthClaims>,
+    Path(_id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
     // Note: The real CommandService doesn't have a cancel_command method yet
     // For now, we'll just return success
@@ -168,7 +168,7 @@ async fn get_command_history(
     
     let page = params.page.unwrap_or(1) as i64;
     let limit = params.limit.unwrap_or(20) as i64;
-    let status = params.status.as_deref()
+    let _status = params.status.as_deref()
         .map(|s| CommandStatus::from_str(s).unwrap_or(CommandStatus::Failed));
     
     // Get command history for user
@@ -181,8 +181,8 @@ async fn get_command_history(
     
     let filtered_commands = commands.into_iter()
         .filter(|cmd| {
-            let status_match = status_filter.map_or(true, |s| cmd.status == s);
-            let command_match = command_filter.map_or(true, |c| cmd.command == c);
+            let status_match = status_filter.is_none_or(|s| cmd.status == s);
+            let command_match = command_filter.is_none_or(|c| cmd.command == c);
             status_match && command_match
         })
         .collect::<Vec<_>>();
