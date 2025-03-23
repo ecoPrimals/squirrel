@@ -3,100 +3,79 @@
 // This module will contain API-specific functionality and utilities.
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::Utc;
-use axum::Json;
+// Remove unused imports
+// use uuid::Uuid;
+// use chrono::Utc;
 
 pub mod error;
+// We need to decide: either keep commands.rs or commands/mod.rs - not both
+// For now, explicitly use the directory-based module
 pub mod commands;
+pub mod router;
 
-/// API Response envelope for standardized responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
+pub use router::api_router;
+
+/// Standard API response envelope
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
-    /// Indicates if the request was successful
     pub success: bool,
-    /// Response data (null if error)
     pub data: Option<T>,
-    /// Error information (null if success)
     pub error: Option<ApiError>,
-    /// Response metadata
+    #[serde(default)]
     pub meta: ApiMeta,
 }
 
-/// API Error information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// API error details
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ApiError {
-    /// Error code
     pub code: String,
-    /// Human-readable error message
     pub message: String,
-    /// Additional error details
     pub details: Option<serde_json::Value>,
 }
 
-/// API Response metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// API response metadata
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApiMeta {
-    /// Unique request ID
-    pub request_id: String,
-    /// Response timestamp
-    pub timestamp: String,
-    /// Pagination information if applicable
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pagination: Option<PaginationMeta>,
 }
 
 /// Pagination metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PaginationMeta {
-    /// Current page
-    pub page: u32,
-    /// Items per page
-    pub limit: u32,
-    /// Total number of items
-    pub total_items: u64,
-    /// Total number of pages
-    pub total_pages: u32,
+    pub page: i64,
+    pub per_page: i64,
+    pub total: i64,
+    pub total_pages: i64,
 }
 
 /// Helper function to create a successful API response
 pub fn api_success<T>(data: T) -> Json<ApiResponse<T>> {
-    let request_id = Uuid::new_v4().to_string();
-    let timestamp = Utc::now().to_rfc3339();
-    
     Json(ApiResponse {
         success: true,
         data: Some(data),
         error: None,
-        meta: ApiMeta {
-            request_id,
-            timestamp,
-            pagination: None,
-        },
+        meta: Default::default(),
     })
 }
 
 /// Helper function to create a successful API response with pagination
-pub fn api_success_with_pagination<T>(
+pub fn api_success_paginated<T>(
     data: T,
-    page: u32,
-    limit: u32,
-    total_items: u64,
-    total_pages: u32,
+    page: i64,
+    per_page: i64,
+    total: i64,
+    total_pages: i64,
 ) -> Json<ApiResponse<T>> {
-    let request_id = Uuid::new_v4().to_string();
-    let timestamp = Utc::now().to_rfc3339();
-    
     Json(ApiResponse {
         success: true,
         data: Some(data),
         error: None,
         meta: ApiMeta {
-            request_id,
-            timestamp,
             pagination: Some(PaginationMeta {
                 page,
-                limit,
-                total_items,
+                per_page,
+                total,
                 total_pages,
             }),
         },
@@ -166,5 +145,5 @@ pub enum JobState {
     Failed,
 }
 
-// Re-export command types
-pub use commands::*; 
+// Import Json only once from axum
+use axum::Json; 

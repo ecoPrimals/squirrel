@@ -116,36 +116,34 @@ pub enum AuthError {
 }
 
 impl IntoResponse for AuthError {
-    fn into_response(self) -> Response {
-        let (status, error_code, message) = match self {
-            AuthError::MissingToken => (StatusCode::UNAUTHORIZED, "AUTH_MISSING_TOKEN", "Missing authentication token"),
-            AuthError::InvalidToken => (StatusCode::UNAUTHORIZED, "AUTH_INVALID_TOKEN", "Invalid authentication token"),
-            AuthError::UserNotFound => (StatusCode::NOT_FOUND, "AUTH_USER_NOT_FOUND", "User not found"),
-            AuthError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Invalid credentials"),
-            AuthError::Unauthorized => (StatusCode::UNAUTHORIZED, "AUTH_UNAUTHORIZED", "Unauthorized"),
-            AuthError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "AUTH_DATABASE_ERROR", "Database error"),
-            AuthError::JwtError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "AUTH_JWT_ERROR", "JWT error"),
-            AuthError::UserAlreadyExists => (StatusCode::CONFLICT, "AUTH_USER_EXISTS", "User already exists"),
-            AuthError::UsernameExists => (StatusCode::CONFLICT, "AUTH_USERNAME_EXISTS", "Username already exists"),
-            AuthError::Internal(ref e) => (StatusCode::INTERNAL_SERVER_ERROR, "AUTH_INTERNAL_ERROR", e.as_str()),
-            AuthError::InternalError(ref e) => (StatusCode::INTERNAL_SERVER_ERROR, "AUTH_INTERNAL_ERROR", e.as_str()),
+    fn into_response(self) -> axum::response::Response {
+        let (status, message) = match self {
+            Self::MissingToken => (StatusCode::UNAUTHORIZED, "Missing token".to_string()),
+            Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()),
+            Self::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token".to_string()),
+            Self::UserNotFound => (StatusCode::NOT_FOUND, "User not found".to_string()),
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
+            Self::DatabaseError(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e)),
+            Self::JwtError(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("JWT error: {}", e)),
+            Self::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists".to_string()),
+            Self::UsernameExists => (StatusCode::CONFLICT, "Username already exists".to_string()),
+            Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            Self::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
         };
-
+        
+        let error = ApiError {
+            code: status.as_u16().to_string(),
+            message,
+            details: None,
+        };
+        
         let response: ApiResponse<()> = ApiResponse {
             success: false,
             data: None,
-            error: Some(ApiError {
-                code: error_code.to_string(),
-                message: message.to_string(),
-                details: None,
-            }),
-            meta: ApiMeta {
-                request_id: Uuid::new_v4().to_string(),
-                timestamp: Utc::now().to_rfc3339(),
-                pagination: None,
-            },
+            error: Some(error),
+            meta: ApiMeta::default(), // Use default ApiMeta without custom fields
         };
-
+        
         (status, Json(response)).into_response()
     }
 }

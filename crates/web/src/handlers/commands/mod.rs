@@ -2,14 +2,18 @@
 //!
 //! This module contains handlers for the command execution API endpoints.
 
+pub mod models;
+pub mod routes;
 pub mod service;
 
-// Re-export the service, conditionally re-export DbCommandService
-pub use service::CommandService;
-#[cfg(feature = "db")]
-pub use service::DbCommandService;
-pub use service::MockCommandService;
+// Remove the missing module references
+// pub mod v1;
 
-mod routes;
+// Import types directly from API module instead
+use crate::api::commands::{
+    CommandDefinition,
+    CommandExecution,
+    CommandStatus,
+};
 
 pub use routes::command_routes; 

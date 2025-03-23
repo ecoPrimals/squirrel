@@ -8,9 +8,9 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::websocket::ConnectionManager;
 use crate::auth::AuthService;
-use crate::mcp::McpCommandClient;
-use crate::handlers::commands::CommandService;
-use crate::api::error::AppError;
+use crate::mcp::McpClient;
+use crate::api::commands::CommandService;
+use crate::api::commands::CommandServiceError;
 
 /// Machine Context Protocol client trait (legacy)
 #[async_trait]
@@ -44,20 +44,24 @@ pub struct AppState {
     pub config: Config,
     /// Machine Context Protocol client (legacy)
     pub mcp: Option<Arc<dyn MachineContextClient>>,
-    /// MCP Command client for advanced command execution
-    pub mcp_command: Option<Arc<dyn McpCommandClient>>,
+    /// MCP client for command execution
+    pub mcp_client: Arc<dyn McpClient>,
     /// WebSocket connection manager
     pub ws_manager: ConnectionManager,
     /// Authentication service
     pub auth: AuthService,
     /// Command service
-    pub command_service: Option<Arc<dyn CommandService>>,
+    pub command_service: Arc<dyn CommandService>,
 }
 
 impl AppState {
     /// Get the command service
-    pub fn get_command_service(&self) -> Result<&Arc<dyn CommandService>, AppError> {
-        self.command_service.as_ref()
-            .ok_or_else(|| AppError::Internal("Command service not configured".to_string()))
+    pub fn get_command_service(&self) -> &Arc<dyn CommandService> {
+        &self.command_service
+    }
+    
+    /// Get the MCP client from the state for backward compatibility
+    pub fn get_mcp_client(&self) -> Result<Arc<dyn McpClient>, CommandServiceError> {
+        Ok(self.mcp_client.clone())
     }
 } 

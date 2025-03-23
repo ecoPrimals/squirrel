@@ -3,14 +3,15 @@ use anyhow::Result;
 use axum::{Router, http::Method, routing::{get, post}};
 use tower_http::cors::{CorsLayer, Any};
 #[cfg(feature = "db")]
-use sqlx::{SqlitePool, migrate::MigrateDatabase, Sqlite};
+use sqlx::{migrate::MigrateDatabase, Sqlite};
 #[cfg(feature = "mock-db")]
-use sqlx::{SqlitePool};
+// use sqlx::SqlitePool; // Commented out since it's unused
 use serde::{Deserialize, Serialize};
+// use chrono; // Commented out since it's unused
 
 pub mod auth;
 mod handlers;
-mod mcp;
+pub mod mcp;
 pub mod api;
 pub mod state;
 pub mod websocket;
@@ -21,9 +22,15 @@ use crate::state::AppState;
 use crate::config::Config;
 use crate::db::SqlitePool as DbPool;
 use auth::{AuthConfig, AuthService};
-use mcp::{McpCommandClient, MockMcpClient};
+use mcp::{McpClient, MockMcpClient};
+use api::commands::{CommandService, CommandServiceImpl, CommandRepository};
 
-pub use api::{CreateJobRequest, CreateJobResponse, JobStatus, JobState};
+// Fix import for repositories
+#[cfg(feature = "db")]
+use api::commands::repository::SqliteCommandRepository;
+#[cfg(feature = "mock-db")]
+use api::commands::repository::MockCommandRepository;
+
 pub use api::commands::{
     CommandDefinition,
     CommandExecution,
@@ -31,8 +38,8 @@ pub use api::commands::{
     CreateCommandRequest,
     CreateCommandResponse,
     CommandStatusResponse,
-    CommandListResponse,
-    CommandHistoryResponse,
+    CommandSummary,
+    AvailableCommand,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,45 +72,6 @@ impl Default for MockSessionConfig {
             host: "localhost".to_string(),
             port: 8080,
             timeout: 30,
-        }
-    }
-}
-
-#[cfg(feature = "mock-db")]
-impl Default for AppState {
-    fn default() -> Self {
-        // Create a mock database pool
-        let mock_db = SqlitePool::connect_lazy("sqlite::memory:")
-            .expect("Failed to create mock database pool");
-        
-        let auth_config = AuthConfig::default();
-        let config = Config::default();
-        
-        // Initialize WebSocket manager
-        let ws_manager = websocket::init();
-        
-        // Create auth service
-        let auth = AuthService::new(auth_config, mock_db.clone());
-        
-        // Create MCP clients
-        let mcp_command = Arc::new(MockMcpClient::new(
-            "localhost".to_string(), 
-            8080
-        )) as Arc<dyn McpCommandClient>;
-        
-        // Create command service
-        let command_service = Arc::new(handlers::commands::MockCommandService::new(
-            mcp_command.clone()
-        )) as Arc<dyn handlers::commands::CommandService>;
-        
-        Self {
-            db: mock_db,
-            config,
-            mcp: None,
-            mcp_command: Some(mcp_command),
-            ws_manager,
-            auth,
-            command_service: Some(command_service),
         }
     }
 }
@@ -148,40 +116,35 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
     // Create auth service
     let auth = AuthService::new(AuthConfig::default(), db.clone());
     
-    // Create MCP clients
-    let mcp_command = Arc::new(MockMcpClient::new(
+    // Create MCP client
+    let mcp_client = Arc::new(MockMcpClient::new(
         "localhost".to_string(), 
         8080
-    )) as Arc<dyn McpCommandClient>;
+    )) as Arc<dyn McpClient>;
 
-    // Create command service based on feature
-    #[cfg(feature = "mock-db")]
-    let command_service = Arc::new(handlers::commands::MockCommandService::new(
-        mcp_command.clone()
-    )) as Arc<dyn handlers::commands::CommandService>;
-    
+    // Create command repository based on feature
     #[cfg(feature = "db")]
-    let command_service = Arc::new(handlers::commands::DbCommandService::new(
-        db.clone(),
-        mcp_command.clone(),
-    )) as Arc<dyn handlers::commands::CommandService>;
+    let command_repository = Arc::new(SqliteCommandRepository::new(db.clone())) as Arc<dyn CommandRepository>;
+    
+    #[cfg(feature = "mock-db")]
+    let command_repository = Arc::new(MockCommandRepository::new()) as Arc<dyn CommandRepository>;
+    
+    // Create command service
+    let command_service = Arc::new(CommandServiceImpl::new(
+        command_repository,
+        mcp_client.clone(),
+    )) as Arc<dyn CommandService>;
     
     // Create app state
     let state = Arc::new(AppState {
         db,
         config,
         mcp: None, // Legacy client, deprecated
-        mcp_command: Some(mcp_command),
+        mcp_client,
         ws_manager,
         auth,
-        command_service: Some(command_service),
+        command_service,
     });
-
-    // Create WebSocket handler for commands
-    let _command_ws_handler = Arc::new(websocket::CommandWebSocketHandler::new(state.clone()));
-    
-    // Register the command WebSocket handler with the WebSocket manager
-    // This would need a proper registration mechanism in a real implementation
 
     // Setup CORS
     let _cors = CorsLayer::new()
@@ -190,17 +153,16 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         .allow_headers(Any);
 
     // Create the router with all routes
-    
-    
     Router::new()
         .route("/health", get(handlers::health::get_health))
         .route("/api/health", get(handlers::health::get_health))
-        .nest("/api/commands", handlers::commands::command_routes())
+        .nest("/api", api::router::api_router())
         .route("/api/jobs", post(handlers::jobs::create_job))
         .route("/api/jobs", get(handlers::jobs::list_jobs))
         .route("/api/jobs/:id/status", get(handlers::jobs::get_job_status))
         .route("/api/jobs/:id/result", get(handlers::jobs::get_job_result))
         .route("/api/jobs/:id/cancel", post(handlers::jobs::cancel_job))
+        .nest("/api/commands-legacy", handlers::commands::command_routes())
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/refresh", post(handlers::auth::refresh_token))
         .route("/ws", get(websocket::ws_handler))
