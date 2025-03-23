@@ -5,6 +5,17 @@ edition.workspace = true
 authors.workspace = true
 description = "Plugin system for Squirrel"
 
+# Define features to separate core functionality from app dependencies
+[features]
+default = ["core"]
+core = []
+# All features disabled by default
+web = []
+mcp = ["dep:squirrel-mcp"]
+# cli feature removed
+all = ["core", "web", "mcp"]
+# No app in the "all" feature to avoid circular dependency
+
 [dependencies]
 # Core dependencies
 tokio = { workspace = true }
@@ -18,21 +29,21 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 
-# Optional dependencies for different plugin types
-squirrel-app = { path = "../app", optional = true }
+# Internal dependencies
+squirrel-core = { path = "../core" }
+# Add interfaces dependency to break circular dependencies
+squirrel-interfaces = { path = "../interfaces" }
+
+# Optional dependencies for different plugin types - all made optional
+# squirrel-app dependency completely removed
 # Remove squirrel-web dependency to break circular dependency
 # squirrel-web = { path = "../web", optional = true }
 squirrel-mcp = { path = "../mcp", optional = true }
-squirrel-cli = { path = "../cli", optional = true }
+# Remove CLI dependency to break circular dependency
+# squirrel-cli = { path = "../cli", optional = true }
 
-[features]
-default = ["core"]
-core = []
-# Update web feature to not depend on squirrel-web
-web = []
-mcp = ["squirrel-mcp"]
-cli = ["squirrel-cli"]
-all = ["core", "web", "mcp", "cli"]
+[dev-dependencies]
+tokio-test = "0.4"
 
 [lints]
 workspace = true 

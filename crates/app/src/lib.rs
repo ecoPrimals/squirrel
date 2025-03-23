@@ -63,4 +63,7 @@ pub mod prelude {
 
 /// Module containing application tests
 #[cfg(test)]
-pub mod tests; 
+pub mod tests;
+
+// Public modules
+pub mod config; 

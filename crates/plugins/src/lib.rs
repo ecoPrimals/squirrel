@@ -1,9 +1,12 @@
-//! Plugin system for Squirrel
+//! # Squirrel Plugins
+//! 
+//! This crate provides the plugin system for Squirrel, enabling extensibility
+//! and modular design across the application.
 //!
-//! This crate provides a plugin system for Squirrel.
+//! The plugin system allows for dynamic loading of functionality, with a focus
+//! on type safety and performance.
 
 // Modules
-pub mod core;
 pub mod discovery;
 pub mod errors;
 pub mod manager;
@@ -65,4 +68,7 @@ pub use app::AppPlugin;
 pub use context::ContextPlugin;
 pub use commands::CommandsPlugin;
 pub use test_utils::TestUtilsPlugin;
-pub use context_adapter::ContextAdapterPlugin; 
+pub use context_adapter::ContextAdapterPlugin;
+
+// Re-export the plugin registry type
+pub use registry::PluginRegistry; 
