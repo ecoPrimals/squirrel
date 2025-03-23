@@ -1,7 +1,7 @@
 ---
 description: Guide for using the Squirrel specification documentation
 version: 1.0.0
-last_updated: 2024-03-21
+last_updated: 2024-03-22
 status: active
 ---
 
@@ -18,8 +18,13 @@ This directory contains the specifications for the Squirrel project. After our r
 - `specs/app/`: Application specifications
 - `specs/commands/`: Command system specifications
 - `specs/context/`: Context management specifications
+- `specs/galaxy/`: Galaxy MCP integration specifications
 - `specs/integration/`: Integration specifications
 - `specs/mcp/`: MCP protocol specifications
+- `specs/modules/`: Module-specific specifications
+  - `specs/modules/ai_tools/`: AI integration specifications
+  - `specs/modules/api_client/`: API client specifications
+  - `specs/modules/bio_informatics/`: Bioinformatics integration specifications
 - `specs/monitoring/`: Monitoring system specifications
 - `specs/plugins/`: Plugin system specifications (post-MVP)
 - `specs/MVP/`: Core MVP requirements
@@ -90,8 +95,12 @@ Each specification directory generally corresponds to one or more crates:
 | specs/app/ | crates/app/, crates/core/ |
 | specs/commands/ | crates/commands/ |
 | specs/context/ | crates/context/, crates/context-adapter/ |
+| specs/galaxy/ | crates/galaxy-mcp/ |
 | specs/integration/ | (Spans multiple crates) |
 | specs/mcp/ | crates/mcp/ |
+| specs/modules/ai_tools/ | crates/ai_tools/ |
+| specs/modules/api_client/ | crates/api_client/ |
+| specs/modules/bio_informatics/ | crates/bio_informatics/ |
 | specs/monitoring/ | crates/monitoring/ |
 | specs/plugins/ | (Post-MVP, no crate yet) |
 | specs/MVP/ | (Spans multiple crates) |

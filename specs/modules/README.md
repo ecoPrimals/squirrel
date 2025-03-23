@@ -1,6 +1,6 @@
 ---
 version: 1.0.0
-last_updated: 2024-03-21
+last_updated: 2024-03-22
 status: draft
 priority: high
 ---
@@ -18,7 +18,8 @@ specs/
 ├── MVP/              # MVP requirements and timelines
 ├── modules/          # Module-specific specifications
 │   ├── ai_tools/     # AI integration specifications
-│   ├── api/          # External API integration specs
+│   ├── api_client/   # External API integration specs
+│   ├── bio_informatics/ # Bioinformatics integration specs
 │   ├── commands/     # Command system specifications
 │   ├── context/      # Context management specs
 │   ├── core/         # Core system specifications
@@ -39,6 +40,10 @@ crates/
 ├── api_client/       # NEW: External API clients
 │   ├── github/       # GitHub API integration
 │   └── generic/      # Generic API client tools
+├── bio_informatics/  # NEW: Bioinformatics integration
+│   ├── ncbi/         # NCBI database integration
+│   ├── galaxy_mcp/   # Galaxy MCP integration
+│   └── workflows/    # Scientific workflow tools
 ├── app/             # Application core (existing)
 ├── cli/             # CLI interface (existing)
 ├── commands/        # Command system (existing)
@@ -64,7 +69,7 @@ crates/
   - `model-management.md`: Model handling specs
   - `security.md`: AI security guidelines
 
-### 2. API Client Module (`specs/modules/api/`)
+### 2. API Client Module (`specs/modules/api_client/`)
 - Purpose: Handle external API integrations
 - Components:
   - GitHub API client
@@ -77,7 +82,20 @@ crates/
   - `rate-limiting.md`: Rate control specs
   - `auth-management.md`: Authentication specs
 
-### 3. Core Module (`specs/modules/core/`)
+### 3. Bioinformatics Module (`specs/modules/bio_informatics/`)
+- Purpose: Enable scientific research workflows
+- Components:
+  - NCBI database integration
+  - Galaxy MCP integration
+  - Scientific workflow management
+  - Data analysis and visualization
+- Key Files:
+  - `README.md`: Module overview
+  - `ncbi/README.md`: NCBI integration specs
+  - `workflows.md`: Workflow specifications
+  - `implementation-strategy.md`: Technical implementation guidelines
+
+### 4. Core Module (`specs/modules/core/`)
 - Purpose: Core system functionality
 - Components:
   - State management
@@ -90,7 +108,7 @@ crates/
   - `error-handling.md`: Error system specs
   - `plugin-system.md`: Plugin architecture specs
 
-### 4. MCP Module (`specs/modules/mcp/`)
+### 5. MCP Module (`specs/modules/mcp/`)
 - Purpose: Machine Context Protocol implementation
 - Components:
   - Protocol definition
@@ -103,7 +121,7 @@ crates/
   - `security.md`: Security requirements
   - `tool-lifecycle.md`: Tool management specs
 
-### 5. Context Module (`specs/modules/context/`)
+### 6. Context Module (`specs/modules/context/`)
 - Purpose: Context management system
 - Components:
   - File system context
@@ -121,6 +139,7 @@ crates/
 ### Module Dependencies
 - AI Tools → Core, MCP
 - API Client → Core
+- Bioinformatics → Core, MCP, Galaxy, NCBI
 - Commands → Core, Context
 - Context → Core
 - MCP → Core, Context
@@ -152,7 +171,13 @@ crates/
 3. Add caching system
 4. Implement authentication
 
-### Phase 4: Integration
+### Phase 4: Bioinformatics Integration
+1. Implement NCBI database client
+2. Enhance Galaxy MCP adapter
+3. Create workflow coordination system
+4. Add data analysis components
+
+### Phase 5: Full Integration
 1. Connect all modules
 2. Implement monitoring
 3. Add telemetry
@@ -172,6 +197,12 @@ crates/
 - Provide usage metrics
 - Handle quota exceeded
 
+### Scientific Data Privacy
+- Implement proper access controls
+- Encrypt sensitive information
+- Implement data retention policies
+- Ensure secure data transfers
+
 ## Notes
 - Keep modules loosely coupled
 - Follow consistent patterns
@@ -186,4 +217,5 @@ crates/
 3. Implement core interfaces
 4. Begin AI integration
 5. Add API clients
-6. Integrate monitoring 
+6. Start bioinformatics components
+7. Integrate monitoring 
