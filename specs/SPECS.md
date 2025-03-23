@@ -126,6 +126,19 @@ squirrel/
   - Security foundation
   - Advanced features in progress
 
+- Galaxy MCP Adapter: 75% Complete
+  - Error handling system (85%)
+  - Configuration system (75%)
+  - API client for Galaxy (80%)
+  - Security features (40%)
+  - Data models for Galaxy resources (100%)
+  - Adapter core implementation (85%)
+  - Tool discovery and execution (80%)
+  - MCP integration (70%)
+  - Examples and documentation (60%)
+  - Testing infrastructure (30%)
+  - See [specs/galaxy/IMPLEMENTATION_STATUS.md](specs/galaxy/IMPLEMENTATION_STATUS.md) for details
+
 - UI Components: Sunsetted
   - UI features removed from MVP
   - See [specs/MVP/03-ui-features_sunsetted.md](specs/MVP/03-ui-features_sunsetted.md)
@@ -246,6 +259,8 @@ See [specs/patterns/README.md](specs/patterns/README.md) for more details.
 1. **Immediate**
    - [x] Complete core system implementation
    - [x] Finalize MCP protocol implementation
+   - [x] Implement Galaxy MCP adapter
+   - [ ] Complete Galaxy adapter testing
    - [ ] Optimize performance
    - [ ] Complete security hardening
    - [ ] Finalize documentation
