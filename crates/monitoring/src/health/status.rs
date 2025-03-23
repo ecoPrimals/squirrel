@@ -19,8 +19,12 @@ pub struct HealthStatus {
 pub enum Status {
     /// Service is healthy and operating normally
     Healthy,
+    /// Service has some minor issues but is still functioning well
+    Warning,
     /// Service is degraded but still functioning
     Degraded,
+    /// Service has critical issues but is still partially available
+    Critical,
     /// Service is unhealthy or not functioning
     Unhealthy,
     /// Service status is unknown
@@ -54,9 +58,19 @@ impl HealthStatus {
         Self::new(service, Status::Healthy, message)
     }
 
+    /// Creates a new warning status
+    #[must_use] pub fn warning(service: String, message: String) -> Self {
+        Self::new(service, Status::Warning, message)
+    }
+
     /// Creates a new degraded status
     #[must_use] pub fn degraded(service: String, message: String) -> Self {
         Self::new(service, Status::Degraded, message)
+    }
+
+    /// Creates a new critical status
+    #[must_use] pub fn critical(service: String, message: String) -> Self {
+        Self::new(service, Status::Critical, message)
     }
 
     /// Creates a new unhealthy status

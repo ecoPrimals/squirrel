@@ -31,8 +31,27 @@ pub struct PluginDependency {
     pub optional: bool,
 }
 
-/// Plugin registry
-pub struct PluginRegistry {
+/// Plugin registry trait
+#[async_trait::async_trait]
+pub trait PluginRegistry: Send + Sync {
+    /// Register a plugin with the registry
+    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()>;
+    
+    /// Unregister a plugin from the registry
+    async fn unregister_plugin(&self, id: Uuid) -> Result<()>;
+    
+    /// Get a plugin by ID
+    async fn get_plugin(&self, id: Uuid) -> Option<Arc<dyn Plugin>>;
+    
+    /// Get a plugin by name
+    async fn get_plugin_by_name(&self, name: &str) -> Option<Arc<dyn Plugin>>;
+    
+    /// Get all plugins
+    async fn get_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>>;
+}
+
+/// Default plugin registry implementation
+pub struct DefaultPluginRegistry {
     /// Registered plugins
     plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
     
@@ -46,7 +65,7 @@ pub struct PluginRegistry {
     dependencies: RwLock<HashMap<Uuid, Vec<PluginDependency>>>,
 }
 
-impl PluginRegistry {
+impl DefaultPluginRegistry {
     /// Create a new plugin registry
     pub fn new() -> Self {
         Self {
@@ -57,146 +76,31 @@ impl PluginRegistry {
         }
     }
     
-    /// Register a plugin
-    pub async fn register<P: Plugin + 'static>(&self, plugin: Arc<P>) -> Result<()> {
-        let metadata = plugin.metadata().clone();
-        let id = metadata.id;
-        let name = metadata.name.clone();
-        
-        // Check if plugin is already registered
-        {
-            let plugins = self.plugins.read().await;
-            if plugins.contains_key(&id) {
-                return Err(PluginError::AlreadyRegistered(id).into());
-            }
-        }
-        
-        // Update mappings
-        {
-            let mut plugins = self.plugins.write().await;
-            let mut metadata_map = self.metadata.write().await;
-            let mut index = self.index.write().await;
-            
-            // Store plugin
-            plugins.insert(id, plugin.clone() as Arc<dyn Plugin>);
-            
-            // Store metadata
-            metadata_map.insert(id, metadata.clone());
-            
-            // Update index
-            let entry = index.entry(name).or_insert_with(Vec::new);
-            if !entry.contains(&id) {
-                entry.push(id);
-            }
-        }
-        
-        // Parse and store dependencies
-        {
-            let mut deps = self.dependencies.write().await;
-            let plugin_deps: Vec<PluginDependency> = metadata.dependencies.iter()
-                .map(|dep_id| {
-                    PluginDependency {
-                        id: *dep_id,
-                        name: String::new(), // To be resolved later
-                        min_version: "0.0.0".to_string(), // Default
-                        max_version: None,
-                        optional: false,
-                    }
-                })
-                .collect();
-            
-            if !plugin_deps.is_empty() {
-                deps.insert(id, plugin_deps);
-            }
-        }
-        
+    /// Register plugin dependencies
+    pub async fn register_dependencies(&self, id: Uuid, dependencies: Vec<PluginDependency>) -> Result<()> {
+        let mut deps = self.dependencies.write().await;
+        deps.insert(id, dependencies);
         Ok(())
-    }
-    
-    /// Unregister a plugin
-    pub async fn unregister(&self, id: Uuid) -> Result<()> {
-        // Check if plugin exists
-        let plugin_name = {
-            let metadata = self.metadata.read().await;
-            match metadata.get(&id) {
-                Some(meta) => meta.name.clone(),
-                None => return Err(PluginError::NotFound(id).into()),
-            }
-        };
-        
-        // Update mappings
-        {
-            let mut plugins = self.plugins.write().await;
-            let mut metadata_map = self.metadata.write().await;
-            let mut index = self.index.write().await;
-            let mut deps = self.dependencies.write().await;
-            
-            // Remove plugin
-            plugins.remove(&id);
-            
-            // Remove metadata
-            metadata_map.remove(&id);
-            
-            // Update index
-            if let Some(entries) = index.get_mut(&plugin_name) {
-                entries.retain(|&entry_id| entry_id != id);
-                if entries.is_empty() {
-                    index.remove(&plugin_name);
-                }
-            }
-            
-            // Remove dependencies
-            deps.remove(&id);
-        }
-        
-        Ok(())
-    }
-    
-    /// Get plugin by ID
-    pub async fn get_plugin(&self, id: Uuid) -> Option<Arc<dyn Plugin>> {
-        let plugins = self.plugins.read().await;
-        plugins.get(&id).cloned()
-    }
-    
-    /// Get plugin by name
-    pub async fn get_plugin_by_name(&self, name: &str) -> Option<Arc<dyn Plugin>> {
-        let index = self.index.read().await;
-        let plugins = self.plugins.read().await;
-        
-        match index.get(name) {
-            Some(ids) if !ids.is_empty() => {
-                // Return first plugin with the given name
-                plugins.get(&ids[0]).cloned()
-            }
-            _ => None,
-        }
-    }
-    
-    /// List all plugins
-    pub async fn list_plugins(&self) -> Vec<Arc<dyn Plugin>> {
-        let plugins = self.plugins.read().await;
-        plugins.values().cloned().collect()
     }
     
     /// Resolve plugin dependencies
     pub async fn resolve_dependencies(&self, id: Uuid) -> Result<Vec<Arc<dyn Plugin>>> {
-        let deps = {
-            let deps_map = self.dependencies.read().await;
-            match deps_map.get(&id) {
-                Some(deps) => deps.clone(),
-                None => Vec::new(),
-            }
+        let deps = self.dependencies.read().await;
+        let plugins = self.plugins.read().await;
+        
+        let dependencies = match deps.get(&id) {
+            Some(deps) => deps,
+            None => return Ok(Vec::new()),
         };
         
         let mut result = Vec::new();
-        let plugins = self.plugins.read().await;
         
-        for dep in deps {
+        for dep in dependencies {
             match plugins.get(&dep.id) {
                 Some(plugin) => result.push(plugin.clone()),
                 None => {
                     if !dep.optional {
-                        return Err(PluginError::DependencyNotFoundUuid(dep.id).into());
+                        return Err(PluginError::DependencyNotFound(dep.name.clone()).into());
                     }
                 }
             }
@@ -206,8 +110,130 @@ impl PluginRegistry {
     }
 }
 
-impl Default for PluginRegistry {
+#[async_trait::async_trait]
+impl PluginRegistry for DefaultPluginRegistry {
+    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+        let metadata = plugin.metadata().clone();
+        let id = metadata.id;
+        let name = metadata.name.clone();
+        
+        // Add to plugins
+        let mut plugins = self.plugins.write().await;
+        plugins.insert(id, plugin);
+        
+        // Add to metadata
+        let mut meta = self.metadata.write().await;
+        meta.insert(id, metadata);
+        
+        // Add to index
+        let mut idx = self.index.write().await;
+        if let Some(ids) = idx.get_mut(&name) {
+            ids.push(id);
+        } else {
+            idx.insert(name, vec![id]);
+        }
+        
+        Ok(())
+    }
+    
+    async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
+        // Get metadata
+        let meta = self.metadata.read().await;
+        let name = match meta.get(&id) {
+            Some(metadata) => metadata.name.clone(),
+            None => return Err(PluginError::PluginNotFound(id.to_string()).into()),
+        };
+        drop(meta);
+        
+        // Remove from plugins
+        let mut plugins = self.plugins.write().await;
+        if plugins.remove(&id).is_none() {
+            return Err(PluginError::PluginNotFound(id.to_string()).into());
+        }
+        
+        // Remove from metadata
+        let mut meta = self.metadata.write().await;
+        meta.remove(&id);
+        
+        // Remove from index
+        let mut idx = self.index.write().await;
+        if let Some(ids) = idx.get_mut(&name) {
+            ids.retain(|&i| i != id);
+            if ids.is_empty() {
+                idx.remove(&name);
+            }
+        }
+        
+        // Remove from dependencies
+        let mut deps = self.dependencies.write().await;
+        deps.remove(&id);
+        
+        Ok(())
+    }
+    
+    async fn get_plugin(&self, id: Uuid) -> Option<Arc<dyn Plugin>> {
+        let plugins = self.plugins.read().await;
+        plugins.get(&id).cloned()
+    }
+    
+    async fn get_plugin_by_name(&self, name: &str) -> Option<Arc<dyn Plugin>> {
+        let idx = self.index.read().await;
+        let ids = idx.get(name)?;
+        
+        if ids.is_empty() {
+            return None;
+        }
+        
+        let plugins = self.plugins.read().await;
+        plugins.get(&ids[0]).cloned()
+    }
+    
+    async fn get_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
+        let plugins = self.plugins.read().await;
+        Ok(plugins.values().cloned().collect())
+    }
+}
+
+impl Default for DefaultPluginRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// In-memory plugin registry implementation
+/// This is a simplified registry implementation for testing purposes
+pub struct InMemoryPluginRegistry {
+    registry: DefaultPluginRegistry,
+}
+
+impl InMemoryPluginRegistry {
+    /// Create a new in-memory plugin registry
+    pub fn new() -> Self {
+        Self {
+            registry: DefaultPluginRegistry::new(),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl PluginRegistry for InMemoryPluginRegistry {
+    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+        self.registry.register_plugin(plugin).await
+    }
+    
+    async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
+        self.registry.unregister_plugin(id).await
+    }
+    
+    async fn get_plugin(&self, id: Uuid) -> Option<Arc<dyn Plugin>> {
+        self.registry.get_plugin(id).await
+    }
+    
+    async fn get_plugin_by_name(&self, name: &str) -> Option<Arc<dyn Plugin>> {
+        self.registry.get_plugin_by_name(name).await
+    }
+    
+    async fn get_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
+        self.registry.get_plugins().await
     }
 } 

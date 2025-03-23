@@ -1,97 +1,60 @@
 //! Plugin state management
 //!
-//! This module provides functionality for managing plugin state persistence.
+//! This module provides functionality for managing plugin state.
 
+use std::fmt::Debug;
 use std::collections::HashMap;
-use std::path::PathBuf;
-
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use tokio::fs;
-use tokio::sync::RwLock;
+use std::sync::Arc;
 use uuid::Uuid;
-
-use crate::Result;
-use crate::PluginError;
-
-/// Plugin state data
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginState {
-    /// Plugin ID
-    pub plugin_id: Uuid,
-    
-    /// State data as a JSON value
-    pub data: serde_json::Value,
-    
-    /// Last updated timestamp
-    pub last_updated: chrono::DateTime<chrono::Utc>,
-}
-
-impl PluginState {
-    /// Create new plugin state
-    #[must_use] pub fn new(plugin_id: Uuid, data: serde_json::Value) -> Self {
-        Self {
-            plugin_id,
-            data,
-            last_updated: chrono::Utc::now(),
-        }
-    }
-    
-    /// Update the state data
-    pub fn update(&mut self, data: serde_json::Value) {
-        self.data = data;
-        self.last_updated = chrono::Utc::now();
-    }
-}
+use tokio::sync::RwLock;
+use crate::errors::{Result, PluginError};
+use serde_json::Value;
 
 /// Plugin state manager trait
-#[async_trait]
-pub trait PluginStateManager: Send + Sync {
+pub trait PluginStateManager: Send + Sync + Debug {
     /// Get plugin state
-    async fn get_state(&self, plugin_id: Uuid) -> Result<Option<PluginState>>;
+    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>>;
     
     /// Set plugin state
-    async fn set_state(&self, state: PluginState) -> Result<()>;
+    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()>;
     
-    /// Delete plugin state
-    async fn delete_state(&self, plugin_id: Uuid) -> Result<()>;
+    /// Remove plugin state
+    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()>;
 }
 
 /// In-memory plugin state manager
 #[derive(Debug, Default)]
 pub struct MemoryStateManager {
     /// Plugin state storage
-    states: RwLock<HashMap<Uuid, PluginState>>,
+    states: RwLock<HashMap<Uuid, Value>>,
 }
 
 impl MemoryStateManager {
-    /// Create new memory state manager
-    #[must_use] pub fn new() -> Self {
+    /// Create a new memory state manager
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             states: RwLock::new(HashMap::new()),
         }
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl PluginStateManager for MemoryStateManager {
-    /// Get plugin state
-    async fn get_state(&self, plugin_id: Uuid) -> Result<Option<PluginState>> {
+    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>> {
         let states = self.states.read().await;
-        Ok(states.get(&plugin_id).cloned())
+        Ok(states.get(plugin_id).cloned())
     }
     
-    /// Set plugin state
-    async fn set_state(&self, state: PluginState) -> Result<()> {
+    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()> {
         let mut states = self.states.write().await;
-        states.insert(state.plugin_id, state);
+        states.insert(*plugin_id, state);
         Ok(())
     }
     
-    /// Delete plugin state
-    async fn delete_state(&self, plugin_id: Uuid) -> Result<()> {
+    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()> {
         let mut states = self.states.write().await;
-        states.remove(&plugin_id);
+        states.remove(plugin_id);
         Ok(())
     }
 }
@@ -99,66 +62,42 @@ impl PluginStateManager for MemoryStateManager {
 /// File-based plugin state manager
 #[derive(Debug)]
 pub struct FileStateManager {
-    /// State directory
-    state_dir: PathBuf,
+    /// Base directory for state files
+    base_dir: String,
+    /// Memory cache for state
+    cache: RwLock<HashMap<Uuid, Value>>,
 }
 
 impl FileStateManager {
-    /// Create new file state manager
-    pub fn new(state_dir: impl Into<PathBuf>) -> Self {
+    /// Create a new file state manager
+    #[must_use]
+    pub fn new(base_dir: String) -> Self {
         Self {
-            state_dir: state_dir.into(),
+            base_dir,
+            cache: RwLock::new(HashMap::new()),
         }
-    }
-    
-    /// Get state file path for plugin
-    fn get_state_path(&self, plugin_id: Uuid) -> PathBuf {
-        self.state_dir.join(format!("{plugin_id}.json"))
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl PluginStateManager for FileStateManager {
-    /// Get plugin state
-    async fn get_state(&self, plugin_id: Uuid) -> Result<Option<PluginState>> {
-        let path = self.get_state_path(plugin_id);
-        
-        if !path.exists() {
-            return Ok(None);
-        }
-        
-        let content = fs::read_to_string(path).await?;
-        let state = serde_json::from_str(&content)
-            .map_err(PluginError::SerializationError)?;
-        
-        Ok(Some(state))
+    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>> {
+        // For now, just use the in-memory cache
+        let cache = self.cache.read().await;
+        Ok(cache.get(plugin_id).cloned())
     }
     
-    /// Set plugin state
-    async fn set_state(&self, state: PluginState) -> Result<()> {
-        let path = self.get_state_path(state.plugin_id);
-        
-        // Ensure state directory exists
-        if !self.state_dir.exists() {
-            fs::create_dir_all(&self.state_dir).await?;
-        }
-        
-        let content = serde_json::to_string_pretty(&state)
-            .map_err(PluginError::SerializationError)?;
-        
-        fs::write(path, content).await?;
-        
+    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()> {
+        // For now, just use the in-memory cache
+        let mut cache = self.cache.write().await;
+        cache.insert(*plugin_id, state);
         Ok(())
     }
     
-    /// Delete plugin state
-    async fn delete_state(&self, plugin_id: Uuid) -> Result<()> {
-        let path = self.get_state_path(plugin_id);
-        
-        if path.exists() {
-            fs::remove_file(path).await?;
-        }
-        
+    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()> {
+        // For now, just use the in-memory cache
+        let mut cache = self.cache.write().await;
+        cache.remove(plugin_id);
         Ok(())
     }
 } 

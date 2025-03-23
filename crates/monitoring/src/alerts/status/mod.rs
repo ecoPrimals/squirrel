@@ -1,6 +1,10 @@
 // Alert status module
 // TODO: Implement alert status functionality
 
+mod alert_status;
+
+pub use alert_status::AlertStatus as AlertStatusType;
+
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};

@@ -35,6 +35,9 @@ pub mod types;
 /// Configuration module
 pub mod config;
 
+/// Plugin system integration
+pub mod plugins;
+
 /// Re-export common types from the error module
 pub use error::{MCPError, Result};
 
@@ -47,6 +50,12 @@ pub use types::{EncryptionFormat, SecurityLevel};
 /// Adapter for MCP operations
 pub mod adapter;
 pub use adapter::{MCPAdapter, MCPInterface};
+
+/// Re-export plugin interfaces
+pub use plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface};
+pub use plugins::lifecycle::{PluginLifecycleHook, CompositePluginLifecycleHook};
+pub use plugins::adapter::{ToolPluginAdapter, ToolPluginFactory};
+pub use plugins::discovery::{PluginProxyExecutor, PluginDiscoveryManager};
 
 /// Re-export the configuration type
 pub use config::McpConfig as MCPConfig;
@@ -82,6 +91,12 @@ pub mod prelude {
     
     // RBAC system
     pub use crate::security::rbac::{RBACManager, Role, Permission, PermissionScope, Action};
+
+    // Plugin integration
+    pub use crate::plugins::{ToolPluginAdapter, ToolPluginFactory, PluginDiscoveryManager, PluginProxyExecutor};
+    pub use crate::plugins::lifecycle::{PluginLifecycleHook, CompositePluginLifecycleHook};
+    // Plugin interfaces
+    pub use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface};
 }
 
 #[cfg(test)]

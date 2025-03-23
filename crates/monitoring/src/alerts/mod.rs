@@ -22,18 +22,12 @@ pub mod adapter;
 /// Module for notification management
 pub mod notify;
 
- 
+/// Module for alert type definitions
+pub mod types;
 
-/// Alert status
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum AlertStatus {
-    /// Alert is active
-    Active,
-    /// Alert has been acknowledged
-    Acknowledged,
-    /// Alert has been resolved
-    Resolved,
-}
+/// Re-export common types
+pub use status::AlertStatus;
+pub use types::{Alert, AlertLevel};
 
 /// Alert notification data
 #[derive(Debug, Clone, Serialize, Deserialize)]
