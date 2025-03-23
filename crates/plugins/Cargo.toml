@@ -19,7 +19,8 @@ tracing = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Optional dependencies for different plugin types
-squirrel-app = { path = "../app", optional = true }
+# REMOVED: squirrel-app dependency to break circular dependency
+# squirrel-app = { path = "../app", optional = true }
 # Remove squirrel-web dependency to break circular dependency
 # squirrel-web = { path = "../web", optional = true }
 squirrel-mcp = { path = "../mcp", optional = true }

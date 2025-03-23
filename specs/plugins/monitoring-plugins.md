@@ -1,8 +1,8 @@
 ---
-version: 1.0.0
-last_updated: 2024-04-01
-status: draft
-priority: medium
+version: 1.1.0
+last_updated: 2024-05-17
+status: active
+priority: high
 ---
 
 # Monitoring System Plugin Specification
@@ -11,6 +11,47 @@ priority: medium
 
 This document specifies the architecture and requirements for plugins that extend the monitoring system capabilities. Monitoring plugins provide additional metrics collection, visualization components, alert processors, and integration with external monitoring tools.
 
+## Update for Phase 2 Migration
+
+> **IMPORTANT (2024-05-17):** As part of the Phase 2 migration, we're updating monitoring plugins to fit the new unified plugin architecture. See [dependency-resolution.md](dependency-resolution.md) for critical information about resolving dependency issues.
+
+### Key Migration Changes
+
+1. All monitoring plugins must implement the core `Plugin` trait
+2. Domain-specific functionality is added through the `MonitoringPlugin` trait
+3. Plugin dependencies are managed through trait interfaces, not direct crate dependencies
+4. Plugins are registered with the unified plugin registry
+
+### New Unified Trait Structure
+
+```rust
+// Core Plugin trait (from the plugins crate)
+#[async_trait]
+pub trait Plugin: Send + Sync + Debug {
+    /// Get plugin metadata
+    fn metadata(&self) -> &PluginMetadata;
+    
+    /// Initialize the plugin
+    async fn initialize(&self) -> Result<()>;
+    
+    /// Shutdown the plugin
+    async fn shutdown(&self) -> Result<()>;
+}
+
+// Monitoring-specific plugin trait (from the plugins crate)
+#[async_trait]
+pub trait MonitoringPlugin: Plugin {
+    /// Collect metrics
+    async fn collect_metrics(&self) -> Result<Value>;
+    
+    /// Get monitoring targets
+    fn get_monitoring_targets(&self) -> Vec<String>;
+    
+    /// Handle alerts
+    async fn handle_alert(&self, alert: Value) -> Result<()>;
+}
+```
+
 ## Plugin Types
 
 ### 1. Metric Collector Plugins
@@ -18,25 +59,44 @@ This document specifies the architecture and requirements for plugins that exten
 Metric collector plugins extend the monitoring system's ability to gather metrics from various sources:
 
 ```rust
-#[plugin_api]
-pub trait MetricCollectorPlugin: Send + Sync {
-    /// Get the plugin metadata
-    fn metadata(&self) -> PluginMetadata;
+// Implementation in the monitoring crate
+pub struct SystemMetricsPlugin {
+    metadata: PluginMetadata,
+    system: System,
+}
+
+#[async_trait]
+impl Plugin for SystemMetricsPlugin {
+    fn metadata(&self) -> &PluginMetadata {
+        &self.metadata
+    }
     
-    /// Initialize the collector
-    async fn initialize(&self, config: Value) -> Result<()>;
+    async fn initialize(&self) -> Result<()> {
+        // Implementation...
+        Ok(())
+    }
     
-    /// Collect metrics
-    async fn collect_metrics(&self) -> Result<Vec<Metric>>;
+    async fn shutdown(&self) -> Result<()> {
+        // Implementation...
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl MonitoringPlugin for SystemMetricsPlugin {
+    async fn collect_metrics(&self) -> Result<Value> {
+        // Collect system metrics...
+        Ok(metrics_json)
+    }
     
-    /// Start the collector
-    async fn start(&self) -> Result<()>;
+    fn get_monitoring_targets(&self) -> Vec<String> {
+        vec!["system".to_string(), "cpu".to_string(), "memory".to_string()]
+    }
     
-    /// Stop the collector
-    async fn stop(&self) -> Result<()>;
-    
-    /// Clean up resources
-    async fn shutdown(&self) -> Result<()>;
+    async fn handle_alert(&self, _alert: Value) -> Result<()> {
+        // Not applicable for metrics collectors
+        Ok(())
+    }
 }
 ```
 
@@ -495,4 +555,4 @@ impl MetricCollectorPlugin for SystemMetricsPlugin {
 
 Monitoring plugins provide a flexible and secure way to extend the monitoring system's capabilities. By following these specifications, plugin developers can create integrations that seamlessly work with the core monitoring system while providing valuable additional functionality.
 
-<version>1.0.0</version> 
+<version>1.1.0</version> 
