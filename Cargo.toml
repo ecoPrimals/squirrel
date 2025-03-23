@@ -10,8 +10,11 @@ members = [
     "crates/web",
     "crates/cli",
     "crates/app",
-    "crates/context-adapter"
-, "test_plugin_fix", "crates/galaxy"]
+    "crates/context-adapter",
+    "crates/plugins",
+    "test_plugin_fix",
+    "crates/galaxy"
+]
 
 [workspace.package]
 version = "0.1.0"
