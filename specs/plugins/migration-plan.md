@@ -136,6 +136,11 @@ All teams will work in parallel to convert their existing plugins to the new arc
    - Convert existing functionality to plugin-based approach
    - Follow the patterns established in the plugin architecture
 
+> **UPDATE (2024-05-17):** We've identified circular dependency issues between crates. 
+> Please refer to [dependency-resolution.md](dependency-resolution.md) for guidance on
+> resolving these issues and implementing a clean dependency structure.
+> This is now a critical prerequisite for completing Phase 2.
+
 ### Phase 3: Integration and Testing (1 Week)
 
 1. **Cross-Team Integration**

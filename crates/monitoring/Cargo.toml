@@ -37,11 +37,19 @@ urlencoding = "2.1.3"
 jsonwebtoken = "9.2"
 regex = "1.10"
 once_cell = "1.19"
+anyhow = "1.0" # Added for plugin migration
+
+# Plugin system dependency (optional)
+squirrel-plugins = { path = "../plugins", optional = true }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
 time.workspace = true
 log = { version = "0.4.26", default-features = false }
+
+[features]
+default = []
+use_plugins = ["squirrel-plugins"]
 
 [dev-dependencies]
 tokio-test = { workspace = true }

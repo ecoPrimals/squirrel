@@ -1,74 +1,50 @@
-//! Plugin system error types
-//!
-//! This module defines the error types used in the plugin system.
+//! Error types for the plugin system
 
-use std::fmt::Debug;
 use thiserror::Error;
-use uuid::Uuid;
 
-/// Plugin system error types
+/// Plugin system errors
 #[derive(Debug, Error)]
 pub enum PluginError {
     /// Plugin not found
     #[error("Plugin not found: {0}")]
-    NotFound(Uuid),
-    
-    /// Plugin not found by name
-    #[error("Plugin not found with name: {0}")]
     PluginNotFound(String),
     
-    /// Plugin already registered
-    #[error("Plugin already registered: {0}")]
-    AlreadyRegistered(Uuid),
+    /// Plugin already exists
+    #[error("Plugin already exists: {0}")]
+    PluginAlreadyExists(String),
     
-    /// Plugin dependency not found (by string ID)
-    #[error("Plugin dependency not found: {0}")]
-    DependencyNotFound(String),
+    /// Plugin initialization error
+    #[error("Plugin initialization error: {0}")]
+    InitializationError(String),
     
-    /// Plugin dependency not found (by UUID)
-    #[error("Plugin dependency not found: {0}")]
-    DependencyNotFoundUuid(Uuid),
+    /// Plugin dependency error
+    #[error("Plugin dependency error: {0}")]
+    DependencyError(String),
     
-    /// Plugin dependency cycle detected
-    #[error("Plugin dependency cycle detected: {0}")]
-    DependencyCycle(Uuid),
+    /// Plugin security error
+    #[error("Plugin security error: {0}")]
+    SecurityError(String),
     
-    /// Plugin initialization failed
-    #[error("Plugin initialization failed: {0}")]
-    InitializationFailed(String),
+    /// Plugin I/O error
+    #[error("Plugin I/O error: {0}")]
+    IoError(#[from] std::io::Error),
     
-    /// Plugin shutdown failed
-    #[error("Plugin shutdown failed: {0}")]
-    ShutdownFailed(String),
-    
-    /// Plugin state error
-    #[error("Plugin state error: {0}")]
-    StateError(String),
-    
-    /// Plugin loading error
-    #[error("Plugin loading error: {0}")]
-    LoadingError(String),
+    /// Serialization/Deserialization error
+    #[error("Serialization error: {0}")]
+    SerializationError(#[from] serde_json::Error),
     
     /// Plugin validation error
     #[error("Plugin validation error: {0}")]
     ValidationError(String),
     
-    /// Security constraint
-    #[error("Security constraint: {0}")]
-    SecurityConstraint(String),
+    /// Plugin state error
+    #[error("Plugin state error: {0}")]
+    StateError(String),
     
-    /// IO error
-    #[error("IO error: {0}")]
-    IoError(std::io::Error),
-    
-    /// Serialization error
-    #[error("Serialization error: {0}")]
-    SerializationError(serde_json::Error),
-    
-    /// Other error
-    #[error("Other error: {0}")]
-    Other(String),
+    /// Unknown error
+    #[error("Unknown plugin error: {0}")]
+    Unknown(String),
 }
 
 /// Result type for plugin operations
-pub type Result<T> = anyhow::Result<T>; 
+pub type Result<T> = std::result::Result<T, PluginError>; 

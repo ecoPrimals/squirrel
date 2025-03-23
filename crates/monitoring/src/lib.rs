@@ -50,6 +50,9 @@ pub mod network;
 /// Module for dashboard functionality
 pub mod dashboard;
 
+/// Module for monitoring plugins
+pub mod plugins;
+
 /// Configuration for the monitoring system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
