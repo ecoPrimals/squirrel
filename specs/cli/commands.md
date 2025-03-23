@@ -349,115 +349,377 @@ impl RunCommand {
 }
 ```
 
-## MCP Commands
+### 5. secrets
 
-### 1. connect
-
-Connects to an MCP server.
+Manages secret values for secure storage and retrieval.
 
 **Usage:**
 ```
-squirrel connect [--host <host>] [--port <port>] [--timeout <seconds>]
-```
-
-**Options:**
-- `--host <host>`: MCP server host (default: localhost)
-- `--port <port>`: MCP server port (default: 9000)
-- `--timeout <seconds>`: Connection timeout in seconds (default: 30)
-
-**Examples:**
-```bash
-# Connect to localhost
-squirrel connect
-
-# Connect to a remote server
-squirrel connect --host example.com --port 9001
-```
-
-### 2. send
-
-Sends a command to an MCP server.
-
-**Usage:**
-```
-squirrel send <command> [args...] [--format <json|text>]
-```
-
-**Arguments:**
-- `command`: Command to send
-- `args`: Arguments for the command
-
-**Options:**
-- `--format <json|text>`: Output format (default: text)
-
-**Examples:**
-```bash
-# Send a command to the MCP server
-squirrel send status
-
-# Send a command with JSON output
-squirrel send analyze project_dir --format json
-```
-
-## Management Commands
-
-### 1. plugin
-
-Manages Squirrel plugins.
-
-**Usage:**
-```
-squirrel plugin [list|install|remove|update|info] [plugin_name] [options]
+squirrel secrets [get|set|list|delete] [key] [value]
 ```
 
 **Subcommands:**
-- `list`: List installed plugins
-- `install <plugin_name>`: Install a plugin
-- `remove <plugin_name>`: Remove a plugin
-- `update [plugin_name]`: Update plugins
-- `info <plugin_name>`: Show plugin information
+- `get <key>`: Get a secret value
+- `set <key> <value>`: Set a secret value
+- `list`: List all secret keys (values are not displayed)
+- `delete <key>`: Delete a secret value
 
 **Examples:**
 ```bash
-# List installed plugins
+# Set a secret value
+squirrel secrets set api_token "my-secret-token"
+
+# Get a secret value
+squirrel secrets get api_token
+
+# List all secret keys
+squirrel secrets list
+
+# Delete a secret
+squirrel secrets delete api_token
+```
+
+**Implementation:**
+```rust
+#[derive(Parser, Debug)]
+struct SecretsCommand {
+    /// Subcommand for secrets management
+    #[command(subcommand)]
+    subcommand: SecretsSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+enum SecretsSubcommand {
+    /// Get a secret value
+    Get {
+        /// Key to get
+        key: String,
+    },
+    
+    /// Set a secret value
+    Set {
+        /// Key to set
+        key: String,
+        
+        /// Value to set
+        value: String,
+    },
+    
+    /// List all secret keys
+    List,
+    
+    /// Delete a secret value
+    Delete {
+        /// Key to delete
+        key: String,
+    },
+}
+
+impl SecretsCommand {
+    fn execute(&self, secrets_manager: &SecretsManager) -> Result<String, Box<dyn Error>> {
+        match &self.subcommand {
+            SecretsSubcommand::Get { key } => {
+                // Get secret
+                let value = secrets_manager.get(key)?;
+                Ok(value)
+            },
+            SecretsSubcommand::Set { key, value } => {
+                // Set secret
+                secrets_manager.set(key, value)?;
+                Ok(format!("Secret '{}' set successfully", key))
+            },
+            SecretsSubcommand::List => {
+                // List secret keys
+                let keys = secrets_manager.list_keys()?;
+                Ok(format!("Secret keys: {}", keys.join(", ")))
+            },
+            SecretsSubcommand::Delete { key } => {
+                // Delete secret
+                secrets_manager.delete(key)?;
+                Ok(format!("Secret '{}' deleted successfully", key))
+            },
+        }
+    }
+}
+```
+
+### 6. mcp
+
+Manages Machine Context Protocol (MCP) operations including server control, client connections, and protocol operations.
+
+**Usage:**
+```
+squirrel mcp [server|client|status|protocol] [options]
+```
+
+**Subcommands:**
+- `server`: Start an MCP server
+  - `--host <host>`: Host to bind to (default: 127.0.0.1)
+  - `--port <port>`: Port to listen on (default: 7777)
+  
+- `client`: Connect to an MCP server
+  - `--host <host>`: Host to connect to (default: 127.0.0.1)
+  - `--port <port>`: Port to connect to (default: 7777)
+  - `--timeout <seconds>`: Connection timeout (default: 30)
+  - `--interactive`: Start in interactive mode
+
+- `status`: Check MCP server status
+  - `--host <host>`: Host to check (default: 127.0.0.1)
+  - `--port <port>`: Port to check (default: 7777)
+
+- `protocol`: Manage MCP protocol operations
+  - `validate <file>`: Validate a protocol message
+  - `generate <type>`: Generate a protocol message template
+  - `convert <file> --from <version> --to <version>`: Convert between protocol versions
+
+**Examples:**
+```bash
+# Start an MCP server
+squirrel mcp server --port 8080
+
+# Connect to an MCP server in interactive mode
+squirrel mcp client --host localhost --port 8080 --interactive
+
+# Check server status
+squirrel mcp status
+
+# Validate a protocol message
+squirrel mcp protocol validate message.json
+
+# Generate a protocol message template
+squirrel mcp protocol generate tool_call
+
+# Convert a protocol message between versions
+squirrel mcp protocol convert message.json --from 1.0 --to 1.1
+```
+
+**Implementation:**
+```rust
+#[derive(Parser, Debug)]
+struct MCPCommand {
+    /// Subcommand for MCP operations
+    #[command(subcommand)]
+    subcommand: MCPSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+enum MCPSubcommand {
+    /// Start an MCP server
+    Server {
+        /// Host to bind to
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        
+        /// Port to listen on
+        #[arg(long, default_value = "7777")]
+        port: u16,
+    },
+    
+    /// Connect to an MCP server
+    Client {
+        /// Host to connect to
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        
+        /// Port to connect to
+        #[arg(long, default_value = "7777")]
+        port: u16,
+        
+        /// Connection timeout in seconds
+        #[arg(long, default_value = "30")]
+        timeout: u64,
+        
+        /// Start in interactive mode
+        #[arg(long)]
+        interactive: bool,
+    },
+    
+    /// Check MCP server status
+    Status {
+        /// Host to check
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        
+        /// Port to check
+        #[arg(long, default_value = "7777")]
+        port: u16,
+    },
+    
+    /// Manage MCP protocol operations
+    Protocol {
+        /// Protocol subcommand
+        #[command(subcommand)]
+        protocol_cmd: ProtocolSubcommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ProtocolSubcommand {
+    /// Validate a protocol message
+    Validate {
+        /// File containing the message
+        file: PathBuf,
+    },
+    
+    /// Generate a protocol message template
+    Generate {
+        /// Type of message to generate
+        message_type: String,
+    },
+    
+    /// Convert between protocol versions
+    Convert {
+        /// File containing the message
+        file: PathBuf,
+        
+        /// Original protocol version
+        #[arg(long)]
+        from: String,
+        
+        /// Target protocol version
+        #[arg(long)]
+        to: String,
+    },
+}
+
+impl MCPCommand {
+    async fn execute(&self, mcp_client: &MCPClient) -> Result<String, Box<dyn Error>> {
+        match &self.subcommand {
+            MCPSubcommand::Server { host, port } => {
+                // Start MCP server
+                let server = MCPServer::new(host, *port);
+                server.start().await?;
+                Ok(format!("MCP server started on {}:{}", host, port))
+            },
+            MCPSubcommand::Client { host, port, timeout, interactive } => {
+                // Connect to MCP server
+                mcp_client.connect(host, *port, Duration::from_secs(*timeout)).await?;
+                
+                if *interactive {
+                    // Start interactive mode
+                    self.interactive_mode(mcp_client).await?;
+                    Ok("Interactive mode exited".to_string())
+                } else {
+                    Ok(format!("Connected to MCP server at {}:{}", host, port))
+                }
+            },
+            // Other subcommands...
+        }
+    }
+    
+    async fn interactive_mode(&self, client: &MCPClient) -> Result<(), Box<dyn Error>> {
+        // Implement interactive mode
+        // ...
+        Ok(())
+    }
+}
+```
+
+### 7. plugin
+
+Manages Squirrel plugins for extending CLI functionality.
+
+**Usage:**
+```
+squirrel plugin [list|install|uninstall|info|enable|disable] [name]
+```
+
+**Subcommands:**
+- `list`: List all installed plugins
+- `install <name>`: Install a plugin
+- `uninstall <name>`: Uninstall a plugin
+- `info <name>`: Show plugin information
+- `enable <name>`: Enable a plugin
+- `disable <name>`: Disable a plugin
+
+**Examples:**
+```bash
+# List all installed plugins
 squirrel plugin list
 
 # Install a plugin
-squirrel plugin install code-analyzer
+squirrel plugin install my-plugin
 
-# Update all plugins
-squirrel plugin update
+# Get plugin information
+squirrel plugin info my-plugin
+
+# Enable a plugin
+squirrel plugin enable my-plugin
+
+# Disable a plugin
+squirrel plugin disable my-plugin
+
+# Uninstall a plugin
+squirrel plugin uninstall my-plugin
 ```
 
-### 2. log
+**Implementation:**
+```rust
+#[derive(Parser, Debug)]
+struct PluginCommand {
+    /// Subcommand for plugin management
+    #[command(subcommand)]
+    subcommand: PluginSubcommand,
+}
 
-Manages and displays logs.
+#[derive(Subcommand, Debug)]
+enum PluginSubcommand {
+    /// List all installed plugins
+    List,
+    
+    /// Install a plugin
+    Install {
+        /// Plugin name or path
+        name: String,
+    },
+    
+    /// Uninstall a plugin
+    Uninstall {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// Show plugin information
+    Info {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// Enable a plugin
+    Enable {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// Disable a plugin
+    Disable {
+        /// Plugin name
+        name: String,
+    },
+}
 
-**Usage:**
-```
-squirrel log [show|clear|export] [options]
-```
-
-**Subcommands:**
-- `show`: Show logs
-- `clear`: Clear logs
-- `export <file>`: Export logs to file
-
-**Options for 'show':**
-- `--level <level>`: Minimum log level to display
-- `--limit <count>`: Maximum number of logs to display
-- `--follow`: Continuously show new logs
-
-**Examples:**
-```bash
-# Show recent logs
-squirrel log show --limit 50
-
-# Show only error logs
-squirrel log show --level error
-
-# Follow logs in real-time
-squirrel log show --follow
+impl PluginCommand {
+    fn execute(&self, plugin_manager: &PluginManager) -> Result<String, Box<dyn Error>> {
+        match &self.subcommand {
+            PluginSubcommand::List => {
+                // List plugins
+                let plugins = plugin_manager.list_plugins()?;
+                let mut result = String::from("Installed plugins:\n");
+                
+                for plugin in plugins {
+                    result.push_str(&format!("- {} v{} ({})\n", 
+                        plugin.name, 
+                        plugin.version,
+                        if plugin.enabled { "enabled" } else { "disabled" }
+                    ));
+                }
+                
+                Ok(result)
+            },
+            // Other subcommands...
+        }
+    }
+}
 ```
 
 ## Command Registration

@@ -7,9 +7,9 @@ priority: Medium
 
 # Context Management System: Follow-up Tasks
 
-## Documentation Updates
+## Core System Tasks
 
-### API Documentation
+### Documentation Updates
 - [x] Update API documentation for Context Manager
 - [x] Update API documentation for Context Tracker
 - [x] Update API documentation for Context Adapter
@@ -26,8 +26,6 @@ priority: Medium
 - [x] Document lock usage patterns
 - [x] Document performance characteristics
 
-## Additional Testing
-
 ### Performance Testing
 - [x] Create performance benchmarks for core operations
 - [ ] Measure lock contention under high load
@@ -40,42 +38,99 @@ priority: Medium
 - [ ] Measure resource usage under load
 - [ ] Document scalability characteristics
 
-## Future Enhancements
+## Extended System Tasks (New)
 
-### Storage Options
-- [ ] Investigate additional storage backends
-- [ ] Implement pluggable storage system
-- [ ] Add cloud storage integration
-- [ ] Support distributed state storage
+### Rule System Implementation
+- [ ] Create .rules directory structure
+- [ ] Implement rule format parser
+- [ ] Create rule repository
+- [ ] Implement rule manager
+- [ ] Add rule evaluator
+- [ ] Implement rule caching
+- [ ] Create rule actions
+- [ ] Implement rule-context integration
+- [ ] Add rule dependency resolution
+- [ ] Create rule-related error handling
 
-### Recovery Mechanisms
-- [ ] Implement more sophisticated recovery techniques
-- [ ] Add automatic failure detection
-- [ ] Support differential state recovery
+### Visualization System Implementation
+- [ ] Implement visualization manager
+- [ ] Create JSON renderer
+- [ ] Implement terminal renderer
+- [ ] Create context state visualization
+- [ ] Implement metrics visualization
+- [ ] Add history visualization
+- [ ] Create rule impact visualization
+- [ ] Implement CLI interface for visualization
 
-### Metrics and Monitoring
-- [ ] Add comprehensive metrics collection
-- [ ] Implement performance monitoring
-- [ ] Track resource usage
+### Control System Implementation
+- [ ] Implement context controller
+- [ ] Create control event system
+- [ ] Add state modification methods
+- [ ] Implement recovery point management
+- [ ] Create rule application interface
+- [ ] Add batch operation support
+- [ ] Implement transaction handling
+
+### Web Interface
+- [ ] Create web server component
+- [ ] Implement HTML renderer
+- [ ] Create interactive state editor
+- [ ] Add rule inspector UI
+- [ ] Implement real-time updates
+- [ ] Create visualization dashboard
+
+### API Interface
+- [ ] Design comprehensive API
+- [ ] Implement API server
+- [ ] Create documentation
+- [ ] Add authentication
+- [ ] Implement rate limiting
+- [ ] Create example clients
+
+### Documentation for Extended System
+- [ ] Create rule creation guide
+- [ ] Document visualization interfaces
+- [ ] Create API documentation
+- [ ] Add usage examples
+- [ ] Create troubleshooting guide
+- [ ] Document performance considerations
+- [ ] Create architecture diagrams
+
+### Testing for Extended System
+- [ ] Create unit tests for rule system
+- [ ] Create unit tests for visualization
+- [ ] Implement integration tests
+- [ ] Create performance benchmarks
+- [ ] Implement end-to-end tests
+- [ ] Create test fixtures and helpers
 
 ## Timeline
 
+### Core System
 - Documentation Updates: ✅ Completed
 - Additional Testing: In progress (1-2 days remaining)
-- Future Enhancements: Post-MVP
+
+### Extended System
+- Rule System: Planning (Q2 2024)
+- Visualization System: Planning (Q2 2024)
+- Control System: Planning (Q3 2024)
+- Web Interface: Planning (Q4 2024)
+- API Interface: Planning (Q4 2024)
+- Documentation: Continuous
+- Testing: Continuous
 
 ## Progress Summary
 
-The documentation for async mutex refactoring has been completed, including:
-- Updated module documentation with concurrency best practices
-- Added method-level documentation about locking patterns
-- Created comprehensive usage examples
-- Implemented performance benchmarks for concurrent operations
+The core context management system is complete, including the recent async mutex refactoring. Documentation has been updated to reflect all changes, and comprehensive testing is in place.
 
-Remaining work focuses on completing the testing and measurement of the refactoring impact.
+The extended system with rule-based context and visualization/control capabilities is in the planning phase, with specifications created and implementation plan established. Work on the extended system will begin soon, following the phased approach outlined in the implementation plan.
 
-## Notes
+## Next Actions
 
-The core implementation of the context management system is complete and functional. All tests are passing, including the newly added concurrent tests. The focus now is on completing performance testing and documenting the results.
+1. Complete remaining performance testing for core system
+2. Begin implementation of core rule system components
+3. Start work on basic visualization manager
+4. Create detailed technical design for rule-context integration
+5. Set up CI/CD pipeline for extended system components
 
-<version>1.1.0</version> 
+<version>2.0.0</version> 
