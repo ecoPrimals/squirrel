@@ -1,87 +1,211 @@
 # Squirrel CLI Implementation Progress
 
-## Current Status
+This document tracks the current implementation status of the Squirrel CLI.
 
-### Core Components
+## Core Components
+
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Command Registry | ✅ Complete | Registry for maintaining available commands |
-| Plugin System | ✅ Complete | Framework for plugin discovery, loading, and lifecycle management |
-| Formatter System | ✅ Complete | Support for multiple output formats (text, JSON, YAML) |
-| Command Executor | ✅ Complete | Executes commands with proper error handling |
-| CLI Interface | ✅ Complete | Core command-line interface with standard arguments |
+| CLI Framework | ✅ Complete | Command structure, parser, and executor implemented |
+| Logging | ✅ Complete | Using `tracing` for structured logging |
+| Configuration | ✅ Complete | YAML config with environment variable overrides |
+| Plugin System | ✅ Complete | Plugin loading, registration, and management |
+| Output Formatting | ✅ Complete | Support for text, JSON, and YAML output |
 
-### Built-in Commands
+## Built-in Commands
+
 | Command | Status | Notes |
 |---------|--------|-------|
-| `help` | ✅ Complete | Shows help and usage information |
-| `version` | ✅ Complete | Shows version information |
-| `status` | ✅ Complete | Shows system status |
-| `config` | ✅ Complete | Manages configuration |
-| `plugin` | ✅ Complete | Manages plugins |
-| `secrets` | ✅ Complete | Manages secrets |
-| `mcp` | 🔄 In Progress | Machine Context Protocol operations |
+| `help` | ✅ Complete | Help text for all commands |
+| `version` | ✅ Complete | Show version information |
+| `config` | ✅ Complete | View and edit configuration |
+| `status` | ✅ Complete | Check status of services |
+| `plugin` | ✅ Complete | Plugin management commands |
+| `mcp` | ✅ Complete | MCP client and server implementation, subscription and command registry support completed |
 
-### Plugin System
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Plugin Discovery | ✅ Complete | Discovers plugins in configured directories |
-| Plugin Loading | ✅ Complete | Dynamically loads plugin libraries |
-| Plugin Lifecycle | ✅ Complete | Manages initialization, execution, and cleanup |
-| Command Registration | ✅ Complete | Registers commands from plugins |
-| Plugin Management | ✅ Complete | CLI commands for managing plugins |
+## MCP Integration
 
-### Sample Plugins
+| Component | Status | Notes |
+|-----------|--------|-------|
+| MCP Command | ✅ Complete | Server, client, publish, subscribe, status, and protocol subcommands implemented |
+| MCP Server | ✅ Complete | TCP-based server with request/response handling, pub/sub notifications, command registry integration |
+| MCP Client | ✅ Complete | Client implementation with interactive mode, commands, and subscription support |
+| Protocol Parsing | ✅ Complete | JSON message parsing and serialization |
+| Subscription System | ✅ Complete | Topic-based publish/subscribe pattern implemented with robust cleanup |
+| Command Registry | ✅ Complete | Integration with CLI command registry for remote command execution |
+
+## Plugins
+
 | Plugin | Status | Notes |
 |--------|--------|-------|
-| Hello Plugin | ✅ Complete | Simple "hello world" plugin to demonstrate functionality |
+| Hello Plugin | ✅ Complete | Example plugin that adds a "hello" command |
+| Context Plugin | ❌ Not Started | For context-aware commands |
+| Secrets Plugin | ❌ Not Started | For managing secrets |
+
+## Testing
+
+| Test Type | Status | Notes |
+|-----------|--------|-------|
+| Unit Tests | 🔄 In Progress | Core functionality, MCP subscription, and command registry tests added |
+| Integration Tests | 🔄 In Progress | Basic end-to-end testing started with MCP subscription tests |
+| Performance Tests | ❌ Not Started | Benchmarking needed |
+
+## Documentation
+
+| Documentation | Status | Notes |
+|---------------|--------|-------|
+| API Docs | 🔄 In Progress | Comments for public API in progress |
+| User Guide | ❌ Not Started | End-user documentation needed |
+| Developer Guide | 🔄 In Progress | MCP protocol documentation updated |
 
 ## Next Steps
 
-### 1. Testing and Quality Assurance
-- [ ] Add unit tests for core components
-- [ ] Implement integration tests for command execution
-- [ ] Add tests for plugin loading and lifecycle
-- [ ] Configure CI/CD pipeline
-- [ ] Setup code coverage reporting
+1. Enhance MCP protocol security:
+   - Implement authentication and security for MCP connections
+   - Add TLS support for encrypted communication
+   - Create access control for MCP commands
 
-### 2. Plugin Repository
-- [ ] Create a central repository for plugins
-- [ ] Implement plugin download and installation
-- [ ] Add plugin version management
-- [ ] Implement plugin dependency resolution
-- [ ] Add plugin update mechanism
+2. Expand command registry integration:
+   - Add persistent server instance for stateful command execution
+   - Implement command history via MCP for remote tracking
+   - Add permission controls for remote command execution
 
-### 3. Documentation
-- [ ] Create comprehensive API documentation
-- [ ] Add plugin development guide
-- [ ] Improve command help messages
-- [ ] Create user manual
-- [ ] Add examples for common use cases
+3. Enhance plugin system with MCP:
+   - Allow plugins to register MCP command handlers
+   - Create topic-based plugin communication
+   - Implement plugin events via MCP notifications
+   - Add plugin-specific security controls
 
-### 4. Performance Optimization
-- [ ] Profile command execution
-- [ ] Optimize plugin loading
-- [ ] Implement lazy loading for plugins
-- [ ] Reduce memory usage for large plugin sets
-
-### 5. Additional Features
-- [ ] Add plugin hooks for events
-- [ ] Implement plugin configuration system
-- [ ] Add interactive mode for CLI
-- [ ] Implement plugin migration system
-- [ ] Add telemetry and reporting
+4. Create comprehensive test suite:
+   - Add stress tests for MCP server with many clients
+   - Create test cases for subscription edge cases
+   - Implement benchmarks for notification throughput
+   - Add tests for security features
 
 ## Current Implementation Notes
 
-The Squirrel CLI now has a robust plugin system, command execution capabilities, and a well-structured command interface. The CLI allows for dynamic loading of plugins and provides a unified command structure for both built-in and plugin commands.
+The Squirrel CLI now has a fully functional Machine Context Protocol (MCP) implementation with complete subscription support and command registry integration. The implementation includes:
 
-The implementation of the Machine Context Protocol (MCP) command is in progress, which will enable communication between various components and services through the Squirrel platform. The MCP command will provide subcommands for server management, client operations, and protocol handling.
+- MCP server with topic-based subscription management
+- MCP client with subscription management and callback support
+- Command-line interface for server, client, subscribe, and publish operations
+- Interactive mode with subscription and notification commands
+- Robust cleanup of resources and subscriptions
+- Comprehensive unit tests for subscription functionality
+- Command registry integration for remote command execution
 
-We've created a basic "hello" plugin as a demonstration of the plugin system functionality. This plugin adds a simple command to the CLI that greets the user, showing how plugins can extend the CLI's capabilities.
+The subscription system follows the Observer pattern and enables event-driven architecture in the Squirrel platform. It provides:
+
+- Topic-based subscription with unique subscription IDs
+- Callback-based notification handling
+- Clean unsubscription when clients disconnect
+- Efficient notification routing to subscribers
+- Support for custom message handlers
+- Async notification processing
+
+The command registry integration enables remote command execution through the MCP protocol, allowing:
+
+- Executing CLI commands remotely via MCP
+- Passing arguments to remote commands
+- Receiving command output through the MCP protocol
+- Testing remote command execution through unit tests
+
+The MCP command provides a uniform interface for all MCP operations, making it easy to interact with the protocol from the command line.
+
+## Following Design Patterns
+
+The CLI implementation follows these design patterns:
+- **Dependency Injection Pattern**: For component composition and testability
+- **Error Handling Pattern**: For standardized error propagation and recovery
+- **Observer Pattern**: For subscription-based notification handling
+- **Command Pattern**: For encapsulating command execution logic
+- **Async Programming Pattern**: For asynchronous code and tokio usage
+- **Resource Management Pattern**: For managing system resources
+- **Schema Design Pattern**: For data schema consistency
+
+## CLI Standards Compliance
+
+The implementation follows the 006-cli-standards rule:
+- Uses clap for argument parsing
+- Separates stdout (for output) and stderr (for logs)
+- Implements proper error handling with context
+- Follows consistent command structure
+- Provides standard global options
 
 ## Blockers and Issues
 
 1. **Dynamic Library Loading**: Cross-platform dynamic library loading requires careful handling of platform-specific details.
 2. **Error Propagation**: Ensuring proper error propagation between plugins and the core CLI.
-3. **Plugin Isolation**: Preventing plugins from interfering with each other or the core CLI. 
+3. **Plugin Isolation**: Preventing plugins from interfering with each other or the core CLI.
+4. **MCP Security**: Security features (authentication, encryption) for MCP connections need to be implemented.
+5. **Performance Tuning**: The MCP server may need optimization for high-throughput use cases.
+
+## Future Development Considerations
+
+### Build System Improvements
+
+1. **Cross-Platform Builds**:
+   - Establish CI/CD pipeline for Windows, macOS, and Linux
+   - Implement standardized build scripts for all platforms
+   - Create consistent release packaging for all environments
+
+2. **Dependency Management**:
+   - Optimize dependency tree to reduce build times
+   - Standardize version management across crates
+   - Consider using cargo workspace features more effectively
+
+3. **Build Performance**:
+   - Implement incremental compilation optimizations
+   - Add caching strategies for CI/CD
+   - Split compilation units for faster parallel builds
+
+### Test Framework Enhancements
+
+1. **Unit Test Coverage**:
+   - Expand unit tests to cover all core functionality
+   - Add property-based testing for protocol implementations
+   - Implement more comprehensive error case testing
+
+2. **Integration Testing**:
+   - Create end-to-end test suites for core workflows
+   - Develop automated integration tests for plugin system
+   - Implement realistic scenario testing for MCP communication
+
+3. **Performance Testing**:
+   - Add benchmarks for critical paths
+   - Implement stress testing for the MCP server
+   - Create performance regression tests
+
+### Code Quality and Maintenance
+
+1. **Static Analysis**:
+   - Implement comprehensive linting rules
+   - Add static analysis to CI pipeline
+   - Enforce code style consistency across the codebase
+
+2. **Documentation**:
+   - Improve inline documentation coverage
+   - Create comprehensive API documentation
+   - Add more usage examples and tutorials
+
+3. **Refactoring Opportunities**:
+   - Review and optimize error handling patterns
+   - Consolidate duplicate functionality
+   - Improve type safety across interfaces
+
+### Platform-Specific Considerations
+
+1. **Windows**:
+   - Improve console output handling on Windows terminals
+   - Address path normalization issues
+   - Optimize plugin loading on Windows
+
+2. **macOS**:
+   - Ensure compatibility with Apple Silicon
+   - Test performance on various macOS versions
+   - Address filesystem permission issues
+
+3. **Linux**:
+   - Test on various distributions
+   - Optimize for containerized environments
+   - Ensure compatibility with minimal installations 

@@ -42,7 +42,7 @@ pub fn register_commands(registry: &mut CommandRegistry) {
     let config_command = ConfigCommand::new();
     let plugin_command = PluginCommand::new();
     let secrets_command = SecretsCommand::new();
-    let mcp_command = mcp_command::MCPCommand::new();
+    let mcp_command = MCPCommand;
     
     // Convert to Arc<dyn Command>
     let help_arc = std::sync::Arc::new(help_command);
