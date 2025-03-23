@@ -1,29 +1,7 @@
-//! Command API data models.
-//! 
-//! This module contains all data models related to the Command API functionality.
-
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
-/// Command definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "db", derive(sqlx::FromRow))]
-pub struct CommandDefinition {
-    /// Command ID
-    pub id: String,
-    /// Command name
-    pub name: String,
-    /// Command description
-    pub description: String,
-    /// JSON schema for parameters
-    pub parameter_schema: serde_json::Value,
-    /// Created timestamp
-    pub created_at: DateTime<Utc>,
-    /// Updated timestamp
-    pub updated_at: DateTime<Utc>,
-}
-
-/// Status of a command
+/// Status of a command execution
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandStatus {
     /// Command is queued but not yet running
@@ -36,6 +14,31 @@ pub enum CommandStatus {
     Failed,
     /// Command was cancelled by the user
     Cancelled,
+}
+
+impl std::fmt::Display for CommandStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommandStatus::Queued => write!(f, "queued"),
+            CommandStatus::Running => write!(f, "running"),
+            CommandStatus::Completed => write!(f, "completed"),
+            CommandStatus::Failed => write!(f, "failed"),
+            CommandStatus::Cancelled => write!(f, "cancelled"),
+        }
+    }
+}
+
+impl From<&str> for CommandStatus {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "queued" => CommandStatus::Queued,
+            "running" => CommandStatus::Running,
+            "completed" => CommandStatus::Completed,
+            "failed" => CommandStatus::Failed,
+            "cancelled" | "canceled" => CommandStatus::Cancelled,
+            _ => CommandStatus::Queued,
+        }
+    }
 }
 
 impl CommandStatus {
@@ -67,9 +70,25 @@ impl std::str::FromStr for CommandStatus {
     }
 }
 
+/// Command definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandDefinition {
+    /// Command ID
+    pub id: String,
+    /// Command name
+    pub name: String,
+    /// Command description
+    pub description: String,
+    /// JSON schema for parameters
+    pub parameter_schema: serde_json::Value,
+    /// Created timestamp
+    pub created_at: DateTime<Utc>,
+    /// Updated timestamp
+    pub updated_at: DateTime<Utc>,
+}
+
 /// Command execution record
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "db", derive(sqlx::FromRow))]
 pub struct CommandExecution {
     /// Execution ID
     pub id: String,
@@ -80,7 +99,6 @@ pub struct CommandExecution {
     /// Command parameters
     pub parameters: serde_json::Value,
     /// Execution status
-    #[cfg_attr(feature = "db", sqlx(try_from = "String"))]
     pub status: CommandStatus,
     /// Progress (0.0 to 1.0)
     pub progress: f32,
@@ -98,7 +116,7 @@ pub struct CommandExecution {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Request to create a new command
+/// Create command request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCommandRequest {
     /// Command name
@@ -107,11 +125,15 @@ pub struct CreateCommandRequest {
     pub parameters: serde_json::Value,
 }
 
-/// Response for a created command
+/// Create command response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCommandResponse {
     /// Command execution ID
     pub id: String,
+    /// Command name
+    pub command: String,
+    /// Status
+    pub status: CommandStatus,
     /// Status URL
     pub status_url: String,
 }
@@ -132,55 +154,31 @@ pub struct CommandStatusResponse {
     /// Error (if failed)
     pub error: Option<String>,
     /// Start time
-    pub started_at: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
     /// Completion time
-    pub completed_at: Option<String>,
-    /// Time since creation
-    pub elapsed: String,
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Creation time
+    pub created_at: DateTime<Utc>,
+    /// Last update time
+    pub updated_at: DateTime<Utc>,
 }
 
-/// Command list response
+/// Command list filter
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandListResponse {
-    /// Available commands
-    pub commands: Vec<CommandDefinition>,
+pub struct CommandListFilter {
+    /// Filter by status
+    pub status: Option<CommandStatus>,
+    /// Filter by command name
+    pub command: Option<String>,
+    /// Filter by from date
+    pub from_date: Option<DateTime<Utc>>,
+    /// Filter by to date
+    pub to_date: Option<DateTime<Utc>>,
 }
 
-/// Command history response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandHistoryResponse {
-    /// Command executions
-    pub executions: Vec<CommandStatusResponse>,
-}
-
-/// Type of command list update
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CommandListUpdateType {
-    /// New command
-    Added,
-    /// Updated command
-    Updated,
-    /// Removed command
-    Removed,
-}
-
-/// Command summary for list updates
+/// Command summary for list view
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandSummary {
-    /// Command ID
-    pub id: String,
-    /// Command name
-    pub name: String,
-    /// Command status
-    pub status: CommandStatus,
-}
-
-/// WebSocket event for command status updates
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandStatusEvent {
-    /// Event type
-    pub event: String,  // "command-status"
     /// Command execution ID
     pub id: String,
     /// Command name
@@ -189,23 +187,21 @@ pub struct CommandStatusEvent {
     pub status: CommandStatus,
     /// Progress (0.0 to 1.0)
     pub progress: f32,
-    /// Result (if completed)
-    pub result: Option<serde_json::Value>,
-    /// Error (if failed)
-    pub error: Option<String>,
-    /// Event timestamp (RFC3339)
-    pub timestamp: String,
+    /// Creation time
+    pub created_at: DateTime<Utc>,
+    /// Start time (if started)
+    pub started_at: Option<DateTime<Utc>>,
+    /// Completion time (if completed)
+    pub completed_at: Option<DateTime<Utc>>,
 }
 
-/// WebSocket event for command list updates
+/// Available command info
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommandListUpdateEvent {
-    /// Event type
-    pub event: String,  // "command-list-update"
-    /// Type of update
-    pub update_type: CommandListUpdateType,
-    /// Command summary
-    pub command: CommandSummary,
-    /// Event timestamp (RFC3339)
-    pub timestamp: String,
+pub struct AvailableCommand {
+    /// Command name
+    pub name: String,
+    /// Command description
+    pub description: String,
+    /// Parameter schema
+    pub parameter_schema: serde_json::Value,
 } 

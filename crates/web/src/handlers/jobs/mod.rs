@@ -19,7 +19,7 @@ use serde::Deserialize;
 use crate::{
     api::{
         CreateJobRequest, CreateJobResponse, JobStatus, JobState, error::AppError,
-        api_success, api_success_with_pagination, ApiResponse
+        api_success, api_success_paginated, ApiResponse
     },
     AppState,
     auth::Claims,
@@ -259,12 +259,12 @@ pub async fn list_jobs(
     
     let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
     
-    Ok(api_success_with_pagination(
+    Ok(api_success_paginated(
         job_statuses,
-        page,
-        limit,
-        total_count,
-        total_pages
+        page as i64,
+        limit as i64,
+        total_count.try_into().unwrap(),
+        total_pages as i64,
     ))
 }
 
@@ -309,12 +309,12 @@ pub async fn list_jobs(
     let total_count = jobs.len() as u64;
     let total_pages = 1;
     
-    Ok(api_success_with_pagination(
+    Ok(api_success_paginated(
         jobs,
-        page,
-        limit,
-        total_count,
-        total_pages
+        page as i64,
+        limit as i64,
+        total_count.try_into().unwrap(),
+        total_pages as i64,
     ))
 }
 

@@ -1,10 +1,13 @@
 use anyhow::Result;
 use std::fmt;
 use async_trait::async_trait;
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use crate::api::commands::{
     CommandDefinition, 
     CommandStatusResponse,
 };
+use std::error::Error as StdError;
 
 /// MCP connection errors
 #[derive(Debug)]
@@ -26,17 +29,44 @@ pub enum McpError {
 impl fmt::Display for McpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            McpError::ConnectionError(msg) => write!(f, "MCP connection error: {}", msg),
-            McpError::CommandError(msg) => write!(f, "MCP command error: {}", msg),
-            McpError::InvalidResponse(msg) => write!(f, "MCP invalid response: {}", msg),
-            McpError::CommandNotFound(msg) => write!(f, "Command not found: {}", msg),
-            McpError::Timeout(msg) => write!(f, "MCP timeout: {}", msg),
-            McpError::Internal(msg) => write!(f, "MCP internal error: {}", msg),
+            Self::ConnectionError(msg) => write!(f, "MCP connection error: {}", msg),
+            Self::CommandError(msg) => write!(f, "MCP command error: {}", msg),
+            Self::InvalidResponse(msg) => write!(f, "MCP invalid response: {}", msg),
+            Self::CommandNotFound(msg) => write!(f, "MCP command not found: {}", msg),
+            Self::Timeout(msg) => write!(f, "MCP timeout: {}", msg),
+            Self::Internal(msg) => write!(f, "MCP internal error: {}", msg),
         }
     }
 }
 
-/// MCP client interface for command execution
+impl StdError for McpError {}
+
+/// MCP Message structure for command communications
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMessage {
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub payload: serde_json::Value,
+    pub context: McpContext,
+}
+
+/// MCP Context for message metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpContext {
+    pub user_id: String,
+    pub request_id: String,
+    pub timestamp: chrono::DateTime<Utc>,
+}
+
+/// MCP client interface for all MCP communications
+#[async_trait]
+pub trait McpClient: Send + Sync + 'static {
+    /// Send a message to the MCP
+    async fn send_message(&self, message: &str) -> Result<String, McpError>;
+}
+
+/// Legacy MCP client interface for command execution
+/// This is kept for backward compatibility but will be deprecated
 #[async_trait]
 pub trait McpCommandClient: Send + Sync + 'static {
     /// Send a message to the MCP
@@ -80,6 +110,15 @@ impl MockMcpClient {
 }
 
 #[async_trait]
+impl McpClient for MockMcpClient {
+    async fn send_message(&self, message: &str) -> Result<String, McpError> {
+        tracing::info!("Mock MCP client sending message: {}", message);
+        // In a real implementation, this would send to the MCP server
+        Ok(format!("Acknowledged: {}", message))
+    }
+}
+
+#[async_trait]
 impl McpCommandClient for MockMcpClient {
     async fn send_message(&self, message: &str) -> Result<String, McpError> {
         tracing::info!("Mock MCP client sending message: {}", message);
@@ -118,9 +157,10 @@ impl McpCommandClient for MockMcpClient {
             progress: 0.5,
             result: None,
             error: None,
-            started_at: Some(chrono::Utc::now().to_rfc3339()),
+            started_at: Some(chrono::Utc::now()),
             completed_at: None,
-            elapsed: "00:01:30".to_string(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
         })
     }
     

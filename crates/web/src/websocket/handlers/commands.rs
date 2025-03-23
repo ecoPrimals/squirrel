@@ -4,205 +4,164 @@
 //! including command status updates and command list updates.
 
 use std::sync::Arc;
-use async_trait::async_trait;
 use serde_json::json;
-use tracing::error;
+use serde::Serialize;
+use async_trait::async_trait;
 
-use crate::api::commands::{CommandStatusEvent, CommandListUpdateEvent};
+use crate::api::commands::CommandStatus;
 use crate::state::AppState;
 use crate::websocket::{
+    WebSocketContext,
     WebSocketHandler,
     WebSocketMessage,
-    WebSocketContext,
     error::WebSocketError,
     ChannelCategory,
+    make_channel_id,
 };
 
-/// Command WebSocket handler
-pub struct CommandWebSocketHandler {
+// Define the event types that were missing
+#[derive(Debug, Serialize)]
+pub struct CommandStatusEvent {
+    pub command_id: String,
+    pub status: CommandStatus,
+    pub progress: f32,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandListUpdateEvent {
+    pub action: String, // "added", "updated", "removed"
+    pub command_id: String,
+    pub command_name: String,
+    pub status: CommandStatus,
+}
+
+/// Command message handler
+pub struct CommandHandler {
     app_state: Arc<AppState>,
 }
 
-impl CommandWebSocketHandler {
-    /// Create a new CommandWebSocketHandler
+impl CommandHandler {
+    /// Create a new CommandHandler
     pub fn new(app_state: Arc<AppState>) -> Self {
         Self { app_state }
     }
 }
 
 #[async_trait]
-impl WebSocketHandler for CommandWebSocketHandler {
+impl WebSocketHandler for CommandHandler {
     async fn handle_message(
         &self,
         context: &WebSocketContext,
         message: WebSocketMessage,
     ) -> Result<Option<WebSocketMessage>, WebSocketError> {
-        match message.action.as_str() {
-            "subscribe" => self.handle_subscribe(context, message).await,
-            "unsubscribe" => self.handle_unsubscribe(context, message).await,
-            _ => Err(WebSocketError::UnknownCommand(format!(
-                "Unknown command action: {}",
-                message.action
-            ))),
-        }
-    }
-}
-
-impl CommandWebSocketHandler {
-    /// Handle subscribe command
-    async fn handle_subscribe(
-        &self,
-        context: &WebSocketContext,
-        message: WebSocketMessage,
-    ) -> Result<Option<WebSocketMessage>, WebSocketError> {
-        let topic = message.data.get("topic")
-            .and_then(|t| t.as_str())
-            .ok_or_else(|| WebSocketError::MissingParameter("topic".to_string()))?;
-
-        match topic {
-            "command_status" => {
-                let command_id = message.data.get("commandId")
-                    .and_then(|c| c.as_str())
-                    .ok_or_else(|| WebSocketError::MissingParameter("commandId".to_string()))?;
-
-                // Subscribe to command status updates
+        // Extract message content
+        let action = &message.action;
+        let data = &message.data;
+        
+        match action.as_str() {
+            "subscribe_command_updates" => {
+                // Get command ID from the message
+                let command_id = data["command_id"].as_str()
+                    .ok_or(WebSocketError::MissingParameter("Missing command_id".to_string()))?;
+                
+                // Subscribe the client to updates for this command
                 let channel = format!("command:{}", command_id);
-                context.subscribe(&channel).await.map_err(|e| {
-                    WebSocketError::SubscriptionError(format!("Failed to subscribe to command status: {}", e))
-                })?;
-
-                // Return confirmation
-                Ok(Some(WebSocketMessage {
+                context.subscribe(&channel).await?;
+                
+                // Send confirmation
+                let response = WebSocketMessage {
                     action: "subscribed".to_string(),
                     data: json!({
-                        "topic": "command_status",
-                        "commandId": command_id,
                         "channel": channel
                     }),
-                }))
+                };
+                
+                Ok(Some(response))
             },
-            "command_list" => {
-                // Subscribe to command list updates
-                context.subscribe("commands").await.map_err(|e| {
-                    WebSocketError::SubscriptionError(format!("Failed to subscribe to command list: {}", e))
-                })?;
-
-                // Return confirmation
-                Ok(Some(WebSocketMessage {
-                    action: "subscribed".to_string(),
-                    data: json!({
-                        "topic": "command_list",
-                        "channel": "commands"
-                    }),
-                }))
-            },
-            _ => Err(WebSocketError::InvalidCommand(format!("Unknown topic: {}", topic))),
-        }
-    }
-
-    /// Handle unsubscribe command
-    async fn handle_unsubscribe(
-        &self,
-        context: &WebSocketContext,
-        message: WebSocketMessage,
-    ) -> Result<Option<WebSocketMessage>, WebSocketError> {
-        let topic = message.data.get("topic")
-            .and_then(|t| t.as_str())
-            .ok_or_else(|| WebSocketError::MissingParameter("topic".to_string()))?;
-
-        match topic {
-            "command_status" => {
-                let command_id = message.data.get("commandId")
-                    .and_then(|c| c.as_str())
-                    .ok_or_else(|| WebSocketError::MissingParameter("commandId".to_string()))?;
-
-                // Unsubscribe from command status updates
+            "unsubscribe_command_updates" => {
+                // Get command ID from the message
+                let command_id = data["command_id"].as_str()
+                    .ok_or(WebSocketError::MissingParameter("Missing command_id".to_string()))?;
+                
+                // Unsubscribe the client from this command's updates
                 let channel = format!("command:{}", command_id);
-                context.unsubscribe(&channel).await.map_err(|e| {
-                    WebSocketError::SubscriptionError(format!("Failed to unsubscribe from command status: {}", e))
-                })?;
-
-                // Return confirmation
-                Ok(Some(WebSocketMessage {
+                context.unsubscribe(&channel).await?;
+                
+                // Send confirmation
+                let response = WebSocketMessage {
                     action: "unsubscribed".to_string(),
                     data: json!({
-                        "topic": "command_status",
-                        "commandId": command_id
+                        "channel": channel
                     }),
-                }))
+                };
+                
+                Ok(Some(response))
             },
-            "command_list" => {
-                // Unsubscribe from command list updates
-                context.unsubscribe("commands").await.map_err(|e| {
-                    WebSocketError::SubscriptionError(format!("Failed to unsubscribe from command list: {}", e))
-                })?;
-
-                // Return confirmation
-                Ok(Some(WebSocketMessage {
-                    action: "unsubscribed".to_string(),
-                    data: json!({
-                        "topic": "command_list"
-                    }),
-                }))
-            },
-            _ => Err(WebSocketError::InvalidCommand(format!("Unknown topic: {}", topic))),
+            _ => {
+                // Unknown command type
+                Err(WebSocketError::UnknownCommand(
+                    format!("Unknown command type: {}", action)
+                ))
+            }
         }
     }
 }
 
-/// Broadcast a command status update to all subscribers of the command's status channel
-pub async fn broadcast_command_status_update(
+/// Send command status update to WebSocket clients
+pub async fn broadcast_command_status(
     app_state: &Arc<AppState>,
-    event: CommandStatusEvent,
-) -> Result<(), WebSocketError> {
-    let _channel = format!("command:{}", event.id);
-    let message = json!({
-        "event": "command_status",
-        "command_id": event.id,
-        "status": event.status,
-        "progress": event.progress,
-        "result": event.result,
-        "error": event.error,
-        "timestamp": event.timestamp,
+    command_id: &str,
+    status: CommandStatus,
+    progress: f32,
+    result: Option<serde_json::Value>,
+    error: Option<String>,
+) -> Result<usize, WebSocketError> {
+    // Format channel name
+    let channel = format!("command:{}", command_id);
+    
+    // Create JSON payload
+    let payload = json!({
+        "command_id": command_id,
+        "status": status,
+        "progress": progress,
+        "result": result,
+        "error": error,
     });
-
+    
+    // Broadcast to the channel
     app_state.ws_manager.broadcast_to_channel(
         ChannelCategory::Command,
-        &event.id,
-        "status_update",
-        message,
-    ).await.map_err(|e| {
-        error!("Failed to broadcast command status: {:?}", e);
-        WebSocketError::SendError(format!("Failed to broadcast: {}", e))
-    })?;
-
-    Ok(())
+        &channel,
+        "command_status",
+        payload
+    ).await.map_err(|e| WebSocketError::SendError(format!("Failed to broadcast: {}", e)))
 }
 
-/// Broadcast a command list update to all subscribers of the commands channel
+/// Send command list update to WebSocket clients
 pub async fn broadcast_command_list_update(
     app_state: &Arc<AppState>,
-    event: CommandListUpdateEvent,
-) -> Result<(), WebSocketError> {
-    let message = json!({
-        "event": "command_list_update",
-        "update_type": event.update_type,
+    action: &str,
+    command_id: &str,
+    command_name: &str,
+    status: CommandStatus,
+) -> Result<usize, WebSocketError> {
+    // Create payload
+    let payload = json!({
+        "action": action,
         "command": {
-            "id": event.command.id,
-            "name": event.command.name,
-            "status": event.command.status,
+            "id": command_id,
+            "name": command_name,
+            "status": status,
         }
     });
-
+    
+    // Broadcast to all clients subscribed to command list updates
     app_state.ws_manager.broadcast_to_channel(
-        ChannelCategory::System,
+        ChannelCategory::Command,
         "commands",
-        "list_update",
-        message,
-    ).await.map_err(|e| {
-        error!("Failed to broadcast command list update: {:?}", e);
-        WebSocketError::SendError(format!("Failed to broadcast: {}", e))
-    })?;
-
-    Ok(())
+        "command_list_update",
+        payload
+    ).await.map_err(|e| WebSocketError::SendError(format!("Failed to broadcast: {}", e)))
 } 

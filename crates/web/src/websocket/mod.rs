@@ -21,7 +21,6 @@ pub use commands::CommandHandler;
 
 // Handler trait and implementations
 pub use crate::websocket::handlers::WebSocketHandler;
-pub use crate::websocket::handlers::commands::CommandWebSocketHandler;
 
 /// Initialize the WebSocket module
 pub fn init() -> ConnectionManager {
