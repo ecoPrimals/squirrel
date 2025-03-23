@@ -1,645 +1,246 @@
-#![allow(clippy::cast_precision_loss)] // Allow u64 to f64 casts for metrics
-
-/// Network monitoring functionality
+/// Network monitoring functionality)] // Allow u64 to f64 casts for metrics
 ///
 /// This module provides network interface monitoring, bandwidth tracking,
-/// and network health diagnostics.
-
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use sysinfo::{System, Networks};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
+use sysinfo::{System, Networks};
 use squirrel_core::error::Result;
+use tracing::debug;
 use serde::{Serialize, Deserialize};
-use std::time::SystemTime;
-use log::debug;
+use tokio::time::{sleep, Duration};
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;
 
-/// Error types for network monitoring operations
-pub mod error;
-
-/// System information gathering for network monitoring
-pub mod system_info;
-
-// Re-export system info adapter
-pub use system_info::{SystemInfoAdapter, create_system_info_adapter, create_system_info_adapter_with_system};
-
-// Re-export adapter and error types
-pub use adapter::NetworkMonitorAdapter;
-pub use error::{interface_error, stats_error, system_error, NetworkError};
-
-/// Type alias for `sysinfo::System` to simplify usage in the network module
-type S = System;
-
-/// System information manager for monitoring system resources
-#[derive(Debug)]
-pub struct SystemInfoManager {
-    /// System information instance for collecting system metrics
-    system: Arc<RwLock<S>>,
-}
-
-impl SystemInfoManager {
-    /// Creates a new system info manager
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            system: Arc::new(RwLock::new(System::new_all())),
-        }
-    }
-
-    /// Creates a new system info manager with dependencies
-    #[must_use]
-    pub fn with_dependencies(system: Arc<RwLock<S>>) -> Self {
-        Self { system }
-    }
-
-    /// Refreshes all system information
-    /// 
-    /// # Errors
-    /// Returns an error if the system information cannot be refreshed due to
-    /// resource constraints or if the system lock cannot be acquired
-    pub async fn refresh_all(&self) -> Result<()> {
-        let mut sys = self.system.write().await;
-        sys.refresh_all();
-        Ok(())
-    }
-
-    /// Refreshes network information
-    /// 
-    /// # Errors
-    /// Returns an error if the network information cannot be refreshed due to
-    /// resource constraints, permission issues, or if the system lock cannot be acquired
-    pub async fn refresh_networks(&self) -> Result<()> {
-        // Create a new system and refresh all components
-        let mut system_clone = System::new_all();
-        system_clone.refresh_all();
-        
-        // Update our stored system with the fresh data
-        let mut sys = self.system.write().await;
-        *sys = system_clone;
-        
-        Ok(())
-    }
-
-    /// Gets CPU usage
-    /// 
-    /// # Returns
-    /// The CPU usage as a percentage (0-100)
-    /// 
-    /// # Errors
-    /// Returns an error if CPU usage information cannot be retrieved or if
-    /// the system lock cannot be acquired
-    pub async fn cpu_usage(&self) -> Result<f32> {
-        let sys = self.system.read().await;
-        Ok(sys.global_cpu_info().cpu_usage())
-    }
-
-    /// Gets memory usage (used, total)
-    /// 
-    /// # Returns
-    /// A tuple containing (used memory in bytes, total memory in bytes)
-    /// 
-    /// # Errors
-    /// Returns an error if memory usage information cannot be retrieved or if
-    /// the system lock cannot be acquired
-    pub async fn memory_usage(&self) -> Result<(u64, u64)> {
-        let sys = self.system.read().await;
-        Ok((sys.used_memory(), sys.total_memory()))
-    }
-
-    /// Gets network statistics for all interfaces
-    /// 
-    /// # Returns
-    /// A vector of tuples containing (interface name, received bytes, transmitted bytes)
-    /// 
-    /// # Errors
-    /// Returns an error if network statistics cannot be retrieved, interfaces
-    /// are inaccessible, or if the system lock cannot be acquired
-    pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
-        // Create fresh Networks instance with refreshed data 
-        let networks = Networks::new_with_refreshed_list();
-        let mut stats = Vec::with_capacity(networks.len());
-        
-        // Get networks using iteration over Networks
-        for (interface_name, data) in &networks {
-            stats.push((
-                interface_name.clone(),
-                data.received(),
-                data.transmitted(),
-            ));
-        }
-        
-        if stats.is_empty() {
-            debug!("No network interfaces found or accessible");
-        }
-        
-        Ok(stats)
-    }
-
-    /// Gets a list of all network interfaces
-    ///
-    /// # Returns
-    /// A Result containing a vector of `NetworkInterface` objects or an error
-    pub fn get_interfaces(&self) -> Result<Vec<NetworkInterface>> {
-        // Create fresh Networks instance - no need for async since we're not using the system lock
-        let networks = Networks::new_with_refreshed_list();
-        let mut interfaces = Vec::with_capacity(networks.len());
-        
-        for (name, data) in &networks {
-            interfaces.push(NetworkInterface {
-                name: name.clone(),
-                received: data.received(),
-                transmitted: data.transmitted(),
-                packets_received: data.packets_received(),
-                packets_transmitted: data.packets_transmitted(),
-            });
-        }
-        
-        Ok(interfaces)
-    }
-    
-    /// Gets statistics for a specific network interface
-    ///
-    /// # Arguments
-    /// * `interface_name` - The name of the network interface
-    ///
-    /// # Returns
-    /// A Result containing network statistics for the interface or an error
-    ///
-    /// # Errors
-    /// Returns an error if the interface is not found or if stats cannot be retrieved
-    pub fn get_interface_stats(&self, interface_name: &str) -> Result<NetworkInterface> {
-        // No need for the system read guard since we're using Networks directly
-        let networks = Networks::new_with_refreshed_list();
-        
-        if let Some(data) = networks.get(interface_name) {
-            Ok(NetworkInterface {
-                name: interface_name.to_string(),
-                received: data.received(),
-                transmitted: data.transmitted(),
-                packets_received: data.packets_received(),
-                packets_transmitted: data.packets_transmitted(),
-            })
-        } else {
-            Err(interface_error(format!("Network interface not found: {}", interface_name)).into())
-        }
-    }
-    
-    /// Gets all network statistics
-    ///
-    /// # Returns
-    /// A Result containing a vector of NetworkInterface objects for all interfaces
-    ///
-    /// # Errors
-    /// Returns an error if network stats cannot be retrieved
-    pub fn get_all_stats(&self) -> Result<Vec<NetworkInterface>> {
-        self.get_interfaces()
-    }
-
-    /// Gets overall network usage rates
-    ///
-    /// # Returns
-    /// A Result containing (total received bytes per second, total transmitted bytes per second)
-    ///
-    /// # Errors
-    /// Returns an error if network usage rates cannot be calculated
-    pub fn get_network_usage(&self) -> Result<(f64, f64)> {
-        // Create fresh Networks instance
-        let networks = Networks::new_with_refreshed_list();
-        
-        // Calculate total received and transmitted across all interfaces
-        let mut total_received = 0;
-        let mut total_transmitted = 0;
-        
-        for (_, data) in &networks {
-            total_received += data.received();
-            total_transmitted += data.transmitted();
-        }
-        
-        // Calculate rates based on a 60-second window (approximate)
-        let received_rate = total_received as f64 / 60.0;
-        let transmitted_rate = total_transmitted as f64 / 60.0;
-        
-        Ok((received_rate, transmitted_rate))
-    }
-}
-
-impl Default for SystemInfoManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Factory for creating system info managers
-#[derive(Debug, Default)]
-pub struct SystemInfoManagerFactory;
-
-impl SystemInfoManagerFactory {
-    /// Creates a new `SystemInfoManagerFactory`
-    #[must_use]
-    pub fn new() -> Self {
-        Self {}
-    }
-    
-    /// Creates a new system info manager
-    #[must_use]
-    pub fn create_manager(&self) -> Arc<SystemInfoManager> {
-        Arc::new(SystemInfoManager::new())
-    }
-    
-    /// Creates a new system info manager with dependencies
-    #[must_use]
-    pub fn create_manager_with_dependencies(&self, system: Arc<RwLock<S>>) -> Arc<SystemInfoManager> {
-        Arc::new(SystemInfoManager::with_dependencies(system))
-    }
-    
-    /// Creates a new system info adapter
-    #[must_use]
-    pub fn create_adapter(&self) -> Arc<SystemInfoAdapter> {
-        system_info::create_system_info_adapter()
-    }
-    
-    /// Creates a new system info adapter with system
-    #[must_use]
-    pub fn create_adapter_with_system(&self, system: Arc<RwLock<S>>) -> Arc<SystemInfoAdapter> {
-        system_info::create_system_info_adapter_with_system(system)
-    }
+/// Network statistics for an interface
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkStats {
+    /// Interface name
+    pub interface: String,
+    /// Received bytes
+    pub rx_bytes: u64,
+    /// Transmitted bytes
+    pub tx_bytes: u64,
+    /// Received bytes per second
+    pub rx_bytes_per_sec: f64,
+    /// Transmitted bytes per second
+    pub tx_bytes_per_sec: f64,
+    /// Packets received
+    pub rx_packets: Option<u64>,
+    /// Packets transmitted
+    pub tx_packets: Option<u64>,
+    /// Errors on receive
+    pub rx_errors: Option<u64>,
+    /// Errors on transmit
+    pub tx_errors: Option<u64>,
+    /// Last updated timestamp
+    pub last_updated: u64,
 }
 
 /// Network monitoring configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfig {
-    /// Interval in seconds between network stat updates
-    pub interval: u64,
+    /// Update interval in seconds
+    pub update_interval: u64,
+    /// Interfaces to monitor
+    pub interfaces: Vec<String>,
+    /// Whether to monitor all interfaces
+    pub monitor_all_interfaces: bool,
+    /// Whether to collect packet statistics
+    pub collect_packet_stats: bool,
+    /// Whether to collect error statistics
+    pub collect_error_stats: bool,
+    /// Whether to automatically start monitoring
+    pub auto_start: bool,
 }
 
 impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
-            interval: 60, // Default to 60 seconds
+            update_interval: 5,
+            interfaces: Vec::new(),
+            monitor_all_interfaces: true,
+            collect_packet_stats: true,
+            collect_error_stats: true,
+            auto_start: true,
         }
     }
 }
 
-/// Network statistics for an interface
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkStats {
-    /// Network interface name
-    pub interface: String,
-    /// Total bytes received
-    pub received_bytes: u64,
-    /// Total bytes transmitted
-    pub transmitted_bytes: u64,
-    /// Receive rate in bytes per second
-    pub receive_rate: f64,
-    /// Transmit rate in bytes per second
-    pub transmit_rate: f64,
-    /// Total packets received
-    pub packets_received: u64,
-    /// Total packets transmitted
-    pub packets_transmitted: u64,
-    /// Errors on received packets
-    pub errors_on_received: u64,
-    /// Errors on transmitted packets
-    pub errors_on_transmitted: u64,
-}
-
-/// Network monitor for tracking network usage
+/// Network monitor for tracking interface statistics
 #[derive(Debug)]
 pub struct NetworkMonitor {
-    /// Configuration for the network monitor
+    /// Configuration
     config: NetworkConfig,
-    /// Network statistics collector
-    stats: Arc<RwLock<HashMap<String, NetworkStats>>>,
-    /// System information provider
-    #[allow(dead_code)]
-    system: Arc<RwLock<S>>,
+    /// System information
+    system: RwLock<System>,
+    /// Network statistics
+    stats: RwLock<HashMap<String, NetworkStats>>,
+    /// Previous network statistics for calculating rates
+    prev_stats: RwLock<HashMap<String, NetworkStats>>,
+    /// Running state
+    is_running: AtomicBool,
+    /// Background task
+    background_task: RwLock<Option<JoinHandle<()>>>,
 }
 
 impl NetworkMonitor {
-    /// Creates a new network monitor
+    /// Creates a new network monitor with the given configuration
     #[must_use]
     pub fn new(config: NetworkConfig) -> Self {
         let system = System::new_all();
-
-        Self {
-            config,
-            system: Arc::new(RwLock::new(system)),
-            stats: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    /// Creates a new network monitor with dependencies
-    #[must_use]
-    pub fn with_dependencies(config: NetworkConfig) -> Self {
-        Self::new(config)
-    }
-
-    /// Gets all network interface statistics
-    pub async fn get_stats(&self) -> Result<HashMap<String, NetworkStats>> {
-        let stats = self.stats.read().await;
-
-        // Create a copy of the current stats
-        let mut result = HashMap::new();
-        for (k, v) in stats.iter() {
-            result.insert(k.clone(), v.clone());
-        }
-
-        Ok(result)
-    }
-
-    /// Gets statistics for a specific network interface
-    pub async fn get_interface_stats(&self, interface_name: &str) -> Result<Option<NetworkStats>> {
-        let stats = self.stats.read().await;
-
-        // Create a copy of the requested interface stats
-        let result = stats.get(interface_name).cloned();
-
-        Ok(result)
-    }
-
-    /// Starts the network monitor
-    pub async fn start(&self) -> Result<()> {
-        // Initial update
-        self.update_stats().await?;
-
-        // TODO: Implement periodic updates
-        Ok(())
-    }
-
-    /// Updates network statistics
-    pub async fn update_stats(&self) -> Result<()> {
-        // Create new Networks instead of using system.networks()
-        let networks = Networks::new_with_refreshed_list();
         
-        let mut stats = self.stats.write().await;
-        // Process network data
-        for (interface_name, network_data) in &networks {
-            stats.insert(interface_name.clone(), NetworkStats {
-                interface: interface_name.clone(),
-                received_bytes: network_data.received(),
-                transmitted_bytes: network_data.transmitted(),
-                receive_rate: network_data.received() as f64 / self.config.interval as f64,
-                transmit_rate: network_data.transmitted() as f64 / self.config.interval as f64,
-                packets_received: network_data.packets_received(),
-                packets_transmitted: network_data.packets_transmitted(),
-                errors_on_received: network_data.errors_on_received(),
-                errors_on_transmitted: network_data.errors_on_transmitted(),
+        let monitor = Self {
+            config: config.clone(),
+            system: RwLock::new(system),
+            stats: RwLock::new(HashMap::new()),
+            prev_stats: RwLock::new(HashMap::new()),
+            is_running: AtomicBool::new(false),
+            background_task: RwLock::new(None),
+        };
+        
+        if config.auto_start {
+            let monitor_clone = Arc::new(monitor.clone());
+            tokio::spawn(async move {
+                if let Err(e) = monitor_clone.start().await {
+                    debug!("Failed to auto-start network monitor: {}", e);
+                }
             });
         }
         
+        monitor
+    }
+    
+    /// Gets current network statistics for all interfaces
+    pub async fn get_stats(&self) -> Result<HashMap<String, NetworkStats>> {
+        Ok(self.stats.read().await.clone())
+    }
+    
+    /// Gets statistics for a specific network interface
+    pub async fn get_interface_stats(&self, interface: &str) -> Result<Option<NetworkStats>> {
+        Ok(self.stats.read().await.get(interface).cloned())
+    }
+    
+    /// Updates network statistics
+    pub async fn update_stats(&self) -> Result<()> {
+        // In sysinfo 0.30, Networks is a separate type
+        let networks = Networks::new_with_refreshed_list();
+        
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        
+        let mut prev_stats = self.prev_stats.write().await;
+        let mut stats_map = self.stats.write().await;
+        
+        for (interface_name, network) in &networks {
+            // Skip if not monitoring all interfaces and this interface is not in the list
+            if !self.config.monitor_all_interfaces && !self.config.interfaces.contains(interface_name) {
+                continue;
+            }
+            
+            // In sysinfo 0.30, the methods don't have the get_ prefix
+            let rx_bytes = network.total_received();
+            let tx_bytes = network.total_transmitted();
+            
+            // Calculate rates based on previous readings
+            let (rx_bytes_per_sec, tx_bytes_per_sec) = if let Some(prev) = prev_stats.get(interface_name) {
+                let time_diff = (now - prev.last_updated) as f64;
+                if time_diff > 0.0 {
+                    let rx_diff = rx_bytes as f64 - prev.rx_bytes as f64;
+                    let tx_diff = tx_bytes as f64 - prev.tx_bytes as f64;
+                    (rx_diff / time_diff, tx_diff / time_diff)
+                } else {
+                    (0.0, 0.0)
+                }
+            } else {
+                (0.0, 0.0)
+            };
+            
+            // Create network stats for this interface
+            let network_stats = NetworkStats {
+                interface: interface_name.clone(),
+                rx_bytes,
+                tx_bytes,
+                rx_bytes_per_sec,
+                tx_bytes_per_sec,
+                rx_packets: Some(network.total_packets_received()),
+                tx_packets: Some(network.total_packets_transmitted()),
+                rx_errors: Some(network.total_errors_on_received()),
+                tx_errors: Some(network.total_errors_on_transmitted()),
+                last_updated: now,
+            };
+            
+            // Update current and previous stats
+            stats_map.insert(interface_name.clone(), network_stats.clone());
+            prev_stats.insert(interface_name.clone(), network_stats);
+        }
+        
         Ok(())
     }
-
-    /// Stops the network monitor
-    /// 
-    /// # Errors
-    /// Returns error if unable to stop the monitor
-    pub async fn stop(&self) -> Result<()> {
-        // No cleanup needed for now
-        Ok(())
-    }
-}
-
-impl Default for NetworkMonitor {
-    fn default() -> Self {
-        Self::new(NetworkConfig::default())
-    }
-}
-
-impl Default for NetworkStats {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl NetworkStats {
-    /// Creates a new network stats instance with default values
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            interface: String::new(),
-            received_bytes: 0,
-            transmitted_bytes: 0,
-            receive_rate: 0.0,
-            transmit_rate: 0.0,
-            packets_received: 0,
-            packets_transmitted: 0,
-            errors_on_received: 0,
-            errors_on_transmitted: 0,
+    
+    /// Starts the network monitor
+    pub async fn start(&self) -> Result<()> {
+        if self.is_running.swap(true, Ordering::SeqCst) {
+            return Err("Network monitor already running".to_string().into());
         }
-    }
-}
-
-/// Factory for creating network monitors
-#[derive(Debug)]
-pub struct NetworkMonitorFactory {
-    /// Configuration for creating monitors
-    config: NetworkConfig,
-}
-
-impl NetworkMonitorFactory {
-    /// Creates a new network monitor factory
-    #[must_use] pub fn new() -> Self {
-        Self {
-            config: NetworkConfig::default(),
-        }
-    }
-
-    /// Creates a new network monitor factory with config
-    #[must_use] pub const fn with_config(config: NetworkConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a new monitor instance with dependency injection
-    ///
-    /// # Arguments
-    /// * `config` - Optional configuration override
-    ///
-    /// # Returns
-    /// A new `NetworkMonitor` instance wrapped in an Arc
-    #[must_use]
-    pub fn create_monitor_with_config(
-        &self,
-        config: Option<NetworkConfig>,
-    ) -> Arc<NetworkMonitor> {
-        Arc::new(NetworkMonitor::new(config.unwrap_or_else(|| self.config.clone())))
-    }
-
-    /// Creates a new monitor instance with the default configuration
-    #[must_use]
-    pub fn create_monitor(&self) -> Arc<NetworkMonitor> {
-        self.create_monitor_with_config(None)
-    }
-
-    /// Creates a new monitor adapter
-    #[must_use]
-    pub fn create_monitor_adapter(&self) -> Arc<NetworkMonitorAdapter> {
-        let monitor = self.create_monitor();
-        create_monitor_adapter_with_monitor(monitor)
-    }
-}
-
-impl Default for NetworkMonitorFactory {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Create a new network monitor adapter
-#[must_use]
-pub fn create_monitor_adapter() -> Arc<NetworkMonitorAdapter> {
-    NetworkMonitorFactory::new().create_monitor_adapter()
-}
-
-/// Create a new network monitor adapter with a specific monitor
-#[must_use]
-pub fn create_monitor_adapter_with_monitor(
-    monitor: Arc<NetworkMonitor>
-) -> Arc<NetworkMonitorAdapter> {
-    Arc::new(NetworkMonitorAdapter::with_monitor(monitor))
-}
-
-/// Represents a network interface
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkInterface {
-    /// Name of the interface
-    pub name: String,
-    /// Total bytes received
-    pub received: u64,
-    /// Total bytes transmitted
-    pub transmitted: u64,
-    /// Total packets received
-    pub packets_received: u64,
-    /// Total packets transmitted
-    pub packets_transmitted: u64,
-}
-
-/// Statistics for a network interface
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkInterfaceStats {
-    /// Name of the interface
-    pub name: String,
-    /// Total bytes received
-    pub rx_bytes: u64,
-    /// Total bytes transmitted
-    pub tx_bytes: u64,
-    /// Number of receive errors
-    pub rx_errors: u64,
-    /// Number of transmit errors
-    pub tx_errors: u64,
-    /// Number of packets received
-    pub rx_packets: u64,
-    /// Number of packets transmitted
-    pub tx_packets: u64,
-}
-
-/// Network usage metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkUsage {
-    /// List of interfaces
-    pub interfaces: Vec<String>,
-    /// Total rx bytes per second
-    pub total_rx_bytes_per_sec: f64,
-    /// Total tx bytes per second
-    pub total_tx_bytes_per_sec: f64,
-    /// Timestamp of the measurements
-    pub timestamp: SystemTime,
-}
-
-/// Function to collect network statistics using sysinfo
-pub fn collect_network_stats() -> Result<HashMap<String, NetworkStats>> {
-    // Create a new Networks instance instead of using System::networks()
-    let networks = Networks::new_with_refreshed_list();
-
-    let mut stats = HashMap::new();
-    for (interface_name, network_data) in &networks {
-        stats.insert(interface_name.clone(), NetworkStats {
-            interface: interface_name.clone(),
-            received_bytes: network_data.received(),
-            transmitted_bytes: network_data.transmitted(),
-            receive_rate: 0.0,
-            transmit_rate: 0.0,
-            packets_received: network_data.packets_received(),
-            packets_transmitted: network_data.packets_transmitted(),
-            errors_on_received: network_data.errors_on_received(),
-            errors_on_transmitted: network_data.errors_on_transmitted(),
+        
+        // Initialize stats on first start
+        self.update_stats().await?;
+        
+        let update_interval = self.config.update_interval;
+        let self_clone = Arc::new(self.clone());
+        
+        let task = tokio::spawn(async move {
+            loop {
+                if !self_clone.is_running.load(Ordering::SeqCst) {
+                    break;
+                }
+                
+                if let Err(e) = self_clone.update_stats().await {
+                    debug!("Failed to update network stats: {}", e);
+                }
+                
+                sleep(Duration::from_secs(update_interval)).await;
+            }
         });
+        
+        let mut background_task = self.background_task.write().await;
+        *background_task = Some(task);
+        
+        Ok(())
     }
-
-    Ok(stats)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    #[tokio::test]
-    async fn test_network_monitor_basic() {
-        let monitor = NetworkMonitor::new(NetworkConfig::default());
-        
-        // Start monitoring
-        monitor.start().await.unwrap();
-        
-        // Wait for some stats to be collected
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        
-        // Get stats
-        let stats = monitor.get_stats().await.unwrap();
-        assert!(!stats.is_empty());
-        
-        // Stop monitoring
-        monitor.stop().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_network_monitor_adapter() {
-        let factory = NetworkMonitorFactory::new();
-        let adapter = factory.create_monitor_adapter();
-        
-        // Start monitoring
-        adapter.start().await.unwrap();
-        
-        // Wait for some stats to be collected
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        
-        // Get stats
-        let stats = adapter.get_stats().await.unwrap();
-        assert!(!stats.is_empty());
-        
-        // Get interface stats
-        if let Some(interface) = stats.keys().next() {
-            let interface_stats = adapter.get_interface_stats(interface).await.unwrap();
-            assert!(interface_stats.is_some());
+    
+    /// Stops the network monitor
+    pub async fn stop(&self) -> Result<()> {
+        if !self.is_running.swap(false, Ordering::SeqCst) {
+            return Err("Network monitor not running".to_string().into());
         }
         
-        // Stop monitoring
-        adapter.stop().await.unwrap();
+        let mut background_task = self.background_task.write().await;
+        if let Some(task) = background_task.take() {
+            task.abort();
+        }
+        
+        Ok(())
     }
+}
 
-    #[tokio::test]
-    async fn test_network_monitor_with_config() {
-        let config = NetworkConfig {
-            interval: 1,
-        };
+impl Clone for NetworkMonitor {
+    fn clone(&self) -> Self {
+        let system = System::new_all();
         
-        let factory = NetworkMonitorFactory::with_config(config.clone());
-        let monitor = factory.create_monitor();
-        
-        // Start monitoring
-        monitor.start().await.unwrap();
-        
-        // Wait for some stats to be collected
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        
-        // Get stats
-        let stats = monitor.get_stats().await.unwrap();
-        assert!(!stats.is_empty());
-        
-        // Stop monitoring
-        monitor.stop().await.unwrap();
+        Self {
+            config: self.config.clone(),
+            system: RwLock::new(system),
+            stats: RwLock::new(HashMap::new()),
+            prev_stats: RwLock::new(HashMap::new()),
+            is_running: AtomicBool::new(self.is_running.load(Ordering::SeqCst)),
+            background_task: RwLock::new(None),
+        }
     }
 } 

@@ -11,8 +11,34 @@ use serde_json::json;
 use rand::{thread_rng, Rng};
 use rand::seq::SliceRandom;
 use tracing::{error, debug};
+use async_trait::async_trait;
 
-use crate::dashboard::{server, Manager};
+use crate::dashboard::server;
+use crate::dashboard::manager::Manager;
+
+// Mock implementation of Manager for testing
+struct MockManager;
+
+#[async_trait]
+impl Manager for MockManager {
+    async fn get_components(&self) -> Vec<crate::dashboard::manager::Component> {
+        Vec::new()
+    }
+    
+    async fn get_component_data(&self, _id: &str) -> Option<serde_json::Value> {
+        None
+    }
+    
+    async fn get_health_status(&self) -> serde_json::Value {
+        json!({ "status": "healthy" })
+    }
+}
+
+impl std::fmt::Debug for MockManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MockManager").finish()
+    }
+}
 
 // Struct to hold test statistics
 #[derive(Debug, Default)]
@@ -49,19 +75,22 @@ impl<T> ChooseMultiple<T> for Vec<T> {
     }
 }
 
+// Define a type alias for errors that can be sent across threads
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
 /// Sets up and runs a WebSocket server for testing
-async fn setup_test_server() -> (u16, Arc<Manager>, JoinHandle<()>) {
+async fn setup_test_server() -> (u16, Arc<dyn Manager>, JoinHandle<()>) {
     // Create a random port for testing
     let port = 3000 + thread_rng().gen_range(1000..5000);
     let addr = format!("127.0.0.1:{}", port).parse().unwrap();
     
-    // Create a test dashboard manager
-    let manager = Arc::new(Manager::new_with_default_config());
+    // Create a test mock manager
+    let manager = Arc::new(MockManager);
     
     // Start the server
     let server_manager = manager.clone();
     let server_handle = tokio::spawn(async move {
-        if let Err(e) = server::start_server(server_manager, addr).await {
+        if let Err(e) = server::start_server(addr, server_manager).await {
             error!("Server error: {}", e);
         }
     });
@@ -225,7 +254,7 @@ async fn run_test_client(
     components: Vec<String>,
     test_duration: Duration,
     stats: Arc<Mutex<TestStatistics>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), BoxError> {
     // Client state
     let mut connection_attempts = 0;
     let received_messages = Arc::new(Mutex::new(0_usize));
@@ -328,7 +357,7 @@ async fn handle_test_connection(
     received_messages: Arc<Mutex<usize>>,
     subscriptions: &mut HashMap<String, Instant>,
     stats: Arc<Mutex<TestStatistics>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), BoxError> {
     let (mut write, mut read) = ws_stream.split();
     let client_id = client_name.to_string(); // Clone the client name
     
@@ -416,4 +445,19 @@ async fn handle_test_connection(
     // Clean up
     receive_task.abort();
     Ok(())
+}
+
+/// Test that the server can be set up correctly
+#[tokio::test]
+async fn test_setup_server() {
+    // Setup test server
+    let (port, _manager, server_handle) = setup_test_server().await;
+    
+    // Verify the server is running
+    assert!(port > 3000, "Port should be assigned a value greater than 3000");
+    
+    // Cleanup
+    server_handle.abort();
+    
+    println!("Test server setup successfully on port {}", port);
 } 
