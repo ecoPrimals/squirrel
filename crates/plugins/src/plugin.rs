@@ -5,7 +5,11 @@ use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
 
-/// Plugin metadata
+// Import the Interface version with renamed types
+// We're not using these yet, but they'll be needed for migration
+use squirrel_interfaces::plugins::{Plugin as IPlugin, PluginMetadata as IPluginMetadata};
+
+/// Legacy Plugin metadata, will be deprecated in favor of IPluginMetadata
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginMetadata {
     /// Plugin ID
@@ -81,7 +85,7 @@ impl Default for PluginStatus {
     }
 }
 
-/// Plugin trait
+/// Legacy Plugin trait, will be deprecated in favor of IPlugin
 #[async_trait]
 pub trait Plugin: Send + Sync + Debug {
     /// Get plugin metadata
@@ -120,4 +124,7 @@ pub trait WebPluginExt: Plugin {
     
     /// Handle web endpoint request
     async fn handle_web_endpoint(&self, endpoint: &WebEndpoint, data: Option<Value>) -> Result<Value>;
-} 
+}
+
+// Re-export the CommandsPlugin trait from interfaces for convenience
+pub use squirrel_interfaces::plugins::CommandsPlugin; 

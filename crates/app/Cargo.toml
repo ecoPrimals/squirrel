@@ -5,6 +5,11 @@ edition = "2021"
 authors.workspace = true
 description = "Application components for Squirrel"
 
+# Define features to avoid cyclic dependencies
+[features]
+default = []
+commands = ["squirrel-commands"]
+
 [dependencies]
 # Core dependencies
 tokio = { version = "1.36", features = ["full"] }
@@ -27,7 +32,10 @@ squirrel-core = { path = "../core" }
 squirrel-context = { path = "../context" }
 squirrel-monitoring = { path = "../monitoring" }
 squirrel-mcp = { path = "../mcp" }
-squirrel-commands = { path = "../commands" }
+# Add interfaces dependency to break circular dependencies
+squirrel-interfaces = { path = "../interfaces" }
+# Make commands dependency optional to break the circular dependency
+squirrel-commands = { path = "../commands", optional = true }
 timeout = "0.1.0"
 
 [dev-dependencies]

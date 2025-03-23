@@ -3,7 +3,9 @@
 //! This crate provides functionality for command registration, validation,
 //! and execution within the Squirrel system.
 
+use std::sync::Arc;
 use thiserror::Error;
+use anyhow::Result;
 
 /// Built-in commands
 pub mod builtin;
@@ -75,7 +77,7 @@ pub enum CommandError {
 
 /// Command factory for creating command registries
 mod factory;
-pub use factory::{CommandRegistryFactory, create_command_registry};
+pub use factory::{CommandRegistryFactory, create_command_registry, create_command_registry_with_plugin};
 
 /// Re-export common types from the core crate
 pub use squirrel_core::error::Result;
@@ -84,4 +86,24 @@ pub use squirrel_core::error::Result;
 pub mod adapter;
 
 #[cfg(test)]
-mod tests; 
+mod tests;
+
+/// Register the command system as a plugin
+pub async fn register_plugin(
+    registry: &(impl squirrel_interfaces::plugins::PluginRegistry + ?Sized)
+) -> Result<String> {
+    use adapter::plugins::create_commands_plugin_adapter;
+    use factory::create_command_registry;
+    
+    // Create a command registry
+    let cmd_registry = create_command_registry()?;
+    
+    // Create the plugin adapter
+    let plugin = create_commands_plugin_adapter(cmd_registry);
+    
+    // Initialize the plugin
+    plugin.initialize().await?;
+    
+    // Register the plugin
+    registry.register_plugin(plugin).await
+} 

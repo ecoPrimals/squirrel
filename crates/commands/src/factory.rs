@@ -6,6 +6,7 @@ use crate::{
     registry::CommandRegistry,
     builtin::{VersionCommand, HelpCommand, EchoCommand, ExitCommand, KillCommand, HistoryCommand},
     history::CommandHistory,
+    adapter::plugins::create_commands_plugin_adapter,
 };
 use std::{
     error::Error,
@@ -52,6 +53,19 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn 
     debug!("Factory: Creating command registry using DefaultCommandRegistryFactory");
     let factory = DefaultCommandRegistryFactory::new();
     factory.create_registry()
+}
+
+/// Create a command registry with built-in commands and wrap it in a plugin adapter
+/// 
+/// # Returns
+/// 
+/// A tuple containing the command registry and a plugin adapter for the unified plugin system
+pub fn create_command_registry_with_plugin() -> Result<(Arc<Mutex<CommandRegistry>>, Arc<dyn squirrel_plugins::commands::CommandsPlugin>), Box<dyn Error>> {
+    debug!("Factory: Creating command registry with plugin adapter");
+    let registry = create_command_registry()?;
+    let plugin = create_commands_plugin_adapter(Arc::clone(&registry));
+    
+    Ok((registry, plugin))
 }
 
 /// The default command registry factory

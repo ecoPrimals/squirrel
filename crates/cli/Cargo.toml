@@ -6,10 +6,15 @@ description = "Command-line interface for the Squirrel platform"
 authors = ["DataScienceBioLab"]
 license = "MIT"
 
+[features]
+default = []
+commands = ["squirrel-commands"]
+
 [dependencies]
 # Internal crates
-squirrel-commands = { path = "../commands" }
+squirrel-commands = { path = "../commands", optional = true }
 squirrel-core = { path = "../core" }
+squirrel-interfaces = { path = "../interfaces" }
 
 # Async runtime
 tokio = { version = "1.36", features = ["full"] }

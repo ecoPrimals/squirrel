@@ -1,4 +1,10 @@
-//! This crate provides a plugin system for Squirrel.
+//! # Squirrel Plugins
+//! 
+//! This crate provides the plugin system for Squirrel, enabling extensibility
+//! and modular design across the application.
+//!
+//! The plugin system allows for dynamic loading of functionality, with a focus
+//! on type safety and performance.
 //!
 //! The plugin system consists of several components:
 //! - Plugin trait definition
@@ -43,5 +49,10 @@ pub const PLUGIN_SYSTEM_NAME: &str = env!("CARGO_PKG_NAME");
 // Plugin system description
 pub const PLUGIN_SYSTEM_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
+// Team-specific plugin types
+pub use monitoring::MonitoringPlugin;
+pub use galaxy::GalaxyPlugin;
+pub use commands::CommandsPlugin;
+
 // Plugin system author
-pub const PLUGIN_SYSTEM_AUTHOR: &str = env!("CARGO_PKG_AUTHORS"); 
+pub const PLUGIN_SYSTEM_AUTHOR: &str = env!("CARGO_PKG_AUTHORS");

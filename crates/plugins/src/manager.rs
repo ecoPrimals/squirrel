@@ -11,7 +11,7 @@ use tracing::debug;
 
 use async_trait::async_trait;
 
-use crate::core::{Plugin, PluginMetadata, HelloWorldPlugin};
+use crate::plugin::{Plugin, PluginMetadata};
 use crate::PluginStatus;
 use crate::discovery::{PluginDiscovery, DefaultPluginDiscovery};
 use crate::state::PluginStateManager;
@@ -81,9 +81,6 @@ pub struct PluginManager {
 impl PluginManager {
     /// Create a new plugin manager
     #[must_use] pub fn new() -> Self {
-        
-        
-        // Register built-in plugins (done asynchronously in init method)
         Self {
             plugins: RwLock::new(HashMap::new()),
         }
@@ -91,18 +88,24 @@ impl PluginManager {
     
     /// Initialize the plugin manager
     pub async fn init(&self) -> Result<()> {
-        // Register built-in plugins
-        let hello_world = Arc::new(HelloWorldPlugin::new());
-        self.register_plugin(hello_world).await?;
+        self.register_built_in_plugins().await?;
         
+        debug!("Plugin manager initialized");
         Ok(())
     }
     
     /// Register built-in plugins
     async fn register_built_in_plugins(&self) -> Result<()> {
-        // Register the Hello World plugin
-        let hello_world = Arc::new(HelloWorldPlugin::new());
-        self.register_plugin(hello_world).await?;
+        // Use a placeholder plugin instead of HelloWorldPlugin
+        use crate::discovery::create_placeholder_plugin;
+        let placeholder_metadata = PluginMetadata::new(
+            "system-placeholder", 
+            "1.0.0", 
+            "System placeholder plugin", 
+            "Squirrel System"
+        );
+        let placeholder = Arc::new(create_placeholder_plugin(placeholder_metadata));
+        self.register_plugin(placeholder).await?;
         
         Ok(())
     }
@@ -134,17 +137,24 @@ impl PluginManager {
     }
     
     /// Load plugins from a directory
-    pub async fn load_plugins_from_directory(&self, directory: &str) -> Result<Vec<Uuid>> {
-        // This is a stub implementation
-        // In a real implementation, we'd use a proper plugin discovery mechanism
-        let discovery = DefaultPluginDiscovery::new();
-        let plugins = discovery.discover_plugins(directory).await?;
+    pub async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
+        debug!("Loading plugins from directory: {}", directory);
+        
+        let discovery = DefaultPluginDiscovery::default();
         
         let mut ids = Vec::new();
+        
+        let plugins = discovery.discover_plugins(directory).await?;
+        
         for plugin in plugins {
-            let id = plugin.metadata().id;
+            let metadata = plugin.metadata();
+            let id = metadata.id;
+            debug!("Registering plugin: {}", metadata.name);
+            
+            // Register the plugin directly without extra Arc wrapping
+            self.register_plugin(plugin).await?;
+            
             ids.push(id);
-            // We'd register the plugin here
         }
         
         Ok(ids)
@@ -532,16 +542,15 @@ impl PluginManagerTrait for DefaultPluginManager {
         
         let mut _plugin_count = 0;
         for _plugin_path in plugin_paths {
-            // In this implementation, we're just using the built-in plugin
-            // In a real implementation, we would load the plugin from the path
-            let _metadata = PluginMetadata::new(
-                "Plugin at path".to_string(),
-                "0.1.0",
-                "A placeholder plugin",
-                "system",
+            // Use a placeholder plugin for testing purposes
+            use crate::discovery::create_placeholder_plugin;
+            let test_metadata = PluginMetadata::new(
+                "test-plugin", 
+                "1.0.0", 
+                "Test plugin", 
+                "Squirrel System"
             );
-            
-            let _plugin = Arc::new(HelloWorldPlugin::new());
+            let _plugin = Arc::new(create_placeholder_plugin(test_metadata));
             
             // Register the plugin
             if matches!(PluginRegistry::register_plugin(self, _plugin.clone()).await, Ok(())) {

@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use crate::core::Plugin;
+use crate::plugin::Plugin;
 use crate::Result;
 
 /// Plugin type identifiers
