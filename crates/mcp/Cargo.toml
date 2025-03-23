@@ -36,12 +36,15 @@ log = "0.4"
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-context = { path = "../context" }
+# Remove the direct dependency on squirrel-plugins to break the circular dependency
 regex.workspace = true
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 mockall = { workspace = true }
+# Move squirrel-plugins to dev-dependencies if needed for tests only
+squirrel-plugins = { path = "../plugins", features = ["core"] }
 
 [lib]
 name = "squirrel_mcp"
