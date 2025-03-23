@@ -11,6 +11,7 @@ use crate::auth::AuthService;
 use crate::mcp::McpClient;
 use crate::api::commands::CommandService;
 use crate::api::commands::CommandServiceError;
+use squirrel_plugins::PluginManager;
 
 /// Machine Context Protocol client trait (legacy)
 #[async_trait]
@@ -52,6 +53,8 @@ pub struct AppState {
     pub auth: AuthService,
     /// Command service
     pub command_service: Arc<dyn CommandService>,
+    /// Plugin manager
+    pub plugin_manager: Arc<PluginManager>,
 }
 
 impl AppState {

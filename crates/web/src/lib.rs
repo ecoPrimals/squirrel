@@ -17,6 +17,7 @@ pub mod state;
 pub mod websocket;
 pub mod config;
 pub mod db;
+pub mod plugins;
 
 use crate::state::AppState;
 use crate::config::Config;
@@ -24,6 +25,7 @@ use crate::db::SqlitePool as DbPool;
 use auth::{AuthConfig, AuthService};
 use mcp::{McpClient, MockMcpClient};
 use api::commands::{CommandService, CommandServiceImpl, CommandRepository};
+use squirrel_plugins::PluginManager;
 
 // Fix import for repositories
 #[cfg(feature = "db")]
@@ -135,6 +137,12 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         mcp_client.clone(),
     )) as Arc<dyn CommandService>;
     
+    // Initialize plugin manager
+    let plugin_manager = Arc::new(plugins::init_plugin_system().await.unwrap_or_else(|e| {
+        eprintln!("Failed to initialize plugin system: {}", e);
+        PluginManager::default()
+    }));
+    
     // Create app state
     let state = Arc::new(AppState {
         db,
@@ -144,6 +152,7 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         ws_manager,
         auth,
         command_service,
+        plugin_manager,
     });
 
     // Setup CORS
@@ -152,8 +161,8 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::PUT, Method::PATCH])
         .allow_headers(Any);
 
-    // Create the router with all routes
-    Router::new()
+    // Build the router with all routes
+    let app = Router::new()
         .route("/health", get(handlers::health::get_health))
         .route("/api/health", get(handlers::health::get_health))
         .nest("/api", api::router::api_router())
@@ -166,6 +175,10 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         .route("/api/auth/login", post(handlers::auth::login))
         .route("/api/auth/refresh", post(handlers::auth::refresh_token))
         .route("/ws", get(websocket::ws_handler))
-        .layer(CorsLayer::permissive())
-        .with_state(state)
+        .layer(CorsLayer::permissive());
+    
+    // Add plugin routes
+    let app = plugins::create_plugin_routes(app.clone(), state.clone());
+    
+    app.with_state(state)
 }

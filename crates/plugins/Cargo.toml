@@ -1,0 +1,35 @@
+[package]
+name = "squirrel-plugins"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Plugin system for Squirrel"
+
+[dependencies]
+# Core dependencies
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+
+# Optional dependencies for different plugin types
+squirrel-app = { path = "../app", optional = true }
+squirrel-web = { path = "../web", optional = true }
+squirrel-mcp = { path = "../mcp", optional = true }
+squirrel-cli = { path = "../cli", optional = true }
+
+[features]
+default = ["core"]
+core = []
+web = ["squirrel-web"]
+mcp = ["squirrel-mcp"]
+cli = ["squirrel-cli"]
+all = ["core", "web", "mcp", "cli"]
+
+[lints]
+workspace = true 
