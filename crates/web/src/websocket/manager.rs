@@ -7,6 +7,7 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 use serde_json::Value;
 use tracing::{debug, error, info, warn};
+use std::str::FromStr;
 
 use super::error::WebSocketError;
 use super::models::{ChannelCategory, Subscription, WebSocketEvent, WebSocketResponse};
@@ -56,6 +57,12 @@ pub struct ConnectionManager {
     
     /// Broadcast channel for all events
     event_tx: broadcast::Sender<WebSocketEvent>,
+}
+
+impl Default for ConnectionManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConnectionManager {
@@ -235,7 +242,7 @@ impl ConnectionManager {
         
         if let Some(connection) = connections.get(connection_id) {
             let json = serde_json::to_string(&message)
-                .map_err(|e| WebSocketError::JsonError(e))?;
+                .map_err(WebSocketError::JsonError)?;
             
             connection
                 .sender
@@ -259,7 +266,7 @@ impl ConnectionManager {
         
         if let Some(connections) = user_conns.get(user_id) {
             let json = serde_json::to_string(&message)
-                .map_err(|e| WebSocketError::JsonError(e))?;
+                .map_err(WebSocketError::JsonError)?;
             
             let mut sent_count = 0;
             let connections_lock = self.connections.read().await;
@@ -326,7 +333,7 @@ impl ConnectionManager {
         };
         
         let json = serde_json::to_string(&response)
-            .map_err(|e| WebSocketError::JsonError(e))?;
+            .map_err(WebSocketError::JsonError)?;
         
         // Send to all subscribers
         let connections_lock = self.connections.read().await;
@@ -411,7 +418,7 @@ impl ConnectionManager {
         
         for (channel_id, conn_ids) in channel_subs.iter() {
             if let Some((category_str, channel_name)) = channel_id.split_once(':') {
-                if let Some(category) = ChannelCategory::from_str(category_str) {
+                if let Ok(category) = ChannelCategory::from_str(category_str) {
                     for conn_id in conn_ids {
                         if let Some(conn) = connections.get(conn_id) {
                             if let Some(user_id) = &conn.user_id {

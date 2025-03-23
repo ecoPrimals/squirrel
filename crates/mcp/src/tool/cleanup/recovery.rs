@@ -1,15 +1,15 @@
 //! Tool recovery hook implementation for error handling and recovery strategies
 
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
 use std::time::Duration;
-use async_trait::async_trait;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn, instrument};
-use chrono::{DateTime, Utc};
+use tracing::{error, info, instrument, warn};
 
-use crate::tool::{Tool, ToolError, ToolState, ToolLifecycleHook};
+use crate::tool::{Tool, ToolError, ToolLifecycleHook, ToolState};
 
 /// Type alias for tool error history entry
 pub type ErrorHistoryEntry = (DateTime<Utc>, ToolError);
@@ -22,10 +22,10 @@ pub type ErrorHistoryMap = HashMap<String, Vec<ErrorHistoryEntry>>;
 pub enum RecoveryStrategy {
     /// Reset the tool to its initial state and try again
     Reset,
-    
+
     /// Terminate the tool and clean up all resources
     Terminate,
-    
+
     /// Ignore the error and continue execution
     Continue,
 }
@@ -66,7 +66,7 @@ pub struct RecoveryHook {
     penalty_timeout_ms: u64,
     /// Maps tool IDs to their recovery strategies
     strategies: Mutex<HashMap<String, RecoveryStrategy>>,
-    
+
     /// Default recovery strategy for tools without a specific strategy
     default_strategy: RecoveryStrategy,
 }
@@ -96,33 +96,38 @@ impl RecoveryHook {
         self.max_recovery_attempts = max_attempts;
         self
     }
-    
+
     /// Sets the retry interval in milliseconds
     pub fn with_retry_interval(mut self, interval_ms: u64) -> Self {
         self.retry_interval_ms = interval_ms;
         self
     }
-    
+
     /// Sets the penalty timeout in milliseconds
     pub fn with_penalty_timeout(mut self, timeout_ms: u64) -> Self {
         self.penalty_timeout_ms = timeout_ms;
         self
     }
-    
+
     /// Records an error for a tool
     async fn record_error(&self, tool_id: &str, error: &ToolError) {
         let mut history = self.error_history.write().await;
         let tool_history = history.entry(tool_id.to_string()).or_insert_with(Vec::new);
         tool_history.push((Utc::now(), error.clone()));
-        
+
         // Keep only the last 10 errors
         if tool_history.len() > 10 {
             tool_history.remove(0);
         }
     }
-    
+
     /// Records a recovery attempt
-    async fn record_recovery_attempt(&self, tool_id: &str, strategy: RecoveryStrategy, successful: bool) {
+    async fn record_recovery_attempt(
+        &self,
+        tool_id: &str,
+        strategy: RecoveryStrategy,
+        successful: bool,
+    ) {
         let mut history = self.recovery_history.write().await;
         let tool_history = history.entry(tool_id.to_string()).or_insert_with(Vec::new);
         tool_history.push(RecoveryAttempt {
@@ -130,29 +135,30 @@ impl RecoveryHook {
             timestamp: Utc::now(),
             successful,
         });
-        
+
         // Keep only the last 10 attempts
         if tool_history.len() > 10 {
             tool_history.remove(0);
         }
     }
-    
+
     /// Gets the recovery strategy based on error history
     async fn get_recovery_strategy(&self, tool_id: &str) -> RecoveryStrategy {
         let history = self.recovery_history.read().await;
-        
+
         // Get the tool's recovery history
         let attempts = match history.get(tool_id) {
             Some(attempts) => attempts,
             None => return RecoveryStrategy::Reset, // No history, try a simple retry
         };
-        
+
         // Count recent failures (last hour)
         let one_hour_ago = Utc::now() - chrono::Duration::hours(1);
-        let recent_failures = attempts.iter()
+        let recent_failures = attempts
+            .iter()
             .filter(|a| !a.successful && a.timestamp > one_hour_ago)
             .count();
-        
+
         // Count consecutive failures
         let mut consecutive_failures = 0;
         for attempt in attempts.iter().rev() {
@@ -162,7 +168,7 @@ impl RecoveryHook {
                 break;
             }
         }
-        
+
         // Determine the strategy based on failure patterns
         if consecutive_failures >= self.max_recovery_attempts {
             // Too many consecutive failures, unregister the tool
@@ -181,7 +187,7 @@ impl RecoveryHook {
             RecoveryStrategy::Continue
         }
     }
-    
+
     /// Applies a recovery strategy
     #[instrument(skip(self))]
     pub async fn apply_recovery_strategy(
@@ -193,47 +199,53 @@ impl RecoveryHook {
         match strategy {
             RecoveryStrategy::Reset => {
                 // Reset the tool to registered state
-                tool_manager.update_tool_state(tool_id, ToolState::Registered).await?;
+                tool_manager
+                    .update_tool_state(tool_id, ToolState::Registered)
+                    .await?;
                 self.record_recovery_attempt(tool_id, strategy, true).await;
                 Ok(true)
-            },
+            }
             RecoveryStrategy::Terminate => {
                 // Unregister the tool completely
                 let result = tool_manager.unregister_tool(tool_id).await;
                 let success = result.is_ok();
-                self.record_recovery_attempt(tool_id, strategy, success).await;
-                
+                self.record_recovery_attempt(tool_id, strategy, success)
+                    .await;
+
                 if success {
-                    error!("Tool {} has been unregistered due to persistent errors", tool_id);
+                    error!(
+                        "Tool {} has been unregistered due to persistent errors",
+                        tool_id
+                    );
                     Ok(true)
                 } else {
                     error!("Failed to unregister tool {}: {:?}", tool_id, result);
                     Ok(false)
                 }
-            },
+            }
             RecoveryStrategy::Continue => {
                 // Simply wait and let the system retry naturally
                 tokio::time::sleep(Duration::from_millis(self.retry_interval_ms)).await;
                 self.record_recovery_attempt(tool_id, strategy, true).await;
                 Ok(true)
-            },
+            }
         }
     }
-    
+
     /// Gets recovery success rate for a tool
     pub async fn get_success_rate(&self, tool_id: &str) -> f64 {
         let history = self.recovery_history.read().await;
-        
+
         // Get the tool's recovery history
         let attempts = match history.get(tool_id) {
             Some(attempts) => attempts,
             None => return 1.0, // No history, assume 100% success
         };
-        
+
         if attempts.is_empty() {
             return 1.0;
         }
-        
+
         // Calculate success rate
         let successful_attempts = attempts.iter().filter(|a| a.successful).count();
         successful_attempts as f64 / attempts.len() as f64
@@ -243,13 +255,17 @@ impl RecoveryHook {
     pub fn set_strategy(&self, tool_id: &str, strategy: RecoveryStrategy) {
         let mut strategies = self.strategies.lock().unwrap();
         strategies.insert(tool_id.to_string(), strategy);
-        info!("Set recovery strategy for tool '{}' to {}", tool_id, strategy);
+        info!(
+            "Set recovery strategy for tool '{}' to {}",
+            tool_id, strategy
+        );
     }
-    
+
     /// Get the recovery strategy for a specific tool
     pub fn get_strategy(&self, tool_id: &str) -> RecoveryStrategy {
         let strategies = self.strategies.lock().unwrap();
-        strategies.get(tool_id)
+        strategies
+            .get(tool_id)
             .copied()
             .unwrap_or(self.default_strategy)
     }
@@ -262,7 +278,7 @@ impl ToolLifecycleHook for RecoveryHook {
         // No recovery actions needed on register
         Ok(())
     }
-    
+
     #[instrument(skip(self))]
     async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
         // Clean up history when a tool is unregistered
@@ -270,40 +286,40 @@ impl ToolLifecycleHook for RecoveryHook {
             let mut error_history = self.error_history.write().await;
             error_history.remove(tool_id);
         }
-        
+
         {
             let mut recovery_history = self.recovery_history.write().await;
             recovery_history.remove(tool_id);
         }
-        
+
         Ok(())
     }
-    
+
     #[instrument(skip(self))]
     async fn on_activate(&self, _tool_id: &str) -> Result<(), ToolError> {
         // No recovery actions needed on activate
         Ok(())
     }
-    
+
     #[instrument(skip(self))]
     async fn on_deactivate(&self, _tool_id: &str) -> Result<(), ToolError> {
         // No recovery actions needed on deactivate
         Ok(())
     }
-    
+
     #[instrument(skip(self, error))]
     async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
         // Record the error
         self.record_error(tool_id, error).await;
-        
+
         // Determine the recovery strategy
         let strategy = self.get_recovery_strategy(tool_id).await;
-        
+
         info!(
             "Selected recovery strategy for tool {}: {}",
             tool_id, strategy
         );
-        
+
         // Recovery will be handled externally
         Ok(())
     }
@@ -319,7 +335,7 @@ impl ToolLifecycleHook for RecoveryHook {
         // If too many errors, don't allow starting
         if error_count > self.max_recovery_attempts {
             return Err(ToolError::TooManyErrors(format!(
-                "Tool {} has too many errors ({}), refusing to start", 
+                "Tool {} has too many errors ({}), refusing to start",
                 tool_id, error_count
             )));
         }
@@ -333,13 +349,17 @@ impl ToolLifecycleHook for RecoveryHook {
         if let Some(history) = self.recovery_history.write().await.get_mut(tool_id) {
             // If there were recovery attempts, record this as a successful outcome
             if !history.is_empty() {
-                let last_strategy = history.last().map(|attempt| attempt.strategy).unwrap_or(RecoveryStrategy::Reset);
-                self.record_recovery_attempt(tool_id, last_strategy, true).await;
-                
+                let last_strategy = history
+                    .last()
+                    .map(|attempt| attempt.strategy)
+                    .unwrap_or(RecoveryStrategy::Reset);
+                self.record_recovery_attempt(tool_id, last_strategy, true)
+                    .await;
+
                 info!("Tool {} started successfully after recovery", tool_id);
             }
         }
-        
+
         Ok(())
     }
 
@@ -354,17 +374,20 @@ impl ToolLifecycleHook for RecoveryHook {
         // Record clean stop in recovery history
         let has_errors = {
             let history = self.error_history.read().await;
-            history.get(tool_id).is_some_and(|errors| !errors.is_empty())
+            history
+                .get(tool_id)
+                .is_some_and(|errors| !errors.is_empty())
         };
 
         // If there were errors but tool stopped cleanly, consider it recovered
         if has_errors {
             info!("Tool {} stopped cleanly after previous errors", tool_id);
-            
+
             // Add a successful recovery entry
-            self.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, true).await;
+            self.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, true)
+                .await;
         }
-        
+
         Ok(())
     }
 
@@ -385,7 +408,7 @@ impl ToolLifecycleHook for RecoveryHook {
         // If too many errors, don't allow resuming
         if error_count > self.max_recovery_attempts {
             return Err(ToolError::TooManyErrors(format!(
-                "Tool {} has too many errors ({}), refusing to resume", 
+                "Tool {} has too many errors ({}), refusing to resume",
                 tool_id, error_count
             )));
         }
@@ -408,18 +431,22 @@ impl ToolLifecycleHook for RecoveryHook {
         };
 
         if error_count > 0 {
-            warn!("Tool {} had {} unresolved errors during cleanup", tool_id, error_count);
-            
+            warn!(
+                "Tool {} had {} unresolved errors during cleanup",
+                tool_id, error_count
+            );
+
             // Record this as a recovery attempt (neutral outcome)
-            self.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, true).await;
-            
+            self.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, true)
+                .await;
+
             // Clean up history
             {
                 let mut error_history = self.error_history.write().await;
                 error_history.remove(tool_id);
             }
         }
-        
+
         Ok(())
     }
 
@@ -429,21 +456,28 @@ impl ToolLifecycleHook for RecoveryHook {
         // By default, use the default strategy (no explicit entry needed)
         Ok(())
     }
-    
+
     async fn initialize_tool(&self, tool_id: &str) -> Result<(), ToolError> {
         info!("Initializing tool '{}' in RecoveryHook", tool_id);
         Ok(())
     }
-    
+
     async fn pre_execute(&self, tool_id: &str) -> Result<(), ToolError> {
         info!("Pre-execute for tool '{}' in RecoveryHook", tool_id);
         Ok(())
     }
-    
-    async fn post_execute(&self, tool_id: &str, result: Result<(), ToolError>) -> Result<(), ToolError> {
+
+    async fn post_execute(
+        &self,
+        tool_id: &str,
+        result: Result<(), ToolError>,
+    ) -> Result<(), ToolError> {
         match result {
             Ok(_) => {
-                info!("Tool '{}' executed successfully, no recovery needed", tool_id);
+                info!(
+                    "Tool '{}' executed successfully, no recovery needed",
+                    tool_id
+                );
                 Ok(())
             }
             Err(err) => {
@@ -470,13 +504,13 @@ impl ToolLifecycleHook for RecoveryHook {
             }
         }
     }
-    
+
     async fn reset_tool(&self, tool_id: &str) -> Result<(), ToolError> {
         info!("Resetting tool '{}' in RecoveryHook", tool_id);
         // No specific action needed for reset in this hook
         Ok(())
     }
-    
+
     async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError> {
         info!("Cleaning up tool '{}' in RecoveryHook", tool_id);
         let mut strategies = self.strategies.lock().unwrap();
@@ -488,59 +522,64 @@ impl ToolLifecycleHook for RecoveryHook {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_recovery_strategy_selection() {
         let hook = RecoveryHook::new();
         let tool_id = "test-tool";
-        
+
         // Initial strategy should be Reset (no history)
         let strategy = hook.get_recovery_strategy(tool_id).await;
         assert_eq!(strategy, RecoveryStrategy::Reset);
-        
+
         // Record a failed attempt with Reset strategy
-        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, false).await;
-        
+        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, false)
+            .await;
+
         // Next strategy should be Reset again (strategy is manually set, not automatically changed)
         let strategy = hook.get_recovery_strategy(tool_id).await;
         assert_eq!(strategy, RecoveryStrategy::Reset);
-        
+
         // Manually set the strategy to Terminate
         hook.set_strategy(tool_id, RecoveryStrategy::Terminate);
-        
+
         // Verify the strategy was set correctly using get_strategy which directly accesses the strategies map
         let strategy = hook.get_strategy(tool_id);
         assert_eq!(strategy, RecoveryStrategy::Terminate);
-        
+
         // Record a successful attempt with Terminate strategy
-        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, true).await;
-        
+        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, true)
+            .await;
+
         // Strategy should remain Terminate when accessed directly
         let strategy = hook.get_strategy(tool_id);
         assert_eq!(strategy, RecoveryStrategy::Terminate);
-        
+
         // Reset the strategy manually
         hook.set_strategy(tool_id, RecoveryStrategy::Reset);
-        
+
         // Verify the reset worked
         let strategy = hook.get_strategy(tool_id);
         assert_eq!(strategy, RecoveryStrategy::Reset);
     }
-    
+
     #[tokio::test]
     async fn test_success_rate_calculation() {
         let hook = RecoveryHook::new();
         let tool_id = "test-tool";
-        
+
         // Initial success rate should be 100% (no history)
         let rate = hook.get_success_rate(tool_id).await;
         assert_eq!(rate, 1.0);
-        
+
         // Record 3 attempts: 2 successful, 1 failed
-        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, true).await;
-        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, false).await;
-        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Continue, true).await;
-        
+        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Reset, true)
+            .await;
+        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Terminate, false)
+            .await;
+        hook.record_recovery_attempt(tool_id, RecoveryStrategy::Continue, true)
+            .await;
+
         // Success rate should be 2/3 = 0.6666...
         let rate = hook.get_success_rate(tool_id).await;
         assert!((rate - 0.6666).abs() < 0.001);
@@ -549,30 +588,27 @@ mod tests {
     #[tokio::test]
     async fn test_recovery_hook_strategies() {
         let hook = RecoveryHook::new();
-        
+
         // Test default strategy
         assert_eq!(hook.get_strategy("unknown-tool"), RecoveryStrategy::Reset);
-        
+
         // Test setting and getting a strategy
         hook.set_strategy("test-tool", RecoveryStrategy::Terminate);
         assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Terminate);
-        
+
         // Test cleaning up removes the strategy
         hook.cleanup_tool("test-tool").await.unwrap();
         assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Reset);
     }
-    
+
     #[tokio::test]
     async fn test_recovery_hook_error_handling() {
         let hook = RecoveryHook::new();
-        let tool = Tool::builder()
-            .id("test-tool")
-            .name("Test Tool")
-            .build();
-        
+        let tool = Tool::builder().id("test-tool").name("Test Tool").build();
+
         // Register the tool
         hook.register_tool(&tool).await.unwrap();
-        
+
         // Test Continue strategy
         hook.set_strategy("test-tool", RecoveryStrategy::Continue);
         let result = hook.post_execute(
@@ -582,7 +618,7 @@ mod tests {
             ))
         ).await;
         assert!(result.is_ok());
-        
+
         // Test Reset strategy
         hook.set_strategy("test-tool", RecoveryStrategy::Reset);
         let result = hook.post_execute(
@@ -597,7 +633,7 @@ mod tests {
             }
             _ => panic!("Expected NeedsReset error"),
         }
-        
+
         // Test Terminate strategy
         hook.set_strategy("test-tool", RecoveryStrategy::Terminate);
         let result = hook.post_execute(
@@ -613,4 +649,4 @@ mod tests {
             _ => panic!("Expected ExecutionFailed error"),
         }
     }
-} 
+}

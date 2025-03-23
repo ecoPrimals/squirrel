@@ -53,4 +53,4 @@ pub enum DashboardError {
     
     #[error("Internal error: {0}")]
     Internal(String),
-} 
+}

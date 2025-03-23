@@ -100,8 +100,8 @@ impl MCPMessage {
     ///
     /// # Arguments
     ///
-    /// * `id` - Message ID (should match the request ID)
-    /// * `command` - Command name (should match the request command)
+    /// * `id` - Message ID
+    /// * `command` - Command name
     /// * `payload` - Optional payload
     ///
     /// # Returns
@@ -142,8 +142,8 @@ impl MCPMessage {
     ///
     /// # Arguments
     ///
-    /// * `id` - Message ID (should match the request ID)
-    /// * `command` - Command name (should match the request command)
+    /// * `id` - Message ID
+    /// * `command` - Command name
     /// * `error` - Error message
     ///
     /// # Returns
@@ -166,7 +166,7 @@ impl MCPMessage {
     /// A Result containing the JSON string or an error
     pub fn to_json(&self) -> MCPResult<String> {
         serde_json::to_string(self)
-            .map_err(MCPError::from)
+            .map_err(MCPError::SerializationError)
     }
     
     /// Parse a message from JSON
@@ -180,7 +180,7 @@ impl MCPMessage {
     /// A Result containing the parsed message or an error
     pub fn from_json(json: &str) -> MCPResult<Self> {
         serde_json::from_str(json)
-            .map_err(MCPError::from)
+            .map_err(MCPError::SerializationError)
     }
 }
 
@@ -197,5 +197,107 @@ impl fmt::Display for MCPMessage {
         }
         
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_message_request_creation() {
+        let id = "test-id".to_string();
+        let command = "test-command".to_string();
+        let payload = Some(json!({"key": "value"}));
+        
+        let message = MCPMessage::new_request(id.clone(), command.clone(), payload.clone());
+        
+        assert_eq!(message.id, id);
+        assert_eq!(message.message_type, MCPMessageType::Request);
+        assert_eq!(message.command, command);
+        assert_eq!(message.payload, payload);
+        assert!(message.error.is_none());
+    }
+    
+    #[test]
+    fn test_message_response_creation() {
+        let id = "test-id".to_string();
+        let command = "test-command".to_string();
+        let payload = Some(json!({"result": "success"}));
+        
+        let message = MCPMessage::new_response(id.clone(), command.clone(), payload.clone());
+        
+        assert_eq!(message.id, id);
+        assert_eq!(message.message_type, MCPMessageType::Response);
+        assert_eq!(message.command, command);
+        assert_eq!(message.payload, payload);
+        assert!(message.error.is_none());
+    }
+    
+    #[test]
+    fn test_message_notification_creation() {
+        let id = "test-id".to_string();
+        let topic = "test-topic".to_string();
+        let payload = Some(json!({"event": "something-happened"}));
+        
+        let message = MCPMessage::new_notification(id.clone(), topic.clone(), payload.clone());
+        
+        assert_eq!(message.id, id);
+        assert_eq!(message.message_type, MCPMessageType::Notification);
+        assert_eq!(message.command, topic);
+        assert_eq!(message.payload, payload);
+        assert!(message.error.is_none());
+    }
+    
+    #[test]
+    fn test_message_error_creation() {
+        let id = "test-id".to_string();
+        let command = "test-command".to_string();
+        let error = "Something went wrong".to_string();
+        
+        let message = MCPMessage::new_error(id.clone(), command.clone(), error.clone());
+        
+        assert_eq!(message.id, id);
+        assert_eq!(message.message_type, MCPMessageType::Error);
+        assert_eq!(message.command, command);
+        assert!(message.payload.is_none());
+        assert_eq!(message.error, Some(error));
+    }
+    
+    #[test]
+    fn test_message_serialization() {
+        let message = MCPMessage::new_request(
+            "req-1".to_string(), 
+            "test".to_string(), 
+            Some(json!({"arg": "value"}))
+        );
+        
+        let json = message.to_json().unwrap();
+        let parsed = MCPMessage::from_json(&json).unwrap();
+        
+        assert_eq!(parsed.id, message.id);
+        assert_eq!(parsed.message_type, message.message_type);
+        assert_eq!(parsed.command, message.command);
+        assert_eq!(parsed.payload, message.payload);
+        assert_eq!(parsed.error, message.error);
+    }
+    
+    #[test]
+    fn test_error_message_serialization() {
+        let message = MCPMessage::new_error(
+            "err-1".to_string(), 
+            "test".to_string(), 
+            "Error message".to_string()
+        );
+        
+        let json = message.to_json().unwrap();
+        let parsed = MCPMessage::from_json(&json).unwrap();
+        
+        assert_eq!(parsed.id, message.id);
+        assert_eq!(parsed.message_type, message.message_type);
+        assert_eq!(parsed.command, message.command);
+        assert_eq!(parsed.payload, message.payload);
+        assert_eq!(parsed.error, message.error);
     }
 } 

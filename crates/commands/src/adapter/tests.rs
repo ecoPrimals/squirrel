@@ -1,109 +1,63 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::sync::{Arc, RwLock};
-
+    use crate::adapter::helper::*;
+    use crate::{Command, CommandResult};
+    
     #[test]
-    fn test_adapter_initialization() {
-        // Create a new adapter
-        let mut adapter = CommandRegistryAdapter::new();
+    fn test_adapter_creation() {
+        let adapter = create_empty_registry_adapter().unwrap();
         
-        // Adapter should not be initialized
-        assert!(!adapter.is_initialized());
-        
-        // Initialize the adapter
-        let result = adapter.initialize();
-        assert!(result.is_ok());
-        
-        // Now it should be initialized
-        assert!(adapter.is_initialized());
-        
-        // Attempting to initialize again should fail
-        let result = adapter.initialize();
-        assert!(result.is_err());
+        // Test that the adapter can list commands
+        let commands = adapter.list_commands().unwrap();
+        assert!(commands.is_empty());
     }
-
+    
     #[test]
-    fn test_adapter_operations_when_not_initialized() {
-        // Create a new adapter without initializing it
-        let adapter = CommandRegistryAdapter::new();
+    fn test_adapter_command_registration() {
+        // Create a test command
+        #[derive(Debug, Clone)]
+        struct TestCommand;
         
-        // Operations should fail with NotInitialized error
-        let result = adapter.get_registry();
-        assert!(result.is_err());
+        impl Command for TestCommand {
+            fn name(&self) -> &str {
+                "test_command"
+            }
+            
+            fn description(&self) -> &str {
+                "Test command"
+            }
+            
+            fn execute(&self, _args: &[String]) -> CommandResult<String> {
+                Ok("Test command executed".to_string())
+            }
+            
+            fn parser(&self) -> clap::Command {
+                clap::Command::new("test_command")
+                    .about("Test command")
+            }
+            
+            fn clone_box(&self) -> Box<dyn Command> {
+                Box::new(self.clone())
+            }
+        }
         
-        let result = adapter.add_validation_rule(Box::new(MockValidationRule {}));
-        assert!(result.is_err());
+        let adapter = create_empty_registry_adapter().unwrap();
         
-        let result = adapter.add_lifecycle_handler(Box::new(MockLifecycleHandler {}));
-        assert!(result.is_err());
+        // Register the command
+        adapter.register_command(Box::new(TestCommand)).unwrap();
         
-        let result = adapter.register_command(Box::new(MockCommand {}));
-        assert!(result.is_err());
-        
-        let result = adapter.get_command("test");
-        assert!(result.is_err());
-        
-        let result = adapter.list_commands();
-        assert!(result.is_err());
-        
-        let result = adapter.execute_command("test", vec![]);
-        assert!(result.is_err());
+        // Verify the command was registered
+        let commands = adapter.list_commands().unwrap();
+        assert!(commands.contains(&"test_command".to_string()));
     }
-
+    
     #[test]
-    fn test_factory_functions() {
-        // Test create_registry_adapter
-        let adapter = create_registry_adapter();
-        assert!(!adapter.is_initialized());
+    fn test_initialized_adapter() {
+        let adapter = create_initialized_registry_adapter().unwrap();
         
-        // Test create_initialized_registry_adapter
-        let adapter_result = create_initialized_registry_adapter();
-        assert!(adapter_result.is_ok());
-        let adapter = adapter_result.unwrap();
-        assert!(adapter.is_initialized());
-        
-        // Test create_registry_adapter_with_registry
-        let registry = Arc::new(RwLock::new(CommandRegistry::new()));
-        let adapter = create_registry_adapter_with_registry(registry.clone());
-        assert!(adapter.is_initialized());
-        
-        // The registry should be accessible
-        let retrieved_registry = adapter.get_registry();
-        assert!(retrieved_registry.is_ok());
-    }
-
-    // Mock implementations for testing
-    struct MockValidationRule;
-    impl ValidationRule for MockValidationRule {
-        fn validate(&self, _command: &dyn Command) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    struct MockLifecycleHandler;
-    impl LifecycleHandler for MockLifecycleHandler {
-        fn before_execution(&self, _command: &dyn Command) -> Result<()> {
-            Ok(())
-        }
-        
-        fn after_execution(&self, _command: &dyn Command, _result: Result<()>) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    struct MockCommand;
-    impl Command for MockCommand {
-        fn execute(&self, _args: Vec<String>) -> Result<()> {
-            Ok(())
-        }
-        
-        fn name(&self) -> &str {
-            "mock_command"
-        }
-        
-        fn description(&self) -> &str {
-            "A mock command for testing"
-        }
+        // Verify built-in commands
+        let commands = adapter.list_commands().unwrap();
+        assert!(commands.contains(&"help".to_string()));
+        assert!(commands.contains(&"version".to_string()));
     }
 } 

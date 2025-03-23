@@ -1,15 +1,18 @@
-//! Plugin management command
+//! Plugin command for the Squirrel CLI
 //!
-//! This module implements a command for managing plugins in the Squirrel CLI.
+//! This module implements a command to manage plugins in the Squirrel CLI.
 
-use clap::{Command as ClapCommand};
-use squirrel_commands::{Command, CommandResult};
+use clap::{Command as ClapCommand, Arg, ArgAction, ArgMatches};
+use async_trait::async_trait;
+use tracing::{debug, warn, error};
 
-use crate::plugins::PluginStatus;
-use crate::plugins::state::get_plugin_manager;
+use squirrel_commands::{Command, CommandError, CommandResult};
+use crate::commands::context::CommandContext;
+use crate::plugins::{state::get_plugin_manager, PluginStatus};
+use crate::formatter::Factory as FormatterFactory;
 
-/// Plugin management command
-#[derive(Clone)]
+/// Command to manage plugins
+#[derive(Debug, Clone)]
 pub struct PluginCommand;
 
 impl Default for PluginCommand {
@@ -26,233 +29,359 @@ impl PluginCommand {
 }
 
 impl Command for PluginCommand {
-    fn name(&self) -> &'static str {
+    /// Get the command name
+    fn name(&self) -> &str {
         "plugin"
     }
-
-    fn description(&self) -> &'static str {
-        "Manage Squirrel plugins"
+    
+    /// Get the command description
+    fn description(&self) -> &str {
+        "Manage plugins for the Squirrel CLI"
     }
     
+    /// Execute the command with the given arguments
+    fn execute(&self, _args: &[String]) -> CommandResult<String> {
+        // For now, we'll just return the help text
+        // The actual execution will be handled by the ExecutionContext
+        Ok(self.help())
+    }
+    
+    /// Returns the command parser
     fn parser(&self) -> ClapCommand {
         ClapCommand::new("plugin")
-            .about("Manage Squirrel plugins")
-            .subcommand_required(false)
+            .about("Manage plugins for the Squirrel CLI")
+            .subcommand(
+                ClapCommand::new("list")
+                    .about("List installed plugins")
+                    .arg(
+                        Arg::new("format")
+                            .long("format")
+                            .short('f')
+                            .value_name("FORMAT")
+                            .help("Output format (text, json, yaml)")
+                            .default_value("text")
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("info")
+                    .about("Show information about a plugin")
+                    .arg(
+                        Arg::new("name")
+                            .help("Name of the plugin")
+                            .required(true)
+                    )
+                    .arg(
+                        Arg::new("format")
+                            .long("format")
+                            .short('f')
+                            .value_name("FORMAT")
+                            .help("Output format (text, json, yaml)")
+                            .default_value("text")
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("enable")
+                    .about("Enable a plugin")
+                    .arg(
+                        Arg::new("name")
+                            .help("Name of the plugin")
+                            .required(true)
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("disable")
+                    .about("Disable a plugin")
+                    .arg(
+                        Arg::new("name")
+                            .help("Name of the plugin")
+                            .required(true)
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("install")
+                    .about("Install a plugin")
+                    .arg(
+                        Arg::new("path")
+                            .help("Path to the plugin directory or file")
+                            .required(true)
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("uninstall")
+                    .about("Uninstall a plugin")
+                    .arg(
+                        Arg::new("name")
+                            .help("Name of the plugin")
+                            .required(true)
+                    )
+                    .arg(
+                        Arg::new("force")
+                            .long("force")
+                            .short('f')
+                            .help("Force uninstallation even if plugin is enabled")
+                            .action(ArgAction::SetTrue)
+                    )
+            )
+            .subcommand(
+                ClapCommand::new("reload")
+                    .about("Reload all plugins")
+            )
     }
     
-    fn clone_box(&self) -> Box<dyn Command + 'static> {
+    /// Clone the command into a new box
+    fn clone_box(&self) -> Box<dyn Command> {
         Box::new(self.clone())
     }
+}
 
-    fn execute(&self, args: &[String]) -> CommandResult<String> {
-        // Simple command parsing
-        if args.is_empty() {
-            return list_plugins();
-        }
+/// Extension to Command for async execution with CommandContext
+#[async_trait]
+pub trait AsyncCommand {
+    /// Execute the command asynchronously with a command context
+    async fn execute_async(&self, context: &CommandContext) -> Result<String, CommandError>;
+}
+
+#[async_trait]
+impl AsyncCommand for PluginCommand {
+    /// Execute the command
+    async fn execute_async(&self, context: &CommandContext) -> Result<String, CommandError> {
+        let matches = context.matches();
         
-        match args[0].as_str() {
-            "list" => list_plugins(),
-            "info" => {
-                if args.len() < 2 {
-                    Ok("Usage: plugin info <name>".to_string())
-                } else {
-                    plugin_info(&args[1])
+        match matches.subcommand() {
+            Some(("list", sub_matches)) => self.list_plugins(sub_matches).await,
+            Some(("info", sub_matches)) => self.plugin_info(sub_matches).await,
+            Some(("enable", sub_matches)) => self.enable_plugin(sub_matches).await,
+            Some(("disable", sub_matches)) => self.disable_plugin(sub_matches).await,
+            Some(("install", sub_matches)) => self.install_plugin(sub_matches).await,
+            Some(("uninstall", sub_matches)) => self.uninstall_plugin(sub_matches).await,
+            Some(("reload", sub_matches)) => self.reload_plugins(sub_matches).await,
+            _ => {
+                // Show help
+                Ok(self.parser().render_help().to_string())
+            }
+        }
+    }
+}
+
+impl PluginCommand {
+    /// List installed plugins
+    async fn list_plugins(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let plugin_manager = plugin_manager_arc.lock().map_err(|_| 
+            CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Get the list of plugins
+        let plugins = plugin_manager.list_plugins();
+        
+        // Create formatted output
+        let format_default = "text".to_string();
+        let format = matches.get_one::<String>("format").unwrap_or(&format_default);
+        let formatter = FormatterFactory::create_formatter(format)
+            .map_err(|e| CommandError::ExecutionError(e.to_string()))?;
+        
+        // Format the plugin data
+        let plugin_data: Vec<_> = plugins.iter().map(|p| {
+            let metadata = p.metadata();
+            serde_json::json!({
+                "name": metadata.name,
+                "version": metadata.version,
+                "description": metadata.description,
+                "author": metadata.author,
+                "status": format!("{:?}", p.status()),
+            })
+        }).collect();
+        
+        formatter.format(&plugin_data)
+            .map_err(|e| CommandError::ExecutionError(e.to_string()))
+    }
+    
+    /// Show information about a plugin
+    async fn plugin_info(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin name
+        let name = matches.get_one::<String>("name")
+            .ok_or_else(|| CommandError::ValidationError("Plugin name is required".to_string()))?;
+        
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let plugin_manager = plugin_manager_arc.lock().map_err(|_| 
+            CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Get the plugin
+        let plugin = plugin_manager.get_plugin(name).map_err(|e| 
+            CommandError::ExecutionError(e.to_string()))?;
+        
+        // Create formatted output
+        let format_default = "text".to_string();
+        let format = matches.get_one::<String>("format").unwrap_or(&format_default);
+        let formatter = FormatterFactory::create_formatter(format)
+            .map_err(|e| CommandError::ExecutionError(e.to_string()))?;
+        
+        // Format the plugin data
+        let metadata = plugin.metadata();
+        let plugin_data = serde_json::json!({
+            "name": metadata.name,
+            "version": metadata.version,
+            "description": metadata.description,
+            "author": metadata.author,
+            "homepage": metadata.homepage,
+            "path": plugin.path().display().to_string(),
+            "status": format!("{:?}", plugin.status()),
+        });
+        
+        formatter.format(&plugin_data)
+            .map_err(|e| CommandError::ExecutionError(e.to_string()))
+    }
+    
+    /// Enable a plugin
+    async fn enable_plugin(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin name
+        let name = matches.get_one::<String>("name")
+            .ok_or_else(|| CommandError::ValidationError("Plugin name is required".to_string()))?;
+        
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let mut plugin_manager = plugin_manager_arc.lock()
+            .map_err(|_| CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Load the plugin
+        match plugin_manager.load_plugin(name) {
+            Ok(()) => {
+                // Start the plugin
+                if let Err(e) = plugin_manager.start_plugins() {
+                    warn!("Failed to start plugin {}: {}", name, e);
+                    return Err(CommandError::ExecutionError(format!("Failed to start plugin {}: {}", name, e)));
                 }
-            },
-            "install" => {
-                if args.len() < 2 {
-                    Ok("Usage: plugin install <path>".to_string())
-                } else {
-                    install_plugin(&args[1])
+                
+                Ok(format!("Plugin {} enabled successfully", name))
+            }
+            Err(e) => {
+                error!("Failed to enable plugin {}: {}", name, e);
+                Err(CommandError::ExecutionError(format!("Failed to enable plugin {}: {}", name, e)))
+            }
+        }
+    }
+    
+    /// Disable a plugin
+    async fn disable_plugin(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin name
+        let name = matches.get_one::<String>("name")
+            .ok_or_else(|| CommandError::ValidationError("Plugin name is required".to_string()))?;
+        
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let mut plugin_manager = plugin_manager_arc.lock()
+            .map_err(|_| CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Check if plugin exists and is enabled
+        let plugin = plugin_manager.get_plugin(name).map_err(|e| 
+            CommandError::ExecutionError(e.to_string()))?;
+        if !matches!(plugin.status(), PluginStatus::Enabled) {
+            return Err(CommandError::ExecutionError(format!("Plugin {} is not enabled", name)));
+        }
+        
+        // Disable the plugin
+        // For now, just set the status to Disabled
+        // In a real implementation, we would unload the plugin
+        let plugin = plugin_manager.get_plugin_mut(name).map_err(|e| 
+            CommandError::ExecutionError(e.to_string()))?;
+        plugin.set_status(PluginStatus::Disabled);
+        
+        Ok(format!("Plugin {} disabled successfully", name))
+    }
+    
+    /// Install a plugin
+    async fn install_plugin(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin path
+        let path = matches.get_one::<String>("path")
+            .ok_or_else(|| CommandError::ValidationError("Plugin path is required".to_string()))?;
+        
+        // In a real implementation, this would copy/install the plugin
+        // to the appropriate directory and then load it
+        // For now, just return a message
+        
+        Ok(format!("Plugin installation from {} is not implemented yet", path))
+    }
+    
+    /// Uninstall a plugin
+    async fn uninstall_plugin(&self, matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin name
+        let name = matches.get_one::<String>("name")
+            .ok_or_else(|| CommandError::ValidationError("Plugin name is required".to_string()))?;
+        
+        // Get the force flag
+        let force = matches.get_flag("force");
+        
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let mut plugin_manager = plugin_manager_arc.lock().map_err(|_| 
+            CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Check if plugin exists
+        let plugin = plugin_manager.get_plugin(name).map_err(|e| 
+            CommandError::ExecutionError(e.to_string()))?;
+        
+        // Check if plugin is enabled and force is not set
+        if matches!(plugin.status(), PluginStatus::Enabled) && !force {
+            return Err(CommandError::ExecutionError(
+                format!("Plugin {} is enabled. Use --force to uninstall anyway", name)));
+        }
+        
+        // Remove the plugin
+        match plugin_manager.remove_plugin(name) {
+            Ok(()) => {
+                Ok(format!("Plugin {} uninstalled successfully", name))
+            }
+            Err(e) => {
+                error!("Failed to uninstall plugin {}: {}", name, e);
+                Err(CommandError::ExecutionError(format!("Failed to uninstall plugin {}: {}", name, e)))
+            }
+        }
+    }
+    
+    /// Reload all plugins
+    async fn reload_plugins(&self, _matches: &ArgMatches) -> Result<String, CommandError> {
+        // Get the plugin manager
+        let plugin_manager_arc = get_plugin_manager();
+        let mut plugin_manager = plugin_manager_arc.lock().map_err(|_| 
+            CommandError::ExecutionError("Failed to lock plugin manager".to_string()))?;
+        
+        // Unload all plugins
+        if let Err(e) = plugin_manager.unload_plugins() {
+            warn!("Failed to unload plugins: {}", e);
+            // Continue anyway
+        }
+        
+        // Get the list of plugins
+        let plugins: Vec<_> = plugin_manager.list_plugins()
+            .iter()
+            .map(|p| p.metadata().name.clone())
+            .collect();
+        
+        // Load each plugin
+        let mut success_count = 0;
+        let mut failure_count = 0;
+        
+        for name in plugins {
+            match plugin_manager.load_plugin(&name) {
+                Ok(()) => {
+                    debug!("Plugin {} reloaded successfully", name);
+                    success_count += 1;
                 }
-            },
-            "uninstall" => {
-                if args.len() < 2 {
-                    Ok("Usage: plugin uninstall <name>".to_string())
-                } else {
-                    uninstall_plugin(&args[1])
+                Err(e) => {
+                    warn!("Failed to reload plugin {}: {}", name, e);
+                    failure_count += 1;
                 }
-            },
-            "enable" => {
-                if args.len() < 2 {
-                    Ok("Usage: plugin enable <name>".to_string())
-                } else {
-                    enable_plugin(&args[1])
-                }
-            },
-            "disable" => {
-                if args.len() < 2 {
-                    Ok("Usage: plugin disable <name>".to_string())
-                } else {
-                    disable_plugin(&args[1])
-                }
-            },
-            _ => Ok(format!("Unknown plugin subcommand: {}", args[0]))
+            }
         }
-    }
-}
-
-/// List all installed plugins
-fn list_plugins() -> CommandResult<String> {
-    let plugin_manager = get_plugin_manager();
-    let mut result = String::new();
-    
-    // Create a scope for the manager lock
-    let plugins = {
-        // Lock the plugin manager to access its methods
-        let manager = match plugin_manager.lock() {
-            Ok(manager) => manager,
-            Err(err) => return Ok(format!("Failed to access plugin manager: {}", err)),
-        };
         
-        // Clone the plugins to release the lock
-        manager.list_plugins().into_iter().cloned().collect::<Vec<_>>()
-    };
-    
-    if plugins.is_empty() {
-        result.push_str("No plugins installed.\n");
-        return Ok(result);
-    }
-    
-    result.push_str("Installed plugins:\n");
-    for plugin in plugins {
-        let status = match plugin.status() {
-            PluginStatus::Installed => "installed",
-            PluginStatus::Enabled => "enabled",
-            PluginStatus::Disabled => "disabled",
-            PluginStatus::Failed(_err) => "failed",
-            #[cfg(test)]
-            PluginStatus::Custom(_) => "custom",
-        };
-        
-        result.push_str(&format!("  {} (v{}) - {}\n", 
-            plugin.metadata().name, 
-            plugin.metadata().version, 
-            status));
-            
-        if let Some(desc) = &plugin.metadata().description {
-            result.push_str(&format!("    {}\n", desc));
+        // Start plugins
+        if let Err(e) = plugin_manager.start_plugins() {
+            warn!("Failed to start plugins: {}", e);
+            // Continue anyway
         }
-    }
-    
-    Ok(result)
-}
-
-/// Display detailed information about a plugin
-fn plugin_info(name: &str) -> CommandResult<String> {
-    let plugin_manager = get_plugin_manager();
-    let mut result = String::new();
-    
-    // Lock the plugin manager to access its methods
-    let plugin = {
-        let manager = match plugin_manager.lock() {
-            Ok(manager) => manager,
-            Err(err) => return Ok(format!("Failed to access plugin manager: {}", err)),
-        };
         
-        match manager.get_plugin(name) {
-            Ok(plugin) => plugin.clone(),
-            Err(err) => return Ok(format!("Failed to get plugin: {}", err)),
-        }
-    };
-    
-    result.push_str(&format!("Plugin: {}\n", plugin.metadata().name));
-    result.push_str(&format!("Version: {}\n", plugin.metadata().version));
-    
-    if let Some(desc) = &plugin.metadata().description {
-        result.push_str(&format!("Description: {}\n", desc));
+        Ok(format!("Reloaded {} plugins ({} succeeded, {} failed)", 
+                  success_count + failure_count, success_count, failure_count))
     }
-    
-    if let Some(author) = &plugin.metadata().author {
-        result.push_str(&format!("Author: {}\n", author));
-    }
-    
-    if let Some(homepage) = &plugin.metadata().homepage {
-        result.push_str(&format!("Homepage: {}\n", homepage));
-    }
-    
-    result.push_str(&format!("Status: {:?}\n", plugin.status()));
-    result.push_str(&format!("Path: {:?}\n", plugin.path()));
-    
-    Ok(result)
-}
-
-/// Install a plugin from a directory or archive
-fn install_plugin(path: &str) -> CommandResult<String> {
-    let result = format!("Installing plugin from {}...\nNot implemented yet.", path);
-    
-    // TODO: Implement plugin installation logic
-    // - Verify plugin structure
-    // - Extract if archive
-    // - Read metadata
-    // - Create Plugin instance
-    // - Add to PluginManager
-    
-    Ok(result)
-}
-
-/// Uninstall a plugin
-fn uninstall_plugin(name: &str) -> CommandResult<String> {
-    let plugin_manager = get_plugin_manager();
-    
-    // Lock the plugin manager to access its methods
-    let result = {
-        let mut manager = match plugin_manager.lock() {
-            Ok(manager) => manager,
-            Err(err) => return Ok(format!("Failed to access plugin manager: {}", err)),
-        };
-        
-        match manager.remove_plugin(name) {
-            Ok(_) => format!("Plugin '{}' uninstalled successfully.", name),
-            Err(err) => format!("Failed to uninstall plugin '{}': {}", name, err),
-        }
-    };
-    
-    Ok(result)
-}
-
-/// Enable a plugin
-fn enable_plugin(name: &str) -> CommandResult<String> {
-    let plugin_manager = get_plugin_manager();
-    
-    // Lock the plugin manager to access its methods
-    let result = {
-        let mut manager = match plugin_manager.lock() {
-            Ok(manager) => manager,
-            Err(err) => return Ok(format!("Failed to access plugin manager: {}", err)),
-        };
-        
-        match manager.get_plugin_mut(name) {
-            Ok(plugin) => {
-                plugin.set_status(PluginStatus::Enabled);
-                format!("Plugin '{}' enabled.", name)
-            },
-            Err(err) => format!("Failed to enable plugin '{}': {}", name, err),
-        }
-    };
-    
-    Ok(result)
-}
-
-/// Disable a plugin
-fn disable_plugin(name: &str) -> CommandResult<String> {
-    let plugin_manager = get_plugin_manager();
-    
-    // Lock the plugin manager to access its methods
-    let result = {
-        let mut manager = match plugin_manager.lock() {
-            Ok(manager) => manager,
-            Err(err) => return Ok(format!("Failed to access plugin manager: {}", err)),
-        };
-        
-        match manager.get_plugin_mut(name) {
-            Ok(plugin) => {
-                plugin.set_status(PluginStatus::Disabled);
-                format!("Plugin '{}' disabled.", name)
-            },
-            Err(err) => format!("Failed to disable plugin '{}': {}", name, err),
-        }
-    };
-    
-    Ok(result)
 } 

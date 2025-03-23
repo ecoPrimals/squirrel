@@ -1,10 +1,10 @@
-use thiserror::Error;
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use serde_json::Map;
-use crate::types::{MessageType, SecurityLevel};
-use squirrel_core::error::{SquirrelError as CoreError, Result as CoreResult};
 use crate::error::context::ErrorSeverity;
+use crate::types::{MessageType, SecurityLevel};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
+use squirrel_core::error::{Result as CoreResult, SquirrelError as CoreError};
+use thiserror::Error;
 use uuid;
 
 /// MCP specific error types
@@ -32,6 +32,8 @@ pub enum MCPError {
     Network(String),
     /// Operation already in progress
     AlreadyInProgress(String),
+    /// Monitoring related errors
+    Monitoring(String),
 }
 
 impl std::fmt::Display for MCPError {
@@ -48,6 +50,7 @@ impl std::fmt::Display for MCPError {
             MCPError::General(err) => write!(f, "MCP error: {err}"),
             MCPError::Network(err) => write!(f, "Network error: {err}"),
             MCPError::AlreadyInProgress(err) => write!(f, "Already in progress: {err}"),
+            MCPError::Monitoring(err) => write!(f, "Monitoring error: {err}"),
         }
     }
 }
@@ -78,6 +81,7 @@ impl std::error::Error for MCPError {
             MCPError::General(_) => None,
             MCPError::Network(_) => None,
             MCPError::AlreadyInProgress(_) => None,
+            MCPError::Monitoring(_) => None,
         }
     }
 }
@@ -121,6 +125,7 @@ impl From<MCPError> for CoreError {
             MCPError::General(e) => CoreError::MCP(format!("MCP error: {e}")),
             MCPError::Network(e) => CoreError::MCP(format!("Network error: {e}")),
             MCPError::AlreadyInProgress(e) => CoreError::MCP(format!("Already in progress: {e}")),
+            MCPError::Monitoring(e) => CoreError::MCP(format!("Monitoring error: {e}")),
         }
     }
 }
@@ -140,6 +145,30 @@ impl From<squirrel_core::error::PersistenceError> for MCPError {
 impl From<SecurityError> for MCPError {
     fn from(err: SecurityError) -> Self {
         MCPError::Security(err)
+    }
+}
+
+impl From<CoreError> for MCPError {
+    fn from(err: CoreError) -> Self {
+        match err {
+            CoreError::Security(msg) => MCPError::Security(SecurityError::System(msg)),
+            CoreError::MCP(msg) => MCPError::General(msg),
+            CoreError::Generic(msg) => MCPError::General(format!("Generic error: {}", msg)),
+            CoreError::IO(io_err) => MCPError::Io(io_err),
+            CoreError::Other(msg) => MCPError::General(format!("Other error: {}", msg)),
+            CoreError::AppInitialization(e) => MCPError::General(format!("App initialization error: {}", e)),
+            CoreError::AppOperation(e) => MCPError::General(format!("App operation error: {}", e)),
+            CoreError::Health(msg) => MCPError::Monitoring(msg),
+            CoreError::Metric(msg) => MCPError::Monitoring(msg),
+            CoreError::Dashboard(msg) => MCPError::Monitoring(msg),
+            CoreError::Serialization(msg) => MCPError::General(format!("Serialization error: {}", msg)),
+            CoreError::Network(msg) => MCPError::Network(msg),
+            CoreError::Alert(msg) => MCPError::Monitoring(msg),
+            CoreError::Session(msg) => MCPError::Security(SecurityError::AuthenticationFailed(msg)),
+            CoreError::Persistence(e) => MCPError::Storage(e.to_string()),
+            CoreError::ProtocolVersion(msg) => MCPError::Protocol(ProtocolError::InvalidVersion(msg)),
+            CoreError::Context(msg) => MCPError::Context(ContextError::SyncError(msg)),
+        }
     }
 }
 
@@ -213,6 +242,12 @@ pub enum SecurityError {
     },
     #[error("System error: {0}")]
     System(String),
+    #[error("Invalid permission format: {0}")]
+    InvalidPermissionFormat(String),
+    #[error("Invalid action in permission: {0}")]
+    InvalidActionInPermission(String),
+    #[error("Error creating role: {0}")]
+    ErrorCreatingRole(String),
 }
 
 #[derive(Debug, Error)]
@@ -313,23 +348,26 @@ impl ErrorContext {
         }
     }
 
-    #[must_use] pub fn with_message_type(mut self, message_type: MessageType) -> Self {
+    #[must_use]
+    pub fn with_message_type(mut self, message_type: MessageType) -> Self {
         self.message_type = Some(message_type);
         self
     }
 
-    #[must_use] pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
+    #[must_use]
+    pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
-    #[must_use] pub fn with_details(mut self, details: Map<String, serde_json::Value>) -> Self {
+    #[must_use]
+    pub fn with_details(mut self, details: Map<String, serde_json::Value>) -> Self {
         self.details = details;
         self
     }
 
     /// Sets the error code for this context
-    /// 
+    ///
     /// # Returns
     /// Returns self for method chaining
     #[must_use]
@@ -339,7 +377,7 @@ impl ErrorContext {
     }
 
     /// Sets the source location for this context
-    /// 
+    ///
     /// # Returns
     /// Returns self for method chaining
     #[must_use]
@@ -354,39 +392,42 @@ impl ErrorContext {
 }
 
 impl MCPError {
-    #[must_use] pub fn is_recoverable(&self) -> bool {
+    #[must_use]
+    pub fn is_recoverable(&self) -> bool {
         match self {
             // Recoverable errors
-            MCPError::Security(SecurityError::AuthenticationFailed(_) | 
-                           SecurityError::TokenExpired) |
-            MCPError::Connection(ConnectionError::Timeout(_) | 
-                              ConnectionError::Reset) => true,
-            
+            MCPError::Security(
+                SecurityError::AuthenticationFailed(_) | SecurityError::TokenExpired,
+            )
+            | MCPError::Connection(ConnectionError::Timeout(_) | ConnectionError::Reset) => true,
+
             // Default case - all other errors are non-recoverable
             _ => false,
         }
     }
 
-    #[must_use] pub fn severity(&self) -> ErrorSeverity {
+    #[must_use]
+    pub fn severity(&self) -> ErrorSeverity {
         match self {
             MCPError::Connection(
-                ConnectionError::ConnectionFailed(_) |
-                ConnectionError::Closed(_) |
-                ConnectionError::Reset |
-                ConnectionError::Refused |
-                ConnectionError::Unreachable |
-                ConnectionError::TooManyConnections |
-                ConnectionError::LimitReached(_)
+                ConnectionError::ConnectionFailed(_)
+                | ConnectionError::Closed(_)
+                | ConnectionError::Reset
+                | ConnectionError::Refused
+                | ConnectionError::Unreachable
+                | ConnectionError::TooManyConnections
+                | ConnectionError::LimitReached(_),
             ) => ErrorSeverity::High,
-            
+
             MCPError::Protocol(ProtocolError::InvalidVersion(_)) => ErrorSeverity::High,
-            
+
             // All other errors are low severity
             _ => ErrorSeverity::Low,
         }
     }
 
-    #[must_use] pub fn error_code(&self) -> String {
+    #[must_use]
+    pub fn error_code(&self) -> String {
         match self {
             MCPError::Context(_) => "MCP-001",
             MCPError::Protocol(_) => "MCP-002",
@@ -399,7 +440,9 @@ impl MCPError {
             MCPError::General(_) => "MCP-009",
             MCPError::Network(_) => "MCP-010",
             MCPError::AlreadyInProgress(_) => "MCP-011",
-        }.to_string()
+            MCPError::Monitoring(_) => "MCP-012",
+        }
+        .to_string()
     }
 }
 
@@ -431,13 +474,13 @@ impl ErrorHandler {
     }
 
     /// Handles operation errors with automatic retries
-    /// 
+    ///
     /// # Arguments
     /// * `operation` - A closure that returns a `CoreResult<T>`
-    /// 
+    ///
     /// # Returns
     /// * `CoreResult<T>` - The result of the operation or the last error encountered
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the operation failed after all retry attempts or
     /// if the error is not recoverable
@@ -450,18 +493,20 @@ impl ErrorHandler {
                 Ok(result) => return Ok(result),
                 Err(error) => {
                     self.error_context.increment_retry_count();
-                    
-                    if !error.is_recoverable() || self.error_context.retry_count >= self.max_retries {
+
+                    if !error.is_recoverable() || self.error_context.retry_count >= self.max_retries
+                    {
                         return Err(error);
                     }
-                    
+
                     tokio::time::sleep(self.retry_delay).await;
                 }
             }
         }
     }
 
-    #[must_use] pub fn error_context(&self) -> &ErrorContext {
+    #[must_use]
+    pub fn error_context(&self) -> &ErrorContext {
         &self.error_context
     }
 }
@@ -469,7 +514,6 @@ impl ErrorHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_error_context() {
@@ -489,7 +533,9 @@ mod tests {
 
     #[test]
     fn test_error_recovery() {
-        let version_mismatch = MCPError::Protocol(ProtocolError::InvalidVersion("Version mismatch".to_string()));
+        let version_mismatch = MCPError::Protocol(ProtocolError::InvalidVersion(
+            "Version mismatch".to_string(),
+        ));
         assert!(!version_mismatch.is_recoverable());
         assert_eq!(version_mismatch.severity(), ErrorSeverity::High);
 

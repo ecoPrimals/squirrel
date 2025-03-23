@@ -57,7 +57,7 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
         base_limits: ResourceLimits,
         max_limits: ResourceLimits,
     ) -> Result<(), ToolError>;
-    
+
     /// Cleans up resources for a tool
     ///
     /// This method is called during tool cleanup to release any resources
@@ -66,16 +66,16 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
     /// # Arguments
     /// * `tool_id` - The ID of the tool to clean up
     async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError>;
-    
+
     /// Resets resource tracking for a tool
-    /// 
+    ///
     /// This method is called when a tool is reset during recovery. It should
     /// clear resource usage counters but maintain the tool's registration and limits.
     ///
     /// # Arguments
     /// * `tool_id` - The ID of the tool to reset
     async fn reset_tool(&self, tool_id: &str) -> Result<(), ToolError>;
-    
+
     /// Update resource limits for a tool
     ///
     /// This method allows dynamically updating the resource limits for a tool
@@ -90,7 +90,7 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
         tool_id: &str,
         new_limits: ResourceLimits,
     ) -> Result<(), ToolError>;
-    
+
     /// Gets the current resource usage for a tool
     ///
     /// This method returns the current resource usage statistics for a tool.
@@ -98,7 +98,7 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
     /// # Arguments
     /// * `tool_id` - The ID of the tool to get usage for
     async fn get_usage(&self, tool_id: &str) -> Result<ResourceUsage, ToolError>;
-    
+
     /// Checks if a tool's resource usage is within limits
     ///
     /// This method checks whether the tool's current resource usage is within
@@ -110,4 +110,4 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// `true` if the tool is within limits, `false` otherwise
     async fn check_limits(&self, tool_id: &str) -> Result<bool, ToolError>;
-} 
+}

@@ -65,4 +65,4 @@ pub fn create_dashboard_manager_adapter_with_manager(
     manager: Arc<DashboardManager>
 ) -> Arc<DashboardManagerAdapter> {
     Arc::new(DashboardManagerAdapter::with_manager(manager))
-} 
+}

@@ -44,4 +44,4 @@ impl McpConfig {
         self.buffer_size = buffer_size;
         self
     }
-} 
+}

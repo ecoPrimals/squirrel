@@ -1,0 +1,17 @@
+[package]
+name = "hello-plugin"
+version = "1.0.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "A simple hello world plugin for Squirrel CLI"
+
+[lib]
+name = "hello_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+squirrel-commands = { path = "../../crates/commands" }
+squirrel-cli = { path = "../../crates/cli" }
+async-trait = "0.1"
+log = "0.4"
+clap = { version = "4.4", features = ["derive"] } 
