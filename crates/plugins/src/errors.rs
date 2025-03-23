@@ -21,9 +21,13 @@ pub enum PluginError {
     #[error("Plugin already registered: {0}")]
     AlreadyRegistered(Uuid),
     
-    /// Plugin dependency not found
+    /// Plugin dependency not found (by string ID)
     #[error("Plugin dependency not found: {0}")]
     DependencyNotFound(String),
+    
+    /// Plugin dependency not found (by UUID)
+    #[error("Plugin dependency not found: {0}")]
+    DependencyNotFoundUuid(Uuid),
     
     /// Plugin dependency cycle detected
     #[error("Plugin dependency cycle detected: {0}")]
