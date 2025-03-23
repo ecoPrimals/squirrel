@@ -1,6 +1,6 @@
 ---
-version: 1.2.0
-last_updated: 2025-03-21
+version: 1.3.0
+last_updated: 2024-04-20
 status: active
 ---
 
@@ -14,6 +14,8 @@ The Machine Context Protocol (MCP) is a secure, efficient protocol for communica
 > - [Core Protocol Specification](protocol/README.md)
 > - [Tool Definition Specification](protocol/tool-definition.md)
 > - [Tool Execution Specification](protocol/tool-execution.md)
+> - [Authentication Specification](protocol/authentication.md)
+> - [Command Registry Integration](protocol/command-integration.md)
 
 ## Core Components
 
@@ -27,6 +29,8 @@ pub struct MCPMessage {
     pub metadata: Option<serde_json::Value>,
     pub security: SecurityMetadata,
     pub timestamp: DateTime<Utc>,
+    pub version: ProtocolVersion,
+    pub trace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +39,8 @@ pub enum MessageType {
     Response,
     Event,
     Error,
+    Heartbeat,
+    Sync,
 }
 ```
 
@@ -46,6 +52,9 @@ pub struct TransportConfig {
     pub max_connections: usize,
     pub protocol_version: ProtocolVersion,
     pub security_level: SecurityLevel,
+    pub connection_pool_size: usize,
+    pub keepalive_interval: Duration,
+    pub connection_timeout: Duration,
 }
 ```
 
@@ -55,6 +64,9 @@ pub trait ContextManager {
     async fn get_context(&self) -> Result<Context>;
     async fn update_context(&mut self, context: Context) -> Result<()>;
     async fn sync_context(&mut self) -> Result<()>;
+    async fn watch_context_path(&self, path: &str) -> Result<impl Stream<Item = ContextUpdate>>;
+    async fn create_snapshot(&self) -> Result<SnapshotInfo>;
+    async fn restore_snapshot(&self, snapshot_id: &str) -> Result<()>;
 }
 ```
 
@@ -66,6 +78,65 @@ pub struct SecurityMetadata {
     pub encryption_info: Option<EncryptionInfo>,
     pub signature: Option<String>,
     pub auth_token: Option<String>,
+    pub permissions: Option<Vec<Permission>>,
+    pub roles: Option<Vec<Role>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthenticationRequest {
+    pub username: String,
+    pub auth_method: AuthMethod,
+    pub auth_data: serde_json::Value,
+    pub client_info: ClientInfo,
+    pub requested_permissions: Vec<Permission>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AuthMethod {
+    Password,
+    Token,
+    Certificate,
+    MultiFactorAuth,
+    Oauth,
+}
+```
+
+### Command Registry Integration
+```rust
+pub struct McpCommandRegistryAdapter {
+    registry: Arc<CommandRegistry>,
+    auth_manager: Arc<AuthManager>,
+    permission_validator: Arc<PermissionValidator>,
+}
+
+impl McpCommandRegistryAdapter {
+    pub async fn execute_command(&self, request: &McpCommandRequest) -> Result<McpCommandResponse> {
+        // Authenticate user
+        let user = self.auth_manager.authenticate(&request.credentials).await?;
+        
+        // Validate permissions
+        self.permission_validator.validate_command(
+            &user,
+            &request.command,
+            &request.arguments,
+        ).await?;
+        
+        // Create execution context
+        let context = CommandExecutionContext::new()
+            .with_user(user)
+            .with_source(CommandSource::Mcp)
+            .with_timestamp(chrono::Utc::now());
+        
+        // Execute command
+        let result = self.registry.execute(
+            &request.command,
+            &request.arguments,
+            &context,
+        ).await?;
+        
+        // Return response
+        Ok(McpCommandResponse::success(result))
+    }
 }
 ```
 
@@ -77,6 +148,8 @@ pub struct SecurityMetadata {
 - Command states
 - Performance metrics
 - Thread safety state
+- Authentication state
+- Session management
 
 ### State Transitions
 1. Message Validation
@@ -85,34 +158,40 @@ pub struct SecurityMetadata {
 4. Response Generation
 5. Error Handling
 6. State Synchronization
+7. Authentication Verification
+8. Permission Checking
 
 ## Performance Requirements
 
 ### Latency
-- Message processing: < 50ms
-- Command execution: < 200ms
-- Error handling: < 100ms
-- State synchronization: < 10ms
+- Message processing: < 30ms
+- Command execution: < 100ms
+- Error handling: < 50ms
+- State synchronization: < 5ms
+- Authentication: < 100ms
 
 ### Throughput
-- Minimum: 1000 messages/second
-- Target: 5000 messages/second
-- Peak: 10000 messages/second
+- Minimum: 2000 messages/second
+- Target: 8000 messages/second
+- Peak: 15000 messages/second
 
 ### Resource Usage
-- Memory: < 512MB per instance
-- CPU: < 50% single core
-- Network: < 100Mbps
-- Thread overhead: < 1MB per thread
+- Memory: < 256MB per instance
+- CPU: < 30% single core
+- Network: < 50Mbps
+- Thread overhead: < 0.5MB per thread
+- Connection pool: < 50MB
 
 ## Implementation Guidelines
 
 ### Message Flow
 1. Client initiates connection
 2. Security handshake
-3. Context synchronization
-4. Command execution
-5. Response handling
+3. Authentication
+4. Context synchronization
+5. Command execution
+6. Response handling
+7. Session management
 
 ### Best Practices
 1. Use async/await for all IO operations
@@ -125,6 +204,10 @@ pub struct SecurityMetadata {
 8. Document message handlers
 9. Test error scenarios
 10. Validate message security level
+11. Implement connection pooling
+12. Use message batching for efficiency
+13. Implement tracing for debugging
+14. Employ fine-grained permissions
 
 ### Error Handling
 ```rust
@@ -133,12 +216,18 @@ pub enum MCPError {
     Security(SecurityError),
     Context(ContextError),
     Protocol(ProtocolError),
+    Authentication(AuthError),
+    Authorization(PermissionError),
+    Command(CommandError),
+    Session(SessionError),
 }
 
 pub struct ErrorHandler {
     error_history: Arc<RwLock<Vec<ErrorContext>>>,
     recovery_handlers: Arc<RwLock<HashMap<String, RecoveryHandler>>>,
     max_history: usize,
+    error_metrics: Arc<ErrorMetrics>,
+    notification_service: Option<Arc<NotificationService>>,
 }
 ```
 
@@ -150,6 +239,8 @@ pub struct ErrorHandler {
 - Error handling
 - Security validations
 - Thread safety
+- Authentication flow
+- Permission checks
 
 ### Integration Tests
 - End-to-end message flow
@@ -157,6 +248,8 @@ pub struct ErrorHandler {
 - Performance benchmarks
 - Error recovery scenarios
 - Concurrent operations
+- Command registry integration
+- Authentication system integration
 
 ### Performance Tests
 - Latency measurements
@@ -164,6 +257,8 @@ pub struct ErrorHandler {
 - Resource utilization
 - Stress testing
 - Thread contention
+- Connection pool performance
+- Authentication overhead
 
 ## Compliance
 
@@ -173,17 +268,29 @@ pub struct ErrorHandler {
 - SHA-256 for hashing
 - JWT for tokens
 - Thread-safe security
+- RBAC for authorization
+- MFA for sensitive operations
 
 ### Performance Standards
 - 99.9% uptime
 - < 100ms latency (p95)
 - < 1% error rate
-- < 500MB memory usage
-- < 1ms thread overhead
+- < 300MB memory usage
+- < 0.5ms thread overhead
+- Connection pool efficiency > 95%
 
 ## Recent Updates
 
-### Version 1.2.0 (2025-03-21)
+### Version 1.3.0 (2024-04-20)
+- Added enhanced security with role-based access control
+- Completed command registry integration
+- Implemented connection pooling for improved performance
+- Added authentication specification with multi-factor support
+- Enhanced error handling with notification system
+- Improved message structure with trace IDs and protocol versioning
+- Added heartbeat and sync message types
+
+### Version 1.2.0 (2024-03-21)
 - Added detailed protocol specifications in the `protocol/` directory
 - Created tool definition specification
 - Created tool execution specification
@@ -192,4 +299,4 @@ pub struct ErrorHandler {
 ### Version 1.1.0 (2024-03-15)
 - Initial protocol specification
 
-<version>1.2.0</version>
+<version>1.3.0</version>

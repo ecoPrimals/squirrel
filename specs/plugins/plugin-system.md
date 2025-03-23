@@ -28,11 +28,8 @@ The plugin system enables extensibility across all major components of the Groun
 - Tool plugin error handling
 
 ### UI Team (src/ui)
-- UI plugin interfaces
-- UI component plugins
-- UI theme plugins
-- UI layout plugins
-- UI event plugin system
+- *Note: UI components have been sunsetted from MVP*
+- Refer to [specs/MVP/03-ui-features_sunsetted.md](../MVP/03-ui-features_sunsetted.md)
 
 ## Plugin Types
 
@@ -58,11 +55,7 @@ The plugin system enables extensibility across all major components of the Groun
 - Custom tool implementations
 
 ### UI Plugins
-- Component plugins
-- Theme plugins
-- Layout plugins
-- Input handler plugins
-- Output formatter plugins
+- *Note: UI plugins have been sunsetted from MVP*
 
 ## Plugin Architecture
 
@@ -101,15 +94,15 @@ The plugin system enables extensibility across all major components of the Groun
 - [x] Basic plugin system architecture
 - [x] Plugin lifecycle management
 - [x] Basic security model
-- [ ] Advanced dependency resolution
-- [x] State management system
+- [✓] Dependency resolution (partial)
+- [✓] State management system (partial)
 - [ ] Error recovery system
 - [ ] Performance optimization
 - [ ] Security hardening
 
 ### MCP Team (src/mcp) - 20% Complete
 - [x] Basic protocol plugin interface
-- [x] Message type extensions
+- [x] Message type definitions
 - [ ] Protocol versioning
 - [ ] Security protocol extensions
 - [ ] Tool protocol integration
@@ -127,100 +120,77 @@ The plugin system enables extensibility across all major components of the Groun
 - [ ] Security hardening
 - [ ] Tool marketplace
 
-### UI Team (src/ui) - 25% Complete
-- [x] Basic component plugin system
-- [x] Theme plugin support
-- [ ] Layout plugin system
-- [ ] Event plugin system
-- [ ] State management
-- [ ] Performance optimization
-- [ ] Security hardening
-- [ ] Component marketplace
+### UI Team (src/ui) - Sunsetted
+- UI features removed from MVP
+- See [specs/MVP/03-ui-features_sunsetted.md](../MVP/03-ui-features_sunsetted.md)
 
 ## Next Steps
 
 ### Short Term (2 Weeks)
 1. Core Team
-   - Complete plugin lifecycle management
-   - Implement basic dependency resolution
-   - Add state management system
-   - Enhance security model
+   - Enhance plugin lifecycle management
+   - Improve dependency resolution
+   - Implement robust error handling and recovery
+   - Add runtime performance monitoring
 
 2. MCP Team
-   - Implement protocol versioning
-   - Add security protocol extensions
-   - Complete message type system
-   - Enhance error handling
+   - Complete protocol extension points
+   - Implement message validation
+   - Add security boundaries
+   - Enhance error reporting
 
 3. Tools Team
-   - Implement resource management
-   - Add error handling system
-   - Complete state persistence
-   - Enhance security model
-
-4. UI Team
-   - Implement layout plugin system
-   - Add event plugin system
-   - Complete state management
-   - Enhance security model
+   - Implement resource usage tracking
+   - Add error isolation and recovery
+   - Complete basic state persistence
+   - Enhance security validation
 
 ### Medium Term (2 Months)
 1. Core Team
-   - Advanced dependency resolution
-   - Performance optimization
-   - Security hardening
-   - Plugin marketplace
+   - Complete dependency resolution
+   - Implement advanced state management
+   - Add comprehensive security model
+   - Develop plugin debugging tools
 
 2. MCP Team
-   - Tool protocol integration
-   - State protocol integration
-   - Performance optimization
-   - Security hardening
+   - Implement protocol versioning
+   - Add comprehensive message routing
+   - Complete security extensions
+   - Develop performance optimization
 
 3. Tools Team
-   - Performance optimization
-   - Security hardening
-   - Tool marketplace
-   - Advanced features
-
-4. UI Team
-   - Performance optimization
-   - Security hardening
-   - Component marketplace
-   - Advanced features
+   - Implement tool version management
+   - Add resource allocation controls
+   - Complete error handling system
+   - Develop testing framework
 
 ### Long Term (6 Months)
 1. Core Team
-   - Advanced plugin features
-   - Cloud integration
-   - AI capabilities
-   - Community features
+   - Implement plugin marketplace
+   - Add advanced security features
+   - Complete performance optimization
+   - Develop community contribution tools
 
 2. MCP Team
-   - Advanced protocol features
-   - Cloud integration
-   - AI capabilities
-   - Community features
+   - Implement advanced protocol features
+   - Add AI-assisted protocol extensions
+   - Complete security hardening
+   - Develop protocol monitoring and analytics
 
 3. Tools Team
-   - Advanced tool features
-   - Cloud integration
-   - AI capabilities
-   - Community features
-
-4. UI Team
-   - Advanced UI features
-   - Cloud integration
-   - AI capabilities
-   - Community features
+   - Implement advanced tool discovery
+   - Add AI-assisted tool generation
+   - Complete resource optimization
+   - Develop comprehensive documentation
 
 ## Success Criteria
 
 ### Functional Requirements
 - All plugin types functional and documented
 - Plugin system secure and reliable
-- Plugin marketplace operational
-- Community plugin support working
+- Plugin discovery and loading working correctly
+- Plugin state persistence reliable
+- Error handling robust and comprehensive
 - Performance metrics met
 - Security requirements satisfied
 
