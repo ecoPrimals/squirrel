@@ -752,7 +752,7 @@ impl MetricCollector for ProtocolMetricsCollectorAdapter {
     }
 }
 
-/// Records metrics for a tool
+/// Records metrics for tools
 ///
 /// # Parameters
 /// * `collector` - The metric collector to record metrics with
@@ -761,7 +761,7 @@ impl MetricCollector for ProtocolMetricsCollectorAdapter {
 /// # Errors
 /// Returns an error if the metric collector fails to record any of the metrics
 /// due to validation issues, storage problems, or if the collector is not initialized
-pub async fn record_tool_metrics<S: ::std::hash::BuildHasher>(
+pub async fn record_tool_metrics<S: ::std::hash::BuildHasher + Sync>(
     collector: &dyn MetricCollector,
     metrics: &HashMap<String, ToolMetrics, S>,
 ) -> Result<()> {

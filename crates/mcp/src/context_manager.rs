@@ -1,18 +1,18 @@
+use crate::error::types::ContextError;
+use crate::error::{MCPError, Result};
+use crate::monitoring::MCPMonitor;
+use crate::persistence::{MCPPersistence, PersistenceConfig};
+use crate::sync::state::StateSyncManager;
+use crate::sync::state::{StateChange, StateOperation};
+use crate::sync::{MCPSync, SyncConfig};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::default::Default;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, warn};
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
-use crate::sync::state::{StateOperation, StateChange};
-use crate::sync::{MCPSync, SyncConfig};
-use std::sync::Arc;
-use std::default::Default;
-use crate::persistence::{MCPPersistence, PersistenceConfig};
-use crate::monitoring::MCPMonitor;
-use crate::sync::state::StateSyncManager;
-use crate::error::types::ContextError;
-use crate::error::{Result, MCPError};
 
 /// Context representation in the MCP system
 ///
@@ -100,32 +100,27 @@ impl ContextManager {
     #[instrument]
     pub async fn new() -> Self {
         let sync_config = SyncConfig::default();
-        
+
         // Create and initialize persistence before wrapping in Arc
         let mut persistence = MCPPersistence::new(PersistenceConfig::default());
         // Initialize persistence
         if let Err(e) = persistence.init() {
             tracing::warn!("Failed to initialize persistence: {}", e);
         }
-        
+
         // Wrap in Arc after initialization
         let persistence = Arc::new(persistence);
         let monitor = Arc::new(MCPMonitor::default());
         let state_manager = Arc::new(StateSyncManager::new());
-        
+
         // Create sync and initialize it
-        let mut sync_instance = MCPSync::new(
-            sync_config,
-            persistence,
-            monitor,
-            state_manager
-        );
-        
+        let mut sync_instance = MCPSync::new(sync_config, persistence, monitor, state_manager);
+
         // Initialize the sync engine
         if let Err(e) = sync_instance.init().await {
             tracing::warn!("Failed to initialize sync engine: {}", e);
         }
-        
+
         // Convert to Arc after initialization
         let sync = Arc::new(sync_instance);
 
@@ -153,7 +148,7 @@ impl ContextManager {
         self.validate_context(&context).await?;
 
         let context_id = context.id;
-        
+
         // Update hierarchy if parent exists
         if let Some(parent_id) = context.parent_id {
             let mut hierarchy = self.hierarchy.write().await;
@@ -168,7 +163,11 @@ impl ContextManager {
         contexts.insert(context_id, context.clone());
 
         // Record change for sync
-        if let Err(e) = self.sync.record_context_change(&context, StateOperation::Create).await {
+        if let Err(e) = self
+            .sync
+            .record_context_change(&context, StateOperation::Create)
+            .await
+        {
             error!("Failed to record context change: {}", e);
             return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
         }
@@ -205,23 +204,27 @@ impl ContextManager {
         metadata: Option<serde_json::Value>,
     ) -> Result<()> {
         let mut contexts = self.contexts.write().await;
-        
+
         let context = contexts
             .get_mut(&id)
             .ok_or(MCPError::Context(ContextError::NotFound(id)))?;
-        
+
         // Update context fields
         context.data = data;
         if let Some(meta) = metadata {
             context.metadata = Some(meta);
         }
         context.updated_at = Utc::now();
-        
+
         // Clone for sync operation
         let updated_context = context.clone();
-        
+
         // Record change for sync
-        if let Err(e) = self.sync.record_context_change(&updated_context, StateOperation::Update).await {
+        if let Err(e) = self
+            .sync
+            .record_context_change(&updated_context, StateOperation::Update)
+            .await
+        {
             error!("Failed to record context change: {}", e);
             return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
         }
@@ -240,11 +243,13 @@ impl ContextManager {
     pub async fn delete_context(&self, id: Uuid) -> Result<()> {
         // Get context for sync before removing
         let context = self.get_context(id).await?;
-        
+
         // Remove from storage
         let mut contexts = self.contexts.write().await;
-        contexts.remove(&id).ok_or(MCPError::Context(ContextError::NotFound(id)))?;
-        
+        contexts
+            .remove(&id)
+            .ok_or(MCPError::Context(ContextError::NotFound(id)))?;
+
         // Remove from hierarchy
         let mut hierarchy = self.hierarchy.write().await;
         if let Some(parent_id) = context.parent_id {
@@ -252,12 +257,16 @@ impl ContextManager {
                 children.retain(|child_id| *child_id != id);
             }
         }
-        
+
         // Remove any children that this context was a parent of
         hierarchy.remove(&id);
-        
+
         // Record change for sync
-        if let Err(e) = self.sync.record_context_change(&context, StateOperation::Delete).await {
+        if let Err(e) = self
+            .sync
+            .record_context_change(&context, StateOperation::Delete)
+            .await
+        {
             error!("Failed to record context deletion: {}", e);
             return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
         }
@@ -272,15 +281,22 @@ impl ContextManager {
     ///
     /// Returns `ContextError::ValidationError` if the validation schema is invalid.
     #[instrument(skip(self, validation))]
-    pub async fn register_validation(&self, context_type: String, validation: ContextValidation) -> Result<()> {
+    pub async fn register_validation(
+        &self,
+        context_type: String,
+        validation: ContextValidation,
+    ) -> Result<()> {
         // Validate schema
-        if validation.schema.is_null() || validation.schema.as_object().is_none_or(|o| o.is_empty()) {
-            return Err(MCPError::Context(ContextError::ValidationError("Invalid validation schema".into())));
+        if validation.schema.is_null() || validation.schema.as_object().is_none_or(|o| o.is_empty())
+        {
+            return Err(MCPError::Context(ContextError::ValidationError(
+                "Invalid validation schema".into(),
+            )));
         }
-        
+
         let mut validations = self.validations.write().await;
         validations.insert(context_type.clone(), validation);
-        
+
         info!(context_type = %context_type, "Validation registered");
         Ok(())
     }
@@ -294,17 +310,22 @@ impl ContextManager {
         // Check expiration
         if let Some(expires_at) = context.expires_at {
             if expires_at < Utc::now() {
-                return Err(MCPError::Context(ContextError::ValidationError("Context has expired".into())));
+                return Err(MCPError::Context(ContextError::ValidationError(
+                    "Context has expired".into(),
+                )));
             }
         }
-        
+
         // Get context type from metadata
         let context_type = if let Some(metadata) = &context.metadata {
-            metadata.get("type").and_then(|t| t.as_str()).unwrap_or("default")
+            metadata
+                .get("type")
+                .and_then(|t| t.as_str())
+                .unwrap_or("default")
         } else {
             "default"
         };
-        
+
         // Apply registered validations
         let validations = self.validations.read().await;
         if let Some(validation) = validations.get(context_type) {
@@ -312,13 +333,13 @@ impl ContextManager {
             if !validation.schema.is_null() {
                 // TODO: Implement JSON schema validation
             }
-            
+
             // Apply each validation rule
             for rule in &validation.rules {
                 self.apply_validation_rule(context, rule).await?;
             }
         }
-        
+
         Ok(())
     }
 
@@ -330,25 +351,30 @@ impl ContextManager {
     async fn apply_validation_rule(&self, context: &Context, rule: &str) -> Result<()> {
         // Basic validation for all contexts
         if context.data.is_null() {
-            return Err(MCPError::Context(ContextError::ValidationError("Context data cannot be empty".into())));
+            return Err(MCPError::Context(ContextError::ValidationError(
+                "Context data cannot be empty".into(),
+            )));
         }
-        
+
         // Required fields validation
         if rule.starts_with("required:") {
             let field_name = rule.strip_prefix("required:").unwrap_or("");
             if !field_name.is_empty() && context.data.get(field_name).is_none() {
-                return Err(MCPError::Context(ContextError::ValidationError(
-                    format!("Required field '{field_name}' is missing")
-                )));
+                return Err(MCPError::Context(ContextError::ValidationError(format!(
+                    "Required field '{field_name}' is missing"
+                ))));
             }
             return Ok(());
         }
-        
+
         // Check if the rule function exists and apply it
         if !rule_validator(rule, context) {
-            return Err(MCPError::Context(ContextError::ValidationError(format!("Rule '{}' failed for context '{}'", rule, context.name))));
+            return Err(MCPError::Context(ContextError::ValidationError(format!(
+                "Rule '{}' failed for context '{}'",
+                rule, context.name
+            ))));
         }
-        
+
         Ok(())
     }
 
@@ -361,16 +387,16 @@ impl ContextManager {
     pub async fn get_child_contexts(&self, parent_id: Uuid) -> Result<Vec<Context>> {
         // Verify parent exists
         self.get_context(parent_id).await?;
-        
+
         let hierarchy = self.hierarchy.read().await;
         let contexts = self.contexts.read().await;
-        
+
         let child_ids = hierarchy.get(&parent_id).cloned().unwrap_or_default();
         let children = child_ids
             .into_iter()
             .filter_map(|id| contexts.get(&id).cloned())
             .collect();
-        
+
         Ok(children)
     }
 
@@ -395,14 +421,17 @@ impl ContextManager {
     /// Returns `ContextError::SyncError` if subscription fails.
     #[instrument(skip(self))]
     pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
-        self.sync.subscribe_changes().await
-            .map_err(|e| MCPError::Context(ContextError::SyncError(format!("Failed to subscribe to changes: {e}"))))
+        self.sync.subscribe_changes().await.map_err(|e| {
+            MCPError::Context(ContextError::SyncError(format!(
+                "Failed to subscribe to changes: {e}"
+            )))
+        })
     }
 
     pub async fn create_with_persistence_and_sync(
         config: ContextConfig,
         persistence: Arc<MCPPersistence>,
-        sync: Option<Arc<MCPSync>>
+        sync: Option<Arc<MCPSync>>,
     ) -> Result<Self> {
         let sync = match sync {
             Some(s) => s,
@@ -418,7 +447,7 @@ impl ContextManager {
                     sync_config,
                     persistence.clone(),
                     Arc::new(MCPMonitor::default()),
-                    Arc::new(StateSyncManager::new())
+                    Arc::new(StateSyncManager::new()),
                 ))
             }
         };
@@ -459,16 +488,14 @@ fn rule_validator(rule: &str, context: &Context) -> bool {
 // Add a Default implementation for ContextManager
 impl Default for ContextManager {
     /// Creates a default instance of `ContextManager`
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function panics if it fails to create a Tokio runtime or
     /// if the `ContextManager` initialization in the async block fails.
     fn default() -> Self {
         match tokio::runtime::Runtime::new() {
-            Ok(rt) => {
-                rt.block_on(async { Self::new().await })
-            },
+            Ok(rt) => rt.block_on(async { Self::new().await }),
             Err(e) => {
                 panic!("Failed to create Tokio runtime for ContextManager: {e}");
             }
@@ -479,7 +506,7 @@ impl Default for ContextManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     /// Helper function to create a pre-initialized MCPSync instance for tests
     async fn create_test_sync() -> Arc<MCPSync> {
         // Create the persistence layer and initialize it
@@ -488,24 +515,19 @@ mod tests {
             tracing::warn!("Failed to initialize persistence: {}", e);
         }
         let persistence = Arc::new(persistence);
-        
+
         // Create other dependencies
         let monitor = Arc::new(MCPMonitor::default());
         let state_manager = Arc::new(StateSyncManager::new());
-        
+
         // Create and initialize the sync instance
-        let mut sync = MCPSync::new(
-            SyncConfig::default(),
-            persistence,
-            monitor,
-            state_manager
-        );
-        
+        let mut sync = MCPSync::new(SyncConfig::default(), persistence, monitor, state_manager);
+
         // Initialize the sync engine
         if let Err(e) = sync.init().await {
             tracing::warn!("Failed to initialize sync: {}", e);
         }
-        
+
         Arc::new(sync)
     }
 
@@ -513,7 +535,7 @@ mod tests {
     async fn test_context_lifecycle() {
         // Use the helper to create a pre-initialized MCPSync instance
         let sync = create_test_sync().await;
-        
+
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
@@ -521,7 +543,7 @@ mod tests {
             validations: Arc::new(RwLock::new(HashMap::new())),
             sync,
         };
-        
+
         let context = Context {
             id: Uuid::new_v4(),
             name: "test_context".to_string(),
@@ -543,7 +565,10 @@ mod tests {
 
         // Update
         let new_data = serde_json::json!({"key": "new_value"});
-        assert!(manager.update_context(id, new_data.clone(), None).await.is_ok());
+        assert!(manager
+            .update_context(id, new_data.clone(), None)
+            .await
+            .is_ok());
 
         // Verify update
         let updated = manager.get_context(id).await.unwrap();
@@ -560,7 +585,7 @@ mod tests {
     async fn test_context_hierarchy() {
         // Use the helper to create a pre-initialized MCPSync instance
         let sync = create_test_sync().await;
-        
+
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
@@ -568,7 +593,7 @@ mod tests {
             validations: Arc::new(RwLock::new(HashMap::new())),
             sync,
         };
-        
+
         let parent_id = Uuid::new_v4();
         let child_id = Uuid::new_v4();
 
@@ -608,7 +633,7 @@ mod tests {
     async fn test_context_validation() {
         // Use the helper to create a pre-initialized MCPSync instance
         let sync = create_test_sync().await;
-        
+
         // Create ContextManager with pre-initialized sync
         let manager = ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
@@ -616,7 +641,7 @@ mod tests {
             validations: Arc::new(RwLock::new(HashMap::new())),
             sync,
         };
-        
+
         // Register validation
         let validation = ContextValidation {
             schema: serde_json::json!({
@@ -628,7 +653,10 @@ mod tests {
             }),
             rules: vec!["required_fields".to_string()],
         };
-        assert!(manager.register_validation("test".to_string(), validation).await.is_ok());
+        assert!(manager
+            .register_validation("test".to_string(), validation)
+            .await
+            .is_ok());
 
         // Test valid context
         let valid_context = Context {
@@ -657,4 +685,4 @@ mod tests {
         let result = manager.create_context(invalid_context).await;
         println!("Invalid context creation result: {:?}", result);
     }
-} 
+}

@@ -1,11 +1,13 @@
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use async_trait::async_trait;
-use serde_json::{Value, json};
-use crate::protocol::{MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, ValidationResult, RoutingResult};
+use crate::error::{MCPError, ProtocolError, Result};
+use crate::protocol::{
+    MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult, ValidationResult,
+};
 use crate::types::{MCPMessage, MessageType, ProtocolState};
-use crate::error::{Result, MCPError, ProtocolError};
+use async_trait::async_trait;
+use serde_json::{json, Value};
+use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 /// Errors specific to MCP protocol operations
 #[derive(Debug, Error)]
@@ -13,7 +15,7 @@ pub enum ProtocolAdapterError {
     /// Protocol is not initialized
     #[error("Protocol not initialized")]
     NotInitialized,
-    
+
     /// Protocol is already initialized
     #[error("Protocol already initialized")]
     AlreadyInitialized,
@@ -33,7 +35,7 @@ impl MCPProtocolAdapter {
             inner: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     /// Create a new protocol adapter with a given protocol implementation
     #[must_use]
     pub fn with_protocol(protocol: MCPProtocolBase) -> Self {
@@ -41,37 +43,37 @@ impl MCPProtocolAdapter {
             inner: Arc::new(RwLock::new(Some(protocol))),
         }
     }
-    
+
     /// Initialize the protocol adapter with a base protocol implementation
     ///
     /// # Errors
     /// Returns an error if the protocol cannot be initialized
     pub async fn initialize(&self) -> Result<()> {
         let mut inner = self.inner.write().await;
-        
+
         if inner.is_some() {
             return Ok(());
         }
-        
+
         *inner = Some(MCPProtocolBase::new(ProtocolConfig::default()));
         Ok(())
     }
-    
+
     /// Initialize with a specific configuration
     ///
     /// # Errors
     /// Returns an error if the protocol cannot be initialized with the given config
     pub async fn initialize_with_config(&self, config: ProtocolConfig) -> Result<()> {
         let mut inner = self.inner.write().await;
-        
+
         if inner.is_some() {
             return Ok(());
         }
-        
+
         *inner = Some(MCPProtocolBase::with_config(config));
         Ok(())
     }
-    
+
     /// Check if inner protocol is initialized
     pub async fn is_initialized(&self) -> bool {
         let inner = self.inner.read().await;
@@ -81,21 +83,23 @@ impl MCPProtocolAdapter {
     /// Handle a message according to the protocol
     pub async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         let protocol_guard = self.inner.read().await;
-        
+
         if let Some(protocol) = &*protocol_guard {
             // Special handling for setup message
             if msg.message_type == MessageType::Setup {
                 // Setup messages should be processed even without payload
                 return protocol.handle_protocol_message(&msg).await;
             }
-            
+
             if !msg.payload.is_object() {
-                return Err(MCPError::Protocol(ProtocolError::InvalidPayload("Empty or invalid payload".to_string())));
+                return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
+                    "Empty or invalid payload".to_string(),
+                )));
             }
-            
+
             // Validate and route the message
             protocol.validate_message(&msg)?;
-            
+
             protocol.handle_protocol_message(&msg).await
         } else {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
@@ -106,7 +110,11 @@ impl MCPProtocolAdapter {
     ///
     /// Returns `ProtocolAdapterError::NotInitialized` if the adapter
     /// is not initialized.
-    pub async fn register_handler(&self, message_type: crate::types::MessageType, handler: Box<dyn super::CommandHandler>) -> Result<()> {
+    pub async fn register_handler(
+        &self,
+        message_type: crate::types::MessageType,
+        handler: Box<dyn super::CommandHandler>,
+    ) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
             protocol.register_handler(message_type, handler)
@@ -145,7 +153,9 @@ impl MCPProtocolAdapter {
             protocol.set_state(state);
             Ok(())
         } else {
-            Err(MCPError::Protocol(ProtocolError::InvalidState("Protocol not initialized".to_string())))
+            Err(MCPError::Protocol(ProtocolError::InvalidState(
+                "Protocol not initialized".to_string(),
+            )))
         }
     }
 
@@ -193,9 +203,9 @@ pub fn create_protocol_adapter_with_protocol(protocol: MCPProtocolBase) -> Arc<M
 }
 
 /// Creates a new protocol adapter and initializes it with default configuration
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if initialization fails.
 pub async fn create_initialized_protocol_adapter() -> Result<Arc<MCPProtocolAdapter>> {
     let adapter = MCPProtocolAdapter::new();
@@ -204,11 +214,13 @@ pub async fn create_initialized_protocol_adapter() -> Result<Arc<MCPProtocolAdap
 }
 
 /// Creates a new protocol adapter and initializes it with custom configuration
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if initialization fails.
-pub async fn create_protocol_adapter_with_config(config: ProtocolConfig) -> Result<Arc<MCPProtocolAdapter>> {
+pub async fn create_protocol_adapter_with_config(
+    config: ProtocolConfig,
+) -> Result<Arc<MCPProtocolAdapter>> {
     let adapter = MCPProtocolAdapter::new();
     adapter.initialize_with_config(config).await?;
     Ok(Arc::new(adapter))
@@ -218,40 +230,42 @@ pub async fn create_protocol_adapter_with_config(config: ProtocolConfig) -> Resu
 impl MCPProtocol for MCPProtocolAdapter {
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         let protocol_guard = self.inner.read().await;
-        
+
         if let Some(protocol) = &*protocol_guard {
             // Special handling for setup message
             if msg.message_type == MessageType::Setup {
                 // Setup messages should be processed even without payload
                 return protocol.handle_protocol_message(&msg).await;
             }
-            
+
             if !msg.payload.is_object() {
-                return Err(MCPError::Protocol(ProtocolError::InvalidPayload("Empty or invalid payload".to_string())));
+                return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
+                    "Empty or invalid payload".to_string(),
+                )));
             }
-            
+
             // Validate and route the message
             protocol.validate_message(&msg)?;
-            
+
             protocol.handle_protocol_message(&msg).await
         } else {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }
     }
-    
+
     async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {
         let protocol_guard = self.inner.read().await;
-        
+
         if let Some(protocol) = &*protocol_guard {
             protocol.validate_message(msg)
         } else {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }
     }
-    
+
     async fn route_message(&self, _msg: &MCPMessage) -> RoutingResult {
         let protocol_guard = self.inner.read().await;
-        
+
         if let Some(ref _protocol) = *protocol_guard {
             // Check if the protocol has registered a handler for this message type
             // For now, we're just implementing a basic placeholder
@@ -261,10 +275,10 @@ impl MCPProtocol for MCPProtocolAdapter {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }
     }
-    
+
     async fn set_state(&self, new_state: ProtocolState) -> Result<()> {
         let mut protocol_guard = self.inner.write().await;
-        
+
         if let Some(protocol) = &mut *protocol_guard {
             protocol.set_protocol_state(new_state);
             Ok(())
@@ -272,17 +286,19 @@ impl MCPProtocol for MCPProtocolAdapter {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }
     }
-    
+
     async fn get_state(&self) -> Result<ProtocolState> {
         let inner = self.inner.read().await;
         if let Some(ref _protocol) = *inner {
             // Here we need to convert from the internal state to the ProtocolState
             Ok(ProtocolState::Ready)
         } else {
-            Err(MCPError::Protocol(ProtocolError::InvalidState("Protocol not initialized".to_string())))
+            Err(MCPError::Protocol(ProtocolError::InvalidState(
+                "Protocol not initialized".to_string(),
+            )))
         }
     }
-    
+
     fn get_version(&self) -> String {
         // The version is a static string, so we can simply return it directly
         // without needing to await anything
@@ -294,13 +310,13 @@ impl MCPProtocol for MCPProtocolAdapter {
 mod tests {
     #![allow(unused_imports)]
     use super::*;
-    use crate::types::{MessageId, MessageType, ResponseStatus, MessageMetadata, MCPResponse};
+    use crate::types::{MCPResponse, MessageId, MessageMetadata, MessageType, ResponseStatus};
     use serde_json::json;
-    
+
     /// Test handler implementation
     #[derive(Debug)]
     struct TestCommandHandler;
-    
+
     #[async_trait::async_trait]
     impl super::super::CommandHandler for TestCommandHandler {
         async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
@@ -315,26 +331,26 @@ mod tests {
             })
         }
     }
-    
+
     #[tokio::test]
     async fn test_adapter_initialization() {
         // Create a new adapter
         let adapter = MCPProtocolAdapter::new();
-        
+
         // Should not be initialized yet
         assert!(!adapter.is_initialized().await);
-        
+
         // Initialize it
         adapter.initialize().await.unwrap();
-        
+
         // Now it should be initialized
         assert!(adapter.is_initialized().await);
-        
+
         // Second initialization should be ok (idempotent)
         let result = adapter.initialize().await;
         assert!(result.is_ok(), "Second initialization should be idempotent");
     }
-    
+
     #[tokio::test]
     async fn test_adapter_with_config() {
         // Create a custom config
@@ -343,140 +359,157 @@ mod tests {
             max_message_size: 2048,
             timeout_ms: 10000,
         };
-        
+
         // Create and initialize with config
         let adapter = MCPProtocolAdapter::new();
-        adapter.initialize_with_config(config.clone()).await.unwrap();
-        
+        adapter
+            .initialize_with_config(config.clone())
+            .await
+            .unwrap();
+
         // Check the config was set
         let adapter_config = adapter.get_config().await;
         assert_eq!(adapter_config.version, "2.0");
         assert_eq!(adapter_config.max_message_size, 2048);
         assert_eq!(adapter_config.timeout_ms, 10000);
     }
-    
+
     #[tokio::test]
     async fn test_uninitialized_operations() {
         // Create a new adapter without initializing
         let adapter = MCPProtocolAdapter::new();
-        
+
         // Create a test message
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             message_type: MessageType::Command,
             payload: json!({"command": "test"}),
         };
-        
+
         // Trying to handle a message should fail
         let err = adapter.handle_message(message).await.unwrap_err();
         assert!(err.to_string().contains("not initialized"));
-        
+
         // Register handler should also fail
         let handler = Box::new(TestCommandHandler);
-        let err = adapter.register_handler(MessageType::Command, handler).await.unwrap_err();
+        let err = adapter
+            .register_handler(MessageType::Command, handler)
+            .await
+            .unwrap_err();
         assert!(err.to_string().contains("not initialized"));
     }
-    
+
     #[tokio::test]
     async fn test_handler_registration() {
         // Create and initialize adapter
         let adapter = MCPProtocolAdapter::new();
         adapter.initialize().await.unwrap();
-        
+
         // Register a handler
         let handler = Box::new(TestCommandHandler);
-        adapter.register_handler(MessageType::Command, handler).await.unwrap();
-        
+        adapter
+            .register_handler(MessageType::Command, handler)
+            .await
+            .unwrap();
+
         // Create a test message
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             message_type: MessageType::Command,
             payload: json!({"command": "test"}),
         };
-        
+
         // Handle the message
         let response = adapter.handle_message(message).await.unwrap();
-        
+
         // Verify response
         assert_eq!(response.status, crate::types::ResponseStatus::Success);
         assert_eq!(response.message_id, "test-1");
     }
-    
+
     #[tokio::test]
     async fn test_factory_functions() {
         // Test simple creation
         let adapter1 = create_protocol_adapter();
         assert!(!adapter1.is_initialized().await);
-        
+
         // Test creation with an existing protocol
         let config = ProtocolConfig::default();
         let protocol = MCPProtocolBase::new(config);
         let adapter2 = create_protocol_adapter_with_protocol(protocol);
         assert!(adapter2.is_initialized().await);
-        
+
         // Test initialized creation
         let adapter3 = create_initialized_protocol_adapter().await.unwrap();
         assert!(adapter3.is_initialized().await);
-        
+
         // Test creation with config
         let custom_config = ProtocolConfig {
             version: "3.0".to_string(),
             max_message_size: 4096,
             timeout_ms: 15000,
         };
-        let adapter4 = create_protocol_adapter_with_config(custom_config).await.unwrap();
+        let adapter4 = create_protocol_adapter_with_config(custom_config)
+            .await
+            .unwrap();
         assert!(adapter4.is_initialized().await);
-        
+
         let config4 = adapter4.get_config().await;
         assert_eq!(config4.version, "3.0");
     }
-    
+
     #[tokio::test]
     async fn test_state_management() {
         // Create and initialize adapter
         let adapter = MCPProtocolAdapter::new();
         adapter.initialize().await.unwrap();
-        
+
         // Default state should be null
         let state = adapter.get_state().await;
         assert!(state.is_null());
-        
+
         // Set a new state
         let new_state = json!({"status": "connected", "client_id": "test-client"});
-        adapter.set_state(new_state.clone()).await.expect("Failed to set state");
-        
+        adapter
+            .set_state(new_state.clone())
+            .await
+            .expect("Failed to set state");
+
         // Get the state again
         let updated_state = adapter.get_state().await;
         assert_eq!(updated_state, new_state);
     }
-    
+
     #[tokio::test]
     async fn test_adapter_cloning() {
         // Create and initialize adapter
         let adapter = MCPProtocolAdapter::new();
         adapter.initialize().await.unwrap();
-        
+
         // Register a handler
         let handler = Box::new(TestCommandHandler);
-        adapter.register_handler(MessageType::Command, handler).await.unwrap();
-        
+        adapter
+            .register_handler(MessageType::Command, handler)
+            .await
+            .unwrap();
+
         // Clone the adapter
         let adapter_clone = adapter.clone();
-        
+
         // Both should be initialized
         assert!(adapter.is_initialized().await);
         assert!(adapter_clone.is_initialized().await);
-        
+
         // Both should have the handler
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             message_type: MessageType::Command,
             payload: json!({"command": "test"}),
         };
-        
+
         let response1 = adapter.handle_message(message.clone()).await.unwrap();
         let response2 = adapter_clone.handle_message(message).await.unwrap();
-        
+
         assert_eq!(response1.status, response2.status);
     }
-} 
+}

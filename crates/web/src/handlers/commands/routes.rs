@@ -18,6 +18,7 @@ use crate::api::{
 };
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use std::str::FromStr;
 
 /// Command routes
 pub fn command_routes() -> Router<Arc<AppState>> {
@@ -169,6 +170,8 @@ async fn get_command_history(
     
     let page = params.page.unwrap_or(1) as i64;
     let limit = params.limit.unwrap_or(20) as i64;
+    let status = params.status.as_deref()
+        .map(|s| CommandStatus::from_str(s).unwrap_or(CommandStatus::Failed));
     
     // Get command history for user
     let (commands, _) = command_service.list_user_commands(&user.sub, page, limit).await

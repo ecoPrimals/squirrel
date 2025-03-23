@@ -2,10 +2,12 @@
 use squirrel_core::error::Result;
 use crate::{
     MonitoringConfig, MonitoringIntervals, MonitoringServiceFactory,
-    alerts::{AlertConfig, AlertManager},
+    alerts::config::AlertConfig,
+    alerts::manager::AlertManager,
     health::{HealthConfig, HealthChecker, status::Status, SystemHealth},
     metrics::{MetricConfig, MetricCollector},
-    network::{NetworkConfig, NetworkMonitor},
+    network::NetworkConfig,
+    network::NetworkMonitor,
     dashboard,
     MonitoringService, MonitoringStatus,
     dashboard::DashboardConfig
@@ -50,7 +52,6 @@ async fn test_factory_with_custom_config() -> Result<()> {
         health_config: HealthConfig::default(),
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
-        network_config: NetworkConfig::default(),
         dashboard_config: dashboard::DashboardConfig::default(),
     };
     

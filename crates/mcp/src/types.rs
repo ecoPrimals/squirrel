@@ -1,18 +1,18 @@
 //! Common types used throughout the MCP system
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use uuid;
 
 /// Security level for MCP operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash, Default)]
 pub enum SecurityLevel {
-    /// Standard security level for basic operations
+    /// Low security level
+    Low = 0,
+    /// Standard security level
     #[default]
-    Standard,
-    /// High security level for sensitive operations
-    High,
-    /// Maximum security level for critical operations
-    Maximum,
+    Standard = 5,
+    /// High security level
+    High = 10,
 }
 
 /// Encryption format for secure communications
@@ -196,12 +196,14 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Creates a new protocol version
-    #[must_use] pub fn new(major: u32, minor: u32) -> Self {
+    #[must_use]
+    pub fn new(major: u32, minor: u32) -> Self {
         Self { major, minor }
     }
 
     /// Returns the version as a string
-    #[must_use] pub fn version_string(&self) -> String {
+    #[must_use]
+    pub fn version_string(&self) -> String {
         format!("{}.{}", self.major, self.minor)
     }
 }
@@ -253,7 +255,8 @@ impl Default for UserId {
 
 impl UserId {
     /// Create a new user ID
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -288,7 +291,8 @@ impl Default for AccountId {
 
 impl AccountId {
     /// Create a new account ID
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -323,7 +327,8 @@ impl Default for SessionToken {
 
 impl SessionToken {
     /// Create a new session token
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -358,7 +363,8 @@ impl Default for AuthToken {
 
 impl AuthToken {
     /// Create a new authentication token
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
 }
@@ -418,7 +424,6 @@ mod tests {
     #[test]
     fn test_security_level_ordering() {
         assert!(SecurityLevel::Standard < SecurityLevel::High);
-        assert!(SecurityLevel::High < SecurityLevel::Maximum);
     }
 
     #[test]
@@ -432,7 +437,7 @@ mod tests {
     fn test_message_creation() {
         // Create a message ID
         let message_id = MessageId("test-123".to_string());
-        
+
         // Create a message with the correct fields
         let message = MCPMessage {
             id: message_id,
@@ -445,4 +450,4 @@ mod tests {
         assert_eq!(message.id.0, "test-123");
         assert!(message.payload.is_object());
     }
-} 
+}

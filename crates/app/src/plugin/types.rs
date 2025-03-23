@@ -5,6 +5,12 @@ use super::{Plugin, PluginMetadata};
 use std::sync::Arc;
 use squirrel_commands::CommandRegistry;
 use crate::plugin::{PluginState};
+use tokio::sync::RwLock;
+use futures::future::BoxFuture;
+use std::any::Any;
+use std::marker::PhantomData;
+use std::path::Path;
+use uuid::Uuid;
 
 /// Command plugin for extending command functionality
 #[async_trait]
@@ -71,28 +77,50 @@ pub struct CommandPluginImpl {
     pub metadata: PluginMetadata,
     /// Command registry
     pub registry: Arc<CommandRegistry>,
+    /// Command state
+    pub state: RwLock<Option<PluginState>>,
 }
 
-#[async_trait]
 impl Plugin for CommandPluginImpl {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }
 
-    async fn initialize(&self) -> Result<()> {
-        Ok(())
+    fn initialize(&self) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
-    async fn shutdown(&self) -> Result<()> {
-        Ok(())
+    fn shutdown(&self) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
-    async fn get_state(&self) -> Result<Option<PluginState>> {
-        Ok(None)
+    fn get_state(&self) -> BoxFuture<'_, Result<Option<PluginState>>> {
+        Box::pin(async move { 
+            let guard = self.state.read().await;
+            Ok(guard.clone())
+        })
     }
 
-    async fn set_state(&self, _state: PluginState) -> Result<()> {
-        Ok(())
+    fn set_state(&self, state: PluginState) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let mut guard = self.state.write().await;
+            *guard = Some(state);
+            Ok(())
+        })
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn Plugin> {
+        // Create a new CommandPluginImpl with a fresh state RwLock
+        // This avoids blocking on async operations in a sync context
+        Box::new(Self {
+            metadata: self.metadata.clone(),
+            registry: self.registry.clone(),
+            state: RwLock::new(None),
+        })
     }
 }
 
@@ -139,6 +167,7 @@ mod tests {
                 capabilities: vec!["command".to_string()],
             },
             registry: Arc::new(CommandRegistry::new()),
+            state: RwLock::new(None),
         };
         
         // Test plugin interface

@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 use tracing::debug;
+use std::str::FromStr;
 
 use super::error::WebSocketError;
 use super::manager::ConnectionManager;
@@ -69,7 +70,7 @@ impl CommandHandler {
             .ok_or(WebSocketError::MissingParameter("category".to_string()))?;
 
         // Convert to ChannelCategory
-        let category = ChannelCategory::from_str(category_str).ok_or(WebSocketError::InvalidParameterType(
+        let category = ChannelCategory::from_str(category_str).map_err(|_| WebSocketError::InvalidParameterType(
             "Invalid category".to_string(),
         ))?;
 
@@ -112,7 +113,7 @@ impl CommandHandler {
             .ok_or(WebSocketError::MissingParameter("category".to_string()))?;
 
         // Convert to ChannelCategory
-        let category = ChannelCategory::from_str(category_str).ok_or(WebSocketError::InvalidParameterType(
+        let category = ChannelCategory::from_str(category_str).map_err(|_| WebSocketError::InvalidParameterType(
             "Invalid category".to_string(),
         ))?;
 

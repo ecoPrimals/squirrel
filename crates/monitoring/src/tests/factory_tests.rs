@@ -2,7 +2,8 @@
 use squirrel_core::error::Result;
 use crate::{
     MonitoringConfig, MonitoringIntervals, MonitoringServiceFactory,
-    alerts::{AlertConfig, AlertSeverity},
+    alerts::config::AlertConfig,
+    alerts::status::AlertSeverity,
     health::{HealthConfig, status::Status, SystemHealth},
     metrics::MetricConfig,
     network::NetworkConfig,
@@ -11,7 +12,7 @@ use crate::{
 use std::sync::Arc;
 use std::time::Duration;
 use std::collections::HashMap;
-use crate::alerts::AlertManager;
+use crate::alerts::manager::AlertManager;
 use async_trait::async_trait;
 use chrono::Utc;
 

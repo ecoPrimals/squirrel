@@ -1,22 +1,22 @@
 #[cfg(test)]
-use std::sync::Arc;
-#[cfg(test)]
 use chrono::Utc;
 #[cfg(test)]
-use uuid::Uuid;
+use std::sync::Arc;
 #[cfg(test)]
 use tempfile::tempdir;
+#[cfg(test)]
+use uuid::Uuid;
 
 use crate::context_manager::Context;
-use crate::sync::{
-    SyncConfig, MCPSync,
-    state::{StateOperation, StateChange, StateSyncManager},
-};
-use crate::persistence::{MCPPersistence, PersistenceConfig};
 use crate::monitoring::MCPMonitor;
+use crate::persistence::{MCPPersistence, PersistenceConfig};
+use crate::sync::{
+    state::{StateChange, StateOperation, StateSyncManager},
+    MCPSync, SyncConfig,
+};
 
-mod sync_tests;
 mod state_tests;
+mod sync_tests;
 
 // Common test utilities for MCP sync tests
 
@@ -45,21 +45,26 @@ fn create_test_config() -> SyncConfig {
 }
 
 /// Creates a test MCPSync instance with dependency injection
-async fn create_test_mcp_sync() -> (MCPSync, Arc<MCPPersistence>, Arc<MCPMonitor>, Arc<StateSyncManager>) {
+async fn create_test_mcp_sync() -> (
+    MCPSync,
+    Arc<MCPPersistence>,
+    Arc<MCPMonitor>,
+    Arc<StateSyncManager>,
+) {
     // ARRANGE: Create dependencies with DI pattern
     let config = create_test_config();
     let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
     let monitor = Arc::new(MCPMonitor::new().await.unwrap());
     let state_manager = Arc::new(StateSyncManager::new());
-    
+
     // Create and initialize sync instance
     let sync = MCPSync::new(
         config,
         persistence.clone(),
         monitor.clone(),
-        state_manager.clone()
+        state_manager.clone(),
     );
-    
+
     // Return both the service and its dependencies for verification
     (sync, persistence, monitor, state_manager)
-} 
+}

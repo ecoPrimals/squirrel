@@ -140,8 +140,13 @@ where
                             id: alert.id.to_string(),
                             name: format!("Alert: {}", alert.source),
                             description: alert.message.clone(),
-                            severity: alert.severity.into(), // This assumes we have an implementation of Into<LegacyAlertSeverity> for AlertSeverity
-                            status: super::AlertStatus::Active,
+                            severity: match alert.severity {
+                                super::status::AlertSeverity::Info => super::LegacyAlertSeverity::Info,
+                                super::status::AlertSeverity::Warning => super::LegacyAlertSeverity::Warning,
+                                super::status::AlertSeverity::Error => super::LegacyAlertSeverity::Error,
+                                super::status::AlertSeverity::Critical => super::LegacyAlertSeverity::Critical,
+                            },
+                            status: "active".to_string(),
                             labels: alert.details.iter()
                                 .filter_map(|(k, v)| {
                                     v.as_str().map(|s| (k.clone(), s.to_string()))
@@ -151,6 +156,9 @@ where
                             updated_at: alert.timestamp.timestamp(),
                             message: alert.message.clone(),
                             component: alert.source.clone(),
+                            source: alert.source.clone(),
+                            timestamp: alert.timestamp.timestamp() as u64,
+                            details: alert.details.clone(),
                         };
                         
                         if let Err(e) = notification_manager.send_notification(&notification).await {

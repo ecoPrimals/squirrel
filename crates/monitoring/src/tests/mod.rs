@@ -1,11 +1,14 @@
 use std::sync::Arc;
 use crate::{MonitoringConfig, MonitoringService, MonitoringIntervals, MonitoringStatus};
-use crate::alerts::{LegacyAlertManager, AlertConfig};
+use crate::alerts::config::AlertConfig;
 use crate::alerts::adapter::AlertManagerAdapter;
+use crate::alerts::adapter::AlertManagerTrait;
 use crate::alerts::status::{Alert, AlertType, AlertSeverity};
 use crate::health::{HealthConfig, HealthCheckerAdapter, ComponentHealth, status::Status, SystemHealth};
 use crate::metrics::{Metric, MetricConfig, DefaultMetricCollector, MetricType, MetricCollector};
-use crate::network::{NetworkConfig, NetworkMonitorAdapter, NetworkStats};
+use crate::network::adapter::NetworkMonitorAdapter;
+use crate::network::NetworkConfig;
+use crate::network::NetworkStats;
 use mockall::predicate::*;
 use mockall::mock;
 use std::collections::HashMap;
@@ -15,11 +18,14 @@ use async_trait::async_trait;
 use chrono::Utc;
 use squirrel_core::error::Result;
 use crate::dashboard;
+use crate::metrics;
 
 // Include factory tests module
 mod factory_tests;
 // Include factory runner
 mod factory_runner;
+// Include WebSocket tests module
+mod websocket_tests;
 
 // Mock implementations for testing
 mock! {
@@ -43,20 +49,27 @@ mock! {
     }
 }
 
-/// Helper function to create a test configuration
+/// Creates a test monitoring configuration
 fn create_test_config() -> MonitoringConfig {
+    let health_config = HealthConfig {
+        interval: 5, // Duration as u64 in seconds
+        enabled: true,
+    };
+    
+    let metric_config = metrics::MetricConfig {
+        enabled: true,
+        interval: 10, // Duration as u64 in seconds
+        max_metrics: 1000,
+    };
+
+    let alert_config = AlertConfig::default();
+    
     MonitoringConfig {
-        intervals: MonitoringIntervals {
-            health_check_interval: 1,
-            metrics_collection_interval: 1, 
-            alert_processing_interval: 1,
-            network_stats_interval: 1,
-        },
-        health_config: HealthConfig::default(),
-        metrics_config: MetricConfig::default(),
-        alert_config: AlertConfig::default(),
-        network_config: NetworkConfig::default(),
-        dashboard_config: dashboard::DashboardConfig::default(),
+        alert_config,
+        metrics_config: metric_config,
+        health_config,
+        dashboard_config: dashboard::config::DashboardConfig::default(),
+        intervals: MonitoringIntervals::default(),
     }
 }
 
@@ -152,7 +165,7 @@ async fn create_test_service() -> (
     let metric_collector = Arc::new(metric_collector_adapter);
     
     // Create a properly initialized alert manager adapter
-    let alert_config = crate::alerts::LegacyAlertConfig::default();
+    let alert_config = AlertConfig::default();
     let mut alert_manager_adapter = AlertManagerAdapter::<()>::new();
     alert_manager_adapter.initialize_with_config(alert_config).expect("Failed to initialize alert manager");
     let alert_manager = Arc::new(alert_manager_adapter);
@@ -297,6 +310,9 @@ async fn test_alert_manager() {
     // Send the alert
     // Note: We're converting the Alert to a LegacyAlert internally in the adapter
     alert_manager.send_alert(test_alert).await.expect("Failed to send alert");
+    
+    // Add a small delay to ensure the alert is processed
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     
     // ACT: Get alerts
     let alerts = service.get_alerts().await.expect("Failed to get alerts");
@@ -452,6 +468,9 @@ async fn test_alert_manager_with_monitoring_service_alias() {
     // Note: We're converting the Alert to a LegacyAlert internally in the adapter
     alert_manager.send_alert(test_alert).await.expect("Failed to send alert");
     
+    // Add a small delay to ensure the alert is processed
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    
     // ACT: Get alerts
     let alerts = service.get_alerts().await.expect("Failed to get alerts");
     
@@ -497,7 +516,21 @@ pub fn test_monitoring_config() {
         health_config: HealthConfig::default(),
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
-        network_config: NetworkConfig::default(),
-        dashboard_config: dashboard::DashboardConfig::default(),
+        dashboard_config: dashboard::config::DashboardConfig::default(),
     };
+}
+
+fn create_startup_test_config() -> MonitoringConfig {
+    MonitoringConfig {
+        intervals: MonitoringIntervals {
+            health_check_interval: 5,
+            metrics_collection_interval: 10,
+            alert_processing_interval: 15,
+            network_stats_interval: 20,
+        },
+        health_config: HealthConfig::default(),
+        metrics_config: MetricConfig::default(),
+        alert_config: AlertConfig::default(),
+        dashboard_config: dashboard::config::DashboardConfig::default(),
+    }
 } 

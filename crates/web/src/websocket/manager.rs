@@ -7,6 +7,7 @@ use tokio_stream::Stream;
 use uuid::Uuid;
 use serde_json::Value;
 use tracing::{debug, error, info, warn};
+use std::str::FromStr;
 
 use super::error::WebSocketError;
 use super::models::{ChannelCategory, Subscription, WebSocketEvent, WebSocketResponse};
@@ -417,7 +418,7 @@ impl ConnectionManager {
         
         for (channel_id, conn_ids) in channel_subs.iter() {
             if let Some((category_str, channel_name)) = channel_id.split_once(':') {
-                if let Some(category) = ChannelCategory::from_str(category_str) {
+                if let Ok(category) = ChannelCategory::from_str(category_str) {
                     for conn_id in conn_ids {
                         if let Some(conn) = connections.get(conn_id) {
                             if let Some(user_id) = &conn.user_id {

@@ -31,10 +31,12 @@ sysinfo = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 reqwest = { workspace = true }
+log = "0.4"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-context = { path = "../context" }
+regex.workspace = true
 
 [dev-dependencies]
 tokio-test = { workspace = true }

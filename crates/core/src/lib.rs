@@ -42,14 +42,29 @@ pub mod build_info {
     }
     
     /// Get the build date
+    /// 
+    /// Returns a string representation of the current time in seconds since UNIX epoch
+    /// 
+    /// # Panics
+    /// 
+    /// This function will panic if the current system time is before the UNIX epoch, which
+    /// should be extremely rare and would indicate a system clock issue.
     #[must_use]
     pub fn build_date() -> String {
         // Since BUILT_TIME_UTC may not be available, let's use a fallback
         // that will work in any environment
         use std::time::{SystemTime, UNIX_EPOCH};
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Current time is before UNIX epoch");
+        
+        // Safer alternative to expect() that shouldn't ever fail on normal systems
+        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration,
+            Err(_) => {
+                // This should be impossible unless the system clock is set to before 1970
+                // But just in case, return a reasonable default instead of panicking
+                std::time::Duration::from_secs(0)
+            }
+        };
+        
         format!("{}", now.as_secs())
     }
 }

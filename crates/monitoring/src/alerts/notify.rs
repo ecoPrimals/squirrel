@@ -16,6 +16,13 @@ use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 // use chrono::Utc;
+use async_trait::async_trait;
+use crate::alerts::status::AlertSeverity;
+use std::collections::HashMap;
+use crate::alerts::NotificationManagerTrait;
+use std::fmt::Debug;
+use squirrel_core::error::SquirrelError;
+use tracing::error;
 
 use super::{AlertNotification, LegacyAlertSeverity};
 use super::adapter::NotificationManagerAdapter;
@@ -175,7 +182,7 @@ impl NotificationManager {
     /// 
     /// Returns a `Result` containing the new manager if successful, or an error
     /// if the configuration is invalid or channels cannot be initialized.
-    pub fn new(config: NotificationConfig) -> Result<Self, NotificationError> {
+    pub fn new(config: NotificationConfig) -> std::result::Result<Self, NotificationError> {
         // Temporarily commenting out Handlebars initialization
         /*
         let mut handlebars = Handlebars::new();
@@ -208,7 +215,7 @@ impl NotificationManager {
     /// # Returns
     /// 
     /// Returns a `Result` indicating whether the notification was sent successfully.
-    pub async fn send_notification(&self, alert: &AlertNotification) -> Result<(), NotificationError> {
+    pub async fn send_notification(&self, alert: &AlertNotification) -> std::result::Result<(), NotificationError> {
         let config = self.config.read().await;
 
         // Find matching routing rules
@@ -244,7 +251,7 @@ impl NotificationManager {
         &self,
         channel: &NotificationChannel,
         alert: &AlertNotification,
-    ) -> Result<(), NotificationError> {
+    ) -> std::result::Result<(), NotificationError> {
         match channel {
             NotificationChannel::Email {
                 smtp_server,
@@ -278,7 +285,7 @@ impl NotificationManager {
     async fn send_email(
         &self,
         params: EmailParams<'_>,
-    ) -> Result<(), NotificationError> {
+    ) -> std::result::Result<(), NotificationError> {
         // TODO: Implement email sending using lettre or similar
         // For now, just log the attempt
         tracing::info!(
@@ -296,7 +303,7 @@ impl NotificationManager {
         channel: &str,
         username: &str,
         alert: &AlertNotification,
-    ) -> Result<(), NotificationError> {
+    ) -> std::result::Result<(), NotificationError> {
         // Prepare slack message
         let color = get_severity_color(alert.severity);
         
@@ -358,7 +365,7 @@ impl NotificationManager {
         _method: &str,
         headers: &std::collections::HashMap<String, String>,
         alert: &AlertNotification,
-    ) -> Result<(), NotificationError> {
+    ) -> std::result::Result<(), NotificationError> {
         // Prepare payload
         let payload = serde_json::json!({
             "alert": {
@@ -404,7 +411,7 @@ impl NotificationManager {
     /// # Returns
     /// 
     /// Returns a `Result` containing a boolean indicating whether sending is allowed.
-    async fn check_rate_limit(&self, channel_id: &str) -> Result<bool, NotificationError> {
+    async fn check_rate_limit(&self, channel_id: &str) -> std::result::Result<bool, NotificationError> {
         let config = self.config.read().await;
         let rate_limit = config.rate_limit;
         
@@ -442,7 +449,7 @@ impl NotificationManager {
     ///
     /// # Errors
     /// Returns an error if the configuration lock cannot be acquired or if the configuration is invalid
-    pub async fn update_config(&self, config: NotificationConfig) -> Result<(), NotificationError> {
+    pub async fn update_config(&self, config: NotificationConfig) -> std::result::Result<(), NotificationError> {
         // Update config
         let mut current_config = self.config.write().await;
         *current_config = config;
@@ -463,11 +470,11 @@ impl NotificationManager {
     fn check_routing_rule(rule: &RoutingRule, alert: &AlertNotification) -> bool {
         // Check severity filter
         if let Some(severity) = &rule.severity {
+            // Both are LegacyAlertSeverity so direct comparison works
             match (severity, alert.severity) {
                 (LegacyAlertSeverity::Critical, s) if s != LegacyAlertSeverity::Critical => return false,
-                (LegacyAlertSeverity::High, s) if s != LegacyAlertSeverity::High && s != LegacyAlertSeverity::Critical => return false,
-                (LegacyAlertSeverity::Medium, s) if s == LegacyAlertSeverity::Low || s == LegacyAlertSeverity::Warning => return false,
-                (LegacyAlertSeverity::Warning, LegacyAlertSeverity::Low) => return false,
+                (LegacyAlertSeverity::Error, s) if s != LegacyAlertSeverity::Error && s != LegacyAlertSeverity::Critical => return false,
+                (LegacyAlertSeverity::Warning, LegacyAlertSeverity::Info) => return false,
                 _ => {}
             }
         }
@@ -488,7 +495,12 @@ impl NotificationManager {
 /// This helper function is used to determine the appropriate color
 /// to use when displaying or sending alerts based on their severity.
 const fn get_severity_color(severity: LegacyAlertSeverity) -> &'static str {
-    severity.color()
+    match severity {
+        LegacyAlertSeverity::Info => "#2196F3",     // Blue
+        LegacyAlertSeverity::Warning => "#FF9800",  // Orange
+        LegacyAlertSeverity::Error => "#F44336",    // Red
+        LegacyAlertSeverity::Critical => "#9C27B0", // Purple
+    }
 }
 
 /// Factory for creating and managing notification manager instances
@@ -502,7 +514,7 @@ impl NotificationManagerFactory {
     ///
     /// # Errors
     /// Returns an error if the default configuration is invalid
-    pub fn new() -> Result<Self, NotificationError> {
+    pub fn new() -> std::result::Result<Self, NotificationError> {
         let config = NotificationConfig {
             channels: Vec::new(),
             rate_limit: 60,
@@ -523,7 +535,7 @@ impl NotificationManagerFactory {
     ///
     /// # Errors
     /// Returns an error if the notification manager cannot be created
-    pub fn create_manager(&self) -> Result<Arc<NotificationManager>, NotificationError> {
+    pub fn create_manager(&self) -> std::result::Result<Arc<NotificationManager>, NotificationError> {
         Ok(Arc::new(NotificationManager::new(self.config.clone())?))
     }
 
@@ -531,12 +543,12 @@ impl NotificationManagerFactory {
     pub fn create_manager_with_dependencies(
         &self,
         // Add any required dependencies here in the future
-    ) -> Result<Arc<NotificationManager>, NotificationError> {
+    ) -> std::result::Result<Arc<NotificationManager>, NotificationError> {
         self.create_manager()
     }
 
     /// Creates an adapter
-    pub fn create_adapter(&self) -> Result<Arc<NotificationManagerAdapter>, NotificationError> {
+    pub fn create_adapter(&self) -> std::result::Result<Arc<NotificationManagerAdapter>, NotificationError> {
         let manager = self.create_manager()?;
         Ok(Arc::new(NotificationManagerAdapter::with_manager(manager)))
     }
@@ -546,7 +558,52 @@ impl NotificationManagerFactory {
 ///
 /// # Errors
 /// Returns an error if the adapter cannot be created
-pub fn create_adapter(config: NotificationConfig) -> Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
+pub fn create_adapter(config: NotificationConfig) -> std::result::Result<Arc<NotificationManagerAdapter>, Box<dyn std::error::Error>> {
     let factory = NotificationManagerFactory::with_config(config);
     factory.create_adapter().map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))
+}
+
+// Implementation of NotificationManagerTrait for Box<dyn NotificationManagerTrait>
+#[async_trait]
+impl NotificationManagerTrait for Box<dyn NotificationManagerTrait> {
+    async fn send_notification(&self, alert: &AlertNotification) -> squirrel_core::error::Result<()> {
+        (**self).send_notification(alert).await
+    }
+    
+    async fn update_config(&self, config: HashMap<String, serde_json::Value>) -> squirrel_core::error::Result<()> {
+        (**self).update_config(config).await
+    }
+}
+
+// Implement conversion from AlertSeverity to LegacyAlertSeverity
+impl From<AlertSeverity> for LegacyAlertSeverity {
+    fn from(severity: AlertSeverity) -> Self {
+        match severity {
+            AlertSeverity::Info => LegacyAlertSeverity::Info,
+            AlertSeverity::Warning => LegacyAlertSeverity::Warning,
+            AlertSeverity::Error => LegacyAlertSeverity::Error,
+            AlertSeverity::Critical => LegacyAlertSeverity::Critical,
+        }
+    }
+}
+
+// Implement From trait to convert NotificationError to SquirrelError for ? operator usage
+impl From<NotificationError> for SquirrelError {
+    fn from(error: NotificationError) -> Self {
+        SquirrelError::alert(error.to_string())
+    }
+}
+
+// Implementation of NotificationManagerTrait for the unit type
+#[async_trait]
+impl NotificationManagerTrait for () {
+    async fn send_notification(&self, _alert: &AlertNotification) -> squirrel_core::error::Result<()> {
+        // This is a no-op implementation
+        Ok(())
+    }
+    
+    async fn update_config(&self, _config: HashMap<String, serde_json::Value>) -> squirrel_core::error::Result<()> {
+        // This is a no-op implementation
+        Ok(())
+    }
 }

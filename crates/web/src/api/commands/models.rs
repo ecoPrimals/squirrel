@@ -4,10 +4,15 @@ use chrono::{DateTime, Utc};
 /// Status of a command execution
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommandStatus {
+    /// Command is queued but not yet running
     Queued,
+    /// Command is currently running
     Running,
+    /// Command completed successfully
     Completed,
+    /// Command failed to execute
     Failed,
+    /// Command was cancelled by the user
     Cancelled,
 }
 
@@ -32,6 +37,35 @@ impl From<&str> for CommandStatus {
             "failed" => CommandStatus::Failed,
             "cancelled" | "canceled" => CommandStatus::Cancelled,
             _ => CommandStatus::Queued,
+        }
+    }
+}
+
+impl CommandStatus {
+    /// Convert CommandStatus to string
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+impl std::str::FromStr for CommandStatus {
+    type Err = ();
+
+    /// Parse a string into a CommandStatus
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Ok(Self::Failed), // Default to failed for unknown status
         }
     }
 }

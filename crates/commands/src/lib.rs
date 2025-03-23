@@ -80,5 +80,8 @@ pub use factory::{CommandRegistryFactory, create_command_registry};
 /// Re-export common types from the core crate
 pub use squirrel_core::error::Result;
 
+/// Adapter module
+pub mod adapter;
+
 #[cfg(test)]
 mod tests; 

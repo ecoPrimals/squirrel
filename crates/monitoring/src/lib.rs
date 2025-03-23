@@ -8,6 +8,9 @@
 use std::sync::Arc;
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
+use std::fmt::Debug;
+use squirrel_core::error::Result;
+use tracing::error;
 
 /// Module for alert functionality
 pub mod alerts;
@@ -23,7 +26,7 @@ pub mod health;
 /// use squirrel_monitoring::metrics::{Metric, MetricType, DefaultMetricCollector};
 /// use std::collections::HashMap;
 ///
-/// # async fn example() -> squirrel_monitoring::Result<()> {
+/// # async fn example() -> squirrel_core::error::Result<()> {
 /// let mut collector = DefaultMetricCollector::new();
 /// collector.initialize().await?;
 ///
@@ -51,20 +54,19 @@ pub mod dashboard;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
 pub struct MonitoringConfig {
-    /// Alert configuration settings
-    pub alert_config: alerts::AlertConfig,
-    /// Health check configuration settings
-    pub health_config: health::HealthConfig,
-    /// Metrics collection configuration settings
+    /// Alert configuration
+    pub alert_config: alerts::config::AlertConfig,
+    /// Metrics configuration
     pub metrics_config: metrics::MetricConfig,
-    /// Network monitoring configuration settings
-    pub network_config: network::NetworkConfig,
-    /// Dashboard configuration settings
-    pub dashboard_config: dashboard::DashboardConfig,
+    /// Health check configuration
+    pub health_config: health::HealthConfig,
+    /// Dashboard configuration
+    pub dashboard_config: dashboard::config::DashboardConfig,
     /// Monitoring intervals in seconds
     pub intervals: MonitoringIntervals,
+    // Network config is commented out as NetworkConfig isn't implemented yet
+    // pub network_config: network::NetworkConfig,
 }
-
 
 /// Interval settings for different monitoring components
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,13 +94,8 @@ impl Default for MonitoringIntervals {
 
 /// Monitoring service for managing all monitoring components
 /// Common types used throughout the monitoring system
-pub use alerts::{Alert, AlertSeverity};
 pub use health::ComponentHealth;
 pub use metrics::Metric;
-pub use network::NetworkStats;
-
-/// Re-export common types from the core crate
-pub use squirrel_core::error::{Result, SquirrelError};
 
 /// Factory for creating monitoring services
 #[async_trait::async_trait]

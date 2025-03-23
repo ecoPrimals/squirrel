@@ -1,18 +1,18 @@
-use tokio::sync::RwLock;
-use std::sync::Arc;
-use crate::MCPError;
-use crate::sync::state::StateSyncManager;
 use crate::context_manager::Context;
-use crate::persistence::{MCPPersistence, PersistenceConfig, PersistentState};
 use crate::monitoring::MCPMonitor;
-use serde::{Serialize, Deserialize};
-use uuid::Uuid;
+use crate::persistence::{MCPPersistence, PersistenceConfig, PersistentState};
+use crate::sync::state::StateSyncManager;
+use crate::MCPError;
 use chrono::{DateTime, Utc};
-use std::time::Instant;
-use std::fmt::Debug;
-use uuid;
-use std::sync::Mutex;
+use serde::{Deserialize, Serialize};
 use squirrel_core::error::{Result, SquirrelError};
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Instant;
+use tokio::sync::RwLock;
+use uuid;
+use uuid::Uuid;
 
 /// Convert an MCPError to a SquirrelError
 fn to_core_error<T>(result: std::result::Result<T, MCPError>) -> Result<T> {
@@ -24,7 +24,7 @@ fn to_core_error<T>(result: std::result::Result<T, MCPError>) -> Result<T> {
 
 /// State synchronization for MCP
 pub mod state;
-pub use state::{StateOperation, StateChange};
+pub use state::{StateChange, StateOperation};
 
 #[cfg(test)]
 mod tests;
@@ -105,7 +105,7 @@ pub struct SyncResult {
 }
 
 /// Main synchronization engine for MCP state
-/// 
+///
 /// Responsible for coordinating state changes across distributed instances
 /// and ensuring consistency of context data.
 #[derive(Debug)]
@@ -158,12 +158,12 @@ impl MCPSync {
     /// A Result containing the new MCPSync instance, or an error
     pub async fn create(config: SyncConfig) -> Result<Self> {
         let _start = Instant::now();
-        
+
         // Create components
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
         let monitor = Arc::new(MCPMonitor::new().await?);
         let state_manager = Arc::new(StateSyncManager::new());
-        
+
         let instance = Self {
             persistence,
             monitor,
@@ -174,13 +174,16 @@ impl MCPSync {
             changes: Arc::new(RwLock::new(Vec::new())),
             lock: Arc::new(Mutex::new(())),
         };
-        
+
         let duration = _start.elapsed();
-        instance.monitor.record_message(&format!("sync_creation_time_ms_{}", duration.as_millis())).await;
-        
+        instance
+            .monitor
+            .record_message(&format!("sync_creation_time_ms_{}", duration.as_millis()))
+            .await;
+
         Ok(instance)
     }
-    
+
     /// Creates a new MCPSync instance synchronously
     ///
     /// This is used in cases where we need a synchronous constructor,
@@ -197,7 +200,7 @@ impl MCPSync {
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
         let monitor = Arc::new(MCPMonitor::default_sync());
         let state_manager = Arc::new(StateSyncManager::new());
-        
+
         Self {
             persistence,
             monitor,
@@ -234,18 +237,18 @@ impl MCPSync {
     pub async fn init(&mut self) -> Result<()> {
         let _start = Instant::now();
         self.monitor.record_message("sync_initializing").await;
-        
+
         // Result is converted from MCPError to SquirrelError
         to_core_error(self.init_internal().await)
     }
-    
+
     /// Internal implementation of init that returns MCPError
     async fn init_internal(&mut self) -> std::result::Result<(), MCPError> {
         // Check if already initialized
         if *self.initialized.read().await {
             return Ok(());
         }
-        
+
         // Initialize persistence if needed
         let persisted = match self.persistence.load_state() {
             Ok(Some(data)) => data,
@@ -260,21 +263,22 @@ impl MCPSync {
                     last_sync: Utc::now(),
                     id: uuid::Uuid::new_v4().to_string(),
                 };
-                
+
                 if let Err(persist_err) = self.persistence.save_state(&default_state) {
-                    return Err(MCPError::Storage(format!("Failed to save default state: {persist_err}")));
+                    return Err(MCPError::Storage(format!(
+                        "Failed to save default state: {persist_err}"
+                    )));
                 }
-                
+
                 default_state
-            },
+            }
             Err(err) => {
                 // Handle error
                 self.monitor.record_error("load_state_error").await;
                 tracing::warn!("Failed to load persisted state: {}", err);
-                
+
                 // If we can't load the state, create a default state
-                
-                
+
                 // Return the default state directly (not wrapped in Some)
                 PersistentState {
                     contexts: Vec::new(),
@@ -285,7 +289,7 @@ impl MCPSync {
                 }
             }
         };
-        
+
         // Initialize state with persisted data
         {
             let mut state = self.state.write().await;
@@ -298,19 +302,19 @@ impl MCPSync {
                 last_version: Some(persisted.last_version),
             };
         }
-        
+
         // Set the initialized flag *before* loading persisted changes
         // to avoid circular dependency
         {
             let mut initialized = self.initialized.write().await;
             *initialized = true;
         }
-        
+
         // Load persisted changes
         self.load_persisted_changes_internal().await?;
-        
+
         self.monitor.record_message("sync_initialized").await;
-        
+
         Ok(())
     }
 
@@ -321,12 +325,14 @@ impl MCPSync {
     pub async fn ensure_initialized(&self) -> Result<()> {
         to_core_error(self.ensure_initialized_internal().await)
     }
-    
+
     /// Internal implementation of ensure_initialized that returns MCPError
     async fn ensure_initialized_internal(&self) -> std::result::Result<(), MCPError> {
         let initialized = *self.initialized.read().await;
         if !initialized {
-            return Err(MCPError::NotInitialized("Sync engine not initialized".to_string()));
+            return Err(MCPError::NotInitialized(
+                "Sync engine not initialized".to_string(),
+            ));
         }
         Ok(())
     }
@@ -338,24 +344,24 @@ impl MCPSync {
     pub async fn load_persisted_changes(&self) -> Result<()> {
         to_core_error(self.load_persisted_changes_internal().await)
     }
-    
+
     /// Internal implementation of load_persisted_changes that returns MCPError
     async fn load_persisted_changes_internal(&self) -> std::result::Result<(), MCPError> {
         // Remove the ensure_initialized check to avoid circular dependency
         // The caller (init_internal) will have already set initialized to true
-        
+
         // load the persisted state
         let persisted = match self.persistence.load_state() {
             Ok(state) => state,
             Err(e) => {
                 self.monitor.record_error("load_state_failed").await;
                 tracing::warn!("Failed to load persisted state: {}", e);
-                
+
                 // If we can't load the state, return None
                 None
             }
         };
-        
+
         // If there is persisted state, load it
         if let Some(state) = persisted {
             // Since we don't have direct access to set the state manager's state,
@@ -364,12 +370,17 @@ impl MCPSync {
             for context in contexts {
                 // If the context already exists, we would update it
                 // But for now, since we can't directly query, we'll just create/overwrite
-                let _ = self.record_context_change(&context, StateOperation::Create).await;
+                let _ = self
+                    .record_context_change(&context, StateOperation::Create)
+                    .await;
             }
-            
-            tracing::info!("Loaded {} contexts from persisted state", state.contexts.len());
+
+            tracing::info!(
+                "Loaded {} contexts from persisted state",
+                state.contexts.len()
+            );
         }
-        
+
         Ok(())
     }
 
@@ -380,41 +391,43 @@ impl MCPSync {
     pub async fn sync(&self) -> Result<SyncResult> {
         to_core_error(self.sync_internal().await)
     }
-    
+
     /// Internal implementation of sync that returns MCPError
     async fn sync_internal(&self) -> std::result::Result<SyncResult, MCPError> {
         let _start = Instant::now();
         self.ensure_initialized_internal().await?;
-        
+
         // Check if sync is already in progress
         {
             let state = self.state.read().await;
             if state.is_syncing {
-                return Err(MCPError::AlreadyInProgress("Sync already in progress".to_string()));
+                return Err(MCPError::AlreadyInProgress(
+                    "Sync already in progress".to_string(),
+                ));
             }
         }
-        
+
         // Mark as syncing
         {
             let mut state = self.state.write().await;
             state.is_syncing = true;
         }
-        
+
         self.monitor.record_message("sync_started").await;
-        
+
         // Get latest state
         let current_version: u64;
         let changes;
-        
+
         {
             let state = self.state.read().await;
             let version = state.last_version.unwrap_or(0);
             changes = self.state_manager.get_changes_since(version).await?;
             current_version = version + 1; // Increment version
         }
-        
+
         let mut success = true;
-        
+
         // Process changes
         for change in &changes {
             // Apply change to state
@@ -425,7 +438,7 @@ impl MCPSync {
                 continue;
             }
         }
-        
+
         // Persist state
         if let Err(e) = self.persistence.save_state(&PersistentState {
             contexts: vec![],
@@ -438,20 +451,22 @@ impl MCPSync {
             self.monitor.record_error("persist_state_failed").await;
             success = false;
         }
-        
+
         // Update sync state
         let mut state = self.state.write().await;
         state.sync_count += 1;
         state.last_sync = Some(Utc::now());
         state.last_version = Some(current_version);
         state.is_syncing = false;
-        
+
         self.monitor.record_message("sync_complete").await;
-        
+
         // Record sync metrics
         let elapsed_millis = _start.elapsed().as_millis();
-        self.monitor.record_message(&format!("sync_duration_ms_{}", elapsed_millis)).await;
-        
+        self.monitor
+            .record_message(&format!("sync_duration_ms_{}", elapsed_millis))
+            .await;
+
         Ok(SyncResult {
             success,
             duration_ms: elapsed_millis as u64,
@@ -470,16 +485,25 @@ impl MCPSync {
     ///
     /// # Errors
     /// Returns an error if the operation fails
-    pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
+    pub async fn record_context_change(
+        &self,
+        context: &Context,
+        operation: StateOperation,
+    ) -> Result<()> {
         // Check if initialized before proceeding
         self.ensure_initialized().await?;
-        
+
         // Record the change in the state manager
-        let result = self.state_manager.record_change(context, operation.clone()).await;
-        
+        let result = self
+            .state_manager
+            .record_change(context, operation.clone())
+            .await;
+
         // Also log the operation in the monitor
-        self.monitor.record_context_operation(operation, context).await;
-        
+        self.monitor
+            .record_context_operation(operation, context)
+            .await;
+
         // Convert and return the result
         to_core_error(result)
     }
@@ -504,10 +528,10 @@ impl MCPSync {
     }
 
     /// Alias for sync() method
-    /// 
+    ///
     /// This is provided for backward compatibility with code that expects
     /// a synchronize() method.
-    /// 
+    ///
     /// # Errors
     /// Returns an error if synchronization fails
     pub async fn synchronize(&self) -> Result<()> {
