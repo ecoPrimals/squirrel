@@ -32,6 +32,7 @@ opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 reqwest = { workspace = true }
 log = "0.4"
+semver = "1.0"
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }

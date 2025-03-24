@@ -10,6 +10,8 @@ use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
+use super::versioning::VersionRequirement;
+
 /// Status of a plugin
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PluginStatus {
@@ -68,6 +70,15 @@ pub trait McpPlugin: Plugin {
     
     /// Validate that a message conforms to the expected schema
     fn validate_message_schema(&self, message: &serde_json::Value) -> Result<()>;
+    
+    /// Get the protocol version requirements for this plugin
+    /// 
+    /// This allows the plugin to specify what protocol versions it's compatible with.
+    /// Returns a set of requirements such as ">=1.0.0, <2.0.0" using SemVer syntax.
+    fn protocol_version_requirements(&self) -> VersionRequirement {
+        // Default to requiring version 1.0.0 or later, but below 2.0.0
+        VersionRequirement::new(">=1.0.0, <2.0.0")
+    }
 }
 
 /// Interface for the plugin manager
