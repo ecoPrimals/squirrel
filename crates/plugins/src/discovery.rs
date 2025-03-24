@@ -171,6 +171,10 @@ pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Box<dyn Plugin> {
         async fn shutdown(&self) -> Result<()> {
             Ok(())
         }
+        
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
     }
     
     Box::new(PlaceholderPlugin { metadata })
@@ -224,10 +228,10 @@ impl DefaultPluginDiscovery {
         // In a real implementation, this would load the plugin from the path
         // For now, just return a placeholder plugin
         let _metadata = PluginMetadata::new(
-            format!("Plugin at {path:?}"),
+            "Plugin at path",
             "0.1.0",
             "A placeholder plugin",
-            &self.author,
+            "System"
         );
         
         #[cfg(test)]

@@ -1,9 +1,14 @@
+//! Plugin trait and related types
+//!
+//! This module defines the core plugin trait and related types.
+
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
+use std::any::Any;
 
 /// Plugin metadata
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,67 +29,91 @@ pub struct PluginMetadata {
     pub author: String,
     
     /// Plugin capabilities
+    #[serde(default)]
     pub capabilities: Vec<String>,
     
-    /// Plugin dependencies (IDs of plugins this plugin depends on)
+    /// Plugin dependencies
+    #[serde(default)]
     pub dependencies: Vec<Uuid>,
 }
 
 impl PluginMetadata {
-    /// Create new plugin metadata
-    pub fn new(
-        name: impl Into<String>,
-        version: impl Into<String>,
-        description: impl Into<String>,
-        author: impl Into<String>,
-    ) -> Self {
+    /// Create a new plugin metadata
+    #[must_use]
+    pub fn new(name: &str, version: &str, description: &str, author: &str) -> Self {
         Self {
             id: Uuid::new_v4(),
-            name: name.into(),
-            version: version.into(),
-            description: description.into(),
-            author: author.into(),
+            name: name.to_string(),
+            version: version.to_string(),
+            description: description.to_string(),
+            author: author.to_string(),
             capabilities: Vec::new(),
             dependencies: Vec::new(),
         }
     }
     
-    /// Add a capability to the plugin metadata
-    pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
-        self.capabilities.push(capability.into());
+    /// Add a capability to the plugin
+    #[must_use]
+    pub fn with_capability(mut self, capability: &str) -> Self {
+        self.capabilities.push(capability.to_string());
         self
     }
     
     /// Add a dependency to the plugin
-    #[must_use] pub fn with_dependency(mut self, dependency: Uuid) -> Self {
+    #[must_use]
+    pub fn with_dependency(mut self, dependency: Uuid) -> Self {
         self.dependencies.push(dependency);
         self
     }
 }
 
-/// Status of a plugin in the system
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Plugin status
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Copy)]
 pub enum PluginStatus {
     /// Plugin is registered but not initialized
     Registered,
-    /// Plugin is initialized and active
-    Active,
-    /// Plugin is disabled (inactive)
-    Inactive,
+    
+    /// Plugin is initialized and ready for use
+    Initialized,
+    
+    /// Plugin is unloaded
+    Unloaded,
+    
     /// Plugin failed to initialize
     Failed,
 }
 
+impl PluginStatus {
+    /// Create a new registered status
+    #[must_use]
+    pub fn new() -> Self {
+        Self::Registered
+    }
+    
+    /// Convert the status to a string
+    #[must_use]
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Registered => "registered".to_string(),
+            Self::Initialized => "initialized".to_string(),
+            Self::Unloaded => "unloaded".to_string(),
+            Self::Failed => "failed".to_string(),
+        }
+    }
+}
+
 impl Default for PluginStatus {
     fn default() -> Self {
-        Self::Registered
+        Self::new()
     }
 }
 
 /// Plugin trait
+///
+/// This trait defines the core functionality of a plugin.
 #[async_trait]
-pub trait Plugin: Send + Sync + Debug {
-    /// Get plugin metadata
+pub trait Plugin: Send + Sync {
+    /// Get the plugin metadata
     fn metadata(&self) -> &PluginMetadata;
     
     /// Initialize the plugin
@@ -93,10 +122,8 @@ pub trait Plugin: Send + Sync + Debug {
     /// Shutdown the plugin
     async fn shutdown(&self) -> Result<()>;
     
-    /// Plugin feature check
-    fn has_feature(&self, feature: &str) -> bool {
-        self.metadata().capabilities.contains(&feature.to_string())
-    }
+    /// Convert the plugin to Any
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// A simplified web plugin endpoint for use with the trait below

@@ -1,21 +1,22 @@
-use crate::plugin::{Plugin, PluginMetadata, WebPluginExt, WebEndpoint};
+use crate::plugin::{Plugin, PluginMetadata, WebPluginExt, WebEndpoint, PluginStatus};
 use async_trait::async_trait;
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt;
+use std::any::Any;
 
 /// A simple Hello World plugin that demonstrates basic functionality
 #[derive(Clone)]
 pub struct HelloWorldPlugin {
     metadata: PluginMetadata,
-    active: bool,
+    status: PluginStatus,
 }
 
 impl fmt::Debug for HelloWorldPlugin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("HelloWorldPlugin")
             .field("metadata", &self.metadata)
-            .field("active", &self.active)
+            .field("status", &self.status)
             .finish()
     }
 }
@@ -30,15 +31,16 @@ impl HelloWorldPlugin {
     /// Create a new instance of the `HelloWorldPlugin`
     #[must_use] pub fn new() -> Self {
         Self {
-            metadata: PluginMetadata::new(
-                "hello-world",
-                "1.0.0",
-                "A simple Hello World plugin for demonstration",
-                "Squirrel Team",
-            )
-            .with_capability("web")
-            .with_capability("api"),
-            active: false,
+            metadata: PluginMetadata {
+                id: uuid::Uuid::new_v4(),
+                name: "hello_world".to_string(),
+                version: "1.0.0".to_string(),
+                description: "A simple Hello World plugin".to_string(),
+                author: "SquirrelLabs".to_string(),
+                capabilities: vec!["core".to_string()],
+                dependencies: Vec::new(),
+            },
+            status: PluginStatus::Registered,
         }
     }
 }
@@ -57,6 +59,10 @@ impl Plugin for HelloWorldPlugin {
     async fn shutdown(&self) -> Result<()> {
         println!("Shutting down HelloWorldPlugin");
         Ok(())
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

@@ -2,7 +2,6 @@
 //!
 //! This module provides functionality for galaxy integration plugins.
 
-use std::fmt::Debug;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
