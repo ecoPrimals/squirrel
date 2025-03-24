@@ -6,15 +6,14 @@
 use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use serde_json::Value;
-use tracing::{debug, info, warn, error};
+use tracing::info;
 use uuid::Uuid;
-use serde_json::json;
+use crate::error::{MCPError, Result, PluginError};
+use crate::plugins::interfaces::{Plugin, PluginManagerInterface};
+use serde_json::Value;
 
-use crate::tool::{Tool, ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus};
-use crate::tool::executor::BasicToolExecutor;
+use crate::tool::{ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus};
 // Use local interfaces instead of squirrel-plugins
-use crate::plugins::interfaces::{Plugin, PluginMetadata, McpPlugin, PluginManagerInterface};
 
 /// A tool executor that delegates execution to a plugin
 pub struct PluginProxyExecutor {

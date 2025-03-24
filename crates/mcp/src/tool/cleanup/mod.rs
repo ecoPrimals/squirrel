@@ -25,6 +25,25 @@ pub use recovery::{RecoveryHook, RecoveryStrategy};
 pub use resource_manager::{ResourceLimits, ResourceManager, ResourceUsage};
 pub use resource_tracker::{ResourceTracker, ResourceTrackerUsage};
 
+// New components
+mod enhanced_recovery;
+mod comprehensive_cleanup;
+
+pub use enhanced_recovery::{
+    AdvancedBackoffStrategy, AdvancedRecoveryAction, EnhancedRecoveryAttempt,
+    EnhancedRecoveryHandler, EnhancedRecoveryHook, EnhancedRecoveryStrategy,
+    ToolManagerRecoveryExt,
+};
+
+pub use comprehensive_cleanup::{
+    CleanupMethod, CleanupRecord, CleanupStrategy, ComprehensiveCleanupHook,
+    ResourceAllocation, ResourceDependency, ResourceId, ResourceType,
+};
+
+// Original modules
+pub mod resource_tracking;
+mod adaptive_resource;
+
 // Tests
 #[cfg(test)]
 mod tests {
@@ -101,3 +120,6 @@ mod tests {
         assert!(cleanup_hook.reset_tool("test-tool").await.is_err());
     }
 }
+
+
+// Make sure the other hooks also implement as_any

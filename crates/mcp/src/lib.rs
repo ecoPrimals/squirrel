@@ -43,8 +43,7 @@ pub use error::{MCPError, Result};
 
 pub use context_manager::Context;
 /// Re-export commonly used types
-pub use protocol::ProtocolConfig;
-pub use security::{Credentials, SecurityManager, Session};
+pub use security::{Credentials, Session, SecurityManager, SecurityManagerImpl};
 pub use types::{EncryptionFormat, SecurityLevel};
 
 /// Adapter for MCP operations
@@ -90,7 +89,14 @@ pub mod prelude {
     pub use crate::error::{MCPError, Result};
     
     // RBAC system
-    pub use crate::security::rbac::{RBACManager, Role, Permission, PermissionScope, Action};
+    pub use crate::security::rbac::{
+        RBACManager, 
+        ValidationResult, 
+        ValidationRule, 
+        InheritanceType,
+        ValidationAuditRecord
+    };
+    pub use crate::security::{Action, Permission, PermissionContext, PermissionScope, Role};
 
     // Plugin integration
     pub use crate::plugins::{ToolPluginAdapter, ToolPluginFactory, PluginDiscoveryManager, PluginProxyExecutor};

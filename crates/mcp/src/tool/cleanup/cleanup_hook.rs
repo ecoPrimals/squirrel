@@ -203,4 +203,8 @@ impl ToolLifecycleHook for BasicCleanupHook {
     async fn reset_tool(&self, _tool_id: &str) -> Result<(), ToolError> {
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

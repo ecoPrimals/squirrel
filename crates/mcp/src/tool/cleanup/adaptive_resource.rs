@@ -6,10 +6,7 @@ use serde::{Serialize, Deserialize};
 use tracing::{info, debug, instrument};
 
 use crate::tool::ToolError;
-use super::{
-    ResourceUsage, ResourceLimits, ResourceStatus,
-    ResourceType, ResourceRecord
-};
+use super::resource_tracking::{ResourceStatus, ResourceRecord, ResourceType, ResourceLimits, ResourceUsage};
 
 /// Window size for resource usage history (in seconds)
 const USAGE_HISTORY_WINDOW: i64 = 3600; // 1 hour
@@ -264,9 +261,9 @@ impl AdaptiveResourceManager {
             ToolError::ToolNotFound(format!("Tool {} not found for limit adjustment", tool_id))
         })?;
 
-        // Calculate new limits with 20% headroom
+        // Calculate adaptive limits based on predictions with safety margins
         let new_limits = ResourceLimits {
-            max_memory_bytes: ((memory_prediction * 1.2) as usize)
+            max_memory_bytes: ((memory_prediction * 1.2) as u64)
                 .min(tool_limits.max_limits.max_memory_bytes)
                 .max(tool_limits.base_limits.max_memory_bytes),
             max_cpu_time_ms: ((cpu_prediction * 1.2) as u64)

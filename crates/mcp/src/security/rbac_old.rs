@@ -11,6 +11,12 @@ use crate::error::{SecurityError, Result};
 use crate::MCPError;
 use crate::types::SecurityLevel;
 
+// Re-export enhanced RBAC types
+pub use crate::security::rbac::{
+    EnhancedRBACManager, ValidationResult, ValidationRule, 
+    VerificationType, PermissionAuditEvent, InheritanceType
+};
+
 /// Role in the RBAC system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Role {
