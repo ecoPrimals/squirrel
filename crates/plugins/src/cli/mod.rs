@@ -5,7 +5,6 @@
 use std::fmt::Debug;
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::Value;
 
 use crate::plugin::Plugin;
 

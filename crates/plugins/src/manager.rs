@@ -125,9 +125,12 @@ impl PluginManager {
     }
     
     /// Get a plugin by ID
-    pub async fn get_plugin(&self, id: Uuid) -> Option<Arc<dyn Plugin>> {
+    pub async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
         let plugins = self.plugins.read().await;
-        plugins.get(&id).cloned()
+        match plugins.get(&id) {
+            Some(plugin) => Ok(plugin.clone()),
+            None => Err(anyhow::anyhow!("Plugin not found: {}", id)),
+        }
     }
     
     /// Get all plugins
@@ -457,60 +460,56 @@ impl PluginManagerTrait for DefaultPluginManager {
     
     /// Initialize a plugin
     async fn initialize_plugin(&self, id: Uuid) -> Result<()> {
-        let statuses = self.statuses.read().await;
-        if !statuses.contains_key(&id) {
-            return Err(PluginError::NotFound(id).into());
+        let mut statuses = self.statuses.write().await;
+        let status = statuses.get(&id).cloned();
+
+        // Check if plugin is already active
+        if let Some(status) = status {
+            if status == PluginStatus::Initialized {
+                return Ok(());
+            }
         }
-        
-        let status = statuses.get(&id).unwrap();
-        if *status == PluginStatus::Active {
-            // Already initialized
-            return Ok(());
-        }
-        drop(statuses);
-        
-        let plugins = self.plugins.read().await;
-        let plugin = plugins.get(&id).ok_or(PluginError::NotFound(id))?;
-        
+
+        // Get plugin using explicit trait qualification
+        let plugin = PluginRegistry::get_plugin(self, id).await.or_else(|_| Err(anyhow::anyhow!("Plugin not found")))?;
+
+        // Initialize plugin
         match plugin.initialize().await {
-            Ok(()) => {
-                let mut statuses = self.statuses.write().await;
-                statuses.insert(id, PluginStatus::Active);
+            Ok(_) => {
+                statuses.insert(id, PluginStatus::Initialized);
                 Ok(())
             }
-            Err(e) => {
-                let mut statuses = self.statuses.write().await;
+            Err(err) => {
                 statuses.insert(id, PluginStatus::Failed);
-                Err(PluginError::InitializationFailed(e.to_string()).into())
+                Err(err)
             }
         }
     }
     
     /// Shutdown a plugin
     async fn shutdown_plugin(&self, id: Uuid) -> Result<()> {
-        let statuses = self.statuses.read().await;
-        if !statuses.contains_key(&id) {
-            return Err(PluginError::NotFound(id).into());
+        let mut statuses = self.statuses.write().await;
+        let status = statuses.get(&id).cloned();
+
+        // Check if plugin is not active
+        if let Some(status) = status {
+            if status != PluginStatus::Initialized {
+                return Ok(());
+            }
         }
-        
-        let status = statuses.get(&id).unwrap();
-        if *status != PluginStatus::Active {
-            // Not active, nothing to shutdown
-            return Ok(());
-        }
-        drop(statuses);
-        
-        let plugins = self.plugins.read().await;
-        let plugin = plugins.get(&id).ok_or(PluginError::NotFound(id))?;
-        
+
+        // Get plugin using explicit trait qualification
+        let plugin = PluginRegistry::get_plugin(self, id).await.or_else(|_| Err(anyhow::anyhow!("Plugin not found")))?;
+
+        // Shutdown plugin
         match plugin.shutdown().await {
-            Ok(()) => {
-                let mut statuses = self.statuses.write().await;
-                statuses.insert(id, PluginStatus::Inactive);
+            Ok(_) => {
+                statuses.insert(id, PluginStatus::Unloaded);
                 Ok(())
             }
-            Err(e) => {
-                Err(PluginError::ShutdownFailed(e.to_string()).into())
+            Err(err) => {
+                // Keep plugin active on error
+                Err(err)
             }
         }
     }

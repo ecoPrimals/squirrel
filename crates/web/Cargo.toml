@@ -34,7 +34,9 @@ hyper = "0.14"
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
 
-# Removed the circular dependency
+# Unified plugin system
+# Commented out for now until it's ready to be integrated
+# Will be uncommented as part of the migration process
 # squirrel-plugins = { path = "../plugins", features = ["web"] }
 
 [features]

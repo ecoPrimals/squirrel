@@ -23,6 +23,7 @@ pub mod websocket;
 pub mod config;
 pub mod db;
 pub mod plugins;
+pub mod plugin_adapter; // New adapter module for plugin migration
 pub mod utils;
 
 use crate::state::AppState;
@@ -142,8 +143,9 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         mcp_client.clone(),
     )) as Arc<dyn CommandService>;
     
-    // Initialize plugin manager
-    let plugin_manager = Arc::new(plugins::init_plugin_system().await.unwrap_or_else(|e| {
+    // Initialize plugin manager using the adapter
+    // This will eventually use the unified plugin registry
+    let plugin_manager = Arc::new(plugin_adapter::init_plugin_system().await.unwrap_or_else(|e| {
         eprintln!("Failed to initialize plugin system: {}", e);
         plugins::PluginManager::new()
     }));
@@ -182,9 +184,9 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         .route("/ws", get(websocket::ws_handler))
         .layer(CorsLayer::permissive());
     
-    // Add plugin routes 
-    // We need to use the await keyword since the method is async now
-    let app_with_plugins = plugins::create_plugin_routes(app, state.clone()).await;
+    // Add plugin routes using the adapter
+    // This will eventually use the unified plugin registry
+    let app_with_plugins = plugin_adapter::create_plugin_routes(app, state.clone()).await;
     
     app_with_plugins.with_state(state)
 }

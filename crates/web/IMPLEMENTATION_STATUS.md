@@ -167,3 +167,32 @@ The following areas need attention to address technical debt:
    - Add comprehensive rustdoc documentation
    - Create architectural documentation
    - Document internal components 
+
+## Plugin System Migration
+
+The plugin system is currently being migrated to the unified `squirrel_plugins` crate architecture. Migration status:
+
+| Task                           | Status                | Notes                                     |
+|--------------------------------|----------------------|-------------------------------------------|
+| Migration Plan                | ✅ Complete (100%)   | Defined in PLUGIN_MIGRATION_PLAN.md       |
+| Plugin Adapter                | ✅ Complete (100%)   | Bridge between legacy and unified systems |
+| Plugin Interface Definitions  | 🔄 In Progress (80%) | Core interfaces defined                   |
+| Unified Registry Integration  | 🔄 In Progress (20%) | Initial integration code                  |
+| Plugin API Endpoints          | 🔄 In Progress (40%) | Endpoints using adapter                   |
+| Plugin Discovery             | 🔄 In Progress (20%) | Basic discovery mechanism                 |
+| Plugin Life-cycle Management | 🔄 In Progress (20%) | Basic lifecycle hooks                     |
+| Migration Testing            | 🔄 In Progress (40%) | Basic test framework                      |
+| Documentation                | 🔄 In Progress (20%) | Initial documentation                     |
+
+## MCP Integration Enhancement
+
+MCP integration is being improved to provide better communication between the Web Interface and MCP components.
+
+| Task                           | Status                | Notes                                     |
+|--------------------------------|----------------------|-------------------------------------------|
+| Bidirectional Communication   | 🔄 In Progress (40%) | Initial implementation                    |
+| Protocol Translation          | 🔄 In Progress (30%) | Basic translation                         |
+| Context Preservation         | 🔄 In Progress (20%) | Rudimentary context handling              |
+| Error Propagation            | 🔄 In Progress (30%) | Basic error handling                      |
+| Security Integration         | 🔄 In Progress (20%) | Initial security measures                 |
+| Testing                      | 🔄 In Progress (20%) | Basic test cases                          | 
