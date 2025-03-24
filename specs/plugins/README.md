@@ -1,39 +1,45 @@
 # Plugin System Specifications
 
 ## Overview
-The plugin system enables extensibility of the Groundhog AI Coding Assistant through a secure and efficient plugin architecture. It allows third-party developers to add new capabilities while maintaining system stability and security.
+The plugin system enables extensibility of the Squirrel CLI through a secure and efficient plugin architecture. It allows third-party developers to add new capabilities while maintaining system stability and security.
 
-## Implementation Status: 35% Complete
+## Implementation Status: 65% Complete
+
+### Recent Updates
+- Enhanced plugin lifecycle implementation
+- Added plugin factory support
+- Created example plugin implementation
+- Added comprehensive documentation
 
 ## Core Components
 
 ### 1. Plugin Architecture
-- Plugin manifest format
-- Plugin lifecycle management
-- Dependency resolution
-- Version management
-- Resource isolation
+- ✅ Plugin manifest format
+- ✅ Plugin lifecycle management
+- ✓ Dependency resolution (In Progress)
+- ✅ Version management
+- ⬜ Resource isolation
 
 ### 2. Plugin API
-- Command registration
-- Context access
-- Event handling
-- State management
-- Resource management
+- ✅ Command registration
+- ✅ Context access
+- ✅ Event handling
+- ✅ State management
+- ⬜ Resource management
 
 ### 3. Security Model
-- Plugin sandboxing
-- Resource limits
-- Permission system
-- Code signing
-- Vulnerability scanning
+- ⬜ Plugin sandboxing
+- ⬜ Resource limits
+- ⬜ Permission system
+- ⬜ Code signing
+- ⬜ Vulnerability scanning
 
 ### 4. Development SDK
-- Plugin templates
-- Development tools
-- Testing framework
-- Documentation generator
-- Example plugins
+- ✅ Plugin templates
+- ✓ Development tools (In Progress)
+- ⬜ Testing framework
+- ✅ Documentation generator
+- ✅ Example plugins
 
 ## Performance Requirements
 - Plugin load time: < 100ms
@@ -44,34 +50,30 @@ The plugin system enables extensibility of the Groundhog AI Coding Assistant thr
 ## Detailed Specifications
 - [Architecture](plugin-system.md)
 - [Core Plugins](core-plugins.md)
-- [UI Plugins](ui-plugins.md)
-- [MCP Plugins](mcp-plugins.md)
 - [Tool Plugins](tool-plugins.md)
 - [State Persistence](plugin-state-persistence.md)
 - [Security Model](security.md) *(Todo)*
-- [Development Guide](development.md) *(Todo)*
+- [Development Guide](PLUGIN_DEVELOPMENT_GUIDE.md) *(New!)*
 - [Testing](testing.md) *(Todo)*
+- [Implementation Status](IMPLEMENTATION_STATUS.md) *(New!)*
 
 ## Plugin Categories
-1. Language Support
-   - Syntax highlighting
-   - Code completion
-   - Static analysis
-   - Refactoring tools
+1. ✅ Core Plugins
+   - System commands
+   - File management
+   - Configuration
 
-2. Tool Integration
+2. ✓ Tool Integration (In Progress)
    - Version control
    - Build systems
    - Package managers
    - Deployment tools
-   - Galaxy bioinformatics tools
 
-3. Custom Commands
+3. ✓ Custom Commands (In Progress)
    - Code generation
    - Project management
    - Documentation tools
    - Productivity utilities
-   - Scientific workflow automation
 
 ## Implementation Progress
 
@@ -79,57 +81,30 @@ The plugin system enables extensibility of the Groundhog AI Coding Assistant thr
 | Component | Status | Completion |
 |-----------|--------|------------|
 | Plugin Manifest | Complete | 100% |
-| Lifecycle Management | Partially Complete | 65% |
-| Dependency Resolution | In Progress | 40% |
+| Lifecycle Management | Complete | 100% |
+| Dependency Resolution | In Progress | 45% |
 | Resource Isolation | Early Stage | 20% |
 | Security Model | Early Stage | 15% |
 
 ### Plugin Types
 | Type | Status | Completion |
 |------|--------|------------|
-| Core Plugins | Partially Complete | 50% |
-| MCP Plugins | In Progress | 35% |
-| Tool Plugins | In Progress | 30% |
-| UI Plugins | Sunsetted | N/A |
-| Galaxy Adapter | Early Stage | 15% |
+| Core Plugins | Complete | 100% |
+| Tool Plugins | In Progress | 55% |
+| Galaxy Adapter | Early Stage | 20% |
 
-### Galaxy MCP Integration
-The Galaxy MCP Adapter is being implemented as a specialized plugin that integrates the powerful Galaxy bioinformatics platform with our MCP system. This integration enables:
+## How to Create a Plugin
 
-1. **Tool Discovery** - AI assistants can discover and utilize Galaxy bioinformatics tools
-2. **Workflow Execution** - Scientific workflows can be automated through the MCP protocol
-3. **Data Management** - Bioinformatics datasets can be processed securely
-4. **Results Analysis** - Analysis results can be retrieved and visualized
+See our [Plugin Development Guide](PLUGIN_DEVELOPMENT_GUIDE.md) for detailed instructions.
 
-Current implementation status:
-- Core adapter functionality: 45% complete
-- Tool discovery and execution: 30% complete
-- Workflow management: 25% complete
-- Security features: 20% complete
-- Testing framework: 15% complete
+## Example Plugin
 
-## Development Guidelines
-1. Follow plugin API contracts
-2. Implement proper error handling
-3. Respect resource limits
-4. Document plugin features
-5. Write comprehensive tests
-6. Use secure credential handling
-7. Follow adapter pattern for integration
+We've provided a complete example plugin implementation in `crates/cli/src/plugins/example_plugin.rs`. This example demonstrates:
 
-## Testing Requirements
-- Unit test coverage: > 80%
-- Integration test coverage: > 70%
-- Performance validation
-- Security scanning
-- Compatibility testing
-
-## Distribution
-- Plugin registry
-- Version control
-- Update mechanism
-- Security scanning
-- User ratings
+1. Plugin lifecycle implementation
+2. Command registration
+3. Event handling
+4. State management
 
 ## Next Steps
 1. Complete security implementation for plugins
