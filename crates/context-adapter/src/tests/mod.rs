@@ -51,6 +51,7 @@ async fn test_adapter_with_config() {
         max_contexts: 200,
         ttl_seconds: 3600,
         enable_auto_cleanup: true,
+        enable_plugins: true,
     };
     
     // Initialize with config
@@ -61,6 +62,7 @@ async fn test_adapter_with_config() {
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
     assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
     assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
+    assert_eq!(retrieved_config.enable_plugins, config.enable_plugins);
 }
 
 #[test]
@@ -171,12 +173,14 @@ async fn test_context_adapter_creation() {
         max_contexts: 500,
         ttl_seconds: 1800,
         enable_auto_cleanup: false,
+        enable_plugins: true,
     };
     let adapter = ContextAdapter::new(custom_config.clone());
     let adapter_config = adapter.get_config().await.unwrap();
     assert_eq!(adapter_config.max_contexts, 500);
     assert_eq!(adapter_config.ttl_seconds, 1800);
     assert!(!adapter_config.enable_auto_cleanup);
+    assert!(adapter_config.enable_plugins);
 }
 
 #[test]
@@ -191,12 +195,14 @@ async fn test_context_adapter_factory() {
         max_contexts: 200,
         ttl_seconds: 900,
         enable_auto_cleanup: true,
+        enable_plugins: true,
     };
     let adapter = ContextAdapterFactory::create_adapter_with_config(custom_config.clone());
     let adapter_config = adapter.get_config().await.unwrap();
     assert_eq!(adapter_config.max_contexts, 200);
     assert_eq!(adapter_config.ttl_seconds, 900);
     assert!(adapter_config.enable_auto_cleanup);
+    assert!(adapter_config.enable_plugins);
     
     // Test helper functions
     let adapter1 = create_context_adapter();
@@ -272,6 +278,7 @@ async fn test_configuration_update() {
         max_contexts: 200,
         ttl_seconds: 7200, 
         enable_auto_cleanup: false,
+        enable_plugins: true,
     };
     
     // Update the config
@@ -284,6 +291,7 @@ async fn test_configuration_update() {
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
     assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
     assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
+    assert_eq!(retrieved_config.enable_plugins, config.enable_plugins);
 }
 
 #[test]
@@ -295,6 +303,7 @@ async fn test_cleanup_expired_contexts() {
         max_contexts: 100,
         ttl_seconds: 2, // 2 second TTL
         enable_auto_cleanup: true,
+        enable_plugins: true,
     };
     
     let adapter = ContextAdapter::new(config);
@@ -323,6 +332,7 @@ async fn test_context_adapter_config() {
         max_contexts: 100,
         ttl_seconds: 3600,
         enable_auto_cleanup: true,
+        enable_plugins: true,
     };
     
     // Create adapter with config
@@ -335,4 +345,338 @@ async fn test_context_adapter_config() {
     assert_eq!(retrieved_config.max_contexts, config.max_contexts);
     assert_eq!(retrieved_config.ttl_seconds, config.ttl_seconds);
     assert_eq!(retrieved_config.enable_auto_cleanup, config.enable_auto_cleanup);
+    assert_eq!(retrieved_config.enable_plugins, config.enable_plugins);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use serde_json::json;
+    use tokio::sync::RwLock;
+    use std::collections::HashMap;
+    use squirrel_interfaces::plugins::Plugin;
+    use squirrel_interfaces::plugins::PluginMetadata;
+    use anyhow;
+
+    use crate::adapter::{
+        ContextAdapter, 
+        ContextAdapterConfig, 
+        AdapterContextData,
+        create_context_adapter_with_plugins
+    };
+    use squirrel_context::plugins::ContextPluginManager;
+    use squirrel_interfaces::context::{
+        ContextPlugin, 
+        ContextTransformation, 
+        ContextAdapterPlugin, 
+        AdapterMetadata
+    };
+
+    // Mock ContextPlugin for testing
+    #[derive(Debug)]
+    struct MockContextPlugin {
+        transformations: Vec<Arc<MockTransformation>>,
+        adapters: Vec<Arc<MockAdapterPlugin>>,
+    }
+
+    #[derive(Debug)]
+    struct MockTransformation {
+        id: String,
+        name: String,
+        description: String,
+    }
+
+    #[derive(Debug)]
+    struct MockAdapterPlugin {
+        metadata: AdapterMetadata,
+        plugin_metadata: PluginMetadata,
+    }
+
+    impl MockContextPlugin {
+        fn new() -> Self {
+            Self {
+                transformations: vec![
+                    Arc::new(MockTransformation {
+                        id: "test.transform".to_string(),
+                        name: "Test Transformation".to_string(),
+                        description: "Test transformation for unit tests".to_string(),
+                    }),
+                ],
+                adapters: vec![
+                    Arc::new(MockAdapterPlugin {
+                        metadata: AdapterMetadata {
+                            id: "test.adapter".to_string(),
+                            name: "Test Adapter".to_string(),
+                            description: "Test adapter for unit tests".to_string(),
+                            source_format: "source".to_string(),
+                            target_format: "target".to_string(),
+                        },
+                        plugin_metadata: PluginMetadata {
+                            id: "test.adapter".to_string(),
+                            name: "Test Adapter".to_string(),
+                            description: "Test adapter for unit tests".to_string(),
+                            version: "1.0.0".to_string(),
+                            author: "Squirrel Test Suite".to_string(),
+                            capabilities: Vec::new(),
+                        },
+                    }),
+                ],
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Plugin for MockContextPlugin {
+        fn metadata(&self) -> &squirrel_interfaces::plugins::PluginMetadata {
+            unimplemented!("Not needed for this test")
+        }
+
+        async fn initialize(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn shutdown(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ContextPlugin for MockContextPlugin {
+        async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+            self.transformations.iter().map(|t| t.clone() as Arc<dyn ContextTransformation>).collect()
+        }
+
+        async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>> {
+            self.adapters.iter().map(|a| a.clone() as Arc<dyn ContextAdapterPlugin>).collect()
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ContextTransformation for MockTransformation {
+        fn get_id(&self) -> &str {
+            &self.id
+        }
+
+        fn get_name(&self) -> &str {
+            &self.name
+        }
+
+        fn get_description(&self) -> &str {
+            &self.description
+        }
+
+        async fn transform(&self, data: serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+            // Simply add a marker field
+            let mut result = data.clone();
+            if let serde_json::Value::Object(ref mut map) = result {
+                map.insert("transformed".to_string(), json!(true));
+                map.insert("transformation_id".to_string(), json!(self.id));
+            }
+            Ok(result)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ContextAdapterPlugin for MockAdapterPlugin {
+        async fn get_metadata(&self) -> AdapterMetadata {
+            self.metadata.clone()
+        }
+
+        async fn convert(&self, data: serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+            // Simply add a marker field
+            let mut result = data.clone();
+            if let serde_json::Value::Object(ref mut map) = result {
+                map.insert("converted".to_string(), json!(true));
+                map.insert("adapter_id".to_string(), json!(self.metadata.id));
+            }
+            Ok(result)
+        }
+    }
+
+    // Add implementation of Plugin trait for MockAdapterPlugin
+    #[async_trait::async_trait]
+    impl Plugin for MockAdapterPlugin {
+        fn metadata(&self) -> &PluginMetadata {
+            &self.plugin_metadata
+        }
+        
+        async fn initialize(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+        
+        async fn shutdown(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    // Helper function to create a test adapter with plugins
+    async fn create_test_adapter() -> Arc<ContextAdapter> {
+        let plugin_manager = Arc::new(ContextPluginManager::new());
+        let mock_plugin = Box::new(MockContextPlugin::new());
+        
+        plugin_manager.register_plugin(mock_plugin).await.unwrap();
+        
+        let config = ContextAdapterConfig {
+            max_contexts: 100,
+            ttl_seconds: 3600,
+            enable_auto_cleanup: true,
+            enable_plugins: true,
+        };
+        
+        let adapter = create_context_adapter_with_plugins(config, plugin_manager);
+        adapter.initialize_plugins().await.unwrap();
+        
+        adapter
+    }
+
+    #[tokio::test]
+    async fn test_create_context() {
+        let adapter = create_test_adapter().await;
+        
+        // Create a simple context
+        let context_id = "test-context";
+        let context_data = json!({
+            "key": "value",
+            "number": 42
+        });
+        
+        adapter.create_context(context_id.to_string(), context_data.clone()).await.unwrap();
+        
+        // Verify the context was created
+        let retrieved = adapter.get_context(context_id).await.unwrap();
+        assert_eq!(retrieved.id, context_id);
+        assert_eq!(retrieved.data, context_data);
+    }
+
+    #[tokio::test]
+    async fn test_transform_data() {
+        let adapter = create_test_adapter().await;
+        
+        // Create a simple input
+        let input_data = json!({
+            "key": "value",
+            "number": 42
+        });
+        
+        // Transform the data
+        let result = adapter.transform_data("test.transform", input_data.clone()).await.unwrap();
+        
+        // Verify the transformation
+        assert_eq!(result["key"], "value");
+        assert_eq!(result["number"], 42);
+        assert_eq!(result["transformed"], true);
+        assert_eq!(result["transformation_id"], "test.transform");
+    }
+
+    #[tokio::test]
+    async fn test_convert_data() {
+        let adapter = create_test_adapter().await;
+        
+        // Create a simple input
+        let input_data = json!({
+            "key": "value",
+            "number": 42
+        });
+        
+        // Convert the data
+        let result = adapter.convert_data("test.adapter", input_data.clone()).await.unwrap();
+        
+        // Verify the conversion
+        assert_eq!(result["key"], "value");
+        assert_eq!(result["number"], 42);
+        assert_eq!(result["converted"], true);
+        assert_eq!(result["adapter_id"], "test.adapter");
+    }
+
+    #[tokio::test]
+    async fn test_get_transformations() {
+        let adapter = create_test_adapter().await;
+        
+        // Get all transformations
+        let transformations = adapter.get_transformations().await.unwrap();
+        
+        // Verify the transformations
+        assert_eq!(transformations.len(), 1);
+        assert_eq!(transformations[0], "test.transform");
+    }
+
+    #[tokio::test]
+    async fn test_get_adapters() {
+        let adapter = create_test_adapter().await;
+        
+        // Get all adapters
+        let adapters = adapter.get_adapters().await.unwrap();
+        
+        // Verify the adapters
+        assert_eq!(adapters.len(), 1);
+        assert_eq!(adapters[0].id, "test.adapter");
+    }
+
+    #[tokio::test]
+    async fn test_disabled_plugins() {
+        // Create an adapter with plugins disabled
+        let plugin_manager = Arc::new(ContextPluginManager::new());
+        let config = ContextAdapterConfig {
+            max_contexts: 100,
+            ttl_seconds: 3600,
+            enable_auto_cleanup: true,
+            enable_plugins: false,
+        };
+        
+        let adapter = create_context_adapter_with_plugins(config, plugin_manager);
+        
+        // Create a simple input
+        let input_data = json!({
+            "key": "value",
+            "number": 42
+        });
+        
+        // Try to transform the data, it should fail
+        let result = adapter.transform_data("test.transform", input_data.clone()).await;
+        assert!(result.is_err());
+        
+        // Try to convert the data, it should fail
+        let result = adapter.convert_data("test.adapter", input_data.clone()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_config_update() {
+        let adapter = create_test_adapter().await;
+        
+        // Update the configuration
+        let new_config = ContextAdapterConfig {
+            max_contexts: 200,
+            ttl_seconds: 7200,
+            enable_auto_cleanup: false,
+            enable_plugins: false,
+        };
+        
+        adapter.update_config(new_config.clone()).await.unwrap();
+        
+        // Verify the configuration was updated
+        let retrieved_config = adapter.get_config().await.unwrap();
+        assert_eq!(retrieved_config.max_contexts, 200);
+        assert_eq!(retrieved_config.ttl_seconds, 7200);
+        assert_eq!(retrieved_config.enable_auto_cleanup, false);
+        assert_eq!(retrieved_config.enable_plugins, false);
+        
+        // Now that plugins are disabled, transformation should fail
+        let input_data = json!({
+            "key": "value",
+            "number": 42
+        });
+        
+        let result = adapter.transform_data("test.transform", input_data.clone()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_plugin_manager_access() {
+        let adapter = create_test_adapter().await;
+        
+        // Check we can get the plugin manager
+        let plugin_manager = adapter.get_plugin_manager();
+        assert!(plugin_manager.is_some());
+    }
 } 

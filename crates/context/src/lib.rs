@@ -2,9 +2,11 @@
 //!
 //! This crate provides the context management functionality for the Squirrel AI system.
 //! It includes the plugin system for extending context management capabilities.
+//! The rule system enables defining and applying rules to context data.
 
 // Public modules
 pub mod plugins;
+pub mod rules;
 mod manager;
 mod error;
 #[cfg(test)]
@@ -26,6 +28,19 @@ pub use manager::{ContextManager as ContextManagerImpl, ContextManagerConfig};
 
 // Plugin manager implementation
 pub use plugins::ContextPluginManager;
+
+// Rule system re-exports
+pub use rules::{
+    Rule,
+    RuleCondition,
+    RuleAction,
+    RuleMetadata,
+    RuleManager,
+    RuleRepository,
+    RuleEvaluator,
+    ActionExecutor,
+    RuleError,
+};
 
 /// Create a new context manager with default configuration
 pub fn create_default_manager() -> ContextManagerImpl {

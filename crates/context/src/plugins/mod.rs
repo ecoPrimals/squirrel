@@ -14,6 +14,7 @@ use squirrel_interfaces::context::{
 use crate::ContextError;
 
 /// Plugin manager for managing context plugins and transformations
+#[derive(Debug)]
 pub struct ContextPluginManager {
     plugins: RwLock<Vec<Box<dyn ContextPlugin>>>,
     transformations: RwLock<Vec<Arc<dyn ContextTransformation>>>,

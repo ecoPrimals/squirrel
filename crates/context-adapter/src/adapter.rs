@@ -29,6 +29,12 @@ use std::collections::HashMap;
 
 use squirrel_context::ContextError as GenericContextError;
 use squirrel_core::error::{Result, SquirrelError};
+use squirrel_interfaces::context::{
+    ContextPlugin, 
+    ContextTransformation, 
+    ContextAdapterPlugin, 
+    AdapterMetadata
+};
 
 /// Errors specific to context adapter operations
 #[derive(Debug, Error)]
@@ -45,6 +51,26 @@ pub enum ContextAdapterError {
     #[error("Operation failed: {0}")]
     OperationFailed(String),
     
+    /// Transformation not found
+    #[error("Transformation not found: {0}")]
+    TransformationNotFound(String),
+    
+    /// Transformation failed
+    #[error("Transformation failed: {0} - {1}")]
+    TransformationFailed(String, String),
+    
+    /// Adapter not found
+    #[error("Adapter not found: {0}")]
+    AdapterNotFound(String),
+    
+    /// Conversion failed
+    #[error("Conversion failed: {0} - {1}")]
+    ConversionFailed(String, String),
+    
+    /// Validation failed
+    #[error("Validation failed: {0}")]
+    ValidationFailed(String),
+    
     /// Original context system error
     #[error("Context error: {0}")]
     ContextError(#[from] GenericContextError),
@@ -59,6 +85,8 @@ pub struct ContextAdapterConfig {
     pub ttl_seconds: u64,
     /// Whether to enable automatic cleanup of expired contexts
     pub enable_auto_cleanup: bool,
+    /// Whether to enable plugins
+    pub enable_plugins: bool,
 }
 
 impl Default for ContextAdapterConfig {
@@ -67,11 +95,12 @@ impl Default for ContextAdapterConfig {
             max_contexts: 1000,
             ttl_seconds: 3600,
             enable_auto_cleanup: true,
+            enable_plugins: true,
         }
     }
 }
 
-/// Our version of ContextState for compatibility with the original API
+/// Our version of `ContextState` for compatibility with the original API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextState {
     /// Data stored in the context
@@ -95,32 +124,36 @@ impl ContextState {
             id: id.into(),
             data: HashMap::new(),
             version: 0,
+            // Safe to cast to u64 since Unix timestamps are always positive for dates after 1970
+            #[allow(clippy::cast_sign_loss)]
             timestamp: chrono::Utc::now().timestamp() as u64,
             metadata: HashMap::new(),
             synchronized: false,
         }
     }
     
-    /// Set data in the context state
+    /// Adds a data key-value pair to the context
+    #[must_use]
     pub fn with_data(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.data.insert(key.into(), value.into());
         self
     }
     
-    /// Set metadata in the context state
+    /// Adds a metadata key-value pair to the context
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
     
     /// Set the version
-    pub fn with_version(mut self, version: u64) -> Self {
+    #[must_use] pub fn with_version(mut self, version: u64) -> Self {
         self.version = version;
         self
     }
     
     /// Set synchronized flag
-    pub fn with_synchronized(mut self, synchronized: bool) -> Self {
+    #[must_use] pub fn with_synchronized(mut self, synchronized: bool) -> Self {
         self.synchronized = synchronized;
         self
     }
@@ -146,7 +179,12 @@ pub struct ContextAdapter {
     config: Arc<RwLock<ContextAdapterConfig>>,
     /// Map of context ID to context data
     contexts: Arc<RwLock<HashMap<String, AdapterContextData>>>,
-    // Additional fields for integration with the general context system would go here
+    /// Plugin manager for transformations and format adapters
+    plugin_manager: Option<Arc<squirrel_context::plugins::ContextPluginManager>>,
+    /// Transformation cache for quick lookup
+    transformations: Arc<RwLock<HashMap<String, Arc<dyn ContextTransformation>>>>,
+    /// Adapter cache for quick lookup
+    adapters: Arc<RwLock<HashMap<String, Arc<dyn ContextAdapterPlugin>>>>,
 }
 
 impl ContextAdapter {
@@ -156,7 +194,252 @@ impl ContextAdapter {
         Self {
             config: Arc::new(RwLock::new(config)),
             contexts: Arc::new(RwLock::new(HashMap::new())),
+            plugin_manager: None,
+            transformations: Arc::new(RwLock::new(HashMap::new())),
+            adapters: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+    
+    /// Sets the plugin manager for this adapter
+    #[must_use]
+    pub fn with_plugin_manager(mut self, plugin_manager: Arc<squirrel_context::plugins::ContextPluginManager>) -> Self {
+        self.plugin_manager = Some(plugin_manager);
+        self
+    }
+    
+    /// Initialize the plugin system
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if plugin initialization fails.
+    pub async fn initialize_plugins(&self) -> Result<()> {
+        if let Some(plugin_manager) = &self.plugin_manager {
+            // Get all transformations from the plugin manager
+            let transformations = plugin_manager.get_transformations().await;
+            
+            // Store transformations in the local cache
+            {
+                let mut transformations_lock = self.transformations.write().await;
+                for transformation in transformations {
+                    transformations_lock.insert(transformation.get_id().to_string(), transformation);
+                }
+            }
+            
+            // Get all adapters from the plugin manager
+            let adapters = plugin_manager.get_adapters().await;
+            
+            // Store adapters in the local cache
+            {
+                let mut adapters_lock = self.adapters.write().await;
+                for (id, adapter) in adapters {
+                    adapters_lock.insert(id, adapter);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Register a plugin
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if plugin registration fails.
+    pub async fn register_plugin(&self, plugin: Box<dyn ContextPlugin>) -> Result<()> {
+        if let Some(plugin_manager) = &self.plugin_manager {
+            plugin_manager.register_plugin(plugin).await
+                .map_err(|e| SquirrelError::Other(
+                    ContextAdapterError::OperationFailed(format!("Failed to register plugin: {e}")).to_string()
+                ))?;
+            
+            // Refresh local caches
+            self.initialize_plugins().await?;
+        } else {
+            return Err(SquirrelError::Other(
+                ContextAdapterError::OperationFailed("Plugin manager not initialized".to_string()).to_string()
+            ));
+        }
+        
+        Ok(())
+    }
+    
+    /// Transform data using a registered transformation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transformation is not found or fails.
+    pub async fn transform_data(&self, transformation_id: &str, data: Value) -> Result<Value> {
+        // Check if plugins are enabled
+        let plugins_enabled = {
+            let config = self.config.read().await;
+            config.enable_plugins
+        };
+        
+        if !plugins_enabled {
+            return Err(SquirrelError::Other(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string()).to_string()
+            ));
+        }
+        
+        // Check if we have a local transformation
+        let transformation = {
+            let transformations = self.transformations.read().await;
+            transformations.get(transformation_id).cloned()
+        };
+        
+        if let Some(transformation) = transformation {
+            // Apply the transformation
+            transformation.transform(data).await
+                .map_err(|e| SquirrelError::Other(
+                    ContextAdapterError::TransformationFailed(
+                        transformation_id.to_string(), 
+                        e.to_string()
+                    ).to_string()
+                ))
+        } else if let Some(plugin_manager) = &self.plugin_manager {
+            // If not found locally, try using the plugin manager directly
+            plugin_manager.transform(transformation_id, data).await
+                .map_err(|e| SquirrelError::Other(
+                    ContextAdapterError::TransformationFailed(
+                        transformation_id.to_string(), 
+                        e.to_string()
+                    ).to_string()
+                ))
+        } else {
+            Err(SquirrelError::Other(
+                ContextAdapterError::TransformationNotFound(transformation_id.to_string()).to_string()
+            ))
+        }
+    }
+    
+    /// Convert data using a registered adapter
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the adapter is not found or conversion fails.
+    pub async fn convert_data(&self, adapter_id: &str, data: Value) -> Result<Value> {
+        // Check if plugins are enabled
+        let plugins_enabled = {
+            let config = self.config.read().await;
+            config.enable_plugins
+        };
+        
+        if !plugins_enabled {
+            return Err(SquirrelError::Other(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string()).to_string()
+            ));
+        }
+        
+        // Check if we have a local adapter
+        let adapter = {
+            let adapters = self.adapters.read().await;
+            adapters.get(adapter_id).cloned()
+        };
+        
+        if let Some(adapter) = adapter {
+            // Apply the conversion
+            adapter.convert(data).await
+                .map_err(|e| SquirrelError::Other(
+                    ContextAdapterError::ConversionFailed(
+                        adapter_id.to_string(), 
+                        e.to_string()
+                    ).to_string()
+                ))
+        } else if let Some(plugin_manager) = &self.plugin_manager {
+            // If not found locally, try getting from the plugin manager
+            let adapter = plugin_manager.get_adapter(adapter_id).await
+                .ok_or_else(|| SquirrelError::Other(
+                    ContextAdapterError::AdapterNotFound(adapter_id.to_string()).to_string()
+                ))?;
+            
+            // Apply the conversion
+            adapter.convert(data).await
+                .map_err(|e| SquirrelError::Other(
+                    ContextAdapterError::ConversionFailed(
+                        adapter_id.to_string(), 
+                        e.to_string()
+                    ).to_string()
+                ))
+        } else {
+            Err(SquirrelError::Other(
+                ContextAdapterError::AdapterNotFound(adapter_id.to_string()).to_string()
+            ))
+        }
+    }
+    
+    /// Validate data against a schema
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails.
+    pub async fn validate_data(&self, schema: &Value, data: &Value) -> Result<bool> {
+        // Check if plugins are enabled
+        let plugins_enabled = {
+            let config = self.config.read().await;
+            config.enable_plugins
+        };
+        
+        if !plugins_enabled {
+            return Err(SquirrelError::Other(
+                ContextAdapterError::OperationFailed("Plugins are disabled".to_string()).to_string()
+            ));
+        }
+        
+        if let Some(_plugin_manager) = &self.plugin_manager {
+            // For now, we'll use a simple check if any transformation supports validation
+            let transformations = self.transformations.read().await;
+            for (_id, transformation) in transformations.iter() {
+                // We cannot directly downcast Arc<dyn ContextTransformation> to Box<dyn ContextPlugin>
+                // Instead, let's use a simple validation check based on the transformation's ID
+                if transformation.get_id().starts_with("validation.") {
+                    // This is a simplified implementation - in a real scenario, we'd have a dedicated validation method
+                    return Ok(true);
+                }
+            }
+        }
+        
+        // Basic validation fallback
+        // In a real implementation, this would be more sophisticated
+        if let (Value::Object(schema_obj), Value::Object(data_obj)) = (schema, data) {
+            // Simple validation for demo purposes
+            for (key, schema_value) in schema_obj {
+                if schema_value.get("required").is_some() && !data_obj.contains_key(key) {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        } else {
+            Err(SquirrelError::Other(
+                ContextAdapterError::ValidationFailed("Invalid schema or data format".to_string()).to_string()
+            ))
+        }
+    }
+    
+    /// Get all available transformations
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if retrieval fails.
+    pub async fn get_transformations(&self) -> Result<Vec<String>> {
+        let transformations = self.transformations.read().await;
+        Ok(transformations.keys().cloned().collect())
+    }
+    
+    /// Get all available adapters
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if retrieval fails.
+    pub async fn get_adapters(&self) -> Result<Vec<AdapterMetadata>> {
+        let adapters = self.adapters.read().await;
+        let mut result = Vec::new();
+        
+        for (_id, adapter) in adapters.iter() {
+            let metadata = adapter.get_metadata().await;
+            result.push(metadata);
+        }
+        
+        Ok(result)
     }
 }
 
@@ -382,6 +665,14 @@ impl ContextAdapter {
             updated_at: now,
         }
     }
+    
+    /// Gets the plugin manager
+    ///
+    /// # Returns
+    /// Option containing a reference to the plugin manager if available
+    #[must_use] pub fn get_plugin_manager(&self) -> Option<&Arc<squirrel_context::plugins::ContextPluginManager>> {
+        self.plugin_manager.as_ref()
+    }
 }
 
 /// Factory for creating context adapters
@@ -400,6 +691,15 @@ impl ContextAdapterFactory {
     pub fn create_adapter_with_config(config: ContextAdapterConfig) -> Arc<ContextAdapter> {
         Arc::new(ContextAdapter::new(config))
     }
+    
+    /// Creates a new context adapter with the given configuration and plugin manager
+    #[must_use]
+    pub fn create_adapter_with_plugins(
+        config: ContextAdapterConfig,
+        plugin_manager: Arc<squirrel_context::plugins::ContextPluginManager>
+    ) -> Arc<ContextAdapter> {
+        Arc::new(ContextAdapter::new(config).with_plugin_manager(plugin_manager))
+    }
 }
 
 /// Creates a new context adapter with default configuration
@@ -412,4 +712,13 @@ pub fn create_context_adapter() -> Arc<ContextAdapter> {
 #[must_use]
 pub fn create_context_adapter_with_config(config: ContextAdapterConfig) -> Arc<ContextAdapter> {
     ContextAdapterFactory::create_adapter_with_config(config)
+}
+
+/// Creates a new context adapter with the given configuration and plugin manager
+#[must_use]
+pub fn create_context_adapter_with_plugins(
+    config: ContextAdapterConfig,
+    plugin_manager: Arc<squirrel_context::plugins::ContextPluginManager>
+) -> Arc<ContextAdapter> {
+    ContextAdapterFactory::create_adapter_with_plugins(config, plugin_manager)
 }

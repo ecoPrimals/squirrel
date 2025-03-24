@@ -7,7 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, fmt::Debug};
 
 /// Metadata about a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,9 +94,9 @@ pub struct PluginExecutionContext {
     pub context: HashMap<String, Value>,
 }
 
-/// Base plugin interface
+/// Base trait for all plugins
 #[async_trait]
-pub trait Plugin: Send + Sync {
+pub trait Plugin: Send + Sync + Debug {
     /// Get plugin metadata
     fn metadata(&self) -> &PluginMetadata;
     
