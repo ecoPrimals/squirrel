@@ -30,6 +30,12 @@ pub mod dashboard;
 pub mod network;
 /// Adapter functionality for dependency injection and testing
 pub mod adapter;
+/// Tracing functionality
+pub mod tracing;
+/// Plugins functionality
+pub mod plugins;
+/// Analytics functionality
+pub mod analytics;
 
 #[cfg(test)]
 mod tests;
@@ -815,3 +821,14 @@ impl From<TimeWrapper> for SystemTime {
         }
     }
 }
+
+pub use metrics::{Metric, MetricType, MetricValue, MetricsRegistry, MetricsService};
+pub use health::{HealthCheck, HealthStatus, HealthCheckResult};
+pub use network::{NetworkMetrics, NetworkMonitor, NetworkStatus};
+pub use dashboard::{DashboardConfig, DashboardServer};
+pub use plugins::{Plugin, PluginManager, PluginConfig};
+pub use analytics::{
+    AnalyticsSystem, AnalyticsConfig, 
+    TimeSeriesAnalyzer, TimeWindow, AggregationMethod,
+    TrendDetector, TrendType, 
+};

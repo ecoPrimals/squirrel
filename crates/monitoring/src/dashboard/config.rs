@@ -7,26 +7,94 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
-use super::security::{TlsConfig, AuthConfig, RateLimitConfig, SecurityLoggingConfig, MaskingRule, AuditConfig, AuditStorage};
+use super::security::{TlsConfig, AuthConfig, RateLimitConfig, MaskingRule, AuditConfig, AuditStorage};
+
+fn default_true() -> bool {
+    true
+}
+
+/// Security settings for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SecuritySettings {
+    /// Allowed CORS origins
+    pub allowed_origins: Vec<String>,
+    
+    /// Authentication settings
+    pub auth: Option<AuthConfig>,
+    
+    /// Rate limiting settings
+    pub rate_limit: Option<RateLimitConfig>,
+    
+    /// Data masking settings
+    pub data_masking: Vec<MaskingRule>,
+    
+    /// Audit logging settings
+    pub audit: Option<AuditConfig>,
+    
+    /// TLS configuration
+    pub tls: Option<TlsConfig>,
+}
+
+/// Performance settings for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PerformanceSettings {
+    /// Whether to enable message compression
+    pub compression_enabled: Option<bool>,
+    
+    /// Minimum size for compression in bytes
+    pub min_compression_size: Option<usize>,
+    
+    /// Compression level (0-9)
+    pub compression_level: Option<u32>,
+    
+    /// Whether to enable message batching
+    pub batching_enabled: Option<bool>,
+    
+    /// Maximum number of messages per batch
+    pub max_batch_size: Option<usize>,
+    
+    /// Maximum time to wait before sending a batch (in milliseconds)
+    pub max_batch_interval: Option<u64>,
+    
+    /// Connection buffer size
+    pub connection_buffer_size: Option<usize>,
+    
+    /// Maximum message size in bytes
+    pub max_message_size: Option<usize>,
+    
+    /// Whether to enable WebSocket heartbeats
+    pub enable_heartbeats: Option<bool>,
+    
+    /// Heartbeat interval in seconds
+    pub heartbeat_interval: Option<u64>,
+    
+    /// Maximum number of concurrent connections
+    pub max_connections: Option<usize>,
+}
 
 /// Dashboard configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DashboardConfig {
-    /// Server configuration
-    #[serde(default)]
-    pub server: ServerConfig,
+    /// Server settings
+    pub server: Option<ServerSettings>,
     
-    /// WebSocket configuration
-    #[serde(default)]
-    pub websocket: WebSocketConfig,
+    /// WebSocket settings
+    pub websocket: Option<WebSocketSettings>,
     
-    /// Security configuration
-    #[serde(default)]
-    pub security: SecurityConfig,
+    /// Security settings
+    pub security: SecuritySettings,
     
-    /// Component configuration
-    #[serde(default)]
-    pub components: ComponentConfig,
+    /// Performance settings
+    pub performance: Option<PerformanceSettings>,
+    
+    /// Component settings
+    pub components: Option<ComponentSettings>,
+    
+    /// Layout settings
+    pub layout: Option<LayoutSettings>,
+    
+    /// Theme settings
+    pub theme: Option<ThemeSettings>,
     
     /// Update interval in seconds
     #[serde(default = "default_update_interval")]
@@ -57,237 +125,73 @@ fn default_retention_period() -> u64 {
     60 * 60 * 24 * 7 // 7 days in seconds
 }
 
-impl Default for DashboardConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            websocket: WebSocketConfig::default(),
-            security: SecurityConfig::default(),
-            components: ComponentConfig::default(),
-            update_interval: default_update_interval(),
-            displayed_categories: HashSet::new(),
-            custom_panels: Vec::new(),
-            alert_settings: AlertDisplaySettings::default(),
-            retention_period: default_retention_period(),
-        }
-    }
-}
-
 /// Server configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
-    /// Server host
-    #[serde(default = "default_host")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ServerSettings {
+    /// Host address to bind to
     pub host: String,
-    
-    /// Server port
-    #[serde(default = "default_port")]
+    /// Port number to use
     pub port: u16,
-    
-    /// Server path
-    #[serde(default = "default_path")]
-    pub path: String,
-    
-    /// Static file directory
-    #[serde(default)]
-    pub static_dir: Option<PathBuf>,
-    
-    /// Enable HTTP API
-    #[serde(default = "default_true")]
-    pub enable_http_api: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_host() -> String {
-    "127.0.0.1".to_string()
-}
-
-fn default_port() -> u16 {
-    8765
-}
-
-fn default_path() -> String {
-    "/ws".to_string()
-}
-
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self {
-            host: default_host(),
-            port: default_port(),
-            path: default_path(),
-            static_dir: None,
-            enable_http_api: default_true(),
-        }
-    }
+    /// URL path prefix
+    pub path_prefix: Option<String>,
 }
 
 /// WebSocket configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebSocketConfig {
-    /// Maximum number of connections
-    #[serde(default = "default_max_connections")]
-    pub max_connections: usize,
-    
-    /// Ping interval
-    #[serde(default = "default_ping_interval")]
-    pub ping_interval: u64,
-    
-    /// Connection timeout
-    #[serde(default = "default_connection_timeout")]
-    pub connection_timeout: u64,
-    
-    /// Maximum message size
-    #[serde(default = "default_max_message_size")]
-    pub max_message_size: usize,
-    
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WebSocketSettings {
+    /// WebSocket endpoint
+    pub endpoint: String,
+    /// Ping interval in seconds
+    pub ping_interval: u32,
+    /// Connection timeout in seconds
+    pub timeout: u32,
+    /// Maximum connections
+    pub max_connections: u32,
     /// Compression threshold
-    #[serde(default = "default_compression_threshold")]
-    pub compression_threshold: usize,
+    pub compression_threshold: Option<usize>,
+}
+
+/// Component settings for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ComponentSettings {
+    /// Whether to show the metrics panel
+    pub show_metrics: Option<bool>,
     
-    /// Enable message compression
-    #[serde(default = "default_true")]
-    pub enable_compression: bool,
-}
-
-fn default_max_connections() -> usize {
-    100
-}
-
-fn default_ping_interval() -> u64 {
-    30 // 30 seconds
-}
-
-fn default_connection_timeout() -> u64 {
-    60 // 60 seconds
-}
-
-fn default_max_message_size() -> usize {
-    1024 * 1024 // 1MB
-}
-
-fn default_compression_threshold() -> usize {
-    8192 // 8KB
-}
-
-impl Default for WebSocketConfig {
-    fn default() -> Self {
-        Self {
-            max_connections: default_max_connections(),
-            ping_interval: default_ping_interval(),
-            connection_timeout: default_connection_timeout(),
-            max_message_size: default_max_message_size(),
-            compression_threshold: default_compression_threshold(),
-            enable_compression: default_true(),
-        }
-    }
-}
-
-/// Security configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    /// TLS configuration
-    #[serde(default)]
-    pub tls: Option<TlsConfig>,
+    /// Whether to show the alerts panel
+    pub show_alerts: Option<bool>,
     
-    /// Authentication configuration
-    #[serde(default)]
-    pub auth: AuthConfig,
+    /// Whether to show the health panel
+    pub show_health: Option<bool>,
     
-    /// Rate limiting configuration
-    #[serde(default)]
-    pub rate_limit: RateLimitConfig,
+    /// Whether to show the network panel
+    pub show_network: Option<bool>,
     
-    /// Allowed origins for CORS
-    #[serde(default)]
-    pub allowed_origins: Vec<String>,
-    
-    /// Data masking rules for sensitive information
-    #[serde(default)]
-    pub masking_rules: Vec<MaskingRule>,
-    
-    /// Security logging configuration
-    #[serde(default)]
-    pub logging: SecurityLoggingConfig,
-    
-    /// Audit configuration
-    #[serde(default)]
-    pub audit: Option<AuditConfig>,
+    /// Whether to show the analytics panel
+    pub show_analytics: Option<bool>,
 }
 
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        // Create default auth config with no authentication
-        let auth = AuthConfig {
-            auth_type: super::security::AuthType::None,
-            token_expiration: 8 * 60 * 60, // 8 hours
-            require_reauth: true,
-            users: std::collections::HashMap::new(),
-        };
-        
-        // Create default audit config
-        let audit = AuditConfig {
-            enabled: false,
-            storage: AuditStorage::File(PathBuf::from("logs/audit.log")),
-            include_user_context: true,
-            tamper_proof: true,
-        };
-        
-        // Create default security logging config
-        let logging = SecurityLoggingConfig {
-            log_authentication_attempts: true,
-            log_authorization_failures: true,
-            log_configuration_changes: true,
-            log_data_access: super::security::AccessLoggingLevel::Sensitive,
-        };
-        
-        Self {
-            tls: None,
-            auth,
-            rate_limit: RateLimitConfig::default(),
-            allowed_origins: Vec::new(),
-            masking_rules: Vec::new(),
-            logging,
-            audit: Some(audit),
-        }
-    }
+/// Layout settings for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LayoutSettings {
+    /// Dashboard layout type
+    pub layout_type: String,
+    /// Default panel arrangement
+    pub default_panels: Vec<String>,
+    /// User customizable
+    pub customizable: bool,
 }
 
-/// Component configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentConfig {
-    /// Default refresh interval for components
-    #[serde(default = "default_component_refresh")]
-    pub default_refresh_interval: u64,
-    
-    /// Default data retention policy
-    #[serde(default = "default_data_retention")]
-    pub default_data_retention: u64,
-    
-    /// Show timestamps by default
-    #[serde(default = "default_true")]
-    pub show_timestamps: bool,
-}
-
-fn default_component_refresh() -> u64 {
-    5 // 5 seconds
-}
-
-fn default_data_retention() -> u64 {
-    3600 // 1 hour in seconds
-}
-
-impl Default for ComponentConfig {
-    fn default() -> Self {
-        Self {
-            default_refresh_interval: default_component_refresh(),
-            default_data_retention: default_data_retention(),
-            show_timestamps: default_true(),
-        }
-    }
+/// Theme settings for the dashboard
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ThemeSettings {
+    /// Theme name
+    pub name: String,
+    /// Primary color
+    pub primary_color: String,
+    /// Secondary color
+    pub secondary_color: String,
+    /// Dark mode enabled
+    pub dark_mode: bool,
 }
 
 /// Metric category
@@ -393,41 +297,39 @@ impl Default for AlertDisplaySettings {
 
 impl DashboardConfig {
     /// Creates a new dashboard configuration with default values
-    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Sets the server host
-    #[must_use]
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
-        self.server.host = host.into();
+        let server = self.server.get_or_insert_with(ServerSettings::default);
+        server.host = host.into();
         self
     }
-    
+
     /// Sets the server port
-    #[must_use]
     pub fn with_port(mut self, port: u16) -> Self {
-        self.server.port = port;
+        let server = self.server.get_or_insert_with(ServerSettings::default);
+        server.port = port;
         self
     }
-    
-    /// Sets the maximum number of connections
-    #[must_use]
-    pub fn with_max_connections(mut self, max_connections: usize) -> Self {
-        self.websocket.max_connections = max_connections;
+
+    /// Sets the WebSocket max connections
+    pub fn with_max_connections(mut self, max_connections: u32) -> Self {
+        let websocket = self.websocket.get_or_insert_with(WebSocketSettings::default);
+        websocket.max_connections = max_connections;
         self
     }
-    
-    /// Sets the compression threshold
-    #[must_use]
+
+    /// Sets the WebSocket compression threshold
     pub fn with_compression_threshold(mut self, threshold: usize) -> Self {
-        self.websocket.compression_threshold = threshold;
+        let websocket = self.websocket.get_or_insert_with(WebSocketSettings::default);
+        websocket.compression_threshold = Some(threshold);
         self
     }
-    
-    /// Enables TLS
-    #[must_use]
+
+    /// Enables TLS with the given certificate and key files
     pub fn with_tls(mut self, cert_path: impl Into<PathBuf>, key_path: impl Into<PathBuf>) -> Self {
         self.security.tls = Some(TlsConfig {
             cert_path: cert_path.into(),
@@ -437,32 +339,28 @@ impl DashboardConfig {
         });
         self
     }
-    
-    /// Sets the authentication config
-    #[must_use]
+
+    /// Sets the authentication configuration
     pub fn with_auth(mut self, auth: AuthConfig) -> Self {
-        self.security.auth = auth;
+        self.security.auth = Some(auth);
         self
     }
-    
-    /// Sets the allowed origins
-    #[must_use]
+
+    /// Sets the allowed CORS origins
     pub fn with_allowed_origins(mut self, origins: Vec<String>) -> Self {
         self.security.allowed_origins = origins;
         self
     }
-    
-    /// Adds a masking rule
-    #[must_use]
-    pub fn with_masking_rule(mut self, pattern: &str, replacement: &str) -> Self {
-        self.security.masking_rules.push(
+
+    /// Adds a data masking rule
+    pub fn add_masking_rule(mut self, pattern: &str, replacement: &str) -> Self {
+        self.security.data_masking.push(
             MaskingRule::new(pattern, replacement)
         );
         self
     }
-    
+
     /// Enables audit logging
-    #[must_use]
     pub fn with_audit_logging(mut self, path: impl Into<PathBuf>) -> Self {
         self.security.audit = Some(AuditConfig {
             enabled: true,
@@ -472,25 +370,52 @@ impl DashboardConfig {
         });
         self
     }
-    
-    /// Adds a custom panel
-    #[must_use]
-    pub fn with_panel(mut self, panel: PanelConfig) -> Self {
-        self.custom_panels.push(panel);
+
+    /// Sets the performance settings for compression
+    pub fn with_compression(mut self, enable: bool, min_size: usize, level: u32) -> Self {
+        let performance = self.performance.get_or_insert_with(PerformanceSettings::default);
+        performance.compression_enabled = Some(enable);
+        performance.min_compression_size = Some(min_size);
+        performance.compression_level = Some(level);
         self
     }
-    
-    /// Sets the update interval
-    #[must_use]
-    pub fn with_update_interval(mut self, interval: u64) -> Self {
-        self.update_interval = interval;
+
+    /// Sets the performance settings for batching
+    pub fn with_batching(mut self, enable: bool, max_size: usize, max_interval: u64) -> Self {
+        let performance = self.performance.get_or_insert_with(PerformanceSettings::default);
+        performance.batching_enabled = Some(enable);
+        performance.max_batch_size = Some(max_size);
+        performance.max_batch_interval = Some(max_interval);
         self
     }
-    
-    /// Sets the retention period
-    #[must_use]
-    pub fn with_retention_period(mut self, period: u64) -> Self {
-        self.retention_period = period;
+
+    /// Sets the theme
+    pub fn with_theme(mut self, name: &str, primary_color: &str, secondary_color: &str, dark_mode: bool) -> Self {
+        let theme = self.theme.get_or_insert_with(ThemeSettings::default);
+        theme.name = name.to_string();
+        theme.primary_color = primary_color.to_string();
+        theme.secondary_color = secondary_color.to_string();
+        theme.dark_mode = dark_mode;
+        self
+    }
+
+    /// Sets the layout
+    pub fn with_layout(mut self, layout_type: &str, default_panels: Vec<String>, customizable: bool) -> Self {
+        let layout = self.layout.get_or_insert_with(LayoutSettings::default);
+        layout.layout_type = layout_type.to_string();
+        layout.default_panels = default_panels;
+        layout.customizable = customizable;
+        self
+    }
+
+    /// Sets which components to show
+    pub fn with_components(mut self, metrics: bool, alerts: bool, health: bool, network: bool, analytics: bool) -> Self {
+        let components = self.components.get_or_insert_with(ComponentSettings::default);
+        components.show_metrics = Some(metrics);
+        components.show_alerts = Some(alerts);
+        components.show_health = Some(health);
+        components.show_network = Some(network);
+        components.show_analytics = Some(analytics);
         self
     }
 } 

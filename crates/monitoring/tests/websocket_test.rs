@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use time;
 use squirrel_monitoring::{
     dashboard::DashboardManager,
-    dashboard::config::{DashboardConfig, ComponentConfig},
+    dashboard::config::{DashboardConfig, ComponentSettings},
     dashboard::manager::{Manager, Component},
 };
 use squirrel_core::error::Result;
@@ -44,7 +44,7 @@ impl MockManager {
             id: "test_performance_graph".to_string(),
             name: "Test Performance Graph".to_string(),
             component_type: "graph".to_string(),
-            config: ComponentConfig::default(),
+            config: ComponentSettings::default(),
             data: None,
             last_updated: Some(time::OffsetDateTime::now_utc().unix_timestamp() as u64),
         };
@@ -63,9 +63,11 @@ impl MockManager {
 #[tokio::test]
 async fn test_dashboard_websocket() -> Result<()> {
     // Create a dashboard configuration with WebSocket enabled
-    let config = DashboardConfig::default()
-        .with_port(9898) // Use a different port for testing
-        .with_update_interval(1); // Fast refresh for testing
+    let mut config = DashboardConfig::default();
+    config.server = Some(Default::default());
+    config.server.as_mut().unwrap().host = "127.0.0.1".to_string();
+    config.server.as_mut().unwrap().port = 9898; // Use a different port for testing
+    config.update_interval = 1; // Fast refresh for testing
     
     // Create and start the dashboard manager
     let dashboard = DashboardManager::new(config.clone());

@@ -156,4 +156,109 @@ pub enum MonitoringError {
 }
 
 #[cfg(test)]
-mod tests; 
+mod tests;
+
+/// # Monitoring Crate Documentation
+/// 
+/// This is a placeholder module that holds extended documentation for the monitoring crate.
+pub mod documentation {
+    /// # Monitoring Crate
+    ///
+    /// This crate provides a comprehensive monitoring system for applications,
+    /// including metrics collection, health checks, alerts, and a dashboard
+    /// for visualization.
+    ///
+    /// ## Features
+    ///
+    /// - Metrics collection and monitoring
+    /// - Health checks for services and components
+    /// - Network monitoring
+    /// - Dashboard for visualization
+    /// - Plugin system for extensibility
+    /// - Analytics system for data analysis
+    ///
+    /// ## Examples
+    ///
+    /// ### Using the metrics system
+    ///
+    /// ```rust,no_run
+    /// use squirrel_monitoring::metrics::{Metric, MetricType, DefaultMetricCollector};
+    /// use std::collections::HashMap;
+    ///
+    /// # async fn example() -> squirrel_core::error::Result<()> {
+    /// let collector = DefaultMetricCollector::new();
+    /// collector.initialize().await?;
+    ///
+    /// // Create a new metric with name, value, type, and labels
+    /// let metric = Metric::new(
+    ///     "system_memory_usage".to_string(),
+    ///     1024.0,
+    ///     MetricType::Gauge,
+    ///     HashMap::new(),
+    /// );
+    ///
+    /// // Record the metric using the collector's method
+    /// collector.record_metric(metric).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ### Using the health check system
+    ///
+    /// ```rust,no_run
+    /// use squirrel_monitoring::health::{HealthStatus, ComponentHealth};
+    /// use squirrel_monitoring::health::status::Status;
+    /// use squirrel_monitoring::health::checker::HealthChecker;
+    /// use squirrel_monitoring::health::DefaultHealthChecker;
+    ///
+    /// # async fn example() -> squirrel_core::error::Result<()> {
+    /// // Create a health checker
+    /// let health_checker = DefaultHealthChecker::new();
+    ///
+    /// // Register a component
+    /// let component = ComponentHealth {
+    ///     name: "database".to_string(),
+    ///     status: Status::Healthy,
+    ///     message: Some("Database connection is working".to_string()),
+    ///     last_check: chrono::Utc::now(),
+    ///     details: std::collections::HashMap::new(),
+    /// };
+    ///
+    /// health_checker.register_component(component).await?;
+    ///
+    /// // Check health
+    /// let system_health = health_checker.check_health().await?;
+    /// println!("System status: {:?}", system_health.status);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ### Using the dashboard
+    ///
+    /// ```rust,no_run
+    /// use squirrel_monitoring::dashboard::config::DashboardConfig;
+    /// use squirrel_monitoring::dashboard::secure_server;
+    /// use std::net::SocketAddr;
+    ///
+    /// # async fn example() -> squirrel_core::error::Result<()> {
+    /// // Create a dashboard configuration
+    /// let mut config = DashboardConfig::default();
+    /// 
+    /// // Ensure server settings are configured
+    /// if config.server.is_none() {
+    ///     config.server = Some(squirrel_monitoring::dashboard::config::ServerSettings {
+    ///         host: "127.0.0.1".to_string(),
+    ///         port: 8080,
+    ///         path_prefix: None,
+    ///     });
+    /// }
+    ///
+    /// // Create a router using the secure server
+    /// let router = secure_server::create_secure_server(config);
+    /// 
+    /// // In a real app, you would bind this router to a network address and start the server
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub struct Examples;
+} 

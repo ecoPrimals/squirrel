@@ -75,4 +75,12 @@ path = "examples/prometheus_component.rs"
 
 [[example]]
 name = "secure_dashboard"
-path = "examples/secure_dashboard.rs" 
+path = "examples/secure_dashboard.rs"
+
+[[example]]
+name = "dashboard_plugin_example"
+path = "examples/dashboard_plugin_example.rs"
+
+[[example]]
+name = "analytics_dashboard_integration"
+path = "examples/analytics_dashboard_integration.rs" 
