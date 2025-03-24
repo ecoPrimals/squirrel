@@ -185,10 +185,16 @@ Features are prioritized based on user impact, technical dependencies, and strat
 ### Core Plugin System (45%)
 
 #### Completed Components
-- [x] Basic plugin interface
+- [x] Plugin interface definition
+- [x] Plugin registry implementation
 - [x] Plugin lifecycle management
-- [x] Plugin registry
-- [x] Command registration
+- [x] Plugin discovery
+- [x] Plugin dependency resolution (partial)
+- [x] Commands Plugin implementation
+- [ ] Context Plugin implementation (in progress)
+- [ ] Core Plugin implementation
+- [ ] Tool Plugin implementation (in progress)
+- [ ] MCP Plugin implementation (in progress)
 
 #### In-Progress Components
 - [✓] Event system (partial)

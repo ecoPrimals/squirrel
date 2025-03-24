@@ -3,9 +3,10 @@
 //! This crate provides functionality for command registration, validation,
 //! and execution within the Squirrel system.
 
-use std::sync::Arc;
 use thiserror::Error;
-use anyhow;
+use uuid;
+use squirrel_plugins::plugin::Plugin;
+use std::sync::Arc;
 
 /// Built-in commands
 pub mod builtin;
@@ -86,23 +87,39 @@ pub mod adapter;
 mod tests;
 
 /// Register the command system as a plugin
-pub async fn register_plugin(
-    registry: &(impl squirrel_interfaces::plugins::PluginRegistry + ?Sized)
-) -> anyhow::Result<String> {
-    use crate::adapter::plugins::create_commands_plugin_adapter;
+///
+/// Creates a command registry and registers it with the plugin registry
+///
+/// # Arguments
+///
+/// * `registry` - The plugin registry to register the plugin with
+///
+/// # Returns
+///
+/// A Result containing the plugin ID or an error
+pub async fn register_plugin<T>(
+    registry: &mut T,
+) -> std::result::Result<uuid::Uuid, Box<dyn std::error::Error>> 
+where
+    T: squirrel_plugins::registry::PluginRegistry + ?Sized
+{
     use crate::factory::create_command_registry;
-    use std::sync::{Arc, Mutex};
     
-    // Create the command registry - it's already wrapped in Arc<Mutex<_>>
+    // Create the command registry
     let cmd_registry = match create_command_registry() {
         Ok(registry) => registry,
-        Err(e) => return Err(anyhow::anyhow!("Failed to create command registry: {}", e)),
+        Err(e) => return Err(format!("Failed to create command registry: {}", e).into()),
     };
     
-    // Create the plugin adapter 
-    let _ = create_commands_plugin_adapter(cmd_registry);
+    // Create the plugin adapter directly as a Plugin trait object
+    let plugin = Arc::new(adapter::plugins::CommandsPluginAdapter::new(cmd_registry));
     
-    // For now, we can't register a trait object directly.
-    // Instead, let's return a mock value since we're still implementing the system
-    Ok("commands-plugin-mock-id".to_string())
+    // Initialize the plugin
+    plugin.initialize().await?;
+    
+    // Register the plugin with the registry
+    let plugin_id = plugin.metadata().id;
+    registry.register_plugin(plugin).await?;
+    
+    Ok(plugin_id)
 } 

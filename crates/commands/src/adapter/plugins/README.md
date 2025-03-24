@@ -1,84 +1,102 @@
-# Commands Plugin Adapter
+# Command Plugin Adapter
 
-This module provides adapters to integrate the existing commands crate with the unified plugin system architecture.
+This directory contains the implementation of the commands plugin adapter, which integrates the existing command system with the unified plugin architecture. The adapter follows the adapter pattern, allowing commands to be used through the plugin interface while maintaining backward compatibility with the existing API.
 
 ## Overview
 
-The Commands Plugin Adapter allows the existing command system to be used with the new plugin architecture without modification to existing commands. It functions as a bridge between the two systems.
+The command plugin adapter converts the command registry API to the plugin system interface, allowing commands to be:
 
-## Key Features
+1. Discovered through the plugin system
+2. Executed through the plugin interface
+3. Managed through standard plugin lifecycle events
+4. Documented through standardized metadata
 
-- Exposes existing commands as `CommandsPlugin` implementations
-- Converts between command arguments and JSON input/output formats
-- Preserves all existing command functionality
-- Adds plugin lifecycle management (initialization, shutdown)
-- Supports command help and metadata
+## Architecture
 
-## Usage
+The implementation uses an adapter pattern:
 
-### Registering Commands as Plugins
-
-```rust
-use squirrel_commands::register_plugin;
-use squirrel_plugins::registry::PluginRegistry;
-
-// Create a plugin registry
-let mut registry = PluginRegistry::new();
-
-// Register commands as a plugin
-let plugin_id = register_plugin(&mut registry)?;
-
-// Now you can use the plugin registry to execute commands
-let command_plugin = registry.get_plugin_by_capability::<dyn CommandsPlugin>("command_execution")?;
+```
+┌────────────────────┐     ┌─────────────────────────┐
+│                    │     │                         │
+│  CommandRegistry   │◄────┤  CommandsPluginAdapter  │◄─── Plugin API
+│                    │     │                         │
+└────────────────────┘     └─────────────────────────┘
+        │                              │
+        │                              │
+        ▼                              ▼
+┌────────────────────┐     ┌─────────────────────────┐
+│                    │     │                         │
+│  Command Objects   │     │  Plugin Registry        │
+│                    │     │                         │
+└────────────────────┘     └─────────────────────────┘
+        │
+        │
+        ▼
+   Original API
 ```
 
-### Creating a Custom Plugin Adapter
+## Key Components
 
-```rust
-use squirrel_commands::adapter::plugins::create_commands_plugin_adapter;
-use squirrel_commands::factory::create_command_registry;
-use squirrel_plugins::commands::CommandsPlugin;
-use std::sync::Arc;
+### CommandsPluginAdapter
 
-// Create a command registry with built-in commands
-let registry = create_command_registry()?;
+The core adapter class that implements the `Plugin` and `CommandsPlugin` traits:
 
-// Create the plugin adapter
-let plugin = create_commands_plugin_adapter(registry);
+- Maintains a reference to the wrapped command registry
+- Caches command metadata for performance
+- Converts between command registry and plugin interfaces
+- Manages plugin lifecycle events
 
-// Initialize the plugin
-plugin.initialize().await?;
+### Command Conversion
 
-// Use the plugin to execute commands
-let commands = plugin.get_available_commands();
-let input = serde_json::json!({ "args": ["arg1", "arg2"] });
-let result = plugin.execute_command("command.test", input).await?;
-```
+Commands are exposed to the plugin system with:
+- ID format: `command.<name>` (e.g., `command.help`)
+- JSON schema for input/output
+- Standard permissions
+- Consistent error handling
 
-### Using Factory Methods
+### Factory Methods
+
+For ease of use, factory methods are provided:
+- `create_commands_plugin_adapter()`: Creates a plugin adapter from an existing registry
+- `create_command_registry_with_plugin()`: Creates both a registry and adapter in one call
+
+## Usage Example
 
 ```rust
 use squirrel_commands::factory::create_command_registry_with_plugin;
+use squirrel_plugins::commands::CommandsPlugin;
+use serde_json::json;
 
-// Create both registry and plugin in one call
+// Create registry and plugin
 let (registry, plugin) = create_command_registry_with_plugin()?;
 
-// Now you can use both independently
+// Use the plugin to get available commands
+let commands = plugin.get_available_commands();
+println!("Available commands: {}", commands.len());
+
+// Execute a command via the plugin
+let result = plugin.execute_command(
+    "command.help", 
+    json!({ "args": ["help"] })
+).await?;
+
+println!("Result: {}", result);
+
+// Continue using the registry directly as needed
+let registry_guard = registry.lock().unwrap();
+let output = registry_guard.execute("help", &[])?;
+println!("Direct output: {}", output);
 ```
 
-## Implementation Details
+## Current Limitations
 
-The adapter implements the following interfaces:
+1. **No Dynamic Registration**: Changes to the command registry after adapter initialization aren't automatically reflected in the plugin
+2. **Limited Schema Information**: Command argument schemas are simplified
+3. **No Event System**: Event hooks for command execution via plugins are not implemented yet
 
-1. `Plugin` - Core plugin interface with lifecycle methods
-2. `CommandsPlugin` - Command-specific plugin interface
+## Future Enhancements
 
-The adapter maintains a cache of command metadata for efficient access and converts between the command registry's string-based interface and the plugin system's JSON-based interface.
-
-## Error Handling
-
-Errors from the command registry are properly propagated through the plugin interface, with appropriate conversions to maintain context and traceability.
-
-## Testing
-
-The adapter includes comprehensive tests to ensure proper integration between the command system and plugin architecture. 
+1. **Dynamic Command Registration**: Support for commands added/removed after initialization
+2. **Enhanced Schema Generation**: Better representation of command parameters
+3. **Plugin Events**: Support for command execution events
+4. **Integration with Authentication System**: Proper permission handling 
