@@ -12,6 +12,83 @@ use uuid::Uuid;
 use crate::plugin::{Plugin, PluginMetadata};
 use crate::galaxy::GalaxyPlugin;
 
+// Local galaxy module implementation
+mod galaxy {
+    use anyhow::Result;
+    use serde::{Deserialize, Serialize};
+    use std::fmt::Debug;
+    
+    pub mod config {
+        use std::fmt::Debug;
+        
+        #[derive(Debug, Clone)]
+        pub struct GalaxyConfig {
+            pub api_url: String,
+            pub api_key: String,
+        }
+        
+        impl Default for GalaxyConfig {
+            fn default() -> Self {
+                Self {
+                    api_url: "https://usegalaxy.org/api".to_string(),
+                    api_key: String::new(),
+                }
+            }
+        }
+        
+        impl GalaxyConfig {
+            pub fn with_api_url(mut self, url: &str) -> Self {
+                self.api_url = url.to_string();
+                self
+            }
+            
+            pub fn with_api_key(mut self, key: &str) -> Self {
+                self.api_key = key.to_string();
+                self
+            }
+        }
+    }
+    
+    pub mod adapter {
+        use super::*;
+        use super::config::GalaxyConfig;
+        use anyhow::Result;
+        
+        #[derive(Debug)]
+        pub struct GalaxyAdapter {
+            config: GalaxyConfig,
+        }
+        
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct Dataset {
+            pub id: String,
+            pub name: String,
+            pub history_id: String,
+            pub status: String,
+        }
+        
+        impl GalaxyAdapter {
+            pub fn new(config: GalaxyConfig) -> Result<Self> {
+                Ok(Self { config })
+            }
+            
+            pub fn config(&self) -> &GalaxyConfig {
+                &self.config
+            }
+            
+            pub async fn upload_dataset(&self, name: &str, _content: Vec<u8>, _file_type: &str, history_id: Option<&str>) -> Result<Dataset> {
+                // Mock implementation
+                Ok(Dataset {
+                    id: "mock_dataset".to_string(),
+                    name: name.to_string(),
+                    history_id: history_id.unwrap_or("default").to_string(),
+                    status: "ok".to_string(),
+                })
+            }
+        }
+    }
+}
+
 /// Configuration for the Galaxy adapter plugin
 #[derive(Debug, Clone)]
 pub struct GalaxyAdapterPluginConfig {
@@ -124,6 +201,10 @@ impl Plugin for GalaxyAdapterPlugin {
     async fn shutdown(&self) -> Result<()> {
         // Nothing special to do for shutdown
         Ok(())
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

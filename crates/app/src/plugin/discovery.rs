@@ -258,7 +258,7 @@ impl PluginLoaderTrait for MemoryPluginLoader {
         }
 
         // Create a mock plugin for testing
-        let metadata = crate::plugin::PluginMetadata {
+        let metadata = super::PluginMetadata {
             id: Uuid::new_v4(),
             name: manifest.name.clone(),
             version: manifest.version.clone(),
@@ -343,14 +343,14 @@ impl PluginLoader {
 }
 
 /// Placeholder plugin for testing
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct PlaceholderPlugin {
     /// Plugin metadata containing identification and capability information
-    metadata: PluginMetadata,
+    metadata: super::PluginMetadata,
 }
 
 impl Plugin for PlaceholderPlugin {
-    fn metadata(&self) -> &PluginMetadata {
+    fn metadata(&self) -> &super::PluginMetadata {
         &self.metadata
     }
     
@@ -362,11 +362,11 @@ impl Plugin for PlaceholderPlugin {
         Box::pin(async move { Ok(()) })
     }
     
-    fn get_state(&self) -> BoxFuture<'_, Result<Option<PluginState>>> {
+    fn get_state(&self) -> BoxFuture<'_, Result<Option<super::PluginState>>> {
         Box::pin(async move { Ok(None) })
     }
     
-    fn set_state(&self, _state: PluginState) -> BoxFuture<'_, Result<()>> {
+    fn set_state(&self, _state: super::PluginState) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move { Ok(()) })
     }
     
@@ -375,7 +375,9 @@ impl Plugin for PlaceholderPlugin {
     }
     
     fn clone_box(&self) -> Box<dyn Plugin> {
-        Box::new(self.clone())
+        Box::new(PlaceholderPlugin {
+            metadata: self.metadata.clone()
+        })
     }
 }
 

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::time::Duration;
 use serde::Serialize;
 use clap::Command as ClapCommand;
-use squirrel_commands::{Command, CommandError};
+use commands::{Command, CommandError};
 use squirrel_core::Core;
 use tokio::time;
 use crate::formatter::{FormatterFactory, OutputFormat};

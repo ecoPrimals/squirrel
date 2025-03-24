@@ -8,6 +8,7 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use tracing::debug;
+use std::path::Path;
 
 use async_trait::async_trait;
 
@@ -104,7 +105,7 @@ impl PluginManager {
             "System placeholder plugin", 
             "Squirrel System"
         );
-        let placeholder = Arc::new(create_placeholder_plugin(placeholder_metadata));
+        let placeholder = create_placeholder_plugin(placeholder_metadata);
         self.register_plugin(placeholder).await?;
         
         Ok(())
@@ -141,23 +142,20 @@ impl PluginManager {
     
     /// Load plugins from a directory
     pub async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
-        debug!("Loading plugins from directory: {}", directory);
-        
-        let discovery = DefaultPluginDiscovery::default();
-        
+        let discovery = DefaultPluginDiscovery::new();
+        // Use the correct import for PluginDiscovery
+        use crate::discovery::PluginDiscovery;
+        let plugin_paths = discovery.discover_plugins(directory).await?;
         let mut ids = Vec::new();
         
-        let plugins = discovery.discover_plugins(directory).await?;
-        
-        for plugin in plugins {
-            let metadata = plugin.metadata();
-            let id = metadata.id;
-            debug!("Registering plugin: {}", metadata.name);
-            
-            // Register the plugin directly without extra Arc wrapping
-            self.register_plugin(plugin).await?;
-            
-            ids.push(id);
+        let mut _plugin_count = 0;
+        for plugin in plugin_paths {
+            // Register the plugin directly
+            if let Ok(()) = self.register_plugin(plugin.clone()).await {
+                let id = plugin.metadata().id;
+                ids.push(id);
+                _plugin_count += 1;
+            }
         }
         
         Ok(ids)
@@ -265,6 +263,22 @@ impl PluginManager {
         }
         
         Ok(count)
+    }
+
+    /// Initialize plugins with default configuration
+    async fn initialize_plugins_default(&self) -> Result<()> {
+        // Create and register a placeholder plugin
+        use crate::discovery::create_placeholder_plugin;
+        let placeholder_metadata = PluginMetadata::new(
+            "system-placeholder", 
+            "1.0.0", 
+            "System placeholder plugin", 
+            "Squirrel System"
+        );
+        let placeholder = create_placeholder_plugin(placeholder_metadata);
+        self.register_plugin(placeholder).await?;
+        
+        Ok(())
     }
 }
 
@@ -536,24 +550,16 @@ impl PluginManagerTrait for DefaultPluginManager {
     /// Load plugins from a directory
     async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
         let discovery = DefaultPluginDiscovery::new();
+        // Use the correct import for PluginDiscovery
+        use crate::discovery::PluginDiscovery;
         let plugin_paths = discovery.discover_plugins(directory).await?;
         let mut ids = Vec::new();
         
         let mut _plugin_count = 0;
-        for _plugin_path in plugin_paths {
-            // Use a placeholder plugin for testing purposes
-            use crate::discovery::create_placeholder_plugin;
-            let test_metadata = PluginMetadata::new(
-                "test-plugin", 
-                "1.0.0", 
-                "Test plugin", 
-                "Squirrel System"
-            );
-            let _plugin = Arc::new(create_placeholder_plugin(test_metadata));
-            
-            // Register the plugin
-            if matches!(PluginRegistry::register_plugin(self, _plugin.clone()).await, Ok(())) {
-                let id = _plugin.metadata().id;
+        for plugin in plugin_paths {
+            // Register the plugin directly
+            if let Ok(()) = self.register_plugin(plugin.clone()).await {
+                let id = plugin.metadata().id;
                 ids.push(id);
                 _plugin_count += 1;
             }

@@ -12,7 +12,7 @@ use log::{debug, error, info, warn};
 use serde_json::Value;
 use uuid::Uuid;
 
-use squirrel_commands::CommandRegistry;
+use commands::CommandRegistry;
 use super::protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};
 
 /// Default host for the MCP server

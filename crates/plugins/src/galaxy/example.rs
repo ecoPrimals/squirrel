@@ -6,14 +6,18 @@ use std::sync::Arc;
 use anyhow::Result;
 use serde_json::json;
 
-use crate::manager::{PluginManager, DefaultPluginManager};
+use crate::manager::{PluginManagerTrait, PluginRegistry, DefaultPluginManager};
 use crate::galaxy::{GalaxyPlugin, GalaxyAdapterPlugin, GalaxyAdapterPluginConfig};
 use crate::plugin::Plugin;
+use crate::state::MemoryStateManager;
 
 /// Example function showing how to use the Galaxy plugin
 pub async fn galaxy_plugin_example() -> Result<()> {
+    // Create the state manager
+    let state_manager = Arc::new(MemoryStateManager::new());
+    
     // Create the plugin manager
-    let mut plugin_manager = DefaultPluginManager::new();
+    let plugin_manager = DefaultPluginManager::new(state_manager);
     
     // Create the Galaxy plugin
     let config = GalaxyAdapterPluginConfig {
@@ -25,17 +29,20 @@ pub async fn galaxy_plugin_example() -> Result<()> {
     let galaxy_plugin = GalaxyAdapterPlugin::new(config);
     
     // Register the plugin
-    plugin_manager.register_plugin(Arc::new(galaxy_plugin))?;
+    plugin_manager.register_plugin(Arc::new(galaxy_plugin)).await?;
     
     // Initialize plugins
     plugin_manager.initialize_all_plugins().await?;
     
-    // Find the Galaxy plugin
-    let plugins = plugin_manager.get_plugins_by_capability("galaxy-integration");
+    // Find plugins with galaxy-integration capability
+    let plugins = plugin_manager.list_plugins().await?;
+    let galaxy_plugins = plugins.iter().filter(|p| 
+        p.metadata().capabilities.contains(&"galaxy-integration".to_string())
+    ).collect::<Vec<_>>();
     
-    if let Some(plugin) = plugins.first() {
-        // Cast to GalaxyPlugin
-        if let Some(galaxy_plugin) = plugin.downcast_ref::<dyn GalaxyPlugin>() {
+    if let Some(plugin) = galaxy_plugins.first() {
+        // Use the plugin 
+        if let Some(galaxy_plugin) = plugin.as_any().downcast_ref::<GalaxyAdapterPlugin>() {
             // Connect to Galaxy
             galaxy_plugin.connect(json!({
                 "url": "https://usegalaxy.org/api",

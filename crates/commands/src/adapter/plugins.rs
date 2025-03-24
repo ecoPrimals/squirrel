@@ -13,13 +13,10 @@ use thiserror::Error;
 use tracing::{debug, error, info, trace};
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 use squirrel_plugins::plugin::{Plugin, PluginMetadata};
 use squirrel_plugins::commands::{CommandsPlugin, CommandMetadata};
-use squirrel_plugins::core::{
-    metadata::{Metadata, MetadataBuilder},
-    PluginExecutionContext,
-};
 
 use crate::registry::{Command, CommandRegistry};
 use crate::CommandError;
@@ -206,6 +203,10 @@ impl Plugin for CommandsPluginAdapter {
         debug!("Shutting down CommandsPluginAdapter");
         Ok(())
     }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[async_trait]
@@ -216,16 +217,6 @@ impl CommandsPlugin for CommandsPluginAdapter {
             Err(e) => {
                 error!("Failed to read command metadata cache: {}", e);
                 Vec::new()
-            }
-        }
-    }
-
-    fn get_command_metadata(&self, command_id: &str) -> Option<CommandMetadata> {
-        match self.command_metadata.read() {
-            Ok(cache) => cache.get(command_id).cloned(),
-            Err(e) => {
-                error!("Failed to get command metadata for '{}': {}", command_id, e);
-                None
             }
         }
     }
@@ -365,17 +356,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_command_execution() -> Result<(), Box<dyn Error>> {
-        // Create a command registry
-        let registry = create_command_registry()?;
+        // Create command registry
+        let registry = Arc::new(Mutex::new(CommandRegistry::new()));
         
-        // Register a test command
+        // Register test command
         {
             let mut registry_guard = registry.lock().unwrap();
-            registry_guard.register("test", Arc::new(TestCommand))?;
+            registry_guard.register("test", Arc::new(TestCommand)).unwrap();
         }
-
+        
         // Create the adapter
-        let adapter = CommandsPluginAdapter::new(Arc::clone(&registry));
+        let adapter = CommandsPluginAdapter::new(registry);
         
         // Initialize the adapter
         adapter.rebuild_metadata_cache()?;
@@ -388,13 +379,46 @@ mod tests {
         let result = adapter.execute_command("test", input).await?;
         
         // Check result
-        assert!(result.is_some(), "Command execution should succeed");
-        let output = result.unwrap();
+        assert!(result.get("success").unwrap().as_bool().unwrap(), "Command execution should succeed");
         assert!(
-            output["output"].as_str().unwrap().contains("arg1"),
+            result.get("output").unwrap().as_str().unwrap().contains("arg1"),
             "Output should contain arg1"
         );
         
         Ok(())
     }
-} 
+}
+
+// Create our own metadata types as needed
+#[derive(Debug, Clone)]
+pub struct Metadata {
+    pub key: String,
+    pub value: String,
+}
+
+pub struct MetadataBuilder {
+    metadata: Vec<Metadata>,
+}
+
+impl MetadataBuilder {
+    pub fn new() -> Self {
+        Self {
+            metadata: Vec::new(),
+        }
+    }
+    
+    pub fn add(&mut self, key: &str, value: &str) -> &mut Self {
+        self.metadata.push(Metadata {
+            key: key.to_string(),
+            value: value.to_string(),
+        });
+        self
+    }
+    
+    pub fn build(&self) -> Vec<Metadata> {
+        self.metadata.clone()
+    }
+}
+
+// Define a simple execution context
+pub struct PluginExecutionContext; 

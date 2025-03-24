@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use crate::error::Result;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
-use squirrel_commands::Command;
+use crate::commands_crate::Command;
 
 /// Maximum number of commands to keep in history
 const MAX_HISTORY_SIZE: usize = 1000;
@@ -127,7 +127,7 @@ impl Default for CommandHistory {
 mod tests {
     use super::*;
     use std::fmt::Debug;
-    use squirrel_commands::{Command, CommandError};
+    use commands::{Command, CommandError};
     use clap::Command as ClapCommand;
 
     #[derive(Debug)]

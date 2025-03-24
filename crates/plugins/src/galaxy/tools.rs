@@ -3,6 +3,7 @@
 //! This module provides an extension trait for Galaxy plugins that adds tool-related functionality.
 
 use std::collections::HashMap;
+use std::any::Any;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -134,12 +135,16 @@ mod tests {
         async fn shutdown(&self) -> Result<()> {
             self.galaxy_plugin.shutdown().await
         }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
     }
     
     // Implementation of the ToolPlugin trait
     #[async_trait]
     impl ToolPlugin for TestGalaxyToolPlugin {
-        async fn execute_command(&self, command: &str, args: Value) -> Result<Value> {
+        async fn execute_command(&self, command: &str, args: Value) -> Result<crate::tools::CommandResult> {
             match command {
                 "list_tools" => {
                     let tools = self.list_galaxy_tools().await?;
@@ -151,7 +156,7 @@ mod tests {
                             "version": t.version,
                         })
                     }).collect::<Vec<_>>();
-                    Ok(json!(tool_json))
+                    Ok(crate::tools::CommandResult::success(tool_json))
                 },
                 "execute_tool" => {
                     let tool_id = args.get("tool_id")
@@ -168,9 +173,9 @@ mod tests {
                     }
                     
                     let job_id = self.execute_galaxy_tool(tool_id, param_map).await?;
-                    Ok(json!({ "job_id": job_id }))
+                    Ok(crate::tools::CommandResult::success(json!({ "job_id": job_id })))
                 },
-                _ => Err(anyhow::anyhow!("Unsupported command: {}", command)),
+                _ => Ok(crate::tools::CommandResult::error(format!("Unsupported command: {}", command))),
             }
         }
         
@@ -179,12 +184,20 @@ mod tests {
                 crate::tools::CommandMetadata {
                     name: "list_tools".to_string(),
                     description: "List all Galaxy tools".to_string(),
-                    required_permissions: vec!["galaxy.tools.list".to_string()],
+                    permissions: vec!["galaxy.tools.list".to_string()],
+                    usage: "list_tools".to_string(),
+                    examples: vec!["list_tools".to_string()],
+                    arguments: vec![],
+                    flags: vec![],
                 },
                 crate::tools::CommandMetadata {
                     name: "execute_tool".to_string(),
                     description: "Execute a Galaxy tool".to_string(),
-                    required_permissions: vec!["galaxy.tools.execute".to_string()],
+                    permissions: vec!["galaxy.tools.execute".to_string()],
+                    usage: "execute_tool --tool_id <tool_id> --parameters <parameters>".to_string(),
+                    examples: vec!["execute_tool --tool_id test_tool --parameters {}".to_string()],
+                    arguments: vec![],
+                    flags: vec![],
                 },
             ]
         }

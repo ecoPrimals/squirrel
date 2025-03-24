@@ -7,7 +7,7 @@ use std::path::{PathBuf, Path};
 use log::debug;
 use serde::Serialize;
 
-use squirrel_commands::{Command, CommandError};
+use commands::{Command, CommandError};
 use crate::config::{ConfigManager, ConfigError};
 use crate::formatter::{FormatterFactory, OutputFormat, Formatter};
 
@@ -325,7 +325,7 @@ impl ConfigCommand {
 }
 
 /// Register configuration-related commands
-pub fn register_config_commands(registry: &mut squirrel_commands::CommandRegistry) {
+pub fn register_config_commands(registry: &mut commands::CommandRegistry) {
     registry.register("config", std::sync::Arc::new(ConfigCommand))
         .expect("Failed to register config command");
 } 

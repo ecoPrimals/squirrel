@@ -25,7 +25,7 @@ pub use mcp_command::MCPCommand;
 
 use clap::{Command as ClapCommand, Arg, ArgAction};
 
-use squirrel_commands::{Command, CommandRegistry};
+use commands::{Command, CommandRegistry};
 
 /// Register all CLI commands
 ///

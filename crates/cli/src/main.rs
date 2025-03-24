@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::{env, process};
 
 use log::{debug, warn, info, error, LevelFilter};
-use squirrel_commands::CommandRegistry;
+use commands::CommandRegistry;
 use squirrel_cli::commands::{create_cli, register_commands, ExecutionContext};
 use squirrel_cli::plugins::state::get_plugin_manager;
 

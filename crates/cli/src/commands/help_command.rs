@@ -1,6 +1,6 @@
 use serde::Serialize;
 use clap::Command as ClapCommand;
-use squirrel_commands::{Command, CommandRegistry, CommandError};
+use commands::{Command, CommandRegistry, CommandError};
 use crate::formatter::{FormatterFactory, OutputFormat};
 
 #[derive(Serialize, Debug)]

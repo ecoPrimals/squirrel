@@ -6,7 +6,7 @@ use clap::{Command as ClapCommand, Arg, ArgAction, ArgMatches};
 use async_trait::async_trait;
 use tracing::{debug, warn, error};
 
-use squirrel_commands::{Command, CommandError, CommandResult};
+use commands::{Command, CommandError, CommandResult};
 use crate::commands::context::CommandContext;
 use crate::plugins::{state::get_plugin_manager, PluginStatus};
 use crate::formatter::Factory as FormatterFactory;

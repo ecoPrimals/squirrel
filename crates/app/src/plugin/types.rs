@@ -3,7 +3,7 @@ use serde_json::Value;
 use crate::error::Result;
 use super::{Plugin, PluginMetadata};
 use std::sync::Arc;
-use squirrel_commands::CommandRegistry;
+use crate::commands_crate::CommandRegistry;
 use crate::plugin::{PluginState};
 use tokio::sync::RwLock;
 use futures::future::BoxFuture;
@@ -91,14 +91,14 @@ impl Plugin for CommandPluginImpl {
         Box::pin(async move { Ok(()) })
     }
 
-    fn get_state(&self) -> BoxFuture<'_, Result<Option<PluginState>>> {
+    fn get_state(&self) -> BoxFuture<'_, Result<Option<super::PluginState>>> {
         Box::pin(async move { 
             let guard = self.state.read().await;
             Ok(guard.clone())
         })
     }
 
-    fn set_state(&self, state: PluginState) -> BoxFuture<'_, Result<()>> {
+    fn set_state(&self, state: super::PluginState) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
             let mut guard = self.state.write().await;
             *guard = Some(state);

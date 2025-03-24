@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::fmt::Debug;
 use async_trait::async_trait;
-use squirrel_commands::Command;
+use crate::commands_crate::Command;
 
 /// Command handling functionality for the application
 ///
@@ -28,7 +28,7 @@ pub struct CommandHandler {
     /// Map of command types to their processors
     handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
     /// Command history manager
-    history: Arc<CommandHistory>,
+    history: Arc<history::CommandHistory>,
     /// Command suggestions manager
     suggestions: Arc<CommandSuggestions>,
 }
@@ -37,7 +37,7 @@ impl CommandHandler {
     /// Creates a new `CommandHandler` with default settings
     #[must_use]
     pub fn new() -> Self {
-        let history = Arc::new(CommandHistory::new());
+        let history = Arc::new(history::CommandHistory::new());
         let suggestions = Arc::new(CommandSuggestions::new(Arc::clone(&history)));
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
@@ -50,7 +50,7 @@ impl CommandHandler {
     #[must_use]
     pub fn with_dependencies(
         handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
-        history: Arc<CommandHistory>,
+        history: Arc<history::CommandHistory>,
         suggestions: Arc<CommandSuggestions>,
     ) -> Self {
         Self { handlers, history, suggestions }
@@ -88,7 +88,7 @@ impl CommandHandler {
 
     /// Gets the command history manager
     #[must_use]
-    pub fn history(&self) -> Arc<CommandHistory> {
+    pub fn history(&self) -> Arc<history::CommandHistory> {
         Arc::clone(&self.history)
     }
 
@@ -395,7 +395,7 @@ impl CommandHandlerFactory {
     pub fn create_with_dependencies(
         &self,
         handlers: Arc<RwLock<HashMap<String, Box<dyn CommandProcessor>>>>,
-        history: Arc<CommandHistory>,
+        history: Arc<history::CommandHistory>,
         suggestions: Arc<CommandSuggestions>,
     ) -> Arc<CommandHandler> {
         Arc::new(CommandHandler::with_dependencies(handlers, history, suggestions))
@@ -418,7 +418,7 @@ impl CommandHandlerFactory {
 mod tests {
     use super::*;
     use std::fmt::Debug;
-    use squirrel_commands::CommandError;
+    use commands::CommandError;
     use clap::Command as ClapCommand;
 
     #[derive(Debug)]

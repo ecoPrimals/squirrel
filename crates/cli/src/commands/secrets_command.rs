@@ -1,5 +1,5 @@
 use clap::{Command as ClapCommand, Arg};
-use squirrel_commands::{Command, CommandResult};
+use commands::{Command, CommandResult};
 use squirrel_core::Core;
 
 /// Secrets command implementation

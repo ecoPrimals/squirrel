@@ -1,6 +1,7 @@
 //! Error types for the plugin system
 
 use thiserror::Error;
+use uuid;
 
 /// Plugin system errors
 #[derive(Debug, Error)]
@@ -44,6 +45,22 @@ pub enum PluginError {
     /// Unknown error
     #[error("Unknown plugin error: {0}")]
     Unknown(String),
+    
+    /// Plugin not found error (with UUID)
+    #[error("Plugin not found with ID: {0}")]
+    NotFound(uuid::Uuid),
+    
+    /// Plugin already registered
+    #[error("Plugin already registered: {0}")]
+    AlreadyRegistered(uuid::Uuid),
+    
+    /// Plugin dependency not found
+    #[error("Plugin dependency not found: {0}")]
+    DependencyNotFound(String),
+    
+    /// Plugin dependency cycle detected
+    #[error("Plugin dependency cycle detected: {0}")]
+    DependencyCycle(uuid::Uuid),
 }
 
 /// Result type for plugin operations

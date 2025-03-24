@@ -18,7 +18,6 @@
 //! - Machine Context Protocol integration
 
 pub mod plugin;
-pub mod core;
 pub mod discovery;
 pub mod manager;
 pub mod registry;
@@ -30,6 +29,8 @@ pub mod mcp;
 pub mod cli;
 pub mod errors;
 pub mod state;
+pub mod commands;
+pub mod tools;
 
 // Re-export common types and traits
 pub use plugin::{Plugin, PluginMetadata, PluginStatus};
@@ -50,7 +51,6 @@ pub const PLUGIN_SYSTEM_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PLUGIN_SYSTEM_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 // Team-specific plugin types
-pub use monitoring::MonitoringPlugin;
 pub use galaxy::GalaxyPlugin;
 pub use commands::CommandsPlugin;
 

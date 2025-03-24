@@ -3,6 +3,8 @@
 //! This module provides functionality for discovering and loading plugins.
 
 use std::path::Path;
+use std::sync::Arc;
+use std::any::Any;
 
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -70,18 +72,18 @@ impl PluginManifest {
     }
 }
 
-/// Plugin loader trait for loading plugins from various sources
+/// Plugin loader trait for loading plugins
 #[async_trait]
 pub trait PluginLoader: Send + Sync {
     /// Load a plugin from a manifest
-    async fn load_plugin(&self, manifest: &PluginManifest, path: &Path) -> Result<Box<dyn Plugin>>;
+    async fn load_plugin(&self, manifest: &PluginManifest, path: &Path) -> Result<Arc<dyn Plugin>>;
 }
 
 /// Plugin discovery trait
 #[async_trait]
 pub trait PluginDiscovery: Send + Sync {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Box<dyn Plugin>>>;
+    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Arc<dyn Plugin>>>;
 }
 
 /// File-based plugin discovery
@@ -101,7 +103,7 @@ impl<L: PluginLoader> FilePluginDiscovery<L> {
 #[async_trait]
 impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Box<dyn Plugin>>> {
+    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Arc<dyn Plugin>>> {
         let directory = directory.as_ref();
         
         // Ensure directory exists
@@ -146,37 +148,34 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     }
 }
 
-/// Create a placeholder plugin for testing or initialization purposes
-pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Box<dyn Plugin> {
-    use crate::state::PluginState;
-    use futures::future::BoxFuture;
-    use std::any::Any;
-    
-    #[derive(Debug, Clone)]
-    struct PlaceholderPlugin {
-        metadata: PluginMetadata,
+/// Create a placeholder plugin
+pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
+    Arc::new(PlaceholderPlugin { metadata })
+}
+
+/// A placeholder plugin implementation
+#[derive(Debug, Clone)]
+struct PlaceholderPlugin {
+    metadata: PluginMetadata,
+}
+
+#[async_trait]
+impl Plugin for PlaceholderPlugin {
+    fn metadata(&self) -> &PluginMetadata {
+        &self.metadata
     }
     
-    #[async_trait]
-    impl Plugin for PlaceholderPlugin {
-        fn metadata(&self) -> &PluginMetadata {
-            &self.metadata
-        }
-        
-        async fn initialize(&self) -> Result<()> {
-            Ok(())
-        }
-        
-        async fn shutdown(&self) -> Result<()> {
-            Ok(())
-        }
-        
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
+    async fn initialize(&self) -> Result<()> {
+        Ok(())
     }
     
-    Box::new(PlaceholderPlugin { metadata })
+    async fn shutdown(&self) -> Result<()> {
+        Ok(())
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// Default implementation of plugin discovery
@@ -190,7 +189,7 @@ pub struct DefaultPluginDiscovery {
 #[async_trait]
 impl PluginDiscovery for DefaultPluginDiscovery {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Box<dyn Plugin>>> {
+    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(&self, directory: P) -> Result<Vec<Arc<dyn Plugin>>> {
         let directory = directory.as_ref();
         
         if !directory.exists() {
@@ -223,7 +222,7 @@ impl DefaultPluginDiscovery {
     }
     
     /// Load a plugin from a path
-    pub async fn load_plugin(&self, path: &Path) -> Result<Box<dyn Plugin>> {
+    pub async fn load_plugin(&self, _path: &Path) -> Result<Arc<dyn Plugin>> {
         // In a real implementation, this would load the plugin from the path
         // For now, just return a placeholder plugin
         let _metadata = PluginMetadata::new(
@@ -233,13 +232,20 @@ impl DefaultPluginDiscovery {
             "System"
         );
         
-        {
-            return Ok(create_placeholder_plugin(_metadata));
-        }
-        
-        #[cfg(not(test))]
-        {
-            Err(anyhow::anyhow!("Loading plugins is not implemented yet"))
-        }
+        // Just return the placeholder plugin
+        Ok(create_placeholder_plugin(_metadata))
+    }
+}
+
+/// Default implementation of the plugin loader
+#[derive(Debug, Default)]
+pub struct DefaultPluginLoader;
+
+#[async_trait]
+impl PluginLoader for DefaultPluginLoader {
+    async fn load_plugin(&self, _manifest: &PluginManifest, _path: &Path) -> Result<Arc<dyn Plugin>> {
+        // For now, just create a placeholder plugin
+        let _metadata = PluginMetadata::default();
+        Ok(create_placeholder_plugin(_metadata))
     }
 } 

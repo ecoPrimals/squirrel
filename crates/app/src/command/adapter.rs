@@ -2,8 +2,7 @@
 use std::sync::{Arc, RwLock};
 #[allow(unused_imports)]
 use squirrel_core::error::{Result, SquirrelError};
-#[allow(unused_imports)]
-use squirrel_commands::Command;
+use crate::commands_crate::Command;
 #[allow(unused_imports)]
 use crate::command::{CommandProcessor, DefaultCommandProcessor};
 use thiserror::Error;

@@ -17,7 +17,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
     use serde_json::json;
-    use squirrel_commands::{Command, CommandError};
+    use commands::{Command, CommandError};
     use clap::Command as ClapCommand;
     use tokio::time::timeout;
 
@@ -409,11 +409,11 @@ mod tests {
 
     // Mock implementation for the MCPServer to test without actual network connections
     struct MockMCPServer {
-        registry: Arc<squirrel_commands::CommandRegistry>,
+        registry: Arc<commands::CommandRegistry>,
     }
 
     impl MockMCPServer {
-        fn new(registry: Arc<squirrel_commands::CommandRegistry>) -> Self {
+        fn new(registry: Arc<commands::CommandRegistry>) -> Self {
             Self { registry }
         }
 
@@ -553,7 +553,7 @@ mod tests {
     // Network-based implementation of the test
     async fn run_network_test() -> Result<(), String> {
         // Create a command registry
-        let registry = squirrel_commands::CommandRegistry::new();
+        let registry = commands::CommandRegistry::new();
         
         // Register test command
         registry.register("test_command", Arc::new(TestCommand))
@@ -624,7 +624,7 @@ mod tests {
         println!("Running mock-based test");
         
         // Create a command registry
-        let registry = squirrel_commands::CommandRegistry::new();
+        let registry = commands::CommandRegistry::new();
         
         // Register test command
         registry.register("test_command", Arc::new(TestCommand))

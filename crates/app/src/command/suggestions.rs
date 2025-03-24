@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use crate::error::Result;
 use crate::command::history::CommandHistory;
+use crate::commands_crate::{Command, CommandError};
 
 /// Maximum number of suggestions to return
 const MAX_SUGGESTIONS: usize = 5;
@@ -174,7 +175,6 @@ fn calculate_relevance(command: &str, input: &str, context: Option<&str>) -> f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use squirrel_commands::{Command, CommandError};
     use clap::Command as ClapCommand;
 
     #[derive(Debug)]

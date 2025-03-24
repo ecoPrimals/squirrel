@@ -158,13 +158,6 @@ impl From<SecurityError> for crate::error::SquirrelError {
     }
 }
 
-// Add the implementation for CoreError conversion
-impl From<SecurityError> for crate::error::CoreError {
-    fn from(err: SecurityError) -> Self {
-        Self::Plugin(format!("Security error: {err}"))
-    }
-}
-
 /// Plugin sandbox for managing plugin security
 #[async_trait::async_trait]
 pub trait PluginSandbox: Send + Sync + std::fmt::Debug {

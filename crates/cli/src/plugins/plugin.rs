@@ -7,7 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::plugins::error::PluginError;
-use squirrel_commands::{Command, CommandRegistry};
+use commands::{Command, CommandRegistry};
 
 /// Metadata for a plugin
 #[derive(Debug, Clone)]

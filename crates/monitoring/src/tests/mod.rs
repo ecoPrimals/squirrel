@@ -237,9 +237,9 @@ async fn test_health_checker() {
     let component = ComponentHealth {
         name: "test-component".to_string(),
         status: Status::Healthy,
-        message: "All good".to_string(),
-        timestamp: 0,
-        metadata: None,
+        message: Some("All good".to_string()),
+        last_check: chrono::Utc::now(),
+        details: std::collections::HashMap::new(),
     };
     
     health_checker.as_ref().register_component(component).await
@@ -384,9 +384,9 @@ async fn test_health_checker_with_monitoring_service_alias() {
     let component = ComponentHealth {
         name: "test-component".to_string(),
         status: Status::Healthy,
-        message: "All good".to_string(),
-        timestamp: 0,
-        metadata: None,
+        message: Some("All good".to_string()),
+        last_check: chrono::Utc::now(),
+        details: std::collections::HashMap::new(),
     };
     
     health_checker.as_ref().register_component(component).await

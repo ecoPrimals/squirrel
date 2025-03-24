@@ -1,7 +1,7 @@
-//! Application components for Squirrel
+//! Squirrel Application library
 //!
-//! This crate provides the core application components for the Squirrel system,
-//! including initialization, configuration, and lifecycle management.
+//! This crate provides the application-level components for the Squirrel platform.
+//! It includes state management, UI components, and business logic.
 
 #![warn(missing_docs)]
 #![warn(clippy::missing_docs_in_private_items)]
@@ -65,5 +65,23 @@ pub mod prelude {
 #[cfg(test)]
 pub mod tests;
 
-// Public modules
-pub mod config; 
+/// Public modules
+pub mod config;
+
+/// Application state
+pub mod state;
+
+/// User interface components
+pub mod ui;
+
+/// Domain models
+pub mod models;
+
+/// API client for MCP 
+pub mod client;
+
+/// Re-export core error handling
+pub use squirrel_core::error::{Result, SquirrelError};
+
+// Re-export commands crate
+pub use commands as commands_crate;

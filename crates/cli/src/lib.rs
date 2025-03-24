@@ -18,8 +18,12 @@ pub mod mcp;
 /// Plugin system
 pub mod plugins;
 
-/// Re-export types from dependencies
-pub use squirrel_commands::{Command, CommandResult};
+pub use squirrel_core::error::Result;
+pub use commands as commands_crate;
+
+// Re-export the Command and CommandResult from the commands crate
+pub use ::commands::Command;
+pub use ::commands::CommandResult;
 
 /// Re-export command registration function
-pub use commands::register_commands; 
+pub use crate::commands::register_commands; 

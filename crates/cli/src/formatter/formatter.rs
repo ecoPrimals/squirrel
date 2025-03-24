@@ -1,6 +1,6 @@
 use thiserror::Error;
 use std::io;
-use squirrel_commands::CommandError;
+use commands::CommandError;
 
 #[derive(Debug, Error)]
 pub enum FormatterError {

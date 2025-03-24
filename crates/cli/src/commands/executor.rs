@@ -6,7 +6,7 @@ use clap::ArgMatches;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use squirrel_commands::{CommandError, CommandRegistry};
+use commands::{CommandError, CommandRegistry};
 use crate::formatter::Factory as FormatterFactory;
 use crate::commands::context::CommandContext;
 

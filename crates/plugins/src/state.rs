@@ -9,17 +9,19 @@ use uuid::Uuid;
 use tokio::sync::RwLock;
 use crate::errors::{Result, PluginError};
 use serde_json::Value;
+use std::future::Future;
+use std::pin::Pin;
 
 /// Plugin state manager trait
 pub trait PluginStateManager: Send + Sync + Debug {
     /// Get plugin state
-    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>>;
+    fn get_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>>;
     
     /// Set plugin state
-    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()>;
+    fn set_state<'a>(&'a self, plugin_id: &'a Uuid, state: Value) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
     
     /// Remove plugin state
-    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()>;
+    fn remove_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
 }
 
 /// In-memory plugin state manager
@@ -39,23 +41,28 @@ impl MemoryStateManager {
     }
 }
 
-#[async_trait::async_trait]
 impl PluginStateManager for MemoryStateManager {
-    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>> {
-        let states = self.states.read().await;
-        Ok(states.get(plugin_id).cloned())
+    fn get_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
+        Box::pin(async move {
+            let states = self.states.read().await;
+            Ok(states.get(plugin_id).cloned())
+        })
     }
     
-    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()> {
-        let mut states = self.states.write().await;
-        states.insert(*plugin_id, state);
-        Ok(())
+    fn set_state<'a>(&'a self, plugin_id: &'a Uuid, state: Value) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            let mut states = self.states.write().await;
+            states.insert(*plugin_id, state);
+            Ok(())
+        })
     }
     
-    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()> {
-        let mut states = self.states.write().await;
-        states.remove(plugin_id);
-        Ok(())
+    fn remove_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            let mut states = self.states.write().await;
+            states.remove(plugin_id);
+            Ok(())
+        })
     }
 }
 
@@ -79,25 +86,30 @@ impl FileStateManager {
     }
 }
 
-#[async_trait::async_trait]
 impl PluginStateManager for FileStateManager {
-    async fn get_state(&self, plugin_id: &Uuid) -> Result<Option<Value>> {
-        // For now, just use the in-memory cache
-        let cache = self.cache.read().await;
-        Ok(cache.get(plugin_id).cloned())
+    fn get_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
+        Box::pin(async move {
+            // For now, just use the in-memory cache
+            let cache = self.cache.read().await;
+            Ok(cache.get(plugin_id).cloned())
+        })
     }
     
-    async fn set_state(&self, plugin_id: &Uuid, state: Value) -> Result<()> {
-        // For now, just use the in-memory cache
-        let mut cache = self.cache.write().await;
-        cache.insert(*plugin_id, state);
-        Ok(())
+    fn set_state<'a>(&'a self, plugin_id: &'a Uuid, state: Value) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            // For now, just use the in-memory cache
+            let mut cache = self.cache.write().await;
+            cache.insert(*plugin_id, state);
+            Ok(())
+        })
     }
     
-    async fn remove_state(&self, plugin_id: &Uuid) -> Result<()> {
-        // For now, just use the in-memory cache
-        let mut cache = self.cache.write().await;
-        cache.remove(plugin_id);
-        Ok(())
+    fn remove_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move {
+            // For now, just use the in-memory cache
+            let mut cache = self.cache.write().await;
+            cache.remove(plugin_id);
+            Ok(())
+        })
     }
 } 

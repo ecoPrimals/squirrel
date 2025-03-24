@@ -67,10 +67,29 @@ where
     // In the future, this will use the unified plugin registry
     debug!("Creating plugin routes (adapter)");
     
+    // Create state-specific handlers that match the router's state type
+    let state_clone = state.clone();
+    let list_plugins_handler = move || async move {
+        let inner_state = state_clone.clone();
+        list_plugins(State(inner_state)).await
+    };
+    
+    let state_clone = state.clone();
+    let list_endpoints_handler = move || async move {
+        let inner_state = state_clone.clone();
+        list_endpoints(State(inner_state)).await
+    };
+    
+    let state_clone = state.clone();
+    let list_components_handler = move || async move {
+        let inner_state = state_clone.clone();
+        list_components(State(inner_state)).await
+    };
+    
     router
-        .route("/api/plugins", get(list_plugins))
-        .route("/api/plugins/endpoints", get(list_endpoints))
-        .route("/api/plugins/components", get(list_components))
+        .route("/api/plugins", get(list_plugins_handler))
+        .route("/api/plugins/endpoints", get(list_endpoints_handler))
+        .route("/api/plugins/components", get(list_components_handler))
 }
 
 /// List all available plugins

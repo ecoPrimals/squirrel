@@ -8,6 +8,10 @@ mod tests {
     use anyhow::Result;
     use tokio::sync::Mutex;
     use std::collections::HashMap;
+    use async_trait::async_trait;
+    use chrono::Utc;
+    use crate::health::{ComponentHealth, status::Status};
+    use crate::health::component::HealthCheck;
     
     /// Simple in-memory plugin registry for testing
     struct InMemoryPluginRegistry {
@@ -181,32 +185,32 @@ mod tests {
     #[derive(Debug)]
     struct TestHealthCheck {
         name: String,
-        status: Arc<Mutex<crate::health::Status>>,
+        status: Arc<Mutex<Status>>,
     }
     
     impl TestHealthCheck {
         fn new(name: &str) -> Self {
             Self {
                 name: name.to_string(),
-                status: Arc::new(Mutex::new(crate::health::Status::Healthy)),
+                status: Arc::new(Mutex::new(Status::Healthy)),
             }
         }
     }
     
     #[async_trait::async_trait]
-    impl crate::health::HealthCheck for TestHealthCheck {
+    impl HealthCheck for TestHealthCheck {
         fn name(&self) -> &str {
             &self.name
         }
         
-        async fn check(&self) -> Result<crate::health::ComponentHealth> {
+        async fn check(&self) -> squirrel_core::error::Result<ComponentHealth> {
             let status = *self.status.lock().await;
-            Ok(crate::health::ComponentHealth {
+            Ok(ComponentHealth {
                 name: self.name.clone(),
                 status,
                 message: Some("Test health check".to_string()),
-                last_check: chrono::Utc::now(),
-                details: HashMap::new(),
+                last_check: Utc::now(),
+                details: std::collections::HashMap::new(),
             })
         }
     }

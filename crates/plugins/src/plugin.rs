@@ -71,6 +71,20 @@ impl PluginMetadata {
     }
 }
 
+impl Default for PluginMetadata {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            name: "Default Plugin".to_string(),
+            version: "0.1.0".to_string(),
+            description: "Default plugin implementation".to_string(),
+            author: "System".to_string(),
+            capabilities: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+}
+
 /// Plugin status
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Copy)]
 pub enum PluginStatus {

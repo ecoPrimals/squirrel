@@ -9,7 +9,7 @@ use crate::plugins::{PluginItem, PluginMetadata, PluginStatus};
 use crate::plugins::plugin::{Plugin, PluginFactory};
 use crate::plugins::error::PluginError;
 use crate::plugins::state::PluginState;
-use squirrel_commands::{Command, CommandRegistry};
+use commands::{Command, CommandRegistry};
 
 /// Type for a plugin create function
 type PluginCreateFn = unsafe fn() -> Result<Arc<dyn Plugin>, PluginError>;

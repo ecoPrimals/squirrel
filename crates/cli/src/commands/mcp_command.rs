@@ -8,7 +8,7 @@ use std::time::Duration;
 use std::sync::Arc;
 use serde_json::Value;
 
-use squirrel_commands::{Command, CommandResult};
+use commands::{Command, CommandResult, CommandError};
 use crate::mcp::{MCPClient, MCPServer};
 
 /// Command to work with the Machine Context Protocol
@@ -211,7 +211,7 @@ impl Command for MCPCommand {
             )
     }
     
-    fn execute(&self, _args: &[String]) -> Result<String, squirrel_commands::CommandError> {
+    fn execute(&self, _args: &[String]) -> Result<String, CommandError> {
         // This will need to be implemented differently to match the Command trait's requirements
         // For now, we return a temporary message that this needs to be updated
         Ok("MCP command execution needs to be updated to match the Command trait".to_string())
@@ -229,7 +229,7 @@ impl MCPCommand {
         let host = matches.get_one::<String>("host").unwrap();
         let port_str = matches.get_one::<String>("port").unwrap();
         let port = port_str.parse::<u16>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid port number: {}", e))
+            CommandError::ValidationError(format!("Invalid port number: {}", e))
         })?;
         
         let action = matches.get_one::<String>("action").unwrap();
@@ -242,12 +242,12 @@ impl MCPCommand {
                 let server = {
                     // Get the command registry from context - for the MCP demo, we'll just create a new one
                     // In a full implementation, this would come from the main app's registry
-                    let registry = squirrel_commands::CommandRegistry::new();
+                    let registry = commands::CommandRegistry::new();
                     
                     // Register some basic commands for demo purposes
-                    registry.register("version", std::sync::Arc::new(squirrel_commands::builtin::VersionCommand))
+                    registry.register("version", std::sync::Arc::new(commands::builtin::VersionCommand))
                         .map_err(|e| {
-                            squirrel_commands::CommandError::ValidationError(format!("Failed to register version command: {}", e))
+                            CommandError::ValidationError(format!("Failed to register version command: {}", e))
                         })?;
                     
                     let registry_arc = std::sync::Arc::new(registry);
@@ -271,13 +271,13 @@ impl MCPCommand {
                                 "command_registry": server.has_command_registry(),
                             }))
                         } else {
-                            Err(squirrel_commands::CommandError::ExecutionError(
+                            Err(CommandError::ExecutionError(
                                 format!("Failed to start MCP server on {}:{}", host, port)
                             ))
                         }
                     }
                     Err(e) => {
-                        Err(squirrel_commands::CommandError::ExecutionError(
+                        Err(CommandError::ExecutionError(
                             format!("Failed to start MCP server: {}", e)
                         ))
                     }
@@ -286,7 +286,7 @@ impl MCPCommand {
             "stop" => {
                 // TODO: Implement server stop functionality
                 // This would require access to a globally stored server instance
-                Err(squirrel_commands::CommandError::ExecutionError(
+                Err(CommandError::ExecutionError(
                     "Server stop command not implemented yet".to_string()
                 ))
             }
@@ -298,7 +298,7 @@ impl MCPCommand {
                 }))
             }
             _ => {
-                Err(squirrel_commands::CommandError::ValidationError(
+                Err(CommandError::ValidationError(
                     format!("Unknown server action: {}", action)
                 ))
             }
@@ -312,11 +312,11 @@ impl MCPCommand {
         let timeout_str = matches.get_one::<String>("timeout").unwrap();
         
         let port = port_str.parse::<u16>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid port number: {}", e))
+            CommandError::ValidationError(format!("Invalid port number: {}", e))
         })?;
         
         let timeout = timeout_str.parse::<u64>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid timeout value: {}", e))
+            CommandError::ValidationError(format!("Invalid timeout value: {}", e))
         })?;
         
         let interactive = matches.get_flag("interactive");
@@ -340,7 +340,7 @@ impl MCPCommand {
                             }))
                         }
                         Err(e) => {
-                            Err(squirrel_commands::CommandError::ExecutionError(
+                            Err(CommandError::ExecutionError(
                                 format!("Interactive session error: {}", e)
                             ))
                         }
@@ -367,7 +367,7 @@ impl MCPCommand {
                             }
                         }
                         Err(e) => {
-                            Err(squirrel_commands::CommandError::ExecutionError(
+                            Err(CommandError::ExecutionError(
                                 format!("Command execution failed: {}", e)
                             ))
                         }
@@ -383,7 +383,7 @@ impl MCPCommand {
                 }
             }
             Err(e) => {
-                Err(squirrel_commands::CommandError::ExecutionError(
+                Err(CommandError::ExecutionError(
                     format!("Failed to connect to MCP server at {}:{}: {}", host, port, e)
                 ))
             }
@@ -400,11 +400,11 @@ impl MCPCommand {
         let count = matches.get_one::<u32>("count").unwrap();
         
         let port = port_str.parse::<u16>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid port number: {}", e))
+            CommandError::ValidationError(format!("Invalid port number: {}", e))
         })?;
         
         let timeout = timeout_str.parse::<u64>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid timeout value: {}", e))
+            CommandError::ValidationError(format!("Invalid timeout value: {}", e))
         })?;
         
         // Create a client instance and connect
@@ -447,7 +447,7 @@ impl MCPCommand {
                     }) {
                         Ok(id) => id,
                         Err(e) => {
-                            return Err(squirrel_commands::CommandError::ExecutionError(
+                            return Err(CommandError::ExecutionError(
                                 format!("Failed to subscribe to topic '{}': {}", topic, e)
                             ));
                         }
@@ -506,7 +506,7 @@ impl MCPCommand {
                             }
                         }
                         Err(e) => {
-                            Err(squirrel_commands::CommandError::ExecutionError(
+                            Err(CommandError::ExecutionError(
                                 format!("Failed to subscribe to topic '{}': {}", topic, e)
                             ))
                         }
@@ -514,7 +514,7 @@ impl MCPCommand {
                 }
             }
             Err(e) => {
-                Err(squirrel_commands::CommandError::ExecutionError(
+                Err(CommandError::ExecutionError(
                     format!("Failed to connect to MCP server at {}:{}: {}", host, port, e)
                 ))
             }
@@ -529,11 +529,11 @@ impl MCPCommand {
         let topic = matches.get_one::<String>("topic").unwrap();
         
         let port = port_str.parse::<u16>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid port number: {}", e))
+            CommandError::ValidationError(format!("Invalid port number: {}", e))
         })?;
         
         let timeout = timeout_str.parse::<u64>().map_err(|e| {
-            squirrel_commands::CommandError::ValidationError(format!("Invalid timeout value: {}", e))
+            CommandError::ValidationError(format!("Invalid timeout value: {}", e))
         })?;
         
         // Parse payload if provided
@@ -541,7 +541,7 @@ impl MCPCommand {
             match serde_json::from_str(payload_str) {
                 Ok(json) => Some(json),
                 Err(e) => {
-                    return Err(squirrel_commands::CommandError::ValidationError(
+                    return Err(CommandError::ValidationError(
                         format!("Invalid JSON payload: {}", e)
                     ));
                 }
@@ -572,14 +572,14 @@ impl MCPCommand {
                         }))
                     }
                     Err(e) => {
-                        Err(squirrel_commands::CommandError::ExecutionError(
+                        Err(CommandError::ExecutionError(
                             format!("Failed to send notification to topic '{}': {}", topic, e)
                         ))
                     }
                 }
             }
             Err(e) => {
-                Err(squirrel_commands::CommandError::ExecutionError(
+                Err(CommandError::ExecutionError(
                     format!("Failed to connect to MCP server at {}:{}: {}", host, port, e)
                 ))
             }
