@@ -1,6 +1,6 @@
 # Command Adapter Pattern
 
-This document outlines the adapter pattern we've implemented for integrating the command system with external protocols and services, with a specific focus on the Machine Context Protocol (MCP) integration.
+This document outlines the adapter pattern we've implemented for integrating the command system with external protocols and services, with a specific focus on the Machine Context Protocol (MCP) integration and the Plugin System integration.
 
 ## Overview
 
@@ -25,6 +25,8 @@ crates/commands/src/adapter/
 ├── mod.rs           # Module definition and exports
 ├── helper.rs        # Generic helper functions and CommandRegistryAdapter
 ├── mcp.rs           # MCP-specific adapter and types
+├── plugins.rs       # Plugin system adapter and types
+├── plugins/         # Plugin system adapter support files
 └── tests.rs         # Tests for adapter functionality
 ```
 
@@ -65,31 +67,38 @@ impl McpCommandAdapter {
 }
 ```
 
-#### 3. Protocol Types (mcp.rs)
+#### 3. CommandsPluginAdapter (plugins.rs)
 
-These types define the MCP command protocol:
+This component adapts the command registry to the unified plugin system interface:
 
 ```rust
-pub struct McpCommandRequest {
-    pub command: String,
-    pub arguments: Vec<String>,
-    pub credentials: Option<AuthCredentials>,
-    pub context: McpExecutionContext,
+pub struct CommandsPluginAdapter {
+    metadata: PluginMetadata,
+    registry: Arc<Mutex<CommandRegistry>>,
+    command_metadata: RwLock<HashMap<String, CommandMetadata>>,
 }
 
-pub struct McpCommandResponse {
-    pub success: bool,
-    pub output: Option<String>,
-    pub error: Option<String>,
-    pub metadata: Option<serde_json::Value>,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
+impl CommandsPluginAdapter {
+    pub fn new(registry: Arc<Mutex<CommandRegistry>>) -> Self { ... }
+    fn convert_to_metadata(&self, cmd: &dyn Command) -> CommandMetadata { ... }
+    fn generate_input_schema(cmd: &dyn Command) -> Value { ... }
+    fn generate_output_schema() -> Value { ... }
+    fn rebuild_metadata_cache(&self) -> PluginAdapterResult<()> { ... }
 }
 
-pub struct McpExecutionContext {
-    pub working_directory: Option<String>,
-    pub environment: Option<std::collections::HashMap<String, String>>,
-    pub session_id: Option<String>,
-    pub timestamp: Option<chrono::DateTime<chrono::Utc>>,
+#[async_trait]
+impl Plugin for CommandsPluginAdapter {
+    fn metadata(&self) -> &PluginMetadata { ... }
+    async fn initialize(&self) -> Result<()> { ... }
+    async fn shutdown(&self) -> Result<()> { ... }
+    fn as_any(&self) -> &dyn Any { ... }
+}
+
+#[async_trait]
+impl CommandsPlugin for CommandsPluginAdapter {
+    fn get_available_commands(&self) -> Vec<CommandMetadata> { ... }
+    async fn execute_command(&self, command_id: &str, input: Value) -> Result<Value> { ... }
+    fn get_command_help(&self, command_id: &str) -> Option<String> { ... }
 }
 ```
 
@@ -264,4 +273,125 @@ The adapter pattern is particularly useful when:
 - [Design Patterns: Elements of Reusable Object-Oriented Software](https://en.wikipedia.org/wiki/Design_Patterns)
 - [Adapter Pattern](https://sourcemaking.com/design_patterns/adapter)
 - [Rust Design Patterns](https://rust-unofficial.github.io/patterns/)
-- [Async Rust Best Practices](https://rust-lang.github.io/async-book/) 
+- [Async Rust Best Practices](https://rust-lang.github.io/async-book/)
+
+## Plugin Adapter Pattern
+
+### Overview
+
+The Plugin Adapter Pattern extends our adapter pattern approach to integrate the command system with the unified plugin architecture. This allows commands to be discovered, executed, and managed through the plugin system while maintaining backward compatibility with the direct command API.
+
+### Design Principles
+
+1. **Dual Interface Support**: Support both direct command API and plugin API
+2. **Metadata Caching**: Cache command metadata for efficient discovery
+3. **Schema Generation**: Generate JSON schemas for command inputs and outputs
+4. **Command Mapping**: Map between command names and plugin command IDs
+5. **Lifecycle Management**: Proper initialization and shutdown of the adapter
+
+### Implementation Details
+
+#### Command ID Mapping
+
+Commands are mapped to plugin IDs using a consistent format:
+- Command "help" becomes "command.help"
+- Command "version" becomes "command.version"
+
+This provides a stable, namespaced ID format for all commands.
+
+#### Input/Output Schema
+
+Input and output schemas are generated in JSON Schema format:
+- Input schema represents command arguments
+- Output schema represents command output and error information
+
+Example input schema:
+```json
+{
+  "type": "object",
+  "required": [],
+  "properties": {
+    "args": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+Example output schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "output": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+#### Metadata Caching
+
+The adapter maintains a cache of command metadata to avoid locking the command registry for every metadata operation. The cache is built during initialization and contains:
+- Command IDs
+- Command names
+- Command descriptions
+- Input/output schemas
+- Permission requirements
+
+#### Plugin Integration
+
+The adapter implements the `Plugin` and `CommandsPlugin` traits from the plugin system:
+- `Plugin`: Core lifecycle methods (initialize, shutdown)
+- `CommandsPlugin`: Command-specific operations (list, execute, help)
+
+#### Usage Examples
+
+**Registering with Plugin Registry**:
+```rust
+use squirrel_commands::register_plugin;
+use squirrel_plugins::registry::PluginRegistry;
+
+// Create a plugin registry
+let mut registry = PluginRegistry::new();
+
+// Register commands as a plugin
+let plugin_id = register_plugin(&mut registry)?;
+
+// Now you can use the plugin registry to execute commands
+let command_plugin = registry.get_plugin_by_capability::<dyn CommandsPlugin>("command_execution")?;
+```
+
+**Creating with Factory Method**:
+```rust
+use squirrel_commands::factory::create_command_registry_with_plugin;
+
+// Create both registry and plugin in one call
+let (registry, plugin) = create_command_registry_with_plugin()?;
+
+// Now you can use both independently
+```
+
+### Benefits
+
+1. **Seamless Integration**: Commands integrate with the plugin system without modification
+2. **Consistent Interface**: Unified interface for all plugin types
+3. **Feature Discovery**: Plugin system can discover command capabilities
+4. **Proper Lifecycle**: Commands properly participate in plugin lifecycle events
+5. **Future Extensibility**: Framework for extending command capabilities through the plugin system
+
+### Limitations and Future Work
+
+1. **Dynamic Registration**: Currently, changes to the command registry after adapter initialization aren't automatically reflected in the plugin
+2. **Schema Detail**: Command argument schemas are simplified and don't fully reflect clap command configuration
+3. **Event System**: Event hooks for command execution via plugins are not implemented yet
+4. **Authentication**: Integration with the authentication system needs improvement 
