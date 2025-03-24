@@ -21,6 +21,7 @@ chrono = { workspace = true }
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-context = { path = "../context" }
+squirrel-interfaces = { path = "../interfaces" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

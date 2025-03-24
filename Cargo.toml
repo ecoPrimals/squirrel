@@ -12,6 +12,7 @@ members = [
     "crates/app",
     "crates/context-adapter",
     "crates/plugins",
+    "crates/interfaces",
     "test_plugin_fix",
     "crates/galaxy"
 ]
@@ -156,7 +157,69 @@ opentelemetry-jaeger = { version = "0.19" }
 name = "squirrel"
 version = "0.1.0"
 edition = "2021"
+authors.workspace = true
+description = "A modular and maintainable Rust project"
 
 [dependencies]
+# Core dependencies
+tokio = { version = "1.0", features = ["full"] }
 futures = "0.3"
-tokio = { version = "1.0", features = ["full"] } 
+async-trait = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Squirrel crates
+squirrel-core = { path = "crates/core" }
+squirrel-interfaces = { path = "crates/interfaces" }
+squirrel-context = { path = "crates/context" }
+
+# Monitoring and logging
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+prometheus = "0.13"
+
+# MCP dependencies
+bytes = "1.5"
+futures-util = "0.3"
+tokio-util = { version = "0.7", features = ["codec"] }
+
+# Compression dependencies
+zstd = { version = "0.13", features = ["zstdmt"] }
+flate2 = { version = "1.0", features = ["zlib"] }
+lz4 = "1.24"
+
+# Notification system dependencies
+reqwest = { version = "0.11", features = ["json"] }
+handlebars = "4.3"
+lettre = { version = "0.10", features = ["tokio1", "tokio1-native-tls"] }
+
+# Dashboard server dependencies
+axum = { version = "0.6", features = ["ws"] }
+tower-http = { version = "0.4", features = ["cors"] }
+tokio-tungstenite = "0.20"
+tower = "0.4"
+
+# Testing dependencies
+tokio-test = "0.4"
+test-context = "0.1"
+mockall = "0.11"
+criterion = "0.5"
+insta = "1.36"
+snapbox = "0.5"
+tempfile = "3.8"
+proptest = "1.6"
+chrono = { workspace = true }
+
+# OpenTelemetry dependencies
+opentelemetry = { version = "0.20", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.20", features = ["metrics", "rt-tokio"] }
+opentelemetry-otlp = { version = "0.13", features = ["metrics"] }
+opentelemetry-jaeger = { version = "0.19" }
+
+[features]
+default = []
+with-plugins = []
+
+# ... existing code ... 

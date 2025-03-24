@@ -9,26 +9,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::plugin::Plugin;
-
-/// Adapter metadata
-#[derive(Clone, Debug)]
-pub struct AdapterMetadata {
-    /// Adapter ID
-    pub id: String,
-    
-    /// Adapter name
-    pub name: String,
-    
-    /// Adapter description
-    pub description: String,
-    
-    /// Source format
-    pub source_format: String,
-    
-    /// Target format
-    pub target_format: String,
-}
+// Use the interfaces definitions instead of local ones
+pub use squirrel_interfaces::context::{ContextAdapterPlugin, AdapterMetadata};
+pub use squirrel_interfaces::plugins::Plugin;
 
 /// Context adapter plugin trait
 #[async_trait]

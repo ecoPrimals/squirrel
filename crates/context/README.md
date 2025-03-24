@@ -1,137 +1,225 @@
 # Context Management System
 
-A robust context management system for tracking, persisting, and synchronizing application state.
+The Context Management System provides robust support for tracking, persisting, and synchronizing application state for the Squirrel AI Coding Assistant.
 
-## Overview
+## Features
 
-The Context Management System provides a comprehensive solution for managing application context. It handles state tracking, persistence, recovery, and synchronization across different components of an application.
+- Thread-safe state management using asynchronous locks
+- Persistent storage with automatic recovery
+- Flexible context tracking and synchronization
+- Change notification system
+- Plugin support for extensibility
 
-## Key Components
+## Core Components
+
+The context system consists of several key components:
 
 ### Context Manager
 
-The Context Manager serves as the central component for managing contexts. It provides functionality for:
+The core management component that handles context creation, tracking, and persistence.
 
-- Creating, updating, and deleting contexts
-- Loading and saving state from/to persistence
-- Creating and managing recovery points
-- Listing available contexts
+```rust
+// Create a manager with default configuration
+let manager = create_manager();
 
-### Context Adapter
+// Initialize the manager
+manager.initialize().await?;
 
-The Context Adapter provides integration support between the context system and external components. It handles:
+// Store context data
+manager.store_context("user1", context_data).await?;
 
-- Context activation and deactivation
-- Management of currently active contexts
-- Status tracking of contexts (active, inactive, non-existent)
-- Context switching
+// Retrieve context data
+let data = manager.get_context("user1").await?;
+```
 
 ### Context Tracker
 
-The Context Tracker is responsible for tracking context state changes. It provides:
-
-- Thread-safe access to the current state
-- State update functionality with version checks
-- Automatic synchronization with persistence
-- Recovery point creation
-
-### State Management
-
-The State structure manages the actual context data:
-
-- Versioned state with timestamps
-- Key-value based data storage
-- Metadata support
-- Snapshot creation for recovery points
-
-### Context Factory
-
-The factory pattern is implemented through the ContextTrackerFactory, which creates preconfigured Context Tracker instances.
-
-## Usage
-
-Here's a basic example of how to use the context system:
+Tracks changes to context and provides notifications.
 
 ```rust
-use context::{create_manager, create_adapter, Result};
+// Create a tracker
+let tracker = create_tracker(manager.clone());
+
+// Register for notifications
+tracker.subscribe("user1", |event| {
+    println!("Context updated: {:?}", event);
+}).await?;
+```
+
+### Context Persistence
+
+Manages storing and retrieving context data from persistent storage.
+
+```rust
+// Persistence is automatically managed by the context manager
+// but can be accessed directly if needed
+let persistence = manager.get_persistence_manager().await?;
+
+// Store directly
+persistence.store("key", data).await?;
+
+// Retrieve directly
+let data = persistence.retrieve("key").await?;
+```
+
+### Context Plugins
+
+Extends the context system with custom functionality through plugins.
+
+```rust
+// Plugins are automatically loaded by the context manager
+// but can be accessed directly if needed
+let plugin_manager = manager.get_plugin_manager().await.unwrap();
+
+// Transform data using a plugin
+let transformed = manager.transform_data("context.standard", data).await?;
+
+// Convert data format
+let converted = manager.convert_data("json.to.mcp", data).await?;
+
+// Validate data against schema
+let is_valid = manager.validate_data(&schema, &data).await?;
+```
+
+## Usage Patterns
+
+### Basic Context Management
+
+```rust
+use squirrel_context::{create_manager, ContextState};
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    // Create a context manager
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a manager
     let manager = create_manager();
     
-    // Create a context adapter
-    let adapter = create_adapter(manager.clone());
+    // Initialize the manager
+    manager.initialize().await?;
     
-    // Initialize the adapter - this will also activate the default context
-    adapter.initialize().await?;
+    // Create a context
+    let context_id = manager.create_context().await?;
     
-    // Get the current context tracker
-    let tracker = adapter.get_current_tracker()?;
+    // Update context data
+    let data = serde_json::json!({
+        "user": "user1",
+        "settings": {
+            "theme": "dark",
+            "font_size": 14
+        }
+    });
     
-    // Get the current state
-    let mut state = tracker.get_state()?;
+    manager.update_context(&context_id, data).await?;
     
-    // Update the state
-    state.set("key".to_string(), "value".to_string());
-    
-    // Update the tracker with the new state
-    tracker.update_state(state)?;
-    
-    // Create a new context and activate it
-    let new_tracker = adapter.create_and_activate_context("new-context").await?;
-    
-    // Switch back to the default context
-    adapter.switch_context("default").await?;
+    // Retrieve context data
+    let context = manager.get_context(&context_id).await?;
+    println!("Context: {:?}", context);
     
     Ok(())
 }
 ```
 
-## Features
+### Using Context Plugins
 
-- **Thread-Safe State Management**: All components are designed to be thread-safe using appropriate concurrency primitives.
-- **Versioned State**: States are versioned to prevent conflicts and ensure consistency.
-- **Automatic Recovery**: The system can automatically recover from failures using recovery points.
-- **Configurable Components**: Each component provides configuration options for customization.
-- **Factory Pattern**: Factory implementations for creating preconfigured components.
-- **Comprehensive Error Handling**: Detailed error types for better error handling and debugging.
+```rust
+use squirrel_context::{create_manager_with_config, ContextManagerConfig};
+use serde_json::json;
 
-## Architecture
-
-The system is designed with a modular architecture, with clear separation of concerns between components:
-
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a manager with plugins enabled
+    let config = ContextManagerConfig {
+        enable_plugins: true,
+        ..Default::default()
+    };
+    
+    let manager = create_manager_with_config(config);
+    
+    // Initialize the manager
+    manager.initialize().await?;
+    
+    // Transform data using a plugin
+    let data = json!({
+        "data": {
+            "key": "value"
+        }
+    });
+    
+    let transformed = manager.transform_data("context.standard", data).await?;
+    println!("Transformed: {:?}", transformed);
+    
+    // Get available transformations
+    if let Some(plugin_manager) = manager.get_plugin_manager().await {
+        let transformations = plugin_manager.get_transformations().await;
+        println!("Available transformations: {:?}", transformations);
+    }
+    
+    Ok(())
+}
 ```
-┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-│   ContextAdapter  │────▶│   ContextManager  │────▶│  PersistenceManager│
-└───────────────────┘     └───────────────────┘     └───────────────────┘
-         │                         │                          │
-         ▼                         ▼                          ▼
-┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-│  ContextTracker   │────▶│    ContextState   │────▶│   StateStorage    │
-└───────────────────┘     └───────────────────┘     └───────────────────┘
+
+## Advanced Features
+
+### Recovery Management
+
+The context system provides automatic recovery capabilities for handling errors or crashes.
+
+```rust
+// Create a recovery point
+manager.create_recovery_point(&context_id).await?;
+
+// Restore from last recovery point
+manager.restore_last_recovery_point(&context_id).await?;
+
+// List available recovery points
+let recovery_points = manager.list_recovery_points(&context_id).await?;
 ```
 
-## Error Handling
+### Format Conversion
 
-The system provides comprehensive error handling through the `ContextError` enum, which covers various error types such as:
+Convert between different data formats using adapter plugins.
 
-- State errors
-- Persistence errors
-- Recovery errors
-- Synchronization errors
-- Lock acquisition failures
-- Version conflicts
+```rust
+// Convert JSON to MCP format
+let mcp_data = manager.convert_data("json.to.mcp", json_data).await?;
 
-## Thread Safety
+// Convert MCP back to JSON
+let json_data = manager.convert_data("mcp.to.json", mcp_data).await?;
+```
 
-All components in the system are designed to be thread-safe, using appropriate concurrency primitives such as:
+## Plugin System
 
-- `Arc` for shared ownership
-- `Mutex` for exclusive access
-- `RwLock` for reader-writer access
-- `AsyncMutex` for asynchronous exclusive access
+The context system includes plugin support for extending functionality:
+
+### Context Plugin
+
+Provides transformations and validation for context data.
+
+```rust
+// Register a custom context plugin
+let context_plugin = create_custom_context_plugin(
+    "My Plugin",
+    "Custom transformation plugin",
+    vec![my_transformation]
+);
+
+plugin_manager.register_plugin(context_plugin).await?;
+```
+
+### Context Adapter Plugin
+
+Provides format conversion between different data representations.
+
+```rust
+// Register a custom adapter plugin
+let adapter_plugin = create_custom_context_adapter_plugin(
+    "My Adapter",
+    "Custom format adapter",
+    vec![my_adapter]
+);
+
+plugin_manager.register_adapter_plugin(adapter_plugin).await?;
+```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+TBD 

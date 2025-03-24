@@ -22,7 +22,23 @@ pub mod mcp_types {
     use std::fmt;
     
     pub use squirrel_mcp::types::{MCPMessage as Message, MessageType};
-    pub use squirrel_context::manager::ContextManager;
+    
+    // Wrapper for ContextManager that implements Debug
+    pub struct ContextManager(pub squirrel_context::ContextManagerImpl);
+    
+    impl fmt::Debug for ContextManager {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("ContextManager")
+                .field("initialized", &"<context_manager>")
+                .finish()
+        }
+    }
+    
+    impl Default for ContextManager {
+        fn default() -> Self {
+            Self(squirrel_context::create_default_manager())
+        }
+    }
     
     // Wrapper for MCPProtocolAdapter that implements Debug
     pub struct Protocol(pub squirrel_mcp::protocol::MCPProtocolAdapter);
@@ -106,7 +122,7 @@ impl GalaxyAdapter {
         }
         
         self.protocol = Some(Protocol::new());
-        self.context = Some(ContextManager::new());
+        self.context = Some(ContextManager::default());
         
         info!("Galaxy adapter initialized with MCP integration");
         Ok(())
