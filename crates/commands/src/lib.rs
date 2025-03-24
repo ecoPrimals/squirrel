@@ -4,7 +4,6 @@
 //! and execution within the Squirrel system.
 
 use thiserror::Error;
-use uuid;
 use squirrel_plugins::plugin::Plugin;
 use std::sync::Arc;
 
@@ -32,12 +31,21 @@ pub mod suggestions;
 /// Command authentication and authorization system
 pub mod auth;
 
+/// Command transaction system for reliable execution
+pub mod transaction;
+
+/// Command journaling system for persistent logging and recovery
+pub mod journal;
+
+/// Command observability system for tracing and metrics
+pub mod observability;
+
 /// Command registry
 mod registry;
 pub use registry::{Command, CommandRegistry, CommandResult};
 
 /// Command errors
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum CommandError {
     /// Error during command registration
     #[error("Registration error: {0}")]
@@ -74,6 +82,18 @@ pub enum CommandError {
     /// Error related to authorization
     #[error("Authorization error: {0}")]
     AuthorizationError(String),
+    
+    /// Error related to transaction operations
+    #[error("Transaction error: {0}")]
+    TransactionError(#[from] transaction::TransactionError),
+    
+    /// Error related to journal operations
+    #[error("Journal error: {0}")]
+    JournalError(#[from] journal::JournalError),
+    
+    /// Error related to observability operations
+    #[error("Observability error: {0}")]
+    ObservabilityError(String),
 }
 
 /// Command factory for creating command registries

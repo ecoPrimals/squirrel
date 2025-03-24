@@ -70,13 +70,13 @@ impl CommandsPluginAdapter {
         .with_capability("command_execution")
         .with_capability("command_management");
 
-        let adapter = Self {
+        
+
+        Self {
             metadata,
             registry,
             command_metadata: RwLock::new(HashMap::new()),
-        };
-
-        adapter
+        }
     }
 
     /// Converts a Command trait object to CommandMetadata
