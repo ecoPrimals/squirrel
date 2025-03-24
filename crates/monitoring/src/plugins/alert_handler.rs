@@ -68,40 +68,54 @@ impl AlertHandlerPlugin {
     pub async fn add_alert(&self, alert: Alert) -> Result<()> {
         let alert_type = alert.alert_type.clone();
         let level = alert.level;
-        let mut alerts = self.alerts.write().await;
+        let source = alert.source.clone();
+        let message = alert.message.clone();
+        let mut count = 0; // Initialize with default
+        // We don't actually need alert_id for now
         
-        // Check if this is a duplicate of an existing alert
-        for existing in &mut *alerts {
-            if existing.source == alert.source && existing.alert_type == alert.alert_type {
-                // Update existing alert instead of adding a new one
-                existing.count += 1;
-                existing.last_occurred = alert.occurred;
-                existing.status = AlertStatusType::Active;
-                
-                if level > existing.level {
-                    existing.level = level;
-                    existing.message = alert.message.clone();
+        // Scope the write lock to minimize lock time
+        {
+            let mut alerts = self.alerts.write().await;
+            
+            // Check if this is a duplicate of an existing alert
+            let mut found_existing = false;
+            for existing in &mut *alerts {
+                if existing.source == alert.source && existing.alert_type == alert.alert_type {
+                    // Update existing alert instead of adding a new one
+                    existing.count += 1;
+                    count = existing.count;
+                    existing.last_occurred = alert.occurred;
+                    existing.status = AlertStatusType::Active;
+                    
+                    if level > existing.level {
+                        existing.level = level;
+                        existing.message = alert.message.clone();
+                    }
+                    
+                    found_existing = true;
+                    break;
                 }
-                
-                info!("Updated existing alert from {}: {} (count: {})", 
-                      alert.source, alert.message, existing.count);
-                return Ok(());
+            }
+            
+            // Add the new alert if no duplicate was found
+            if !found_existing {
+                count = 1; // First occurrence 
+                alerts.push(alert);
             }
         }
         
-        // Log based on severity
+        // Log based on severity - do this outside the lock
         match level {
-            AlertLevel::Critical => error!("Critical alert from {}: {}", alert.source, alert.message),
-            AlertLevel::Warning => warn!("Warning alert from {}: {}", alert.source, alert.message),
-            AlertLevel::Info => info!("Info alert from {}: {}", alert.source, alert.message),
-            _ => info!("Alert from {}: {}", alert.source, alert.message),
+            AlertLevel::Critical => error!("Critical alert from {}: {} (count: {})", source, message, count),
+            AlertLevel::Warning => warn!("Warning alert from {}: {} (count: {})", source, message, count),
+            AlertLevel::Info => info!("Info alert from {}: {} (count: {})", source, message, count),
+            _ => info!("Alert from {}: {} (count: {})", source, message, count),
         }
         
-        // Add the new alert
-        alerts.push(alert);
-        
-        // Try to find handlers for this alert type
-        let _ = self.dispatch_alert_to_handlers(&alert_type).await;
+        // Try to find handlers for this alert type - do this outside the lock
+        if let Err(e) = self.dispatch_alert_to_handlers(&alert_type).await {
+            error!("Failed to dispatch alert to handlers: {}", e);
+        }
         
         Ok(())
     }
@@ -147,18 +161,26 @@ impl AlertHandlerPlugin {
     
     /// Dispatch an alert to appropriate handlers
     async fn dispatch_alert_to_handlers(&self, alert_type: &str) -> Result<()> {
-        let handlers = self.handlers.read().await;
-        let alerts = self.alerts.read().await;
+        // Clone the handlers to avoid holding locks while calling handlers
+        let handlers_clone = {
+            let handlers = self.handlers.read().await;
+            handlers.values().cloned().collect::<Vec<_>>()
+        };
         
         // Find the most recent alert of this type
-        if let Some(alert) = alerts.iter()
-            .filter(|a| a.alert_type == alert_type)
-            .max_by_key(|a| a.last_occurred) {
+        let alert = {
+            let alerts = self.alerts.read().await;
+            alerts.iter()
+                .filter(|a| a.alert_type == alert_type)
+                .max_by_key(|a| a.last_occurred)
+                .cloned()
+        };
             
-            // Find handlers that support this alert type
-            for handler in handlers.values() {
+        // Find handlers that support this alert type and call them without holding locks
+        if let Some(alert) = alert {
+            for handler in handlers_clone {
                 if handler.supported_types().contains(&alert_type) {
-                    if let Err(e) = handler.handle_alert(alert).await {
+                    if let Err(e) = handler.handle_alert(&alert).await {
                         error!("Handler {} failed to process alert: {}", handler.name(), e);
                     }
                 }
