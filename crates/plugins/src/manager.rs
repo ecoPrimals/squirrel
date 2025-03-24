@@ -8,7 +8,6 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use tracing::debug;
-use std::path::Path;
 
 use async_trait::async_trait;
 
@@ -74,9 +73,17 @@ pub trait PluginManagerTrait: PluginRegistry {
     async fn shutdown_all_plugins(&self) -> Result<()>;
 }
 
-/// Plugin manager for managing the plugin lifecycle
+/// Plugin manager implementation
 pub struct PluginManager {
     plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
+}
+
+impl std::fmt::Debug for PluginManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginManager")
+            .field("plugins", &"<RwLock<HashMap<Uuid, Arc<dyn Plugin>>>>")
+            .finish()
+    }
 }
 
 impl PluginManager {
@@ -187,15 +194,15 @@ impl PluginManager {
         Ok(())
     }
     
-    /// Get components of a specific type
-    pub async fn get_components<T: 'static>(&self) -> Result<Vec<(Uuid, T)>> {
-        // This is a placeholder - in a real implementation, 
+    /// Get all components of a specific type
+    pub fn get_components<T: 'static>(&self) -> Result<Vec<(Uuid, T)>> {
+        // This is a placeholder - in a real implementation,
         // we would iterate through plugins and retrieve components of the specified type
         Ok(Vec::new())
     }
     
-    /// Get endpoints of a specific type
-    pub async fn get_endpoints<T: 'static>(&self) -> Result<Vec<(Uuid, T)>> {
+    /// Get all endpoints of a specific type
+    pub fn get_endpoints<T: 'static>(&self) -> Result<Vec<(Uuid, T)>> {
         // This is a placeholder - in a real implementation,
         // we would iterate through plugins and retrieve endpoints of the specified type
         Ok(Vec::new())

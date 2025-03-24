@@ -4,13 +4,12 @@
 
 use std::fmt::Debug;
 use std::collections::HashMap;
-use std::sync::Arc;
 use uuid::Uuid;
 use tokio::sync::RwLock;
-use crate::errors::{Result, PluginError};
 use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
+use anyhow::Result;
 
 /// Plugin state manager trait
 pub trait PluginStateManager: Send + Sync + Debug {

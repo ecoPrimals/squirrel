@@ -56,7 +56,7 @@ pub struct PluginPackage {
 }
 
 /// Plugin package status
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginPackageStatus {
     /// Available
     Available,
@@ -152,8 +152,8 @@ pub trait PluginDistribution: Send + Sync + Debug {
     async fn verify_plugin_package(&self, package_path: &Path) -> Result<bool>;
 }
 
-/// Default plugin distribution implementation
-#[derive(Debug)]
+/// Default implementation of plugin distribution
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultPluginDistribution {
     // Implementation details
 }
@@ -245,11 +245,5 @@ impl PluginDistribution for DefaultPluginDistribution {
     async fn verify_plugin_package(&self, _package_path: &Path) -> Result<bool> {
         // Basic implementation
         Ok(true)
-    }
-}
-
-impl Default for DefaultPluginDistribution {
-    fn default() -> Self {
-        Self::new()
     }
 } 

@@ -65,6 +65,17 @@ pub struct DefaultPluginRegistry {
     dependencies: RwLock<HashMap<Uuid, Vec<PluginDependency>>>,
 }
 
+impl std::fmt::Debug for DefaultPluginRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DefaultPluginRegistry")
+            .field("plugins", &"<RwLock<HashMap<Uuid, Arc<dyn Plugin>>>>")
+            .field("metadata", &"<RwLock<HashMap<Uuid, PluginMetadata>>>")
+            .field("index", &"<RwLock<BTreeMap<String, Vec<Uuid>>>>")
+            .field("dependencies", &"<RwLock<HashMap<Uuid, Vec<PluginDependency>>>>")
+            .finish()
+    }
+}
+
 impl DefaultPluginRegistry {
     /// Create a new plugin registry
     pub fn new() -> Self {
@@ -204,6 +215,14 @@ impl Default for DefaultPluginRegistry {
 /// This is a simplified registry implementation for testing purposes
 pub struct InMemoryPluginRegistry {
     registry: DefaultPluginRegistry,
+}
+
+impl std::fmt::Debug for InMemoryPluginRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InMemoryPluginRegistry")
+            .field("registry", &self.registry)
+            .finish()
+    }
 }
 
 impl InMemoryPluginRegistry {

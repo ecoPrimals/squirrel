@@ -179,6 +179,7 @@ impl Plugin for PlaceholderPlugin {
 }
 
 /// Default implementation of plugin discovery
+#[derive(Debug, Clone)]
 pub struct DefaultPluginDiscovery {
     /// Plugin type
     pub plugin_type: String,
@@ -237,15 +238,17 @@ impl DefaultPluginDiscovery {
     }
 }
 
-/// Default implementation of the plugin loader
-#[derive(Debug, Default)]
+/// Default plugin loader implementation
+#[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 
 #[async_trait]
 impl PluginLoader for DefaultPluginLoader {
-    async fn load_plugin(&self, _manifest: &PluginManifest, _path: &Path) -> Result<Arc<dyn Plugin>> {
-        // For now, just create a placeholder plugin
-        let _metadata = PluginMetadata::default();
-        Ok(create_placeholder_plugin(_metadata))
+    /// Load a plugin from a manifest
+    async fn load_plugin(&self, manifest: &PluginManifest, _path: &Path) -> Result<Arc<dyn Plugin>> {
+        // In a real implementation, this would load the plugin from the manifest and path
+        // For now, just return a placeholder plugin with metadata from the manifest
+        let metadata = manifest.to_metadata();
+        Ok(create_placeholder_plugin(metadata))
     }
 } 

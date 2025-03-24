@@ -5,13 +5,17 @@
 /// UI manager for the application
 #[derive(Debug)]
 pub struct UiManager {
-    // Implementation details will be added as needed
+    /// Whether the UI is visible or not
+    visible: bool,
+    // More implementation details will be added as needed
 }
 
 impl UiManager {
     /// Creates a new UI manager
     pub fn new() -> Self {
-        Self {}
+        Self {
+            visible: true,
+        }
     }
 }
 

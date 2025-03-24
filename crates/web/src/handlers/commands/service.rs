@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::sync::Arc;
 use async_trait::async_trait;
 #[cfg(feature = "db")]
-use sqlx::{Executor, Row, SqlitePool};
+use sqlx::{Executor, Row, SqlitePool, sqlite::SqliteRow};
 
 use crate::api::error::AppError;
 use crate::api::commands::{
@@ -566,8 +566,14 @@ impl CommandService for MockCommandService {
                 let filtered: Vec<_> = summaries
                     .into_iter()
                     .filter(|s| {
-                        let status_match = status.as_ref().is_none_or(|st| &s.status == st);
-                        let command_match = command.as_ref().is_none_or(|cmd| &s.command == cmd);
+                        let status_match = match status.as_ref() {
+                            None => true,
+                            Some(st) => s.status == *st,
+                        };
+                        let command_match = match command.as_ref() {
+                            None => true,
+                            Some(cmd) => s.command == *cmd,
+                        };
                         status_match && command_match
                     })
                     .collect();

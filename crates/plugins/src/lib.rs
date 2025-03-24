@@ -41,18 +41,22 @@ pub use monitoring::MonitoringPlugin;
 pub use errors::{PluginError, Result};
 pub use state::{PluginStateManager, MemoryStateManager, FileStateManager};
 
-// Plugin system version
+/// The current version of the plugin system.
+/// 
+/// This version is used for compatibility checking between plugins and the system.
 pub const PLUGIN_SYSTEM_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// Plugin system name
+/// The name of the plugin system.
 pub const PLUGIN_SYSTEM_NAME: &str = env!("CARGO_PKG_NAME");
 
-// Plugin system description
+/// The description of the plugin system.
+/// 
+/// Contains a brief explanation of the plugin system's purpose.
 pub const PLUGIN_SYSTEM_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 // Team-specific plugin types
 pub use galaxy::GalaxyPlugin;
 pub use commands::CommandsPlugin;
 
-// Plugin system author
+/// The author information for the plugin system.
 pub const PLUGIN_SYSTEM_AUTHOR: &str = env!("CARGO_PKG_AUTHORS");

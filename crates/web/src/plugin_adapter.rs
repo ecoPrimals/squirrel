@@ -7,13 +7,11 @@ use std::sync::Arc;
 use anyhow::{Result, Context};
 use axum::{
     Router,
-    routing::{get, post},
+    routing::get,
     extract::State,
     Json,
 };
-use serde::{Serialize, Deserialize};
 use tracing::{debug, error, info};
-use uuid::Uuid;
 
 use crate::AppState;
 use crate::plugins::{
@@ -189,7 +187,7 @@ pub async fn create_plugin_endpoint_routes(
         .await?;
     
     // Create a router with all plugin endpoints
-    let mut router = Router::new();
+    let router = Router::new();
     
     // Configure each endpoint route
     for (plugin_id, endpoint) in endpoints {

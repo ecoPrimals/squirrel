@@ -3,10 +3,10 @@
 //! This module provides an extension trait for Galaxy plugins that adds tool-related functionality.
 
 use std::collections::HashMap;
-use std::any::Any;
+use std::fmt::Debug;
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::galaxy::GalaxyPlugin;
 use crate::tools::ToolPlugin;
@@ -61,7 +61,7 @@ pub struct GalaxyToolParameter {
 }
 
 /// Galaxy job status
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GalaxyJobStatus {
     /// Job is waiting to run
     Waiting,
@@ -94,7 +94,7 @@ pub struct GalaxyToolOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::galaxy::adapter_plugin::{GalaxyAdapterPlugin, GalaxyAdapterPluginConfig};
+    use crate::galaxy::adapter_plugin::GalaxyAdapterPlugin;
     
     // Sample implementation for a Galaxy tool plugin
     #[derive(Debug)]
@@ -149,7 +149,7 @@ mod tests {
                 "list_tools" => {
                     let tools = self.list_galaxy_tools().await?;
                     let tool_json = tools.iter().map(|t| {
-                        json!({
+                        serde_json::json!({
                             "id": t.id,
                             "name": t.name,
                             "description": t.description,
@@ -173,7 +173,7 @@ mod tests {
                     }
                     
                     let job_id = self.execute_galaxy_tool(tool_id, param_map).await?;
-                    Ok(crate::tools::CommandResult::success(json!({ "job_id": job_id })))
+                    Ok(crate::tools::CommandResult::success(serde_json::json!({ "job_id": job_id })))
                 },
                 _ => Ok(crate::tools::CommandResult::error(format!("Unsupported command: {}", command))),
             }

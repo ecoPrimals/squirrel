@@ -27,7 +27,7 @@ pub struct Permission {
 }
 
 /// Permission scope
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum PermissionScope {
     /// System scope
     System,
@@ -127,7 +127,7 @@ pub trait SecurityManager: Send + Sync + Debug {
 }
 
 /// Default security manager implementation
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct DefaultSecurityManager {
     // Implementation details
 }
@@ -194,11 +194,5 @@ impl SecurityManager for DefaultSecurityManager {
     async fn verify_signature(&self, _metadata: &PluginMetadata, _signature: &[u8]) -> Result<bool> {
         // Basic implementation
         Ok(true)
-    }
-}
-
-impl Default for DefaultSecurityManager {
-    fn default() -> Self {
-        Self::new()
     }
 } 

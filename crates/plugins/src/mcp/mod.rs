@@ -7,6 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
+use serde::{Serialize, Deserialize};
 
 use crate::plugin::Plugin;
 
@@ -36,8 +37,8 @@ pub trait McpPlugin: Plugin {
     }
 }
 
-/// MCP protocol message types
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// MCP message type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum McpMessageType {
     /// Request message
     Request,

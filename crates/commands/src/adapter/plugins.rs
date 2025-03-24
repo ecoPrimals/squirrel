@@ -376,7 +376,8 @@ mod tests {
             "args": ["arg1", "arg2"]
         });
         
-        let result = adapter.execute_command("test", input).await?;
+        // Use the correct command ID format with "command." prefix
+        let result = adapter.execute_command("command.test", input).await?;
         
         // Check result
         assert!(result.get("success").unwrap().as_bool().unwrap(), "Command execution should succeed");

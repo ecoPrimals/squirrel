@@ -10,9 +10,6 @@ use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
 use std::any::Any;
 
-// Import the Interface version with renamed types
-// We're not using these yet, but they'll be needed for migration
-use squirrel_interfaces::plugins::{Plugin as IPlugin, PluginMetadata as IPluginMetadata};
 
 /// Legacy Plugin metadata, will be deprecated in favor of IPluginMetadata
 #[derive(Clone, Debug, Serialize, Deserialize)]

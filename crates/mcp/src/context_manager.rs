@@ -287,7 +287,7 @@ impl ContextManager {
         validation: ContextValidation,
     ) -> Result<()> {
         // Validate schema
-        if validation.schema.is_null() || validation.schema.as_object().is_none_or(|o| o.is_empty())
+        if validation.schema.is_null() || is_none_or_matches(validation.schema.as_object(), |o| o.is_empty())
         {
             return Err(MCPError::Context(ContextError::ValidationError(
                 "Invalid validation schema".into(),
@@ -482,6 +482,17 @@ fn rule_validator(rule: &str, context: &Context) -> bool {
             warn!("Unknown validation rule: {}", rule);
             true // Default to passing for unknown rules
         }
+    }
+}
+
+/// Helper function to check if an Option is None or its value satisfies a predicate
+fn is_none_or_matches<T, F>(opt: Option<&T>, predicate: F) -> bool
+where
+    F: FnOnce(&T) -> bool,
+{
+    match opt {
+        None => true,
+        Some(value) => predicate(value),
     }
 }
 

@@ -1,22 +1,23 @@
+use std::{str::FromStr, sync::Arc};
+
 use axum::{
-    Router,
-    routing::{get, post},
     extract::{Path, Query, State, Extension},
+    routing::{get, post},
+    Router,
     Json,
 };
-use std::sync::Arc;
-use crate::state::AppState;
-use crate::auth::extractor::AuthClaims;
-use crate::api::{
-    api_success,
-    commands::{
-        CreateCommandRequest, CreateCommandResponse, CommandStatus
-    },
-    error::AppError,
-    ApiResponse,
-};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+
+use crate::{
+    api::{
+        commands::models::{CommandStatus, CreateCommandRequest, CreateCommandResponse},
+        ApiResponse,
+        api_success,
+    },
+    AppState,
+    auth::extractor::AuthClaims,
+    api::error::AppError,
+};
 
 /// Command routes
 pub fn command_routes() -> Router<Arc<AppState>> {
@@ -181,8 +182,14 @@ async fn get_command_history(
     
     let filtered_commands = commands.into_iter()
         .filter(|cmd| {
-            let status_match = status_filter.is_none_or(|s| cmd.status == s);
-            let command_match = command_filter.is_none_or(|c| cmd.command == c);
+            let status_match = match status_filter {
+                None => true,
+                Some(s) => cmd.status == s,
+            };
+            let command_match = match command_filter {
+                None => true,
+                Some(c) => cmd.command == *c,
+            };
             status_match && command_match
         })
         .collect::<Vec<_>>();

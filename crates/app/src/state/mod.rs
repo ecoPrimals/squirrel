@@ -2,16 +2,22 @@
 //!
 //! This module provides functionality for managing the application state.
 
+use std::collections::HashMap;
+
 /// State manager for the application
 #[derive(Debug)]
 pub struct StateManager {
-    // Implementation details will be added as needed
+    /// The internal state storage
+    state: HashMap<String, String>,
+    // More implementation details will be added as needed
 }
 
 impl StateManager {
     /// Creates a new state manager
     pub fn new() -> Self {
-        Self {}
+        Self {
+            state: HashMap::new(),
+        }
     }
 }
 
