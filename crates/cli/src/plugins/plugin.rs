@@ -99,10 +99,27 @@ pub trait Plugin: Send + Sync + 'static {
     /// This method is called when the plugin is loaded.
     /// It should perform any necessary setup.
     ///
+    /// Expected state transition: Created -> Initialized
+    ///
     /// # Returns
     ///
     /// `Ok(())` if initialization succeeds, or an error otherwise
     async fn initialize(&self) -> Result<(), PluginError>;
+    
+    /// Start the plugin
+    ///
+    /// This method is called after initialization to start the plugin.
+    /// It should begin any background processing or services.
+    ///
+    /// Expected state transition: Initialized -> Started
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if starting succeeds, or an error otherwise
+    async fn start(&self) -> Result<(), PluginError> {
+        // Default implementation does nothing
+        Ok(())
+    }
     
     /// Register commands with the command registry
     ///
@@ -139,10 +156,27 @@ pub trait Plugin: Send + Sync + 'static {
     /// `Ok(String)` with the result if execution succeeds, or an error otherwise
     async fn execute(&self, args: &[String]) -> Result<String, PluginError>;
     
+    /// Stop the plugin
+    ///
+    /// This method is called to stop the plugin's operations.
+    /// It should stop any background processing or services.
+    ///
+    /// Expected state transition: Started -> Stopped
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if stopping succeeds, or an error otherwise
+    async fn stop(&self) -> Result<(), PluginError> {
+        // Default implementation does nothing
+        Ok(())
+    }
+    
     /// Clean up plugin resources
     ///
     /// This method is called when the plugin is being unloaded.
     /// It should clean up any resources allocated by the plugin.
+    ///
+    /// Expected state transition: Stopped -> Cleaned
     ///
     /// # Returns
     ///

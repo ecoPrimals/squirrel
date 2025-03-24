@@ -7,16 +7,19 @@ pub mod plugin;
 pub mod manager;
 pub mod state;
 pub mod error;
+pub mod example_plugin;
 #[cfg(test)]
 mod tests;
 
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::env;
+use std::sync::Arc;
 
-pub use plugin::{PluginItem, PluginStatus, PluginMetadata};
+pub use plugin::{PluginItem, PluginStatus, PluginMetadata, Plugin, PluginFactory};
 pub use manager::PluginManager;
 pub use error::PluginError;
+pub use example_plugin::ExamplePlugin;
 use log::{debug, info, warn, error};
 
 /// Default plugin directory relative to user's home directory
@@ -210,6 +213,48 @@ pub fn initialize_plugins() -> Result<(), error::PluginError> {
         }
     }
     
+    // Register built-in plugins
+    match register_builtin_plugins(&mut plugin_manager) {
+        Ok(count) => {
+            info!("Registered {} built-in plugins", count);
+            total_count += count;
+        },
+        Err(err) => {
+            error!("Error registering built-in plugins: {}", err);
+        }
+    }
+    
     info!("Plugin system initialized with {} plugins", total_count);
     Ok(())
+}
+
+/// Register built-in plugins that come with the CLI
+///
+/// # Arguments
+///
+/// * `plugin_manager` - The plugin manager to register built-in plugins with
+///
+/// # Returns
+///
+/// The number of built-in plugins registered
+fn register_builtin_plugins(plugin_manager: &mut PluginManager) -> Result<usize, PluginError> {
+    info!("Registering built-in plugins");
+    
+    let mut count = 0;
+    
+    // Register example plugin
+    let example_factory = example_plugin::ExamplePluginFactory;
+    match plugin_manager.register_plugin_factory("example", Arc::new(example_factory)) {
+        Ok(_) => {
+            info!("Registered built-in example plugin");
+            count += 1;
+        },
+        Err(err) => {
+            warn!("Failed to register built-in example plugin: {}", err);
+        }
+    }
+    
+    // Add additional built-in plugins here
+    
+    Ok(count)
 } 

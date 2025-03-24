@@ -27,6 +27,8 @@ pub struct PluginManager {
     plugin_states: HashMap<String, PluginState>,
     /// Plugin libraries
     libraries: HashMap<String, Library>,
+    /// Plugin factories
+    plugin_factories: HashMap<String, Arc<dyn PluginFactory>>,
 }
 
 impl PluginManager {
@@ -37,6 +39,7 @@ impl PluginManager {
             loaded_plugins: HashMap::new(),
             plugin_states: HashMap::new(),
             libraries: HashMap::new(),
+            plugin_factories: HashMap::new(),
         }
     }
 
@@ -109,7 +112,7 @@ impl PluginManager {
     /// `Ok(())` if loading succeeds, or an error otherwise
     pub fn load_plugin(&mut self, name: &str) -> Result<(), PluginError> {
         // Check if plugin exists
-        let plugin_item = self.get_plugin(name)?;
+        let _plugin_item = self.get_plugin(name)?;
         
         // Check if plugin is already loaded
         if self.loaded_plugins.contains_key(name) {
@@ -120,11 +123,14 @@ impl PluginManager {
         let rt = Runtime::new()
             .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
         
-        // Get the plugin path
-        let plugin_path = plugin_item.path().to_path_buf();
-        
-        // Load the plugin
-        let plugin = self.load_plugin_from_path(name, &plugin_path)?;
+        let plugin = if let Some(factory) = self.plugin_factories.get(name) {
+            // Create plugin from factory
+            factory.create()?
+        } else {
+            // Get the plugin path and load from filesystem
+            let plugin_path = _plugin_item.path().to_path_buf();
+            self.load_plugin_from_path(name, &plugin_path)?
+        };
         
         // Initialize the plugin
         match rt.block_on(plugin.initialize()) {
@@ -133,7 +139,7 @@ impl PluginManager {
                 self.loaded_plugins.insert(name.to_string(), plugin);
                 
                 // Update plugin state
-                self.plugin_states.insert(name.to_string(), PluginState::Initialized);
+                self.plugin_states.insert(name.to_string(), crate::plugins::state::PluginState::Initialized);
                 
                 // Update plugin status
                 let plugin_item = self.get_plugin_mut(name)?;
@@ -148,7 +154,7 @@ impl PluginManager {
                 let plugin_item = self.get_plugin_mut(name)?;
                 plugin_item.set_status(PluginStatus::Failed(e.to_string()));
                 
-                Err(e)
+                Err(PluginError::InitError(e.to_string()))
             }
         }
     }
@@ -531,6 +537,185 @@ impl PluginManager {
         }
         
         Ok(Arc::new(TestPlugin { name, _path: path }))
+    }
+
+    /// Register a plugin factory for creating plugins
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name to register the plugin factory under
+    /// * `factory` - The plugin factory to register
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if successful, or an error if registration fails
+    pub fn register_plugin_factory(&mut self, name: &str, factory: Arc<dyn PluginFactory>) -> Result<(), PluginError> {
+        info!("Registering plugin factory: {}", name);
+        
+        // Create the plugin instance
+        let plugin = factory.create()?;
+        
+        // Create metadata from the plugin
+        let metadata = PluginMetadata {
+            name: plugin.name().to_string(),
+            version: plugin.version().to_string(),
+            description: plugin.description().map(|s| s.to_string()),
+            author: None, // Factories don't provide author
+            homepage: None, // Factories don't provide homepage
+        };
+        
+        // Create a plugin item
+        let plugin_path = PathBuf::from("built-in"); // Built-in plugins don't have a path
+        let plugin_item = PluginItem::new(metadata, plugin_path, PluginStatus::Installed);
+        
+        // Add to plugins list
+        self.plugins.insert(name.to_string(), plugin_item);
+        
+        // Store the factory
+        self.plugin_factories.insert(name.to_string(), factory);
+        
+        // Track plugin state
+        self.plugin_states.insert(name.to_string(), crate::plugins::state::PluginState::Created);
+        
+        Ok(())
+    }
+
+    /// Start a plugin by name
+    ///
+    /// This method starts a loaded plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the plugin to start
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if starting succeeds, or an error otherwise
+    pub fn start_plugin(&mut self, name: &str) -> Result<(), PluginError> {
+        // Check if plugin exists and is loaded
+        let _plugin_item = self.get_plugin(name)?;
+        
+        // Check if plugin is loaded
+        if !self.loaded_plugins.contains_key(name) {
+            return Err(PluginError::LoadError(format!("Plugin {} is not loaded", name)));
+        }
+        
+        // Create a runtime for async operations
+        let rt = Runtime::new()
+            .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
+        
+        // Get plugin state
+        let current_state = self.plugin_states.get(name)
+            .ok_or_else(|| PluginError::Unknown(format!("Plugin {} has no state", name)))?;
+        
+        // Check if plugin is already started
+        if *current_state == crate::plugins::state::PluginState::Started {
+            return Ok(());
+        }
+        
+        // Check if plugin can be started
+        if *current_state != crate::plugins::state::PluginState::Initialized {
+            return Err(PluginError::ValidationError(
+                format!("Plugin {} is in state {:?}, must be in Initialized state to start", 
+                    name, current_state)
+            ));
+        }
+        
+        // Get plugin instance
+        let plugin = self.loaded_plugins.get(name)
+            .ok_or_else(|| PluginError::Unknown(format!("Plugin {} not found in loaded plugins", name)))?;
+        
+        // Start the plugin
+        match rt.block_on(plugin.start()) {
+            Ok(()) => {
+                info!("Plugin {} started successfully", name);
+                
+                // Update plugin state
+                self.plugin_states.insert(name.to_string(), crate::plugins::state::PluginState::Started);
+                
+                // Update plugin status
+                let plugin_item = self.get_plugin_mut(name)?;
+                plugin_item.set_status(PluginStatus::Enabled);
+                
+                Ok(())
+            },
+            Err(e) => {
+                error!("Failed to start plugin {}: {}", name, e);
+                
+                // Update plugin status
+                let plugin_item = self.get_plugin_mut(name)?;
+                plugin_item.set_status(PluginStatus::Failed(e.to_string()));
+                
+                Err(e)
+            }
+        }
+    }
+
+    /// Stop a plugin by name
+    ///
+    /// This method stops a running plugin.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the plugin to stop
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if stopping succeeds, or an error otherwise
+    pub fn stop_plugin(&mut self, name: &str) -> Result<(), PluginError> {
+        // Check if plugin exists
+        let _plugin_item = self.get_plugin(name)?;
+        
+        // Check if plugin is loaded
+        if !self.loaded_plugins.contains_key(name) {
+            return Err(PluginError::LoadError(format!("Plugin {} is not loaded", name)));
+        }
+        
+        // Create a runtime for async operations
+        let rt = Runtime::new()
+            .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
+        
+        // Get plugin state
+        let current_state = self.plugin_states.get(name)
+            .ok_or_else(|| PluginError::Unknown(format!("Plugin {} has no state", name)))?;
+        
+        // Check if plugin is already stopped
+        if *current_state == crate::plugins::state::PluginState::Stopped {
+            return Ok(());
+        }
+        
+        // Check if plugin can be stopped
+        if *current_state != crate::plugins::state::PluginState::Started {
+            return Err(PluginError::ValidationError(
+                format!("Plugin {} is in state {:?}, must be in Started state to stop", 
+                    name, current_state)
+            ));
+        }
+        
+        // Get plugin instance
+        let plugin = self.loaded_plugins.get(name)
+            .ok_or_else(|| PluginError::Unknown(format!("Plugin {} not found in loaded plugins", name)))?;
+        
+        // Stop the plugin
+        match rt.block_on(plugin.stop()) {
+            Ok(()) => {
+                info!("Plugin {} stopped successfully", name);
+                
+                // Update plugin state
+                self.plugin_states.insert(name.to_string(), crate::plugins::state::PluginState::Stopped);
+                
+                // Update plugin status
+                let plugin_item = self.get_plugin_mut(name)?;
+                plugin_item.set_status(PluginStatus::Disabled);
+                
+                Ok(())
+            },
+            Err(e) => {
+                error!("Failed to stop plugin {}: {}", name, e);
+                
+                Err(e)
+            }
+        }
     }
 }
 
