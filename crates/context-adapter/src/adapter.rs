@@ -26,9 +26,8 @@ use chrono::{DateTime, Utc};
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use uuid::Uuid;
 
-use squirrel_context::{ContextState, ContextError as GenericContextError};
+use squirrel_context::ContextError as GenericContextError;
 use squirrel_core::error::{Result, SquirrelError};
 
 /// Errors specific to context adapter operations
@@ -69,6 +68,61 @@ impl Default for ContextAdapterConfig {
             ttl_seconds: 3600,
             enable_auto_cleanup: true,
         }
+    }
+}
+
+/// Our version of ContextState for compatibility with the original API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextState {
+    /// Data stored in the context
+    pub data: HashMap<String, String>,
+    /// Version of the context
+    pub version: u64,
+    /// Timestamp of the context
+    pub timestamp: u64,
+    /// Metadata for the context
+    pub metadata: HashMap<String, String>,
+    /// Whether the context is synchronized
+    pub synchronized: bool,
+    /// ID of the context
+    pub id: String,
+}
+
+impl ContextState {
+    /// Creates a new context state
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            data: HashMap::new(),
+            version: 0,
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            metadata: HashMap::new(),
+            synchronized: false,
+        }
+    }
+    
+    /// Set data in the context state
+    pub fn with_data(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.data.insert(key.into(), value.into());
+        self
+    }
+    
+    /// Set metadata in the context state
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+    
+    /// Set the version
+    pub fn with_version(mut self, version: u64) -> Self {
+        self.version = version;
+        self
+    }
+    
+    /// Set synchronized flag
+    pub fn with_synchronized(mut self, synchronized: bool) -> Self {
+        self.synchronized = synchronized;
+        self
     }
 }
 
@@ -311,8 +365,6 @@ impl ContextAdapter {
     #[allow(dead_code)]
     fn convert_context_state(state: &ContextState) -> AdapterContextData {
         let now = Utc::now();
-        // Generate a new UUID for the ID since ContextState doesn't have an id field
-        let id = Uuid::new_v4().to_string();
         
         // Convert HashMap<String, String> to a serde_json::Value
         let json_data = {
@@ -324,7 +376,7 @@ impl ContextAdapter {
         };
         
         AdapterContextData {
-            id,
+            id: state.id.clone(),
             data: json_data,
             created_at: now,
             updated_at: now,

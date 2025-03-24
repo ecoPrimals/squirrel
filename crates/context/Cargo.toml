@@ -9,12 +9,13 @@ description = "Context management system for Squirrel"
 # Core dependencies
 tokio = { version = "1.0", features = ["full"] }
 futures = "0.3"
-async-trait = { workspace = true }
+async-trait = "0.1"
 thiserror = "1.0"
+anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde", "clock"] }
 sled = { workspace = true }
 rand = { workspace = true }
 tracing = "0.1"
@@ -22,11 +23,16 @@ tracing-subscriber = { workspace = true }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
+squirrel-interfaces = { path = "../interfaces" }
+
+[features]
+default = []
+with-plugins = []
 
 [dev-dependencies]
 tokio-test = "0.4"
-tempfile = { workspace = true }
-mockall = { workspace = true }
+tempfile = "3.3"
+mockall = "0.11"
 
 [lib]
 name = "squirrel_context"

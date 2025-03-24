@@ -1,89 +1,142 @@
+use anyhow::Result;
+use serde_json::json;
 use squirrel_context::{
-    create_manager, create_adapter, Result,
+    create_default_manager
 };
+use squirrel_interfaces::context::ContextManager;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     // Create a context manager
-    let manager = create_manager();
+    let manager = create_default_manager();
     
-    // Create a context adapter
-    let adapter = create_adapter(manager.clone());
+    // Initialize the manager
+    if let Err(e) = manager.initialize().await {
+        eprintln!("Failed to initialize manager: {:?}", e);
+        anyhow::bail!("Manager initialization failed");
+    }
+    println!("Manager initialized successfully");
     
-    // Initialize the adapter - this will also activate the default context
-    adapter.initialize().await?;
+    // Create a test plugin
+    #[derive(Debug)]
+    struct TestPlugin {
+        id: String,
+        name: String
+    }
     
-    // Get the current context ID
-    let current_id = adapter.get_current_context_id().await?;
-    println!("Current context ID: {}", current_id);
+    impl TestPlugin {
+        fn new(id: &str, name: &str) -> Self {
+            Self {
+                id: id.to_string(),
+                name: name.to_string()
+            }
+        }
+    }
     
-    // Get the current context tracker
-    let tracker = adapter.get_current_tracker().await?;
+    use async_trait::async_trait;
+    use squirrel_interfaces::plugins::{Plugin, PluginMetadata};
+    use squirrel_interfaces::context::{ContextPlugin, ContextTransformation, ContextAdapterPlugin};
+    use std::sync::Arc;
     
-    // Get the current state
-    let mut state = tracker.get_state().await?;
-    println!("Initial state: {:?}", state);
+    #[async_trait]
+    impl Plugin for TestPlugin {
+        fn metadata(&self) -> &PluginMetadata {
+            // This would typically be a field in the struct
+            // but for simplicity we're creating it on demand
+            static mut METADATA: Option<PluginMetadata> = None;
+            unsafe {
+                if METADATA.is_none() {
+                    METADATA = Some(PluginMetadata::new(
+                        "test.basic",
+                        "1.0.0",
+                        "A basic test plugin",
+                        "DataScienceBioLab"
+                    ).with_capability("context"));
+                }
+                METADATA.as_ref().unwrap()
+            }
+        }
+    }
     
-    // Update the state
-    state.set("key1".to_string(), "value1".to_string());
-    state.set("key2".to_string(), "value2".to_string());
+    #[async_trait]
+    impl ContextPlugin for TestPlugin {
+        async fn get_transformations(&self) -> Vec<Arc<dyn ContextTransformation>> {
+            vec![Arc::new(BasicTransformation::new())]
+        }
+        
+        async fn get_adapters(&self) -> Vec<Arc<dyn ContextAdapterPlugin>> {
+            vec![]
+        }
+    }
     
-    // Update the tracker with the new state
-    tracker.update_state(state).await?;
+    // Define a simple transformation
+    #[derive(Debug)]
+    struct BasicTransformation;
     
-    // Get the updated state
-    let updated_state = tracker.get_state().await?;
-    println!("Updated state: {:?}", updated_state);
+    impl BasicTransformation {
+        fn new() -> Self {
+            Self
+        }
+    }
     
-    // Create a new context
-    let new_context_id = "new-context";
-    let new_tracker = adapter.create_and_activate_context(new_context_id).await?;
+    #[async_trait]
+    impl ContextTransformation for BasicTransformation {
+        fn get_id(&self) -> &str {
+            "basic.transform"
+        }
+        
+        fn get_name(&self) -> &str {
+            "Basic Transformation"
+        }
+        
+        fn get_description(&self) -> &str {
+            "A simple transformation for the basic example"
+        }
+        
+        async fn transform(&self, data: serde_json::Value) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+            // Add a timestamp and wrap the data
+            let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+                Ok(n) => n.as_secs().to_string(),
+                Err(_) => "unknown".to_string(),
+            };
+            
+            let result = json!({
+                "original": data,
+                "timestamp": timestamp,
+                "transformation": "basic.transform"
+            });
+            
+            Ok(result)
+        }
+    }
     
-    // Verify the current context ID
-    let current_id = adapter.get_current_context_id().await?;
-    println!("New current context ID: {}", current_id);
+    // Register the plugin
+    let plugin = Box::new(TestPlugin::new("test.basic", "Basic Test Plugin"));
+    if let Err(e) = manager.register_plugin(plugin).await {
+        eprintln!("Failed to register plugin: {:?}", e);
+        anyhow::bail!("Plugin registration failed");
+    }
+    println!("Plugin registered successfully");
     
-    // Update the new context state
-    let mut new_state = new_tracker.get_state().await?;
-    new_state.set("app".to_string(), "example".to_string());
-    new_state.set("version".to_string(), "1.0".to_string());
+    // Create test data
+    let test_data = json!({
+        "query": "What is the capital of France?",
+        "context": {
+            "user": "example_user",
+            "session": "12345"
+        }
+    });
     
-    // Update the tracker with the new state
-    new_tracker.update_state(new_state).await?;
-    
-    // Get the updated state
-    let updated_state = new_tracker.get_state().await?;
-    println!("New context state: {:?}", updated_state);
-    
-    // Create a recovery point for the current context
-    let snapshot = adapter.create_recovery_point().await?;
-    println!("Created recovery point: {:?}", snapshot);
-    
-    // Switch back to the default context
-    let default_tracker = adapter.switch_context("default").await?;
-    
-    // Verify the current context ID
-    let current_id = adapter.get_current_context_id().await?;
-    println!("Switched back to context ID: {}", current_id);
-    
-    // Get the state of the default context
-    let default_state = default_tracker.get_state().await?;
-    println!("Default context state: {:?}", default_state);
-    
-    // List all context IDs
-    let context_ids = adapter.list_context_ids().await?;
-    println!("All context IDs: {:?}", context_ids);
-    
-    // List active context IDs
-    let active_ids = adapter.list_active_context_ids().await?;
-    println!("Active context IDs: {:?}", active_ids);
-    
-    // Deactivate the new context
-    adapter.deactivate_context(new_context_id).await?;
-    
-    // Verify active contexts after deactivation
-    let active_ids = adapter.list_active_context_ids().await?;
-    println!("Active context IDs after deactivation: {:?}", active_ids);
+    // Transform the data
+    match manager.transform_data("basic.transform", test_data.clone()).await {
+        Ok(transformed) => {
+            println!("Transformation result: {}", serde_json::to_string_pretty(&transformed)?);
+        },
+        Err(e) => {
+            eprintln!("Transformation failed: {:?}", e);
+            anyhow::bail!("Data transformation failed");
+        }
+    }
     
     Ok(())
 } 

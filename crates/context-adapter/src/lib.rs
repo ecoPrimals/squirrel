@@ -16,6 +16,14 @@ pub mod adapter;
 /// Re-export the main adapter module
 pub use adapter::*;
 
+/// Re-export common interfaces
+pub use squirrel_interfaces::context::{
+    ContextAdapterPlugin,
+    AdapterMetadata,
+    ContextPlugin,
+    ContextTransformation,
+};
+
 /// Tests for the context adapter
 #[cfg(test)]
 pub mod tests; 

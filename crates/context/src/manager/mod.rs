@@ -19,371 +19,181 @@
 //! follow these same patterns to avoid potential deadlocks or performance issues.
 
 use std::sync::Arc;
-use std::collections::HashMap;
-use tokio::sync::{Mutex as AsyncMutex, RwLock};
-use chrono::Utc;
-use uuid::Uuid;
+use async_trait::async_trait;
+use serde_json::Value;
+use tokio::sync::RwLock;
 
-use crate::{ContextError, ContextState, ContextSnapshot, Result, persistence::PersistenceManager};
-use crate::state::StateStorage;
+use squirrel_interfaces::context::ContextManager as InterfaceContextManager;
+use squirrel_interfaces::context::{ContextPlugin, ContextTransformation};
+use crate::ContextError;
+use crate::plugins::ContextPluginManager;
 
-/// Context manager configuration
+/// Configuration for the context manager
 #[derive(Debug, Clone)]
 pub struct ContextManagerConfig {
-    /// Maximum number of contexts to track
-    pub max_contexts: usize,
-    /// Maximum number of recovery points per context
-    pub max_recovery_points: usize,
-    /// Persistence enabled flag
-    pub persistence_enabled: bool,
+    /// Whether to enable plugins
+    pub enable_plugins: bool,
+    /// Additional configuration options can be added here
+    pub plugin_paths: Option<Vec<String>>,
 }
 
 impl Default for ContextManagerConfig {
     fn default() -> Self {
         Self {
-            max_contexts: 100,
-            max_recovery_points: 10,
-            persistence_enabled: true,
+            enable_plugins: true,
+            plugin_paths: None,
         }
     }
 }
 
-/// Context manager structure for managing contexts across the application
-#[derive(Debug)]
+/// The main implementation of the Context Manager
 pub struct ContextManager {
-    /// Contexts stored by ID
-    contexts: RwLock<HashMap<String, ContextState>>,
-    /// Recovery points stored by context ID
-    recovery_points: RwLock<HashMap<String, Vec<ContextSnapshot>>>,
+    /// Plugin manager instance
+    plugin_manager: RwLock<Option<Arc<ContextPluginManager>>>,
     /// Configuration
     config: ContextManagerConfig,
-    /// Persistence manager
-    persistence: Option<Arc<PersistenceManager>>,
-    /// Lock for async operations
-    async_lock: Arc<AsyncMutex<()>>,
+    /// Initialization state
+    initialized: RwLock<bool>,
 }
 
 impl ContextManager {
-    /// Create a new context manager
-    #[must_use] 
-    pub fn new() -> Self {
-        Self {
-            contexts: RwLock::new(HashMap::new()),
-            recovery_points: RwLock::new(HashMap::new()),
-            config: ContextManagerConfig::default(),
-            persistence: None,
-            async_lock: Arc::new(AsyncMutex::new(())),
-        }
-    }
-    
-    /// Create a new context manager with configuration
-    #[must_use]
+    /// Creates a new context manager with the given configuration
     pub fn with_config(config: ContextManagerConfig) -> Self {
         Self {
-            contexts: RwLock::new(HashMap::new()),
-            recovery_points: RwLock::new(HashMap::new()),
+            plugin_manager: RwLock::new(None),
             config,
-            persistence: None,
-            async_lock: Arc::new(AsyncMutex::new(())),
+            initialized: RwLock::new(false),
         }
     }
     
-    /// Set the persistence manager for this context manager
-    pub fn set_persistence_manager(&mut self, persistence: Arc<PersistenceManager>) {
-        self.persistence = Some(persistence);
+    /// Creates a new context manager with default configuration
+    pub fn new() -> Self {
+        Self::with_config(ContextManagerConfig::default())
     }
     
-    /// Initialize the context manager
-    ///
-    /// This function prepares the context manager for use by loading any existing
-    /// contexts and setting up necessary resources.
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Failed to load existing contexts
-    /// - Failed to initialize persistence
-    pub async fn initialize(&mut self) -> Result<()> {
-        // Load all contexts from persistence if available
-        if let Some(_persistence) = &self.persistence {
-            // Try to load states - if persistence methods don't exist, these will just be skipped
-            
-            // Get context states - this is a simplified method that may not work with all persistence managers
-            let _contexts = self.contexts.write().await;
-            // Basic implementation - actual code would interact with persistence manager
-            // Ideally, we'd load states here, but this is simplified
-        }
-        
-        Ok(())
-    }
-    
-    /// Get context state by ID
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found
-    /// - Failed to acquire lock
-    pub async fn get_context_state(&self, id: &str) -> Result<ContextState> {
-        let contexts = self.contexts.read().await;
-        
-        // Check if context exists
-        if let Some(state) = contexts.get(id) {
-            Ok(state.clone())
-        } else {
-            Err(ContextError::NotFound(format!("Context not found: {}", id)))
-        }
-    }
-    
-    /// Create a new context with the given ID and state
-    ///
-    /// This method creates a new context with the specified ID and initial state.
-    /// It follows best practices for async lock management by:
-    /// 1. Using a read lock for initial validation
-    /// 2. Dropping the read lock before acquiring a write lock
-    /// 3. Using separate lock scopes to minimize lock duration
-    /// 4. Not holding any locks during persistence operations
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Maximum number of contexts reached
-    /// - Context already exists
-    /// - Failed to acquire lock
-    /// - Failed to persist context
-    pub async fn create_context(&self, id: &str, state: ContextState) -> Result<()> {
-        // First check if we can create the context
-        {
-            let contexts = self.contexts.read().await;
-            if contexts.len() >= self.config.max_contexts {
-                return Err(ContextError::InvalidState("Maximum number of contexts reached".to_string()));
-            }
-            
-            if contexts.contains_key(id) {
-                return Err(ContextError::InvalidState(format!("Context already exists: {}", id)));
-            }
-        } // Read lock is dropped here
-        
-        // Store context in memory with write lock
-        {
-            let mut contexts = self.contexts.write().await;
-            contexts.insert(id.to_string(), state.clone());
-        } // Write lock is dropped here
-        
-        // Persist to storage if enabled (without holding any locks)
-        if self.config.persistence_enabled {
-            if let Some(persistence) = &self.persistence {
-                persistence.save_state(id, &state)?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Update an existing context state
-    ///
-    /// This method updates an existing context with a new state.
-    /// It follows best practices for async lock management by:
-    /// 1. Using a read lock for initial validation
-    /// 2. Dropping the read lock before acquiring a write lock
-    /// 3. Using separate lock scopes to minimize lock duration
-    /// 4. Not holding any locks during persistence operations
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found
-    /// - Failed to acquire lock
-    pub async fn update_context_state(&self, id: &str, state: ContextState) -> Result<()> {
-        // First check if the context exists
-        {
-            let contexts = self.contexts.read().await;
-            if !contexts.contains_key(id) {
-                return Err(ContextError::NotFound(format!("Context not found: {}", id)));
-            }
-        } // Read lock is dropped here
-        
-        // Update context with write lock
-        {
-            let mut contexts = self.contexts.write().await;
-            contexts.insert(id.to_string(), state.clone());
-        } // Write lock is dropped here
-        
-        // Persist to storage if enabled (without holding any locks)
-        if self.config.persistence_enabled {
-            if let Some(persistence) = &self.persistence {
-                persistence.save_state(id, &state)?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Delete a context by ID
-    ///
-    /// This method removes a context from the manager.
-    /// It follows best practices for async lock management by:
-    /// 1. Using a read lock for initial validation
-    /// 2. Dropping the read lock before acquiring a write lock
-    /// 3. Using separate lock scopes to minimize lock duration
-    /// 4. Not holding any locks during persistence operations
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found
-    /// - Failed to acquire lock
-    pub async fn delete_context(&self, id: &str) -> Result<()> {
-        // First check if the context exists
-        {
-            let contexts = self.contexts.read().await;
-            if !contexts.contains_key(id) {
-                return Err(ContextError::NotFound(format!("Context not found: {}", id)));
-            }
-        } // Read lock is dropped here
-        
-        // Remove context with write lock
-        {
-            let mut contexts = self.contexts.write().await;
-            contexts.remove(id);
-        } // Write lock is dropped here
-        
-        // Remove from recovery points with separate write lock
-        {
-            let mut recovery_points = self.recovery_points.write().await;
-            recovery_points.remove(id);
-        } // Write lock is dropped here
-        
-        // Remove from persistence if enabled (without holding any locks)
-        if self.config.persistence_enabled {
-            if let Some(persistence) = &self.persistence {
-                persistence.delete_state(id)?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Create a recovery point for the given state
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Failed to create recovery point
-    /// - Failed to acquire lock
-    pub async fn create_recovery_point(&self, state: &ContextState) -> Result<ContextSnapshot> {
-        // Create a snapshot
-        let snapshot = ContextSnapshot {
-            id: Uuid::new_v4().to_string(),
-            state_id: state.id.clone(),
-            version: state.version,
-            timestamp: Utc::now().timestamp() as u64,
-            data: state.data.clone(),
-        };
-        
-        // Store the snapshot
-        if let Some(id) = Some(state.id.clone()) {
-            let mut recovery_points = self.recovery_points.write().await;
-            
-            // Get or create recovery points for this context
-            let points = recovery_points.entry(id.to_string()).or_insert_with(Vec::new);
-            
-            // Add the new snapshot
-            points.push(snapshot.clone());
-            
-            // Trim to max recovery points
-            if points.len() > self.config.max_recovery_points {
-                // Sort by timestamp descending
-                points.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-                
-                // Keep only the newest max_recovery_points
-                *points = points.iter()
-                    .take(self.config.max_recovery_points)
-                    .cloned()
-                    .collect();
-            }
-            
-            Ok(snapshot)
-        } else {
-            Err(ContextError::InvalidState("State has no ID".to_string()))
-        }
-    }
-    
-    /// Get recovery points for a context
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found
-    /// - Failed to acquire lock
-    pub async fn get_recovery_points(&self, context_id: &str) -> Result<Vec<ContextSnapshot>> {
-        let recovery_points = self.recovery_points.read().await;
-        
-        if let Some(points) = recovery_points.get(context_id) {
-            Ok(points.clone())
-        } else {
-            Ok(Vec::new()) // Return empty list if no recovery points exist yet
-        }
-    }
-    
-    /// Get all contexts
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Failed to acquire lock
-    pub async fn get_all_contexts(&self) -> Result<HashMap<String, ContextState>> {
-        let contexts = self.contexts.read().await;
-        Ok(contexts.clone())
-    }
-    
-    /// List all context IDs
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Failed to acquire lock
-    pub async fn list_context_ids(&self) -> Result<Vec<String>> {
-        let contexts = self.contexts.read().await;
-        let ids: Vec<String> = contexts.keys().cloned().collect();
-        Ok(ids)
-    }
-    
-    /// Load context state from persistence
-    ///
-    /// # Errors
-    ///
-    /// Returns errors when:
-    /// - Context not found in persistence
-    /// - Failed to acquire lock
-    /// - Failed to load from persistence
-    pub async fn load_context_state(&self, id: &str) -> Result<ContextState> {
-        if self.config.persistence_enabled {
-            if let Some(persistence) = &self.persistence {
-                // Use async lock to prevent concurrent persistence operations
-                let _guard = self.async_lock.lock().await;
-                
-                // Load state from persistence
-                // This is a simplified approach, assuming the persistence can find by ID
-                // In a real implementation, this would need to get the latest version by ID
-                let state = persistence.load_state(1)?; // Use version 1 as a fallback
-                
-                // Update in-memory cache
-                let mut contexts = self.contexts.write().await;
-                contexts.insert(id.to_string(), state.clone());
-                
-                Ok(state)
-            } else {
-                Err(ContextError::NotInitialized("Persistence not initialized".to_string()))
-            }
-        } else {
-            Err(ContextError::NotInitialized("Persistence not enabled".to_string()))
-        }
+    /// Returns the plugin manager if enabled
+    pub async fn get_plugin_manager(&self) -> Option<Arc<ContextPluginManager>> {
+        self.plugin_manager.read().await.clone()
     }
 }
 
 impl Default for ContextManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[async_trait]
+impl InterfaceContextManager for ContextManager {
+    /// Initialize the context manager
+    async fn initialize(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut initialized = self.initialized.write().await;
+        if *initialized {
+            return Ok(());
+        }
+        
+        // Initialize plugin manager if enabled
+        if self.config.enable_plugins {
+            let plugin_manager = Arc::new(ContextPluginManager::new());
+            
+            // Load plugins from configured paths if specified
+            if let Some(paths) = &self.config.plugin_paths {
+                for path in paths {
+                    plugin_manager.load_plugins_from_path(path).await?;
+                }
+            }
+            
+            // Store the plugin manager
+            *self.plugin_manager.write().await = Some(plugin_manager);
+        }
+        
+        *initialized = true;
+        Ok(())
+    }
+    
+    /// Transform data using the specified transformation ID
+    async fn transform_data(&self, transformation_id: &str, data: Value) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        // Check if initialized
+        if !*self.initialized.read().await {
+            return Err(Box::new(ContextError::NotInitialized));
+        }
+        
+        // Get plugin manager
+        let plugin_manager = match &*self.plugin_manager.read().await {
+            Some(manager) => manager.clone(),
+            None => return Err(Box::new(ContextError::PluginsDisabled)),
+        };
+        
+        // Transform the data
+        plugin_manager.transform(transformation_id, data).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+    
+    /// Get all available transformations
+    async fn get_transformations(&self) -> Result<Vec<Box<dyn ContextTransformation>>, Box<dyn std::error::Error + Send + Sync>> {
+        // Check if initialized
+        if !*self.initialized.read().await {
+            return Err(Box::new(ContextError::NotInitialized));
+        }
+        
+        // Get plugin manager
+        let plugin_manager = match &*self.plugin_manager.read().await {
+            Some(manager) => manager.clone(),
+            None => return Err(Box::new(ContextError::PluginsDisabled)),
+        };
+        
+        // Get transformations
+        let transformations = plugin_manager.get_transformations().await;
+        
+        // Convert to Box<dyn ContextTransformation>
+        let mut result: Vec<Box<dyn ContextTransformation>> = Vec::new();
+        for t in transformations {
+            // Create a wrapper type that can be converted to Box<dyn ContextTransformation>
+            let boxed: Box<dyn ContextTransformation> = Box::new(TransformationWrapper(t));
+            result.push(boxed);
+        }
+            
+        Ok(result)
+    }
+    
+    /// Register a plugin
+    async fn register_plugin(&self, plugin: Box<dyn ContextPlugin>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Check if initialized
+        if !*self.initialized.read().await {
+            return Err(Box::new(ContextError::NotInitialized));
+        }
+        
+        // Get plugin manager
+        let plugin_manager = match &*self.plugin_manager.read().await {
+            Some(manager) => manager.clone(),
+            None => return Err(Box::new(ContextError::PluginsDisabled)),
+        };
+        
+        // Register the plugin
+        plugin_manager.register_plugin(plugin).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+}
+
+// A wrapper type to handle the conversion
+#[derive(Debug)]
+struct TransformationWrapper(Arc<dyn ContextTransformation>);
+
+#[async_trait]
+impl ContextTransformation for TransformationWrapper {
+    fn get_id(&self) -> &str {
+        self.0.get_id()
+    }
+    
+    fn get_name(&self) -> &str {
+        self.0.get_name()
+    }
+    
+    fn get_description(&self) -> &str {
+        self.0.get_description()
+    }
+    
+    async fn transform(&self, data: Value) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        self.0.transform(data).await
     }
 } 

@@ -9,7 +9,9 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::plugin::Plugin;
+// Use the interfaces definitions instead of local ones
+pub use squirrel_interfaces::context::{ContextPlugin, ContextTransformation};
+pub use squirrel_interfaces::plugins::Plugin;
 
 /// Context transformation metadata
 #[derive(Clone, Debug)]
