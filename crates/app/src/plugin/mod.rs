@@ -12,21 +12,35 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 /// Plugin type definitions and traits
-mod types;
-/// Plugin discovery and loading functionality
-mod discovery;
-/// Plugin state persistence functionality
-mod state;
-/// Plugin security and sandboxing functionality
-mod security;
+pub mod types;
+pub use types::*;
 
-pub use types::{CommandPlugin, UiPlugin, ToolPlugin, McpPlugin};
-pub use discovery::{PluginDiscovery, FileSystemDiscovery, PluginLoader};
-pub use state::{PluginStateStorage, FileSystemStateStorage, MemoryStateStorage, PluginStateManager};
-pub use security::{
-    PermissionLevel, ResourceLimits, SecurityContext, ResourceUsage, 
-    PluginSandbox, BasicPluginSandbox, SecurityValidator, SecurityError
+/// Plugin discovery and loading functionality
+pub mod discovery;
+pub use discovery::{
+    FileSystemDiscovery, PluginDiscovery, PluginLoader,
+    EnhancedPluginDiscovery, EnhancedPluginLoader, GenericPlugin,
 };
+
+/// Plugin state persistence functionality
+pub mod state;
+pub use state::{
+    FileSystemStateStorage, MemoryStateStorage, PluginStateManager, PluginStateStorage
+};
+
+/// Plugin security and sandboxing functionality
+pub mod security;
+pub use security::{
+    BasicPluginSandbox, PermissionLevel, PluginSandbox, ResourceLimits, ResourceUsage,
+    SecurityContext, SecurityError, SecurityValidator
+};
+
+/// Add registry module
+pub mod registry;
+pub use registry::{PluginRegistry, PluginCatalogEntry};
+
+/// Make examples public
+pub mod examples;
 
 /// Plugin metadata containing information about a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +73,7 @@ pub struct PluginState {
 }
 
 /// Plugin lifecycle status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginStatus {
     /// Plugin is registered but not loaded
     Registered,
@@ -1282,6 +1296,281 @@ impl PluginManager {
         } else {
             Ok(Vec::new())
         }
+    }
+
+    /// Load a plugin and all its dependencies with enhanced error handling and recovery
+    ///
+    /// This method loads a plugin and ensures all its dependencies are loaded first.
+    /// It includes enhanced error handling, timeout management, and resource tracking.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The plugin is not found
+    /// - A dependency could not be loaded
+    /// - The plugin initialization fails
+    /// - A security constraint is violated
+    pub async fn load_plugin_with_recovery(&self, id: Uuid) -> Result<()> {
+        debug!("Loading plugin with recovery: {}", id);
+        
+        // Check if the plugin is already active
+        if let Some(status) = self.get_plugin_status(id).await {
+            if status == PluginStatus::Active {
+                debug!("Plugin already active: {}", id);
+                return Ok(());
+            }
+        }
+        
+        // Set status to initializing
+        {
+            let mut statuses = self.statuses.write().await;
+            statuses.insert(id, PluginStatus::Initializing);
+        }
+        
+        // Create a recovery context for this operation
+        let recovery_result = self.with_recovery(id, "load_plugin", async move {
+            // Load dependencies first
+            {
+                let dependencies = self.dependencies.read().await;
+                if let Some(deps) = dependencies.get(&id) {
+                    for dep_id in deps {
+                        debug!("Loading dependency {} for plugin {}", dep_id, id);
+                        match self.load_plugin(*dep_id).await {
+                            Ok(_) => {
+                                debug!("Successfully loaded dependency {} for plugin {}", dep_id, id);
+                            }
+                            Err(e) => {
+                                // Set plugin status to failed
+                                let mut statuses = self.statuses.write().await;
+                                statuses.insert(id, PluginStatus::Failed);
+                                
+                                return Err(PluginError::DependencyLoadTimeout(
+                                    format!("Failed to load dependency {}: {}", dep_id, e)
+                                ).into());
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Now load the plugin itself
+            self.load_plugin_inner(id).await
+        }).await;
+        
+        // Update status based on the result
+        {
+            let mut statuses = self.statuses.write().await;
+            if recovery_result.is_ok() {
+                statuses.insert(id, PluginStatus::Active);
+            } else {
+                statuses.insert(id, PluginStatus::Failed);
+            }
+        }
+        
+        recovery_result
+    }
+    
+    /// Execute an operation with recovery capabilities
+    ///
+    /// This helper method provides a consistent way to execute plugin operations
+    /// with error recovery, resource tracking, and timeout management.
+    ///
+    /// # Errors
+    /// Returns any error from the operation, possibly wrapped with recovery context
+    async fn with_recovery<T>(&self, id: Uuid, operation: &str, f: impl std::future::Future<Output = Result<T>>) -> Result<T>
+    {
+        debug!("Executing operation '{}' for plugin {} with recovery", operation, id);
+        
+        // Start resource tracking
+        let _resource_tracking = self.track_resources(id).await;
+        
+        // Execute the operation with a timeout
+        let timeout_duration = Duration::from_secs(30); // 30 second timeout for operations
+        let timeout_result = tokio::time::timeout(timeout_duration, f).await;
+        
+        match timeout_result {
+            Ok(result) => {
+                match result {
+                    Ok(value) => {
+                        debug!("Operation '{}' for plugin {} completed successfully", operation, id);
+                        Ok(value)
+                    }
+                    Err(e) => {
+                        error!("Operation '{}' for plugin {} failed: {}", operation, id, e);
+                        Err(e)
+                    }
+                }
+            }
+            Err(_) => {
+                error!("Operation '{}' for plugin {} timed out after {:?}", operation, id, timeout_duration);
+                
+                // Set plugin status to failed
+                let mut statuses = self.statuses.write().await;
+                statuses.insert(id, PluginStatus::Failed);
+                
+                Err(PluginError::InitializationTimeout.into())
+            }
+        }
+    }
+    
+    /// Check if a plugin has the required capabilities
+    ///
+    /// # Errors
+    /// Returns an error if the plugin does not have the required capability
+    pub async fn has_capability(&self, id: Uuid, capability: &str) -> Result<bool> {
+        // Get the plugin's capabilities
+        let capabilities = match self.get_plugin_capabilities(id).await {
+            Some(caps) => caps,
+            None => return Ok(false),
+        };
+        
+        // Check if the capability is in the list
+        Ok(capabilities.contains(&capability.to_string()))
+    }
+    
+    /// Safely execute a plugin operation with proper error handling
+    ///
+    /// This method provides a safe way to execute operations on plugins with
+    /// proper error handling and recovery.
+    ///
+    /// # Errors
+    /// Returns any error from the operation with contextual information
+    pub async fn execute_plugin_operation<F, Fut, T>(&self, id: Uuid, operation: &str, f: F) -> Result<T>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        debug!("Executing plugin operation '{}' for plugin {}", operation, id);
+        
+        // Check if the plugin is active
+        if let Some(status) = self.get_plugin_status(id).await {
+            if status != PluginStatus::Active {
+                return Err(PluginError::InitializationFailed(
+                    format!("Plugin {} is not active (status: {:?})", id, status)
+                ).into());
+            }
+        } else {
+            return Err(PluginError::NotFound(id).into());
+        }
+        
+        // Execute the operation with recovery
+        self.with_recovery(id, operation, f()).await
+    }
+    
+    /// Get the command plugin implementation from a plugin
+    ///
+    /// # Errors
+    /// Returns an error if the plugin is not found or not a command plugin
+    pub async fn get_command_plugin(&self, id: Uuid) -> Result<Arc<dyn CommandPlugin>> {
+        self.get_plugin_by_id(id, |plugin| {
+            // Try to cast directly to concrete types that implement CommandPlugin
+            if let Some(plugin_impl) = plugin.as_any().downcast_ref::<CommandPluginImpl>() {
+                // Create a new instance with a cloned plugin
+                let cloned = plugin_impl.clone();
+                // Convert to Arc<dyn CommandPlugin>
+                Ok(Arc::new(cloned) as Arc<dyn CommandPlugin>)
+            } else {
+                // Add other concrete types that implement CommandPlugin here if needed
+                Err(PluginError::InitializationFailed(
+                    format!("Plugin {} is not a command plugin", id)
+                ).into())
+            }
+        }).await?
+    }
+    
+    /// Get all command plugins
+    ///
+    /// This method returns all registered command plugins that are active
+    pub async fn get_all_command_plugins(&self) -> Vec<(Uuid, Arc<dyn CommandPlugin>)> {
+        let mut result = Vec::new();
+        
+        // Get all plugins with command capability
+        let command_plugin_ids = self.get_plugins_by_capability("command").await;
+        
+        for id in command_plugin_ids {
+            if let Ok(command_plugin) = self.get_command_plugin(id).await {
+                result.push((id, command_plugin));
+            }
+        }
+        
+        result
+    }
+    
+    /// Get the tool plugin implementation from a plugin
+    ///
+    /// # Errors
+    /// Returns an error if the plugin is not found or not a tool plugin
+    pub async fn get_tool_plugin(&self, id: Uuid) -> Result<Arc<dyn ToolPlugin>> {
+        self.get_plugin_by_id(id, |plugin| {
+            // Try to cast directly to concrete types that implement ToolPlugin
+            if let Some(plugin_impl) = plugin.as_any().downcast_ref::<ToolPluginImpl>() {
+                // Create a new instance with a cloned plugin
+                let cloned = plugin_impl.clone();
+                // Convert to Arc<dyn ToolPlugin>
+                Ok(Arc::new(cloned) as Arc<dyn ToolPlugin>)
+            } else {
+                // Add other concrete types that implement ToolPlugin here if needed
+                Err(PluginError::InitializationFailed(
+                    format!("Plugin {} is not a tool plugin", id)
+                ).into())
+            }
+        }).await?
+    }
+    
+    /// Get all tool plugins
+    ///
+    /// This method returns all registered tool plugins that are active
+    pub async fn get_all_tool_plugins(&self) -> Vec<(Uuid, Arc<dyn ToolPlugin>)> {
+        let mut result = Vec::new();
+        
+        // Get all plugins with tool capability
+        let tool_plugin_ids = self.get_plugins_by_capability("tool").await;
+        
+        for id in tool_plugin_ids {
+            if let Ok(tool_plugin) = self.get_tool_plugin(id).await {
+                result.push((id, tool_plugin));
+            }
+        }
+        
+        result
+    }
+    
+    /// Get the MCP plugin implementation from a plugin
+    ///
+    /// # Errors
+    /// Returns an error if the plugin is not found or not an MCP plugin
+    pub async fn get_mcp_plugin(&self, id: Uuid) -> Result<Arc<dyn McpPlugin>> {
+        self.get_plugin_by_id(id, |plugin| {
+            // Try to cast directly to concrete types that implement McpPlugin
+            if let Some(plugin_impl) = plugin.as_any().downcast_ref::<McpPluginImpl>() {
+                // Create a new instance with a cloned plugin
+                let cloned = plugin_impl.clone();
+                // Convert to Arc<dyn McpPlugin>
+                Ok(Arc::new(cloned) as Arc<dyn McpPlugin>)
+            } else {
+                // Add other concrete types that implement McpPlugin here if needed
+                Err(PluginError::InitializationFailed(
+                    format!("Plugin {} is not an MCP plugin", id)
+                ).into())
+            }
+        }).await?
+    }
+    
+    /// Get all MCP plugins
+    ///
+    /// This method returns all registered MCP plugins that are active
+    pub async fn get_all_mcp_plugins(&self) -> Vec<(Uuid, Arc<dyn McpPlugin>)> {
+        let mut result = Vec::new();
+        
+        // Get all plugins with MCP capability
+        let mcp_plugin_ids = self.get_plugins_by_capability("mcp").await;
+        
+        for id in mcp_plugin_ids {
+            if let Ok(mcp_plugin) = self.get_mcp_plugin(id).await {
+                result.push((id, mcp_plugin));
+            }
+        }
+        
+        result
     }
 }
 
