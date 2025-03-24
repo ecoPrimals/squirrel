@@ -2,7 +2,7 @@ use std::sync::Arc;
 use serde_json::json;
 use async_trait::async_trait;
 
-use crate::manager::{ContextManager as ContextManagerImpl, ContextManagerConfig};
+use crate::manager::ContextManagerConfig;
 use squirrel_interfaces::context::{
     ContextPlugin, 
     ContextTransformation,

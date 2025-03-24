@@ -595,11 +595,11 @@ impl EnhancedPluginDiscovery {
         let entries = walkdir::WalkDir::new(&self.base_dir)
             .follow_links(true)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
             .filter(|e| {
                 let path = e.path();
                 path.is_file() && 
-                path.extension().map_or(false, |ext| ext == "json" || ext == "toml")
+                path.extension().is_some_and(|ext| ext == "json" || ext == "toml")
             });
         
         for entry in entries {
@@ -797,9 +797,9 @@ impl EnhancedPluginLoader {
             
             // Unbox the plugin and create a new Arc directly with the concrete implementation
             if let Some(impl_plugin) = plugin.as_any().downcast_ref::<crate::plugin::types::CommandPluginImpl>() {
-                return Ok(Arc::new(impl_plugin.clone()));
+                Ok(Arc::new(impl_plugin.clone()))
             } else {
-                return Err(anyhow::anyhow!("Failed to downcast command plugin").into());
+                Err(anyhow::anyhow!("Failed to downcast command plugin").into())
             }
         } else if metadata.capabilities.contains(&"tool".to_string()) {
             // Create a tool plugin
@@ -844,7 +844,7 @@ pub struct GenericPlugin {
 
 impl GenericPlugin {
     /// Create a new generic plugin
-    pub fn new(metadata: PluginMetadata) -> Self {
+    #[must_use] pub fn new(metadata: PluginMetadata) -> Self {
         Self {
             metadata,
             state: StdRwLock::new(None),

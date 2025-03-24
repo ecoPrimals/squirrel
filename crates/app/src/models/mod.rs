@@ -15,7 +15,7 @@ pub struct BaseModel {
 
 impl BaseModel {
     /// Creates a new base model with the given ID
-    pub fn new(id: String) -> Self {
+    #[must_use] pub fn new(id: String) -> Self {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()

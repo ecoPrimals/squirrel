@@ -10,9 +10,15 @@ pub struct UiManager {
     // More implementation details will be added as needed
 }
 
+impl Default for UiManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UiManager {
     /// Creates a new UI manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             visible: true,
         }

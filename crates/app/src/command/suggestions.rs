@@ -3,7 +3,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use crate::error::Result;
 use crate::command::history::CommandHistory;
-use crate::commands_crate::{Command, CommandError};
+use crate::commands_crate::Command;
+use crate::commands_crate::CommandError;
 
 /// Maximum number of suggestions to return
 const MAX_SUGGESTIONS: usize = 5;

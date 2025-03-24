@@ -1,98 +1,92 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use serde_json::json;
+use std::collections::HashMap;
 use anyhow::Result;
+use serde_json::Value;
+use async_trait::async_trait;
 
-use galaxy::{
-    create_adapter_with_config,
-    create_plugin_manager,
-    create_tool_plugin,
-    create_workflow_plugin,
-    create_dataset_plugin,
-    GalaxyConfig,
-    GalaxyPlugin,
-    GalaxyToolPlugin,
-};
+use galaxy::plugin::{GalaxyPlugin, GalaxyPluginManager};
+
+struct ExamplePlugin {
+    name: String,
+    version: String,
+    description: String,
+}
+
+impl ExamplePlugin {
+    fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            description: "Example Galaxy Plugin".to_string(),
+        }
+    }
+}
+
+impl std::fmt::Debug for ExamplePlugin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExamplePlugin")
+            .field("name", &self.name)
+            .field("version", &self.version)
+            .finish()
+    }
+}
+
+#[async_trait]
+impl GalaxyPlugin for ExamplePlugin {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    fn version(&self) -> &str {
+        &self.version
+    }
+    
+    fn description(&self) -> &str {
+        &self.description
+    }
+    
+    async fn initialize(&self, _adapter: Arc<galaxy::adapter::GalaxyAdapter>) -> Result<(), galaxy::error::Error> {
+        println!("Initializing plugin: {}", self.name);
+        Ok(())
+    }
+    
+    async fn shutdown(&self) -> Result<(), galaxy::error::Error> {
+        println!("Shutting down plugin: {}", self.name);
+        Ok(())
+    }
+    
+    fn provides_capability(&self, capability: &str) -> bool {
+        capability == "example"
+    }
+    
+    fn capabilities(&self) -> Vec<String> {
+        vec!["example".to_string()]
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create the Galaxy adapter
-    let config = GalaxyConfig::default();
-    let adapter = Arc::new(create_adapter_with_config(config)?);
+    println!("Galaxy Plugin Example");
+    
+    // Create a Galaxy adapter
+    let adapter = galaxy::create_adapter()?;
+    let adapter = Arc::new(adapter);
     
     // Create a plugin manager
-    let mut plugin_manager = create_plugin_manager(Arc::clone(&adapter));
+    let mut manager = galaxy::create_plugin_manager(adapter.clone());
     
-    // Create and register various plugin types
+    // Create and register a plugin
+    let plugin = Arc::new(ExamplePlugin::new("example.plugin"));
+    manager.register_plugin(plugin.clone()).await?;
     
-    // Tool plugin
-    let tool_plugin = create_tool_plugin(
-        "BioinformaticsTools",
-        "1.0.0",
-        "Provides access to common bioinformatics tools"
-    );
-    plugin_manager.register_plugin(Arc::new(tool_plugin)).await?;
+    // Get the plugin by name
+    let retrieved_plugin = manager.get_plugin("example.plugin").expect("Plugin not found");
+    println!("Retrieved plugin: {:?}", retrieved_plugin);
     
-    // Workflow plugin
-    let workflow_plugin = create_workflow_plugin(
-        "GenomicsWorkflows",
-        "1.0.0",
-        "Provides access to genomics analysis workflows"
-    )
-    .with_workflow(json!({
-        "id": "genome-assembly",
-        "name": "Genome Assembly Workflow",
-        "description": "Assembles a genome from raw sequencing data"
-    }));
-    plugin_manager.register_plugin(Arc::new(workflow_plugin)).await?;
-    
-    // Dataset plugin
-    let dataset_plugin = create_dataset_plugin(
-        "ReferenceDatasets",
-        "1.0.0",
-        "Provides access to reference genomes and datasets"
-    );
-    plugin_manager.register_plugin(Arc::new(dataset_plugin)).await?;
-    
-    // Query for plugins by capability
-    println!("Finding plugins with 'galaxy-tool' capability...");
-    let tool_plugins = plugin_manager.get_plugins_by_capability("galaxy-tool");
-    println!("Found {} tool plugins", tool_plugins.len());
-    
-    for plugin in tool_plugins {
-        println!("Tool plugin: {} v{}", plugin.name(), plugin.version());
-    }
-    
-    // Get all plugins
-    println!("\nAll registered plugins:");
-    let all_plugins = plugin_manager.get_all_plugins();
-    for plugin in all_plugins {
-        println!("{} v{} - {}", plugin.name(), plugin.version(), plugin.description());
-    }
-    
-    // Using a tool plugin
-    if let Some(tool_plugin) = plugin_manager.get_plugin("BioinformaticsTools") {
-        // Try to dynamically cast to a tool plugin
-        if let Some(tool_plugin) = tool_plugin.as_any().downcast_ref::<dyn GalaxyToolPlugin>() {
-            println!("\nExecuting a tool through the plugin...");
-            let params = HashMap::new();
-            let job_id = tool_plugin.execute_tool("fastqc", params).await?;
-            println!("Tool execution started with job ID: {}", job_id);
-            
-            println!("Checking job status...");
-            let status = tool_plugin.get_job_status(&job_id).await?;
-            println!("Job status: {}", status);
-            
-            println!("Getting job results...");
-            let results = tool_plugin.get_job_results(&job_id).await?;
-            println!("Job results: {}", results);
-        }
-    }
-    
-    // Shutdown all plugins
-    println!("\nShutting down plugins...");
-    plugin_manager.shutdown().await?;
-    println!("All plugins shutdown successfully");
-    
+    println!("Example completed successfully");
     Ok(())
 } 

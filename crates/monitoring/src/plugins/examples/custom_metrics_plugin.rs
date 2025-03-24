@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use anyhow::Result;
 
 use crate::plugins::common::{MonitoringPlugin, PluginMetadata};
@@ -45,6 +45,12 @@ struct SimulatedMetric {
     
     /// Metric maximum value
     max: f64,
+}
+
+impl Default for CustomMetricsPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CustomMetricsPlugin {
@@ -197,7 +203,7 @@ impl MonitoringPlugin for CustomMetricsPlugin {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tokio::time::sleep;
+    use tokio::time::{sleep, Duration};
     
     #[tokio::test]
     async fn test_custom_metrics_plugin() {

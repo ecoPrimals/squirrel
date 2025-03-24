@@ -12,15 +12,13 @@ use std::collections::HashMap;
 use chrono::Utc;
 use std::any::Any;
 
-use crate::tool::{Tool, ToolManager, ToolContext, ExecutionStatus, ToolLifecycleHook, ToolExecutor};
+use crate::tool::{Tool, ToolContext, ExecutionStatus, ToolLifecycleHook, ToolExecutor};
 use crate::tool::lifecycle::BasicLifecycleHook;
-use crate::tool::executor::BasicToolExecutor;
 
 // Import our local interfaces instead of squirrel-plugins
 use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface};
-use crate::plugins::adapter::{ToolPluginAdapter, ToolPluginFactory};
 use crate::plugins::lifecycle::{PluginLifecycleHook, CompositePluginLifecycleHook};
-use crate::plugins::discovery::{PluginDiscoveryManager, PluginProxyExecutor};
+use crate::plugins::discovery::{PluginProxyExecutor};
 
 // Helper struct for a simple test plugin
 #[derive(Debug)]

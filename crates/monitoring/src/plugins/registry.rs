@@ -11,7 +11,8 @@ use async_trait::async_trait;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-use super::common::{MonitoringPlugin, PluginMetadata};
+use super::common::MonitoringPlugin;
+use crate::plugins::PluginMetadata;
 
 /// Plugin registry for monitoring plugins
 ///
@@ -71,7 +72,7 @@ impl PluginRegistry {
         {
             let mut capability_index = self.capability_index.write().unwrap();
             for capability in &metadata.capabilities {
-                let entry = capability_index.entry(capability.clone()).or_insert_with(Vec::new);
+                let entry = capability_index.entry(capability.clone()).or_default();
                 entry.push(plugin_id);
             }
         }
@@ -242,6 +243,7 @@ mod tests {
     use super::*;
     use std::fmt::Debug;
     use serde_json::json;
+    use crate::plugins::PluginMetadata;
     
     // Mock plugin for testing
     #[derive(Debug)]

@@ -23,6 +23,12 @@ pub struct HealthReporterPlugin {
     health_checks: Arc<RwLock<HashMap<String, Arc<dyn HealthCheck>>>>,
 }
 
+impl Default for HealthReporterPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HealthReporterPlugin {
     /// Create a new health reporter plugin
     #[must_use]

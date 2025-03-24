@@ -244,7 +244,6 @@ impl ToolPluginFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::{ExecutionStatus, ToolExecutionResult, ToolError};
     
     // Simplified test for adapter functionality
     #[test]

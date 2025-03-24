@@ -3,7 +3,6 @@
 // This module provides lifecycle hooks for integrating MCP tools with the plugin system.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
@@ -205,7 +204,7 @@ mod tests {
     use serde_json::json;
     use std::sync::Arc;
     use uuid::Uuid;
-    use crate::plugins::interfaces::{PluginStatus, PluginMetadata, Plugin, McpPlugin};
+    use crate::plugins::interfaces::{PluginStatus, Plugin};
 
     // Mock plugin manager for testing
     #[derive(Debug)]

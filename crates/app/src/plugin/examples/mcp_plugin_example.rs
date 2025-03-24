@@ -18,7 +18,7 @@ use uuid::Uuid;
 use std::collections::HashMap;
 
 /// Create a simple MCP plugin using the builder pattern
-pub fn create_example_mcp_plugin() -> Arc<McpPluginImpl> {
+#[must_use] pub fn create_example_mcp_plugin() -> Arc<McpPluginImpl> {
     McpPluginBuilder::new(PluginMetadata {
         id: Uuid::new_v4(),
         name: "example-mcp".to_string(),
@@ -66,14 +66,20 @@ impl std::fmt::Debug for AdvancedMcpPlugin {
             .field("extensions", &self.extensions)
             .field("state", &self.state)
             .field("handlers", &format!("<{} handlers>", self.extensions.len()))
-            .field("context_cache", &format!("<context cache>"))
+            .field("context_cache", &"<context cache>".to_string())
             .finish()
+    }
+}
+
+impl Default for AdvancedMcpPlugin {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl AdvancedMcpPlugin {
     /// Create a new advanced MCP plugin
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
@@ -96,7 +102,7 @@ impl AdvancedMcpPlugin {
     }
     
     /// Create a new advanced MCP plugin with custom metadata
-    pub fn with_metadata(metadata: PluginMetadata) -> Self {
+    #[must_use] pub fn with_metadata(metadata: PluginMetadata) -> Self {
         Self {
             metadata,
             state: RwLock::new(None),

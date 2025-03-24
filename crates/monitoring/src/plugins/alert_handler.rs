@@ -37,6 +37,12 @@ pub trait AlertHandler: Send + Sync + Debug {
     async fn handle_alert(&self, alert: &Alert) -> anyhow::Result<()>;
 }
 
+impl Default for AlertHandlerPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AlertHandlerPlugin {
     /// Create a new alert handler plugin
     #[must_use]

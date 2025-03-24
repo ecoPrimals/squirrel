@@ -174,7 +174,6 @@ impl PluginDiscoveryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::lifecycle::BasicLifecycleHook;
     use crate::plugins::interfaces::PluginStatus;
     use serde_json::json;
     

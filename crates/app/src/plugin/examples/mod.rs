@@ -12,11 +12,10 @@ pub use mcp_plugin_example::{create_example_mcp_plugin, AdvancedMcpPlugin};
 pub use tool_plugin_example::{create_example_tool_plugin, CodeToolsPlugin};
 
 use crate::plugin::{Plugin, PluginMetadata};
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Create a collection of example plugins for testing or demonstration
-pub fn create_example_plugins() -> Vec<Box<dyn Plugin>> {
+#[must_use] pub fn create_example_plugins() -> Vec<Box<dyn Plugin>> {
     let command_plugin = example_plugin::create_example_command_plugin();
     let mcp_plugin = mcp_plugin_example::create_example_mcp_plugin();
     let tool_plugin = tool_plugin_example::create_example_tool_plugin();
@@ -32,22 +31,22 @@ pub fn create_example_plugins() -> Vec<Box<dyn Plugin>> {
 }
 
 /// Create an advanced command plugin with a unique ID
-pub fn create_advanced_command_plugin() -> Box<dyn Plugin> {
+#[must_use] pub fn create_advanced_command_plugin() -> Box<dyn Plugin> {
     Box::new(AdvancedExamplePlugin::new())
 }
 
 /// Create an advanced MCP plugin with a unique ID
-pub fn create_advanced_mcp_plugin() -> Box<dyn Plugin> {
+#[must_use] pub fn create_advanced_mcp_plugin() -> Box<dyn Plugin> {
     Box::new(AdvancedMcpPlugin::new())
 }
 
 /// Create an advanced tool plugin with a unique ID
-pub fn create_advanced_tool_plugin() -> Box<dyn Plugin> {
+#[must_use] pub fn create_advanced_tool_plugin() -> Box<dyn Plugin> {
     Box::new(CodeToolsPlugin::new())
 }
 
 /// Create a set of plugins with dependencies
-pub fn create_plugin_dependency_chain() -> Vec<Box<dyn Plugin>> {
+#[must_use] pub fn create_plugin_dependency_chain() -> Vec<Box<dyn Plugin>> {
     // Create base plugin with no dependencies
     let base_id = Uuid::new_v4();
     let base_metadata = PluginMetadata {

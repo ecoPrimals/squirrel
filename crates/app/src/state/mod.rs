@@ -12,9 +12,15 @@ pub struct StateManager {
     // More implementation details will be added as needed
 }
 
+impl Default for StateManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateManager {
     /// Creates a new state manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             state: HashMap::new(),
         }

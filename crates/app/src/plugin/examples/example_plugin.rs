@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::commands_crate::CommandRegistry;
 
 /// Create a simple command plugin using the builder pattern
-pub fn create_example_command_plugin() -> Box<dyn CommandPlugin> {
+#[must_use] pub fn create_example_command_plugin() -> Box<dyn CommandPlugin> {
     CommandPluginBuilder::new(PluginMetadata {
         id: Uuid::new_v4(),
         name: "example-commands".to_string(),
@@ -50,7 +50,7 @@ pub struct AdvancedExamplePlugin {
 
 impl AdvancedExamplePlugin {
     /// Create a new advanced example plugin
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
@@ -74,7 +74,7 @@ impl AdvancedExamplePlugin {
     }
     
     /// Create a new advanced example plugin with custom metadata
-    pub fn with_metadata(metadata: PluginMetadata) -> Self {
+    #[must_use] pub fn with_metadata(metadata: PluginMetadata) -> Self {
         Self {
             metadata,
             counter: RwLock::new(0),
@@ -132,7 +132,7 @@ impl Plugin for AdvancedExamplePlugin {
         Box::pin(async move {
             // Load state if available
             if let Ok(Some(state)) = self.get_state().await {
-                if let Some(count) = state.data.get("count").and_then(|v| v.as_u64()) {
+                if let Some(count) = state.data.get("count").and_then(serde_json::Value::as_u64) {
                     let mut counter = self.counter.write().await;
                     *counter = count as u32;
                 }

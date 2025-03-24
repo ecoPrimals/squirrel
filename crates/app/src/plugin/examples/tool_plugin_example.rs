@@ -6,19 +6,18 @@
 use crate::error::Result;
 use crate::plugin::{
     Plugin, PluginMetadata, PluginState,
-    types::{ToolPlugin, ToolPluginImpl, ToolPluginBuilder},
+    types::{ToolPlugin, ToolPluginBuilder},
 };
 use async_trait::async_trait;
 use futures::future::BoxFuture;
 use serde_json::{json, Value};
 use std::any::Any;
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 /// Create a simple tool plugin using the builder pattern
-pub fn create_example_tool_plugin() -> Box<dyn ToolPlugin> {
+#[must_use] pub fn create_example_tool_plugin() -> Box<dyn ToolPlugin> {
     ToolPluginBuilder::new(PluginMetadata {
         id: Uuid::new_v4(),
         name: "example-tools".to_string(),
@@ -52,9 +51,15 @@ pub struct CodeToolsPlugin {
     tool_configs: HashMap<String, Value>,
 }
 
+impl Default for CodeToolsPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodeToolsPlugin {
     /// Create a new code tools plugin
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut plugin = Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
@@ -90,7 +95,7 @@ impl CodeToolsPlugin {
     }
     
     /// Create a new code tools plugin with custom metadata
-    pub fn with_metadata(metadata: PluginMetadata) -> Self {
+    #[must_use] pub fn with_metadata(metadata: PluginMetadata) -> Self {
         let mut plugin = Self {
             metadata,
             state: RwLock::new(None),
@@ -160,11 +165,11 @@ impl CodeToolsPlugin {
                         indent -= 1;
                     }
                     
-                    if !trimmed.is_empty() {
-                        let spaces = " ".repeat(indent * 4);
-                        result.push_str(&format!("{}{}\n", spaces, trimmed));
-                    } else {
+                    if trimmed.is_empty() {
                         result.push('\n');
+                    } else {
+                        let spaces = " ".repeat(indent * 4);
+                        result.push_str(&format!("{spaces}{trimmed}\n"));
                     }
                     
                     if trimmed.contains('{') {
@@ -177,7 +182,7 @@ impl CodeToolsPlugin {
             _ => {
                 // For other languages, just normalize whitespace
                 code.lines()
-                    .map(|line| line.trim())
+                    .map(str::trim)
                     .filter(|line| !line.is_empty())
                     .collect::<Vec<_>>()
                     .join("\n")

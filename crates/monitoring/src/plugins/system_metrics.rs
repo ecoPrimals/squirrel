@@ -16,6 +16,12 @@ pub struct SystemMetricsPlugin {
     system: System,
 }
 
+impl Default for SystemMetricsPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemMetricsPlugin {
     /// Create a new system metrics plugin
     #[must_use]

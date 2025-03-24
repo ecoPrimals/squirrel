@@ -17,44 +17,40 @@ async fn main() -> anyhow::Result<()> {
     }
     println!("Manager initialized successfully");
     
-    // Create a test plugin
-    #[derive(Debug)]
-    struct TestPlugin {
-        id: String,
-        name: String
-    }
-    
-    impl TestPlugin {
-        fn new(id: &str, name: &str) -> Self {
-            Self {
-                id: id.to_string(),
-                name: name.to_string()
-            }
-        }
-    }
-    
     use async_trait::async_trait;
     use squirrel_interfaces::plugins::{Plugin, PluginMetadata};
     use squirrel_interfaces::context::{ContextPlugin, ContextTransformation, ContextAdapterPlugin};
     use std::sync::Arc;
     
+    // Create a test plugin
+    #[derive(Debug)]
+    struct TestPlugin {
+        id: String,
+        name: String,
+        metadata: PluginMetadata,
+    }
+    
+    impl TestPlugin {
+        fn new(id: &str, name: &str) -> Self {
+            let metadata = PluginMetadata::new(
+                id,
+                "1.0.0",
+                "A basic test plugin",
+                "DataScienceBioLab"
+            ).with_capability("context");
+            
+            Self {
+                id: id.to_string(),
+                name: name.to_string(),
+                metadata,
+            }
+        }
+    }
+    
     #[async_trait]
     impl Plugin for TestPlugin {
         fn metadata(&self) -> &PluginMetadata {
-            // This would typically be a field in the struct
-            // but for simplicity we're creating it on demand
-            static mut METADATA: Option<PluginMetadata> = None;
-            unsafe {
-                if METADATA.is_none() {
-                    METADATA = Some(PluginMetadata::new(
-                        "test.basic",
-                        "1.0.0",
-                        "A basic test plugin",
-                        "DataScienceBioLab"
-                    ).with_capability("context"));
-                }
-                METADATA.as_ref().unwrap()
-            }
+            &self.metadata
         }
     }
     

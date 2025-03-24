@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::error::{Result, SquirrelError};
 use super::{Plugin, PluginMetadata, PluginStatus};
 use chrono::{DateTime, Utc};
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info};
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
@@ -59,7 +59,7 @@ pub struct PluginCatalogEntry {
 
 impl PluginCatalogEntry {
     /// Create a new catalog entry from plugin metadata
-    pub fn from_metadata(metadata: &PluginMetadata, location: &str) -> Self {
+    #[must_use] pub fn from_metadata(metadata: &PluginMetadata, location: &str) -> Self {
         Self {
             id: metadata.id,
             name: metadata.name.clone(),
@@ -233,7 +233,7 @@ impl PluginRegistry {
             let catalog = self.catalog.read().await;
             if !catalog.contains_key(&id) {
                 return Err(SquirrelError::generic(format!(
-                    "Plugin not registered: {}", id
+                    "Plugin not registered: {id}"
                 )).into());
             }
         }
@@ -244,7 +244,7 @@ impl PluginRegistry {
             if let Some(deps) = reverse_deps.get(&id) {
                 if !deps.is_empty() {
                     return Err(SquirrelError::generic(format!(
-                        "Plugin has dependents, cannot remove: {}", id
+                        "Plugin has dependents, cannot remove: {id}"
                     )).into());
                 }
             }
@@ -351,7 +351,7 @@ impl PluginRegistry {
             let catalog = self.catalog.read().await;
             if !catalog.contains_key(&id) {
                 return Err(SquirrelError::generic(format!(
-                    "Plugin not registered: {}", id
+                    "Plugin not registered: {id}"
                 )).into());
             }
         }
@@ -383,7 +383,7 @@ impl PluginRegistry {
             let catalog = self.catalog.read().await;
             if !catalog.contains_key(&id) {
                 return Err(SquirrelError::generic(format!(
-                    "Plugin not registered: {}", id
+                    "Plugin not registered: {id}"
                 )).into());
             }
         }
@@ -500,7 +500,7 @@ impl PluginRegistry {
                     || entry.description.to_lowercase().contains(&keyword)
                     || entry.author.to_lowercase().contains(&keyword)
                     || entry.tags.iter().any(|tag| tag.to_lowercase().contains(&keyword))
-                    || entry.category.as_ref().map_or(false, |cat| cat.to_lowercase().contains(&keyword))
+                    || entry.category.as_ref().is_some_and(|cat| cat.to_lowercase().contains(&keyword))
             })
             .cloned()
             .collect()
@@ -596,7 +596,7 @@ impl PluginRegistry {
                 dep_ids.push(dep_id);
             } else {
                 return Err(SquirrelError::generic(format!(
-                    "Dependency not found: {}", dep_name
+                    "Dependency not found: {dep_name}"
                 )).into());
             }
         }

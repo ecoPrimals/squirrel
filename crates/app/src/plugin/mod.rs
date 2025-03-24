@@ -908,7 +908,7 @@ impl PluginManager {
         }
         
         // Calculate in-degrees
-        for (_id, deps) in &graph {
+        for deps in graph.values() {
             for dep_id in deps {
                 *in_degrees.entry(*dep_id).or_insert(0) += 1;
             }
@@ -1335,7 +1335,7 @@ impl PluginManager {
                     for dep_id in deps {
                         debug!("Loading dependency {} for plugin {}", dep_id, id);
                         match self.load_plugin(*dep_id).await {
-                            Ok(_) => {
+                            Ok(()) => {
                                 debug!("Successfully loaded dependency {} for plugin {}", dep_id, id);
                             }
                             Err(e) => {
@@ -1344,7 +1344,7 @@ impl PluginManager {
                                 statuses.insert(id, PluginStatus::Failed);
                                 
                                 return Err(PluginError::DependencyLoadTimeout(
-                                    format!("Failed to load dependency {}: {}", dep_id, e)
+                                    format!("Failed to load dependency {dep_id}: {e}")
                                 ).into());
                             }
                         }
@@ -1387,28 +1387,25 @@ impl PluginManager {
         let timeout_duration = Duration::from_secs(30); // 30 second timeout for operations
         let timeout_result = tokio::time::timeout(timeout_duration, f).await;
         
-        match timeout_result {
-            Ok(result) => {
-                match result {
-                    Ok(value) => {
-                        debug!("Operation '{}' for plugin {} completed successfully", operation, id);
-                        Ok(value)
-                    }
-                    Err(e) => {
-                        error!("Operation '{}' for plugin {} failed: {}", operation, id, e);
-                        Err(e)
-                    }
+        if let Ok(result) = timeout_result {
+            match result {
+                Ok(value) => {
+                    debug!("Operation '{}' for plugin {} completed successfully", operation, id);
+                    Ok(value)
+                }
+                Err(e) => {
+                    error!("Operation '{}' for plugin {} failed: {}", operation, id, e);
+                    Err(e)
                 }
             }
-            Err(_) => {
-                error!("Operation '{}' for plugin {} timed out after {:?}", operation, id, timeout_duration);
-                
-                // Set plugin status to failed
-                let mut statuses = self.statuses.write().await;
-                statuses.insert(id, PluginStatus::Failed);
-                
-                Err(PluginError::InitializationTimeout.into())
-            }
+        } else {
+            error!("Operation '{}' for plugin {} timed out after {:?}", operation, id, timeout_duration);
+            
+            // Set plugin status to failed
+            let mut statuses = self.statuses.write().await;
+            statuses.insert(id, PluginStatus::Failed);
+            
+            Err(PluginError::InitializationTimeout.into())
         }
     }
     
@@ -1445,7 +1442,7 @@ impl PluginManager {
         if let Some(status) = self.get_plugin_status(id).await {
             if status != PluginStatus::Active {
                 return Err(PluginError::InitializationFailed(
-                    format!("Plugin {} is not active (status: {:?})", id, status)
+                    format!("Plugin {id} is not active (status: {status:?})")
                 ).into());
             }
         } else {
@@ -1471,7 +1468,7 @@ impl PluginManager {
             } else {
                 // Add other concrete types that implement CommandPlugin here if needed
                 Err(PluginError::InitializationFailed(
-                    format!("Plugin {} is not a command plugin", id)
+                    format!("Plugin {id} is not a command plugin")
                 ).into())
             }
         }).await?
@@ -1510,7 +1507,7 @@ impl PluginManager {
             } else {
                 // Add other concrete types that implement ToolPlugin here if needed
                 Err(PluginError::InitializationFailed(
-                    format!("Plugin {} is not a tool plugin", id)
+                    format!("Plugin {id} is not a tool plugin")
                 ).into())
             }
         }).await?
@@ -1549,7 +1546,7 @@ impl PluginManager {
             } else {
                 // Add other concrete types that implement McpPlugin here if needed
                 Err(PluginError::InitializationFailed(
-                    format!("Plugin {} is not an MCP plugin", id)
+                    format!("Plugin {id} is not an MCP plugin")
                 ).into())
             }
         }).await?

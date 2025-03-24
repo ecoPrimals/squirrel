@@ -12,16 +12,22 @@ pub struct McpClient {
     // More implementation details will be added as needed
 }
 
+impl Default for McpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl McpClient {
     /// Creates a new MCP client
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             api_url: "http://localhost:8080".to_string(),
         }
     }
     
     /// Get a shared reference to this client
-    pub fn as_shared(&self) -> Arc<Self> {
+    #[must_use] pub fn as_shared(&self) -> Arc<Self> {
         Arc::new(Self::new())
     }
 }

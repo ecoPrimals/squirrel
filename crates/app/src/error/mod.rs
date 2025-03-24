@@ -134,6 +134,6 @@ impl From<toml::de::Error> for CoreError {
 
 impl From<anyhow::Error> for CoreError {
     fn from(err: anyhow::Error) -> Self {
-        Self::Config(format!("Anyhow error: {}", err))
+        Self::Config(format!("Anyhow error: {err}"))
     }
 } 

@@ -6,9 +6,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use anyhow::{Result, anyhow, Context};
+use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use super::registry::PluginRegistry;
 use super::common::MonitoringPlugin;

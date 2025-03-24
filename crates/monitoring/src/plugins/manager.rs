@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::collections::HashMap;
 use anyhow::{Result, Context};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use serde_json::Value;
 use uuid::Uuid;
 
