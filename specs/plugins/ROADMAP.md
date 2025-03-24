@@ -19,13 +19,14 @@ This document outlines the comprehensive roadmap for the Squirrel plugin system.
 | Core Plugin System | In Progress | 45% |
 | Plugin State Management | In Progress | 50% |
 | MCP Integration | In Progress | 35% |
+| Galaxy Integration | In Progress | 40% |
 | Security Framework | In Progress | 15% |
 | Documentation System | In Progress | 20% |
 | Testing Framework | In Progress | 10% |
 | Distribution System | In Progress | 15% |
 | UI Components | Sunsetted | N/A |
 
-The plugin system has a working foundation with basic functionality implemented. The core architecture, state management, and MCP integration have seen significant progress, while security, testing, and distribution systems are in earlier stages of development. UI components have been sunsetted as per project priorities.
+The plugin system has a working foundation with basic functionality implemented. The core architecture, state management, and MCP integration have seen significant progress, while security, testing, and distribution systems are in earlier stages of development. UI components have been sunsetted as per project priorities. The Galaxy integration has made good progress with the initial plugin structure implemented.
 
 ## Strategic Goals
 
@@ -36,18 +37,21 @@ The plugin system has a working foundation with basic functionality implemented.
    - Stabilize state persistence
    - Finalize MCP protocol extensions
    - Implement basic security model
+   - Complete Galaxy plugin integration
 
 2. **Developer Experience**
    - Create comprehensive documentation
    - Develop plugin templates
    - Build basic testing tools
    - Implement simple distribution mechanism
+   - Provide Galaxy plugin examples
 
 3. **Initial Ecosystem**
    - Release 3-5 reference plugins
    - Establish plugin development guidelines
    - Create plugin discovery mechanism
    - Build basic plugin management UI
+   - Showcase Galaxy bioinformatics tools integration
 
 ### Medium-Term (6-9 Months)
 
@@ -100,6 +104,7 @@ The plugin system has a working foundation with basic functionality implemented.
 | 1 | Core Plugin Interface | Finalize plugin trait definitions, complete lifecycle hooks | Core Team |
 | 2 | State Management | Complete state serialization, implement state version migration | State Team |
 | 3 | MCP Integration | Finalize protocol extensions, complete message passing | MCP Team |
+| 3 | Galaxy Integration | Complete initial plugin structure, implement adapter wrapper | Galaxy Team |
 | 4 | Basic Security | Implement permission declarations, basic resource limits | Security Team |
 
 #### Month 2: Developer Tools
@@ -116,8 +121,10 @@ The plugin system has a working foundation with basic functionality implemented.
 | Week | Focus Area | Tasks | Owner |
 |------|------------|-------|-------|
 | 1 | Reference Plugins | Create utility plugin, implement example data plugin | Plugins Team |
+| 1 | Galaxy Tools | Implement Galaxy tool discovery and execution APIs | Galaxy Team |
 | 2 | Plugin Guidelines | Finalize best practices, create style guide | Docs Team |
 | 3 | Discovery | Implement plugin registry client, create search functionality | Tools Team |
+| 3 | Bioinformatics Tools | Create Galaxy bioinformatics tool examples and workflows | Galaxy Team |
 | 4 | Management | Build CLI management tools, implement basic admin panel | Tools Team |
 
 ### Phase 2: Enhancement (6 Months)
@@ -232,6 +239,27 @@ Features are prioritized based on user impact, technical dependencies, and strat
 - [ ] Cross-protocol integration
 - [ ] Protocol performance optimization
 
+### Galaxy Integration (40%)
+
+#### Completed Components
+- [x] GalaxyPlugin trait definition
+- [x] GalaxyAdapterPlugin implementation
+- [x] Basic Galaxy adapter functionality
+- [x] Example implementations
+
+#### In-Progress Components
+- [✓] GalaxyToolPlugin extension (partial)
+- [✓] Job status monitoring (partial)
+- [✓] Data upload/download functionality (partial)
+
+#### Planned Components
+- [ ] Complete Galaxy API integration
+- [ ] Galaxy workflow support
+- [ ] Tool discovery and metadata caching
+- [ ] Job history and provenance tracking
+- [ ] Advanced bioinformatics data handling
+- [ ] Interactive tool execution
+
 ### Security Framework (15%)
 
 #### Completed Components
@@ -310,8 +338,10 @@ Features are prioritized based on user impact, technical dependencies, and strat
 | Plugin performance impact | High | Medium | Implement performance monitoring, resource limits |
 | Security vulnerabilities | Critical | Medium | Thorough security model, sandboxing, code verification |
 | API stability challenges | High | High | Careful API design, versioning, compatibility layers |
+| Galaxy API changes | Medium | Medium | Version pinning, adapter patterns, automated testing |
 | State corruption | High | Low | Robust state validation, backups, migration tools |
 | Dependency conflicts | Medium | Medium | Strong dependency resolution, compatibility checking |
+| Bioinformatics tool failures | High | Medium | Robust error handling, job monitoring, recovery mechanisms |
 
 ### Project Risks
 

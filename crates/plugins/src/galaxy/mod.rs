@@ -8,6 +8,28 @@ use serde_json::Value;
 
 use crate::plugin::Plugin;
 
+// Add the adapter plugin module
+pub mod adapter_plugin;
+// Add the example module
+pub mod example;
+// Add the tools module
+pub mod tools;
+
+// Re-export important types
+pub use adapter_plugin::{
+    GalaxyAdapterPlugin,
+    GalaxyAdapterPluginConfig,
+    create_galaxy_adapter_plugin,
+};
+pub use example::{galaxy_plugin_example, direct_adapter_example};
+pub use tools::{
+    GalaxyToolPlugin,
+    GalaxyToolInfo,
+    GalaxyToolParameter,
+    GalaxyJobStatus,
+    GalaxyToolOutput,
+};
+
 /// Galaxy plugin trait
 #[async_trait]
 pub trait GalaxyPlugin: Plugin {

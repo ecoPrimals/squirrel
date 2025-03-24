@@ -2,6 +2,8 @@
 //!
 //! This module provides functionality for context plugins.
 
+mod plugin;
+
 use std::fmt::Debug;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -50,3 +52,6 @@ pub trait ContextPlugin: Plugin {
         self.metadata().capabilities.clone()
     }
 } 
+
+// Re-export the plugin implementation and factory functions
+pub use plugin::{ContextPluginImpl, create_context_plugin, create_custom_context_plugin}; 

@@ -10,7 +10,7 @@ use tokio::fs;
 use uuid::Uuid;
 use anyhow::Result;
 
-use crate::core::{Plugin, PluginMetadata};
+use crate::plugin::{Plugin, PluginMetadata};
 use crate::PluginError;
 
 /// Plugin manifest format
@@ -146,8 +146,7 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     }
 }
 
-/// Utility function to create a placeholder plugin for testing
-#[cfg(test)]
+/// Create a placeholder plugin for testing or initialization purposes
 pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Box<dyn Plugin> {
     use crate::state::PluginState;
     use futures::future::BoxFuture;
@@ -234,7 +233,6 @@ impl DefaultPluginDiscovery {
             "System"
         );
         
-        #[cfg(test)]
         {
             return Ok(create_placeholder_plugin(_metadata));
         }
