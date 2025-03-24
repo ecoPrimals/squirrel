@@ -41,8 +41,26 @@ async fn main() -> Result<()> {
         .build();
 
     // 3. Create an executor for the tool
-    let executor = BasicToolExecutor::new("sample-tool");
-
+    let mut executor = BasicToolExecutor::new("sample-tool");
+    
+    // Register a handler for the "echo" capability
+    executor.register_handler("echo", |context| {
+        use chrono::Utc;
+        
+        // Extract the message parameter
+        let message = context.parameters.get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("No message provided");
+        
+        // Create response with the echoed message
+        let output = json!({
+            "message": message,
+            "timestamp": Utc::now().to_rfc3339()
+        });
+        
+        Ok(output)
+    });
+    
     // 4. Register the tool with the tool manager
     tool_manager.register_tool(tool, executor).await?;
     
