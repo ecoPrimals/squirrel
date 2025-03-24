@@ -21,6 +21,7 @@ toml = "0.5"
 
 # Error handling
 thiserror = "1.0"
+anyhow = "1.0"
 
 # Async support
 async-trait = "0.1"

@@ -10,6 +10,7 @@ The Galaxy MCP Adapter has been successfully implemented with the following comp
 - ✅ Configuration management with flexible options
 - ✅ Galaxy API client for communicating with Galaxy servers
 - ✅ Data models for Galaxy resources (tools, workflows, datasets, etc.)
+- ✅ Plugin architecture for extending Galaxy functionality
 - ✅ Adapter core for integrating with MCP protocol
 - ✅ Tool discovery and execution functionality
 - ✅ MCP protocol message handling
@@ -28,6 +29,7 @@ See [specs/galaxy/IMPLEMENTATION_STATUS.md](../../specs/galaxy/IMPLEMENTATION_ST
 - **Security Controls**: Secure authentication with Galaxy API
 - **Data Management**: Complete data handling from upload to processing
 - **Configuration Flexibility**: Adaptable to different Galaxy instances
+- **Plugin System**: Extensible architecture with plugin support
 
 ## Usage
 
@@ -76,6 +78,44 @@ let config = GalaxyConfig::new("https://custom-galaxy.org/api")
 let adapter = create_adapter_with_config(config)?;
 ```
 
+### Plugin System
+
+The Galaxy adapter supports a plugin system that allows extending its functionality:
+
+```rust
+use std::sync::Arc;
+use galaxy::{
+    create_adapter_with_config, 
+    create_plugin_manager,
+    create_tool_plugin,
+    GalaxyConfig
+};
+
+#[tokio::main]
+async fn main() -> Result<(), galaxy::Error> {
+    // Create adapter
+    let config = GalaxyConfig::default();
+    let adapter = Arc::new(create_adapter_with_config(config)?);
+    
+    // Create plugin manager
+    let mut plugin_manager = create_plugin_manager(Arc::clone(&adapter));
+    
+    // Create and register a tool plugin
+    let tool_plugin = create_tool_plugin(
+        "GenomicsTools",
+        "1.0.0",
+        "Genomics analysis tools"
+    );
+    plugin_manager.register_plugin(Arc::new(tool_plugin)).await?;
+    
+    // Find plugins by capability
+    let tool_plugins = plugin_manager.get_plugins_by_capability("galaxy-tool");
+    println!("Found {} tool plugins", tool_plugins.len());
+    
+    Ok(())
+}
+```
+
 ### MCP Integration
 
 When the `mcp-integration` feature is enabled, the adapter can handle MCP protocol messages:
@@ -119,15 +159,22 @@ crates/galaxy/
 │   │   ├── job.rs      # Job models
 │   │   ├── history.rs  # History models
 │   │   └── library.rs  # Library models
+│   ├── plugin/         # Plugin architecture
+│   │   ├── mod.rs              # Plugin trait definitions
+│   │   ├── default_plugin.rs   # Default plugin implementation
+│   │   ├── tool_plugin.rs      # Tool plugin implementation
+│   │   ├── workflow_plugin.rs  # Workflow plugin implementation
+│   │   └── dataset_plugin.rs   # Dataset plugin implementation
 │   ├── security/       # Authentication and security
 │   ├── tools/          # Tool-specific functionality
 │   ├── utils/          # Utility functions
 │   ├── workflows/      # Workflow-specific functionality
 │   └── lib.rs          # Crate entry point
 ├── examples/           # Usage examples
-│   ├── list_tools.rs   # Tool discovery example
-│   ├── execute_tool.rs # Tool execution example
-│   └── mcp_integration.rs # MCP integration example
+│   ├── list_tools.rs        # Tool discovery example
+│   ├── execute_tool.rs      # Tool execution example
+│   ├── plugin_example.rs    # Plugin system example
+│   └── mcp_integration.rs   # MCP integration example
 └── tests/              # Integration tests
 ```
 
@@ -141,7 +188,17 @@ The crate is designed as an adapter that leverages the existing MCP and context 
 - **Client**: HTTP client for Galaxy API communication
 - **Models**: Data models representing Galaxy objects
 - **Configuration**: Configuration management
+- **Plugin System**: Extensible architecture with plugin support
 - **Error**: Comprehensive error handling
+
+### Plugin Types
+
+The Galaxy adapter supports the following plugin types:
+
+- **GalaxyPlugin**: Base plugin interface for all Galaxy plugins
+- **GalaxyToolPlugin**: Plugin for Galaxy tool-related functionality
+- **GalaxyWorkflowPlugin**: Plugin for Galaxy workflow-related functionality
+- **GalaxyDatasetPlugin**: Plugin for Galaxy dataset-related functionality
 
 ## Features
 

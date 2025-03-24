@@ -81,6 +81,10 @@ pub enum Error {
     /// Internal error
     #[error("Internal error: {0}")]
     Internal(String),
+    
+    /// Invalid state error
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
 }
 
 /// Result type for Galaxy operations

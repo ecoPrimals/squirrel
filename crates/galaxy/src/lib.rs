@@ -15,6 +15,16 @@ pub use error::Error;
 pub use models::GalaxyDataReference;
 pub use adapter::GalaxyAdapter;
 pub use config::GalaxyConfig;
+pub use plugin::{
+    GalaxyPlugin,
+    GalaxyToolPlugin,
+    GalaxyWorkflowPlugin,
+    GalaxyDatasetPlugin,
+    GalaxyPluginManager,
+};
+pub use plugin::tool_plugin::create_tool_plugin;
+pub use plugin::workflow_plugin::create_workflow_plugin;
+pub use plugin::dataset_plugin::create_dataset_plugin;
 
 // Module declarations
 pub mod adapter;
@@ -23,6 +33,7 @@ pub mod client;
 pub mod config;
 pub mod error;
 pub mod models;
+pub mod plugin;
 pub mod security;
 
 #[cfg(test)]
@@ -37,6 +48,11 @@ pub fn create_adapter() -> Result<adapter::GalaxyAdapter, error::Error> {
 /// Convenience function to create a new Galaxy adapter with a specific configuration
 pub fn create_adapter_with_config(config: config::GalaxyConfig) -> Result<adapter::GalaxyAdapter, error::Error> {
     adapter::GalaxyAdapter::new(config)
+}
+
+/// Convenience function to create a new plugin manager for a Galaxy adapter
+pub fn create_plugin_manager(adapter: std::sync::Arc<adapter::GalaxyAdapter>) -> plugin::GalaxyPluginManager {
+    plugin::GalaxyPluginManager::new(adapter)
 }
 
 /// Version information about the Galaxy adapter crate
