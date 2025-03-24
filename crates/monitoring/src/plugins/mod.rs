@@ -1,18 +1,27 @@
 //! Monitoring plugins module
 //!
 //! This module contains the plugins implementation for the monitoring crate.
+//! It provides a plugin system that allows for extending the functionality
+//! of the monitoring system.
 
 mod system_metrics;
 mod health_reporter;
 mod alert_handler;
-mod prelude;
 mod common;
+mod prelude;
+mod registry;
+mod loader;
+mod manager;
+pub mod examples;
 
 pub use system_metrics::SystemMetricsPlugin;
 pub use health_reporter::HealthReporterPlugin;
 pub use alert_handler::AlertHandlerPlugin;
 pub use alert_handler::AlertHandler;
 pub use common::{PluginMetadata, MonitoringPlugin};
+pub use registry::PluginRegistry;
+pub use loader::{PluginLoader, PluginConfig};
+pub use manager::{PluginManager, PluginState};
 
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -44,6 +53,41 @@ pub trait MonitoringPluginRegistry {
     async fn register_monitoring_plugin<T>(&self, plugin: Arc<T>) -> anyhow::Result<()>
     where
         T: MonitoringPlugin + Send + Sync + 'static;
+}
+
+/// Default plugin factory for creating and initializing plugins
+pub struct DefaultPluginFactory;
+
+impl DefaultPluginFactory {
+    /// Create a new plugin manager with all built-in plugins
+    pub async fn create_plugin_manager() -> Result<PluginManager> {
+        let manager = PluginManager::new();
+        
+        // Initialize the manager with built-in plugins
+        manager.initialize().await?;
+        
+        Ok(manager)
+    }
+    
+    /// Create a custom plugin manager with specific plugins
+    pub fn create_custom_manager() -> PluginManager {
+        PluginManager::new()
+    }
+}
+
+/// Create a default plugin manager with all built-in plugins
+pub async fn create_default_plugin_manager() -> Result<PluginManager> {
+    DefaultPluginFactory::create_plugin_manager().await
+}
+
+// Export prelude for easy importing
+pub mod exports {
+    pub use super::common::{PluginMetadata, MonitoringPlugin};
+    pub use super::registry::PluginRegistry;
+    pub use super::loader::{PluginLoader, PluginConfig};
+    pub use super::manager::{PluginManager, PluginState};
+    pub use super::DefaultPluginFactory;
+    pub use super::create_default_plugin_manager;
 }
 
 // Tests for the monitoring plugins
