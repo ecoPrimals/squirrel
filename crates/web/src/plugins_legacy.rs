@@ -57,6 +57,9 @@ pub trait WebPlugin: Plugin {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
     
+    /// Get the components provided by this plugin
+    fn get_components(&self) -> Vec<WebComponent>;
+    
     /// Handle web endpoint request
     async fn handle_web_endpoint(&self, endpoint: &WebEndpoint, data: Option<Value>) -> Result<Value>;
 }

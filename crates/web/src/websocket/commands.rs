@@ -3,6 +3,7 @@
 use serde_json::Value;
 use tracing::debug;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use super::error::WebSocketError;
 use super::manager::ConnectionManager;
@@ -11,12 +12,12 @@ use super::models::{ChannelCategory, WebSocketCommand, WebSocketResponse};
 /// Command handler for processing WebSocket commands.
 pub struct CommandHandler {
     /// The connection manager.
-    connection_manager: ConnectionManager,
+    connection_manager: Arc<ConnectionManager>,
 }
 
 impl CommandHandler {
     /// Create a new command handler.
-    pub fn new(connection_manager: ConnectionManager) -> Self {
+    pub fn new(connection_manager: Arc<ConnectionManager>) -> Self {
         Self {
             connection_manager,
         }

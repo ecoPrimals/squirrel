@@ -1,21 +1,23 @@
-//! Application state management for the web interface.
+//! Application state
+//!
+//! This module provides the central application state that is shared across
+//! all handlers and services.
 
 // This module will contain state management functionality and utilities. 
 
 use std::sync::Arc;
-use sqlx::SqlitePool;
-use async_trait::async_trait;
-use crate::config::Config;
-use crate::websocket::ConnectionManager;
+use sqlx::Pool;
+use crate::db::SqlitePool as DbPool;
+use crate::websocket::ConnectionManager as WebSocketManager;
 use crate::auth::AuthService;
-use crate::mcp::McpClient;
 use crate::api::commands::CommandService;
-use crate::api::commands::CommandServiceError;
-use crate::plugins::PluginManager;
+use crate::config::Config;
+use crate::plugins_legacy::PluginManager;
+use crate::plugins::WebPluginRegistry;
 
-/// Machine Context Protocol client trait (legacy)
-#[async_trait]
-pub trait MachineContextClient: Send + Sync + 'static {
+/// Trait for machine context clients
+#[async_trait::async_trait]
+pub trait MachineContextClient: Send + Sync {
     /// Send a message to the MCP
     async fn send_message(&self, message: &str) -> Result<String, String>;
     
@@ -23,48 +25,99 @@ pub trait MachineContextClient: Send + Sync + 'static {
     async fn receive_message(&self) -> Result<String, String>;
 }
 
-/// Default mock MCP client for testing
-pub struct DefaultMockMCPClient;
+/// Mock implementation for machine context client
+#[derive(Clone)]
+pub struct MockMcpClient {
+    // Placeholder fields for mock implementation
+}
 
-#[async_trait]
-impl MachineContextClient for DefaultMockMCPClient {
+impl MockMcpClient {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+#[async_trait::async_trait]
+impl MachineContextClient for MockMcpClient {
     async fn send_message(&self, message: &str) -> Result<String, String> {
-        Ok(format!("Sent: {}", message))
+        // Return a mock message
+        Ok(format!("Mock response to: {}", message))
     }
     
     async fn receive_message(&self) -> Result<String, String> {
-        Ok("Mock response".to_string())
+        // Return a mock message
+        Ok("Mock received message".to_string())
     }
 }
 
-/// Application state shared across all requests
+/// Application state, shared across all handlers and services
 pub struct AppState {
     /// Database connection pool
-    pub db: SqlitePool,
+    pub db: DbPool,
+    
     /// Application configuration
     pub config: Config,
-    /// Machine Context Protocol client (legacy)
+    
+    /// Machine context protocol client (legacy, deprecated)
     pub mcp: Option<Arc<dyn MachineContextClient>>,
-    /// MCP client for command execution
-    pub mcp_client: Arc<dyn McpClient>,
-    /// WebSocket connection manager
-    pub ws_manager: ConnectionManager,
+    
+    /// Modern MCP client
+    pub mcp_client: Arc<dyn crate::mcp::McpClient>,
+    
+    /// WebSocket manager
+    pub ws_manager: Arc<WebSocketManager>,
+    
     /// Authentication service
     pub auth: AuthService,
+    
     /// Command service
     pub command_service: Arc<dyn CommandService>,
-    /// Plugin manager
+    
+    /// Legacy plugin manager
     pub plugin_manager: Arc<PluginManager>,
+    
+    /// Modern plugin registry
+    pub plugin_registry: Option<Arc<WebPluginRegistry>>,
 }
 
 impl AppState {
+    /// Get the database connection pool
+    pub fn get_db(&self) -> &DbPool {
+        &self.db
+    }
+    
+    /// Get the legacy machine context client
+    pub fn get_mcp(&self) -> Option<&Arc<dyn MachineContextClient>> {
+        self.mcp.as_ref()
+    }
+    
+    /// Get the modern machine context client
+    pub fn get_mcp_client(&self) -> &Arc<dyn crate::mcp::McpClient> {
+        &self.mcp_client
+    }
+    
+    /// Get the websocket manager
+    pub fn get_ws_manager(&self) -> &Arc<WebSocketManager> {
+        &self.ws_manager
+    }
+    
+    /// Get the auth service
+    pub fn get_auth(&self) -> &AuthService {
+        &self.auth
+    }
+    
     /// Get the command service
     pub fn get_command_service(&self) -> &Arc<dyn CommandService> {
         &self.command_service
     }
     
-    /// Get the MCP client from the state for backward compatibility
-    pub fn get_mcp_client(&self) -> Result<Arc<dyn McpClient>, CommandServiceError> {
-        Ok(self.mcp_client.clone())
+    /// Get the legacy plugin manager
+    pub fn get_plugin_manager(&self) -> &Arc<PluginManager> {
+        &self.plugin_manager
+    }
+    
+    /// Get the modern plugin registry
+    pub fn get_plugin_registry(&self) -> Option<&Arc<WebPluginRegistry>> {
+        self.plugin_registry.as_ref()
     }
 } 

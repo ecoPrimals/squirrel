@@ -7,14 +7,17 @@ use std::sync::Arc;
 use anyhow::{Result, Context};
 use axum::{
     Router,
-    routing::get,
+    routing::{get, post},
     extract::State,
     Json,
+    http::Method,
 };
+use serde_json::{json, Value};
 use tracing::{debug, error, info};
 
 use crate::AppState;
-use crate::plugins::{
+use crate::plugins_legacy as legacy;
+use crate::plugins_legacy::{
     WebEndpoint as LegacyWebEndpoint,
     HttpMethod as LegacyHttpMethod,
     WebComponent as LegacyWebComponent,
@@ -23,46 +26,54 @@ use crate::plugins::{
     ComponentInfo as LegacyComponentInfo,
 };
 
-// These imports will be uncommented once the unified plugin system is available
-// use squirrel_plugins::registry::PluginRegistry;
-// use squirrel_plugins::web::{WebPlugin, WebEndpoint, HttpMethod, WebComponent};
+// New imports for the unified plugin system
+use crate::plugins::{
+    WebPluginRegistry, 
+    model::{WebRequest, WebResponse, HttpMethod},
+    example::ExamplePlugin,
+    adapter::LegacyWebPluginAdapter,
+};
 
 /// Initialize the plugin system with the unified registry
 ///
 /// This function will initialize the plugin system using the unified plugin registry.
 /// During migration, it will maintain compatibility with both systems.
-pub async fn init_plugin_system() -> Result<crate::plugins::PluginManager> {
-    // For now, initialize the legacy plugin system
-    // In the future, this will use the unified plugin registry
+pub async fn init_plugin_system() -> Result<(legacy::PluginManager, WebPluginRegistry)> {
+    // Initialize both the legacy plugin manager and modern plugin registry
     info!("Initializing web plugin system (adapter)");
     
     // Create plugin directory if it doesn't exist
-    if !std::path::Path::new(crate::plugins::PLUGIN_DIR).exists() {
-        std::fs::create_dir_all(crate::plugins::PLUGIN_DIR)
+    if !std::path::Path::new(legacy::PLUGIN_DIR).exists() {
+        std::fs::create_dir_all(legacy::PLUGIN_DIR)
             .context("Failed to create plugin directory")?;
     }
     
-    // Initialize the plugin manager
-    let plugin_manager = crate::plugins::PluginManager::new();
+    // Initialize the legacy plugin manager
+    let plugin_manager = legacy::PluginManager::new();
     
-    // When migrating to the unified system, we'll add code like:
-    // let registry = state.plugin_registry.clone();
-    // Load web plugins from the unified registry
+    // Initialize the modern plugin registry
+    let plugin_registry = WebPluginRegistry::new();
+    
+    // Register the example plugin with the modern registry
+    let example_plugin = ExamplePlugin::new();
+    plugin_registry.register_plugin(example_plugin).await?;
+    
+    // Load plugins from the plugin directory
+    plugin_registry.load_plugins_from_directory(legacy::PLUGIN_DIR).await?;
     
     info!("Web plugin system initialized (adapter)");
-    Ok(plugin_manager)
+    Ok((plugin_manager, plugin_registry))
 }
 
 /// Create plugin routes with the unified registry
 ///
 /// This function will create routes for plugins using the unified plugin registry.
 /// During migration, it will maintain compatibility with both systems.
-pub async fn create_plugin_routes<S>(router: Router<S>, state: Arc<AppState>) -> Router<S>
+pub async fn create_plugin_routes<S>(mut router: Router<S>, state: Arc<AppState>) -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
-    // For now, use the legacy plugin routes
-    // In the future, this will use the unified plugin registry
+    // For now, use the legacy plugin routes and add modern plugin routes
     debug!("Creating plugin routes (adapter)");
     
     // Create state-specific handlers that match the router's state type
@@ -84,10 +95,106 @@ where
         list_components(State(inner_state)).await
     };
     
-    router
+    // Add the basic plugin API routes
+    router = router
         .route("/api/plugins", get(list_plugins_handler))
         .route("/api/plugins/endpoints", get(list_endpoints_handler))
-        .route("/api/plugins/components", get(list_components_handler))
+        .route("/api/plugins/components", get(list_components_handler));
+    
+    // If we have a modern plugin registry, add plugin-specific routes
+    if let Some(plugin_registry) = &state.plugin_registry {
+        // Add routes for each registered endpoint in the modern registry
+        let endpoints = plugin_registry.get_endpoints().await;
+        
+        for (plugin_id, endpoint) in endpoints {
+            debug!("Adding route for endpoint: {} {}", endpoint.method as u8, endpoint.path);
+            
+            // Add routes dynamically based on HTTP method
+            let route_path = format!("/api/plugins/{}/endpoints{}", plugin_id, endpoint.path);
+            let plugin_registry_arc = plugin_registry.clone();
+            
+            // Create handler for this specific route
+            let handler = move |request: axum::extract::Json<Option<Value>>| {
+                let plugin_registry = plugin_registry_arc.clone();
+                let endpoint_path = endpoint.path.clone();
+                let method = endpoint.method;
+                
+                async move {
+                    // Convert input to WebRequest
+                    let web_request = WebRequest::new(endpoint_path, method)
+                        .with_body(request.0.unwrap_or(json!({})));
+                    
+                    // Handle the request with the plugin registry
+                    match plugin_registry.handle_request(web_request).await {
+                        Ok(response) => {
+                            // Convert WebResponse to axum Response
+                            let status_code = response.status as u16;
+                            let body = response.body.unwrap_or(json!({}));
+                            
+                            // Create response with appropriate status code
+                            let status = axum::http::StatusCode::from_u16(status_code)
+                                .unwrap_or(axum::http::StatusCode::OK);
+                            
+                            (status, Json(body))
+                        },
+                        Err(err) => {
+                            // Handle error
+                            error!("Error handling request: {}", err);
+                            let status = axum::http::StatusCode::INTERNAL_SERVER_ERROR;
+                            (status, Json(json!({ "error": err.to_string() })))
+                        }
+                    }
+                }
+            };
+            
+            // Add route for the endpoint based on HTTP method
+            router = match endpoint.method {
+                HttpMethod::Get => router.route(&route_path, get(handler)),
+                HttpMethod::Post => router.route(&route_path, post(handler)),
+                HttpMethod::Put => router.route(&route_path, axum::routing::put(handler)),
+                HttpMethod::Delete => router.route(&route_path, axum::routing::delete(handler)),
+                HttpMethod::Patch => router.route(&route_path, axum::routing::patch(handler)),
+                HttpMethod::Options => router.route(&route_path, axum::routing::options(handler)),
+                HttpMethod::Head => router.route(&route_path, axum::routing::get(handler)),
+            };
+        }
+        
+        // Add routes for components
+        let state_clone = state.clone();
+        router = router.route("/api/plugins/components/:id/markup", post(move |
+            state: State<S>,
+            axum::extract::Path(component_id): axum::extract::Path<String>,
+            axum::extract::Json(props): axum::extract::Json<Value>,
+        | async move {
+            // We need to convert from the generic state to our specific state
+            let app_state = state_clone.clone();
+            
+            if let Some(plugin_registry) = &app_state.plugin_registry {
+                match uuid::Uuid::parse_str(&component_id) {
+                    Ok(uuid) => {
+                        match plugin_registry.get_component_markup(uuid, props).await {
+                            Ok(markup) => (axum::http::StatusCode::OK, markup),
+                            Err(err) => (
+                                axum::http::StatusCode::INTERNAL_SERVER_ERROR, 
+                                format!("Error getting component markup: {}", err)
+                            ),
+                        }
+                    },
+                    Err(_) => (
+                        axum::http::StatusCode::BAD_REQUEST, 
+                        "Invalid component ID".to_string()
+                    ),
+                }
+            } else {
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR, 
+                    "Plugin registry not initialized".to_string()
+                )
+            }
+        }));
+    }
+    
+    router
 }
 
 /// List all available plugins
@@ -96,14 +203,45 @@ where
 /// During migration, it will maintain compatibility with both systems.
 pub async fn list_plugins(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<Vec<LegacyPluginInfo>>, String> {
-    // For now, use the legacy plugin manager
-    // In the future, this will use the unified plugin registry
+) -> Result<Json<Vec<Value>>, String> {
+    // Combine plugins from both legacy and modern systems
     debug!("Listing plugins (adapter)");
     
-    let plugins = state.plugin_manager
+    let mut plugins = Vec::new();
+    
+    // Add plugins from legacy system
+    let legacy_plugins = state.plugin_manager
         .list_plugins()
-        .await;
+        .await
+        .into_iter()
+        .map(|p| json!({
+            "id": p.id,
+            "name": p.name,
+            "version": p.version,
+            "system": "legacy"
+        }))
+        .collect::<Vec<_>>();
+    
+    plugins.extend(legacy_plugins);
+    
+    // Add plugins from modern system if available
+    if let Some(plugin_registry) = &state.plugin_registry {
+        let modern_plugins = plugin_registry
+            .get_plugins()
+            .await
+            .into_iter()
+            .map(|p| json!({
+                "id": p.metadata().id,
+                "name": p.metadata().name,
+                "version": p.metadata().version,
+                "description": p.metadata().description,
+                "author": p.metadata().author,
+                "system": "modern"
+            }))
+            .collect::<Vec<_>>();
+        
+        plugins.extend(modern_plugins);
+    }
     
     Ok(Json(plugins))
 }
@@ -114,29 +252,57 @@ pub async fn list_plugins(
 /// During migration, it will maintain compatibility with both systems.
 pub async fn list_endpoints(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<Vec<LegacyEndpointInfo>>, String> {
-    // For now, use the legacy plugin manager
-    // In the future, this will use the unified plugin registry
+) -> Result<Json<Vec<Value>>, String> {
+    // Combine endpoints from both legacy and modern systems
     debug!("Listing plugin endpoints (adapter)");
     
-    let endpoints = state.plugin_manager
+    let mut endpoints = Vec::new();
+    
+    // Add endpoints from legacy system
+    let legacy_endpoints = state.plugin_manager
         .get_endpoints::<()>()
         .await
-        .map_err(|e| e.to_string())?;
-    
-    let endpoints_info = endpoints
+        .map_err(|e| e.to_string())?
         .into_iter()
         .map(|(plugin_id, endpoint)| {
-            LegacyEndpointInfo {
-                plugin_id,
-                path: endpoint.path,
-                method: format!("{:?}", endpoint.method),
-                permissions: endpoint.permissions,
-            }
+            json!({
+                "plugin_id": plugin_id,
+                "path": endpoint.path,
+                "method": format!("{:?}", endpoint.method),
+                "permissions": endpoint.permissions,
+                "system": "legacy"
+            })
         })
-        .collect();
+        .collect::<Vec<_>>();
     
-    Ok(Json(endpoints_info))
+    endpoints.extend(legacy_endpoints);
+    
+    // Add endpoints from modern system if available
+    if let Some(plugin_registry) = &state.plugin_registry {
+        let modern_endpoints = plugin_registry
+            .get_endpoints()
+            .await
+            .into_iter()
+            .map(|(plugin_id, endpoint)| {
+                json!({
+                    "plugin_id": plugin_id,
+                    "id": endpoint.id,
+                    "path": endpoint.path,
+                    "method": format!("{:?}", endpoint.method),
+                    "description": endpoint.description,
+                    "permissions": endpoint.permissions,
+                    "is_public": endpoint.is_public,
+                    "is_admin": endpoint.is_admin,
+                    "tags": endpoint.tags,
+                    "system": "modern"
+                })
+            })
+            .collect::<Vec<_>>();
+        
+        endpoints.extend(modern_endpoints);
+    }
+    
+    Ok(Json(endpoints))
 }
 
 /// List all available plugin components
@@ -145,105 +311,102 @@ pub async fn list_endpoints(
 /// During migration, it will maintain compatibility with both systems.
 pub async fn list_components(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<Vec<LegacyComponentInfo>>, String> {
-    // For now, use the legacy plugin manager
-    // In the future, this will use the unified plugin registry
+) -> Result<Json<Vec<Value>>, String> {
+    // Combine components from both legacy and modern systems
     debug!("Listing plugin components (adapter)");
     
-    let components = state.plugin_manager
+    let mut components = Vec::new();
+    
+    // Add components from legacy system
+    let legacy_components = state.plugin_manager
         .get_components::<()>()
         .await
-        .map_err(|e| e.to_string())?;
-    
-    let components_info = components
+        .map_err(|e| e.to_string())?
         .into_iter()
         .map(|(plugin_id, component)| {
-            LegacyComponentInfo {
-                plugin_id,
-                name: component.name,
-                component_type: component.component_type,
-                mount_point: component.mount_point,
-            }
+            json!({
+                "plugin_id": plugin_id,
+                "name": component.name,
+                "component_type": component.component_type,
+                "mount_point": component.mount_point,
+                "system": "legacy"
+            })
         })
-        .collect();
+        .collect::<Vec<_>>();
     
-    Ok(Json(components_info))
-}
-
-/// Create plugin endpoint routes
-///
-/// This function will create routes for plugin endpoints using the unified plugin registry.
-/// During migration, it will maintain compatibility with both systems.
-pub async fn create_plugin_endpoint_routes(
-    state: Arc<AppState>,
-) -> Result<Router<Arc<AppState>>> {
-    // For now, use the legacy plugin manager
-    // In the future, this will use the unified plugin registry
-    debug!("Creating plugin endpoint routes (adapter)");
+    components.extend(legacy_components);
     
-    // Get all plugin endpoints
-    let endpoints = state.plugin_manager
-        .get_endpoints::<()>()
-        .await?;
-    
-    // Create a router with all plugin endpoints
-    let router = Router::new();
-    
-    // Configure each endpoint route
-    for (plugin_id, endpoint) in endpoints {
-        let endpoint_path = format!("/api/plugins/{}/endpoints{}", plugin_id, endpoint.path);
+    // Add components from modern system if available
+    if let Some(plugin_registry) = &state.plugin_registry {
+        let modern_components = plugin_registry
+            .get_components()
+            .await
+            .into_iter()
+            .map(|(plugin_id, component)| {
+                json!({
+                    "plugin_id": plugin_id,
+                    "id": component.id,
+                    "name": component.name,
+                    "description": component.description,
+                    "component_type": format!("{:?}", component.component_type),
+                    "properties": component.properties,
+                    "route": component.route,
+                    "priority": component.priority,
+                    "permissions": component.permissions,
+                    "parent": component.parent,
+                    "icon": component.icon,
+                    "system": "modern"
+                })
+            })
+            .collect::<Vec<_>>();
         
-        // Add the route to the router
-        debug!("Adding plugin endpoint: {}", endpoint_path);
-        
-        // Handle different HTTP methods
-        match endpoint.method {
-            LegacyHttpMethod::Get => {
-                // Add GET route
-            },
-            LegacyHttpMethod::Post => {
-                // Add POST route
-            },
-            // Handle other methods...
-            _ => {
-                // Log unsupported method
-                error!("Unsupported HTTP method: {:?}", endpoint.method);
-            }
-        }
+        components.extend(modern_components);
     }
     
-    Ok(router)
+    Ok(Json(components))
 }
 
 /// Convert between legacy and unified HTTP methods
 ///
 /// This function will be used to convert between the legacy HttpMethod enum
 /// and the unified HttpMethod enum.
-#[allow(dead_code)]
-fn convert_http_method(_method: LegacyHttpMethod) -> /* HttpMethod */ LegacyHttpMethod {
-    // For now, return the legacy method
-    // In the future, this will convert to the unified HttpMethod enum
-    _method
+pub fn convert_http_method(method: LegacyHttpMethod) -> HttpMethod {
+    match method {
+        LegacyHttpMethod::Get => HttpMethod::Get,
+        LegacyHttpMethod::Post => HttpMethod::Post,
+        LegacyHttpMethod::Put => HttpMethod::Put,
+        LegacyHttpMethod::Delete => HttpMethod::Delete,
+        LegacyHttpMethod::Patch => HttpMethod::Patch,
+        LegacyHttpMethod::Options => HttpMethod::Options,
+        LegacyHttpMethod::Head => HttpMethod::Head,
+    }
 }
 
 /// Convert between legacy and unified WebEndpoint structs
 ///
 /// This function will be used to convert between the legacy WebEndpoint struct
 /// and the unified WebEndpoint struct.
-#[allow(dead_code)]
-fn convert_web_endpoint(_endpoint: LegacyWebEndpoint) -> /* WebEndpoint */ LegacyWebEndpoint {
-    // For now, return the legacy endpoint
-    // In the future, this will convert to the unified WebEndpoint struct
-    _endpoint
+pub fn convert_legacy_endpoint(endpoint: &LegacyWebEndpoint) -> crate::plugins::model::WebEndpoint {
+    let mut new_endpoint = crate::plugins::model::WebEndpoint::new(
+        endpoint.path.clone(),
+        convert_http_method(endpoint.method),
+        format!("Legacy endpoint: {}", endpoint.path),
+    );
+    
+    for permission in &endpoint.permissions {
+        new_endpoint = new_endpoint.with_permission(permission.clone());
+    }
+    
+    new_endpoint
 }
 
-/// Convert between legacy and unified WebComponent structs
+/// Register a legacy plugin with the modern registry
 ///
-/// This function will be used to convert between the legacy WebComponent struct
-/// and the unified WebComponent struct.
-#[allow(dead_code)]
-fn convert_web_component(_component: LegacyWebComponent) -> /* WebComponent */ LegacyWebComponent {
-    // For now, return the legacy component
-    // In the future, this will convert to the unified WebComponent struct
-    _component
+/// This function registers a legacy plugin with the modern registry using the adapter.
+pub async fn register_legacy_plugin(
+    registry: &WebPluginRegistry,
+    plugin: Box<dyn legacy::WebPlugin>,
+) -> Result<()> {
+    let adapter = LegacyWebPluginAdapter::new(plugin);
+    registry.register_plugin(adapter).await
 } 

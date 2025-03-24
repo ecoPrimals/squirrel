@@ -29,21 +29,32 @@ sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-n
 jsonwebtoken = "8.1"
 bcrypt = "0.10"
 hyper = "0.14"
+regex = "1.8"
+http = "0.2"
+# Add the libloading dependency for dynamic plugin loading
+libloading = { version = "0.8", optional = true }
+# Add lazy_static for the plugin type registry
+lazy_static = "1.4"
 
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
 
-# Unified plugin system
-# Commented out for now until it's ready to be integrated
-# Will be uncommented as part of the migration process
-# squirrel-plugins = { path = "../plugins", features = ["web"] }
+# Note: The unified plugin system is now directly integrated into the web crate
+# as a module, so we don't need the explicit dependency anymore.
 
 [features]
 default = ["mock-db", "server"]
 db = []
 mock-db = []
 server = []
+# Add new features for plugin loading
+dynamic-plugins = ["libloading"]
+script-plugins = []
 
 [dev-dependencies]
-tokio-test = "0.4" 
+tokio-test = "0.4"
+axum-test = "17.2.0"
+http-body = "0.4.5"
+pretty_assertions = "1.3"
+tempfile = "3.8" 
