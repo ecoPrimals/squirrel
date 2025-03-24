@@ -11,7 +11,7 @@ use crate::api::commands::handlers::{
     list_user_commands,
     list_available_commands,
 };
-use crate::plugins::{list_plugins, list_components, list_endpoints};
+use crate::plugin_adapter::{list_plugins, list_components, list_endpoints};
 
 /// Create API router with all routes
 pub fn api_router() -> Router<Arc<AppState>> {

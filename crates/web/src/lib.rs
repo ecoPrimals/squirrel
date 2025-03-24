@@ -23,6 +23,7 @@ pub mod websocket;
 pub mod config;
 pub mod db;
 pub mod plugins;
+pub mod plugins_legacy; // Renamed legacy plugins module
 pub mod plugin_adapter; // New adapter module for plugin migration
 pub mod utils;
 
@@ -32,6 +33,7 @@ use crate::db::SqlitePool as DbPool;
 use auth::{AuthConfig, AuthService};
 use mcp::{McpClient, MockMcpClient};
 use api::commands::{CommandService, CommandServiceImpl, CommandRepository};
+use plugins::WebPluginRegistry;
 
 // Fix import for repositories
 #[cfg(feature = "db")]
@@ -119,7 +121,7 @@ pub async fn setup_database(_database_url: &str) -> Result<DbPool> {
 /// Create the application router
 pub async fn create_app(db: DbPool, config: Config) -> Router {
     // Initialize WebSocket manager
-    let ws_manager = websocket::init();
+    let ws_manager = Arc::new(websocket::init());
     
     // Create auth service
     let auth = AuthService::new(AuthConfig::default(), db.clone());
@@ -143,12 +145,15 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         mcp_client.clone(),
     )) as Arc<dyn CommandService>;
     
-    // Initialize plugin manager using the adapter
-    // This will eventually use the unified plugin registry
-    let plugin_manager = Arc::new(plugin_adapter::init_plugin_system().await.unwrap_or_else(|e| {
+    // Initialize plugin system using the adapter
+    // This now returns both the legacy plugin manager and the new WebPluginRegistry
+    let (plugin_manager, plugin_registry) = plugin_adapter::init_plugin_system().await.unwrap_or_else(|e| {
         eprintln!("Failed to initialize plugin system: {}", e);
-        plugins::PluginManager::new()
-    }));
+        (plugins_legacy::PluginManager::new(), WebPluginRegistry::new())
+    });
+    
+    let plugin_manager = Arc::new(plugin_manager);
+    let plugin_registry = Arc::new(plugin_registry);
     
     // Create app state
     let state = Arc::new(AppState {
@@ -160,6 +165,7 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         auth,
         command_service,
         plugin_manager,
+        plugin_registry: Some(plugin_registry), // Add the plugin registry to the app state
     });
 
     // Setup CORS
