@@ -6,7 +6,6 @@ use crate::{
     registry::CommandRegistry,
     builtin::{VersionCommand, HelpCommand, EchoCommand, ExitCommand, KillCommand, HistoryCommand},
     history::CommandHistory,
-    adapter::plugins::create_commands_plugin_adapter,
 };
 use std::{
     error::Error,
@@ -55,15 +54,36 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn 
     factory.create_registry()
 }
 
-/// Create a command registry with built-in commands and wrap it in a plugin adapter
+/// Create a command registry with plugin adapter
+/// 
+/// This function creates a command registry and a plugin adapter in one call,
+/// allowing the commands to be used both directly and through the plugin system.
 /// 
 /// # Returns
 /// 
-/// A tuple containing the command registry and a plugin adapter for the unified plugin system
-pub fn create_command_registry_with_plugin() -> Result<(Arc<Mutex<CommandRegistry>>, Arc<dyn squirrel_plugins::commands::CommandsPlugin>), Box<dyn Error>> {
-    debug!("Factory: Creating command registry with plugin adapter");
+/// A tuple containing the command registry and the plugin adapter
+pub fn create_command_registry_with_plugin() -> Result<(
+    Arc<Mutex<CommandRegistry>>, 
+    Arc<dyn squirrel_plugins::commands::CommandsPlugin>
+), Box<dyn Error>> {
+    // Create the registry
     let registry = create_command_registry()?;
-    let plugin = create_commands_plugin_adapter(Arc::clone(&registry));
+    
+    // Create the plugin adapter
+    let plugin = crate::adapter::plugins::create_commands_plugin_adapter(registry.clone());
+    
+    // Initialize the plugin
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(async {
+            plugin.initialize().await
+        })
+        .map_err(|e| -> Box<dyn Error> { 
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other, 
+                format!("Failed to initialize plugin: {}", e)
+            ))
+        })?;
     
     Ok((registry, plugin))
 }

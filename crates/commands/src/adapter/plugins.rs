@@ -11,15 +11,12 @@ use async_trait::async_trait;
 use serde_json::Value;
 use thiserror::Error;
 use tracing::{debug, error, info, trace};
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 
 use squirrel_plugins::plugin::{Plugin, PluginMetadata};
 use squirrel_plugins::commands::{CommandsPlugin, CommandMetadata};
 
 use crate::registry::{Command, CommandRegistry};
-use crate::CommandError;
 
 /// Errors that can occur during plugin adapter operations
 #[derive(Debug, Error)]
@@ -100,7 +97,7 @@ impl CommandsPluginAdapter {
     /// Generate input schema for a command
     fn generate_input_schema(cmd: &dyn Command) -> Value {
         // Extract parameters from the clap Command
-        let parser = cmd.parser();
+        let _parser = cmd.parser();  // Add underscore to indicate intentionally unused variable
         let mut schema = serde_json::json!({
             "type": "object",
             "required": [],
@@ -287,7 +284,13 @@ impl CommandsPlugin for CommandsPluginAdapter {
     }
 }
 
-/// Create a command plugin adapter from a command registry
+/// Create a commands plugin adapter from a registry
+///
+/// # Arguments
+/// * `registry` - The command registry
+///
+/// # Returns
+/// A commands plugin adapter that implements the CommandsPlugin trait
 pub fn create_commands_plugin_adapter(
     registry: Arc<Mutex<CommandRegistry>>,
 ) -> Arc<dyn CommandsPlugin> {
@@ -337,7 +340,7 @@ mod tests {
         
         // Register a test command
         {
-            let mut registry_guard = registry.lock().unwrap();
+            let registry_guard = registry.lock().unwrap();
             registry_guard.register("test", Arc::new(TestCommand))?;
         }
 
@@ -361,7 +364,7 @@ mod tests {
         
         // Register test command
         {
-            let mut registry_guard = registry.lock().unwrap();
+            let registry_guard = registry.lock().unwrap();
             registry_guard.register("test", Arc::new(TestCommand)).unwrap();
         }
         
@@ -388,38 +391,58 @@ mod tests {
         
         Ok(())
     }
-}
-
-// Create our own metadata types as needed
-#[derive(Debug, Clone)]
-pub struct Metadata {
-    pub key: String,
-    pub value: String,
-}
-
-pub struct MetadataBuilder {
-    metadata: Vec<Metadata>,
-}
-
-impl MetadataBuilder {
-    pub fn new() -> Self {
-        Self {
-            metadata: Vec::new(),
+    
+    #[tokio::test]
+    async fn test_command_metadata_conversion() -> Result<(), Box<dyn Error>> {
+        // Create command registry with test command
+        let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+        {
+            let registry_guard = registry.lock().unwrap();
+            registry_guard.register("test", Arc::new(TestCommand)).unwrap();
         }
+        
+        // Create the adapter
+        let adapter = CommandsPluginAdapter::new(registry);
+        
+        // Initialize metadata cache
+        adapter.rebuild_metadata_cache()?;
+        
+        // Get command metadata
+        let commands = adapter.get_available_commands();
+        
+        // Find test command
+        let test_cmd = commands.iter()
+            .find(|cmd| cmd.name == "test")
+            .expect("Test command should be in metadata");
+            
+        // Verify metadata
+        assert_eq!(test_cmd.id, "command.test");
+        assert_eq!(test_cmd.description, "Test command for unit tests");
+        assert!(test_cmd.input_schema.as_object().unwrap().contains_key("properties"));
+        assert!(test_cmd.output_schema.as_object().unwrap().contains_key("properties"));
+        
+        Ok(())
     }
     
-    pub fn add(&mut self, key: &str, value: &str) -> &mut Self {
-        self.metadata.push(Metadata {
-            key: key.to_string(),
-            value: value.to_string(),
-        });
-        self
+    #[tokio::test]
+    async fn test_help_system() -> Result<(), Box<dyn Error>> {
+        // Create command registry with test command
+        let registry = Arc::new(Mutex::new(CommandRegistry::new()));
+        {
+            let registry_guard = registry.lock().unwrap();
+            registry_guard.register("test", Arc::new(TestCommand)).unwrap();
+        }
+        
+        // Create the adapter
+        let adapter = CommandsPluginAdapter::new(registry);
+        
+        // Get help for command
+        let help = adapter.get_command_help("command.test");
+        
+        // Verify help exists
+        assert!(help.is_some(), "Help should be available for test command");
+        assert!(help.unwrap().contains("Test command"), "Help should contain command description");
+        
+        Ok(())
     }
-    
-    pub fn build(&self) -> Vec<Metadata> {
-        self.metadata.clone()
-    }
-}
-
-// Define a simple execution context
-pub struct PluginExecutionContext; 
+} 
