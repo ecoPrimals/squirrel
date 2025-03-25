@@ -248,6 +248,8 @@ pub enum SecurityError {
     InvalidActionInPermission(String),
     #[error("Error creating role: {0}")]
     ErrorCreatingRole(String),
+    #[error("RBAC error: {0}")]
+    RBACError(#[from] crate::security::rbac::RBACError),
 }
 
 #[derive(Debug, Error)]

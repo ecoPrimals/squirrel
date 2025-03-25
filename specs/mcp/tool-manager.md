@@ -1,17 +1,19 @@
 ---
-version: 1.2.0
-status: in-progress
-last_updated: 2024-04-10
+version: 1.3.0
+status: nearly-complete
+last_updated: 2024-05-04
 ---
 
 # MCP Tool Management System
 
 ## Implementation Status
-- **Overall Progress**: 85%
+- **Overall Progress**: 95%
 - **Tool Registration**: 100% Complete
 - **Tool Execution**: 90% Complete
-- **Tool Lifecycle**: 80% Complete
+- **Tool Lifecycle**: 95% Complete
 - **Resource Tracking**: 100% Complete
+- **State Validation**: 100% Complete
+- **Error Recovery**: 100% Complete
 
 ## Overview
 The Tool Management System is a core component of the MCP infrastructure that enables the registration, execution, and lifecycle management of tools. Each tool represents a capability that can be executed by the MCP server on behalf of a client.
@@ -22,10 +24,17 @@ The Tool Management System consists of several interrelated components:
 
 ```
 tool/
-├── mod.rs             # Main module definitions
-├── executor.rs        # Tool execution functionality
-├── lifecycle.rs       # Lifecycle management
-└── cleanup.rs         # Resource cleanup and tracking
+├── mod.rs                     # Main module definitions
+├── executor.rs                # Tool execution functionality
+├── lifecycle/                 # Lifecycle management
+│   ├── mod.rs                 # Module exports
+│   └── state_validator.rs     # State transition validation
+└── cleanup/                   # Resource cleanup and tracking
+    ├── mod.rs                 # Module exports
+    ├── basic_resource_manager.rs  # Basic resource management
+    ├── comprehensive_cleanup.rs   # Enhanced cleanup system
+    ├── enhanced_recovery.rs       # Advanced recovery strategies
+    └── resource_tracking.rs       # Resource tracking components
 ```
 
 ### Core Components
@@ -37,6 +46,105 @@ tool/
 3. **Lifecycle Management**: Manages the lifecycle of tools, including initialization, activation, deactivation, and cleanup.
 
 4. **Resource Tracking**: Monitors and manages resources used by tools, ensuring proper resource allocation and cleanup.
+
+5. **State Validation**: Validates state transitions and provides rollback capabilities for invalid transitions.
+
+6. **Error Recovery**: Implements sophisticated recovery strategies for tool errors.
+
+## Recent Enhancements
+
+### State Transition Validation
+The state transition validation system has been fully implemented and provides:
+
+- Complete state transition graph to enforce valid state changes
+- Automatic rollback for invalid transitions
+- Smart rollback state selection based on context
+- Comprehensive logging of state changes and violations
+- History tracking for violations and rollback attempts
+
+#### Implementation
+```rust
+// Using state validation hook
+let validator = StateTransitionValidator::new()
+    .with_enforcement(true)
+    .with_rollback(true);
+
+let validation_hook = StateValidationHook::with_validator(Arc::new(validator));
+
+let tool_manager = ToolManager::builder()
+    .lifecycle_hook(validation_hook)
+    .build();
+
+// State transition will be validated
+tool_manager.update_tool_state("tool-id", ToolState::Active).await?;
+```
+
+### Enhanced Recovery System
+The recovery system has been fully implemented with:
+
+- Sophisticated backoff strategies (exponential, fibonacci, jittered)
+- Multi-stage recovery attempts with configurable policies
+- Recovery history tracking and analysis
+- Adaptive recovery based on error patterns
+- Integration with the tool manager for automated recovery
+
+#### Implementation
+```rust
+// Configure recovery strategy
+let recovery_strategy = EnhancedRecoveryStrategy {
+    max_attempts: 3,
+    backoff_strategy: AdvancedBackoffStrategy::Exponential {
+        base_ms: 1000,
+        max_ms: 30000,
+        jitter: 0.2,
+    },
+    recovery_actions: vec![
+        AdvancedRecoveryAction::Reset,
+        AdvancedRecoveryAction::Restart,
+        AdvancedRecoveryAction::Recover { params: HashMap::new() },
+    ],
+    stop_on_success: true,
+    max_recovery_time_seconds: Some(300),
+};
+
+let recovery_hook = EnhancedRecoveryHook::new()
+    .with_default_strategy(recovery_strategy);
+
+// Apply recovery for a tool error
+let tool_manager = ToolManager::builder()
+    .recovery_hook(recovery_hook)
+    .build();
+
+// Automatic recovery will be attempted when errors occur
+```
+
+### Comprehensive Cleanup
+The cleanup system has been enhanced with:
+
+- Cascading resource cleanup for dependent resources
+- Resource dependency tracking and management
+- Multiple cleanup strategies (normal, forced, cascading)
+- Timeout-based cleanup operations
+- Customizable cleanup behavior
+
+#### Implementation
+```rust
+// Create comprehensive cleanup hook
+let cleanup_hook = ComprehensiveCleanupHook::new()
+    .with_cleanup_timeout(30000);
+
+// Register a resource dependency
+cleanup_hook.register_resource(
+    "tool-id",
+    ResourceType::Database,
+    "db-connection-1",
+    1,
+    HashMap::new(),
+).await;
+
+// Cleanup will handle all resources and their dependencies
+cleanup_hook.cleanup_tool_resources("tool-id", CleanupMethod::Cascading).await?;
+```
 
 ## Tool Registration
 
@@ -59,7 +167,7 @@ let tool = Tool::builder()
     .security_level(5)
     .build();
 
-tool_manager.register_tool(tool).await?;
+tool_manager.register_tool(tool, executor).await?;
 ```
 
 ## Tool Execution
@@ -81,7 +189,7 @@ let result = tool_manager
         "tool-id",
         "capability-name",
         parameters,
-        context,
+        Some(request_id),
     )
     .await?;
 ```
@@ -107,36 +215,34 @@ let result = tool_manager
 ### Lifecycle Hooks
 Lifecycle hooks enable custom behavior at different stages of a tool's lifecycle:
 
-1. **Pre-registration Hook**: Executed before tool registration
-2. **Post-registration Hook**: Executed after tool registration
-3. **Pre-execution Hook**: Executed before tool execution
-4. **Post-execution Hook**: Executed after tool execution
-5. **Cleanup Hook**: Executed during resource cleanup
-6. **Error Hook**: Executed when errors occur
-7. **State Transition Hook**: Executed during state transitions
+1. **Registration Hook**: Executed during tool registration
+2. **Execution Hook**: Executed before and after tool execution
+3. **Cleanup Hook**: Executed during resource cleanup
+4. **Error Hook**: Executed when errors occur
+5. **State Transition Hook**: Executed during state transitions
+6. **Recovery Hook**: Executed during error recovery
+7. **Validation Hook**: Executed to validate state transitions
 
 ### Implementation
 ```rust
-// Lifecycle hook implementation
-struct CustomLifecycleHook;
+// Combining multiple lifecycle hooks
+let basic_hook = BasicLifecycleHook::new();
+let security_hook = SecurityLifecycleHook::new();
+let validation_hook = StateValidationHook::new();
+let cleanup_hook = ComprehensiveCleanupHook::new();
+let recovery_hook = EnhancedRecoveryHook::new();
 
-#[async_trait]
-impl LifecycleHook for CustomLifecycleHook {
-    async fn pre_execute(&self, tool: &Tool, params: &JsonValue) -> Result<()> {
-        // Custom pre-execution logic
-        Ok(())
-    }
+let composite_hook = CompositeLifecycleHook::new()
+    .add_hook(Arc::new(basic_hook))
+    .add_hook(Arc::new(security_hook))
+    .add_hook(Arc::new(validation_hook))
+    .add_hook(Arc::new(cleanup_hook));
 
-    async fn post_execute(&self, tool: &Tool, result: &JsonValue) -> Result<()> {
-        // Custom post-execution logic
-        Ok(())
-    }
-    
-    // Other hook methods...
-}
-
-// Attach hook to tool manager
-tool_manager.add_lifecycle_hook(Arc::new(CustomLifecycleHook));
+// Create tool manager with composite hook
+let tool_manager = ToolManager::builder()
+    .lifecycle_hook(composite_hook)
+    .recovery_hook(recovery_hook)
+    .build();
 ```
 
 ## Resource Management
@@ -148,18 +254,23 @@ The Resource Management system has been fully implemented and includes:
 - CPU time tracking
 - File handle management
 - Network connection tracking
+- Custom resource type support
+- Dependency relationship tracking
 
 ### Resource Limits
 - Tool-specific resource limits
 - Global resource limits
 - Security-level-based resource allocation
 - Automatic resource scaling
+- Adaptive limit adjustment
 
 ### Cleanup Procedures
 - Automatic resource cleanup
 - Forced cleanup for unresponsive tools
+- Cascading cleanup for dependencies
 - Leak detection and prevention
-- Recovery strategies
+- Recovery strategies for cleanup failures
+- Timeout-based cleanup operations
 
 ### Implementation
 ```rust
@@ -180,17 +291,6 @@ let usage = tool_manager.get_resource_usage("tool-id").await?;
 
 ## Remaining Work
 
-### Tool Lifecycle (80% Complete)
-1. **Enhanced Error Recovery**:
-   - Implement more sophisticated error recovery strategies
-   - Add automatic retry mechanisms for transient failures
-   - Improve error diagnostics and reporting
-
-2. **State Transition Refinements**:
-   - Add validation for all state transitions
-   - Implement rollback mechanisms for failed transitions
-   - Add comprehensive logging for state changes
-
 ### Tool Execution (90% Complete)
 1. **Performance Optimization**:
    - Improve execution speed for high-volume tool calls
@@ -202,7 +302,7 @@ let usage = tool_manager.get_resource_usage("tool-id").await?;
    - Implement better scheduling for resource-intensive tools
    - Add priority-based execution queue
 
-### Integration (85% Complete)
+### Integration (90% Complete)
 1. **Plugin System Integration**:
    - Complete integration with the plugin system
    - Add dynamic tool discovery from plugins
@@ -215,10 +315,10 @@ let usage = tool_manager.get_resource_usage("tool-id").await?;
 
 ## Next Steps
 
-1. Complete the enhanced error recovery implementation
-2. Finalize state transition validation and rollback mechanisms
-3. Optimize tool execution performance
-4. Complete integration with the monitoring system
-5. Enhance documentation with usage examples
+1. Optimize tool execution performance
+2. Complete integration with the monitoring system
+3. Enhance documentation with usage examples
+4. Add more comprehensive tests
+5. Implement plugin system integration
 
-<version>1.2.0</version>
+<version>1.3.0</version>

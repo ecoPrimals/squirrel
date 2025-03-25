@@ -176,6 +176,7 @@ squirrel-commands = { path = "crates/commands" }
 squirrel-core = { path = "crates/core" }
 squirrel-interfaces = { path = "crates/interfaces" }
 squirrel-context = { path = "crates/context" }
+squirrel-mcp = { path = "crates/mcp" }
 
 # Monitoring and logging
 metrics = "0.21"

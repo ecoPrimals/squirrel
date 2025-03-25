@@ -110,4 +110,13 @@ pub trait ResourceManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// `true` if the tool is within limits, `false` otherwise
     async fn check_limits(&self, tool_id: &str) -> Result<bool, ToolError>;
+
+    /// Releases a specific resource for a tool
+    ///
+    /// This method is called to release a specific resource that was allocated to a tool.
+    /// It should handle the specific resource type and release mechanism.
+    ///
+    /// # Arguments
+    /// * `resource_id` - The ID of the resource to release
+    async fn release_resource(&self, resource_id: &str) -> Result<(), ToolError>;
 }

@@ -345,6 +345,10 @@ impl BasicLifecycleHook {
         // If we get here, either the tool doesn't exist or has no history
         Err(ToolError::NoStateHistory(tool_id.to_string()))
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[async_trait]
@@ -531,6 +535,10 @@ impl crate::tool::ToolLifecycleHook for BasicLifecycleHook {
         // Delegate to existing on_cleanup method
         self.on_cleanup(tool_id).await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// A lifecycle hook that performs additional validation and security checks
@@ -597,6 +605,10 @@ impl SecurityLifecycleHook {
         }
 
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -763,6 +775,10 @@ impl crate::tool::ToolLifecycleHook for SecurityLifecycleHook {
         // Delegate to existing on_cleanup method
         self.on_cleanup(tool_id).await
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// A composite lifecycle hook that combines multiple hooks
@@ -798,6 +814,10 @@ impl CompositeLifecycleHook {
                 .map(|h| Arc::new(h) as Arc<dyn ToolLifecycleHook + Send + Sync>)
                 .collect(),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -1044,6 +1064,10 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
     async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError> {
         // Delegate to existing on_cleanup method
         self.on_cleanup(tool_id).await
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
