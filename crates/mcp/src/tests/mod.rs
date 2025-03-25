@@ -9,10 +9,11 @@ pub mod adapter_tests;
 mod security_tests {
     use crate::security::rbac::RBACManager;
 
-    #[test]
-    fn test_security_module() {
+    #[tokio::test]
+    async fn test_security_module() {
         // Simple verification test for security module
         let manager = RBACManager::new();
-        assert!(manager.get_role("admin").is_none());
+        let role_result = manager.get_role("admin").await;
+        assert!(role_result.is_err());
     }
 }

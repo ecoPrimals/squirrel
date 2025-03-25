@@ -228,4 +228,52 @@ impl ResourceTracker {
 
         Ok(())
     }
+    
+    /// Cleanup a specific resource
+    pub async fn cleanup_resource(&self, resource_id: &str) -> Result<(), String> {
+        debug!(
+            "Cleaning up specific resource {} for tool {}",
+            resource_id, self.data.tool_id
+        );
+        
+        // This is a simplified implementation. In a real system, you would:
+        // 1. Parse the resource_id to determine what type of resource it is
+        // 2. Close/cleanup the specific resource based on its type
+        // 3. Remove it from tracking
+        
+        // For now, we'll just check if it's a file or network connection and remove it if found
+        
+        // Check file handles first
+        {
+            let mut handles = self.data.file_handles.write().await;
+            if handles.remove(resource_id) {
+                debug!(
+                    "Released file handle {} for tool {}",
+                    resource_id, self.data.tool_id
+                );
+                return Ok(());
+            }
+        }
+        
+        // Check network connections next
+        {
+            let mut connections = self.data.network_connections.write().await;
+            if connections.remove(resource_id) {
+                debug!(
+                    "Released network connection {} for tool {}",
+                    resource_id, self.data.tool_id
+                );
+                return Ok(());
+            }
+        }
+        
+        // If we got here, the resource wasn't found
+        // For now, we'll consider this a success anyway to be lenient
+        debug!(
+            "Resource {} not found for tool {}, may have already been released",
+            resource_id, self.data.tool_id
+        );
+        
+        Ok(())
+    }
 }

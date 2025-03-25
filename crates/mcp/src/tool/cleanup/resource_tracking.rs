@@ -6,7 +6,6 @@ use serde::{Serialize, Deserialize};
 use tracing::{info, warn, instrument};
 
 use crate::tool::ToolError;
-use super::{ResourceUsage, ResourceLimits};
 
 /// Constants for resource tracking
 pub const TRACKING_INTERVAL_MS: u64 = 1000;
@@ -63,6 +62,43 @@ pub enum ResourceEvent {
     Release(ResourceType, String),
     /// Resource limit exceeded event
     LimitExceeded(ResourceType, String),
+}
+
+/// Resource limits for a tool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceLimits {
+    /// Maximum memory bytes
+    pub max_memory_bytes: u64,
+    /// Maximum CPU time in milliseconds
+    pub max_cpu_time_ms: u64,
+    /// Maximum file handles
+    pub max_file_handles: usize,
+    /// Maximum network connections
+    pub max_network_connections: usize,
+}
+
+impl Default for ResourceLimits {
+    fn default() -> Self {
+        Self {
+            max_memory_bytes: 1024 * 1024 * 100, // 100MB
+            max_cpu_time_ms: 60 * 1000,          // 60 seconds
+            max_file_handles: DEFAULT_FILE_HANDLE_LIMIT,
+            max_network_connections: DEFAULT_NETWORK_CONNECTION_LIMIT,
+        }
+    }
+}
+
+/// Resource usage statistics for a tool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceUsage {
+    /// Memory usage in bytes
+    pub memory_bytes: u64,
+    /// CPU time in milliseconds
+    pub cpu_time_ms: u64,
+    /// File handles in use
+    pub file_handles: Vec<usize>,
+    /// Network connections in use
+    pub network_connections: Vec<usize>,
 }
 
 /// Tracks and manages resource usage for tools
@@ -176,11 +212,12 @@ impl ResourceTracker {
             ToolError::ToolNotFound(format!("Tool {} not found for memory limits", tool_id))
         )?;
         
-        usage.memory_bytes += bytes;
+        // Convert bytes to u64 before adding
+        usage.memory_bytes += bytes as u64;
         
         let status = self.check_resource_status(
-            usage.memory_bytes, 
-            limit.max_memory_bytes,
+            usage.memory_bytes as usize, 
+            limit.max_memory_bytes as usize,
             ResourceType::Memory,
             tool_id,
             &format!("{} bytes", usage.memory_bytes)
@@ -238,13 +275,15 @@ impl ResourceTracker {
             ToolError::ToolNotFound(format!("Tool {} not found for file handle limits", tool_id))
         )?;
         
-        // Add file handle if not already tracked
-        if !usage.file_handles.contains(&handle_id) {
-            usage.file_handles.push(handle_id);
+        // Convert u32 to usize for compatibility
+        let handle_id_usize = handle_id as usize;
+        
+        if !usage.file_handles.contains(&handle_id_usize) {
+            usage.file_handles.push(handle_id_usize);
         }
         
         let status = self.check_resource_status(
-            usage.file_handles.len(), 
+            usage.file_handles.len(),
             limit.max_file_handles,
             ResourceType::FileHandle,
             tool_id,
@@ -272,13 +311,15 @@ impl ResourceTracker {
             ToolError::ToolNotFound(format!("Tool {} not found for network connection limits", tool_id))
         )?;
         
-        // Add connection if not already tracked
-        if !usage.network_connections.contains(&connection_id) {
-            usage.network_connections.push(connection_id);
+        // Convert u32 to usize for compatibility
+        let connection_id_usize = connection_id as usize;
+        
+        if !usage.network_connections.contains(&connection_id_usize) {
+            usage.network_connections.push(connection_id_usize);
         }
         
         let status = self.check_resource_status(
-            usage.network_connections.len(), 
+            usage.network_connections.len(),
             limit.max_network_connections,
             ResourceType::NetworkConnection,
             tool_id,
@@ -301,13 +342,12 @@ impl ResourceTracker {
             ToolError::ToolNotFound(format!("Tool {} not found for file handle release", tool_id))
         )?;
         
-        usage.file_handles.retain(|&h| h != handle_id);
+        // Convert u32 to usize for compatibility
+        let handle_id_usize = handle_id as usize;
         
-        self.record_resource_event(
-            ResourceEvent::Release(ResourceType::FileHandle, handle_id.to_string()),
-            tool_id
-        ).await;
+        usage.file_handles.retain(|&h| h != handle_id_usize);
         
+        info!("Released file handle {} for tool {}", handle_id, tool_id);
         Ok(())
     }
     
@@ -324,13 +364,12 @@ impl ResourceTracker {
             ToolError::ToolNotFound(format!("Tool {} not found for network connection release", tool_id))
         )?;
         
-        usage.network_connections.retain(|&c| c != connection_id);
+        // Convert u32 to usize for compatibility
+        let connection_id_usize = connection_id as usize;
         
-        self.record_resource_event(
-            ResourceEvent::Release(ResourceType::NetworkConnection, connection_id.to_string()),
-            tool_id
-        ).await;
+        usage.network_connections.retain(|&c| c != connection_id_usize);
         
+        info!("Released network connection {} for tool {}", connection_id, tool_id);
         Ok(())
     }
     

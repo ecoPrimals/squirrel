@@ -11,6 +11,59 @@ A command-line interface for the Squirrel platform with a powerful plugin system
 - Plugin lifecycle management
 - Machine Context Protocol (MCP) integration
 
+## Project Structure
+
+The Squirrel project is organized as a Rust workspace with the following structure:
+
+```
+squirrel/
+├── Cargo.toml           # Workspace manifest
+├── src/                 # Main crate - integration point and public API
+│   ├── adapter/         # Adapter interfaces for MCP integration
+│   ├── security/        # Security-related functionality
+│   ├── tests/           # Integration tests
+│   └── lib.rs           # Main entry point and re-exports
+│
+├── crates/              # Individual implementation crates
+│   ├── app/             # Application core implementation
+│   ├── cli/             # Command Line Interface implementation
+│   ├── commands/        # Command System implementation
+│   ├── common/          # Common utilities and shared code
+│   ├── context/         # Context Management implementation
+│   ├── context-adapter/ # Context adapter implementation
+│   ├── core/            # Core utilities
+│   ├── galaxy/          # Galaxy integration
+│   ├── interfaces/      # Shared interfaces
+│   ├── mcp/             # MCP Protocol implementation
+│   ├── monitoring/      # Monitoring System implementation
+│   ├── plugins/         # Plugin System implementation
+│   ├── test-utils/      # Testing utilities
+│   └── web/             # Web Interface implementation
+│
+├── specs/               # Detailed specifications
+│   ├── commands/        # Command System specs
+│   ├── context/         # Context Management specs
+│   ├── mcp/             # MCP protocol specs
+│   ├── monitoring/      # Monitoring system specs
+│   └── ...              # Other specifications
+│
+└── plugins/             # Plugin implementations
+```
+
+### Main Crate (`src/`)
+
+The main crate in the `src/` directory serves as the primary integration point for the Squirrel ecosystem. It provides:
+
+1. **Public API Surface**: Curated re-exports from other crates to provide a clean, unified API
+2. **Integration Interfaces**: Adapters and interfaces for cross-crate communication
+3. **Entry Point**: Central access point for applications using the Squirrel ecosystem
+
+For more information, see the [src/README.md](src/README.md).
+
+### Implementation Crates (`crates/`)
+
+Each crate in the `crates/` directory contains a focused implementation of a specific subsystem with minimal dependencies on other crates. This separation allows for loose coupling between components and better maintainability.
+
 ## Built-in Commands
 
 - `help`: Display help information
@@ -42,11 +95,11 @@ The CLI includes a robust plugin system that allows for extending functionality 
 ### Plugin Commands
 
 - `plugin list`: List installed plugins
-- `plugin info <name>`: Show information about a specific plugin
-- `plugin enable <name>`: Enable a plugin
-- `plugin disable <name>`: Disable a plugin
+- `plugin info <n>`: Show information about a specific plugin
+- `plugin enable <n>`: Enable a plugin
+- `plugin disable <n>`: Disable a plugin
 - `plugin install <path>`: Install a plugin from a path
-- `plugin uninstall <name>`: Uninstall a plugin
+- `plugin uninstall <n>`: Uninstall a plugin
 - `plugin reload`: Reload all plugins
 
 ### Creating Plugins

@@ -16,6 +16,12 @@ use std::{
 
 use tracing::{debug, info};
 
+/// Type alias for a registry and plugin tuple
+pub type RegistryWithPlugin = (
+    Arc<Mutex<CommandRegistry>>, 
+    Arc<dyn squirrel_plugins::commands::CommandsPlugin>
+);
+
 /// The command registry factory trait
 /// 
 /// Implementations of this trait are responsible for creating and configuring
@@ -62,10 +68,7 @@ pub fn create_command_registry() -> Result<Arc<Mutex<CommandRegistry>>, Box<dyn 
 /// # Returns
 /// 
 /// A tuple containing the command registry and the plugin adapter
-pub fn create_command_registry_with_plugin() -> Result<(
-    Arc<Mutex<CommandRegistry>>, 
-    Arc<dyn squirrel_plugins::commands::CommandsPlugin>
-), Box<dyn Error>> {
+pub fn create_command_registry_with_plugin() -> Result<RegistryWithPlugin, Box<dyn Error>> {
     // Create the registry
     let registry = create_command_registry()?;
     
