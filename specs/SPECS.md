@@ -250,11 +250,13 @@ squirrel/
    - Recovery mechanisms
    - Health checks
 
-6. Observability Enhancement
-   - Metrics collection
-   - Structured logging
-   - Distributed tracing
-   - Alerting system
+6. NestGate System Integration
+   - MCP protocol compatibility
+   - Storage service integration
+   - Command system extension
+   - Monitoring integration
+   - Context synchronization
+   - See [specs/integration/nestgate-integration.md](integration/nestgate-integration.md) for details
 
 7. Integration Verification
    - Component interoperability testing
