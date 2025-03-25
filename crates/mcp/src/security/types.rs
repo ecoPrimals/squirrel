@@ -59,6 +59,8 @@ pub enum Action {
     Create,
     /// Read existing resources
     Read,
+    /// Write to resources
+    Write,
     /// Update existing resources
     Update,
     /// Delete existing resources
@@ -74,6 +76,7 @@ impl std::fmt::Display for Action {
         match self {
             Action::Create => write!(f, "create"),
             Action::Read => write!(f, "read"),
+            Action::Write => write!(f, "write"),
             Action::Update => write!(f, "update"),
             Action::Delete => write!(f, "delete"),
             Action::Execute => write!(f, "execute"),

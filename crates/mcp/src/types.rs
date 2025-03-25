@@ -13,6 +13,8 @@ pub enum SecurityLevel {
     Standard = 5,
     /// High security level
     High = 10,
+    /// Critical security level
+    Critical = 15,
 }
 
 /// Encryption format for secure communications

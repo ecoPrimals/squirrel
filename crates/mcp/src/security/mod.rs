@@ -7,9 +7,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::RwLock;
-use tracing::info;
-use uuid::Uuid;
 
 pub mod crypto;
 pub mod rbac;
@@ -18,13 +15,49 @@ pub mod types;
 // Re-export types from types.rs
 pub use types::{Role, Permission, PermissionCondition, PermissionContext, PermissionScope, Action};
 
+// Import types from crate::types
+use crate::types::{SessionToken, UserId};
+
 // Re-export enhanced RBAC components
 pub use rbac::{
     EnhancedRBACManager, ValidationResult, ValidationRule, InheritanceType, ValidationAuditRecord
 };
 
-use crate::error::{MCPError, Result, SecurityError};
-use crate::types::{SecurityLevel, UserId};
+use crate::error::Result;
+use chrono::DateTime;
+use chrono::Utc;
+
+/// Authentication credentials for security operations
+#[derive(Debug, Clone)]
+pub struct Credentials {
+    /// Username for authentication
+    pub username: String,
+    
+    /// Password for authentication (optional)
+    pub password: Option<String>,
+    
+    /// Token for authentication (optional)
+    pub token: Option<String>,
+}
+
+/// Session information for authenticated users
+#[derive(Debug, Clone)]
+pub struct Session {
+    /// Session token
+    pub token: SessionToken,
+    
+    /// User ID
+    pub user_id: UserId,
+    
+    /// Creation time
+    pub created_at: DateTime<Utc>,
+    
+    /// Last access time
+    pub updated_at: DateTime<Utc>,
+    
+    /// Session metadata
+    pub metadata: HashMap<String, String>,
+}
 
 /// Security manager interface
 #[async_trait]
@@ -69,24 +102,70 @@ impl SecurityManagerImpl {
 #[async_trait]
 impl SecurityManager for SecurityManagerImpl {
     async fn has_permission(&self, user_id: &str, permission: &Permission) -> bool {
-        self.rbac_manager.has_permission(
+        // Create a default context
+        let _context = PermissionContext {
+            user_id: user_id.to_string(),
+            current_time: Some(chrono::Utc::now()),
+            network_address: None,
+            security_level: crate::types::SecurityLevel::Standard,
+            attributes: HashMap::new(),
+            resource_owner_id: None,
+            resource_group_id: None,
+        };
+        
+        // Check permission with context
+        match self.rbac_manager.has_permission(
             user_id,
             &permission.resource,
             permission.action,
-        ).await
+            &_context,
+        ).await {
+            Ok(result) => matches!(result, ValidationResult::Granted),
+            Err(_) => false,
+        }
     }
     
     async fn get_user_permissions(&self, user_id: &str) -> HashSet<Permission> {
-        // Get the user's roles
+        // Create a default context
+        let _context = PermissionContext {
+            user_id: user_id.to_string(),
+            current_time: Some(chrono::Utc::now()),
+            network_address: None,
+            security_level: crate::types::SecurityLevel::Standard,
+            attributes: HashMap::new(),
+            resource_owner_id: None,
+            resource_group_id: None,
+        };
+        
+        // Get user role IDs
         let user_role_ids = self.rbac_manager.get_user_roles(user_id).await;
+        let mut roles = Vec::new();
+        
+        // Get role objects from IDs
+        for role_id in &user_role_ids {
+            if let Ok(role) = self.rbac_manager.get_role(role_id).await {
+                roles.push(role);
+            }
+        }
+        
+        // Collect all permissions, including inherited ones
         let mut all_permissions = HashSet::new();
         
-        // Build a simple permission set for now
-        let roles = self.rbac_manager.roles.read().await;
-        for role_id in user_role_ids {
-            if let Some(role) = roles.get(&role_id) {
-                for perm in &role.permissions {
-                    all_permissions.insert(perm.clone());
+        // Create role map for inheritance
+        let _role_map: HashMap<String, Role> = roles
+            .iter()
+            .map(|r| (r.id.clone(), r.clone()))
+            .collect();
+            
+        // Add direct permissions from roles and gather inherited ones
+        for role in &roles {
+            // Add direct permissions
+            all_permissions.extend(role.permissions.clone());
+            
+            // Add inherited permissions through has_permission checks
+            for permission in &role.permissions {
+                if self.has_permission(user_id, permission).await {
+                    all_permissions.insert(permission.clone());
                 }
             }
         }
@@ -95,10 +174,7 @@ impl SecurityManager for SecurityManagerImpl {
     }
     
     async fn assign_role(&self, user_id: String, role_id: String) -> Result<()> {
-        match self.rbac_manager.assign_role_to_user(&user_id, &role_id).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(MCPError::Security(SecurityError::RBACError(e))),
-        }
+        self.rbac_manager.assign_role(user_id, role_id).await
     }
     
     async fn create_role(
@@ -108,35 +184,18 @@ impl SecurityManager for SecurityManagerImpl {
         permissions: HashSet<Permission>,
         parent_roles: HashSet<String>,
     ) -> Result<Role> {
-        let role = match self.rbac_manager.create_role(&name, description.as_deref()).await {
-            Ok(role) => role,
-            Err(e) => return Err(MCPError::Security(SecurityError::RBACError(e))),
-        };
-        
-        // Add permissions
-        for permission in permissions {
-            if let Err(e) = self.rbac_manager.add_permission_to_role(&role.id, permission).await {
-                return Err(MCPError::Security(SecurityError::RBACError(e)));
-            }
-        }
-        
-        // Add parent roles (inheritance)
-        for parent_id in parent_roles {
-            // We would set up inheritance here in a full implementation
-            // This is simplified for now
-        }
-        
-        Ok(role)
+        self.rbac_manager.create_role(name, description, permissions, parent_roles).await
     }
     
     async fn get_user_roles(&self, user_id: &str) -> Result<Vec<Role>> {
+        // Get the role IDs from the RBAC manager
         let role_ids = self.rbac_manager.get_user_roles(user_id).await;
-        let mut roles = Vec::new();
         
-        let roles_map = self.rbac_manager.roles.read().await;
-        for role_id in role_ids {
-            if let Some(role) = roles_map.get(&role_id) {
-                roles.push(role.clone());
+        // Retrieve each role from the RBAC manager
+        let mut roles = Vec::new();
+        for role_id in &role_ids {
+            if let Ok(role) = self.rbac_manager.get_role(role_id).await {
+                roles.push(role);
             }
         }
         

@@ -7,11 +7,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
-use std::sync::{Arc, RwLock as SyncRwLock};
 
 use crate::error::{MCPError, Result, SecurityError};
 use crate::security::rbac::{Permission, Role, PermissionContext, RBACError};
-use tracing::info;
 
 /// Inheritance relationship type between roles
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -481,6 +479,20 @@ impl InheritanceGraph {
             }
         }
     }
+    
+    /// Check if a role exists in the graph
+    pub fn has_role(&self, role_id: &str) -> bool {
+        self.nodes.contains_key(role_id)
+    }
+    
+    /// Check if there is a direct inheritance relationship between parent and child
+    pub fn has_inheritance(&self, parent_id: &str, child_id: &str) -> bool {
+        if let Some(child_node) = self.nodes.get(child_id) {
+            child_node.parents.contains_key(parent_id)
+        } else {
+            false
+        }
+    }
 }
 
 /// Thread-safe inheritance graph manager
@@ -612,85 +624,9 @@ impl InheritanceManager {
         graph.get_inherited_permissions(role_id, role_map, context)
     }
     
-    /// Get a visual representation of the inheritance graph
+    /// Get inheritance diagram as DOT format
     pub async fn to_dot(&self) -> String {
         let graph = self.graph.read().await;
         graph.to_dot()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[tokio::test]
-    async fn test_direct_inheritance() {
-        let manager = InheritanceManager::new();
-        
-        // Add roles and inheritance
-        manager.add_role("role1").await.unwrap();
-        manager.add_role("role2").await.unwrap();
-        manager.add_direct_inheritance("role1", "role2").await.unwrap();
-        
-        // Check inheritance
-        assert!(manager.inherits_from("role2", "role1").await.unwrap());
-        assert!(!manager.inherits_from("role1", "role2").await.unwrap());
-        
-        // Get ancestors and descendants
-        let ancestors = manager.get_ancestors("role2").await.unwrap();
-        let descendants = manager.get_descendants("role1").await.unwrap();
-        
-        assert!(ancestors.contains("role1"));
-        assert!(descendants.contains("role2"));
-    }
-    
-    #[tokio::test]
-    async fn test_cycle_detection() {
-        let manager = InheritanceManager::new();
-        
-        // Add roles
-        manager.add_role("role1").await.unwrap();
-        manager.add_role("role2").await.unwrap();
-        manager.add_role("role3").await.unwrap();
-        
-        // Add inheritance chain
-        manager.add_direct_inheritance("role1", "role2").await.unwrap();
-        manager.add_direct_inheritance("role2", "role3").await.unwrap();
-        
-        // Attempt to create a cycle (should fail)
-        let result = manager.add_direct_inheritance("role3", "role1").await;
-        assert!(result.is_err());
-    }
-    
-    #[tokio::test]
-    async fn test_filtered_inheritance() {
-        let manager = InheritanceManager::new();
-        
-        // Add roles
-        manager.add_role("parent").await.unwrap();
-        manager.add_role("child").await.unwrap();
-        
-        // Add filtered inheritance
-        let mut included = HashSet::new();
-        included.insert("permission1".to_string());
-        
-        let mut excluded = HashSet::new();
-        excluded.insert("permission2".to_string());
-        
-        manager.add_filtered_inheritance(
-            "parent", "child", included, excluded
-        ).await.unwrap();
-        
-        // Check inheritance type
-        let graph = manager.graph.read().await;
-        let inheritance_type = graph.get_inheritance_type("parent", "child").unwrap();
-        
-        match inheritance_type {
-            InheritanceType::Filtered { include, exclude } => {
-                assert!(include.contains("permission1"));
-                assert!(exclude.contains("permission2"));
-            },
-            _ => panic!("Wrong inheritance type"),
-        }
     }
 } 

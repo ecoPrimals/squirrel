@@ -43,7 +43,7 @@ pub use error::{MCPError, Result};
 
 pub use context_manager::Context;
 /// Re-export commonly used types
-pub use security::{Credentials, Session, SecurityManager, SecurityManagerImpl};
+pub use security::{SecurityManager, SecurityManagerImpl};
 pub use types::{EncryptionFormat, SecurityLevel};
 
 /// Adapter for MCP operations

@@ -340,7 +340,7 @@ impl EnhancedRecoveryHook {
             },
             
             AdvancedRecoveryAction::Recreate => {
-                if let Some(tool) = tool_manager.get_tool(tool_id).await {
+                if let Some(_tool) = tool_manager.get_tool(tool_id).await {
                     tool_manager.unregister_tool(tool_id).await?;
                     // We can't re-register the tool here since we don't have the executor
                     // This would require a callback mechanism to get a new executor
@@ -361,7 +361,7 @@ impl EnhancedRecoveryHook {
                 Ok(true)
             },
             
-            AdvancedRecoveryAction::Custom { name, params } => {
+            AdvancedRecoveryAction::Custom { name, params: _ } => {
                 // Try each handler until one succeeds
                 for handler in &self.handlers {
                     match handler.handle_action(tool_id, action, error, tool_manager).await {
@@ -431,9 +431,9 @@ impl ToolLifecycleHook for EnhancedRecoveryHook {
         Ok(())
     }
     
-    async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
+    async fn on_error(&self, tool_id: &str, _error: &ToolError) -> Result<(), ToolError> {
         // Record the error pattern
-        self.record_error_pattern(tool_id, error).await;
+        self.record_error_pattern(tool_id, _error).await;
         
         // We'll handle recovery in a separate process
         Ok(())

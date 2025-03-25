@@ -3,29 +3,29 @@
 //! This module provides encryption, signing, and hashing functions
 //! for secure communication and data protection.
 
-use crate::error::{MCPError, Result, SecurityError};
+use crate::error::Result;
 use crate::types::EncryptionFormat;
 
 /// Encrypt data with the specified format
-pub fn encrypt(data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
+pub fn encrypt(data: &[u8], _format: EncryptionFormat) -> Result<Vec<u8>> {
     // Placeholder for actual encryption
     Ok(data.to_vec())
 }
 
 /// Decrypt data with the specified format
-pub fn decrypt(data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
+pub fn decrypt(data: &[u8], _format: EncryptionFormat) -> Result<Vec<u8>> {
     // Placeholder for actual decryption
     Ok(data.to_vec())
 }
 
 /// Sign data with the specified key
-pub fn sign(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+pub fn sign(data: &[u8], _key: &[u8]) -> Result<Vec<u8>> {
     // Placeholder for actual signing
     Ok(data.to_vec())
 }
 
 /// Verify a signature against data
-pub fn verify(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool> {
+pub fn verify(_data: &[u8], _signature: &[u8], _key: &[u8]) -> Result<bool> {
     // Placeholder for actual verification
     Ok(true)
 }
@@ -41,7 +41,7 @@ pub enum HashAlgorithm {
 }
 
 /// Hash data with the specified algorithm
-pub fn hash(data: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>> {
+pub fn hash(data: &[u8], _algorithm: HashAlgorithm) -> Result<Vec<u8>> {
     // Placeholder for actual hashing
     Ok(data.to_vec())
 }

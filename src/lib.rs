@@ -13,7 +13,8 @@ pub use squirrel_mcp;
 pub use squirrel_mcp::{
     security::{
         types::{Action, Permission, PermissionContext, PermissionScope, Role},
-        Credentials, Session, SecurityManager, SecurityManagerImpl
+        SecurityManager, SecurityManagerImpl,
+        Session
     },
     types::{EncryptionFormat, SecurityLevel},
     error::{MCPError, Result},
@@ -24,6 +25,9 @@ pub use squirrel_mcp::{
     plugins::discovery::{PluginProxyExecutor, PluginDiscoveryManager},
     config::McpConfig as MCPConfig
 };
+
+// Export Credentials from our adapter
+pub use crate::adapter::Credentials;
 
 /// Adapter for MCP operations
 pub mod adapter;

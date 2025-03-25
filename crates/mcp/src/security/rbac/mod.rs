@@ -2,17 +2,23 @@
 //!
 //! This module provides a comprehensive Role-Based Access Control system with:
 //! - Fine-grained permission control
-//! - Role inheritance (direct, filtered, and conditional)
+//! - Role inheritance (direct, filtered, conditional, and delegated)
 //! - Permission validation with audit logging
-//! - Complex authorization rules 
+//! - Complex authorization rules
+//! - High-performance permission caching
+//! - Optimized handling of large role hierarchies
 
 use tracing::info;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use chrono::{DateTime, Utc, Timelike};
 use serde::{Serialize, Deserialize};
+use std::time::Instant;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use lru::LruCache;
+use tokio::sync::Mutex;
+use std::num::NonZeroUsize;
 
 use crate::error::{MCPError, Result, SecurityError};
 
@@ -26,6 +32,9 @@ use crate::security::types::{
 mod role_inheritance;
 mod permission_validation;
 mod manager;
+
+#[cfg(test)]
+mod tests;
 
 // Re-export components for use throughout the application
 pub use self::role_inheritance::{InheritanceManager, InheritanceType};
@@ -109,24 +118,87 @@ pub struct PermissionAuditEvent {
     pub context: HashMap<String, String>,
 }
 
+/// Enhanced RBAC Manager that supports role inheritance, permission validation, and audit logging.
+///
+/// Key features:
+/// - Advanced role inheritance (direct, filtered, conditional, delegated)
+/// - Permission validation with rules and context
+/// - Comprehensive audit logging
+/// - High-performance permission caching
+/// - Efficient handling of large role hierarchies
+/// - Thread-safe async operations
+///
+/// The permission caching system drastically improves performance for repeated permission checks
+/// by storing results in an LRU cache. This is particularly beneficial when the same permissions
+/// are checked frequently across the application.
+///
+/// Performance optimizations include:
+/// - Cached permission checks for frequent patterns
+/// - Parallel processing for large role hierarchies
+/// - Efficient batch permission resolution
+/// - Smart cache key generation based on context
+pub struct EnhancedRBACManager {
+    /// RBAC Manager
+    rbac_manager: Arc<RBACManager>,
+    
+    /// Inheritance manager
+    inheritance_manager: Arc<InheritanceManager>,
+    
+    /// Permission validator
+    permission_validator: Arc<AsyncPermissionValidator>,
+    
+    /// Whether audit logging is enabled
+    audit_enabled: bool,
+    
+    /// Permission check cache
+    permission_cache: Arc<Mutex<LruCache<u64, ValidationResult>>>,
+    
+    /// Cache hit metrics
+    cache_hits: Arc<Mutex<usize>>,
+    
+    /// Cache miss metrics
+    cache_misses: Arc<Mutex<usize>>,
+}
+
+// Implement Clone for EnhancedRBACManager
+impl Clone for EnhancedRBACManager {
+    fn clone(&self) -> Self {
+        Self {
+            rbac_manager: self.rbac_manager.clone(),
+            inheritance_manager: self.inheritance_manager.clone(),
+            permission_validator: self.permission_validator.clone(),
+            audit_enabled: self.audit_enabled,
+            permission_cache: self.permission_cache.clone(),
+            cache_hits: self.cache_hits.clone(),
+            cache_misses: self.cache_misses.clone(),
+        }
+    }
+}
+
 impl EnhancedRBACManager {
     /// Create a new enhanced RBAC manager
     pub fn new() -> Self {
         Self {
-            rbac_manager: Arc::new(RwLock::new(RBACManager::new())),
+            rbac_manager: Arc::new(RBACManager::new()),
             inheritance_manager: Arc::new(InheritanceManager::new()),
             permission_validator: Arc::new(AsyncPermissionValidator::new()),
             audit_enabled: true,
+            permission_cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1000).unwrap()))), // Cache up to 1000 permission checks
+            cache_hits: Arc::new(Mutex::new(0)),
+            cache_misses: Arc::new(Mutex::new(0)),
         }
     }
     
     /// Create from existing RBAC manager
     pub fn from_existing(rbac_manager: RBACManager) -> Self {
         Self {
-            rbac_manager: Arc::new(RwLock::new(rbac_manager)),
+            rbac_manager: Arc::new(rbac_manager),
             inheritance_manager: Arc::new(InheritanceManager::new()),
             permission_validator: Arc::new(AsyncPermissionValidator::new()),
             audit_enabled: true,
+            permission_cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1000).unwrap()))), // Cache up to 1000 permission checks
+            cache_hits: Arc::new(Mutex::new(0)),
+            cache_misses: Arc::new(Mutex::new(0)),
         }
     }
     
@@ -138,25 +210,27 @@ impl EnhancedRBACManager {
         permissions: HashSet<Permission>,
         parent_roles: HashSet<String>,
     ) -> Result<Role> {
-        // Create role in base RBAC manager
-        let manager = self.rbac_manager.write().await;
+        // First, create the role through the RBAC manager to get a valid ID
+        let rbac_role = self.rbac_manager.create_role(&name, description.as_deref()).await?;
         
-        // Create a new Role struct with a unique ID
+        // Create our enhanced Role struct with the same ID
         let role = Role {
-            id: Uuid::new_v4().to_string(),
-            name,
-            description,
+            id: rbac_role.id.clone(),
+            name: name.clone(),
+            description: description.clone(),
             permissions: permissions.clone(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            parent_roles: HashSet::new(),
+            parent_roles: parent_roles.clone(),
             security_level: crate::types::SecurityLevel::Standard,
             can_delegate: false,
             managed_roles: HashSet::new(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         };
         
-        // Add the role to the RBAC manager
-        manager.add_role(role.clone()).await?;
+        // Add permissions to the role
+        for permission in &permissions {
+            self.rbac_manager.add_permission_to_role(&role.id, permission.clone()).await?;
+        }
         
         // Add role to inheritance manager
         self.inheritance_manager.add_role(&role.id).await?;
@@ -180,19 +254,16 @@ impl EnhancedRBACManager {
         excluded_permissions: HashSet<String>,
     ) -> Result<()> {
         // Verify roles exist
-        {
-            let manager = self.rbac_manager.read().await;
-            if manager.get_role(parent_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    parent_id.to_string()
-                ))));
-            }
-            
-            if manager.get_role(child_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    child_id.to_string()
-                ))));
-            }
+        if self.rbac_manager.get_role(parent_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                parent_id.to_string()
+            ))));
+        }
+        
+        if self.rbac_manager.get_role(child_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                child_id.to_string()
+            ))));
         }
         
         // Create filtered inheritance
@@ -214,19 +285,16 @@ impl EnhancedRBACManager {
         condition: String,
     ) -> Result<()> {
         // Verify roles exist
-        {
-            let manager = self.rbac_manager.read().await;
-            if manager.get_role(parent_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    parent_id.to_string()
-                ))));
-            }
-            
-            if manager.get_role(child_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    child_id.to_string()
-                ))));
-            }
+        if self.rbac_manager.get_role(parent_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                parent_id.to_string()
+            ))));
+        }
+        
+        if self.rbac_manager.get_role(child_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                child_id.to_string()
+            ))));
         }
         
         // Create conditional inheritance
@@ -244,19 +312,16 @@ impl EnhancedRBACManager {
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
         // Verify roles exist
-        {
-            let manager = self.rbac_manager.read().await;
-            if manager.get_role(parent_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    parent_id.to_string()
-                ))));
-            }
-            
-            if manager.get_role(child_id).await.is_err() {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    child_id.to_string()
-                ))));
-            }
+        if self.rbac_manager.get_role(parent_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                parent_id.to_string()
+            ))));
+        }
+        
+        if self.rbac_manager.get_role(child_id).await.is_err() {
+            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
+                child_id.to_string()
+            ))));
         }
         
         // Create delegated inheritance
@@ -267,8 +332,7 @@ impl EnhancedRBACManager {
     
     /// Assign role to user
     pub async fn assign_role(&self, user_id: String, role_id: String) -> Result<()> {
-        let manager = self.rbac_manager.write().await;
-        manager.assign_role_to_user(&user_id, &role_id).await
+        self.rbac_manager.assign_role_to_user(&user_id, &role_id).await
     }
     
     /// Add validation rule
@@ -279,7 +343,7 @@ impl EnhancedRBACManager {
         Ok(())
     }
     
-    /// Check if user has permission
+    /// Check if user has permission (optimized for performance)
     pub async fn has_permission(
         &self,
         user_id: &str,
@@ -287,43 +351,195 @@ impl EnhancedRBACManager {
         action: Action,
         context: &PermissionContext,
     ) -> Result<ValidationResult> {
-        // Get roles for user
-        let roles = {
-            let manager = self.rbac_manager.read().await;
-            let user_role_ids = manager.get_user_roles(user_id).await?;
-            
-            user_role_ids
-        };
+        let start_time = Instant::now();
         
-        // Get permissions for user, including inherited permissions
-        let mut all_permissions = HashSet::new();
+        // Create a cache key by hashing relevant inputs
+        let cache_key = self.create_permission_cache_key(user_id, resource, &action, context);
+        
+        // Check cache first
         {
-            let manager = self.rbac_manager.read().await;
-            
-            // Add base permissions from roles
-            for role in &roles {
-                all_permissions.extend(role.permissions.clone());
+            let mut cache = self.permission_cache.lock().await;
+            if let Some(result) = cache.get(&cache_key) {
+                // Update cache hit metrics
+                let mut hits = self.cache_hits.lock().await;
+                *hits += 1;
                 
-                // Add inherited permissions
-                let role_map: HashMap<String, Role> = roles
-                    .iter()
-                    .map(|r| (r.id.clone(), r.clone()))
-                    .collect();
+                // Skip audit logging for cached results to improve performance
+                let elapsed = start_time.elapsed();
+                info!("Permission check for {}/{}/{} (cached): {:?} in {:?}", 
+                     user_id, resource, action, result, elapsed);
                 
-                let inherited = self.inheritance_manager
-                    .get_inherited_permissions(&role.id, &role_map, Some(context))
-                    .await?;
-                
-                all_permissions.extend(inherited);
+                return Ok(result.clone());
             }
         }
         
-        // Validate permission
+        // Update cache miss metrics
+        {
+            let mut misses = self.cache_misses.lock().await;
+            *misses += 1;
+        }
+        
+        // Batch processing: Get all roles and permissions in one go
+        
+        // 1. Get roles for user (optimize by storing a mapping of user->roles)
+        let user_role_ids = self.rbac_manager.get_user_roles(user_id).await;
+        
+        // 2. Use parallel processing for roles if there are many
+        let mut roles = Vec::new();
+        
+        if user_role_ids.len() > 10 {
+            // Use parallel processing for many roles
+            let rbac_manager = self.rbac_manager.clone();
+            let role_ids: Vec<String> = user_role_ids.into_iter().collect();
+            
+            let role_futures: Vec<_> = role_ids.iter()
+                .map(|role_id| {
+                    let rbac = rbac_manager.clone();
+                    let id = role_id.clone();
+                    async move {
+                        rbac.get_role(&id).await
+                    }
+                })
+                .collect();
+                
+            let results = futures::future::join_all(role_futures).await;
+            
+            for result in results {
+                if let Ok(role) = result {
+                    roles.push(role);
+                }
+            }
+        } else {
+            // Use sequential processing for few roles
+            for role_id in &user_role_ids {
+                if let Ok(role) = self.rbac_manager.get_role(role_id).await {
+                    roles.push(role);
+                }
+            }
+        }
+        
+        // 3. Create role map once
+        let role_map: HashMap<String, Role> = roles
+            .iter()
+            .map(|r| (r.id.clone(), r.clone()))
+            .collect();
+            
+        // 4. Get all permissions (direct and inherited) efficiently
+        let mut all_permissions = HashSet::new();
+        
+        // Add direct permissions
+        for role in &roles {
+            all_permissions.extend(role.permissions.clone());
+        }
+        
+        // Add inherited permissions for each role (can be parallelized for many roles)
+        if roles.len() > 10 {
+            let inheritance_manager = self.inheritance_manager.clone();
+            let inheritance_futures: Vec<_> = roles.iter()
+                .map(|role| {
+                    let im = inheritance_manager.clone();
+                    let role_id = role.id.clone();
+                    let rm = role_map.clone();
+                    let ctx = context.clone();
+                    async move {
+                        im.get_inherited_permissions(&role_id, &rm, Some(&ctx)).await
+                    }
+                })
+                .collect();
+                
+            let results = futures::future::join_all(inheritance_futures).await;
+            
+            for result in results {
+                if let Ok(permissions) = result {
+                    all_permissions.extend(permissions);
+                }
+            }
+        } else {
+            for role in &roles {
+                if let Ok(inherited) = self.inheritance_manager
+                    .get_inherited_permissions(&role.id, &role_map, Some(context))
+                    .await {
+                    all_permissions.extend(inherited);
+                }
+            }
+        }
+        
+        // 5. Validate permission
         let result = self.permission_validator
             .validate(user_id, resource, action, &roles, &all_permissions, context)
             .await;
+            
+        // 6. Cache the result
+        {
+            let mut cache = self.permission_cache.lock().await;
+            cache.put(cache_key, result.clone());
+        }
         
+        let elapsed = start_time.elapsed();
+        info!("Permission check for {}/{}/{}: {:?} in {:?}", 
+             user_id, resource, action, result, elapsed);
+             
         Ok(result)
+    }
+    
+    /// Create a cache key for permission checks
+    fn create_permission_cache_key(
+        &self, 
+        user_id: &str, 
+        resource: &str, 
+        action: &Action, 
+        context: &PermissionContext
+    ) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        
+        // Hash critical elements
+        user_id.hash(&mut hasher);
+        resource.hash(&mut hasher);
+        
+        // Convert action to a string representation for hashing
+        let action_str = format!("{:?}", action);
+        action_str.hash(&mut hasher);
+        
+        // Hash important context elements that might affect permission
+        context.security_level.hash(&mut hasher);
+        
+        // Only hash time to the nearest hour to avoid excessive cache misses
+        if let Some(time) = &context.current_time {
+            let hour = time.hour();
+            hour.hash(&mut hasher);
+        }
+        
+        // Hash resource owner if present (affects Own scope permissions)
+        if let Some(owner) = &context.resource_owner_id {
+            owner.hash(&mut hasher);
+        }
+        
+        // Hash resource group if present (affects Group scope permissions)
+        if let Some(group) = &context.resource_group_id {
+            group.hash(&mut hasher);
+        }
+        
+        // Return the computed hash
+        hasher.finish()
+    }
+    
+    /// Get cache statistics
+    pub async fn get_cache_stats(&self) -> (usize, usize) {
+        let hits = self.cache_hits.lock().await;
+        let misses = self.cache_misses.lock().await;
+        (*hits, *misses)
+    }
+    
+    /// Clear the permission cache
+    pub async fn clear_cache(&self) {
+        let mut cache = self.permission_cache.lock().await;
+        cache.clear();
+    }
+    
+    /// Set cache capacity
+    pub async fn set_cache_capacity(&self, capacity: usize) {
+        let mut cache = self.permission_cache.lock().await;
+        cache.resize(NonZeroUsize::new(capacity).unwrap_or(NonZeroUsize::new(1).unwrap()));
     }
     
     /// Enable audit logging
@@ -359,5 +575,15 @@ impl EnhancedRBACManager {
     /// Get role inheritance diagram as DOT format
     pub async fn get_inheritance_diagram(&self) -> String {
         self.inheritance_manager.to_dot().await
+    }
+    
+    /// Get roles for a user
+    pub async fn get_user_roles(&self, user_id: &str) -> HashSet<String> {
+        self.rbac_manager.get_user_roles(user_id).await
+    }
+    
+    /// Get a role by ID
+    pub async fn get_role(&self, role_id: &str) -> Result<Role> {
+        self.rbac_manager.get_role(role_id).await
     }
 } 
