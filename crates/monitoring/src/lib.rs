@@ -47,9 +47,6 @@ pub mod metrics;
 /// Module for network monitoring
 pub mod network;
 
-/// Module for dashboard functionality
-pub mod dashboard;
-
 /// Module for monitoring plugins
 pub mod plugins;
 
@@ -63,8 +60,6 @@ pub struct MonitoringConfig {
     pub metrics_config: metrics::MetricConfig,
     /// Health check configuration
     pub health_config: health::HealthConfig,
-    /// Dashboard configuration
-    pub dashboard_config: dashboard::config::DashboardConfig,
     /// Monitoring intervals in seconds
     pub intervals: MonitoringIntervals,
     // Network config is commented out as NetworkConfig isn't implemented yet
@@ -165,15 +160,13 @@ pub mod documentation {
     /// # Monitoring Crate
     ///
     /// This crate provides a comprehensive monitoring system for applications,
-    /// including metrics collection, health checks, alerts, and a dashboard
-    /// for visualization.
+    /// including metrics collection, health checks, alerts, and network monitoring.
     ///
     /// ## Features
     ///
     /// - Metrics collection and monitoring
     /// - Health checks for services and components
     /// - Network monitoring
-    /// - Dashboard for visualization
     /// - Plugin system for extensibility
     /// - Analytics system for data analysis
     ///
@@ -233,32 +226,6 @@ pub mod documentation {
     /// # }
     /// ```
     ///
-    /// ### Using the dashboard
-    ///
-    /// ```rust,no_run
-    /// use squirrel_monitoring::dashboard::config::DashboardConfig;
-    /// use squirrel_monitoring::dashboard::secure_server;
-    /// use std::net::SocketAddr;
-    ///
-    /// # async fn example() -> squirrel_core::error::Result<()> {
-    /// // Create a dashboard configuration
-    /// let mut config = DashboardConfig::default();
-    /// 
-    /// // Ensure server settings are configured
-    /// if config.server.is_none() {
-    ///     config.server = Some(squirrel_monitoring::dashboard::config::ServerSettings {
-    ///         host: "127.0.0.1".to_string(),
-    ///         port: 8080,
-    ///         path_prefix: None,
-    ///     });
-    /// }
-    ///
-    /// // Create a router using the secure server
-    /// let router = secure_server::create_secure_server(config);
-    /// 
-    /// // In a real app, you would bind this router to a network address and start the server
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// This module is a placeholder to help organize the documentation.
     pub struct Examples;
 } 

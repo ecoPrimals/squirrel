@@ -24,18 +24,10 @@ chrono = { workspace = true, features = ["serde"] }
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 opentelemetry-jaeger = { workspace = true }
-axum = { version = "0.7", features = ["ws"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
-tower = "0.4"
 rand = "0.8"
 fastrand = "2.0"
-flate2 = "1.0"
-base64 = "0.21"
 clap = { version = "4.4", features = ["derive"] }
 url = "2.3"
-urlencoding = "2.1.3"
-# Added missing dependencies
-jsonwebtoken = "9.2"
 regex = "1.10"
 once_cell = "1.19"
 anyhow = "1.0" # Added for plugin migration
@@ -56,32 +48,15 @@ use_plugins = ["squirrel-plugins"]
 tokio-test = { workspace = true }
 mockall = { workspace = true }
 proptest = { workspace = true }
-tokio-tungstenite = "0.21"
 
 [lib]
 name = "squirrel_monitoring"
 path = "src/lib.rs"
 
 [[example]]
-name = "websocket_client"
-path = "examples/websocket_client.rs"
-
-[[example]]
-name = "websocket_load_test"
-path = "examples/websocket_load_test.rs"
-
-[[example]]
 name = "prometheus_component"
 path = "examples/prometheus_component.rs"
 
 [[example]]
-name = "secure_dashboard"
-path = "examples/secure_dashboard.rs"
-
-[[example]]
-name = "dashboard_plugin_example"
-path = "examples/dashboard_plugin_example.rs"
-
-[[example]]
-name = "analytics_dashboard_integration"
-path = "examples/analytics_dashboard_integration.rs" 
+name = "plugin_example"
+path = "examples/plugin_example.rs" 

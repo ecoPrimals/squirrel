@@ -6,7 +6,6 @@
 //! - Pattern recognition
 //! - Predictive analytics
 //! - Visualization generation
-//! - Dashboard integration
 
 pub mod time_series;
 pub mod trend_detection;
@@ -14,7 +13,6 @@ pub mod pattern_recognition;
 pub mod predictive;
 pub mod storage;
 pub mod visualization;
-pub mod dashboard_integration;
 
 // Re-exports for common types
 pub use time_series::TimeSeriesAnalyzer;
@@ -23,12 +21,6 @@ pub use pattern_recognition::PatternRecognizer;
 pub use predictive::PredictiveAnalyzer;
 pub use storage::AnalyticsStorage;
 pub use visualization::VisualizationGenerator;
-pub use dashboard_integration::{
-    AnalyticsVisualizationPlugin,
-    AnalyticsDataSourcePlugin,
-    AnalyticsDashboardFactory,
-    create_analytics_dashboard_factory,
-};
 
 use std::fmt::Debug;
 use thiserror::Error;
@@ -51,8 +43,6 @@ pub struct AnalyticsConfig {
     pub predictive: predictive::PredictiveConfig,
     /// Storage configuration
     pub storage: storage::StorageConfig,
-    /// Dashboard integration configuration
-    pub dashboard_integration: DashboardIntegrationConfig,
 }
 
 impl Default for AnalyticsConfig {
@@ -63,36 +53,6 @@ impl Default for AnalyticsConfig {
             pattern_recognition: pattern_recognition::PatternRecognitionConfig::default(),
             predictive: predictive::PredictiveConfig::default(),
             storage: storage::StorageConfig::default(),
-            dashboard_integration: DashboardIntegrationConfig::default(),
-        }
-    }
-}
-
-/// Dashboard integration configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DashboardIntegrationConfig {
-    /// Enable dashboard integration
-    pub enabled: bool,
-    /// Auto-register plugins
-    pub auto_register: bool,
-    /// Update interval in seconds
-    pub update_interval: u64,
-    /// Visualization types to enable
-    pub visualization_types: Vec<String>,
-}
-
-impl Default for DashboardIntegrationConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            auto_register: true,
-            update_interval: 60,
-            visualization_types: vec![
-                "time_series".to_string(),
-                "trends".to_string(),
-                "patterns".to_string(),
-                "predictions".to_string(),
-            ],
         }
     }
 }
@@ -163,10 +123,6 @@ pub enum AnalyticsError {
     #[error("Visualization error: {0}")]
     VisualizationError(String),
     
-    /// Dashboard integration error
-    #[error("Dashboard integration error: {0}")]
-    DashboardIntegrationError(String),
-    
     /// Internal error
     #[error("Internal error: {0}")]
     InternalError(String),
@@ -181,12 +137,6 @@ pub fn create_analytics_service(config: AnalyticsConfig) -> Result<AnalyticsServ
     let visualization_generator = std::sync::Arc::new(VisualizationGenerator::new());
     let storage = std::sync::Arc::new(AnalyticsStorage::with_config(config.storage.clone()));
     
-    let dashboard_factory = if config.dashboard_integration.enabled {
-        Some(AnalyticsDashboardFactory::new())
-    } else {
-        None
-    };
-    
     let service = AnalyticsService {
         config,
         time_series_analyzer,
@@ -195,7 +145,6 @@ pub fn create_analytics_service(config: AnalyticsConfig) -> Result<AnalyticsServ
         predictive_analyzer,
         visualization_generator,
         storage,
-        dashboard_factory,
     };
     
     Ok(service)
@@ -218,8 +167,6 @@ pub struct AnalyticsService {
     visualization_generator: std::sync::Arc<VisualizationGenerator>,
     /// Storage
     storage: std::sync::Arc<AnalyticsStorage>,
-    /// Dashboard factory
-    dashboard_factory: Option<AnalyticsDashboardFactory>,
 }
 
 impl AnalyticsService {
@@ -248,51 +195,19 @@ impl AnalyticsService {
         self.predictive_analyzer.predict(data).await
     }
     
-    /// Generate visualizations
+    /// Generate visualization data
     pub async fn generate_visualizations(&self, data: Value) -> Result<Value> {
         self.visualization_generator.generate_visualizations(data).await
     }
     
-    /// Store analytics result
+    /// Store an analytics result
     pub async fn store_result(&self, result: AnalyticsResult) -> Result<()> {
         self.storage.store_result(result).await
     }
     
-    /// Retrieve analytics result
+    /// Get an analytics result by ID
     pub async fn get_result(&self, id: &str) -> Result<Option<AnalyticsResult>> {
         self.storage.get_result(id).await
-    }
-    
-    /// Register with dashboard manager
-    pub async fn register_with_dashboard(&self, dashboard_manager: &crate::dashboard::manager::DashboardManager) -> Result<()> {
-        if let Some(factory) = &self.dashboard_factory {
-            factory.register_with_dashboard(dashboard_manager).await?;
-            info!("Analytics plugins registered with dashboard");
-            Ok(())
-        } else {
-            error!("Dashboard integration not enabled");
-            Err(anyhow::anyhow!("Dashboard integration not enabled"))
-        }
-    }
-    
-    /// Create dashboard visualization plugin
-    pub fn create_visualization_plugin(&self) -> Result<std::sync::Arc<AnalyticsVisualizationPlugin>> {
-        if let Some(factory) = &self.dashboard_factory {
-            Ok(factory.create_visualization_plugin())
-        } else {
-            error!("Dashboard integration not enabled");
-            Err(anyhow::anyhow!("Dashboard integration not enabled"))
-        }
-    }
-    
-    /// Create dashboard data source plugin
-    pub fn create_data_source_plugin(&self) -> Result<std::sync::Arc<AnalyticsDataSourcePlugin>> {
-        if let Some(factory) = &self.dashboard_factory {
-            Ok(factory.create_data_source_plugin())
-        } else {
-            error!("Dashboard integration not enabled");
-            Err(anyhow::anyhow!("Dashboard integration not enabled"))
-        }
     }
 }
 

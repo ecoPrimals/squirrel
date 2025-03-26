@@ -1,15 +1,15 @@
 ---
-version: 1.0.0
-last_updated: 2024-05-28
-status: proposed
-priority: medium
+version: 1.1.0
+last_updated: 2024-06-24
+status: in_progress
+priority: high
 ---
 
 # Dashboard Testing Improvements Specification
 
 ## Overview
 
-This document outlines the work required to resolve the issues with the dashboard integration tests in the Squirrel monitoring system. Currently, these tests have been marked as `#[ignore]` due to connection failures with the WebSocket server during testing.
+This document outlines the test strategy for the dashboard components after the migration from the `squirrel-monitoring` crate to the dedicated `dashboard-core` and `ui-terminal` crates. Currently, several tests have been marked as `#[ignore]` due to connection failures with the WebSocket server during testing, and these need to be fixed in the new architecture.
 
 ## Current Issues
 
@@ -23,6 +23,17 @@ The dashboard tests are failing with the following errors:
 2. **Test Isolation**: Tests are using hardcoded ports (9902, 9903, 9904) which can cause conflicts if multiple tests run in parallel or if those ports are already in use.
 
 3. **WebSocket Server Lifecycle Management**: The dashboard server is started correctly, but there appears to be an issue with how it handles WebSocket connections during testing.
+
+4. **Cross-Crate Testing**: After the migration, tests need to verify correct integration between `dashboard-core`, `ui-terminal`, and `squirrel-monitoring` crates.
+
+## Testing Architecture
+
+Given the new architecture with separate crates, we need to implement a structured testing approach:
+
+1. **Unit Tests**: Test individual components in each crate
+2. **Integration Tests**: Test interactions between components within each crate 
+3. **Cross-Crate Tests**: Test interactions between the `dashboard-core`, `ui-terminal`, and `squirrel-monitoring` crates
+4. **End-to-End Tests**: Test complete workflows across all crates
 
 ## Required Improvements
 
@@ -77,7 +88,7 @@ Create test fixtures to simplify test setup and teardown:
 
 ```rust
 pub struct DashboardTestFixture {
-    dashboard: DashboardManager,
+    dashboard_service: Arc<dyn DashboardService>,
     mock_server: MockDashboardServer,
     client: Option<WebSocketClient>,
     address: SocketAddr,
@@ -103,45 +114,110 @@ async fn find_available_port() -> u16 {
 }
 ```
 
-### 3. Dashboard Manager Testing Mode
+### 3. Testing Dashboard Core
 
-Extend the DashboardManager to support a testing mode:
+Implement comprehensive tests for the `dashboard-core` crate:
 
 ```rust
-impl DashboardManager {
-    pub fn new_for_testing(config: DashboardConfig) -> Self {
-        let mut dashboard = Self::new(config);
-        dashboard.testing_mode = true;
-        dashboard
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::*;
+    
+    #[tokio::test]
+    async fn test_dashboard_service_provides_metrics() {
+        // Test that the dashboard service correctly provides metrics
+        let service = create_test_dashboard_service();
+        let data = service.get_dashboard_data().await.unwrap();
+        
+        assert!(!data.metrics.is_empty());
+        // Additional assertions
     }
     
-    fn initialize_testing_server(&self) -> Result<()> {
-        // Initialize a simplified server for testing
+    #[tokio::test]
+    async fn test_dashboard_service_provides_alerts() {
+        // Test that the dashboard service correctly provides alerts
+        let service = create_test_dashboard_service();
+        let data = service.get_dashboard_data().await.unwrap();
+        
+        // Assertions about alerts
     }
+    
+    // Additional tests for other dashboard core functionality
 }
 ```
 
-### 4. Test-Specific WebSocket Handler
+### 4. Testing UI Terminal
 
-Create a simplified WebSocket handler for testing:
+Implement tests for the `ui-terminal` crate:
 
 ```rust
-pub struct TestWebSocketHandler {
-    dashboard_data: Arc<RwLock<DashboardData>>,
-    clients: Arc<RwLock<HashMap<String, mpsc::Sender<Message>>>>,
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dashboard_core::DashboardService;
+    use mockall::predicate::*;
+    
+    mock! {
+        DashboardServiceMock {}
+        impl DashboardService for DashboardServiceMock {
+            async fn get_dashboard_data(&self) -> Result<DashboardData>;
+            async fn get_metric_history(...) -> Result<Vec<MetricDataPoint>>;
+            async fn acknowledge_alert(&self, alert_id: &str) -> Result<()>;
+            async fn configure_dashboard(&self, config: DashboardConfig) -> Result<()>;
+            async fn subscribe(&self) -> Result<mpsc::Receiver<DashboardUpdate>>;
+        }
+    }
+    
+    #[test]
+    fn test_ui_terminal_renders_metrics() {
+        // Test that the UI correctly renders metrics
+        let mut mock = MockDashboardServiceMock::new();
+        
+        // Configure mock
+        mock.expect_get_dashboard_data()
+            .returning(|| Ok(create_test_dashboard_data()));
+        
+        // Test UI rendering
+        let ui = create_test_ui(mock);
+        
+        // Assertions about UI rendering
+    }
+    
+    // Additional tests for UI components
 }
+```
 
-impl TestWebSocketHandler {
-    pub fn new() -> Self {
-        // Initialize with test data
+### 5. Cross-Crate Integration Tests
+
+Create integration tests between `dashboard-core`, `ui-terminal`, and `squirrel-monitoring`:
+
+```rust
+#[cfg(test)]
+mod integration_tests {
+    use dashboard_core::DashboardService;
+    use ui_terminal::TerminalDashboard;
+    use squirrel_monitoring::metrics::MetricsCollector;
+    
+    #[tokio::test]
+    async fn test_monitoring_to_dashboard_integration() {
+        // Test that metrics from monitoring flow correctly to dashboard
+        let metrics_collector = MetricsCollector::new();
+        let dashboard_service = create_dashboard_service_with_metrics(metrics_collector.clone());
+        
+        // Record some metrics
+        metrics_collector.record_value("test.metric", 42.0);
+        
+        // Verify dashboard receives the metrics
+        let dashboard_data = dashboard_service.get_dashboard_data().await.unwrap();
+        
+        assert!(dashboard_data.metrics.iter().any(|m| m.name == "test.metric" && m.value == 42.0));
     }
     
-    pub async fn handle_connection(&self, socket: WebSocket) {
-        // Handle WebSocket connection for testing
-    }
-    
-    pub async fn update_data(&self, data: DashboardData) {
-        // Update test data and notify clients
+    #[tokio::test]
+    async fn test_end_to_end_ui_display() {
+        // Test end-to-end flow from metrics collection to UI display
+        // This might use a headless UI testing approach
     }
 }
 ```
@@ -220,78 +296,75 @@ async fn test_dashboard_alerts() -> Result<()> {
 }
 ```
 
-### 4. Component Listing Test
+### 4. UI Terminal Rendering Test
 
 ```rust
-#[tokio::test]
-async fn test_dashboard_components() -> Result<()> {
-    let mut fixture = DashboardTestFixture::new().await?;
+#[test]
+fn test_terminal_dashboard_render() {
+    // Create mock dashboard service
+    let mock_service = create_mock_dashboard_service();
     
-    // Connect client
-    fixture.connect_client().await?;
+    // Create terminal dashboard with mock service
+    let terminal_dashboard = TerminalDashboard::new(mock_service);
     
-    // Request component list
-    fixture.request_components_list().await?;
+    // Simulate UI rendering
+    let buffer = terminal_dashboard.render_to_buffer();
     
-    // Verify response
-    let components_list = fixture.receive_components_list().await?;
-    assert!(!components_list.is_empty());
-    assert!(components_list.iter().all(|c| c.id.is_some() && c.name.is_some()));
-    
-    // Cleanup
-    fixture.cleanup().await?;
-    
-    Ok(())
+    // Verify UI elements are rendered correctly
+    assert!(buffer.contains_widget("Metrics"));
+    assert!(buffer.contains_widget("Alerts"));
+    // More assertions
 }
 ```
 
 ## Implementation Plan
 
-### Phase 1: Test Infrastructure
+### Phase 1: Core Testing Infrastructure
+1. Create mock WebSocket server implementation
+2. Implement test fixtures and utilities
+3. Create test helper functions
 
-1. Create the `MockDashboardServer` implementation
-2. Implement port discovery utility functions
-3. Create the `DashboardTestFixture` helper
+### Phase 2: Dashboard Core Tests
+1. Implement unit tests for dashboard models
+2. Implement unit tests for dashboard services
+3. Implement integration tests within dashboard-core
 
-### Phase 2: Dashboard Modifications
+### Phase 3: UI Terminal Tests
+1. Implement unit tests for UI components
+2. Implement rendering tests
+3. Implement event handling tests
 
-1. Add testing mode to `DashboardManager`
-2. Implement simplified WebSocket handlers for testing
-3. Create test-specific data generators
+### Phase 4: Cross-Crate Integration Tests
+1. Implement dashboard-core to ui-terminal integration tests
+2. Implement monitoring to dashboard-core integration tests
+3. Implement end-to-end tests
 
-### Phase 3: Test Implementation
+### Phase 5: Continuous Integration
+1. Add test suites to CI pipeline
+2. Set up test coverage reporting
+3. Create test documentation
 
-1. Convert existing tests to use the new test infrastructure
-2. Fix WebSocket connection handling
-3. Improve test isolation with dynamic ports
-4. Add proper cleanup for all tests
+## Testing Tools and Libraries
 
-### Phase 4: Additional Test Coverage
-
-1. Add more comprehensive tests for dashboard functionality
-2. Implement stress tests for multiple connections
-3. Test error handling and recovery scenarios
+1. **mockall**: For creating mock implementations of traits
+2. **tokio-test**: For testing async code
+3. **test-context**: For managing test fixtures
+4. **insta**: For snapshot testing of UI components
+5. **criterion**: For benchmarking performance
+6. **coverage-tools**: For measuring test coverage
 
 ## Success Criteria
 
-- All dashboard tests run successfully without being marked as ignored
-- Tests can run in parallel without port conflicts
-- Testing infrastructure is reusable for future dashboard tests
-- Test coverage for dashboard components reaches at least 80%
+1. All tests pass consistently
+2. No more `#[ignore]` tags on tests due to connection issues
+3. Test coverage of at least 80% for each crate
+4. End-to-end tests verify complete functionality
+5. Performance tests show acceptable latency for updates
 
-## Dependencies
+## Next Steps
 
-- tokio = "1.0"
-- tokio-tungstenite = "0.19"
-- futures-util = "0.3"
-- serde_json = "1.0"
-- rand = "0.8" (for port selection)
-
-## Estimated Effort
-
-- **Phase 1**: 1-2 days
-- **Phase 2**: 2-3 days  
-- **Phase 3**: 1-2 days
-- **Phase 4**: 2-3 days
-
-Total: 6-10 days of development time 
+1. Implement mock WebSocket server and test fixtures
+2. Convert existing tests to use new test infrastructure
+3. Add missing tests for UI components
+4. Implement cross-crate integration tests
+5. Set up continuous integration for all test suites 
