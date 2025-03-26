@@ -1,245 +1,97 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/core",
-    "crates/context",
-    "crates/monitoring",
-    "crates/mcp",
-    "crates/commands",
-    "crates/test-utils",
-    "crates/web",
-    "crates/cli",
-    "crates/app",
-    "crates/context-adapter",
-    "crates/plugins",
     "crates/interfaces",
-    "test_plugin_fix",
-    "crates/galaxy",
-    "crates/ui-web",
-    "crates/dashboard-core",
-    "crates/ui-terminal",
+    "crates/plugins",
+    "crates/mcp",
+    "crates/core",
+    "test_crate",
+    "fuzz_old",
+    "fuzz",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["DataScienceBioLab"]
-description = "A modular and maintainable Rust project"
-
-# Linting configuration for development
-[workspace.lints.rust]
-missing_docs = "warn"
-missing_debug_implementations = "warn"
-missing_copy_implementations = "warn"
-dead_code = "allow"
-
-[workspace.lints.clippy]
-# General categories
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
-cargo = { level = "warn", priority = -1 }
-complexity = { level = "warn", priority = -1 }
-perf = { level = "warn", priority = -1 }
-style = { level = "warn", priority = -1 }
-suspicious = { level = "warn", priority = -1 }
-
-# Specific lints
-cast-possible-truncation = "allow"
-cast-possible-wrap = "allow"
-cast-precision-loss = "allow"
-cast-sign-loss = "allow"
-clone-on-ref-ptr = "warn"
-cognitive-complexity = "warn"
-doc-markdown = "warn"
-empty-enum = "warn"
-enum-glob-use = "warn"
-explicit-into-iter-loop = "warn"
-explicit-iter-loop = "warn"
-fallible-impl-from = "warn"
-future-not-send = "warn"
-if-not-else = "warn"
-implicit-clone = "warn"
-implicit-saturating-sub = "warn"
-indexing-slicing = "warn"
-manual-assert = "warn"
-manual-ok-or = "warn"
-missing-errors-doc = "warn"
-missing-panics-doc = "warn"
-must-use-candidate = "warn"
-needless-borrow = "warn"
-needless-continue = "warn"
-needless-for-each = "warn"
-redundant-else = "warn"
-semicolon-if-nothing-returned = "warn"
-unused-self = "warn"
-useless-transmute = "warn"
-module-name-repetitions = "allow"
-too-many-lines = "allow"
-similar-names = "allow"
-significant-drop-tightening = "allow"
-unused-async = "warn"
-raw-string-hashes = "allow"
-
-# Enforce documentation standards
-missing_docs_in_private_items = "warn"
-undocumented_unsafe_blocks = "warn"
-todo = "warn"
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-# Core dependencies
+# Async runtime and utilities
 tokio = { version = "1.35", features = ["full"] }
-futures = { version = "0.3" }
-async-trait = { version = "0.1" }
-thiserror = "1.0"
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sled = "0.34"
-time = { version = "0.3", features = ["serde"] }
-metrics = "0.21"
-metrics-exporter-prometheus = "0.12"
-prometheus = "0.13"
-hyper = { version = "0.14", features = ["full"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-sysinfo = "0.30"
-lazy_static = "1.4"
-ring = "0.17"
-rand = "0.8"
-regex = "1.10"
-clap = { version = "4.5", features = ["derive"] }
-sha2 = "0.10"
-hex = "0.4"
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
+futures = "0.3.30"
+async-trait = "0.1.74"
+futures-util = "0.3.28"
+tokio-util = { version = "0.7.9", features = ["codec"] }
+tokio-test = "0.4.3"
 
-# Monitoring and logging
-tracing = "0.1"
-tracing-subscriber = "0.3"
+# Error handling
+thiserror = "1.0.50"
+anyhow = "1.0.79"
 
-# MCP dependencies
-bytes = "1.5"
-futures-util = "0.3"
-tokio-util = { version = "0.7", features = ["codec"] }
+# Serialization
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 
-# Compression dependencies
-zstd = { version = "0.13", features = ["zstdmt"] }
-flate2 = { version = "1.0", features = ["zlib"] }
-lz4 = "1.24"
+# Logging and telemetry
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+opentelemetry = "0.21.0"
+opentelemetry_sdk = "0.21.2"
+opentelemetry-jaeger = "0.20.0"
 
-# Notification system dependencies
-reqwest = { version = "0.11", features = ["json"] }
-handlebars = "4.3"
-lettre = { version = "0.10", features = ["tokio1", "tokio1-native-tls"] }
+# Web and HTTP
+axum = { version = "0.7.1", features = ["ws", "multipart"] }
+reqwest = { version = "0.11.23", features = ["json"] }
+tower = { version = "0.4.13" }
+tower-http = { version = "0.4.4", features = ["cors", "trace", "fs", "limit"] }
 
-# Dashboard server dependencies
-axum = { version = "0.6", features = ["ws"] }
-tower-http = { version = "0.4", features = ["cors"] }
-tokio-tungstenite = "0.20"
-tower = "0.4"
+# Storage
+sled = "0.34.7"
 
-# Testing dependencies
-tokio-test = "0.4"
-test-context = "0.1"
-mockall = "0.11"
-criterion = "0.5"
-insta = "1.36"
-snapbox = "0.5"
-tempfile = "3.8"
-proptest = "1.6"
+# Cryptography
+ring = "0.17.7"
 
-# OpenTelemetry dependencies
-opentelemetry = { version = "0.20", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.20", features = ["metrics", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.13", features = ["metrics"] }
-opentelemetry-jaeger = { version = "0.19" }
+# Utils
+bytes = "1.5.0"
+lazy_static = "1.4.0"
+regex = "1.10.2"
+rand = "0.8.5"
+log = "0.4.20"
+url = "2.4.1"
+sha256 = "1.4.0"
+semver = "1.0.20"
+lru = "0.12.1"
+urlencoding = "2.1.3"
+tempfile = "3.8.1"
+sysinfo = "0.29.11"
 
-# New dependencies
-log = "0.4"
-ratatui = "0.26"
-crossterm = "0.27"
+# Testing
+mockall = "0.12.1"
+criterion = "0.5.1"
+insta = "1.34.0"
+snapbox = "0.4.14"
+proptest = "1.4.0"
+test-case = "3.3.1"
 
-[package]
-name = "squirrel"
-version = "0.1.0"
-edition = "2021"
-authors.workspace = true
-description = "A modular and maintainable Rust project"
+# Fuzzing
+libfuzzer-sys = "0.4"
+arbitrary = "1.3"
 
-[dependencies]
-# Core dependencies
-tokio = { version = "1.0", features = ["full"] }
-futures = "0.3"
-async-trait = "0.1"
-thiserror = "1.0"
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+[workspace.lints.rust]
+unsafe_code = "warn"
+unused_imports = "warn"
+unused_variables = "warn"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
 
-# Required for the simple_journal example
-clap = { version = "4.5", features = ["derive"] }
-squirrel-commands = { path = "crates/commands" }
-
-# Squirrel crates
-squirrel-core = { path = "crates/core" }
-squirrel-interfaces = { path = "crates/interfaces" }
-squirrel-context = { path = "crates/context" }
-squirrel-mcp = { path = "crates/mcp" }
-
-# Monitoring and logging
-metrics = "0.21"
-metrics-exporter-prometheus = "0.12"
-prometheus = "0.13"
-
-# MCP dependencies
-bytes = "1.5"
-futures-util = "0.3"
-tokio-util = { version = "0.7", features = ["codec"] }
-
-# Compression dependencies
-zstd = { version = "0.13", features = ["zstdmt"] }
-flate2 = { version = "1.0", features = ["zlib"] }
-lz4 = "1.24"
-
-# Notification system dependencies
-reqwest = { version = "0.11", features = ["json"] }
-handlebars = "4.3"
-lettre = { version = "0.10", features = ["tokio1", "tokio1-native-tls"] }
-
-# Dashboard server dependencies
-axum = { version = "0.6", features = ["ws"] }
-tower-http = { version = "0.4", features = ["cors"] }
-tokio-tungstenite = "0.20"
-tower = "0.4"
-
-# Testing dependencies
-tokio-test = "0.4"
-test-context = "0.1"
-mockall = "0.11"
-criterion = "0.5"
-insta = "1.36"
-snapbox = "0.5"
-tempfile = "3.8"
-proptest = "1.6"
-chrono = { workspace = true }
-
-# OpenTelemetry dependencies
-opentelemetry = { version = "0.20", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.20", features = ["metrics", "rt-tokio"] }
-opentelemetry-otlp = { version = "0.13", features = ["metrics"] }
-opentelemetry-jaeger = { version = "0.19" }
-
-# New dependencies
-log = "0.4"
-ratatui = "0.26"
-crossterm = "0.27"
-
-[features]
-default = []
-with-plugins = []
-
-# ... existing code ... 
-
-[[example]]
-name = "simple_journal"
-path = "examples/simple_journal.rs" 
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+perf = "warn"
+nursery = "warn" 

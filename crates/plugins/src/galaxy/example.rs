@@ -17,7 +17,7 @@ pub async fn galaxy_plugin_example() -> Result<()> {
     let state_manager = Arc::new(MemoryStateManager::new());
     
     // Create the plugin manager
-    let plugin_manager = DefaultPluginManager::new(state_manager);
+    let plugin_manager = DefaultPluginManager::new(state_manager, None);
     
     // Create the Galaxy plugin
     let config = GalaxyAdapterPluginConfig {

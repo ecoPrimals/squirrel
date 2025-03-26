@@ -1,7 +1,7 @@
 [package]
 name = "squirrel-interfaces"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 authors.workspace = true
 description = "Shared interfaces for Squirrel components to avoid circular dependencies"
 
@@ -23,8 +23,11 @@ uuid = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
-# Squirrel dependencies
-squirrel-core = { path = "../core" }
+# Remove dependency on core to break circular dependency
+# squirrel-core = { path = "../core" }
 
 [dev-dependencies]
-tokio-test = "0.4" 
+tokio-test = { workspace = true }
+
+[lints]
+workspace = true 
