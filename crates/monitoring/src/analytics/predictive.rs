@@ -52,6 +52,9 @@ pub struct PredictionConfig {
     pub max_prediction_horizon: i64,
 }
 
+/// Alias for backward compatibility
+pub type PredictiveConfig = PredictionConfig;
+
 impl Default for PredictionConfig {
     fn default() -> Self {
         Self {
@@ -111,6 +114,7 @@ pub struct PredictedValue {
 }
 
 /// Predictive model for making predictions based on time series data
+#[derive(Debug)]
 pub struct PredictiveModel {
     /// Configuration for the predictive model
     config: PredictionConfig,
@@ -398,6 +402,50 @@ impl PredictiveModel {
     }
 }
 
+/// Predictive analyzer for making predictions based on time series data
+#[derive(Debug)]
+pub struct PredictiveAnalyzer {
+    /// Predictive model for making predictions
+    model: PredictiveModel,
+}
+
+impl PredictiveAnalyzer {
+    /// Create a new predictive analyzer with the given configuration
+    pub fn new(config: PredictionConfig, 
+               time_series_analyzer: Arc<RwLock<TimeSeriesAnalyzer>>) 
+        -> Result<Self, AnalyticsError> 
+    {
+        let model = PredictiveModel::new(config, time_series_analyzer)?;
+        Ok(Self { model })
+    }
+    
+    /// Create a new predictive analyzer with the given configuration
+    pub fn with_config(config: PredictionConfig) -> Self {
+        // This is a placeholder - in a real implementation we'd need
+        // to have access to a TimeSeriesAnalyzer
+        panic!("PredictiveAnalyzer::with_config is not implemented. Use new() instead.");
+    }
+    
+    /// Make a prediction for a specific component and metric
+    pub async fn predict(&self, data: serde_json::Value) -> Result<serde_json::Value, anyhow::Error> {
+        // Extract component_id, metric_name, and prediction_horizon from data
+        let component_id = data["component_id"].as_str().ok_or_else(|| 
+            anyhow::anyhow!("Missing component_id in prediction request"))?;
+            
+        let metric_name = data["metric_name"].as_str().ok_or_else(|| 
+            anyhow::anyhow!("Missing metric_name in prediction request"))?;
+            
+        let prediction_horizon = data["prediction_horizon"].as_i64().ok_or_else(|| 
+            anyhow::anyhow!("Missing or invalid prediction_horizon in prediction request"))?;
+        
+        // Make the prediction
+        let prediction = self.model.predict(component_id, metric_name, prediction_horizon).await?;
+        
+        // Convert the prediction to a JSON value
+        Ok(serde_json::to_value(prediction)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,7 +457,7 @@ mod tests {
     async fn create_test_model() -> PredictiveModel {
         let storage_config = StorageConfig::default();
         let storage = Arc::new(RwLock::new(
-            AnalyticsStorage::new(storage_config).await.unwrap()
+            AnalyticsStorage::new(storage_config).unwrap()
         ));
         
         let ts_config = TimeSeriesConfig::default();

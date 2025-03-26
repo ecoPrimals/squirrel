@@ -31,6 +31,13 @@ url = "2.3"
 regex = "1.10"
 once_cell = "1.19"
 anyhow = "1.0" # Added for plugin migration
+lazy_static = "1.4" # Added for API singleton pattern
+# WebSocket implementation is now part of main dependencies since we need it for tests
+tokio-tungstenite = { version = "0.20.1" }
+tungstenite = { version = "0.20.1" }
+# Add axum for HTTP server, which was previously in dashboard modules
+axum = "0.6.20"
+tower = "0.4"
 
 # Plugin system dependency (optional)
 squirrel-plugins = { path = "../plugins", optional = true }
@@ -41,13 +48,19 @@ time.workspace = true
 log = { version = "0.4.26", default-features = false }
 
 [features]
-default = []
+default = ["analytics", "websocket"]
 use_plugins = ["squirrel-plugins"]
+analytics = []
+# WebSocket implementation is now a separate feature
+# Enable by default since it's required for monitoring-dashboard integration
+websocket = []
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 mockall = { workspace = true }
 proptest = { workspace = true }
+tempfile = "3.8.0"
+test-log = "0.2.12"
 
 [lib]
 name = "squirrel_monitoring"

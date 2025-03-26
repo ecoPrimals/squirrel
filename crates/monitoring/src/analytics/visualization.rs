@@ -498,4 +498,88 @@ mod tests {
         assert_eq!(visualization.series.len(), 1);
         assert_eq!(visualization.series[0].data.len(), 3);
     }
+}
+
+/// Generator for creating visualizations from analytics data
+#[derive(Debug)]
+pub struct VisualizationGenerator {
+    /// Default configuration for visualizations
+    config: VisualizationConfig,
+}
+
+impl VisualizationGenerator {
+    /// Create a new visualization generator with the default configuration
+    pub fn new() -> Self {
+        Self {
+            config: VisualizationConfig::default(),
+        }
+    }
+    
+    /// Create a new visualization generator with a custom configuration
+    pub fn with_config(config: VisualizationConfig) -> Self {
+        Self { config }
+    }
+    
+    /// Generate a visualization for the provided data
+    pub async fn generate_visualizations(&self, data: serde_json::Value) -> Result<serde_json::Value, anyhow::Error> {
+        // Extract component_id and metric_name from the data
+        let component_id = data["component_id"].as_str().ok_or_else(|| 
+            anyhow::anyhow!("Missing component_id in visualization request"))?;
+            
+        let metric_name = data["metric_name"].as_str().ok_or_else(|| 
+            anyhow::anyhow!("Missing metric_name in visualization request"))?;
+        
+        // Extract optional parameters
+        let chart_type = match data["chart_type"].as_str() {
+            Some("line") => ChartType::Line,
+            Some("bar") => ChartType::Bar,
+            Some("area") => ChartType::Area,
+            Some("scatter") => ChartType::Scatter,
+            Some("heatmap") => ChartType::Heatmap,
+            Some("pie") => ChartType::Pie,
+            Some("candlestick") => ChartType::Candlestick,
+            Some("boxplot") => ChartType::BoxPlot,
+            Some("histogram") => ChartType::Histogram,
+            _ => self.config.default_chart_type,
+        };
+        
+        // Create a mock VisualizationData instance
+        let visualization_data = VisualizationData {
+            component_id: component_id.to_string(),
+            metric_name: metric_name.to_string(),
+            chart_type,
+            time_series_data: Vec::new(), // In a real implementation, would fetch data
+            trends: Vec::new(),           // In a real implementation, would detect trends
+            prediction: None,             // In a real implementation, would generate prediction
+        };
+        
+        // Extract visualization options
+        let options = VisualizationOptions {
+            title: data["options"]["title"].as_str().map(|s| s.to_string()),
+            x_axis_label: data["options"]["x_axis_label"].as_str().map(|s| s.to_string()),
+            y_axis_label: data["options"]["y_axis_label"].as_str().map(|s| s.to_string()),
+            y_axis_min: data["options"]["y_axis_min"].as_f64(),
+            y_axis_max: data["options"]["y_axis_max"].as_f64(),
+            show_legend: data["options"]["show_legend"].as_bool().unwrap_or(true),
+            show_grid: data["options"]["show_grid"].as_bool().unwrap_or(true),
+            animate: data["options"]["animate"].as_bool().unwrap_or(true),
+            colors: None, // In a real implementation, would extract colors
+            width: data["options"]["width"].as_u64().map(|w| w as u32),
+            height: data["options"]["height"].as_u64().map(|h| h as u32),
+            responsive: data["options"]["responsive"].as_bool().unwrap_or(true),
+            interpolation: data["options"]["interpolation"].as_str().map(|s| s.to_string()),
+        };
+        
+        // Generate the visualization
+        let visualization = generate_visualization_with_options(visualization_data, options);
+        
+        // Convert to JSON
+        Ok(serde_json::to_value(visualization)?)
+    }
+}
+
+impl Default for VisualizationGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
 } 

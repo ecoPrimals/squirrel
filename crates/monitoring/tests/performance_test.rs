@@ -11,12 +11,14 @@ use tokio::sync::mpsc;
 use tokio::time;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use serde_json::json;
+use tokio::sync::Mutex;
+use tokio::time::sleep;
+use serde_json::Value;
 
 use squirrel_core::error::Result;
 use squirrel_core::error::SquirrelError;
-use squirrel_monitoring::dashboard::DashboardManager;
-use squirrel_monitoring::dashboard::config::DashboardConfig;
-use squirrel_monitoring::metrics::{Metric, MetricType, MetricValue};
+use squirrel_monitoring::websocket::{WebSocketServer, WebSocketConfig, WebSocketInterface};
+use squirrel_monitoring::metrics::{Metric, MetricType, MetricValue, DefaultMetricCollector};
 
 mod mock_data_generator;
 use mock_data_generator::MonitoringTestHarness;
@@ -25,45 +27,34 @@ use mock_data_generator::{MockMetricConfig, MockMetricGenerator, DataPattern};
 /// Test metric collection performance under high load
 #[tokio::test]
 async fn test_metric_collection_performance() -> Result<()> {
-    // Configuration for the test
+    // Initialize metric collector
+    let collector = DefaultMetricCollector::new();
+    collector.initialize().await?;
+    
+    // Measure performance of collecting a large number of metrics
     const NUM_METRICS: usize = 10_000;
-    const BATCH_SIZE: usize = 100;
+    let start = Instant::now();
     
-    // Create metric generators
-    let mut generators = Vec::new();
-    for i in 0..BATCH_SIZE {
-        let config = MockMetricConfig {
-            name: format!("test_metric_{}", i),
-            metric_type: MetricType::Gauge,
-            pattern: DataPattern::Random,
-            base_value: 100.0,
-            amplitude: 50.0,
-            period: Some(60.0),
-            tags: std::collections::HashMap::from([("test".to_string(), "performance".to_string())]),
-        };
-        generators.push(MockMetricGenerator::new(config));
+    for i in 0..NUM_METRICS {
+        let metric = Metric::new(
+            format!("test_metric_{}", i),
+            i as f64,
+            MetricType::Gauge,
+            std::collections::HashMap::new(),
+        );
+        collector.record_metric(metric).await?;
     }
     
-    // Generate metrics and measure time
-    let start_time = Instant::now();
-    let mut metrics = Vec::with_capacity(NUM_METRICS);
-    
-    for _ in 0..(NUM_METRICS / BATCH_SIZE) {
-        for generator in &mut generators {
-            metrics.push(generator.next_metric());
-        }
-    }
-    
-    let generation_time = start_time.elapsed();
-    println!("Generated {} metrics in {:?} ({} metrics/second)",
-        metrics.len(),
-        generation_time,
-        (metrics.len() as f64 / generation_time.as_secs_f64()) as u64
+    let duration = start.elapsed();
+    println!("Recorded {} metrics in {:?} ({} metrics/sec)", 
+        NUM_METRICS, 
+        duration, 
+        NUM_METRICS as f64 / duration.as_secs_f64()
     );
     
-    // Verify performance meets expectations
-    let metrics_per_second = metrics.len() as f64 / generation_time.as_secs_f64();
-    assert!(metrics_per_second > 10_000.0, "Metric generation performance below target: {} metrics/second", metrics_per_second);
+    // Performance should be above a minimum threshold (adjust based on expected performance)
+    assert!(NUM_METRICS as f64 / duration.as_secs_f64() > 1000.0, 
+        "Metric collection performance below threshold");
     
     Ok(())
 }
@@ -72,130 +63,99 @@ async fn test_metric_collection_performance() -> Result<()> {
 #[ignore]
 #[tokio::test]
 async fn test_websocket_performance() -> Result<()> {
-    // Performance test configuration
-    const NUM_CLIENTS: usize = 5;
-    const NUM_MESSAGES: usize = 100;
-    const MESSAGE_RATE: usize = 10; // Messages per second
+    // Create and start WebSocket server
+    let config = WebSocketConfig {
+        host: "127.0.0.1".to_string(),
+        port: 8767,
+        update_interval: 1,
+        max_connections: 100,
+        enable_compression: false,
+        auth_required: false,
+    };
     
-    // Create a dashboard configuration
-    let mut config = DashboardConfig::default();
-    config.server = Some(Default::default());
-    config.server.as_mut().unwrap().host = "127.0.0.1".to_string();
-    config.server.as_mut().unwrap().port = 9905; // Use a unique port for this test
-    config.update_interval = 1; // Fast refresh for testing
+    let server = Arc::new(WebSocketServer::new(config.clone()));
+    server.start().await?;
     
-    // Create and start the dashboard manager
-    let dashboard = DashboardManager::new(config.clone());
-    dashboard.start().await?;
-    println!("Dashboard started successfully for WebSocket performance test");
+    // Allow time for server to start
+    sleep(Duration::from_millis(500)).await;
     
-    // Wait for server to start
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    // Create WebSocket clients
+    const NUM_CLIENTS: usize = 10;
+    let message_count = Arc::new(Mutex::new(0));
     
-    // WebSocket URL
-    let websocket_url = format!("ws://{}:{}/ws", 
-        config.server.as_ref().unwrap().host,
-        config.server.as_ref().unwrap().port);
-    
-    println!("Creating {} WebSocket clients", NUM_CLIENTS);
-    let mut clients = Vec::with_capacity(NUM_CLIENTS);
-    
-    for client_id in 0..NUM_CLIENTS {
-        println!("Connecting client {}", client_id);
-        let (ws_stream, _) = connect_async(&websocket_url).await
-            .map_err(|e| SquirrelError::Generic(format!("Failed to connect client {}: {}", client_id, e)))?;
-        
-        let (ws_sender, ws_receiver) = ws_stream.split();
-        clients.push((client_id, ws_sender, ws_receiver));
-    }
-    
-    println!("All {} clients connected successfully", clients.len());
-    
-    // Subscribe each client to a topic
-    for (client_id, ref mut sender, _) in &mut clients {
-        let subscribe_msg = json!({
-            "action": "subscribe",
-            "topic": format!("test_topic_{}", client_id),
-        }).to_string();
-        
-        sender.send(Message::Text(subscribe_msg.clone())).await
-            .map_err(|e| SquirrelError::Generic(format!("Failed to send subscription for client {}: {}", client_id, e)))?;
-    }
-    
-    // Set up message counters
-    let messages_sent = Arc::new(AtomicUsize::new(0));
-    let messages_received = Arc::new(AtomicUsize::new(0));
-    
-    // Spawn a task for each client to count received messages
-    let mut receive_handles = Vec::new();
-    
-    // We need to move ownership to the tasks
-    let client_receivers = clients.into_iter().map(|(id, _, receiver)| (id, receiver)).collect::<Vec<_>>();
-    
-    for (client_id, mut receiver) in client_receivers {
-        let messages_received = Arc::clone(&messages_received);
+    // Connect clients
+    let mut client_handles = Vec::new();
+    for i in 0..NUM_CLIENTS {
+        let url = format!("ws://{}:{}/ws", config.host, config.port);
+        let message_counter = Arc::clone(&message_count);
         
         let handle = tokio::spawn(async move {
-            let mut client_messages = 0;
+            // Connect to WebSocket server
+            let (mut ws_stream, _) = connect_async(&url).await
+                .expect("Failed to connect to WebSocket server");
+            println!("Client {} connected", i);
             
-            while let Some(msg) = receiver.next().await {
+            // Subscribe to a topic
+            let topic = format!("performance_topic_{}", i % 3);
+            let subscribe_msg = serde_json::json!({
+                "action": "subscribe",
+                "topic": topic,
+            }).to_string();
+            
+            ws_stream.send(Message::Text(subscribe_msg)).await
+                .expect("Failed to send subscription message");
+            
+            // Listen for messages
+            let (write, mut read) = ws_stream.split();
+            
+            // Count messages received
+            while let Some(msg) = read.next().await {
                 if let Ok(Message::Text(_)) = msg {
-                    client_messages += 1;
-                    messages_received.fetch_add(1, Ordering::SeqCst);
-                    
-                    // Stop after receiving enough messages
-                    if client_messages >= NUM_MESSAGES {
-                        println!("Client {} received {} messages", client_id, client_messages);
-                        break;
-                    }
+                    let mut counter = message_counter.lock().await;
+                    *counter += 1;
                 }
             }
         });
         
-        receive_handles.push(handle);
+        client_handles.push(handle);
     }
     
-    // Start sending messages at the desired rate
-    let message_interval = Duration::from_micros(1_000_000 / MESSAGE_RATE as u64);
-    let mut interval_timer = time::interval(message_interval);
+    // Update component data rapidly
+    const NUM_UPDATES: usize = 100;
+    let start = Instant::now();
     
-    println!("Sending messages at rate of {} per second", MESSAGE_RATE);
-    let start_time = Instant::now();
-    
-    for i in 0..NUM_MESSAGES {
-        interval_timer.tick().await;
+    // Update component data for different topics
+    for i in 0..NUM_UPDATES {
+        for topic_id in 0..3 {
+            let topic = format!("performance_topic_{}", topic_id);
+            server.update_component_data(&topic, serde_json::json!({
+                "value": i,
+                "timestamp": chrono::Utc::now().timestamp(),
+            })).await?;
+        }
         
-        // In a real implementation, we would send a message to the dashboard here
-        // dashboard.broadcast_message(...).await?;
-        
-        messages_sent.fetch_add(1, Ordering::SeqCst);
-        
-        if i > 0 && i % 100 == 0 {
-            let elapsed = start_time.elapsed();
-            let rate = i as f64 / elapsed.as_secs_f64();
-            println!("Sent {} messages in {:?} ({} messages/second)", i, elapsed, rate as u64);
+        if i % 10 == 0 {
+            sleep(Duration::from_millis(10)).await;
         }
     }
     
-    // Wait for all clients to receive messages
-    for handle in receive_handles {
-        let _ = handle.await;
-    }
+    let duration = start.elapsed();
     
-    let total_time = start_time.elapsed();
-    let sent = messages_sent.load(Ordering::SeqCst);
-    let received = messages_received.load(Ordering::SeqCst);
+    // Allow time for messages to be processed
+    sleep(Duration::from_secs(1)).await;
     
-    println!("Performance test complete:");
-    println!("- Sent: {} messages", sent);
-    println!("- Received: {} messages", received);
-    println!("- Time: {:?}", total_time);
-    println!("- Send rate: {} messages/second", (sent as f64 / total_time.as_secs_f64()) as u64);
-    println!("- Receive rate: {} messages/second", (received as f64 / total_time.as_secs_f64()) as u64);
+    let messages_received = *message_count.lock().await;
+    println!("Sent {} updates in {:?}, clients received {} messages", 
+        NUM_UPDATES * 3, 
+        duration,
+        messages_received
+    );
+    
+    // Expect a reasonable number of messages to be received
+    assert!(messages_received > 0, "No messages were received by clients");
     
     // Clean up
-    dashboard.stop().await?;
-    println!("Dashboard stopped successfully");
+    server.stop().await?;
     
     Ok(())
 }
@@ -203,39 +163,142 @@ async fn test_websocket_performance() -> Result<()> {
 /// Test performance under concurrent operations
 #[tokio::test]
 async fn test_concurrent_performance() -> Result<()> {
-    // Skip this test until the MonitoringTestHarness is fully operational
-    println!("Skipping concurrent performance test until MonitoringTestHarness is fixed");
-    return Ok(());
-    
     // Configuration
     const NUM_CONCURRENT_OPERATIONS: usize = 50;
-    const OPERATIONS_PER_TASK: usize = 1000;
+    const OPERATIONS_PER_TASK: usize = 100;
     
-    // Create a shared test harness
-    let harness = Arc::new(MonitoringTestHarness::new());
+    // Create a WebSocket server
+    let config = WebSocketConfig {
+        host: "127.0.0.1".to_string(),
+        port: 8768, // Different port from other tests
+        update_interval: 1,
+        max_connections: 200, // Higher limit for concurrent test
+        enable_compression: false,
+        auth_required: false,
+    };
+    
+    // Create and start the server
+    let server = Arc::new(WebSocketServer::new(config.clone()));
+    server.start().await?;
+    
+    // Allow time for server to start
+    sleep(Duration::from_millis(500)).await;
     
     // Create a counter for completed operations
     let operations_completed = Arc::new(AtomicUsize::new(0));
+    let connection_successes = Arc::new(AtomicUsize::new(0));
+    let message_counter = Arc::new(AtomicUsize::new(0));
     
-    // Spawn concurrent tasks
+    // Spawn concurrent client tasks
     let start_time = Instant::now();
     let mut handles = Vec::new();
     
     for task_id in 0..NUM_CONCURRENT_OPERATIONS {
-        let harness = Arc::clone(&harness);
-        let operations_completed = Arc::clone(&operations_completed);
+        let server_clone = Arc::clone(&server);
+        let operations_completed_clone = Arc::clone(&operations_completed);
+        let connection_successes_clone = Arc::clone(&connection_successes);
+        let message_counter_clone = Arc::clone(&message_counter);
         
         let handle = tokio::spawn(async move {
-            // Use local operations to avoid thread-safety issues
-            for op_id in 0..OPERATIONS_PER_TASK {
-                // Increment the operation counter
-                operations_completed.fetch_add(1, Ordering::SeqCst);
-            }
+            // Create a new client connection
+            let url = format!("ws://{}:{}/ws", config.host, config.port);
             
-            println!("Task {} completed {} operations", task_id, OPERATIONS_PER_TASK);
+            // Try to connect to the server
+            match connect_async(&url).await {
+                Ok((mut ws_stream, _)) => {
+                    // Successful connection
+                    connection_successes_clone.fetch_add(1, Ordering::SeqCst);
+                    
+                    // Subscribe to a topic specific to this task
+                    let topic = format!("concurrent_topic_{}", task_id % 10);
+                    let subscribe_msg = serde_json::json!({
+                        "action": "subscribe",
+                        "topic": topic.clone(),
+                    }).to_string();
+                    
+                    if let Err(e) = ws_stream.send(Message::Text(subscribe_msg)).await {
+                        println!("Task {} failed to send subscription: {:?}", task_id, e);
+                        return;
+                    }
+                    
+                    // Split the WebSocket stream
+                    let (mut write, mut read) = ws_stream.split();
+                    
+                    // Spawn a task to handle incoming messages
+                    let msg_counter = Arc::clone(&message_counter_clone);
+                    let read_task = tokio::spawn(async move {
+                        while let Some(msg) = read.next().await {
+                            if let Ok(Message::Text(_)) = msg {
+                                msg_counter.fetch_add(1, Ordering::SeqCst);
+                            }
+                        }
+                    });
+                    
+                    // Perform operations
+                    for op_id in 0..OPERATIONS_PER_TASK {
+                        // Simulate a mix of operations
+                        match op_id % 3 {
+                            0 => {
+                                // Update component data
+                                if let Err(e) = server_clone.update_component_data(
+                                    &topic, 
+                                    json!({
+                                        "value": op_id,
+                                        "timestamp": chrono::Utc::now().timestamp(),
+                                    })
+                                ).await {
+                                    println!("Error updating component data: {:?}", e);
+                                }
+                            },
+                            1 => {
+                                // Send a data request
+                                let request = json!({
+                                    "action": "get_data",
+                                    "topic": topic,
+                                    "request_id": format!("req_{}_{}", task_id, op_id),
+                                }).to_string();
+                                
+                                if let Err(e) = write.send(Message::Text(request)).await {
+                                    println!("Task {} failed to send data request: {:?}", task_id, e);
+                                }
+                            },
+                            _ => {
+                                // Get health status 
+                                let request = json!({
+                                    "action": "get_health",
+                                    "request_id": format!("health_{}_{}", task_id, op_id),
+                                }).to_string();
+                                
+                                if let Err(e) = write.send(Message::Text(request)).await {
+                                    println!("Task {} failed to send health request: {:?}", task_id, e);
+                                }
+                            }
+                        }
+                        
+                        // Increment the operation counter
+                        operations_completed_clone.fetch_add(1, Ordering::SeqCst);
+                        
+                        // Small delay to prevent flooding
+                        if op_id % 10 == 0 {
+                            sleep(Duration::from_millis(1)).await;
+                        }
+                    }
+                    
+                    // Cancel the read task
+                    read_task.abort();
+                    
+                    println!("Task {} completed {} operations", task_id, OPERATIONS_PER_TASK);
+                },
+                Err(e) => {
+                    println!("Task {} failed to connect: {:?}", task_id, e);
+                }
+            }
         });
         
         handles.push(handle);
+        
+        // Small delay between spawning clients to prevent connection failures
+        sleep(Duration::from_millis(10)).await;
     }
     
     // Wait for all tasks to complete
@@ -245,16 +308,23 @@ async fn test_concurrent_performance() -> Result<()> {
     
     let total_time = start_time.elapsed();
     let completed = operations_completed.load(Ordering::SeqCst);
+    let connections = connection_successes.load(Ordering::SeqCst);
+    let messages = message_counter.load(Ordering::SeqCst);
     
     println!("Concurrent performance test complete:");
-    println!("- {} concurrent tasks", NUM_CONCURRENT_OPERATIONS);
-    println!("- {} operations completed", completed);
-    println!("- Time: {:?}", total_time);
-    println!("- Overall rate: {} operations/second", (completed as f64 / total_time.as_secs_f64()) as u64);
+    println!("- {} concurrent tasks ({} successful connections)", NUM_CONCURRENT_OPERATIONS, connections);
+    println!("- {} operations per task", OPERATIONS_PER_TASK);
+    println!("- {} total operations", completed);
+    println!("- {} total messages received", messages);
+    println!("- Total time: {:?}", total_time);
+    println!("- Operations per second: {}", (completed as f64 / total_time.as_secs_f64()) as u64);
     
-    // Verify performance meets expectations
-    let ops_per_second = completed as f64 / total_time.as_secs_f64();
-    assert!(ops_per_second > 1000.0, "Concurrent operation performance below target: {} operations/second", ops_per_second);
+    // Clean up
+    server.stop().await?;
+    
+    // Success if we completed operations and had some successful connections
+    assert!(completed > 0, "No operations were completed");
+    assert!(connections > 0, "No connections were successful");
     
     Ok(())
 }

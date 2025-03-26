@@ -11,6 +11,7 @@ use crate::db::SqlitePool as DbPool;
 use crate::websocket::ConnectionManager as WebSocketManager;
 use crate::auth::AuthService;
 use crate::api::commands::CommandService;
+use crate::api::monitoring::MonitoringService;
 use crate::config::Config;
 use crate::plugins_legacy::PluginManager;
 use crate::plugins::WebPluginRegistry;
@@ -85,6 +86,9 @@ pub struct AppState {
     
     /// MCP Context manager for enhanced context preservation
     pub context_manager: Arc<ContextManager>,
+    
+    /// Monitoring service for system monitoring APIs
+    pub monitoring_service: Option<Arc<MonitoringService>>,
 }
 
 impl AppState {
@@ -136,5 +140,10 @@ impl AppState {
     /// Get the context manager
     pub fn get_context_manager(&self) -> &Arc<ContextManager> {
         &self.context_manager
+    }
+    
+    /// Get the monitoring service if available
+    pub fn get_monitoring_service(&self) -> Option<&Arc<MonitoringService>> {
+        self.monitoring_service.as_ref()
     }
 } 

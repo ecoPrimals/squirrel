@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Monitoring system is designed to provide comprehensive observability, metrics collection, health monitoring, alerting, and visualization capabilities. It serves as the foundation for system health tracking, performance analysis, and predictive maintenance.
+The Monitoring system is designed to provide comprehensive observability, metrics collection, health monitoring, and alerting capabilities. It serves as the foundation for system health tracking, performance analysis, and predictive maintenance. Dashboard and visualization functionality has been moved to dedicated `dashboard-core` and UI implementation crates.
 
 ## Implementation Status: 100% Complete
 
-As of the latest update, all planned features of the Monitoring system have been implemented and tested. The system provides a robust, extensible framework for monitoring system health, collecting and analyzing metrics, generating alerts, and visualizing data through an interactive dashboard.
+As of the latest update, all planned features of the Monitoring system have been implemented and tested. The system provides a robust, extensible framework for monitoring system health, collecting and analyzing metrics, generating alerts, and providing data access through a WebSocket API.
 
 ### Key Components:
 
@@ -38,19 +38,30 @@ As of the latest update, all planned features of the Monitoring system have been
    - Network health checks
    - Latency and packet loss tracking
 
-5. **Dashboard System**: 100% Complete
-   - Interactive visualization
-   - Real-time data updates
-   - Customizable layouts
-   - Data filtering and aggregation
-   - Plugin-based extension system
+5. **WebSocket API**: 100% Complete
+   - Real-time data access
+   - Client subscription model
+   - Connection management
+   - Message protocol
+   - Authentication and security
 
 6. **Analytics Integration**: 100% Complete
    - Time series analysis
    - Trend detection
    - Pattern recognition
    - Predictive analytics
-   - Data visualization
+   - Data accessibility
+
+## Dashboard Migration
+
+Dashboard functionality has been moved to dedicated crates:
+
+- `dashboard-core`: Core dashboard functionality and data models
+- `ui-terminal`: Terminal UI implementation using the dashboard core
+- `ui-web`: Web UI implementation (in progress)
+- `ui-desktop`: Desktop UI implementation (planned)
+
+The monitoring system now provides a clean WebSocket API interface for these dashboard implementations to consume monitoring data.
 
 ## Architecture
 
@@ -64,7 +75,7 @@ crates/monitoring/src/
 ├── health/         # Health monitoring system
 ├── alerts/         # Alerting and notification
 ├── network/        # Network monitoring
-├── dashboard/      # Dashboard and visualization
+├── websocket/      # WebSocket API 
 ├── analytics/      # Analytics capabilities
 ├── storage/        # Data storage and retrieval
 └── integration/    # External system integration
@@ -76,7 +87,7 @@ crates/monitoring/src/
 - `MetricsCollector`: Collects and processes metrics from various sources
 - `HealthChecker`: Performs health checks on components and dependencies
 - `AlertManager`: Manages and dispatches alerts based on configurable rules
-- `DashboardManager`: Manages the dashboard UI and visualization components
+- `WebSocketServer`: Provides real-time data access through WebSocket protocol
 - `AnalyticsEngine`: Provides analytics capabilities on collected metrics
 
 ## Features
@@ -113,17 +124,17 @@ The alerting system features:
 - Alert aggregation to prevent notification storms
 - Alert acknowledgment and resolution tracking
 
-### Dashboard and Visualization
+### WebSocket API
 
-The dashboard system provides:
+The WebSocket API provides:
 
-- Interactive web-based dashboard interface
-- Real-time metric visualization with multiple chart types
-- Customizable layouts and views
-- Data filtering and transformation
-- User-defined dashboards and saved views
-- Sharing and export capabilities
-- Plugin system for extensibility
+- Real-time data access for external consumers (including dashboards)
+- Topic-based subscription model
+- Efficient message compression and batching
+- Client reconnection handling
+- Authentication and authorization
+- Standard message protocol with request/response patterns
+- Support for multiple concurrent clients
 
 ### Analytics Integration
 
@@ -139,13 +150,6 @@ The analytics integration provides:
 ## Extensions
 
 The monitoring system is designed to be extensible through plugins:
-
-### Dashboard Plugins
-
-The dashboard can be extended with two types of plugins:
-
-1. **Visualization Plugins**: Add new visualization types and rendering capabilities
-2. **Data Source Plugins**: Integrate with external data sources and services
 
 ### Alert Handlers
 
@@ -165,13 +169,22 @@ Custom health check probes can be added to:
 - Implement complex health validation logic
 - Provide domain-specific health reporting
 
+### WebSocket Protocol Extensions
+
+Custom WebSocket protocol extensions can be added to:
+
+- Support specialized message formats
+- Implement custom serialization/deserialization
+- Add domain-specific subscription models
+- Integrate with external protocols
+
 ## Examples
 
 The system includes comprehensive examples:
 
-1. `secure_dashboard.rs`: Demonstrates secure dashboard configuration with authentication and authorization
-2. `dashboard_plugin_example.rs`: Showcases dashboard plugin development
-3. `analytics_dashboard_integration.rs`: Demonstrates analytics integration with the dashboard
+1. `websocket_server.rs`: Demonstrates WebSocket server configuration with authentication and authorization
+2. `metrics_collection.rs`: Showcases metrics collection and processing
+3. `analytics_integration.rs`: Demonstrates analytics integration with the monitoring system
 
 ## Configuration
 
@@ -183,7 +196,7 @@ pub struct MonitoringConfig {
     pub health: HealthConfig,
     pub alerts: AlertsConfig,
     pub network: NetworkConfig,
-    pub dashboard: DashboardConfig,
+    pub websocket: WebSocketConfig,
     pub analytics: AnalyticsConfig,
     pub storage: StorageConfig,
 }
@@ -197,9 +210,9 @@ The monitoring system integrates with:
 
 1. **Application Components**: For metrics collection and health reporting
 2. **External Systems**: For data export and alert forwarding
-3. **Security Framework**: For dashboard authentication and authorization
+3. **Security Framework**: For authentication and authorization
 4. **Storage Systems**: For metric persistence and retrieval
-5. **User Interface**: Through the dashboard web interface
+5. **Dashboard Systems**: Through the WebSocket API
 
 ## Testing
 
@@ -208,7 +221,7 @@ The monitoring system has comprehensive test coverage including:
 - Unit tests for all core components
 - Integration tests for inter-component interactions
 - Performance tests for throughput and latency
-- Security tests for dashboard authentication
+- Security tests for WebSocket authentication
 - Mock-based tests for external dependencies
 
 ## Usage
@@ -229,10 +242,15 @@ monitoring.metrics().record("request_count", 1, Some(metadata)).await?;
 // Perform a health check
 let health = monitoring.health().check().await?;
 
-// Start the dashboard
-monitoring.dashboard().start(8080).await?;
+// Configure and start WebSocket server
+let ws_config = WebSocketConfig {
+    host: "127.0.0.1".to_string(),
+    port: 8765,
+    ..Default::default()
+};
+monitoring.websocket().start(ws_config).await?;
 ```
 
 ## Conclusion
 
-The monitoring system provides a comprehensive solution for system observability, health monitoring, alerting, and visualization. With its modular architecture and extensive plugin system, it can be adapted to a wide range of use cases and integrated with various external systems. 
+The monitoring system provides a comprehensive solution for system observability, health monitoring, and alerting. With its modular architecture and extensive plugin system, it can be adapted to a wide range of use cases and integrated with various external systems through its WebSocket API. 

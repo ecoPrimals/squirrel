@@ -43,6 +43,9 @@ pub struct PatternConfig {
     pub min_data_points: usize,
 }
 
+/// Alias for backward compatibility
+pub type PatternRecognitionConfig = PatternConfig;
+
 impl Default for PatternConfig {
     fn default() -> Self {
         Self {
@@ -81,6 +84,7 @@ pub struct RecognizedPattern {
 }
 
 /// Pattern recognizer for identifying patterns in time series data
+#[derive(Debug)]
 pub struct PatternRecognizer {
     /// Configuration for pattern recognition
     config: PatternConfig,
@@ -123,7 +127,7 @@ impl PatternRecognizer {
                 description: "A pattern that repeats approximately every 30 days".to_string(),
                 confidence: 1.0,
                 metadata: serde_json::json!({
-                    "period": 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+                    "period": 30_i64 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
                     "type": "cycle"
                 }),
             },
@@ -417,7 +421,7 @@ mod tests {
     async fn create_test_recognizer() -> PatternRecognizer {
         let storage_config = StorageConfig::default();
         let storage = Arc::new(RwLock::new(
-            AnalyticsStorage::new(storage_config).await.unwrap()
+            AnalyticsStorage::new(storage_config).unwrap()
         ));
         
         let ts_config = TimeSeriesConfig::default();

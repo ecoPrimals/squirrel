@@ -7,8 +7,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc, Duration};
-
-use crate::analytics::storage::{AnalyticsStorage, StorageError};
+use serde_json::Value;
+use crate::analytics::storage;
 use crate::analytics::AnalyticsError;
 
 /// A single data point in a time series
@@ -200,18 +200,19 @@ pub struct Statistics {
     pub sum: f64,
 }
 
-/// Time series analyzer for analyzing time-series data
+/// Analyzes time series data to extract insights and patterns
+#[derive(Debug, Clone)]
 pub struct TimeSeriesAnalyzer {
     /// Configuration for time series analysis
     config: TimeSeriesConfig,
     
-    /// Storage for time series data
-    storage: Arc<RwLock<AnalyticsStorage>>,
+    /// Analytics storage for persisting data
+    storage: Arc<RwLock<storage::AnalyticsStorage>>,
 }
 
 impl TimeSeriesAnalyzer {
     /// Create a new time series analyzer with the given configuration and storage
-    pub fn new(config: TimeSeriesConfig, storage: Arc<RwLock<AnalyticsStorage>>) -> Result<Self, AnalyticsError> {
+    pub fn new(config: TimeSeriesConfig, storage: Arc<RwLock<storage::AnalyticsStorage>>) -> Result<Self, AnalyticsError> {
         Ok(Self {
             config,
             storage,
@@ -225,6 +226,14 @@ impl TimeSeriesAnalyzer {
     {
         // Get the data
         let data = self.get_data(component_id, metric_name, window).await?;
+        
+        // Check if we have enough data
+        if data.is_empty() {
+            return Err(AnalyticsError::ConfigError(
+                format!("No data available for component {} and metric {}",
+                    component_id, metric_name)
+            ));
+        }
         
         // Calculate statistics
         let statistics = self.calculate_statistics(&data)?;
@@ -243,34 +252,48 @@ impl TimeSeriesAnalyzer {
         Ok(result)
     }
     
-    /// Get time series data for a specific component and metric
+    /// Get data for a specific component and metric
     pub async fn get_data(&self, component_id: &str, metric_name: &str, window: TimeWindow) 
         -> Result<Vec<DataPoint>, AnalyticsError> 
     {
+        // Convert the time window to timestamps
         let (start, end) = window.to_timestamps();
         
-        // Check if the time window is too large
+        // Check if the window is too large
         if end - start > self.config.max_time_window {
             return Err(AnalyticsError::ConfigError(
-                format!("Time window too large: {} ms (max: {} ms)", end - start, self.config.max_time_window)
+                format!("Time window too large: {} ms (max: {} ms)",
+                    end - start, self.config.max_time_window)
             ));
         }
         
-        // Get data from storage
-        let storage = self.storage.read().await;
-        let data = storage.get_data_points(component_id, metric_name, start, end).await
-            .map_err(|e| match e {
-                StorageError::IoError(e) => AnalyticsError::IoError(e),
-                StorageError::SerializationError(e) => AnalyticsError::SerializationError(e),
-                StorageError::NotFound(e) => AnalyticsError::AnalysisError(e),
-                StorageError::Other(e) => AnalyticsError::StorageError(e),
-            })?;
+        // Get the data from storage
+        // In a real implementation, this would query the storage system
+        // For now, we'll return mock data
+        let mut data_points = Vec::new();
+        
+        // Attempt to get data from storage
+        let storage_result = self.storage.read().await.get_data_points(component_id, metric_name, start, end).await;
+        
+        match storage_result {
+            Ok(points) => {
+                data_points = points;
+            },
+            Err(e) => {
+                match e {
+                    storage::StorageError::IoError(e) => return Err(AnalyticsError::IoError(e.to_string())),
+                    storage::StorageError::SerializationError(e) => return Err(AnalyticsError::SerializationError(e)),
+                    storage::StorageError::NotFound(e) => return Err(AnalyticsError::AnalysisError(e)),
+                    storage::StorageError::Other(e) => return Err(AnalyticsError::AnalysisError(e)),
+                }
+            }
+        }
         
         // If there's too much data, downsample it
-        let data = if data.len() > self.config.max_data_points {
-            self.downsample(data, self.config.max_data_points)
+        let data = if data_points.len() > self.config.max_data_points {
+            self.downsample(data_points, self.config.max_data_points)
         } else {
-            data
+            data_points
         };
         
         // If interpolation is enabled, interpolate missing data points
@@ -335,20 +358,26 @@ impl TimeSeriesAnalyzer {
             return data;
         }
         
-        let step = data.len() / max_points;
+        let step = (data.len() as f64 / max_points as f64).ceil() as usize;
         let mut result = Vec::with_capacity(max_points);
         
         for i in (0..data.len()).step_by(step) {
-            result.push(data[i].clone());
-            
             if result.len() >= max_points {
                 break;
             }
+            result.push(data[i].clone());
         }
         
-        // Ensure we include the last data point
+        // Ensure we include the last data point if it's not already included
         if !data.is_empty() && (result.is_empty() || result.last().unwrap().timestamp < data.last().unwrap().timestamp) {
-            result.push(data.last().unwrap().clone());
+            if result.len() >= max_points {
+                // Replace the last point if we're already at max capacity
+                if let Some(last) = result.last_mut() {
+                    *last = data.last().unwrap().clone();
+                }
+            } else {
+                result.push(data.last().unwrap().clone());
+            }
         }
         
         result
@@ -423,7 +452,7 @@ mod tests {
     async fn create_test_analyzer() -> TimeSeriesAnalyzer {
         let storage_config = StorageConfig::default();
         let storage = Arc::new(RwLock::new(
-            AnalyticsStorage::new(storage_config).await.unwrap()
+            AnalyticsStorage::new(storage_config).unwrap()
         ));
         
         let config = TimeSeriesConfig::default();

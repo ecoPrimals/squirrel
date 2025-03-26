@@ -39,6 +39,7 @@ lazy_static = "1.4"
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
+squirrel-monitoring = { path = "../monitoring", optional = true, default-features = false }
 
 # Fix for utoipa dependency conflict
 # Use a fixed version of utoipa that's compatible with utoipa-swagger-ui
@@ -49,7 +50,7 @@ utoipa-swagger-ui = { version = "4.0.0", features = ["axum"], optional = true }
 # as a module, so we don't need the explicit dependency anymore.
 
 [features]
-default = ["mock-db", "mock-mcp", "server"]
+default = ["mock-db", "mock-mcp", "server", "monitoring"]
 db = []
 mock-db = []
 mock-mcp = []
@@ -59,6 +60,8 @@ dynamic-plugins = ["libloading"]
 script-plugins = []
 # Add a new feature for API documentation
 api-docs = ["utoipa", "utoipa-swagger-ui"]
+# Add monitoring feature
+monitoring = ["squirrel-monitoring"]
 
 [dev-dependencies]
 tokio-test = "0.4"

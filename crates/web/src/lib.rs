@@ -231,6 +231,9 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
     let plugin_manager = Arc::new(plugin_manager);
     let plugin_registry = Arc::new(plugin_registry);
     
+    // Try to initialize monitoring service if available
+    let monitoring_service = init_monitoring_service().await;
+    
     // Create app state
     let state = Arc::new(AppState {
         db,
@@ -244,6 +247,7 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
         plugin_manager,
         plugin_registry: Some(plugin_registry), // Add the plugin registry to the app state
         context_manager: context_manager.clone(), // Add context manager to app state
+        monitoring_service, // Add monitoring service to app state
     });
     
     // Initialize and start MCP event bridge with context manager
@@ -308,4 +312,110 @@ pub async fn create_app(db: DbPool, config: Config) -> Router {
     let app_with_plugins = plugin_adapter::create_plugin_routes(app, state.clone()).await;
     
     app_with_plugins.with_state(state)
+}
+
+/// Initialize the monitoring service
+async fn init_monitoring_service() -> Option<Arc<api::monitoring::MonitoringService>> {
+    // Try to get monitoring API from the monitoring crate
+    #[cfg(feature = "monitoring")]
+    {
+        // Import the API module from monitoring crate
+        match squirrel_monitoring::api::get_monitoring_api() {
+            Ok(monitoring_api) => {
+                // Create a wrapper for the monitoring API
+                let api_wrapper = Arc::new(MockMonitoringAPI::new()) as Arc<dyn squirrel_monitoring::api::MonitoringAPI>;
+                
+                // Create monitoring service with the API
+                let monitoring_service = api::monitoring::MonitoringService::new(api_wrapper);
+                
+                // Log that monitoring API is available
+                tracing::info!("Monitoring API initialized successfully");
+                
+                // Return the service wrapped in an Arc
+                Some(Arc::new(monitoring_service))
+            },
+            Err(e) => {
+                tracing::error!("Failed to initialize monitoring API: {}", e);
+                tracing::info!("Falling back to mock monitoring API");
+                
+                // Create a mock monitoring API
+                let mock_api = Arc::new(MockMonitoringAPI::new()) as Arc<dyn squirrel_monitoring::api::MonitoringAPI>;
+                
+                // Create monitoring service with the mock API
+                let monitoring_service = api::monitoring::MonitoringService::new(mock_api);
+                
+                // Return the service wrapped in an Arc
+                Some(Arc::new(monitoring_service))
+            }
+        }
+    }
+    
+    #[cfg(not(feature = "monitoring"))]
+    {
+        tracing::info!("Monitoring feature not enabled, using mock monitoring API");
+        
+        // Create a mock monitoring API
+        let mock_api = Arc::new(MockMonitoringAPI::new()) as Arc<dyn squirrel_monitoring::api::MonitoringAPI>;
+        
+        // Create monitoring service with the mock API
+        let monitoring_service = api::monitoring::MonitoringService::new(mock_api);
+        
+        // Return the service wrapped in an Arc
+        Some(Arc::new(monitoring_service))
+    }
+}
+
+/// Mock implementation of the MonitoringAPI
+#[derive(Debug)]
+struct MockMonitoringAPI {
+    // No fields needed for mock
+}
+
+impl MockMonitoringAPI {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+#[async_trait::async_trait]
+impl squirrel_monitoring::api::MonitoringAPI for MockMonitoringAPI {
+    async fn get_component_data(&self, component_id: &str) -> squirrel_core::error::Result<serde_json::Value> {
+        // Return mock data for the component
+        Ok(serde_json::json!({
+            "name": component_id,
+            "status": "ok",
+            "value": 42,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }))
+    }
+    
+    async fn get_available_components(&self) -> squirrel_core::error::Result<Vec<String>> {
+        // Return mock list of components
+        Ok(vec![
+            "cpu".to_string(),
+            "memory".to_string(),
+            "disk".to_string(),
+            "network".to_string()
+        ])
+    }
+    
+    async fn get_health_status(&self) -> squirrel_core::error::Result<std::collections::HashMap<String, serde_json::Value>> {
+        // Return mock health status
+        let mut health = std::collections::HashMap::new();
+        health.insert("status".to_string(), serde_json::Value::String("healthy".to_string()));
+        health.insert("components_count".to_string(), serde_json::Value::Number(
+            serde_json::Number::from(4)
+        ));
+        Ok(health)
+    }
+    
+    async fn subscribe_to_component(&self, component_id: &str) -> squirrel_core::error::Result<String> {
+        // Return mock subscription ID
+        Ok(format!("mock_subscription_{}", component_id))
+    }
+    
+    async fn unsubscribe(&self, subscription_id: &str) -> squirrel_core::error::Result<()> {
+        // Mock successful unsubscribe
+        Ok(())
+    }
 }

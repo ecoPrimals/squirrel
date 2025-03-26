@@ -9,7 +9,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use std::fmt::Debug;
-use squirrel_core::error::Result;
+use squirrel_core::error::{Result, SquirrelError};
 use tracing::error;
 
 /// Module for alert functionality
@@ -49,6 +49,23 @@ pub mod network;
 
 /// Module for monitoring plugins
 pub mod plugins;
+
+/// Module for the Monitoring API
+/// 
+/// This module provides a clean API for accessing monitoring data from other crates.
+pub mod api;
+
+#[cfg(feature = "analytics")]
+/// Module for analytics
+pub mod analytics;
+
+#[cfg(feature = "websocket")]
+/// Module for websocket (deprecated - use web crate instead)
+/// 
+/// Note: This module is being migrated to the web crate.
+/// New code should use the monitoring API in the `api` module
+/// and implement WebSocket functionality in the web crate.
+pub mod websocket;
 
 /// Configuration for the monitoring system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,6 +130,9 @@ pub trait MonitoringService: Send + Sync {
     
     /// Get the current status of the monitoring service
     async fn status(&self) -> Result<MonitoringStatus>;
+
+    /// Get a reference to the monitoring API
+    fn get_api(&self) -> &dyn api::MonitoringAPI;
 }
 
 /// Status of the monitoring service
@@ -169,6 +189,7 @@ pub mod documentation {
     /// - Network monitoring
     /// - Plugin system for extensibility
     /// - Analytics system for data analysis
+    /// - Clean API for accessing monitoring data
     ///
     /// ## Examples
     ///
@@ -226,6 +247,57 @@ pub mod documentation {
     /// # }
     /// ```
     ///
+    /// ### Using the monitoring API
+    /// 
+    /// ```rust,no_run
+    /// use squirrel_monitoring::api;
+    /// 
+    /// # async fn example() -> squirrel_core::error::Result<()> {
+    /// // Get the monitoring API
+    /// let monitoring_api = api::get_monitoring_api();
+    /// 
+    /// // Get available components
+    /// let components = monitoring_api.get_available_components().await?;
+    /// 
+    /// // Get component data
+    /// if let Some(component) = components.first() {
+    ///     let data = monitoring_api.get_component_data(component).await?;
+    ///     println!("Component data: {:?}", data);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// This module is a placeholder to help organize the documentation.
     pub struct Examples;
+}
+
+/// Default monitoring service implementation
+#[derive(Debug, Clone)]
+pub struct DefaultMonitoringService {
+    // ... existing fields ...
+    api_provider: Arc<api::MonitoringAPIProvider>,
+    #[cfg(feature = "websocket")]
+    websocket: Option<Arc<websocket::server::WebSocketServer>>,
+}
+
+impl DefaultMonitoringService {
+    // ... existing methods ...
+
+    #[cfg(feature = "websocket")]
+    /// Get WebSocket API interface
+    pub fn websocket(&self) -> Result<Arc<websocket::server::WebSocketServer>> {
+        match &self.websocket {
+            Some(websocket) => Ok(Arc::clone(websocket)),
+            None => Err(SquirrelError::Generic("WebSocket server not initialized".to_string())),
+        }
+    }
+
+    #[cfg(feature = "websocket")]
+    /// Initialize WebSocket server
+    pub async fn init_websocket(&mut self, config: websocket::WebSocketConfig) -> Result<()> {
+        let websocket_server = websocket::server::WebSocketServer::new(config);
+        self.websocket = Some(Arc::new(websocket_server));
+        Ok(())
+    }
 } 

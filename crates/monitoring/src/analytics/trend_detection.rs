@@ -113,12 +113,13 @@ pub struct Trend {
     pub details: serde_json::Value,
 }
 
-/// Trend detector for identifying trends in time series data
+/// Detector for trends in time series data
+#[derive(Debug)]
 pub struct TrendDetector {
     /// Configuration for trend detection
     config: TrendDetectionConfig,
     
-    /// Time series analyzer for accessing data
+    /// Time series analyzer for accessing historical data
     time_series_analyzer: Arc<RwLock<TimeSeriesAnalyzer>>,
 }
 
@@ -321,11 +322,28 @@ impl TrendDetector {
     
     /// Calculate confidence level based on magnitude and sample size
     fn calculate_confidence(&self, magnitude: f64, sample_size: usize) -> f64 {
-        // Simple confidence calculation based on magnitude and sample size
-        let base_confidence = (magnitude / self.config.significance_threshold).min(1.0);
-        let sample_factor = (sample_size as f64 / self.config.min_data_points as f64).min(1.0);
+        // Ensure magnitude is always positive for confidence calculation
+        let abs_magnitude = magnitude.abs();
         
-        (base_confidence * 0.7 + sample_factor * 0.3).clamp(0.0, 1.0)
+        // Use a function that ensures larger magnitudes produce higher confidence values
+        let base_confidence = (abs_magnitude / self.config.significance_threshold).min(1.0);
+        
+        // Make sample size effect more significant by using a logarithmic scaling
+        // This ensures that doubling the sample size always has a noticeable impact
+        let sample_ratio = if sample_size <= self.config.min_data_points {
+            0.0
+        } else {
+            (sample_size as f64 / self.config.min_data_points as f64).ln().max(0.0).min(1.0)
+        };
+        
+        // Create a scalar factor that increases with sample size
+        let sample_factor = 0.2 + sample_ratio * 0.3; // Range from 0.2 to 0.5
+        
+        // For the same magnitude, larger sample sizes should give higher confidence
+        let combined = base_confidence * (1.0 + sample_factor);
+        
+        // Ensure the result is in the range [0.0, 1.0]
+        combined.clamp(0.0, 1.0)
     }
     
     /// Detect anomalies in the data
@@ -552,7 +570,7 @@ mod tests {
     async fn create_test_detector() -> TrendDetector {
         let storage_config = StorageConfig::default();
         let storage = Arc::new(RwLock::new(
-            AnalyticsStorage::new(storage_config).await.unwrap()
+            AnalyticsStorage::new(storage_config).unwrap()
         ));
         
         let ts_config = TimeSeriesConfig::default();
@@ -568,16 +586,30 @@ mod tests {
     async fn test_calculate_confidence() {
         let detector = create_test_detector().await;
         
-        let confidence = detector.calculate_confidence(0.1, 20);
+        // Make sure we understand the significance threshold
+        println!("Significance threshold: {}", detector.config.significance_threshold);
+        
+        // Use magnitudes that are below 1.0 when divided by the significance threshold
+        // to ensure we don't hit the maximum confidence of 1.0
+        let small_magnitude = detector.config.significance_threshold * 0.1;
+        let confidence = detector.calculate_confidence(small_magnitude, 20);
+        println!("Base confidence with magnitude {}: {}", small_magnitude, confidence);
         assert!(confidence > 0.0);
-        assert!(confidence <= 1.0);
+        assert!(confidence < 1.0); // Ensure we're not hitting the max
         
-        // Higher magnitude should increase confidence
-        let higher_confidence = detector.calculate_confidence(0.2, 20);
-        assert!(higher_confidence > confidence);
+        // Use a larger magnitude but still below the threshold that would produce 1.0
+        let larger_magnitude = detector.config.significance_threshold * 0.3;
+        let higher_confidence = detector.calculate_confidence(larger_magnitude, 20);
+        println!("Higher confidence with magnitude {}: {}", larger_magnitude, higher_confidence);
         
-        // Larger sample size should increase confidence
-        let larger_sample_confidence = detector.calculate_confidence(0.1, 40);
+        // Ensure higher magnitude gives higher confidence
+        assert!(higher_confidence > confidence, 
+            "Higher magnitude {} should give higher confidence {} > {}", 
+            larger_magnitude, higher_confidence, confidence);
+        
+        // Test with larger sample size
+        let larger_sample_confidence = detector.calculate_confidence(small_magnitude, 40);
+        println!("Confidence with larger sample: {}", larger_sample_confidence);
         assert!(larger_sample_confidence > confidence);
     }
 } 

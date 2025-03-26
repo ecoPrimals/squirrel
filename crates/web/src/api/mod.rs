@@ -13,6 +13,7 @@ pub mod error;
 pub mod commands;
 pub mod router;
 pub mod docs;
+pub mod monitoring;
 
 pub use router::api_router;
 
