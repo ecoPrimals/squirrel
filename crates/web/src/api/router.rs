@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, post, delete},
 };
 
 use crate::state::AppState;
@@ -10,14 +10,18 @@ use crate::api::commands::handlers::{
     get_command_status,
     list_user_commands,
     list_available_commands,
+    cancel_command,
 };
 use crate::plugin_adapter::{list_plugins, list_components, list_endpoints};
+// Docs module with stub implementation
+use crate::api::docs;
 
 /// Create API router with all routes
 pub fn api_router() -> Router<Arc<AppState>> {
     Router::new()
         .nest("/commands", commands_router())
         .nest("/plugins", plugins_router())
+        .nest("/docs", docs::docs_router())
         // Other API routers will be added here
 }
 
@@ -28,6 +32,7 @@ fn commands_router() -> Router<Arc<AppState>> {
         .route("/", get(list_user_commands))         // List user commands
         .route("/available", get(list_available_commands)) // List available commands
         .route("/:id", get(get_command_status))      // Get command status
+        .route("/:id", delete(cancel_command))       // Cancel command
 }
 
 /// Plugins API router

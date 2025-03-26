@@ -12,10 +12,14 @@ use axum::{
 use serde_json::json;
 use serde::Serialize;
 
+#[cfg(feature = "api-docs")]
+use utoipa::ToSchema;
+
 use crate::AppState;
 
 /// Health response structure
 #[derive(Debug, Serialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct HealthResponse {
     /// Overall status
     pub status: String,
@@ -96,6 +100,17 @@ fn get_memory_usage() -> serde_json::Value {
 }
 
 /// Get health status
+/// 
+/// Returns the current health status of the system.
+#[cfg_attr(feature = "api-docs", utoipa::path(
+    get,
+    path = "/health",
+    tag = "health",
+    responses(
+        (status = 200, description = "Health status retrieved successfully", body = inline(serde_json::Value)),
+        (status = 500, description = "Internal server error")
+    )
+))]
 pub async fn get_health(
     state: Extension<Arc<AppState>>,
 ) -> impl IntoResponse {

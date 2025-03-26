@@ -14,6 +14,7 @@ use crate::api::commands::CommandService;
 use crate::config::Config;
 use crate::plugins_legacy::PluginManager;
 use crate::plugins::WebPluginRegistry;
+use crate::mcp::{McpClient, McpCommandClient, ContextManager};
 
 /// Trait for machine context clients
 #[async_trait::async_trait]
@@ -61,8 +62,11 @@ pub struct AppState {
     /// Machine context protocol client (legacy, deprecated)
     pub mcp: Option<Arc<dyn MachineContextClient>>,
     
-    /// Modern MCP client
-    pub mcp_client: Arc<dyn crate::mcp::McpClient>,
+    /// Modern MCP client - basic client interface
+    pub mcp_client: Arc<dyn McpClient>,
+    
+    /// Modern MCP command client - command-specific interface
+    pub mcp_command_client: Arc<dyn McpCommandClient>,
     
     /// WebSocket manager
     pub ws_manager: Arc<WebSocketManager>,
@@ -78,6 +82,9 @@ pub struct AppState {
     
     /// Modern plugin registry
     pub plugin_registry: Option<Arc<WebPluginRegistry>>,
+    
+    /// MCP Context manager for enhanced context preservation
+    pub context_manager: Arc<ContextManager>,
 }
 
 impl AppState {
@@ -92,8 +99,13 @@ impl AppState {
     }
     
     /// Get the modern machine context client
-    pub fn get_mcp_client(&self) -> &Arc<dyn crate::mcp::McpClient> {
+    pub fn get_mcp_client(&self) -> &Arc<dyn McpClient> {
         &self.mcp_client
+    }
+    
+    /// Get the modern machine context command client
+    pub fn get_mcp_command_client(&self) -> &Arc<dyn McpCommandClient> {
+        &self.mcp_command_client
     }
     
     /// Get the websocket manager
@@ -119,5 +131,10 @@ impl AppState {
     /// Get the modern plugin registry
     pub fn get_plugin_registry(&self) -> Option<&Arc<WebPluginRegistry>> {
         self.plugin_registry.as_ref()
+    }
+    
+    /// Get the context manager
+    pub fn get_context_manager(&self) -> &Arc<ContextManager> {
+        &self.context_manager
     }
 } 
