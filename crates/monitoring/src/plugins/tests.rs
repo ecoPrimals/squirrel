@@ -8,7 +8,6 @@ mod tests {
     use std::collections::HashMap;
     use crate::metrics::Metric;
     use crate::health::ComponentHealth;
-    use crate::alerts::Alert;
     use anyhow::Result;
     use crate::plugins::{PluginMetadata, MonitoringPluginRegistry, register_plugins};
     use std::sync::atomic::AtomicUsize;
@@ -16,7 +15,7 @@ mod tests {
     use tokio::sync::Mutex;
     use async_trait::async_trait;
     use chrono::Utc;
-    use crate::health::{ComponentHealth, status::Status};
+    use crate::health::status::Status;
     use crate::health::component::HealthCheck;
     
     /// Simple in-memory plugin registry for testing

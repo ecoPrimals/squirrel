@@ -21,11 +21,9 @@ use chrono::Utc;
 use tokio::net::TcpListener;
 use std::net::SocketAddr;
 use tokio::time::sleep;
-use crate::dashboard::{config::DashboardConfig};
-
 use crate::dashboard::secure_server;
 use crate::dashboard::manager::Manager;
-use crate::dashboard::{secure_server as server, config::DashboardConfig};
+use crate::dashboard::config::DashboardConfig;
 
 // Mock implementation of Manager for testing
 struct MockManager;

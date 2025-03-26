@@ -10,7 +10,6 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use tracing::{debug, error, info};
 use uuid::Uuid;
-use squirrel_core::error::{Result, SquirrelError};
 use crate::plugins::common::PluginMetadata;
 
 use super::common::MonitoringPlugin;
