@@ -1,10 +1,10 @@
 [package]
 name = "squirrel-plugins"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 description = "Plugin system for Squirrel applications"
-license = "MIT OR Apache-2.0"
-authors = ["DataScienceBioLab"]
+license.workspace = true
 
 # Define features to separate core functionality from app dependencies
 [features]
@@ -13,43 +13,56 @@ core = []
 # All features disabled by default
 web = []
 mcp = ["dep:squirrel-mcp"]
+marketplace = ["dep:reqwest", "dep:url", "tokio/sync"]
+repository-server = ["dep:axum", "dep:tower", "dep:tower-http", "marketplace"]
 # cli feature removed
-all = ["core", "web", "mcp"]
+all = ["core", "web", "mcp", "marketplace", "repository-server"]
 # No app in the "all" feature to avoid circular dependency
+
+# Use proper lints inheritance 
+[lints]
+workspace = true
 
 [dependencies]
 # Core dependencies
-tokio = { version = "1.35", features = ["full"] }
-futures = "0.3"
-async-trait = "0.1"
-thiserror = "1.0"
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-uuid = { version = "1.6", features = ["v4", "serde"] }
-tracing = "0.1"
-chrono = { version = "0.4", features = ["serde"] }
-lazy_static = "1.4"
-regex = "1.10"
+tokio = { workspace = true }
+futures = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+lazy_static = { workspace = true }
+regex = { workspace = true }
+rand = { workspace = true }
+log = { workspace = true }
+ring = { workspace = true }
+tempfile = { workspace = true }
+
+# Marketplace dependencies
+reqwest = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+sha256 = { workspace = true }
+urlencoding = { workspace = true }
 
 # Internal dependencies
-squirrel-core = { path = "../core" }
-# Add interfaces dependency to break circular dependencies
+# Primary dependency is now interfaces instead of core
 squirrel-interfaces = { path = "../interfaces" }
+# Make core dependency optional to break circular dependency  
+squirrel-core = { path = "../core", optional = true, features = ["core"] }
 
 # Optional dependencies for different plugin types - all made optional
-# REMOVED: squirrel-app dependency to break circular dependency
-# squirrel-app = { path = "../app", optional = true }
-# Remove squirrel-web dependency to break circular dependency
-# squirrel-web = { path = "../web", optional = true }
 squirrel-mcp = { path = "../mcp", optional = true }
-# Remove CLI dependency to break circular dependency
-# squirrel-cli = { path = "../cli", optional = true }
+
+# Web server dependencies (for repository server)
+axum = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
 
 [dev-dependencies]
-tokio-test = "0.4"
-mockall = "0.12"
-test-case = "3.3"
-
-[lints]
-workspace = true
+tokio-test = { workspace = true }
+mockall = { workspace = true }
+test-case = { workspace = true }

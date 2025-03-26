@@ -100,66 +100,66 @@ impl Error for SquirrelError {}
 impl fmt::Display for SquirrelError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SquirrelError::AppInitialization(e) => write!(f, "App initialization error: {e}"),
-            SquirrelError::AppOperation(e) => write!(f, "App operation error: {e}"),
-            SquirrelError::Generic(msg) => write!(f, "Error: {msg}"),
-            SquirrelError::IO(e) => write!(f, "IO error: {e}"),
-            SquirrelError::Security(msg) => write!(f, "Security error: {msg}"),
-            SquirrelError::MCP(msg) => write!(f, "MCP error: {msg}"),
-            SquirrelError::Other(msg) => write!(f, "Other error: {msg}"),
-            SquirrelError::Health(msg) => write!(f, "Health error: {msg}"),
-            SquirrelError::Metric(msg) => write!(f, "Metric error: {msg}"),
-            SquirrelError::Dashboard(msg) => write!(f, "Dashboard error: {msg}"),
-            SquirrelError::Serialization(msg) => write!(f, "Serialization error: {msg}"),
-            SquirrelError::Network(msg) => write!(f, "Network error: {msg}"),
-            SquirrelError::Alert(msg) => write!(f, "Alert error: {msg}"),
-            SquirrelError::Session(msg) => write!(f, "Session error: {msg}"),
-            SquirrelError::Persistence(e) => write!(f, "Persistence error: {e}"),
-            SquirrelError::ProtocolVersion(msg) => write!(f, "Protocol version error: {msg}"),
-            SquirrelError::Context(msg) => write!(f, "Context error: {msg}"),
+            Self::AppInitialization(e) => write!(f, "App initialization error: {e}"),
+            Self::AppOperation(e) => write!(f, "App operation error: {e}"),
+            Self::Generic(msg) => write!(f, "Error: {msg}"),
+            Self::IO(e) => write!(f, "IO error: {e}"),
+            Self::Security(msg) => write!(f, "Security error: {msg}"),
+            Self::MCP(msg) => write!(f, "MCP error: {msg}"),
+            Self::Other(msg) => write!(f, "Other error: {msg}"),
+            Self::Health(msg) => write!(f, "Health error: {msg}"),
+            Self::Metric(msg) => write!(f, "Metric error: {msg}"),
+            Self::Dashboard(msg) => write!(f, "Dashboard error: {msg}"),
+            Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
+            Self::Network(msg) => write!(f, "Network error: {msg}"),
+            Self::Alert(msg) => write!(f, "Alert error: {msg}"),
+            Self::Session(msg) => write!(f, "Session error: {msg}"),
+            Self::Persistence(e) => write!(f, "Persistence error: {e}"),
+            Self::ProtocolVersion(msg) => write!(f, "Protocol version error: {msg}"),
+            Self::Context(msg) => write!(f, "Context error: {msg}"),
         }
     }
 }
 
 impl From<std::io::Error> for SquirrelError {
     fn from(err: std::io::Error) -> Self {
-        SquirrelError::IO(err)
+        Self::IO(err)
     }
 }
 
 impl From<AppInitializationError> for SquirrelError {
     fn from(err: AppInitializationError) -> Self {
-        SquirrelError::AppInitialization(err)
+        Self::AppInitialization(err)
     }
 }
 
 impl From<AppOperationError> for SquirrelError {
     fn from(err: AppOperationError) -> Self {
-        SquirrelError::AppOperation(err)
+        Self::AppOperation(err)
     }
 }
 
 impl From<String> for SquirrelError {
     fn from(err: String) -> Self {
-        SquirrelError::Generic(err)
+        Self::Generic(err)
     }
 }
 
 impl From<&str> for SquirrelError {
     fn from(err: &str) -> Self {
-        SquirrelError::Generic(err.to_string())
+        Self::Generic(err.to_string())
     }
 }
 
 impl From<serde_json::Error> for SquirrelError {
     fn from(err: serde_json::Error) -> Self {
-        SquirrelError::Serialization(err.to_string())
+        Self::Serialization(err.to_string())
     }
 }
 
 impl From<PersistenceError> for SquirrelError {
     fn from(err: PersistenceError) -> Self {
-        SquirrelError::Persistence(err)
+        Self::Persistence(err)
     }
 }
 
@@ -179,13 +179,13 @@ impl Error for AppInitializationError {}
 impl fmt::Display for AppInitializationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppInitializationError::AlreadyInitialized => {
+            Self::AlreadyInitialized => {
                 write!(f, "Application already initialized")
             }
-            AppInitializationError::InvalidConfiguration(msg) => {
+            Self::InvalidConfiguration(msg) => {
                 write!(f, "Invalid configuration: {msg}")
             }
-            AppInitializationError::ResourceLoadFailure(msg) => {
+            Self::ResourceLoadFailure(msg) => {
                 write!(f, "Failed to load resources: {msg}")
             }
         }
@@ -214,22 +214,22 @@ impl Error for AppOperationError {}
 impl fmt::Display for AppOperationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppOperationError::NotInitialized => {
+            Self::NotInitialized => {
                 write!(f, "Application not initialized")
             }
-            AppOperationError::UnsupportedOperation(msg) => {
+            Self::UnsupportedOperation(msg) => {
                 write!(f, "Unsupported operation: {msg}")
             }
-            AppOperationError::OperationFailure(msg) => {
+            Self::OperationFailure(msg) => {
                 write!(f, "Operation failed: {msg}")
             }
-            AppOperationError::AlreadyStarted => {
+            Self::AlreadyStarted => {
                 write!(f, "Application is already started")
             }
-            AppOperationError::AlreadyStopped => {
+            Self::AlreadyStopped => {
                 write!(f, "Application is already stopped")
             }
-            AppOperationError::NotStarted => {
+            Self::NotStarted => {
                 write!(f, "Application is not started")
             }
         }
@@ -310,11 +310,12 @@ impl SquirrelError {
     }
 
     /// Check if the error is recoverable
-    #[must_use] pub fn is_recoverable(&self) -> bool {
+    #[must_use] 
+    pub const fn is_recoverable(&self) -> bool {
         match self {
-            SquirrelError::IO(_) | SquirrelError::Generic(_) | SquirrelError::AppInitialization(_) => false,
-            SquirrelError::AppOperation(e) => {
-                !matches!(e, AppOperationError::NotInitialized)
+            Self::IO(_) | Self::Generic(_) | Self::AppInitialization(_) => false,
+            Self::AppOperation(e) => {
+                matches!(e, AppOperationError::AlreadyStarted | AppOperationError::AlreadyStopped)
             },
             _ => true,
         }
@@ -335,9 +336,9 @@ pub enum AlertError {
 impl fmt::Display for AlertError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AlertError::Configuration(msg) => write!(f, "Alert configuration error: {msg}"),
-            AlertError::Notification(msg) => write!(f, "Alert notification error: {msg}"),
-            AlertError::Internal(msg) => write!(f, "Alert internal error: {msg}"),
+            Self::Configuration(msg) => write!(f, "Alert configuration error: {msg}"),
+            Self::Notification(msg) => write!(f, "Alert notification error: {msg}"),
+            Self::Internal(msg) => write!(f, "Alert internal error: {msg}"),
         }
     }
 }
@@ -346,6 +347,6 @@ impl Error for AlertError {}
 
 impl From<AlertError> for SquirrelError {
     fn from(err: AlertError) -> Self {
-        SquirrelError::Alert(err.to_string())
+        Self::Alert(err.to_string())
     }
 }

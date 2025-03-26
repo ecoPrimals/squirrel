@@ -55,15 +55,12 @@ pub mod build_info {
         // that will work in any environment
         use std::time::{SystemTime, UNIX_EPOCH};
         
-        // Safer alternative to expect() that shouldn't ever fail on normal systems
-        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(duration) => duration,
-            Err(_) => {
-                // This should be impossible unless the system clock is set to before 1970
-                // But just in case, return a reasonable default instead of panicking
-                std::time::Duration::from_secs(0)
-            }
-        };
+        // Use unwrap_or_else for Results instead of map_or_else
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_else(|_| {
+            // This should be impossible unless the system clock is set to before 1970
+            // But just in case, return a reasonable default instead of panicking
+            std::time::Duration::from_secs(0)
+        });
         
         format!("{}", now.as_secs())
     }

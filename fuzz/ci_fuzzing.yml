@@ -1,0 +1,193 @@
+name: Squirrel Plugins Fuzzing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly at midnight on Sunday
+
+jobs:
+  # Quick fuzzing on push/PR events
+  quick_fuzzing:
+    name: Quick Fuzzing
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        target: [dynamic_library, plugin_command]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: llvm-tools-preview
+      
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      
+      - name: Set up ASAN (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          export ASAN_SYMBOLIZER_PATH=$(which llvm-symbolizer)
+          echo "ASAN_OPTIONS=symbolize=1:detect_leaks=0" >> $GITHUB_ENV
+          echo "ASAN_SYMBOLIZER_PATH=$ASAN_SYMBOLIZER_PATH" >> $GITHUB_ENV
+      
+      - name: Set up ASAN (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install llvm
+          export ASAN_SYMBOLIZER_PATH=$(which llvm-symbolizer)
+          echo "ASAN_OPTIONS=symbolize=1:detect_leaks=0" >> $GITHUB_ENV
+          echo "ASAN_SYMBOLIZER_PATH=$ASAN_SYMBOLIZER_PATH" >> $GITHUB_ENV
+      
+      - name: Run Fuzzer (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd ${{ github.workspace }}/fuzz
+          cargo fuzz run ${{ matrix.target }} --sanitizer=none -- -max_len=10240 -max_total_time=120
+      
+      - name: Run Fuzzer (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd ${{ github.workspace }}/fuzz
+          cargo fuzz run ${{ matrix.target }} -- -max_len=10240 -max_total_time=120
+      
+      - name: Upload Crash Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: crash-artifacts-${{ matrix.os }}-${{ matrix.target }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/crashes
+            fuzz/artifacts/${{ matrix.target }}/timeouts
+  
+  # Extended fuzzing on scheduled events
+  extended_fuzzing:
+    name: Extended Fuzzing
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [dynamic_library, plugin_command]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: llvm-tools-preview
+      
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      
+      - name: Set up ASAN
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          export ASAN_SYMBOLIZER_PATH=$(which llvm-symbolizer)
+          echo "ASAN_OPTIONS=symbolize=1:detect_leaks=0" >> $GITHUB_ENV
+          echo "ASAN_SYMBOLIZER_PATH=$ASAN_SYMBOLIZER_PATH" >> $GITHUB_ENV
+      
+      - name: Run Fuzzer (Extended)
+        run: |
+          cd ${{ github.workspace }}/fuzz
+          cargo fuzz run ${{ matrix.target }} -- -max_len=10240 -max_total_time=3600
+      
+      - name: Upload Crash Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: crash-artifacts-extended-${{ matrix.target }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/crashes
+            fuzz/artifacts/${{ matrix.target }}/timeouts
+      
+      - name: Upload Corpus
+        uses: actions/upload-artifact@v3
+        with:
+          name: corpus-${{ matrix.target }}
+          path: fuzz/corpus/${{ matrix.target }}
+  
+  # Generate coverage report
+  fuzzing_coverage:
+    name: Fuzzing Coverage Report
+    needs: [quick_fuzzing, extended_fuzzing]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: llvm-tools-preview
+      
+      - name: Install grcov
+        run: cargo install grcov
+      
+      - name: Set up ASAN and LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang
+          export ASAN_SYMBOLIZER_PATH=$(which llvm-symbolizer)
+          echo "ASAN_OPTIONS=symbolize=1:detect_leaks=0" >> $GITHUB_ENV
+          echo "ASAN_SYMBOLIZER_PATH=$ASAN_SYMBOLIZER_PATH" >> $GITHUB_ENV
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      
+      - name: Generate coverage report
+        run: |
+          cd ${{ github.workspace }}
+          
+          # Set up environment for coverage
+          export RUSTFLAGS="-Zinstrument-coverage"
+          export LLVM_PROFILE_FILE="fuzzing-%p-%m.profraw"
+          
+          # Create corpus directory if it doesn't exist
+          mkdir -p fuzz/corpus/dynamic_library
+          mkdir -p fuzz/corpus/plugin_command
+          
+          # Copy corpus from artifacts if they exist
+          if [ -d "artifacts/corpus-dynamic_library" ]; then
+            cp -r artifacts/corpus-dynamic_library/* fuzz/corpus/dynamic_library/ || true
+          fi
+          
+          if [ -d "artifacts/corpus-plugin_command" ]; then
+            cp -r artifacts/corpus-plugin_command/* fuzz/corpus/plugin_command/ || true
+          fi
+          
+          # Run fuzzers with corpus for coverage
+          cargo fuzz coverage dynamic_library -- $(find fuzz/corpus/dynamic_library -type f 2>/dev/null || echo "dummy")
+          cargo fuzz coverage plugin_command -- $(find fuzz/corpus/plugin_command -type f 2>/dev/null || echo "dummy")
+          
+          # Generate HTML report
+          grcov . --binary-path ./target/coverage/ -s . -t html --branch --ignore-not-existing --ignore "/*" -o ./coverage/
+      
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage/ 
