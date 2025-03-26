@@ -8,21 +8,24 @@ use std::collections::HashMap;
 use std::time::Duration;
 use std::error::Error;
 use serde_json::json;
-use squirrel_monitoring::dashboard::{
+use squirrel_monitoring::dashboard::config::{
     DashboardConfig, 
+    ComponentSettings,
+    SecuritySettings
+};
+use squirrel_monitoring::dashboard::manager::{
     DashboardManager,
-    Component,
+    Component
+};
+use squirrel_monitoring::dashboard::security::{
     AuthConfig,
     RateLimitConfig,
-    security::{
-        AuthType,
-        MonitoringRole,
-        Permission,
-        MaskingRule,
-        AuditStorage
-    },
-    AuditConfig,
-    config::ComponentConfig
+    AuthType,
+    MonitoringRole,
+    Permission,
+    MaskingRule,
+    AuditStorage,
+    AuditConfig
 };
 use std::sync::Arc;
 
@@ -62,17 +65,24 @@ fn create_secure_config() -> Result<DashboardConfig, Box<dyn Error>> {
     let mut config = DashboardConfig::default();
     
     // Configure server settings
-    config.server.host = "127.0.0.1".to_string();
-    config.server.port = 8765;
+    if config.server.is_none() {
+        config.server = Some(Default::default());
+    }
+    
+    let server_config = config.server.as_mut().unwrap();
+    server_config.host = "127.0.0.1".to_string();
+    server_config.port = 8765;
     
     // Configure TLS (commented out for example only)
     /*
-    config.security.tls = Some(TlsConfig {
-        cert_path: PathBuf::from("path/to/cert.pem"),
-        key_path: PathBuf::from("path/to/key.pem"),
-        min_tls_version: TlsVersion::Tls13,
-        cipher_preferences: CipherPreferences::Modern,
-    });
+    if config.security.tls.is_none() {
+        config.security.tls = Some(TlsConfig {
+            cert_path: PathBuf::from("path/to/cert.pem"),
+            key_path: PathBuf::from("path/to/key.pem"),
+            min_tls_version: TlsVersion::Tls13,
+            cipher_preferences: CipherPreferences::Modern,
+        });
+    }
     */
     
     // Configure authentication
@@ -90,39 +100,46 @@ fn create_secure_config() -> Result<DashboardConfig, Box<dyn Error>> {
     ];
     users.insert("custom".to_string(), MonitoringRole::Custom(custom_permissions));
     
-    config.security.auth = AuthConfig {
+    // Initialize security settings
+    let mut security = SecuritySettings::default();
+    
+    // Auth config
+    security.auth = Some(AuthConfig {
         auth_type: AuthType::Bearer,
         token_expiration: 8 * 60 * 60, // 8 hours
         require_reauth: true,
         users,
-    };
+    });
     
     // Configure rate limiting
-    config.security.rate_limit = RateLimitConfig {
+    security.rate_limit = Some(RateLimitConfig {
         max_connections_per_ip: 20,
         max_messages_per_minute: 300,
         max_subscription_requests_per_minute: 50,
-    };
+    });
     
     // Configure allowed origins
-    config.security.allowed_origins = vec![
+    security.allowed_origins = vec![
         "http://localhost:3000".to_string(),
         "https://example.com".to_string(),
     ];
     
     // Configure data masking
-    config.security.masking_rules = vec![
+    security.data_masking = vec![
         MaskingRule::new(r"[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4}", "****-****-****-****"),
         MaskingRule::new(r#"password\s*=\s*['"].*?['"]"#, r#"password="*****""#),
     ];
     
     // Enable audit logging
-    config.security.audit = Some(AuditConfig {
+    security.audit = Some(AuditConfig {
         enabled: true,
         storage: AuditStorage::File(PathBuf::from("logs/audit.log")),
         include_user_context: true,
         tamper_proof: true,
     });
+    
+    // Update the security settings
+    config.security = security;
     
     Ok(config)
 }
@@ -134,10 +151,12 @@ async fn register_example_components(dashboard: Arc<DashboardManager>) -> Result
         id: "system_cpu".to_string(),
         name: "CPU Usage".to_string(),
         component_type: "gauge".to_string(),
-        config: ComponentConfig {
-            default_refresh_interval: 5,
-            default_data_retention: 3600,
-            show_timestamps: true,
+        config: ComponentSettings {
+            show_metrics: Some(true),
+            show_alerts: Some(true),
+            show_health: Some(true),
+            show_network: Some(true),
+            show_analytics: Some(true),
         },
         data: Some(json!({
             "usage": 42.5,
@@ -152,10 +171,12 @@ async fn register_example_components(dashboard: Arc<DashboardManager>) -> Result
         id: "system_memory".to_string(),
         name: "Memory Usage".to_string(),
         component_type: "gauge".to_string(),
-        config: ComponentConfig {
-            default_refresh_interval: 5,
-            default_data_retention: 3600,
-            show_timestamps: true,
+        config: ComponentSettings {
+            show_metrics: Some(true),
+            show_alerts: Some(true),
+            show_health: Some(true),
+            show_network: Some(true),
+            show_analytics: Some(true),
         },
         data: Some(json!({
             "total": 16_384,
@@ -171,10 +192,12 @@ async fn register_example_components(dashboard: Arc<DashboardManager>) -> Result
         id: "network_traffic".to_string(),
         name: "Network Traffic".to_string(),
         component_type: "line".to_string(),
-        config: ComponentConfig {
-            default_refresh_interval: 5,
-            default_data_retention: 3600,
-            show_timestamps: true,
+        config: ComponentSettings {
+            show_metrics: Some(true),
+            show_alerts: Some(true),
+            show_health: Some(true),
+            show_network: Some(true),
+            show_analytics: Some(true),
         },
         data: Some(json!({
             "rx_bytes": 1_500_000,
@@ -185,9 +208,15 @@ async fn register_example_components(dashboard: Arc<DashboardManager>) -> Result
     };
     
     // Register components
-    dashboard.register_component(cpu_component).await?;
-    dashboard.register_component(memory_component).await?;
-    dashboard.register_component(network_component).await?;
+    dashboard.register_component(Arc::new(MockSystemCpuComponent{
+        component: cpu_component
+    })).await?;
+    dashboard.register_component(Arc::new(MockSystemMemoryComponent{
+        component: memory_component
+    })).await?;
+    dashboard.register_component(Arc::new(MockNetworkTrafficComponent{
+        component: network_component
+    })).await?;
     
     // Start a background task to update components
     let dashboard_clone = dashboard.clone();
@@ -226,4 +255,136 @@ async fn register_example_components(dashboard: Arc<DashboardManager>) -> Result
     });
     
     Ok(())
+}
+
+// Mock implementations for DashboardComponent trait
+use squirrel_core::error::Result as SquirrelResult;
+use squirrel_monitoring::dashboard::DashboardComponent;
+use squirrel_monitoring::dashboard::Update;
+use async_trait::async_trait;
+
+#[derive(Debug)]
+struct MockSystemCpuComponent {
+    component: Component
+}
+
+#[async_trait]
+impl DashboardComponent for MockSystemCpuComponent {
+    fn id(&self) -> &str {
+        &self.component.id
+    }
+    
+    async fn start(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn get_data(&self) -> SquirrelResult<serde_json::Value> {
+        Ok(self.component.data.clone().unwrap_or(json!({})))
+    }
+    
+    async fn last_update(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.component.last_updated.map(|ts| {
+            chrono::DateTime::from_timestamp_millis(ts as i64).unwrap_or_default()
+        })
+    }
+    
+    async fn get_update(&self) -> SquirrelResult<Update> {
+        Ok(Update {
+            component_id: self.component.id.clone(),
+            data: self.component.data.clone().unwrap_or(json!({})),
+            timestamp: chrono::Utc::now()
+        })
+    }
+    
+    async fn handle_event(&self, _event: serde_json::Value) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn stop(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct MockSystemMemoryComponent {
+    component: Component
+}
+
+#[async_trait]
+impl DashboardComponent for MockSystemMemoryComponent {
+    fn id(&self) -> &str {
+        &self.component.id
+    }
+    
+    async fn start(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn get_data(&self) -> SquirrelResult<serde_json::Value> {
+        Ok(self.component.data.clone().unwrap_or(json!({})))
+    }
+    
+    async fn last_update(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.component.last_updated.map(|ts| {
+            chrono::DateTime::from_timestamp_millis(ts as i64).unwrap_or_default()
+        })
+    }
+    
+    async fn get_update(&self) -> SquirrelResult<Update> {
+        Ok(Update {
+            component_id: self.component.id.clone(),
+            data: self.component.data.clone().unwrap_or(json!({})),
+            timestamp: chrono::Utc::now()
+        })
+    }
+    
+    async fn handle_event(&self, _event: serde_json::Value) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn stop(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct MockNetworkTrafficComponent {
+    component: Component
+}
+
+#[async_trait]
+impl DashboardComponent for MockNetworkTrafficComponent {
+    fn id(&self) -> &str {
+        &self.component.id
+    }
+    
+    async fn start(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn get_data(&self) -> SquirrelResult<serde_json::Value> {
+        Ok(self.component.data.clone().unwrap_or(json!({})))
+    }
+    
+    async fn last_update(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.component.last_updated.map(|ts| {
+            chrono::DateTime::from_timestamp_millis(ts as i64).unwrap_or_default()
+        })
+    }
+    
+    async fn get_update(&self) -> SquirrelResult<Update> {
+        Ok(Update {
+            component_id: self.component.id.clone(),
+            data: self.component.data.clone().unwrap_or(json!({})),
+            timestamp: chrono::Utc::now()
+        })
+    }
+    
+    async fn handle_event(&self, _event: serde_json::Value) -> SquirrelResult<()> {
+        Ok(())
+    }
+    
+    async fn stop(&self) -> SquirrelResult<()> {
+        Ok(())
+    }
 } 

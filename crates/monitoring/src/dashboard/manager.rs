@@ -16,9 +16,14 @@ use tracing::{info, error, debug};
 use async_trait::async_trait;
 
 use squirrel_core::error::{Result, SquirrelError};
-use super::config::{DashboardConfig, ComponentConfig};
+use crate::dashboard::config::{ComponentSettings, DashboardConfig};
 use super::security::{AuthManager, RateLimiter, OriginVerifier, DataMaskingManager, AuditLogger};
 use super::secure_server::{create_secure_server, SecureServerState, BroadcastMessage};
+use crate::dashboard::plugins::{
+    DashboardPlugin, create_dashboard_plugin_registry, DashboardPluginRegistryImpl, ExamplePlugin, DashboardPluginRegistry
+};
+use crate::dashboard::DashboardError;
+use crate::dashboard::DashboardComponent;
 
 /// Dashboard manager
 #[derive(Debug)]
@@ -43,6 +48,8 @@ pub struct DashboardManager {
     audit_logger: Mutex<Option<Arc<AuditLogger>>>,
     /// Server state
     server_state: Mutex<Option<SecureServerState>>,
+    /// Plugin registry
+    plugin_registry: Mutex<Option<Arc<DashboardPluginRegistryImpl>>>,
 }
 
 /// Dashboard component
@@ -55,7 +62,7 @@ pub struct Component {
     /// Component type
     pub component_type: String,
     /// Component configuration
-    pub config: ComponentConfig,
+    pub config: ComponentSettings,
     /// Component data
     pub data: Option<Value>,
     /// Last updated timestamp
@@ -96,6 +103,7 @@ impl DashboardManager {
             data_masking_manager: Mutex::new(None),
             audit_logger: Mutex::new(None),
             server_state: Mutex::new(None),
+            plugin_registry: Mutex::new(None),
         }
     }
     
@@ -123,9 +131,11 @@ impl DashboardManager {
         };
         
         // Get server address
-        let addr: SocketAddr = format!("{}:{}", self.config.server.host, self.config.server.port)
-            .parse()
-            .map_err(|e| SquirrelError::dashboard(format!("Invalid server address: {}", e)))?;
+        let addr: SocketAddr = format!("{}:{}", 
+            self.config.server.as_ref().map_or("127.0.0.1", |s| &s.host), 
+            self.config.server.as_ref().map_or(8765, |s| s.port)
+        ).parse()
+        .map_err(|e| SquirrelError::dashboard(format!("Invalid server address: {}", e)))?;
         
         // Start server
         let server_task = tokio::spawn(async move {
@@ -196,14 +206,30 @@ impl DashboardManager {
     ///
     /// # Errors
     /// Returns an error if the component could not be registered
-    pub async fn register_component(&self, component: Component) -> Result<()> {
-        if self.components.read().await.contains_key(&component.id) {
-            return Err(SquirrelError::generic(format!("Component with ID {} already exists", component.id)));
+    pub async fn register_component(&self, component: Arc<dyn DashboardComponent>) -> Result<()> {
+        let component_id = component.id();
+        if self.components.read().await.contains_key(component_id) {
+            return Err(SquirrelError::generic(format!("Component with ID {} already exists", component_id)));
         }
         
-        let id = component.id.clone();
+        // Create a Component struct from the DashboardComponent trait object
+        let component_data = component.get_data().await.ok();
+        let component_struct = Component {
+            id: component_id.to_string(),
+            name: component_id.to_string(), // Use ID as name if not specified
+            component_type: "plugin".to_string(),
+            config: ComponentSettings::default(),
+            data: component_data,
+            last_updated: component.last_update().await.map(|dt| dt.timestamp_millis() as u64),
+        };
+        
+        // Start the component
+        component.start().await?;
+        
+        // Store the component
+        let id = component_struct.id.clone();
         let mut components = self.components.write().await;
-        components.insert(id.clone(), component);
+        components.insert(id.clone(), component_struct);
         
         debug!("Component registered: {}", id);
         Ok(())
@@ -311,22 +337,24 @@ impl DashboardManager {
         // Configure security components based on configuration
         
         // Authentication manager
-        let auth_manager = if matches!(self.config.security.auth.auth_type, super::security::AuthType::None) {
-            None
-        } else {
+        let auth_manager = if self.config.security.auth.as_ref().is_some_and(|auth| 
+            matches!(auth.auth_type, super::security::AuthType::Basic)) 
+        {
             let jwt_secret = std::env::var("DASHBOARD_JWT_SECRET")
                 .unwrap_or_else(|_| "dashboard_default_secret_key_change_me_in_production".to_string());
             
             Some(Arc::new(AuthManager::new(
-                self.config.security.auth.clone(),
+                self.config.security.auth.clone().unwrap(),
                 jwt_secret
             )))
+        } else {
+            None
         };
         
         // Rate limiter
-        let rate_limiter = Some(Arc::new(RateLimiter::new(
-            self.config.security.rate_limit.clone()
-        )));
+        let rate_limiter = self.config.security.rate_limit.as_ref().map(|rate_limit_config| Arc::new(RateLimiter::new(
+                rate_limit_config.clone()
+            )));
         
         // Origin verifier
         let origin_verifier = if self.config.security.allowed_origins.is_empty() {
@@ -338,28 +366,20 @@ impl DashboardManager {
         };
         
         // Data masking manager
-        let data_masking_manager = if self.config.security.masking_rules.is_empty() {
+        let data_masking_manager = if self.config.security.data_masking.is_empty() {
             None
         } else {
-            match DataMaskingManager::new(self.config.security.masking_rules.clone()) {
+            match DataMaskingManager::new(self.config.security.data_masking.clone()) {
                 Ok(manager) => Some(Arc::new(manager)),
                 Err(e) => {
-                    error!("Failed to initialize data masking manager: {}", e);
+                    error!("Failed to create data masking manager: {}", e);
                     None
                 }
             }
         };
         
         // Audit logger
-        let audit_logger = if let Some(audit_config) = &self.config.security.audit {
-            if audit_config.enabled {
-                Some(Arc::new(AuditLogger::new(audit_config.clone())))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let audit_logger = self.config.security.audit.as_ref().map(|audit_config| Arc::new(AuditLogger::new(audit_config.clone())));
         
         // Create server state
         let (tx, _) = broadcast::channel(1000);
@@ -461,6 +481,177 @@ impl DashboardManager {
             Err(SquirrelError::dashboard("Server not initialized".to_string()))
         }
     }
+    
+    /// Register a plugin
+    ///
+    /// # Errors
+    /// Returns an error if the plugin could not be registered
+    pub async fn register_plugin<T>(&self, plugin: Arc<T>) -> Result<()>
+    where
+        T: DashboardPlugin + Send + Sync + 'static,
+    {
+        // Initialize plugin registry if needed
+        self.initialize_plugin_registry().await?;
+        
+        // Get plugin registry
+        let registry = match &*self.plugin_registry.lock().await {
+            Some(registry) => registry.clone(),
+            None => return Err(SquirrelError::dashboard("Plugin registry not initialized".to_string())),
+        };
+        
+        // Register plugin with registry
+        registry.register_plugin(plugin.clone()).await
+            .map_err(|e| SquirrelError::dashboard(format!("Failed to register plugin with registry: {}", e)))?;
+        
+        // Register the plugin as a component with the dashboard
+        self.register_component(plugin).await
+            .map_err(|e| SquirrelError::dashboard(format!("Failed to register plugin with dashboard: {}", e)))?;
+        
+        Ok(())
+    }
+    
+    /// Initialize the plugin registry
+    ///
+    /// # Errors
+    /// Returns an error if the plugin registry fails to initialize
+    async fn initialize_plugin_registry(&self) -> Result<()> {
+        let mut registry_guard = self.plugin_registry.lock().await;
+        
+        if registry_guard.is_none() {
+            // Create registry
+            let registry = create_dashboard_plugin_registry();
+            *registry_guard = Some(registry);
+        }
+        
+        Ok(())
+    }
+    
+    /// Get all registered plugins
+    ///
+    /// # Errors
+    /// Returns an error if the plugin registry is not initialized
+    pub async fn get_plugins(&self) -> Result<Vec<Arc<dyn DashboardPlugin>>> {
+        // Initialize plugin registry if needed
+        self.initialize_plugin_registry().await?;
+        
+        // Get plugin registry
+        let registry = match &*self.plugin_registry.lock().await {
+            Some(registry) => registry.clone(),
+            None => return Err(SquirrelError::dashboard("Plugin registry not initialized".to_string())),
+        };
+        
+        // Get plugins
+        registry.get_plugins().await
+            .map_err(|e| SquirrelError::dashboard(format!("Failed to get plugins: {}", e)))
+    }
+    
+    /// Discover plugins from a directory
+    ///
+    /// # Arguments
+    /// * `plugin_dir` - Directory to search for plugins
+    ///
+    /// # Returns
+    /// * `Result<usize>` - Number of plugins discovered
+    ///
+    /// # Errors
+    /// Returns an error if plugin discovery fails
+    pub async fn discover_plugins(&self, plugin_dir: &str) -> Result<usize> {
+        info!("Discovering plugins from directory: {}", plugin_dir);
+        
+        // Initialize plugin registry if needed
+        self.initialize_plugin_registry().await?;
+        
+        // Check if directory exists
+        if !std::path::Path::new(plugin_dir).exists() {
+            return Err(SquirrelError::dashboard(format!("Plugin directory not found: {}", plugin_dir)));
+        }
+        
+        // TODO: Implement actual plugin discovery from files
+        // For now, just register the built-in example plugins
+        
+        // Create example plugins
+        let visualization_plugin = Arc::new(crate::dashboard::plugins::ExamplePlugin::new());
+        
+        // Register plugins
+        self.register_plugin(visualization_plugin).await?;
+        
+        // Return number of plugins registered
+        Ok(1)
+    }
+    
+    /// Update a plugin's data
+    ///
+    /// # Errors
+    /// Returns an error if the plugin update fails
+    pub async fn update_plugin_data(&self, plugin_id: &str, data: Value) -> Result<()> {
+        // Initialize plugin registry if needed
+        self.initialize_plugin_registry().await?;
+        
+        // Get plugin registry
+        let registry = match &*self.plugin_registry.lock().await {
+            Some(registry) => registry.clone(),
+            None => return Err(SquirrelError::dashboard("Plugin registry not initialized".to_string())),
+        };
+        
+        // Parse plugin ID
+        let plugin_id = plugin_id.to_string();
+        
+        // Get plugin
+        let plugin = match registry.get_plugin(&plugin_id).await
+            .map_err(|e| SquirrelError::dashboard(format!("Failed to get plugin: {}", e)))? {
+            Some(plugin) => plugin,
+            None => return Err(SquirrelError::dashboard(format!("Plugin not found: {}", plugin_id))),
+        };
+        
+        // Update plugin
+        plugin.update(data.clone()).await
+            .map_err(|e| SquirrelError::dashboard(format!("Failed to update plugin: {}", e)))?;
+        
+        // Update component data
+        self.update_component(plugin_id.as_str(), data).await
+    }
+    
+    /// Get the plugin registry
+    pub async fn get_plugin_registry(&self) -> Result<Arc<dyn DashboardPluginRegistry>> {
+        let registry = self.plugin_registry.lock().await;
+        match &*registry {
+            Some(registry) => Ok(registry.clone()),
+            None => {
+                error!("Plugin registry not initialized");
+                Err(DashboardError::PluginError("Plugin registry not initialized".to_string()).into())
+            }
+        }
+    }
+    
+    /// Initialize example plugins for demonstration purposes
+    pub async fn initialize_example_plugins(&self) -> Result<()> {
+        info!("Initializing example plugins");
+        
+        let registry = self.get_plugin_registry().await?;
+        
+        // Create example visualization plugin
+        let visualization_plugin = Arc::new(ExamplePlugin::new());
+        
+        // Register plugins
+        registry.register_plugin(visualization_plugin.clone()).await?;
+        
+        info!("Example plugins initialized successfully");
+        Ok(())
+    }
+    
+    /// Set the plugin registry (for testing)
+    #[cfg(test)]
+    pub async fn set_test_plugin_registry(&self) -> Result<()> {
+        let mut registry_guard = self.plugin_registry.lock().await;
+        
+        if registry_guard.is_none() {
+            // Create registry
+            let registry = crate::dashboard::plugins::create_dashboard_plugin_registry();
+            *registry_guard = Some(registry);
+        }
+        
+        Ok(())
+    }
 }
 
 /// Dashboard server statistics
@@ -510,4 +701,10 @@ impl From<super::secure_server::ClientInfo> for ClientInfo {
             message_count: client.message_count,
         }
     }
+}
+
+pub struct ComponentState {
+    pub id: String,
+    pub config: ComponentSettings,
+    pub state: serde_json::Value,
 } 

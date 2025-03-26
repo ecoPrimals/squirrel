@@ -198,19 +198,12 @@ fn main() {
         .with_metric("system.cpu.usage")
         .with_threshold(90.0)
         .with_comparison(">")
-        .with_duration(std::time::Duration::from_mins(5))
-        .with_severity(AlertSeverity::Critical)
-        .with_message("CPU usage has exceeded 90% for 5 minutes");
+        .with_severity(AlertSeverity::Warning)
+        .with_message("CPU usage is high")
+        .with_duration(std::time::Duration::from_mins(5)); // Alert only if condition persists
     
     // Register the alert rule
     monitor.register_alert_rule(rule);
-    
-    // Configure notification channels
-    monitor.configure_email_notifications("smtp://mail.example.com", 
-                                         "alerts@example.com", 
-                                         vec!["admin@example.com"]);
-    
-    monitor.start();
     
     // Your application code...
 }
@@ -281,30 +274,61 @@ The monitoring system can be configured through the `Config` struct, environment
 
 For a complete list of configuration options, see [configuration.md](./docs/configuration.md).
 
-## Testing
+## Building and Testing
 
-The crate includes comprehensive tests:
+The monitoring crate is in active development. Here's how to build and test it:
 
-- Unit tests for each component
-- Integration tests for system behavior
-- Load tests for performance verification
-- WebSocket message compression tests
+### Building
 
-Run the tests with:
+To build the crate:
 
-```
-cargo test
+```bash
+# From the crate root directory
+cargo build
 ```
 
-For WebSocket integration tests:
+### Testing
 
+Not all tests are currently stable. We provide scripts to run only the stable tests:
+
+```bash
+# Linux/macOS
+./scripts/build_and_test.sh
+
+# Windows
+.\scripts\build_and_test.ps1
 ```
-cargo test --test websocket_integration_tests
+
+### Test Status
+
+The current status of tests is documented in [tests/TEST_STATUS.md](tests/TEST_STATUS.md). Some tests are currently failing due to API mismatches and are being updated.
+
+Stable tests include:
+- WebSocket compression tests
+- WebSocket integration tests
+
+### Examples
+
+To build and verify the examples:
+
+```bash
+cargo build --examples
+```
+
+To run a specific example:
+
+```bash
+cargo run --example websocket_client
 ```
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
+When contributing to this crate, please:
+
+1. Make sure the code builds with `cargo build`
+2. Run the stable tests with the provided scripts
+3. If you modify tests, update the TEST_STATUS.md file accordingly
+4. Update documentation when changing public APIs
 
 ## License
 

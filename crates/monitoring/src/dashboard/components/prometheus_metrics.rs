@@ -1,3 +1,8 @@
+// Prometheus Metrics dashboard component
+//
+// This component provides integration with Prometheus metrics system,
+// allowing the dashboard to display metrics data queried from Prometheus.
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,7 +17,8 @@ use urlencoding;
 
 use squirrel_core::error::{Result, SquirrelError};
 
-use crate::dashboard::{DashboardComponent, Update, DashboardError};
+use crate::dashboard::component::{DashboardComponent, Update};
+use crate::dashboard::DashboardError;
 
 /// Configuration for the Prometheus metrics component
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -323,17 +329,16 @@ impl DashboardComponent for PrometheusMetrics {
     
     /// Get an update for the component
     async fn get_update(&self) -> Result<Update> {
-        let data = self.get_data().await?;
-        let timestamp = self.last_update().await.unwrap_or_else(Utc::now);
-        
-        // Convert from chrono::DateTime<Utc> to OffsetDateTime (used by the Update struct)
-        let offset_time = time::OffsetDateTime::from_unix_timestamp(timestamp.timestamp())
-            .unwrap_or_else(|_| time::OffsetDateTime::now_utc());
-        
-        Ok(Update {
-            component_id: self.id().to_string(),
-            timestamp: offset_time,
-            data,
-        })
+        // Return last update
+        match self.data.read().await.as_ref() {
+            Some(data) => {
+                Ok(Update {
+                    component_id: self.id().to_string(),
+                    data: json!(data),
+                    timestamp: Utc::now(),
+                })
+            },
+            None => Err(DashboardError::ComponentError("No data available yet".to_string()).into()),
+        }
     }
 } 

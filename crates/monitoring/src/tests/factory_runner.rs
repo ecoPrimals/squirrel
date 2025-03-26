@@ -10,7 +10,7 @@ use crate::{
     network::NetworkMonitor,
     dashboard,
     MonitoringService, MonitoringStatus,
-    dashboard::DashboardConfig
+    dashboard::config::DashboardConfig
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -52,7 +52,7 @@ async fn test_factory_with_custom_config() -> Result<()> {
         health_config: HealthConfig::default(),
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
-        dashboard_config: dashboard::DashboardConfig::default(),
+        dashboard_config: DashboardConfig::default(),
     };
     
     // Create a monitoring service factory with custom config

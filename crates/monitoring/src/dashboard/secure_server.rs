@@ -21,11 +21,13 @@ use axum::extract::ws::{WebSocket, Message};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio::sync::{broadcast, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use tracing::{info, debug};
+use tracing::{info, debug, error};
 use uuid::Uuid;
+use std::time::{Instant};
+use flate2::Compression;
 
 use super::config::DashboardConfig;
 use super::security::{AuthManager, RateLimiter, OriginVerifier, DataMaskingManager, AuditLogger};
@@ -83,6 +85,61 @@ pub struct BroadcastMessage {
     pub timestamp: u64,
     /// Is this message compressed?
     pub compressed: bool,
+}
+
+/// Batched messages for efficient transmission
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BatchedMessages {
+    /// Batch ID
+    pub batch_id: String,
+    /// Messages in the batch
+    pub messages: Vec<BroadcastMessage>,
+    /// Batch timestamp
+    pub timestamp: u64,
+    /// Is this batch compressed?
+    pub compressed: bool,
+}
+
+/// Message compression settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompressionConfig {
+    /// Enable compression for messages
+    pub enabled: bool,
+    /// Minimum size (in bytes) for compression to be applied
+    pub min_size_bytes: usize,
+    /// Compression level (0-9, where 9 is maximum compression)
+    pub level: u32,
+}
+
+impl Default for CompressionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            min_size_bytes: 1024, // Only compress messages larger than 1KB
+            level: 6, // Default compression level
+        }
+    }
+}
+
+/// Batching configuration for high-frequency updates
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchConfig {
+    /// Enable batching for messages
+    pub enabled: bool,
+    /// Maximum number of messages per batch
+    pub max_messages: usize,
+    /// Maximum batch interval in milliseconds
+    pub max_interval_ms: u64,
+}
+
+impl Default for BatchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_messages: 50, // Maximum 50 messages per batch
+            max_interval_ms: 100, // Send batch at least every 100ms
+        }
+    }
 }
 
 /// Function to create a secure dashboard server router
@@ -230,130 +287,270 @@ async fn ws_handler(
 
 /// Handle WebSocket connection
 async fn handle_socket(socket: WebSocket, state: SecureServerState, client_id: String, ip: String, username: Option<String>) {
-    // Split socket into sender and receiver
-    let (sender, mut receiver) = socket.split();
+    let (mut sender, mut receiver) = socket.split();
     
     // Subscribe to broadcast channel
-    let mut rx = state.tx.subscribe();
+    let mut broadcast_rx = state.tx.subscribe();
     
-    // Put sender in an Arc<Mutex<>> so it can be shared between tasks
-    let sender = Arc::new(Mutex::new(sender));
+    // Get compression and batching configuration
+    let compression_config = CompressionConfig {
+        enabled: state.config.performance.as_ref()
+            .and_then(|p| p.compression_enabled)
+            .unwrap_or(false),
+        min_size_bytes: state.config.performance.as_ref()
+            .and_then(|p| p.min_compression_size)
+            .unwrap_or(1024),
+        level: state.config.performance.as_ref()
+            .and_then(|p| p.compression_level)
+            .unwrap_or(6),
+    };
     
-    // Clone state for tasks
-    let state_clone = state.clone();
-    let client_id_clone = client_id.clone();
+    let batch_config = BatchConfig {
+        enabled: state.config.performance.as_ref()
+            .and_then(|p| p.batching_enabled)
+            .unwrap_or(false),
+        max_messages: state.config.performance.as_ref()
+            .and_then(|p| p.max_batch_size)
+            .unwrap_or(10),
+        max_interval_ms: state.config.performance.as_ref()
+            .and_then(|p| p.max_batch_interval)
+            .unwrap_or(100),
+    };
     
-    // Spawn task to forward broadcast messages to client
-    let sender_clone = sender.clone();
-    let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            // Check if message is for a component this client is subscribed to
-            let should_send = if let Some(component_id) = &msg.component_id {
-                let clients = state_clone.clients.read().await;
-                if let Some(client) = clients.get(&client_id_clone) {
-                    client.subscriptions.contains(component_id)
+    // Create a channel for client message responses
+    let (response_tx, mut response_rx) = tokio::sync::mpsc::channel(32);
+    
+    // Client message handler
+    let client_message_handler = {
+        let state = state.clone();
+        let client_id = client_id.clone();
+        let username = username.clone();
+        let ip_clone = ip.clone();
+        let response_tx = response_tx.clone();
+        
+        tokio::spawn(async move {
+            while let Some(Ok(message)) = receiver.next().await {
+                if let Ok(text) = message.to_text() {
+                    // Process the message
+                    let value = serde_json::from_str(text).unwrap_or(json!({"error": "Invalid JSON"}));
+                    
+                    // Process message and determine if a response is needed
+                    let response = process_client_message(
+                        value,
+                        &state,
+                        &client_id,
+                        username.as_deref(),
+                    ).await;
+                    
+                    // If there's a response, send it through the channel
+                    if let Some(response_msg) = response {
+                        let _ = response_tx.send(response_msg).await;
+                    }
                 } else {
-                    false
-                }
-            } else {
-                // Broadcast to all
-                true
-            };
-            
-            if should_send {
-                // Convert to WebSocket message
-                let ws_msg = Message::Text(serde_json::to_string(&msg).unwrap());
-                
-                // Send message
-                let mut sender_guard = sender_clone.lock().await;
-                if sender_guard.send(ws_msg).await.is_err() {
-                    break;
+                    error!("Received non-text message from client {}", client_id);
                 }
             }
-        }
-    });
+            
+            // Handle client disconnect
+            handle_disconnect(&state, &client_id, &ip_clone, username.as_deref()).await;
+        })
+    };
     
-    // Handle incoming messages
-    let state_clone = state.clone();
-    let client_id_clone = client_id.clone();
-    let username_clone = username.clone();
-    
-    let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            match msg {
-                Message::Text(text) => {
-                    // Check rate limits
-                    if let Some(rate_limiter) = &state_clone.rate_limiter {
-                        if !rate_limiter.check_message(&client_id_clone).await {
-                            // Rate limit exceeded
-                            let error_msg = json!({
-                                "type": "error",
-                                "code": "rate_limit_exceeded",
-                                "message": "Message rate limit exceeded"
-                            });
+    // Server message handler with batching
+    let server_message_handler = {
+        let state = state.clone();
+        let client_id = client_id.clone();
+        
+        tokio::spawn(async move {
+            // Batch state
+            let mut batch = Vec::new();
+            let mut last_batch_time = Instant::now();
+            
+            // Process both broadcast messages and client response messages
+            loop {
+                tokio::select! {
+                    // Handle broadcast messages
+                    msg = broadcast_rx.recv() => {
+                        if let Ok(msg) = msg {
+                            let clients_guard = state.clients.read().await;
+                            let subscriptions = if let Some(client) = clients_guard.get(&client_id) {
+                                client.subscriptions.clone()
+                            } else {
+                                Vec::new()
+                            };
                             
-                            // Get the sender from the Arc<Mutex<>>
-                            let error_str = error_msg.to_string();
-                            let mut sender_guard = sender.lock().await;
-                            if sender_guard.send(Message::Text(error_str)).await.is_err() {
+                            // Check if message is for this client
+                            let is_relevant = match &msg.component_id {
+                                Some(component_id) => subscriptions.contains(component_id),
+                                None => true, // Broadcast to all
+                            };
+                            
+                            if is_relevant {
+                                if batch_config.enabled {
+                                    // Add message to batch
+                                    batch.push(msg);
+                                    
+                                    // Send batch if conditions are met
+                                    let batch_full = batch.len() >= batch_config.max_messages;
+                                    let batch_aged = last_batch_time.elapsed().as_millis() > batch_config.max_interval_ms as u128;
+                                    
+                                    if batch_full || batch_aged {
+                                        let batch_to_send = std::mem::take(&mut batch);
+                                        last_batch_time = Instant::now();
+                                        
+                                        // Send the batch
+                                        if !batch_to_send.is_empty() {
+                                            send_batch(&client_id, &batch_to_send, &mut sender, &compression_config).await;
+                                        }
+                                    }
+                                } else {
+                                    // Send message without batching
+                                    send_message(&client_id, msg, &mut sender, &compression_config).await;
+                                }
+                            }
+                        } else {
+                            // Broadcast channel closed
+                            break;
+                        }
+                    },
+                    
+                    // Handle client response messages
+                    response = response_rx.recv() => {
+                        if let Some(response) = response {
+                            if let Err(e) = sender.send(response).await {
+                                error!("Failed to send response to client {}: {}", client_id, e);
                                 break;
                             }
-                            
-                            continue;
+                        } else {
+                            // Response channel closed
+                            break;
                         }
                     }
-                    
-                    // Parse message
-                    if let Ok(mut value) = serde_json::from_str::<Value>(&text) {
-                        // Apply data masking if enabled
-                        if let Some(masking_manager) = &state_clone.data_masking_manager {
-                            value = masking_manager.mask_json(&value);
-                        }
-                        
-                        // Process message
-                        let mut sender_guard = sender.lock().await;
-                        process_client_message(
-                            value, 
-                            &state_clone, 
-                            &client_id_clone, 
-                            username_clone.as_deref(),
-                            &mut sender_guard
-                        ).await;
-                    }
-                },
-                Message::Binary(data) => {
-                    // Handle binary messages (compressed JSON, etc.)
-                    debug!("Received binary message of size {} bytes", data.len());
-                },
-                Message::Ping(data) => {
-                    // Respond to ping with pong
-                    let mut sender_guard = sender.lock().await;
-                    if sender_guard.send(Message::Pong(data)).await.is_err() {
-                        break;
-                    }
-                },
-                Message::Pong(_) => {
-                    // Ignore pong messages
-                },
-                Message::Close(_) => {
-                    break;
                 }
             }
-        }
-    });
+            
+            // Handle any remaining messages in batch
+            if !batch.is_empty() {
+                send_batch(&client_id, &batch, &mut sender, &compression_config).await;
+            }
+        })
+    };
     
-    // Wait for either task to finish
+    // Wait for either task to complete
     tokio::select! {
-        _ = &mut send_task => {
-            recv_task.abort();
-        },
-        _ = &mut recv_task => {
-            send_task.abort();
-        }
+        _ = client_message_handler => debug!("Client handler completed for {}", client_id),
+        _ = server_message_handler => debug!("Server handler completed for {}", client_id),
     }
     
-    // Client disconnected
+    // Handle disconnect (in case the logic in the tasks didn't run)
     handle_disconnect(&state, &client_id, &ip, username.as_deref()).await;
+}
+
+/// Send a single message with optional compression
+async fn send_message(
+    client_id: &str, 
+    msg: BroadcastMessage, 
+    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
+    compression_config: &CompressionConfig
+) {
+    let json_msg = match serde_json::to_string(&msg) {
+        Ok(json) => json,
+        Err(e) => {
+            error!("Failed to serialize message for client {}: {}", client_id, e);
+            return;
+        }
+    };
+    
+    // Apply compression if needed
+    let message = if compression_config.enabled && json_msg.len() > compression_config.min_size_bytes {
+        match compress_message(&json_msg, compression_config.level) {
+            Ok(compressed) => {
+                debug!("Sent compressed message to client {} ({} -> {} bytes)", 
+                       client_id, json_msg.len(), compressed.len());
+                Message::Binary(compressed)
+            },
+            Err(e) => {
+                error!("Failed to compress message: {}", e);
+                Message::Text(json_msg)
+            }
+        }
+    } else {
+        Message::Text(json_msg)
+    };
+    
+    // Send message
+    if let Err(e) = sender.send(message).await {
+        error!("Failed to send message to client {}: {}", client_id, e);
+    }
+}
+
+/// Send a batch of messages with optional compression
+async fn send_batch(
+    client_id: &str, 
+    messages: &[BroadcastMessage], 
+    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>,
+    compression_config: &CompressionConfig
+) {
+    // Create batch
+    let batch = BatchedMessages {
+        batch_id: Uuid::new_v4().to_string(),
+        messages: messages.to_vec(),
+        timestamp: chrono::Utc::now().timestamp() as u64,
+        compressed: false,
+    };
+    
+    // Serialize batch
+    let json_batch = match serde_json::to_string(&batch) {
+        Ok(json) => json,
+        Err(e) => {
+            error!("Failed to serialize batch for client {}: {}", client_id, e);
+            return;
+        }
+    };
+    
+    // Apply compression if needed
+    let message = if compression_config.enabled && json_batch.len() > compression_config.min_size_bytes {
+        match compress_message(&json_batch, compression_config.level) {
+            Ok(compressed) => {
+                debug!("Sent compressed batch to client {} with {} messages ({} -> {} bytes)", 
+                       client_id, messages.len(), json_batch.len(), compressed.len());
+                Message::Binary(compressed)
+            },
+            Err(e) => {
+                error!("Failed to compress batch: {}", e);
+                Message::Text(json_batch)
+            }
+        }
+    } else {
+        Message::Text(json_batch)
+    };
+    
+    // Send batch
+    if let Err(e) = sender.send(message).await {
+        error!("Failed to send batch to client {}: {}", client_id, e);
+    }
+}
+
+/// Compress a message using flate2
+fn compress_message(message: &str, level: u32) -> Result<Vec<u8>, anyhow::Error> {
+    use flate2::write::GzEncoder;
+    use std::io::Write;
+    
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::new(level));
+    encoder.write_all(message.as_bytes())?;
+    let compressed = encoder.finish()?;
+    Ok(compressed)
+}
+
+/// Decompress a message using flate2
+fn decompress_message(compressed: &[u8]) -> Result<String, anyhow::Error> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+    
+    let mut decoder = GzDecoder::new(compressed);
+    let mut decompressed = String::new();
+    decoder.read_to_string(&mut decompressed)?;
+    Ok(decompressed)
 }
 
 /// Process a client message
@@ -362,12 +559,11 @@ async fn process_client_message(
     state: &SecureServerState,
     client_id: &str,
     username: Option<&str>,
-    sender: &mut futures_util::stream::SplitSink<WebSocket, Message>
-) {
+) -> Option<Message> {
     // Extract message type
     let msg_type = match value.get("type").and_then(|t| t.as_str()) {
         Some(t) => t,
-        None => return,
+        None => return None,
     };
     
     // Increment message count
@@ -391,8 +587,7 @@ async fn process_client_message(
                         "message": "Subscription rate limit exceeded"
                     });
                     
-                    let _ = sender.send(Message::Text(error_msg.to_string())).await;
-                    return;
+                    return Some(Message::Text(error_msg.to_string()));
                 }
             }
             
@@ -430,7 +625,7 @@ async fn process_client_message(
                     "timestamp": chrono::Utc::now().timestamp_millis()
                 });
                 
-                let _ = sender.send(Message::Text(confirm_msg.to_string())).await;
+                return Some(Message::Text(confirm_msg.to_string()));
             }
         },
         "unsubscribe" => {
@@ -465,7 +660,7 @@ async fn process_client_message(
                     "timestamp": chrono::Utc::now().timestamp_millis()
                 });
                 
-                let _ = sender.send(Message::Text(confirm_msg.to_string())).await;
+                return Some(Message::Text(confirm_msg.to_string()));
             }
         },
         "ping" => {
@@ -475,13 +670,15 @@ async fn process_client_message(
                 "timestamp": chrono::Utc::now().timestamp_millis()
             });
             
-            let _ = sender.send(Message::Text(pong_msg.to_string())).await;
+            return Some(Message::Text(pong_msg.to_string()));
         },
         _ => {
             // Unknown message type
             debug!("Unknown message type: {}", msg_type);
         }
     }
+    
+    None
 }
 
 /// Handle client disconnection
