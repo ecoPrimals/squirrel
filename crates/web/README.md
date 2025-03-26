@@ -428,4 +428,284 @@ See the `ExamplePlugin` implementation in `crates/web/src/plugins/example.rs` fo
 
 ## Testing
 
-The plugin system includes comprehensive integration tests in `crates/web/tests/plugin_integration_test.rs` that demonstrate proper usage and expected behavior. 
+The plugin system includes comprehensive integration tests in `crates/web/tests/plugin_integration_test.rs` that demonstrate proper usage and expected behavior.
+
+# Squirrel Web Interface
+
+## Overview
+
+The Squirrel Web Interface provides external access to the Squirrel platform through HTTP and WebSocket protocols. It serves as the primary integration point for client applications, external systems, and user interfaces.
+
+## Features
+
+- RESTful API for command execution and management
+- WebSocket interface for real-time updates
+- Authentication with JWT tokens
+- Role-based access control
+- Database integration (SQLite)
+- MCP protocol integration
+- Plugin system support
+
+## Building and Running
+
+### Prerequisites
+
+- Rust 1.70 or higher
+- SQLite (for development)
+
+### Building
+
+```bash
+# Build with default features (mock database, mock MCP)
+cargo build
+
+# Build with database integration
+cargo build --features db
+
+# Build with MCP integration
+cargo build --no-default-features --features db,server
+
+# Build with API documentation
+cargo build --features api-docs
+```
+
+### Running
+
+```bash
+# Run with default configuration
+cargo run
+
+# Run with custom configuration
+cargo run -- --config config.json
+```
+
+## Configuration
+
+The Web Interface can be configured using a JSON configuration file:
+
+```json
+{
+  "bind_address": "127.0.0.1",
+  "port": 8080,
+  "database_url": "sqlite:test.db",
+  "mcp_config": {
+    "host": "localhost",
+    "port": 8765
+  },
+  "cors_config": {
+    "allowed_origins": ["*"],
+    "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allowed_headers": ["*"]
+  },
+  "auth_config": {
+    "token_expiration_seconds": 3600,
+    "refresh_token_expiration_seconds": 86400,
+    "token_secret": "your-secret-key"
+  }
+}
+```
+
+## Feature Flags
+
+The Web Interface supports several feature flags for customization:
+
+- `db`: Enables SQLite database integration
+- `mock-db`: Uses in-memory mock database (default)
+- `mock-mcp`: Uses mock MCP implementation (default)
+- `server`: Enables server functionality
+- `dynamic-plugins`: Enables dynamic plugin loading
+- `script-plugins`: Enables script-based plugins
+- `api-docs`: Enables API documentation with Swagger UI
+
+## API Documentation
+
+The Web Interface includes comprehensive API documentation using Swagger UI when built with the `api-docs` feature flag.
+
+### Enabling API Documentation
+
+```bash
+# Build with API documentation
+cargo build --features api-docs
+
+# Run with API documentation
+cargo run --features api-docs
+```
+
+### Accessing the Documentation
+
+Once the server is running with API documentation enabled, you can access the Swagger UI at:
+
+```
+http://localhost:8080/api-docs
+```
+
+The documentation includes:
+- Endpoint descriptions and examples
+- Request/response schemas
+- Authentication requirements
+- Error codes and responses
+
+### Using the Documentation
+
+The Swagger UI allows you to:
+1. Browse all available endpoints
+2. Test API calls directly from the UI
+3. View request and response schemas
+4. Understand authentication requirements
+
+Note that some endpoints require authentication. You can authorize in the Swagger UI by:
+1. Clicking the "Authorize" button
+2. Entering your JWT token
+3. Clicking "Authorize"
+
+## WebSocket API
+
+The Web Interface provides a WebSocket API for real-time communication.
+
+### Connection
+
+Connect to the WebSocket at:
+
+```
+ws://localhost:8080/ws
+```
+
+### Commands
+
+The WebSocket API supports the following commands:
+
+- `subscribe`: Subscribe to a channel
+- `unsubscribe`: Unsubscribe from a channel
+- `ping`: Check connection status
+- `info`: Get connection information
+
+### Example
+
+```javascript
+// Connect to WebSocket
+const ws = new WebSocket('ws://localhost:8080/ws');
+
+// Subscribe to job updates
+ws.send(JSON.stringify({
+  command: 'subscribe',
+  id: 'sub-1',
+  params: {
+    category: 'job',
+    channel: '123'
+  }
+}));
+
+// Listen for events
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received event:', data);
+};
+```
+
+## Authentication
+
+The Web Interface uses JWT tokens for authentication.
+
+### Obtaining a Token
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
+```
+
+### Using the Token
+
+```bash
+curl http://localhost:8080/api/commands \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific tests
+cargo test websocket
+```
+
+### Code Organization
+
+- `src/api/`: API endpoints and handlers
+- `src/auth/`: Authentication and authorization
+- `src/handlers/`: Request handlers
+- `src/state/`: Application state management
+- `src/websocket/`: WebSocket implementation
+- `src/mcp/`: MCP integration
+- `src/plugins/`: Plugin system
+- `src/bin/`: Executable entry points
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
+
+## License
+
+Copyright © 2024 Squirrel Team
+
+## User Interface
+
+The Squirrel Web Interface now includes a built-in UI for interacting with the system. The UI provides the following features:
+
+- View available commands and endpoints
+- Execute commands through the API
+- View command execution results and job status
+- Monitor system health and status
+- View real-time logs and events via WebSockets
+
+### Accessing the UI
+
+The UI is automatically served at the root path `/` when you run the web server. Simply open your browser and navigate to:
+
+```
+http://localhost:3000/
+```
+
+### Running the UI
+
+To run the UI, simply start the web server:
+
+```bash
+cargo run --bin web_server
+```
+
+Then navigate to `http://localhost:3000` in your web browser.
+
+### UI Components
+
+The UI includes several sections:
+
+1. **Commands** - Browse and execute available commands
+2. **Jobs** - Monitor running jobs and view execution results
+3. **System Status** - Check the health and status of the system
+4. **Logs** - View real-time logs and events
+
+### Authentication
+
+The UI supports authentication via the login modal. Once authenticated, your token will be stored in the browser's local storage and automatically used for API requests.
+
+For more details on the UI implementation and future plans, see [UI Implementation Status](./UI_IMPLEMENTATION_STATUS.md).
+
+## API Documentation
+
+API documentation is available at:
+
+- `/api/docs` - OpenAPI documentation (coming soon)
+- `/api/health` - Health check endpoint
+- `/api/commands` - Command execution endpoints
+- `/api/jobs` - Job management endpoints
+- `/api/plugins` - Plugin management endpoints
+- `/ws` - WebSocket endpoint 

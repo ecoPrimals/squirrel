@@ -14,7 +14,8 @@ members = [
     "crates/plugins",
     "crates/interfaces",
     "test_plugin_fix",
-    "crates/galaxy"
+    "crates/galaxy",
+    "crates/ui-web"
 ]
 
 [workspace.package]

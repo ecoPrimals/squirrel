@@ -196,6 +196,27 @@ To create a new built-in command, create a new file in `crates/cli/src/commands/
 
 To create a new plugin, use the structure outlined above and place it in the plugins directory.
 
+### Running the Web Server
+
+To build the UI assets and run the web server in one step:
+
+**Windows:**
+```
+.\build-and-run.ps1
+```
+
+**Unix/Linux/macOS:**
+```
+./build-and-run.sh
+```
+
+This will:
+1. Stop any existing web server processes
+2. Build the UI assets from `crates/ui-web/web` into `crates/ui-web/dist`
+3. Start the web server from the `crates/web` directory
+
+The server will be available at http://localhost:3000.
+
 ## License
 
 MIT License 

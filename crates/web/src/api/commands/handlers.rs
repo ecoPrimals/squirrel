@@ -110,6 +110,21 @@ pub async fn list_available_commands(
     Ok(api_success(commands))
 }
 
+/// Cancel a command execution
+pub async fn cancel_command(
+    State(state): State<Arc<AppState>>,
+    Extension(claims): Extension<AuthClaims>,
+    Path(command_id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, CommandApiError> {
+    info!(user_id = %claims.sub, command_id = %command_id, "Cancelling command");
+    
+    state.command_service
+        .cancel_command(&command_id, &claims.sub)
+        .await?;
+    
+    Ok(api_success(()))
+}
+
 /// Command API error
 #[derive(Debug, thiserror::Error)]
 pub enum CommandApiError {
