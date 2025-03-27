@@ -12,7 +12,7 @@ use dashboard_core::{
 use ui_terminal::adapter::MonitoringToDashboardAdapter;
 use ui_terminal::TuiDashboard;
 
-/// Terminal UI dashboard
+/// Terminal UI dashboard for Squirrel system with MCP protocol integration
 #[derive(Parser)]
 struct Args {
     /// Data update interval in seconds
@@ -26,6 +26,10 @@ struct Args {
     /// Use integrated monitoring (no arguments needed)
     #[arg(short, long)]
     monitoring: bool,
+    
+    /// Use MCP integration with mock client
+    #[arg(short, long)]
+    mcp: bool,
 }
 
 #[tokio::main]
@@ -33,12 +37,37 @@ async fn main() -> io::Result<()> {
     // Parse command line arguments
     let args = Args::parse();
     
+    // Check if MCP integration mode is enabled
+    if args.mcp {
+        println!("Starting Terminal UI Dashboard with MCP Protocol integration");
+        println!("- Update interval: {} seconds", args.interval);
+        println!("- Max history points: {}", args.history_points);
+        println!("- MCP metrics: Enabled (using mock client)");
+        println!("- Press 'q' to quit, '?' for help");
+        
+        // Create TUI Dashboard with MCP integration
+        let mut tui = TuiDashboard::new_with_mcp();
+        return tui.run().await;
+    }
+    
     // Check if integrated monitoring mode is enabled
     if args.monitoring {
-        println!("Starting dashboard with integrated monitoring...");
+        println!("Starting Terminal UI Dashboard with integrated monitoring");
+        println!("- Update interval: {} seconds", args.interval);
+        println!("- Max history points: {}", args.history_points);
+        println!("- System monitoring: Enabled");
+        println!("- Press 'q' to quit, '?' for help");
+        
+        // Create TUI Dashboard with integrated monitoring
         let mut tui = TuiDashboard::new_with_monitoring();
         return tui.run().await;
     }
+    
+    // Standard mode with custom configuration
+    println!("Starting Terminal UI Dashboard");
+    println!("- Update interval: {} seconds", args.interval);
+    println!("- Max history points: {}", args.history_points);
+    println!("- Press 'q' to quit, '?' for help");
     
     // Create dashboard configuration with builder pattern
     let config = DashboardConfig::default()
@@ -60,7 +89,7 @@ async fn main() -> io::Result<()> {
         loop {
             interval.tick().await;
             
-            // Collect metrics
+            // Collect metrics from system and generate protocol metrics
             let data = adapter.collect_dashboard_data();
             
             // Update the dashboard with new data

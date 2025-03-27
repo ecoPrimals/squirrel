@@ -36,6 +36,10 @@ pub enum DashboardError {
     #[error("Update error: {0}")]
     Update(String),
 
+    /// Resource not found
+    #[error("Not found: {0}")]
+    NotFound(String),
+
     /// Generic error
     #[error("{0}")]
     Generic(String),

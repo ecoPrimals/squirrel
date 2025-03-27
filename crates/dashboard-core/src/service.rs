@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
-use crate::data::{DashboardData, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, MetricsSnapshot, InterfaceStats};
+use crate::data::{DashboardData, CpuMetrics, MemoryMetrics, NetworkMetrics, DiskMetrics, NetworkInterface};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -65,34 +65,38 @@ impl DefaultDashboardService {
         
         // Create default empty dashboard data
         let data = DashboardData {
-            system: SystemSnapshot {
-                cpu_usage: 0.0,
-                memory_used: 0,
-                memory_total: 0,
-                disk_used: 0,
-                disk_total: 0,
-                load_average: [0.0, 0.0, 0.0],
-                uptime: 0,
+            metrics: crate::data::Metrics {
+                cpu: CpuMetrics {
+                    usage: 0.0,
+                    cores: Vec::new(),
+                    temperature: None,
+                    load: [0.0, 0.0, 0.0],
+                },
+                memory: MemoryMetrics {
+                    total: 0,
+                    used: 0,
+                    available: 0,
+                    free: 0,
+                    swap_used: 0,
+                    swap_total: 0,
+                },
+                network: NetworkMetrics {
+                    rx_per_sec: 0.0,
+                    tx_per_sec: 0.0,
+                    rx_total: 0,
+                    tx_total: 0,
+                    interfaces: HashMap::new(),
+                },
+                disk: DiskMetrics {
+                    disks: HashMap::new(),
+                    io_per_sec: 0.0,
+                    read_per_sec: 0.0,
+                    write_per_sec: 0.0,
+                },
+                history: crate::data::MetricsHistory::default(),
             },
-            network: NetworkSnapshot {
-                rx_bytes: 0,
-                tx_bytes: 0,
-                rx_packets: 0,
-                tx_packets: 0,
-                interfaces: HashMap::new(),
-            },
-            alerts: AlertsSnapshot {
-                active: Vec::new(),
-                recent: Vec::new(),
-                counts: HashMap::new(),
-            },
-            metrics: MetricsSnapshot {
-                values: HashMap::new(),
-                counters: HashMap::new(),
-                gauges: HashMap::new(),
-                histograms: HashMap::new(),
-            },
-            timestamp: Utc::now(),
+            protocol: crate::data::ProtocolData::default(),
+            alerts: Vec::new(),
         };
         
         let service = Arc::new(Self {
@@ -116,46 +120,55 @@ impl DefaultDashboardService {
         let mut data = self.data.write().await;
         
         // Use dummy data for development
-        data.system.cpu_usage = 45.0; // Dummy CPU usage
-        data.system.memory_used = 4_000_000_000; // ~4GB
-        data.system.memory_total = 16_000_000_000; // ~16GB
-        data.system.uptime = 3600; // 1 hour
+        data.metrics.cpu.usage = 45.0; // Dummy CPU usage
+        data.metrics.memory.used = 4_000_000_000; // ~4GB
+        data.metrics.memory.total = 16_000_000_000; // ~16GB
         
-        // Use dummy disk data
-        data.system.disk_used = 500_000_000_000; // ~500GB
-        data.system.disk_total = 1_000_000_000_000; // ~1TB
+        // Use dummy disk data - assuming we have at least one disk
+        let root_disk = data.metrics.disk.disks.entry("root".to_string())
+            .or_insert_with(|| crate::data::DiskInfo {
+                mount_point: "/".to_string(),
+                total: 1_000_000_000_000, // ~1TB
+                used: 500_000_000_000, // ~500GB
+                free: 500_000_000_000,
+                fs_type: "ext4".to_string(),
+            });
+        
+        root_disk.used = 500_000_000_000; // ~500GB
+        root_disk.total = 1_000_000_000_000; // ~1TB
         
         // Update network metrics with dummy data
-        data.network.interfaces.clear();
-        data.network.rx_bytes = 1_500_000; // 1.5MB received
-        data.network.tx_bytes = 500_000; // 500KB sent
-        data.network.rx_packets = 1000;
-        data.network.tx_packets = 500;
+        data.metrics.network.interfaces.clear();
+        data.metrics.network.rx_total = 1_500_000; // 1.5MB received
+        data.metrics.network.tx_total = 500_000; // 500KB sent
+        data.metrics.network.rx_per_sec = 1000.0;
+        data.metrics.network.tx_per_sec = 500.0;
         
         // Add some dummy network interfaces
-        let interface1 = InterfaceStats {
+        let interface1 = NetworkInterface {
             name: "eth0".to_string(),
-            rx_bytes: 1_000_000, // 1MB
-            tx_bytes: 400_000, // 400KB
-            rx_packets: 800,
-            tx_packets: 400,
+            rx_per_sec: 800.0,
+            tx_per_sec: 400.0,
+            rx_total: 1_000_000, // 1MB
+            tx_total: 400_000, // 400KB
             is_up: true,
         };
         
-        let interface2 = InterfaceStats {
+        let interface2 = NetworkInterface {
             name: "wlan0".to_string(),
-            rx_bytes: 500_000, // 500KB
-            tx_bytes: 100_000, // 100KB
-            rx_packets: 200,
-            tx_packets: 100,
+            rx_per_sec: 200.0,
+            tx_per_sec: 100.0,
+            rx_total: 500_000, // 500KB
+            tx_total: 100_000, // 100KB
             is_up: true,
         };
         
-        data.network.interfaces.insert("eth0".to_string(), interface1);
-        data.network.interfaces.insert("wlan0".to_string(), interface2);
+        data.metrics.network.interfaces.insert("eth0".to_string(), interface1);
+        data.metrics.network.interfaces.insert("wlan0".to_string(), interface2);
         
-        // Update timestamp
-        data.timestamp = Utc::now();
+        // Add timestamp to metrics history
+        let timestamp = Utc::now();
+        data.metrics.history.timestamps.push(timestamp);
         
         // Update metric history with dummy data
         let mut history = self.metric_history.write().await;
@@ -164,24 +177,24 @@ impl DefaultDashboardService {
         let cpu_history = history.entry("system.cpu".to_string())
             .or_insert_with(Vec::new);
             
-        cpu_history.push((data.timestamp, data.system.cpu_usage));
+        cpu_history.push((timestamp, data.metrics.cpu.usage));
         
         // Store memory usage history
         let memory_history = history.entry("system.memory".to_string())
             .or_insert_with(Vec::new);
             
-        memory_history.push((data.timestamp, data.system.memory_used as f64));
+        memory_history.push((timestamp, data.metrics.memory.used as f64));
         
         // Store network history
         let network_rx_history = history.entry("network.rx_bytes".to_string())
             .or_insert_with(Vec::new);
             
-        network_rx_history.push((data.timestamp, data.network.rx_bytes as f64));
+        network_rx_history.push((timestamp, data.metrics.network.rx_total as f64));
         
         let network_tx_history = history.entry("network.tx_bytes".to_string())
             .or_insert_with(Vec::new);
             
-        network_tx_history.push((data.timestamp, data.network.tx_bytes as f64));
+        network_tx_history.push((timestamp, data.metrics.network.tx_total as f64));
         
         // Trim history if needed
         let config = self.config.read().await;
@@ -265,34 +278,33 @@ impl DashboardService for DefaultDashboardService {
     async fn acknowledge_alert(&self, alert_id: &str, acknowledged_by: &str) -> Result<()> {
         let mut data = self.data.write().await;
         
-        // Find and update the alert
+        // Find the alert by ID and acknowledge it
         let mut found = false;
-        for alert in &mut data.alerts.active {
+        
+        for alert in &mut data.alerts {
             if alert.id == alert_id {
                 alert.acknowledged = true;
-                alert.acknowledged_at = Some(Utc::now());
                 alert.acknowledged_by = Some(acknowledged_by.to_string());
+                alert.acknowledged_at = Some(Utc::now());
                 found = true;
                 break;
             }
         }
         
         if !found {
-            return Err(DashboardError::Generic(format!("Alert with ID {} not found", alert_id)));
+            return Err(DashboardError::NotFound(format!("Alert with ID {} not found", alert_id)));
         }
         
-        // Send update
-        let alert_update = DashboardUpdate::AlertUpdate {
-            alert: data.alerts.active.iter()
-                .find(|a| a.id == alert_id)
-                .cloned()
-                .unwrap(),
+        // Send alert update notification
+        let alert = data.alerts.iter()
+            .find(|a| a.id == alert_id)
+            .cloned()
+            .ok_or_else(|| DashboardError::NotFound(format!("Alert with ID {} not found", alert_id)))?;
+        
+        self.update_sender.send(DashboardUpdate::AlertUpdate {
+            alert,
             timestamp: Utc::now(),
-        };
-        
-        if let Err(e) = self.update_sender.send(alert_update).await {
-            return Err(DashboardError::Update(format!("Failed to send update: {}", e)));
-        }
+        }).await.map_err(|e| DashboardError::Update(format!("Failed to send update: {}", e)))?;
         
         Ok(())
     }

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use sysinfo::{System, Process, Networks, ProcessStatus, Pid, Disk, DiskExt, Disks};
+use sysinfo::{System, SystemExt, CpuExt, NetworkExt, Networks, ProcessStatus, Pid, Disk, DiskExt, Process, ProcessExt, PidExt};
 use async_trait::async_trait;
 use crate::metrics::performance::PerformanceCollectorAdapter;
 use chrono;
@@ -22,11 +22,14 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use tokio::time;
 use tracing::{debug, error, info};
-use sysinfo::{SystemExt, ProcessExt, NetworkExt, CpuExt, PidExt, NetworksExt, DiskUsageExt};
+use sysinfo::{NetworksExt};
 use crate::metrics::types::{
     CpuMetrics, DiskMetrics, MemoryMetrics, MetricsCollectorFactory,
     MetricsError, NetworkMetrics, ResourceMetricsCollector as ResourceMetricsCollectorTrait
 };
+
+// Define a type alias for 's' to fix compilation issues
+type s = System;
 
 /// Information about a process
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +102,21 @@ impl Default for DiskIOStats {
             writes_per_sec: 0.0,
         }
     }
+}
+
+/// Resource metrics service trait
+pub trait ResourceMetricsServiceTrait: Send + Sync {
+    /// Collect CPU metrics
+    fn collect_cpu_metrics(&mut self) -> std::result::Result<CpuMetrics, MetricsError>;
+    
+    /// Collect memory metrics
+    fn collect_memory_metrics(&mut self) -> std::result::Result<MemoryMetrics, MetricsError>;
+    
+    /// Collect disk metrics for all disks
+    fn collect_disk_metrics(&mut self) -> std::result::Result<Vec<DiskMetrics>, MetricsError>;
+    
+    /// Collect network metrics for all interfaces
+    fn collect_network_metrics(&mut self) -> std::result::Result<Vec<NetworkMetrics>, MetricsError>;
 }
 
 /// Resource metrics collector that monitors system and team resource usage
@@ -241,25 +259,27 @@ impl ResourceMetricsService {
     /// Helper method for storage usage that works with RwLockReadGuard
     async fn calculate_storage_usage_locked(&self, team_path: &Path) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_storage_usage(system, team_path)
+        Self::calculate_storage_usage(&system, team_path)
     }
 
     /// Helper method for disk IO that works with RwLockReadGuard
     async fn calculate_disk_io_locked(&self, team_path: &Path) -> DiskIOStats {
         let system = self.system.read().await;
-        Self::calculate_disk_io(system, team_path)
+        Self::calculate_disk_io(&system, team_path)
     }
 
     /// Helper method for CPU usage that works with RwLockReadGuard
     async fn calculate_cpu_usage_locked(&self, team_name: &str) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_cpu_usage(system, team_name)
+        Self::calculate_cpu_usage(&system, team_name)
     }
 
     /// Helper method for network bandwidth that works with RwLockReadGuard
     async fn calculate_network_bandwidth_locked(&self, _team_name: &str) -> f64 {
-        // In sysinfo 0.30, Networks needs to be created freshly
-        let networks = Networks::new_with_refreshed_list();
+        // Create a new System instance with refreshed network information
+        let mut system = System::new();
+        system.refresh_networks();
+        let networks = system.networks();
         
         // Calculate total bandwidth across all network interfaces
         let network_bandwidth = networks.iter()
@@ -384,11 +404,8 @@ impl ResourceMetricsService {
             _ => "unknown",
         };
 
-        // Get the thread count
-        let thread_count = match process.thread_kind() {
-            Some(_) => 1u32,
-            None => 0u32,
-        };
+        // Get the thread count - hardcode to 1 since thread information isn't available in this API version
+        let thread_count = 1u32;
 
         ProcessInfo {
             pid: process.pid().as_u32(),
@@ -576,9 +593,11 @@ impl ResourceMetricsService {
     }
 
     /// Gets disk usage for a specific path
-    #[must_use] pub fn get_disk_usage(&self, path: &Path) -> Option<f64> {
+    #[must_use] pub async fn get_disk_usage(&self, path: &Path) -> Option<f64> {
+        // Get a read lock on the system
+        let system_guard = self.system.read().await;
         // Create a new disks instance to get fresh disk data
-        let disks = self.system.read().await.disks();
+        let disks = system_guard.disks();
         
         if let Some(disk) = disks.iter().find(|d| path.starts_with(d.mount_point())) {
             let total = disk.total_space();
@@ -591,9 +610,11 @@ impl ResourceMetricsService {
     }
 
     /// Gets disk space for a specific path (used, total)
-    #[must_use] pub fn get_disk_space(&self, path: &Path) -> Option<(u64, u64)> {
+    #[must_use] pub async fn get_disk_space(&self, path: &Path) -> Option<(u64, u64)> {
+        // Get a read lock on the system
+        let system_guard = self.system.read().await;
         // Create a new disks instance to get fresh disk data
-        let disks = self.system.read().await.disks();
+        let disks = system_guard.disks();
         
         if let Some(disk) = disks.iter().find(|d| path.starts_with(d.mount_point())) {
             let total = disk.total_space();
@@ -704,8 +725,9 @@ impl ResourceMetricsCollectorFactory {
     }
 }
 
-impl MetricsCollectorFactory<ResourceMetricsService> for ResourceMetricsCollectorFactory {
-    fn create(&self) -> Box<dyn ResourceMetricsService> {
+// Directly create the adapter instead of trying to use the trait as a type parameter
+impl MetricsCollectorFactory<ResourceMetricsCollectorAdapter> for ResourceMetricsCollectorFactory {
+    fn create(&self) -> Box<ResourceMetricsCollectorAdapter> {
         Box::new(ResourceMetricsCollectorAdapter::new())
     }
 }
@@ -738,7 +760,7 @@ impl ResourceMetricsCollectorAdapter {
     /// Collect CPU metrics
     pub fn collect_cpu_metrics(&mut self) -> f64 {
         self.system.refresh_cpu();
-        self.system.global_cpu_info().cpu_usage()
+        self.system.global_cpu_info().cpu_usage() as f64
     }
     
     /// Collect memory metrics (used, total)
@@ -785,8 +807,8 @@ impl ResourceMetricsCollectorAdapter {
     }
 }
 
-impl ResourceMetricsService for ResourceMetricsCollectorAdapter {
-    fn collect_cpu_metrics(&mut self) -> Result<CpuMetrics, MetricsError> {
+impl ResourceMetricsCollectorTrait for ResourceMetricsCollectorAdapter {
+    fn collect_cpu_metrics(&mut self) -> std::result::Result<CpuMetrics, MetricsError> {
         self.refresh_system();
         
         let cpu_usage = self.system.global_cpu_info().cpu_usage();
@@ -797,7 +819,7 @@ impl ResourceMetricsService for ResourceMetricsCollectorAdapter {
         })
     }
     
-    fn collect_memory_metrics(&mut self) -> Result<MemoryMetrics, MetricsError> {
+    fn collect_memory_metrics(&mut self) -> std::result::Result<MemoryMetrics, MetricsError> {
         self.refresh_system();
         
         let total_memory = self.system.total_memory();
@@ -817,7 +839,7 @@ impl ResourceMetricsService for ResourceMetricsCollectorAdapter {
         })
     }
     
-    fn collect_disk_metrics(&mut self) -> Result<Vec<DiskMetrics>, MetricsError> {
+    fn collect_disk_metrics(&mut self) -> std::result::Result<Vec<DiskMetrics>, MetricsError> {
         self.refresh_system();
         
         let mut disk_metrics = Vec::new();
@@ -845,7 +867,7 @@ impl ResourceMetricsService for ResourceMetricsCollectorAdapter {
         Ok(disk_metrics)
     }
     
-    fn collect_network_metrics(&mut self) -> Result<Vec<NetworkMetrics>, MetricsError> {
+    fn collect_network_metrics(&mut self) -> std::result::Result<Vec<NetworkMetrics>, MetricsError> {
         self.refresh_system();
         
         let mut network_metrics = Vec::new();

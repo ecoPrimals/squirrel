@@ -13,7 +13,7 @@ use super::alerts::NotificationManagerTrait;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use tracing::{debug, error, info};
-use sysinfo::{System, SystemExt, ProcessExt, NetworksExt, DiskExt, CpuExt, NetworkExt, DiskUsageExt};
+use sysinfo::{System, SystemExt, ProcessExt, NetworksExt, DiskExt, CpuExt, NetworkExt};
 use dashboard_core::data::{SystemSnapshot, NetworkSnapshot, InterfaceStats};
 use chrono::Utc;
 

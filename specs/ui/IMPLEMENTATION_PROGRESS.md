@@ -1,89 +1,171 @@
 # UI Implementation Progress Report
 
-**Version**: 1.1.0  
-**Date**: 2024-07-20  
+**Version**: 1.2.0  
+**Date**: 2024-07-22  
 **Status**: In Progress  
 
 ## Overview
 
 This document provides an update on the implementation progress of the Dashboard and Terminal UI components for the Squirrel system. It outlines what has been implemented, current status, and next steps.
 
-## Recent Improvements: Monitoring-Dashboard Integration
+## Recent Improvements: MCP Protocol Integration
 
-### Standardization Updates (COMPLETED)
+### Integration Implementation (COMPLETED)
 
-- **sysinfo Trait Imports**: Added proper imports for all metrics collection files:
+- **McpMetricsProvider Interface**: Added interface for MCP metrics collection:
   ```rust
-  use sysinfo::{SystemExt, ProcessExt, NetworksExt, DiskExt, CpuExt, NetworkExt, DiskUsageExt};
-  ```
-
-- **Resource Access Methods**: Updated resource access methods to use consistent patterns:
-  ```rust
-  // Updated approach
-  let disks = system.disks();
-  
-  // Instead of
-  // let disks_info = Disks::new_with_refreshed_list();
-  ```
-
-- **ResourceMetricsCollectorAdapter**: Completed the adapter implementation with direct mapping to dashboard data models:
-  ```rust
-  pub fn collect_dashboard_data(&mut self) -> (SystemSnapshot, NetworkSnapshot) {
-      let system_snapshot = self.collect_system_metrics();
-      let network_snapshot = self.collect_network_metrics();
+  #[async_trait]
+  pub trait McpMetricsProvider: Send + Sync {
+      /// Get current metrics snapshot
+      async fn get_metrics(&self) -> Result<McpMetrics, String>;
       
-      (system_snapshot, network_snapshot)
+      /// Subscribe to metrics updates with specified interval
+      fn subscribe(&self, interval_ms: u64) -> mpsc::Receiver<McpMetrics>;
   }
   ```
 
-- **Data Structure Alignment**: Ensured perfect alignment between monitoring metrics and dashboard data models
+- **Mock MCP Client**: Implemented a mock client for testing and development:
+  ```rust
+  pub struct MockMcpClient {
+      // Mock metrics
+      metrics: McpMetrics,
+      // Sender for metrics updates
+      sender: Option<mpsc::Sender<McpMetrics>>,
+  }
+  
+  #[async_trait]
+  impl McpMetricsProvider for MockMcpClient {
+      async fn get_metrics(&self) -> Result<McpMetrics, String> {
+          Ok(self.metrics.clone())
+      }
+      
+      fn subscribe(&self, interval_ms: u64) -> mpsc::Receiver<McpMetrics> {
+          // Implementation
+      }
+  }
+  ```
+
+- **Protocol Metrics Adapter**: Enhanced the adapter to work with MCP client:
+  ```rust
+  pub struct ProtocolMetricsAdapter {
+      // State tracking for metrics
+      message_counter: u64,
+      transaction_counter: u64,
+      error_counter: u64,
+      last_update: chrono::DateTime<Utc>,
+      
+      // MCP client reference for collecting real metrics
+      mcp_client: Option<Arc<dyn McpMetricsProvider>>,
+      
+      // Cached metrics for fallback
+      cached_metrics: Option<McpMetrics>,
+      
+      // Update channel receiver for metrics
+      metrics_rx: Option<mpsc::Receiver<McpMetrics>>,
+  }
+  ```
+
+- **Enhanced Protocol Widget**: Updated to display MCP-specific metrics:
+  ```rust
+  fn render_message_stats<B: Backend>(&self, f: &mut Frame, area: Rect) {
+      // Get message count and rate from metrics
+      let message_count = self.metrics.counters.get("protocol.messages").unwrap_or(&0);
+      
+      // Get MCP-specific message metrics (if available)
+      let mcp_requests = self.metrics.counters.get("mcp.requests").unwrap_or(&0);
+      let mcp_responses = self.metrics.counters.get("mcp.responses").unwrap_or(&0);
+      
+      // Format message statistics
+      let mut message_stats = vec![
+          Row::new(vec![
+              Cell::from("Total Messages:"),
+              Cell::from(format!("{}", message_count)),
+          ]),
+      ];
+      
+      // Add MCP-specific metrics if they exist
+      if *mcp_requests > 0 || *mcp_responses > 0 {
+          message_stats.push(Row::new(vec![
+              Cell::from("MCP Requests:"),
+              Cell::from(format!("{}", mcp_requests)),
+          ]));
+          message_stats.push(Row::new(vec![
+              Cell::from("MCP Responses:"),
+              Cell::from(format!("{}", mcp_responses)),
+          ]));
+      }
+  }
+  ```
+
+- **Command-Line Integration**: Added CLI options for MCP integration:
+  ```rust
+  /// Terminal UI dashboard
+  #[derive(Parser)]
+  struct Args {
+      /// Data update interval in seconds
+      #[arg(short, long, default_value_t = 5)]
+      interval: u64,
+      
+      /// Number of history points to keep
+      #[arg(short = 'p', long, default_value_t = 1000)]
+      history_points: usize,
+      
+      /// Use integrated monitoring (no arguments needed)
+      #[arg(short, long)]
+      monitoring: bool,
+      
+      /// Use MCP integration with mock client
+      #[arg(short, long)]
+      mcp: bool,
+  }
+  ```
 
 ### New Features
 
-- **Direct Data Updates**: Added `update_data` method to DefaultDashboardService for direct updates:
+- **Direct MCP Metrics Access**: Added support for real-time MCP metrics:
   ```rust
-  pub async fn update_data(&self, data: DashboardData) -> Result<()> {
-      // Update the data
-      *self.data.write().await = data.clone();
-      
-      // Send update to subscribers
-      if let Err(e) = self.update_sender.send(DashboardUpdate::FullUpdate(data)).await {
-          return Err(DashboardError::Update(format!("Failed to send update: {}", e)));
-      }
-      
-      Ok(())
-  }
-  ```
-
-- **Real Metrics Integration**: Modified the Terminal UI main application to use real system metrics:
-  ```rust
-  // Create monitoring adapter
-  let mut adapter = ResourceMetricsCollectorAdapter::new();
-  
-  // Collect metrics and update dashboard
-  tokio::spawn(async move {
-      let mut interval = time::interval(Duration::from_secs(args.interval));
-      
-      loop {
-          interval.tick().await;
-          
-          // Collect metrics and update dashboard
-          let (system, network) = adapter.collect_dashboard_data();
-          
-          // Update dashboard data
-          if let Ok(mut data) = dashboard_service_clone.get_dashboard_data().await {
-              data.system = system;
-              data.network = network;
-              data.timestamp = chrono::Utc::now();
-              
-              // Update the dashboard with new data
-              if let Err(e) = dashboard_service_clone.update_data(data).await {
-                  eprintln!("Failed to update dashboard data: {}", e);
+  async fn try_collect_mcp_metrics(&mut self) -> bool {
+      // First try to get metrics from the update channel
+      if let Some(rx) = &mut self.metrics_rx {
+          match rx.try_recv() {
+              Ok(mcp_metrics) => {
+                  self.update_from_mcp_metrics(mcp_metrics.clone());
+                  self.cached_metrics = Some(mcp_metrics);
+                  return true;
+              }
+              Err(_) => {
+                  // No updates from channel, try direct fetch
               }
           }
       }
-  });
+      
+      // If no updates from channel, try direct fetch
+      if let Some(client) = &self.mcp_client {
+          match client.get_metrics().await {
+              Ok(mcp_metrics) => {
+                  self.update_from_mcp_metrics(mcp_metrics.clone());
+                  self.cached_metrics = Some(mcp_metrics);
+                  return true;
+              }
+              Err(e) => {
+                  // Fall back to cached metrics
+                  if let Some(cached) = &self.cached_metrics {
+                      self.update_from_mcp_metrics(cached.clone());
+                      return true;
+                  }
+              }
+          }
+      }
+      
+      // Fallback to simulated metrics if needed
+      true
+  }
   ```
+
+- **Adaptive Protocol Tab**: Protocol tab now adapts to show data based on available metrics:
+  - Shows MCP-specific metrics when available
+  - Falls back to generic metrics when MCP client is not available
+  - Displays real-time latency distribution from MCP client
 
 ## Dashboard Core Implementation
 
@@ -142,6 +224,7 @@ Implemented the following data models:
 - **Dashboard State Management**: Implemented application state and update handling
 - **UI Layout**: Created multi-tab interface with different views
 - **Widget System**: Implemented specialized widgets for different dashboard components
+- **MCP Integration**: Added support for MCP protocol metrics visualization
 
 ### Widgets
 
@@ -152,6 +235,7 @@ Implemented the following widgets:
 - **AlertsWidget**: For displaying and managing alerts
 - **HealthWidget**: For health status visualization
 - **NetworkWidget**: For network metrics display
+- **ProtocolWidget**: For protocol-specific metrics and latency visualization
 
 ### Charts and Visualization
 
@@ -173,13 +257,16 @@ Implemented the following widgets:
 - Real-time updates using Tokio channels
 - Command-line interface for configuration
 - Application state synchronized with dashboard service
-- **NEW**: Direct integration with monitoring crate via ResourceMetricsCollectorAdapter
+- **NEW**: Direct integration with MCP crate via McpMetricsProvider interface
+- **NEW**: Protocol metrics displayed in the Protocol tab through ProtocolWidget
 
 ## CLI Improvements
 
 - Added command-line arguments for customization:
   - Update interval
   - Maximum history points
+  - Monitoring integration mode
+  - MCP integration mode
 
 ## Next Steps
 
@@ -211,4 +298,4 @@ Implemented the following widgets:
 
 ---
 
-*Last updated: July 20, 2024* 
+*Last updated: July 22, 2024* 
