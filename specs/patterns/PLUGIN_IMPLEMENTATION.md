@@ -214,13 +214,67 @@ pub enum PluginError {
 ### Security Model
 
 ```
-1. Define permission levels
-2. Implement resource limits
-3. Create sandbox environment
-4. Validate operations before execution
-5. Track resource usage
-6. Implement security validator
+1. Define permission levels (hierarchical with granular control)
+2. Implement resource limits (memory, CPU, storage, network)
+3. Create sandbox environment (with process isolation)
+4. Validate operations before execution (path traversal prevention, capability checks)
+5. Track resource usage (real-time OS-specific metrics)
+6. Implement security validators (basic and enhanced)
 7. Apply least privilege principle
+8. Security audit logging (operations, violations, alerts)
+9. Cross-platform resource monitoring
+```
+
+#### Security Implementation Progress
+
+The plugin security model has been significantly enhanced with comprehensive resource monitoring capabilities:
+
+1. **Enhanced Security Validator**
+   - Security audit logging with filtering
+   - Detailed error reporting with context
+   - Improved permission checking with hierarchical levels
+   - Path traversal protection with canonicalization
+   - Capability namespace wildcards
+
+2. **Resource Monitoring**
+   - Real-time resource usage tracking
+   - OS-specific metrics (Windows, Linux, macOS)
+   - Memory usage tracking (working set, committed)
+   - CPU usage monitoring (percentage, time)
+   - Storage access monitoring
+   - Network activity monitoring
+   - Resource limit validation
+   - Alerting on threshold violations
+
+3. **Sandbox Implementation**
+   - Process-level isolation
+   - Capability-based security
+   - Resource constraints enforcement
+   - Controlled access to system resources
+
+Example usage:
+
+```rust
+// Create plugin manager with enhanced security
+let mut manager = PluginManagerBuilder::new()
+    .with_enhanced_security()
+    .with_resource_monitoring(ResourceLimits {
+        memory_mb: 100,
+        cpu_percent: 50,
+        storage_mb: 10,
+        network_requests_per_minute: 30,
+    })
+    .build();
+
+// Track resource usage
+let usage = manager.get_plugin_resource_usage(plugin_id).await?;
+println!("Memory usage: {}MB", usage.memory_mb);
+println!("CPU usage: {}%", usage.cpu_percent);
+
+// Access security audit log
+let logs = manager.security_audit_logs()
+    .filter(|log| log.severity >= LogSeverity::Warning)
+    .collect::<Vec<_>>();
 ```
 
 ## Anti-Patterns to Avoid

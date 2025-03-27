@@ -141,6 +141,38 @@ pub enum ParameterValue {
     Null,
 }
 
+impl ParameterValue {
+    /// Create a parameter value from a JSON value
+    pub fn from_json(value: serde_json::Value) -> crate::error::Result<Self> {
+        match value {
+            serde_json::Value::String(s) => Ok(ParameterValue::String(s)),
+            serde_json::Value::Number(n) => {
+                if let Some(f) = n.as_f64() {
+                    Ok(ParameterValue::Number(f))
+                } else {
+                    Err(crate::error::Error::InvalidInput(format!("Invalid number value: {}", n)))
+                }
+            },
+            serde_json::Value::Bool(b) => Ok(ParameterValue::Boolean(b)),
+            serde_json::Value::Array(arr) => {
+                let mut values = Vec::with_capacity(arr.len());
+                for item in arr {
+                    values.push(ParameterValue::from_json(item)?);
+                }
+                Ok(ParameterValue::Array(values))
+            },
+            serde_json::Value::Object(obj) => {
+                let mut map = HashMap::with_capacity(obj.len());
+                for (key, val) in obj {
+                    map.insert(key, ParameterValue::from_json(val)?);
+                }
+                Ok(ParameterValue::Object(map))
+            },
+            serde_json::Value::Null => Ok(ParameterValue::Null),
+        }
+    }
+}
+
 /// Represents a parameter definition for a Galaxy tool
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParameterDefinition {

@@ -22,6 +22,12 @@ pub const DEFAULT_BUFFER_SIZE: usize = 4 * 1024 * 1024;
 /// Default maximum number of retries for API requests
 pub const DEFAULT_MAX_RETRIES: u32 = 3;
 
+/// Default credential rotation period in days
+pub const DEFAULT_CREDENTIAL_ROTATION_DAYS: u32 = 90;
+
+/// Default credential history size
+pub const DEFAULT_CREDENTIAL_HISTORY_SIZE: usize = 3;
+
 /// Galaxy adapter configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GalaxyConfig {
@@ -72,6 +78,34 @@ pub struct GalaxyConfig {
     
     /// Credential storage configuration
     pub credential_storage: CredentialStorageConfig,
+    
+    /// Allow reading environment variables for configuration
+    #[serde(default)]
+    pub allow_env_vars: Option<bool>,
+    
+    /// Path for credential storage (overrides file_storage_path in credential_storage)
+    #[serde(default)]
+    pub storage_path: Option<String>,
+    
+    /// Encryption key for secure storage (hex-encoded)
+    #[serde(skip_serializing, default)]
+    pub encryption_key: Option<String>,
+    
+    /// Credential rotation period in days
+    #[serde(default)]
+    pub key_rotation_days: Option<u32>,
+    
+    /// Whether to automatically rotate keys
+    #[serde(default)]
+    pub auto_rotate_keys: Option<bool>,
+    
+    /// Size of credential history to keep
+    #[serde(default)]
+    pub credential_history_size: Option<usize>,
+    
+    /// Unique ID for this credential set
+    #[serde(default)]
+    pub credential_id: Option<String>,
 }
 
 /// Environment variable names for credentials
@@ -105,6 +139,15 @@ pub struct CredentialStorageConfig {
     
     /// Base path for file storage
     pub file_storage_path: Option<String>,
+    
+    /// Whether to encrypt stored credentials
+    #[serde(default = "default_true")]
+    pub encrypt: bool,
+}
+
+/// Helper function to provide a default value of true
+fn default_true() -> bool {
+    true
 }
 
 impl Default for CredentialStorageConfig {
@@ -112,6 +155,7 @@ impl Default for CredentialStorageConfig {
         Self {
             storage_type: CredentialStorageType::Memory,
             file_storage_path: None,
+            encrypt: true,
         }
     }
 }
@@ -144,6 +188,13 @@ impl Default for GalaxyConfig {
             allow_env_credentials: false,
             env_credential_names: EnvCredentialNames::default(),
             credential_storage: CredentialStorageConfig::default(),
+            allow_env_vars: None,
+            storage_path: None,
+            encryption_key: None,
+            key_rotation_days: Some(DEFAULT_CREDENTIAL_ROTATION_DAYS),
+            auto_rotate_keys: Some(false),
+            credential_history_size: Some(DEFAULT_CREDENTIAL_HISTORY_SIZE),
+            credential_id: None,
         }
     }
 }
@@ -221,6 +272,48 @@ impl GalaxyConfig {
         self
     }
     
+    /// Set storage path for credentials
+    pub fn with_storage_path(mut self, path: impl Into<String>) -> Self {
+        self.storage_path = Some(path.into());
+        self
+    }
+    
+    /// Set encryption key for secure storage (hex-encoded)
+    pub fn with_encryption_key(mut self, key: impl Into<String>) -> Self {
+        self.encryption_key = Some(key.into());
+        self
+    }
+    
+    /// Set credential rotation period in days
+    pub fn with_key_rotation_days(mut self, days: u32) -> Self {
+        self.key_rotation_days = Some(days);
+        self
+    }
+    
+    /// Enable or disable automatic key rotation
+    pub fn with_auto_rotate_keys(mut self, auto_rotate: bool) -> Self {
+        self.auto_rotate_keys = Some(auto_rotate);
+        self
+    }
+    
+    /// Set credential history size
+    pub fn with_credential_history_size(mut self, size: usize) -> Self {
+        self.credential_history_size = Some(size);
+        self
+    }
+    
+    /// Set credential ID
+    pub fn with_credential_id(mut self, id: impl Into<String>) -> Self {
+        self.credential_id = Some(id.into());
+        self
+    }
+    
+    /// Allow reading environment variables for configuration
+    pub fn allow_env_vars(mut self, allow: bool) -> Self {
+        self.allow_env_vars = Some(allow);
+        self
+    }
+    
     /// Get secure credentials from this configuration
     pub fn get_secure_credentials(&self) -> Result<SecureCredentials> {
         // Try explicit credentials first
@@ -256,22 +349,31 @@ impl GalaxyConfig {
             }
         }
         
-        // No credentials found
         Err(SecurityError::MissingCredentials(
-            "No credentials provided in configuration or environment".to_string(),
+            "No Galaxy credentials provided in configuration or environment".to_string(),
         ).into())
     }
     
     /// Validate the configuration
     pub fn validate(&self) -> Result<()> {
+        // Validate API URL
         if self.api_url.is_empty() {
-            return Err(Error::Config("API URL cannot be empty".to_string()));
+            return Err(Error::Config("API URL cannot be empty".into()));
         }
         
-        // Either we have explicit credentials, or we're allowed to use environment variables
+        // Validate that we have some form of authentication
         if self.api_key.is_none() && (self.email.is_none() || self.password.is_none()) && !self.allow_env_credentials {
             return Err(Error::Config(
-                "Either API key or email/password credentials must be provided, or allow_env_credentials must be true".to_string(),
+                "No authentication credentials provided (API key or email/password) and environment variables not allowed".into(),
+            ));
+        }
+        
+        // Validate storage path if using file storage
+        if self.credential_storage.storage_type == CredentialStorageType::File && 
+           self.credential_storage.file_storage_path.is_none() && 
+           self.storage_path.is_none() {
+            return Err(Error::Config(
+                "File storage path must be provided when using file storage".into(),
             ));
         }
         
@@ -280,60 +382,90 @@ impl GalaxyConfig {
     
     /// Create a configuration from environment variables
     pub fn from_env() -> Result<Self> {
-        let api_url = std::env::var("GALAXY_API_URL").unwrap_or_else(|_| DEFAULT_GALAXY_URL.to_string());
+        let mut config = Self::default();
         
-        let mut config = Self::new(api_url)
-            .allow_env_credentials(true);
+        // Check for environment variables
+        if let Ok(url) = std::env::var("GALAXY_API_URL") {
+            config.api_url = url;
+        }
         
-        // Try to load explicit API key or email/password
         if let Ok(api_key) = std::env::var("GALAXY_API_KEY") {
-            config = config.with_api_key(api_key);
-        } else if let Ok(email) = std::env::var("GALAXY_EMAIL") {
-            if let Ok(password) = std::env::var("GALAXY_PASSWORD") {
-                config = config.with_credentials(email, password);
-            }
+            config.api_key = Some(api_key);
         }
         
-        // Load other configuration from environment if available
-        if let Ok(timeout) = std::env::var("GALAXY_TIMEOUT") {
-            if let Ok(timeout) = timeout.parse::<u64>() {
-                config = config.with_timeout(timeout);
-            }
+        if let Ok(email) = std::env::var("GALAXY_EMAIL") {
+            config.email = Some(email);
         }
         
-        config.validate()?;
+        if let Ok(password) = std::env::var("GALAXY_PASSWORD") {
+            config.password = Some(password);
+        }
+        
+        if let Ok(timeout) = std::env::var("GALAXY_TIMEOUT")
+            .map(|t| t.parse::<u64>().unwrap_or(DEFAULT_API_TIMEOUT_SECONDS)) {
+            config.timeout = Duration::from_secs(timeout);
+        }
+        
+        // Advanced security settings
+        if let Ok(path) = std::env::var("GALAXY_STORAGE_PATH") {
+            config.storage_path = Some(path);
+        }
+        
+        if let Ok(key) = std::env::var("GALAXY_ENCRYPTION_KEY") {
+            config.encryption_key = Some(key);
+        }
+        
+        if let Ok(days) = std::env::var("GALAXY_KEY_ROTATION_DAYS")
+            .map(|d| d.parse::<u32>().unwrap_or(DEFAULT_CREDENTIAL_ROTATION_DAYS)) {
+            config.key_rotation_days = Some(days);
+        }
+        
+        if let Ok(auto_rotate) = std::env::var("GALAXY_AUTO_ROTATE_KEYS")
+            .map(|a| a.parse::<bool>().unwrap_or(false)) {
+            config.auto_rotate_keys = Some(auto_rotate);
+        }
+        
+        config.allow_env_credentials = true;
+        config.allow_env_vars = Some(true);
         
         Ok(config)
     }
     
     /// Create a configuration for testing
     pub fn for_testing() -> Self {
-        Self::new("http://localhost:8080/api")
-            .with_api_key("test-api-key")
-            .with_debug(true)
+        Self {
+            api_url: "http://localhost:8000/api".to_string(),
+            api_key: Some("test-api-key".to_string()),
+            verify_ssl: false,
+            debug: true,
+            credential_storage: CredentialStorageConfig {
+                storage_type: CredentialStorageType::Memory,
+                file_storage_path: None,
+                encrypt: false,
+            },
+            ..Default::default()
+        }
     }
 }
 
-/// Load configuration from a TOML file
+/// Load configuration from a file
 pub fn load_config(path: &std::path::Path) -> Result<GalaxyConfig> {
-    let content = std::fs::read_to_string(path)
+    let config_str = std::fs::read_to_string(path)
         .map_err(|e| Error::Config(format!("Failed to read config file: {}", e)))?;
     
-    let config: GalaxyConfig = toml::from_str(&content)
-        .map_err(|e| Error::Config(format!("Failed to parse config: {}", e)))?;
-    
-    config.validate()?;
+    let config: GalaxyConfig = toml::from_str(&config_str)
+        .map_err(|e| Error::Config(format!("Failed to parse config file: {}", e)))?;
     
     Ok(config)
 }
 
-/// Save configuration to a TOML file
+/// Save configuration to a file
 pub fn save_config(config: &GalaxyConfig, path: &std::path::Path) -> Result<()> {
-    let content = toml::to_string_pretty(config)
+    let config_str = toml::to_string_pretty(config)
         .map_err(|e| Error::Config(format!("Failed to serialize config: {}", e)))?;
     
-    std::fs::write(path, content)
+    std::fs::write(path, config_str)
         .map_err(|e| Error::Config(format!("Failed to write config file: {}", e)))?;
     
     Ok(())
-} 
+}

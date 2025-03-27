@@ -1,9 +1,10 @@
 #[cfg(feature = "mcp-integration")]
-use galaxy::{create_adapter_with_config, GalaxyConfig, Error};
+use squirrel_galaxy::{create_adapter_with_config, GalaxyConfig, Error};
 
 // Import the squirrel_mcp types for MessageId
 use serde_json::json;
 use squirrel_mcp::types::MessageId;
+use squirrel_galaxy::adapter::mcp_types;
 
 #[cfg(feature = "mcp-integration")]
 #[tokio::main]
@@ -17,7 +18,7 @@ async fn main() -> Result<(), Error> {
         .with_api_key("YOUR_API_KEY");
     
     // Create an adapter with the specified configuration
-    let mut adapter = create_adapter_with_config(config)?;
+    let mut adapter = create_adapter_with_config(config).await?;
     
     // Initialize MCP integration
     adapter.initialize_mcp()?;
@@ -25,9 +26,9 @@ async fn main() -> Result<(), Error> {
     
     // Let Galaxy adapter handle message creation
     println!("Sending discover_tools command...");
-    let request = galaxy::adapter::mcp_types::Message {
+    let request = mcp_types::Message {
         id: MessageId("1".to_string()),
-        message_type: galaxy::adapter::mcp_types::MessageType::Command,
+        message_type: mcp_types::MessageType::Command,
         payload: json!({
             "command": "discover_tools",
             "tool_prefix": "Cut",
@@ -83,7 +84,7 @@ async fn main() -> Result<(), Error> {
     println!("Demonstrating tool execution via MCP...");
     
     // Create a history
-    let history = adapter.create_history("MCP Tool Execution Example").await?;
+    let history = adapter.create_history().await?;
     println!("Created history: {} (ID: {})\n", history.metadata.name, history.metadata.id);
     
     // Upload a dataset
@@ -97,9 +98,9 @@ async fn main() -> Result<(), Error> {
     println!("Uploaded dataset: {} (ID: {})\n", dataset.metadata.name, dataset.metadata.id);
     
     // Create a tool execution request via MCP
-    let execution_request = galaxy::adapter::mcp_types::Message {
+    let execution_request = mcp_types::Message {
         id: MessageId("2".to_string()),
-        message_type: galaxy::adapter::mcp_types::MessageType::Command,
+        message_type: mcp_types::MessageType::Command,
         payload: json!({
             "command": "execute_tool",
             "tool_id": "Cut1",
@@ -129,9 +130,9 @@ async fn main() -> Result<(), Error> {
             // Poll for job status via MCP
             println!("Polling for job status...");
             loop {
-                let status_request = galaxy::adapter::mcp_types::Message {
+                let status_request = mcp_types::Message {
                     id: MessageId("3".to_string()),
-                    message_type: galaxy::adapter::mcp_types::MessageType::Command,
+                    message_type: mcp_types::MessageType::Command,
                     payload: json!({
                         "command": "get_job_status",
                         "job_id": job_id
@@ -161,9 +162,9 @@ async fn main() -> Result<(), Error> {
                                 println!("Job completed successfully!\n");
                                 
                                 // Get results via MCP
-                                let results_request = galaxy::adapter::mcp_types::Message {
+                                let results_request = mcp_types::Message {
                                     id: MessageId("4".to_string()),
-                                    message_type: galaxy::adapter::mcp_types::MessageType::Command,
+                                    message_type: mcp_types::MessageType::Command,
                                     payload: json!({
                                         "command": "get_job_results",
                                         "job_id": job_id

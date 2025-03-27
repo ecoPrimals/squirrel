@@ -98,11 +98,13 @@ pub use plugin::{
     PluginStateStorage, FileSystemStateStorage, MemoryStateStorage, PluginStateManager,
     PermissionLevel, ResourceLimits, SecurityContext, ResourceUsage,
     PluginSandbox, BasicPluginSandbox, SecurityValidator, SecurityError,
+    EnhancedSecurityValidator, SecurityAuditEntry, SecurityValidatorEnum,
     PluginRegistry, PluginCatalogEntry,
     examples::{
         create_example_plugins, create_advanced_command_plugin, 
         create_advanced_mcp_plugin, create_advanced_tool_plugin
-    }
+    },
+    resource_monitor
 };
 
 /// Plugin system example usage and documentation
@@ -196,6 +198,17 @@ pub use plugin::{
 /// - Resource usage limits and tracking
 /// - Sandboxing of plugin execution
 /// - Security validation for operations
+///
+/// # Resource Monitoring
+///
+/// The plugin system now includes enhanced resource monitoring capabilities:
+///
+/// - Real-time memory, CPU, storage, and thread tracking
+/// - Cross-platform support (Windows, Linux, macOS)
+/// - Process-level resource usage monitoring
+/// - Configurable monitoring intervals
+/// - Resource usage alerts
+/// - Integration with security model
 
 /// Documentation module containing more examples and usage patterns
 pub mod docs {
