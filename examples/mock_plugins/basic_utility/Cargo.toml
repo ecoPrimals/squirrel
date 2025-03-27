@@ -1,0 +1,27 @@
+[package]
+name = "basic-utility-plugin"
+version = "1.0.0"
+authors = ["DataScienceBioLab"]
+edition = "2021"
+description = "A simple utility plugin for testing the CLI integration"
+license = "MIT"
+
+[lib]
+crate-type = ["dylib", "cdylib"]
+
+[dependencies]
+# Core plugin dependencies
+squirrel-app = { path = "../../../crates/app" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+chrono = "0.4"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tempfile = "3.2"
+assert_json_diff = "2.0"
+
+[features]
+default = []
+test-integration = [] 

@@ -10,3 +10,6 @@ mod integration_test;
 pub use super::tests::*;
 
 // Add any additional test utilities here 
+
+// Include test modules
+mod test_resource_monitor; 

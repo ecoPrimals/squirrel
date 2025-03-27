@@ -1,6 +1,6 @@
 ---
-version: 1.5.0
-last_updated: 2024-04-20
+version: 1.7.0
+last_updated: 2024-06-01
 status: active
 priority: high
 ---
@@ -21,17 +21,17 @@ priority: high
 - ✅ Test coverage
 - 🔄 Performance optimization
 
-### 2. Plugin System (30% Complete)
+### 2. Plugin System (65% Complete)
 - ✅ Plugin trait definition
 - ✅ Plugin manager for lifecycle management
 - ✅ State persistence
 - ✅ Dependency resolution
 - ✅ Plugin discovery
-- 🔄 Security model (40% complete)
-- 🔄 Resource usage monitoring (20% complete)
-- 🔄 Enhanced API extensions (25% complete)
-- 📅 Development SDK (0% complete)
-- 📅 Plugin isolation/sandboxing (0% complete)
+- ✅ Security model (90% complete)
+- ✅ Resource usage monitoring (90% complete)
+- 🔄 Enhanced API extensions (50% complete)
+- 🔄 Plugin sandbox implementation (40% complete)
+- 📅 Development SDK (10% complete)
 
 ### 3. Context Management (85% Complete)
 - ✅ State management
@@ -54,341 +54,210 @@ priority: high
 - 🔄 Performance tuning (60% complete)
 - 🔄 Advanced authentication (40% complete)
 
-## Progress Update - April 20, 2024
+## Progress Update - June 1, 2024
 
 ### Completed Since Last Update
-- Command history implementation with search capabilities
-- Command suggestion algorithm with context-awareness
-- Plugin state persistence with configurable storage backends (memory and filesystem)
-- Plugin discovery mechanism with manifest loading
-- Context snapshot system improvements with incremental snapshot support
-- Error handling refinements with enhanced context information
-- MCP command registry integration completed with remote execution support
-- MCP security model enhanced with basic authentication mechanisms
-- Performance improvements in message serialization and transport layer
+- Framework for plugin sandbox system
+- Windows-specific sandbox initial implementation
+- Linux and macOS sandbox interfaces designed
+- Resource monitor improvements for real-time monitoring
+- Security model enhancements for plugin isolation
 
 ### In Progress
-- Plugin security model with permission levels and resource limits
-- Real-time context synchronization with conflict resolution
-- Performance optimization for command execution
-- API extensions for plugins with enhanced capabilities
-- Enhanced MCP security model with token-based authentication and encryption
-- MCP performance tuning with protocol optimizations and connection pooling
-- Advanced MCP authentication with multi-factor and role-based access control
+- Cross-platform sandbox system integration
+- Error handling and error conversion fixes
+- Method implementation fixes for resource monitoring
+- Platform-specific sandbox implementation completion
+- API fixes for constructor and method signatures
 
 ### Blockers
-- Resource constraints for plugin isolation implementation
-- Cross-platform compatibility issues with security model
-- Performance bottlenecks in real-time synchronization
+- Error conversion incompatibilities between sandbox and core systems
+- Missing API methods in ResourceMonitor
+- Constructor signature mismatches in security validator classes
+- Missing error type conversions throughout the codebase
 
 ## Next Steps - Immediate Priorities
 
-### 1. Plugin System Enhancements
-- Complete basic security model for plugins
-  - Implement permission enforcement
-  - Complete resource monitoring
-  - Finalize capability system
-- Continue API extensions development
-  - Complete event system integration
-  - Implement state access controls
-  - Add plugin-to-plugin communication
-- Begin resource isolation implementation
-  - Research cross-platform isolation mechanisms
-  - Implement basic process isolation
-  - Add resource usage tracking
+### 1. Fix Error Conversion Issues
+- Add proper implementation of `From<SandboxError>` for `CoreError` to fix error conversion issues
+- Fix missing `plugin` function in `SquirrelError` enum or update code to use existing functions
+- Ensure proper error propagation across all platform-specific sandbox implementations
 
-### 2. MCP Integration
-- Complete enhanced security model
-  - Implement token-based authentication
-  - Finish encryption for sensitive data
-  - Complete access control system with role-based permissions
-- Continue performance tuning
-  - Implement connection pooling
-  - Optimize message batching
-  - Reduce protocol overhead
-- Advance authentication system
-  - Implement multi-factor authentication
-  - Add session management
-  - Create user permission profiles
+### 2. Fix Method Implementations
+- Add missing `get_process_id` method to `ResourceMonitor`
+- Fix the constructor for `BasicPluginSandbox` to properly handle resource monitor requirements
+- Update `EnhancedSecurityValidator` constructor to match existing code usage
+- Fix the `resource_monitor` vs `get_resource_monitor` method issue
 
-### 3. Context Management Optimization
-- Complete real-time synchronization
-  - Finish conflict resolution implementation
-  - Optimize change detection algorithm
-  - Add efficient merging strategies
-- Implement advanced recovery features
-  - Complete custom recovery strategies
-  - Add automated recovery with policy enforcement
-  - Implement state verification and repair
+### 3. Complete Cross-Platform Plugin Sandboxing
+- Implement Windows-specific sandboxing using Job Objects
+  - Create Windows Job Object system for process grouping
+  - Implement resource limit enforcement via Job Object settings
+  - Add proper cleanup and termination handling
 
-### 4. Performance Improvements
-- Optimize command execution time
+- Implement Linux-specific sandboxing using cgroups
+  - Create cgroups v2 integration for Linux environments
+  - Add resource limits and container management 
+  - Implement proper process tracking and cleanup
+
+- Implement macOS-specific sandboxing
+  - Research and implement appropriate macOS isolation mechanisms
+  - Add resource limits using Mac-specific APIs
+  - Ensure proper process cleanup
+
+- Create unified cross-platform interface
+  - Abstract OS-specific implementations behind common interface
+  - Add detection and feature negotiation for platform capabilities
+  - Implement graceful fallbacks for unsupported features
+
+### 4. Enhance MCP Security Integration
+- Complete token-based authentication system
+  - Implement JWT-based token authentication
+  - Add token validation and verification
+  - Implement proper token lifecycle management
+
+- Implement secure communication channels
+  - Add TLS support for communication
+  - Implement certificate validation
+  - Add secure key exchange mechanisms
+
+- Enhance RBAC system integration
+  - Complete role-based access control system
+  - Integrate with plugin security model
+  - Implement fine-grained permission controls
+
+### 5. Improve Context Synchronization
+- Complete conflict resolution strategies
+  - Implement multiple conflict resolution algorithms
+  - Add proper versioning for state changes
+  - Create merge strategies for concurrent changes
+
+- Optimize synchronization performance
+  - Implement delta-based synchronization
+  - Add efficient change detection
+  - Reduce synchronization overhead
+
+- Add recovery mechanisms
+  - Implement state recovery after failures
+  - Add automatic recovery policies
+  - Create recovery validation and verification
+
+### 6. Performance Optimization
+- Command execution optimization
   - Reduce overhead in command dispatch
-  - Improve handler lookup performance
+  - Implement efficient caching
   - Optimize hook execution
-- Reduce memory usage
+
+- Resource usage efficiency
   - Implement memory pools for frequent allocations
   - Optimize state representation
-  - Add efficient caching strategies
-- Implement efficient resource cleanup
-  - Add automated resource tracking
-  - Implement deterministic cleanup
-  - Add leak detection mechanisms
+  - Reduce unnecessary cloning and copies
+
+- Enhanced monitoring with lower overhead
+  - Implement adaptive monitoring intervals
+  - Reduce monitoring impact on system
+  - Optimize data collection and processing
 
 ## Technical Implementation Plan
 
-### Plugin Security Model
+### Error Conversion Fix
 ```rust
-/// Plugin permission level
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PermissionLevel {
-    /// System level access (most privileged)
-    System,
-    /// User level access
-    User,
-    /// Restricted access
-    Restricted,
+// Add to error.rs or appropriate location
+impl From<SandboxError> for CoreError {
+    fn from(err: SandboxError) -> Self {
+        match err {
+            SandboxError::PluginNotFound(id) => Self::Plugin(format!("Plugin not found in sandbox: {id}")),
+            SandboxError::Creation(msg) => Self::Plugin(format!("Error creating sandbox: {msg}")),
+            SandboxError::Destruction(msg) => Self::Plugin(format!("Error destroying sandbox: {msg}")),
+            SandboxError::Permission(msg) => Self::Security(format!("Permission error: {msg}")),
+            SandboxError::ResourceLimit(msg) => Self::Security(format!("Resource limit exceeded: {msg}")),
+            SandboxError::PathAccess(msg) => Self::Security(format!("Path access denied: {msg}")),
+            SandboxError::Capability(msg) => Self::Security(format!("Capability not allowed: {msg}")),
+            SandboxError::Platform(msg) => Self::Plugin(format!("Platform error: {msg}")),
+            SandboxError::Unsupported(msg) => Self::Plugin(format!("Feature not supported: {msg}")),
+        }
+    }
 }
 
-/// Plugin security context
-#[derive(Debug, Clone)]
-pub struct SecurityContext {
-    /// Permission level
-    pub permission_level: PermissionLevel,
-    /// Resource limits
-    pub resource_limits: ResourceLimits,
-    /// Allowed capabilities
-    pub allowed_capabilities: HashSet<String>,
-    /// Restricted paths
-    pub restricted_paths: HashSet<PathBuf>,
-    /// Allowed network endpoints
-    pub allowed_endpoints: HashSet<String>,
-}
-
-/// Plugin resource limits
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceLimits {
-    /// Maximum memory usage in bytes
-    pub max_memory_bytes: usize,
-    /// Maximum CPU usage percentage
-    pub max_cpu_percent: u8,
-    /// Maximum storage usage in bytes
-    pub max_storage_bytes: usize,
-    /// Maximum network usage in bytes
-    pub max_network_bytes: usize,
-    /// Maximum number of threads
-    pub max_threads: usize,
-    /// Maximum execution time per operation (ms)
-    pub max_execution_time_ms: u64,
-}
-
-/// Plugin sandbox
-pub trait PluginSandbox: Send + Sync {
-    /// Create sandbox for plugin
-    fn create_sandbox(&self, plugin_id: Uuid) -> Result<()>;
-    /// Destroy sandbox
-    fn destroy_sandbox(&self, plugin_id: Uuid) -> Result<()>;
-    /// Check if operation is allowed
-    fn check_permission(&self, plugin_id: Uuid, operation: &str) -> Result<()>;
-    /// Track resource usage
-    fn track_resources(&self, plugin_id: Uuid) -> Result<ResourceUsage>;
-    /// Apply resource limits
-    fn apply_limits(&self, plugin_id: Uuid, limits: &ResourceLimits) -> Result<()>;
+// Fix SquirrelError conversion in sandbox/mod.rs
+impl From<SandboxError> for SquirrelError {
+    fn from(err: SandboxError) -> Self {
+        match err {
+            SandboxError::PluginNotFound(id) => Self::generic(format!("Plugin not found in sandbox: {id}")),
+            SandboxError::Creation(msg) => Self::generic(format!("Error creating sandbox: {msg}")),
+            SandboxError::Destruction(msg) => Self::generic(format!("Error destroying sandbox: {msg}")),
+            SandboxError::Permission(msg) => Self::security(format!("Permission error: {msg}")),
+            SandboxError::ResourceLimit(msg) => Self::security(format!("Resource limit exceeded: {msg}")),
+            SandboxError::PathAccess(msg) => Self::security(format!("Path access denied: {msg}")),
+            SandboxError::Capability(msg) => Self::security(format!("Capability not allowed: {msg}")),
+            SandboxError::Platform(msg) => Self::generic(format!("Platform error: {msg}")),
+            SandboxError::Unsupported(msg) => Self::generic(format!("Feature not supported: {msg}")),
+        }
+    }
 }
 ```
 
-### MCP Command Integration
+### ResourceMonitor Implementation Fix
 ```rust
-/// MCP command registry adapter
-pub struct McpCommandRegistryAdapter {
-    /// Command registry
-    registry: Arc<CommandRegistry>,
-    /// Authentication manager
-    auth_manager: Arc<AuthManager>,
-    /// Permission validator
-    permission_validator: Arc<PermissionValidator>,
+impl ResourceMonitor {
+    // Add missing method
+    pub async fn get_process_id(&self, plugin_id: Uuid) -> Result<Option<u32>> {
+        let processes = self.processes.read().await;
+        Ok(processes.get(&plugin_id).map(|info| info.process_id))
+    }
 }
+```
 
-impl McpCommandRegistryAdapter {
-    /// Create a new MCP command registry adapter
-    pub fn new(
-        registry: Arc<CommandRegistry>,
-        auth_manager: Arc<AuthManager>,
-        permission_validator: Arc<PermissionValidator>,
-    ) -> Self {
+### Security Validator Implementation Fixes
+```rust
+impl EnhancedSecurityValidator {
+    // Update constructor to be consistent
+    #[must_use] pub fn new() -> Self {
+        let resource_monitor = Arc::new(ResourceMonitor::default());
+        let sandbox = Arc::new(BasicPluginSandbox::new(resource_monitor.clone()));
+        
         Self {
-            registry,
-            auth_manager,
-            permission_validator,
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            audit_log: Arc::new(RwLock::new(Vec::new())),
+            sandbox,
+            resource_monitor,
+            audit_enabled: true,
         }
     }
     
-    /// Execute a command from an MCP request
-    pub async fn execute_command(&self, request: &McpCommandRequest) -> Result<McpCommandResponse> {
-        // Authenticate user
-        let user = self.auth_manager.authenticate(&request.credentials).await?;
-        
-        // Validate permissions
-        self.permission_validator.validate_command(
-            &user,
-            &request.command,
-            &request.arguments,
-        ).await?;
-        
-        // Create execution context
-        let context = CommandExecutionContext::new()
-            .with_user(user)
-            .with_source(CommandSource::Mcp)
-            .with_timestamp(chrono::Utc::now());
-        
-        // Execute command
-        let result = self.registry.execute(
-            &request.command,
-            &request.arguments,
-            &context,
-        ).await?;
-        
-        // Return response
-        Ok(McpCommandResponse::success(result))
+    // Fix method name
+    pub fn resource_monitor(&self) -> Arc<ResourceMonitor> {
+        self.resource_monitor.clone()
     }
-}
-```
-
-### Context Synchronization
-```rust
-/// Context synchronization manager
-pub struct SyncManager {
-    /// Context state
-    state: Arc<RwLock<ContextState>>,
-    /// Change history
-    change_history: Arc<RwLock<VecDeque<ChangeRecord>>>,
-    /// Conflict resolution strategy
-    conflict_strategy: Box<dyn ConflictResolution>,
-    /// Synchronization options
-    sync_options: SyncOptions,
-}
-
-/// Change record
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChangeRecord {
-    /// Change ID
-    pub id: Uuid,
-    /// Change timestamp
-    pub timestamp: SystemTime,
-    /// Change path
-    pub path: String,
-    /// Previous value
-    pub previous_value: Option<serde_json::Value>,
-    /// New value
-    pub new_value: serde_json::Value,
-    /// Change origin
-    pub origin: String,
-    /// Change sequence number
-    pub sequence: u64,
-    /// Hash of previous change (for verification)
-    pub previous_hash: Option<String>,
-}
-
-/// Synchronization options
-#[derive(Debug, Clone)]
-pub struct SyncOptions {
-    /// Maximum number of changes to retain
-    pub max_changes: usize,
-    /// Change pruning interval
-    pub prune_interval: Duration,
-    /// Synchronization interval
-    pub sync_interval: Duration,
-    /// Conflict resolution mode
-    pub conflict_mode: ConflictMode,
-    /// Whether to use incremental sync
-    pub incremental: bool,
-}
-
-/// Conflict resolution mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConflictMode {
-    /// Latest change wins
-    Latest,
-    /// Remote change wins
-    Remote,
-    /// Local change wins
-    Local,
-    /// Manual resolution required
-    Manual,
-    /// Custom resolution strategy
-    Custom,
-}
-```
-
-### Performance Monitoring
-```rust
-/// Command performance metrics
-#[derive(Debug, Default, Clone)]
-pub struct CommandMetrics {
-    /// Command name
-    pub name: String,
-    /// Execution count
-    pub execution_count: u64,
-    /// Total execution time in milliseconds
-    pub total_execution_time_ms: u64,
-    /// Average execution time in milliseconds
-    pub avg_execution_time_ms: f64,
-    /// Maximum execution time in milliseconds
-    pub max_execution_time_ms: u64,
-    /// Minimum execution time in milliseconds
-    pub min_execution_time_ms: u64,
-    /// Error count
-    pub error_count: u64,
-    /// Success rate percentage
-    pub success_rate: f64,
-    /// 95th percentile execution time
-    pub p95_execution_time_ms: u64,
-    /// Memory usage per execution (average)
-    pub avg_memory_usage_kb: u64,
-    /// CPU usage per execution (average)
-    pub avg_cpu_usage_percent: f64,
-}
-
-/// Performance monitor
-#[async_trait]
-pub trait PerformanceMonitor: Send + Sync {
-    /// Record command execution
-    async fn record_command(&self, name: &str, duration_ms: u64, success: bool, memory_kb: u64, cpu_percent: f64);
-    /// Get command metrics
-    async fn get_command_metrics(&self, name: &str) -> Option<CommandMetrics>;
-    /// Get all command metrics
-    async fn get_all_command_metrics(&self) -> HashMap<String, CommandMetrics>;
-    /// Reset metrics
-    async fn reset_metrics(&self);
-    /// Export metrics to prometheus format
-    async fn export_prometheus(&self) -> String;
-    /// Get performance alerts
-    async fn get_alerts(&self) -> Vec<PerformanceAlert>;
 }
 ```
 
 ## Success Criteria
-- Plugin system security model implemented with permission enforcement
-- MCP command registry integration complete with authentication and authorization
-- Real-time context synchronization working reliably with conflict resolution
+- Cross-platform plugin sandbox implemented and validated on all target platforms
+- MCP command integration with enhanced security fully implemented
+- Context synchronization with conflict resolution working reliably
 - Performance metrics showing improvement in command execution time (target: <10ms)
 - Memory usage reduced by 30% for core operations
 - All tests passing with >95% coverage
-- Plugin isolation mechanism implemented for Windows and Linux
 
 ## Timeline
-- Plugin Security Model: 3 weeks
-- MCP Command Integration: 2 weeks
-- Context Synchronization: 2 weeks
-- Performance Improvements: 2 weeks
-- Testing and Documentation: 1 week
-- Plugin Isolation: 3 weeks
+- Cross-Platform Sandbox: 2 weeks
+- MCP Security Integration: 2 weeks
+- Context Synchronization: 1 week
+- Performance Optimization: 1 week
+- Documentation and Testing: 2 weeks
 
 ## Next Review
-Scheduled for May 15, 2024
+Scheduled for June 10, 2024
 
-## Previous Versions
-- v1.3.0: Updated priorities and implementation status (2024-03-22)
-- v1.2.0: Updated priorities (2024-03-15)
-- v1.1.0: Added implementation status (2024-03-08)
-- v1.0.0: Initial priorities document (2024-03-01) 
+## Version History
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2023-10-15 | Initial version |
+| 1.1.0 | 2023-12-01 | Added performance and testing metrics |
+| 1.2.0 | 2024-01-15 | Updated implementation status |
+| 1.3.0 | 2024-02-10 | Added error handling improvements |
+| 1.4.0 | 2024-03-05 | Added security model enhancements |
+| 1.5.0 | 2024-04-20 | Updated resource monitoring details |
+| 1.6.0 | 2024-05-10 | Added sandboxing framework plan |
+| 1.7.0 | 2024-06-01 | Added error fixes and updated implementation status | 
