@@ -1,4 +1,4 @@
-use galaxy::{create_adapter_with_config, GalaxyConfig, Error};
+use squirrel_galaxy::{create_adapter_with_config, GalaxyConfig, Error};
 use std::collections::HashMap;
 
 #[tokio::main]
@@ -11,11 +11,11 @@ async fn main() -> Result<(), Error> {
         .with_api_key("YOUR_API_KEY"); // Replace with your actual API key
     
     // Create an adapter with the specified configuration
-    let adapter = create_adapter_with_config(config)?;
+    let adapter = create_adapter_with_config(config).await?;
     
     // First, create a history to store our results
     println!("Creating a new history...");
-    let history = adapter.create_history("Example Tool Execution").await?;
+    let history = adapter.create_history().await?;
     println!("Created history: {} (ID: {})\n", history.metadata.name, history.metadata.id);
     
     // For this example, we'll use a simple text manipulation tool: 'Cut' tool
@@ -52,9 +52,9 @@ async fn main() -> Result<(), Error> {
     // Now let's prepare parameters for the cut tool
     // We want to cut out column 2
     let mut parameters = HashMap::new();
-    parameters.insert("input".to_string(), galaxy::models::ParameterValue::String(dataset.metadata.id.clone()));
-    parameters.insert("columnList".to_string(), galaxy::models::ParameterValue::String("2".to_string()));
-    parameters.insert("delimiter".to_string(), galaxy::models::ParameterValue::String("T".to_string()));
+    parameters.insert("input".to_string(), squirrel_galaxy::models::ParameterValue::String(dataset.metadata.id.clone()));
+    parameters.insert("columnList".to_string(), squirrel_galaxy::models::ParameterValue::String("2".to_string()));
+    parameters.insert("delimiter".to_string(), squirrel_galaxy::models::ParameterValue::String("T".to_string()));
     
     // Execute the tool
     println!("Executing tool: {}", tool_id);

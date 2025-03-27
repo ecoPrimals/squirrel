@@ -74,6 +74,10 @@ pub enum Error {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    /// Invalid parameter
+    #[error("Invalid parameter: {0}")]
+    InvalidParameter(String),
+
     /// MCP integration error
     #[error("MCP integration error: {0}")]
     McpIntegration(String),
@@ -82,9 +86,44 @@ pub enum Error {
     #[error("Internal error: {0}")]
     Internal(String),
     
-    /// Invalid state error
+    /// Error encountered when validating input data
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+
+    /// Error retrieving from storage
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
+    /// Empty response from Galaxy API
+    #[error("Empty response from Galaxy API")]
+    EmptyResponse,
+
+    /// The system is in an invalid state
     #[error("Invalid state: {0}")]
     InvalidState(String),
+    
+    /// Error encountered when using the adapter
+    #[error("Adapter error: {0}")]
+    AdapterError(String),
+
+    /// Error related to serialization or deserialization
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    /// Error parsing data
+    #[error("Parse error: {0}")]
+    ParseError(String),
+
+    /// Error encountered with the Galaxy API
+    #[error("API error: HTTP {status}")]
+    ApiError {
+        /// HTTP status code
+        status: u16,
+    },
+
+    /// I/O error
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 /// Result type for Galaxy operations

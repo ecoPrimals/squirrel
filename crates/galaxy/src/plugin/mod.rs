@@ -98,6 +98,21 @@ pub trait GalaxyDatasetPlugin: GalaxyPlugin {
     
     /// Download a dataset from Galaxy
     async fn download_dataset(&self, dataset_id: &str) -> Result<Vec<u8>, Error>;
+    
+    /// List dataset collections in a history
+    async fn list_collections(&self, history_id: &str) -> Result<Vec<Value>, Error>;
+    
+    /// Get a specific dataset collection by ID
+    async fn get_collection(&self, collection_id: &str) -> Result<Option<Value>, Error>;
+    
+    /// Create a new dataset collection from datasets
+    async fn create_collection(&self, history_id: &str, name: &str, collection_type: &str, dataset_ids: Vec<String>) -> Result<String, Error>;
+    
+    /// Get the elements of a dataset collection
+    async fn get_collection_elements(&self, collection_id: &str) -> Result<Vec<Value>, Error>;
+    
+    /// Delete a dataset collection
+    async fn delete_collection(&self, collection_id: &str) -> Result<(), Error>;
 }
 
 /// Plugin manager for Galaxy plugins
