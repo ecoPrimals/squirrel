@@ -57,10 +57,12 @@ pub mod performance;
 pub mod resource;
 /// Tool-specific metrics collection and tracking
 pub mod tool;
+pub mod types;
 
 // Re-export important types
 pub use tool::ToolMetrics;
 pub use export::MetricExporter;
+pub use types::*;
 
 /// Configuration for the metric collection system
 ///

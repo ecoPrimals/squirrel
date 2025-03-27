@@ -1,77 +1,47 @@
+use std::sync::Arc;
 use std::io;
-use std::time::Duration;
-use std::error::Error;
 
-use clap::{Parser, ArgAction};
-use tokio::runtime::Runtime;
-use tokio::signal;
+use clap::{Parser};
 
 use dashboard_core::{
     config::DashboardConfig,
     service::{DashboardService, DefaultDashboardService},
 };
+
 use ui_terminal::TuiDashboard;
 
-/// Command line arguments for the TUI dashboard
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+/// Terminal UI dashboard
+#[derive(Parser)]
 struct Args {
-    /// Path to configuration file
-    #[clap(short, long, value_name = "FILE")]
-    config: Option<String>,
+    /// Data update interval in seconds
+    #[arg(short, long, default_value_t = 5)]
+    interval: u64,
     
-    /// Set refresh interval in seconds (overrides config)
-    #[clap(short, long, value_name = "SECONDS")]
-    refresh: Option<u64>,
-    
-    /// Enable debug mode
-    #[clap(short, long, action=ArgAction::SetTrue)]
-    debug: bool,
+    /// Number of history points to keep
+    #[arg(short = 'p', long, default_value_t = 1000)]
+    history_points: usize,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> io::Result<()> {
     // Parse command line arguments
     let args = Args::parse();
     
-    // Create tokio runtime
-    let runtime = Runtime::new()?;
+    // Create dashboard configuration with builder pattern
+    let config = DashboardConfig::default()
+        .with_update_interval(args.interval)
+        .with_max_history_points(args.history_points);
     
-    // Enter the runtime context
-    runtime.block_on(async {
-        // Load configuration
-        let mut config = match &args.config {
-            Some(path) => DashboardConfig::from_file(path).await.unwrap_or_default(),
-            None => DashboardConfig::default(),
-        };
-        
-        // Override refresh rate if specified
-        if let Some(refresh) = args.refresh {
-            config.refresh_interval = Duration::from_secs(refresh);
-        }
-        
-        // Set debug mode if specified
-        if args.debug {
-            config.debug = true;
-        }
-        
-        // Create dashboard service
-        let service = DefaultDashboardService::new(config.clone());
-        
-        // Create TUI dashboard
-        let mut dashboard = TuiDashboard::new(service, config)?;
-        
-        // Handle Ctrl+C signal
-        let ctrl_c = signal::ctrl_c();
-        
-        tokio::select! {
-            _ = dashboard.run() => {
-                println!("Dashboard closed");
-            }
-            _ = ctrl_c => {
-                println!("Received Ctrl+C, shutting down");
-            }
-        }
-        
-        Ok(())
-    })
+    // Create dashboard service
+    let dashboard_service_with_rx = DefaultDashboardService::new(config);
+    let (dashboard_service, _rx) = &dashboard_service_with_rx;
+    
+    // Start dashboard service
+    dashboard_service.start().await.unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to start dashboard service: {}", e);
+    });
+    
+    // Create and run terminal UI
+    let mut tui = TuiDashboard::new_from_default_service(dashboard_service_with_rx);
+    tui.run().await
 } 

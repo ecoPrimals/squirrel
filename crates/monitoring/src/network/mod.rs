@@ -6,11 +6,12 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use sysinfo::{System, Networks};
+use sysinfo::{System, Networks, SystemExt, NetworkExt};
 use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
 use tokio::time::{sleep, Duration};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;
@@ -127,7 +128,7 @@ impl NetworkMonitor {
     /// Updates network statistics
     pub async fn update_stats(&self) -> Result<()> {
         // In sysinfo 0.30, Networks is a separate type
-        let networks = Networks::new_with_refreshed_list();
+        let networks = self.system.read().await.networks();
         
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -137,7 +138,7 @@ impl NetworkMonitor {
         let mut prev_stats = self.prev_stats.write().await;
         let mut stats_map = self.stats.write().await;
         
-        for (interface_name, network) in &networks {
+        for (interface_name, network) in networks {
             // Skip if not monitoring all interfaces and this interface is not in the list
             if !self.config.monitor_all_interfaces && !self.config.interfaces.contains(interface_name) {
                 continue;

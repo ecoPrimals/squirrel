@@ -1,10 +1,12 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 use dashboard_core::{
     DashboardData,
     DashboardUpdate,
 };
+use chrono::{DateTime, Utc};
 
 /// Application state for the Terminal UI
 pub struct App {
@@ -34,6 +36,9 @@ pub struct App {
     
     /// Last update time
     last_update: Option<Instant>,
+    
+    /// Metric history data
+    metric_history: HashMap<String, Vec<(DateTime<Utc>, f64)>>,
 }
 
 /// Scroll positions for dashboard components
@@ -81,6 +86,7 @@ impl App {
             scroll_positions: ScrollPositions::default(),
             is_updating: false,
             last_update: None,
+            metric_history: HashMap::new(),
         }
     }
     
@@ -100,7 +106,19 @@ impl App {
             DashboardUpdate::MetricsUpdate { metrics, timestamp } => {
                 if let Some(data) = &mut self.dashboard_data {
                     for (k, v) in metrics {
-                        data.metrics.values.insert(k, v);
+                        data.metrics.values.insert(k.clone(), v);
+                        
+                        // Also update history
+                        let history = self.metric_history
+                            .entry(k)
+                            .or_insert_with(Vec::new);
+                            
+                        history.push((timestamp, v));
+                        
+                        // Limit history to 1000 points
+                        if history.len() > 1000 {
+                            history.remove(0);
+                        }
                     }
                     data.timestamp = timestamp;
                     self.last_update = Some(Instant::now());
@@ -108,6 +126,30 @@ impl App {
             },
             DashboardUpdate::SystemUpdate { system, timestamp } => {
                 if let Some(data) = &mut self.dashboard_data {
+                    // Update CPU history
+                    let cpu_history = self.metric_history
+                        .entry("system.cpu".to_string())
+                        .or_insert_with(Vec::new);
+                        
+                    cpu_history.push((timestamp, system.cpu_usage));
+                    
+                    // Limit history to 1000 points
+                    if cpu_history.len() > 1000 {
+                        cpu_history.remove(0);
+                    }
+                    
+                    // Update memory history
+                    let memory_history = self.metric_history
+                        .entry("system.memory".to_string())
+                        .or_insert_with(Vec::new);
+                        
+                    memory_history.push((timestamp, system.memory_used as f64));
+                    
+                    // Limit history to 1000 points
+                    if memory_history.len() > 1000 {
+                        memory_history.remove(0);
+                    }
+                    
                     data.system = system;
                     data.timestamp = timestamp;
                     self.last_update = Some(Instant::now());
@@ -155,11 +197,20 @@ impl App {
     }
     
     /// Handle terminal events
-    pub fn handle_event(&mut self, event: Event) -> bool {
-        match event {
-            Event::Key(key_event) => self.handle_key_event(key_event),
-            _ => true,
-        }
+    pub fn handle_event(&mut self, key_event: KeyEvent) -> bool {
+        self.handle_key_event(key_event)
+    }
+    
+    /// Handle mouse events
+    pub fn handle_mouse(&mut self, _event: crossterm::event::MouseEvent) -> bool {
+        // For now, just ignore mouse events
+        true
+    }
+    
+    /// Handle terminal resize events
+    pub fn handle_resize(&mut self, _width: u16, _height: u16) -> bool {
+        // For now, just acknowledge the resize
+        true
     }
     
     /// Handle key events
@@ -301,6 +352,15 @@ impl App {
         self.dashboard_data.as_ref()
     }
     
+    /// Get the selected alert index
+    pub fn alerts_selected_index(&self) -> Option<usize> {
+        if self.selected_tab == 4 {  // Alerts tab
+            Some(self.scroll_positions.alerts)
+        } else {
+            None
+        }
+    }
+    
     /// Get the currently selected tab
     pub fn selected_tab(&self) -> usize {
         self.selected_tab
@@ -329,5 +389,12 @@ impl App {
     /// Get the time since the last update
     pub fn time_since_update(&self) -> Option<Duration> {
         self.last_update.map(|t| t.elapsed())
+    }
+    
+    /// Get historical data for a specific metric
+    pub fn get_metric_history(&self, metric_name: &str) -> Option<&[(DateTime<Utc>, f64)]> {
+        self.metric_history
+            .get(metric_name)
+            .map(|data| data.as_slice())
     }
 } 
