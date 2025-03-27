@@ -89,13 +89,17 @@ impl From<RetryError> for ResilienceError {
     fn from(value: RetryError) -> Self {
         match value {
             RetryError::MaxAttemptsExceeded { attempts, error } => {
-                ResilienceError::RetryLimitExceeded(format!(
+                ResilienceError::RetryExceeded(format!(
                     "Maximum retry attempts ({}) exceeded: {}", 
                     attempts, error
                 ))
             },
-            RetryError::Cancelled(msg) => ResilienceError::OperationCancelled(msg),
-            RetryError::Internal(msg) => ResilienceError::InternalError(msg),
+            RetryError::Cancelled(msg) => {
+                ResilienceError::General(format!("Retry operation cancelled: {}", msg))
+            },
+            RetryError::Internal(msg) => {
+                ResilienceError::General(format!("Retry internal error: {}", msg))
+            },
         }
     }
 }

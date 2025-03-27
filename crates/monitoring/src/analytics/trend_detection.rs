@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use chrono::Utc;
 
-use crate::analytics::time_series::{TimeSeriesAnalyzer, TimeWindow, DataPoint, AggregationMethod};
+use crate::analytics::time_series::{TimeSeriesAnalyzer, TimeWindow, DataPoint};
 use crate::analytics::AnalyticsError;
 
 /// Type of trend detected in the data

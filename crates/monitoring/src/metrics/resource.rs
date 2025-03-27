@@ -6,22 +6,17 @@
 //! - Storage usage
 //! - Network bandwidth
 
-use squirrel_core::error::{Result, SquirrelError};
-use crate::metrics::{Metric, MetricCollector, MetricType};
+use squirrel_core::error::Result;
+use crate::metrics::{Metric, MetricType};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use sysinfo::{System, SystemExt, CpuExt, NetworkExt, Networks, ProcessStatus, Pid, Disk, DiskExt, Process, ProcessExt, PidExt};
-use async_trait::async_trait;
+use sysinfo::{System, SystemExt, CpuExt, NetworkExt, ProcessStatus, DiskExt, Process, ProcessExt, PidExt};
 use crate::metrics::performance::PerformanceCollectorAdapter;
 use chrono;
-use std::time::Duration;
-use chrono::{DateTime, Utc};
-use tokio::time;
-use tracing::{debug, error, info};
 use sysinfo::{NetworksExt};
 use crate::metrics::types::{
     CpuMetrics, DiskMetrics, MemoryMetrics, MetricsCollectorFactory,

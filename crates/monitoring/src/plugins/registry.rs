@@ -10,7 +10,6 @@ use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use tracing::{debug, error, info};
 use uuid::Uuid;
-use crate::plugins::common::PluginMetadata;
 
 use super::common::MonitoringPlugin;
 

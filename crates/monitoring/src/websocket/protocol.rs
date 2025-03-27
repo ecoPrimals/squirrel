@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use crate::websocket::messages::{ServerMessage, ClientAction, ClientMessage, error_codes};
-use squirrel_core::error::{Result, SquirrelError};
+use squirrel_core::error::Result;
 
 /// WebSocket protocol handler for processing client messages
 #[derive(Debug)]

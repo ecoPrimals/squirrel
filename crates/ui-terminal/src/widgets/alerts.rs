@@ -2,7 +2,7 @@ use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans},
+    text::{Span, Text},
     widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, Tabs},
     Frame,
 };
@@ -166,7 +166,7 @@ impl<'a> AlertsWidget<'a> {
             .unwrap_or(0);
         
         let tabs = Tabs::new(filter_names.iter().map(|name| {
-                Spans::from(vec![Span::styled(name, Style::default())])
+                Text::from(name)
             }).collect())
             .select(current_idx)
             .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -290,11 +290,11 @@ impl<'a> AlertsWidget<'a> {
         };
         
         let summary = Paragraph::new(vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::styled("Alert: ", Style::default().fg(Color::Yellow)),
                 Span::styled(&alert.message, Style::default().fg(Color::White)),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::styled("Severity: ", Style::default().fg(Color::Yellow)),
                 Span::styled(&alert.severity, Style::default().fg(severity_color)),
             ]),
@@ -302,7 +302,7 @@ impl<'a> AlertsWidget<'a> {
         
         // Time info
         let time_info = Paragraph::new(vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::styled("Created: ", Style::default().fg(Color::Yellow)),
                 Span::styled(format_time(&alert.timestamp), Style::default().fg(Color::White)),
             ])
@@ -324,12 +324,12 @@ impl<'a> AlertsWidget<'a> {
         };
         
         let status = Paragraph::new(vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::styled("Status: ", Style::default().fg(Color::Yellow)),
                 Span::styled(if alert.acknowledged { "Acknowledged" } else { "Active" }, 
                              Style::default().fg(status_color)),
             ]),
-            Spans::from(status_text),
+            Text::from(status_text),
         ]).block(Block::default().borders(Borders::ALL).title("Status"));
         
         // Details - could be long text
@@ -340,7 +340,7 @@ impl<'a> AlertsWidget<'a> {
         
         // Actions
         let actions = Paragraph::new(vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::styled("Press ", Style::default().fg(Color::Gray)),
                 Span::styled("A", Style::default().fg(Color::Yellow)),
                 Span::styled(" to acknowledge, ", Style::default().fg(Color::Gray)),

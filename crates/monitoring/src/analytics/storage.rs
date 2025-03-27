@@ -4,14 +4,11 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use thiserror::Error;
-use std::io::{Read, Write};
-use std::fs::{File, create_dir_all};
-use chrono::{DateTime, Utc};
-use tracing::{debug, error};
+use std::io::Write;
+use std::fs::create_dir_all;
+use tracing::error;
 
 use crate::analytics::time_series::DataPoint;
 
@@ -375,7 +372,7 @@ impl AnalyticsStorage {
                 
                 // If we have old data, downsample it
                 if old_data_index > 0 {
-                    let mut old_data: Vec<DataPoint> = data_points.drain(0..old_data_index).collect();
+                    let old_data: Vec<DataPoint> = data_points.drain(0..old_data_index).collect();
                     
                     // Simple downsampling: group by time buckets and average values
                     let bucket_size = downsample_interval_ms / 100;

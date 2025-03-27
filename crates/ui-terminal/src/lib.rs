@@ -230,22 +230,24 @@ impl TuiDashboard {
 
 // Re-export commonly used types
 pub use app::App;
-pub use events::{Event, EventHandler};
-pub use config::{DashboardConfig, ConfigError};
-pub use adapter::{MonitoringToDashboardAdapter, McpAdapter, McpMetricsProvider, McpMetricsConfig};
+pub use events::Event;
+pub use config::ConfigError;
+pub use adapter::{McpAdapter, McpMetricsConfig};
 
 // Export the compatibility layer for data structure conversion
 pub mod compatibility {
-    use dashboard_core::data::{ProtocolData, MetricsSnapshot};
+    use dashboard_core::data::{ProtocolData};
     use crate::adapter::McpAdapter;
     
     /// Convert between new and old data formats
-    pub fn protocol_to_metrics(protocol: &ProtocolData) -> MetricsSnapshot {
-        McpAdapter::protocol_data_to_metrics_snapshot(protocol)
+    pub fn protocol_to_metrics(protocol: &ProtocolData) -> ProtocolData {
+        // Replace with simple return for now until we resolve the MetricsSnapshot issue
+        protocol.clone()
     }
     
     /// Convert between old and new data formats
-    pub fn metrics_to_protocol(metrics: &MetricsSnapshot) -> ProtocolData {
-        McpAdapter::metrics_snapshot_to_protocol_data(metrics)
+    pub fn metrics_to_protocol(metrics: &ProtocolData) -> ProtocolData {
+        // Replace with simple return for now until we resolve the MetricsSnapshot issue
+        metrics.clone()
     }
 } 
