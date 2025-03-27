@@ -248,19 +248,19 @@ impl ResourceMetricsCollector {
     /// Helper method for storage usage that works with RwLockReadGuard
     async fn calculate_storage_usage_locked(&self, team_path: &Path) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_storage_usage(system, team_path)
+        Self::calculate_storage_usage(&system, team_path)
     }
 
     /// Helper method for disk IO that works with RwLockReadGuard
     async fn calculate_disk_io_locked(&self, team_path: &Path) -> DiskIOStats {
         let system = self.system.read().await;
-        Self::calculate_disk_io(system, team_path)
+        Self::calculate_disk_io(&system, team_path)
     }
 
     /// Helper method for CPU usage that works with RwLockReadGuard
     async fn calculate_cpu_usage_locked(&self, team_name: &str) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_cpu_usage(system, team_name)
+        Self::calculate_cpu_usage(&system, team_name)
     }
 
     /// Helper method for network bandwidth that works with RwLockReadGuard
@@ -656,6 +656,70 @@ impl ResourceMetricsCollector {
         
         Ok(results)
     }
+
+    pub fn calculate_team_metrics(
+        &self,
+        team_name: &str,
+        team_path: &Path,
+    ) -> std::result::Result<TeamResourceMetrics, MetricsError> {
+        // Try to get a read lock on the system data
+        match self.system.try_read() {
+            Ok(system) => {
+                let mut metrics = TeamResourceMetrics {
+                    team_id: team_name.to_string(),
+                    cpu_usage: 0.0,
+                    memory_usage: 0.0,
+                    storage_usage: 0.0,
+                    disk_io: 0.0,
+                    network_bandwidth: 0.0,
+                    thread_count: 0,
+                    processes: Vec::new(),
+                    timestamp: chrono::Utc::now(),
+                    labels: HashMap::new(),
+                };
+
+                // Calculate disk usage
+                metrics.storage_usage = Self::calculate_storage_usage(&system, team_path);
+                
+                // Calculate disk IO
+                let disk_io_stats = Self::calculate_disk_io(&system, team_path);
+                metrics.disk_io = disk_io_stats.reads_per_sec + disk_io_stats.writes_per_sec;
+                
+                // Calculate CPU usage
+                metrics.cpu_usage = Self::calculate_cpu_usage(&system, team_name);
+                
+                // Calculate network bandwidth
+                // Create a persistent System instance to ensure networks remain valid
+                let mut sys = System::new();
+                sys.refresh_networks();
+                let networks = sys.networks();
+                
+                // Calculate total bandwidth across all network interfaces
+                let bandwidth: f64 = networks.iter()
+                    .map(|(_, network)| {
+                        let received = network.total_received() as f64;
+                        let transmitted = network.total_transmitted() as f64;
+                        received + transmitted
+                    })
+                    .sum();
+                metrics.network_bandwidth = bandwidth;
+                
+                // Count processes and gather process info
+                let team_processes = Self::get_team_processes(&system, team_name);
+                metrics.processes = team_processes.iter()
+                    .map(|p| Self::collect_process_info(p))
+                    .collect();
+                
+                // Count threads
+                metrics.thread_count = team_processes.iter()
+                    .map(|_| 1u32)
+                    .sum();
+                
+                Ok(metrics)
+            },
+            Err(_) => Err(MetricsError::NotInitialized),
+        }
+    }
 }
 
 impl Clone for ResourceMetricsCollector {
@@ -705,128 +769,190 @@ impl Default for ResourceConfig {
 pub struct ResourceMetricsCollectorFactory;
 
 impl ResourceMetricsCollectorFactory {
-    /// Creates a new factory with default configuration
-    #[must_use] pub fn new() -> Self {
-        Self {
-            config: ResourceConfig::default(),
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
-    /// Creates a new factory with the specified configuration
-    #[must_use] pub const fn with_config(config: ResourceConfig) -> Self {
-        Self { config }
+    pub fn with_config(_config: ResourceConfig) -> Self {
+        Self {}
     }
 
-    /// Creates a new collector instance with dependency injection
-    ///
-    /// # Arguments
-    /// * `performance_collector` - Optional performance collector adapter
-    ///
-    /// # Returns
-    /// A new ResourceMetricsCollector instance wrapped in an Arc
-    #[must_use]
-    pub fn create_collector_with_dependencies(
-        &self,
-        performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
-    ) -> Arc<ResourceMetricsCollector> {
-        Arc::new(ResourceMetricsCollector::with_dependencies(
-            self.config.clone(),
-            performance_collector,
-        ))
-    }
-
-    /// Creates a new collector instance with the default configuration
-    #[must_use]
     pub fn create_collector(&self) -> Arc<ResourceMetricsCollector> {
-        self.create_collector_with_dependencies(None)
+        Arc::new(ResourceMetricsCollector::new())
+    }
+    
+    pub fn create_collector_with_config(&self, config: ResourceConfig) -> Arc<ResourceMetricsCollector> {
+        Arc::new(ResourceMetricsCollector::with_config(config))
     }
 
-    /// Creates a new collector adapter
-    #[must_use]
     pub fn create_collector_adapter(&self) -> Arc<ResourceMetricsCollectorAdapter> {
         let collector = self.create_collector();
         Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
     }
 }
 
+// Create ResourceMetricsCollectorAdapter again for backward compatibility
+pub struct ResourceMetricsCollectorAdapter {
+    collector: Arc<ResourceMetricsCollector>,
+}
+
+impl ResourceMetricsCollectorAdapter {
+    pub fn new() -> Self {
+        Self {
+            collector: Arc::new(ResourceMetricsCollector::new()),
+        }
+    }
+
+    pub fn with_collector(collector: Arc<ResourceMetricsCollector>) -> Self {
+        Self { collector }
+    }
+}
+
 impl ResourceMetricsCollectorTrait for ResourceMetricsCollectorAdapter {
-    fn collect_cpu_metrics(&mut self) -> Result<CpuMetrics, MetricsError> {
-        if let Some(collector) = &self.inner {
-            let system_metrics = collector.collect_system_metrics()?;
-            
-            Ok(CpuMetrics {
-                usage_percentage: system_metrics.cpu_usage as f32,
-                // You might want to add more detailed CPU metrics here
-            })
-        } else {
-            Err(MetricsError::NotInitialized)
+    fn collect_cpu_metrics(&mut self) -> std::result::Result<CpuMetrics, MetricsError> {
+        match self.collector.system.try_read() {
+            Ok(system) => {
+                // Note: we can't refresh with a read guard, using current data
+                let cpu_metrics = CpuMetrics {
+                    usage_percentage: system.global_cpu_info().cpu_usage(),
+                };
+                Ok(cpu_metrics)
+            },
+            Err(_) => Err(MetricsError::NotInitialized),
         }
     }
-    
-    fn collect_memory_metrics(&mut self) -> Result<MemoryMetrics, MetricsError> {
-        if let Some(collector) = &self.inner {
-            let system = System::new_all();
-            
-            let total_memory = system.total_memory();
-            let used_memory = system.used_memory();
-            let available_memory = total_memory - used_memory;
-            let usage_percentage = if total_memory > 0 {
-                (used_memory as f64 / total_memory as f64) * 100.0
+
+    fn collect_memory_metrics(&mut self) -> std::result::Result<MemoryMetrics, MetricsError> {
+        match self.collector.system.try_read() {
+            Ok(system) => {
+                // Note: we can't refresh with a read guard, using current data
+                let total = system.total_memory();
+                let used = system.used_memory();
+                let available = system.available_memory();
+                let usage_percentage = if total > 0 {
+                    (used as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+                
+                let memory_metrics = MemoryMetrics {
+                    total_bytes: total,
+                    used_bytes: used,
+                    available_bytes: available,
+                    usage_percentage,
+                };
+                Ok(memory_metrics)
+            },
+            Err(_) => Err(MetricsError::NotInitialized),
+        }
+    }
+
+    fn collect_disk_metrics(&mut self) -> std::result::Result<Vec<DiskMetrics>, MetricsError> {
+        match self.collector.system.try_read() {
+            Ok(system) => {
+                // Note: we can't refresh with a read guard, using current data
+                let disk_metrics = system.disks().iter().map(|disk| {
+                    let total = disk.total_space();
+                    let available = disk.available_space();
+                    let used = total - available;
+                    let usage_percentage = if total > 0 {
+                        (used as f64 / total as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+                    
+                    DiskMetrics {
+                        name: disk.name().to_string_lossy().to_string(),
+                        mount_point: disk.mount_point().to_string_lossy().to_string(),
+                        total_bytes: total,
+                        used_bytes: used,
+                        available_bytes: available,
+                        usage_percentage,
+                    }
+                }).collect();
+                Ok(disk_metrics)
+            },
+            Err(_) => Err(MetricsError::NotInitialized),
+        }
+    }
+
+    fn collect_network_metrics(&mut self) -> std::result::Result<Vec<NetworkMetrics>, MetricsError> {
+        match self.collector.system.try_read() {
+            Ok(system) => {
+                // Note: we can't refresh with a read guard, using current data
+                let network_metrics = system.networks().iter().map(|(name, network)| {
+                    NetworkMetrics {
+                        interface: name.clone(),
+                        received_bytes: network.total_received(),
+                        transmitted_bytes: network.total_transmitted(),
+                    }
+                }).collect();
+                Ok(network_metrics)
+            },
+            Err(_) => Err(MetricsError::NotInitialized),
+        }
+    }
+}
+
+// Define methods for calculating specific metrics
+impl ResourceMetricsCollector {
+    /// Calculate CPU metrics
+    fn calculate_cpu_metrics(system: &System) -> CpuMetrics {
+        CpuMetrics {
+            usage_percentage: system.global_cpu_info().cpu_usage(),
+        }
+    }
+
+    /// Calculate memory metrics
+    fn calculate_memory_metrics(system: &System) -> MemoryMetrics {
+        let total = system.total_memory();
+        let used = system.used_memory();
+        let available = system.available_memory();
+        let usage_percentage = if total > 0 {
+            (used as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        MemoryMetrics {
+            total_bytes: total,
+            used_bytes: used,
+            available_bytes: available,
+            usage_percentage,
+        }
+    }
+
+    /// Calculate disk metrics
+    fn calculate_disk_metrics(system: &System) -> Vec<DiskMetrics> {
+        system.disks().iter().map(|disk| {
+            let total = disk.total_space();
+            let available = disk.available_space();
+            let used = total - available;
+            let usage_percentage = if total > 0 {
+                (used as f64 / total as f64) * 100.0
             } else {
                 0.0
             };
             
-            Ok(MemoryMetrics {
-                total_bytes: total_memory,
-                used_bytes: used_memory,
-                available_bytes: available_memory,
-                usage_percentage,
-            })
-        } else {
-            Err(MetricsError::NotInitialized)
-        }
-    }
-    
-    fn collect_disk_metrics(&mut self) -> Result<Vec<DiskMetrics>, MetricsError> {
-        let mut disk_metrics = Vec::new();
-        let system = System::new_all();
-        
-        for disk in system.disks() {
-            let total_space = disk.total_space();
-            let available_space = disk.available_space();
-            let used_space = total_space - available_space;
-            let usage_percentage = if total_space > 0 {
-                (used_space as f64 / total_space as f64) * 100.0
-            } else {
-                0.0
-            };
-            
-            disk_metrics.push(DiskMetrics {
+            DiskMetrics {
                 name: disk.name().to_string_lossy().to_string(),
                 mount_point: disk.mount_point().to_string_lossy().to_string(),
-                total_bytes: total_space,
-                used_bytes: used_space,
-                available_bytes: available_space,
+                total_bytes: total,
+                used_bytes: used,
+                available_bytes: available,
                 usage_percentage,
-            });
-        }
-        
-        Ok(disk_metrics)
+            }
+        }).collect()
     }
-    
-    fn collect_network_metrics(&mut self) -> Result<Vec<NetworkMetrics>, MetricsError> {
-        let mut network_metrics = Vec::new();
-        let system = System::new_all();
-        
-        for (interface_name, network) in system.networks() {
-            network_metrics.push(NetworkMetrics {
-                interface: interface_name.to_string(),
-                received_bytes: network.received(),
-                transmitted_bytes: network.transmitted(),
-                // Add more network metrics as needed
-            });
-        }
-        
-        Ok(network_metrics)
+
+    /// Calculate network metrics
+    fn calculate_network_metrics(system: &System) -> Vec<NetworkMetrics> {
+        system.networks().iter().map(|(name, network)| {
+            NetworkMetrics {
+                interface: name.clone(),
+                received_bytes: network.total_received(),
+                transmitted_bytes: network.total_transmitted(),
+            }
+        }).collect()
     }
 }
