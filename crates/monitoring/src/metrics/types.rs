@@ -10,6 +10,8 @@ pub enum MetricsError {
     ProcessingError(String),
     /// System-specific error
     SystemError(String),
+    /// Component not initialized
+    NotInitialized,
 }
 
 impl fmt::Display for MetricsError {
@@ -18,6 +20,7 @@ impl fmt::Display for MetricsError {
             MetricsError::CollectionError(msg) => write!(f, "Metrics collection error: {}", msg),
             MetricsError::ProcessingError(msg) => write!(f, "Metrics processing error: {}", msg),
             MetricsError::SystemError(msg) => write!(f, "System error: {}", msg),
+            MetricsError::NotInitialized => write!(f, "Component not initialized"),
         }
     }
 }
@@ -88,7 +91,10 @@ pub trait ResourceMetricsCollector: Send + Sync {
 }
 
 /// Factory trait for creating metrics collectors
-pub trait MetricsCollectorFactory<T: ?Sized>: Send + Sync {
+pub trait MetricsCollectorFactory<T>: Send + Sync 
+where 
+    T: ResourceMetricsCollector + ?Sized 
+{
     /// Create a new metrics collector
-    fn create(&self) -> Box<dyn T>;
+    fn create(&self) -> Box<T>;
 } 
