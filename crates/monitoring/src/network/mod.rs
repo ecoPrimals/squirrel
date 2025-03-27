@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use sysinfo::{System, Networks, SystemExt, NetworkExt};
+use sysinfo::{System, SystemExt, NetworkExt, Networks, NetworksExt};
 use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
@@ -127,8 +127,10 @@ impl NetworkMonitor {
     
     /// Updates network statistics
     pub async fn update_stats(&self) -> Result<()> {
-        // In sysinfo 0.30, Networks is a separate type
-        let networks = self.system.read().await.networks();
+        let mut system = self.system.write().await;
+        system.refresh_networks();
+        
+        let networks = system.networks();
         
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -144,9 +146,9 @@ impl NetworkMonitor {
                 continue;
             }
             
-            // In sysinfo 0.30, the methods don't have the get_ prefix
-            let rx_bytes = network.total_received();
-            let tx_bytes = network.total_transmitted();
+            // Get network metrics
+            let rx_bytes = network.received();
+            let tx_bytes = network.transmitted();
             
             // Calculate rates based on previous readings
             let (rx_bytes_per_sec, tx_bytes_per_sec) = if let Some(prev) = prev_stats.get(interface_name) {
@@ -169,10 +171,10 @@ impl NetworkMonitor {
                 tx_bytes,
                 rx_bytes_per_sec,
                 tx_bytes_per_sec,
-                rx_packets: Some(network.total_packets_received()),
-                tx_packets: Some(network.total_packets_transmitted()),
-                rx_errors: Some(network.total_errors_on_received()),
-                tx_errors: Some(network.total_errors_on_transmitted()),
+                rx_packets: Some(network.packets_received()),
+                tx_packets: Some(network.packets_transmitted()),
+                rx_errors: Some(network.errors_on_received()),
+                tx_errors: Some(network.errors_on_transmitted()),
                 last_updated: now,
             };
             

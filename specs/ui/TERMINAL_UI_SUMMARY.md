@@ -35,6 +35,13 @@ We have successfully implemented:
    - Configurable update interval
    - History points configuration
    - Built on clap for standardized CLI experience
+   - Integrated monitoring mode option
+
+6. **Monitoring Integration**
+   - MonitoringToDashboardAdapter for metrics conversion
+   - Seamless connection with monitoring crate
+   - Real-time system metrics collection
+   - Proper resource metric formatting and display
 
 ## Architecture
 
@@ -51,12 +58,28 @@ The Terminal UI implementation follows a clean architecture:
 │  Metrics        │     │      UI         │
 │  Collection     │     │    Rendering    │
 └─────────────────┘     └─────────────────┘
+        ▲
+        │
+┌─────────────────┐
+│   Monitoring    │
+│    Adapter      │
+└─────────────────┘
 ```
 
 - **Dashboard Core**: Provides metrics collection, configuration, and state management
 - **Terminal UI**: Renders the UI based on the current state from Dashboard Core
 - **Event System**: Processes keyboard events and updates UI accordingly
 - **Update Loop**: Asynchronously updates the UI with new metrics data
+- **Monitoring Adapter**: Connects monitoring crate with dashboard-core for data conversion
+
+## Integration Strategy
+
+The UI implementation integrates with the monitoring system through:
+
+1. **Adapter Pattern**: MonitoringToDashboardAdapter converts between different data formats
+2. **Real-time Updates**: Metrics are collected and pushed to the UI in real-time 
+3. **Common Interface**: The DashboardService interface abstracts underlying data sources
+4. **Data Conversion**: System metrics are properly formatted and matched to dashboard models
 
 ## Testing Strategy
 
@@ -71,27 +94,28 @@ Testing for the Terminal UI implementation includes:
 
 Areas requiring attention include:
 
-1. **Missing Traits**: Several imports need to be added to fix compilation issues with sysinfo traits
-2. **Test Coverage**: Expand the test suite for better coverage
-3. **Error Handling**: Improve error handling in metrics collection
-4. **Documentation**: Additional code documentation needed
+1. **Missing Traits**: Added required sysinfo traits imports
+2. **Resource Access Methods**: Updated to properly use system object methods
+3. **Resource-to-Dashboard Conversion**: Implemented proper adapter pattern
+4. **Test Coverage**: Expand the test suite for better coverage
+5. **Error Handling**: Improve error handling in metrics collection
+6. **Documentation**: Additional code documentation needed
 
 ## Next Steps
 
 Planned work for the next phase includes:
 
-1. **Fix Compilation Issues**: Address missing traits and other build errors
-2. **Complete Protocol Tab**: Implement protocol monitoring
-3. **Implement Alerts System**: Add alert management UI
-4. **Add Network Monitoring**: Complete network monitoring tab
-5. **Theme Support**: Add customizable themes
-6. **User Configuration**: Save and load user preferences
-7. **Export Capabilities**: Allow exporting metrics data
+1. **Complete Protocol Tab**: Implement protocol monitoring
+2. **Implement Alerts System**: Add alert management UI
+3. **Add Network Monitoring**: Complete network monitoring tab
+4. **Theme Support**: Add customizable themes
+5. **User Configuration**: Save and load user preferences
+6. **Export Capabilities**: Allow exporting metrics data
 
 ## Conclusion
 
-The Terminal UI implementation has established a solid foundation for a powerful terminal-based monitoring dashboard. The modular architecture allows for easy extension and customization. With the core functionality in place, future work will focus on feature completion, optimization, and refinement of the user experience.
+The Terminal UI implementation has established a solid foundation for a powerful terminal-based monitoring dashboard. The integration with the monitoring system is now complete, providing real-time metrics display with proper data conversion. The modular architecture allows for easy extension and customization. With the core functionality in place, future work will focus on feature completion, optimization, and refinement of the user experience.
 
 ---
 
-Last Updated: July 18, 2024 
+Last Updated: July 19, 2024 

@@ -1,14 +1,13 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::Rect,
+    style::{Color, Style},
     symbols,
     text::{Span, Line as Spans},
     widgets::{Axis, Block, Borders, Chart as RatatuiChart, Dataset, GraphType, Widget},
 };
 
 use chrono::{DateTime, Utc};
-use std::time::Duration;
 
 /// Chart widget for displaying time-series data
 pub struct ChartWidget<'a> {

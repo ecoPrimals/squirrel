@@ -17,6 +17,7 @@ This document details the progress of the Terminal UI implementation for the Squ
   - `config()` - Access dashboard configuration
   - `start()` - Begin metrics collection with configured interval
   - `stop()` - Halt metrics collection
+  - `update_dashboard_data()` - Update dashboard with new metrics data
 
 ### Terminal UI Core
 
@@ -32,6 +33,7 @@ This document details the progress of the Terminal UI implementation for the Squ
 - **Sparkline Widget**: Added compact sparkline for trend visualization
 - **Gauge Widget**: Created gauge widget for utilization metrics
 - **Table Widget**: Implemented sortable, filterable table widget
+- **Protocol Widget**: Added specialized protocol metrics visualization with message, transaction, and error statistics
 
 ### Dashboard Tabs
 
@@ -41,9 +43,14 @@ This document details the progress of the Terminal UI implementation for the Squ
   - Memory usage chart
   - Disk I/O metrics
   - Network throughput
-- **Empty placeholder tabs**: Added structure for Protocol, Tools, Alerts, and Network tabs
+- **Protocol Tab**: Implemented protocol monitoring tab with:
+  - Message statistics (count and rate)
+  - Transaction statistics (count and rate)
+  - Error monitoring with severity color-coding
+  - Latency distribution visualization
+- **Empty placeholder tabs**: Added structure for Tools, Alerts, and Network tabs
 
-## Data Models
+### Data Models
 
 - **SystemMetrics**: Implemented comprehensive system metrics model
 - **MetricsHistory**: Created historical metrics storage with timestamps
@@ -52,13 +59,44 @@ This document details the progress of the Terminal UI implementation for the Squ
   - History retention
   - Display preferences
 
-## Integration Points
+### Integration Points
 
 - **Dashboard Core <-> Terminal UI**: Implemented real-time metrics flow
 - **Real-time Updates**: Added asynchronous update mechanism
 - **CLI Arguments**: Implemented command-line configuration for:
   - Update interval (`--interval`)
   - History points (`--history-points`)
+  - Monitoring mode (`--monitoring`)
+- **Monitoring Integration**: Implemented adapter to connect monitoring system with dashboard:
+  - Added `MonitoringToDashboardAdapter` to convert metrics formats
+  - Implemented proper resource metrics collection and conversion
+  - Created integration pattern for real-time metrics collection
+  - Added `ProtocolMetricsAdapter` for protocol monitoring integration
+
+## Recent Updates
+
+1. **Protocol Tab Implementation**:
+   - Created dedicated `ProtocolWidget` for protocol metrics visualization
+   - Implemented protocol metrics collection with the `ProtocolMetricsAdapter`
+   - Added message and transaction statistics display
+   - Implemented error monitoring with severity indicators
+   - Added latency distribution visualization
+
+2. **Monitoring Integration**:
+   - Fixed sysinfo traits import issues in monitoring crate
+   - Implemented proper resource access methods
+   - Created `MonitoringToDashboardAdapter` for seamless integration
+   - Added integrated monitoring mode to the terminal UI
+
+3. **Resource Metrics Collection**:
+   - Fixed `ResourceMetricsCollectorAdapter` implementation
+   - Added proper CPU, memory, disk, and network metrics collection
+   - Implemented clean conversion between monitoring and dashboard formats
+
+4. **User Experience Improvements**:
+   - Added command-line flag for integrated monitoring mode
+   - Improved error handling for dashboard data updates
+   - Enhanced terminal UI initialization and teardown
 
 ## Next Steps
 
@@ -73,9 +111,8 @@ This document details the progress of the Terminal UI implementation for the Squ
    - Create help overlay
 
 3. **Dashboard Features**:
-   - Complete Protocol tab
-   - Implement Alerts system
-   - Add Tools tab functionality
+   - Complete Alerts tab
+   - Implement Tools tab functionality
    - Develop Network monitoring tab
 
 4. **Integration**:
@@ -91,4 +128,4 @@ This document details the progress of the Terminal UI implementation for the Squ
 
 ---
 
-Last Updated: July 18, 2024 
+Last Updated: July 21, 2024 

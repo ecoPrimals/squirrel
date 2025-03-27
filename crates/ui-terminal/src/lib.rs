@@ -10,6 +10,10 @@ pub mod ui;
 pub mod widgets;
 pub mod events;
 pub mod util;
+pub mod adapter;
+
+#[cfg(test)]
+mod tests;
 
 use std::io;
 use std::sync::Arc;
@@ -31,7 +35,10 @@ use dashboard_core::{
     DashboardService,
     DashboardUpdate,
     service::DefaultDashboardService,
+    config::DashboardConfig,
 };
+
+use adapter::MonitoringToDashboardAdapter;
 
 /// Terminal UI Dashboard
 pub struct TuiDashboard {
@@ -46,6 +53,9 @@ pub struct TuiDashboard {
     
     /// UI tick rate (for animations and non-input updates)
     tick_rate: Duration,
+    
+    /// Monitoring to Dashboard adapter
+    monitoring_adapter: Option<MonitoringToDashboardAdapter>,
 }
 
 impl TuiDashboard {
@@ -56,6 +66,29 @@ impl TuiDashboard {
             app: app::App::new(),
             update_rx: None,
             tick_rate: Duration::from_millis(250),
+            monitoring_adapter: None,
+        }
+    }
+    
+    /// Create a new TUI dashboard with monitoring adapter
+    pub fn new_with_monitoring() -> Self {
+        // Create default dashboard config
+        let config = DashboardConfig::default()
+            .with_update_interval(5) // 5 seconds
+            .with_max_history_points(1000);
+        
+        // Create dashboard service
+        let (dashboard_service, rx) = DefaultDashboardService::new(config);
+        
+        // Create monitoring adapter
+        let monitoring_adapter = MonitoringToDashboardAdapter::new();
+        
+        Self {
+            dashboard_service: dashboard_service.clone(),
+            app: app::App::new(),
+            update_rx: Some(rx),
+            tick_rate: Duration::from_millis(250),
+            monitoring_adapter: Some(monitoring_adapter),
         }
     }
     
@@ -66,8 +99,14 @@ impl TuiDashboard {
     
     /// Create a new TUI dashboard from a DefaultDashboardService tuple with receiver
     pub fn new_from_default_service(dashboard_service_tuple: (Arc<DefaultDashboardService>, mpsc::Receiver<DashboardUpdate>)) -> Self {
-        let (dashboard_service, _rx) = dashboard_service_tuple;
-        Self::new(dashboard_service as Arc<dyn DashboardService>)
+        let (dashboard_service, rx) = dashboard_service_tuple;
+        Self {
+            dashboard_service: dashboard_service.clone(),
+            app: app::App::new(),
+            update_rx: Some(rx),
+            tick_rate: Duration::from_millis(250),
+            monitoring_adapter: None,
+        }
     }
     
     /// Run the dashboard UI
@@ -79,8 +118,10 @@ impl TuiDashboard {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         
-        // Subscribe to dashboard updates
-        self.update_rx = Some(self.dashboard_service.subscribe().await);
+        // Subscribe to dashboard updates if not already subscribed
+        if self.update_rx.is_none() {
+            self.update_rx = Some(self.dashboard_service.subscribe().await);
+        }
         
         // Load initial dashboard data
         match self.dashboard_service.get_dashboard_data().await {
@@ -89,7 +130,25 @@ impl TuiDashboard {
         }
         
         // Start events handling
-        let mut events = events::Events::new(Duration::from_millis(100));
+        let mut events = events::Events::new(self.tick_rate);
+        
+        // Start monitoring adapter if available
+        if let Some(mut adapter) = self.monitoring_adapter.take() {
+            let dashboard_service_clone = self.dashboard_service.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+                
+                loop {
+                    interval.tick().await;
+                    
+                    // Collect dashboard data from monitoring
+                    let data = adapter.collect_dashboard_data();
+                    
+                    // Update dashboard
+                    let _ = dashboard_service_clone.update_dashboard_data(data).await;
+                }
+            });
+        }
         
         // Main loop
         loop {

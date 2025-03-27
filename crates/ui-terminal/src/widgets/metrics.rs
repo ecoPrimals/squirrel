@@ -1,12 +1,12 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Span, Line as Spans, Text},
+    layout::Rect,
+    style::{Color, Style},
+    text::{Span, Line as Spans},
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use dashboard_core::data::{SystemSnapshot, MetricsSnapshot};
+use dashboard_core::data::MetricsSnapshot;
 use crate::util;
 use std::time::Duration;
 

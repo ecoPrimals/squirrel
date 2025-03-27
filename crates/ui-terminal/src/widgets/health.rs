@@ -2,8 +2,8 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans, Text},
-    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget, Gauge},
+    text::{Span, Line as Spans},
+    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget},
 };
 
 use chrono::{DateTime, Utc};
@@ -118,7 +118,7 @@ impl<'a> Widget for HealthWidget<'a> {
             .split(inner_area);
         
         // Render overall status
-        let overall_text = format!("Overall: {}", get_status_name(overall_status));
+        let _overall_text = format!("Overall: {}", get_status_name(overall_status));
         let overall_spans = Spans::from(vec![
             Span::raw("Overall: "),
             Span::styled(

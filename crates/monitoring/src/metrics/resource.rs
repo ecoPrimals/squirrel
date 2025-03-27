@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use sysinfo::{System, Process, Networks, ProcessStatus, Pid, Disk, DiskExt};
+use sysinfo::{System, Process, Networks, ProcessStatus, Pid, Disk, DiskExt, Disks};
 use async_trait::async_trait;
 use crate::metrics::performance::PerformanceCollectorAdapter;
 use chrono;
@@ -22,7 +22,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use tokio::time;
 use tracing::{debug, error, info};
-use sysinfo::{SystemExt, ProcessExt, NetworkExt, CpuExt, PidExt};
+use sysinfo::{SystemExt, ProcessExt, NetworkExt, CpuExt, PidExt, NetworksExt, DiskUsageExt};
 use crate::metrics::types::{
     CpuMetrics, DiskMetrics, MemoryMetrics, MetricsCollectorFactory,
     MetricsError, NetworkMetrics, ResourceMetricsCollector as ResourceMetricsCollectorTrait
@@ -298,11 +298,10 @@ impl ResourceMetricsService {
 
     /// Calculate disk I/O statistics for a team's workspace
     fn calculate_disk_io(system: &System, path: &Path) -> DiskIOStats {
-        // Create a fresh Disks instance with refreshed data
-        let disks = system.disks();
+        let disks_info = system.disks();
         
         // Calculate disk I/O for the given path
-        let disk_io = disks.iter()
+        let disk_io = disks_info.iter()
             .filter(|disk| Path::new(disk.mount_point()).starts_with(path))
             .fold(DiskIOStats::default(), |mut acc, disk| {
                 // In sysinfo 0.30, disks don't provide direct read/write bytes
@@ -711,25 +710,78 @@ impl MetricsCollectorFactory<ResourceMetricsService> for ResourceMetricsCollecto
     }
 }
 
+/// Adapter for resource metrics collection
 pub struct ResourceMetricsCollectorAdapter {
     system: System,
 }
 
 impl ResourceMetricsCollectorAdapter {
+    /// Create a new resource metrics collector adapter
     pub fn new() -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        ResourceMetricsCollectorAdapter {
+        Self {
             system,
         }
     }
     
+    /// Refresh system state
     fn refresh_system(&mut self) {
         self.system.refresh_all();
     }
-
+    
+    /// Create with an existing collector
     pub fn with_collector(_collector: Arc<ResourceMetricsService>) -> Self {
         Self::new()
+    }
+    
+    /// Collect CPU metrics
+    pub fn collect_cpu_metrics(&mut self) -> f64 {
+        self.system.refresh_cpu();
+        self.system.global_cpu_info().cpu_usage()
+    }
+    
+    /// Collect memory metrics (used, total)
+    pub fn collect_memory_metrics(&mut self) -> (u64, u64) {
+        self.system.refresh_memory();
+        (self.system.used_memory(), self.system.total_memory())
+    }
+    
+    /// Collect disk metrics (used, total)
+    pub fn collect_disk_metrics(&mut self) -> (u64, u64) {
+        self.system.refresh_disks_list();
+        let disks = self.system.disks();
+        
+        let mut used = 0;
+        let mut total = 0;
+        
+        for disk in disks {
+            used += disk.total_space() - disk.available_space();
+            total += disk.total_space();
+        }
+        
+        (used, total)
+    }
+    
+    /// Collect network metrics
+    pub fn collect_network_metrics(&mut self) -> HashMap<String, (u64, u64, u64, u64)> {
+        self.system.refresh_networks();
+        let networks = self.system.networks();
+        
+        let mut result = HashMap::new();
+        for (name, network) in networks {
+            result.insert(
+                name.clone(), 
+                (
+                    network.received(), 
+                    network.transmitted(),
+                    network.packets_received(),
+                    network.packets_transmitted()
+                )
+            );
+        }
+        
+        result
     }
 }
 

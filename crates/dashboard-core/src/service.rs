@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
-use crate::data::{DashboardData, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, MetricsSnapshot, Alert, AlertSeverity, InterfaceStats};
+use crate::data::{DashboardData, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, MetricsSnapshot, InterfaceStats};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -33,6 +33,9 @@ pub trait DashboardService: Send + Sync {
     
     /// Update dashboard configuration
     async fn update_config(&self, config: DashboardConfig) -> Result<()>;
+    
+    /// Update dashboard data
+    async fn update_dashboard_data(&self, data: DashboardData) -> Result<()>;
     
     /// Start the dashboard service
     async fn start(&self) -> Result<()>;
@@ -201,6 +204,24 @@ impl DefaultDashboardService {
         
         Ok(())
     }
+    
+    /// Update dashboard data with external data
+    pub async fn update_dashboard_data(&self, data: DashboardData) -> Result<()> {
+        // Update dashboard data
+        *self.data.write().await = data.clone();
+        
+        // Send update to subscribers
+        if let Err(e) = self.update_sender.send(DashboardUpdate::FullUpdate(data)).await {
+            return Err(DashboardError::Update(format!("Failed to send update: {}", e)));
+        }
+        
+        Ok(())
+    }
+    
+    /// Update data with new values (legacy method)
+    pub async fn update_data(&self, data: DashboardData) -> Result<()> {
+        self.update_dashboard_data(data).await
+    }
 }
 
 impl Clone for DefaultDashboardService {
@@ -342,5 +363,9 @@ impl DashboardService for DefaultDashboardService {
         let mut running = self.running.write().await;
         *running = false;
         Ok(())
+    }
+    
+    async fn update_dashboard_data(&self, data: DashboardData) -> Result<()> {
+        DefaultDashboardService::update_dashboard_data(self, data).await
     }
 } 
