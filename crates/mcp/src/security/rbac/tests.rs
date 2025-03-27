@@ -7,10 +7,8 @@
 mod role_inheritance_tests {
     use super::super::*;
     use super::super::role_inheritance::*;
-    use chrono::Utc;
-    use std::collections::{HashMap, HashSet};
-    use uuid::Uuid;
-
+    use std::collections::HashSet;
+    
     // Helper function to create a test inheritance graph
     fn create_test_graph() -> InheritanceGraph {
         let mut graph = InheritanceGraph::new();
@@ -127,8 +125,8 @@ mod permission_validation_tests {
     use super::super::*;
     use super::super::permission_validation::*;
     use crate::security::types::{Action, Permission, PermissionContext, PermissionScope};
+    use std::collections::HashSet;
     use uuid::Uuid;
-    use std::collections::{HashMap, HashSet};
 
     // Helper function to create a test validator
     fn create_test_validator() -> AsyncPermissionValidator {

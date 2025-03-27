@@ -6,7 +6,6 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::info;
-use crate::plugins::interfaces::Plugin;
 
 use crate::tool::{ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus, ToolError};
 // Use local interfaces instead of squirrel-plugins
@@ -109,9 +108,7 @@ impl PluginDiscoveryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Value};
     use uuid::Uuid;
-    use anyhow::anyhow;
     use crate::plugins::interfaces::Plugin;
     use crate::plugins::integration::PluginManagerInterface;
     
