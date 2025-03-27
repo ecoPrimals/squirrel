@@ -13,6 +13,12 @@ pub mod executor;
 pub mod mcp_command;
 pub mod registry;
 pub mod context;
+pub mod run_command;
+pub mod mcp;
+pub mod adapter;
+pub mod error;
+#[cfg(any(test, feature = "testing"))]
+pub mod test_command;
 
 pub use config_command::ConfigCommand;
 pub use help_command::HelpCommand;
@@ -21,145 +27,107 @@ pub use status_command::StatusCommand;
 pub use plugin_command::PluginCommand;
 pub use secrets_command::SecretsCommand;
 pub use executor::ExecutionContext;
-pub use mcp_command::MCPCommand;
+pub use mcp_command::McpCommand;
+pub use run_command::RunCommand;
 
 use clap::{Command as ClapCommand, Arg, ArgAction};
+use std::sync::Arc;
+use log::debug;
+use std::cell::RefCell;
+use crate::commands::adapter::error::AdapterResult;
+use tokio::sync::Mutex;
 
 use commands::{Command, CommandRegistry};
 
-/// Register all CLI commands
-///
-/// This function registers all commands provided by the CLI crate.
-///
-/// # Arguments
-///
-/// * `registry` - The command registry to register commands with
-pub fn register_commands(registry: &mut CommandRegistry) {
-    // Create command instances
-    let help_command = HelpCommand::new();
-    let version_command = VersionCommand::new();
-    let status_command = StatusCommand::new();
-    let config_command = ConfigCommand::new();
-    let plugin_command = PluginCommand::new();
-    let secrets_command = SecretsCommand::new();
-    let mcp_command = MCPCommand;
-    
-    // Convert to Arc<dyn Command>
-    let help_arc = std::sync::Arc::new(help_command);
-    let version_arc = std::sync::Arc::new(version_command);
-    let status_arc = std::sync::Arc::new(status_command);
-    let config_arc = std::sync::Arc::new(config_command);
-    let plugin_arc = std::sync::Arc::new(plugin_command);
-    let secrets_arc = std::sync::Arc::new(secrets_command);
-    let mcp_arc = std::sync::Arc::new(mcp_command);
-    
-    // Register commands
-    let _ = registry.register("help", help_arc);
-    let _ = registry.register("version", version_arc);
-    let _ = registry.register("status", status_arc);
-    let _ = registry.register("config", config_arc);
-    let _ = registry.register("plugin", plugin_arc);
-    let _ = registry.register("secrets", secrets_arc);
-    let _ = registry.register("mcp", mcp_arc);
-    // Register additional commands here as they are implemented
+// Thread-local storage for execution context
+thread_local! {
+    static EXECUTION_CONTEXT: RefCell<Option<Arc<ExecutionContext>>> = const { RefCell::new(None) };
 }
 
-/// Create the command-line interface
-///
-/// This function creates the command-line interface for the Squirrel CLI.
-pub fn create_cli() -> ClapCommand {
-    let output_format_args = vec![
-        Arg::new("json")
-            .long("json")
-            .help("Output in JSON format")
-            .action(ArgAction::SetTrue)
-            .conflicts_with_all(["yaml", "table"]),
-        Arg::new("yaml")
-            .long("yaml")
-            .help("Output in YAML format")
-            .action(ArgAction::SetTrue)
-            .conflicts_with_all(["json", "table"]),
-        Arg::new("table")
-            .long("table")
-            .help("Output in table format")
-            .action(ArgAction::SetTrue)
-            .conflicts_with_all(["json", "yaml"]),
-    ];
+/// Register commands in the registry
+pub fn register_commands(registry: &mut CommandRegistry) {
+    debug!("Registering commands");
+    
+    // Register built-in commands
+    registry.register("help", Arc::new(HelpCommand::new())).unwrap();
+    registry.register("version", Arc::new(VersionCommand::new())).unwrap();
+    registry.register("status", Arc::new(StatusCommand::new())).unwrap();
+    registry.register("config", Arc::new(ConfigCommand::new())).unwrap();
+    registry.register("plugin", Arc::new(PluginCommand::new())).unwrap();
+    registry.register("secrets", Arc::new(SecretsCommand::new())).unwrap();
+    registry.register("mcp", Arc::new(McpCommand::new())).unwrap();
+    registry.register("run", Arc::new(RunCommand::new())).unwrap();
+    
+    debug!("Commands registered successfully");
+}
 
-    ClapCommand::new("squirrel")
+/// Create a new command registry with all commands registered
+pub fn create_command_registry() -> AdapterResult<Arc<Mutex<CommandRegistry>>> {
+    debug!("Creating command registry");
+    
+    let mut registry = CommandRegistry::new();
+    register_commands(&mut registry);
+    
+    let registry = Arc::new(Mutex::new(registry));
+    debug!("Command registry created successfully");
+    
+    Ok(registry)
+}
+
+/// Create a new CLI application
+pub fn create_cli() -> ClapCommand {
+    let mut app = ClapCommand::new("squirrel")
         .version(env!("CARGO_PKG_VERSION"))
         .author("DataScienceBioLab")
-        .about("Squirrel CLI - Machine Context Protocol Tool")
-        .subcommand(
-            ClapCommand::new("help")
-                .about("Show help information")
-                .arg(
-                    Arg::new("command")
-                        .help("Command to show help for")
-                        .required(false)
-                )
-                .args(&output_format_args)
-        )
-        .subcommand(
-            ClapCommand::new("version")
-                .about("Show version information")
-                .args(&output_format_args)
-                .arg(
-                    Arg::new("check")
-                        .long("check")
-                        .help("Check if current version meets requirement")
-                        .value_name("VERSION")
-                )
-        )
-        .subcommand(
-            ClapCommand::new("status")
-                .about("Show system status")
-                .args(&output_format_args)
-                .arg(
-                    Arg::new("watch")
-                        .long("watch")
-                        .help("Continuously monitor status")
-                        .action(ArgAction::SetTrue)
-                )
-                .arg(
-                    Arg::new("interval")
-                        .long("interval")
-                        .help("Update interval in seconds when watching")
-                        .value_name("SECONDS")
-                        .default_value("5")
-                )
-        )
-        .subcommand_required(false)
-        .arg_required_else_help(true)
-        .subcommand(
-            ClapCommand::new("mcp")
-                .about("Machine Context Protocol commands")
-                .subcommand(
-                    ClapCommand::new("server")
-                        .about("Start the MCP server")
-                        .arg(
-                            Arg::new("host")
-                                .short('h')
-                                .long("host")
-                                .help("Server host")
-                                .default_value("localhost")
-                        )
-                        .arg(
-                            Arg::new("port")
-                                .short('p')
-                                .long("port")
-                                .help("Server port")
-                                .default_value("7777")
-                                .value_parser(clap::value_parser!(u16))
-                        )
-                )
-        )
-        .subcommand(
-            config_command::ConfigCommand::new().parser()
-        )
-        .subcommand(
-            plugin_command::PluginCommand::new().parser()
-        )
+        .about("Squirrel CLI: The next-generation data science tool")
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .help("Print verbose output")
+                .action(ArgAction::SetTrue),
+        );
+    
+    // Add subcommands - but avoid adding a duplicate help command
+    // since the help command is already built into clap
+    // app = app.subcommand(HelpCommand::new().parser());
+    app = app.subcommand(VersionCommand::new().parser());
+    app = app.subcommand(StatusCommand::new().parser());
+    app = app.subcommand(ConfigCommand::new().parser());
+    app = app.subcommand(PluginCommand::new().parser());
+    app = app.subcommand(SecretsCommand::new().parser());
+    app = app.subcommand(McpCommand::new().parser());
+    app = app.subcommand(RunCommand::new().parser());
+    
+    app
+}
+
+/// Create a CLI adapter for command execution
+pub fn create_adapter(adapter_type: adapter::AdapterType) -> AdapterResult<Arc<dyn adapter::CommandAdapterTrait>> {
+    debug!("Creating adapter of type: {:?}", adapter_type);
+    
+    match adapter_type {
+        adapter::AdapterType::Registry => {
+            let registry = create_command_registry()?;
+            let adapter = adapter::CommandRegistryAdapter::new(registry);
+            Ok(Arc::new(adapter))
+        },
+        adapter::AdapterType::Mcp => {
+            let registry = create_command_registry()?;
+            let registry_adapter = Arc::new(adapter::CommandRegistryAdapter::new(registry));
+            
+            // Create a basic auth provider
+            let auth_provider = Arc::new(adapter::BasicAuthProvider::new());
+            
+            let adapter = adapter::McpCommandAdapter::new(auth_provider, registry_adapter);
+            Ok(Arc::new(adapter))
+        },
+        adapter::AdapterType::Plugin => {
+            let registry = create_command_registry()?;
+            let adapter = adapter::CommandsPluginAdapter::new(registry);
+            Ok(Arc::new(adapter))
+        }
+    }
 }
 
 /// Creates a CLI instance from the command registry

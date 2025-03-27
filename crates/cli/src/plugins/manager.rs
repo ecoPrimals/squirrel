@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::runtime::Runtime;
-use log::{info, warn, error, debug};
-use libloading::Library;
 
-use crate::plugins::{PluginItem, PluginMetadata, PluginStatus};
-use crate::plugins::plugin::{Plugin, PluginFactory};
+use log::{debug, error, info, warn};
+use tokio::runtime::Runtime;
+use libloading::Library;
+use commands::{Command, CommandRegistry};
+
+use crate::plugins::PluginItem;
+use crate::plugins::PluginMetadata;
+use crate::plugins::PluginStatus;
+use crate::plugins::plugin::Plugin;
+use crate::plugins::plugin::PluginFactory;
 use crate::plugins::error::PluginError;
 use crate::plugins::state::PluginState;
-use commands::{Command, CommandRegistry};
 
 /// Type for a plugin create function
 type PluginCreateFn = unsafe fn() -> Result<Arc<dyn Plugin>, PluginError>;
@@ -354,16 +358,16 @@ impl PluginManager {
         Ok(())
     }
     
-    /// Start all loaded plugins
+    /// Start all plugins
     ///
-    /// This method transitions all loaded plugins from Initialized to Started state.
+    /// This method transitions all initialized plugins from Initialized to Started state.
     ///
     /// # Returns
     ///
     /// `Ok(())` if starting succeeds, or an error otherwise
     pub fn start_plugins(&mut self) -> Result<(), PluginError> {
-        let _rt = Runtime::new()
-            .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
+        // Remove the runtime creation, as we're already in an async context
+        // from the #[tokio::main] in main.rs
         
         let mut failed_plugins = Vec::new();
         
@@ -401,8 +405,8 @@ impl PluginManager {
     ///
     /// `Ok(())` if stopping succeeds, or an error otherwise
     pub fn stop_plugins(&mut self) -> Result<(), PluginError> {
-        let _rt = Runtime::new()
-            .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
+        // Remove the runtime creation, as we're already in an async context
+        // from the #[tokio::main] in main.rs
         
         let mut failed_plugins = Vec::new();
         
@@ -433,12 +437,11 @@ impl PluginManager {
     }
     
     /// Unload all plugins and clean up resources
-    pub fn unload_plugins(&mut self) -> Result<(), PluginError> {
+    pub async fn unload_plugins(&mut self) -> Result<(), PluginError> {
         info!("Unloading all plugins");
         
-        // Create a runtime for async operations
-        let rt = Runtime::new()
-            .map_err(|e| PluginError::Unknown(format!("Failed to create runtime: {}", e)))?;
+        // We can't create a runtime here as we're already in an async context
+        // Instead, we'll use the current runtime context
         
         // Get a list of all plugin names
         let plugin_names: Vec<String> = self.loaded_plugins.keys().cloned().collect();
@@ -450,8 +453,8 @@ impl PluginManager {
         // Unload each plugin
         for name in plugin_names {
             if let Some(plugin) = self.loaded_plugins.remove(&name) {
-                // Call cleanup
-                match rt.block_on(plugin.cleanup()) {
+                // Call cleanup directly (no need for block_on as we're in async context)
+                match plugin.cleanup().await {
                     Ok(()) => {
                         info!("Plugin {} unloaded successfully", name);
                         success_count += 1;

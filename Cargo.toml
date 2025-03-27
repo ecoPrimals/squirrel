@@ -17,7 +17,7 @@ members = [
     "crates/galaxy",
     "crates/ui-web",
     "crates/dashboard-core",
-    "crates/ui-terminal",
+    "crates/ui-terminal", "crates/adapter-tests", "adapter-pattern-tests", "adapter-pattern-examples",
 ]
 
 [workspace.package]
@@ -243,3 +243,6 @@ with-plugins = []
 [[example]]
 name = "simple_journal"
 path = "examples/simple_journal.rs" 
+
+[workspace.metadata]
+rust-version = "1.70.0"

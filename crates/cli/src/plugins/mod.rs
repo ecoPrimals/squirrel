@@ -4,10 +4,12 @@
 //! CLI functionality with custom commands and features.
 
 pub mod plugin;
+pub mod error;
 pub mod manager;
 pub mod state;
-pub mod error;
 pub mod example_plugin;
+pub mod discovery;
+pub mod security;
 #[cfg(test)]
 mod tests;
 
@@ -20,6 +22,8 @@ pub use plugin::{PluginItem, PluginStatus, PluginMetadata, Plugin, PluginFactory
 pub use manager::PluginManager;
 pub use error::PluginError;
 pub use example_plugin::ExamplePlugin;
+pub use discovery::{PluginDiscovery, DefaultPluginDiscovery};
+pub use security::SecurityManager;
 use log::{debug, info, warn, error};
 
 /// Default plugin directory relative to user's home directory
@@ -190,12 +194,12 @@ fn parse_plugin_metadata(content: &str, _plugin_path: &Path) -> Result<PluginMet
 /// # Returns
 ///
 /// Ok(()) if successful, or an error if the plugin system could not be initialized
-pub fn initialize_plugins() -> Result<(), error::PluginError> {
+pub async fn initialize_plugins() -> Result<(), error::PluginError> {
     info!("Initializing plugin system");
     
     // Get the plugin manager singleton
     let plugin_manager_arc = state::get_plugin_manager();
-    let mut plugin_manager = plugin_manager_arc.lock().map_err(|_| PluginError::Unknown("Failed to lock plugin manager".to_string()))?;
+    let mut plugin_manager = plugin_manager_arc.lock().await;
     
     // Get plugin directories
     let plugin_dirs = get_plugin_directories();

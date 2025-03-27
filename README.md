@@ -219,4 +219,34 @@ The server will be available at http://localhost:3000.
 
 ## License
 
-MIT License 
+MIT License
+
+## Adapter Pattern Implementation
+
+The `adapter-tests` crate provides a clean, standalone implementation of the Adapter Pattern in Rust. It demonstrates how to adapt different interfaces for command execution, authentication, and plugin systems.
+
+Key features:
+- Thread-safe command registry with Arc/Mutex
+- Asynchronous execution of commands
+- Authentication and authorization for MCP (Machine Context Protocol)
+- Comprehensive test suite and examples
+
+To run the adapter showcase example:
+
+```bash
+cargo run --example adapter_showcase -p adapter-tests
+```
+
+For a basic example:
+
+```bash
+cargo run --example basic -p adapter-tests
+```
+
+To run the tests:
+
+```bash
+cargo test -p adapter-tests
+```
+
+See the [adapter-tests README](crates/adapter-tests/README.md) for more details. 
