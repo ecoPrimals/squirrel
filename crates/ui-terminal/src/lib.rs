@@ -5,12 +5,13 @@
  * using the Ratatui library.
  */
 
-pub mod app;
-pub mod ui;
-pub mod widgets;
-pub mod events;
-pub mod util;
 pub mod adapter;
+pub mod app;
+pub mod events;
+pub mod ui;
+pub mod util;
+pub mod config;
+pub mod widgets;
 
 #[cfg(test)]
 mod tests;
@@ -38,7 +39,7 @@ use dashboard_core::{
     config::DashboardConfig,
 };
 
-use adapter::MonitoringToDashboardAdapter;
+use adapter::{MonitoringToDashboardAdapter, MockMcpClient, McpMetricsProvider};
 
 /// Terminal UI Dashboard
 pub struct TuiDashboard {
@@ -92,7 +93,32 @@ impl TuiDashboard {
         }
     }
     
-    /// Create a new TUI dashboard from a DefaultDashboardService
+    /// Create a new TUI dashboard with MCP integration
+    pub fn new_with_mcp() -> Self {
+        // Create default dashboard config
+        let config = DashboardConfig::default()
+            .with_update_interval(5) // 5 seconds
+            .with_max_history_points(1000);
+        
+        // Create dashboard service
+        let (dashboard_service, rx) = DefaultDashboardService::new(config);
+        
+        // Create mock MCP client for testing
+        let mcp_client = Arc::new(MockMcpClient::new()) as Arc<dyn McpMetricsProvider>;
+        
+        // Create monitoring adapter with MCP client
+        let monitoring_adapter = MonitoringToDashboardAdapter::new_with_mcp_client(Some(mcp_client));
+        
+        Self {
+            dashboard_service: dashboard_service.clone(),
+            app: app::App::new(),
+            update_rx: Some(rx),
+            tick_rate: Duration::from_millis(250),
+            monitoring_adapter: Some(monitoring_adapter),
+        }
+    }
+    
+    /// Create a new TUI dashboard with default service
     pub fn new_with_default_service(dashboard_service: Arc<DefaultDashboardService>) -> Self {
         Self::new(dashboard_service as Arc<dyn DashboardService>)
     }
@@ -199,5 +225,27 @@ impl TuiDashboard {
         terminal.show_cursor()?;
         
         Ok(())
+    }
+}
+
+// Re-export commonly used types
+pub use app::App;
+pub use events::{Event, EventHandler};
+pub use config::{DashboardConfig, ConfigError};
+pub use adapter::{MonitoringToDashboardAdapter, McpAdapter, McpMetricsProvider, McpMetricsConfig};
+
+// Export the compatibility layer for data structure conversion
+pub mod compatibility {
+    use dashboard_core::data::{ProtocolData, MetricsSnapshot};
+    use crate::adapter::McpAdapter;
+    
+    /// Convert between new and old data formats
+    pub fn protocol_to_metrics(protocol: &ProtocolData) -> MetricsSnapshot {
+        McpAdapter::protocol_data_to_metrics_snapshot(protocol)
+    }
+    
+    /// Convert between old and new data formats
+    pub fn metrics_to_protocol(metrics: &MetricsSnapshot) -> ProtocolData {
+        McpAdapter::metrics_snapshot_to_protocol_data(metrics)
     }
 } 

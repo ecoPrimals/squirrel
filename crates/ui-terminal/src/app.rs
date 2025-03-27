@@ -397,4 +397,41 @@ impl App {
             .get(metric_name)
             .map(|data| data.as_slice())
     }
+    
+    /// Set help visibility
+    pub fn set_help_visibility(&mut self, visible: bool) {
+        self.show_help = visible;
+    }
+    
+    /// Select a specific tab by index
+    pub fn select_tab(&mut self, tab_index: usize) {
+        if tab_index < self.tabs.len() {
+            self.selected_tab = tab_index;
+        }
+    }
+    
+    /// Check if help is visible
+    pub fn is_help_visible(&self) -> bool {
+        self.show_help
+    }
+    
+    /// Set updating state
+    pub fn set_updating(&mut self, updating: bool) {
+        self.is_updating = updating;
+    }
+    
+    /// Get selected tab index
+    pub fn selected_tab_index(&self) -> usize {
+        self.selected_tab
+    }
+    
+    /// Get tabs
+    pub fn tabs(&self) -> &[Tab] {
+        &self.tabs
+    }
+    
+    /// Set tabs
+    pub fn set_tabs(&mut self, tabs: Vec<Tab>) {
+        self.tabs = tabs;
+    }
 } 

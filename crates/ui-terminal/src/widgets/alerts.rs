@@ -1,27 +1,72 @@
 use ratatui::{
-    buffer::Buffer,
+    backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    text::{Span, Spans},
+    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, Tabs},
+    Frame,
 };
 
-use dashboard_core::data::{Alert, AlertSeverity};
-use crate::util;
+use dashboard_core::data::Alert;
+use chrono::DateTime;
+use chrono::Utc;
 
-/// Widget for displaying system alerts
+/// Widget for displaying alerts
 pub struct AlertsWidget<'a> {
-    /// Alerts to display
     alerts: &'a [Alert],
-    
-    /// Widget title
     title: &'a str,
+    selected_index: usize,
+    show_details: bool,
+    filter: AlertFilter,
+}
+
+/// Alert filter type
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AlertFilter {
+    All,
+    Active,
+    Acknowledged,
+    Critical,
+    Warning,
+    Info,
+}
+
+impl AlertFilter {
+    /// Get filter display name
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::Active => "Active",
+            Self::Acknowledged => "Acknowledged",
+            Self::Critical => "Critical",
+            Self::Warning => "Warning",
+            Self::Info => "Info",
+        }
+    }
     
-    /// Whether to show detailed information
-    detailed: bool,
+    /// Get all available filters
+    pub fn all() -> Vec<Self> {
+        vec![
+            Self::All,
+            Self::Active,
+            Self::Acknowledged,
+            Self::Critical,
+            Self::Warning,
+            Self::Info,
+        ]
+    }
     
-    /// Currently selected alert index
-    selected_index: Option<usize>,
+    /// Check if an alert matches this filter
+    pub fn matches(&self, alert: &Alert) -> bool {
+        match self {
+            Self::All => true,
+            Self::Active => !alert.acknowledged,
+            Self::Acknowledged => alert.acknowledged,
+            Self::Critical => alert.severity == "critical",
+            Self::Warning => alert.severity == "warning",
+            Self::Info => alert.severity == "info",
+        }
+    }
 }
 
 impl<'a> AlertsWidget<'a> {
@@ -30,202 +75,290 @@ impl<'a> AlertsWidget<'a> {
         Self {
             alerts,
             title,
-            detailed: false,
-            selected_index: None,
+            selected_index: 0,
+            show_details: false,
+            filter: AlertFilter::All,
         }
     }
     
-    /// Create a new alerts widget with a selected item
-    pub fn new_with_selection(alerts: &'a [Alert], title: &'a str, selected: usize) -> Self {
-        Self {
-            alerts,
-            title,
-            detailed: true,
-            selected_index: Some(selected),
+    /// Set the filter
+    pub fn filter(mut self, filter: AlertFilter) -> Self {
+        self.filter = filter;
+        self
+    }
+    
+    /// Toggle details view
+    pub fn toggle_details(&mut self) {
+        self.show_details = !self.show_details;
+    }
+    
+    /// Select the next alert
+    pub fn next(&mut self) {
+        let filtered_alerts: Vec<&Alert> = self.alerts.iter()
+            .filter(|a| self.filter.matches(a))
+            .collect();
+            
+        if !filtered_alerts.is_empty() {
+            self.selected_index = (self.selected_index + 1) % filtered_alerts.len();
         }
     }
     
-    /// Set detailed mode
-    pub fn detailed(mut self, detailed: bool) -> Self {
-        self.detailed = detailed;
-        self
+    /// Select the previous alert
+    pub fn previous(&mut self) {
+        let filtered_alerts: Vec<&Alert> = self.alerts.iter()
+            .filter(|a| self.filter.matches(a))
+            .collect();
+            
+        if !filtered_alerts.is_empty() {
+            self.selected_index = if self.selected_index > 0 {
+                self.selected_index - 1
+            } else {
+                filtered_alerts.len() - 1
+            };
+        }
     }
     
-    /// Set selected alert index
-    pub fn select(mut self, index: Option<usize>) -> Self {
-        self.selected_index = index;
-        self
+    /// Set the filter
+    pub fn set_filter(&mut self, filter: AlertFilter) {
+        self.filter = filter;
+        // Reset selection when filter changes
+        self.selected_index = 0;
     }
-}
-
-impl<'a> Widget for AlertsWidget<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        // Create base block
+    
+    /// Get the currently selected alert
+    pub fn selected_alert(&self) -> Option<&Alert> {
+        let filtered_alerts: Vec<&Alert> = self.alerts.iter()
+            .filter(|a| self.filter.matches(a))
+            .collect();
+            
+        if filtered_alerts.is_empty() {
+            None
+        } else {
+            Some(filtered_alerts[self.selected_index.min(filtered_alerts.len() - 1)])
+        }
+    }
+    
+    /// Cycle to the next filter
+    pub fn next_filter(&mut self) {
+        let all_filters = AlertFilter::all();
+        let current_idx = all_filters.iter().position(|f| *f == self.filter).unwrap_or(0);
+        let next_idx = (current_idx + 1) % all_filters.len();
+        self.filter = all_filters[next_idx];
+        // Reset selection when filter changes
+        self.selected_index = 0;
+    }
+    
+    /// Render the widget
+    pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        // Draw block around the whole widget
         let block = Block::default()
             .borders(Borders::ALL)
             .title(self.title);
+        f.render_widget(block, area);
         
-        // Render block
-        block.clone().render(area, buf);
+        // Filter tabs
+        let filter_names: Vec<String> = AlertFilter::all().iter()
+            .map(|f| f.display_name().to_string())
+            .collect();
         
-        // Get inner area
-        let inner_area = block.inner(area);
+        let current_idx = AlertFilter::all().iter()
+            .position(|f| *f == self.filter)
+            .unwrap_or(0);
         
-        // Handle empty alerts
-        if self.alerts.is_empty() {
-            let text = vec![Spans::from(vec![
-                Span::styled("No active alerts", Style::default().fg(Color::Green))
-            ])];
-            
-            let paragraph = Paragraph::new(text)
-                .style(Style::default().fg(Color::White));
-            
-            paragraph.render(inner_area, buf);
+        let tabs = Tabs::new(filter_names.iter().map(|name| {
+                Spans::from(vec![Span::styled(name, Style::default())])
+            }).collect())
+            .select(current_idx)
+            .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .block(Block::default().borders(Borders::BOTTOM));
+        
+        // Inner area for content
+        let inner_area = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(1)
+            .constraints([
+                Constraint::Length(3), // Filter tabs
+                Constraint::Min(0),    // Alert content
+            ])
+            .split(area);
+        
+        f.render_widget(tabs, inner_area[0]);
+        
+        // Filter alerts
+        let filtered_alerts: Vec<&Alert> = self.alerts.iter()
+            .filter(|a| self.filter.matches(a))
+            .collect();
+        
+        if filtered_alerts.is_empty() {
+            // No alerts to display
+            let message = Paragraph::new("No alerts match the current filter")
+                .style(Style::default().fg(Color::Gray));
+            f.render_widget(message, inner_area[1]);
             return;
         }
         
-        // Create layout for list and details
-        let chunks = if self.detailed && self.selected_index.is_some() {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(70),
-                    Constraint::Percentage(30),
-                ])
-                .split(inner_area)
+        // Render alert list or detail view
+        if self.show_details && !filtered_alerts.is_empty() {
+            // Show details for selected alert
+            self.render_alert_details(f, inner_area[1], filtered_alerts);
         } else {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Min(0)])
-                .split(inner_area)
-        };
-        
-        // Render alerts list
-        render_alerts_list(self.alerts, chunks[0], buf, self.selected_index);
-        
-        // Render details if selected
-        if self.detailed && self.selected_index.is_some() {
-            if let Some(index) = self.selected_index {
-                if index < self.alerts.len() {
-                    render_alert_details(&self.alerts[index], chunks[1], buf);
-                }
-            }
+            // Show alert list
+            self.render_alert_list(f, inner_area[1], filtered_alerts);
         }
     }
-}
-
-/// Render the list of alerts
-fn render_alerts_list(alerts: &[Alert], area: Rect, buf: &mut Buffer, selected: Option<usize>) {
-    // Create list items
-    let items: Vec<ListItem> = alerts
-        .iter()
-        .enumerate()
-        .map(|(i, alert)| {
-            let level_style = get_alert_level_style(alert.severity);
-            let level_str = format!("[{}]", get_alert_level_name(alert.severity));
+    
+    // Render alert list
+    fn render_alert_list<B: Backend>(&self, f: &mut Frame<B>, area: Rect, alerts: Vec<&Alert>) {
+        let header = Row::new(vec![
+            Cell::from("Severity").style(Style::default().fg(Color::Yellow)),
+            Cell::from("Time").style(Style::default().fg(Color::Yellow)),
+            Cell::from("Message").style(Style::default().fg(Color::Yellow)),
+            Cell::from("Status").style(Style::default().fg(Color::Yellow)),
+        ]);
+        
+        let rows: Vec<Row> = alerts.iter().enumerate().map(|(i, alert)| {
+            let severity_color = match alert.severity.as_str() {
+                "critical" => Color::Red,
+                "warning" => Color::Yellow,
+                "info" => Color::Blue,
+                _ => Color::White,
+            };
             
-            let spans = vec![
-                Span::styled(level_str, level_style),
-                Span::raw(" "),
-                Span::styled(&alert.title, Style::default()),
-                Span::raw(" - "),
-                Span::styled(
-                    util::format_timestamp(alert.triggered_at),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ];
+            let status_text = if alert.acknowledged {
+                "Acknowledged"
+            } else {
+                "Active"
+            };
             
-            ListItem::new(Spans::from(spans))
-                .style(
-                    if Some(i) == selected {
-                        Style::default().bg(Color::DarkGray)
-                    } else {
-                        Style::default()
-                    }
-                )
-        })
-        .collect();
+            let status_color = if alert.acknowledged {
+                Color::Green
+            } else {
+                Color::Red
+            };
+            
+            let style = if i == self.selected_index {
+                Style::default().bg(Color::DarkGray)
+            } else {
+                Style::default()
+            };
+            
+            Row::new(vec![
+                Cell::from(alert.severity.as_str()).style(Style::default().fg(severity_color)),
+                Cell::from(format_time(&alert.timestamp)),
+                Cell::from(alert.message.as_str()),
+                Cell::from(status_text).style(Style::default().fg(status_color)),
+            ]).style(style)
+        }).collect();
+        
+        let table = Table::new(rows)
+            .header(header)
+            .block(Block::default().borders(Borders::ALL).title("Alerts"))
+            .widths(&[
+                Constraint::Percentage(15),
+                Constraint::Percentage(20),
+                Constraint::Percentage(50),
+                Constraint::Percentage(15),
+            ])
+            .column_spacing(1)
+            .highlight_style(Style::default().bg(Color::DarkGray));
+        
+        f.render_widget(table, area);
+    }
     
-    // Create and render list
-    let list = List::new(items)
-        .style(Style::default().fg(Color::White));
-    
-    list.render(area, buf);
-}
-
-/// Render details of a selected alert
-fn render_alert_details(alert: &Alert, area: Rect, buf: &mut Buffer) {
-    // Create block
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .title("Details");
-    
-    // Render block
-    block.clone().render(area, buf);
-    
-    // Get inner area
-    let inner_area = block.inner(area);
-    
-    // Create content
-    let level_style = get_alert_level_style(alert.severity);
-    let level_str = format!("[{}]", get_alert_level_name(alert.severity));
-    
-    let content = vec![
-        Spans::from(vec![
-            Span::styled("Level: ", Style::default().fg(Color::White)),
-            Span::styled(level_str, level_style),
-        ]),
-        Spans::from(vec![
-            Span::styled("Time: ", Style::default().fg(Color::White)),
-            Span::styled(
-                util::format_timestamp(alert.triggered_at),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
-        Spans::from(vec![
-            Span::styled("ID: ", Style::default().fg(Color::White)),
-            Span::styled(&alert.id, Style::default().fg(Color::Cyan)),
-        ]),
-        Spans::from(vec![
-            Span::styled("Title: ", Style::default().fg(Color::White)),
-        ]),
-        Spans::from(vec![
-            Span::styled(&alert.title, Style::default().fg(Color::White)),
-        ]),
-        Spans::from(""),
-        Spans::from(vec![
-            Span::styled("Description: ", Style::default().fg(Color::White)),
-        ]),
-        Spans::from(vec![
-            Span::styled(&alert.description, Style::default().fg(Color::White)),
-        ]),
-    ];
-    
-    // Render paragraph
-    let paragraph = Paragraph::new(content)
-        .style(Style::default().fg(Color::White));
-    
-    paragraph.render(inner_area, buf);
-}
-
-/// Get the style for an alert level
-fn get_alert_level_style(level: AlertSeverity) -> Style {
-    match level {
-        AlertSeverity::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-        AlertSeverity::High => Style::default().fg(Color::Red),
-        AlertSeverity::Medium => Style::default().fg(Color::Yellow),
-        AlertSeverity::Low => Style::default().fg(Color::Blue),
-        AlertSeverity::Info => Style::default().fg(Color::Green),
+    // Render alert details
+    fn render_alert_details<B: Backend>(&self, f: &mut Frame<B>, area: Rect, alerts: Vec<&Alert>) {
+        let alert = alerts[self.selected_index.min(alerts.len() - 1)];
+        
+        // Split area for different detail sections
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),  // Summary
+                Constraint::Length(3),  // Time info
+                Constraint::Length(3),  // Status
+                Constraint::Min(6),     // Details
+                Constraint::Length(3),  // Actions
+            ])
+            .split(area);
+        
+        // Summary
+        let severity_color = match alert.severity.as_str() {
+            "critical" => Color::Red,
+            "warning" => Color::Yellow,
+            "info" => Color::Blue,
+            _ => Color::White,
+        };
+        
+        let summary = Paragraph::new(vec![
+            Spans::from(vec![
+                Span::styled("Alert: ", Style::default().fg(Color::Yellow)),
+                Span::styled(&alert.message, Style::default().fg(Color::White)),
+            ]),
+            Spans::from(vec![
+                Span::styled("Severity: ", Style::default().fg(Color::Yellow)),
+                Span::styled(&alert.severity, Style::default().fg(severity_color)),
+            ]),
+        ]).block(Block::default().borders(Borders::ALL).title("Summary"));
+        
+        // Time info
+        let time_info = Paragraph::new(vec![
+            Spans::from(vec![
+                Span::styled("Created: ", Style::default().fg(Color::Yellow)),
+                Span::styled(format_time(&alert.timestamp), Style::default().fg(Color::White)),
+            ])
+        ]).block(Block::default().borders(Borders::ALL).title("Time"));
+        
+        // Status
+        let status_color = if alert.acknowledged {
+            Color::Green
+        } else {
+            Color::Red
+        };
+        
+        let status_text = if alert.acknowledged {
+            format!("Acknowledged by {} at {}", 
+                alert.acknowledged_by.as_deref().unwrap_or("Unknown"),
+                format_time(&alert.acknowledged_at.unwrap_or_else(Utc::now)))
+        } else {
+            "Active - Not Acknowledged".to_string()
+        };
+        
+        let status = Paragraph::new(vec![
+            Spans::from(vec![
+                Span::styled("Status: ", Style::default().fg(Color::Yellow)),
+                Span::styled(if alert.acknowledged { "Acknowledged" } else { "Active" }, 
+                             Style::default().fg(status_color)),
+            ]),
+            Spans::from(status_text),
+        ]).block(Block::default().borders(Borders::ALL).title("Status"));
+        
+        // Details - could be long text
+        let details_text = alert.details.as_deref().unwrap_or("No additional details available.");
+        let details = Paragraph::new(details_text)
+            .block(Block::default().borders(Borders::ALL).title("Details"))
+            .wrap(ratatui::widgets::Wrap { trim: true });
+        
+        // Actions
+        let actions = Paragraph::new(vec![
+            Spans::from(vec![
+                Span::styled("Press ", Style::default().fg(Color::Gray)),
+                Span::styled("A", Style::default().fg(Color::Yellow)),
+                Span::styled(" to acknowledge, ", Style::default().fg(Color::Gray)),
+                Span::styled("Esc", Style::default().fg(Color::Yellow)),
+                Span::styled(" to return to list", Style::default().fg(Color::Gray)),
+            ]),
+        ]).block(Block::default().borders(Borders::ALL).title("Actions"));
+        
+        // Render all sections
+        f.render_widget(summary, chunks[0]);
+        f.render_widget(time_info, chunks[1]);
+        f.render_widget(status, chunks[2]);
+        f.render_widget(details, chunks[3]);
+        f.render_widget(actions, chunks[4]);
     }
 }
 
-/// Get the name of an alert level
-fn get_alert_level_name(level: AlertSeverity) -> &'static str {
-    match level {
-        AlertSeverity::Critical => "CRITICAL",
-        AlertSeverity::High => "HIGH",
-        AlertSeverity::Medium => "MEDIUM",
-        AlertSeverity::Low => "LOW",
-        AlertSeverity::Info => "INFO",
-    }
+// Format timestamp to readable string
+fn format_time(dt: &DateTime<Utc>) -> String {
+    dt.format("%Y-%m-%d %H:%M:%S").to_string()
 } 

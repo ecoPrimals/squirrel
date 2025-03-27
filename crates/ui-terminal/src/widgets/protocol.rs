@@ -8,23 +8,23 @@ use ratatui::{
 
 use chrono::DateTime;
 use chrono::Utc;
-use dashboard_core::data::MetricsSnapshot;
+use dashboard_core::data::ProtocolData;
 use crate::widgets::ChartWidget;
 
 /// Widget for displaying protocol metrics
 pub struct ProtocolWidget<'a> {
-    metrics: &'a MetricsSnapshot,
+    protocol: &'a ProtocolData,
     title: &'a str,
 }
 
 impl<'a> ProtocolWidget<'a> {
     /// Create a new protocol widget
-    pub fn new(metrics: &'a MetricsSnapshot, title: &'a str) -> Self {
-        Self { metrics, title }
+    pub fn new(protocol: &'a ProtocolData, title: &'a str) -> Self {
+        Self { protocol, title }
     }
 
     /// Render the widget
-    pub fn render<B: Backend>(&self, f: &mut Frame, area: Rect) {
+    pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
         // Create a layout with sections for different protocol metrics
         let _chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -35,10 +35,11 @@ impl<'a> ProtocolWidget<'a> {
             ])
             .split(area);
 
-        // Draw title block around the whole widget if a title is provided
+        // Draw title block around the whole widget with data quality indicator
+        let title = format!("{}{}", self.title, self.get_data_quality_indicator());
         let block = Block::default()
             .borders(Borders::ALL)
-            .title(self.title);
+            .title(title);
         f.render_widget(block, area);
 
         // Apply inner margins for content
@@ -46,205 +47,204 @@ impl<'a> ProtocolWidget<'a> {
             .direction(Direction::Vertical)
             .margin(1)
             .constraints([
-                Constraint::Percentage(25), // Message stats
-                Constraint::Percentage(25), // Transaction stats
-                Constraint::Percentage(50), // Latency & Error stats
+                Constraint::Percentage(25), // Connection status
+                Constraint::Percentage(25), // Protocol info
+                Constraint::Percentage(50), // Protocol metrics
             ])
             .split(area);
 
-        // Render message statistics
-        self.render_message_stats::<B>(f, inner_area[0]);
+        // Render connection status
+        self.render_connection_status::<B>(f, inner_area[0]);
         
-        // Render transaction statistics
-        self.render_transaction_stats::<B>(f, inner_area[1]);
+        // Render protocol info
+        self.render_protocol_info::<B>(f, inner_area[1]);
         
-        // Render latency and error statistics
-        self.render_latency_error_stats::<B>(f, inner_area[2]);
+        // Render protocol metrics
+        self.render_protocol_metrics::<B>(f, inner_area[2]);
     }
 
-    /// Render message statistics
-    fn render_message_stats<B: Backend>(&self, f: &mut Frame, area: Rect) {
-        // Get message count and rate from metrics
-        let message_count = self.metrics.counters.get("protocol.messages").unwrap_or(&0);
-        let message_rate = self.metrics.gauges.get("protocol.message_rate").unwrap_or(&0.0);
+    /// Get data quality indicator for the title
+    fn get_data_quality_indicator(&self) -> &str {
+        if self.is_simulated_data() {
+            " [Simulated]"
+        } else if self.is_stale_data() {
+            " [Stale]"
+        } else {
+            ""
+        }
+    }
+
+    /// Check if the data is simulated
+    fn is_simulated_data(&self) -> bool {
+        self.protocol.metrics.get("simulated")
+            .map_or(false, |v| v == "true")
+    }
+
+    /// Check if the data is stale (cached)
+    fn is_stale_data(&self) -> bool {
+        match self.protocol.metrics.get("last_real_data") {
+            Some(timestamp_str) => {
+                // Try to parse the timestamp
+                if let Ok(timestamp) = DateTime::parse_from_rfc3339(timestamp_str) {
+                    let now = Utc::now();
+                    let time_diff = now.signed_duration_since(timestamp.with_timezone(&Utc));
+                    // Consider data stale if it's more than 5 minutes old
+                    time_diff.num_minutes() > 5
+                } else {
+                    false
+                }
+            },
+            None => false,
+        }
+    }
+
+    /// Render connection status
+    fn render_connection_status<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        let status_color = if self.protocol.connected {
+            Color::Green
+        } else {
+            Color::Red
+        };
         
-        // Get MCP-specific message metrics (if available)
-        let mcp_requests = self.metrics.counters.get("mcp.requests").unwrap_or(&0);
-        let mcp_responses = self.metrics.counters.get("mcp.responses").unwrap_or(&0);
+        let status_text = if self.protocol.connected {
+            "Connected"
+        } else {
+            "Disconnected"
+        };
         
-        // Format message statistics
-        let mut message_stats = vec![
+        let status_since = if let Some(last_connected) = self.protocol.last_connected {
+            let now = Utc::now();
+            let duration = now.signed_duration_since(last_connected);
+            
+            if duration.num_seconds() < 60 {
+                format!("since {} seconds ago", duration.num_seconds())
+            } else if duration.num_minutes() < 60 {
+                format!("since {} minutes ago", duration.num_minutes())
+            } else {
+                format!("since {}", last_connected.format("%Y-%m-%d %H:%M:%S"))
+            }
+        } else {
+            "".to_string()
+        };
+        
+        let error_text = if let Some(error) = &self.protocol.error {
+            format!("Error: {}", error)
+        } else {
+            "No errors".to_string()
+        };
+        
+        let rows = vec![
             Row::new(vec![
-                Cell::from("Total Messages:"),
-                Cell::from(format!("{}", message_count)).style(Style::default().fg(Color::Cyan)),
+                Cell::from("Status:"),
+                Cell::from(status_text).style(Style::default().fg(status_color)),
             ]),
             Row::new(vec![
-                Cell::from("Message Rate:"),
-                Cell::from(format!("{:.2} msg/s", message_rate)).style(Style::default().fg(Color::Cyan)),
+                Cell::from("Connection:"),
+                Cell::from(status_since),
+            ]),
+            Row::new(vec![
+                Cell::from("Retries:"),
+                Cell::from(format!("{}", self.protocol.retry_count)),
+            ]),
+            Row::new(vec![
+                Cell::from("Error:"),
+                Cell::from(error_text).style(Style::default().fg(if self.protocol.error.is_some() { Color::Red } else { Color::Green })),
             ]),
         ];
         
-        // Add MCP-specific metrics if they exist
-        if *mcp_requests > 0 || *mcp_responses > 0 {
-            message_stats.push(Row::new(vec![
-                Cell::from("MCP Requests:"),
-                Cell::from(format!("{}", mcp_requests)).style(Style::default().fg(Color::Green)),
-            ]));
-            message_stats.push(Row::new(vec![
-                Cell::from("MCP Responses:"),
-                Cell::from(format!("{}", mcp_responses)).style(Style::default().fg(Color::Green)),
-            ]));
-        }
-        
-        // Create table widget for message statistics
-        let message_table = Table::new(message_stats)
-            .block(Block::default().borders(Borders::ALL).title("Message Statistics"))
-            .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)])
+        let table = Table::new(rows)
+            .block(Block::default().borders(Borders::ALL).title("Connection Status"))
+            .widths(&[Constraint::Percentage(30), Constraint::Percentage(70)])
             .column_spacing(1);
         
-        f.render_widget(message_table, area);
+        f.render_widget(table, area);
     }
 
-    /// Render transaction statistics
-    fn render_transaction_stats<B: Backend>(&self, f: &mut Frame, area: Rect) {
-        // Get transaction count and rate from metrics
-        let transaction_count = self.metrics.counters.get("protocol.transactions").unwrap_or(&0);
-        let transaction_rate = self.metrics.gauges.get("protocol.transaction_rate").unwrap_or(&0.0);
-        
-        // Get MCP-specific transaction metrics (if available)
-        let mcp_transactions = self.metrics.counters.get("mcp.transactions").unwrap_or(&0);
-        let mcp_success_rate = self.metrics.gauges.get("mcp.success_rate").unwrap_or(&100.0);
-        
-        // Format transaction statistics
-        let mut transaction_stats = vec![
+    /// Render protocol info
+    fn render_protocol_info<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        let rows = vec![
             Row::new(vec![
-                Cell::from("Total Transactions:"),
-                Cell::from(format!("{}", transaction_count)).style(Style::default().fg(Color::Green)),
-            ]),
-            Row::new(vec![
-                Cell::from("Transaction Rate:"),
-                Cell::from(format!("{:.2} tx/s", transaction_rate)).style(Style::default().fg(Color::Green)),
+                Cell::from("Version:"),
+                Cell::from(&self.protocol.version),
             ]),
         ];
         
-        // Add MCP-specific metrics if they exist
-        if *mcp_transactions > 0 {
-            transaction_stats.push(Row::new(vec![
-                Cell::from("MCP Transactions:"),
-                Cell::from(format!("{}", mcp_transactions)).style(Style::default().fg(Color::Green)),
-            ]));
-            transaction_stats.push(Row::new(vec![
-                Cell::from("Success Rate:"),
-                Cell::from(format!("{:.2}%", mcp_success_rate)).style(Style::default().fg(Color::Green)),
+        // Add protocol-specific data
+        let mut all_rows = rows;
+        for (key, value) in &self.protocol.data {
+            all_rows.push(Row::new(vec![
+                Cell::from(format!("{}:", key)),
+                Cell::from(value),
             ]));
         }
         
-        // Create table widget for transaction statistics
-        let transaction_table = Table::new(transaction_stats)
-            .block(Block::default().borders(Borders::ALL).title("Transaction Statistics"))
-            .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)])
+        let table = Table::new(all_rows)
+            .block(Block::default().borders(Borders::ALL).title("Protocol Info"))
+            .widths(&[Constraint::Percentage(30), Constraint::Percentage(70)])
             .column_spacing(1);
         
-        f.render_widget(transaction_table, area);
+        f.render_widget(table, area);
     }
 
-    /// Render latency and error statistics
-    fn render_latency_error_stats<B: Backend>(&self, f: &mut Frame, area: Rect) {
-        // Split the area for latency and error stats
+    /// Render protocol metrics
+    fn render_protocol_metrics<B: Backend>(&self, f: &mut Frame<B>, area: Rect) {
+        // Split the area for different metrics categories
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(50), // Latency chart
-                Constraint::Percentage(50), // Error stats
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
             ])
             .split(area);
         
-        // Get latency data from metrics
-        if let Some(latency_data) = self.metrics.histograms.get("protocol.latency") {
-            // Create dummy data points for the chart with timestamps
-            let now = Utc::now();
-            let chart_data: Vec<(DateTime<Utc>, f64)> = latency_data
-                .iter()
-                .enumerate()
-                .map(|(i, &value)| {
-                    // Create timestamps at 1-second intervals
-                    let timestamp = now - chrono::Duration::seconds(latency_data.len() as i64 - i as i64);
-                    (timestamp, value)
-                })
-                .collect();
+        let metrics_keys: Vec<&String> = self.protocol.metrics.keys().collect();
+        
+        // Message and transaction metrics
+        let message_keys: Vec<&String> = metrics_keys.iter()
+            .filter(|k| k.contains("packet") || k.contains("message") || k.contains("latency"))
+            .cloned()
+            .collect();
             
-            // Create latency chart
-            let latency_chart = ChartWidget::new(&chart_data, "Latency Distribution")
-                .y_label("ms")
-                .chart_type(crate::widgets::ChartType::Line);
-            
-            f.render_widget(latency_chart, chunks[0]);
-        } else {
-            // Show message if no latency data available
-            let no_data = Paragraph::new("No latency data available")
-                .block(Block::default().borders(Borders::ALL).title("Latency Distribution"))
-                .wrap(Wrap { trim: true });
-            
-            f.render_widget(no_data, chunks[0]);
+        // Error metrics
+        let error_keys: Vec<&String> = metrics_keys.iter()
+            .filter(|k| k.contains("error") || k.contains("fail"))
+            .cloned()
+            .collect();
+        
+        // Message metrics table
+        let mut message_rows = Vec::new();
+        for key in message_keys {
+            if let Some(value) = self.protocol.metrics.get(key) {
+                message_rows.push(Row::new(vec![
+                    Cell::from(key.to_string()),
+                    Cell::from(value.to_string()),
+                ]));
+            }
         }
         
-        // Get error metrics
-        let error_count = self.metrics.counters.get("protocol.errors").unwrap_or(&0);
-        let error_rate = self.metrics.gauges.get("protocol.error_rate").unwrap_or(&0.0);
-        
-        // Get MCP-specific error metrics (if available)
-        let mcp_connection_errors = self.metrics.counters.get("mcp.connection_errors").unwrap_or(&0);
-        let mcp_protocol_errors = self.metrics.counters.get("mcp.protocol_errors").unwrap_or(&0);
-        
-        // Calculate error color based on rate
-        let error_color = if *error_rate > 5.0 {
-            Color::Red
-        } else if *error_rate > 1.0 {
-            Color::Yellow
-        } else {
-            Color::Green
-        };
-        
-        // Format error statistics
-        let mut error_stats = vec![
-            Row::new(vec![
-                Cell::from("Total Errors:"),
-                Cell::from(format!("{}", error_count)).style(Style::default().fg(error_color)),
-            ]),
-            Row::new(vec![
-                Cell::from("Error Rate:"),
-                Cell::from(format!("{:.2}%", error_rate)).style(Style::default().fg(error_color)),
-            ]),
-            Row::new(vec![
-                Cell::from("Status:"),
-                Cell::from(if *error_rate > 5.0 {
-                    "Critical"
-                } else if *error_rate > 1.0 {
-                    "Warning"
-                } else {
-                    "Healthy"
-                }).style(Style::default().fg(error_color)),
-            ]),
-        ];
-        
-        // Add MCP-specific errors if they exist
-        if *mcp_connection_errors > 0 || *mcp_protocol_errors > 0 {
-            error_stats.push(Row::new(vec![
-                Cell::from("Connection Errors:"),
-                Cell::from(format!("{}", mcp_connection_errors)).style(Style::default().fg(Color::Red)),
-            ]));
-            error_stats.push(Row::new(vec![
-                Cell::from("Protocol Errors:"),
-                Cell::from(format!("{}", mcp_protocol_errors)).style(Style::default().fg(Color::Red)),
-            ]));
-        }
-        
-        // Create table widget for error statistics
-        let error_table = Table::new(error_stats)
-            .block(Block::default().borders(Borders::ALL).title("Error Statistics"))
+        let message_table = Table::new(message_rows)
+            .block(Block::default().borders(Borders::ALL).title("Message Metrics"))
             .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)])
             .column_spacing(1);
         
+        // Error metrics table
+        let mut error_rows = Vec::new();
+        for key in error_keys {
+            if let Some(value) = self.protocol.metrics.get(key) {
+                error_rows.push(Row::new(vec![
+                    Cell::from(key.to_string()),
+                    Cell::from(value.to_string()).style(Style::default().fg(Color::Red)),
+                ]));
+            }
+        }
+        
+        let error_table = Table::new(error_rows)
+            .block(Block::default().borders(Borders::ALL).title("Error Metrics"))
+            .widths(&[Constraint::Percentage(50), Constraint::Percentage(50)])
+            .column_spacing(1);
+        
+        // Render tables
+        f.render_widget(message_table, chunks[0]);
         f.render_widget(error_table, chunks[1]);
     }
 } 

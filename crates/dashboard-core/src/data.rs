@@ -6,130 +6,270 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
-/// Representation of all dashboard data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Dashboard data structure.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DashboardData {
-    /// System metrics snapshot
-    pub system: SystemSnapshot,
-    /// Network metrics snapshot
-    pub network: NetworkSnapshot,
-    /// Alerts snapshot
-    pub alerts: AlertsSnapshot,
-    /// Application metrics 
-    pub metrics: MetricsSnapshot,
-    /// Timestamp when this data was collected
-    pub timestamp: DateTime<Utc>,
+    /// System metrics
+    pub metrics: Metrics,
+    
+    /// Protocol data
+    pub protocol: ProtocolData,
+    
+    /// System alerts
+    pub alerts: Vec<Alert>,
 }
 
-/// System resource usage metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SystemSnapshot {
-    /// CPU usage percentage (0-100)
-    pub cpu_usage: f64,
-    /// Memory usage in bytes
-    pub memory_used: u64,
+/// System metrics data.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Metrics {
+    /// CPU usage metrics
+    pub cpu: CpuMetrics,
+    
+    /// Memory usage metrics
+    pub memory: MemoryMetrics,
+    
+    /// Network metrics
+    pub network: NetworkMetrics,
+    
+    /// Disk usage metrics
+    pub disk: DiskMetrics,
+    
+    /// Time-series data for metrics
+    pub history: MetricsHistory,
+}
+
+/// CPU usage metrics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CpuMetrics {
+    /// Overall CPU usage in percent (0-100)
+    pub usage: f64,
+    
+    /// CPU usage per core
+    pub cores: Vec<f64>,
+    
+    /// CPU temperature (if available)
+    pub temperature: Option<f64>,
+    
+    /// Load averages (1min, 5min, 15min)
+    pub load: [f64; 3],
+}
+
+/// Memory usage metrics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MemoryMetrics {
     /// Total memory in bytes
-    pub memory_total: u64,
-    /// Disk usage in bytes
-    pub disk_used: u64,
-    /// Total disk space in bytes
-    pub disk_total: u64,
-    /// System load average (1, 5, 15 minutes)
-    pub load_average: [f64; 3],
-    /// System uptime in seconds
-    pub uptime: u64,
+    pub total: u64,
+    
+    /// Used memory in bytes
+    pub used: u64,
+    
+    /// Available memory in bytes
+    pub available: u64,
+    
+    /// Free memory in bytes
+    pub free: u64,
+    
+    /// Used swap memory in bytes
+    pub swap_used: u64,
+    
+    /// Total swap memory in bytes
+    pub swap_total: u64,
 }
 
 /// Network metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkSnapshot {
-    /// Bytes received
-    pub rx_bytes: u64,
-    /// Bytes transmitted
-    pub tx_bytes: u64,
-    /// Packets received
-    pub rx_packets: u64,
-    /// Packets transmitted
-    pub tx_packets: u64,
-    /// Network interfaces statistics
-    pub interfaces: HashMap<String, InterfaceStats>,
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NetworkMetrics {
+    /// Received bytes per second
+    pub rx_per_sec: f64,
+    
+    /// Transmitted bytes per second
+    pub tx_per_sec: f64,
+    
+    /// Total received bytes
+    pub rx_total: u64,
+    
+    /// Total transmitted bytes
+    pub tx_total: u64,
+    
+    /// Network interfaces
+    pub interfaces: HashMap<String, NetworkInterface>,
 }
 
-/// Network interface statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InterfaceStats {
+/// Network interface data
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NetworkInterface {
     /// Interface name
     pub name: String,
-    /// Bytes received
-    pub rx_bytes: u64,
-    /// Bytes transmitted
-    pub tx_bytes: u64,
-    /// Packets received
-    pub rx_packets: u64,
-    /// Packets transmitted
-    pub tx_packets: u64,
-    /// Is the interface up?
+    
+    /// Received bytes per second
+    pub rx_per_sec: f64,
+    
+    /// Transmitted bytes per second
+    pub tx_per_sec: f64,
+    
+    /// Total received bytes
+    pub rx_total: u64,
+    
+    /// Total transmitted bytes
+    pub tx_total: u64,
+    
+    /// Whether the interface is up
     pub is_up: bool,
 }
 
-/// Alert information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AlertsSnapshot {
-    /// Current active alerts
-    pub active: Vec<Alert>,
-    /// Recent alerts (resolved)
-    pub recent: Vec<Alert>,
-    /// Total count of active alerts by severity
-    pub counts: HashMap<AlertSeverity, u32>,
+/// Disk usage metrics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DiskMetrics {
+    /// Disks data
+    pub disks: HashMap<String, DiskInfo>,
+    
+    /// IO operations per second
+    pub io_per_sec: f64,
+    
+    /// Read bytes per second
+    pub read_per_sec: f64,
+    
+    /// Write bytes per second
+    pub write_per_sec: f64,
 }
 
-/// Alert severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum AlertSeverity {
-    /// Critical alert requiring immediate attention
-    Critical,
-    /// High severity alert
-    High,
-    /// Medium severity alert
-    Medium,
-    /// Low severity alert
-    Low,
-    /// Informational alert
-    Info,
+/// Disk information
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DiskInfo {
+    /// Mount point
+    pub mount_point: String,
+    
+    /// Total size in bytes
+    pub total: u64,
+    
+    /// Used space in bytes
+    pub used: u64,
+    
+    /// Free space in bytes
+    pub free: u64,
+    
+    /// Filesystem type
+    pub fs_type: String,
 }
 
-/// Alert information
+/// Metrics history for time series data
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MetricsHistory {
+    /// Timestamps for data points
+    pub timestamps: Vec<DateTime<Utc>>,
+    
+    /// CPU usage history
+    pub cpu_usage: Vec<f64>,
+    
+    /// Memory usage history
+    pub memory_usage: Vec<f64>,
+    
+    /// Network receive history
+    pub network_rx: Vec<f64>,
+    
+    /// Network transmit history
+    pub network_tx: Vec<f64>,
+    
+    /// Disk IO history
+    pub disk_io: Vec<f64>,
+}
+
+/// Protocol data structure
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProtocolData {
+    /// Protocol status
+    pub status: String,
+    
+    /// Protocol version
+    pub version: String,
+    
+    /// Connection state
+    pub connected: bool,
+    
+    /// Last connection time
+    pub last_connected: Option<DateTime<Utc>>,
+    
+    /// Error message if any
+    pub error: Option<String>,
+    
+    /// Retry count
+    pub retry_count: u32,
+    
+    /// Protocol metrics
+    pub metrics: HashMap<String, String>,
+    
+    /// Protocol specific data
+    pub data: HashMap<String, String>,
+}
+
+/// System alert
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Alert {
-    /// Unique identifier for the alert
+    /// Alert ID
     pub id: String,
-    /// Alert title
-    pub title: String,
-    /// Alert description
-    pub description: String,
-    /// Alert severity
-    pub severity: AlertSeverity,
-    /// Time the alert was triggered
-    pub triggered_at: DateTime<Utc>,
-    /// Time the alert was resolved (if any)
-    pub resolved_at: Option<DateTime<Utc>>,
-    /// Has the alert been acknowledged?
+    
+    /// Alert severity ("critical", "warning", "info")
+    pub severity: String,
+    
+    /// Alert message
+    pub message: String,
+    
+    /// Alert details
+    pub details: Option<String>,
+    
+    /// When the alert was generated
+    pub timestamp: DateTime<Utc>,
+    
+    /// Whether the alert has been acknowledged
     pub acknowledged: bool,
-    /// Time the alert was acknowledged (if any)
-    pub acknowledged_at: Option<DateTime<Utc>>,
-    /// User who acknowledged the alert (if any)
+    
+    /// Who acknowledged the alert
     pub acknowledged_by: Option<String>,
+    
+    /// When the alert was acknowledged
+    pub acknowledged_at: Option<DateTime<Utc>>,
 }
 
-/// Application metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MetricsSnapshot {
-    /// Generic metrics as key-value pairs
-    pub values: HashMap<String, f64>,
-    /// Counters as key-value pairs
-    pub counters: HashMap<String, u64>,
-    /// Gauges as key-value pairs
-    pub gauges: HashMap<String, f64>,
-    /// Histograms
-    pub histograms: HashMap<String, Vec<f64>>,
+impl Alert {
+    /// Create a new alert
+    pub fn new(id: &str, severity: &str, message: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            severity: severity.to_string(),
+            message: message.to_string(),
+            details: None,
+            timestamp: Utc::now(),
+            acknowledged: false,
+            acknowledged_by: None,
+            acknowledged_at: None,
+        }
+    }
+    
+    /// Add details to the alert
+    pub fn with_details(mut self, details: &str) -> Self {
+        self.details = Some(details.to_string());
+        self
+    }
+    
+    /// Acknowledge the alert
+    pub fn acknowledge(&mut self, by: &str) {
+        self.acknowledged = true;
+        self.acknowledged_by = Some(by.to_string());
+        self.acknowledged_at = Some(Utc::now());
+    }
+    
+    /// Check if the alert is critical
+    pub fn is_critical(&self) -> bool {
+        self.severity == "critical"
+    }
+    
+    /// Check if the alert is a warning
+    pub fn is_warning(&self) -> bool {
+        self.severity == "warning"
+    }
+    
+    /// Check if the alert is informational
+    pub fn is_info(&self) -> bool {
+        self.severity == "info" 
+    }
 } 

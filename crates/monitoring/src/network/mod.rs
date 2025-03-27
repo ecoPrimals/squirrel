@@ -13,6 +13,9 @@ use serde::{Serialize, Deserialize};
 use tokio::time::{sleep, Duration};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+// Define a type alias for 's' to fix compilation issues
+type s = System;
+
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;
 

@@ -11,7 +11,7 @@ pub mod error;
 pub mod update;
 
 // Re-export key components for external use
-pub use data::{DashboardData, MetricsSnapshot, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, Alert, AlertSeverity};
+pub use data::{DashboardData, Metrics, CpuMetrics, MemoryMetrics, NetworkMetrics, DiskMetrics, Alert};
 pub use config::DashboardConfig;
 pub use service::{DashboardService, DefaultDashboardService};
 pub use error::{DashboardError, Result};

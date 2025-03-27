@@ -5,6 +5,7 @@
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+use crate::data::{CpuMetrics, MemoryMetrics, NetworkMetrics, DiskMetrics, Alert};
 
 /// Types of dashboard updates
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,23 +24,33 @@ pub enum DashboardUpdate {
     /// Alert triggered or updated
     AlertUpdate {
         /// The updated alert
-        alert: crate::data::Alert,
+        alert: Alert,
         /// Timestamp of the update
         timestamp: DateTime<Utc>,
     },
     
     /// System resource usage update
     SystemUpdate {
-        /// The updated system snapshot
-        system: crate::data::SystemSnapshot,
+        /// The updated CPU metrics
+        cpu: CpuMetrics,
+        /// The updated memory metrics
+        memory: MemoryMetrics,
         /// Timestamp of the update
         timestamp: DateTime<Utc>,
     },
     
     /// Network statistics update
     NetworkUpdate {
-        /// The updated network snapshot
-        network: crate::data::NetworkSnapshot,
+        /// The updated network metrics
+        network: NetworkMetrics,
+        /// Timestamp of the update
+        timestamp: DateTime<Utc>,
+    },
+    
+    /// Disk statistics update
+    DiskUpdate {
+        /// The updated disk metrics
+        disk: DiskMetrics,
         /// Timestamp of the update
         timestamp: DateTime<Utc>,
     },
