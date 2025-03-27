@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+// Use conditional compilation for utoipa integration
+#[cfg(feature = "api-docs")]
+use utoipa::ToSchema;
 
 /// Status of a command execution
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub enum CommandStatus {
     /// Command is queued but not yet running
     Queued,
@@ -72,6 +76,7 @@ impl std::str::FromStr for CommandStatus {
 
 /// Command definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CommandDefinition {
     /// Command ID
     pub id: String,
@@ -89,6 +94,7 @@ pub struct CommandDefinition {
 
 /// Command execution record
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CommandExecution {
     /// Execution ID
     pub id: String,
@@ -118,6 +124,7 @@ pub struct CommandExecution {
 
 /// Create command request
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CreateCommandRequest {
     /// Command name
     pub command: String,
@@ -127,6 +134,7 @@ pub struct CreateCommandRequest {
 
 /// Create command response
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CreateCommandResponse {
     /// Command execution ID
     pub id: String,
@@ -140,6 +148,7 @@ pub struct CreateCommandResponse {
 
 /// Command status response
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CommandStatusResponse {
     /// Command execution ID
     pub id: String,
@@ -165,6 +174,7 @@ pub struct CommandStatusResponse {
 
 /// Command list filter
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CommandListFilter {
     /// Filter by status
     pub status: Option<CommandStatus>,
@@ -178,6 +188,7 @@ pub struct CommandListFilter {
 
 /// Command summary for list view
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct CommandSummary {
     /// Command execution ID
     pub id: String,
@@ -197,6 +208,7 @@ pub struct CommandSummary {
 
 /// Available command info
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "api-docs", derive(ToSchema))]
 pub struct AvailableCommand {
     /// Command name
     pub name: String,

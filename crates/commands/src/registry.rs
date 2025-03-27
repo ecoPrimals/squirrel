@@ -38,6 +38,7 @@ pub trait Command: Send + Sync {
 }
 
 /// Struct to track lock timing for registry operations
+#[derive(Debug)]
 struct LockTimer {
     operation: String,
     start_time: Instant,

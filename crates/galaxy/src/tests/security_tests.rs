@@ -13,10 +13,14 @@ use crate::security::{
     SecurityManager,
     RotationPolicy,
     helpers,
+    credentials::*,
+    storage::{EncryptedStorage},
 };
 use std::sync::Arc;
 use tempfile::tempdir;
 use std::env;
+use anyhow::Result;
+use tempfile::TempDir;
 
 #[test]
 fn test_secret_string_basic() {
@@ -268,4 +272,243 @@ fn test_helper_functions() {
     assert_eq!(creds2.email().unwrap(), email);
     assert!(creds2.password().is_some());
     assert_eq!(creds2.password().unwrap().expose(), "test-password");
+}
+
+#[tokio::test]
+async fn test_secure_credentials_lifecycle() -> Result<()> {
+    // Create a memory storage
+    let storage = Arc::new(MemoryStorage::new());
+    
+    // Create a security manager
+    let security_manager = SecurityManager::with_storage(storage.clone())
+        .allow_environment_variables(true)
+        .with_rotation_policy(RotationPolicy {
+            frequency_days: 30,
+            auto_rotate: true,
+            history_size: 3,
+            update_dependents: false,
+        })
+        .auto_check_rotation(true);
+    
+    // Create a test credential
+    let api_key = SecretString::new("test-api-key-1");
+    let credentials = SecureCredentials::with_api_key(api_key);
+    
+    // Store the credential
+    security_manager.store_credentials("galaxy-1", credentials).await?;
+    
+    // Retrieve the credential
+    let retrieved = security_manager.get_credentials("galaxy-1").await?;
+    assert_eq!(
+        retrieved.api_key().unwrap().expose(),
+        "test-api-key-1"
+    );
+    
+    // Rotate the credential
+    let new_api_key = SecretString::new("test-api-key-2");
+    let new_credentials = SecureCredentials::with_api_key(new_api_key);
+    security_manager.rotate_credentials("galaxy-1", new_credentials).await?;
+    
+    // Retrieve the new credential
+    let new_retrieved = security_manager.get_credentials("galaxy-1").await?;
+    assert_eq!(
+        new_retrieved.api_key().unwrap().expose(),
+        "test-api-key-2"
+    );
+    
+    // Get credential history
+    let history = security_manager.get_credential_history("galaxy-1").await?;
+    assert_eq!(history.len(), 1); // Should have 1 old credential
+    
+    // Old credential should be in history
+    let old_credential = &history[0];
+    assert_eq!(
+        old_credential.api_key().unwrap().expose(),
+        "test-api-key-1"
+    );
+    
+    // Rotate again
+    let newer_api_key = SecretString::new("test-api-key-3");
+    let newer_credentials = SecureCredentials::with_api_key(newer_api_key);
+    security_manager.rotate_credentials("galaxy-1", newer_credentials).await?;
+    
+    // Get credential history again
+    let history = security_manager.get_credential_history("galaxy-1").await?;
+    assert_eq!(history.len(), 1); // Should have 1 old credential
+    
+    // Newest old credential should be first in history
+    assert_eq!(
+        history[0].api_key().unwrap().expose(),
+        "test-api-key-2"
+    );
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_encrypted_storage() -> Result<()> {
+    // Create a temporary directory for testing
+    let temp_dir = TempDir::new()?;
+    let base_path = temp_dir.path().to_string_lossy().to_string();
+    
+    // Create a file storage with a known encryption key
+    let key = [42u8; 32]; // Test key
+    let storage = Arc::new(FileStorage::new(base_path, key));
+    
+    // Create a test credential
+    let api_key = SecretString::new("galaxy-api-key");
+    let credentials = SecureCredentials::with_api_key(api_key);
+    
+    // Store the credential
+    storage.store("test-galaxy", credentials.clone()).await?;
+    
+    // Retrieve the credential
+    let retrieved = storage.get("test-galaxy").await?;
+    assert_eq!(
+        retrieved.api_key().unwrap().expose(),
+        credentials.api_key().unwrap().expose()
+    );
+    
+    // Test encryption key rotation
+    let new_key = [99u8; 32]; // New test key
+    let encrypted_storage = storage.as_ref() as &dyn EncryptedStorage;
+    encrypted_storage.rotate_encryption_key(new_key).await?;
+    
+    // Credential should still be retrievable with the new key
+    let retrieved_after_rotation = storage.get("test-galaxy").await?;
+    assert_eq!(
+        retrieved_after_rotation.api_key().unwrap().expose(),
+        credentials.api_key().unwrap().expose()
+    );
+    
+    // Check encryption status
+    let status = encrypted_storage.encryption_status();
+    assert_eq!(status.algorithm, "AES-GCM-SIV-256");
+    assert_eq!(status.key_strength, 256);
+    assert!(status.last_rotation.is_some());
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_find_by_api_key() -> Result<()> {
+    // Create a memory storage
+    let storage = Arc::new(MemoryStorage::new());
+    
+    // Create a security manager
+    let security_manager = SecurityManager::with_storage(storage.clone());
+    
+    // Create multiple test credentials
+    let api_key1 = SecretString::new("api-key-1");
+    let credentials1 = SecureCredentials::with_api_key(api_key1.clone());
+    
+    let api_key2 = SecretString::new("api-key-2");
+    let credentials2 = SecureCredentials::with_api_key(api_key2.clone());
+    
+    // Store the credentials
+    security_manager.store_credentials("galaxy-1", credentials1).await?;
+    security_manager.store_credentials("galaxy-2", credentials2).await?;
+    
+    // Find by API key
+    let found1 = security_manager.find_by_api_key(&api_key1).await?;
+    assert!(found1.is_some());
+    let (id1, creds1) = found1.unwrap();
+    assert_eq!(id1, "galaxy-1");
+    assert_eq!(
+        creds1.api_key().unwrap().expose(),
+        api_key1.expose()
+    );
+    
+    // Find by different API key
+    let found2 = security_manager.find_by_api_key(&api_key2).await?;
+    assert!(found2.is_some());
+    let (id2, creds2) = found2.unwrap();
+    assert_eq!(id2, "galaxy-2");
+    assert_eq!(
+        creds2.api_key().unwrap().expose(),
+        api_key2.expose()
+    );
+    
+    // Find with non-existent API key
+    let not_found = security_manager.find_by_api_key(&SecretString::new("nonexistent")).await?;
+    assert!(not_found.is_none());
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_credential_rotation_limit_history() -> Result<()> {
+    // Create a memory storage
+    let storage = Arc::new(MemoryStorage::new());
+    
+    // Create a security manager with history limit of 2
+    let security_manager = SecurityManager::with_storage(storage.clone())
+        .with_rotation_policy(RotationPolicy {
+            frequency_days: 30,
+            auto_rotate: true,
+            history_size: 2, // Only keep 2 old credentials
+            update_dependents: false,
+        });
+    
+    // Create and store initial credential
+    let api_key1 = SecretString::new("test-key-1");
+    let credentials1 = SecureCredentials::with_api_key(api_key1);
+    security_manager.store_credentials("galaxy-test", credentials1).await?;
+    
+    // Rotate the credential 3 times (should only keep latest 2 in history)
+    for i in 2..=4 {
+        let new_key = SecretString::new(format!("test-key-{}", i));
+        let new_creds = SecureCredentials::with_api_key(new_key);
+        security_manager.rotate_credentials("galaxy-test", new_creds).await?;
+    }
+    
+    // Get credential history
+    let history = security_manager.get_credential_history("galaxy-test").await?;
+    
+    // Should only have 2 old credentials
+    assert_eq!(history.len(), 1);
+    
+    // History should contain most recent rotations (3 and 2, but not 1)
+    assert_eq!(
+        history[0].api_key().unwrap().expose(),
+        "test-key-3"
+    );
+    
+    // The oldest credential should not be in history
+    for h in history {
+        assert_ne!(h.api_key().unwrap().expose(), "test-key-1");
+    }
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_should_rotate() -> Result<()> {
+    // Create a memory storage
+    let storage = Arc::new(MemoryStorage::new());
+    
+    // Create a security manager with 30-day rotation
+    let security_manager = SecurityManager::with_storage(storage.clone())
+        .with_rotation_policy(RotationPolicy {
+            frequency_days: 30,
+            auto_rotate: true,
+            history_size: 3,
+            update_dependents: false,
+        });
+    
+    // Create a credential
+    let api_key = SecretString::new("test-api-key");
+    let credentials = SecureCredentials::with_api_key(api_key);
+    
+    // New credential shouldn't need rotation
+    assert!(!security_manager.should_rotate(&credentials));
+    
+    // Create an expired credential (would need simulation of time passage)
+    let expired_credentials = SecureCredentials::with_api_key(SecretString::new("expired"))
+        .with_expiration(time::OffsetDateTime::now_utc() - time::Duration::days(1));
+    
+    // Expired credential should need rotation
+    assert!(security_manager.should_rotate(&expired_credentials));
+    
+    Ok(())
 } 

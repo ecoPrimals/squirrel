@@ -12,6 +12,8 @@ pub mod error;
 // For now, explicitly use the directory-based module
 pub mod commands;
 pub mod router;
+pub mod docs;
+pub mod monitoring;
 
 pub use router::api_router;
 

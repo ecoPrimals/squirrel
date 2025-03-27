@@ -12,7 +12,6 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use super::common::MonitoringPlugin;
-use crate::plugins::PluginMetadata;
 
 /// Plugin registry for monitoring plugins
 ///
@@ -243,7 +242,6 @@ mod tests {
     use super::*;
     use std::fmt::Debug;
     use serde_json::json;
-    use crate::plugins::PluginMetadata;
     
     // Mock plugin for testing
     #[derive(Debug)]

@@ -1,7 +1,64 @@
-//! MCP Protocol module
+//! MCP Protocol module for machine context exchange.
 //!
-//! This module implements the core protocol functionality for the Machine Context Protocol (MCP).
-//! It handles message processing, protocol state management, and command execution.
+//! This module implements the core protocol functionality for the Machine Context Protocol (MCP),
+//! providing a robust framework for message handling, state management, and command execution
+//! between components in a distributed system.
+//!
+//! The MCP protocol is designed to facilitate secure, efficient communication with:
+//! - Message format validation
+//! - Protocol state management
+//! - Command routing and execution
+//! - Security integration
+//! - Error handling and recovery
+//!
+//! # Core Components
+//!
+//! The key components in this module include:
+//!
+//! - [`MCPProtocolBase`]: Base implementation of the protocol
+//! - [`MCPProtocolAdapter`]: Thread-safe adapter providing a clean interface
+//! - [`CommandHandler`]: Trait for handling command messages
+//! - [`MCPProtocol`]: Interface for protocol operations
+//!
+//! # Examples
+//!
+//! Creating and using the MCP protocol:
+//!
+//! ```
+//! use mcp::protocol::{MCPProtocolBase, ProtocolConfig};
+//! use mcp::types::{MCPMessage, MessageId, MessageType};
+//! use serde_json::json;
+//!
+//! // Create a new protocol instance
+//! let protocol = MCPProtocolBase::new_default();
+//!
+//! // Create a response from a message
+//! let message = MCPMessage {
+//!     id: MessageId("msg123".to_string()),
+//!     message_type: MessageType::Command,
+//!     payload: json!({"command": "status"}),
+//! };
+//!
+//! let response = protocol.create_response(&message, mcp::types::ResponseStatus::Success);
+//! ```
+//!
+//! Using the protocol adapter:
+//!
+//! ```
+//! use mcp::protocol::{create_protocol_adapter, MCPProtocol};
+//! use std::sync::Arc;
+//!
+//! async fn example() {
+//!     // Create a protocol adapter
+//!     let adapter = create_protocol_adapter();
+//!     
+//!     // Initialize the adapter
+//!     adapter.initialize().await.expect("Failed to initialize");
+//!     
+//!     // Check protocol state
+//!     let state = adapter.get_state().await.expect("Failed to get state");
+//! }
+//! ```
 
 use crate::error::{MCPError, ProtocolError, Result};
 use serde::{Deserialize, Serialize};
@@ -16,11 +73,22 @@ use crate::types::{
     MCPMessage, MCPResponse, MessageMetadata, MessageType, ProtocolState, ResponseStatus,
 };
 
-/// Protocol-specific result type for operations that return a value
+/// Protocol-specific result type for operations that return a response.
+///
+/// This type is an alias for `Result<MCPResponse>` and is used throughout
+/// the protocol module for operations that produce a response message.
 pub type ProtocolResult = Result<MCPResponse>;
-/// Result type for validation operations
+
+/// Result type for validation operations.
+///
+/// This type is an alias for `Result<()>` and is used for operations
+/// that validate messages without producing a response.
 pub type ValidationResult = Result<()>;
-/// Result type for message routing operations
+
+/// Result type for message routing operations.
+///
+/// This type is an alias for `Result<()>` and is used for operations
+/// that route messages to their appropriate handlers.
 pub type RoutingResult = Result<()>;
 
 /// Adapter module for protocol operations
@@ -32,18 +100,79 @@ pub use adapter::{
 mod impl_protocol;
 pub use impl_protocol::MCPProtocolImpl;
 
-/// Configuration for the MCP protocol
+/// Configuration for the MCP protocol.
+///
+/// This struct contains the configuration parameters for the MCP protocol,
+/// including version information, message size limits, and timeout settings.
+/// It allows customizing the behavior of the protocol to meet specific requirements
+/// for different environments and use cases.
+///
+/// The configuration affects various aspects of protocol operation:
+/// - The protocol version determines compatibility with clients
+/// - Message size limits protect against resource exhaustion
+/// - Timeout settings ensure operations complete in a reasonable time
+///
+/// # Fields
+///
+/// * `version` - Protocol version string, used for compatibility checking
+/// * `max_message_size` - Maximum allowed message size in bytes, prevents DoS attacks
+/// * `timeout_ms` - Timeout for protocol operations in milliseconds, ensures responsiveness
+///
+/// # Examples
+///
+/// Creating a custom configuration:
+///
+/// ```
+/// use mcp::protocol::ProtocolConfig;
+///
+/// // For high-performance systems with large messages
+/// let high_capacity_config = ProtocolConfig {
+///     version: "1.1".to_string(),
+///     max_message_size: 10 * 1024 * 1024, // 10MB
+///     timeout_ms: 30000, // 30 seconds
+/// };
+///
+/// // For resource-constrained environments
+/// let lightweight_config = ProtocolConfig {
+///     version: "1.0".to_string(),
+///     max_message_size: 64 * 1024, // 64KB
+///     timeout_ms: 3000, // 3 seconds
+/// };
+///
+/// // Using the default configuration
+/// let default_config = ProtocolConfig::default();
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProtocolConfig {
     /// Protocol version string (e.g., "1.0")
+    ///
+    /// This version identifier is used for compatibility checking between
+    /// clients and servers. It follows semantic versioning conventions.
     pub version: String,
+    
     /// Maximum allowed message size in bytes
+    ///
+    /// This limit prevents denial of service attacks and resource exhaustion
+    /// by capping the size of messages that can be processed. Messages exceeding
+    /// this size will be rejected.
     pub max_message_size: usize,
+    
     /// Timeout for protocol operations in milliseconds
+    ///
+    /// This setting determines how long the protocol will wait for operations
+    /// to complete before timing out. It ensures the system remains responsive
+    /// even when facing slow or unresponsive components.
     pub timeout_ms: u64,
 }
 
 impl Default for ProtocolConfig {
+    /// Creates a default configuration with balanced settings.
+    ///
+    /// The default configuration provides reasonable values suitable for
+    /// most general-purpose applications:
+    /// - Version: "1.0"
+    /// - Max message size: 1MB (sufficient for most message types)
+    /// - Timeout: 5 seconds (balances responsiveness with operation complexity)
     fn default() -> Self {
         Self {
             version: "1.0".to_string(),
@@ -53,14 +182,194 @@ impl Default for ProtocolConfig {
     }
 }
 
-/// Trait for handlers that process command messages
+/// Trait for handlers that process command messages.
+///
+/// This trait defines the interface for components that handle specific types of messages
+/// in the MCP system. Implementations of this trait are responsible for processing
+/// incoming messages, executing commands, and producing appropriate responses.
+///
+/// Command handlers are the core extension point of the MCP system, allowing
+/// new functionality to be added by implementing handlers for different
+/// message types or commands.
+///
+/// # Thread Safety
+///
+/// All implementations of `CommandHandler` must be thread-safe, as they may be
+/// called concurrently from multiple contexts. This typically means implementing
+/// `Send` and `Sync` for your handler types.
+///
+/// # Error Handling
+///
+/// Handlers should return appropriate errors when they encounter issues processing
+/// a message. The MCP protocol will translate these errors into appropriate response
+/// messages with error details.
+///
+/// # Performance Considerations
+///
+/// Since handlers are called during message processing, they should be designed to
+/// complete quickly to avoid blocking the message handling loop. For long-running
+/// operations, consider:
+///
+/// - Delegating work to background tasks
+/// - Using asynchronous processing with proper cancellation support
+/// - Implementing progress reporting mechanisms
+///
+/// # Examples
+///
+/// Implementing a simple command handler:
+///
+/// ```
+/// use async_trait::async_trait;
+/// use mcp::error::Result;
+/// use mcp::protocol::CommandHandler;
+/// use mcp::types::{MCPMessage, MCPResponse, ResponseStatus};
+/// use serde_json::json;
+///
+/// #[derive(Debug)]
+/// struct EchoHandler;
+///
+/// #[async_trait]
+/// impl CommandHandler for EchoHandler {
+///     async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
+///         // Echo back the message payload
+///         Ok(MCPResponse {
+///             protocol_version: "1.0".to_string(),
+///             message_id: message.id.0.clone(),
+///             status: ResponseStatus::Success,
+///             payload: vec![message.payload.clone()],
+///             error_message: None,
+///             metadata: Default::default(),
+///         })
+///     }
+/// }
+/// ```
+///
+/// Implementing a handler with command routing:
+///
+/// ```
+/// use async_trait::async_trait;
+/// use mcp::error::{MCPError, Result, CommandError};
+/// use mcp::protocol::CommandHandler;
+/// use mcp::types::{MCPMessage, MCPResponse, ResponseStatus};
+/// use serde_json::json;
+///
+/// #[derive(Debug)]
+/// struct MultiCommandHandler {
+///     // Handler state could go here
+/// }
+///
+/// impl MultiCommandHandler {
+///     pub fn new() -> Self {
+///         Self {}
+///     }
+///
+///     async fn handle_status(&self, params: &serde_json::Value) -> Result<serde_json::Value> {
+///         // Process status command
+///         Ok(json!({
+///             "status": "operational",
+///             "uptime": 3600,
+///             "version": "1.0"
+///         }))
+///     }
+///
+///     async fn handle_reset(&self, params: &serde_json::Value) -> Result<serde_json::Value> {
+///         // Process reset command
+///         Ok(json!({
+///             "reset": true,
+///             "timestamp": "2023-06-10T12:00:00Z"
+///         }))
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl CommandHandler for MultiCommandHandler {
+///     async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
+///         // Extract the command type from the payload
+///         let cmd = message.payload.get("command")
+///             .and_then(|v| v.as_str())
+///             .ok_or_else(|| MCPError::Command(CommandError::InvalidCommand(
+///                 "Missing or invalid 'command' field".to_string()
+///             )))?;
+///
+///         // Route to the appropriate handler based on command
+///         let result = match cmd {
+///             "status" => self.handle_status(&message.payload).await?,
+///             "reset" => self.handle_reset(&message.payload).await?,
+///             _ => return Err(MCPError::Command(CommandError::UnknownCommand(
+///                 format!("Unknown command: {}", cmd)
+///             ))),
+///         };
+///
+///         // Construct the response
+///         Ok(MCPResponse {
+///             protocol_version: "1.0".to_string(),
+///             message_id: message.id.0.clone(),
+///             status: ResponseStatus::Success,
+///             payload: vec![result],
+///             error_message: None,
+///             metadata: Default::default(),
+///         })
+///     }
+/// }
+/// ```
 #[async_trait::async_trait]
-pub trait CommandHandler: Send + Sync + std::fmt::Debug {
-    /// Handles a command message and returns a response
+pub trait CommandHandler: Send + Sync + Debug {
+    /// Handles a message and produces a response.
+    ///
+    /// This method is called by the protocol when a message of the associated type
+    /// is received. The handler is responsible for processing the message, executing
+    /// any required actions, and producing an appropriate response.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to handle
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing either:
+    ///
+    /// - An `MCPResponse` with the results of processing the message
+    /// - An `MCPError` if an error occurred during processing
+    ///
+    /// # Error Handling
+    ///
+    /// The handler should return appropriate errors when it encounters issues,
+    /// using the error types defined in the `error` module. These errors will
+    /// be translated into response messages with appropriate error status and
+    /// details by the protocol system.
     async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse>;
 }
 
-/// Base implementation of the MCP protocol
+/// Base implementation of the MCP protocol.
+///
+/// This struct provides the core functionality of the MCP protocol,
+/// managing message handling, state transitions, and command execution.
+/// It maintains a registry of command handlers for different message types
+/// and tracks the current protocol state.
+///
+/// # Examples
+///
+/// Creating and using a protocol instance:
+///
+/// ```
+/// use mcp::protocol::{MCPProtocolBase, ProtocolConfig, CommandHandler};
+/// use mcp::types::{MCPMessage, MessageId, MessageType};
+/// use async_trait::async_trait;
+/// use serde_json::json;
+///
+/// // Create a protocol instance
+/// let mut protocol = MCPProtocolBase::new_default();
+///
+/// // Create a message
+/// let message = MCPMessage {
+///     id: MessageId("msg123".to_string()),
+///     message_type: MessageType::Command,
+///     payload: json!({"command": "get_status"}),
+/// };
+///
+/// // Create a response
+/// let response = protocol.create_response(&message, mcp::types::ResponseStatus::Success);
+/// ```
 #[derive(Debug)]
 pub struct MCPProtocolBase {
     /// Protocol configuration
@@ -73,7 +382,15 @@ pub struct MCPProtocolBase {
 }
 
 impl MCPProtocolBase {
-    /// Creates a new protocol instance with the specified configuration
+    /// Creates a new protocol instance with the specified configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The protocol configuration
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPProtocolBase` instance with the specified configuration
     #[must_use]
     pub fn new(config: ProtocolConfig) -> Self {
         Self {
@@ -83,19 +400,41 @@ impl MCPProtocolBase {
         }
     }
 
-    /// Creates a new protocol instance with default configuration
+    /// Creates a new protocol instance with default configuration.
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPProtocolBase` instance with default configuration
     #[must_use]
     pub fn new_default() -> Self {
         Self::new(ProtocolConfig::default())
     }
 
-    /// Creates a new protocol instance with custom configuration
+    /// Creates a new protocol instance with custom configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The protocol configuration
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPProtocolBase` instance with the specified configuration
     #[must_use]
     pub fn with_config(config: ProtocolConfig) -> Self {
         Self::new(config)
     }
 
-    /// Creates a new protocol instance with custom dependencies
+    /// Creates a new protocol instance with custom dependencies.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The protocol configuration
+    /// * `handlers` - Map of message types to command handlers
+    /// * `initial_state` - Initial protocol state
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPProtocolBase` instance with the specified dependencies
     #[must_use]
     pub fn with_dependencies(
         config: ProtocolConfig,
@@ -109,7 +448,16 @@ impl MCPProtocolBase {
         }
     }
 
-    /// Creates a response message from a request message
+    /// Creates a response message from a request message.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The request message
+    /// * `status` - The response status
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPResponse` with information from the request message
     #[must_use]
     pub fn create_response(&self, message: &MCPMessage, status: ResponseStatus) -> MCPResponse {
         MCPResponse {
@@ -122,7 +470,15 @@ impl MCPProtocolBase {
         }
     }
 
-    /// Handles a message using the appropriate registered handler
+    /// Handles a message using the appropriate registered handler.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to handle
+    ///
+    /// # Returns
+    ///
+    /// A `Result<MCPResponse>` containing the response from the handler
     ///
     /// # Errors
     ///
@@ -142,7 +498,16 @@ impl MCPProtocolBase {
         handler.handle(message).await
     }
 
-    /// Registers a command handler for a specific message type
+    /// Registers a command handler for a specific message type.
+    ///
+    /// # Arguments
+    ///
+    /// * `message_type` - The message type to register the handler for
+    /// * `handler` - The handler to register
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the handler was registered successfully
     ///
     /// # Errors
     ///
@@ -161,7 +526,15 @@ impl MCPProtocolBase {
         Ok(())
     }
 
-    /// Unregisters a command handler for a specific message type
+    /// Unregisters a command handler for a specific message type.
+    ///
+    /// # Arguments
+    ///
+    /// * `message_type` - The message type to unregister the handler for
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the handler was unregistered successfully
     ///
     /// # Errors
     ///
@@ -177,24 +550,40 @@ impl MCPProtocolBase {
         Ok(())
     }
 
-    /// Gets the current protocol state
+    /// Gets the current protocol state.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the current protocol state
     #[must_use]
     pub fn get_state(&self) -> &Value {
         &self.state
     }
 
-    /// Sets the protocol state
+    /// Sets the protocol state.
+    ///
+    /// # Arguments
+    ///
+    /// * `state` - The new protocol state
     pub fn set_state(&mut self, state: Value) {
         self.state = state;
     }
 
-    /// Gets the protocol configuration
+    /// Gets the protocol configuration.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the protocol configuration
     #[must_use]
     pub fn get_config(&self) -> &ProtocolConfig {
         &self.config
     }
 
-    /// Sets the protocol configuration
+    /// Sets the protocol configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The new protocol configuration
     pub fn set_config(&mut self, config: ProtocolConfig) {
         self.config = config;
     }

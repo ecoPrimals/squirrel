@@ -15,7 +15,8 @@ use crate::api::commands::{
     CommandExecution,
     CommandStatus,
 };
-use crate::mcp::{McpCommandClient, McpClient};
+use crate::mcp::{McpCommandClient, McpClient, McpError, ConnectionStatus};
+use crate::state::AppState;
 // Import the CommandService trait from the new API for proper access to methods
 use crate::api::commands::service::CommandService as NewCommandService;
 
@@ -68,13 +69,14 @@ pub trait CommandService: Send + Sync + 'static {
 pub struct DbCommandService {
     db: SqlitePool,
     mcp_client: Arc<dyn McpCommandClient>,
+    ws_manager: Arc<crate::websocket::ConnectionManager>,
 }
 
 #[cfg(feature = "db")]
 impl DbCommandService {
     /// Create a new DbCommandService
-    pub fn new(db: SqlitePool, mcp_client: Arc<dyn McpCommandClient>) -> Self {
-        Self { db, mcp_client }
+    pub fn new(db: SqlitePool, mcp_client: Arc<dyn McpCommandClient>, ws_manager: Arc<crate::websocket::ConnectionManager>) -> Self {
+        Self { db, mcp_client, ws_manager }
     }
 }
 
@@ -398,43 +400,24 @@ impl CommandService for DbCommandService {
 /// Mock implementation of the command service for testing
 pub struct MockCommandService {
     mcp_client: Arc<dyn McpCommandClient>,
+    ws_manager: Arc<crate::websocket::ConnectionManager>,
 }
 
 impl MockCommandService {
     /// Create a new MockCommandService
-    pub fn new(mcp_client: Arc<dyn McpCommandClient>) -> Self {
-        Self { mcp_client }
+    pub fn new(mcp_client: Arc<dyn McpCommandClient>, ws_manager: Arc<crate::websocket::ConnectionManager>) -> Self {
+        Self { mcp_client, ws_manager }
     }
     
     // Helper method to convert McpCommandClient to McpClient for compatibility
     fn get_mcp_client(&self) -> Arc<dyn McpClient> {
-        // Create a simple adapter that wraps the McpCommandClient as McpClient
-        struct McpClientAdapter {
-            inner: Arc<dyn McpCommandClient>
-        }
-        
-        #[async_trait]
-        impl McpClient for McpClientAdapter {
-            async fn send_message(&self, message: &str) -> Result<String, crate::mcp::McpError> {
-                // Parse the message as JSON
-                let message_json: serde_json::Value = serde_json::from_str(message)
-                    .map_err(|e| crate::mcp::McpError::InvalidResponse(format!("Invalid JSON: {}", e)))?;
-                
-                // Extract command and payload
-                let command = message_json["type"].as_str()
-                    .ok_or_else(|| crate::mcp::McpError::InvalidResponse("Missing 'type' field".to_string()))?;
-                let payload = &message_json["payload"];
-                
-                // Forward to the inner client
-                self.inner.execute_command(command, payload)
-                    .await
-                    .map_err(|e| crate::mcp::McpError::CommandError(format!("{:?}", e)))
-            }
-        }
-        
-        Arc::new(McpClientAdapter { 
-            inner: self.mcp_client.clone() 
-        })
+        // Use our adapter to convert McpCommandClient to McpClient
+        Arc::new(McpClientAdapter::new(self.mcp_client.clone()))
+    }
+    
+    // Helper method to get the McpCommandClient
+    fn get_mcp_command_client(&self) -> Arc<dyn McpCommandClient> {
+        self.mcp_client.clone()
     }
 }
 
@@ -446,10 +429,10 @@ impl CommandService for MockCommandService {
         command: &str,
         parameters: &serde_json::Value,
     ) -> Result<String, AppError> {
-        // Get our real command service to delegate the work
         let real_service = crate::api::commands::CommandServiceImpl::new(
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_client()
+            self.get_mcp_command_client(),
+            self.ws_manager.clone()
         );
         
         let request = crate::api::commands::CreateCommandRequest {
@@ -471,10 +454,10 @@ impl CommandService for MockCommandService {
         page: u32,
         limit: u32,
     ) -> Result<(Vec<CommandDefinition>, u64, u32), AppError> {
-        // Get our real command service to delegate the work
         let real_service = crate::api::commands::CommandServiceImpl::new(
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_client()
+            self.get_mcp_command_client(),
+            self.ws_manager.clone()
         );
         
         // Use the trait to access the method
@@ -512,10 +495,10 @@ impl CommandService for MockCommandService {
         user_id: &str,
         command_id: &str,
     ) -> Result<CommandExecution, AppError> {
-        // Get our real command service to delegate the work
         let real_service = crate::api::commands::CommandServiceImpl::new(
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_client()
+            self.get_mcp_command_client(),
+            self.ws_manager.clone()
         );
         
         // Use the trait to access the method
@@ -550,10 +533,10 @@ impl CommandService for MockCommandService {
         status: Option<CommandStatus>,
         command: Option<&str>,
     ) -> Result<(Vec<CommandExecution>, u64, u32), AppError> {
-        // Get our real command service to delegate the work
         let real_service = crate::api::commands::CommandServiceImpl::new(
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_client()
+            self.get_mcp_command_client(),
+            self.ws_manager.clone()
         );
         
         // Use the trait to access the method
@@ -610,8 +593,37 @@ impl CommandService for MockCommandService {
         _user_id: &str,
         _command_id: &str,
     ) -> Result<(), AppError> {
+        let real_service = crate::api::commands::CommandServiceImpl::new(
+            Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
+            self.get_mcp_command_client(),
+            self.ws_manager.clone()
+        );
+        
         // No direct equivalent in new API yet, just return success
         Ok(())
+    }
+}
+
+/// Adapter to convert McpCommandClient into McpClient
+pub struct McpClientAdapter {
+    inner: Arc<dyn McpCommandClient>
+}
+
+impl McpClientAdapter {
+    pub fn new(client: Arc<dyn McpCommandClient>) -> Self {
+        Self { inner: client }
+    }
+}
+
+#[async_trait]
+impl McpClient for McpClientAdapter {
+    async fn send_message(&self, message: &str) -> Result<String, McpError> {
+        self.inner.send_message(message).await
+    }
+    
+    async fn get_status(&self) -> Result<ConnectionStatus, McpError> {
+        // Since we don't have direct access to status from command client, return Connected
+        Ok(ConnectionStatus::Connected)
     }
 }
 

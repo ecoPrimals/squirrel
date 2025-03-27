@@ -395,3 +395,103 @@ let (registry, plugin) = create_command_registry_with_plugin()?;
 2. **Schema Detail**: Command argument schemas are simplified and don't fully reflect clap command configuration
 3. **Event System**: Event hooks for command execution via plugins are not implemented yet
 4. **Authentication**: Integration with the authentication system needs improvement 
+
+## Enhancements
+
+### Context Preservation
+
+A critical aspect of the Command Adapter Pattern is preserving context across protocol boundaries. The following approach is recommended for robust context preservation:
+
+#### Context Manager Implementation
+
+Implement a dedicated Context Manager that provides:
+
+1. **Context Creation**: Generate contexts with rich metadata
+   ```rust
+   pub async fn create_context(
+       &self,
+       user_id: String,
+       session_id: Option<String>,
+       source: Option<String>,
+       correlation_id: Option<String>,
+       metadata: Option<serde_json::Value>,
+   ) -> Context { /* ... */ }
+   ```
+
+2. **Context Storage**: Cache contexts for retrieval and updates
+   ```rust
+   // Store context in an internal cache
+   self.context_cache.write().await.insert(context_id, context.clone());
+   ```
+
+3. **Context Retrieval**: Look up contexts by ID
+   ```rust
+   pub async fn get_context(&self, context_id: &str) -> Option<Context> {
+       self.context_cache.read().await.get(context_id).cloned()
+   }
+   ```
+
+4. **Context Updates**: Support updating context with new information
+   ```rust
+   pub async fn update_context(
+       &self,
+       context_id: &str,
+       updates: ContextUpdates,
+   ) -> Option<Context> { /* ... */ }
+   ```
+
+#### Enhanced Context Structure
+
+Design your context structure with rich metadata:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Context {
+    // Core identification
+    pub request_id: String,
+    pub user_id: String,
+    pub timestamp: DateTime<Utc>,
+    
+    // Enhanced metadata
+    pub session_id: Option<String>,
+    pub source: Option<String>,
+    pub correlation_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+}
+```
+
+#### Context Propagation
+
+Ensure contexts are properly propagated across all layers:
+
+1. **API to Adapter**: Extract context from HTTP requests and enrich
+   ```rust
+   let context = context_manager.create_context(
+       user_id.to_string(),
+       Some(session_id.to_string()),
+       Some("web_api".to_string()),
+       None,
+       Some(json!({ "source_ip": client_ip, "user_agent": user_agent })),
+   ).await;
+   ```
+
+2. **Adapter to Command**: Include context in command execution
+   ```rust
+   let command_message = create_command_message(command, parameters, Some(context));
+   ```
+
+3. **Response Association**: Associate responses with the originating context
+   ```rust
+   // Store context with command ID for later retrieval
+   self.command_contexts.write().await.insert(command_id.clone(), context.request_id.clone());
+   ```
+
+#### Benefits
+
+- **Traceability**: Track operations across system boundaries
+- **Debugging**: Enhanced context makes troubleshooting easier
+- **Metrics**: Gather performance metrics for specific operations
+- **Security**: Preserve authentication context across protocols
+- **User Experience**: Associate operations with user sessions
+
+Proper context preservation is essential for robust and maintainable command adapters, especially in complex distributed systems. 

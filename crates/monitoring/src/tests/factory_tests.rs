@@ -7,6 +7,7 @@ use crate::{
     health::{HealthConfig, status::Status, SystemHealth},
     metrics::MetricConfig,
     network::NetworkConfig,
+    api,
     MonitoringService, MonitoringError, MonitoringStatus
 };
 use std::sync::Arc;
@@ -45,7 +46,9 @@ fn create_test_factory() -> Arc<dyn MonitoringServiceFactory> {
     impl MonitoringServiceFactory for MockFactory {
         async fn create_service(&self, _config: MonitoringConfig) -> Result<Arc<dyn MonitoringService>> {
             // Create a mock service
-            struct MockService;
+            struct MockService {
+                api: Arc<MockAPI>,
+            }
             
             #[async_trait]
             impl MonitoringService for MockService {
@@ -68,9 +71,55 @@ fn create_test_factory() -> Arc<dyn MonitoringServiceFactory> {
                         last_update: Utc::now(),
                     })
                 }
+                
+                fn get_api(&self) -> &dyn api::MonitoringAPI {
+                    self.api.as_ref()
+                }
             }
             
-            Ok(Arc::new(MockService {}))
+            // Create a mock API implementation
+            struct MockAPI;
+            
+            impl std::fmt::Debug for MockAPI {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    f.debug_struct("MockAPI").finish()
+                }
+            }
+            
+            #[async_trait]
+            impl api::MonitoringAPI for MockAPI {
+                async fn get_component_data(&self, _component_id: &str) -> Result<serde_json::Value> {
+                    Ok(serde_json::json!({ "status": "ok", "value": 42, "timestamp": Utc::now().to_rfc3339() }))
+                }
+                
+                async fn get_available_components(&self) -> Result<Vec<String>> {
+                    Ok(vec!["cpu".to_string(), "memory".to_string(), "disk".to_string(), "network".to_string()])
+                }
+                
+                async fn get_health_status(&self) -> Result<HashMap<String, serde_json::Value>> {
+                    let mut health = HashMap::new();
+                    health.insert("status".to_string(), serde_json::Value::String("healthy".to_string()));
+                    health.insert("components".to_string(), serde_json::json!({
+                        "cpu": "ok",
+                        "memory": "ok",
+                        "disk": "ok",
+                        "network": "ok"
+                    }));
+                    Ok(health)
+                }
+                
+                async fn subscribe_to_component(&self, _component_id: &str) -> Result<String> {
+                    Ok(uuid::Uuid::new_v4().to_string())
+                }
+                
+                async fn unsubscribe(&self, _subscription_id: &str) -> Result<()> {
+                    Ok(())
+                }
+            }
+            
+            Ok(Arc::new(MockService {
+                api: Arc::new(MockAPI),
+            }))
         }
     }
     

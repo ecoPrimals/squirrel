@@ -1,0 +1,36 @@
+[package]
+name = "adapter-pattern-examples"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "Examples of the Adapter Pattern in Rust with a command-based architecture"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+async-trait = "0.1.68"
+thiserror = "1.0.40"
+tokio = { version = "1.28.1", features = ["full"] }
+uuid = { version = "1.3.3", features = ["v4"] }
+
+[dev-dependencies]
+tokio-test = "0.4.2"
+
+[[bin]]
+name = "demo"
+path = "src/bin/demo.rs"
+
+[[bin]]
+name = "custom_command"
+path = "src/bin/custom_command.rs"
+
+[[bin]]
+name = "auth_example"
+path = "src/bin/auth_example.rs"
+
+[[bin]]
+name = "cli_app"
+path = "src/bin/cli_app.rs"
+
+[lints]
+workspace = true

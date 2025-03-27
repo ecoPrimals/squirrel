@@ -4,7 +4,9 @@ use anyhow::Result;
 use serde_json::Value;
 use async_trait::async_trait;
 
-use galaxy::plugin::{GalaxyPlugin, GalaxyPluginManager};
+use squirrel_galaxy::plugin::{GalaxyPlugin, GalaxyPluginManager};
+use squirrel_galaxy::adapter::GalaxyAdapter;
+use squirrel_galaxy::error::Error;
 
 struct ExamplePlugin {
     name: String,
@@ -45,12 +47,12 @@ impl GalaxyPlugin for ExamplePlugin {
         &self.description
     }
     
-    async fn initialize(&self, _adapter: Arc<galaxy::adapter::GalaxyAdapter>) -> Result<(), galaxy::error::Error> {
+    async fn initialize(&self, _adapter: Arc<GalaxyAdapter>) -> Result<(), Error> {
         println!("Initializing plugin: {}", self.name);
         Ok(())
     }
     
-    async fn shutdown(&self) -> Result<(), galaxy::error::Error> {
+    async fn shutdown(&self) -> Result<(), Error> {
         println!("Shutting down plugin: {}", self.name);
         Ok(())
     }
@@ -73,11 +75,13 @@ async fn main() -> Result<()> {
     println!("Galaxy Plugin Example");
     
     // Create a Galaxy adapter
-    let adapter = galaxy::create_adapter()?;
+    let config = squirrel_galaxy::GalaxyConfig::for_testing()
+        .with_api_key("test-api-key");
+    let adapter = squirrel_galaxy::adapter::GalaxyAdapter::new(config).await?;
     let adapter = Arc::new(adapter);
     
     // Create a plugin manager
-    let mut manager = galaxy::create_plugin_manager(adapter.clone());
+    let mut manager = squirrel_galaxy::create_plugin_manager(adapter.clone());
     
     // Create and register a plugin
     let plugin = Arc::new(ExamplePlugin::new("example.plugin"));

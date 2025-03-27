@@ -40,14 +40,14 @@ pub mod security;
 pub mod tests;
 
 /// Convenience function to create a new Galaxy adapter with default configuration
-pub fn create_adapter() -> Result<adapter::GalaxyAdapter, error::Error> {
+pub async fn create_adapter() -> Result<adapter::GalaxyAdapter, error::Error> {
     let config = config::GalaxyConfig::default();
-    adapter::GalaxyAdapter::new(config)
+    adapter::GalaxyAdapter::new(config).await
 }
 
 /// Convenience function to create a new Galaxy adapter with a specific configuration
-pub fn create_adapter_with_config(config: config::GalaxyConfig) -> Result<adapter::GalaxyAdapter, error::Error> {
-    adapter::GalaxyAdapter::new(config)
+pub async fn create_adapter_with_config(config: config::GalaxyConfig) -> Result<adapter::GalaxyAdapter, error::Error> {
+    adapter::GalaxyAdapter::new(config).await
 }
 
 /// Convenience function to create a new plugin manager for a Galaxy adapter

@@ -1,0 +1,32 @@
+[package]
+name = "adapter-tests"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "Standalone implementation of the adapter pattern for testing and demonstration"
+repository = "https://github.com/DataScienceBioLab/squirrel-cli"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.36.0", features = ["full", "test-util"] }
+async-trait = "0.1.77"
+
+# Serialization (for example usage)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+# For more comprehensive testing
+tokio-test = "0.4"
+
+[[example]]
+name = "adapter_showcase"
+path = "examples/adapter_showcase.rs"

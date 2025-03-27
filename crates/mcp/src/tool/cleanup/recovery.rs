@@ -517,6 +517,10 @@ impl ToolLifecycleHook for RecoveryHook {
         strategies.remove(tool_id);
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]

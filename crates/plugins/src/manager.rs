@@ -8,6 +8,7 @@ use anyhow::Result;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use tracing::debug;
+use log::{info, warn, error};
 
 use async_trait::async_trait;
 
@@ -16,6 +17,9 @@ use crate::PluginStatus;
 use crate::discovery::{PluginDiscovery, DefaultPluginDiscovery};
 use crate::state::PluginStateManager;
 use crate::PluginError;
+use crate::security::SecurityManager;
+// Removing unused imports from signature
+// use crate::security::signature::{SignatureVerifier, PluginSignature};
 
 /// Plugin registry trait
 #[async_trait]
@@ -76,12 +80,14 @@ pub trait PluginManagerTrait: PluginRegistry {
 /// Plugin manager implementation
 pub struct PluginManager {
     plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
+    security_manager: Arc<dyn SecurityManager + Send + Sync>,
 }
 
 impl std::fmt::Debug for PluginManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginManager")
             .field("plugins", &"<RwLock<HashMap<Uuid, Arc<dyn Plugin>>>>")
+            .field("security_manager", &"<Arc<dyn SecurityManager>>")
             .finish()
     }
 }
@@ -89,9 +95,19 @@ impl std::fmt::Debug for PluginManager {
 impl PluginManager {
     /// Create a new plugin manager
     #[must_use] pub fn new() -> Self {
+        // Use EnhancedSecurityManager as default
+        use crate::security::EnhancedSecurityManager;
+        let security_manager = Arc::new(EnhancedSecurityManager::new());
+        
         Self {
             plugins: RwLock::new(HashMap::new()),
+            security_manager,
         }
+    }
+    
+    /// Get the security manager
+    pub async fn get_security_manager(&self) -> Result<Arc<dyn SecurityManager + Send + Sync>> {
+        Ok(self.security_manager.clone())
     }
     
     /// Initialize the plugin manager
@@ -118,18 +134,55 @@ impl PluginManager {
         Ok(())
     }
     
-    /// Register a plugin
-    pub async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+    /// Register a plugin with metadata, implementation, and optional signature
+    pub async fn register_plugin_with_signature(
+        &self, 
+        plugin: Arc<dyn Plugin>, 
+        signature: Option<Vec<u8>>
+    ) -> Result<()> {
         let metadata = plugin.metadata();
         let id = metadata.id;
+        
+        // If signature is provided, verify it
+        if let Some(sig_bytes) = signature {
+            debug!("Verifying signature for plugin {}", metadata.name);
+            
+            // Verify the signature using the security manager
+            let verification_result = self.security_manager.verify_signature(metadata, &sig_bytes).await?;
+            if !verification_result {
+                error!("Signature verification failed for plugin {}", metadata.name);
+                return Err(PluginError::SecurityError(
+                    format!("Signature verification failed for plugin {}", metadata.name)
+                ).into());
+            }
+            
+            debug!("Signature verification succeeded for plugin {}", metadata.name);
+        } else {
+            // Check if signatures are required by getting the configuration from the signature verifier
+            // This is a more complex approach that would require accessing the SignatureVerifier directly
+            // For now, we'll just log a warning if no signature is provided
+            warn!("No signature provided for plugin {}", metadata.name);
+        }
+        
+        // Perform standard security verification
+        if let Err(e) = self.security_manager.verify_plugin(plugin.as_ref()).await {
+            return Err(PluginError::SecurityError(format!("Security verification failed: {}", e)).into());
+        }
         
         let mut plugins = self.plugins.write().await;
         if plugins.contains_key(&id) {
             return Err(anyhow::anyhow!("Plugin already registered: {}", id));
         }
         
+        info!("Registered plugin {} ({})", metadata.name, id);
         plugins.insert(id, plugin);
         Ok(())
+    }
+    
+    /// Register a plugin
+    pub async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+        // Register plugin without signature verification
+        self.register_plugin_with_signature(plugin, None).await
     }
     
     /// Get a plugin by ID
@@ -147,25 +200,73 @@ impl PluginManager {
         plugins.values().cloned().collect()
     }
     
-    /// Load plugins from a directory
-    pub async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
+    /// Load plugins from a directory with signature verification
+    pub async fn load_plugins_with_signatures(&self, directory: &str, verify_signatures: bool) -> Result<Vec<Uuid>> {
         let discovery = DefaultPluginDiscovery::new();
-        // Use the correct import for PluginDiscovery
-        use crate::discovery::PluginDiscovery;
         let plugin_paths = discovery.discover_plugins(directory).await?;
         let mut ids = Vec::new();
         
-        let mut _plugin_count = 0;
+        let mut plugin_count = 0;
         for plugin in plugin_paths {
-            // Register the plugin directly
-            if let Ok(()) = self.register_plugin(plugin.clone()).await {
-                let id = plugin.metadata().id;
-                ids.push(id);
-                _plugin_count += 1;
+            let metadata = plugin.metadata();
+            let id = metadata.id;
+            let name = metadata.name.clone(); // Clone the name to use later
+            
+            // If signature verification is enabled, look for a signature file
+            if verify_signatures {
+                let sig_path = std::path::Path::new(directory)
+                    .join(format!("{}.sig", name));
+                
+                if sig_path.exists() {
+                    // Load the signature
+                    let sig_bytes = std::fs::read(&sig_path)?;
+                    
+                    // Verify signature using security manager
+                    if let Ok(verification_result) = self.security_manager.verify_signature(metadata, &sig_bytes).await {
+                        if verification_result {
+                            // Verify security
+                            if let Ok(()) = self.security_manager.verify_plugin(plugin.as_ref()).await {
+                                // Register with standard method
+                                let arc_plugin = Arc::from(plugin);
+                                if let Ok(()) = self.register_plugin(arc_plugin).await {
+                                    ids.push(id);
+                                    plugin_count += 1;
+                                }
+                            } else {
+                                error!("Security verification failed for plugin {}", name);
+                            }
+                        } else {
+                            error!("Signature verification failed for plugin {}", name);
+                        }
+                    } else {
+                        error!("Signature verification error for plugin {}", name);
+                    }
+                } else {
+                    warn!("No signature file found for plugin {}, registering without signature", name);
+                    // Register without signature verification
+                    let arc_plugin = Arc::from(plugin);
+                    if let Ok(()) = self.register_plugin(arc_plugin).await {
+                        ids.push(id);
+                        plugin_count += 1;
+                    }
+                }
+            } else {
+                // Register without signature verification
+                let arc_plugin = Arc::from(plugin);
+                if let Ok(()) = self.register_plugin(arc_plugin).await {
+                    ids.push(id);
+                    plugin_count += 1;
+                }
             }
         }
         
+        info!("Loaded {} plugins from {}", plugin_count, directory);
         Ok(ids)
+    }
+    
+    /// Load plugins from a directory
+    pub async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
+        self.load_plugins_with_signatures(directory, false).await
     }
     
     /// Initialize all plugins
@@ -308,6 +409,9 @@ pub struct DefaultPluginManager {
     
     /// Plugin state manager
     state_manager: Arc<dyn PluginStateManager + Send + Sync>,
+    
+    /// Security manager
+    security_manager: Arc<dyn SecurityManager + Send + Sync>,
 }
 
 impl std::fmt::Debug for DefaultPluginManager {
@@ -317,19 +421,92 @@ impl std::fmt::Debug for DefaultPluginManager {
             .field("statuses", &"<RwLock<HashMap<Uuid, PluginStatus>>>")
             .field("name_to_id", &"<RwLock<HashMap<String, Uuid>>>")
             .field("state_manager", &"<Arc<dyn PluginStateManager>>")
+            .field("security_manager", &"<Arc<dyn SecurityManager>>")
             .finish()
     }
 }
 
 impl DefaultPluginManager {
-    /// Create a new plugin manager
-    pub fn new(state_manager: Arc<dyn PluginStateManager>) -> Self {
+    /// Create a new plugin manager with the specified state manager
+    pub fn new(state_manager: Arc<dyn PluginStateManager>, 
+               security_manager: Option<Arc<dyn SecurityManager + Send + Sync>>) -> Self {
+        // Use the provided security manager or create a new EnhancedSecurityManager
+        let security_manager = security_manager.unwrap_or_else(|| {
+            use crate::security::EnhancedSecurityManager;
+            Arc::new(EnhancedSecurityManager::new())
+        });
+        
         Self {
             plugins: RwLock::new(HashMap::new()),
             statuses: RwLock::new(HashMap::new()),
             name_to_id: RwLock::new(HashMap::new()),
             state_manager,
+            security_manager,
         }
+    }
+    
+    /// Load plugins from a directory with signature verification
+    pub async fn load_plugins_with_signatures(&self, directory: &str, verify_signatures: bool) -> Result<Vec<Uuid>> {
+        let discovery = DefaultPluginDiscovery::new();
+        let plugin_paths = discovery.discover_plugins(directory).await?;
+        let mut ids = Vec::new();
+        
+        let mut plugin_count = 0;
+        for plugin in plugin_paths {
+            let metadata = plugin.metadata();
+            let id = metadata.id;
+            let name = metadata.name.clone(); // Clone the name to use later
+            
+            // If signature verification is enabled, look for a signature file
+            if verify_signatures {
+                let sig_path = std::path::Path::new(directory)
+                    .join(format!("{}.sig", name));
+                
+                if sig_path.exists() {
+                    // Load the signature
+                    let sig_bytes = std::fs::read(&sig_path)?;
+                    
+                    // Verify signature using security manager
+                    if let Ok(verification_result) = self.security_manager.verify_signature(metadata, &sig_bytes).await {
+                        if verification_result {
+                            // Verify security
+                            if let Ok(()) = self.security_manager.verify_plugin(plugin.as_ref()).await {
+                                // Register with standard method
+                                let arc_plugin = Arc::from(plugin);
+                                if let Ok(()) = self.register_plugin(arc_plugin).await {
+                                    ids.push(id);
+                                    plugin_count += 1;
+                                }
+                            } else {
+                                error!("Security verification failed for plugin {}", name);
+                            }
+                        } else {
+                            error!("Signature verification failed for plugin {}", name);
+                        }
+                    } else {
+                        error!("Signature verification error for plugin {}", name);
+                    }
+                } else {
+                    warn!("No signature file found for plugin {}, registering without signature", name);
+                    // Register without signature verification
+                    let arc_plugin = Arc::from(plugin);
+                    if let Ok(()) = self.register_plugin(arc_plugin).await {
+                        ids.push(id);
+                        plugin_count += 1;
+                    }
+                }
+            } else {
+                // Register without signature verification
+                let arc_plugin = Arc::from(plugin);
+                if let Ok(()) = self.register_plugin(arc_plugin).await {
+                    ids.push(id);
+                    plugin_count += 1;
+                }
+            }
+        }
+        
+        info!("Loaded {} plugins from {}", plugin_count, directory);
+        Ok(ids)
     }
     
     /// Check if a plugin has dependencies
@@ -378,6 +555,24 @@ impl DefaultPluginManager {
         
         Ok(())
     }
+
+    /// Get a security report for a plugin
+    pub async fn get_security_report(&self, id: Uuid) -> Result<crate::security::SecurityReport> {
+        // Check if the plugin exists
+        if !self.plugins.read().await.contains_key(&id) {
+            return Err(PluginError::NotFound(id).into());
+        }
+        
+        // Generate and return the security report
+        self.security_manager.create_security_report(id).await.map_err(|e| {
+            PluginError::SecurityError(format!("Failed to create security report: {}", e)).into()
+        })
+    }
+    
+    /// Get the security manager
+    pub fn security_manager(&self) -> Arc<dyn SecurityManager + Send + Sync> {
+        self.security_manager.clone()
+    }
 }
 
 #[async_trait]
@@ -386,21 +581,23 @@ impl PluginRegistry for DefaultPluginManager {
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let metadata = plugin.metadata();
         let id = metadata.id;
-        let name = metadata.name.clone();
         
-        let mut plugins = self.plugins.write().await;
-        
-        if plugins.contains_key(&id) {
-            return Err(PluginError::AlreadyRegistered(id).into());
+        // Verify security
+        if let Err(e) = self.security_manager.verify_plugin(plugin.as_ref()).await {
+            return Err(PluginError::SecurityError(format!("Security verification failed: {}", e)).into());
         }
         
-        plugins.insert(id, plugin);
-        
+        // Set the initial status to Registered
         let mut statuses = self.statuses.write().await;
         statuses.insert(id, PluginStatus::Registered);
         
+        // Map the name to the ID
         let mut name_to_id = self.name_to_id.write().await;
-        name_to_id.insert(name, id);
+        name_to_id.insert(metadata.name.clone(), id);
+        
+        // Register the plugin
+        let mut plugins = self.plugins.write().await;
+        plugins.insert(id, plugin);
         
         Ok(())
     }
@@ -481,30 +678,50 @@ impl PluginManagerTrait for DefaultPluginManager {
     
     /// Initialize a plugin
     async fn initialize_plugin(&self, id: Uuid) -> Result<()> {
+        // Get the plugin
+        let plugin = PluginRegistry::get_plugin(self, id).await?;
+        
+        // Verify dependencies
+        self.check_dependencies(&plugin).await?;
+        
+        // Check for security issues before initializing
+        if let Err(e) = self.security_manager.verify_plugin(plugin.as_ref()).await {
+            // Set the status to Failed
+            let mut statuses = self.statuses.write().await;
+            statuses.insert(id, PluginStatus::Failed);
+            
+            return Err(PluginError::SecurityError(format!("Security verification failed: {}", e)).into());
+        }
+        
+        // Set up sandbox if not already set
+        if !self.security_manager.is_sandboxed(id).await? {
+            // Use default sandbox config
+            let config = crate::security::SandboxConfig::default();
+            self.security_manager.create_sandbox(id, config).await?;
+        }
+        
+        // Initialize the plugin
+        let init_result = plugin.initialize().await;
+        
+        // If initialization failed, update the status
+        if init_result.is_err() {
+            let mut statuses = self.statuses.write().await;
+            statuses.insert(id, PluginStatus::Failed);
+        }
+        
+        // Return the result with a proper error conversion
+        init_result.map_err(|e| {
+            anyhow::Error::from(PluginError::InitializationError(format!("Plugin initialization failed: {}", e)))
+        })?;
+        
+        // Set the status to Initialized
         let mut statuses = self.statuses.write().await;
-        let status = statuses.get(&id).cloned();
-
-        // Check if plugin is already active
-        if let Some(status) = status {
-            if status == PluginStatus::Initialized {
-                return Ok(());
-            }
-        }
-
-        // Get plugin using explicit trait qualification
-        let plugin = PluginRegistry::get_plugin(self, id).await.or_else(|_| Err(anyhow::anyhow!("Plugin not found")))?;
-
-        // Initialize plugin
-        match plugin.initialize().await {
-            Ok(_) => {
-                statuses.insert(id, PluginStatus::Initialized);
-                Ok(())
-            }
-            Err(err) => {
-                statuses.insert(id, PluginStatus::Failed);
-                Err(err)
-            }
-        }
+        statuses.insert(id, PluginStatus::Initialized);
+        
+        // Log the successful initialization
+        tracing::info!("Initialized plugin: {}", plugin.metadata().name);
+        
+        Ok(())
     }
     
     /// Shutdown a plugin
@@ -556,23 +773,7 @@ impl PluginManagerTrait for DefaultPluginManager {
     
     /// Load plugins from a directory
     async fn load_plugins(&self, directory: &str) -> Result<Vec<Uuid>> {
-        let discovery = DefaultPluginDiscovery::new();
-        // Use the correct import for PluginDiscovery
-        use crate::discovery::PluginDiscovery;
-        let plugin_paths = discovery.discover_plugins(directory).await?;
-        let mut ids = Vec::new();
-        
-        let mut _plugin_count = 0;
-        for plugin in plugin_paths {
-            // Register the plugin directly
-            if let Ok(()) = self.register_plugin(plugin.clone()).await {
-                let id = plugin.metadata().id;
-                ids.push(id);
-                _plugin_count += 1;
-            }
-        }
-        
-        Ok(ids)
+        self.load_plugins_with_signatures(directory, false).await
     }
     
     /// Initialize all registered plugins

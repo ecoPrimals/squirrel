@@ -9,6 +9,7 @@ license = "MIT"
 [features]
 default = ["commands"]
 commands = []
+testing = []
 
 [dependencies]
 # Internal crates
@@ -57,6 +58,11 @@ assert_cmd = "2.0"
 predicates = "3.0"
 tempfile = "3.8"
 portpicker = "0.1.1"
+criterion = "0.5"
+
+[lib]
+name = "squirrel_cli"
+path = "src/lib.rs"
 
 [[bin]]
 name = "squirrel"

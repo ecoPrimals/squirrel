@@ -52,6 +52,7 @@ impl PluginMetadata {
     }
 
     /// Add a capability to the plugin
+    #[must_use]
     pub fn with_capability(mut self, capability: impl Into<String>) -> Self {
         self.capabilities.push(capability.into());
         self
@@ -163,6 +164,11 @@ pub trait PluginRegistry: Send + Sync {
 /// This trait defines a factory for creating plugins
 pub trait PluginFactory: Send + Sync {
     /// Create a plugin
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if plugin creation fails due to initialization issues,
+    /// missing dependencies, or invalid configuration.
     fn create_plugin(&self) -> Result<Arc<dyn Plugin>>;
     
     /// Get the ID of the plugin that this factory creates

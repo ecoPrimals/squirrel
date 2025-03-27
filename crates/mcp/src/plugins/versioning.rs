@@ -8,7 +8,6 @@ use semver::{Version, VersionReq};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use std::fmt;
-use tracing::{debug, error, info, warn};
 
 /// Protocol version information
 #[derive(Debug, Clone, Serialize, Deserialize)]

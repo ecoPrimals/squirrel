@@ -95,12 +95,6 @@ where
         list_components(State(inner_state)).await
     };
     
-    // Add the basic plugin API routes
-    router = router
-        .route("/api/plugins", get(list_plugins_handler))
-        .route("/api/plugins/endpoints", get(list_endpoints_handler))
-        .route("/api/plugins/components", get(list_components_handler));
-    
     // If we have a modern plugin registry, add plugin-specific routes
     if let Some(plugin_registry) = &state.plugin_registry {
         // Add routes for each registered endpoint in the modern registry

@@ -9,6 +9,7 @@ use crate::metrics::{Metric, MetricConfig, DefaultMetricCollector, MetricType, M
 use crate::network::adapter::NetworkMonitorAdapter;
 use crate::network::NetworkConfig;
 use crate::network::NetworkStats;
+use crate::api;
 use mockall::predicate::*;
 use mockall::mock;
 use std::collections::HashMap;
@@ -17,8 +18,6 @@ use std::default::Default;
 use async_trait::async_trait;
 use chrono::Utc;
 use squirrel_core::error::Result;
-use crate::dashboard;
-use crate::metrics;
 
 // Include factory tests module
 mod factory_tests;
@@ -58,7 +57,7 @@ fn create_test_config() -> MonitoringConfig {
         enabled: true,
     };
     
-    let metric_config = metrics::MetricConfig {
+    let metric_config = MetricConfig {
         enabled: true,
         interval: 10, // Duration as u64 in seconds
         max_metrics: 1000,
@@ -70,7 +69,6 @@ fn create_test_config() -> MonitoringConfig {
         alert_config,
         metrics_config: metric_config,
         health_config,
-        dashboard_config: dashboard::config::DashboardConfig::default(),
         intervals: MonitoringIntervals::default(),
     }
 }
@@ -81,6 +79,7 @@ struct TestMonitoringService {
     metric_collector: Arc<DefaultMetricCollector>,
     alert_manager: Arc<AlertManagerAdapter>,
     network_monitor: Arc<NetworkMonitorAdapter>,
+    api: Arc<MockAPI>,
 }
 
 #[async_trait]
@@ -123,6 +122,10 @@ impl MonitoringService for TestMonitoringService {
             health,
             last_update: Utc::now(),
         })
+    }
+
+    fn get_api(&self) -> &dyn api::MonitoringAPI {
+        self.api.as_ref()
     }
 }
 
@@ -187,6 +190,7 @@ async fn create_test_service() -> (
         metric_collector: metric_collector.clone(),
         alert_manager: alert_manager.clone(),
         network_monitor: network_monitor.clone(),
+        api: Arc::new(MockAPI),
     });
     
     // Return both the service and its dependencies for verification
@@ -518,8 +522,21 @@ pub fn test_monitoring_config() {
         health_config: HealthConfig::default(),
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
-        dashboard_config: dashboard::config::DashboardConfig::default(),
     };
+}
+
+fn create_other_test_config() -> MonitoringConfig {
+    MonitoringConfig {
+        intervals: MonitoringIntervals {
+            health_check_interval: 5,
+            metrics_collection_interval: 10,
+            alert_processing_interval: 15,
+            network_stats_interval: 20,
+        },
+        health_config: HealthConfig::default(),
+        metrics_config: MetricConfig::default(),
+        alert_config: AlertConfig::default(),
+    }
 }
 
 fn create_startup_test_config() -> MonitoringConfig {
@@ -533,6 +550,81 @@ fn create_startup_test_config() -> MonitoringConfig {
         health_config: HealthConfig::default(),
         metrics_config: MetricConfig::default(),
         alert_config: AlertConfig::default(),
-        dashboard_config: dashboard::config::DashboardConfig::default(),
     }
+}
+
+// Mock API implementation for tests
+struct MockAPI;
+
+impl std::fmt::Debug for MockAPI {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MockAPI").finish()
+    }
+}
+
+#[async_trait]
+impl api::MonitoringAPI for MockAPI {
+    async fn get_component_data(&self, _component_id: &str) -> Result<serde_json::Value> {
+        Ok(serde_json::json!({ "status": "ok", "value": 42, "timestamp": Utc::now().to_rfc3339() }))
+    }
+    
+    async fn get_available_components(&self) -> Result<Vec<String>> {
+        Ok(vec!["cpu".to_string(), "memory".to_string(), "disk".to_string(), "network".to_string()])
+    }
+    
+    async fn get_health_status(&self) -> Result<HashMap<String, serde_json::Value>> {
+        let mut health = HashMap::new();
+        health.insert("status".to_string(), serde_json::Value::String("healthy".to_string()));
+        health.insert("components".to_string(), serde_json::json!({
+            "cpu": "ok",
+            "memory": "ok",
+            "disk": "ok",
+            "network": "ok"
+        }));
+        Ok(health)
+    }
+    
+    async fn subscribe_to_component(&self, _component_id: &str) -> Result<String> {
+        Ok(uuid::Uuid::new_v4().to_string())
+    }
+    
+    async fn unsubscribe(&self, _subscription_id: &str) -> Result<()> {
+        Ok(())
+    }
+}
+
+// Helper function to create analytics service for tests
+async fn create_analytics_service() -> crate::analytics::AnalyticsService {
+    use crate::analytics::{
+        time_series::TimeSeriesConfig,
+        trend_detection::TrendDetectionConfig,
+        pattern_recognition::PatternRecognitionConfig,
+        predictive::PredictiveConfig,
+        storage::StorageConfig,
+        AnalyticsConfig
+    };
+    
+    // Create a config with proper structure
+    let config = AnalyticsConfig {
+        time_series: TimeSeriesConfig {
+            max_data_points: 100,
+            interpolate_missing: true,
+            default_aggregation: crate::analytics::time_series::AggregationMethod::Mean,
+            max_time_window: 30_i64 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+        },
+        trend_detection: TrendDetectionConfig::default(),
+        pattern_recognition: PatternRecognitionConfig::default(),
+        predictive: PredictiveConfig::default(),
+        storage: StorageConfig {
+            data_path: std::path::PathBuf::from("./data/analytics_test"),
+            retention_policy: crate::analytics::storage::RetentionPolicy::default(),
+            downsampling: crate::analytics::storage::DownsamplingConfig::default(),
+            max_data_points: 100,
+            compress: false,
+            ttl_days: 30,
+        },
+    };
+    
+    // Create a new service with the config
+    crate::analytics::create_analytics_service(config).unwrap()
 } 

@@ -4,6 +4,7 @@
 //! for different types of WebSocket handlers.
 
 pub mod commands;
+pub mod monitoring;
 
 use async_trait::async_trait;
 use crate::websocket::{WebSocketMessage, WebSocketContext, error::WebSocketError};

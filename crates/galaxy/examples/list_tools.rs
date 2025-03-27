@@ -1,4 +1,4 @@
-use galaxy::{create_adapter_with_config, GalaxyConfig, Error};
+use squirrel_galaxy::{create_adapter_with_config, GalaxyConfig, Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Error> {
         .with_api_key("YOUR_API_KEY"); // Replace with your actual API key
     
     // Create an adapter with the specified configuration
-    let adapter = create_adapter_with_config(config)?;
+    let adapter = create_adapter_with_config(config).await?;
     
     // List all tools
     println!("Listing Galaxy tools...");

@@ -7,14 +7,22 @@
 pub mod cleanup;
 pub mod executor;
 pub mod lifecycle;
+pub mod lifecycle_original;
 
 // Re-export implementations from modules
 pub use self::cleanup::{
-    BasicCleanupHook, BasicResourceManager, CleanupHook, RecoveryHook, RecoveryStrategy,
-    ResourceLimits, ResourceManager, ResourceTracker, ResourceUsage,
+    AdvancedBackoffStrategy, AdvancedRecoveryAction, BasicCleanupHook, BasicResourceManager, 
+    CleanupHook, CleanupMethod, CleanupRecord, CleanupStrategy, ComprehensiveCleanupHook,
+    EnhancedRecoveryAttempt, EnhancedRecoveryHandler, EnhancedRecoveryHook, EnhancedRecoveryStrategy,
+    RecoveryHook, RecoveryStrategy, ResourceAllocation, ResourceDependency, ResourceId, 
+    ResourceLimits, ResourceManager, ResourceTracker, ResourceType, ResourceUsage, ToolManagerRecoveryExt,
 };
 pub use self::executor::{BasicToolExecutor, RemoteToolExecutor};
-pub use self::lifecycle::{BasicLifecycleHook, CompositeLifecycleHook};
+pub use self::lifecycle::{
+    BasicLifecycleHook, CompositeLifecycleHook, LifecycleEvent, LifecycleRecord,
+    SecurityLifecycleHook, StateTransitionGraph, StateTransitionValidator, 
+    StateTransitionViolation, StateValidationHook,
+};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -27,6 +35,7 @@ use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
+use std::any::Any;
 
 /// Tool capability parameter type
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,11 +134,17 @@ impl Tool {
 
 /// Builder for Tool
 pub struct ToolBuilder {
+    /// Optional tool ID, required before building
     id: Option<String>,
+    /// Optional tool name, required before building
     name: Option<String>,
+    /// Tool version, defaults to "0.1.0"
     version: String,
+    /// Tool description, defaults to empty string
     description: String,
+    /// List of tool capabilities
     capabilities: Vec<Capability>,
+    /// Security level (0-10, 0 being lowest), defaults to 0
     security_level: u8,
 }
 
@@ -201,8 +216,8 @@ impl Default for ToolBuilder {
     }
 }
 
-/// Tool state
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Tool state enum
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ToolState {
     /// Tool is registered but not active
     Registered,
@@ -301,6 +316,7 @@ pub enum ToolError {
         tool_id: String,
         from_state: ToolState,
         to_state: ToolState,
+        message: String,
     },
 
     /// Tool manager is not in the expected state
@@ -341,6 +357,27 @@ pub enum ToolError {
 
     /// Permission denied error
     PermissionDenied(String),
+    
+    /// Rollback failed error
+    RollbackFailed {
+        tool_id: String,
+        original_error: Box<ToolError>,
+        rollback_error: Box<ToolError>,
+    },
+    
+    /// No rollback state available error
+    NoRollbackStateAvailable {
+        tool_id: String,
+        from_state: ToolState,
+        to_state: ToolState,
+    },
+    
+    /// Rollback partially successful error
+    RollbackPartiallySuccessful {
+        tool_id: String,
+        original_error: Box<ToolError>,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for ToolError {
@@ -376,10 +413,11 @@ impl std::fmt::Display for ToolError {
                 tool_id,
                 from_state,
                 to_state,
+                message,
             } => write!(
                 f,
-                "Invalid state transition for tool '{}': {:?} -> {:?}",
-                tool_id, from_state, to_state
+                "Invalid state transition for tool '{}': {:?} -> {:?} - {}",
+                tool_id, from_state, to_state, message
             ),
             ToolError::InvalidManagerState { expected, actual } => write!(
                 f,
@@ -400,6 +438,21 @@ impl std::fmt::Display for ToolError {
                 write!(f, "Capability '{}' not found for tool '{}'", cap, tool)
             }
             ToolError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
+            ToolError::RollbackFailed {
+                tool_id,
+                original_error,
+                rollback_error,
+            } => write!(f, "Rollback failed for tool '{}': original error: {}, rollback error: {}", tool_id, original_error, rollback_error),
+            ToolError::NoRollbackStateAvailable {
+                tool_id,
+                from_state,
+                to_state,
+            } => write!(f, "No rollback state available for tool '{}' from state: {:?} to state: {:?}", tool_id, from_state, to_state),
+            ToolError::RollbackPartiallySuccessful {
+                tool_id,
+                original_error,
+                message,
+            } => write!(f, "Rollback partially successful for tool '{}': original error: {}, message: {}", tool_id, original_error, message),
         }
     }
 }
@@ -499,6 +552,9 @@ pub trait ToolExecutor: fmt::Debug + Send + Sync {
 /// Tool lifecycle hook to handle different phases of tool operation
 #[async_trait::async_trait]
 pub trait ToolLifecycleHook: fmt::Debug + Send + Sync {
+    /// Converts to Any for downcasting
+    fn as_any(&self) -> &dyn Any;
+
     /// Called when a tool is registered
     async fn on_register(&self, tool: &Tool) -> Result<(), ToolError>;
 
@@ -624,8 +680,11 @@ pub struct ToolManager {
 
 /// Builder for ToolManager
 pub struct ToolManagerBuilder {
+    /// Optional lifecycle hook, defaults to BasicLifecycleHook if not provided
     lifecycle_hook: Option<Arc<dyn ToolLifecycleHook>>,
+    /// Optional resource manager, defaults to BasicResourceManager if not provided
     resource_manager: Option<Arc<dyn ResourceManager>>,
+    /// Optional recovery hook for handling tool errors
     recovery_hook: Option<Arc<RecoveryHook>>,
 }
 
@@ -926,19 +985,36 @@ impl ToolManager {
         states.clone()
     }
 
-    /// Updates a tool's state
-    #[instrument(skip(self))]
+    /// Called when updating a tool's state
+    #[instrument(skip(self), level = "debug")]
     pub async fn update_tool_state(
         &self,
         tool_id: &str,
         state: ToolState,
     ) -> Result<(), ToolError> {
-        // Check if the tool exists
-        {
-            let tools = self.tools.read().await;
-            if !tools.contains_key(tool_id) {
+        // Get the current state
+        let current_state = match self.get_tool_state(tool_id).await {
+            Some(state) => state,
+            None => {
                 return Err(ToolError::ToolNotFound(tool_id.to_string()));
             }
+        };
+
+        // Skip if already in this state
+        if current_state == state {
+            return Ok(());
+        }
+
+        // For lifecyle hooks that implement StateValidationHook, use that to validate
+        // the state transition and handle rollbacks if needed
+        if let Some(validation_hook) = self.lifecycle_hook.as_any().downcast_ref::<lifecycle::StateValidationHook>() {
+            // Validate the state transition
+            validation_hook.validator().validate_transition(
+                tool_id,
+                &current_state,
+                &state,
+                Some("Manual state update from ToolManager".to_string()),
+            ).await?
         }
 
         // Update the state
@@ -947,7 +1023,100 @@ impl ToolManager {
             states.insert(tool_id.to_string(), state);
         }
 
-        info!("Tool state updated: {} -> {}", tool_id, state);
+        info!("Tool state updated: {} -> {:?}", tool_id, state);
+        Ok(())
+    }
+
+    /// Perform a rollback of a tool's state
+    #[instrument(skip(self), level = "debug")]
+    pub async fn rollback_tool_state(
+        &self,
+        tool_id: &str,
+        from_state: &ToolState,
+        to_state: &ToolState,
+    ) -> Result<(), ToolError> {
+        info!(
+            "Attempting to rollback tool {} from state {:?} to {:?}",
+            tool_id, from_state, to_state
+        );
+
+        // Get the current state
+        let current_state = match self.get_tool_state(tool_id).await {
+            Some(state) => state,
+            None => {
+                return Err(ToolError::ToolNotFound(tool_id.to_string()));
+            }
+        };
+
+        // Check that the current state matches the from_state
+        if current_state != *from_state {
+            warn!(
+                "Current state {:?} does not match expected from_state {:?} for rollback",
+                current_state, from_state
+            );
+        }
+
+        // For validation hook, verify the rollback is valid, but don't recursively rollback
+        if let Some(validation_hook) = self.lifecycle_hook.as_any().downcast_ref::<lifecycle::StateValidationHook>() {
+            // We don't validate the transition here, as rollbacks might need to use
+            // transitions that aren't normally allowed
+            let validator = validation_hook.validator();
+            let graph = validator.graph().read().await;
+            if !graph.is_valid_transition(&current_state, to_state) {
+                warn!(
+                    "Rollback transition from {:?} to {:?} is not normally valid, but proceeding anyway",
+                    current_state, to_state
+                );
+            }
+        }
+
+        // Perform state-specific cleanup before rollback
+        match (current_state, to_state) {
+            // If rolling back from Error to any state, call the reset_tool method first
+            (ToolState::Error, _) => {
+                if let Err(e) = self.lifecycle_hook.reset_tool(tool_id).await {
+                    warn!("Failed to reset tool during rollback: {:?}", e);
+                    // Continue with rollback anyway
+                }
+            }
+            // If rolling back from Active to Inactive, call deactivate first
+            (ToolState::Active, ToolState::Inactive) => {
+                if let Err(e) = self.lifecycle_hook.on_deactivate(tool_id).await {
+                    warn!("Failed to deactivate tool during rollback: {:?}", e);
+                    // Continue with rollback anyway
+                }
+            }
+            // Handle other cases as needed
+            _ => {}
+        }
+
+        // Update the state
+        {
+            let mut states = self.states.write().await;
+            states.insert(tool_id.to_string(), *to_state);
+        }
+
+        info!(
+            "Tool state rolled back: {} -> {:?}",
+            tool_id, to_state
+        );
+
+        // Call appropriate lifecycle hook based on the target state
+        match to_state {
+            ToolState::Active => self.lifecycle_hook.on_activate(tool_id).await?,
+            ToolState::Inactive => self.lifecycle_hook.on_deactivate(tool_id).await?,
+            ToolState::Error => {
+                let error = ToolError::InvalidState(format!(
+                    "Tool {} rolled back to error state",
+                    tool_id
+                ));
+                self.lifecycle_hook.on_error(tool_id, &error).await?;
+            }
+            _ => {
+                // Other states don't need specific hooks
+            }
+        }
+
         Ok(())
     }
 

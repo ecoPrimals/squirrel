@@ -1,44 +1,181 @@
-//! Common types used throughout the MCP system
+//! Common types used throughout the MCP system.
+//!
+//! This module contains the core data structures and enumerations that define the Machine Context Protocol (MCP).
+//! It includes message types, security levels, protocol versioning, and other fundamental structures
+//! that are used across the MCP system for communication between components.
+//!
+//! # Core Message Types
+//!
+//! The primary message types in this module include:
+//! - `MCPMessage`: The core message structure for MCP communications
+//! - `CommandRequestMessage`: For issuing commands to the system
+//! - `CommandResponseMessage`: For returning results from commands
+//! - `EventMessage`: For publishing one-way event notifications
+//! - `HandshakeMessage`: For establishing and negotiating connections
+//!
+//! # Identity Types
+//!
+//! MCP uses several wrapper types to provide type safety for identifiers:
+//! - `MessageId`: Uniquely identifies messages within the system
+//! - `UserId`: Identifies users across the system
+//! - `AccountId`: Identifies accounts within the system
+//! - `SessionToken`: Represents an active user session
+//! - `AuthToken`: Used for authentication purposes
+//!
+//! # Protocol Configuration
+//!
+//! The protocol configuration is managed through:
+//! - `ProtocolVersion`: Represents the protocol version with major and minor components
+//! - `ProtocolState`: Tracks the current state of the protocol (ready, error, etc.)
+//!
+//! # Security
+//!
+//! Security-related types include:
+//! - `SecurityLevel`: Defines the required security level for operations
+//! - `EncryptionFormat`: Specifies encryption algorithms for secure communications
+//! - `CompressionFormat`: Defines compression methods for efficient data transfer
+//! - `UserRole`: Defines access control roles for authorization
+//!
+//! # Examples
+//!
+//! Creating a basic MCP message:
+//!
+//! ```
+//! use mcp::types::{MCPMessage, MessageId, MessageType};
+//! use serde_json::json;
+//!
+//! let message = MCPMessage {
+//!     id: MessageId("msg123".to_string()),
+//!     message_type: MessageType::Command,
+//!     payload: json!({
+//!         "command": "execute",
+//!         "parameters": {
+//!             "tool": "file_reader",
+//!             "args": ["path/to/file"]
+//!         }
+//!     }),
+//! };
+//! ```
+//!
+//! Processing a response:
+//!
+//! ```
+//! use mcp::types::{MCPResponse, ResponseStatus};
+//! use serde_json::json;
+//!
+//! // Assuming we received a response from the system
+//! fn process_response(response: MCPResponse) {
+//!     match response.status {
+//!         ResponseStatus::Success => {
+//!             // Process successful response
+//!             println!("Operation succeeded!");
+//!         },
+//!         ResponseStatus::Error => {
+//!             // Handle error
+//!             println!("Error: {}", response.error_message.unwrap_or_default());
+//!         },
+//!         ResponseStatus::Pending => {
+//!             // Operation is still in progress
+//!             println!("Operation is pending, check back later");
+//!         },
+//!     }
+//! }
+//! ```
 
 use serde::{Deserialize, Serialize};
 use uuid;
+use serde_json;
 
-/// Security level for MCP operations
+/// Security level for MCP operations.
+///
+/// This enumeration defines the various security levels supported by the MCP system,
+/// from low to critical. These levels are used to specify the required security
+/// for different operations and resources, enabling fine-grained security control.
+///
+/// # Ordering
+///
+/// Security levels form a total ordering where:
+/// Low < Standard < High < Critical
+///
+/// This allows for easy comparison of security requirements.
+///
+/// # Usage
+///
+/// ```
+/// use mcp::types::SecurityLevel;
+///
+/// // Function that requires a minimum security level
+/// fn secure_operation(level: SecurityLevel) -> bool {
+///     if level >= SecurityLevel::High {
+///         // Perform high-security operation
+///         true
+///     } else {
+///         // Reject with insufficient security
+///         false
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash, Default)]
 pub enum SecurityLevel {
-    /// Low security level
+    /// Low security level: Minimal security requirements for non-sensitive operations
     Low = 0,
-    /// Standard security level
+    /// Standard security level: Default for most operations
     #[default]
     Standard = 5,
-    /// High security level
+    /// High security level: For sensitive operations requiring stronger security
     High = 10,
+    /// Critical security level: Maximum security for the most sensitive operations
+    Critical = 15,
 }
 
-/// Encryption format for secure communications
+/// Encryption format for secure communications.
+///
+/// This enumeration defines the supported encryption algorithms for
+/// securing communications within the MCP system. The appropriate
+/// format should be selected based on security requirements and
+/// performance considerations.
+///
+/// # Security Considerations
+///
+/// - `None`: Provides no encryption and should only be used for non-sensitive data
+/// - `Aes256Gcm`: Provides strong security with reasonable performance
+/// - `ChaCha20Poly1305`: Alternative that may be faster on systems without AES hardware acceleration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum EncryptionFormat {
-    /// No encryption
+    /// No encryption: Data is transmitted in plaintext
     #[default]
     None,
-    /// AES-256-GCM encryption
+    /// AES-256-GCM encryption: Industry standard authenticated encryption
     Aes256Gcm,
-    /// ChaCha20-Poly1305 encryption
+    /// ChaCha20-Poly1305 encryption: Modern stream cipher with authentication
     ChaCha20Poly1305,
 }
 
-/// Message type for MCP communications
+/// Message type for MCP communications.
+///
+/// This enumeration defines the different types of messages that can be
+/// exchanged within the MCP system. Each type serves a specific purpose
+/// in the communication protocol.
+///
+/// # Usage
+///
+/// The message type determines how a message is processed by the system:
+/// - Command messages trigger actions in the system
+/// - Response messages return results from commands
+/// - Event messages notify about system changes
+/// - Error messages indicate problems
+/// - Setup messages are used during protocol initialization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MessageType {
-    /// Command message
+    /// Command message: Requests an action to be performed
     Command,
-    /// Response message
+    /// Response message: Returns results from a command
     Response,
-    /// Event message
+    /// Event message: One-way notification without expected response
     Event,
-    /// Error message
+    /// Error message: Indicates a problem occurred
     Error,
-    /// Setup message for protocol initialization
+    /// Setup message: Used for protocol initialization and negotiation
     Setup,
 }
 
@@ -54,45 +191,152 @@ impl std::fmt::Display for MessageType {
     }
 }
 
-/// Compression format for MCP communications
+/// Compression format for MCP communications.
+///
+/// This enumeration defines the supported compression algorithms for
+/// reducing the size of data transmitted within the MCP system.
+/// Compression can improve performance by reducing bandwidth usage
+/// and transmission time.
+///
+/// # Performance Considerations
+///
+/// - `None`: No compression, fastest but uses the most bandwidth
+/// - `Gzip`: Widely supported, good balance of compression ratio and speed
+/// - `Zstd`: Modern format with better compression/speed tradeoff than Gzip
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CompressionFormat {
-    /// No compression
+    /// No compression: Data is transmitted uncompressed
     #[default]
     None,
-    /// Gzip compression
+    /// Gzip compression: Standard compression format with good compatibility
     Gzip,
-    /// Zstandard compression
+    /// Zstandard compression: Modern compression with excellent performance
     Zstd,
 }
 
-/// Message metadata for MCP messages
+/// Message metadata for MCP messages.
+///
+/// This structure provides additional context for messages transmitted
+/// through the MCP system. It includes timing information and routing
+/// details that can be used for debugging, auditing, and message delivery.
+///
+/// # Usage
+///
+/// Message metadata is attached to all MCP messages and can be used to:
+/// - Track message flow through the system
+/// - Measure performance and latency
+/// - Debug message routing issues
+/// - Implement message TTL (time-to-live) logic
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MessageMetadata {
-    /// Timestamp of the message
+    /// Timestamp of the message (Unix timestamp in milliseconds)
     pub timestamp: u64,
-    /// Source of the message
+    /// Source of the message (sender identifier)
     pub source: String,
-    /// Destination of the message
+    /// Destination of the message (recipient identifier)
     pub destination: String,
 }
 
-/// Status of a response message
+/// Status of a response message.
+///
+/// This enumeration represents the possible states of a response
+/// to a command or request. It indicates whether the operation
+/// succeeded, failed, or is still in progress.
+///
+/// # Usage
+///
+/// Response status is used to determine how to handle a response:
+/// - Success: The operation completed successfully
+/// - Error: The operation failed
+/// - Pending: The operation is still being processed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResponseStatus {
-    /// Success
+    /// Success: The operation completed successfully
     Success,
-    /// Error
+    /// Error: The operation failed
     Error,
-    /// Pending
+    /// Pending: The operation is still being processed
     Pending,
 }
 
-/// Message ID for MCP communications
+/// Message ID for MCP communications.
+///
+/// This is a wrapper around a String that uniquely identifies a message in the MCP system.
+/// Using a dedicated type (rather than a plain String) provides type safety and makes
+/// the API more expressive.
+///
+/// # Recommended ID Formats
+///
+/// While any string can be used, it's recommended to use one of these approaches:
+/// - UUIDs: Ensures global uniqueness (e.g., "550e8400-e29b-41d4-a716-446655440000")
+/// - Structured IDs: Combines source and timestamp (e.g., "mcp-client-1234567890")
+/// - Sequential IDs with prefix: (e.g., "msg-123456")
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::MessageId;
+/// use uuid::Uuid;
+///
+/// // Using a UUID
+/// let id1 = MessageId(Uuid::new_v4().to_string());
+///
+/// // Using a structured ID
+/// let id2 = MessageId(format!("client-{}-{}", "user123", chrono::Utc::now().timestamp()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MessageId(pub String);
 
-/// MCP Message for communication between components
+/// MCP Message for communication between components.
+///
+/// This is the core message structure used for all MCP communications.
+/// It contains a unique identifier, message type, and payload. This structure
+/// forms the foundation of the MCP protocol and enables communication
+/// between different components of the system.
+///
+/// # Message Flow
+///
+/// Messages follow a structured flow through the MCP system:
+/// 1. Created by a sender with a unique ID and message type
+/// 2. Serialized and transmitted through the protocol
+/// 3. Received and deserialized by the recipient
+/// 4. Processed according to the message type
+/// 5. Response generated (if applicable)
+///
+/// # Examples
+///
+/// Command message:
+///
+/// ```
+/// use mcp::types::{MCPMessage, MessageId, MessageType};
+/// use serde_json::json;
+///
+/// let command = MCPMessage {
+///     id: MessageId("cmd-123".to_string()),
+///     message_type: MessageType::Command,
+///     payload: json!({
+///         "command": "read_file",
+///         "path": "/path/to/file.txt"
+///     }),
+/// };
+/// ```
+///
+/// Event message:
+///
+/// ```
+/// use mcp::types::{MCPMessage, MessageId, MessageType};
+/// use serde_json::json;
+///
+/// let event = MCPMessage {
+///     id: MessageId("evt-456".to_string()),
+///     message_type: MessageType::Event,
+///     payload: json!({
+///         "event_type": "file_changed",
+///         "path": "/path/to/file.txt",
+///         "timestamp": 1623456789
+///     }),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPMessage {
     /// Unique identifier for the message
@@ -113,7 +357,21 @@ impl Default for MCPMessage {
     }
 }
 
-/// Command Request Message
+/// Command Request Message for executing commands via MCP.
+///
+/// This message type is used to request execution of a command with optional arguments.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::{CommandRequestMessage, MessageId};
+///
+/// let request = CommandRequestMessage {
+///     id: MessageId("cmd123".to_string()),
+///     command: "read_file".to_string(),
+///     args: Some(serde_json::json!({"path": "example.txt"})),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandRequestMessage {
     /// Unique identifier for the message
@@ -124,7 +382,23 @@ pub struct CommandRequestMessage {
     pub args: Option<serde_json::Value>,
 }
 
-/// Command Response Message
+/// Command Response Message for returning command execution results.
+///
+/// This message type is sent in response to a CommandRequestMessage and
+/// includes the status of the command execution and optional result data.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::{CommandResponseMessage, MessageId};
+///
+/// let response = CommandResponseMessage {
+///     id: MessageId("resp123".to_string()),
+///     command_id: MessageId("cmd123".to_string()),
+///     status: "success".to_string(),
+///     result: Some(serde_json::json!({"content": "file contents..."})),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandResponseMessage {
     /// Unique identifier for the response
@@ -137,7 +411,24 @@ pub struct CommandResponseMessage {
     pub result: Option<serde_json::Value>,
 }
 
-/// Event Message
+/// Event Message for publishing events in the MCP system.
+///
+/// This message type is used for one-way event notifications that don't require responses.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::{EventMessage, MessageId};
+///
+/// let event = EventMessage {
+///     id: MessageId("evt123".to_string()),
+///     event_type: "file_change".to_string(),
+///     data: serde_json::json!({
+///         "path": "example.txt",
+///         "operation": "write"
+///     }),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMessage {
     /// Unique identifier for the event
@@ -148,7 +439,22 @@ pub struct EventMessage {
     pub data: serde_json::Value,
 }
 
-/// Handshake Message
+/// Handshake Message for establishing MCP connections.
+///
+/// This message is sent during connection initialization to negotiate
+/// protocol version and capabilities.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::{HandshakeMessage, MessageId, ProtocolVersion};
+///
+/// let handshake = HandshakeMessage {
+///     id: MessageId("hs123".to_string()),
+///     version: ProtocolVersion::new(1, 0),
+///     capabilities: vec!["compression".to_string(), "encryption".to_string()],
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HandshakeMessage {
     /// Unique identifier for the handshake
@@ -159,7 +465,25 @@ pub struct HandshakeMessage {
     pub capabilities: Vec<String>,
 }
 
-/// MCP Response structure
+/// MCP Response structure for replying to requests.
+///
+/// This structure provides a standardized response format for MCP communications,
+/// including status information, payload data, and optional error messages.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::{MCPResponse, ResponseStatus, MessageMetadata};
+///
+/// let response = MCPResponse {
+///     protocol_version: "1.0".to_string(),
+///     message_id: "req123".to_string(),
+///     status: ResponseStatus::Success,
+///     payload: serde_json::to_vec(&serde_json::json!({"result": "ok"})).unwrap(),
+///     error_message: None,
+///     metadata: MessageMetadata::default(),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPResponse {
     /// Protocol version
@@ -176,7 +500,21 @@ pub struct MCPResponse {
     pub metadata: MessageMetadata,
 }
 
-/// MCP Command structure
+/// MCP Command structure for executing operations.
+///
+/// This structure represents a command to be executed within the MCP system,
+/// with an identifier and binary parameters.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::MCPCommand;
+///
+/// let command = MCPCommand {
+///     command: "execute_tool".to_string(),
+///     parameters: serde_json::to_vec(&serde_json::json!({"tool": "file_reader"})).unwrap(),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPCommand {
     /// Command identifier
@@ -185,7 +523,39 @@ pub struct MCPCommand {
     pub parameters: Vec<u8>,
 }
 
-/// Protocol version for MCP communications
+/// Protocol version for MCP communications.
+///
+/// This structure represents the version of the MCP protocol using
+/// semantic versioning principles with major and minor components.
+/// It's used for version negotiation during connection establishment
+/// and ensures compatibility between communicating components.
+///
+/// # Semantic Versioning
+///
+/// The protocol follows semantic versioning:
+/// - Major version changes indicate breaking changes
+/// - Minor version changes indicate backward-compatible additions
+///
+/// Components can negotiate the highest mutually supported version.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::ProtocolVersion;
+///
+/// let v1_0 = ProtocolVersion::new(1, 0);
+/// let v1_1 = ProtocolVersion::new(1, 1);
+/// let v2_0 = ProtocolVersion::new(2, 0);
+///
+/// // Components can check compatibility
+/// fn is_compatible(client: &ProtocolVersion, server: &ProtocolVersion) -> bool {
+///     // Example compatibility rule: same major version, client minor <= server minor
+///     client.major == server.major && client.minor <= server.minor
+/// }
+///
+/// assert!(is_compatible(&v1_0, &v1_1)); // Compatible: client is v1.0, server is v1.1
+/// assert!(!is_compatible(&v2_0, &v1_1)); // Incompatible: different major versions
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProtocolVersion {
     /// Major version number
@@ -220,20 +590,62 @@ impl std::fmt::Display for ProtocolVersion {
     }
 }
 
-/// State of the protocol
+/// State of the protocol.
+///
+/// This enumeration represents the possible states of the MCP protocol
+/// during its lifecycle. It tracks the protocol's state from initialization
+/// through operation to shutdown, allowing components to react appropriately
+/// based on the current state.
+///
+/// # State Transitions
+///
+/// The protocol typically follows this state progression:
+/// 1. Uninitialized → Initializing (when setup begins)
+/// 2. Initializing → Initialized (when basic setup completes)
+/// 3. Initialized → Ready (when fully operational)
+/// 4. Ready → ShuttingDown (when termination begins)
+///
+/// The Error state can be entered from any other state when a problem occurs.
+///
+/// # Usage
+///
+/// ```
+/// use mcp::types::ProtocolState;
+///
+/// fn handle_message(state: ProtocolState, message: &str) -> bool {
+///     match state {
+///         ProtocolState::Uninitialized | ProtocolState::Initializing => {
+///             // Only accept setup messages
+///             message.starts_with("SETUP")
+///         },
+///         ProtocolState::Ready => {
+///             // Accept all normal messages
+///             true
+///         },
+///         ProtocolState::ShuttingDown => {
+///             // Only accept urgent messages
+///             message.starts_with("URGENT")
+///         },
+///         ProtocolState::Error | ProtocolState::Initialized => {
+///             // Limited message handling
+///             message.starts_with("CONTROL")
+///         },
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProtocolState {
-    /// Protocol is uninitialized
+    /// Protocol is uninitialized: Initial state before setup
     Uninitialized,
-    /// Protocol is initializing
+    /// Protocol is initializing: Setup in progress
     Initializing,
-    /// Protocol is initialized and ready
+    /// Protocol is initialized: Basic setup complete
     Initialized,
-    /// Protocol is ready for operation
+    /// Protocol is ready: Fully operational
     Ready,
-    /// Protocol is shutting down
+    /// Protocol is shutting down: Termination in progress
     ShuttingDown,
-    /// Protocol is in an error state
+    /// Protocol is in an error state: Problem detected
     Error,
 }
 
@@ -387,16 +799,52 @@ impl From<&str> for AuthToken {
     }
 }
 
-/// User role
+/// User role within the MCP system.
+///
+/// This enumeration defines the possible roles that users can have in the system,
+/// which determines their permissions and access levels. Roles form the foundation
+/// of the role-based access control (RBAC) system used by MCP.
+///
+/// # Access Control
+///
+/// Each role typically has different permission levels:
+/// - Admin: Full system access
+/// - User: Standard permissions for normal operations
+/// - Guest: Limited, read-only access
+/// - Custom: Specialized roles with specific permissions
+///
+/// # Examples
+///
+/// ```
+/// use mcp::types::UserRole;
+///
+/// fn check_permission(role: &UserRole, operation: &str) -> bool {
+///     match role {
+///         UserRole::Admin => true,  // Admins can do anything
+///         UserRole::User => {
+///             // Users can perform standard operations
+///             matches!(operation, "read" | "write" | "update")
+///         },
+///         UserRole::Guest => {
+///             // Guests can only read
+///             operation == "read"
+///         },
+///         UserRole::Custom(role_name) => {
+///             // Custom logic for specific roles
+///             matches!(role_name.as_str(), "moderator" | "analyst")
+///         },
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum UserRole {
-    /// Administrator role
+    /// Administrator role: Full system access
     Admin,
-    /// User role
+    /// User role: Standard access for normal operations
     User,
-    /// Guest role
+    /// Guest role: Limited access, typically read-only
     Guest,
-    /// Custom role
+    /// Custom role: Role with specific permissions
     Custom(String),
 }
 

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
-use crate::tool::{Tool, ToolLifecycleHook, ToolState, ToolError};
+use crate::tool::{Tool, ToolLifecycleHook, ToolError};
 use crate::plugins::interfaces::PluginManagerInterface;
 
 /// A lifecycle hook that synchronizes tool state changes to plugin status
@@ -46,6 +46,14 @@ impl PluginLifecycleHook {
     pub async fn is_monitored(&self, tool_id: &str) -> bool {
         let tools = self.monitored_tools.read().await;
         tools.get(tool_id).copied().unwrap_or(false)
+    }
+
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -88,6 +96,10 @@ impl ToolLifecycleHook for PluginLifecycleHook {
         }
         Ok(())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// A composite lifecycle hook that combines the plugin lifecycle hook with another hook
@@ -110,7 +122,7 @@ impl<T: ToolLifecycleHook> CompositePluginLifecycleHook<T> {
 }
 
 #[async_trait]
-impl<T: ToolLifecycleHook + Send + Sync> ToolLifecycleHook for CompositePluginLifecycleHook<T> {
+impl<T: ToolLifecycleHook + Send + Sync + 'static> ToolLifecycleHook for CompositePluginLifecycleHook<T> {
     async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
         // Call both hooks
         self.base_hook.on_register(tool).await?;
@@ -193,6 +205,10 @@ impl<T: ToolLifecycleHook + Send + Sync> ToolLifecycleHook for CompositePluginLi
         self.base_hook.on_cleanup(tool_id).await?;
         self.plugin_hook.on_cleanup(tool_id).await?;
         Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

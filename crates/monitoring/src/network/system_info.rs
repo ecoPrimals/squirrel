@@ -144,18 +144,21 @@ impl SystemInfoAdapter {
         NetworkError::System("SystemInfoAdapter not initialized".to_string()).into()
     }
 
-    /// Gets network stats as (`interface_name`, `received_bytes`, `transmitted_bytes`)
+    /// Get access to the network statistics
     pub async fn network_stats(&self) -> Result<Vec<(String, u64, u64)>> {
         if !self.is_initialized() {
             return Err(Self::not_initialized_error());
         }
         
-        // Create fresh Networks instance with refreshed data
-        let networks = Networks::new_with_refreshed_list();
+        // Create a System instance with network information
+        let mut system = System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        let networks = system.networks();
         
         // Get networks using iteration
         let mut stats = Vec::new();
-        for (name, network) in &networks {
+        for (name, network) in networks {
             stats.push((name.clone(), network.received(), network.transmitted()));
         }
         Ok(stats)
@@ -167,12 +170,15 @@ impl SystemInfoAdapter {
             return Err(Self::not_initialized_error());
         }
         
-        // Create fresh Networks instance with refreshed data
-        let networks = Networks::new_with_refreshed_list();
+        // Create a System instance with network information
+        let mut system = System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        let networks = system.networks();
         
         // Create a HashMap that owns the NetworkStats
         let mut result = HashMap::new();
-        for (name, network) in &networks {
+        for (name, network) in networks {
             // Create a new NetworkStats that owns the data
             let network_stats = NetworkStats {
                 interface: name.clone(),

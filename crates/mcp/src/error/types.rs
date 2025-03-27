@@ -1,3 +1,27 @@
+//! Error type definitions for the MCP system.
+//!
+//! This module provides a comprehensive error type hierarchy for the Machine Context Protocol (MCP)
+//! system. It defines various error types for different categories of errors that can occur during
+//! MCP operations, including context errors, protocol errors, security errors, connection errors,
+//! and more.
+//!
+//! # Error Types
+//!
+//! The central error type is `MCPError`, which is a comprehensive enum that can represent any
+//! error that may occur in the MCP system. Specialized error types like `ContextError`, 
+//! `ProtocolError`, `SecurityError`, and `ConnectionError` provide more detailed error information
+//! for specific categories of errors.
+//!
+//! # Error Context
+//!
+//! The `ErrorContext` struct provides additional metadata about errors, including:
+//! - Timestamp of when the error occurred
+//! - Operation that was being performed
+//! - Component where the error occurred
+//! - Severity of the error
+//! - Whether the error is recoverable
+//! - Additional details about the error
+
 use crate::error::context::ErrorSeverity;
 use crate::types::{MessageType, SecurityLevel};
 use chrono::{DateTime, Utc};
@@ -7,7 +31,25 @@ use squirrel_core::error::{Result as CoreResult, SquirrelError as CoreError};
 use thiserror::Error;
 use uuid;
 
-/// MCP specific error types
+/// Main error type for MCP operations.
+///
+/// This enum represents all possible errors that can occur during MCP operations.
+/// It categorizes errors into different types based on their source and nature,
+/// providing detailed information about what went wrong.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::error::{MCPError, Result};
+///
+/// fn handle_error() -> Result<()> {
+///     // Operation that might fail
+///     if something_went_wrong {
+///         return Err(MCPError::General("Something went wrong".to_string()));
+///     }
+///     Ok(())
+/// }
+/// ```
 #[derive(Debug)]
 pub enum MCPError {
     /// Context-related errors
@@ -55,7 +97,10 @@ impl std::fmt::Display for MCPError {
     }
 }
 
-// We need to create newtype wrappers for String errors to implement std::error::Error
+/// String-based error wrapper.
+///
+/// This is a newtype wrapper around String that implements `std::error::Error`,
+/// allowing string errors to be used with the error machinery.
 #[derive(Debug)]
 pub struct StringError(pub String);
 
@@ -248,6 +293,8 @@ pub enum SecurityError {
     InvalidActionInPermission(String),
     #[error("Error creating role: {0}")]
     ErrorCreatingRole(String),
+    #[error("RBAC error: {0}")]
+    RBACError(#[from] crate::security::rbac::RBACError),
 }
 
 #[derive(Debug, Error)]
@@ -318,17 +365,44 @@ pub enum ProtocolError {
     RecoveryFailed(String),
 }
 
+/// Provides additional context information for errors.
+///
+/// This struct contains metadata about an error, including when it occurred,
+/// what operation was being performed, which component raised the error,
+/// and other relevant contextual information.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::error::{ErrorContext, ErrorSeverity};
+/// use chrono::Utc;
+/// use serde_json::Map;
+///
+/// let context = ErrorContext::new("read_file", "file_system")
+///     .with_severity(ErrorSeverity::Error)
+///     .with_error_code("FS-001");
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {
+    /// When the error occurred
     pub timestamp: DateTime<Utc>,
+    /// Operation being performed when the error occurred
     pub operation: String,
+    /// Component where the error occurred
     pub component: String,
+    /// Type of message being processed, if applicable
     pub message_type: Option<MessageType>,
+    /// Additional details about the error
     pub details: Map<String, serde_json::Value>,
+    /// Severity level of the error
     pub severity: ErrorSeverity,
+    /// Whether the error can be recovered from
     pub is_recoverable: bool,
+    /// Number of retry attempts made so far
     pub retry_count: u32,
+    /// Unique error code for identification
     pub error_code: String,
+    /// Code location where the error occurred
     pub source_location: Option<String>,
 }
 

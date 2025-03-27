@@ -212,4 +212,30 @@ impl ResourceManager for BasicResourceManager {
 
         Ok(within_limits)
     }
+
+    #[instrument(skip(self))]
+    async fn release_resource(&self, resource_id: &str) -> Result<(), ToolError> {
+        info!("Releasing resource: {}", resource_id);
+        
+        // This is a simplified implementation that just delegates to the appropriate 
+        // tool's resource tracker. In a real implementation, you would parse the resource_id
+        // to determine which tool it belongs to and what type of resource it is.
+        
+        // For simplicity, we'll assume the resource_id is the tool_id for now
+        let tool_id = resource_id;
+        
+        // Get the tracker
+        let tracker = {
+            let trackers = self.trackers.read().await;
+            match trackers.get(tool_id) {
+                Some(t) => t.clone(),
+                None => return Err(ToolError::ToolNotFound(tool_id.to_string())),
+            }
+        };
+        
+        // Release resources associated with this tool
+        tracker.cleanup_resource(resource_id).await.map_err(|err| {
+            ToolError::ResourceError(format!("Failed to release resource: {}", err))
+        })
+    }
 }
