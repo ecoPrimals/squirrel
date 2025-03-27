@@ -12,6 +12,7 @@ use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
 use tokio::time::{sleep, Duration};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;

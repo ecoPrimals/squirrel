@@ -2,19 +2,19 @@ use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
+    text::{Span, Line as Spans, Text},
     widgets::{Block, Borders, Paragraph, Tabs, Widget},
     Frame,
 };
 
 use crate::app::App;
-use crate::widgets::metrics::MetricsWidget;
-use crate::widgets::alerts::AlertsWidget;
-use crate::widgets::health::HealthWidget;
-use crate::widgets::network::NetworkWidget;
+use crate::widgets::{
+    MetricsWidget, AlertsWidget, HealthWidget, 
+    NetworkWidget, ChartWidget, ChartType
+};
 
 /// Draw the UI
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+pub fn draw(f: &mut Frame, app: &mut App) {
     // Create base layout (tabs and content)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -70,7 +70,7 @@ fn draw_tabs(app: &App) -> Tabs {
 }
 
 /// Draw the overview tab
-fn draw_overview_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_overview_tab(f: &mut Frame, app: &App, area: Rect) {
     // Create a layout with multiple sections for key metrics
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -100,16 +100,19 @@ fn draw_overview_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
     
     // Draw health status
     if let Some(data) = app.dashboard_data() {
+        // Create dummy health checks
+        let dummy_health_checks: Vec<crate::widgets::health::HealthCheck> = Vec::new();
+        
         // Draw health widget
-        let health_widget = HealthWidget::new(&data.health);
+        let health_widget = HealthWidget::new(&dummy_health_checks, "Health");
         f.render_widget(health_widget, top_chunks[0]);
         
         // Draw system metrics
-        let system_widget = MetricsWidget::new(&data.system_metrics, "System");
+        let system_widget = MetricsWidget::new(&data.metrics, "System");
         f.render_widget(system_widget, bottom_chunks[0]);
         
         // Draw protocol metrics
-        let protocol_widget = MetricsWidget::new_protocol(&data.protocol_metrics, "Protocol");
+        let protocol_widget = MetricsWidget::new(&data.metrics, "Protocol");
         f.render_widget(protocol_widget, bottom_chunks[1]);
         
         // Draw network metrics
@@ -124,11 +127,50 @@ fn draw_overview_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the system tab
-fn draw_system_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_system_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
+        // Create layout with metrics and charts
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(40), // Metrics
+                Constraint::Percentage(60), // Charts
+            ])
+            .split(area);
+            
         // Create detailed system metrics widget
-        let system_widget = MetricsWidget::new_detailed(&data.system_metrics, "System Metrics");
-        f.render_widget(system_widget, area);
+        let system_widget = MetricsWidget::new_detailed(&data.metrics, "System Metrics");
+        f.render_widget(system_widget, chunks[0]);
+        
+        // Split charts section
+        let chart_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50), // CPU chart
+                Constraint::Percentage(50), // Memory chart
+            ])
+            .split(chunks[1]);
+            
+        // Get metric history from app
+        if let Some(cpu_history) = app.get_metric_history("system.cpu") {
+            // Create CPU chart
+            let cpu_chart = ChartWidget::new(cpu_history, "CPU Usage")
+                .y_label("Usage %")
+                .chart_type(ChartType::Line)
+                .time_range(600); // 10 minutes
+                
+            f.render_widget(cpu_chart, chart_chunks[0]);
+        }
+        
+        if let Some(memory_history) = app.get_metric_history("system.memory") {
+            // Create memory chart
+            let memory_chart = ChartWidget::new(memory_history, "Memory Usage")
+                .y_label("Bytes")
+                .chart_type(ChartType::Line)
+                .time_range(600); // 10 minutes
+                
+            f.render_widget(memory_chart, chart_chunks[1]);
+        }
     } else {
         // Show loading message if no data available
         let loading = Paragraph::new("Loading system metrics...")
@@ -138,10 +180,10 @@ fn draw_system_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the protocol tab
-fn draw_protocol_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_protocol_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
         // Create detailed protocol metrics widget
-        let protocol_widget = MetricsWidget::new_protocol_detailed(&data.protocol_metrics, "Protocol Metrics");
+        let protocol_widget = MetricsWidget::new_detailed(&data.metrics, "Protocol Metrics");
         f.render_widget(protocol_widget, area);
     } else {
         // Show loading message if no data available
@@ -152,7 +194,7 @@ fn draw_protocol_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the tools tab
-fn draw_tools_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_tools_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
         // Create tools metrics widget
         // TODO: Implement detailed tool metrics widget
@@ -168,10 +210,13 @@ fn draw_tools_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the alerts tab
-fn draw_alerts_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_alerts_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
         // Create alerts widget
-        let alerts_widget = AlertsWidget::new(&data.alerts, "Alerts", app.scroll_positions().alerts);
+        let alerts_widget = match app.alerts_selected_index() {
+            Some(index) => AlertsWidget::new_with_selection(&data.alerts.active, "Alerts", index),
+            None => AlertsWidget::new(&data.alerts.active, "Alerts")
+        };
         f.render_widget(alerts_widget, area);
     } else {
         // Show loading message if no data available
@@ -182,7 +227,7 @@ fn draw_alerts_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the network tab
-fn draw_network_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_network_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
         // Create detailed network metrics widget
         let network_widget = NetworkWidget::new_detailed(&data.network, "Network Metrics");
@@ -196,7 +241,7 @@ fn draw_network_tab<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the status bar
-fn draw_status_bar<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
+fn draw_status_bar(f: &mut Frame, app: &App, area: Rect) {
     // Format update time
     let update_time = match app.time_since_update() {
         Some(duration) => {
@@ -226,7 +271,7 @@ fn draw_status_bar<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
 }
 
 /// Draw the help popup
-fn draw_help<B: Backend>(f: &mut Frame<B>, ) {
+fn draw_help(f: &mut Frame) {
     // Create help popup in the center of the screen
     let area = centered_rect(60, 40, f.size());
     

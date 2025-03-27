@@ -29,8 +29,8 @@ use ratatui::{
 
 use dashboard_core::{
     DashboardService,
-    DashboardData,
     DashboardUpdate,
+    service::DefaultDashboardService,
 };
 
 /// Terminal UI Dashboard
@@ -59,6 +59,17 @@ impl TuiDashboard {
         }
     }
     
+    /// Create a new TUI dashboard from a DefaultDashboardService
+    pub fn new_with_default_service(dashboard_service: Arc<DefaultDashboardService>) -> Self {
+        Self::new(dashboard_service as Arc<dyn DashboardService>)
+    }
+    
+    /// Create a new TUI dashboard from a DefaultDashboardService tuple with receiver
+    pub fn new_from_default_service(dashboard_service_tuple: (Arc<DefaultDashboardService>, mpsc::Receiver<DashboardUpdate>)) -> Self {
+        let (dashboard_service, _rx) = dashboard_service_tuple;
+        Self::new(dashboard_service as Arc<dyn DashboardService>)
+    }
+    
     /// Run the dashboard UI
     pub async fn run(&mut self) -> io::Result<()> {
         // Initialize terminal
@@ -69,13 +80,7 @@ impl TuiDashboard {
         let mut terminal = Terminal::new(backend)?;
         
         // Subscribe to dashboard updates
-        self.update_rx = match self.dashboard_service.subscribe().await {
-            Ok(rx) => Some(rx),
-            Err(e) => {
-                eprintln!("Failed to subscribe to dashboard updates: {}", e);
-                None
-            }
-        };
+        self.update_rx = Some(self.dashboard_service.subscribe().await);
         
         // Load initial dashboard data
         match self.dashboard_service.get_dashboard_data().await {
@@ -84,7 +89,7 @@ impl TuiDashboard {
         }
         
         // Start events handling
-        let events = events::Events::new(Duration::from_millis(100));
+        let mut events = events::Events::new(Duration::from_millis(100));
         
         // Main loop
         loop {
@@ -93,14 +98,28 @@ impl TuiDashboard {
             
             // Handle events
             if let Some(event) = events.next()? {
-                if !self.app.handle_event(event) {
-                    break;
+                // Pass appropriate events to the app
+                match event {
+                    events::Event::Key(key_event) => {
+                        if !self.app.handle_event(key_event) {
+                            break;
+                        }
+                    }
+                    events::Event::Mouse(mouse_event) => {
+                        self.app.handle_mouse(mouse_event);
+                    }
+                    events::Event::Resize(width, height) => {
+                        self.app.handle_resize(width, height);
+                    }
+                    events::Event::Tick => {
+                        // Just continue, handled by tick logic below
+                    }
                 }
             }
             
             // Check for dashboard updates
             if let Some(rx) = &mut self.update_rx {
-                while let Ok(Some(update)) = rx.try_recv().map_or(Ok(None), |u| Ok(Some(u))) {
+                while let Ok(Some(update)) = rx.try_recv().map_or(Ok::<Option<DashboardUpdate>, tokio::sync::mpsc::error::TryRecvError>(None), |u| Ok(Some(u))) {
                     self.app.handle_update(update);
                 }
             }

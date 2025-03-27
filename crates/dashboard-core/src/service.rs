@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
-use crate::data::{DashboardData, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, MetricsSnapshot, Alert, AlertSeverity};
+use crate::data::{DashboardData, SystemSnapshot, NetworkSnapshot, AlertsSnapshot, MetricsSnapshot, Alert, AlertSeverity, InterfaceStats};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -103,20 +103,118 @@ impl DefaultDashboardService {
         (service, rx)
     }
     
-    /// Collect dashboard data
+    /// Collect dashboard data from system
     async fn collect_dashboard_data(&self) -> Result<()> {
-        // This is a placeholder implementation
-        // In a real implementation, this would collect data from monitoring systems
+        // Get system information
+        let mut sys_info = sysinfo::System::new_all();
+        sys_info.refresh_all();
         
+        // Update dashboard data
         let mut data = self.data.write().await;
+        
+        // Use dummy data for development
+        data.system.cpu_usage = 45.0; // Dummy CPU usage
+        data.system.memory_used = 4_000_000_000; // ~4GB
+        data.system.memory_total = 16_000_000_000; // ~16GB
+        data.system.uptime = 3600; // 1 hour
+        
+        // Use dummy disk data
+        data.system.disk_used = 500_000_000_000; // ~500GB
+        data.system.disk_total = 1_000_000_000_000; // ~1TB
+        
+        // Update network metrics with dummy data
+        data.network.interfaces.clear();
+        data.network.rx_bytes = 1_500_000; // 1.5MB received
+        data.network.tx_bytes = 500_000; // 500KB sent
+        data.network.rx_packets = 1000;
+        data.network.tx_packets = 500;
+        
+        // Add some dummy network interfaces
+        let interface1 = InterfaceStats {
+            name: "eth0".to_string(),
+            rx_bytes: 1_000_000, // 1MB
+            tx_bytes: 400_000, // 400KB
+            rx_packets: 800,
+            tx_packets: 400,
+            is_up: true,
+        };
+        
+        let interface2 = InterfaceStats {
+            name: "wlan0".to_string(),
+            rx_bytes: 500_000, // 500KB
+            tx_bytes: 100_000, // 100KB
+            rx_packets: 200,
+            tx_packets: 100,
+            is_up: true,
+        };
+        
+        data.network.interfaces.insert("eth0".to_string(), interface1);
+        data.network.interfaces.insert("wlan0".to_string(), interface2);
+        
+        // Update timestamp
         data.timestamp = Utc::now();
         
+        // Update metric history with dummy data
+        let mut history = self.metric_history.write().await;
+        
+        // Store CPU usage history
+        let cpu_history = history.entry("system.cpu".to_string())
+            .or_insert_with(Vec::new);
+            
+        cpu_history.push((data.timestamp, data.system.cpu_usage));
+        
+        // Store memory usage history
+        let memory_history = history.entry("system.memory".to_string())
+            .or_insert_with(Vec::new);
+            
+        memory_history.push((data.timestamp, data.system.memory_used as f64));
+        
+        // Store network history
+        let network_rx_history = history.entry("network.rx_bytes".to_string())
+            .or_insert_with(Vec::new);
+            
+        network_rx_history.push((data.timestamp, data.network.rx_bytes as f64));
+        
+        let network_tx_history = history.entry("network.tx_bytes".to_string())
+            .or_insert_with(Vec::new);
+            
+        network_tx_history.push((data.timestamp, data.network.tx_bytes as f64));
+        
+        // Trim history if needed
+        let config = self.config.read().await;
+        let max_history_points = config.max_history_points;
+        
+        for (_, points) in history.iter_mut() {
+            if points.len() > max_history_points {
+                *points = points.drain(points.len() - max_history_points..).collect();
+            }
+        }
+        
+        // Create a clone for sending update
+        let data_clone = data.clone();
+        drop(data);
+        
         // Send update to subscribers
-        if let Err(e) = self.update_sender.send(DashboardUpdate::FullUpdate(data.clone())).await {
+        if let Err(e) = self.update_sender.send(DashboardUpdate::FullUpdate(data_clone)).await {
             return Err(DashboardError::Update(format!("Failed to send update: {}", e)));
         }
         
         Ok(())
+    }
+}
+
+impl Clone for DefaultDashboardService {
+    fn clone(&self) -> Self {
+        // Create a new mpsc channel
+        let (tx, _) = mpsc::channel(100);
+        
+        Self {
+            config: self.config.clone(),
+            data: self.data.clone(),
+            metric_history: self.metric_history.clone(),
+            update_sender: tx,
+            running: self.running.clone(),
+        }
     }
 }
 
@@ -217,10 +315,7 @@ impl DashboardService for DefaultDashboardService {
         let update_interval = config.update_interval_duration();
         
         // Clone the Arc references for the tokio task
-        let config_clone = self.config.clone();
-        let data_clone = self.data.clone();
-        let running_clone = self.running.clone();
-        let update_sender_clone = self.update_sender.clone();
+        let self_clone = Arc::new(self.clone());
         
         tokio::spawn(async move {
             let mut interval_timer = interval(update_interval);
@@ -228,19 +323,14 @@ impl DashboardService for DefaultDashboardService {
             loop {
                 interval_timer.tick().await;
                 
-                let running = *running_clone.read().await;
+                let running = *self_clone.running.read().await;
                 if !running {
                     break;
                 }
                 
-                // This is a placeholder implementation
-                // In a real implementation, this would collect data from monitoring systems
-                let mut data = data_clone.write().await;
-                data.timestamp = Utc::now();
-                
-                // Send update to subscribers
-                if let Err(e) = update_sender_clone.send(DashboardUpdate::FullUpdate(data.clone())).await {
-                    log::error!("Failed to send update: {}", e);
+                // Use the improved data collection method
+                if let Err(e) = self_clone.collect_dashboard_data().await {
+                    log::error!("Failed to collect dashboard data: {}", e);
                 }
             }
         });

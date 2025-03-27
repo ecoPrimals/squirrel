@@ -19,6 +19,10 @@ pub struct DashboardConfig {
     #[serde(default = "default_alert_history_size")]
     pub alert_history_size: usize,
     
+    /// Maximum number of data points to keep per metric
+    #[serde(default = "default_max_history_points")]
+    pub max_history_points: usize,
+    
     /// Custom metrics to display
     #[serde(default)]
     pub custom_metrics: Vec<String>,
@@ -56,12 +60,17 @@ fn default_auto_refresh() -> bool {
     true
 }
 
+fn default_max_history_points() -> usize {
+    1000 // 1000 points per metric
+}
+
 impl Default for DashboardConfig {
     fn default() -> Self {
         Self {
             update_interval: default_update_interval(),
             history_retention: default_history_retention(),
             alert_history_size: default_alert_history_size(),
+            max_history_points: default_max_history_points(),
             custom_metrics: Vec::new(),
             auto_refresh: default_auto_refresh(),
             displayed_categories: HashSet::from_iter([
@@ -97,6 +106,12 @@ impl DashboardConfig {
     /// Set the alert history size
     pub fn with_alert_history_size(mut self, size: usize) -> Self {
         self.alert_history_size = size;
+        self
+    }
+    
+    /// Set the maximum number of history points per metric
+    pub fn with_max_history_points(mut self, points: usize) -> Self {
+        self.max_history_points = points;
         self
     }
     

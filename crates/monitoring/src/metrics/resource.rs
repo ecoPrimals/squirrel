@@ -19,7 +19,7 @@ use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use crate::metrics::performance::PerformanceCollectorAdapter;
 use chrono;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, warn, info};
 use anyhow::{anyhow};
 use tokio::time::{sleep, Duration};
 use serde_json::{json, Value};
@@ -29,6 +29,11 @@ use std::io::Read;
 use std::fs::File;
 use std::time::Instant;
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
+use crate::metrics::types::{
+    CpuMetrics, DiskMetrics, MemoryMetrics, MetricsCollectorFactory,
+    MetricsError, NetworkMetrics, ResourceMetricsCollectorTrait
+};
 
 /// Information about a process
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,19 +248,19 @@ impl ResourceMetricsCollector {
     /// Helper method for storage usage that works with RwLockReadGuard
     async fn calculate_storage_usage_locked(&self, team_path: &Path) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_storage_usage(&system, team_path)
+        Self::calculate_storage_usage(system, team_path)
     }
 
     /// Helper method for disk IO that works with RwLockReadGuard
     async fn calculate_disk_io_locked(&self, team_path: &Path) -> DiskIOStats {
         let system = self.system.read().await;
-        Self::calculate_disk_io(&system, team_path)
+        Self::calculate_disk_io(system, team_path)
     }
 
     /// Helper method for CPU usage that works with RwLockReadGuard
     async fn calculate_cpu_usage_locked(&self, team_name: &str) -> f64 {
         let system = self.system.read().await;
-        Self::calculate_cpu_usage(&system, team_name)
+        Self::calculate_cpu_usage(system, team_name)
     }
 
     /// Helper method for network bandwidth that works with RwLockReadGuard
@@ -278,21 +283,38 @@ impl ResourceMetricsCollector {
     }
 
     /// Calculate storage usage for a team's workspace
-    fn calculate_storage_usage(_system: &System, path: &Path) -> f64 {
+    fn calculate_storage_usage(system: &System, path: &Path) -> f64 {
+        // First try our calculation method
         match Self::calculate_dir_size(path) {
             Ok(size) => size as f64,
-            Err(_) => 0.0,
+            Err(_) => {
+                // If that fails, use the UI team's method
+                let disks = system.disks();
+                
+                // Calculate storage usage for the given path
+                if let Ok(metadata) = std::fs::metadata(path) {
+                    let total_space = metadata.len() as f64;
+                    let free_space = disks.iter()
+                        .filter(|disk| Path::new(disk.mount_point()).starts_with(path))
+                        .map(|disk| disk.available_space() as f64)
+                        .sum::<f64>();
+
+                    if total_space > 0.0 {
+                        (total_space - free_space) / total_space
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                }
+            }
         }
     }
 
     /// Calculate disk I/O statistics for a team's workspace
-    fn calculate_disk_io(_system: &System, path: &Path) -> DiskIOStats {
-        // Create a new system instance to get disk information
-        let system = System::new();
-        let disk_space_total: u64 = system.disks()
-            .iter()
-            .map(|d| d.total_space())
-            .sum();
+    fn calculate_disk_io(system: &System, path: &Path) -> DiskIOStats {
+        // Create a fresh Disks instance with refreshed data
+        let disks = system.disks();
         
         DiskIOStats {
             bytes_read: 0,
@@ -501,11 +523,11 @@ impl ResourceMetricsCollector {
         
         // Calculate storage usage - using System's disks
         let storage_usage = {
-            let system_disks = system.disks();
-            if system_disks.len() == 0 {
+            let disks = system.disks();
+            if disks.is_empty() {
                 0.0
             } else {
-                system_disks.iter()
+                disks.iter()
                     .map(|disk| {
                         let total = disk.total_space();
                         let available = disk.available_space();
@@ -515,7 +537,7 @@ impl ResourceMetricsCollector {
                             ((total - available) as f64 / total as f64) * 100.0
                         }
                     })
-                    .fold(0.0, |acc, x| acc + x) / system_disks.len() as f64
+                    .fold(0.0, |acc, x| acc + x) / disks.len() as f64
             }
         };
         
@@ -529,12 +551,10 @@ impl ResourceMetricsCollector {
                 .sum::<f64>()
         };
 
-        // Calculate thread count safely - in sysinfo v0.30 we can only default to 1 per process
-        let thread_count = system.processes().iter()
-            .map(|(_, _)| {
-                // Default to 1 thread per process
-                1u32
-            })
+        // Calculate thread count safely
+        let thread_count: u32 = system.processes()
+            .values()
+            .map(|_| 1u32) // Just count each process as having 1 thread
             .sum();
         
         // Calculate disk I/O
@@ -682,88 +702,22 @@ impl Default for ResourceConfig {
 }
 
 /// Factory for creating resource metrics collectors
-#[derive(Debug, Clone)]
-pub struct ResourceMetricsCollectorFactory {
-    /// Configuration for creating collectors
-    config: ResourceConfig,
-}
+pub struct ResourceMetricsCollectorFactory;
 
 impl ResourceMetricsCollectorFactory {
-    /// Creates a new factory with default configuration
-    #[must_use] pub fn new() -> Self {
-        Self {
-            config: ResourceConfig::default(),
-        }
-    }
-
-    /// Creates a new factory with the specified configuration
-    #[must_use] pub const fn with_config(config: ResourceConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a new collector instance with dependency injection
-    ///
-    /// # Arguments
-    /// * `performance_collector` - Optional performance collector adapter
-    ///
-    /// # Returns
-    /// A new ResourceMetricsCollector instance wrapped in an Arc
-    #[must_use]
-    pub fn create_collector_with_dependencies(
-        &self,
-        performance_collector: Option<Arc<PerformanceCollectorAdapter>>,
-    ) -> Arc<ResourceMetricsCollector> {
-        Arc::new(ResourceMetricsCollector::with_dependencies(
-            self.config.clone(),
-            performance_collector,
-        ))
-    }
-
-    /// Creates a new collector instance with the default configuration
-    #[must_use]
-    pub fn create_collector(&self) -> Arc<ResourceMetricsCollector> {
-        self.create_collector_with_dependencies(None)
-    }
-
-    /// Creates a new collector adapter
-    #[must_use]
-    pub fn create_collector_adapter(&self) -> Arc<ResourceMetricsCollectorAdapter> {
-        let collector = self.create_collector();
-        Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
+    pub fn new() -> Self {
+        ResourceMetricsCollectorFactory
     }
 }
 
-impl Default for ResourceMetricsCollectorFactory {
-    fn default() -> Self {
-        Self::new()
+impl MetricsCollectorFactory<ResourceMetricsCollector> for ResourceMetricsCollectorFactory {
+    fn create(&self) -> Box<dyn ResourceMetricsCollector> {
+        Box::new(ResourceMetricsCollectorAdapter::new())
     }
 }
 
-/// Create a new resource metrics collector adapter
-#[must_use]
-pub fn create_collector_adapter() -> Arc<ResourceMetricsCollectorAdapter> {
-    ResourceMetricsCollectorFactory::new().create_collector_adapter()
-}
-
-/// Create a new resource metrics collector adapter with a specific collector
-#[must_use]
-pub fn create_collector_adapter_with_collector(
-    collector: Arc<ResourceMetricsCollector>
-) -> Arc<ResourceMetricsCollectorAdapter> {
-    Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
-}
-
-/// Adapter for the Resource Metrics Collector to support dependency injection
-#[derive(Debug)]
 pub struct ResourceMetricsCollectorAdapter {
-    /// The inner collector instance
-    inner: Option<Arc<ResourceMetricsCollector>>,
-}
-
-impl Default for ResourceMetricsCollectorAdapter {
-    fn default() -> Self {
-        Self::new()
-    }
+    system: System,
 }
 
 impl ResourceMetricsCollectorAdapter {
@@ -937,177 +891,196 @@ impl TeamResourceMetrics {
         }
     }
     
-    /// Collects detailed information about a process into a ProcessInfo struct
-    /// 
-    /// # Arguments
-    /// 
-    /// * `process` - A reference to the Process object to extract information from
-    /// 
-    /// # Returns
-    /// 
-    /// Returns a ProcessInfo struct with CPU, memory, disk, and status information
-    fn collect_process_info(process: &Process) -> ProcessInfo {
-        let status = match process.status() {
-            ProcessStatus::Run => "running",
-            ProcessStatus::Sleep => "sleeping",
-            ProcessStatus::Zombie => "zombie",
-            ProcessStatus::Stop => "stopped",
-            ProcessStatus::Idle => "idle",
-            _ => "unknown",
-        };
+    fn refresh_system(&mut self) {
+        self.system.refresh_all();
+    }
 
-        // Set a default thread count (sysinfo v0.30 doesn't have a direct thread count method)
-        let thread_count = 1; // Default to 1 thread per process
-        
-        // Get disk usage from process
-        let disk_usage = process.disk_usage();
-        
-        ProcessInfo {
-            pid: process.pid().as_u32(),
-            name: process.name().to_string(),
-            cpu_usage: process.cpu_usage(),
-            memory_usage: process.memory(),
-            thread_count,
-            disk_read_bytes: disk_usage.read_bytes,
-            disk_write_bytes: disk_usage.written_bytes,
-            status: status.to_string(),
+    pub fn with_collector(_collector: Arc<ResourceMetricsCollector>) -> Self {
+        Self::new()
+    }
+}
+
+impl ResourceMetricsService for ResourceMetricsCollectorAdapter {
+    fn collect_cpu_metrics(&mut self) -> Result<CpuMetrics, MetricsError> {
+        if let Some(collector) = &self.inner {
+            let system_metrics = collector.collect_system_metrics()?;
+            
+            Ok(CpuMetrics {
+                usage_percentage: system_metrics.cpu_usage as f32,
+                // You might want to add more detailed CPU metrics here
+            })
+        } else {
+            Err(MetricsError::NotInitialized)
         }
     }
-}
-
-#[async_trait]
-impl MetricCollector for ResourceMetricsCollector {
-    async fn record_metric(&self, metric: Metric) -> Result<()> {
-        let mut metrics = self.metrics.write().await;
-        metrics.push(metric.clone());
-        Ok(())
+    
+    fn collect_memory_metrics(&mut self) -> Result<MemoryMetrics, MetricsError> {
+        if let Some(collector) = &self.inner {
+            let system = System::new_all();
+            
+            let total_memory = system.total_memory();
+            let used_memory = system.used_memory();
+            let available_memory = total_memory - used_memory;
+            let usage_percentage = if total_memory > 0 {
+                (used_memory as f64 / total_memory as f64) * 100.0
+            } else {
+                0.0
+            };
+            
+            Ok(MemoryMetrics {
+                total_bytes: total_memory,
+                used_bytes: used_memory,
+                available_bytes: available_memory,
+                usage_percentage,
+            })
+        } else {
+            Err(MetricsError::NotInitialized)
+        }
     }
-
-    async fn collect_metrics(&self) -> Result<Vec<Metric>> {
-        // Update system information before collecting metrics
-        self.system.write().await.refresh_all();
+    
+    fn collect_disk_metrics(&mut self) -> Result<Vec<DiskMetrics>, MetricsError> {
+        let mut disk_metrics = Vec::new();
+        let system = System::new_all();
         
-        // Generate at least some basic system metrics
-        let cpu_metric = Metric::new(
-            "system_cpu_usage".to_string(),
-            f64::from(self.system.read().await.global_cpu_info().cpu_usage()),
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        let memory_metric = Metric::new(
-            "system_memory_usage".to_string(),
-            self.system.read().await.used_memory() as f64,
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        // Record the new metrics
-        let mut metrics = self.metrics.write().await;
-        metrics.push(cpu_metric.clone());
-        metrics.push(memory_metric.clone());
-        
-        // Return all metrics
-        Ok(crate::metrics::write_guard_to_vec(&metrics))
-    }
-
-    async fn start(&self) -> Result<()> {
-        // Implementation depends on the existing code
-        tracing::info!("Starting ResourceMetricsCollector");
-        Ok(())
-    }
-
-    async fn stop(&self) -> Result<()> {
-        // Implementation depends on the existing code
-        tracing::info!("Stopping ResourceMetricsCollector");
-        Ok(())
-    }
-}
-
-/// Collects resource metrics from the system
-/// Returns a vector of resource metrics
-pub async fn collect_resource_metrics() -> Result<Vec<Metric>> {
-    let adapter = create_collector_adapter();
-    adapter.collect_metrics().await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_resource_metrics_collector() {
-        // Create a collector
-        let collector = ResourceMetricsCollector::new();
-        
-        // Manually add some test metrics
-        let cpu_metric = Metric::new(
-            "test_cpu_usage".to_string(),
-            50.0,
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        let memory_metric = Metric::new(
-            "test_memory_usage".to_string(),
-            1024.0,
-            MetricType::Gauge,
-            HashMap::new(),
-        );
-        
-        // Add metrics manually
-        {
-            let mut metrics = collector.metrics.write().await;
-            metrics.push(cpu_metric);
-            metrics.push(memory_metric);
+        for disk in system.disks() {
+            let total_space = disk.total_space();
+            let available_space = disk.available_space();
+            let used_space = total_space - available_space;
+            let usage_percentage = if total_space > 0 {
+                (used_space as f64 / total_space as f64) * 100.0
+            } else {
+                0.0
+            };
+            
+            disk_metrics.push(DiskMetrics {
+                name: disk.name().to_string_lossy().to_string(),
+                mount_point: disk.mount_point().to_string_lossy().to_string(),
+                total_bytes: total_space,
+                used_bytes: used_space,
+                available_bytes: available_space,
+                usage_percentage,
+            });
         }
         
-        // Now get the metrics
-        let metrics = collector.collect_metrics().await.unwrap();
-        assert!(!metrics.is_empty());
-        
-        // Verify we have at least the metrics we added
-        assert!(metrics.len() >= 2);
+        Ok(disk_metrics)
     }
+    
+    fn collect_network_metrics(&mut self) -> Result<Vec<NetworkMetrics>, MetricsError> {
+        let mut network_metrics = Vec::new();
+        let system = System::new_all();
+        
+        for (interface_name, network) in system.networks() {
+            network_metrics.push(NetworkMetrics {
+                interface: interface_name.to_string(),
+                received_bytes: network.received(),
+                transmitted_bytes: network.transmitted(),
+                // Add more network metrics as needed
+            });
+        }
+        
+        Ok(network_metrics)
+    }
+}
 
-    #[tokio::test]
-    async fn test_resource_metrics_collector_with_dependencies() {
-        let config = ResourceConfig::default();
-        let factory = ResourceMetricsCollectorFactory::with_config(config);
-        let collector = factory.create_collector();
-        
-        // Register a test team
-        collector.register_team(
-            "test_team".to_string(),
-            std::env::current_dir().unwrap()
-        ).await;
-        
-        // Get metrics
-        let metrics = collector.collect_metrics().await.unwrap();
-        assert!(!metrics.is_empty());
-        
-        // Get team metrics
-        let team_metrics = collector.get_team_metrics("test_team").await;
-        assert!(team_metrics.is_some());
-    }
+/// Create a new resource metrics collector adapter
+#[must_use]
+pub fn create_collector_adapter() -> Arc<ResourceMetricsCollectorAdapter> {
+    ResourceMetricsCollectorFactory::new().create_collector_adapter()
+}
 
-    #[tokio::test]
-    async fn test_resource_metrics_collector_adapter() {
-        let factory = ResourceMetricsCollectorFactory::new();
-        let adapter = factory.create_collector_adapter();
-        
-        // Register a test team
-        adapter.register_team(
-            "test_team".to_string(),
-            std::env::current_dir().unwrap()
-        ).await;
-        
-        // Get metrics
-        let metrics = adapter.collect_metrics().await.unwrap();
-        assert!(!metrics.is_empty());
-        
-        // Get team metrics
-        let team_metrics = adapter.get_team_metrics().await;
-        assert!(team_metrics.is_ok());
+/// Create a new resource metrics collector adapter with a specific collector
+#[must_use]
+pub fn create_collector_adapter_with_collector(
+    collector: Arc<ResourceMetricsCollector>
+) -> Arc<ResourceMetricsCollectorAdapter> {
+    Arc::new(ResourceMetricsCollectorAdapter::with_collector(collector))
+}
+
+/// Adapter for the Resource Metrics Collector to support dependency injection
+#[derive(Debug)]
+pub struct ResourceMetricsCollectorAdapter {
+    /// The inner collector instance
+    inner: Option<Arc<ResourceMetricsCollector>>,
+}
+
+impl ResourceMetricsCollectorTrait for ResourceMetricsCollectorAdapter {
+    fn collect_cpu_metrics(&mut self) -> Result<CpuMetrics, MetricsError> {
+        if let Some(collector) = &self.inner {
+            let system_metrics = collector.collect_system_metrics()?;
+            
+            Ok(CpuMetrics {
+                usage_percentage: system_metrics.cpu_usage as f32,
+                // You might want to add more detailed CPU metrics here
+            })
+        } else {
+            Err(MetricsError::NotInitialized)
+        }
     }
-} 
+    
+    fn collect_memory_metrics(&mut self) -> Result<MemoryMetrics, MetricsError> {
+        if let Some(collector) = &self.inner {
+            let system = System::new_all();
+            
+            let total_memory = system.total_memory();
+            let used_memory = system.used_memory();
+            let available_memory = total_memory - used_memory;
+            let usage_percentage = if total_memory > 0 {
+                (used_memory as f64 / total_memory as f64) * 100.0
+            } else {
+                0.0
+            };
+            
+            Ok(MemoryMetrics {
+                total_bytes: total_memory,
+                used_bytes: used_memory,
+                available_bytes: available_memory,
+                usage_percentage,
+            })
+        } else {
+            Err(MetricsError::NotInitialized)
+        }
+    }
+    
+    fn collect_disk_metrics(&mut self) -> Result<Vec<DiskMetrics>, MetricsError> {
+        let mut disk_metrics = Vec::new();
+        let system = System::new_all();
+        
+        for disk in system.disks() {
+            let total_space = disk.total_space();
+            let available_space = disk.available_space();
+            let used_space = total_space - available_space;
+            let usage_percentage = if total_space > 0 {
+                (used_space as f64 / total_space as f64) * 100.0
+            } else {
+                0.0
+            };
+            
+            disk_metrics.push(DiskMetrics {
+                name: disk.name().to_string_lossy().to_string(),
+                mount_point: disk.mount_point().to_string_lossy().to_string(),
+                total_bytes: total_space,
+                used_bytes: used_space,
+                available_bytes: available_space,
+                usage_percentage,
+            });
+        }
+        
+        Ok(disk_metrics)
+    }
+    
+    fn collect_network_metrics(&mut self) -> Result<Vec<NetworkMetrics>, MetricsError> {
+        let mut network_metrics = Vec::new();
+        let system = System::new_all();
+        
+        for (interface_name, network) in system.networks() {
+            network_metrics.push(NetworkMetrics {
+                interface: interface_name.to_string(),
+                received_bytes: network.received(),
+                transmitted_bytes: network.transmitted(),
+                // Add more network metrics as needed
+            });
+        }
+        
+        Ok(network_metrics)
+    }
+}

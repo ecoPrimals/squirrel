@@ -2,20 +2,18 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
+    text::{Span, Line as Spans, Text},
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use dashboard_core::data::{SystemMetricsSnapshot, ProtocolMetricsSnapshot};
+use dashboard_core::data::{SystemSnapshot, MetricsSnapshot};
 use crate::util;
+use std::time::Duration;
 
 /// Widget for displaying system metrics
 pub struct MetricsWidget<'a> {
     /// Metrics data
-    metrics: Option<&'a SystemMetricsSnapshot>,
-    
-    /// Protocol metrics
-    protocol_metrics: Option<&'a ProtocolMetricsSnapshot>,
+    metrics: Option<&'a MetricsSnapshot>,
     
     /// Widget title
     title: &'a str,
@@ -26,40 +24,18 @@ pub struct MetricsWidget<'a> {
 
 impl<'a> MetricsWidget<'a> {
     /// Create a new metrics widget for system metrics
-    pub fn new(metrics: &'a SystemMetricsSnapshot, title: &'a str) -> Self {
+    pub fn new(metrics: &'a MetricsSnapshot, title: &'a str) -> Self {
         Self {
             metrics: Some(metrics),
-            protocol_metrics: None,
             title,
             detailed: false,
         }
     }
     
     /// Create a new detailed metrics widget for system metrics
-    pub fn new_detailed(metrics: &'a SystemMetricsSnapshot, title: &'a str) -> Self {
+    pub fn new_detailed(metrics: &'a MetricsSnapshot, title: &'a str) -> Self {
         Self {
             metrics: Some(metrics),
-            protocol_metrics: None,
-            title,
-            detailed: true,
-        }
-    }
-    
-    /// Create a new metrics widget for protocol metrics
-    pub fn new_protocol(metrics: &'a ProtocolMetricsSnapshot, title: &'a str) -> Self {
-        Self {
-            metrics: None,
-            protocol_metrics: Some(metrics),
-            title,
-            detailed: false,
-        }
-    }
-    
-    /// Create a new detailed metrics widget for protocol metrics
-    pub fn new_protocol_detailed(metrics: &'a ProtocolMetricsSnapshot, title: &'a str) -> Self {
-        Self {
-            metrics: None,
-            protocol_metrics: Some(metrics),
             title,
             detailed: true,
         }
@@ -74,7 +50,7 @@ impl<'a> Widget for MetricsWidget<'a> {
             .title(self.title);
         
         // Render block
-        block.render(area, buf);
+        block.clone().render(area, buf);
         
         // Get inner area
         let inner_area = block.inner(area);
@@ -82,20 +58,18 @@ impl<'a> Widget for MetricsWidget<'a> {
         // Render metrics
         if let Some(metrics) = self.metrics {
             render_system_metrics(metrics, inner_area, buf, self.detailed);
-        } else if let Some(metrics) = self.protocol_metrics {
-            render_protocol_metrics(metrics, inner_area, buf, self.detailed);
         }
     }
 }
 
 /// Render system metrics
-fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut Buffer, detailed: bool) {
-    // Format metrics
-    let cpu_text = format!("CPU: {}", util::format_percentage(metrics.cpu_usage));
-    let memory_text = format!("Memory: {}", util::format_bytes(metrics.memory_usage));
-    let uptime_text = format!("Uptime: {}", util::format_duration(metrics.uptime));
-    let threads_text = format!("Threads: {}", metrics.thread_count);
-    let errors_text = format!("Errors: {}", metrics.error_count);
+fn render_system_metrics(metrics: &MetricsSnapshot, area: Rect, buf: &mut Buffer, detailed: bool) {
+    // Get metrics from values
+    let cpu_usage = *metrics.values.get("cpu_usage").unwrap_or(&0.0);
+    let memory_usage = *metrics.values.get("memory_usage").unwrap_or(&0.0);
+    let uptime = *metrics.values.get("uptime").unwrap_or(&0.0);
+    let thread_count = *metrics.counters.get("thread_count").unwrap_or(&0);
+    let error_count = *metrics.counters.get("error_count").unwrap_or(&0);
     
     // Create text content
     let mut content = Vec::new();
@@ -105,14 +79,14 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
         content.push(Spans::from(vec![
             Span::styled("CPU Usage: ", Style::default().fg(Color::White)),
             Span::styled(
-                util::format_percentage(metrics.cpu_usage),
-                Style::default().fg(get_usage_color(metrics.cpu_usage)),
+                util::format_percentage(cpu_usage),
+                Style::default().fg(get_usage_color(cpu_usage)),
             ),
         ]));
         content.push(Spans::from(vec![
             Span::styled(
-                util::calculate_bar(metrics.cpu_usage, area.width as usize - 4),
-                Style::default().fg(get_usage_color(metrics.cpu_usage)),
+                util::calculate_bar(cpu_usage, area.width as usize - 4),
+                Style::default().fg(get_usage_color(cpu_usage)),
             ),
         ]));
         content.push(Spans::from(""));
@@ -120,8 +94,8 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
         content.push(Spans::from(vec![
             Span::styled("CPU: ", Style::default().fg(Color::White)),
             Span::styled(
-                util::format_percentage(metrics.cpu_usage),
-                Style::default().fg(get_usage_color(metrics.cpu_usage)),
+                util::format_percentage(cpu_usage),
+                Style::default().fg(get_usage_color(cpu_usage)),
             ),
         ]));
     }
@@ -131,7 +105,7 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
         content.push(Spans::from(vec![
             Span::styled("Memory Usage: ", Style::default().fg(Color::White)),
             Span::styled(
-                util::format_bytes(metrics.memory_usage),
+                util::format_bytes(memory_usage as u64),
                 Style::default().fg(Color::Cyan),
             ),
         ]));
@@ -139,7 +113,7 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
         content.push(Spans::from(vec![
             Span::styled("Memory: ", Style::default().fg(Color::White)),
             Span::styled(
-                util::format_bytes(metrics.memory_usage),
+                util::format_bytes(memory_usage as u64),
                 Style::default().fg(Color::Cyan),
             ),
         ]));
@@ -149,7 +123,7 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
     content.push(Spans::from(vec![
         Span::styled("Uptime: ", Style::default().fg(Color::White)),
         Span::styled(
-            util::format_duration(metrics.uptime),
+            util::format_duration(Duration::from_secs(uptime as u64)),
             Style::default().fg(Color::Green),
         ),
     ]));
@@ -158,7 +132,7 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
     content.push(Spans::from(vec![
         Span::styled("Threads: ", Style::default().fg(Color::White)),
         Span::styled(
-            metrics.thread_count.to_string(),
+            thread_count.to_string(),
             Style::default().fg(Color::Yellow),
         ),
     ]));
@@ -167,8 +141,8 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
     content.push(Spans::from(vec![
         Span::styled("Errors: ", Style::default().fg(Color::White)),
         Span::styled(
-            metrics.error_count.to_string(),
-            if metrics.error_count > 0 {
+            error_count.to_string(),
+            if error_count > 0 {
                 Style::default().fg(Color::Red)
             } else {
                 Style::default().fg(Color::Green)
@@ -183,81 +157,13 @@ fn render_system_metrics(metrics: &SystemMetricsSnapshot, area: Rect, buf: &mut 
     paragraph.render(area, buf);
 }
 
-/// Render protocol metrics
-fn render_protocol_metrics(metrics: &ProtocolMetricsSnapshot, area: Rect, buf: &mut Buffer, detailed: bool) {
-    // Create text content
-    let mut content = Vec::new();
-    
-    // Add messages processed
-    content.push(Spans::from(vec![
-        Span::styled("Messages: ", Style::default().fg(Color::White)),
-        Span::styled(
-            metrics.messages_processed.to_string(),
-            Style::default().fg(Color::Green),
-        ),
-    ]));
-    
-    // Add average latency
-    content.push(Spans::from(vec![
-        Span::styled("Latency: ", Style::default().fg(Color::White)),
-        Span::styled(
-            format!("{}ms", metrics.avg_latency.as_millis()),
-            Style::default().fg(Color::Yellow),
-        ),
-    ]));
-    
-    // Add error rate
-    content.push(Spans::from(vec![
-        Span::styled("Error Rate: ", Style::default().fg(Color::White)),
-        Span::styled(
-            util::format_percentage(metrics.error_rate),
-            if metrics.error_rate > 5.0 {
-                Style::default().fg(Color::Red)
-            } else {
-                Style::default().fg(Color::Green)
-            },
-        ),
-    ]));
-    
-    // Add active connections
-    content.push(Spans::from(vec![
-        Span::styled("Connections: ", Style::default().fg(Color::White)),
-        Span::styled(
-            metrics.active_connections.to_string(),
-            Style::default().fg(Color::Cyan),
-        ),
-    ]));
-    
-    // Add visualization if detailed
-    if detailed {
-        content.push(Spans::from(""));
-        content.push(Spans::from(Span::styled("Error Rate", Style::default().fg(Color::White))));
-        content.push(Spans::from(vec![
-            Span::styled(
-                util::calculate_bar(metrics.error_rate * 10.0, area.width as usize - 4),
-                if metrics.error_rate > 5.0 {
-                    Style::default().fg(Color::Red)
-                } else {
-                    Style::default().fg(Color::Green)
-                },
-            ),
-        ]));
-    }
-    
-    // Render paragraph
-    let paragraph = Paragraph::new(content)
-        .style(Style::default().fg(Color::White));
-    
-    paragraph.render(area, buf);
-}
-
-/// Get the color for usage values
+/// Get color based on usage percentage
 fn get_usage_color(usage: f64) -> Color {
-    if usage > 90.0 {
-        Color::Red
-    } else if usage > 70.0 {
+    if usage < 60.0 {
+        Color::Green
+    } else if usage < 80.0 {
         Color::Yellow
     } else {
-        Color::Green
+        Color::Red
     }
 } 

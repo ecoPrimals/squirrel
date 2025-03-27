@@ -2,11 +2,11 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
+    text::{Span, Line as Spans, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 
-use dashboard_core::data::{Alert, AlertLevel};
+use dashboard_core::data::{Alert, AlertsSnapshot, AlertSeverity};
 use crate::util;
 
 /// Widget for displaying system alerts
@@ -66,7 +66,7 @@ impl<'a> Widget for AlertsWidget<'a> {
             .title(self.title);
         
         // Render block
-        block.render(area, buf);
+        block.clone().render(area, buf);
         
         // Get inner area
         let inner_area = block.inner(area);
@@ -94,7 +94,10 @@ impl<'a> Widget for AlertsWidget<'a> {
                 ])
                 .split(inner_area)
         } else {
-            vec![inner_area]
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(0)])
+                .split(inner_area)
         };
         
         // Render alerts list
@@ -118,16 +121,16 @@ fn render_alerts_list(alerts: &[Alert], area: Rect, buf: &mut Buffer, selected: 
         .iter()
         .enumerate()
         .map(|(i, alert)| {
-            let level_style = get_alert_level_style(alert.level);
-            let level_str = format!("[{}]", get_alert_level_name(alert.level));
+            let level_style = get_alert_level_style(alert.severity);
+            let level_str = format!("[{}]", get_alert_level_name(alert.severity));
             
             let spans = vec![
                 Span::styled(level_str, level_style),
                 Span::raw(" "),
-                Span::styled(&alert.message, Style::default()),
+                Span::styled(&alert.title, Style::default()),
                 Span::raw(" - "),
                 Span::styled(
-                    util::format_timestamp(alert.timestamp),
+                    util::format_timestamp(alert.triggered_at),
                     Style::default().fg(Color::DarkGray),
                 ),
             ];
@@ -158,14 +161,14 @@ fn render_alert_details(alert: &Alert, area: Rect, buf: &mut Buffer) {
         .title("Details");
     
     // Render block
-    block.render(area, buf);
+    block.clone().render(area, buf);
     
     // Get inner area
     let inner_area = block.inner(area);
     
     // Create content
-    let level_style = get_alert_level_style(alert.level);
-    let level_str = format!("[{}]", get_alert_level_name(alert.level));
+    let level_style = get_alert_level_style(alert.severity);
+    let level_str = format!("[{}]", get_alert_level_name(alert.severity));
     
     let content = vec![
         Spans::from(vec![
@@ -175,19 +178,19 @@ fn render_alert_details(alert: &Alert, area: Rect, buf: &mut Buffer) {
         Spans::from(vec![
             Span::styled("Time: ", Style::default().fg(Color::White)),
             Span::styled(
-                util::format_timestamp(alert.timestamp),
+                util::format_timestamp(alert.triggered_at),
                 Style::default().fg(Color::DarkGray),
             ),
         ]),
         Spans::from(vec![
-            Span::styled("Source: ", Style::default().fg(Color::White)),
-            Span::styled(&alert.source, Style::default().fg(Color::Cyan)),
+            Span::styled("ID: ", Style::default().fg(Color::White)),
+            Span::styled(&alert.id, Style::default().fg(Color::Cyan)),
         ]),
         Spans::from(vec![
-            Span::styled("Message: ", Style::default().fg(Color::White)),
+            Span::styled("Title: ", Style::default().fg(Color::White)),
         ]),
         Spans::from(vec![
-            Span::styled(&alert.message, Style::default().fg(Color::White)),
+            Span::styled(&alert.title, Style::default().fg(Color::White)),
         ]),
         Spans::from(""),
         Spans::from(vec![
@@ -206,21 +209,23 @@ fn render_alert_details(alert: &Alert, area: Rect, buf: &mut Buffer) {
 }
 
 /// Get the style for an alert level
-fn get_alert_level_style(level: AlertLevel) -> Style {
+fn get_alert_level_style(level: AlertSeverity) -> Style {
     match level {
-        AlertLevel::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-        AlertLevel::Error => Style::default().fg(Color::Red),
-        AlertLevel::Warning => Style::default().fg(Color::Yellow),
-        AlertLevel::Info => Style::default().fg(Color::Blue),
+        AlertSeverity::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        AlertSeverity::High => Style::default().fg(Color::Red),
+        AlertSeverity::Medium => Style::default().fg(Color::Yellow),
+        AlertSeverity::Low => Style::default().fg(Color::Blue),
+        AlertSeverity::Info => Style::default().fg(Color::Green),
     }
 }
 
 /// Get the name of an alert level
-fn get_alert_level_name(level: AlertLevel) -> &'static str {
+fn get_alert_level_name(level: AlertSeverity) -> &'static str {
     match level {
-        AlertLevel::Critical => "CRITICAL",
-        AlertLevel::Error => "ERROR",
-        AlertLevel::Warning => "WARNING",
-        AlertLevel::Info => "INFO",
+        AlertSeverity::Critical => "CRITICAL",
+        AlertSeverity::High => "HIGH",
+        AlertSeverity::Medium => "MEDIUM",
+        AlertSeverity::Low => "LOW",
+        AlertSeverity::Info => "INFO",
     }
 } 
