@@ -4,8 +4,11 @@
 //! and provides functionality for managing state transitions.
 
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::cmp::PartialEq;
+
 use lazy_static::lazy_static;
+use tokio::sync::Mutex;
 
 use crate::plugins::manager::PluginManager;
 

@@ -84,14 +84,32 @@ cd fuzz && ./run_fuzzers.ps1 -NoAsan  # Windows
 ./tools/run_asan_check.ps1 -BinaryPath ./target/debug/plugin_host  # Windows
 ```
 
-## License
+## Adapter Pattern Implementation
 
-MIT License - See [LICENSE](LICENSE) for details.
+The `adapter-tests` crate provides a clean, standalone implementation of the Adapter Pattern in Rust. It demonstrates how to adapt different interfaces for command execution, authentication, and plugin systems.
 
-## Contributors
+Key features:
+- Thread-safe command registry with Arc/Mutex
+- Asynchronous execution of commands
+- Authentication and authorization for MCP (Machine Context Protocol)
+- Comprehensive test suite and examples
 
-DataScienceBioLab Team
+To run the adapter showcase example:
 
----
+```bash
+cargo run --example adapter_showcase -p adapter-tests
+```
 
-© 2024 Squirrel Inc. All rights reserved. 
+For a basic example:
+
+```bash
+cargo run --example basic -p adapter-tests
+```
+
+To run the tests:
+
+```bash
+cargo test -p adapter-tests
+```
+
+See the [adapter-tests README](crates/adapter-tests/README.md) for more details. 
