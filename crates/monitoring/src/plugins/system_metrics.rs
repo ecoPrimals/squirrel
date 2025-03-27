@@ -2,8 +2,9 @@
 
 use crate::plugins::common::{MonitoringPlugin, PluginMetadata};
 use async_trait::async_trait;
+// Import all the required trait extensions for sysinfo
+use sysinfo::{System, Disk, SystemExt, ProcessExt, CpuExt, DiskExt, RefreshKind};
 use serde_json::Value;
-use sysinfo::{System, Disks};
 use std::fmt::Debug;
 use tracing::info;
 
@@ -92,10 +93,11 @@ impl SystemMetricsPlugin {
     fn get_disk_metrics(&self) -> Value {
         let mut disks = Vec::new();
         
-        // Create a Disks object to get disk information
-        let disks_info = Disks::new_with_refreshed_list();
+        // Create and refresh disk information using SystemExt API
+        let system = System::new_with_specifics(RefreshKind::new().with_disks());
+        let disks_info = system.disks();
         
-        for disk in &disks_info {
+        for disk in disks_info {
             let total = disk.total_space();
             let free = disk.available_space();
             let used = total - free;

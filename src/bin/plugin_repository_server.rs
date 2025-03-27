@@ -4,38 +4,37 @@
 // purposes. It serves repository information, plugin lists, and plugin downloads.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
     extract::{Path as AxumPath, Query},
     http::StatusCode,
-    routing::{get, post},
+    routing::{get},
     Json, Router,
 };
 use clap::Parser;
-use serde::{Deserialize, Serialize};
-use serde_json;
+use serde::Deserialize;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing::{debug, error, info, Level};
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
 
-use squirrel_plugins::plugins::dynamic::{PluginMetadata, PluginDependency};
-use squirrel_plugins::plugins::marketplace::{RepositoryInfo, PluginPackageInfo};
+use squirrel_plugins::dynamic::{PluginMetadata, PluginDependency};
+use squirrel_plugins::{RepositoryInfo, PluginPackageInfo};
 
 /// Command-line arguments
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
     /// Path to plugin directory
-    #[clap(short, long, default_value = "./repo-plugins")]
+    #[clap(short = 'd', long, default_value = "./repo-plugins")]
     plugin_dir: PathBuf,
     
     /// Server host
-    #[clap(short, long, default_value = "127.0.0.1")]
+    #[clap(short = 'i', long, default_value = "127.0.0.1")]
     host: String,
     
     /// Server port

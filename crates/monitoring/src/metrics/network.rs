@@ -71,8 +71,11 @@ impl NetworkMonitor {
     pub async fn update_stats(&self) -> HashMap<String, NetworkStats> {
         let mut sys = self.sys.write().await;
         
-        // Create a new Networks instance with refreshed data
-        let networks = sysinfo::Networks::new_with_refreshed_list();
+        // Create a System instance instead of Networks instance
+        let mut system = System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        let networks = system.networks();
 
         let mut current_stats = HashMap::new();
         let mut prev_stats = self.prev_stats.write().await;
@@ -80,20 +83,29 @@ impl NetworkMonitor {
         let elapsed = last_update.elapsed().as_secs_f64();
         *last_update = Instant::now();
 
-        // Collect network interface statistics
-        for (interface_name, data) in networks.iter() {
+        let mut receive_total = 0;
+        let mut transmit_total = 0;
+
+        // Update each interface
+        for (interface_name, network) in networks {
+            let cur_received = network.received();
+            let cur_transmitted = network.transmitted();
+
+            receive_total += cur_received;
+            transmit_total += cur_transmitted;
+
             let prev = prev_stats
                 .get(interface_name)
                 .cloned()
                 .unwrap_or_default();
 
             let stats = NetworkStats {
-                bytes_received: data.total_received(),
-                bytes_transmitted: data.total_transmitted(),
-                receive_rate: (data.total_received() - prev.bytes_received) as f64 / elapsed,
-                transmit_rate: (data.total_transmitted() - prev.bytes_transmitted) as f64 / elapsed,
-                packets_received: data.total_packets_received(),
-                packets_transmitted: data.total_packets_transmitted(),
+                bytes_received: cur_received,
+                bytes_transmitted: cur_transmitted,
+                receive_rate: (cur_received - prev.bytes_received) as f64 / elapsed,
+                transmit_rate: (cur_transmitted - prev.bytes_transmitted) as f64 / elapsed,
+                packets_received: network.total_packets_received(),
+                packets_transmitted: network.total_packets_transmitted(),
                 active_connections: self.count_active_connections(&sys, interface_name).await,
             };
 

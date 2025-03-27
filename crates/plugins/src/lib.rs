@@ -54,6 +54,20 @@ pub use errors::{PluginError, Result};
 pub use state::{PluginStateManager, MemoryStateManager, FileStateManager};
 pub use commands::{CommandsPlugin, CommandsPluginBuilder, Command, CommandMetadata};
 
+// Export marketplace types
+#[cfg(feature = "marketplace")]
+pub use plugins::marketplace::{
+    RepositoryManager,
+    RepositoryProvider,
+    HttpRepositoryProvider,
+    RepositoryInfo,
+    PluginPackageInfo,
+    create_repository_manager,
+};
+
+// Export dynamic plugin types
+pub use plugins::dynamic;
+
 /// The current version of the plugin system.
 /// 
 /// This version is used for compatibility checking between plugins and the system.
