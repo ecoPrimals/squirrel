@@ -87,8 +87,10 @@ impl std::fmt::Display for Action {
 
 /// Scope of a permission
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum PermissionScope {
     /// Permission applies only to owned resources
+    #[default]
     Own,
     /// Permission applies to resources in the same group
     Group,
@@ -98,11 +100,6 @@ pub enum PermissionScope {
     Pattern(String),
 }
 
-impl Default for PermissionScope {
-    fn default() -> Self {
-        PermissionScope::Own
-    }
-}
 
 /// Condition for permission application
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

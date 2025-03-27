@@ -22,6 +22,7 @@ struct ResourceTrackerData {
 /// Resource tracker for monitoring a tool's resource usage
 #[derive(Debug)]
 pub struct ResourceTracker {
+    /// Internal resource tracking data shared across operations
     data: Arc<ResourceTrackerData>,
 }
 

@@ -205,7 +205,7 @@ impl PermissionValidator {
             user_id: user_id.to_string(),
             timestamp: Utc::now(),
             resource: resource.to_string(),
-            action: action.clone(),
+            action,
             result: ValidationResult::Denied,
             rule_id: String::new(),
             rule_name: String::new(),
@@ -292,11 +292,11 @@ impl PermissionValidator {
         if audit_record.matched_permissions.is_empty() {
             audit_record.result = ValidationResult::Denied;
             self.record_audit(audit_record);
-            return ValidationResult::Denied;
+            ValidationResult::Denied
         } else {
             audit_record.result = ValidationResult::Granted;
             self.record_audit(audit_record);
-            return ValidationResult::Granted;
+            ValidationResult::Granted
         }
     }
     
@@ -423,7 +423,7 @@ impl PermissionValidator {
             PermissionCondition::NetworkRange { cidr } => {
                 if let Some(addr) = &context.network_address {
                     // In a real implementation, use a proper CIDR matching library
-                    addr.starts_with(&cidr.split('/').next().unwrap_or(""))
+                    addr.starts_with(cidr.split('/').next().unwrap_or(""))
                 } else {
                     false
                 }
@@ -543,7 +543,7 @@ impl PermissionValidator {
         
         // Handle security level conditions like "security_level>=High"
         if condition.starts_with("security_level") {
-            let parts: Vec<&str> = condition.split(|c| c == '>' || c == '=' || c == '<').collect();
+            let parts: Vec<&str> = condition.split(['>', '=', '<']).collect();
             if parts.len() == 2 {
                 let operator = if condition.contains(">=") {
                     ">="
@@ -638,6 +638,12 @@ impl PermissionValidator {
 pub struct AsyncPermissionValidator {
     /// Inner permission validator
     validator: RwLock<PermissionValidator>,
+}
+
+impl Default for AsyncPermissionValidator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AsyncPermissionValidator {

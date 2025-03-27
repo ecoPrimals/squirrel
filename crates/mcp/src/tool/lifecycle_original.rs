@@ -328,6 +328,15 @@ impl BasicLifecycleHook {
         }
     }
 
+    /// Recovers a tool's state from the history of state changes
+    /// 
+    /// # Arguments
+    /// 
+    /// * `tool_id` - The identifier of the tool to recover
+    /// 
+    /// # Returns
+    /// 
+    /// Ok(()) if the state was recovered successfully, or an error if no history exists
     async fn recover_state(&self, tool_id: &str) -> Result<(), ToolError> {
         // Check if the tool exists in our history
         let history = self.state_history.read().await;
@@ -346,6 +355,10 @@ impl BasicLifecycleHook {
         Err(ToolError::NoStateHistory(tool_id.to_string()))
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -536,6 +549,10 @@ impl crate::tool::ToolLifecycleHook for BasicLifecycleHook {
         self.on_cleanup(tool_id).await
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -607,6 +624,10 @@ impl SecurityLifecycleHook {
         Ok(())
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -776,6 +797,10 @@ impl crate::tool::ToolLifecycleHook for SecurityLifecycleHook {
         self.on_cleanup(tool_id).await
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -816,6 +841,10 @@ impl CompositeLifecycleHook {
         }
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -1066,6 +1095,10 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
         self.on_cleanup(tool_id).await
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

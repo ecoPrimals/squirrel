@@ -467,6 +467,13 @@ impl InheritanceGraph {
         result
     }
     
+    /// Performs a depth-first search to find all parent roles recursively
+    /// 
+    /// # Arguments
+    /// 
+    /// * `role_id` - The role ID to start the search from
+    /// * `result` - Set to collect all parent role IDs
+    /// * `visited` - Set to track visited roles to avoid cycles
     fn dfs_parents(&self, role_id: &str, result: &mut HashSet<String>, visited: &mut HashSet<String>) {
         if !visited.contains(role_id) {
             visited.insert(role_id.to_string());
@@ -500,6 +507,12 @@ impl InheritanceGraph {
 pub struct InheritanceManager {
     /// Inheritance graph
     graph: RwLock<InheritanceGraph>,
+}
+
+impl Default for InheritanceManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InheritanceManager {

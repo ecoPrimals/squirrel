@@ -208,6 +208,7 @@ impl Default for RBACManager {
 }
 
 // For convenience in testing
+/// Type of verification to perform on permissions
 #[derive(Debug, Clone)]
 pub enum VerificationType {
     /// Simple verification

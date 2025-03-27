@@ -70,7 +70,7 @@ pub async fn protocol_versioning_example() -> Result<()> {
     
     if plugin_version.is_compatible_with(&req)? {
         println!("Plugin version {} is compatible with requirement {}", 
-                 plugin_version.to_string(), req.requirement);
+                 plugin_version, req.requirement);
     }
     
     // Example of creating a message with version information
@@ -107,7 +107,9 @@ pub async fn protocol_versioning_example() -> Result<()> {
 /// Example implementation of a plugin
 #[derive(Debug)]
 pub struct ExamplePlugin {
+    /// Metadata describing the plugin
     metadata: PluginMetadata,
+    /// Version requirements for compatibility
     version_requirements: VersionRequirement,
 }
 
