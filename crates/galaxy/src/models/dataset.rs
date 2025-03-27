@@ -3,8 +3,8 @@
 //! This module contains the data structures for representing Galaxy datasets,
 //! dataset collections, and related objects.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
 use crate::models::ResourceMetadata;
 
@@ -65,7 +65,7 @@ pub struct GalaxyDataset {
 
 /// Represents a collection of Galaxy datasets
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GalaxyDatasetCollection {
+pub struct DatasetCollection {
     /// Common metadata for the collection
     pub metadata: ResourceMetadata,
     
@@ -390,6 +390,9 @@ pub struct DatasetSearchParams {
 /// Alias for GalaxyDataset
 pub type Dataset = GalaxyDataset;
 
+/// Alias for DatasetCollection 
+pub type GalaxyDatasetCollection = DatasetCollection;
+
 impl GalaxyDataset {
     /// Create a new Galaxy dataset with a name and file extension
     pub fn new(name: &str, file_ext: &str) -> Self {
@@ -451,7 +454,7 @@ impl GalaxyDataset {
     }
 }
 
-impl GalaxyDatasetCollection {
+impl DatasetCollection {
     /// Create a new dataset collection with a name and collection type
     pub fn new(name: &str, collection_type: &str) -> Self {
         Self {
@@ -520,7 +523,7 @@ mod tests {
     
     #[test]
     fn test_create_collection() {
-        let mut collection = GalaxyDatasetCollection::new("Test Collection", "list");
+        let mut collection = DatasetCollection::new("Test Collection", "list");
         
         let element = CollectionElement {
             id: "el1".to_string(),

@@ -4,11 +4,17 @@
  * This module provides the HTTP client for interacting with the Galaxy API.
  */
 
-use std::collections::HashMap;
-use std::time::Duration;
-use reqwest::{Client, header};
+use reqwest::{Client, StatusCode};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::time::Duration;
+use reqwest::header;
 use tracing::debug;
+
+// Use conditional imports for test mocks
+#[cfg(test)]
+use std::sync::Arc;
 
 use crate::error::{Error, Result};
 use crate::models::{
@@ -158,6 +164,34 @@ impl GalaxyClient {
             .map_err(|e| Error::Config(format!("Failed to create HTTP client: {}", e)))?;
         
         Ok(())
+    }
+    
+    /// Validates the current credentials against the Galaxy API
+    pub async fn validate_credentials(&self) -> Result<bool> {
+        if !self.initialized {
+            return Err(Error::NotInitialized);
+        }
+        
+        debug!("Validating credentials against Galaxy API");
+        
+        // Try a simple API call that requires authentication
+        let response = self.client
+            .get(format!("{}/users/current", self.base_url))
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if response.status().is_success() {
+            return Ok(true);
+        } else if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
+            debug!("Invalid credentials: HTTP {}", response.status());
+            return Ok(false);
+        } else {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to validate credentials: HTTP {}",
+                response.status()
+            )));
+        }
     }
     
     /// Lists available Galaxy tools
@@ -426,6 +460,204 @@ impl GalaxyClient {
         
         Ok(history)
     }
+
+    /// Creates a new dataset collection in a history
+    pub async fn create_dataset_collection(
+        &self,
+        history_id: &str,
+        name: &str,
+        collection_type: &str,
+        elements: Vec<crate::models::dataset::CollectionElement>,
+    ) -> Result<crate::models::dataset::DatasetCollection> {
+        debug!("Creating dataset collection in history {}: {}", history_id, name);
+        
+        let endpoint = format!("/api/histories/{}/contents/dataset_collections", history_id);
+        
+        // Construct the request body
+        let body = serde_json::json!({
+            "name": name,
+            "collection_type": collection_type,
+            "elements": elements
+        });
+        
+        let response = self.client
+            .post(endpoint)
+            .json(&body)
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if !response.status().is_success() {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to create dataset collection: HTTP {}",
+                response.status()
+            )));
+        }
+        
+        let collection: crate::models::dataset::DatasetCollection = response
+            .json()
+            .await
+            .map_err(|e| Error::NetworkResponseDecode(e.to_string()))?;
+        
+        Ok(collection)
+    }
+    
+    /// Gets a dataset collection by ID
+    pub async fn get_dataset_collection(&self, collection_id: &str) -> Result<crate::models::dataset::DatasetCollection> {
+        let endpoint = format!("/api/dataset_collections/{}", collection_id);
+        
+        let response = self.client
+            .get(endpoint)
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if !response.status().is_success() {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to get dataset collection {}: HTTP {}",
+                collection_id, response.status()
+            )));
+        }
+        
+        let collection: crate::models::dataset::DatasetCollection = response
+            .json()
+            .await
+            .map_err(|e| Error::NetworkResponseDecode(e.to_string()))?;
+        
+        Ok(collection)
+    }
+    
+    /// Gets the elements of a dataset collection
+    pub async fn get_dataset_collection_elements(&self, collection_id: &str) -> Result<Vec<crate::models::dataset::CollectionElement>> {
+        let endpoint = format!("/api/dataset_collections/{}/elements", collection_id);
+        
+        let response = self.client
+            .get(endpoint)
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if !response.status().is_success() {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to get dataset collection elements for {}: HTTP {}",
+                collection_id, response.status()
+            )));
+        }
+        
+        let elements: Vec<crate::models::dataset::CollectionElement> = response
+            .json()
+            .await
+            .map_err(|e| Error::NetworkResponseDecode(e.to_string()))?;
+        
+        Ok(elements)
+    }
+    
+    /// Updates a dataset collection
+    pub async fn update_dataset_collection(
+        &self,
+        collection_id: &str,
+        updates: HashMap<String, serde_json::Value>,
+    ) -> Result<crate::models::dataset::DatasetCollection> {
+        let endpoint = format!("/api/dataset_collections/{}", collection_id);
+        
+        let response = self.client
+            .put(endpoint)
+            .json(&updates)
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if !response.status().is_success() {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to update dataset collection {}: HTTP {}",
+                collection_id, response.status()
+            )));
+        }
+        
+        let collection: crate::models::dataset::DatasetCollection = response
+            .json()
+            .await
+            .map_err(|e| Error::NetworkResponseDecode(e.to_string()))?;
+        
+        Ok(collection)
+    }
+    
+    /// Deletes a dataset collection
+    pub async fn delete_dataset_collection(
+        &self,
+        collection_id: &str,
+    ) -> Result<()> {
+        debug!("Deleting dataset collection: {}", collection_id);
+        
+        let response = self.client
+            .delete(format!("{}/dataset_collections/{}", self.base_url, collection_id))
+            .send()
+            .await
+            .map_err(Error::Network)?;
+        
+        if !response.status().is_success() {
+            return Err(Error::GalaxyApi(format!(
+                "Failed to delete dataset collection {}: HTTP {}",
+                collection_id, response.status()
+            )));
+        }
+        
+        Ok(())
+    }
+
+    /// List datasets in a history
+    pub async fn list_datasets(&self, history_id: &str) -> Result<Vec<crate::models::dataset::Dataset>> {
+        let endpoint = format!("/api/histories/{}/contents?view=summary", history_id);
+        
+        let response = self.client
+            .get(endpoint)
+            .send()
+            .await
+            .map_err(|err| Error::Network(err))?;
+        
+        // Parse the response
+        let datasets: Vec<crate::models::dataset::Dataset> = response.json().await.map_err(|err| {
+            Error::ParseError(format!("Failed to parse datasets: {}", err))
+        })?;
+        
+        Ok(datasets)
+    }
+    
+    /// Get a single dataset
+    pub async fn get_dataset(&self, dataset_id: &str) -> Result<crate::models::dataset::Dataset> {
+        let endpoint = format!("/api/datasets/{}", dataset_id);
+        
+        let response = self.client
+            .get(endpoint)
+            .send()
+            .await
+            .map_err(|err| Error::Network(err))?;
+        
+        // Parse the response
+        let dataset: crate::models::dataset::Dataset = response.json().await.map_err(|err| {
+            Error::ParseError(format!("Failed to parse dataset: {}", err))
+        })?;
+        
+        Ok(dataset)
+    }
+    
+    /// List dataset collections in a history
+    pub async fn list_dataset_collections(&self, history_id: &str) -> Result<Vec<crate::models::dataset::DatasetCollection>> {
+        let endpoint = format!("/api/histories/{}/contents/dataset_collections", history_id);
+        
+        let response = self.client
+            .get(endpoint)
+            .send()
+            .await
+            .map_err(|err| Error::Network(err))?;
+        
+        // Parse the response
+        let collections: Vec<crate::models::dataset::DatasetCollection> = response.json().await.map_err(|err| {
+            Error::ParseError(format!("Failed to parse dataset collections: {}", err))
+        })?;
+        
+        Ok(collections)
+    }
 }
 
 #[cfg(test)]
@@ -444,4 +676,9 @@ mod tests {
         assert!(client.is_initialized());
         assert_eq!(client.base_url(), "https://usegalaxy.org/api");
     }
+
+    // Note: More complex integration tests would require a mock HTTP server
+    // For now, we'll just test basic initialization functionality
+    // The dataset collection operations test will be reimplemented later 
+    // with proper mocking infrastructure
 } 

@@ -139,6 +139,87 @@ impl GalaxyDatasetPlugin for GalaxyDatasetPluginImpl {
         
         Ok(data)
     }
+    
+    async fn list_collections(&self, history_id: &str) -> Result<Vec<Value>, Error> {
+        // Get the adapter
+        let adapter = self.base.adapter()?;
+        
+        // Call the adapter's list_collections method
+        let collections = adapter.list_collections(history_id).await?;
+        
+        // Convert the collections to JSON values
+        let collection_values = collections
+            .into_iter()
+            .map(|c| serde_json::to_value(c).unwrap_or_default())
+            .collect();
+            
+        Ok(collection_values)
+    }
+    
+    async fn get_collection(&self, collection_id: &str) -> Result<Option<Value>, Error> {
+        // Get the adapter
+        let adapter = self.base.adapter()?;
+        
+        // Try to get the collection
+        match adapter.get_dataset_collection(collection_id).await {
+            Ok(collection) => {
+                // Convert the collection to a JSON value
+                let collection_value = serde_json::to_value(collection)
+                    .map_err(|e| Error::SerializationError(format!("Failed to serialize collection: {}", e)))?;
+                
+                Ok(Some(collection_value))
+            },
+            Err(Error::NotFound(_)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+    
+    async fn create_collection(&self, history_id: &str, name: &str, collection_type: &str, dataset_ids: Vec<String>) -> Result<String, Error> {
+        // Get the adapter
+        let adapter = self.base.adapter()?;
+        
+        // Convert dataset_ids to CollectionElement objects
+        let elements = dataset_ids.iter().enumerate().map(|(i, id)| {
+            crate::models::dataset::CollectionElement {
+                id: format!("element-{}", i),
+                element_index: i,
+                element_identifier: format!("sample{}", i + 1),
+                dataset_id: Some(id.clone()),
+                child_collection_id: None,
+                model_class: "HistoryDatasetAssociation".to_string(),
+            }
+        }).collect();
+        
+        // Create the collection
+        let collection = adapter.create_dataset_collection(history_id, name, collection_type, elements).await?;
+        
+        // Return the collection ID
+        Ok(collection.metadata.id)
+    }
+    
+    async fn get_collection_elements(&self, collection_id: &str) -> Result<Vec<Value>, Error> {
+        // Get the adapter
+        let adapter = self.base.adapter()?;
+        
+        // Get the collection elements
+        let elements = adapter.get_dataset_collection_elements(collection_id).await?;
+        
+        // Convert the elements to JSON values
+        let element_values = elements
+            .into_iter()
+            .map(|e| serde_json::to_value(e).unwrap_or_default())
+            .collect();
+            
+        Ok(element_values)
+    }
+    
+    async fn delete_collection(&self, collection_id: &str) -> Result<(), Error> {
+        // Get the adapter
+        let adapter = self.base.adapter()?;
+        
+        // Delete the collection
+        adapter.delete_dataset_collection(collection_id).await
+    }
 }
 
 /// Factory function to create a new Galaxy dataset plugin

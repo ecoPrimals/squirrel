@@ -15,6 +15,7 @@ The Galaxy MCP Adapter has been successfully implemented with the following comp
 - ✅ Tool discovery and execution functionality
 - ✅ MCP protocol message handling
 - ✅ Example code for common use cases
+- ✅ Enhanced security features with credential management
 - 🔄 Testing infrastructure (in progress)
 - 🔄 Documentation (in progress)
 
@@ -22,14 +23,25 @@ See [specs/galaxy/IMPLEMENTATION_STATUS.md](../../specs/galaxy/IMPLEMENTATION_ST
 
 ## Features
 
-- **Tool Discovery**: AI assistants can discover and understand Galaxy tools
-- **Parameter Mapping**: Galaxy tool parameters are translated to MCP tool definitions
-- **Execution Management**: Tools can be executed and their results retrieved
-- **Workflow Automation**: Complex workflows can be constructed and executed
-- **Security Controls**: Secure authentication with Galaxy API
-- **Data Management**: Complete data handling from upload to processing
-- **Configuration Flexibility**: Adaptable to different Galaxy instances
-- **Plugin System**: Extensible architecture with plugin support
+- **Galaxy API Integration**: Complete API client for interacting with Galaxy instances
+- **MCP Protocol Support**: Integration with the Machine Context Protocol (optional)
+- **Secure Credential Management**: Advanced security features for handling API credentials
+- **Plugin Architecture**: Extensible plugin system for customizing behavior
+- **Async Support**: Built with async/await for efficient operations
+- **Structured Error Handling**: Comprehensive error types and handling
+- **Configurable**: Flexible configuration options
+
+## Enhanced Security Features
+
+The Galaxy MCP Adapter includes advanced security features for managing credentials safely:
+
+- **Secure Credential Storage**: Store credentials securely in memory or encrypted on disk
+- **Credential Rotation**: Support for periodic rotation of API keys
+- **Encryption**: Encrypt sensitive information at rest
+- **Environment Variable Integration**: Securely load credentials from environment variables
+- **Rotation Policies**: Configure custom policies for credential rotation
+
+For more details, see the [Security Documentation](SECURITY.md).
 
 ## Usage
 
@@ -61,6 +73,109 @@ async fn main() -> Result<(), galaxy::Error> {
         let outputs = adapter.get_job_results(&job_id).await?;
         println!("Job outputs: {:?}", outputs);
     }
+    
+    Ok(())
+}
+```
+
+### Security-Focused Configuration
+
+```rust
+use galaxy::{
+    adapter::GalaxyAdapter,
+    config::{GalaxyConfig, CredentialStorageType, CredentialStorageConfig},
+    security::SecretString,
+    error::Result,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), galaxy::Error> {
+    // Create a secure configuration with encrypted file storage
+    let config = GalaxyConfig::new("https://usegalaxy.org/api")
+        .with_secure_api_key(SecretString::new("your-api-key"))
+        .with_credential_storage(CredentialStorageConfig {
+            storage_type: CredentialStorageType::File,
+            file_storage_path: Some("/path/to/secure/storage"),
+            encrypt: true,
+        })
+        .with_encryption_key("your-encryption-key")
+        .with_key_rotation_days(90)
+        .with_credential_history_size(3);
+    
+    // Create adapter with secure configuration
+    let adapter = GalaxyAdapter::new(config)?;
+    
+    // Use adapter with securely stored credentials
+    let tools = adapter.list_tools().await?;
+    println!("Found {} tools", tools.len());
+    
+    Ok(())
+}
+```
+
+### Credential Rotation Example
+
+```rust
+use galaxy::{
+    adapter::GalaxyAdapter,
+    config::GalaxyConfig,
+    security::SecretString,
+    error::Result,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), galaxy::Error> {
+    // Create adapter with default configuration
+    let config = GalaxyConfig::default()
+        .with_api_key("initial-api-key")
+        .with_credential_id("my-galaxy-credentials");
+    
+    let adapter = GalaxyAdapter::new(config)?;
+    
+    // Validate the credentials work
+    let valid = adapter.validate_credentials().await?;
+    println!("Credentials valid: {}", valid);
+    
+    // Rotate to a new API key
+    println!("Rotating API key...");
+    adapter.rotate_api_key(SecretString::new("new-api-key")).await?;
+    
+    // Check credential history
+    let history = adapter.get_credential_history().await?;
+    println!("Current credentials: {}", history[0]);
+    println!("Previous credentials: {}", history[1]);
+    
+    Ok(())
+}
+```
+
+### Using Environment Variables
+
+```rust
+use galaxy::{
+    adapter::GalaxyAdapter,
+    config::GalaxyConfig,
+    error::Result,
+};
+
+// Set these environment variables before running:
+// GALAXY_API_URL=https://usegalaxy.org/api
+// GALAXY_API_KEY=your-api-key
+// GALAXY_KEY_ROTATION_DAYS=90
+
+#[tokio::main]
+async fn main() -> Result<(), galaxy::Error> {
+    // Load configuration from environment variables
+    let config = GalaxyConfig::from_env()?;
+    println!("Loaded configuration from environment variables");
+    println!("API URL: {}", config.api_url);
+    
+    // Create adapter with env-loaded configuration
+    let adapter = GalaxyAdapter::new(config)?;
+    
+    // Use adapter with credentials from environment
+    let tools = adapter.list_tools().await?;
+    println!("Found {} tools", tools.len());
     
     Ok(())
 }
@@ -166,6 +281,11 @@ crates/galaxy/
 │   │   ├── workflow_plugin.rs  # Workflow plugin implementation
 │   │   └── dataset_plugin.rs   # Dataset plugin implementation
 │   ├── security/       # Authentication and security
+│   │   ├── mod.rs              # Security module entry point
+│   │   ├── credentials.rs      # Secure credential handling
+│   │   ├── storage.rs          # Credential storage implementation
+│   │   ├── encryption.rs       # Encryption utilities
+│   │   └── rotation.rs         # Credential rotation policies
 │   ├── tools/          # Tool-specific functionality
 │   ├── utils/          # Utility functions
 │   ├── workflows/      # Workflow-specific functionality
@@ -174,7 +294,9 @@ crates/galaxy/
 │   ├── list_tools.rs        # Tool discovery example
 │   ├── execute_tool.rs      # Tool execution example
 │   ├── plugin_example.rs    # Plugin system example
-│   └── mcp_integration.rs   # MCP integration example
+│   ├── mcp_integration.rs   # MCP integration example
+│   ├── security_usage.rs    # Basic security features example
+│   └── enhanced_security.rs # Advanced security features example
 └── tests/              # Integration tests
 ```
 
@@ -189,6 +311,7 @@ The crate is designed as an adapter that leverages the existing MCP and context 
 - **Models**: Data models representing Galaxy objects
 - **Configuration**: Configuration management
 - **Plugin System**: Extensible architecture with plugin support
+- **Security**: Comprehensive security system for credential management
 - **Error**: Comprehensive error handling
 
 ### Plugin Types
@@ -204,6 +327,7 @@ The Galaxy adapter supports the following plugin types:
 
 - `mcp-integration`: Enables integration with MCP protocol (enabled by default)
 - `test-utils`: Enables testing utilities
+- `secure-storage`: Enables encryption and secure credential storage
 
 ## License
 
