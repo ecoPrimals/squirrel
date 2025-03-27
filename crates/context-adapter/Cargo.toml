@@ -17,6 +17,7 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
+anyhow = { workspace = true }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
@@ -30,4 +31,11 @@ mockall = { workspace = true }
 
 [lib]
 name = "squirrel_context_adapter"
-path = "src/lib.rs" 
+path = "src/lib.rs"
+
+# Define examples with custom names to avoid filename collisions
+[[example]]
+name = "adapter_plugin_demo"
+path = "examples/adapter_plugin_demo.rs"
+
+# Remove the skip configuration since we've deleted the file 

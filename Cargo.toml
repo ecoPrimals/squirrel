@@ -7,6 +7,7 @@ members = [
     "crates/core",
     "test_plugin_fix",
     "crates/galaxy",
+    "crates/rule-system"
     "crates/ui-web",
     "crates/dashboard-core",
     "crates/ui-terminal", 
