@@ -27,6 +27,7 @@ pub trait PluginManagerInterface: Send + Sync + Debug {
 /// Mock implementation of PluginManagerInterface for development
 #[derive(Debug)]
 pub struct MockPluginManager {
+    /// Map of plugin UUIDs to plugin instances
     plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
 }
 
@@ -35,6 +36,12 @@ impl MockPluginManager {
         Self {
             plugins: RwLock::new(HashMap::new()),
         }
+    }
+}
+
+impl Default for MockPluginManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -72,10 +79,12 @@ impl<T: McpPlugin> McpPluginToolId for T {
 /// Helper struct to bridge from McpPlugin to Plugin
 #[derive(Debug)]
 struct PluginWrapper<T: McpPlugin + ?Sized> {
+    /// The wrapped plugin instance
     inner: Arc<T>,
 }
 
 impl<T: McpPlugin + ?Sized> PluginWrapper<T> {
+    /// Creates a new plugin adapter wrapping the given plugin
     fn new(plugin: Arc<T>) -> Arc<Self> {
         Arc::new(Self { inner: plugin })
     }
@@ -258,8 +267,11 @@ impl Clone for PluginSystemIntegration {
 /// A Tool executor that uses the plugin system
 #[derive(Debug)]
 pub struct PluginToolExecutor {
+    /// Reference to the plugin system integration
     integration: Arc<PluginSystemIntegration>,
+    /// Identifier for the tool associated with this executor
     tool_id: String,
+    /// List of capabilities supported by this executor
     capabilities: Vec<String>,
 }
 

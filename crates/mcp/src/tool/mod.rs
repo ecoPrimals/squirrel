@@ -134,11 +134,17 @@ impl Tool {
 
 /// Builder for Tool
 pub struct ToolBuilder {
+    /// Optional tool ID, required before building
     id: Option<String>,
+    /// Optional tool name, required before building
     name: Option<String>,
+    /// Tool version, defaults to "0.1.0"
     version: String,
+    /// Tool description, defaults to empty string
     description: String,
+    /// List of tool capabilities
     capabilities: Vec<Capability>,
+    /// Security level (0-10, 0 being lowest), defaults to 0
     security_level: u8,
 }
 
@@ -674,8 +680,11 @@ pub struct ToolManager {
 
 /// Builder for ToolManager
 pub struct ToolManagerBuilder {
+    /// Optional lifecycle hook, defaults to BasicLifecycleHook if not provided
     lifecycle_hook: Option<Arc<dyn ToolLifecycleHook>>,
+    /// Optional resource manager, defaults to BasicResourceManager if not provided
     resource_manager: Option<Arc<dyn ResourceManager>>,
+    /// Optional recovery hook for handling tool errors
     recovery_hook: Option<Arc<RecoveryHook>>,
 }
 
@@ -1000,14 +1009,12 @@ impl ToolManager {
         // the state transition and handle rollbacks if needed
         if let Some(validation_hook) = self.lifecycle_hook.as_any().downcast_ref::<lifecycle::StateValidationHook>() {
             // Validate the state transition
-            if let Err(err) = validation_hook.validator().validate_transition(
+            validation_hook.validator().validate_transition(
                 tool_id,
                 &current_state,
                 &state,
-                Some(format!("Manual state update from ToolManager")),
-            ).await {
-                return Err(err);
-            }
+                Some("Manual state update from ToolManager".to_string()),
+            ).await?
         }
 
         // Update the state

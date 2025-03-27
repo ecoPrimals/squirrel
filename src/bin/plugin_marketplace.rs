@@ -15,12 +15,11 @@ use tracing::{info, error, Level};
 use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
 
-use squirrel_plugins::plugins::{
-    create_repository_manager,
-    RepositoryManager,
-    HttpRepositoryProvider,
-    PluginPackageInfo,
-};
+// Import directly from squirrel_plugins
+use squirrel_plugins::RepositoryManager;
+use squirrel_plugins::HttpRepositoryProvider;
+use squirrel_plugins::PluginPackageInfo;
+use squirrel_plugins::create_repository_manager;
 
 /// Command-line arguments
 #[derive(Parser)]
@@ -273,7 +272,7 @@ impl App {
         let plugin_id = Uuid::parse_str(plugin_id_str)
             .map_err(|e| format!("Invalid plugin ID: {}", e))?;
         
-        let plugin_path = self.manager.download_plugin(repo_id, plugin_id)
+        let plugin_path = self.manager.download_plugin(repo_id, &plugin_id)
             .await
             .map_err(|e| format!("Failed to download plugin: {}", e))?;
         
@@ -293,7 +292,7 @@ impl App {
         
         // Find the repository
         let repo_info = repositories.iter()
-            .find(|(id, _)| id == repo_id)
+            .find(|(id, _)| *id == repo_id)
             .map(|(_, info)| info)
             .ok_or_else(|| format!("Repository not found: {}", repo_id))?;
         
@@ -306,7 +305,7 @@ impl App {
         
         // Find the repository
         let repo_plugins = repositories.iter()
-            .find(|(id, _)| id == repo_id)
+            .find(|(id, _)| *id == repo_id)
             .map(|(_, plugins)| plugins)
             .ok_or_else(|| format!("Repository not found: {}", repo_id))?;
         

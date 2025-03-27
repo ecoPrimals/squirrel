@@ -548,7 +548,7 @@ impl ToolManagerRecoveryExt for ToolManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::{Tool, ToolBuilder, ToolError};
+    // We only need Tool for reference, not actually using it in the test
     
     #[tokio::test]
     async fn test_backoff_strategy_calculation() {

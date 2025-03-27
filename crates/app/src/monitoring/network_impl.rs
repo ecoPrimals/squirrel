@@ -42,13 +42,16 @@ impl NetworkMonitorImpl {
 
     /// Update the network stats
     async fn update_stats(&self) -> Result<()> {
-        // Create a new Networks instance to get fresh network data
-        let networks = Networks::new_with_refreshed_list();
+        // Create a new System instance with refreshed network data
+        let mut system = sysinfo::System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        let networks = system.networks();
         
         let mut stats = self.stats.write().unwrap();
         
         // Update network stats for each interface
-        for (interface, network_data) in &networks {
+        for (interface, network_data) in networks {
             let interface_name = interface.to_string();
             
             let network_stats = stats.entry(interface_name.clone()).or_insert_with(|| NetworkStats {

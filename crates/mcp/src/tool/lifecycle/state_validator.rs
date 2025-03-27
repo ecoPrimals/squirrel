@@ -192,7 +192,7 @@ impl StateTransitionGraph {
     pub fn add_transition(&mut self, from: ToolState, to: ToolState) {
         self.transitions
             .entry(from)
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(to);
     }
     

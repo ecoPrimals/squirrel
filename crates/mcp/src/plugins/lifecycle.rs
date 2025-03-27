@@ -48,6 +48,10 @@ impl PluginLifecycleHook {
         tools.get(tool_id).copied().unwrap_or(false)
     }
 
+    /// Converts this trait object to Any for downcasting
+    /// 
+    /// This allows callers to downcast the trait object to a concrete type
+    /// for accessing implementation-specific functionality.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

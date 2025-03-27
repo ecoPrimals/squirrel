@@ -1,3 +1,47 @@
+//! Protocol adapter module for MCP.
+//!
+//! This module provides a thread-safe adapter implementation for the Machine Context Protocol (MCP),
+//! allowing multiple components to safely interact with the protocol system concurrently.
+//! The adapter pattern decouples the protocol implementation from its consumers,
+//! providing a clean, stable interface while hiding internal complexity.
+//!
+//! # Key Features
+//!
+//! - Thread-safe protocol access with proper locking
+//! - Lazy initialization of the protocol
+//! - Support for custom protocol configurations
+//! - Clean interface for message handling
+//! - Handler registration and management
+//! - State management
+//!
+//! # Examples
+//!
+//! Creating and using a protocol adapter:
+//!
+//! ```
+//! use mcp::protocol::{create_protocol_adapter, MCPProtocol};
+//! use mcp::types::{MCPMessage, MessageId, MessageType};
+//! use serde_json::json;
+//!
+//! async fn example() {
+//!     // Create a protocol adapter
+//!     let adapter = create_protocol_adapter();
+//!     
+//!     // Initialize the adapter
+//!     adapter.initialize().await.expect("Failed to initialize");
+//!     
+//!     // Create a message
+//!     let message = MCPMessage {
+//!         id: MessageId("msg123".to_string()),
+//!         message_type: MessageType::Command,
+//!         payload: json!({"command": "status"}),
+//!     };
+//!     
+//!     // Handle the message
+//!     let response = adapter.handle_message(message).await;
+//! }
+//! ```
+
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
     MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult, ValidationResult,
@@ -9,26 +53,75 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-/// Errors specific to MCP protocol operations
+/// Errors specific to MCP protocol adapter operations.
+///
+/// These errors are specific to the protocol adapter and complement
+/// the more general protocol errors defined in the error module.
 #[derive(Debug, Error)]
 pub enum ProtocolAdapterError {
-    /// Protocol is not initialized
+    /// Protocol is not initialized.
+    ///
+    /// This error occurs when trying to use the protocol before initialization.
     #[error("Protocol not initialized")]
     NotInitialized,
 
-    /// Protocol is already initialized
+    /// Protocol is already initialized.
+    ///
+    /// This error occurs when trying to initialize an already initialized protocol.
     #[error("Protocol already initialized")]
     AlreadyInitialized,
 }
 
-/// Protocol adapter that provides a clean interface for working with the MCP protocol
+/// Protocol adapter that provides a thread-safe interface for working with the MCP protocol.
+///
+/// This adapter wraps the underlying protocol implementation in a thread-safe container,
+/// allowing multiple components to safely interact with the protocol system concurrently.
+/// It provides methods for initializing the protocol, handling messages, registering handlers,
+/// and managing protocol state.
+///
+/// # Examples
+///
+/// ```
+/// use mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
+/// use mcp::types::{MCPMessage, MessageId, MessageType};
+/// use serde_json::json;
+/// use std::sync::Arc;
+///
+/// async fn example() {
+///     // Create a new adapter
+///     let adapter = Arc::new(MCPProtocolAdapter::new());
+///     
+///     // Initialize with custom configuration
+///     let config = ProtocolConfig::default();
+///     adapter.initialize_with_config(config).await.expect("Failed to initialize");
+///     
+///     // Use the adapter
+///     let is_ready = adapter.is_initialized().await;
+///     println!("Protocol ready: {}", is_ready);
+/// }
+/// ```
 pub struct MCPProtocolAdapter {
-    /// Inner protocol implementation
+    /// Inner protocol implementation, wrapped in an Option to allow lazy initialization
     inner: Arc<RwLock<Option<MCPProtocolBase>>>,
 }
 
 impl MCPProtocolAdapter {
-    /// Creates a new empty protocol adapter
+    /// Creates a new empty protocol adapter.
+    ///
+    /// This creates an uninitialized adapter that must be initialized
+    /// before use with either `initialize()` or `initialize_with_config()`.
+    ///
+    /// # Returns
+    ///
+    /// A new, uninitialized `MCPProtocolAdapter`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// let adapter = MCPProtocolAdapter::new();
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -36,7 +129,27 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Create a new protocol adapter with a given protocol implementation
+    /// Creates a new protocol adapter with a given protocol implementation.
+    ///
+    /// This creates an adapter that is already initialized with the provided
+    /// protocol implementation, making it ready for immediate use.
+    ///
+    /// # Arguments
+    ///
+    /// * `protocol` - The protocol implementation to use
+    ///
+    /// # Returns
+    ///
+    /// A new, initialized `MCPProtocolAdapter`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::{MCPProtocolAdapter, MCPProtocolBase, ProtocolConfig};
+    ///
+    /// let protocol = MCPProtocolBase::new_default();
+    /// let adapter = MCPProtocolAdapter::with_protocol(protocol);
+    /// ```
     #[must_use]
     pub fn with_protocol(protocol: MCPProtocolBase) -> Self {
         Self {
@@ -44,10 +157,30 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Initialize the protocol adapter with a base protocol implementation
+    /// Initializes the protocol adapter with default configuration.
+    ///
+    /// This method initializes the adapter with a default protocol configuration
+    /// if it is not already initialized. If the adapter is already initialized,
+    /// this method does nothing and returns success.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if initialization was successful or if the adapter was already initialized
     ///
     /// # Errors
-    /// Returns an error if the protocol cannot be initialized
+    ///
+    /// Returns an error if the protocol could not be initialized
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    /// }
+    /// ```
     pub async fn initialize(&self) -> Result<()> {
         let mut inner = self.inner.write().await;
 
@@ -59,10 +192,39 @@ impl MCPProtocolAdapter {
         Ok(())
     }
 
-    /// Initialize with a specific configuration
+    /// Initializes the protocol adapter with a specific configuration.
+    ///
+    /// This method initializes the adapter with the provided protocol configuration
+    /// if it is not already initialized. If the adapter is already initialized,
+    /// this method does nothing and returns success.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The protocol configuration to use
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if initialization was successful or if the adapter was already initialized
     ///
     /// # Errors
-    /// Returns an error if the protocol cannot be initialized with the given config
+    ///
+    /// Returns an error if the protocol could not be initialized
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     let config = ProtocolConfig {
+    ///         version: "1.1".to_string(),
+    ///         max_message_size: 2 * 1024 * 1024, // 2MB
+    ///         timeout_ms: 10000, // 10 seconds
+    ///     };
+    ///     adapter.initialize_with_config(config).await.expect("Failed to initialize");
+    /// }
+    /// ```
     pub async fn initialize_with_config(&self, config: ProtocolConfig) -> Result<()> {
         let mut inner = self.inner.write().await;
 
@@ -74,13 +236,82 @@ impl MCPProtocolAdapter {
         Ok(())
     }
 
-    /// Check if inner protocol is initialized
+    /// Checks if the protocol adapter is initialized.
+    ///
+    /// This method checks if the adapter has been initialized with a protocol
+    /// implementation and is ready for use.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the adapter is initialized, `false` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     
+    ///     // Check if initialized
+    ///     let initialized = adapter.is_initialized().await;
+    ///     assert!(!initialized);
+    ///     
+    ///     // Initialize
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     // Check again
+    ///     let initialized = adapter.is_initialized().await;
+    ///     assert!(initialized);
+    /// }
+    /// ```
     pub async fn is_initialized(&self) -> bool {
         let inner = self.inner.read().await;
         inner.is_some()
     }
 
-    /// Handle a message according to the protocol
+    /// Handles a message according to the protocol.
+    ///
+    /// This method routes the message to the appropriate handler based on its type
+    /// and validates the message before processing. Special handling is provided
+    /// for setup messages, which are processed even without a payload.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The message to handle
+    ///
+    /// # Returns
+    ///
+    /// A `ProtocolResult` containing the response from the handler
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The protocol is not initialized
+    /// - The message has an invalid payload
+    /// - No handler is registered for the message type
+    /// - The handler encounters an error while processing the message
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use mcp::types::{MCPMessage, MessageId, MessageType};
+    /// use serde_json::json;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     let message = MCPMessage {
+    ///         id: MessageId("msg123".to_string()),
+    ///         message_type: MessageType::Command,
+    ///         payload: json!({"command": "status"}),
+    ///     };
+    ///     
+    ///     let response = adapter.handle_message(message).await;
+    /// }
+    /// ```
     pub async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         let protocol_guard = self.inner.read().await;
 
@@ -108,8 +339,62 @@ impl MCPProtocolAdapter {
 
     /// Registers a command handler for a specific message type.
     ///
-    /// Returns `ProtocolAdapterError::NotInitialized` if the adapter
-    /// is not initialized.
+    /// This method registers a handler for a specific message type, allowing
+    /// the protocol to process messages of that type.
+    ///
+    /// # Arguments
+    ///
+    /// * `message_type` - The message type to register the handler for
+    /// * `handler` - The handler to register
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the handler was registered successfully
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The protocol is not initialized
+    /// - A handler is already registered for the message type
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::{MCPProtocolAdapter, CommandHandler};
+    /// use mcp::types::{MCPMessage, MessageType, MCPResponse, ResponseStatus};
+    /// use mcp::error::Result;
+    /// use async_trait::async_trait;
+    /// use std::sync::Arc;
+    ///
+    /// #[derive(Debug)]
+    /// struct StatusHandler;
+    ///
+    /// #[async_trait]
+    /// impl CommandHandler for StatusHandler {
+    ///     async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
+    ///         // Handle status command
+    ///         Ok(MCPResponse {
+    ///             protocol_version: "1.0".to_string(),
+    ///             message_id: message.id.0.clone(),
+    ///             status: ResponseStatus::Success,
+    ///             payload: vec![],
+    ///             error_message: None,
+    ///             metadata: Default::default(),
+    ///         })
+    ///     }
+    /// }
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     // Register a handler for command messages
+    ///     adapter.register_handler(
+    ///         MessageType::Command,
+    ///         Box::new(StatusHandler)
+    ///     ).await.expect("Failed to register handler");
+    /// }
+    /// ```
     pub async fn register_handler(
         &self,
         message_type: crate::types::MessageType,
@@ -125,8 +410,37 @@ impl MCPProtocolAdapter {
 
     /// Unregisters a command handler for a specific message type.
     ///
-    /// Returns `ProtocolAdapterError::NotInitialized` if the adapter
-    /// is not initialized.
+    /// This method removes a previously registered handler for a message type.
+    ///
+    /// # Arguments
+    ///
+    /// * `message_type` - The message type to unregister the handler for
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the handler was unregistered successfully
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The protocol is not initialized
+    /// - No handler is registered for the message type
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use mcp::types::MessageType;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     // Unregister a handler for command messages
+    ///     let result = adapter.unregister_handler(&MessageType::Command).await;
+    ///     // Will likely error since we didn't register a handler
+    /// }
+    /// ```
     pub async fn unregister_handler(&self, message_type: &crate::types::MessageType) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
@@ -136,7 +450,28 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Get protocol state as JSON
+    /// Gets the protocol state as a JSON value.
+    ///
+    /// This method retrieves the current protocol state as a JSON value,
+    /// which can be used for serialization or inspection.
+    ///
+    /// # Returns
+    ///
+    /// The current protocol state as a JSON value, or an empty object if not initialized
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     let state = adapter.get_state().await;
+    ///     println!("Protocol state: {}", state);
+    /// }
+    /// ```
     pub async fn get_state(&self) -> Value {
         let inner = self.inner.read().await;
         if let Some(ref protocol) = *inner {
@@ -146,7 +481,41 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Set protocol state
+    /// Sets the protocol state.
+    ///
+    /// This method updates the protocol state with a new JSON value.
+    ///
+    /// # Arguments
+    ///
+    /// * `state` - The new protocol state
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if the state was updated successfully
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the protocol is not initialized
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use serde_json::json;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     let new_state = json!({
+    ///         "status": "ready",
+    ///         "connections": 5,
+    ///         "uptime": 3600
+    ///     });
+    ///     
+    ///     adapter.set_state(new_state).await.expect("Failed to set state");
+    /// }
+    /// ```
     pub async fn set_state(&self, state: Value) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(ref mut protocol) = *inner {
@@ -159,7 +528,28 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Get protocol configuration
+    /// Gets the protocol configuration.
+    ///
+    /// This method retrieves the current protocol configuration, which includes
+    /// settings like version, message size limits, and timeouts.
+    ///
+    /// # Returns
+    ///
+    /// The current protocol configuration, or the default if not initialized
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// async fn example() {
+    ///     let adapter = MCPProtocolAdapter::new();
+    ///     adapter.initialize().await.expect("Failed to initialize");
+    ///     
+    ///     let config = adapter.get_config().await;
+    ///     println!("Protocol version: {}", config.version);
+    /// }
+    /// ```
     pub async fn get_config(&self) -> ProtocolConfig {
         let inner = self.inner.read().await;
         if let Some(ref protocol) = *inner {
@@ -169,7 +559,24 @@ impl MCPProtocolAdapter {
         }
     }
 
-    /// Gets the current state
+    /// Gets the protocol version.
+    ///
+    /// This method retrieves the protocol version string. Since this is a static
+    /// value, it does not require locking the protocol.
+    ///
+    /// # Returns
+    ///
+    /// The protocol version string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::protocol::MCPProtocolAdapter;
+    ///
+    /// let adapter = MCPProtocolAdapter::new();
+    /// let version = adapter.get_version();
+    /// println!("Protocol version: {}", version);
+    /// ```
     pub fn get_version(&self) -> String {
         // The version is a static string, no need to lock
         "1.0".to_string()

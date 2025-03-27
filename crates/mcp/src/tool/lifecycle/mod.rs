@@ -2,6 +2,7 @@
 //
 // This module provides implementations of tool lifecycle hooks and managers.
 
+/// State validation implementation for tool lifecycle
 mod state_validator;
 
 

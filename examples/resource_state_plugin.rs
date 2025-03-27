@@ -1,274 +1,338 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::Result;
+
 use async_trait::async_trait;
-use serde_json::json;
+use serde_json::{json, Value};
+use anyhow::{Result, anyhow};
 use uuid::Uuid;
-use squirrel_plugins::{
-    Plugin, PluginState, ResourceLimits, ResourceMonitor, ResourceMonitorImpl, ResourceType,
-    StateManager, DefaultStateManager, MemoryStateStorage, CommandsPlugin, CommandInfo,
-    PluginError,
-};
+use chrono::{DateTime, Utc};
+
+use squirrel_interfaces::plugins::{CommandsPlugin, Plugin, PluginMetadata, CommandMetadata};
+
+// Define our own TeamResourceMetrics for the example
+#[derive(Debug, Clone)]
+struct TeamResourceMetrics {
+    /// Team identifier
+    pub team_id: String,
+    /// Memory usage as a percentage
+    pub memory_usage: f64,
+    /// Storage usage as a percentage
+    pub storage_usage: f64,
+    /// Network bandwidth in bytes per second
+    pub network_bandwidth: f64,
+    /// Number of active threads
+    pub thread_count: u32,
+    /// Disk I/O in bytes per second
+    pub disk_io: f64,
+    /// CPU usage as a percentage (0-100)
+    pub cpu_usage: f64,
+    /// Process information (simplified for example)
+    pub processes: Vec<ProcessInfo>,
+    /// Timestamp of when metrics were collected
+    pub timestamp: DateTime<Utc>,
+    /// Additional labels/tags for metrics
+    pub labels: HashMap<String, String>,
+}
+
+// Process information structure
+#[derive(Debug, Clone)]
+struct ProcessInfo {
+    // Just a placeholder for the example
+    pub pid: u32,
+    pub name: String,
+}
+
+// Simple metrics collector for the example
+#[derive(Debug, Clone)]
+struct ResourceMetricsCollector {
+    // For a simple example, we won't implement all the functionality
+}
+
+impl ResourceMetricsCollector {
+    fn new() -> Self {
+        Self {}
+    }
+    
+    fn collect_system_metrics(&self) -> Result<TeamResourceMetrics> {
+        // Return dummy metrics for the example
+        Ok(TeamResourceMetrics {
+            team_id: "system".to_string(),
+            memory_usage: 45.5, // percentage
+            storage_usage: 60.2, // percentage
+            network_bandwidth: 1024.0, // bytes/sec
+            thread_count: 8,
+            disk_io: 512.0, // bytes/sec
+            cpu_usage: 25.3, // percentage
+            processes: Vec::new(), // No processes for simplicity
+            timestamp: Utc::now(),
+            labels: HashMap::new(),
+        })
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Create resource monitor
-    let resource_monitor = Arc::new(ResourceMonitorImpl::new());
+    let resource_monitor = ResourceMetricsCollector::new();
+    let monitor = Arc::new(resource_monitor);
     
-    // Create state manager with in-memory storage
-    let state_storage = Arc::new(MemoryStateStorage::new());
-    let state_manager = Arc::new(DefaultStateManager::new(state_storage));
-
-    // Create our example plugin
-    let plugin_id = Uuid::new_v4();
-    let plugin = Arc::new(ResourceStateDemoPlugin::new(
-        plugin_id,
-        resource_monitor.clone(),
-        state_manager.clone(),
-    ));
-
-    // Set resource limits for our plugin
-    let limits = ResourceLimits {
-        max_memory: Some(50 * 1024 * 1024), // 50 MB
-        max_cpu: Some(0.5),                 // 50% CPU
-        max_disk: Some(10 * 1024 * 1024),   // 10 MB
-        max_network: Some(1024 * 1024),     // 1 MB/s
-        max_file_handles: Some(10),         // 10 files
-        max_threads: Some(5),               // 5 threads
-        ..Default::default()
-    };
+    // Create plugin instance
+    let plugin = ResourceStateDemoPlugin::new("Resource Demo", monitor.clone());
+    let plugin_ref = Arc::new(plugin);
     
-    resource_monitor.set_limits(plugin_id, limits).await?;
+    // Execute "allocate" command
+    let args = json!({
+        "size": 10 // Allocate 10MB
+    });
     
-    // Initialize plugin
-    plugin.initialize().await?;
+    // Allocate some resources
+    let result = plugin_ref.execute_command("allocate", args).await;
+    println!("Allocate result: {:?}", result);
     
-    // Start background resource monitoring
-    ResourceMonitorImpl::start_background_monitoring(resource_monitor.clone()).await;
+    // Get current usage
+    let usage_result = plugin_ref.execute_command("usage", json!({})).await;
+    println!("Usage result: {:?}", usage_result);
     
-    // Execute some commands to demonstrate resource allocation and state persistence
-    println!("--- Executing increment command ---");
-    let result = plugin.execute_command("increment", json!({})).await?;
-    println!("Result: {}", result);
+    // Shutdown
+    plugin_ref.shutdown().await?;
     
-    println!("--- Executing increment command again ---");
-    let result = plugin.execute_command("increment", json!({})).await?;
-    println!("Result: {}", result);
-    
-    println!("--- Executing get_count command ---");
-    let result = plugin.execute_command("get_count", json!({})).await?;
-    println!("Result: {}", result);
-    
-    println!("--- Allocating memory ---");
-    let result = plugin.execute_command("allocate_memory", json!({ "size_mb": 10 })).await?;
-    println!("Result: {}", result);
-    
-    // Wait a moment for the resource monitoring to detect usage
-    tokio::time::sleep(Duration::from_secs(2)).await;
-    
-    // Get resource usage
-    println!("--- Resource Usage ---");
-    let usage = resource_monitor.get_usage(plugin_id).await?;
-    println!("Memory: {} bytes", usage.memory);
-    println!("CPU: {:.2}%", usage.cpu * 100.0);
-    println!("Disk: {} bytes", usage.disk);
-    println!("Network: {} bytes/s", usage.network);
-    println!("File handles: {}", usage.file_handles);
-    println!("Threads: {}", usage.threads);
-    
-    // Get state
-    println!("--- Plugin State ---");
-    let state = state_manager.load_state(plugin_id).await?;
-    if let Some(state) = state {
-        println!("State version: {}", state.version);
-        println!("State data: {}", state.data);
-        println!("Last updated: {}", state.updated_at);
-    } else {
-        println!("No state found");
-    }
-    
-    // Clean up
-    plugin.shutdown().await?;
-    resource_monitor.stop_monitoring(plugin_id).await?;
-    
-    println!("Plugin demo completed successfully!");
     Ok(())
 }
 
-/// Example plugin that demonstrates resource management and state persistence
+/// Command result data
+#[derive(Debug, Clone)]
+struct CommandResult {
+    /// Whether the command was successful
+    success: bool,
+    /// Result message
+    message: String,
+    /// Additional data
+    data: Option<Value>,
+}
+
+impl CommandResult {
+    /// Create a success result
+    fn success(message: impl Into<String>) -> Self {
+        Self {
+            success: true,
+            message: message.into(),
+            data: None,
+        }
+    }
+    
+    /// Create an error result
+    fn error(message: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            message: message.into(),
+            data: None,
+        }
+    }
+    
+    /// Add data to the result
+    fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
+    }
+}
+
+/// Sample plugin that demonstrates resource management 
+#[derive(Debug)]
 struct ResourceStateDemoPlugin {
-    id: Uuid,
-    resource_monitor: Arc<dyn ResourceMonitor>,
-    state_manager: Arc<dyn StateManager>,
-    // Keeping track of allocated memory to free it later
-    allocated_memory: tokio::sync::Mutex<Vec<Vec<u8>>>,
+    /// The name of the plugin
+    name: String,
+    /// Resource monitor
+    monitor: Arc<ResourceMetricsCollector>,
+    /// Resource data
+    allocated_memory: Vec<Vec<u8>>,
+    /// Plugin metadata
+    metadata: PluginMetadata,
 }
 
 impl ResourceStateDemoPlugin {
-    fn new(
-        id: Uuid,
-        resource_monitor: Arc<dyn ResourceMonitor>,
-        state_manager: Arc<dyn StateManager>,
-    ) -> Self {
+    /// Create a new instance of the plugin
+    fn new(name: &str, monitor: Arc<ResourceMetricsCollector>) -> Self {
         Self {
-            id,
-            resource_monitor,
-            state_manager,
-            allocated_memory: tokio::sync::Mutex::new(Vec::new()),
+            name: name.to_string(),
+            monitor,
+            allocated_memory: Vec::new(),
+            metadata: PluginMetadata {
+                id: Uuid::new_v4().to_string(),
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+                description: "A demo plugin showing resource management".to_string(),
+                author: "DataScienceBioLab".to_string(),
+                capabilities: vec!["resource_management".to_string()],
+            },
         }
     }
     
-    async fn increment_counter(&self) -> Result<i32, PluginError> {
-        // Load current state
-        let state = self.state_manager.load_state(self.id).await?;
+    /// Allocate memory for testing resource limits
+    async fn allocate_memory(&mut self, size_mb: usize) -> CommandResult {
+        let size = size_mb * 1024 * 1024;
+        let memory = vec![0u8; size];
+        self.allocated_memory.push(memory);
         
-        let current_count = if let Some(state) = state {
-            state.data.get("count").and_then(|v| v.as_i64()).unwrap_or(0) as i32
-        } else {
-            0
-        };
-        
-        let new_count = current_count + 1;
-        
-        // Update state
-        self.state_manager
-            .update_state(self.id, json!({ "count": new_count }))
-            .await?;
-        
-        Ok(new_count)
+        CommandResult::success(format!("Allocated {}MB of memory", size_mb))
     }
     
-    async fn get_counter(&self) -> Result<i32, PluginError> {
-        // Load current state
-        let state = self.state_manager.load_state(self.id).await?;
-        
-        let count = if let Some(state) = state {
-            state.data.get("count").and_then(|v| v.as_i64()).unwrap_or(0) as i32
-        } else {
-            0
-        };
-        
-        Ok(count)
-    }
-    
-    async fn allocate_memory(&self, size_mb: usize) -> Result<String, PluginError> {
-        let size_bytes = size_mb * 1024 * 1024;
-        
-        // Allocate memory
-        let memory = vec![0u8; size_bytes];
-        
-        // Report allocation to resource monitor
-        self.resource_monitor
-            .report_allocation(self.id, ResourceType::Memory, size_bytes as u64)
-            .await?;
-        
-        // Store the allocated memory to prevent it from being dropped
-        let mut allocated = self.allocated_memory.lock().await;
-        allocated.push(memory);
-        
-        Ok(format!("Allocated {} MB of memory", size_mb))
+    /// Get current resource usage
+    async fn get_resource_usage(&self) -> CommandResult {
+        // Get system metrics from the collector
+        match self.monitor.collect_system_metrics() {
+            Ok(usage) => {
+                let data = json!({
+                    "memory_usage": usage.memory_usage,
+                    "cpu_usage": usage.cpu_usage,
+                    "storage_usage": usage.storage_usage,
+                    "network_bandwidth": usage.network_bandwidth,
+                    "thread_count": usage.thread_count,
+                });
+                CommandResult::success("Resource usage retrieved").with_data(data)
+            },
+            Err(e) => CommandResult::error(format!("Failed to get resource usage: {}", e)),
+        }
     }
 }
 
+#[async_trait]
 impl Plugin for ResourceStateDemoPlugin {
-    fn metadata(&self) -> squirrel_mcp::plugins::interfaces::PluginMetadata {
-        squirrel_mcp::plugins::interfaces::PluginMetadata {
-            id: self.id,
-            name: "resource-state-demo".to_string(),
-            version: "1.0.0".to_string(),
-            description: "Demonstrates resource management and state persistence".to_string(),
-            status: squirrel_mcp::plugins::interfaces::PluginStatus::Registered,
-        }
-    }
-    
-    async fn initialize(&self) -> anyhow::Result<()> {
-        // Start monitoring resources
-        self.resource_monitor.start_monitoring(self.id).await?;
+    async fn shutdown(&self) -> Result<()> {
+        println!("Shutting down ResourceStateDemoPlugin");
         
-        // Initialize state if not already present
-        let state = self.state_manager.load_state(self.id).await?;
-        if state.is_none() {
-            self.state_manager
-                .update_state(self.id, json!({ "count": 0 }))
-                .await?;
-        }
-        
-        println!("ResourceStateDemoPlugin initialized");
-        Ok(())
-    }
-    
-    async fn shutdown(&self) -> anyhow::Result<()> {
         // Clean up allocated resources
-        let mut allocated = self.allocated_memory.lock().await;
-        let total_memory = allocated.iter().map(|v| v.len()).sum::<usize>();
+        let memory_used = self.allocated_memory.iter().map(|v| v.len()).sum::<usize>();
+        println!("Deallocating {}MB of memory", memory_used / (1024 * 1024));
         
-        if total_memory > 0 {
-            // Report deallocation
-            self.resource_monitor
-                .report_deallocation(self.id, ResourceType::Memory, total_memory as u64)
-                .await?;
-            
-            // Clear allocated memory
-            allocated.clear();
-        }
-        
-        println!("ResourceStateDemoPlugin shut down");
         Ok(())
+    }
+
+    fn metadata(&self) -> &PluginMetadata {
+        &self.metadata
     }
 }
 
 #[async_trait]
 impl CommandsPlugin for ResourceStateDemoPlugin {
-    fn get_commands(&self) -> Vec<CommandInfo> {
+    fn get_available_commands(&self) -> Vec<CommandMetadata> {
         vec![
-            CommandInfo {
-                name: "increment".to_string(),
-                description: "Increment the counter".to_string(),
-                category: Some("State".to_string()),
-                tags: vec!["state".to_string()],
-                requires_auth: false,
+            CommandMetadata {
+                id: "allocate".to_string(),
+                name: "Allocate Memory".to_string(),
+                description: "Allocate memory for testing resource limits".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "size": {
+                            "type": "integer",
+                            "description": "Size in MB",
+                            "default": 10
+                        }
+                    }
+                }),
+                output_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"},
+                        "data": {"type": "object"}
+                    }
+                }),
+                permissions: vec![],
             },
-            CommandInfo {
-                name: "get_count".to_string(),
-                description: "Get the current count".to_string(),
-                category: Some("State".to_string()),
-                tags: vec!["state".to_string()],
-                requires_auth: false,
+            CommandMetadata {
+                id: "usage".to_string(),
+                name: "Get Resource Usage".to_string(),
+                description: "Get current resource usage information".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+                output_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"},
+                        "data": {"type": "object"}
+                    }
+                }),
+                permissions: vec![],
             },
-            CommandInfo {
-                name: "allocate_memory".to_string(),
-                description: "Allocate memory (in MB)".to_string(),
-                category: Some("Resource".to_string()),
-                tags: vec!["resource".to_string()],
-                requires_auth: false,
+            CommandMetadata {
+                id: "clear".to_string(),
+                name: "Clear Memory".to_string(),
+                description: "Clear allocated memory".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+                output_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"}
+                    }
+                }),
+                permissions: vec![],
             },
         ]
     }
-    
-    async fn execute_command(&self, name: &str, args: serde_json::Value) -> Result<serde_json::Value, PluginError> {
-        match name {
-            "increment" => {
-                let count = self.increment_counter().await?;
-                Ok(json!({ "new_count": count }))
-            }
-            "get_count" => {
-                let count = self.get_counter().await?;
-                Ok(json!({ "count": count }))
-            }
-            "allocate_memory" => {
-                let size_mb = args.get("size_mb").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-                let result = self.allocate_memory(size_mb).await?;
-                Ok(json!({ "message": result }))
-            }
-            _ => Err(PluginError::CommandNotFound(name.to_string())),
+
+    async fn execute_command(&self, command_id: &str, input: Value) -> Result<Value> {
+        // This implementation is simplified for the example
+        match command_id {
+            "allocate" => {
+                let size = input.get("size")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(10) as usize;
+                
+                let mut plugin = self.clone();
+                let result = plugin.allocate_memory(size).await;
+                Ok(json!({"success": result.success, "message": result.message, "data": result.data}))
+            },
+            "usage" => {
+                let result = self.get_resource_usage().await;
+                Ok(json!({"success": result.success, "message": result.message, "data": result.data}))
+            },
+            "clear" => {
+                Ok(json!({"success": true, "message": "Memory cleared (demo only)"}))
+            },
+            _ => Err(anyhow!("Unknown command: {}", command_id))
         }
     }
-    
-    fn get_command_help(&self, _name: &str) -> Option<squirrel_plugins::interfaces::CommandHelp> {
-        None
+
+    fn get_command_metadata(&self, command_id: &str) -> Option<CommandMetadata> {
+        self.get_available_commands()
+            .into_iter()
+            .find(|cmd| cmd.id == command_id)
     }
-    
-    fn get_command_schema(&self, _name: &str) -> Option<serde_json::Value> {
-        None
+
+    fn get_command_help(&self, command_id: &str) -> Option<String> {
+        match command_id {
+            "allocate" => Some("allocate [size=10]: Allocate memory for testing resource limits".to_string()),
+            "usage" => Some("usage: Get current resource usage information".to_string()),
+            "clear" => Some("clear: Clear allocated memory".to_string()),
+            _ => None
+        }
+    }
+}
+
+// Allow cloning for demo purposes
+impl Clone for ResourceStateDemoPlugin {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            monitor: self.monitor.clone(),
+            allocated_memory: Vec::new(), // Note: We don't clone the memory, just for demo
+            metadata: PluginMetadata {
+                id: self.metadata.id.clone(),
+                name: self.metadata.name.clone(),
+                version: self.metadata.version.clone(),
+                description: self.metadata.description.clone(),
+                author: self.metadata.author.clone(),
+                capabilities: self.metadata.capabilities.clone(),
+            },
+        }
     }
 } 

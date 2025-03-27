@@ -15,8 +15,11 @@ use crate::ContextError;
 
 /// Plugin manager for managing context plugins and transformations
 pub struct ContextPluginManager {
+    /// Collection of registered context plugins
     plugins: RwLock<Vec<Box<dyn ContextPlugin>>>,
+    /// Collection of available context transformations from plugins
     transformations: RwLock<Vec<Arc<dyn ContextTransformation>>>,
+    /// Map of adapter IDs to context adapter plugins
     adapters: RwLock<HashMap<String, Arc<dyn ContextAdapterPlugin>>>,
 }
 

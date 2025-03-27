@@ -30,10 +30,11 @@
 //! - Provides a clean abstraction layer between components
 //! - Makes testing easier through mocking and isolation
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use async_trait::async_trait;
+use tokio;
 
 // Basic types
 pub type CommandResult<T> = Result<T, CommandError>;
@@ -239,33 +240,37 @@ pub struct CommandLogEntry {
 /// MCP adapter implementation with authentication
 #[derive(Debug)]
 pub struct McpAdapter {
-    adapter: RegistryAdapter,
-    authorized_users: HashMap<String, String>, // username -> password
-    user_roles: HashMap<String, Vec<UserRole>>, // username -> roles
-    command_permissions: HashMap<String, Vec<UserRole>>, // command -> required roles
-    active_tokens: HashMap<String, AuthUser>, // token -> user
-    command_log: Vec<CommandLogEntry>, // audit log
+    adapter: Arc<RwLock<RegistryAdapter>>,
+    authorized_users: Arc<RwLock<HashMap<String, String>>>, // username -> password
+    user_roles: Arc<RwLock<HashMap<String, Vec<UserRole>>>>, // username -> roles
+    command_permissions: Arc<RwLock<HashMap<String, Vec<UserRole>>>>, // command -> required roles
+    active_tokens: Arc<RwLock<HashMap<String, AuthUser>>>, // token -> user
+    command_log: Arc<RwLock<Vec<CommandLogEntry>>>, // audit log
 }
 
 impl McpAdapter {
     pub fn new() -> Self {
-        let mut instance = Self {
-            adapter: RegistryAdapter::new(),
-            authorized_users: HashMap::new(),
-            user_roles: HashMap::new(),
-            command_permissions: HashMap::new(),
-            active_tokens: HashMap::new(),
-            command_log: Vec::new(),
+        let instance = Self {
+            adapter: Arc::new(RwLock::new(RegistryAdapter::new())),
+            authorized_users: Arc::new(RwLock::new(HashMap::new())),
+            user_roles: Arc::new(RwLock::new(HashMap::new())),
+            command_permissions: Arc::new(RwLock::new(HashMap::new())),
+            active_tokens: Arc::new(RwLock::new(HashMap::new())),
+            command_log: Arc::new(RwLock::new(Vec::new())),
         };
         
-        // Add default admin user
-        instance.add_user("admin", "password", true);
+        // We'll need to initialize the default user differently with RwLock
+        let instance_clone = instance.clone();
+        tokio::spawn(async move {
+            instance_clone.add_user("admin", "password", true).await;
+        });
         
         instance
     }
     
-    pub fn add_user(&mut self, username: &str, password: &str, is_admin: bool) {
-        self.authorized_users.insert(username.to_string(), password.to_string());
+    pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) {
+        let mut users = self.authorized_users.write().unwrap();
+        users.insert(username.to_string(), password.to_string());
         
         // Assign roles based on admin status
         let roles = if is_admin {
@@ -273,25 +278,29 @@ impl McpAdapter {
         } else {
             vec![UserRole::RegularUser]
         };
-        self.user_roles.insert(username.to_string(), roles);
+        
+        let mut user_roles = self.user_roles.write().unwrap();
+        user_roles.insert(username.to_string(), roles);
         
         if is_admin {
             // Mark admin commands as requiring admin role
+            let mut permissions = self.command_permissions.write().unwrap();
             for cmd in ["admin-cmd"].iter() {
-                self.command_permissions.insert(cmd.to_string(), vec![UserRole::Admin]);
+                permissions.insert(cmd.to_string(), vec![UserRole::Admin]);
             }
         }
     }
     
     /// Add a command with specific role requirements
     pub fn add_command_with_permissions(&mut self, command_name: &str, roles: Vec<UserRole>) {
-        self.command_permissions.insert(command_name.to_string(), roles);
+        let mut permissions = self.command_permissions.write().unwrap();
+        permissions.insert(command_name.to_string(), roles);
     }
     
     /// Generate an authentication token for a user
     pub fn generate_token(&mut self, username: &str, password: &str) -> CommandResult<String> {
         // Verify credentials
-        if let Some(stored_password) = self.authorized_users.get(username) {
+        if let Some(stored_password) = self.authorized_users.read().unwrap().get(username) {
             if password != stored_password {
                 return Err(CommandError::AuthenticationFailed(
                     format!("Invalid password for user '{}'", username)
@@ -307,8 +316,8 @@ impl McpAdapter {
         let token = format!("token-{}-{}", username, std::time::SystemTime::now().elapsed().unwrap().as_secs());
         
         // Store the token with user info
-        let roles = self.user_roles.get(username).cloned().unwrap_or_default();
-        self.active_tokens.insert(token.clone(), AuthUser {
+        let roles = self.user_roles.read().unwrap().get(username).cloned().unwrap_or_default();
+        self.active_tokens.write().unwrap().insert(token.clone(), AuthUser {
             username: username.to_string(),
             roles,
             token: Some(token.clone()),
@@ -322,7 +331,7 @@ impl McpAdapter {
         match auth {
             Auth::User(username, password) => {
                 // Verify user credentials
-                if let Some(stored_password) = self.authorized_users.get(username) {
+                if let Some(stored_password) = self.authorized_users.read().unwrap().get(username) {
                     if password != stored_password {
                         return Err(CommandError::AuthenticationFailed(
                             format!("Invalid password for user '{}'", username)
@@ -330,7 +339,7 @@ impl McpAdapter {
                     }
                     
                     // Get user roles
-                    let roles = self.user_roles.get(username).cloned().unwrap_or_default();
+                    let roles = self.user_roles.read().unwrap().get(username).cloned().unwrap_or_default();
                     
                     Ok(Some(AuthUser {
                         username: username.clone(),
@@ -344,7 +353,7 @@ impl McpAdapter {
                 }
             },
             Auth::Token(token) => {
-                if let Some(user) = self.active_tokens.get(token) {
+                if let Some(user) = self.active_tokens.read().unwrap().get(token) {
                     Ok(Some(user.clone()))
                 } else {
                     Err(CommandError::AuthenticationFailed(
@@ -371,37 +380,43 @@ impl McpAdapter {
     }
     
     /// Check if a user has permission to execute a command
-    fn authorize(&self, command: &str, user: Option<&AuthUser>) -> CommandResult<()> {
+    async fn authorize(&self, command: &str, user: Option<&AuthUser>) -> CommandResult<()> {
+        let permissions = self.command_permissions.read().unwrap();
+        
         // Check if command requires specific permissions
-        if let Some(required_roles) = self.command_permissions.get(command) {
+        if let Some(required_roles) = permissions.get(command) {
             match user {
                 Some(user) => {
-                    // Check if user has any of the required roles
-                    let has_permission = user.roles.iter().any(|role| {
-                        // Admin always has permission
-                        *role == UserRole::Admin || required_roles.contains(role)
-                    });
-                    
-                    if !has_permission {
-                        return Err(CommandError::AuthorizationFailed(
-                            format!("User '{}' is not authorized to execute command '{}'", user.username, command)
-                        ));
+                    // For admin users, always grant access
+                    if user.roles.contains(&UserRole::Admin) {
+                        return Ok(());
                     }
+                    
+                    // Check if user has any of the required roles
+                    if user.roles.iter().any(|role| required_roles.contains(role)) {
+                        return Ok(());
+                    }
+                    
+                    Err(CommandError::AuthorizationFailed(
+                        format!("User '{}' does not have required role for command '{}'", user.username, command)
+                    ))
                 },
                 None => {
-                    return Err(CommandError::AuthenticationFailed(
+                    Err(CommandError::AuthorizationFailed(
                         format!("Authentication required for command '{}'", command)
-                    ));
+                    ))
                 }
             }
+        } else {
+            // No specific permissions required for this command
+            Ok(())
         }
-        
-        Ok(())
     }
     
     /// Log command execution for audit purposes
-    fn log_command(&mut self, command: &str, args: &[String], user: Option<&AuthUser>, success: bool, message: String) {
-        self.command_log.push(CommandLogEntry {
+    async fn log_command(&self, command: &str, args: &[String], user: Option<&AuthUser>, success: bool, message: String) {
+        let mut log = self.command_log.write().unwrap();
+        log.push(CommandLogEntry {
             command: command.to_string(),
             args: args.to_vec(),
             user: user.map(|u| u.username.clone()),
@@ -412,39 +427,43 @@ impl McpAdapter {
     }
     
     /// Get command execution logs
-    pub fn get_command_logs(&self) -> &[CommandLogEntry] {
-        &self.command_log
+    pub async fn get_command_logs(&self) -> Vec<CommandLogEntry> {
+        self.command_log.read().unwrap().clone()
     }
     
-    pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
+    pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         let cmd_name = command.name();
         
         // For admin commands, automatically add admin permission
-        if cmd_name.starts_with("admin") && !self.command_permissions.contains_key(cmd_name) {
-            let mut permissions = self.command_permissions.clone();
+        if cmd_name.starts_with("admin") && !self.command_permissions.read().unwrap().contains_key(cmd_name) {
+            let mut permissions = self.command_permissions.write().unwrap();
             permissions.insert(cmd_name.to_string(), vec![UserRole::Admin]);
         }
         
-        self.adapter.register(cmd_name, command)
+        let mut adapter = self.adapter.write().unwrap();
+        adapter.register(cmd_name, command.clone())
     }
     
-    pub async fn execute_with_auth(&mut self, command: &str, args: Vec<String>, auth: Auth) -> CommandResult<String> {
+    pub async fn execute_with_auth(&self, command: &str, args: Vec<String>, auth: Auth) -> CommandResult<String> {
         // Authenticate user
         let user = self.authenticate(&auth).await?;
         
         // Authorize command execution
-        self.authorize(command, user.as_ref())?;
+        self.authorize(command, user.as_ref()).await?;
         
         // Execute the command
-        let result: CommandResult<String> = self.adapter.execute(command, args.clone()).await;
+        let result = {
+            let adapter = self.adapter.read().unwrap();
+            adapter.execute(command, args.clone())
+        };
         
         // Log the command execution
         match &result {
             Ok(output) => {
-                self.log_command(command, &args, user.as_ref(), true, output.clone());
+                self.log_command(command, &args, user.as_ref(), true, output.clone()).await;
             },
             Err(e) => {
-                self.log_command(command, &args, user.as_ref(), false, e.to_string());
+                self.log_command(command, &args, user.as_ref(), false, e.to_string()).await;
             }
         }
         
@@ -453,7 +472,8 @@ impl McpAdapter {
     
     pub async fn get_available_commands(&self, auth: Auth) -> CommandResult<Vec<String>> {
         let user = self.authenticate(&auth).await.ok().flatten();
-        let mut commands = self.adapter.list_commands().await?;
+        let adapter = self.adapter.read().unwrap();
+        let mut commands = adapter.list_commands()?;
         
         // Filter commands based on user permissions
         match user {
@@ -461,20 +481,20 @@ impl McpAdapter {
                 // If user is admin, return all commands
                 if user.roles.contains(&UserRole::Admin) {
                     return Ok(commands);
+                } else {
+                    // Otherwise, filter based on permissions
+                    commands.retain(|cmd| {
+                        if let Some(required_roles) = self.command_permissions.read().unwrap().get(cmd) {
+                            user.roles.iter().any(|role| required_roles.contains(role))
+                        } else {
+                            true
+                        }
+                    });
                 }
-                
-                // Otherwise, filter based on permissions
-                commands.retain(|cmd| {
-                    if let Some(required_roles) = self.command_permissions.get(cmd) {
-                        user.roles.iter().any(|role| required_roles.contains(role))
-                    } else {
-                        true // No specific permission required
-                    }
-                });
             },
             None => {
                 // Anonymous users can only access commands without permission requirements
-                commands.retain(|cmd| !self.command_permissions.contains_key(cmd));
+                commands.retain(|cmd| !self.command_permissions.read().unwrap().contains_key(cmd));
             }
         }
         
@@ -484,24 +504,26 @@ impl McpAdapter {
 
 #[async_trait]
 impl CommandAdapter for McpAdapter {
-    async fn execute(&mut self, command: &str, args: Vec<String>) -> CommandResult<String> {
+    async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
         // Use anonymous authentication for basic adapter trait
         self.execute_with_auth(command, args, Auth::None).await
     }
     
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        <RegistryAdapter as CommandAdapter>::get_help(&self.adapter, command).await
+        let adapter = self.adapter.read().unwrap();
+        adapter.get_help(command)
     }
     
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        <RegistryAdapter as CommandAdapter>::list_commands(&self.adapter).await
+        let adapter = self.adapter.read().unwrap();
+        adapter.list_commands()
     }
 }
 
 /// Plugin adapter implementation
 #[derive(Debug)]
 pub struct PluginAdapter {
-    adapter: RegistryAdapter,
+    adapter: Arc<RwLock<RegistryAdapter>>,
     plugin_id: String,
     version: String,
 }
@@ -509,7 +531,7 @@ pub struct PluginAdapter {
 impl PluginAdapter {
     pub fn new() -> Self {
         Self {
-            adapter: RegistryAdapter::new(),
+            adapter: Arc::new(RwLock::new(RegistryAdapter::new())),
             plugin_id: "commands".to_string(),
             version: "1.0.0".to_string(),
         }
@@ -523,27 +545,32 @@ impl PluginAdapter {
         &self.version
     }
     
-    pub fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
-        self.adapter.register(command.name(), command)
+    pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
+        let mut adapter = self.adapter.write().unwrap();
+        adapter.register(command.name(), command.clone())
     }
     
     pub async fn get_commands(&self) -> CommandResult<Vec<String>> {
-        self.adapter.list_commands()
+        let adapter = self.adapter.read().unwrap();
+        adapter.list_commands()
     }
 }
 
 #[async_trait]
 impl CommandAdapter for PluginAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        <RegistryAdapter as CommandAdapter>::execute(&self.adapter, command, args).await
+        let adapter = self.adapter.read().unwrap();
+        adapter.execute(command, args)
     }
     
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        <RegistryAdapter as CommandAdapter>::get_help(&self.adapter, command).await
+        let adapter = self.adapter.read().unwrap();
+        adapter.get_help(command)
     }
     
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        <RegistryAdapter as CommandAdapter>::list_commands(&self.adapter).await
+        let adapter = self.adapter.read().unwrap();
+        adapter.list_commands()
     }
 }
 
@@ -558,45 +585,45 @@ pub trait MockAdapter: Send + Sync {
 #[async_trait]
 impl MockAdapter for RegistryAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        <RegistryAdapter as CommandAdapter>::execute(self, command, args).await
+        self.execute(command, args)
     }
     
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        <RegistryAdapter as CommandAdapter>::get_help(self, command).await
+        self.get_help(command)
     }
     
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        <RegistryAdapter as CommandAdapter>::list_commands(self).await
+        self.list_commands()
     }
 }
 
 #[async_trait]
 impl MockAdapter for McpAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        <McpAdapter as CommandAdapter>::execute(self, command, args).await
+        CommandAdapter::execute(self, command, args).await
     }
     
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        <McpAdapter as CommandAdapter>::get_help(self, command).await
+        CommandAdapter::get_help(self, command).await
     }
     
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        <McpAdapter as CommandAdapter>::list_commands(self).await
+        CommandAdapter::list_commands(self).await
     }
 }
 
 #[async_trait]
 impl MockAdapter for PluginAdapter {
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String> {
-        <PluginAdapter as CommandAdapter>::execute(self, command, args).await
+        CommandAdapter::execute(self, command, args).await
     }
     
     async fn get_help(&self, command: &str) -> CommandResult<String> {
-        <PluginAdapter as CommandAdapter>::get_help(self, command).await
+        CommandAdapter::get_help(self, command).await
     }
     
     async fn list_commands(&self) -> CommandResult<Vec<String>> {
-        <PluginAdapter as CommandAdapter>::list_commands(self).await
+        CommandAdapter::list_commands(self).await
     }
 }
 
@@ -645,6 +672,19 @@ pub async fn test_polymorphic_adapter<A: CommandAdapter + ?Sized>(
     adapter.execute(command, args).await
 }
 
+impl Clone for McpAdapter {
+    fn clone(&self) -> Self {
+        Self {
+            adapter: self.adapter.clone(),
+            authorized_users: self.authorized_users.clone(),
+            user_roles: self.user_roles.clone(),
+            command_permissions: self.command_permissions.clone(),
+            active_tokens: self.active_tokens.clone(),
+            command_log: self.command_log.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -652,14 +692,14 @@ mod tests {
     #[tokio::test]
     async fn test_registry_adapter() -> CommandResult<()> {
         // Create a registry adapter
-        let adapter = RegistryAdapter::new();
+        let mut adapter = RegistryAdapter::new();
         
         // Create and register test commands
         let hello_cmd = TestCommand::new("hello", "Says hello", "Hello, world!");
         let echo_cmd = TestCommand::new("echo", "Echoes arguments", "Echo");
         
-        adapter.register(hello_cmd.name(), Arc::new(hello_cmd))?;
-        adapter.register(echo_cmd.name(), Arc::new(echo_cmd))?;
+        adapter.register(hello_cmd.clone().name(), Arc::new(hello_cmd))?;
+        adapter.register(echo_cmd.clone().name(), Arc::new(echo_cmd))?;
         
         // Test command execution without arguments
         let result = <RegistryAdapter as CommandAdapter>::execute(&adapter, "hello", vec![]).await?;
@@ -689,11 +729,11 @@ mod tests {
         
         // Register a secure command
         let cmd = TestCommand::new("secure", "Secure command", "Secret data");
-        adapter.register_command(Arc::new(cmd))?;
+        adapter.register_command(Arc::new(cmd)).await?;
         
         // Register an admin command
         let admin_cmd = TestCommand::new("admin-cmd", "Admin command", "Admin data");
-        adapter.register_command(Arc::new(admin_cmd))?;
+        adapter.register_command(Arc::new(admin_cmd)).await?;
         
         // Test admin authentication and command execution
         let admin_auth = Auth::User("admin".to_string(), "password".to_string());
@@ -735,7 +775,7 @@ mod tests {
         
         // Register commands
         let cmd = TestCommand::new("plugin-cmd", "Plugin command", "Plugin result");
-        adapter.register_command(Arc::new(cmd))?;
+        adapter.register_command(Arc::new(cmd)).await?;
         
         // List commands
         let commands = adapter.get_commands().await?;
@@ -743,7 +783,7 @@ mod tests {
         assert_eq!(commands[0], "plugin-cmd");
         
         // Execute command
-        let result = adapter.execute("plugin-cmd", vec!["arg1".to_string(), "arg2".to_string()]).await?;
+        let result = CommandAdapter::execute(&adapter, "plugin-cmd", vec!["arg1".to_string(), "arg2".to_string()]).await?;
         assert_eq!(result, "Plugin result with args: [\"arg1\", \"arg2\"]");
         
         Ok(())
@@ -756,15 +796,15 @@ mod tests {
             adapter.execute(cmd_name, vec![]).await
         }
         
-        let registry_adapter = RegistryAdapter::new();
-        let mcp_adapter = McpAdapter::new();
+        let mut registry_adapter = RegistryAdapter::new();
+        let mut mcp_adapter = McpAdapter::new();
         let plugin_adapter = PluginAdapter::new();
         
         // Register the same command in all adapters
         let test_cmd = TestCommand::new("test", "Test command", "Test result");
-        registry_adapter.register(test_cmd.name(), Arc::new(test_cmd.clone()))?;
-        mcp_adapter.register_command(Arc::new(test_cmd.clone()))?;
-        plugin_adapter.register_command(Arc::new(test_cmd))?;
+        registry_adapter.register(test_cmd.clone().name(), Arc::new(test_cmd.clone()))?;
+        mcp_adapter.register_command(Arc::new(test_cmd.clone())).await?;
+        plugin_adapter.register_command(Arc::new(test_cmd)).await?;
         
         // Test execution through trait
         let result1 = test_adapter(&registry_adapter, "test").await?;
