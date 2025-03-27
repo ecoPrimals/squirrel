@@ -5,7 +5,29 @@
 
 use std::sync::Arc;
 use std::time::Instant;
+use std::fmt;
+use std::error::Error;
 use crate::resilience::{ResilienceError, Result};
+
+/// Error type for circuit breaker operations
+#[derive(Debug)]
+pub enum CircuitBreakerError {
+    /// Circuit is open, operation not allowed
+    CircuitOpen,
+    /// Operation failed
+    OperationFailed(String),
+}
+
+impl fmt::Display for CircuitBreakerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CircuitBreakerError::CircuitOpen => write!(f, "Circuit is open"),
+            CircuitBreakerError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
+        }
+    }
+}
+
+impl Error for CircuitBreakerError {}
 
 /// The current state of the circuit breaker
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,10 +159,7 @@ impl CircuitBreaker {
             CircuitState::HalfOpen => {
                 // Check if we've reached the limit of allowed calls in half-open state
                 if self.half_open_call_count >= self.config.half_open_allowed_calls {
-                    return Err(ResilienceError::CircuitOpen(format!(
-                        "Circuit {} is half-open and call limit reached", 
-                        self.config.name
-                    )));
+                    return Err(ResilienceError::from(CircuitBreakerError::CircuitOpen));
                 }
                 self.half_open_call_count += 1;
             }
@@ -157,7 +176,7 @@ impl CircuitBreaker {
             }
             Err(error) => {
                 self.handle_failure();
-                Err(ResilienceError::Other(error.to_string()))
+                Err(ResilienceError::from(CircuitBreakerError::OperationFailed(error.to_string())))
             }
         }
     }
@@ -222,15 +241,13 @@ impl CircuitBreaker {
         // Use fallback if available
         if let Some(fallback) = &self.config.fallback {
             // Fallback can't directly return T, so we return an error instead
-            fallback()?;
+            let fallback_result = fallback();
             self.fallback_count += 1;
+            fallback_result?;
         }
         
         // Return error if we get here (no fallback or fallback can't produce T)
-        Err(ResilienceError::CircuitOpen(format!(
-            "Circuit {} is open", 
-            self.config.name
-        )))
+        Err(ResilienceError::from(CircuitBreakerError::CircuitOpen))
     }
     
     /// Get metrics about the circuit breaker

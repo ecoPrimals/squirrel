@@ -3,8 +3,7 @@
 use crate::plugins::common::{MonitoringPlugin, PluginMetadata};
 use async_trait::async_trait;
 use serde_json::Value;
-use squirrel_core::error::Result;
-use sysinfo::{System, SystemExt, DiskExt, CpuExt, NetworkExt, NetworksExt};
+use sysinfo::{System, SystemExt, DiskExt, CpuExt, NetworksExt};
 use std::fmt::Debug;
 use tracing::info;
 

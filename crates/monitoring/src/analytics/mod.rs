@@ -28,7 +28,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use chrono::{DateTime, Utc};
 use anyhow::{Result, anyhow};
-use tracing::{info, error, debug};
+use tracing::error;
 
 /// Analytics configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

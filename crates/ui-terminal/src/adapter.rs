@@ -1,12 +1,140 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use sysinfo::{System, SystemExt, CpuExt, DiskExt, NetworkExt};
-use dashboard_core::data::{SystemSnapshot, NetworkSnapshot, InterfaceStats, DashboardData, MetricsSnapshot, Metrics, ProtocolData, Alert};
+use dashboard_core::data::{DashboardData, Metrics, ProtocolData};
 use chrono::{DateTime, Utc};
 use tokio::sync::{mpsc, Mutex};
 use async_trait::async_trait;
 use std::time::Duration;
-use dashboard_core::mcp::{McpClient, McpError, McpResult};
+use std::error::Error;
+use std::fmt;
+use thiserror::Error as ThisError;
+use serde_json;
+
+/// MCP Client error
+#[derive(Debug)]
+pub struct McpError {
+    message: String,
+}
+
+impl fmt::Display for McpError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MCP error: {}", self.message)
+    }
+}
+
+impl Error for McpError {}
+
+/// MCP Client result type
+pub type McpResult<T> = Result<T, McpError>;
+
+/// MCP Client trait
+#[async_trait]
+pub trait McpClient: Send + Sync {
+    /// Send a message to the MCP server
+    async fn send_message(&self, message: String) -> McpResult<String>;
+    
+    /// Connect to the MCP server
+    async fn connect(&self) -> McpResult<()>;
+    
+    /// Disconnect from the MCP server
+    async fn disconnect(&self) -> McpResult<()>;
+    
+    /// Get connection status
+    async fn get_status(&self) -> ConnectionStatus;
+}
+
+/// Protocol metrics snapshot
+#[derive(Debug, Clone, Default)]
+pub struct MetricsSnapshot {
+    /// Message statistics
+    pub messages: HashMap<String, u64>,
+    /// Error statistics
+    pub errors: HashMap<String, u64>,
+    /// Performance metrics
+    pub performance: HashMap<String, f64>,
+    /// Status information
+    pub status: HashMap<String, String>,
+    /// Timestamp when metrics were collected
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Network metrics snapshot
+#[derive(Debug, Clone)]
+pub struct NetworkSnapshot {
+    /// Network interfaces information
+    pub network: HashMap<String, InterfaceStats>,
+    /// Total received bytes
+    pub rx_bytes: u64,
+    /// Total transmitted bytes
+    pub tx_bytes: u64,
+    /// Total received packets
+    pub rx_packets: u64,
+    /// Total transmitted packets
+    pub tx_packets: u64,
+    /// Interfaces information
+    pub interfaces: HashMap<String, InterfaceInfo>,
+    /// Timestamp when metrics were collected
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Network interface statistics
+#[derive(Debug, Clone)]
+pub struct InterfaceStats {
+    /// Received bytes
+    pub rx_bytes: u64,
+    /// Transmitted bytes
+    pub tx_bytes: u64,
+    /// Received packets
+    pub rx_packets: u64,
+    /// Transmitted packets
+    pub tx_packets: u64,
+    /// Received errors
+    pub rx_errors: u64,
+    /// Transmitted errors
+    pub tx_errors: u64,
+}
+
+/// Network interface information
+#[derive(Debug, Clone)]
+pub struct InterfaceInfo {
+    /// Received bytes
+    pub rx_bytes: u64,
+    /// Transmitted bytes
+    pub tx_bytes: u64,
+    /// Received packets
+    pub rx_packets: u64,
+    /// Transmitted packets
+    pub tx_packets: u64,
+    /// Whether the interface is up
+    pub is_up: bool,
+}
+
+/// System metrics snapshot
+#[derive(Debug, Clone)]
+pub struct SystemSnapshot {
+    /// CPU utilization percentage
+    pub cpu: f32,
+    /// Memory usage (used, total)
+    pub memory: (u64, u64),
+    /// Disk usage per mount point
+    pub disk: HashMap<String, (u64, u64)>,
+    /// Timestamp when metrics were collected
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Metrics history for storing historical data
+#[derive(Debug, Clone, Default)]
+pub struct MetricsHistory {
+    /// CPU utilization history
+    pub cpu: Vec<(DateTime<Utc>, f32)>,
+    /// Memory utilization history
+    pub memory: Vec<(DateTime<Utc>, f32)>,
+    /// Network throughput history
+    pub network: Vec<(DateTime<Utc>, f64)>,
+    /// Custom metrics history
+    pub custom: HashMap<String, Vec<(DateTime<Utc>, f64)>>,
+}
 
 /// Monitoring to Dashboard adapter for converting between monitoring and dashboard data formats
 #[derive(Debug)]
@@ -722,13 +850,10 @@ impl ResourceMetricsCollectorAdapter {
         
         // Create system snapshot
         SystemSnapshot {
-            cpu_usage,
-            memory_used,
-            memory_total,
-            disk_used,
-            disk_total,
-            load_average: [0.0, 0.0, 0.0], // Replace with actual values if available
-            uptime: self.system.uptime(),
+            cpu: cpu_usage,
+            memory: (memory_used, memory_total),
+            disk: HashMap::new(),
+            timestamp: Utc::now(),
         }
     }
     
@@ -741,6 +866,7 @@ impl ResourceMetricsCollectorAdapter {
         let mut rx_packets = 0;
         let mut tx_packets = 0;
         let mut interfaces = HashMap::new();
+        let mut interface_info = HashMap::new();
         
         for (name, network) in self.system.networks() {
             let rx_bytes_interface = network.received();
@@ -756,22 +882,33 @@ impl ResourceMetricsCollectorAdapter {
             
             // Store interface metrics
             interfaces.insert(name.clone(), InterfaceStats {
-                name: name.clone(),
                 rx_bytes: rx_bytes_interface,
                 tx_bytes: tx_bytes_interface,
                 rx_packets: rx_packets_interface,
                 tx_packets: tx_packets_interface,
-                is_up: true, // Fill with actual status if available
+                rx_errors: 0,
+                tx_errors: 0,
+            });
+            
+            // Store interface info
+            interface_info.insert(name.clone(), InterfaceInfo {
+                rx_bytes: rx_bytes_interface,
+                tx_bytes: tx_bytes_interface,
+                rx_packets: rx_packets_interface,
+                tx_packets: tx_packets_interface,
+                is_up: true, // Assume up if we can get metrics
             });
         }
         
         // Create network snapshot
         NetworkSnapshot {
+            network: interfaces.clone(),
             rx_bytes,
             tx_bytes,
             rx_packets,
             tx_packets,
-            interfaces,
+            interfaces: interface_info,
+            timestamp: Utc::now(),
         }
     }
     
@@ -785,13 +922,32 @@ impl ResourceMetricsCollectorAdapter {
 }
 
 /// A mock implementation of McpMetricsProvider for testing purposes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MockMcpClient {
     config: McpMetricsConfig,
     metrics: McpMetrics,
     status: ConnectionStatus,
     update_count: u64,
     senders: Vec<mpsc::Sender<McpMetrics>>,
+}
+
+#[async_trait]
+impl McpClient for MockMcpClient {
+    async fn send_message(&self, message: String) -> McpResult<String> {
+        Ok(format!("Response to: {}", message))
+    }
+    
+    async fn connect(&self) -> McpResult<()> {
+        Ok(())
+    }
+    
+    async fn disconnect(&self) -> McpResult<()> {
+        Ok(())
+    }
+    
+    async fn get_status(&self) -> ConnectionStatus {
+        self.status.clone()
+    }
 }
 
 impl MockMcpClient {
@@ -1029,23 +1185,35 @@ pub struct McpAdapter {
     max_history_points: usize,
 }
 
-/// Error type for adapter operations
+/// Error enum for the adapter
 #[derive(Debug, thiserror::Error)]
 pub enum AdapterError {
-    /// MCP client error
-    #[error("MCP client error: {0}")]
+    /// IO error
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    /// JSON error
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+    
+    /// Timeout error
+    #[error("Timeout")]
+    Timeout,
+    
+    /// MCP error
+    #[error("MCP error: {0}")]
     McpError(#[from] McpError),
     
     /// Other error
-    #[error("Adapter error: {0}")]
+    #[error("{0}")]
     Other(String),
 }
 
 /// Result type for adapter operations
 pub type AdapterResult<T> = Result<T, AdapterError>;
 
-/// Trait for converting monitoring data to dashboard data
-pub trait MonitoringToDashboardAdapter {
+/// Interface for adapters that update dashboard data
+pub trait IDashboardAdapter {
     /// Update dashboard data
     async fn update_dashboard_data(&self, data: &mut DashboardData) -> AdapterResult<()>;
 }
@@ -1188,7 +1356,7 @@ impl McpAdapter {
     }
 }
 
-impl MonitoringToDashboardAdapter for McpAdapter {
+impl IDashboardAdapter for McpAdapter {
     async fn update_dashboard_data(&self, data: &mut DashboardData) -> AdapterResult<()> {
         // Get metrics from client
         let metrics = {

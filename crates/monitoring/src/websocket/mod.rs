@@ -6,23 +6,10 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use squirrel_core::error::Result;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{info, error, debug};
-use tokio::time::{Duration, Instant};
-use tokio::sync::mpsc;
-use tokio::net::TcpListener;
-use uuid::Uuid;
+use tracing::error;
 use std::net::SocketAddr;
-use std::future::Future;
-use std::pin::Pin;
-use futures_util::{stream::StreamExt, sink::SinkExt};
 use tokio::task::JoinHandle;
-use tokio_tungstenite::{
-    tungstenite::protocol::{Message, CloseFrame},
-    accept_async
-};
 
 /// Configuration for WebSocket connections
 #[derive(Debug, Clone, Serialize, Deserialize)]

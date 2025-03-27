@@ -426,12 +426,12 @@ impl App {
     }
     
     /// Get tabs
-    pub fn tabs(&self) -> &[Tab] {
+    pub fn tabs(&self) -> &[String] {
         &self.tabs
     }
     
     /// Set tabs
-    pub fn set_tabs(&mut self, tabs: Vec<Tab>) {
+    pub fn set_tabs(&mut self, tabs: Vec<String>) {
         self.tabs = tabs;
     }
 } 

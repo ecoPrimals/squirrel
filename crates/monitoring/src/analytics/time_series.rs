@@ -6,8 +6,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc, Duration};
-use serde_json::Value;
+use chrono::{Utc, Duration};
 use crate::analytics::storage;
 use crate::analytics::AnalyticsError;
 

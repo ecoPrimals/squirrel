@@ -2,11 +2,11 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans},
+    text::{Span, Text, Line},
     widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget},
 };
 
-use dashboard_core::data::NetworkSnapshot;
+use crate::adapter::NetworkSnapshot;
 use crate::util;
 
 /// Widget for displaying network metrics
@@ -92,7 +92,7 @@ fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffe
     let mut content = Vec::new();
     
     // Add bytes in/out
-    content.push(Spans::from(vec![
+    content.push(Line::from(vec![
         Span::styled("Bytes In: ", Style::default().fg(Color::White)),
         Span::styled(
             util::format_bytes(metrics.rx_bytes),
@@ -108,7 +108,7 @@ fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffe
     
     // Add connections
     let active_connections = metrics.interfaces.len();
-    content.push(Spans::from(vec![
+    content.push(Line::from(vec![
         Span::styled("Active Interfaces: ", Style::default().fg(Color::White)),
         Span::styled(
             active_connections.to_string(),
@@ -117,7 +117,7 @@ fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffe
     ]));
     
     // Add packets in/out
-    content.push(Spans::from(vec![
+    content.push(Line::from(vec![
         Span::styled("Packets In: ", Style::default().fg(Color::White)),
         Span::styled(
             metrics.rx_packets.to_string(),
@@ -133,7 +133,7 @@ fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffe
     
     // Count errors (dummy value for now)
     let errors = 0;
-    content.push(Spans::from(vec![
+    content.push(Line::from(vec![
         Span::styled("Errors: ", Style::default().fg(Color::White)),
         Span::styled(
             errors.to_string(),
@@ -155,7 +155,7 @@ fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffe
         Color::Red
     };
     
-    content.push(Spans::from(vec![
+    content.push(Line::from(vec![
         Span::styled("Packet Loss: ", Style::default().fg(Color::White)),
         Span::styled(
             util::format_percentage(packet_loss_rate * 100.0),
@@ -185,7 +185,7 @@ fn render_connections_table(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buf
     
     // Handle no connections
     if metrics.interfaces.is_empty() {
-        let text = vec![Spans::from(vec![
+        let text = vec![Line::from(vec![
             Span::styled("No active interfaces", Style::default().fg(Color::Yellow))
         ])];
         

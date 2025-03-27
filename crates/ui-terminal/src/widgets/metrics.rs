@@ -1,10 +1,10 @@
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     symbols,
-    text::{Span, Spans},
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
+    text::{Span, Text},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table},
     Frame,
 };
 
@@ -78,14 +78,14 @@ impl<'a> MetricsWidget<'a> {
         let inner_area = block.inner(area);
         
         let cpu_text = vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Usage: "),
                 Span::styled(
                     format!("{:.1}%", self.metrics.cpu.usage),
                     Style::default().fg(get_usage_color(self.metrics.cpu.usage)),
                 ),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Cores: "),
                 Span::raw(format!("{}", self.metrics.cpu.cores.len())),
             ]),
@@ -166,24 +166,24 @@ impl<'a> MetricsWidget<'a> {
         };
         
         let mem_text = vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Usage: "),
                 Span::styled(
                     format!("{:.1}%", used_percentage),
                     Style::default().fg(get_usage_color(used_percentage)),
                 ),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Used: "),
                 Span::raw(format!("{}", format_bytes(self.metrics.memory.used))),
                 Span::raw(" / "),
                 Span::raw(format!("{}", format_bytes(self.metrics.memory.total))),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Free: "),
                 Span::raw(format!("{}", format_bytes(self.metrics.memory.free))),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Swap: "),
                 Span::styled(
                     format!("{:.1}%", swap_percentage),
@@ -225,19 +225,19 @@ impl<'a> MetricsWidget<'a> {
         let inner_area = block.inner(area);
         
         let net_text = vec![
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("RX: "),
                 Span::raw(format!("{}/s", format_bytes(self.metrics.network.rx_per_sec as u64))),
                 Span::raw(" (total: "),
                 Span::raw(format!("{})", format_bytes(self.metrics.network.rx_total))),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("TX: "),
                 Span::raw(format!("{}/s", format_bytes(self.metrics.network.tx_per_sec as u64))),
                 Span::raw(" (total: "),
                 Span::raw(format!("{})", format_bytes(self.metrics.network.tx_total))),
             ]),
-            Spans::from(vec![
+            Text::from(vec![
                 Span::raw("Interfaces: "),
                 Span::raw(format!("{}", self.metrics.network.interfaces.len())),
             ]),

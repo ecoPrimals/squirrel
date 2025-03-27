@@ -70,22 +70,6 @@ impl From<circuit_breaker::CircuitBreakerError> for ResilienceError {
     }
 }
 
-impl From<retry::RetryError> for ResilienceError {
-    fn from(err: retry::RetryError) -> Self {
-        match err {
-            retry::RetryError::MaxAttemptsExceeded { attempts } => {
-                ResilienceError::RetryExceeded(format!("Maximum retry attempts ({}) exceeded", attempts))
-            }
-            retry::RetryError::OperationCancelled => {
-                ResilienceError::General("Retry operation was cancelled".to_string())
-            }
-            retry::RetryError::InternalError(msg) => {
-                ResilienceError::General(format!("Retry internal error: {}", msg))
-            }
-        }
-    }
-}
-
 impl From<recovery::RecoveryError> for ResilienceError {
     fn from(err: recovery::RecoveryError) -> Self {
         match err {

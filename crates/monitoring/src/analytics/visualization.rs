@@ -5,7 +5,7 @@
 
 use serde::{Serialize, Deserialize};
 
-use crate::analytics::time_series::{DataPoint, TimeWindow};
+use crate::analytics::time_series::DataPoint;
 use crate::analytics::trend_detection::Trend;
 use crate::analytics::predictive::Prediction;
 

@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans},
+    text::{Span, Text},
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
@@ -54,7 +54,7 @@ fn draw_tabs(app: &App) -> Tabs {
     let titles = app
         .tabs()
         .iter()
-        .map(|t| Spans::from(Span::styled(t, Style::default().fg(Color::White))))
+        .map(|t| Text::from(Span::styled(t, Style::default().fg(Color::White))))
         .collect();
     
     Tabs::new(titles)
@@ -276,21 +276,21 @@ fn draw_help(f: &mut Frame) {
     
     // Create help text
     let text = vec![
-        Spans::from(Span::styled("Dashboard Help", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
-        Spans::from(""),
-        Spans::from(Span::styled("Navigation", Style::default().fg(Color::Green))),
-        Spans::from("  1-6        - Select tab"),
-        Spans::from("  Tab        - Next tab"),
-        Spans::from("  Shift+Tab  - Previous tab"),
-        Spans::from(""),
-        Spans::from(Span::styled("Scrolling", Style::default().fg(Color::Green))),
-        Spans::from("  j / Down   - Scroll down"),
-        Spans::from("  k / Up     - Scroll up"),
-        Spans::from(""),
-        Spans::from(Span::styled("Actions", Style::default().fg(Color::Green))),
-        Spans::from("  r          - Refresh data"),
-        Spans::from("  ?          - Toggle help"),
-        Spans::from("  q / Ctrl+c - Quit"),
+        Text::from(Span::styled("Dashboard Help", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+        Text::from(""),
+        Text::from(Span::styled("Navigation", Style::default().fg(Color::Green))),
+        Text::from("  1-6        - Select tab"),
+        Text::from("  Tab        - Next tab"),
+        Text::from("  Shift+Tab  - Previous tab"),
+        Text::from(""),
+        Text::from(Span::styled("Scrolling", Style::default().fg(Color::Green))),
+        Text::from("  j / Down   - Scroll down"),
+        Text::from("  k / Up     - Scroll up"),
+        Text::from(""),
+        Text::from(Span::styled("Actions", Style::default().fg(Color::Green))),
+        Text::from("  r          - Refresh data"),
+        Text::from("  ?          - Toggle help"),
+        Text::from("  q / Ctrl+c - Quit"),
     ];
     
     // Draw help popup
