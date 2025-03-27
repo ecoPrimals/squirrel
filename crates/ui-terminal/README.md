@@ -1,99 +1,102 @@
-# UI Terminal Crate
+# Squirrel Terminal UI
+
+A terminal-based dashboard interface for monitoring system resources and the Squirrel environment.
 
 ## Overview
 
-The UI Terminal crate provides a terminal-based user interface for the Squirrel monitoring dashboard. It utilizes the `ratatui` library to create an interactive and visually appealing terminal UI experience.
+The Squirrel Terminal UI provides a lightweight, responsive interface for monitoring system metrics, protocol operations, and managing the Squirrel environment directly from any terminal. It's built using the Ratatui library and offers real-time visualization of system metrics with historical data tracking.
 
 ## Features
 
-- **Tab-based Navigation**: Easily switch between different dashboard views
-- **Real-time Updates**: Live updates of system metrics, alerts, and network statistics
-- **Interactive Controls**: Keyboard shortcuts for navigation and actions
-- **Customizable Layout**: Configurable dashboard layouts and components
-- **Responsive Design**: Adapts to different terminal sizes
-- **Low Resource Usage**: Efficient implementation suitable for remote servers
+- **Dashboard View**: A comprehensive dashboard with multiple tabs for different metrics
+- **Real-time Updates**: Continuous updates of system metrics with configurable refresh intervals
+- **Historical Data**: Tracking and visualization of historical metrics data
+- **Keyboard Navigation**: Intuitive keyboard shortcuts for navigating the dashboard
+- **Resource Monitoring**: Real-time monitoring of CPU, memory, disk, and network usage
+- **Chart Visualization**: Time-series charts for visualizing metric trends
+- **Configurable**: Command-line options to customize refresh rate and history retention
 
-## Components
+## Screenshots
 
-### TUI Dashboard
-
-The main dashboard component that handles terminal setup, event processing, and UI rendering:
-
-```rust
-use dashboard_core::{DashboardService, DefaultDashboardService};
-use ui_terminal::TuiDashboard;
-use std::sync::Arc;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create dashboard service
-    let config = dashboard_core::DashboardConfig::default();
-    let (service, _) = DefaultDashboardService::new(config);
-    service.start().await?;
-    
-    // Create and run TUI dashboard
-    let dashboard_service = Arc::new(service);
-    let mut tui = TuiDashboard::new(dashboard_service);
-    tui.run().await?;
-    
-    Ok(())
-}
-```
-
-### Application State
-
-The `App` struct manages the application state, including:
-- Dashboard data
-- UI navigation state
-- Event handling
-- Update processing
-
-### UI Rendering
-
-The UI module handles rendering the dashboard with various components:
-- System metrics panels
-- Alert lists and details
-- Network statistics
-- Custom metrics charts
-
-### Widgets
-
-Custom widgets for visualizing different types of data:
-- Spark lines for numeric trends
-- Gauge widgets for utilization metrics
-- Tables for detailed data
-- Charts for historical data
-
-### Event Handling
-
-Cross-platform terminal event handling supporting:
-- Keyboard navigation
-- Mouse events (when supported)
-- Terminal resize events
-
-## Keyboard Controls
-
-- **Tab/Shift+Tab**: Navigate between tabs
-- **1-6**: Jump to specific tabs
-- **↑/↓ or j/k**: Scroll content
-- **r**: Refresh dashboard data
-- **?**: Show/hide help
-- **q or Ctrl+C**: Quit
+(Coming soon)
 
 ## Installation
 
-Add both the ui-terminal and dashboard-core crates to your project:
+The Terminal UI is included as part of the Squirrel project. To build it:
 
-```toml
-[dependencies]
-dashboard-core = { path = "../dashboard-core" }
-ui-terminal = { path = "../ui-terminal" }
+```bash
+# From the project root
+cargo build --package ui-terminal
+
+# For optimized release build
+cargo build --package ui-terminal --release
 ```
 
 ## Usage
 
-See the `/examples` directory for complete usage examples.
+Run the Terminal UI with default settings:
+
+```bash
+cargo run --bin ui-terminal
+```
+
+### Command Line Options
+
+- `--interval <SECONDS>`: Set the update interval in seconds (default: 5)
+- `--history-points <COUNT>`: Set the number of history points to retain (default: 1000)
+
+Example with custom settings:
+
+```bash
+cargo run --bin ui-terminal -- --interval 2 --history-points 500
+```
+
+## Keyboard Controls
+
+- `Tab`: Switch between tabs
+- `Arrow Up/Down`: Navigate within a tab
+- `Arrow Left/Right`: Adjust time range in charts
+- `q`: Quit the application
+- `?`: Show help overlay
+
+## Architecture
+
+The Terminal UI consists of several components:
+
+- **Dashboard Core**: Provides metrics collection, configuration, and history tracking
+- **Terminal UI**: Handles rendering, layout, and event processing
+- **Chart Widget**: Visualizes time-series data with customizable options
+- **Metrics Collection**: Real-time system metrics gathering using sysinfo
+- **Event Handling**: Non-blocking input handling with async support
+
+## Development
+
+To contribute to the Terminal UI development:
+
+1. Clone the repository
+2. Navigate to the ui-terminal crate
+3. Make your changes
+4. Run tests with `cargo test`
+5. Build and try your changes with `cargo run`
+
+### Code Structure
+
+- `src/app.rs`: Core application state management
+- `src/ui/`: UI components and layouts
+- `src/widgets/`: Custom widgets for the Terminal UI
+- `src/event.rs`: Event handling system
+- `src/bin/main.rs`: Entry point for the Terminal UI application
+
+## Current Status
+
+The Terminal UI is currently in active development. The core dashboard functionality is implemented with system metrics monitoring. Future enhancements will include:
+
+- Protocol-specific monitoring
+- Alert management
+- Network monitoring
+- Custom dashboard layouts
+- Theme customization
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the same license as the Squirrel project.

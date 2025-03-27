@@ -29,7 +29,7 @@ futures = "0.3"
 log = "0.4"
 
 # Monitor system integration
-squirrel-monitoring = { path = "../monitoring" }
+# squirrel-monitoring = { path = "../monitoring" }
 
 [dev-dependencies]
 tokio-test = "0.4"

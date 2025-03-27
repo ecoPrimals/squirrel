@@ -2,12 +2,36 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
-    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget},
+    text::{Span, Line as Spans, Text},
+    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget, Gauge},
 };
 
-use dashboard_core::data::{HealthCheck, HealthStatus};
+use chrono::{DateTime, Utc};
 use crate::util;
+
+/// Health check status
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HealthStatus {
+    /// System is healthy
+    Healthy,
+    /// System has warnings
+    Warning, 
+    /// System is unhealthy
+    Unhealthy,
+}
+
+/// Health check information
+#[derive(Debug, Clone)]
+pub struct HealthCheck {
+    /// Health check name
+    pub name: String,
+    /// Current status
+    pub status: HealthStatus,
+    /// Last check time
+    pub last_checked: DateTime<Utc>,
+    /// Message with details
+    pub message: String,
+}
 
 /// Widget for displaying system health checks
 pub struct HealthWidget<'a> {
@@ -55,7 +79,7 @@ impl<'a> Widget for HealthWidget<'a> {
             .title(self.title);
         
         // Render block
-        block.render(area, buf);
+        block.clone().render(area, buf);
         
         // Get inner area
         let inner_area = block.inner(area);
