@@ -1,116 +1,114 @@
-// Plugins Module
-//
-// This module provides the plugin system for the Squirrel application.
-// It includes interfaces, management, builders, discovery, and security for plugins.
+//! Plugin system for Squirrel
+//!
+//! This module provides the core plugin system infrastructure for Squirrel,
+//! including a plugin registry, loader, and manager.
 
-pub mod interfaces;
-pub mod management;
-pub mod builders;
-pub mod discovery;
-pub mod security;
-pub mod examples;
-pub mod resource;
-pub mod state;
-pub mod errors;
-pub mod lifecycle;
-pub mod dynamic;
-pub mod marketplace;
-#[cfg(test)]
-mod tests;
-
-//! Plugin implementations
-//! 
-//! This module contains various plugin implementations.
-
-pub mod context_impl;
-
+use anyhow::Result;
+use std::path::Path;
 use std::sync::Arc;
+use tracing::{debug, error, info};
+use squirrel_interfaces::plugins::PluginRegistry;
 
-// Re-export the Plugin trait and key components
-pub use interfaces::{Plugin, CommandsPlugin, ToolPlugin};
-pub use management::{PluginRegistry, PluginManager};
-pub use discovery::PluginDiscovery;
-pub use security::PluginSecurityManager;
-pub use resource::{ResourceMonitor, ResourceMonitorImpl, ResourceLimits, ResourceUsage, ResourceType, ViolationAction};
-pub use state::{StateManager, DefaultStateManager, PluginState, StateStorage, FileStateStorage, MemoryStateStorage, MigrationStrategy};
-pub use errors::{PluginError, Result};
-pub use lifecycle::{PluginLifecycle, PluginLifecycleManager, LifecycleState, LifecycleEvent};
-pub use dynamic::{
-    DynamicLibraryLoader, 
-    VersionCompatibilityChecker,
-    create_library_loader,
-    PluginMetadata,
-    PluginDependency
-};
-pub use marketplace::{
-    RepositoryManager,
-    RepositoryProvider,
-    HttpRepositoryProvider,
-    RepositoryInfo,
-    PluginPackageInfo
-};
+mod registry;
+mod loader;
 
-// Plugin factory functions
+pub use registry::{DefaultPluginRegistry, create_plugin_registry};
+pub use loader::{PluginLoader, create_plugin_loader};
+
+/// Main plugin system manager
+///
+/// This struct provides high-level functions for managing the plugin system,
+/// including initialization, plugin registration, discovery, and shutdown.
+pub struct PluginManager {
+    /// The plugin registry
+    registry: Arc<DefaultPluginRegistry>,
+    /// The plugin loader
+    loader: Arc<PluginLoader>,
+}
+
+impl PluginManager {
+    /// Create a new plugin manager
+    pub fn new() -> Self {
+        let registry = create_plugin_registry();
+        let loader = create_plugin_loader(registry.clone());
+        
+        Self {
+            registry,
+            loader,
+        }
+    }
+    
+    /// Initialize the plugin system
+    ///
+    /// This loads all built-in plugins and plugins from the provided
+    /// directories, then initializes all plugins.
+    ///
+    /// # Arguments
+    ///
+    /// * `plugin_dirs` - Directories to search for plugins
+    ///
+    /// # Returns
+    ///
+    /// A result containing a list of loaded plugin IDs
+    pub async fn initialize<P: AsRef<Path>>(&self, plugin_dirs: &[P]) -> Result<Vec<String>> {
+        info!("Initializing plugin system");
+        let mut plugin_ids = Vec::new();
+        
+        // Load built-in plugins
+        let builtin_ids = self.loader.load_builtin_plugins().await?;
+        plugin_ids.extend(builtin_ids);
+        
+        // Load plugins from directories
+        for dir in plugin_dirs {
+            let ids = self.loader.load_plugins_from_directory(dir).await?;
+            plugin_ids.extend(ids);
+        }
+        
+        // Initialize all plugins
+        self.loader.initialize_all_plugins().await?;
+        
+        info!("Plugin system initialized with {} plugins", plugin_ids.len());
+        Ok(plugin_ids)
+    }
+    
+    /// Shutdown the plugin system
+    ///
+    /// This shuts down all loaded plugins and cleans up resources.
+    ///
+    /// # Returns
+    ///
+    /// A result indicating success or failure
+    pub async fn shutdown(&self) -> Result<()> {
+        info!("Shutting down plugin system");
+        self.loader.shutdown_all_plugins().await?;
+        info!("Plugin system shutdown complete");
+        Ok(())
+    }
+    
+    /// Get the plugin registry
+    pub fn registry(&self) -> Arc<DefaultPluginRegistry> {
+        self.registry.clone()
+    }
+    
+    /// Get a list of all loaded plugins
+    pub async fn list_plugins(&self) -> Vec<Arc<dyn squirrel_interfaces::plugins::Plugin>> {
+        self.registry.list_plugins().await
+    }
+}
+
+/// Create a new plugin manager
 pub fn create_plugin_manager() -> Arc<PluginManager> {
-    use management::PluginRegistryImpl;
-    
-    let registry = Arc::new(PluginRegistryImpl::new());
-    let security_manager = Arc::new(security::PluginSecurityValidator::new());
-    
-    Arc::new(PluginManager::new(registry, security_manager))
+    Arc::new(PluginManager::new())
 }
 
-pub fn create_plugin_discovery(manager: Arc<PluginManager>) -> Arc<dyn PluginDiscovery> {
-    use discovery::FileSystemDiscovery;
+// Example plugins module for demonstration purposes
+#[cfg(feature = "example-plugins")]
+pub mod examples {
+    use std::sync::Arc;
+    use squirrel_example_plugins::create_utility_plugin;
     
-    let discovery = Arc::new(FileSystemDiscovery::new(manager.clone()));
-    
-    // Add example plugin loader
-    let example_loader = examples::create_example_plugin_loader();
-    discovery.add_loader(example_loader).expect("Failed to add example loader");
-    
-    discovery
-}
-
-/// Creates a resource monitor with default settings
-pub fn create_resource_monitor() -> Arc<dyn ResourceMonitor> {
-    Arc::new(ResourceMonitorImpl::new())
-}
-
-/// Creates a state manager with file storage
-pub fn create_state_manager(data_dir: impl Into<std::path::PathBuf>) -> Arc<dyn StateManager> {
-    let storage = Arc::new(FileStateStorage::new(data_dir));
-    Arc::new(DefaultStateManager::new(storage))
-}
-
-/// Creates a repository manager for plugin marketplace
-pub fn create_repository_manager(
-    app_version: &str,
-    download_dir: impl Into<std::path::PathBuf>,
-) -> Result<Arc<RepositoryManager>> {
-    let security_manager = Arc::new(security::PluginSecurityValidator::new());
-    let manager = RepositoryManager::new(
-        app_version,
-        download_dir.into(),
-        security_manager,
-    )?;
-    
-    Ok(Arc::new(manager))
-}
-
-/// Plugin status
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PluginStatus {
-    /// Plugin is available but not loaded
-    Available,
-    /// Plugin is registered but not initialized
-    Registered,
-    /// Plugin is initialized but not started
-    Initialized,
-    /// Plugin is started and running
-    Running,
-    /// Plugin is stopped
-    Stopped,
-    /// Plugin has an error
-    Error(String),
+    /// Create an example utility plugin
+    pub fn create_example_utility_plugin() -> Arc<dyn squirrel_interfaces::plugins::Plugin> {
+        create_utility_plugin()
+    }
 } 

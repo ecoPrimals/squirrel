@@ -58,7 +58,7 @@ if (Test-Path $examplesDir) {
 
 # Clean any previous build artifacts
 Write-Host "`n[CLEAN] Cleaning previous build artifacts...`n" -ForegroundColor Cyan
-cargo clean --package squirrel-commands
+cargo clean
 if (-not $?) {
     Write-Host "  - Warning: Clean command had issues but continuing..." -ForegroundColor Yellow
 }
@@ -70,20 +70,20 @@ Write-Host "  - Created fresh examples directory" -ForegroundColor Green
 
 # Build the core functionality first
 Write-Host "`n[BUILD] Building core functionality...`n" -ForegroundColor Cyan
-cargo build -p squirrel-commands
+cargo build --package squirrel-core
 if (-not $?) {
     Write-Host "`n[ERROR] Core build failed!`n" -ForegroundColor Red
     exit 1
 }
 
-# Run the tests for the commands crate
-Write-Host "`n[TEST] Running tests for squirrel-commands...`n" -ForegroundColor Cyan
-cargo test -p squirrel-commands
+# Run the tests for the core crate
+Write-Host "`n[TEST] Running tests for squirrel-core...`n" -ForegroundColor Cyan
+cargo test --package squirrel-core
 if (-not $?) {
-    Write-Host "`n[ERROR] Command tests failed!`n" -ForegroundColor Red
+    Write-Host "`n[ERROR] Core tests failed!`n" -ForegroundColor Red
     exit 1
 } else {
-    Write-Host "`n[SUCCESS] Command tests passed!`n" -ForegroundColor Green
+    Write-Host "`n[SUCCESS] Core tests passed!`n" -ForegroundColor Green
 }
 
 # Build the main example specifically - phase1_functional_demo
@@ -118,7 +118,7 @@ if (-not $?) {
 Write-Host "`n[BUILD] Building all crates...`n" -ForegroundColor Cyan
 
 # Run cargo build for all workspace crates
-cargo build --workspace --exclude squirrel-commands
+cargo build --workspace
 if (-not $?) {
     Write-Host "`n[WARNING] Full workspace build had issues, but continuing...`n" -ForegroundColor Yellow
 } else {
@@ -127,16 +127,16 @@ if (-not $?) {
 
 # Run tests for all workspace crates except problematic ones
 Write-Host "[TEST] Running tests for all crates...`n" -ForegroundColor Cyan
-cargo test --workspace --exclude squirrel-commands
+cargo test --workspace
 if (-not $?) {
     Write-Host "`n[WARNING] Some tests had issues, but the build is considered successful.`n" -ForegroundColor Yellow
 } else {
     Write-Host "`n[SUCCESS] All tests passed!`n" -ForegroundColor Green
 }
 
-# Final verification - ensure commands crate tests pass
-Write-Host "`n[VERIFY] Final verification of squirrel-commands tests...`n" -ForegroundColor Cyan
-cargo test -p squirrel-commands
+# Final verification - ensure core crate tests pass
+Write-Host "`n[VERIFY] Final verification of squirrel-core tests...`n" -ForegroundColor Cyan
+cargo test --package squirrel-core
 if (-not $?) {
     Write-Host "`n[WARNING] Final verification had issues, but overall build considered successful.`n" -ForegroundColor Yellow
     exit 0

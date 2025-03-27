@@ -11,10 +11,8 @@ use async_trait::async_trait;
 use serde_json::Value;
 use thiserror::Error;
 use tracing::{debug, error, info, trace};
-use std::any::Any;
 
-use squirrel_plugins::plugin::{Plugin, PluginMetadata};
-use squirrel_plugins::commands::{CommandsPlugin, CommandMetadata};
+use squirrel_interfaces::plugins::{Plugin, PluginMetadata, CommandsPlugin, CommandMetadata};
 
 use crate::registry::{Command, CommandRegistry};
 
@@ -200,10 +198,6 @@ impl Plugin for CommandsPluginAdapter {
         debug!("Shutting down CommandsPluginAdapter");
         Ok(())
     }
-    
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 #[async_trait]
@@ -214,6 +208,16 @@ impl CommandsPlugin for CommandsPluginAdapter {
             Err(e) => {
                 error!("Failed to read command metadata cache: {}", e);
                 Vec::new()
+            }
+        }
+    }
+    
+    fn get_command_metadata(&self, command_id: &str) -> Option<CommandMetadata> {
+        match self.command_metadata.read() {
+            Ok(cache) => cache.get(command_id).cloned(),
+            Err(e) => {
+                error!("Failed to read command metadata for '{}': {}", command_id, e);
+                None
             }
         }
     }

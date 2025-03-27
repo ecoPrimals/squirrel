@@ -4,7 +4,7 @@
 //! and execution within the Squirrel system.
 
 use thiserror::Error;
-use squirrel_plugins::plugin::Plugin;
+use squirrel_interfaces::plugins::Plugin;
 use std::sync::Arc;
 
 /// Built-in commands
@@ -119,9 +119,9 @@ mod tests;
 /// A Result containing the plugin ID or an error
 pub async fn register_plugin<T>(
     registry: &mut T,
-) -> std::result::Result<uuid::Uuid, Box<dyn std::error::Error>> 
+) -> std::result::Result<String, Box<dyn std::error::Error>> 
 where
-    T: squirrel_plugins::registry::PluginRegistry + ?Sized
+    T: squirrel_interfaces::plugins::PluginRegistry + ?Sized
 {
     use crate::factory::create_command_registry;
     
@@ -138,7 +138,7 @@ where
     plugin.initialize().await?;
     
     // Register the plugin with the registry
-    let plugin_id = plugin.metadata().id;
+    let plugin_id = plugin.metadata().id.clone();
     registry.register_plugin(plugin).await?;
     
     Ok(plugin_id)

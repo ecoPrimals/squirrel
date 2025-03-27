@@ -14,12 +14,13 @@ use std::{
     time::Instant,
 };
 
+use squirrel_interfaces::plugins::CommandsPlugin;
 use tracing::{debug, info};
 
 /// Type alias for a registry and plugin tuple
 pub type RegistryWithPlugin = (
     Arc<Mutex<CommandRegistry>>, 
-    Arc<dyn squirrel_plugins::commands::CommandsPlugin>
+    Arc<dyn CommandsPlugin>
 );
 
 /// The command registry factory trait

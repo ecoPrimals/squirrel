@@ -1,7 +1,7 @@
-// MCP Adapter module
-//
-// This module provides adapter interfaces for integrating with the Machine Context Protocol
-// components from the main application.
+//! MCP Adapter module
+//!
+//! This module provides adapter interfaces for integrating with the Machine Context Protocol
+//! components from the main application.
 
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
@@ -52,6 +52,39 @@ pub struct Credentials {
     
     /// API key
     pub api_key: Option<String>,
+    
+    /// Token for authentication
+    pub token: Option<String>,
+}
+
+impl Credentials {
+    /// Create new credentials with a username
+    pub fn new(username: impl Into<String>) -> Self {
+        Self {
+            username: username.into(),
+            password: None,
+            api_key: None,
+            token: None,
+        }
+    }
+
+    /// Add a password to the credentials
+    pub fn with_password(mut self, password: impl Into<String>) -> Self {
+        self.password = Some(password.into());
+        self
+    }
+
+    /// Add an API key to the credentials
+    pub fn with_api_key(mut self, api_key: impl Into<String>) -> Self {
+        self.api_key = Some(api_key.into());
+        self
+    }
+
+    /// Add a token to the credentials
+    pub fn with_token(mut self, token: impl Into<String>) -> Self {
+        self.token = Some(token.into());
+        self
+    }
 }
 
 /// Adapter for MCP operations

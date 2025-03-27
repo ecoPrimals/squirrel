@@ -87,7 +87,7 @@ pub fn subtract(a: i32, b: i32) -> i32 {
 }
 
 /// Divide two numbers
-pub fn divide(a: i32, b: i32) -> Result<i32, &'static str> {
+pub fn divide(a: i32, b: i32) -> std::result::Result<i32, &'static str> {
     if b == 0 {
         return Err("Division by zero");
     }
