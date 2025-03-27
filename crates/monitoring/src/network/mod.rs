@@ -6,8 +6,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-// Import the required trait extensions for sysinfo
-use sysinfo::{System, Networks, SystemExt, NetworkExt, NetworksExt, RefreshKind};
+use sysinfo::{System, SystemExt, NetworkExt, Networks, NetworksExt};
 use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
@@ -40,21 +39,6 @@ pub struct NetworkStats {
     pub tx_errors: Option<u64>,
     /// Last updated timestamp
     pub last_updated: u64,
-}
-
-/// Network interface information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkInfo {
-    /// Interface name
-    pub interface: String,
-    /// Total bytes received
-    pub received: u64,
-    /// Total bytes transmitted
-    pub transmitted: u64,
-    /// Number of packets received
-    pub packets_received: Option<u64>,
-    /// Number of packets sent
-    pub packets_sent: Option<u64>,
 }
 
 /// Network monitoring configuration
@@ -143,10 +127,9 @@ impl NetworkMonitor {
     
     /// Updates network statistics
     pub async fn update_stats(&self) -> Result<()> {
-        // Initialize and refresh network data
-        let mut system = System::new();
-        system.refresh_networks_list();
+        let mut system = self.system.write().await;
         system.refresh_networks();
+        
         let networks = system.networks();
         
         let now = SystemTime::now()
@@ -163,9 +146,9 @@ impl NetworkMonitor {
                 continue;
             }
             
-            // Use the appropriate network methods
-            let rx_bytes = network.total_received();
-            let tx_bytes = network.total_transmitted();
+            // Get network metrics
+            let rx_bytes = network.received();
+            let tx_bytes = network.transmitted();
             
             // Calculate rates based on previous readings
             let (rx_bytes_per_sec, tx_bytes_per_sec) = if let Some(prev) = prev_stats.get(interface_name) {
@@ -248,64 +231,6 @@ impl NetworkMonitor {
         
         Ok(())
     }
-
-    pub async fn get_network_stats() -> Result<NetworkStats> {
-        // Create a new system instance to get network information
-        let mut system = System::new();
-        
-        // Refresh networks information
-        system.refresh_networks_list();
-        system.refresh_networks();
-        
-        let networks = system.networks();
-        
-        // Calculate total network traffic
-        let mut total_received = 0;
-        let mut total_transmitted = 0;
-        
-        for (_interface_name, network) in networks {
-            total_received += network.total_received();
-            total_transmitted += network.total_transmitted();
-        }
-        
-        Ok(NetworkStats {
-            interface: "Total".to_string(),
-            rx_bytes: total_received,
-            tx_bytes: total_transmitted,
-            rx_bytes_per_sec: 0.0,
-            tx_bytes_per_sec: 0.0,
-            rx_packets: None,
-            tx_packets: None,
-            rx_errors: None,
-            tx_errors: None,
-            last_updated: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-        })
-    }
-
-    pub fn get_network_info() -> Vec<NetworkInfo> {
-        // Create a new system instance to get network information
-        let mut system = System::new();
-        system.refresh_networks_list();
-        system.refresh_networks();
-        
-        let networks = system.networks();
-        
-        let mut result = Vec::new();
-        for (interface, network) in networks {
-            result.push(NetworkInfo {
-                interface: interface.to_string(),
-                received: network.total_received(),
-                transmitted: network.total_transmitted(),
-                packets_received: None,
-                packets_sent: None,
-            });
-        }
-        
-        result
-    }
 }
 
 impl Clone for NetworkMonitor {
@@ -322,5 +247,3 @@ impl Clone for NetworkMonitor {
         }
     }
 } 
-
-

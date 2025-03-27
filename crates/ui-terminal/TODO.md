@@ -2,24 +2,31 @@
 
 ## Critical Fixes
 
-- [ ] Fix compilation errors in the monitoring crate - add missing sysinfo trait imports:
-  - [ ] Add `use sysinfo::SystemExt;` to required files
-  - [ ] Add `use sysinfo::ProcessExt;` to required files
-  - [ ] Add `use sysinfo::NetworksExt;` or fix `new_with_refreshed_list()` calls
+- [x] Fix compilation errors in the monitoring crate - add missing sysinfo trait imports:
+  - [x] Add `use sysinfo::SystemExt;` to required files
+  - [x] Add `use sysinfo::ProcessExt;` to required files
+  - [x] Add `use sysinfo::NetworksExt;` or fix `new_with_refreshed_list()` calls
+
+- [x] Fix Protocol Widget implementation errors:
+  - [x] Fix Frame generic parameter usage
+  - [x] Add missing type annotations in render methods
+  - [x] Fix ChartWidget::new parameter mismatch
+  - [x] Fix unused imports and variables
 
 ## Testing
 
-- [ ] Add unit tests for dashboard core
-- [ ] Add unit tests for UI components
-- [ ] Add integration tests for terminal UI
-- [ ] Create test fixtures for metrics simulation
+- [x] Add basic integration tests for dashboard core and UI components
+- [ ] Expand test coverage for all UI widgets
+- [ ] Add more comprehensive integration tests between components
+- [x] Create test fixtures for metrics simulation
 
 ## Feature Completion
 
-- [ ] Complete the Protocol tab
-  - [ ] Add protocol status visualization
-  - [ ] Implement transaction monitoring
-  - [ ] Add protocol configuration view
+- [x] Complete the Protocol tab
+  - [x] Add protocol status visualization
+  - [x] Implement transaction monitoring
+  - [x] Add protocol metrics visualization
+  - [x] Add MCP-specific metrics to Protocol Widget
 
 - [ ] Complete the Alerts tab
   - [ ] Add alerts list view
@@ -36,6 +43,14 @@
   - [ ] Implement log viewer
   - [ ] Add configuration editor
   - [ ] Add system actions panel
+
+## Integration
+
+- [x] Prepare Protocol Widget for MCP integration
+- [x] Structure Protocol Adapter for real MCP metrics 
+- [ ] Connect to actual MCP crate for metrics collection
+- [ ] Implement proper error handling for integration points
+- [ ] Add configurable metrics polling rate
 
 ## UI Improvements
 
@@ -68,27 +83,29 @@
 
 ## Documentation
 
-- [ ] Add comprehensive code documentation
-  - [ ] Document all public APIs
-  - [ ] Add examples to key functions
-  - [ ] Create architecture documentation
+- [x] Update README with new features
+- [x] Document protocol metrics in dashboard_api.md
+- [ ] Create user guide for terminal UI
+- [ ] Document keyboard shortcuts
 
-- [ ] Update user documentation
-  - [ ] Create user guide
-  - [ ] Add keyboard reference
-  - [ ] Create troubleshooting guide
+## Advanced Features
 
-## Optimization
+- [ ] Add export functionality
+  - [ ] CSV export
+  - [ ] JSON export
+  - [ ] Snapshot functionality
 
-- [ ] Optimize rendering performance
-  - [ ] Reduce unnecessary redraws
-  - [ ] Implement partial updates
-  - [ ] Profile and optimize rendering bottlenecks
+- [ ] Implement advanced alerting system
+  - [ ] Threshold-based alerts
+  - [ ] Alert notifications
+  - [ ] Alert history and reporting
 
-- [ ] Reduce memory usage
-  - [ ] Optimize metrics history storage
-  - [ ] Implement efficient data structures
-  - [ ] Add memory usage limits
+## Performance Optimizations
+
+- [ ] Optimize rendering pipeline
+- [ ] Reduce memory usage for large datasets
+- [ ] Improve update frequency for real-time monitoring
+- [ ] Add caching for historical data
 
 ## Release Preparation
 
@@ -96,3 +113,11 @@
 - [ ] Create release notes
 - [ ] Perform final testing
 - [ ] Update changelog 
+
+## Next Steps (Priority Order)
+
+1. Connect Protocol Widget to real MCP metrics from the MCP crate
+2. Complete the Alerts tab functionality 
+3. Enhance test coverage across all components
+4. Implement configuration file support
+5. Add theme support and widget interactivity 

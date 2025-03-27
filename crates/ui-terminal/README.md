@@ -1,102 +1,102 @@
-# Squirrel Terminal UI
+# Terminal UI Dashboard
 
-A terminal-based dashboard interface for monitoring system resources and the Squirrel environment.
-
-## Overview
-
-The Squirrel Terminal UI provides a lightweight, responsive interface for monitoring system metrics, protocol operations, and managing the Squirrel environment directly from any terminal. It's built using the Ratatui library and offers real-time visualization of system metrics with historical data tracking.
+A terminal-based UI for monitoring system metrics, providing a lightweight and responsive interface for the Squirrel Dashboard.
 
 ## Features
 
-- **Dashboard View**: A comprehensive dashboard with multiple tabs for different metrics
-- **Real-time Updates**: Continuous updates of system metrics with configurable refresh intervals
-- **Historical Data**: Tracking and visualization of historical metrics data
-- **Keyboard Navigation**: Intuitive keyboard shortcuts for navigating the dashboard
-- **Resource Monitoring**: Real-time monitoring of CPU, memory, disk, and network usage
-- **Chart Visualization**: Time-series charts for visualizing metric trends
-- **Configurable**: Command-line options to customize refresh rate and history retention
-
-## Screenshots
-
-(Coming soon)
-
-## Installation
-
-The Terminal UI is included as part of the Squirrel project. To build it:
-
-```bash
-# From the project root
-cargo build --package ui-terminal
-
-# For optimized release build
-cargo build --package ui-terminal --release
-```
-
-## Usage
-
-Run the Terminal UI with default settings:
-
-```bash
-cargo run --bin ui-terminal
-```
-
-### Command Line Options
-
-- `--interval <SECONDS>`: Set the update interval in seconds (default: 5)
-- `--history-points <COUNT>`: Set the number of history points to retain (default: 1000)
-
-Example with custom settings:
-
-```bash
-cargo run --bin ui-terminal -- --interval 2 --history-points 500
-```
-
-## Keyboard Controls
-
-- `Tab`: Switch between tabs
-- `Arrow Up/Down`: Navigate within a tab
-- `Arrow Left/Right`: Adjust time range in charts
-- `q`: Quit the application
-- `?`: Show help overlay
+- Real-time system metrics monitoring
+- Protocol monitoring with message statistics, transaction tracking, and error monitoring
+- Network metrics visualization
+- Historical data charts
+- Responsive layout adapting to terminal size
+- Keyboard navigation and shortcuts
+- Integration with monitoring system
 
 ## Architecture
 
-The Terminal UI consists of several components:
+The terminal UI uses a modular architecture with clear separation of concerns:
 
-- **Dashboard Core**: Provides metrics collection, configuration, and history tracking
-- **Terminal UI**: Handles rendering, layout, and event processing
-- **Chart Widget**: Visualizes time-series data with customizable options
-- **Metrics Collection**: Real-time system metrics gathering using sysinfo
-- **Event Handling**: Non-blocking input handling with async support
+```
+┌─────────────────┐     ┌─────────────────┐
+│   Dashboard     │     │   Terminal UI    │
+│     Core        │────▶│    Components    │
+└─────────────────┘     └─────────────────┘
+        │                        │
+        ▼                        ▼
+┌─────────────────┐     ┌─────────────────┐
+│  Metrics        │     │      UI         │
+│  Collection     │     │    Rendering    │
+└─────────────────┘     └─────────────────┘
+        ▲
+        │
+┌─────────────────┐
+│   Monitoring    │
+│    Adapter      │
+└─────────────────┘
+```
 
-## Development
+- **Dashboard Core**: Handles metrics collection, history tracking, and configuration
+- **Terminal UI**: Renders the UI based on the current state
+- **Monitoring Adapter**: Connects to system monitoring for metrics collection
 
-To contribute to the Terminal UI development:
+## Components
 
-1. Clone the repository
-2. Navigate to the ui-terminal crate
-3. Make your changes
-4. Run tests with `cargo test`
-5. Build and try your changes with `cargo run`
+### Dashboard Tabs
 
-### Code Structure
+- **Overview**: Summary of all key metrics
+- **System**: Detailed system metrics (CPU, memory, disk)
+- **Protocol**: Message statistics, transaction tracking, and error monitoring
+- **Tools**: Configuration and management tools
+- **Alerts**: Alert notifications and management
+- **Network**: Network interface statistics and throughput
 
-- `src/app.rs`: Core application state management
-- `src/ui/`: UI components and layouts
-- `src/widgets/`: Custom widgets for the Terminal UI
-- `src/event.rs`: Event handling system
-- `src/bin/main.rs`: Entry point for the Terminal UI application
+### Widgets
 
-## Current Status
+- **Chart Widget**: Time-series visualization
+- **Metrics Widget**: Metrics display and statistics
+- **Network Widget**: Network throughput visualization
+- **Alerts Widget**: Alert listing and management
+- **Protocol Widget**: Protocol metrics visualization with message, transaction, and error statistics
 
-The Terminal UI is currently in active development. The core dashboard functionality is implemented with system metrics monitoring. Future enhancements will include:
+## Integration with Monitoring System
 
-- Protocol-specific monitoring
-- Alert management
-- Network monitoring
-- Custom dashboard layouts
-- Theme customization
+The Terminal UI integrates with the monitoring system through the `MonitoringToDashboardAdapter` which:
+
+1. Collects system metrics from sysinfo and other monitoring tools
+2. Converts metrics to the dashboard-core format
+3. Provides real-time updates to the UI
+
+## Usage
+
+```
+# Run with default configuration
+cargo run --bin main
+
+# Run with monitoring integration enabled
+cargo run --bin main -- --monitoring
+
+# Customize update interval and history size
+cargo run --bin main -- --interval 10 --history-points 500 --monitoring
+```
+
+## Keyboard Shortcuts
+
+- `1-6`: Select tab
+- `Tab`: Next tab
+- `Shift+Tab`: Previous tab
+- `j/Down`: Scroll down
+- `k/Up`: Scroll up
+- `r`: Refresh data
+- `?`: Toggle help
+- `q/Ctrl+c`: Quit
+
+## Recent Updates
+
+- **Protocol Monitoring**: Added protocol metrics visualization with message, transaction, and error statistics
+- **Monitoring Integration**: Implemented adapter pattern for connecting to system monitoring
+- **Real-time Updates**: Added asynchronous update mechanism for smooth UI updates
+- **UI Improvements**: Enhanced UI layout and responsiveness
 
 ## License
 
-This project is licensed under the same license as the Squirrel project.
+MIT

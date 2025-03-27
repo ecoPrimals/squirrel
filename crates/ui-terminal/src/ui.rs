@@ -1,16 +1,15 @@
 use ratatui::{
-    backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans, Text},
-    widgets::{Block, Borders, Paragraph, Tabs, Widget},
+    text::{Span, Line as Spans},
+    widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
 
 use crate::app::App;
 use crate::widgets::{
     MetricsWidget, AlertsWidget, HealthWidget, 
-    NetworkWidget, ChartWidget, ChartType
+    NetworkWidget, ChartWidget, ChartType, ProtocolWidget
 };
 
 /// Draw the UI
@@ -183,8 +182,8 @@ fn draw_system_tab(f: &mut Frame, app: &App, area: Rect) {
 fn draw_protocol_tab(f: &mut Frame, app: &App, area: Rect) {
     if let Some(data) = app.dashboard_data() {
         // Create detailed protocol metrics widget
-        let protocol_widget = MetricsWidget::new_detailed(&data.metrics, "Protocol Metrics");
-        f.render_widget(protocol_widget, area);
+        let protocol_widget = ProtocolWidget::new(&data.metrics, "Protocol Metrics");
+        protocol_widget.render::<ratatui::backend::CrosstermBackend<std::io::Stdout>>(f, area);
     } else {
         // Show loading message if no data available
         let loading = Paragraph::new("Loading protocol metrics...")
@@ -195,7 +194,7 @@ fn draw_protocol_tab(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw the tools tab
 fn draw_tools_tab(f: &mut Frame, app: &App, area: Rect) {
-    if let Some(data) = app.dashboard_data() {
+    if let Some(_data) = app.dashboard_data() {
         // Create tools metrics widget
         // TODO: Implement detailed tool metrics widget
         let tools_widget = Paragraph::new("Tool metrics will be displayed here.")

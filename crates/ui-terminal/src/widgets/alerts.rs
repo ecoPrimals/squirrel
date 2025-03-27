@@ -2,11 +2,11 @@ use ratatui::{
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans, Text},
+    text::{Span, Line as Spans},
     widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 
-use dashboard_core::data::{Alert, AlertsSnapshot, AlertSeverity};
+use dashboard_core::data::{Alert, AlertSeverity};
 use crate::util;
 
 /// Widget for displaying system alerts

@@ -10,6 +10,12 @@ use super::{
 use super::alerts::AlertManagerAdapter;
 use super::network::NetworkMonitorAdapter;
 use super::alerts::NotificationManagerTrait;
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+use tracing::{debug, error, info};
+use sysinfo::{System, SystemExt, ProcessExt, NetworksExt, DiskExt, CpuExt, NetworkExt, DiskUsageExt};
+use dashboard_core::data::{SystemSnapshot, NetworkSnapshot, InterfaceStats};
+use chrono::Utc;
 
 /// Adapter for monitoring service factory
 /// 
@@ -145,4 +151,112 @@ pub fn create_factory_adapter_with_factory<N: NotificationManagerTrait + Send + 
     factory: Arc<MonitoringServiceFactory<N>>
 ) -> Arc<MonitoringServiceFactoryAdapter<N>> {
     Arc::new(MonitoringServiceFactoryAdapter::with_factory(factory))
+}
+
+/// Resource metrics collector adapter for connecting monitoring to dashboard-core
+#[derive(Debug, Clone)]
+pub struct ResourceMetricsCollectorAdapter {
+    system: System,
+}
+
+impl ResourceMetricsCollectorAdapter {
+    /// Create a new resource metrics collector adapter
+    pub fn new() -> Self {
+        let mut system = System::new_all();
+        system.refresh_all();
+        ResourceMetricsCollectorAdapter {
+            system,
+        }
+    }
+    
+    /// Refresh system data
+    pub fn refresh(&mut self) {
+        self.system.refresh_all();
+    }
+    
+    /// Collect system metrics and convert to dashboard-core format
+    pub fn collect_system_metrics(&mut self) -> SystemSnapshot {
+        self.refresh();
+        
+        // Collect CPU metrics
+        let cpu_usage = self.system.global_cpu_info().cpu_usage();
+        
+        // Collect memory metrics
+        let memory_used = self.system.used_memory();
+        let memory_total = self.system.total_memory();
+        
+        // Collect disk metrics
+        let disks = self.system.disks();
+        let mut disk_used = 0;
+        let mut disk_total = 0;
+        
+        for disk in disks {
+            disk_used += disk.total_space() - disk.available_space();
+            disk_total += disk.total_space();
+        }
+        
+        // Create system snapshot
+        SystemSnapshot {
+            cpu_usage,
+            memory_used,
+            memory_total,
+            disk_used,
+            disk_total,
+            load_average: [0.0, 0.0, 0.0], // Replace with actual values if available
+            uptime: self.system.uptime(),
+        }
+    }
+    
+    /// Collect network metrics and convert to dashboard-core format
+    pub fn collect_network_metrics(&mut self) -> NetworkSnapshot {
+        self.refresh();
+        
+        let mut rx_bytes = 0;
+        let mut tx_bytes = 0;
+        let mut rx_packets = 0;
+        let mut tx_packets = 0;
+        let mut interfaces = HashMap::new();
+        
+        self.system.refresh_networks();
+        
+        for (name, network) in self.system.networks() {
+            let rx_bytes_interface = network.received();
+            let tx_bytes_interface = network.transmitted();
+            let rx_packets_interface = network.packets_received();
+            let tx_packets_interface = network.packets_transmitted();
+            
+            // Update totals
+            rx_bytes += rx_bytes_interface;
+            tx_bytes += tx_bytes_interface;
+            rx_packets += rx_packets_interface;
+            tx_packets += tx_packets_interface;
+            
+            // Store interface metrics
+            interfaces.insert(name.clone(), InterfaceStats {
+                name: name.clone(),
+                rx_bytes: rx_bytes_interface,
+                tx_bytes: tx_bytes_interface,
+                rx_packets: rx_packets_interface,
+                tx_packets: tx_packets_interface,
+                is_up: true, // Fill with actual status if available
+            });
+        }
+        
+        // Create network snapshot
+        NetworkSnapshot {
+            rx_bytes,
+            tx_bytes,
+            rx_packets,
+            tx_packets,
+            interfaces,
+        }
+    }
+    
+    /// Collect all metrics as dashboard data
+    pub fn collect_dashboard_data(&mut self) -> (SystemSnapshot, NetworkSnapshot) {
+        let system_snapshot = self.collect_system_metrics();
+        let network_snapshot = self.collect_network_metrics();
+        
+        (system_snapshot, network_snapshot)
+    }
 } 

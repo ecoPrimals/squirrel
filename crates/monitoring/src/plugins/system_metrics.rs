@@ -2,10 +2,9 @@
 
 use crate::plugins::common::{MonitoringPlugin, PluginMetadata};
 use async_trait::async_trait;
-// Import all the required trait extensions for sysinfo
-use sysinfo::{System, Disk, SystemExt, ProcessExt, CpuExt, DiskExt, RefreshKind};
 use serde_json::Value;
 use squirrel_core::error::Result;
+use sysinfo::{System, SystemExt, DiskExt, CpuExt, NetworkExt, NetworksExt, DiskUsageExt};
 use std::fmt::Debug;
 use tracing::info;
 
@@ -61,7 +60,7 @@ impl SystemMetricsPlugin {
         
         serde_json::json!({
             "usage_percent": cpu_usage,
-            "count": self.system.cpus().len(),
+            "count": system.cpus().len(),
         })
     }
     
@@ -74,8 +73,8 @@ impl SystemMetricsPlugin {
         let used_memory = system.used_memory();
         let memory_usage = (used_memory as f64 / total_memory as f64) * 100.0;
         
-        let total_swap = self.system.total_swap();
-        let used_swap = self.system.used_swap();
+        let total_swap = system.total_swap();
+        let used_swap = system.used_swap();
         
         serde_json::json!({
             "total_kb": total_memory,
@@ -96,11 +95,7 @@ impl SystemMetricsPlugin {
     fn get_disk_usage(&self) -> Value {
         let mut disk_info = Vec::new();
         
-        // Create and refresh disk information using SystemExt API
-        let system = System::new_with_specifics(RefreshKind::new().with_disks());
-        let disks_info = system.disks();
-        
-        for disk in disks_info {
+        for disk in self.system.disks() {
             let total_space = disk.total_space();
             let available_space = disk.available_space();
             let used_space = total_space - available_space;
