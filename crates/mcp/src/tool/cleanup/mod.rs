@@ -12,10 +12,14 @@
 //! - `RecoveryHook`: Hook for handling tool errors and recovery
 
 // Module structure
+/// Basic implementation of resource management functionality
 mod basic_resource_manager;
+/// Implementation of cleanup hooks for tool resources
 mod cleanup_hook;
 pub mod recovery;
+/// Interface for managing tool resource allocation and limits
 mod resource_manager;
+/// Utilities for tracking resource usage by tools
 mod resource_tracker;
 
 // Re-export the main types
@@ -26,7 +30,9 @@ pub use resource_manager::{ResourceLimits, ResourceManager, ResourceUsage};
 pub use resource_tracker::{ResourceTracker, ResourceTrackerUsage};
 
 // New components
+/// Enhanced recovery mechanisms for tools with failure patterns
 mod enhanced_recovery;
+/// Comprehensive cleanup system with dependency tracking
 mod comprehensive_cleanup;
 
 pub use enhanced_recovery::{
@@ -42,6 +48,7 @@ pub use comprehensive_cleanup::{
 
 // Original modules
 pub mod resource_tracking;
+/// Adaptive resource management for dynamic scaling
 mod adaptive_resource;
 
 // Tests

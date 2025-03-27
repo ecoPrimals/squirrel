@@ -28,9 +28,12 @@ use crate::security::types::{
     PermissionScope, Role,
 };
 
-// Local modules
+// Private modules
+/// Role inheritance graph implementation
 mod role_inheritance;
+/// Permission validation and condition checking
 mod permission_validation;
+/// Core RBAC manager implementation
 mod manager;
 
 #[cfg(test)]
@@ -172,6 +175,12 @@ impl Clone for EnhancedRBACManager {
             cache_hits: self.cache_hits.clone(),
             cache_misses: self.cache_misses.clone(),
         }
+    }
+}
+
+impl Default for EnhancedRBACManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
