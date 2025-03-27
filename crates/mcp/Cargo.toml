@@ -8,6 +8,7 @@ license.workspace = true
 
 [features]
 di-tests = []
+metrics = []
 # Removed plugins integration feature to break circular dependency
 
 [dependencies]

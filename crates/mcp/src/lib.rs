@@ -259,5 +259,13 @@ pub mod prelude {
     pub use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface};
 }
 
+pub mod transport;
+pub mod transport_old;
+pub mod registry;
+pub mod session;
+pub mod port;
+pub mod integration;
+pub mod resilience;
+
 #[cfg(test)]
 mod tests;
