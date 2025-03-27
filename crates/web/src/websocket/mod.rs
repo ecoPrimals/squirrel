@@ -16,7 +16,7 @@ mod tests;
 pub use error::WebSocketError;
 pub use handler::ws_handler;
 pub use manager::ConnectionManager;
-pub use models::{WebSocketMessage, WebSocketContext, ChannelCategory};
+pub use models::{WebSocketMessage, WebSocketContext, ChannelCategory, WebSocketEvent, WebSocketCommand, WebSocketResponse};
 pub use commands::CommandHandler;
 
 // Handler trait and implementations

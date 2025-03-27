@@ -437,4 +437,112 @@ impl ConnectionManager {
         
         result
     }
+    
+    /// Handle an MCP event and broadcast it to appropriate WebSocket subscribers
+    pub async fn handle_mcp_event(&self, event_type: &str, event_data: serde_json::Value) -> Result<(), WebSocketError> {
+        // Extract event target information
+        let target_id = event_data.get("target_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+            
+        // Determine the channel category based on event type
+        let (category_str, channel) = match event_type {
+            "command.status" => ("command", target_id),
+            "command.progress" => ("command", target_id),
+            "command.result" => ("command", target_id),
+            "command.error" => ("command", target_id),
+            "job.status" => ("job", target_id),
+            "job.progress" => ("job", target_id),
+            "job.result" => ("job", target_id),
+            "job.error" => ("job", target_id),
+            "system.notification" => ("system", "notifications"),
+            _ => ("system", "events"),
+        };
+        
+        // Convert string to ChannelCategory
+        let category = match category_str {
+            "command" => ChannelCategory::Command,
+            "job" => ChannelCategory::Job,
+            "system" => ChannelCategory::System,
+            "user" => ChannelCategory::User,
+            _ => ChannelCategory::System,
+        };
+        
+        // Create the WebSocket event message
+        let ws_event = crate::mcp::WebSocketServerMessage {
+            event: event_type.to_string(),
+            data: event_data.clone(),
+            time: chrono::Utc::now().to_rfc3339(),
+        };
+        
+        // Convert to JSON for broadcasting
+        let ws_event_json = serde_json::to_value(&ws_event)
+            .map_err(|e| WebSocketError::JsonError(e))?;
+        
+        // Broadcast the event to subscribers
+        self.broadcast_to_channel(
+            category, 
+            channel, 
+            &ws_event.event, 
+            ws_event_json.clone()
+        ).await?;
+        
+        // If this is a global event, also broadcast to the system.events channel
+        if category_str != "system" {
+            self.broadcast_to_channel(
+                ChannelCategory::System, 
+                "events", 
+                &ws_event.event, 
+                ws_event_json
+            ).await?;
+        }
+        
+        Ok(())
+    }
+    
+    /// Broadcast a WebSocket event
+    pub async fn broadcast(&self, event: WebSocketEvent) -> Result<usize, WebSocketError> {
+        // Send to broadcast channel
+        if let Err(e) = self.event_tx.send(event.clone()) {
+            error!("Failed to broadcast event: {}", e);
+        }
+        
+        let channel_id = format!("{}:{}", event.category.as_str(), event.channel);
+        
+        // Get subscribers for this channel
+        let channel_subs = self.channel_subscribers.read().await;
+        let subscribers = if let Some(subs) = channel_subs.get(&channel_id) {
+            subs.clone()
+        } else {
+            return Ok(0); // No subscribers
+        };
+        
+        // Create response message
+        let response = WebSocketResponse {
+            success: true,
+            event: event.event,
+            data: event.data,
+            error: None,
+            id: None,
+        };
+        
+        let json = serde_json::to_string(&response)
+            .map_err(WebSocketError::JsonError)?;
+        
+        // Send to all subscribers
+        let connections_lock = self.connections.read().await;
+        let mut sent_count = 0;
+        
+        for conn_id in subscribers {
+            if let Some(connection) = connections_lock.get(&conn_id) {
+                if let Err(e) = connection.sender.send(Ok(json.clone())).await {
+                    warn!("Failed to send message to connection {}: {}", conn_id, e);
+                } else {
+                    sent_count += 1;
+                }
+            }
+        }
+        
+        Ok(sent_count)
+    }
 } 

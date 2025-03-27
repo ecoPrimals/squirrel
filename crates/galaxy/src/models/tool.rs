@@ -216,6 +216,20 @@ impl JobState {
     }
 }
 
+impl std::fmt::Display for JobState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JobState::Waiting => write!(f, "waiting"),
+            JobState::Queued => write!(f, "queued"),
+            JobState::Running => write!(f, "running"),
+            JobState::Completed => write!(f, "completed"),
+            JobState::Failed => write!(f, "failed"),
+            JobState::Deleted => write!(f, "deleted"),
+            JobState::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
 /// Galaxy tool parameter mapping
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolParameterMapping {

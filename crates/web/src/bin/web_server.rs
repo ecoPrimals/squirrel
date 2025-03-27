@@ -2,7 +2,7 @@ use anyhow::Result;
 use squirrel_web::{
     config::Config,
     create_app, ServerConfig, auth::AuthConfig,
-    CorsConfig, MockSessionConfig,
+    CorsConfig, mcp::McpClientConfig,
     setup_database,
 };
 
@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
         bind_address: "127.0.0.1".to_string(),
         port: 3000,
         database_url: "sqlite::memory:".to_string(),
-        mcp_config: MockSessionConfig::default(),
+        mcp_config: McpClientConfig::default(),
         cors_config: CorsConfig {
             allowed_origins: vec![],  // We'll use AllowOrigin::any() in the lib.rs
             allowed_methods: vec!["GET".to_string(), "POST".to_string()],

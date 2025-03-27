@@ -11,6 +11,12 @@ pub use server::MCPServer;
 pub use client::MCPClient;
 pub use protocol::{MCPMessage, MCPMessageType, MCPResult, MCPError};
 
+/// Type alias for a callback function that handles MCP messages
+pub type McpCallbackFn = Box<dyn Fn(MCPMessage) -> Result<(), String> + Send + Sync>;
+
+/// Type alias for a map of topic subscriptions to callback functions
+pub type SubscriptionMap = std::collections::HashMap<String, Vec<McpCallbackFn>>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,7 +164,7 @@ mod tests {
         }
         
         // Now check if the test timed out
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Test timed out after 10 seconds");
         }
         
@@ -374,7 +380,7 @@ mod tests {
         }
         
         // Now check if the test timed out
-        if let Err(_) = result {
+        if result.is_err() {
             panic!("Test timed out after 10 seconds");
         }
         
@@ -860,7 +866,7 @@ mod tests {
             fn subscribe<F>(&mut self, topic: &str, callback: F) -> String 
             where F: Fn(MCPMessage) -> Result<(), String> + Send + Sync + 'static {
                 let id = uuid::Uuid::new_v4().to_string();
-                let subscribers = self.subscribers.entry(topic.to_string()).or_insert_with(Vec::new);
+                let subscribers = self.subscribers.entry(topic.to_string()).or_default();
                 subscribers.push(Box::new(callback));
                 id
             }
@@ -945,7 +951,7 @@ mod tests {
             fn subscribe<F>(&mut self, topic: &str, callback: F) -> String 
             where F: Fn(MCPMessage) -> Result<(), String> + Send + Sync + 'static {
                 let id = uuid::Uuid::new_v4().to_string();
-                let subscribers = self.subscribers.entry(topic.to_string()).or_insert_with(Vec::new);
+                let subscribers = self.subscribers.entry(topic.to_string()).or_default();
                 subscribers.push(Box::new(callback));
                 id
             }

@@ -4,13 +4,15 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 description = "Machine Context Protocol (MCP) implementation for Squirrel"
+license.workspace = true
 
 [features]
 di-tests = []
+# Removed plugins integration feature to break circular dependency
 
 [dependencies]
 # Core dependencies
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
 futures = { workspace = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
@@ -28,26 +30,32 @@ tracing-subscriber = { workspace = true }
 rand = { workspace = true }
 anyhow = { workspace = true }
 sysinfo = { workspace = true }
-opentelemetry = { workspace = true }
-opentelemetry_sdk = { workspace = true }
+opentelemetry = { workspace = true, features = ["metrics"] }
+opentelemetry_sdk = { workspace = true, features = ["metrics"] }
 reqwest = { workspace = true }
-log = "0.4"
-semver = "1.0"
-lru = "0.10"
+log = { workspace = true }
+semver = { workspace = true }
+lru = { workspace = true }
+regex = { workspace = true }
 
 # Shared squirrel dependencies
-squirrel-core = { path = "../core" }
+squirrel-interfaces = { path = "../interfaces" }
+squirrel-core = { path = "../core", features = ["core"] }
 squirrel-context = { path = "../context" }
-# Remove the direct dependency on squirrel-plugins to break the circular dependency
-regex.workspace = true
+
+# Remove the plugins dependency from regular dependencies
+# squirrel-plugins = { path = "../plugins", features = ["core"], optional = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 mockall = { workspace = true }
-# Move squirrel-plugins to dev-dependencies if needed for tests only
+# Move plugins to dev-dependencies only for tests
 squirrel-plugins = { path = "../plugins", features = ["core"] }
+
+[lints]
+workspace = true
 
 [lib]
 name = "squirrel_mcp"
-path = "src/lib.rs" 
+path = "src/lib.rs"

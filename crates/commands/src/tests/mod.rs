@@ -24,6 +24,15 @@ pub mod auth_test;
 // Include MCP integration test
 pub mod mcp_integration_test;
 
+// Include journal tests
+pub mod journal_test;
+
+// Include observability tests
+pub mod observability_tests;
+
+// Include Phase 1 integration tests
+pub mod phase1_integration_test;
+
 // Test implementations
 
 #[derive(Parser)]

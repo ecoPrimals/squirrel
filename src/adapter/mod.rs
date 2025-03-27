@@ -5,7 +5,6 @@
 
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
-use std::sync::Arc;
 
 /// Interface for MCP operations
 #[async_trait]

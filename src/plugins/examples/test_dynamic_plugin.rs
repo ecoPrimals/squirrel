@@ -1,0 +1,223 @@
+// Example Dynamic Plugin for Testing
+//
+// This file provides a sample plugin implementation that can be compiled
+// into a shared library for testing dynamic loading.
+//
+// Note: This file should be moved to a separate crate and compiled 
+// as a shared library (.dll, .so, .dylib) for testing.
+
+use std::sync::Arc;
+use async_trait::async_trait;
+use serde_json::{json, Value};
+use uuid::Uuid;
+
+use squirrel_mcp::plugins::interfaces::{Plugin as McpPlugin, PluginMetadata as McpPluginMetadata};
+use crate::plugins::{
+    interfaces::{CommandsPlugin, CommandInfo, CommandHelp, CommandArgument, CommandOption},
+    dynamic::{PluginMetadata, PluginDependency},
+    errors::Result,
+};
+
+/// Example dynamic plugin for testing
+#[derive(Debug)]
+pub struct TestDynamicPlugin {
+    /// Plugin ID
+    id: Uuid,
+    
+    /// Plugin name
+    name: String,
+    
+    /// Plugin version
+    version: String,
+    
+    /// API version
+    api_version: String,
+    
+    /// Description
+    description: String,
+    
+    /// Author
+    author: String,
+    
+    /// Commands provided by this plugin
+    commands: Vec<CommandInfo>,
+}
+
+impl TestDynamicPlugin {
+    /// Create a new test plugin
+    pub fn new() -> Self {
+        let id = Uuid::new_v4();
+        
+        Self {
+            id,
+            name: "test-dynamic-plugin".to_string(),
+            version: "1.0.0".to_string(),
+            api_version: "1.0.0".to_string(),
+            description: "A test dynamic plugin for cross-platform testing".to_string(),
+            author: "DataScienceBioLab".to_string(),
+            commands: vec![
+                CommandInfo {
+                    name: "test".to_string(),
+                    description: "A test command".to_string(),
+                    category: Some("tests".to_string()),
+                    tags: vec!["test".to_string(), "example".to_string()],
+                    requires_auth: false,
+                },
+                CommandInfo {
+                    name: "platform".to_string(),
+                    description: "Returns platform information".to_string(),
+                    category: Some("system".to_string()),
+                    tags: vec!["system".to_string(), "platform".to_string()],
+                    requires_auth: false,
+                },
+            ],
+        }
+    }
+}
+
+#[async_trait]
+impl McpPlugin for TestDynamicPlugin {
+    fn metadata(&self) -> &dyn McpPluginMetadata {
+        unimplemented!("TestDynamicPlugin::metadata() is not implemented for MCP")
+    }
+
+    async fn initialize(&self) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Initializing TestDynamicPlugin");
+        Ok(())
+    }
+
+    async fn start(&self) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Starting TestDynamicPlugin");
+        Ok(())
+    }
+
+    async fn stop(&self) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Stopping TestDynamicPlugin");
+        Ok(())
+    }
+
+    async fn shutdown(&self) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        println!("Shutting down TestDynamicPlugin");
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl CommandsPlugin for TestDynamicPlugin {
+    fn get_commands(&self) -> Vec<CommandInfo> {
+        self.commands.clone()
+    }
+    
+    async fn execute_command(&self, name: &str, args: Value) -> Result<Value> {
+        match name {
+            "test" => {
+                // Simple test command
+                Ok(json!({
+                    "success": true,
+                    "message": "Test command executed successfully",
+                    "plugin_id": self.id.to_string(),
+                    "plugin_name": self.name,
+                }))
+            },
+            "platform" => {
+                // Return platform information
+                Ok(json!({
+                    "success": true,
+                    "platform": {
+                        "os": std::env::consts::OS,
+                        "arch": std::env::consts::ARCH,
+                        "family": std::env::consts::FAMILY,
+                    },
+                    "plugin_id": self.id.to_string(),
+                    "plugin_name": self.name,
+                }))
+            },
+            _ => {
+                // Unknown command
+                Ok(json!({
+                    "success": false,
+                    "error": format!("Unknown command: {}", name),
+                }))
+            }
+        }
+    }
+    
+    fn get_command_help(&self, name: &str) -> Option<CommandHelp> {
+        match name {
+            "test" => Some(CommandHelp {
+                name: "test".to_string(),
+                description: "A test command".to_string(),
+                usage: "test".to_string(),
+                examples: vec!["test".to_string()],
+                arguments: vec![],
+                options: vec![],
+            }),
+            "platform" => Some(CommandHelp {
+                name: "platform".to_string(),
+                description: "Returns platform information".to_string(),
+                usage: "platform".to_string(),
+                examples: vec!["platform".to_string()],
+                arguments: vec![],
+                options: vec![],
+            }),
+            _ => None,
+        }
+    }
+    
+    fn get_command_schema(&self, name: &str) -> Option<Value> {
+        match name {
+            "test" => Some(json!({
+                "type": "object",
+                "properties": {},
+                "required": [],
+            })),
+            "platform" => Some(json!({
+                "type": "object",
+                "properties": {},
+                "required": [],
+            })),
+            _ => None,
+        }
+    }
+}
+
+/// Create plugin metadata
+pub fn create_plugin_metadata() -> PluginMetadata {
+    PluginMetadata {
+        id: Uuid::new_v4(),
+        name: "test-dynamic-plugin".to_string(),
+        version: "1.0.0".to_string(),
+        api_version: "1.0.0".to_string(),
+        description: "A test dynamic plugin for cross-platform testing".to_string(),
+        author: "DataScienceBioLab".to_string(),
+        dependencies: Vec::new(),
+    }
+}
+
+/// Create a test plugin instance
+pub fn create_test_plugin() -> Box<dyn McpPlugin> {
+    Box::new(TestDynamicPlugin::new())
+}
+
+// Export required entry points for dynamic loading
+
+#[no_mangle]
+pub extern "C" fn create_plugin() -> *mut dyn McpPlugin {
+    let plugin = create_test_plugin();
+    Box::into_raw(plugin)
+}
+
+#[no_mangle]
+pub extern "C" fn get_plugin_metadata() -> *mut PluginMetadata {
+    let metadata = create_plugin_metadata();
+    Box::into_raw(Box::new(metadata))
+}
+
+#[no_mangle]
+pub extern "C" fn destroy_plugin(plugin: *mut dyn McpPlugin) {
+    if !plugin.is_null() {
+        unsafe {
+            let _ = Box::from_raw(plugin);
+        }
+    }
+} 

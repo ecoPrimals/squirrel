@@ -44,4 +44,19 @@ squirrel-plugins = { path = "../plugins", default-features = false }
 
 [dev-dependencies]
 tokio-test = "0.4"
-pretty_assertions = "1.4" 
+pretty_assertions = "1.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+clap = { version = "4.5", features = ["derive"] }
+tracing-subscriber = "0.3"
+
+[[example]]
+name = "journal_example"
+path = "../../examples/journal_example.rs"
+
+[[example]]
+name = "observability_example"
+path = "../../examples/observability_example.rs"
+
+[[example]]
+name = "phase1_demo"
+path = "../../examples/phase1_demo.rs" 

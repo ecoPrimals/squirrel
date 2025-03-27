@@ -15,6 +15,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 use crate::MCPError;
+use sysinfo::{System, SystemExt, DiskExt, CpuExt};
 
 pub mod alerts;
 pub mod dashboard;
@@ -366,9 +367,11 @@ impl MCPMonitor {
         let was_healthy = health.is_healthy;
 
         // Update resource metrics
-        let sys_info = sysinfo::System::new_all();
-        // Create fresh Disks instance with refreshed data
-        let disks = sysinfo::Disks::new_with_refreshed_list();
+        let mut sys_info = System::new_all();
+        sys_info.refresh_all();
+        
+        // Get disk information directly from System
+        let disks = sys_info.disks();
 
         health.resource_status = ResourceHealth {
             cpu_usage_percent: f64::from(sys_info.global_cpu_info().cpu_usage()),

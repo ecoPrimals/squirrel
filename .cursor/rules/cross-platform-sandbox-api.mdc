@@ -1,0 +1,330 @@
+---
+description: ENFORCE consistent API patterns for cross-platform plugin sandbox implementations
+globs: [**/*.rs]
+version: 1.0.0
+last_updated: 2024-07-05
+---
+
+# Cross-Platform Sandbox API Consistency Pattern
+
+## Context
+
+- When implementing platform-specific sandbox features
+- When creating consistent APIs across different operating systems
+- When handling errors and resources across platform boundaries
+- When implementing graceful degradation for unsupported features
+- When ensuring consistent security behavior regardless of platform
+
+## Requirements
+
+### 1. Resource Monitoring API Consistency
+
+Ensure consistent resource monitor API across all implementations:
+
+```rust
+// In trait definition
+fn get_resource_monitor(&self) -> Option<Arc<ResourceMonitor>> {
+    None // Default implementation returns None
+}
+
+// In platform-specific implementations
+fn get_resource_monitor(&self) -> Option<Arc<ResourceMonitor>> {
+    Some(self.resource_monitor.clone()) // Return the actual resource monitor
+}
+
+// Convenience method in concrete implementations
+pub fn resource_monitor(&self) -> Arc<ResourceMonitor> {
+    self.resource_monitor.clone()
+}
+```
+
+### 2. Error Conversion Consistency
+
+Implement error conversions consistently across the system:
+
+```rust
+// Convert SandboxError to CoreError
+impl From<SandboxError> for CoreError {
+    fn from(err: SandboxError) -> Self {
+        match err {
+            SandboxError::PluginNotFound(id) => Self::Plugin(format!("Plugin not found in sandbox: {id}")),
+            SandboxError::Creation(msg) => Self::Plugin(format!("Error creating sandbox: {msg}")),
+            SandboxError::Destruction(msg) => Self::Plugin(format!("Error destroying sandbox: {msg}")),
+            SandboxError::Permission(msg) => Self::Security(format!("Permission error: {msg}")),
+            SandboxError::ResourceLimit(msg) => Self::Security(format!("Resource limit exceeded: {msg}")),
+            SandboxError::PathAccess(msg) => Self::Security(format!("Path access denied: {msg}")),
+            SandboxError::Capability(msg) => Self::Security(format!("Capability not allowed: {msg}")),
+            SandboxError::Platform(msg) => Self::Plugin(format!("Platform error: {msg}")),
+            SandboxError::Unsupported(msg) => Self::Plugin(format!("Feature not supported: {msg}")),
+        }
+    }
+}
+
+// Convert platform-specific errors to SandboxError
+impl From<std::io::Error> for SandboxError {
+    fn from(err: std::io::Error) -> Self {
+        SandboxError::Platform(format!("IO error: {}", err))
+    }
+}
+
+// On Windows
+impl From<windows::core::Error> for SandboxError {
+    fn from(err: windows::core::Error) -> Self {
+        SandboxError::Platform(format!("Windows API error: {}", err))
+    }
+}
+```
+
+### 3. Constructor Pattern Consistency
+
+Follow consistent constructor patterns across implementations:
+
+```rust
+impl PlatformSpecificSandbox {
+    // Primary constructor
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Self {
+        Self {
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+            // Other platform-specific fields...
+        }
+    }
+    
+    // Alternative constructor with additional configuration
+    pub fn with_config(resource_monitor: Arc<ResourceMonitor>, config: SandboxConfig) -> Self {
+        let mut sandbox = Self::new(resource_monitor);
+        // Apply configuration...
+        sandbox
+    }
+}
+```
+
+### 4. Platform Detection Pattern
+
+Use consistent platform detection in the cross-platform wrapper:
+
+```rust
+/// Create a new cross-platform sandbox
+///
+/// This function detects the current platform and creates a platform-specific
+/// sandbox implementation.
+pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Result<Self> {
+    // Create platform-specific implementation based on target OS
+    let platform_impl: Box<dyn PluginSandbox> = match std::env::consts::OS {
+        "windows" => {
+            #[cfg(target_os = "windows")]
+            {
+                // Windows-specific implementation
+                Box::new(windows::WindowsSandbox::new(resource_monitor.clone()))
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                // Fallback if not compiled for Windows
+                return Err(CoreError::Plugin("Windows sandbox unavailable on this build target".to_string()));
+            }
+        },
+        "linux" => {
+            #[cfg(target_os = "linux")]
+            {
+                // Linux-specific implementation
+                Box::new(linux::LinuxCgroupSandbox::new(resource_monitor.clone())?)
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                // Fallback if not compiled for Linux
+                return Err(CoreError::Plugin("Linux sandbox unavailable on this build target".to_string()));
+            }
+        },
+        "macos" => {
+            #[cfg(target_os = "macos")]
+            {
+                // macOS-specific implementation
+                Box::new(macos::MacOsSandbox::new(resource_monitor.clone())?)
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                // Fallback if not compiled for macOS
+                return Err(CoreError::Plugin("macOS sandbox unavailable on this build target".to_string()));
+            }
+        },
+        _ => {
+            // Basic implementation for other platforms
+            Box::new(BasicPluginSandbox::new(resource_monitor.clone()))
+        }
+    };
+    
+    Ok(Self {
+        platform_impl,
+        security_contexts: Arc::new(RwLock::new(HashMap::new())),
+        resource_monitor,
+    })
+}
+```
+
+### 5. Feature Detection and Graceful Degradation
+
+Implement feature detection and graceful degradation:
+
+```rust
+pub async fn apply_feature_with_degradation(&self, plugin_id: Uuid, feature: &str) -> Result<bool> {
+    // Check if feature is supported on current platform
+    let capabilities = self.get_platform_capabilities();
+    
+    if capabilities.contains(feature) {
+        // Apply feature directly
+        self.platform_impl.apply_feature(plugin_id, feature).await?;
+        Ok(true)
+    } else {
+        // Try alternative approach or log warning
+        warn!("Feature '{}' not available on current platform, using fallback", feature);
+        
+        match feature {
+            "job_objects" => {
+                // Apply fallback using basic process control
+                self.apply_process_control_fallback(plugin_id).await?;
+                Ok(false)
+            }
+            "cgroups" => {
+                // Apply fallback using process resource limits
+                self.apply_resource_limits_fallback(plugin_id).await?;
+                Ok(false)
+            }
+            "sandbox_profiles" => {
+                // Apply fallback using basic isolation
+                self.apply_basic_isolation_fallback(plugin_id).await?;
+                Ok(false)
+            }
+            _ => {
+                error!("No fallback available for feature '{}'", feature);
+                Err(SandboxError::Unsupported(format!(
+                    "Feature '{}' is not supported on this platform and no fallback is available",
+                    feature
+                )).into())
+            }
+        }
+    }
+}
+```
+
+## Implementation Details
+
+### Platform Interface vs. Implementation
+
+- The `PluginSandbox` trait should define all operations that might be used
+- Platform-specific implementations should handle platform details internally
+- Use the trait for all external interaction
+- Only downcast in special cases or for testing
+
+### Error Propagation
+
+- Convert platform-specific errors to `SandboxError` at the boundary
+- Provide detailed error messages with context
+- Map errors to appropriate categories (permission, resource, etc.)
+- Include platform details in error messages when helpful
+
+### Resource Management
+
+- Use consistent resource limit mapping across platforms
+- Implement both hard and soft limits where possible
+- Monitor resource usage with the same metrics across platforms
+- Use platform-native APIs for resource monitoring
+
+## Examples
+
+<example>
+// Good: Consistent error conversion across platforms
+impl From<std::io::Error> for SandboxError {
+    fn from(err: std::io::Error) -> Self {
+        SandboxError::Platform(format!("IO error: {}", err))
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<windows::core::Error> for SandboxError {
+    fn from(err: windows::core::Error) -> Self {
+        SandboxError::Platform(format!("Windows API error: {}", err))
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl From<nix::Error> for SandboxError {
+    fn from(err: nix::Error) -> Self {
+        SandboxError::Platform(format!("Linux API error: {}", err))
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Inconsistent error handling
+#[cfg(target_os = "windows")]
+fn process_error(err: windows::core::Error) -> Result<()> {
+    Err(CoreError::Generic(err.to_string()))
+}
+
+#[cfg(target_os = "linux")]
+fn process_error(err: nix::Error) -> Result<()> {
+    Err(SandboxError::Platform(err.to_string()).into())
+}
+
+// Different error types returned from the same function depending on platform
+</example>
+
+<example>
+// Good: Proper constructor pattern
+impl LinuxCgroupSandbox {
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Result<Self> {
+        // Platform-specific initialization
+        Self::ensure_cgroup_mounted()?;
+        
+        Ok(Self {
+            cgroup_paths: Arc::new(RwLock::new(HashMap::new())),
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+            base_path: PathBuf::from("/sys/fs/cgroup/squirrel"),
+            seccomp_configs: RwLock::new(HashMap::new()),
+        })
+    }
+}
+</example>
+
+<example type="invalid">
+// Bad: Inconsistent constructor pattern
+impl WindowsSandbox {
+    // No error handling, different signature than Linux version
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Self {
+        Self {
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            process_ids: Arc::new(RwLock::new(HashMap::new())),
+            job_handles: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+        }
+    }
+}
+</example>
+
+## Best Practices
+
+1. Use consistent method names and signatures across platforms
+2. Document platform-specific behaviors clearly
+3. Convert platform-specific errors at the boundary
+4. Implement graceful fallbacks for unsupported features
+5. Test on all target platforms
+6. Use feature flags for platform-specific code
+7. Keep platform-specific code isolated
+8. Share common code through trait implementations
+9. Document supported features per platform
+10. Provide meaningful error messages
+
+## Technical Metadata
+- Category: API Design
+- Priority: High
+- Dependencies:
+  - Platform-specific APIs
+  - Resource monitoring system
+  - Error handling framework
+- Validation Requirements:
+  - Cross-platform compatibility
+  - Consistent API behavior
+  - Error scenario handling
+
+<version>1.0.0</version> 

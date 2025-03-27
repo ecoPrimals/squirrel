@@ -2,13 +2,10 @@
 
 ## Overview
 
-The Monitoring crate provides a comprehensive system for real-time monitoring, alerting, and visualization of metrics. It is designed to be flexible, efficient, and scalable, capable of handling both small-scale and large-scale deployment scenarios.
+The Monitoring crate provides a comprehensive system for real-time monitoring, alerting, and metrics collection. It is designed to be flexible, efficient, and scalable, capable of handling both small-scale and large-scale deployment scenarios.
 
 ## Features
 
-- **Real-time Dashboards**: Web-based dashboards for visualizing metrics in real-time
-- **WebSocket Communication**: Efficient bi-directional communication between clients and servers
-- **Message Compression**: Automatic compression for large messages to reduce network traffic
 - **Alerting System**: Configurable alerts based on metric thresholds
 - **Component-based Architecture**: Modular design with pluggable components
 - **Metric Collection**: Built-in collectors for various system and application metrics
@@ -20,57 +17,32 @@ The Monitoring crate provides a comprehensive system for real-time monitoring, a
 The monitoring system consists of several key components:
 
 1. **Metric Collectors**: Gather metrics from various sources
-2. **Dashboard Server**: WebSocket server providing real-time updates to clients
-3. **Alert Manager**: Processes and manages alerts based on metric thresholds
-4. **Storage Backend**: Stores historical metrics data
-5. **Report Generator**: Creates customized reports from collected data
-6. **Web Frontend**: User interface for interacting with the monitoring system
+2. **Alert Manager**: Processes and manages alerts based on metric thresholds
+3. **Storage Backend**: Stores historical metrics data
+4. **Report Generator**: Creates customized reports from collected data
 
 ```
-+----------------+      +----------------+      +----------------+
-|                |      |                |      |                |
-|  Collectors    +----->+  Dashboard     +<---->+  Web Clients   |
-|                |      |  Server        |      |                |
-+-------+--------+      +--------+-------+      +----------------+
-        |                        |
-        v                        v
-+-------+------------------------+-------+
-|                                        |
-|            Storage Backend             |
-|                                        |
-+----------------+---------------------+-+
-                 |                     |
-        +--------v-------+    +--------v-------+
-        |                |    |                |
-        |  Alert Manager |    |  Report        |
-        |                |    |  Generator     |
-        +----------------+    +----------------+
++----------------+      +----------------+
+|                |      |                |
+|  Collectors    +----->+  Alert         |
+|                |      |  Manager       |
++-------+--------+      +-------+--------+
+        |                       |
+        v                       v
++-------+-----------------------+-------+
+|                                       |
+|            Storage Backend            |
+|                                       |
++----------------+---------------------++
+                 |
+        +--------v-------+
+        |                |
+        |  Report        |
+        |  Generator     |
+        +----------------+
 ```
-
-## WebSocket Protocol
-
-The monitoring system uses a WebSocket-based protocol for real-time communication. This enables:
-
-- Low-latency updates
-- Bi-directional communication
-- Efficient bandwidth usage through message batching and compression
-- Support for multiple clients with different subscription needs
-
-For detailed WebSocket protocol documentation, see [websocket_protocol.md](./docs/websocket_protocol.md).
 
 ## Components
-
-### Dashboard
-
-The dashboard component provides real-time visualization of system metrics and status. Key features include:
-
-- Component-based subscription model
-- Real-time updates via WebSocket
-- Customizable views and layouts
-- Support for various visualization types (charts, gauges, tables, etc.)
-- Filtering and sorting capabilities
-- Alert notifications and acknowledgment
-- Historical data viewing
 
 ### Alerts
 
@@ -123,9 +95,7 @@ use monitoring::{Monitor, Config};
 fn main() {
     // Create a new monitor with default configuration
     let config = Config::default()
-        .with_dashboard(true)
-        .with_storage("sqlite://metrics.db")
-        .with_port(8765);
+        .with_storage("sqlite://metrics.db");
         
     let monitor = Monitor::new(config);
     
@@ -198,49 +168,15 @@ fn main() {
         .with_metric("system.cpu.usage")
         .with_threshold(90.0)
         .with_comparison(">")
-        .with_duration(std::time::Duration::from_mins(5))
-        .with_severity(AlertSeverity::Critical)
-        .with_message("CPU usage has exceeded 90% for 5 minutes");
+        .with_severity(AlertSeverity::Warning)
+        .with_message("CPU usage is high")
+        .with_duration(std::time::Duration::from_mins(5)); // Alert only if condition persists
     
     // Register the alert rule
     monitor.register_alert_rule(rule);
     
-    // Configure notification channels
-    monitor.configure_email_notifications("smtp://mail.example.com", 
-                                         "alerts@example.com", 
-                                         vec!["admin@example.com"]);
-    
-    monitor.start();
-    
     // Your application code...
 }
-```
-
-### Connecting a WebSocket Client
-
-```javascript
-// JavaScript example
-const ws = new WebSocket('ws://localhost:8765/ws');
-
-ws.onopen = () => {
-  // Subscribe to components
-  ws.send(JSON.stringify({
-    type: 'subscribe',
-    componentId: 'system_cpu'
-  }));
-};
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Received update:', data);
-  
-  // Handle different message types
-  if (data.type === 'update') {
-    updateDashboard(data.componentId, data.data);
-  } else if (data.type === 'alert') {
-    showAlertNotification(data);
-  }
-};
 ```
 
 ## API Documentation
@@ -255,57 +191,9 @@ cargo doc --open
 
 The `examples` directory contains several examples demonstrating different aspects of the monitoring system:
 
-- `basic_monitor.rs`: Simple monitoring setup with default configuration
-- `custom_metrics.rs`: Registering and recording custom metrics
-- `websocket_client.rs`: Client for connecting to the WebSocket server
-- `websocket_load_test.rs`: Load testing the WebSocket server
-- `alert_demo.rs`: Demonstrating alert configuration and handling
-- `report_generation.rs`: Generating custom reports from metrics data
-
-To run an example:
-
-```
-cargo run --example websocket_client
-```
-
-## Configuration
-
-The monitoring system can be configured through the `Config` struct, environment variables, or a configuration file. Key configuration options include:
-
-- WebSocket server host and port
-- Storage backend settings
-- Collector intervals
-- Dashboard settings
-- Logging configuration
-- Alert notification settings
-
-For a complete list of configuration options, see [configuration.md](./docs/configuration.md).
-
-## Testing
-
-The crate includes comprehensive tests:
-
-- Unit tests for each component
-- Integration tests for system behavior
-- Load tests for performance verification
-- WebSocket message compression tests
-
-Run the tests with:
-
-```
-cargo test
-```
-
-For WebSocket integration tests:
-
-```
-cargo test --test websocket_integration_tests
-```
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
+- `prometheus_component.rs`: Example showing how to use the Prometheus metric collector
+- `plugin_example.rs`: Example demonstrating the plugin system for extending monitoring capabilities
 
 ## License
 
-This project is licensed under the [MIT License](../LICENSE). 
+This project is licensed under the MIT License. 

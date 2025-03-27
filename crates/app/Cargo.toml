@@ -28,6 +28,8 @@ log = "0.4"
 json-ptr = "0.3.6"
 walkdir = "2.4"
 anyhow = "1.0"
+windows = { version = "0.52", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_ProcessStatus"] }
+winapi = { version = "0.3", features = ["winbase", "errhandlingapi", "processthreadsapi", "synchapi", "handleapi", "fileapi", "jobapi2", "jobapi", "winnt", "memoryapi", "minwindef", "sysinfoapi", "processenv", "unknwnbase", "combaseapi", "winerror"] }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
@@ -39,6 +41,7 @@ squirrel-interfaces = { path = "../interfaces" }
 # Make commands dependency optional to break the circular dependency
 commands = { package = "squirrel-commands", path = "../commands" }
 timeout = "0.1.0"
+regex.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

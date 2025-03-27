@@ -13,9 +13,12 @@ All core design patterns have been fully documented (100% complete) with the fol
 | Async Programming | 100% | 95% | 80% |
 | Resource Management | 100% | 75% | 65% |
 | Schema Design | 100% | 80% | 70% |
-| Real-time Monitoring | 100% | 40% | 30% |
+| Real-time Monitoring | 100% | 60% | 50% |
+| Plugin Resource Monitoring | 100% | 90% | 70% |
+| Plugin Sandboxing | 100% | 60% | 40% |
 | Web API Implementation | 100% | 50% | 40% |
 | Adapter Implementation | 100% | 80% | 70% |
+| CLI Command Execution | 100% | 90% | 75% |
 
 ## Available Patterns
 
@@ -27,8 +30,11 @@ All core design patterns have been fully documented (100% complete) with the fol
 | [Resource Management](./resource-management.md) | Safe resource lifecycle | RAII pattern, Drop trait, resource pooling, cleanup |
 | [Schema Design](./schema-design.md) | Data structure standardization | Type safety, validation, serialization, versioning |
 | [Real-time Monitoring](./real-time-monitoring.md) | Performance and health tracking | Metrics, tracing, alerts, dashboards |
+| [Plugin Resource Monitoring](./plugin-resource-monitoring.md) | Plugin resource usage tracking | OS-specific monitoring, resource limits, cross-platform implementation |
+| [Plugin Sandboxing](./plugin-sandboxing.md) | Secure plugin isolation | Process isolation, resource limits, cross-platform implementation |
 | [Web API Implementation](./web-api-implementation.md) | HTTP API design | RESTful principles, versioning, authentication, rate limiting |
 | [Adapter Implementation](./adapter-implementation-guide.md) | Interface standardization | Adapters, bridges, facades, compatibility layers |
+| [CLI Command Execution](./cli-command-execution.md) | Command implementation | Command structure, registration, execution context, error handling |
 
 ## When to Use These Patterns
 
@@ -45,21 +51,26 @@ These patterns should be applied consistently across the codebase to ensure:
 - ✅ Error Handling (90% implemented)
 - ✅ Async Programming (95% implemented)
 - ✅ Dependency Injection (85% implemented)
+- ✅ CLI Command Execution (90% implemented)
+- ✅ Plugin Resource Monitoring (90% implemented)
+
 
 ### Patterns In Progress
 - 🔄 Resource Management (75% implemented)
 - 🔄 Schema Design (80% implemented)
 - 🔄 Adapter Implementation (80% implemented)
+- 🔄 Real-time Monitoring (60% implemented)
+- 🔄 Plugin Sandboxing (60% implemented)
 
 ### Patterns Requiring Focus
-- 🔄 Real-time Monitoring (40% implemented)
 - 🔄 Web API Implementation (50% implemented)
 
 ## Next Steps
-1. Complete Resource Management implementation
+1. Complete Plugin Sandboxing implementation
 2. Enhance Real-time Monitoring across all crates
 3. Standardize Web API Implementation
 4. Improve test coverage for all patterns
+5. Integrate Plugin Sandboxing with Plugin Resource Monitoring
 
 ## Pattern Documentation Structure
 
@@ -89,5 +100,8 @@ Patterns are maintained by the architecture team. Changes to existing patterns s
 
 ## Version History
 
+- **v1.2.0** (2024-04-20) - Added CLI Command Execution pattern
+- **v1.3.0** (2024-05-10) - Added Plugin Sandboxing pattern and updated implementation status
+- **v1.2.0** (2024-04-20) - Added Plugin Resource Monitoring pattern and updated implementation status
 - **v1.1.0** (2024-03-22) - Added implementation status and progress information
 - **v1.0.0** (2024-03-22) - Initial release with five core patterns 

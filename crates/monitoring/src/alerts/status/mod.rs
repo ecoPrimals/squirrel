@@ -181,6 +181,27 @@ pub enum AlertType {
     Health(HealthAlert),
     /// Generic alert
     Generic,
+    /// System alert
+    System,
+    /// Application alert
+    Application,
+    /// Security alert
+    Security,
+}
+
+impl std::fmt::Display for AlertType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AlertType::Generic => write!(f, "Generic"),
+            AlertType::System => write!(f, "System"),
+            AlertType::Application => write!(f, "Application"),
+            AlertType::Security => write!(f, "Security"),
+            AlertType::Performance(_) => write!(f, "Performance"),
+            AlertType::Resource(_) => write!(f, "Resource"),
+            AlertType::Error(_) => write!(f, "Error"),
+            AlertType::Health(_) => write!(f, "Health"),
+        }
+    }
 }
 
 /// Complete alert information

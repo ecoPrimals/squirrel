@@ -61,6 +61,10 @@ pub enum PluginError {
     /// Plugin dependency cycle detected
     #[error("Plugin dependency cycle detected: {0}")]
     DependencyCycle(uuid::Uuid),
+    
+    /// Command not found
+    #[error("Command not found: {0}")]
+    CommandNotFound(String),
 }
 
 /// Result type for plugin operations

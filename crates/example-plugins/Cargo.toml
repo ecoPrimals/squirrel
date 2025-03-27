@@ -1,0 +1,22 @@
+[package]
+name = "squirrel-example-plugins"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "Example plugins for the Squirrel system"
+repository = "https://github.com/squirrel/squirrel"
+license = "MIT"
+
+[dependencies]
+# Core dependencies
+anyhow = "1.0.75"
+async-trait = "0.1.74"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+tracing = "0.1.37"
+
+# Squirrel dependencies
+squirrel-interfaces = { path = "../interfaces" }
+
+[dev-dependencies]
+tokio = { version = "1.29.0", features = ["full"] } 

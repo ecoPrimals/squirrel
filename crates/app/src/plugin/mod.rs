@@ -1,14 +1,15 @@
 use crate::error::Result;
 use async_trait::async_trait;
 use futures::future::BoxFuture;
-use log::{debug, error, info, warn};
+use tracing::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+use tokio::time;
 use uuid::Uuid;
 
 /// Plugin type definitions and traits
@@ -31,9 +32,19 @@ pub use state::{
 /// Plugin security and sandboxing functionality
 pub mod security;
 pub use security::{
-    BasicPluginSandbox, PermissionLevel, PluginSandbox, ResourceLimits, ResourceUsage,
-    SecurityContext, SecurityError, SecurityValidator
+    PermissionLevel, SecurityContext, ResourceLimits, ResourceUsage,
+    SecurityError, SecurityValidator, EnhancedSecurityValidator, SecurityAuditEntry
 };
+
+/// Plugin sandboxing implementation
+pub mod sandbox;
+pub use sandbox::{
+    SandboxError, PluginSandbox, CrossPlatformSandbox, BasicPluginSandbox
+};
+
+/// Plugin resource monitoring functionality
+pub mod resource_monitor;
+pub use resource_monitor::{ResourceMonitor, ResourceMonitorError};
 
 /// Add registry module
 pub mod registry;
@@ -213,8 +224,8 @@ fn _visit_dependency(
     Ok(())
 }
 
-/// The plugin manager handles plugin registration, loading, and state management
-#[derive(Debug, Clone)]
+/// Plugin manager containing plugins and their metadata
+#[derive(Debug)]
 pub struct PluginManager {
     /// Registered plugins
     pub plugins: Arc<RwLock<HashMap<Uuid, Box<dyn Plugin>>>>,
@@ -231,7 +242,78 @@ pub struct PluginManager {
     /// Plugin storage (using concrete enum type)
     pub storage: Arc<RwLock<Option<PluginStorageEnum>>>,
     /// Security validator for plugins
-    pub security_validator: Arc<RwLock<Option<Arc<SecurityValidator>>>>,
+    pub security_validator: Arc<RwLock<Option<Arc<SecurityValidatorEnum>>>>,
+}
+
+/// Security validator enum to support both validator types
+#[derive(Debug)]
+pub enum SecurityValidatorEnum {
+    /// Legacy validator
+    Basic(SecurityValidator),
+    /// Enhanced validator with more features
+    Enhanced(EnhancedSecurityValidator),
+}
+
+impl SecurityValidatorEnum {
+    /// Validate operation
+    pub async fn validate_operation(&self, plugin_id: Uuid, operation: &str) -> Result<()> {
+        match self {
+            Self::Basic(validator) => validator.validate_operation(plugin_id, operation).await,
+            Self::Enhanced(validator) => validator.validate_operation(plugin_id, operation).await,
+        }
+    }
+    
+    /// Validate path access
+    pub async fn validate_path_access(&self, plugin_id: Uuid, path: &Path, write: bool) -> Result<()> {
+        match self {
+            Self::Basic(validator) => validator.validate_path_access(plugin_id, path, write).await,
+            Self::Enhanced(validator) => validator.validate_path_access(plugin_id, path, write).await,
+        }
+    }
+    
+    /// Validate capability
+    pub async fn validate_capability(&self, plugin_id: Uuid, capability: &str) -> Result<()> {
+        match self {
+            Self::Basic(validator) => validator.validate_capability(plugin_id, capability).await,
+            Self::Enhanced(validator) => validator.validate_capability(plugin_id, capability).await,
+        }
+    }
+    
+    /// Get sandbox
+    pub fn sandbox(&self) -> Arc<dyn PluginSandbox> {
+        match self {
+            Self::Basic(validator) => validator.sandbox(),
+            Self::Enhanced(validator) => validator.sandbox(),
+        }
+    }
+
+    /// Get resource monitor from sandbox if available
+    pub fn resource_monitor(&self) -> Option<Arc<ResourceMonitor>> {
+        match self {
+            Self::Basic(_) => None, // Basic sandbox doesn't have resource monitoring
+            Self::Enhanced(validator) => Some(validator.get_resource_monitor()),
+        }
+    }
+    
+    /// Get audit log
+    pub async fn get_audit_log(&self, plugin_id: Option<Uuid>, limit: usize) -> Option<Vec<SecurityAuditEntry>> {
+        match self {
+            Self::Basic(_) => None,
+            Self::Enhanced(validator) => Some(validator.get_audit_log(plugin_id, limit).await),
+        }
+    }
+}
+
+impl From<SecurityValidator> for SecurityValidatorEnum {
+    fn from(validator: SecurityValidator) -> Self {
+        Self::Basic(validator)
+    }
+}
+
+impl From<EnhancedSecurityValidator> for SecurityValidatorEnum {
+    fn from(validator: EnhancedSecurityValidator) -> Self {
+        Self::Enhanced(validator)
+    }
 }
 
 /// Enum of possible plugin storage implementations
@@ -476,29 +558,61 @@ impl PluginManager {
         }
     }
 
-    /// Enable security validation for plugins
+    /// Configure to use enhanced security features
     pub fn with_security(&mut self) -> &mut Self {
-        let security_validator = Arc::new(SecurityValidator::with_basic_sandbox());
-        {
-            let mut validator = self.security_validator.blocking_write();
-            *validator = Some(security_validator);
-        }
+        // First try to create a sandbox
+        // If we can't create a sandbox, we'll use the basic sandbox
+        let resource_monitor = Arc::new(ResourceMonitor::new());
+        let sandbox = Arc::new(BasicPluginSandbox::new(resource_monitor.clone()));
+
+        // Create a security validator with the sandbox
+        let validator = EnhancedSecurityValidator::new_with_sandbox(sandbox);
+        
+        // Store in the plugin manager
+        let security_validator = Arc::new(SecurityValidatorEnum::Enhanced(validator));
+        
+        // Use tokio::task::block_in_place to execute the async code in a blocking context
+        tokio::task::block_in_place(|| {
+            futures::executor::block_on(async {
+                let mut guard = self.security_validator.write().await;
+                *guard = Some(security_validator);
+            })
+        });
+        
         self
     }
 
-    /// Enable security validation with custom sandbox
+    /// Add a custom sandbox for security
     pub fn with_custom_sandbox(&mut self, sandbox: Arc<dyn PluginSandbox>) -> &mut Self {
-        let security_validator = Arc::new(SecurityValidator::new(sandbox));
-        {
-            let mut validator = self.security_validator.blocking_write();
-            *validator = Some(security_validator);
-        }
+        // Create an enhanced security validator with the custom sandbox
+        let validator = EnhancedSecurityValidator::new_with_sandbox(sandbox);
+        
+        // Store in the plugin manager
+        let security_validator = Arc::new(SecurityValidatorEnum::Enhanced(validator));
+        
+        // Use tokio::task::block_in_place to execute the async code in a blocking context
+        tokio::task::block_in_place(|| {
+            futures::executor::block_on(async {
+                let mut guard = self.security_validator.write().await;
+                *guard = Some(security_validator);
+            })
+        });
+        
         self
     }
-
-    /// Get the security validator
-    #[must_use] pub fn security_validator(&self) -> Option<Arc<SecurityValidator>> {
-        self.security_validator.blocking_read().clone()
+    
+    /// Get the security validator (if any)
+    #[must_use]
+    pub fn security_validator(&self) -> Option<Arc<SecurityValidatorEnum>> {
+        let validator = self.security_validator.blocking_read();
+        validator.clone()
+    }
+    
+    /// Get security validator for a specific plugin
+    pub async fn get_security_validator(&self, _id: Uuid) -> Result<Option<Arc<SecurityValidatorEnum>>> {
+        // Currently we just return the global validator, but in the future
+        // we could have plugin-specific validators
+        Ok(self.security_validator())
     }
     
     /// Register a new plugin
@@ -802,12 +916,12 @@ impl PluginManager {
     /// 
     /// Returns an error if the operation is not allowed by the security validator
     pub async fn validate_operation(&self, id: Uuid, operation: &str) -> Result<()> {
-        // Check security validator
-        if let Some(security) = &*self.security_validator.read().await {
-            security.validate_operation(id, operation).await?;
+        if let Some(validator) = &*self.security_validator.read().await {
+            validator.validate_operation(id, operation).await
+        } else {
+            // If no security validator, allow all operations
+            Ok(())
         }
-        
-        Ok(())
     }
     
     /// Validate that a plugin can access a path
@@ -827,10 +941,12 @@ impl PluginManager {
     /// Returns a `SecurityError` if the path access is not allowed, if the plugin does not have
     /// sufficient permissions, or if security validation is not enabled
     pub async fn validate_path_access(&self, id: Uuid, path: &Path, write: bool) -> Result<()> {
-        if let Some(security) = &*self.security_validator.read().await {
-            security.validate_path_access(id, path, write).await?;
+        if let Some(validator) = &*self.security_validator.read().await {
+            validator.validate_path_access(id, path, write).await
+        } else {
+            // If no security validator, allow all paths
+            Ok(())
         }
-        Ok(())
     }
     
     /// Validate that a plugin can use a capability
@@ -849,10 +965,12 @@ impl PluginManager {
     /// Returns a `SecurityError` if the capability is not allowed, if the plugin does not have
     /// sufficient permissions, or if security validation is not enabled
     pub async fn validate_capability(&self, id: Uuid, capability: &str) -> Result<()> {
-        if let Some(security) = &*self.security_validator.read().await {
-            security.validate_capability(id, capability).await?;
+        if let Some(validator) = &*self.security_validator.read().await {
+            validator.validate_capability(id, capability).await
+        } else {
+            // If no security validator, allow all capabilities
+            Ok(())
         }
-        Ok(())
     }
     
     /// Track resource usage for a plugin
@@ -870,12 +988,32 @@ impl PluginManager {
     /// 
     /// Returns an error if resource tracking fails or if the plugin cannot be found
     pub async fn track_resources(&self, id: Uuid) -> Result<Option<ResourceUsage>> {
-        if let Some(security) = &*self.security_validator.read().await {
-            // Use the sandbox method to track resources
-            let usage = security.sandbox().track_resources(id).await?;
-            return Ok(Some(usage));
+        // Check if the plugin exists
+        let plugins = self.plugins.read().await;
+        if !plugins.contains_key(&id) {
+            return Err(PluginError::NotFound(id).into());
         }
-        Ok(None)
+        
+        // Get the sandbox from the security validator
+        let security_validator = self.security_validator().ok_or_else(|| {
+            PluginError::SecurityConstraint("No security validator available".to_string())
+        })?;
+        
+        // Check for resource monitor first if available
+        if let Some(resource_monitor) = security_validator.resource_monitor() {
+            // Force a measurement update
+            let _ = resource_monitor.measure_all_resources().await?;
+            return resource_monitor.get_resource_usage(id).await;
+        }
+        
+        // Fall back to security validator sandbox
+        match security_validator.sandbox().track_resources(id).await {
+            Ok(usage) => Ok(Some(usage)),
+            Err(e) => {
+                debug!("Failed to track resources for plugin {}: {}", id, e);
+                Ok(None)
+            }
+        }
     }
     
     /// Resolve plugin dependencies
@@ -1569,11 +1707,147 @@ impl PluginManager {
         
         result
     }
+
+    /// Gets the security audit log for a plugin or all plugins
+    /// 
+    /// # Arguments
+    /// 
+    /// * `plugin_id` - The ID of the plugin to get the audit log for, or None for all plugins
+    /// * `limit` - The maximum number of audit log entries to return
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the security audit log entries if available, or None if there is no security validator
+    pub async fn get_security_audit_log(&self, plugin_id: Option<Uuid>, limit: usize) -> Option<Vec<SecurityAuditEntry>> {
+        if let Some(validator) = &*self.security_validator.read().await {
+            validator.get_audit_log(plugin_id, limit).await
+        } else {
+            None
+        }
+    }
+
+    /// Get the resource usage for all plugins
+    /// 
+    /// This method attempts to measure all resources at once using the resource monitor,
+    /// and falls back to tracking individual resources if that fails.
+    /// 
+    /// # Returns
+    /// 
+    /// Returns a map of plugin IDs to their resource usage
+    pub async fn get_all_resource_usage(&self) -> HashMap<Uuid, ResourceUsage> {
+        let mut result = HashMap::new();
+        
+        // Check if we have a security validator that can track resources
+        if let Some(security_validator) = self.security_validator() {
+            // First try to use the resource monitor to get all measurements at once
+            if let Some(validator) = security_validator.resource_monitor() {
+                // Force a measurement update
+                if let Ok(all_usage) = validator.measure_all_resources().await {
+                    // We successfully measured all resources, return the result
+                    return all_usage;
+                } else {
+                    // Log the error but continue with the fallback approach
+                    debug!("Failed to measure all resources, falling back to manual tracking");
+                }
+            }
+            
+            // Fall back to tracking resources for each plugin individually
+            let plugin_ids = {
+                let plugins = self.plugins.read().await;
+                plugins.keys().cloned().collect::<Vec<_>>()
+            };
+            
+            for id in plugin_ids {
+                if let Ok(Some(usage)) = self.get_resource_usage(id).await {
+                    result.insert(id, usage);
+                }
+            }
+        }
+        
+        result
+    }
+
+    /// Get the resource usage for a specific plugin
+    /// 
+    /// This method attempts to use the resource monitor to get resource usage,
+    /// and falls back to the security validator's sandbox if that fails.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The ID of the plugin to get resource usage for
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the resource usage if available, or None if no resource usage can be determined
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if measuring resources fails
+    pub async fn get_resource_usage(&self, id: Uuid) -> Result<Option<ResourceUsage>> {
+        match self.security_validator().map(|validator| validator.resource_monitor()) {
+            Some(Some(monitor)) => {
+                // If we have a ResourceMonitor, use it to get resource usage
+                let usage = monitor.get_resource_usage(id).await?;
+                Ok(usage)
+            }
+            _ => {
+                // If we don't have a security validator or it doesn't have a resource monitor,
+                // return None to indicate we couldn't get usage information
+                Ok(None)
+            }
+        }
+    }
+
+    /// Measure resources for a specific plugin
+    /// 
+    /// Unlike get_resource_usage, this method forces a new measurement of resources.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `id` - The ID of the plugin to measure resources for
+    /// 
+    /// # Returns
+    /// 
+    /// Returns the resource usage if available, or None if no resource usage can be determined
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if measuring resources fails
+    pub async fn measure_resources(&self, id: Uuid) -> Result<Option<ResourceUsage>> {
+        // If we have a validator with resource_monitor, use it
+        match self.security_validator().map(|validator| validator.resource_monitor()) {
+            Some(Some(monitor)) => {
+                // Use resource monitor to measure resource usage
+                let usage = monitor.get_resource_usage(id).await?;
+                Ok(usage)
+            }
+            _ => {
+                // No resource monitor available
+                Ok(None)
+            }
+        }
+    }
 }
 
 impl Default for PluginManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// Implement Clone for PluginManager
+impl Clone for PluginManager {
+    fn clone(&self) -> Self {
+        Self {
+            plugins: self.plugins.clone(),
+            capabilities: self.capabilities.clone(),
+            dependencies: self.dependencies.clone(),
+            reverse_dependencies: self.reverse_dependencies.clone(),
+            statuses: self.statuses.clone(),
+            name_to_id: self.name_to_id.clone(),
+            storage: self.storage.clone(),
+            security_validator: self.security_validator.clone(),
+        }
     }
 }
 

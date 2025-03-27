@@ -13,7 +13,7 @@ path = "src/bin/web_server.rs"
 axum = { version = "0.6", features = ["headers", "macros", "ws"] }
 tokio = { version = "1", features = ["full"] }
 tower = { workspace = true }
-tower-http = { version = "0.4", features = ["cors"] }
+tower-http = { version = "0.4", features = ["cors", "fs"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
@@ -39,18 +39,29 @@ lazy_static = "1.4"
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
 squirrel-mcp = { path = "../mcp" }
+squirrel-monitoring = { path = "../monitoring", optional = true, default-features = false }
+
+# Fix for utoipa dependency conflict
+# Use a fixed version of utoipa that's compatible with utoipa-swagger-ui
+utoipa = { version = "4.2.3", features = ["axum_extras", "yaml"], optional = true }
+utoipa-swagger-ui = { version = "4.0.0", features = ["axum"], optional = true }
 
 # Note: The unified plugin system is now directly integrated into the web crate
 # as a module, so we don't need the explicit dependency anymore.
 
 [features]
-default = ["mock-db", "server"]
+default = ["mock-db", "mock-mcp", "server", "monitoring"]
 db = []
 mock-db = []
+mock-mcp = []
 server = []
 # Add new features for plugin loading
 dynamic-plugins = ["libloading"]
 script-plugins = []
+# Add a new feature for API documentation
+api-docs = ["utoipa", "utoipa-swagger-ui"]
+# Add monitoring feature
+monitoring = ["squirrel-monitoring"]
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -12,7 +12,6 @@
 //! - Resource usage tracking and metrics collection
 //! - Performance evaluation and benchmarking
 //! - Alert generation and notification
-//! - Real-time dashboard visualization
 //! - Network traffic analysis and statistics
 //!
 //! The monitoring system is designed with a modular architecture, allowing components
@@ -24,12 +23,16 @@ pub mod health;
 pub mod metrics;
 /// Alert generation, management, and notification functionality
 pub mod alerts;
-/// Dashboard visualization and reporting functionality
-pub mod dashboard;
 /// Network monitoring and statistics functionality
 pub mod network;
 /// Adapter functionality for dependency injection and testing
 pub mod adapter;
+/// Tracing functionality
+pub mod tracing;
+/// Plugins functionality
+pub mod plugins;
+/// Analytics functionality
+pub mod analytics;
 
 #[cfg(test)]
 mod tests;
@@ -161,8 +164,6 @@ pub struct MonitoringService {
     pub alert_manager: Arc<AlertManagerAdapter>,
     /// Network monitor component
     pub network_monitor: Arc<NetworkMonitorAdapter>,
-    /// Dashboard manager component
-    pub dashboard_manager: Arc<RwLock<DashboardManager>>,
 }
 
 /// Factory for creating monitoring service instances
@@ -198,9 +199,6 @@ pub enum MonitoringError {
     /// Errors related to alert generation and notification
     #[error("Alert error: {0}")]
     AlertError(String),
-    /// Errors related to dashboard visualization and reporting
-    #[error("Dashboard error: {0}")]
-    DashboardError(String),
     /// Errors related to network monitoring and statistics
     #[error("Network error: {0}")]
     NetworkError(String),
@@ -226,7 +224,6 @@ impl MonitoringService {
         let metric_collector = Arc::new(DefaultMetricCollector::new());
         let alert_manager = alerts::create_manager_adapter();
         let network_monitor = network::create_monitor_adapter();
-        let dashboard_manager = Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone())));
 
         Self {
             config,
@@ -234,7 +231,6 @@ impl MonitoringService {
             metric_collector,
             alert_manager,
             network_monitor,
-            dashboard_manager,
         }
     }
     
@@ -249,15 +245,12 @@ impl MonitoringService {
         alert_manager: Arc<AlertManagerAdapter>,
         network_monitor: Arc<NetworkMonitorAdapter>,
     ) -> Self {
-        let dashboard_manager = Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone())));
-        
         Self {
             config,
             health_checker,
             metric_collector,
             alert_manager,
             network_monitor,
-            dashboard_manager,
         }
     }
 
@@ -275,10 +268,6 @@ impl MonitoringService {
         self.alert_manager.start().await?;
         self.network_monitor.start().await?;
         
-        // Start the dashboard manager
-        let mut dashboard = self.dashboard_manager.write().await;
-        dashboard.start().await?;
-        
         Ok(())
     }
 
@@ -295,10 +284,6 @@ impl MonitoringService {
         self.metric_collector.stop().await?;
         self.alert_manager.stop().await?;
         self.network_monitor.stop().await?;
-        
-        // Stop the dashboard manager
-        let mut dashboard = self.dashboard_manager.write().await;
-        dashboard.stop().await?;
         
         Ok(())
     }
@@ -337,13 +322,6 @@ impl MonitoringService {
     /// Provides access to the network monitor for more detailed operations.
     #[must_use] pub fn network_monitor(&self) -> Arc<NetworkMonitorAdapter> {
         self.network_monitor.clone()
-    }
-    
-    /// Get the dashboard manager component
-    ///
-    /// Provides access to the dashboard manager for more detailed operations.
-    #[must_use] pub fn dashboard_manager(&self) -> Arc<RwLock<DashboardManager>> {
-        self.dashboard_manager.clone()
     }
 
     /// Get all collected metrics
@@ -668,7 +646,6 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             metric_collector,
             alert_manager,
             network_monitor,
-            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone()))),
         })
     }
 
@@ -702,7 +679,6 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             metric_collector,
             alert_manager,
             network_monitor,
-            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(config.dashboard_config.clone()))),
         })
     }
 
@@ -728,7 +704,6 @@ impl<N: alerts::NotificationManagerTrait + Send + Sync + std::fmt::Debug + 'stat
             metric_collector,
             alert_manager,
             network_monitor,
-            dashboard_manager: Arc::new(RwLock::new(DashboardManager::new(self.default_config.dashboard_config.clone()))),
         })
     }
 
@@ -815,3 +790,13 @@ impl From<TimeWrapper> for SystemTime {
         }
     }
 }
+
+pub use metrics::{Metric, MetricType, MetricValue, MetricsRegistry, MetricsService};
+pub use health::{HealthCheck, HealthStatus, HealthCheckResult};
+pub use network::{NetworkMetrics, NetworkMonitor, NetworkStatus};
+pub use plugins::{Plugin, PluginManager, PluginConfig};
+pub use analytics::{
+    AnalyticsSystem, AnalyticsConfig, 
+    TimeSeriesAnalyzer, TimeWindow, AggregationMethod,
+    TrendDetector, TrendType, 
+};

@@ -64,6 +64,9 @@ pub enum ChannelCategory {
     
     /// General system events
     System,
+
+    /// Monitoring system events and data
+    Monitoring,
 }
 
 impl ChannelCategory {
@@ -75,6 +78,7 @@ impl ChannelCategory {
             Self::Notification => "notification",
             Self::User => "user",
             Self::System => "system",
+            Self::Monitoring => "monitoring",
         }
     }
 }
@@ -90,6 +94,7 @@ impl std::str::FromStr for ChannelCategory {
             "notification" => Ok(Self::Notification),
             "user" => Ok(Self::User),
             "system" => Ok(Self::System),
+            "monitoring" => Ok(Self::Monitoring),
             _ => Err(()),
         }
     }

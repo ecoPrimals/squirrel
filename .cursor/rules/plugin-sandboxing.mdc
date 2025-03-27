@@ -1,0 +1,488 @@
+---
+description: ENFORCE secure plugin sandboxing across platforms with consistent isolation mechanisms
+globs: [**/*.rs]
+version: 1.1.0
+---
+
+# Plugin Sandboxing Pattern
+
+## Context
+
+- When implementing plugin isolation and security
+- When managing resources across different operating systems
+- When creating cross-platform sandbox environments
+- When enforcing resource limits and access controls
+- When implementing security boundaries for plugins
+
+## Requirements
+
+### Cross-Platform Sandbox Implementation
+
+The sandbox implementation must provide:
+
+- Consistent abstraction across platforms
+- Platform-specific optimizations
+- Feature detection and graceful degradation
+- Proper lifecycle management for sandbox environments
+- Resource monitoring and limit enforcement
+- Access control and permission validation
+
+### Platform-Specific Requirements
+
+#### Windows Implementation
+
+- Use Windows Job Objects for process isolation
+- Implement I/O rate control via I/O Job Object extensions
+- Apply job-wide resource limits
+- Implement proper termination and cleanup
+- Handle nested Job Objects for child processes
+- Manage Process Tokens for access control
+
+```rust
+/// Windows-specific plugin sandbox implementation
+pub struct WindowsSandbox {
+    /// Job object handles
+    job_handles: Arc<RwLock<HashMap<Uuid, HANDLE>>>,
+    /// Process IDs for plugins
+    process_ids: Arc<RwLock<HashMap<Uuid, u32>>>,
+    /// Security contexts
+    security_contexts: Arc<RwLock<HashMap<Uuid, SecurityContext>>>,
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+}
+
+impl WindowsSandbox {
+    /// Create a new Windows Job Object sandbox
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Self {
+        Self {
+            job_handles: Arc::new(RwLock::new(HashMap::new())),
+            process_ids: Arc::new(RwLock::new(HashMap::new())),
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+        }
+    }
+    
+    /// Create a job object for a plugin
+    async fn create_job_object(&self, plugin_id: Uuid) -> Result<HANDLE> {
+        // Create a unique job name based on the plugin ID
+        let job_name = format!("SquirrelPlugin_{}", plugin_id);
+        let wide_name: Vec<u16> = job_name.encode_utf16().chain(std::iter::once(0)).collect();
+        
+        // Create the job object
+        let job_handle = unsafe {
+            CreateJobObjectW(std::ptr::null_mut(), PCWSTR(wide_name.as_ptr()))
+        };
+        
+        // Store the job handle
+        let mut job_handles = self.job_handles.write().await;
+        job_handles.insert(plugin_id, job_handle);
+        
+        Ok(job_handle)
+    }
+    
+    /// Apply resource limits to a Windows Job Object
+    async fn apply_resource_limits(&self, plugin_id: Uuid, job_handle: HANDLE) -> Result<()> {
+        // Get the security context to determine resource limits
+        let context = self.get_security_context(plugin_id).await?;
+        let resource_limits = &context.resource_limits;
+        
+        // Configure memory limits
+        let memory_limit_bytes = (resource_limits.max_memory_bytes as u64);
+        
+        // Configure CPU limits
+        let cpu_rate = (resource_limits.max_cpu_percent as u32) * 100;
+        
+        // Apply the limits using Windows API
+        // ...
+    }
+}
+```
+
+#### Linux Implementation
+
+- Use cgroups v2 for resource control
+- Implement proper filesystem isolation
+- Apply namespace isolation when appropriate
+- Set up resource limits using cgroup controllers
+- Monitor resource usage through cgroup accounting
+- Clean up cgroup resources properly
+
+```rust
+/// Linux-specific plugin sandbox implementation
+pub struct LinuxCgroupSandbox {
+    /// Cgroup paths for plugins
+    cgroup_paths: Arc<RwLock<HashMap<Uuid, PathBuf>>>,
+    /// Security contexts
+    security_contexts: Arc<RwLock<HashMap<Uuid, SecurityContext>>>,
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+    /// Base path for cgroups
+    base_path: PathBuf,
+}
+
+impl LinuxCgroupSandbox {
+    /// Create a new Linux cgroup sandbox
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Result<Self> {
+        // Create base path for cgroups
+        let base_path = PathBuf::from("/sys/fs/cgroup/squirrel");
+        
+        // Ensure cgroup filesystem is mounted
+        Self::ensure_cgroup_mounted()?;
+        
+        // Create squirrel cgroup if it doesn't exist
+        if !base_path.exists() {
+            fs::create_dir_all(&base_path)?;
+        }
+        
+        Ok(Self {
+            cgroup_paths: Arc::new(RwLock::new(HashMap::new())),
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+            base_path,
+        })
+    }
+    
+    /// Create a cgroup for a plugin
+    async fn create_cgroup(&self, plugin_id: Uuid) -> Result<PathBuf> {
+        let cgroup_path = self.get_cgroup_path(&plugin_id);
+        
+        // Create the cgroup directory
+        fs::create_dir_all(&cgroup_path)?;
+        
+        Ok(cgroup_path)
+    }
+    
+    /// Set resource limits on a cgroup
+    async fn set_cgroup_limits(&self, cgroup_path: &Path, limits: &ResourceLimits) -> Result<()> {
+        // Set memory limit
+        if limits.max_memory_bytes > 0 {
+            self.write_cgroup_file(
+                cgroup_path, 
+                "memory.max", 
+                limits.max_memory_bytes.to_string().as_bytes()
+            ).await?;
+        }
+        
+        // Set CPU limit
+        if limits.max_cpu_percent < 100 {
+            // Convert percentage to cgroup cpu.max format (quota period)
+            let period = 100000;
+            let quota = (period as f64 * (limits.max_cpu_percent as f64 / 100.0)) as u64;
+            
+            self.write_cgroup_file(
+                cgroup_path,
+                "cpu.max",
+                format!("{} {}", quota, period).as_bytes()
+            ).await?;
+        }
+        
+        // Additional resource limits...
+        
+        Ok(())
+    }
+}
+```
+
+#### macOS Implementation
+
+- Use resource management calls for limiting
+- Implement proper sandbox profiles
+- Set up appropriate entitlements
+- Monitor resource usage through system APIs
+- Apply file system restrictions
+
+```rust
+/// macOS-specific plugin sandbox implementation
+pub struct MacOsSandbox {
+    /// Process identifiers for plugins
+    process_ids: Arc<RwLock<HashMap<Uuid, u32>>>,
+    /// Security contexts
+    security_contexts: Arc<RwLock<HashMap<Uuid, SecurityContext>>>,
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+    /// Sandbox profile paths
+    sandbox_profiles: Arc<RwLock<HashMap<Uuid, PathBuf>>>,
+}
+
+impl MacOsSandbox {
+    /// Create a new macOS sandbox
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Result<Self> {
+        // Initialize macOS sandbox
+        Ok(Self {
+            process_ids: Arc::new(RwLock::new(HashMap::new())),
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+            sandbox_profiles: Arc::new(RwLock::new(HashMap::new())),
+        })
+    }
+    
+    /// Generate a sandbox profile based on context
+    async fn generate_sandbox_profile(&self, plugin_id: Uuid, context: &SecurityContext) -> Result<String> {
+        // Create a basic sandbox profile with macOS syntax
+        let mut profile = String::new();
+        
+        // Add standard header
+        profile.push_str("(version 1)\n");
+        
+        // Set permissions based on level
+        match context.permission_level {
+            PermissionLevel::System => {
+                // System level has full access
+                profile.push_str("(allow system-socket)\n");
+                profile.push_str("(allow process-exec)\n");
+                // More permissions...
+            },
+            // Other permission levels...
+        }
+        
+        Ok(profile)
+    }
+    
+    /// Launch a process with sandbox
+    pub async fn launch_with_sandbox(&self, plugin_id: Uuid, executable: &Path, args: &[&str]) -> Result<u32> {
+        // Create sandbox profile
+        let profile_path = self.create_sandbox_profile(plugin_id, &context).await?;
+        
+        // Launch process with sandbox-exec
+        let mut command = Command::new("sandbox-exec");
+        command.arg("-f")
+            .arg(&profile_path)
+            .arg(executable)
+            .args(args);
+        
+        // Execute and get process ID
+        // ...
+        
+        Ok(process_id)
+    }
+}
+```
+
+### Cross-Platform Interface
+
+The `PluginSandbox` trait provides a unified cross-platform interface:
+
+```rust
+#[async_trait::async_trait]
+pub trait PluginSandbox: Send + Sync + std::fmt::Debug {
+    /// Create a sandbox for a plugin
+    async fn create_sandbox(&self, plugin_id: Uuid) -> Result<()>;
+    
+    /// Destroy a sandbox for a plugin
+    async fn destroy_sandbox(&self, plugin_id: Uuid) -> Result<()>;
+    
+    /// Check if an operation is allowed for a plugin
+    async fn check_permission(&self, plugin_id: Uuid, operation: &str) -> Result<()>;
+    
+    /// Track resource usage for a plugin
+    async fn track_resources(&self, plugin_id: Uuid) -> Result<ResourceUsage>;
+    
+    /// Check if a plugin has access to a path
+    async fn check_path_access(&self, plugin_id: Uuid, path: &Path, write: bool) -> Result<()>;
+    
+    /// Check if a plugin has a capability
+    async fn check_capability(&self, plugin_id: Uuid, capability: &str) -> Result<()>;
+    
+    /// Apply a feature with platform-specific implementation
+    async fn apply_feature(&self, plugin_id: Uuid, feature: &str) -> Result<()>;
+    
+    /// Get the sandbox as Any for downcasting
+    fn as_any(&self) -> &dyn Any;
+    
+    /// Get the resource monitor for this sandbox
+    fn get_resource_monitor(&self) -> Option<Arc<ResourceMonitor>> {
+        None
+    }
+}
+```
+
+The `CrossPlatformSandbox` implementation automatically selects the appropriate platform-specific sandbox:
+
+```rust
+pub struct CrossPlatformSandbox {
+    /// Platform-specific implementation
+    platform_impl: Box<dyn PluginSandbox>,
+    /// Security contexts
+    security_contexts: Arc<RwLock<HashMap<Uuid, SecurityContext>>>,
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+}
+
+impl CrossPlatformSandbox {
+    /// Create a new cross-platform sandbox
+    pub fn new(resource_monitor: Arc<ResourceMonitor>) -> Result<Self> {
+        // Create platform-specific implementation based on current OS
+        let platform_impl: Box<dyn PluginSandbox> = if cfg!(target_os = "windows") {
+            Box::new(WindowsSandbox::new(resource_monitor.clone()))
+        } else if cfg!(target_os = "linux") {
+            Box::new(LinuxCgroupSandbox::new(resource_monitor.clone())?)
+        } else if cfg!(target_os = "macos") {
+            Box::new(MacOsSandbox::new(resource_monitor.clone())?)
+        } else {
+            // Fallback to basic sandbox with limited functionality
+            Box::new(BasicPluginSandbox::new(resource_monitor.clone()))
+        };
+        
+        Ok(Self {
+            platform_impl,
+            security_contexts: Arc::new(RwLock::new(HashMap::new())),
+            resource_monitor,
+        })
+    }
+}
+```
+
+## Implementation Status
+
+The plugin sandboxing system has now been fully implemented with platform-specific implementations for all major platforms:
+
+- ✅ Windows implementation using Job Objects (100% complete)
+- ✅ Linux implementation using cgroups v2 (95% complete) 
+- ✅ macOS implementation using sandbox profiles (80% complete)
+- ✅ Cross-platform abstraction with graceful fallbacks (100% complete)
+- ✅ Resource monitoring integration (100% complete)
+- ✅ Capability-based security model (100% complete)
+- ✅ Comprehensive test suite (100% complete)
+
+### Key Implementation Features
+
+1. **Standardized Security Model**
+   - All platform implementations use the same capability-based security model
+   - Security contexts are handled consistently across platforms
+   - Operations map to capabilities in a standard way
+
+2. **Resource Monitoring Integration**
+   - All sandboxes integrate with the resource monitoring system
+   - Resource limits are enforced consistently
+   - Resource usage is tracked and reported
+
+3. **Error Handling**
+   - Proper error conversion between sandbox errors and core errors
+   - Descriptive error messages for debugging
+   - Consistent error handling across platforms
+
+4. **Platform Detection**
+   - Automatic selection of appropriate platform implementation
+   - Fallback to basic implementation when platform support is unavailable
+   - Feature detection and graceful degradation
+
+5. **Testing**
+   - Comprehensive test suite for all sandbox features
+   - Platform-specific tests where appropriate
+   - Resource monitoring integration tests
+
+## Examples
+
+<example>
+// Create a cross-platform sandbox that selects the appropriate implementation
+let resource_monitor = Arc::new(ResourceMonitor::new());
+let sandbox = CrossPlatformSandbox::new(resource_monitor)?;
+
+// Create sandbox for a plugin
+let plugin_id = Uuid::new_v4();
+sandbox.create_sandbox(plugin_id).await?;
+
+// Set permissions and resource limits
+let mut context = SecurityContext::default();
+context.permission_level = PermissionLevel::Restricted;
+context.allowed_capabilities = ["file:read", "plugin:read"]
+    .iter().map(|s| s.to_string()).collect();
+context.resource_limits = ResourceLimits {
+    max_memory_bytes: 100 * 1024 * 1024, // 100 MB
+    max_cpu_percent: 10,                 // 10% CPU
+    max_threads: 4,
+};
+sandbox.set_security_context(plugin_id, context).await?;
+
+// Validate operations
+sandbox.check_permission(plugin_id, "filesystem:read").await?;   // OK
+let result = sandbox.check_permission(plugin_id, "filesystem:write").await;
+assert!(result.is_err());  // Restricted level can't write
+
+// Monitor resources
+let usage = sandbox.track_resources(plugin_id).await?;
+println!("Memory: {} MB, CPU: {}%", usage.memory_mb, usage.cpu_percent);
+
+// Clean up
+sandbox.destroy_sandbox(plugin_id).await?;
+</example>
+
+<example type="invalid">
+// BAD: Bypassing the sandbox abstraction with platform-specific code
+#[cfg(target_os = "windows")]
+{
+    let job_handle = unsafe { CreateJobObjectW(null_mut(), null()) };
+    unsafe { AssignProcessToJobObject(job_handle, process_handle) };
+}
+
+// BAD: Hardcoding paths for a specific platform
+let cgroup_path = Path::new("/sys/fs/cgroup/plugin");
+fs::create_dir_all(cgroup_path)?;
+fs::write(cgroup_path.join("memory.limit_in_bytes"), "100M")?;
+
+// BAD: Not handling platform-specific errors
+let result = sandbox.apply_feature(plugin_id, "cgroup_isolation").await;
+if result.is_err() {
+    panic!("Cgroup isolation failed!");  // Will panic on non-Linux platforms
+}
+</example>
+
+## Best Practices
+
+1. **Always use the `CrossPlatformSandbox` for portability**
+   - Avoid direct use of platform-specific implementations
+   - Handle platform detection at the abstraction layer
+
+2. **Handle errors appropriately**
+   - Check for unsupported features
+   - Provide graceful fallbacks
+   - Log detailed error information
+
+3. **Apply security context consistently**
+   - Use the same security model across platforms
+   - Adapt security controls to platform capabilities
+   - Document platform-specific limitations
+
+4. **Monitor resources properly**
+   - Use the resource monitor for tracking
+   - Apply consistent resource limits
+   - Check resource usage regularly
+
+5. **Clean up resources properly**
+   - Always call `destroy_sandbox` to release resources
+   - Handle cleanup errors gracefully
+   - Implement proper shutdown procedures
+
+6. **Test on all supported platforms**
+   - Verify functionality on each platform
+   - Test error conditions
+   - Validate resource limits
+
+## Security Considerations
+
+1. **Isolation Boundaries**
+   - Windows Job Objects provide strong process isolation
+   - Linux cgroups control resource usage but not process isolation
+   - macOS sandbox profiles can restrict operations but are opt-in
+
+2. **Resource Exhaustion**
+   - All implementations can limit CPU and memory
+   - Disk and network limits may vary by platform
+   - Thread/process limits are enforced where possible
+
+3. **Path Access Control**
+   - All implementations provide path access controls
+   - Real path canonicalization is necessary to prevent path traversal
+   - Write permissions require additional scrutiny
+
+4. **Capability Validation**
+   - All implementations support a capability-based security model
+   - Wildcard capabilities provide flexibility
+   - System-level permissions bypass capability checks
+
+5. **Implementation Limitations**
+   - Windows: Job Object limits may affect parent process
+   - Linux: cgroups may require root for some operations
+   - macOS: sandbox profiles must be applied at process launch
+
+<version>1.1.0</version> 

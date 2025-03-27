@@ -2,8 +2,10 @@
 
 use crate::plugins::common::{MonitoringPlugin, PluginMetadata};
 use async_trait::async_trait;
+// Import all the required trait extensions for sysinfo
+use sysinfo::{System, Disk, SystemExt, ProcessExt, CpuExt, DiskExt, RefreshKind};
 use serde_json::Value;
-use sysinfo::{System, Disks};
+use squirrel_core::error::Result;
 use std::fmt::Debug;
 use tracing::info;
 
@@ -52,9 +54,10 @@ impl SystemMetricsPlugin {
     
     /// Get CPU metrics
     fn get_cpu_metrics(&self) -> Value {
-        // Return CPU usage as a percentage
-        let global_cpu_info = self.system.global_cpu_info();
-        let cpu_usage = global_cpu_info.cpu_usage();
+        let system = &self.system;
+
+        // Update CPU usage calculation
+        let cpu_usage = system.global_cpu_info().cpu_usage();
         
         serde_json::json!({
             "usage_percent": cpu_usage,
@@ -64,8 +67,13 @@ impl SystemMetricsPlugin {
     
     /// Get memory metrics
     fn get_memory_metrics(&self) -> Value {
-        let total_memory = self.system.total_memory();
-        let used_memory = self.system.used_memory();
+        let system = &self.system;
+
+        // Update memory usage calculation
+        let total_memory = system.total_memory();
+        let used_memory = system.used_memory();
+        let memory_usage = (used_memory as f64 / total_memory as f64) * 100.0;
+        
         let total_swap = self.system.total_swap();
         let used_swap = self.system.used_swap();
         
@@ -73,11 +81,7 @@ impl SystemMetricsPlugin {
             "total_kb": total_memory,
             "used_kb": used_memory,
             "free_kb": total_memory - used_memory,
-            "usage_percent": if total_memory > 0 { 
-                (used_memory as f64 / total_memory as f64) * 100.0 
-            } else { 
-                0.0 
-            },
+            "usage_percent": memory_usage,
             "swap_total_kb": total_swap,
             "swap_used_kb": used_swap,
             "swap_usage_percent": if total_swap > 0 { 
@@ -88,33 +92,37 @@ impl SystemMetricsPlugin {
         })
     }
     
-    /// Get disk metrics
-    fn get_disk_metrics(&self) -> Value {
-        let mut disks = Vec::new();
+    /// Get disk usage
+    fn get_disk_usage(&self) -> Value {
+        let mut disk_info = Vec::new();
         
-        // Create a Disks object to get disk information
-        let disks_info = Disks::new_with_refreshed_list();
+        // Create and refresh disk information using SystemExt API
+        let system = System::new_with_specifics(RefreshKind::new().with_disks());
+        let disks_info = system.disks();
         
-        for disk in &disks_info {
-            let total = disk.total_space();
-            let free = disk.available_space();
-            let used = total - free;
+        for disk in disks_info {
+            let total_space = disk.total_space();
+            let available_space = disk.available_space();
+            let used_space = total_space - available_space;
+            let usage_percent = if total_space > 0 {
+                (used_space as f64 / total_space as f64) * 100.0
+            } else {
+                0.0
+            };
             
-            disks.push(serde_json::json!({
+            disk_info.push(serde_json::json!({
                 "name": disk.name().to_string_lossy(),
                 "mount_point": disk.mount_point().to_string_lossy(),
-                "total_bytes": total,
-                "used_bytes": used,
-                "free_bytes": free,
-                "usage_percent": if total > 0 { 
-                    (used as f64 / total as f64) * 100.0 
-                } else { 
-                    0.0 
-                },
+                "total_bytes": total_space,
+                "available_bytes": available_space,
+                "used_bytes": used_space,
+                "usage_percent": usage_percent
             }));
         }
         
-        serde_json::json!({ "disks": disks })
+        serde_json::json!({
+            "disks": disk_info
+        })
     }
     
     /// Get process metrics
@@ -140,7 +148,7 @@ impl SystemMetricsPlugin {
         let metrics = serde_json::json!({
             "cpu": plugin.get_cpu_metrics(),
             "memory": plugin.get_memory_metrics(),
-            "disk": plugin.get_disk_metrics(),
+            "disk": plugin.get_disk_usage(),
             "processes": plugin.get_process_metrics(),
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
@@ -178,7 +186,7 @@ impl MonitoringPlugin for SystemMetricsPlugin {
         let metrics = serde_json::json!({
             "cpu": plugin.get_cpu_metrics(),
             "memory": plugin.get_memory_metrics(),
-            "disk": plugin.get_disk_metrics(),
+            "disk": plugin.get_disk_usage(),
             "processes": plugin.get_process_metrics(),
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });

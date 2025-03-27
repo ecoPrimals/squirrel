@@ -3,13 +3,14 @@
 //! This module defines the error types used in the core functionality.
 
 use thiserror::Error;
+use tokio::task::JoinError;
 
 /// Errors that can occur in core operations
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum CoreError {
     /// An IO error occurred
     #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
     
     /// A database error occurred
     #[error("Database error: {0}")]
@@ -60,8 +61,10 @@ use crate::context::ContextError;
 use crate::event::EventError;
 /// Import from plugin module
 use crate::plugin::{PluginError, SecurityError};
+/// Import sandbox error
+use crate::plugin::sandbox::SandboxError;
 
-// Error that can occur in thread synchronization
+/// Error type for synchronization operations
 pub struct SyncError(pub String);
 
 impl std::fmt::Display for SyncError {
@@ -102,6 +105,23 @@ impl From<SecurityError> for CoreError {
     }
 }
 
+impl From<SandboxError> for CoreError {
+    fn from(err: SandboxError) -> Self {
+        match err {
+            SandboxError::PluginNotFound(id) => Self::Plugin(format!("Plugin not found in sandbox: {id}")),
+            SandboxError::Creation(msg) => Self::Plugin(format!("Error creating sandbox: {msg}")),
+            SandboxError::Destruction(msg) => Self::Plugin(format!("Error destroying sandbox: {msg}")),
+            SandboxError::Permission(msg) => Self::Security(format!("Permission error: {msg}")),
+            SandboxError::ResourceLimit(msg) => Self::Security(format!("Resource limit exceeded: {msg}")),
+            SandboxError::PathAccess(msg) => Self::Security(format!("Path access denied: {msg}")),
+            SandboxError::Capability(msg) => Self::Security(format!("Capability not allowed: {msg}")),
+            SandboxError::Platform(msg) => Self::Plugin(format!("Platform error: {msg}")),
+            SandboxError::Unsupported(msg) => Self::Plugin(format!("Feature not supported: {msg}")),
+            SandboxError::Internal(msg) => Self::Plugin(format!("Internal error: {msg}")),
+        }
+    }
+}
+
 impl From<SyncError> for CoreError {
     fn from(err: SyncError) -> Self {
         Self::Sync(err.to_string())
@@ -135,5 +155,17 @@ impl From<toml::de::Error> for CoreError {
 impl From<anyhow::Error> for CoreError {
     fn from(err: anyhow::Error) -> Self {
         Self::Config(format!("Anyhow error: {err}"))
+    }
+}
+
+impl From<JoinError> for CoreError {
+    fn from(err: JoinError) -> Self {
+        Self::Plugin(format!("Task join error: {err}"))
+    }
+}
+
+impl From<std::io::Error> for CoreError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
     }
 } 

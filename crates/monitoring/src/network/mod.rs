@@ -6,11 +6,13 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use sysinfo::{System, Networks};
+// Import the required trait extensions for sysinfo
+use sysinfo::{System, Networks, SystemExt, NetworkExt, NetworksExt, RefreshKind};
 use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
 use tokio::time::{sleep, Duration};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;
@@ -38,6 +40,21 @@ pub struct NetworkStats {
     pub tx_errors: Option<u64>,
     /// Last updated timestamp
     pub last_updated: u64,
+}
+
+/// Network interface information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkInfo {
+    /// Interface name
+    pub interface: String,
+    /// Total bytes received
+    pub received: u64,
+    /// Total bytes transmitted
+    pub transmitted: u64,
+    /// Number of packets received
+    pub packets_received: Option<u64>,
+    /// Number of packets sent
+    pub packets_sent: Option<u64>,
 }
 
 /// Network monitoring configuration
@@ -126,8 +143,11 @@ impl NetworkMonitor {
     
     /// Updates network statistics
     pub async fn update_stats(&self) -> Result<()> {
-        // In sysinfo 0.30, Networks is a separate type
-        let networks = Networks::new_with_refreshed_list();
+        // Initialize and refresh network data
+        let mut system = System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        let networks = system.networks();
         
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -137,13 +157,13 @@ impl NetworkMonitor {
         let mut prev_stats = self.prev_stats.write().await;
         let mut stats_map = self.stats.write().await;
         
-        for (interface_name, network) in &networks {
+        for (interface_name, network) in networks {
             // Skip if not monitoring all interfaces and this interface is not in the list
             if !self.config.monitor_all_interfaces && !self.config.interfaces.contains(interface_name) {
                 continue;
             }
             
-            // In sysinfo 0.30, the methods don't have the get_ prefix
+            // Use the appropriate network methods
             let rx_bytes = network.total_received();
             let tx_bytes = network.total_transmitted();
             
@@ -168,10 +188,10 @@ impl NetworkMonitor {
                 tx_bytes,
                 rx_bytes_per_sec,
                 tx_bytes_per_sec,
-                rx_packets: Some(network.total_packets_received()),
-                tx_packets: Some(network.total_packets_transmitted()),
-                rx_errors: Some(network.total_errors_on_received()),
-                tx_errors: Some(network.total_errors_on_transmitted()),
+                rx_packets: Some(network.packets_received()),
+                tx_packets: Some(network.packets_transmitted()),
+                rx_errors: Some(network.errors_on_received()),
+                tx_errors: Some(network.errors_on_transmitted()),
                 last_updated: now,
             };
             
@@ -228,6 +248,64 @@ impl NetworkMonitor {
         
         Ok(())
     }
+
+    pub async fn get_network_stats() -> Result<NetworkStats> {
+        // Create a new system instance to get network information
+        let mut system = System::new();
+        
+        // Refresh networks information
+        system.refresh_networks_list();
+        system.refresh_networks();
+        
+        let networks = system.networks();
+        
+        // Calculate total network traffic
+        let mut total_received = 0;
+        let mut total_transmitted = 0;
+        
+        for (_interface_name, network) in networks {
+            total_received += network.total_received();
+            total_transmitted += network.total_transmitted();
+        }
+        
+        Ok(NetworkStats {
+            interface: "Total".to_string(),
+            rx_bytes: total_received,
+            tx_bytes: total_transmitted,
+            rx_bytes_per_sec: 0.0,
+            tx_bytes_per_sec: 0.0,
+            rx_packets: None,
+            tx_packets: None,
+            rx_errors: None,
+            tx_errors: None,
+            last_updated: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        })
+    }
+
+    pub fn get_network_info() -> Vec<NetworkInfo> {
+        // Create a new system instance to get network information
+        let mut system = System::new();
+        system.refresh_networks_list();
+        system.refresh_networks();
+        
+        let networks = system.networks();
+        
+        let mut result = Vec::new();
+        for (interface, network) in networks {
+            result.push(NetworkInfo {
+                interface: interface.to_string(),
+                received: network.total_received(),
+                transmitted: network.total_transmitted(),
+                packets_received: None,
+                packets_sent: None,
+            });
+        }
+        
+        result
+    }
 }
 
 impl Clone for NetworkMonitor {
@@ -244,3 +322,5 @@ impl Clone for NetworkMonitor {
         }
     }
 } 
+
+

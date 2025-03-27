@@ -19,6 +19,9 @@ pub trait CommandRepository: Send + Sync {
     /// List all command definitions
     async fn list_command_definitions(&self) -> anyhow::Result<Vec<CommandDefinition>>;
     
+    /// Update or insert a command definition
+    async fn upsert_command_definition(&self, command: CommandDefinition) -> anyhow::Result<()>;
+    
     /// Create a command execution
     async fn create_command_execution(&self, execution: CommandExecution) -> anyhow::Result<()>;
     
@@ -245,6 +248,29 @@ impl CommandRepository for SqliteCommandRepository {
         
         Ok(count.count)
     }
+
+    async fn upsert_command_definition(&self, command: CommandDefinition) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            INSERT INTO commands (id, name, description, schema, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                description = excluded.description,
+                schema = excluded.schema,
+                updated_at = excluded.updated_at
+            "#,
+            command.id,
+            command.name,
+            command.description,
+            command.parameter_schema.to_string(),
+            command.created_at,
+            command.updated_at
+        )
+        .execute(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
 }
 
 #[cfg(feature = "mock-db")]
@@ -392,6 +418,12 @@ impl CommandRepository for MockCommandRepository {
             .count();
         
         Ok(count as i64)
+    }
+
+    async fn upsert_command_definition(&self, command: CommandDefinition) -> anyhow::Result<()> {
+        let mut definitions = self.command_definitions.write().unwrap();
+        definitions.insert(command.name.clone(), command);
+        Ok(())
     }
 }
 

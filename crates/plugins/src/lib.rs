@@ -31,6 +31,18 @@ pub mod errors;
 pub mod state;
 pub mod commands;
 pub mod tools;
+pub mod simple_test;
+pub mod plugins;
+pub mod test_utils;
+pub mod simple_test_utils;
+
+// Include test modules
+#[cfg(test)]
+mod tests;
+
+// Include standalone test module for simpler testing
+#[cfg(test)]
+mod standalone_test;
 
 // Re-export common types and traits
 pub use plugin::{Plugin, PluginMetadata, PluginStatus};
@@ -40,6 +52,21 @@ pub use manager::PluginManager;
 pub use monitoring::MonitoringPlugin;
 pub use errors::{PluginError, Result};
 pub use state::{PluginStateManager, MemoryStateManager, FileStateManager};
+pub use commands::{CommandsPlugin, CommandsPluginBuilder, Command, CommandMetadata};
+
+// Export marketplace types
+#[cfg(feature = "marketplace")]
+pub use plugins::marketplace::{
+    RepositoryManager,
+    RepositoryProvider,
+    HttpRepositoryProvider,
+    RepositoryInfo,
+    PluginPackageInfo,
+    create_repository_manager,
+};
+
+// Export dynamic plugin types
+pub use plugins::dynamic;
 
 /// The current version of the plugin system.
 /// 
@@ -56,7 +83,6 @@ pub const PLUGIN_SYSTEM_DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 // Team-specific plugin types
 pub use galaxy::GalaxyPlugin;
-pub use commands::CommandsPlugin;
 
 /// The author information for the plugin system.
 pub const PLUGIN_SYSTEM_AUTHOR: &str = env!("CARGO_PKG_AUTHORS");

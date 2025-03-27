@@ -1,0 +1,12 @@
+[package]
+name = "adapter-pattern-tests"
+version = "0.1.0"
+edition = "2021"
+description = "Tests for adapter pattern implementation in Rust"
+
+[dependencies]
+async-trait = "0.1.77"
+tokio = { version = "1.36.0", features = ["full"] }
+
+[lints]
+workspace = true
