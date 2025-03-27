@@ -1,5 +1,40 @@
 # Squirrel Plugin System
 
+## Enhanced Security Features (April 2024)
+
+The plugin system now includes enhanced security features:
+
+- **Security Audit Logging** - Track all security-related operations with full audit logs
+- **Advanced Permission Model** - Hierarchical permission levels with operation-specific checks
+- **Resource Monitoring** - Track and limit memory, CPU, storage, network, file handles, and threads
+- **Path Security** - Protection against path traversal attacks with canonicalization
+- **Capability Wildcards** - Support for namespace wildcards like `namespace:*`
+
+To use the enhanced security features:
+
+```rust
+// Use enhanced security by default (recommended)
+let mut manager = PluginManager::new();
+manager.with_security();
+
+// Access audit logs
+if let Some(audit_entries) = manager.get_security_audit_log(Some(plugin_id), 10).await {
+    for entry in audit_entries {
+        println!("Operation: {}, Result: {}", entry.operation, entry.result);
+    }
+}
+
+// Check resource usage
+if let Some(usage) = manager.track_resources(plugin_id).await? {
+    println!("Memory usage: {} bytes", usage.memory_bytes);
+    println!("CPU usage: {}%", usage.cpu_percent);
+}
+```
+
+See `specs/app/IMPLEMENTATION_UPDATE.md` for full documentation.
+
+# Original Plugin System Documentation
+
 This module provides a comprehensive plugin system for extending the Squirrel AI Coding Assistant with custom functionality.
 
 ## Overview
@@ -374,34 +409,6 @@ async fn main() -> anyhow::Result<()> {
     if let Some(state) = manager.get_plugin_state(plugin_id).await {
         let count = state.data.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
         println!("Saved count: {}", count);
-    }
-    
-    Ok(())
-}
-```
-
-## Security Features
-
-The plugin system includes security features:
-
-```rust
-use squirrel_app::{PluginManager, SecurityValidator, ResourceLimits};
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Create plugin manager with security enabled
-    let mut manager = PluginManager::new();
-    manager.with_security();
-    
-    // Register and load plugins...
-    
-    // Validate operations
-    let plugin_id = Uuid::parse_str("...")?;
-    manager.validate_operation(plugin_id, "file_access").await?;
-    
-    // Track resource usage
-    if let Some(usage) = manager.track_resources(plugin_id).await? {
-        println!("Memory: {} bytes, CPU: {}%", usage.memory_bytes, usage.cpu_percent);
     }
     
     Ok(())

@@ -1,7 +1,7 @@
 ---
 description: Architecture and Dependency Specifications for Squirrel MCP
-version: 1.2.0
-last_updated: 2024-04-10
+version: 1.3.0
+last_updated: 2024-07-15
 ---
 
 # Squirrel MCP Architecture Specifications
@@ -174,15 +174,40 @@ squirrel/
   - UI features removed from MVP
   - See [specs/MVP/03-ui-features_sunsetted.md](specs/MVP/03-ui-features_sunsetted.md)
 
-- Plugin System: 50% Complete
-  - Plugin architecture defined
-  - Plugin loading mechanism (60%)
-  - Plugin command registration (70%)
-  - Plugin lifecycle management (55%)
-  - Plugin dependency resolution (25%)
-  - Plugin discovery (45%)
-  - Documentation (30%)
-  - Will be completed after core stability
+- Plugin System: 95% Complete
+  - Plugin architecture defined (100%)
+  - Plugin loading mechanism (90%)
+  - Plugin command registration (85%)
+  - Plugin lifecycle management (80%)
+  - Plugin dependency resolution (60%)
+  - Plugin discovery (70%)
+  - Plugin security model (100%)
+  - Cross-platform sandboxing (95%)
+  - Resource monitoring (95%)
+  - Testing infrastructure (95%)
+  - Documentation (70%)
+  - See [specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md](specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md)
+  - See [specs/app/IMPLEMENTATION_PROGRESS.md](specs/app/IMPLEMENTATION_PROGRESS.md) for latest updates
+
+### Recently Completed Components
+
+- Plugin Sandbox System: 95% Complete
+  - Cross-platform implementation with platform-specific isolation mechanisms
+  - Advanced resource limits and monitoring
+  - Security context-based permissions
+  - Path access validation 
+  - Capability-based security model
+  - Comprehensive error handling and recovery
+  - Tests fixed for proper process registration with resource monitors
+  - Documentation: [specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md](specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md)
+
+- Plugin Resource Monitoring: 95% Complete
+  - Process registration and tracking
+  - Resource usage measurement 
+  - Resource limit enforcement
+  - Cross-platform implementation
+  - Integration with sandbox
+  - Documentation: [specs/app/IMPLEMENTATION_PROGRESS.md](specs/app/IMPLEMENTATION_PROGRESS.md)
 
 ### Robustness Enhancements (Newly Proposed)
 
@@ -244,372 +269,51 @@ squirrel/
 
 3. Web Interface MCP Integration
    - Bidirectional communication
-   - Protocol translation
-   - Context preservation
-   - Error propagation
-   - Security integration
-   - See [specs/web/MCP_Integration.md](specs/web/MCP_Integration.md) for details
+   - Real-time updates
+   - Secure authentication
+   - Fine-grained authorization
+   - Comprehensive error handling
 
-4. Web Interface Security Enhancement
-   - Rate limiting implementation
-   - API key authentication
-   - Enhanced role-based access controls
-   - Audit logging system
-   - Security headers implementation
-
-5. Resilience Framework Implementation
-   - Circuit breaker pattern 
-   - Retry strategies
-   - Recovery mechanisms
-   - Health checks
-
-6. NestGate System Integration
-   - MCP protocol compatibility
-   - Storage service integration
-   - Command system extension
-   - Monitoring integration
-   - Context synchronization
-   - See [specs/integration/nestgate-integration.md](integration/nestgate-integration.md) for details
-
-7. Integration Verification
-   - Component interoperability testing
-   - End-to-end workflow validation
-   - Security verification
-   - Performance benchmarking
-
-### Implementation Phases
-1. Phase 1: Core System (Completed)
-   - Command system foundation
-   - Basic context management
-   - Error handling framework
-
-2. Phase 2: MCP Protocol (95% Complete)
-   - Protocol implementation
-   - Tool management
-   - Security foundation
-
-3. Phase 3: Polish & Testing (75% Complete)
+4. Plugin System Finalization
    - Performance optimization
-   - Security hardening
-   - Documentation
-
-4. Phase 4: Robustness Enhancement (New, 0% Complete)
-   - Resilience framework
-   - Observability system
-   - Advanced error recovery
-   - Performance monitoring
-
-### Success Criteria
-- [x] Essential commands working reliably
-- [x] Basic AI assistance functional
-- [✓] Stable MCP communication (95% Complete)
-- [x] Clear command feedback
-- [✓] Performance targets met (Mostly)
-- [✓] Comprehensive test coverage (In Progress, ~80%)
-- [✓] Security requirements satisfied (90% Complete)
-- [x] Monitoring system fully implemented
-
-### Development Guidelines
-- Focus on core functionality first
-- Maintain high code quality
-- Document as we build
-- Regular security reviews
-- Monitor resource usage
-- Continuous testing
-
-## Design Patterns
-
-The project follows consistent design patterns across all components, documented in the `specs/patterns/` directory:
-
-1. **Dependency Injection Pattern** - Used for component composition and testability
-2. **Error Handling Pattern** - Standardized approach for error propagation and recovery
-3. **Async Programming Pattern** - Guidelines for asynchronous code and tokio usage
-4. **Resource Management Pattern** - Standards for managing system resources
-5. **Schema Design Pattern** - Guidelines for data schema consistency
-
-See [specs/patterns/README.md](specs/patterns/README.md) for more details.
-
-## Implementation Guidelines
-
-### Code Organization
-- Follow Rust module organization standards
-- Maintain clear separation of concerns
-- Use proper error handling
-- Implement comprehensive testing
-
-### Documentation
-- Maintain comprehensive documentation
-- Use clear code comments
-- Follow documentation standards
-- Keep specifications updated
-
-### Recently Completed Components
-- Resource Management System (100% Complete)
-  - Resource tracking and limits
-  - Adaptive management
-  - Thread safety improvements
-  - See [specs/mcp/resource-management-completed.md](specs/mcp/resource-management-completed.md)
-
-- Monitoring System (100% Complete)
-  - Metrics collection and processing
-  - Health monitoring
-  - Alerting system
-  - Network monitoring
-  - Dashboard and visualization
-  - Analytics integration
-  - See [specs/monitoring/SPEC.md](specs/monitoring/SPEC.md)
-
-### Components Ready for Archiving
-- Resource Management Specification (Completed)
-- MCP Protocol Core Specification (95% Complete)
-- Architecture Documentation (Completed)
-- MVP Plan (Completed)
-- Monitoring System Specification (Completed)
+   - Documentation completion
+   - Advanced Linux features
+   - Cross-platform testing improvements
 
 ## Version History
 
-- v1.2.0: Updated specifications (2024-04-10)
-  - Updated directory structure
-  - Added implementation status percentages
-  - Added design patterns section
-  - Updated success criteria
-  - Revised current focus areas
+### v1.3.0 (2024-07-15)
+- Updated Plugin System implementation status to 95%
+- Added Plugin Sandbox implementation details to "Recently Completed Components"
+- Fixed test reliability with proper process registration in sandbox tests
+- Updated Resource Monitor integration with sandbox
+- Enhanced Plugin System error handling
+- Added Linux Sandbox implementation details
+- Improved cross-platform build compatibility
+- Updated documentation for sandbox implementation
 
-- v1.1.0: Updated specifications (2024-03-25)
-  - Updated directory structure
-  - Added implementation status percentages
-  - Added design patterns section
-  - Updated success criteria
-  - Revised current focus areas
+### v1.2.0 (2024-04-10)
+- Added Monitoring System to "Recently Completed Components"
+- Updated Command System implementation status to 95%
+- Enhanced Error Recovery System documentation
+- Updated MCP Protocol implementation status
+- Added Plugin System section with initial implementation details
+- Added Performance Targets section
+- Refined Current Focus areas
+- Added Version History section
 
-- v1.0.0: Comprehensive specification (2024-03-20)
-  - Core component definitions
-  - Implementation phases
-  - Dependency specifications
-  - Success criteria
-  - Development guidelines
+## Feedback
+Please provide feedback on these specifications to the architecture team. We are actively refining our approach based on implementation insights.
 
-- v0.1.0: Initial specification
-  - Basic core functionality
-  - MCP foundation
-  - Error handling
-  - Initial testing
+## References
+- [Rust Async Book](https://rust-lang.github.io/async-book/)
+- [Tokio Documentation](https://tokio.rs/tokio/tutorial)
+- [Effective Rust](https://www.lurklurk.org/effective-rust/)
+- [Error Handling in Rust](https://blog.burntsushi.net/rust-error-handling/)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
 
-# Squirrel AI Coding Assistant - Project Overview
+## Contact
+For questions or clarifications, please contact the architecture team at architecture@squirrel-mcp.org.
 
-## Project Description
-Squirrel is an AI-powered coding assistant that uses a sophisticated Machine Context Protocol (MCP) system for AI integration. The system provides intelligent code assistance while maintaining a robust and secure architecture through advanced context management and protocol-based communication.
-
-## Current Progress Overview
-Overall Project Progress: 85% Complete
-
-## Quick Links
-- [MVP Requirements](specs/MVP/00-overview.md) - Core features and initial implementation targets (85% complete)
-- [Core System](specs/app/README.md) - Core system architecture and components (90% complete)
-- [MCP Protocol](specs/mcp/README.md) - Machine Context Protocol specifications (95% complete)
-- [Integration](specs/integration/README.md) - System integration and interoperability (80% complete)
-- [Patterns](specs/patterns/README.md) - Cross-cutting design patterns (100% complete)
-- [Plugin System](specs/plugins/README.md) - Plugin architecture and development (75% complete)
-- [Monitoring System](specs/monitoring/SPEC.md) - Monitoring and observability framework (100% complete)
-
-## Specification Organization
-
-The specifications are organized into several key areas:
-
-1. **Core Architecture** - Overall system design and component interactions
-2. **Component Specifications** - Detailed requirements for each system component
-3. **Cross-cutting Concerns** - Security, performance, and other shared requirements
-4. **Design Patterns** - Standardized implementation patterns used across the codebase
-5. **Implementation Phases** - Timeline and prioritization for development
-
-Each component directory contains:
-- README.md - Overview and purpose
-- REVIEW.md - Critical review of the component
-- Detailed specifications for features and interfaces
-
-## Documentation
-- Each component has detailed specifications
-- Implementation guidelines provided
-- API contracts defined
-- Testing requirements outlined
-- Integration procedures documented
-
-## Crates Organization
-
-### Overview
-The `squirrel/crates/` directory contains various crates that are integral to the squirrel project. These crates are designed to encapsulate specific functionalities and can be reused across different parts of the project.
-
-### Key Features
-- Modular design for easy integration
-- Encapsulation of specific functionalities
-- Reusable components across the project
-
-### Usage Guidelines
-- Each crate within the `/crates/` directory is self-contained and follows the standard Rust crate structure.
-- Teams should refer to the `Cargo.toml` files within each crate for dependency management and feature flags.
-- Direct interaction with these crates is not required unless specified in the project specifications.
-
-### Integration Points
-- The crates are integrated with the main workspace and follow the same versioning and dependency management rules as other components.
-- Ensure that any updates to the crates are coordinated with the relevant teams to maintain consistency.
-
-### Contact Information
-For questions or support regarding the `squirrel/crates/`, please contact the Core Team at @core-team. 
-
-# Squirrel Project Specifications
-
-## Current State
-
-### Core Components
-- **Core Module** (`src/core/mod.rs`)
-  - Basic configuration management using `sled`
-  - Version tracking
-  - Thread-safe state management with `Arc<RwLock<>>`
-
-- **MCP Module** (`src/mcp/mod.rs`)
-  - Machine Context Protocol implementation
-  - Configuration management
-  - Async-ready with Tokio
-
-- **Error Handling** (`src/error.rs`, `src/core/error/mod.rs`)
-  - Hierarchical error types
-  - Custom error definitions
-  - Proper error propagation
-
-### Dependencies
-- Core: tokio, sled, serde
-- Async Support: futures, async-trait
-- Error Handling: thiserror, anyhow
-- Serialization: serde, serde_json
-- Utilities: uuid, chrono
-
-## Future Development
-
-### Phase 1: MCP AI Assistant Foundation
-
-#### 1. Protocol Enhancement
-- [ ] Define MCP message formats
-- [ ] Implement message serialization/deserialization
-- [ ] Add protocol versioning support
-- [ ] Implement message routing
-
-#### 2. AI Integration
-- [ ] Define AI model interface
-- [ ] Implement model loading and management
-- [ ] Add context handling
-- [ ] Implement response generation
-
-#### 3. External UI Integration
-- [ ] Define UI communication protocol
-- [ ] Implement WebSocket server
-- [ ] Create UI client interface
-- [ ] Add authentication/authorization
-- [ ] Implement real-time updates
-
-### Phase 2: Core Enhancements
-
-#### 1. Storage Layer
-- [ ] Implement persistent storage with sled
-- [ ] Add caching layer
-- [ ] Implement data versioning
-- [ ] Add backup/restore functionality
-
-#### 2. Security
-- [ ] Add authentication
-- [ ] Implement authorization
-- [ ] Add encryption support
-- [ ] Implement secure communication
-
-#### 3. Performance
-- [ ] Add metrics collection
-- [ ] Implement performance monitoring
-- [ ] Add resource management
-- [ ] Optimize message handling
-
-### Phase 3: AI Assistant Features
-
-#### 1. Context Management
-- [ ] Implement conversation history
-- [ ] Add context persistence
-- [ ] Implement context pruning
-- [ ] Add context analysis
-
-#### 2. Tool Integration
-- [ ] Define tool interface
-- [ ] Implement tool discovery
-- [ ] Add tool validation
-- [ ] Implement tool execution
-
-#### 3. Learning & Adaptation
-- [ ] Add feedback collection
-- [ ] Implement model fine-tuning
-- [ ] Add performance analytics
-- [ ] Implement adaptation strategies
-
-## Implementation Guidelines
-
-### Code Organization
-- Follow Rust module organization standards
-- Maintain clear separation of concerns
-- Use proper error handling
-- Implement comprehensive testing
-
-### Documentation
-- Maintain comprehensive documentation
-- Use clear code comments
-- Follow documentation standards
-- Keep specifications updated
-
-### Testing
-- Write unit tests for all components
-- Implement integration tests
-- Add performance benchmarks
-- Include security testing
-
-## Decision Points
-
-1. **UI Implementation**
-   - Need to decide between external vs. internal UI
-   - Consider resource constraints
-   - Evaluate deployment requirements
-   - Assess team expertise
-
-2. **AI Model Integration**
-   - Choose between local and remote models
-   - Define model interface requirements
-   - Plan for model updates
-   - Consider resource requirements
-
-3. **Storage Strategy**
-   - Define data persistence requirements
-   - Plan for scalability
-   - Consider backup strategies
-   - Evaluate performance needs
-
-## Next Steps
-
-1. **Immediate**
-   - [ ] Define UI communication protocol
-   - [ ] Implement WebSocket server
-   - [ ] Create UI client interface
-   - [ ] Add initial storage layer
-
-2. **Short Term**
-   - [ ] Implement authentication/authorization
-   - [ ] Add security features
-   - [ ] Implement context management
-   - [ ] Add tool integration
-
-3. **Long Term**
-   - [ ] Implement learning capabilities
-   - [ ] Add advanced features
-   - [ ] Optimize performance
-   - [ ] Expand tool ecosystem
-
-## Version History
-
-- v0.1.0: Initial specification
-  - Basic core functionality
-  - MCP foundation
-  - Error handling
-  - Initial testing 
+---
+*This document is maintained by the Squirrel MCP Architecture Team. Last revision: July 15, 2024.* 
