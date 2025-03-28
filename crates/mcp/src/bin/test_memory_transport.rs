@@ -1,15 +1,13 @@
-use squirrel_mcp::transport::memory::{MemoryChannel, MemoryTransportConfig};
+use squirrel_mcp::transport::memory::MemoryChannel;
 use squirrel_mcp::transport::Transport;
-use squirrel_mcp::types::{MCPMessage, MessageType};
-use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting memory transport tests...");
     
     match test_create_pair_basic().await {
-        Ok(_) => println!("✅ Basic create_pair test passed!"),
-        Err(e) => println!("❌ Basic create_pair test failed: {}", e),
+        Ok(()) => println!("✅ Basic create_pair test passed!"),
+        Err(e) => println!("❌ Basic create_pair test failed: {e}"),
     }
     
     // Note: The Arc memory transport test can't be run directly due to
