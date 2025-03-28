@@ -1,8 +1,8 @@
 use bytes::{BytesMut, BufMut, Buf};
 use tokio::io::{AsyncRead, AsyncWrite};
 use serde::{Serialize, Deserialize};
-use crate::mcp::error::{MCPError, Result};
-use crate::mcp::types::MCPMessage;
+use crate::error::{MCPError, Result};
+use crate::types::MCPMessage;
 
 const FRAME_HEADER_SIZE: usize = 8; // 4 bytes for magic + 4 bytes for payload length
 const FRAME_MAGIC: u32 = 0x4D435000; // "MCP\0"
@@ -132,7 +132,7 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use crate::mcp::types::{MessageType, ProtocolVersion, SecurityLevel, MessageMetadata};
+    use crate::types::{MessageType, ProtocolVersion, SecurityLevel, MessageMetadata};
 
     #[tokio::test]
     async fn test_message_codec() {

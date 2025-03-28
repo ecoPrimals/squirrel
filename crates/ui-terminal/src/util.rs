@@ -38,6 +38,23 @@ pub fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Format bytes with a rate unit (e.g., for network bandwidth)
+pub fn format_bytes_rate(bytes: u64, rate_suffix: &str) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    
+    if bytes >= GB {
+        format!("{:.2} GB{}", bytes as f64 / GB as f64, rate_suffix)
+    } else if bytes >= MB {
+        format!("{:.2} MB{}", bytes as f64 / MB as f64, rate_suffix)
+    } else if bytes >= KB {
+        format!("{:.2} KB{}", bytes as f64 / KB as f64, rate_suffix)
+    } else {
+        format!("{} B{}", bytes, rate_suffix)
+    }
+}
+
 /// Format a percentage for display
 pub fn format_percentage(value: f64) -> String {
     format!("{:.2}%", value)

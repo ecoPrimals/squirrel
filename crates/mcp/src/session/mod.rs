@@ -13,9 +13,9 @@ use log::error;
 use uuid::Uuid;
 use std::sync::Arc;
 
-use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::mcp::security::{Credentials, SecurityManager};
-use crate::mcp::persistence::{Persistence, SessionData};
+use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
+use crate::security::{Credentials, SecurityManager};
+use crate::persistence::{Persistence, SessionData};
 
 /// Session management module
 pub mod error;

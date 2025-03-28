@@ -1,9 +1,8 @@
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::path::PathBuf;
 use directories::ProjectDirs;
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
 /// Configuration error
@@ -31,26 +30,23 @@ pub enum ConfigError {
 }
 
 /// Dashboard configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DashboardConfig {
-    /// Data update interval in milliseconds
-    #[serde(with = "duration_ms")]
-    pub update_interval: Duration,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Config {
+    /// Refresh interval in milliseconds
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval: u64,
     
-    /// Maximum number of history points to keep
-    pub max_history_points: usize,
+    /// Show timestamps in local time
+    #[serde(default)]
+    pub local_time: bool,
     
-    /// Use real MCP client instead of mock
-    pub use_real_mcp: bool,
+    /// Enable dark mode
+    #[serde(default)]
+    pub dark_mode: bool,
     
-    /// Simulate connection errors for testing
-    pub simulate_errors: bool,
-    
-    /// UI theme
-    pub theme: String,
-    
-    /// UI settings
-    pub ui: UiConfig,
+    /// Dashboard data file path
+    #[serde(default)]
+    pub data_file: Option<PathBuf>,
 }
 
 /// UI configuration
@@ -97,19 +93,6 @@ pub struct ColorScheme {
     pub info: String,
 }
 
-impl Default for DashboardConfig {
-    fn default() -> Self {
-        Self {
-            update_interval: Duration::from_secs(2),
-            max_history_points: 100,
-            use_real_mcp: false,
-            simulate_errors: false,
-            theme: "dark".to_string(),
-            ui: UiConfig::default(),
-        }
-    }
-}
-
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
@@ -136,7 +119,7 @@ impl Default for ColorScheme {
     }
 }
 
-impl DashboardConfig {
+impl Config {
     /// Get the config file path
     pub fn get_config_path() -> Result<PathBuf, ConfigError> {
         let proj_dirs = ProjectDirs::from("com", "datasciencebiolab", "mcp-dashboard")
@@ -171,6 +154,10 @@ impl DashboardConfig {
         
         Ok(())
     }
+}
+
+fn default_refresh_interval() -> u64 {
+    1000 // 1 second
 }
 
 /// Helper module for serializing/deserializing Duration

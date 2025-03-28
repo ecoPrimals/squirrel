@@ -42,7 +42,7 @@ The Web UI provides a browser-based interface for monitoring and managing the Sq
 
 ## Terminal UI (`ui-terminal`)
 
-### Status: 98% Complete
+### Status: 85% Complete
 
 The Terminal UI implementation provides a Ratatui-based dashboard for monitoring system metrics, with a focus on lightweight resource usage and cross-platform compatibility.
 
@@ -58,11 +58,19 @@ The Terminal UI implementation provides a Ratatui-based dashboard for monitoring
 - **Theme Support**: Basic theming capabilities ✅
 - **Configuration System**: Command-line based configuration ✅
 - **Monitoring Integration**: Connection to monitoring crate through adapter pattern ✅
+- **Ratatui 0.24.0+ Compatibility**: Updated all widgets and UI code for the latest Ratatui API ✅
 
 ### In Progress
 
 - Alert Management System (50%)
 - Help System (60%)
+- Adapter Refactoring for correct type conversions (25%)
+
+### Known Issues
+
+- **MonitoringToDashboardAdapter**: Type mismatches between expected structured types and actual primitive types
+- **MetricsSnapshot Access**: Implementation tries to access non-existent fields
+- **MCP Integration**: Method compatibility issues between client interfaces
 
 ### Pending
 
@@ -76,6 +84,7 @@ The Terminal UI implementation provides a Ratatui-based dashboard for monitoring
 - Improve test coverage
 - Enhance documentation
 - Optimize rendering for large datasets
+- Refactor adapter implementation to address type mismatches
 
 ## Desktop UI (`ui-desktop`)
 
@@ -129,18 +138,20 @@ Several frameworks are under consideration:
 | Web UI Enhancement | Phase 3 | Planned | 4 weeks |
 | Terminal UI Core | Phase 1 | Completed | Done |
 | Terminal UI Protocol Tab | Phase 2 | Completed | Done |
-| Terminal UI Features | Phase 2 | In Progress | 1 week |
+| Terminal UI Ratatui Update | Phase 2 | Completed | Done |
+| Terminal UI Adapter Fix | Phase 2 | In Progress | 1 week |
 | Dashboard Core | Phase 1 | Completed | Done |
 | Desktop UI Core | Phase 1 | Planned | 3 weeks |
 | Shared Components | Phase 1 | In Progress | 1 week |
 
 ## Key Priorities
 
-1. Complete the Terminal UI features and testing
-2. Finalize Dashboard Core testing
-3. Complete the Web UI migration and integration with Dashboard Core
-4. Establish shared component architecture
-5. Begin Desktop UI implementation
+1. Fix Terminal UI adapter type mismatches
+2. Complete the Terminal UI features and testing
+3. Finalize Dashboard Core testing
+4. Complete the Web UI migration and integration with Dashboard Core
+5. Establish shared component architecture
+6. Begin Desktop UI implementation
 
 ## Coordination
 
@@ -156,6 +167,8 @@ To ensure consistency across UI implementations, all teams should:
 
 ### Terminal UI
 
+- **July 25, 2024**: Updated all Terminal UI code for Ratatui 0.24.0+ compatibility
+- **July 23, 2024**: Fixed SystemUpdate pattern matching in app.rs for correct CPU and memory metrics handling
 - **July 21, 2024**: Completed Protocol tab implementation with message, transaction, and error monitoring
 - **July 19, 2024**: Implemented monitoring integration with adapter pattern
 - **July 18, 2024**: Fixed sysinfo trait imports and resource access methods
@@ -172,12 +185,13 @@ To ensure consistency across UI implementations, all teams should:
 
 ## Upcoming Milestones
 
-- **July 25, 2024**: Complete Terminal UI alert management system
-- **August 1, 2024**: Release Terminal UI v1.0
-- **August 15, 2024**: Complete Web UI alert management system
-- **August 30, 2024**: Release Web UI v1.0
-- **September 15, 2024**: Begin Desktop UI implementation
+- **July 30, 2024**: Fix Terminal UI adapter type mismatches
+- **August 5, 2024**: Complete Terminal UI alert management system
+- **August 15, 2024**: Release Terminal UI v1.0
+- **August 30, 2024**: Complete Web UI alert management system
+- **September 10, 2024**: Release Web UI v1.0
+- **September 25, 2024**: Begin Desktop UI implementation
 
 ---
 
-Last Updated: July 21, 2024 
+Last Updated: July 25, 2024 
