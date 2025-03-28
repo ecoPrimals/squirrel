@@ -38,17 +38,11 @@
 use async_trait::async_trait;
 use crate::error::transport::TransportError;
 use crate::types::MCPMessage;
-use crate::error::{MCPError, Result};
+use crate::error::Result;
 use crate::types::{
-    ProtocolVersion,
-    ProtocolState,
-    SecurityLevel,
     CompressionFormat,
     EncryptionFormat,
-    MessageMetadata,
-    MessageType,
 };
-use crate::security::{SecurityManager, SecurityConfig, Credentials};
 
 /// MCP Frame implementation for message framing over byte streams
 ///
@@ -182,7 +176,7 @@ pub trait Transport: Send + Sync {
     /// - The transport is not connected
     /// - The message cannot be serialized
     /// - The connection is lost during the send operation
-    async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError>;
+    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()>;
 
     /// Receive a message from the transport
     /// 
@@ -200,7 +194,7 @@ pub trait Transport: Send + Sync {
     /// - The connection is lost while waiting for a message
     /// - The message cannot be deserialized
     /// - A timeout occurs while waiting for a message
-    async fn receive_message(&self) -> Result<MCPMessage, TransportError>;
+    async fn receive_message(&self) -> crate::error::Result<MCPMessage>;
 
     /// Connect to the transport target
     /// 
@@ -219,7 +213,7 @@ pub trait Transport: Send + Sync {
     /// - A timeout occurs while attempting to connect
     /// - The transport is already connected
     /// - The connection parameters are invalid
-    async fn connect(&mut self) -> Result<(), TransportError>;
+    async fn connect(&mut self) -> crate::error::Result<()>;
 
     /// Disconnect from the transport target
     ///
@@ -236,7 +230,7 @@ pub trait Transport: Send + Sync {
     /// This method will return an error if:
     /// - The transport is not connected
     /// - An error occurs while closing the connection
-    async fn disconnect(&self) -> Result<(), TransportError>;
+    async fn disconnect(&self) -> crate::error::Result<()>;
 
     /// Check if the transport is connected
     ///
@@ -299,16 +293,16 @@ mod tests {
     
     #[async_trait]
     impl Transport for MockTransport {
-        async fn send_message(&self, _message: MCPMessage) -> Result<(), TransportError> {
+        async fn send_message(&self, _message: MCPMessage) -> crate::error::Result<()> {
             if !self.is_connected().await {
-                return Err(TransportError::ConnectionClosed("Not connected".into()));
+                return Err(TransportError::ConnectionClosed("Not connected".into()).into());
             }
             Ok(())
         }
         
-        async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
+        async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
             if !self.is_connected().await {
-                return Err(TransportError::ConnectionClosed("Not connected".into()));
+                return Err(TransportError::ConnectionClosed("Not connected".into()).into());
             }
             
             // Create an MCPMessage directly using the MCPMessage constructor
@@ -322,12 +316,12 @@ mod tests {
             ))
         }
         
-        async fn connect(&mut self) -> Result<(), TransportError> {
+        async fn connect(&mut self) -> crate::error::Result<()> {
             self.connected.store(true, std::sync::atomic::Ordering::SeqCst);
             Ok(())
         }
         
-        async fn disconnect(&self) -> Result<(), TransportError> {
+        async fn disconnect(&self) -> crate::error::Result<()> {
             self.connected.store(false, std::sync::atomic::Ordering::SeqCst);
             Ok(())
         }

@@ -10,6 +10,7 @@ use crate::types;
 use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat, MessageType, SecurityMetadata, ProtocolVersion};
 use super::{Transport, TransportMetadata};
+use crate::error::MCPError;
 
 /// Configuration for the stdio transport
 #[derive(Debug, Clone)]
@@ -226,21 +227,21 @@ impl StdioTransport {
 
 #[async_trait]
 impl Transport for StdioTransport {
-    async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
+    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
         // Use the command_sender to send messages
         self.command_sender.send(message)
             .await
-            .map_err(|e| TransportError::ConnectionClosed(format!("Failed to send message: {e}")))?;
+            .map_err(|e| MCPError::Transport(TransportError::ConnectionClosed(format!("Failed to send message: {e}")).into()))?;
         
         Ok(())
     }
     
-    async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
+    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
         let mut rx = self.message_rx.clone();
         
         loop {
             // Wait for the next message
-            rx.changed().await.map_err(|_| TransportError::ConnectionClosed("Channel closed".to_string()))?;
+            rx.changed().await.map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Channel closed".to_string()).into()))?;
             
             // Get the current value
             if let Some(message) = &*rx.borrow() {
@@ -252,7 +253,7 @@ impl Transport for StdioTransport {
         }
     }
     
-    async fn connect(&mut self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> crate::error::Result<()> {
         // Update the state to connecting
         {
             let mut state = self.state.write().await;
@@ -272,15 +273,18 @@ impl Transport for StdioTransport {
         Ok(())
     }
     
-    async fn disconnect(&self) -> Result<(), TransportError> {
+    async fn disconnect(&self) -> crate::error::Result<()> {
         // Update the state to disconnecting
         {
             let mut state = self.state.write().await;
             *state = StdioState::Disconnecting;
         }
         
-        // Don't actually close stdin/stdout, just update the state
-        // to disconnected since we don't want to close the process's standard streams
+        // Don't actually send a stop command since we don't have a stop_channel
+        // Just wait a bit to simulate disconnection
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        
+        // Update the state to disconnected
         {
             let mut state = self.state.write().await;
             *state = StdioState::Disconnected;

@@ -50,120 +50,158 @@ use uuid;
 ///     Ok(())
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum MCPError {
-    /// Transport errors
-    Transport(TransportError),
+    /// Error originating from the MCP transport layer
+    #[error("Transport error: {0}")]
+    Transport(crate::error::transport::TransportError),
     
     /// Protocol errors
+    #[error("Protocol error: {0}")]
     Protocol(ProtocolError),
     
     /// Security errors
+    #[error("Security error: {0}")]
     Security(SecurityError),
     
     /// Connection errors
+    #[error("Connection error: {0}")]
     Connection(ConnectionError),
     
     /// Session errors
+    #[error("Session error: {0}")]
     Session(SessionError),
     
     /// Context errors
+    #[error("Context error: {0}")]
     Context(ContextError),
     
     /// Client errors
+    #[error("Client error: {0}")]
     Client(crate::error::client::ClientError),
     
     /// Message router errors
+    #[error("Message router error: {0}")]
     MessageRouter(crate::message_router::MessageRouterError),
     
     /// Serialization errors
+    #[error("Serialization error: {0}")]
     Serialization(String),
     
     /// Deserialization errors
+    #[error("Deserialization error: {0}")]
     Deserialization(String),
     
     /// Invalid message errors
+    #[error("Invalid message: {0}")]
     InvalidMessage(String),
     
     /// State errors
+    #[error("State error: {0}")]
     State(String),
     
     /// Authorization errors
+    #[error("Authorization error: {0}")]
     Authorization(String),
     
     /// Unsupported operation errors
+    #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
     
     /// Circuit breaker errors
+    #[error("Circuit breaker error: {0}")]
     CircuitBreaker(String),
     
     /// IO errors - Use string representation since `std::io::Error` is not Clone
+    #[error("IO error: {0}")]
     IoDetail(String),
     
     /// JSON errors (`serde_json`) - Use string representation since `serde_json::Error` is not Clone
+    #[error("JSON error: {0}")]
     SerdeJsonDetail(String),
     
     /// Squirrel core errors - Use string representation since `SquirrelError` is not Clone
+    #[error("Squirrel core error: {0}")]
     SquirrelDetail(String),
     
     /// Persistence errors - Use string representation since `PersistenceError` is not Clone
+    #[error("Persistence error: {0}")]
     PersistenceDetail(String),
     
     /// Alert errors
+    #[error("Alert error: {0}")]
     Alert(AlertError),
     
     /// Storage errors
+    #[error("Storage error: {0}")]
     Storage(String),
     
     /// Not initialized errors
+    #[error("Not initialized: {0}")]
     NotInitialized(String),
     
     /// General errors
+    #[error("General error: {0}")]
     General(String),
     
     /// Network errors
+    #[error("Network error: {0}")]
     Network(String),
     
     /// Already in progress errors
+    #[error("Already in progress: {0}")]
     AlreadyInProgress(String),
     
     /// Monitoring system errors
+    #[error("Monitoring error: {0}")]
     Monitoring(String),
     
     /// Not connected errors
+    #[error("Not connected: {0}")]
     NotConnected(String),
     
     /// Timeout errors
+    #[error("Timeout: {0}")]
     Timeout(String),
     
     /// Remote errors
+    #[error("Remote error: {0}")]
     Remote(String),
     
     /// Configuration errors
+    #[error("Configuration error: {0}")]
     Configuration(String),
     
     /// Unexpected errors
+    #[error("Unexpected error: {0}")]
     Unexpected(String),
     
     /// Version mismatch errors
+    #[error("Version mismatch: {0}")]
     VersionMismatch(String),
     
     /// Unsupported errors
+    #[error("Unsupported: {0}")]
     Unsupported(String),
     
     /// Invalid argument errors
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
     
     /// Not found errors
+    #[error("Not found: {0}")]
     NotFound(String),
     
     /// Not implemented errors
+    #[error("Not implemented: {0}")]
     NotImplemented(String),
     
     /// Not authorized errors
+    #[error("Not authorized: {0}")]
     NotAuthorized(String),
     
     /// Invalid state errors
+    #[error("Invalid state: {0}")]
     InvalidState(String),
 }
 
@@ -194,66 +232,6 @@ pub enum PortErrorKind {
     #[error("Port error: {0}")]
     Other(String),
 }
-
-impl std::fmt::Display for MCPError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Context(err) => write!(f, "Context error: {err}"),
-            Self::Protocol(err) => write!(f, "Protocol error: {err}"),
-            Self::Security(err) => write!(f, "Security error: {err}"),
-            Self::Connection(err) => write!(f, "Connection error: {err}"),
-            Self::Session(err) => write!(f, "Session error: {err}"),
-            Self::Transport(err) => write!(f, "Transport error: {err}"),
-            Self::Client(err) => write!(f, "Client error: {err}"),
-            Self::MessageRouter(err) => write!(f, "Message router error: {err}"),
-            Self::Serialization(msg) => write!(f, "Serialization error: {msg}"),
-            Self::Deserialization(err) => write!(f, "Deserialization error: {err}"),
-            Self::InvalidMessage(err) => write!(f, "Invalid message: {err}"),
-            Self::State(err) => write!(f, "State error: {err}"),
-            Self::Authorization(err) => write!(f, "Authorization error: {err}"),
-            Self::UnsupportedOperation(err) => write!(f, "Unsupported operation: {err}"),
-            Self::CircuitBreaker(err) => write!(f, "Circuit breaker error: {err}"),
-            Self::IoDetail(err) => write!(f, "IO error: {err}"),
-            Self::SerdeJsonDetail(err) => write!(f, "Serde JSON error: {err}"),
-            Self::SquirrelDetail(err) => write!(f, "Squirrel error: {err}"),
-            Self::PersistenceDetail(err) => write!(f, "Persistence error: {err}"),
-            Self::Alert(err) => write!(f, "Alert error: {err}"),
-            Self::Storage(err) => write!(f, "Storage error: {err}"),
-            Self::NotInitialized(err) => write!(f, "Not initialized: {err}"),
-            Self::General(err) => write!(f, "MCP error: {err}"),
-            Self::Network(err) => write!(f, "Network error: {err}"),
-            Self::AlreadyInProgress(err) => write!(f, "Already in progress: {err}"),
-            Self::Monitoring(err) => write!(f, "Monitoring error: {err}"),
-            Self::NotConnected(err) => write!(f, "Not connected: {err}"),
-            Self::Timeout(err) => write!(f, "Timeout: {err}"),
-            Self::Remote(err) => write!(f, "Remote error: {err}"),
-            Self::Configuration(err) => write!(f, "Configuration error: {err}"),
-            Self::Unexpected(err) => write!(f, "Unexpected error: {err}"),
-            Self::VersionMismatch(err) => write!(f, "Version mismatch: {err}"),
-            Self::Unsupported(err) => write!(f, "Unsupported: {err}"),
-            Self::InvalidArgument(err) => write!(f, "Invalid argument: {err}"),
-            Self::NotFound(err) => write!(f, "Not found: {err}"),
-            Self::NotImplemented(err) => write!(f, "Not implemented: {err}"),
-            Self::NotAuthorized(err) => write!(f, "Not authorized: {err}"),
-            Self::InvalidState(err) => write!(f, "Invalid state error: {err}"),
-        }
-    }
-}
-
-/// String-based error wrapper.
-///
-/// This is a newtype wrapper around String that implements `std::error::Error`,
-/// allowing string errors to be used with the error machinery.
-#[derive(Debug)]
-pub struct StringError(pub String);
-
-impl std::fmt::Display for StringError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for StringError {}
 
 impl MCPError {
     /// Creates an error from an MCP error message
@@ -375,51 +353,6 @@ impl MCPError {
             Self::MessageRouter(_) => "MCP-038",
         }
         .to_string()
-    }
-}
-
-impl std::error::Error for MCPError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Context(err) => Some(err),
-            Self::Protocol(err) => Some(err),
-            Self::Security(err) => Some(err),
-            Self::IoDetail(_) => None,
-            Self::SerdeJsonDetail(_) => None,
-            Self::Connection(err) => Some(err),
-            Self::Session(err) => Some(err),
-            Self::Transport(err) => Some(err),
-            Self::Client(err) => Some(err),
-            Self::MessageRouter(err) => Some(err),
-            Self::SquirrelDetail(_) => None,
-            Self::PersistenceDetail(_) => None,
-            Self::Alert(err) => Some(err),
-            Self::Storage(_) => None,
-            Self::NotInitialized(_) => None,
-            Self::General(_) => None,
-            Self::Network(_) => None,
-            Self::AlreadyInProgress(_) => None,
-            Self::Monitoring(_) => None,
-            Self::Serialization(_) => None,
-            Self::Deserialization(_) => None,
-            Self::InvalidMessage(_) => None,
-            Self::State(_) => None,
-            Self::Authorization(_) => None,
-            Self::UnsupportedOperation(_) => None,
-            Self::CircuitBreaker(_) => None,
-            Self::NotConnected(_) => None,
-            Self::Timeout(_) => None,
-            Self::Remote(_) => None,
-            Self::Configuration(_) => None,
-            Self::Unexpected(_) => None,
-            Self::VersionMismatch(_) => None,
-            Self::Unsupported(_) => None,
-            Self::InvalidArgument(_) => None,
-            Self::NotFound(_) => None,
-            Self::NotImplemented(_) => None,
-            Self::NotAuthorized(_) => None,
-            Self::InvalidState(_) => None,
-        }
     }
 }
 
@@ -552,113 +485,6 @@ mod tests {
         let timeout = MCPError::Connection(ConnectionError::Timeout(5000));
         assert!(timeout.is_recoverable());
         assert_eq!(timeout.severity(), ErrorSeverity::Low);
-    }
-}
-
-/// Transport-related errors (simplified version)
-/// 
-/// This is a simplified version of the `TransportError` from the 
-/// `crates/mcp/src/error/transport.rs` module. 
-///
-/// **DEPRECATED**: Use `crate::error::transport::TransportError` instead.
-/// This exists for backward compatibility and will be removed in a future release.
-#[deprecated(
-    since = "0.5.0",
-    note = "Please use crate::error::transport::TransportError instead"
-)]
-#[derive(Debug, Clone, Error)]
-pub enum TransportError {
-    /// Error when a connection could not be established with the remote endpoint
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
-    
-    /// Error when a frame received or being sent is invalid or malformed
-    #[error("Invalid frame: {0}")]
-    InvalidFrame(String),
-    
-    /// Error when an operation timed out waiting for a response or connection
-    #[error("Timeout: {0}")]
-    Timeout(String),
-    
-    /// Error related to the communication protocol, such as invalid message format or sequence
-    #[error("Protocol error: {0}")]
-    ProtocolError(String),
-    
-    /// Error when an existing connection was closed, either by the remote endpoint or locally
-    #[error("Connection closed: {0}")]
-    ConnectionClosed(String),
-    
-    /// Error originating from underlying I/O operations
-    #[error("I/O error: {0}")]
-    IoError(String),
-}
-
-// Add conversion from canonical error type to this simplified one
-impl From<crate::error::transport::TransportError> for TransportError {
-    fn from(err: crate::error::transport::TransportError) -> Self {
-        match err {
-            crate::error::transport::TransportError::ConnectionFailed(msg) => 
-                Self::ConnectionFailed(msg),
-            crate::error::transport::TransportError::InvalidFrame(msg) => 
-                Self::InvalidFrame(msg),
-            crate::error::transport::TransportError::Timeout(msg) => 
-                Self::Timeout(msg),
-            crate::error::transport::TransportError::ProtocolError(msg) => 
-                Self::ProtocolError(msg),
-            crate::error::transport::TransportError::ConnectionClosed(msg) => 
-                Self::ConnectionClosed(msg),
-            crate::error::transport::TransportError::IoError(e) => 
-                Self::IoError(e.to_string()),
-            crate::error::transport::TransportError::SecurityError(msg) => 
-                Self::ConnectionFailed(format!("Security error: {msg}")),
-            crate::error::transport::TransportError::SerializationError(e) => 
-                Self::InvalidFrame(format!("Serialization error: {e}")),
-            crate::error::transport::TransportError::ConfigurationError(msg) => 
-                Self::ConnectionFailed(format!("Configuration error: {msg}")),
-            crate::error::transport::TransportError::UnsupportedOperation(msg) => 
-                Self::ProtocolError(format!("Unsupported operation: {msg}")),
-        }
-    }
-}
-
-// Update conversion from MCPError to TransportError
-impl From<MCPError> for TransportError {
-    fn from(err: MCPError) -> Self {
-        match err {
-            MCPError::Transport(e) => e,
-            MCPError::Protocol(e) => Self::ProtocolError(e.to_string()),
-            MCPError::Connection(e) => Self::ConnectionFailed(e.to_string()),
-            MCPError::Timeout(msg) => Self::Timeout(msg),
-            MCPError::NotConnected(msg) => Self::ConnectionClosed(msg),
-            _ => Self::ConnectionFailed(format!("Error converted from MCPError: {err}")),
-        }
-    }
-}
-
-// Add conversion from this simplified error type to canonical one
-impl From<TransportError> for crate::error::transport::TransportError {
-    fn from(err: TransportError) -> Self {
-        match err {
-            TransportError::ConnectionFailed(msg) => 
-                Self::ConnectionFailed(msg),
-            TransportError::InvalidFrame(msg) => 
-                Self::InvalidFrame(msg),
-            TransportError::Timeout(msg) => 
-                Self::Timeout(msg),
-            TransportError::ProtocolError(msg) => 
-                Self::ProtocolError(msg),
-            TransportError::ConnectionClosed(msg) => 
-                Self::ConnectionClosed(msg),
-            TransportError::IoError(msg) => 
-                Self::IoError(std::io::Error::new(std::io::ErrorKind::Other, msg)),
-        }
-    }
-}
-
-// Add implementation to directly use canonical error type in MCPError
-impl From<crate::error::transport::TransportError> for MCPError {
-    fn from(err: crate::error::transport::TransportError) -> Self {
-        Self::Transport(TransportError::from(err))
     }
 }
 
@@ -933,7 +759,7 @@ pub enum SecurityError {
 ///
 /// This enum represents errors that can occur when working with MCP contexts,
 /// including context lookup failures, validation errors, and synchronization issues.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum ContextError {
     /// Error that occurs when a context with the specified UUID cannot be found
     ///
@@ -963,15 +789,6 @@ impl std::fmt::Display for ContextError {
         }
     }
 }
-
-impl std::error::Error for ContextError {}
-
-// Fix the implementation using CoreErrorCode - we'll comment it out for now
-// impl From<&MCPError> for CoreErrorCode {
-//    fn from(err: &MCPError) -> Self {
-//        ...
-//    }
-// }
 
 /// Errors related to MCP session operations
 ///
@@ -1041,37 +858,35 @@ impl From<squirrel_core::error::PersistenceError> for MCPError {
 /// Represents errors that occur within the alert processing system,
 /// including notification failures, alert validation errors, and 
 /// alert delivery issues.
-#[derive(Debug, Clone)]
-pub struct AlertError(String);
-
-impl AlertError {
-    /// Creates a new `AlertError` with the specified message
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - Description of the alert error
-    ///
-    /// # Returns
-    ///
-    /// A new `AlertError` instance
-    #[must_use] pub const fn new(message: String) -> Self {
-        Self(message)
-    }
-}
-
-impl std::fmt::Display for AlertError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Alert error: {}", self.0)
-    }
-}
-
-impl std::error::Error for AlertError {}
-
-// Add implementation for From<SessionError> for MCPError
-impl From<SessionError> for MCPError {
-    fn from(err: SessionError) -> Self {
-        Self::Session(err)
-    }
+#[derive(Debug, Clone, Error)]
+pub enum AlertError {
+    /// Error that occurs when a notification fails to be sent
+    #[error("Notification failed: {0}")]
+    NotificationFailed(String),
+    
+    /// Error that occurs when an alert validation fails
+    #[error("Alert validation failed: {0}")]
+    ValidationFailed(String),
+    
+    /// Error that occurs when an alert delivery fails
+    #[error("Alert delivery failed: {0}")]
+    DeliveryFailed(String),
+    
+    /// Error that occurs when an alert processing fails
+    #[error("Alert processing failed: {0}")]
+    ProcessingFailed(String),
+    
+    /// Error that occurs when an alert is not found
+    #[error("Alert not found: {0}")]
+    NotFound(String),
+    
+    /// Error that occurs when an alert is already processed
+    #[error("Alert already processed: {0}")]
+    AlreadyProcessed(String),
+    
+    /// Error that occurs when an alert is not authorized
+    #[error("Alert not authorized: {0}")]
+    NotAuthorized(String),
 }
 
 /// Error context information for MCP errors
@@ -1287,5 +1102,19 @@ impl From<MCPError> for CoreError {
             MCPError::NotAuthorized(e) => Self::MCP(format!("Not authorized: {e}")),
             MCPError::InvalidState(e) => Self::MCP(format!("Invalid state: {e}")),
         }
+    }
+}
+
+// Add implementation to directly use TransportError in MCPError
+impl From<crate::error::transport::TransportError> for MCPError {
+    fn from(err: crate::error::transport::TransportError) -> Self {
+        Self::Transport(err)
+    }
+}
+
+// Add implementation for From<SessionError> for MCPError
+impl From<SessionError> for MCPError {
+    fn from(err: SessionError) -> Self {
+        Self::Session(err)
     }
 }

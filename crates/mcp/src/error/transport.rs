@@ -5,7 +5,7 @@ use thiserror::Error;
 use super::types::MCPError;
 
 /// Errors that can occur in the transport layer
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum TransportError {
     /// Error when a connection could not be established with the remote endpoint
     #[error("Connection failed: {0}")]
@@ -20,8 +20,8 @@ pub enum TransportError {
     Timeout(String),
 
     /// Error originating from underlying I/O operations
-    #[error("IO error: {0}")]
-    IoError(std::io::Error),
+    #[error("I/O error: {0}")]
+    IoError(String),
 
     /// Error related to the communication protocol, such as invalid message format or sequence
     #[error("Protocol error: {0}")]
@@ -37,7 +37,7 @@ pub enum TransportError {
 
     /// Error during serialization or deserialization of messages
     #[error("Serialization error: {0}")]
-    SerializationError(serde_json::Error),
+    SerializationError(String),
 
     /// Error due to invalid or incompatible configuration parameters
     #[error("Configuration error: {0}")]
@@ -92,7 +92,7 @@ impl From<io::Error> for TransportError {
             io::ErrorKind::InvalidData => Self::InvalidFrame(err.to_string()),
             io::ErrorKind::InvalidInput => Self::ProtocolError(err.to_string()),
             io::ErrorKind::UnexpectedEof => Self::ConnectionClosed(err.to_string()),
-            _ => Self::IoError(err),
+            _ => Self::IoError(err.to_string()),
         }
     }
 }
@@ -105,29 +105,16 @@ impl From<tokio::sync::mpsc::error::SendError<crate::types::MCPMessage>> for Tra
 
 impl From<serde_json::Error> for TransportError {
     fn from(err: serde_json::Error) -> Self {
-        Self::SerializationError(err)
+        Self::SerializationError(err.to_string())
     }
 }
 
 impl From<MCPError> for TransportError {
     fn from(error: MCPError) -> Self {
         match error {
-            MCPError::Transport(transport_error) => {
-                match transport_error {
-                    crate::error::types::TransportError::ConnectionFailed(msg) => 
-                        Self::connection_failed(msg),
-                    crate::error::types::TransportError::InvalidFrame(msg) => 
-                        Self::invalid_frame(msg),
-                    crate::error::types::TransportError::Timeout(msg) => 
-                        Self::timeout(msg),
-                    crate::error::types::TransportError::ProtocolError(msg) => 
-                        Self::protocol_error(msg),
-                    crate::error::types::TransportError::ConnectionClosed(msg) => 
-                        Self::connection_closed(msg),
-                    crate::error::types::TransportError::IoError(msg) => 
-                        Self::IoError(std::io::Error::new(std::io::ErrorKind::Other, msg)),
-                }
-            },
+            // This is a recursive case that should not happen in practice once
+            // all code is migrated, but we include it for safety
+            MCPError::Transport(transport_error) => transport_error,
             _ => Self::protocol_error(format!("Error converted from MCPError: {error}")),
         }
     }
