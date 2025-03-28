@@ -98,6 +98,14 @@ pub struct TransportMetadata {
 /// mechanism, allowing MCP components to communicate without knowledge of
 /// the specific transport being used.
 ///
+/// ## Implementations
+///
+/// The following implementations are provided:
+/// - `TcpTransport`: TCP/IP-based transport for reliable network communication
+/// - `WebSocketTransport`: WebSocket-based transport for web integration
+/// - `StdioTransport`: Standard I/O-based transport for interprocess communication
+/// - `MemoryChannel`: In-memory transport for testing and internal communication
+///
 /// ## Design Notes
 ///
 /// All methods in this trait operate on `&self` rather than `&mut self` to support
@@ -156,6 +164,13 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// Result indicating success or error
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The transport is not connected
+    /// - The message cannot be serialized
+    /// - The connection is lost during the send operation
     async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError>;
 
     /// Receive a message from the transport
@@ -166,6 +181,14 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// Result containing the received message or an error
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The transport is not connected
+    /// - The connection is lost while waiting for a message
+    /// - The message cannot be deserialized
+    /// - A timeout occurs while waiting for a message
     async fn receive_message(&self) -> Result<MCPMessage, TransportError>;
 
     /// Connect to the transport target
@@ -177,6 +200,14 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// Result indicating success or error
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The connection cannot be established
+    /// - A timeout occurs while attempting to connect
+    /// - The transport is already connected
+    /// - The connection parameters are invalid
     async fn connect(&mut self) -> Result<(), TransportError>;
 
     /// Disconnect from the transport target
@@ -188,6 +219,12 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// Result indicating success or error
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The transport is not connected
+    /// - An error occurs while closing the connection
     async fn disconnect(&self) -> Result<(), TransportError>;
 
     /// Check if the transport is connected
@@ -195,6 +232,7 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// True if the transport is currently connected, false otherwise
+    #[must_use]
     async fn is_connected(&self) -> bool;
 
     /// Get transport metadata
@@ -205,6 +243,7 @@ pub trait Transport: Send + Sync {
     /// # Returns
     ///
     /// Metadata about the transport connection
+    #[must_use]
     fn get_metadata(&self) -> TransportMetadata;
 }
 

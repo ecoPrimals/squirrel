@@ -17,7 +17,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::{mpsc, RwLock, Mutex};
 use tokio::net::TcpStream;
-use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 use socket2;
 
@@ -121,6 +120,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_remote_address(mut self, address: &str) -> Self {
         self.remote_address = address.to_string();
         self
@@ -135,6 +135,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_local_bind_address(mut self, address: &str) -> Self {
         self.local_bind_address = Some(address.to_string());
         self
@@ -149,6 +150,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_max_message_size(mut self, size: usize) -> Self {
         self.max_message_size = size;
         self
@@ -163,6 +165,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_connection_timeout(mut self, timeout_ms: u64) -> Self {
         self.connection_timeout = timeout_ms / 1000;
         if self.connection_timeout == 0 {
@@ -180,6 +183,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_keep_alive_interval(mut self, interval_ms: Option<u64>) -> Self {
         self.keep_alive_interval = interval_ms.map(|ms| ms / 1000);
         self
@@ -189,13 +193,14 @@ impl TcpTransportConfig {
     ///
     /// # Arguments
     ///
-    /// * `format` - The encryption format to use
+    /// * `encryption_format` - The encryption format to use
     ///
     /// # Returns
     ///
     /// The updated configuration
-    pub fn with_encryption(mut self, format: crate::types::EncryptionFormat) -> Self {
-        self.encryption = format;
+    #[must_use]
+    pub fn with_encryption(mut self, encryption_format: crate::types::EncryptionFormat) -> Self {
+        self.encryption = encryption_format;
         self
     }
     
@@ -203,13 +208,14 @@ impl TcpTransportConfig {
     ///
     /// # Arguments
     ///
-    /// * `format` - The compression format to use
+    /// * `compression_format` - The compression format to use
     ///
     /// # Returns
     ///
     /// The updated configuration
-    pub fn with_compression(mut self, format: crate::types::CompressionFormat) -> Self {
-        self.compression = format;
+    #[must_use]
+    pub fn with_compression(mut self, compression_format: crate::types::CompressionFormat) -> Self {
+        self.compression = compression_format;
         self
     }
     
@@ -217,13 +223,14 @@ impl TcpTransportConfig {
     ///
     /// # Arguments
     ///
-    /// * `attempts` - Maximum reconnection attempts
+    /// * `max_attempts` - Maximum number of reconnection attempts
     ///
     /// # Returns
     ///
     /// The updated configuration
-    pub fn with_max_reconnect_attempts(mut self, attempts: u32) -> Self {
-        self.max_reconnect_attempts = attempts;
+    #[must_use]
+    pub fn with_max_reconnect_attempts(mut self, max_attempts: u32) -> Self {
+        self.max_reconnect_attempts = max_attempts;
         self
     }
     
@@ -236,6 +243,7 @@ impl TcpTransportConfig {
     /// # Returns
     ///
     /// The updated configuration
+    #[must_use]
     pub fn with_reconnect_delay_ms(mut self, delay_ms: u64) -> Self {
         self.reconnect_delay_ms = delay_ms;
         self
@@ -308,23 +316,27 @@ pub struct TcpTransport {
 }
 
 impl TcpTransport {
-    /// Create a new TCP transport
+    /// Creates a new TCP transport with the specified configuration
     ///
-    /// Initializes a new TCP transport with the given configuration.
-    /// The transport starts in a disconnected state and needs to be explicitly
-    /// connected before use.
+    /// This method initializes the transport but does not establish a connection.
+    /// You must call `connect()` before sending or receiving messages.
     ///
     /// # Arguments
     ///
-    /// * `config` - Configuration for the TCP transport
+    /// * `config` - The TCP transport configuration
     ///
     /// # Returns
     ///
-    /// A new TcpTransport instance
+    /// A new TCP transport instance
+    #[must_use]
     pub fn new(config: TcpTransportConfig) -> Self {
-        // Create message channels
-        let (msg_tx, _) = mpsc::channel(100);
+        // Create message channel for sending
+        let (tx, rx) = mpsc::channel(100);
         
+        // Clone the receiver for the constructor
+        let rx_option = Some(rx);
+        
+        // Create metadata
         let metadata = TransportMetadata {
             transport_type: "tcp".to_string(),
             remote_address: config.remote_address.clone(),
@@ -333,12 +345,15 @@ impl TcpTransport {
             compression: config.compression,
         };
         
+        // Generate a unique connection ID
+        let connection_id = Uuid::new_v4().to_string();
+        
         Self {
             config,
             state: Arc::new(RwLock::new(TcpTransportState::Disconnected)),
-            message_sender: Arc::new(Mutex::new(msg_tx)),
-            frame_receiver: Arc::new(Mutex::new(None)),
-            connection_id: Uuid::new_v4().to_string(),
+            message_sender: Arc::new(Mutex::new(tx)),
+            frame_receiver: Arc::new(Mutex::new(rx_option)),
+            connection_id,
             metadata,
         }
     }
@@ -361,8 +376,8 @@ impl TcpTransport {
     {
         let addr = self.config.remote_address.clone();
         if addr.is_empty() {
-            return Err(TransportError::ConnectionFailed(
-                "TCP transport requires a remote address".into()
+            return Err(TransportError::connection_failed(
+                "TCP transport requires a remote address"
             ));
         }
         
@@ -489,35 +504,44 @@ impl TcpTransport {
 #[async_trait]
 impl Transport for TcpTransport {
     async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
-        // Make sure we're connected
+        // Check if the transport is connected
         if !self.is_connected().await {
-            return Err(TransportError::ConnectionClosed(
-                "Not connected".into()
+            return Err(TransportError::connection_closed(
+                "Cannot send message: not connected"
             ));
         }
         
-        // Send the message to the channel, which will be picked up by the writer task
-        self.message_sender.lock().await.send(message).await.map_err(|e| {
-            TransportError::ConnectionClosed(format!("Failed to send message: {}", e))
-        })?;
+        // Get the message sender
+        let sender = {
+            let guard = self.message_sender.lock().await;
+            guard.clone()
+        };
         
-        Ok(())
+        // Send the message
+        sender.send(message).await.map_err(|e| {
+            TransportError::protocol_error(format!("Failed to send message: {e}"))
+        })
     }
     
     async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
-        // Get the receiver from the mutex
-        let mut frame_rx = self.frame_receiver.lock().await;
-        if frame_rx.is_none() {
-            return Err(TransportError::ConnectionClosed(
-                "No active stream to receive messages from".into()
+        // Check if the transport is connected
+        if !self.is_connected().await {
+            return Err(TransportError::connection_closed(
+                "Cannot receive message: not connected"
             ));
         }
         
-        // Wait for a message from the receiver
-        match frame_rx.as_mut().unwrap().recv().await {
+        // Get the frame receiver
+        let mut receiver_opt = self.frame_receiver.lock().await;
+        let receiver = receiver_opt.as_mut().ok_or_else(|| {
+            TransportError::protocol_error("No receiver available")
+        })?;
+        
+        // Wait for a message
+        match receiver.recv().await {
             Some(message) => Ok(message),
-            None => Err(TransportError::ConnectionClosed(
-                "Channel closed".into()
+            None => Err(TransportError::connection_closed(
+                "Connection closed while receiving message"
             )),
         }
     }
@@ -537,7 +561,7 @@ impl Transport for TcpTransport {
                 let mut state = self.state.write().await;
                 *state = TcpTransportState::Failed(e.to_string());
                 
-                return Err(TransportError::ConnectionFailed(format!(
+                return Err(TransportError::connection_failed(format!(
                     "Failed to connect to {}: {}", 
                     self.config.remote_address, e
                 )));
@@ -546,25 +570,25 @@ impl Transport for TcpTransport {
         
         // Configure the stream
         stream.set_nodelay(true).map_err(|e| {
-            TransportError::ConnectionFailed(format!("Failed to set nodelay: {}", e))
+            TransportError::connection_failed(format!("Failed to set nodelay: {}", e))
         })?;
         
         if let Some(interval) = self.config.keep_alive_interval {
             // We need to use socket2 to set keepalive on TcpStream
             // First get the std TcpStream, then create socket2::Socket from it
             let socket = socket2::Socket::from(stream.into_std().map_err(|e| {
-                TransportError::ConnectionFailed(format!("Failed to get std socket: {}", e))
+                TransportError::connection_failed(format!("Failed to get std socket: {}", e))
             })?);
             
             // Set keep-alive
             socket.set_keepalive(true).map_err(|e| {
-                TransportError::ConnectionFailed(format!("Failed to set keepalive: {}", e))
+                TransportError::connection_failed(format!("Failed to set keepalive: {}", e))
             })?;
             
             // Set keep-alive parameters if available on this platform
             #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
             socket.set_tcp_keepalive(&socket2::TcpKeepalive::new().with_time(std::time::Duration::from_secs(interval))).map_err(|e| {
-                TransportError::ConnectionFailed(format!("Failed to set keepalive parameters: {}", e))
+                TransportError::connection_failed(format!("Failed to set keepalive parameters: {}", e))
             })?;
             
             // Convert Socket to std::net::TcpStream explicitly

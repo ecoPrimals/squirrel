@@ -51,6 +51,7 @@ pub struct Metric {
 
 impl Metric {
     /// Create a new counter metric
+    #[must_use]
     pub fn new_counter(name: impl Into<String>, value: u64) -> Self {
         Self {
             name: name.into(),
@@ -61,6 +62,7 @@ impl Metric {
     }
 
     /// Create a new gauge metric
+    #[must_use]
     pub fn new_gauge(name: impl Into<String>, value: i64) -> Self {
         Self {
             name: name.into(),
@@ -71,6 +73,7 @@ impl Metric {
     }
 
     /// Create a new histogram metric
+    #[must_use]
     pub fn new_histogram(name: impl Into<String>, values: Vec<f64>) -> Self {
         Self {
             name: name.into(),
@@ -81,6 +84,7 @@ impl Metric {
     }
 
     /// Create a new timer metric
+    #[must_use]
     pub fn new_timer(name: impl Into<String>, values: Vec<f64>) -> Self {
         Self {
             name: name.into(),
@@ -104,6 +108,7 @@ pub struct MetricsTimer {
 
 impl MetricsTimer {
     /// Create a new timer
+    #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -113,6 +118,7 @@ impl MetricsTimer {
     }
 
     /// Create a new timer with a collector
+    #[must_use]
     pub fn with_collector(name: impl Into<String>, collector: Arc<MetricsCollector>) -> Self {
         Self {
             name: name.into(),
@@ -122,11 +128,13 @@ impl MetricsTimer {
     }
 
     /// Get the elapsed time
+    #[must_use]
     pub fn elapsed(&self) -> Duration {
         self.start.elapsed()
     }
 
     /// Stop the timer and return the elapsed time
+    #[must_use]
     pub fn stop(self) -> Duration {
         let elapsed = self.elapsed();
         if let Some(collector) = self.collector {
@@ -153,6 +161,7 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     /// Create a new metrics collector
+    #[must_use]
     pub fn new() -> Self {
         Self {
             counters: RwLock::new(HashMap::new()),
@@ -164,6 +173,7 @@ impl MetricsCollector {
     }
 
     /// Create a test metrics collector
+    #[must_use]
     pub fn new_test() -> Self {
         Self {
             counters: RwLock::new(HashMap::new()),
@@ -175,25 +185,39 @@ impl MetricsCollector {
     }
 
     /// Increment a counter
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the underlying RwLock is poisoned
     pub fn increment_counter(&self, name: &str) {
-        let mut counters = self.counters.write().unwrap();
-        let counter = counters
+        let mut counters_guard = self.counters.write().unwrap();
+        let counter = counters_guard
             .entry(name.to_string())
             .or_insert_with(|| AtomicU64::new(0));
         counter.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Set a gauge
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the underlying RwLock is poisoned
     pub fn set_gauge(&self, name: &str, value: i64) {
         let mut gauges = self.gauges.write().unwrap();
         gauges.insert(name.to_string(), value);
     }
 
     /// Record a histogram value
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the underlying RwLock is poisoned
     pub fn record_histogram(&self, name: &str, value: Duration) {
         let millis = value.as_millis() as f64;
-        let mut histograms = self.histograms.write().unwrap();
-        let values = histograms.entry(name.to_string()).or_insert_with(Vec::new);
+        let mut histograms_guard = self.histograms.write().unwrap();
+        let values = histograms_guard
+            .entry(name.to_string())
+            .or_insert_with(Vec::new);
         
         if values.len() >= self.max_histogram_size {
             values.remove(0); // Remove oldest value if at capacity
@@ -203,45 +227,64 @@ impl MetricsCollector {
     }
 
     /// Start a timer
+    #[must_use]
     pub fn start_timer(&self, name: &str) -> MetricsTimer {
         MetricsTimer::with_collector(name, Arc::new(self.clone()))
     }
 
     /// Get all metrics
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if any of the underlying RwLocks are poisoned
+    #[must_use]
     pub fn get_metrics(&self) -> Vec<Metric> {
         let mut metrics = Vec::new();
         
         // Add counters
-        let counters = self.counters.read().unwrap();
-        for (name, counter) in counters.iter() {
-            metrics.push(Metric::new_counter(
-                name.clone(),
-                counter.load(Ordering::SeqCst),
-            ));
+        {
+            let counters = self.counters.read().unwrap();
+            for (name, counter) in counters.iter() {
+                metrics.push(Metric::new_counter(
+                    name.clone(),
+                    counter.load(Ordering::SeqCst),
+                ));
+            }
         }
         
         // Add gauges
-        let gauges = self.gauges.read().unwrap();
-        for (name, value) in gauges.iter() {
-            metrics.push(Metric::new_gauge(name.clone(), *value));
+        {
+            let gauges = self.gauges.read().unwrap();
+            for (name, value) in gauges.iter() {
+                metrics.push(Metric::new_gauge(name.clone(), *value));
+            }
         }
         
         // Add histograms
-        let histograms = self.histograms.read().unwrap();
-        for (name, values) in histograms.iter() {
-            metrics.push(Metric::new_histogram(name.clone(), values.clone()));
+        {
+            let histograms = self.histograms.read().unwrap();
+            for (name, values) in histograms.iter() {
+                metrics.push(Metric::new_histogram(name.clone(), values.clone()));
+            }
         }
         
         // Add timers
-        let timers = self.timers.read().unwrap();
-        for (name, values) in timers.iter() {
-            metrics.push(Metric::new_timer(name.clone(), values.clone()));
+        {
+            let timers = self.timers.read().unwrap();
+            for (name, values) in timers.iter() {
+                metrics.push(Metric::new_timer(name.clone(), values.clone()));
+            }
         }
         
         metrics
     }
 
     /// Get a counter value
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the underlying RwLock is poisoned
+    #[must_use]
     pub fn get_counter(&self, name: &str) -> Option<u64> {
         let counters = self.counters.read().unwrap();
         counters.get(name).map(|c| c.load(Ordering::SeqCst))

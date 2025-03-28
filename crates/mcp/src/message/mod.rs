@@ -36,16 +36,17 @@ pub enum MessageType {
 
 impl MessageType {
     /// Convert MessageType to a string representation
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
-            MessageType::Request => "request",
-            MessageType::Response => "response",
-            MessageType::Notification => "notification",
-            MessageType::StreamChunk => "stream_chunk",
-            MessageType::Error => "error",
-            MessageType::Control => "control",
-            MessageType::System => "system",
-            MessageType::Any => "any",
+            Self::Request => "request",
+            Self::Response => "response",
+            Self::Notification => "notification",
+            Self::StreamChunk => "stream_chunk",
+            Self::Error => "error",
+            Self::Control => "control",
+            Self::System => "system",
+            Self::Any => "any",
         }
     }
 }
@@ -142,6 +143,7 @@ pub struct Message {
 
 impl Message {
     /// Create a new message
+    #[must_use]
     pub fn new(
         message_type: MessageType,
         content: String,
@@ -165,16 +167,19 @@ impl Message {
     }
     
     /// Create a builder for creating a new Message
+    #[must_use]
     pub fn builder() -> MessageBuilder {
         MessageBuilder::new()
     }
     
     /// Create a new request message
+    #[must_use]
     pub fn request(content: String, source: String, destination: String) -> Self {
         Self::new(MessageType::Request, content, source, destination)
     }
     
     /// Create a new response message
+    #[must_use]
     pub fn response(content: String, source: String, destination: String, request_id: &str) -> Self {
         let mut msg = Self::new(MessageType::Response, content, source, destination);
         msg.in_reply_to = Some(request_id.to_string());
@@ -182,21 +187,25 @@ impl Message {
     }
     
     /// Create a notification message
+    #[must_use]
     pub fn notification(content: String, source: String, destination: String) -> Self {
         Self::new(MessageType::Notification, content, source, destination)
     }
     
     /// Create an error message
+    #[must_use]
     pub fn error(content: String, source: String, destination: String) -> Self {
         Self::new(MessageType::Error, content, source, destination)
     }
     
     /// Create a system message
+    #[must_use]
     pub fn system(content: String, source: String, destination: String) -> Self {
         Self::new(MessageType::System, content, source, destination)
     }
     
     /// Set message priority
+    #[must_use]
     pub fn with_priority(mut self, priority: MessagePriority) -> Self {
         self.priority = priority;
         self
@@ -412,7 +421,8 @@ pub struct MessageBuilder {
 }
 
 impl MessageBuilder {
-    /// Create a new MessageBuilder with default values
+    /// Create a new message builder
+    #[must_use]
     pub fn new() -> Self {
         Self {
             message_type: None,
@@ -428,64 +438,69 @@ impl MessageBuilder {
         }
     }
     
-    /// Set message ID
+    /// Set message ID explicitly
+    #[must_use]
     pub fn with_id<T: Into<String>>(mut self, id: T) -> Self {
-        let id_string = id.into();
-        self.metadata.insert("id".to_string(), id_string.clone());
+        self.metadata.insert("id".to_string(), id.into());
         self
     }
     
-    /// Set correlation ID (same as in_reply_to for compatibility)
+    /// Set correlation ID
+    #[must_use]
     pub fn with_correlation_id<T: Into<String>>(mut self, correlation_id: T) -> Self {
         self.in_reply_to = Some(correlation_id.into());
         self
     }
     
-    /// Set the message type
+    /// Set message type
+    #[must_use]
     pub fn with_message_type<T: AsRef<str>>(mut self, message_type: T) -> Self {
-        let type_str = message_type.as_ref().to_lowercase();
-        self.message_type = Some(match type_str.as_str() {
+        self.message_type = Some(match message_type.as_ref() {
             "request" => MessageType::Request,
             "response" => MessageType::Response,
             "notification" => MessageType::Notification,
+            "stream_chunk" => MessageType::StreamChunk,
             "error" => MessageType::Error,
             "control" => MessageType::Control,
             "system" => MessageType::System,
-            "stream_chunk" => MessageType::StreamChunk,
             "any" => MessageType::Any,
             _ => MessageType::Notification,
         });
         self
     }
     
-    /// Set the message content
+    /// Set message content
+    #[must_use]
     pub fn with_content<T: Into<String>>(mut self, content: T) -> Self {
         self.content = Some(content.into());
         self
     }
     
-    /// Set the binary payload
+    /// Set binary payload
+    #[must_use]
     pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
         self.binary_payload = Some(payload);
         self
     }
     
-    /// Set the source
+    /// Set message source
+    #[must_use]
     pub fn with_source<T: Into<String>>(mut self, source: T) -> Self {
         self.source = Some(source.into());
         self
     }
     
-    /// Set the destination
+    /// Set message destination
+    #[must_use]
     pub fn with_destination<T: Into<String>>(mut self, destination: T) -> Self {
         self.destination = Some(destination.into());
         self
     }
     
-    /// Set the message priority
+    /// Set message priority 
+    #[must_use]
     pub fn with_priority<T: AsRef<str>>(mut self, priority: T) -> Self {
-        let priority_str = priority.as_ref().to_lowercase();
-        self.priority = match priority_str.as_str() {
+        self.priority = match priority.as_ref() {
             "low" => MessagePriority::Low,
             "normal" => MessagePriority::Normal,
             "high" => MessagePriority::High,
@@ -495,78 +510,74 @@ impl MessageBuilder {
         self
     }
     
-    /// Set the in_reply_to field
+    /// Set in_reply_to field
+    #[must_use]
     pub fn in_reply_to<T: Into<String>>(mut self, message_id: T) -> Self {
         self.in_reply_to = Some(message_id.into());
         self
     }
     
-    /// Alias for in_reply_to for backward compatibility
-    pub fn with_in_reply_to<T: Into<String>>(mut self, message_id: T) -> Self {
-        self.in_reply_to = Some(message_id.into());
-        self
+    /// Alias for in_reply_to
+    #[must_use]
+    pub fn with_in_reply_to<T: Into<String>>(self, message_id: T) -> Self {
+        self.in_reply_to(message_id)
     }
     
-    /// Set the context ID
+    /// Set context ID
+    #[must_use]
     pub fn with_context<T: Into<String>>(mut self, context_id: T) -> Self {
         self.context_id = Some(context_id.into());
         self
     }
     
-    /// Set the topic
+    /// Set topic
+    #[must_use]
     pub fn with_topic<T: Into<String>>(mut self, topic: T) -> Self {
         self.topic = Some(topic.into());
         self
     }
     
-    /// Add metadata
+    /// Add metadata key/value pair
+    #[must_use]
     pub fn with_metadata<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
     
-    /// Add multiple metadata entries
+    /// Set all metadata at once
+    #[must_use]
     pub fn with_metadata_map(mut self, metadata: HashMap<String, String>) -> Self {
-        self.metadata.extend(metadata);
+        self.metadata = metadata;
         self
     }
     
-    /// Set the payload as a JSON value
+    /// Set payload from a JSON value
+    #[must_use]
     pub fn with_payload<T: Into<serde_json::Value>>(mut self, payload: T) -> Self {
-        let payload_json = payload.into();
-        self.content = Some(payload_json.to_string());
+        let json = serde_json::to_string(&payload.into()).unwrap_or_default();
+        self.content = Some(json);
         self
     }
     
     /// Build the Message
+    #[must_use]
     pub fn build(self) -> Message {
         let message_type = self.message_type.unwrap_or(MessageType::Notification);
-        let content = self.content.unwrap_or_else(|| String::new());
+        let content = self.content.unwrap_or_default();
         let source = self.source.unwrap_or_else(|| "unknown".to_string());
         let destination = self.destination.unwrap_or_else(|| "*".to_string());
         
         let mut message = Message::new(message_type, content, source, destination);
         
         // Set the id from metadata if it exists
-        if let Some(id) = self.metadata.get("id") {
-            message.id = id.clone();
+        if let Some(id) = self.metadata.get("id").cloned() {
+            message.id = id;
         }
         
-        if let Some(binary_payload) = self.binary_payload {
-            message.binary_payload = Some(binary_payload);
-        }
-        
-        if let Some(in_reply_to) = self.in_reply_to {
-            message.in_reply_to = Some(in_reply_to);
-        }
-        
-        if let Some(context_id) = self.context_id {
-            message.context_id = Some(context_id);
-        }
-        
-        if let Some(topic) = self.topic {
-            message.topic = Some(topic);
-        }
+        message.binary_payload = self.binary_payload;
+        message.in_reply_to = self.in_reply_to;
+        message.context_id = self.context_id;
+        message.topic = self.topic;
         
         message.priority = self.priority;
         message.metadata = self.metadata;
@@ -588,24 +599,28 @@ pub mod codec {
     use crate::error::transport::TransportError;
     
     /// Serialize a message to JSON
+    #[must_use]
     pub fn serialize_message(message: &Message) -> Result<String> {
         serde_json::to_string(message)
             .map_err(|e| TransportError::SerializationError(e).into())
     }
     
     /// Deserialize a message from JSON
+    #[must_use]
     pub fn deserialize_message(json: &str) -> Result<Message> {
         serde_json::from_str(json)
             .map_err(|e| TransportError::SerializationError(e).into())
     }
     
     /// Serialize a message to binary format (JSON in this implementation)
+    #[must_use]
     pub fn serialize_message_binary(message: &Message) -> Result<Vec<u8>> {
         serde_json::to_vec(message)
             .map_err(|e| TransportError::SerializationError(e).into())
     }
     
     /// Deserialize a message from binary format
+    #[must_use]
     pub fn deserialize_message_binary(data: &[u8]) -> Result<Message> {
         serde_json::from_slice(data)
             .map_err(|e| TransportError::SerializationError(e).into())

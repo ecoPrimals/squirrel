@@ -54,6 +54,7 @@ impl Frame {
     /// # Returns
     ///
     /// A new Frame instance containing the payload
+    #[must_use]
     pub fn new(payload: BytesMut) -> Self {
         Self { payload }
     }
@@ -63,6 +64,7 @@ impl Frame {
     /// # Returns
     ///
     /// A reference to the frame's payload
+    #[must_use]
     pub fn payload(&self) -> &BytesMut {
         &self.payload
     }
@@ -72,6 +74,7 @@ impl Frame {
     /// # Returns
     ///
     /// The length of the frame payload
+    #[must_use]
     pub fn len(&self) -> usize {
         self.payload.len()
     }
@@ -81,6 +84,7 @@ impl Frame {
     /// # Returns
     ///
     /// True if the frame payload is empty, false otherwise
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.payload.is_empty()
     }
@@ -109,6 +113,7 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
     /// # Returns
     ///
     /// A new FrameReader instance
+    #[must_use]
     pub fn new(reader: R) -> Self {
         Self { 
             reader,
@@ -127,6 +132,13 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
     /// * `Ok(Some(Frame))` - A complete frame was read successfully
     /// * `Ok(None)` - The stream is at EOF with no pending frames
     /// * `Err(...)` - An error occurred while reading
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - There is an I/O error reading from the underlying stream
+    /// - The frame format is invalid
+    /// - The end of stream is reached with a partial frame
     pub async fn read_frame(&mut self) -> crate::error::Result<Option<Frame>> {
         // If the buffer is empty, try to read some data
         if self.buffer.is_empty() {
@@ -137,19 +149,23 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
         }
         
         // Check if we have at least a complete header
-        if self.buffer.len() < 4 {
+        if self.buffer.len() < HEADER_SIZE {
             // Not enough data for header, try to read more
             if self.read_to_buffer().await? == 0 {
                 // EOF, incomplete frame
                 if !self.buffer.is_empty() {
-                    return Err(TransportError::InvalidFrame("Incomplete frame at end of stream".into()).into());
+                    return Err(TransportError::InvalidFrame(
+                        format!("Incomplete frame at end of stream: received {} bytes", self.buffer.len())
+                    ).into());
                 }
                 return Ok(None);
             }
             
             // Still not enough for header?
-            if self.buffer.len() < 4 {
-                return Err(TransportError::InvalidFrame("Incomplete frame header".into()).into());
+            if self.buffer.len() < HEADER_SIZE {
+                return Err(TransportError::InvalidFrame(
+                    format!("Incomplete frame header: only {} bytes available", self.buffer.len())
+                ).into());
             }
         }
         
@@ -241,6 +257,7 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
     /// # Returns
     ///
     /// A new FrameWriter instance
+    #[must_use]
     pub fn new(writer: W) -> Self {
         Self { writer }
     }
@@ -310,7 +327,8 @@ impl MessageCodec {
     ///
     /// # Returns
     ///
-    /// A new MessageCodec instance
+    /// A new MessageCodec instance for encoding and decoding messages
+    #[must_use]
     pub fn new() -> Self {
         Self {}
     }

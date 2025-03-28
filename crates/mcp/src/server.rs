@@ -65,7 +65,6 @@ use crate::message::{Message, MessageBuilder};
 use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject};
 use crate::session::Session;
 use crate::message_router::{MessageRouter, MessageHandler, HandlerPriority, MessageRouterError};
-use crate::error::transport::TransportError;
 use crate::error::types::TransportError as SimplifiedTransportError;
 
 use async_trait::async_trait;
@@ -430,7 +429,7 @@ impl MCPServer {
                             Some(transport_mut) => transport_mut.receive_message().await,
                             None => {
                                 // If we can't get a mutable reference, log an error and break
-                                eprintln!("Failed to get mutable reference to transport for client {}", client_id_clone);
+                                error!("Failed to get mutable reference to transport for client {}", client_id_clone);
                                 break;
                             }
                         };
@@ -445,17 +444,17 @@ impl MCPServer {
                             Err(e) => {
                                 // Handle transport errors
                                 match e {
-                                    TransportError::ConnectionClosed(msg) => {
+                                    crate::error::transport::TransportError::ConnectionClosed(msg) => {
                                         warn!("Connection closed: {}", msg);
                                         break;
                                     },
-                                    TransportError::Timeout(msg) => {
+                                    crate::error::transport::TransportError::Timeout(msg) => {
                                         warn!("Transport timeout: {}", msg);
                                         continue 'outer_loop;
                                     },
                                     _ => {
                                         // Other errors are critical
-                                        eprintln!("Transport error from client {}: {}", client_id_clone, e);
+                                        error!("Transport error from client {}: {}", client_id_clone, e);
                                         break;
                                     }
                                 }
@@ -521,12 +520,14 @@ impl MCPServer {
     }
     
     /// Check if the server is running
+    #[must_use]
     pub async fn is_running(&self) -> bool {
         let state = self.state.read().await;
         *state == ServerState::Running
     }
     
     /// Get the current server state
+    #[must_use]
     pub async fn get_state(&self) -> ServerState {
         let state = self.state.read().await;
         *state
@@ -552,18 +553,21 @@ impl MCPServer {
     }
     
     /// Get the last error
+    #[must_use]
     pub async fn get_last_error(&self) -> Option<MCPError> {
         let error = self.last_error.read().await;
         error.clone()
     }
     
     /// Get the number of connected clients
+    #[must_use]
     pub async fn get_client_count(&self) -> usize {
         let clients = self.clients.read().await;
         clients.len()
     }
     
     /// Get a list of connected client IDs
+    #[must_use]
     pub async fn get_connected_clients(&self) -> Vec<String> {
         let clients = self.clients.read().await;
         clients.keys().cloned().collect()
@@ -597,7 +601,7 @@ impl MCPServer {
                 Err(e) => Err(e)
             }
         } else {
-            Err(MCPError::General(format!("No handler found for command type: {}", command_type)))
+            Err(MCPError::General(format!("No handler found for command type: {command_type}")))
         }
     }
     
@@ -639,7 +643,7 @@ impl MCPServer {
                 tokio::select! {
                     // Check for shutdown signal
                     _ = &mut shutdown_fut => {
-                        eprintln!("Shutdown signal received, stopping listener");
+                        error!("Shutdown signal received, stopping listener");
                         break;
                     },
                     

@@ -29,12 +29,12 @@ pub enum LogLevel {
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LogLevel::Trace => write!(f, "TRACE"),
-            LogLevel::Debug => write!(f, "DEBUG"),
-            LogLevel::Info => write!(f, "INFO"),
-            LogLevel::Warn => write!(f, "WARN"),
-            LogLevel::Error => write!(f, "ERROR"),
-            LogLevel::Critical => write!(f, "CRITICAL"),
+            Self::Trace => write!(f, "TRACE"),
+            Self::Debug => write!(f, "DEBUG"),
+            Self::Info => write!(f, "INFO"),
+            Self::Warn => write!(f, "WARN"),
+            Self::Error => write!(f, "ERROR"),
+            Self::Critical => write!(f, "CRITICAL"),
         }
     }
 }
@@ -56,6 +56,7 @@ pub struct LogEntry {
 
 impl LogEntry {
     /// Create a new log entry
+    #[must_use]
     pub fn new(
         level: LogLevel,
         message: impl Into<String>,
@@ -67,7 +68,7 @@ impl LogEntry {
             level,
             message: message.into(),
             component: component.into(),
-            context: context.unwrap_or(json!({})),
+            context: context.unwrap_or_else(|| json!({})),
         }
     }
 }
@@ -83,6 +84,7 @@ pub struct Logger {
 
 impl Logger {
     /// Create a new logger with the specified component name
+    #[must_use]
     pub fn new(component: impl Into<String>) -> Self {
         Self {
             component: component.into(),
@@ -91,6 +93,7 @@ impl Logger {
     }
 
     /// Create a test logger with simplified output
+    #[must_use]
     pub fn new_test() -> Self {
         Self {
             component: "test".to_string(),
@@ -106,7 +109,7 @@ impl Logger {
         context: Option<serde_json::Value>,
     ) {
         let message = message.into();
-        let entry = LogEntry::new(level, message.clone(), self.component.clone(), context);
+        let entry = LogEntry::new(level, message, self.component.clone(), context);
         
         // Use tracing for actual logging
         match level {
@@ -127,10 +130,10 @@ impl Logger {
             String::new()
         };
 
-        let context = if entry.context != json!({}) {
-            format!(" {}", entry.context)
-        } else {
+        let context = if entry.context == json!({}) {
             String::new()
+        } else {
+            format!(" {}", entry.context)
         };
 
         format!(
@@ -169,6 +172,7 @@ impl Logger {
     }
 
     /// Create a child logger with a sub-component name
+    #[must_use]
     pub fn with_subcomponent(&self, subcomponent: impl Into<String>) -> Self {
         let component = format!("{}:{}", self.component, subcomponent.into());
         Self {
@@ -179,6 +183,10 @@ impl Logger {
 }
 
 /// Initialize the logging system
+///
+/// # Errors
+/// 
+/// This function will return an error if the logging system cannot be initialized
 pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     // This would normally set up the tracing subscriber, but for now just return Ok
     Ok(())

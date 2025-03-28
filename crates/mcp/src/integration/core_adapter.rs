@@ -5,7 +5,6 @@ use crate::error::{MCPError, Result as MCPResult};
 use crate::types::{MCPMessage, MCPResponse, MessageType, MessageId, ProtocolVersion, SecurityMetadata, ResponseStatus, MessageMetadata};
 use crate::protocol::MCPProtocol;
 use tracing::{info, error, warn, instrument};
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use crate::logging::Logger;
 use crate::metrics::MetricsCollector;
