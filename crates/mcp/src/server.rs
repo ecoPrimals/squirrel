@@ -60,15 +60,14 @@
 //! ```
 
 use crate::error::{MCPError, Result};
-use crate::transport::Transport;
+use crate::error::ProtocolError;
+use crate::error::types::TransportError as SimplifiedTransportError;
 use crate::message::{Message, MessageBuilder};
+use crate::message_router::{MessageRouter, HandlerPriority, MessageRouterError};
 use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject};
 use crate::session::Session;
-use crate::message_router::{MessageRouter, MessageHandler, HandlerPriority, MessageRouterError};
-use crate::error::types::TransportError as SimplifiedTransportError;
-use crate::error::ProtocolError;
+use crate::transport::Transport;
 
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -76,12 +75,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::{RwLock, watch, Mutex};
-use tokio::task::JoinHandle;
 use tokio::time::timeout;
-use futures::future;
-use uuid::Uuid;
+use tokio::task::JoinHandle;
 use futures::pin_mut;
+use futures::future;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 /// MCP Server configuration
 #[derive(Debug, Clone)]
@@ -142,10 +141,12 @@ pub enum ServerState {
 }
 
 /// Command handler for processing command messages
-#[async_trait]
 pub trait CommandHandler: Send + Sync + std::fmt::Debug {
     /// Handle a command message
-    async fn handle_command(&self, command: &Message) -> Result<Option<Message>>;
+    fn handle_command<'a>(
+        &'a self, 
+        command: &'a Message
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<Message>>> + Send + 'a>>;
     
     /// Get the command types this handler can process
     fn supported_commands(&self) -> Vec<String>;
@@ -161,13 +162,18 @@ impl Clone for Box<dyn CommandHandler> {
 }
 
 /// Connection handler for managing client connections
-#[async_trait]
 pub trait ConnectionHandler: Send + Sync {
     /// Handle a new client connection
-    async fn handle_connection(&self, client: ClientConnection) -> Result<()>;
+    fn handle_connection<'a>(
+        &'a self,
+        client: ClientConnection
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
     
     /// Handle client disconnection
-    async fn handle_disconnection(&self, client_id: &str) -> Result<()>;
+    fn handle_disconnection<'a>(
+        &'a self,
+        client_id: &'a str
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>>;
     
     /// Clone the handler into a new box
     fn clone_box(&self) -> Box<dyn ConnectionHandler>;
@@ -694,59 +700,50 @@ impl MCPServer {
             if task_guard.is_some() {
                 return Ok(());
             }
+            drop(task_guard);
         }
         
         // Clone required components for the task
-        let _clients = self.clients.clone();
-        let _wire_format_adapter = self.wire_format_adapter.clone();
-        let _message_router = self.message_router.clone();
-        let _command_handlers = self.command_handlers.clone();
-        let _connection_handlers = self.connection_handlers.clone();
         let state = self.state.clone();
-        let _config = self.config.clone();
         let shutdown_rx = self.shutdown_signal.1.clone();
         
         // Start the listener task as a background task
         let task = tokio::spawn(async move {
-            // No need to track client count here since it's handled elsewhere
-            
             loop {
-                // Clone the shutdown receiver and create a changed future
+                // Create a select between shutdown and accept
                 let mut shutdown_rx_clone = shutdown_rx.clone();
                 let shutdown_fut = shutdown_rx_clone.changed();
-                // Pin the future to make it Unpin
                 pin_mut!(shutdown_fut);
                 
-                // Accept connections or handle shutdown
                 let accept_fut = listener.accept();
                 
-                tokio::select! {
-                    // Check for shutdown signal
+                // Wait for either shutdown or a new connection
+                match tokio::select! {
                     _ = &mut shutdown_fut => {
                         error!("Shutdown signal received, stopping listener");
                         break;
                     },
-                    
-                    // Accept a new connection
                     accept_result = accept_fut => {
-                        match accept_result {
-                            Ok((_stream, addr)) => {
-                                info!("TCP server listening on {}", addr);
-                            },
-                            Err(e) => {
-                                eprintln!("Error accepting connection: {e}");
-                                
-                                // If the server is stopping, break the loop
-                                if let Ok(state_val) = state.try_read() {
-                                    if *state_val == ServerState::Stopping {
-                                        break;
-                                    }
-                                }
-                                
-                                // Otherwise, sleep briefly to avoid tight loop on error
-                                tokio::time::sleep(Duration::from_millis(100)).await;
-                            }
+                        accept_result
+                    }
+                } {
+                    Ok((_stream, addr)) => {
+                        info!("TCP server listening on {}", addr);
+                    },
+                    Err(e) => {
+                        eprintln!("Error accepting connection: {e}");
+                        
+                        // If the server is stopping, break the loop
+                        let should_break = state.try_read()
+                            .map(|guard| *guard == ServerState::Stopping)
+                            .unwrap_or(false);
+                            
+                        if should_break {
+                            break;
                         }
+                        
+                        // Otherwise, sleep briefly to avoid tight loop on error
+                        tokio::time::sleep(Duration::from_millis(100)).await;
                     }
                 }
             }
@@ -757,6 +754,7 @@ impl MCPServer {
                 if *state_guard == ServerState::Running {
                     *state_guard = ServerState::Stopped;
                 }
+                drop(state_guard);
             }
         });
         
@@ -764,6 +762,7 @@ impl MCPServer {
         {
             let mut task_guard = self.listener_task.lock().await;
             *task_guard = Some(task);
+            drop(task_guard);
         }
         
         Ok(())
@@ -779,11 +778,17 @@ impl MCPServer {
         }
         
         // Notify connection handlers
-        let connection_handlers = self.connection_handlers.read().await;
-        for handler in connection_handlers.iter() {
-            handler.handle_connection(client.clone()).await?;
+        let connection_handlers_guard = self.connection_handlers.read().await;
+        let results = futures::future::join_all(
+            connection_handlers_guard.iter()
+                .map(|handler| handler.handle_connection(client.clone()))
+        ).await;
+        drop(connection_handlers_guard);
+        
+        // Check if any handler returned an error
+        for result in results {
+            result?;
         }
-        drop(connection_handlers); // Release the lock after use
         
         Ok(())
     }
@@ -798,11 +803,17 @@ impl MCPServer {
         }
         
         // Notify connection handlers
-        let connection_handlers = self.connection_handlers.read().await;
-        for handler in connection_handlers.iter() {
-            handler.handle_disconnection(client_id).await?;
+        let connection_handlers_guard = self.connection_handlers.read().await;
+        let results = futures::future::join_all(
+            connection_handlers_guard.iter()
+                .map(|handler| handler.handle_disconnection(client_id))
+        ).await;
+        drop(connection_handlers_guard);
+        
+        // Check if any handler returned an error
+        for result in results {
+            result?;
         }
-        drop(connection_handlers); // Release the lock after use
         
         Ok(())
     }
@@ -820,6 +831,24 @@ impl MCPServer {
     }
 }
 
+// Add Debug implementation for MCPServer
+impl std::fmt::Debug for MCPServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MCPServer")
+            .field("config", &self.config)
+            .field("state", &self.state)
+            .field("clients", &format!("<{} clients>", self.clients.try_read().map_or(0, |c| c.len())))
+            .field("wire_format_adapter", &"<WireFormatAdapter>")
+            .field("message_router", &"<MessageRouter>")
+            .field("command_handlers", &format!("<{} handlers>", self.command_handlers.try_read().map_or(0, |h| h.len())))
+            .field("connection_handlers", &format!("<{} handlers>", self.connection_handlers.try_read().map_or(0, |h| h.len())))
+            .field("listener_task", &"<JoinHandle>")
+            .field("shutdown_signal", &"<ShutdownChannel>")
+            .field("last_error", &"<ErrorState>")
+            .finish()
+    }
+}
+
 /// Command handler that routes commands to the message router
 #[derive(Debug)]
 pub struct RouterCommandHandler {
@@ -834,39 +863,41 @@ impl RouterCommandHandler {
     }
 }
 
-#[async_trait]
 impl CommandHandler for RouterCommandHandler {
-    async fn handle_command(&self, command: &Message) -> Result<Option<Message>> {
-        // Use the message router to handle the command
-        let result = self.router.route_message(command).await;
-        
-        match result {
-            Ok(response) => {
-                let msg = response.unwrap_or_else(|| {
-                    // Create a default success response
-                    MessageBuilder::new()
-                        .with_message_type("response")
-                        .with_correlation_id(command.id.clone())
-                        .with_payload(json!({"status": "success"}))
-                        .build()
-                });
-                Ok(Some(msg))
-            },
-            Err(crate::error::MCPError::MessageRouter(err)) => match err {
-                MessageRouterError::NoHandlerFound(msg_type) => {
-                    eprintln!("No handler found for message type: {msg_type}");
-                    // Create a default success response when no handler found
-                    let msg = MessageBuilder::new()
-                        .with_message_type("response")
-                        .with_correlation_id(command.id.clone())
-                        .with_payload(json!({"status": "success", "message": format!("No handler found for {}", msg_type)}))
-                        .build();
-                    Ok(Some(msg))
-                },
-                _ => Err(MCPError::MessageRouter(err))
-            },
-            Err(err) => Err(err),
-        }
+    fn handle_command<'a>(
+        &'a self, 
+        command: &'a Message
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<Message>>> + Send + 'a>> {
+        Box::pin(async move {
+            // Use the message router to handle the command
+            self.router.route_message(command).await
+                .map(|response| {
+                    // Map the Option<Message> to Some(Message)
+                    Some(response.unwrap_or_else(|| {
+                        // Create a default success response when no handler returns a response
+                        MessageBuilder::new()
+                            .with_message_type("response")
+                            .with_correlation_id(command.id.clone())
+                            .with_payload(json!({"status": "success"}))
+                            .build()
+                    }))
+                })
+                .or_else(|err| {
+                    // Handle errors based on type
+                    if let MCPError::MessageRouter(MessageRouterError::NoHandlerFound(msg_type)) = &err {
+                        eprintln!("No handler found for message type: {msg_type}");
+                        // Create a default success response when no handler found
+                        Ok(Some(MessageBuilder::new()
+                            .with_message_type("response")
+                            .with_correlation_id(command.id.clone())
+                            .with_payload(json!({"status": "success", "message": format!("No handler found for {}", msg_type)}))
+                            .build()))
+                    } else {
+                        // Pass through other errors
+                        Err(err)
+                    }
+                })
+        })
     }
     
     fn supported_commands(&self) -> Vec<String> {
@@ -908,22 +939,26 @@ impl CommandHandlerAdapter {
     }
 }
 
-#[async_trait]
 impl CommandHandler for CommandHandlerAdapter {
-    async fn handle_command(&self, command: &Message) -> Result<Option<Message>> {
-        // Use the command handler to get the response
-        match self.handler.handle_command(command).await {
-            Ok(Some(response)) => Ok(Some(response)),
-            Ok(None) => {
-                // Create a default success response
-                Ok(Some(MessageBuilder::new()
-                    .with_message_type("response")
-                    .with_correlation_id(command.id.clone())
-                    .with_payload(json!({"status": "success"}))
-                    .build()))
-            },
-            Err(err) => Err(err),
-        }
+    fn handle_command<'a>(
+        &'a self, 
+        command: &'a Message
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<Message>>> + Send + 'a>> {
+        Box::pin(async move {
+            // Use the command handler to get the response
+            self.handler.handle_command(command).await
+                .map(|maybe_response| {
+                    // If we got a response, use it; otherwise create a default response
+                    Some(maybe_response.unwrap_or_else(|| {
+                        // Create a default success response
+                        MessageBuilder::new()
+                            .with_message_type("response")
+                            .with_correlation_id(command.id.clone())
+                            .with_payload(json!({"status": "success"}))
+                            .build()
+                    }))
+                })
+        })
     }
     
     fn supported_commands(&self) -> Vec<String> {

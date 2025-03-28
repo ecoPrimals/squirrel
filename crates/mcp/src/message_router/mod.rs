@@ -159,6 +159,8 @@ impl MessageRouter {
         T: MessageHandler + Send + Sync + 'static
     {
         let message_types = handler.supported_message_types();
+        
+        // Check if handler supports any message types
         if message_types.is_empty() {
             return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ConfigurationError(
                 "Handler does not support any message types".to_string()
@@ -166,19 +168,23 @@ impl MessageRouter {
         }
 
         // Acquire the lock once and modify
-        let mut handlers = self.handlers.write().await;
+        let mut handlers_guard = self.handlers.write().await;
         
+        // Register handler for each supported message type
         for message_type in message_types {
-            let handlers_map = handlers.entry(message_type.clone()).or_insert_with(HashMap::new);
+            let handlers_map = handlers_guard
+                .entry(message_type)
+                .or_insert_with(HashMap::new);
             
-            // Find the correct position to insert based on priority
             let handler_priority = handler.priority();
             
-            let handlers_vec = handlers_map.entry(handler_priority).or_insert_with(Vec::new);
-            handlers_vec.push(handler.clone());
+            handlers_map
+                .entry(handler_priority)
+                .or_insert_with(Vec::new)
+                .push(handler.clone());
         }
 
-        drop(handlers);
+        drop(handlers_guard);
         Ok(())
     }
 
@@ -194,15 +200,21 @@ impl MessageRouter {
         T: MessageHandler + Send + Sync + 'static
     {
         let message_types = handler.supported_message_types();
+        let handler_id = handler.id();
         
-        let mut handlers = self.handlers.write().await;
+        // Get write lock for handlers map
+        let mut handlers_guard = self.handlers.write().await;
         
+        // Process each message type the handler supports
         for message_type in message_types {
-            if let Some(handlers_map) = handlers.get_mut(&message_type) {
-                for handlers_vec in handlers_map.values_mut() {
-                    // Remove the handler with matching ID
-                    if let Some(handler_id) = handler.id() {
-                        let handler_id_clone = handler_id.clone();
+            if let Some(handlers_map) = handlers_guard.get_mut(&message_type) {
+                // Only attempt to remove handlers with matching ID if handler has an ID
+                if let Some(handler_id) = &handler_id {
+                    // Get a cloned ID for the closure
+                    let handler_id_clone = handler_id.clone();
+                    
+                    // Remove handlers with matching ID from all priority levels
+                    for handlers_vec in handlers_map.values_mut() {
                         handlers_vec.retain(|h| {
                             h.id().map_or(true, |id| id != handler_id_clone)
                         });
@@ -215,9 +227,9 @@ impl MessageRouter {
         }
         
         // Clean up message types that have no handlers
-        handlers.retain(|_, handlers_map| !handlers_map.is_empty());
+        handlers_guard.retain(|_, handlers_map| !handlers_map.is_empty());
         
-        drop(handlers);
+        drop(handlers_guard);
         Ok(())
     }
 
@@ -247,57 +259,30 @@ impl MessageRouter {
         
         let handlers = self.handlers.read().await;
         
-        // Standard handler lookup
-        if let Some(handlers_map) = handlers.get(&message_type_str) {
-            // Sort priorities (highest first)
-            let mut priorities: Vec<_> = handlers_map.keys().collect();
-            priorities.sort_by(|a, b| b.cmp(a));
-            
-            // Try handlers in priority order
-            for priority in priorities {
-                if let Some(handlers_vec) = handlers_map.get(priority) {
-                    for handler in handlers_vec {
-                        // Try with this handler
-                        match handler.handle_message(message.clone()).await {
-                            Ok(Some(response)) => {
-                                if !continue_after_response {
-                                    drop(handlers);
-                                    return Ok(Some(response));
+        // Try standard and wildcard handlers
+        for lookup_key in [&message_type_str, "any"] {
+            if let Some(handlers_map) = handlers.get(lookup_key) {
+                // Sort priorities (highest first)
+                let mut priorities: Vec<_> = handlers_map.keys().collect();
+                priorities.sort_by(|a, b| b.cmp(a));
+                
+                // Try handlers in priority order
+                for priority in priorities {
+                    if let Some(handlers_vec) = handlers_map.get(priority) {
+                        for handler in handlers_vec {
+                            // Try with this handler
+                            match handler.handle_message(message.clone()).await {
+                                Ok(Some(response)) => {
+                                    if !continue_after_response {
+                                        drop(handlers);
+                                        return Ok(Some(response));
+                                    }
                                 }
-                            }
-                            Ok(None) => continue, // Handler chose not to handle
-                            Err(e) => {
-                                error!("Handler error for message '{}': {}", message.id, e);
-                                continue; // Try the next handler
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Try wildcard handlers if available
-        if let Some(handlers_map) = handlers.get("any") {
-            // Sort priorities (highest first)
-            let mut priorities: Vec<_> = handlers_map.keys().collect();
-            priorities.sort_by(|a, b| b.cmp(a));
-            
-            // Try handlers in priority order
-            for priority in priorities {
-                if let Some(handlers_vec) = handlers_map.get(priority) {
-                    for handler in handlers_vec {
-                        // Try with this handler
-                        match handler.handle_message(message.clone()).await {
-                            Ok(Some(response)) => {
-                                if !continue_after_response {
-                                    drop(handlers);
-                                    return Ok(Some(response));
+                                Ok(None) => continue, // Handler chose not to handle
+                                Err(e) => {
+                                    error!("Handler error for message '{}': {}", message.id, e);
+                                    continue; // Try the next handler
                                 }
-                            }
-                            Ok(None) => continue, // Handler chose not to handle
-                            Err(e) => {
-                                error!("Wildcard handler error for message '{}': {}", message.id, e);
-                                continue; // Try the next handler
                             }
                         }
                     }
@@ -315,12 +300,13 @@ impl MessageRouter {
 
     /// Validate the message structure before routing
     async fn validate_message(&self, message: &Message) -> crate::error::Result<()> {
-        // Check ID is not empty
-        if message.id.is_empty() {
-            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ValidationFailed(
-                "Message ID cannot be empty".to_string(),
-            )));
-        }
+        // Check if ID is empty and return error if it is
+        (!message.id.is_empty()).then_some(())
+            .ok_or_else(|| {
+                crate::error::MCPError::MessageRouter(MessageRouterError::ValidationFailed(
+                    "Message ID cannot be empty".to_string(),
+                ))
+            })?;
         
         // More validations could be added here
         
@@ -329,18 +315,24 @@ impl MessageRouter {
 
     /// Get all registered message types
     pub async fn get_registered_message_types(&self) -> Vec<String> {
-        let handlers = self.handlers.read().await;
-        handlers.keys().cloned().collect()
+        let handlers_guard = self.handlers.read().await;
+        let message_types = handlers_guard.keys().cloned().collect();
+        drop(handlers_guard);
+        message_types
     }
 
     /// Get handler count for a specific message type
     pub async fn get_handler_count(&self, message_type: &str) -> usize {
-        let handlers = self.handlers.read().await;
-        
-        handlers.get(message_type).map_or(0, |type_handlers| type_handlers
-            .values()
-            .map(std::vec::Vec::len)
-            .sum())
+        let handlers_guard = self.handlers.read().await;
+        let count = handlers_guard
+            .get(message_type)
+            .map_or(0, |handlers_map| 
+                handlers_map.values()
+                    .map(Vec::len)
+                    .sum()
+            );
+        drop(handlers_guard);
+        count
     }
 }
 

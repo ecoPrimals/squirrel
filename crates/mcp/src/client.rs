@@ -89,21 +89,22 @@
 //! ```
 
 use crate::error::{MCPError, Result, ClientError};
+use crate::message::{Message, MessageType};
+use crate::session::Session;
 use crate::transport::Transport;
 use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
-use crate::message::{Message, MessageType};
-use crate::protocol::adapter_wire::WireFormatConfig;
+use crate::protocol::WireFormatConfig;
 use crate::types::MCPMessage;
-use crate::session::Session;
 
-use async_trait::async_trait;
+use futures::future::{AbortHandle, Abortable};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc, Mutex, broadcast, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex, RwLock};
 use tokio::time::timeout;
-use futures::future::{AbortHandle, Abortable};
 
 /// MCP Client configuration
 ///
@@ -229,10 +230,9 @@ pub enum ClientState {
 }
 
 /// Client-side handler for processing event messages
-#[async_trait]
 pub trait EventHandler: Send + Sync {
     /// Handle an event message
-    async fn handle_event(&self, event: &Message) -> Result<()>;
+    fn handle_event<'a>(&'a self, event: &'a Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
     
     /// Get the event types this handler can process
     fn supported_event_types(&self) -> Vec<String>;
@@ -863,18 +863,21 @@ impl CompositeEventHandler {
     }
 }
 
-#[async_trait]
 impl EventHandler for CompositeEventHandler {
-    async fn handle_event(&self, event: &Message) -> Result<()> {
+    fn handle_event<'a>(&'a self, event: &'a Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         // Find handlers that support this event type
         let event_type = event.message_type.to_string();
-        if let Some(handlers) = self.handlers.get(&event_type) {
-            for handler in handlers {
-                handler.handle_event(event).await?;
-            }
-        }
+        let handler_list = self.handlers.get(&event_type).cloned();
         
-        Ok(())
+        Box::pin(async move {
+            if let Some(handlers) = handler_list {
+                for handler in handlers {
+                    handler.handle_event(event).await?;
+                }
+            }
+            
+            Ok(())
+        })
     }
     
     fn supported_event_types(&self) -> Vec<String> {
@@ -887,11 +890,10 @@ struct ChannelEventHandler {
     event_type: String,
 }
 
-#[async_trait]
 impl EventHandler for ChannelEventHandler {
-    async fn handle_event(&self, _event: &Message) -> Result<()> {
+    fn handle_event<'a>(&'a self, _event: &'a Message) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         // We don't actually handle events internally
-        Ok(())
+        Box::pin(async move { Ok(()) })
     }
     
     fn supported_event_types(&self) -> Vec<String> {
