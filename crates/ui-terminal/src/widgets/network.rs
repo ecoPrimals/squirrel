@@ -122,7 +122,7 @@ impl<'a> NetworkWidget<'a> {
             ]
         )
             .block(Block::default().borders(Borders::ALL).title("Interface Details"))
-            .widths(&[
+            .widths([
                 Constraint::Percentage(20),
                 Constraint::Percentage(10),
                 Constraint::Percentage(25),

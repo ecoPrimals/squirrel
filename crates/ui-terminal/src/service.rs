@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use std::fmt::Debug;
 use async_trait::async_trait;
 
 /// Dashboard service trait for the terminal UI
 #[async_trait]
-pub trait DashboardService: Send + Sync + Debug {
+pub trait TerminalDashboardService: Send + Sync + Debug {
     // Minimal requirements for the demo mode
 }
 
@@ -22,6 +21,6 @@ impl DashboardServiceImpl {
 }
 
 #[async_trait]
-impl DashboardService for DashboardServiceImpl {
+impl TerminalDashboardService for DashboardServiceImpl {
     // Empty implementation is sufficient for our demo mode
 } 

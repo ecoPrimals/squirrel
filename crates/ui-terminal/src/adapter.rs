@@ -3,6 +3,10 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use async_trait::async_trait;
+use dashboard_core::data::DashboardData;
+use dashboard_core::DashboardService;
+use serde::{Serialize, Deserialize};
+use std::fmt;
 
 /// Protocol message for debugging
 #[derive(Debug, Clone)]
@@ -48,7 +52,7 @@ pub struct ProtocolError {
 }
 
 /// Connection status for MCP client
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ConnectionStatus {
     /// Connected to MCP service
     Connected,
@@ -114,15 +118,23 @@ impl Default for PerformanceOptions {
 }
 
 /// Performance metrics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceMetrics {
     pub metrics_requests: u64,
     pub cache_hits: u64,
     pub cache_misses: u64,
     pub total_request_time_ms: u64,
     pub average_request_time_ms: f64,
+    /// CPU usage percentage (0-100)
     pub cpu_usage: Option<f64>,
+    /// Memory usage in MB
     pub memory_usage: Option<f64>,
+    /// Disk usage percentage (0-100)
+    pub disk_usage: Option<f64>,
+    /// Network receive rate in bytes/sec
+    pub network_rx_rate: Option<f64>,
+    /// Network transmit rate in bytes/sec
+    pub network_tx_rate: Option<f64>,
 }
 
 impl PerformanceMetrics {
@@ -133,9 +145,18 @@ impl PerformanceMetrics {
             cache_misses: 0,
             total_request_time_ms: 0,
             average_request_time_ms: 0.0,
-            cpu_usage: Some(0.0),
-            memory_usage: Some(0.0),
+            cpu_usage: None,
+            memory_usage: None,
+            disk_usage: None,
+            network_rx_rate: None,
+            network_tx_rate: None,
         }
+    }
+}
+
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -236,9 +257,201 @@ impl Default for McpMetrics {
     }
 }
 
+/// McpMetricsProvider is an adapter that connects the monitoring system metrics 
+/// to the dashboard, bridging the two systems.
+#[derive(Debug)]
+pub struct McpMetricsProvider {
+    update_interval_secs: u64,
+}
+
+impl McpMetricsProvider {
+    /// Create a new McpMetricsProvider with default settings
+    pub fn new() -> Self {
+        Self {
+            update_interval_secs: 5,
+        }
+    }
+    
+    /// Create a new McpMetricsProvider with specified update interval
+    pub fn with_update_interval(update_interval_secs: u64) -> Self {
+        Self {
+            update_interval_secs,
+        }
+    }
+    
+    /// Get the current connection status
+    pub async fn get_connection_status(&self) -> Result<ConnectionStatus, std::io::Error> {
+        // In a real implementation, this would check the actual connection status
+        // For now, we'll just return Connected
+        Ok(ConnectionStatus::Connected)
+    }
+    
+    /// Get the current dashboard data
+    pub async fn get_dashboard_data(&self) -> Result<DashboardData, std::io::Error> {
+        // Create a DashboardData object with mock data
+        let mut data = DashboardData::default();
+        
+        // Set CPU metrics
+        data.metrics.cpu.usage = 45.0; // Example value
+        data.metrics.cpu.cores = vec![40.0, 30.0, 50.0, 60.0]; // Example values
+        
+        // Set memory metrics
+        data.metrics.memory.total = 16_000_000_000; // 16 GB
+        data.metrics.memory.used = 8_000_000_000;   // 8 GB
+        data.metrics.memory.available = 8_000_000_000;
+        data.metrics.memory.free = 8_000_000_000;
+        
+        // Set network metrics
+        data.metrics.network.total_rx_bytes = 1_500_000; // 1.5 MB
+        data.metrics.network.total_tx_bytes = 500_000;   // 0.5 MB
+        
+        // Update timestamp
+        data.timestamp = Utc::now();
+        
+        // Set protocol data
+        data.protocol.name = "System Monitor".to_string();
+        data.protocol.protocol_type = "Local".to_string();
+        data.protocol.version = "1.0".to_string();
+        data.protocol.connected = true;
+        data.protocol.last_connected = Some(Utc::now());
+        data.protocol.status = "Connected".to_string();
+        
+        Ok(data)
+    }
+    
+    /// Get performance metrics
+    pub async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, std::io::Error> {
+        Ok(PerformanceMetrics {
+            metrics_requests: 100,
+            cache_hits: 90,
+            cache_misses: 10,
+            total_request_time_ms: 500,
+            average_request_time_ms: 5.0,
+            cpu_usage: Some(45.0),
+            memory_usage: Some(8000.0), // 8000 MB
+            disk_usage: Some(75.0),     // 75%
+            network_rx_rate: Some(1_500_000.0),
+            network_tx_rate: Some(500_000.0),
+        })
+    }
+    
+    /// Start the metrics collection service
+    pub async fn start(&self, dashboard_service: Arc<dyn DashboardService>) -> Result<(), std::io::Error> {
+        let provider = self.clone();
+        let update_interval_secs = self.update_interval_secs;
+        
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(update_interval_secs));
+            
+            loop {
+                interval.tick().await;
+                
+                // Get the latest data
+                if let Ok(data) = provider.get_dashboard_data().await {
+                    // Update the dashboard service
+                    if let Err(e) = dashboard_service.update_dashboard_data(data).await {
+                        eprintln!("Error updating dashboard data: {}", e);
+                    }
+                }
+            }
+        });
+        
+        Ok(())
+    }
+}
+
+impl Clone for McpMetricsProvider {
+    fn clone(&self) -> Self {
+        Self {
+            update_interval_secs: self.update_interval_secs,
+        }
+    }
+}
+
+impl Default for McpMetricsProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// MonitoringToDashboardAdapter trait for connecting monitoring to dashboard
+#[async_trait]
+pub trait MonitoringToDashboardAdapter: Send + Sync + std::fmt::Debug {
+    /// Get connection status
+    async fn get_connection_status(&self) -> Result<ConnectionStatus, std::io::Error>;
+    
+    /// Get dashboard data
+    async fn get_dashboard_data(&self) -> Result<DashboardData, std::io::Error>;
+    
+    /// Get performance metrics
+    async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, std::io::Error>;
+    
+    /// Start adapter
+    async fn start(&self, dashboard_service: Arc<dyn DashboardService>) -> Result<(), std::io::Error>;
+}
+
+#[async_trait]
+impl MonitoringToDashboardAdapter for McpMetricsProvider {
+    async fn get_connection_status(&self) -> Result<ConnectionStatus, std::io::Error> {
+        self.get_connection_status().await
+    }
+    
+    async fn get_dashboard_data(&self) -> Result<DashboardData, std::io::Error> {
+        self.get_dashboard_data().await
+    }
+    
+    async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, std::io::Error> {
+        self.get_performance_metrics().await
+    }
+    
+    async fn start(&self, dashboard_service: Arc<dyn DashboardService>) -> Result<(), std::io::Error> {
+        self.start(dashboard_service).await
+    }
+}
+
+/// Dashboard monitor implementation
+#[derive(Debug)]
+pub struct DashboardMonitor {
+    adapter: Arc<dyn MonitoringToDashboardAdapter>,
+    dashboard_service: Arc<dyn DashboardService>,
+}
+
+impl DashboardMonitor {
+    /// Create a new dashboard monitor
+    pub fn new(
+        adapter: Arc<dyn MonitoringToDashboardAdapter>,
+        dashboard_service: Arc<dyn DashboardService>,
+    ) -> Self {
+        Self {
+            adapter,
+            dashboard_service,
+        }
+    }
+    
+    /// Start the dashboard monitor
+    pub async fn start(&self) -> Result<(), std::io::Error> {
+        self.adapter.start(self.dashboard_service.clone()).await
+    }
+    
+    /// Get the current dashboard data
+    pub async fn get_dashboard_data(&self) -> Result<DashboardData, std::io::Error> {
+        self.adapter.get_dashboard_data().await
+    }
+    
+    /// Get the current connection status
+    pub async fn get_connection_status(&self) -> Result<ConnectionStatus, std::io::Error> {
+        self.adapter.get_connection_status().await
+    }
+    
+    /// Get performance metrics
+    pub async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, std::io::Error> {
+        self.adapter.get_performance_metrics().await
+    }
+}
+
 /// MCP metrics provider interface
 #[async_trait]
-pub trait McpMetricsProvider: Send + Sync {
+pub trait McpMetricsProviderTrait: Send + Sync {
     /// Get metrics from MCP
     async fn get_metrics(&self) -> Result<McpMetrics, String>;
     
@@ -277,13 +490,13 @@ pub trait McpMetricsProvider: Send + Sync {
 }
 
 /// Implementation helpers for ConnectionStatus
-impl ToString for ConnectionStatus {
-    fn to_string(&self) -> String {
+impl fmt::Display for ConnectionStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConnectionStatus::Connected => "Connected".to_string(),
-            ConnectionStatus::Disconnected => "Disconnected".to_string(),
-            ConnectionStatus::Connecting => "Connecting".to_string(),
-            ConnectionStatus::Error(msg) => format!("Error: {}", msg),
+            ConnectionStatus::Connected => write!(f, "Connected"),
+            ConnectionStatus::Disconnected => write!(f, "Disconnected"),
+            ConnectionStatus::Connecting => write!(f, "Connecting"),
+            ConnectionStatus::Error(msg) => write!(f, "Error: {}", msg),
         }
     }
 }

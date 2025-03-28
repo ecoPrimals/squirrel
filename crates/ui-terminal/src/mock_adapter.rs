@@ -2,24 +2,26 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
-use tokio::sync::{Mutex, mpsc};
+use chrono::Utc;
+use tokio::sync::Mutex;
 use async_trait::async_trait;
 
 use dashboard_core::data::{
-    Alert, AlertSeverity, DashboardData,
+    DashboardData,
     Metrics, ProtocolData, CpuMetrics, 
     MemoryMetrics, NetworkMetrics, DiskMetrics,
     NetworkInterface, DiskUsage, MetricsHistory
 };
+use dashboard_core::DashboardService;
 
 use crate::adapter::{
     ConnectionEvent, ConnectionEventType, ConnectionHealth, ConnectionStatus, McpMetrics, PerformanceMetrics,
-    PerformanceOptions, McpMetricsProvider, MessageStats,
-    TransactionStats, ErrorStats, LatencyStats
+    PerformanceOptions, McpMetricsProviderTrait, MessageStats,
+    TransactionStats, ErrorStats, LatencyStats, MonitoringToDashboardAdapter
 };
 
 /// A simplified mock adapter for testing the UI
+#[derive(Debug)]
 pub struct MockAdapter {
     connection_status: Mutex<ConnectionStatus>,
     connection_health: Mutex<ConnectionHealth>,
@@ -117,17 +119,18 @@ impl MockAdapter {
         };
         
         // Create mock network interfaces
-        let mut interfaces = Vec::new();
-        interfaces.push(NetworkInterface {
-            name: "eth0".to_string(),
-            is_up: true,
-            rx_bytes: 1_000_000,
-            tx_bytes: 400_000,
-            rx_packets: 800,
-            tx_packets: 400,
-            rx_errors: 0,
-            tx_errors: 0,
-        });
+        let interfaces = vec![
+            NetworkInterface {
+                name: "eth0".to_string(),
+                is_up: true,
+                rx_bytes: 1_000_000,
+                tx_bytes: 400_000,
+                rx_packets: 800,
+                tx_packets: 400,
+                rx_errors: 0,
+                tx_errors: 0,
+            }
+        ];
         
         // Create mock network metrics
         let network = NetworkMetrics {
@@ -195,13 +198,19 @@ impl MockAdapter {
     }
 }
 
+impl Default for MockAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Function to create a mock adapter for testing
 pub fn create_mock_adapter() -> Arc<MockAdapter> {
     Arc::new(MockAdapter::new())
 }
 
 #[async_trait]
-impl McpMetricsProvider for MockAdapter {
+impl McpMetricsProviderTrait for MockAdapter {
     async fn get_metrics(&self) -> Result<McpMetrics, String> {
         // Check if we should fail
         if *self.should_fail.lock().await {
@@ -374,5 +383,51 @@ impl McpMetricsProvider for MockAdapter {
         });
         
         Ok(true)
+    }
+}
+
+#[async_trait]
+impl MonitoringToDashboardAdapter for MockAdapter {
+    async fn get_connection_status(&self) -> Result<ConnectionStatus, std::io::Error> {
+        let status = self.connection_status.lock().await.clone();
+        Ok(status)
+    }
+    
+    async fn get_dashboard_data(&self) -> Result<DashboardData, std::io::Error> {
+        match self.get_dashboard_data().await {
+            Ok(data) => Ok(data),
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+        }
+    }
+    
+    async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, std::io::Error> {
+        match McpMetricsProviderTrait::get_performance_metrics(self).await {
+            Ok(metrics) => Ok(metrics),
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+        }
+    }
+    
+    async fn start(&self, dashboard_service: Arc<dyn DashboardService>) -> Result<(), std::io::Error> {
+        // Create a clone of the adapter to move into the async task
+        let adapter_clone = MockAdapter::new();
+        let update_interval = self.performance_options.lock().await.polling_min_interval_ms;
+        
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(update_interval));
+            
+            loop {
+                interval.tick().await;
+                
+                // Get the latest data (use the moved clone)
+                if let Ok(data) = adapter_clone.get_dashboard_data().await {
+                    // Update the dashboard service
+                    if let Err(e) = dashboard_service.update_dashboard_data(data).await {
+                        eprintln!("Error updating dashboard data: {}", e);
+                    }
+                }
+            }
+        });
+        
+        Ok(())
     }
 } 

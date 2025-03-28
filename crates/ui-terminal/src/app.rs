@@ -320,9 +320,8 @@ impl App {
         
         // Log to file for debugging
         if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
             .append(true)
+            .create(true)
             .open("dashboard_debug.log") {
                 
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
@@ -363,12 +362,12 @@ impl App {
         let now = Utc::now();
         
         // CPU usage
-        let cpu_series = self.time_series.entry(MetricType::CpuUsage).or_insert_with(Vec::new);
+        let cpu_series = self.time_series.entry(MetricType::CpuUsage).or_default();
         cpu_series.push((now, data.metrics.cpu.usage));
         
         // Memory usage
         let memory_used_percent = data.metrics.memory.used as f64 / data.metrics.memory.total as f64 * 100.0;
-        let memory_series = self.time_series.entry(MetricType::MemoryUsage).or_insert_with(Vec::new);
+        let memory_series = self.time_series.entry(MetricType::MemoryUsage).or_default();
         memory_series.push((now, memory_used_percent));
         
         // If we have too many points, remove oldest ones
@@ -401,9 +400,8 @@ impl App {
     pub fn render_to_frame(&self, f: &mut ratatui::Frame) {
         // Add debug information to log file
         if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
             .append(true)
+            .create(true)
             .open("dashboard_debug.log") {
                 
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
@@ -595,7 +593,7 @@ impl App {
         }
         
         // If there's recent data, update all widgets
-        if let Some(_) = self.last_update {
+        if self.last_update.is_some() {
             // In a real implementation, we'd check how recent the update is
             for idx in 0..self.widget_update_times.len() {
                 needs_update.insert(idx);

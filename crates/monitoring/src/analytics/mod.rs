@@ -314,16 +314,14 @@ impl AnalyticsService {
     }
     
     /// Store an analytics result
-    pub async fn store_result(&self, result: AnalyticsResult) -> Result<()> {
-        // In a real implementation, would store the result
-        // For now, just return Ok
+    pub async fn store_result(&self, _result: AnalyticsResult) -> Result<()> {
+        // TODO: Implement storage
         Ok(())
     }
     
     /// Get an analytics result by ID
-    pub async fn get_result(&self, id: &str) -> Result<Option<AnalyticsResult>> {
-        // In a real implementation, would retrieve the result
-        // For now, just return None
+    pub async fn get_result(&self, _id: &str) -> Result<Option<AnalyticsResult>> {
+        // TODO: Implement retrieval
         Ok(None)
     }
 }

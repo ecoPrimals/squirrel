@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use std::sync::RwLock;
 
 /// Represents the application state
 #[derive(Debug, Default)]

@@ -1,5 +1,5 @@
 use std::time::{Instant, Duration};
-use chrono::{DateTime, Utc, Duration as ChronoDuration};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 /// Format a duration for display
@@ -65,7 +65,7 @@ pub fn format_percentage(value: f64) -> String {
 /// Calculate a bar representation of a value
 pub fn calculate_bar(value: f64, width: usize) -> String {
     // Ensure value is between 0 and 100
-    let clamped_value = value.max(0.0).min(100.0);
+    let clamped_value = value.clamp(0.0, 100.0);
     
     // Calculate the number of filled characters
     let filled_count = ((clamped_value / 100.0) * width as f64).round() as usize;
@@ -256,7 +256,7 @@ impl<T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T> + Default +
                 let mut last_included = points[0];
                 for i in 1..points.len() - 1 {
                     let current = points[i];
-                    let next = points[i + 1];
+                    let _next = points[i + 1];
                     
                     // Calculate change from last included point
                     let diff = if current.1 > last_included.1 {

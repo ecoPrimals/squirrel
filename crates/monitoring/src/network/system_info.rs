@@ -170,11 +170,20 @@ impl SystemInfoAdapter {
             return Err(Self::not_initialized_error());
         }
         
-        // Create a System instance with network information
-        let mut system = System::new();
-        system.refresh_networks_list();
-        system.refresh_networks();
-        let networks = system.networks();
+        // Use the existing system or create one if needed
+        let networks = if let Some(system) = &self.inner {
+            // We can only read from the immutable system
+            system.networks()
+        } else if let Some(system) = &self.system {
+            let sys = system.read().await;
+            sys.networks()
+        } else {
+            // Fallback to creating a new system only if we have no system reference
+            let mut temp_system = System::new();
+            temp_system.refresh_networks_list();
+            temp_system.refresh_networks();
+            temp_system.networks()
+        };
         
         // Create a HashMap that owns the NetworkStats
         let mut result = HashMap::new();
@@ -202,12 +211,23 @@ impl SystemInfoAdapter {
             return Err(Self::not_initialized_error());
         }
         
-        // Create fresh Disks instance with refreshed data
-        let disks = Disks::new_with_refreshed_list();
+        // Use the existing system or create one if needed
+        let disks = if let Some(system) = &self.inner {
+            // We can only read from the immutable system
+            system.disks()
+        } else if let Some(system) = &self.system {
+            let sys = system.read().await;
+            sys.disks()
+        } else {
+            // Fallback to creating a new system only if we have no system reference
+            let mut temp_system = System::new();
+            temp_system.refresh_disks_list();
+            temp_system.disks()
+        };
         
         // Create a Vec of DiskInfo objects
         let mut disk_info_vec = Vec::new();
-        for disk in &disks {
+        for disk in disks {
             let disk_info = DiskInfo {
                 name: disk.name().to_string_lossy().to_string(),
                 mount_point: disk.mount_point().to_string_lossy().to_string(),

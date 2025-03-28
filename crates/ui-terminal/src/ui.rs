@@ -20,11 +20,10 @@ use ratatui::{
 };
 
 use crate::{
-    app::App,
     widgets::{
         metrics::MetricsWidget,
         network::NetworkWidget,
-        health::{HealthWidget, HealthStatus, HealthCheck},
+        health::{HealthWidget, HealthCheck},
         alerts::AlertsWidget,
         // Temporarily disabled due to compilation issues
         // protocol::ProtocolWidget,
@@ -34,7 +33,16 @@ use crate::{
     util::format_bytes,
 };
 
+use crossterm::{
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
+};
+use dashboard_core::DashboardService;
+use ratatui::backend::CrosstermBackend;
+use tokio::time::Instant;
+
 /// UI state
+#[derive(Debug, Clone, Default)]
 pub struct UiState {
     /// Selected tab index
     pub selected_tab: usize,
@@ -42,16 +50,8 @@ pub struct UiState {
     pub show_help: bool,
     /// Widget layout
     pub layout: WidgetLayout,
-}
-
-impl Default for UiState {
-    fn default() -> Self {
-        Self {
-            selected_tab: 0,
-            show_help: false,
-            layout: WidgetLayout::default(),
-        }
-    }
+    /// Is running
+    pub running: bool,
 }
 
 /// Widget layout
@@ -255,12 +255,12 @@ impl UiApp {
         let timestamp = Utc::now();
         
         // CPU metrics
-        let cpu_data = self.time_series.entry(MetricType::CpuUsage).or_insert_with(Vec::new);
+        let cpu_data = self.time_series.entry(MetricType::CpuUsage).or_default();
         cpu_data.push((timestamp, data.metrics.cpu.usage));
         
         // Memory metrics
         let memory_percent = data.metrics.memory.used as f64 / data.metrics.memory.total as f64 * 100.0;
-        let memory_data = self.time_series.entry(MetricType::MemoryUsage).or_insert_with(Vec::new);
+        let memory_data = self.time_series.entry(MetricType::MemoryUsage).or_default();
         memory_data.push((timestamp, memory_percent));
         
         // Network metrics for each interface
@@ -268,13 +268,13 @@ impl UiApp {
             // RX metrics
             let rx_data = self.time_series
                 .entry(MetricType::NetworkRx(interface.name.clone()))
-                .or_insert_with(Vec::new);
+                .or_default();
             rx_data.push((timestamp, interface.rx_bytes as f64));
             
             // TX metrics
             let tx_data = self.time_series
                 .entry(MetricType::NetworkTx(interface.name.clone()))
-                .or_insert_with(Vec::new);
+                .or_default();
             tx_data.push((timestamp, interface.tx_bytes as f64));
         }
         
@@ -296,7 +296,7 @@ impl UiApp {
 
     /// Render the title bar
     fn render_title(&self, f: &mut Frame, area: Rect) {
-        let titles = vec![
+        let titles = [
             ("1", "Overview"),
             ("2", "System"),
             ("3", "Network"),
@@ -550,14 +550,13 @@ impl UiApp {
     }
 
     /// Render the protocol tab
-    fn render_protocol(&self, f: &mut Frame, area: Rect) {
-        let protocol = match &self.dashboard_data {
+    fn render_protocol(&self, _f: &mut Frame, _area: Rect) {
+        let _protocol = match &self.dashboard_data {
             Some(data) => &data.protocol,
-            None => return, // No data, nothing to render
+            None => return,
         };
         
-        // ProtocolWidget::new(protocol, "Protocol")
-        //     .render(f, area);
+        // Protocol rendering would go here
     }
 
     /// Render the alerts tab
@@ -1064,14 +1063,13 @@ fn draw_network_tab(f: &mut Frame, app: &UiApp, area: Rect) {
 }
 
 /// Draw protocol tab
-fn draw_protocol_tab(f: &mut Frame, app: &UiApp, area: Rect) {
-    let protocol = match &app.dashboard_data {
+fn draw_protocol_tab(_f: &mut Frame, app: &UiApp, _area: Rect) {
+    let _protocol = match &app.dashboard_data {
         Some(data) => &data.protocol,
-        None => return, // No data, nothing to render
+        None => return,
     };
     
-    // ProtocolWidget::new(protocol, "Protocol")
-    //     .render(f, area);
+    // Protocol rendering would go here
 }
 
 /// Draw alerts tab
@@ -1097,29 +1095,13 @@ fn draw_alerts_tab(f: &mut Frame, app: &UiApp, area: Rect) {
 }
 
 /// Draw tools tab
-fn draw_tools_tab(f: &mut Frame, app: &UiApp, area: Rect) {
-    // Create a block for the tools tab
+fn draw_tools_tab(f: &mut Frame, _app: &UiApp, area: Rect) {
+    // Draw the tools tab
     let block = Block::default()
         .title("Tools")
         .borders(Borders::ALL);
     
-    // Render the block
-    f.render_widget(block.clone(), area);
-    
-    // Get inner area
-    let inner_area = block.inner(area);
-    
-    // Create a paragraph with the text
-    let text = Line::from(vec![
-        Span::raw("Tools functionality will be available in a future update."),
-    ]);
-    
-    let paragraph = Paragraph::new(text)
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
-    
-    // Render the paragraph in the inner area
-    f.render_widget(paragraph, inner_area);
+    f.render_widget(block, area);
 }
 
 /// Draw help overlay
@@ -1206,4 +1188,95 @@ pub fn convert_app_mut(app: &mut crate::app::App) -> &mut UiApp {
     // This is a direct cast that works because the memory layout is compatible
     // and this is simpler than a full conversion
     unsafe { &mut *(app as *mut _ as *mut UiApp) }
+}
+
+/// The main UI struct for the terminal dashboard
+pub struct Ui<S> {
+    /// The terminal instance
+    terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
+    /// The dashboard service
+    dashboard_service: S,
+    /// Whether the application is running
+    running: bool,
+    /// The last update time
+    last_update: Option<Instant>,
+}
+
+impl<S> Ui<S>
+where
+    S: DashboardService
+{
+    /// Create a new UI instance
+    pub fn new(dashboard_service: S) -> io::Result<Self> {
+        // Set up terminal
+        enable_raw_mode()?;
+        let mut stdout = std::io::stdout();
+        stdout.execute(EnterAlternateScreen)?;
+        let backend = CrosstermBackend::new(stdout);
+        let terminal = Terminal::new(backend)?;
+        
+        Ok(Self {
+            terminal,
+            dashboard_service,
+            running: true,
+            last_update: None,
+        })
+    }
+    
+    /// Run the UI
+    pub async fn run(&mut self) -> io::Result<()> {
+        // Main application loop
+        while self.running {
+            // Render UI
+            self.terminal.draw(|f| {
+                // For now, just render a simple message
+                use ratatui::widgets::{Paragraph, Block, Borders};
+                use ratatui::layout::{Layout, Constraint, Direction};
+                use ratatui::text::Text;
+                
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(30),
+                        Constraint::Percentage(40),
+                        Constraint::Percentage(30),
+                    ])
+                    .split(f.size());
+                
+                let block = Block::default()
+                    .title("Squirrel Dashboard")
+                    .borders(Borders::ALL);
+                
+                let text = Text::raw("Press 'q' to quit");
+                
+                let paragraph = Paragraph::new(text)
+                    .block(block);
+                
+                f.render_widget(paragraph, chunks[1]);
+            })?;
+            
+            // Handle events
+            if event::poll(Duration::from_millis(100))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.code == KeyCode::Char('q') {
+                        self.running = false;
+                    }
+                }
+            }
+        }
+        
+        // Clean up
+        disable_raw_mode()?;
+        self.terminal.backend_mut().execute(LeaveAlternateScreen)?;
+        
+        Ok(())
+    }
+}
+
+impl<S> Drop for Ui<S> {
+    fn drop(&mut self) {
+        // Clean up terminal
+        let _ = disable_raw_mode();
+        let _ = self.terminal.backend_mut().execute(LeaveAlternateScreen);
+    }
 } 

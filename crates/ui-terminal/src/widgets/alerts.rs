@@ -8,7 +8,6 @@ use ratatui::{
 use dashboard_core::data::{Alert as DashboardAlert, AlertSeverity as DashboardAlertSeverity};
 use crate::alert::{Alert, AlertSeverity, AlertManager};
 use std::sync::Arc;
-use chrono::Utc;
 
 /// Widget for displaying system alerts
 pub struct AlertsWidget<'a> {
@@ -131,7 +130,7 @@ impl<'a> AlertsWidget<'a> {
         } else if let Some(dashboard_alerts) = &self.dashboard_alerts {
             // Convert dashboard alerts to internal format
             dashboard_alerts.iter()
-                .map(|alert| Alert::from_dashboard_alert(alert))
+                .map(Alert::from_dashboard_alert)
                 .collect()
         } else {
             // No alerts available
@@ -288,7 +287,7 @@ impl<'a> AlertsWidget<'a> {
         let mut details = vec![
             Line::from(vec![
                 Span::styled("ID: ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(format!("{}", alert.id)),
+                Span::raw(alert.id.to_string()),
             ]),
             Line::from(vec![
                 Span::styled("Time: ", Style::default().add_modifier(Modifier::BOLD)),

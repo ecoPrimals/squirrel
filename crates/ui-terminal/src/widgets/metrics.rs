@@ -182,7 +182,7 @@ impl<'a> MetricsWidget<'a> {
             .block(Block::default()
                 .borders(Borders::ALL)
                 .title("Disk Usage"))
-            .widths(&[
+            .widths([
                 Constraint::Percentage(40),
                 Constraint::Percentage(35),
                 Constraint::Percentage(25),
@@ -217,12 +217,12 @@ impl<'a> MetricsWidget<'a> {
         // Add network I/O
         rows.push(Row::new(vec![
             Cell::from("Network RX"),
-            Cell::from(format!("{}", format_bytes(self.metrics.network.total_rx_bytes))),
+            Cell::from(format_bytes(self.metrics.network.total_rx_bytes).to_string()),
         ]));
         
         rows.push(Row::new(vec![
             Cell::from("Network TX"),
-            Cell::from(format!("{}", format_bytes(self.metrics.network.total_tx_bytes))),
+            Cell::from(format_bytes(self.metrics.network.total_tx_bytes).to_string()),
         ]));
         
         // Add number of CPU cores if available
@@ -242,7 +242,7 @@ impl<'a> MetricsWidget<'a> {
             ]
         )
             .block(Block::default().title("System Information"))
-            .widths(&[
+            .widths([
                 Constraint::Percentage(50),
                 Constraint::Percentage(50),
             ])

@@ -1,11 +1,14 @@
-//! Terminal UI dashboard for Squirrel monitoring
+//! Terminal UI implementation for the Squirrel dashboard
 //! 
-//! This is a simplified implementation that will be expanded later.
+//! This crate provides a terminal user interface for monitoring system resources, 
+//! network activity, and protocol metrics.
 
 use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::Utc;
+use std::io;
+use dashboard_core::service::DashboardService;
+use crate::ui::Ui;
 
 // Import only the modules we need
 pub mod service;
@@ -26,20 +29,52 @@ mod events;
 pub mod tests;
 
 // Re-export the dashboard service
-pub use service::DashboardService;
+pub use service::TerminalDashboardService;
+pub use adapter::{McpMetricsProvider, MonitoringToDashboardAdapter, DashboardMonitor};
 use crate::mock_adapter::MockAdapter;
-use crate::adapter::McpMetricsProvider;
+
+pub mod monitoring {
+    //! Monitoring-related functionality
+    //! 
+    //! This module contains types and functions for interacting with the monitoring system.
+}
+
+/// Run the terminal UI application
+/// 
+/// This function initializes the terminal UI, sets up the dashboard service, and runs
+/// the main application loop until the user exits.
+/// 
+/// # Arguments
+/// 
+/// * `dashboard_service` - The dashboard service to use for retrieving metrics
+/// 
+/// # Returns
+/// 
+/// Returns a Result indicating success or failure
+pub async fn run<S>(dashboard_service: S) -> io::Result<()>
+where
+    S: DashboardService + 'static
+{
+    // Initialize the UI
+    let mut ui = Ui::new(dashboard_service)?;
+    
+    // Run the UI
+    ui.run().await?;
+    
+    Ok(())
+}
 
 /// Run the terminal UI dashboard.
 /// This is a simplified implementation that will be expanded later.
-pub async fn run(dashboard_service: Arc<dyn DashboardService>, demo_mode: bool) -> Result<(), Box<dyn Error>> {
+pub async fn run_simplified(_dashboard_service: Arc<dyn DashboardService>, demo_mode: bool) -> Result<(), Box<dyn Error>> 
+{
     println!("Starting terminal dashboard in simplified mode...");
     
     if demo_mode {
         println!("Demo mode activated. Using mock adapter for dashboard metrics.");
         
         // Create and initialize mock adapter
-        let mock_adapter = Arc::new(MockAdapter::new());
+        let mock_adapter: Arc<dyn MonitoringToDashboardAdapter> = Arc::new(MockAdapter::new());
         
         // Display some basic information
         println!("Getting connection status...");
