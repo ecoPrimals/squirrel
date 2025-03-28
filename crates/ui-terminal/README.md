@@ -1,123 +1,135 @@
-# Terminal UI Dashboard
+# Terminal UI for Squirrel Dashboard
 
-A terminal-based UI for monitoring system metrics, providing a lightweight and responsive interface for the Squirrel Dashboard.
+This crate provides a terminal-based user interface for the Squirrel dashboard, built with [Ratatui](https://github.com/ratatui-org/ratatui).
 
-## Features
+## Status: In Progress
 
-- Real-time system metrics monitoring
-- Protocol monitoring with message statistics, transaction tracking, and error monitoring
-- Network metrics visualization
-- Historical data charts
-- Responsive layout adapting to terminal size
-- Keyboard navigation and shortcuts
-- Integration with monitoring system
-- MCP protocol metrics integration
+This crate has been updated to be compatible with Ratatui 0.24.0+, which introduces breaking changes from previous versions. All core widgets have been updated.
+
+### Implementation Progress
+
+- ✅ Core infrastructure (app.rs, lib.rs, events.rs)
+- ✅ UI rendering framework (ui.rs)
+- ✅ All key widgets:
+  - ✅ MetricsWidget
+  - ✅ ProtocolWidget
+  - ✅ AlertsWidget
+  - ✅ NetworkWidget
+  - ✅ ChartWidget
+  - ✅ HealthWidget
+- 🔄 Testing and optimization
+- 🔄 Enhanced features
+- 🔄 Documentation and finalization
+
+## Overview
+
+The Terminal UI provides a comprehensive dashboard for monitoring system metrics, network activity, and alerts in a terminal environment. It is designed to be efficient, keyboard-driven, and to work across different terminal types.
 
 ## Architecture
 
-The terminal UI uses a modular architecture with clear separation of concerns:
+The Terminal UI follows a layered architecture:
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   Dashboard     │     │   Terminal UI    │
-│     Core        │────▶│    Components    │
-└─────────────────┘     └─────────────────┘
-        │                        │
-        ▼                        ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Metrics        │     │      UI         │
-│  Collection     │     │    Rendering    │
-└─────────────────┘     └─────────────────┘
-        ▲
-        │
-┌─────────────────┐     ┌─────────────────┐
-│   Monitoring    │     │  MCP Protocol   │
-│    Adapter      │◄────│     Client      │
-└─────────────────┘     └─────────────────┘
+┌───────────────────────────────────┐
+│            Application            │
+│           (lib.rs, app.rs)        │
+├───────────────────────────────────┤
+│              UI Layer             │
+│              (ui.rs)              │
+├───────────────────────────────────┤
+│           Widget System           │
+│         (widgets/*.rs)            │
+├───────────────────────────────────┤
+│            Data Adapter           │
+│           (adapter.rs)            │
+├───────────────────────────────────┤
+│          Dashboard Core           │
+│        (External Dependency)      │
+└───────────────────────────────────┘
 ```
 
-- **Dashboard Core**: Handles metrics collection, history tracking, and configuration
-- **Terminal UI**: Renders the UI based on the current state
-- **Monitoring Adapter**: Connects to system monitoring for metrics collection
-- **MCP Protocol Client**: Provides protocol metrics from the MCP system
+### Key Components
 
-## Components
+1. **Application (lib.rs, app.rs)**: Manages application state and event handling.
+2. **UI Layer (ui.rs)**: Handles layout and rendering of the UI components.
+3. **Widget System (widgets/*.rs)**: Provides specialized widgets for different types of data.
+4. **Data Adapter (adapter.rs)**: Transforms dashboard data into UI-compatible format.
+5. **Events System (events.rs)**: Handles keyboard and terminal events.
 
-### Dashboard Tabs
+## Features
 
-- **Overview**: Summary of all key metrics
-- **System**: Detailed system metrics (CPU, memory, disk)
-- **Protocol**: Message statistics, transaction tracking, and error monitoring
-- **Tools**: Configuration and management tools
-- **Alerts**: Alert notifications and management
-- **Network**: Network interface statistics and throughput
-
-### Widgets
-
-- **Chart Widget**: Time-series visualization
-- **Metrics Widget**: Metrics display and statistics
-- **Network Widget**: Network throughput visualization
-- **Alerts Widget**: Alert listing and management
-- **Protocol Widget**: Protocol metrics visualization with message, transaction, and error statistics
-
-## Integration with Monitoring System
-
-The Terminal UI integrates with the monitoring system through the `MonitoringToDashboardAdapter` which:
-
-1. Collects system metrics from sysinfo and other monitoring tools
-2. Converts metrics to the dashboard-core format
-3. Provides real-time updates to the UI
-
-## MCP Protocol Integration
-
-The Terminal UI now integrates with the MCP protocol through:
-
-1. The `McpMetricsProvider` interface which standardizes access to MCP metrics
-2. The `ProtocolMetricsAdapter` which converts MCP metrics to dashboard format
-3. Real-time protocol metrics visualization in the Protocol tab
-
-The integration provides:
-- Message statistics (requests, responses, rates)
-- Transaction tracking (success rates, throughput)
-- Error monitoring (connection, protocol, and timeout errors)
-- Latency visualization (average, p95, p99 latencies)
+- System metrics visualization (CPU, memory, disk)
+- Network activity monitoring
+- Protocol metrics display
+- Alerting system with acknowledgement
+- Real-time updates
+- Keyboard navigation
+- Responsive layouts
 
 ## Usage
 
+To run the Terminal UI:
+
+```rust
+use dashboard_core::DashboardService;
+use ui_terminal::TuiDashboard;
+use std::sync::Arc;
+
+// Create dashboard service
+let dashboard_service = Arc::new(MyDashboardService::new());
+
+// Create and run UI
+let mut ui = TuiDashboard::new(dashboard_service);
+ui.run().await?;
 ```
-# Run with default configuration
-cargo run --bin main
 
-# Run with monitoring integration enabled
-cargo run --bin main -- --monitoring
+## Widget System
 
-# Run with MCP integration enabled
-cargo run --bin main -- --mcp
+The Terminal UI includes the following widgets:
 
-# Customize update interval and history size
-cargo run --bin main -- --interval 10 --history-points 500 --monitoring
-```
+- **MetricsWidget**: Displays system metrics like CPU and memory usage.
+- **ProtocolWidget**: Shows protocol-specific metrics.
+- **AlertsWidget**: Displays alerts with severity indicators.
+- **NetworkWidget**: Shows network activity and interfaces.
+- **ChartWidget**: Renders time-series data as charts.
+- **HealthWidget**: Displays system health status.
 
 ## Keyboard Shortcuts
 
-- `1-6`: Select tab
-- `Tab`: Next tab
-- `Shift+Tab`: Previous tab
-- `j/Down`: Scroll down
-- `k/Up`: Scroll up
-- `r`: Refresh data
-- `?`: Toggle help
-- `q/Ctrl+c`: Quit
+- **Tab/Shift+Tab**: Navigate between tabs
+- **1-6**: Select specific tabs
+- **Up/Down**: Scroll content
+- **q/Esc**: Quit
+- **?**: Show help
+- **r**: Refresh data
 
-## Recent Updates
+## Development
 
-- **MCP Integration**: Added integration with MCP protocol for real-time protocol metrics
-- **Protocol Monitoring**: Enhanced protocol metrics visualization with MCP-specific metrics
-- **Mock MCP Client**: Added mock client for testing and development
-- **Protocol Tab**: Improved protocol tab with detailed statistics and visualizations
-- **Monitoring Integration**: Implemented adapter pattern for connecting to system monitoring
-- **Real-time Updates**: Added asynchronous update mechanism for smooth UI updates
+### Building
+
+```bash
+cargo build --package ui-terminal
+```
+
+### Running Tests
+
+```bash
+cargo test --package ui-terminal
+```
+
+### Running Example
+
+```bash
+cargo run --example dashboard
+```
+
+## Dependencies
+
+- **ratatui**: Terminal UI framework (v0.24.0+)
+- **crossterm**: Terminal control
+- **tokio**: Async runtime
+- **dashboard-core**: Core dashboard functionality
 
 ## License
 
-MIT
+Same as the main Squirrel project.

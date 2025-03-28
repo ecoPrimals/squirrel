@@ -38,6 +38,8 @@ log = { workspace = true }
 semver = { workspace = true }
 lru = { workspace = true }
 regex = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 # Shared squirrel dependencies
 squirrel-interfaces = { path = "../interfaces" }

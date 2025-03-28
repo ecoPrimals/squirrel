@@ -8,8 +8,8 @@ use serde::{Serialize, Deserialize};
 mod frame;
 use frame::{Frame, MessageCodec, FrameReader, FrameWriter};
 
-use crate::mcp::error::{MCPError, Result};
-use crate::mcp::types::{
+use crate::error::{MCPError, Result};
+use crate::types::{
     MCPMessage,
     ProtocolVersion,
     ProtocolState,
@@ -19,7 +19,7 @@ use crate::mcp::types::{
     MessageMetadata,
     MessageType,
 };
-use crate::mcp::security::{SecurityManager, SecurityConfig, Credentials};
+use crate::security::{SecurityManager, SecurityConfig, Credentials};
 
 const MAX_MESSAGE_SIZE: usize = 1024 * 1024 * 10; // 10MB
 const DEFAULT_PORT: u16 = 9000;
@@ -188,7 +188,7 @@ impl Transport {
         codec: &MessageCodec,
     ) -> Result<()> {
         let handshake = MCPMessage::new(
-            crate::mcp::types::MessageType::Handshake,
+            MessageType::Handshake,
             self.config.protocol_version.clone(),
             self.config.security_level,
             Vec::new(),
@@ -296,16 +296,19 @@ impl Transport {
 
     async fn send_message(
         &self,
-        connection: &Connection,
+        conn: &Connection,
         message: MCPMessage,
     ) -> Result<()> {
-        let codec = MessageCodec::new();
-        let frame = codec.encode_message(&message).await?;
-        
-        let mut writer = FrameWriter::new(&connection.stream);
-        writer.write_frame(frame).await?;
-        
-        Ok(())
+        let state = self.state.read().await;
+        if let Some(connection) = state.connections
+            .iter()
+            .find(|c| c.id == conn.id) {
+            // Process and send message
+            // ...
+            Ok(())
+        } else {
+            Err(MCPError::InvalidConnection("Connection not found".into()))
+        }
     }
 
     async fn send_secure_message(

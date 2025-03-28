@@ -1,48 +1,168 @@
 use ratatui::{
-    buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Line as Spans},
-    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph},
+    Frame,
 };
 
-use chrono::{DateTime, Utc};
-use crate::util;
+use chrono::Utc;
+use dashboard_core::health::{HealthCheck as DashboardHealthCheck, HealthStatus as DashboardHealthStatus};
 
-/// Health check status
+/// Health status enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HealthStatus {
-    /// System is healthy
+    /// Healthy status
     Healthy,
-    /// System has warnings
-    Warning, 
-    /// System is unhealthy
-    Unhealthy,
+    /// Warning status
+    Warning,
+    /// Critical status
+    Critical,
+    /// Unknown status
+    Unknown,
 }
 
-/// Health check information
+impl HealthStatus {
+    /// Get color for the health status
+    pub fn color(&self) -> Color {
+        match self {
+            HealthStatus::Healthy => Color::Green,
+            HealthStatus::Warning => Color::Yellow,
+            HealthStatus::Critical => Color::Red,
+            HealthStatus::Unknown => Color::Gray,
+        }
+    }
+    
+    /// Get label for the health status
+    pub fn label(&self) -> &'static str {
+        match self {
+            HealthStatus::Healthy => "Healthy",
+            HealthStatus::Warning => "Warning",
+            HealthStatus::Critical => "Critical",
+            HealthStatus::Unknown => "Unknown",
+        }
+    }
+    
+    /// Get status from string
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "healthy" => HealthStatus::Healthy,
+            "warning" => HealthStatus::Warning,
+            "critical" => HealthStatus::Critical,
+            _ => HealthStatus::Unknown,
+        }
+    }
+    
+    /// Convert from dashboard health status
+    pub fn from_dashboard_status(status: DashboardHealthStatus) -> Self {
+        match status {
+            DashboardHealthStatus::Ok => HealthStatus::Healthy,
+            DashboardHealthStatus::Warning => HealthStatus::Warning,
+            DashboardHealthStatus::Critical => HealthStatus::Critical,
+            DashboardHealthStatus::Unknown => HealthStatus::Unknown,
+        }
+    }
+}
+
+/// Health check item
 #[derive(Debug, Clone)]
 pub struct HealthCheck {
-    /// Health check name
+    /// Name of the service or component
     pub name: String,
-    /// Current status
+    /// Status of the health check
     pub status: HealthStatus,
-    /// Last check time
-    pub last_checked: DateTime<Utc>,
-    /// Message with details
-    pub message: String,
+    /// Additional details
+    pub details: Option<String>,
+    /// Last check time (can be used to show stale checks)
+    pub last_check: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-/// Widget for displaying system health checks
+impl HealthCheck {
+    /// Create a new health check
+    pub fn new(name: impl Into<String>, status: HealthStatus) -> Self {
+        Self {
+            name: name.into(),
+            status,
+            details: None,
+            last_check: Some(chrono::Utc::now()),
+        }
+    }
+    
+    /// Add details to the health check
+    pub fn with_details(mut self, details: impl Into<String>) -> Self {
+        self.details = Some(details.into());
+        self
+    }
+    
+    /// Set last check time
+    pub fn with_last_check(mut self, time: chrono::DateTime<chrono::Utc>) -> Self {
+        self.last_check = Some(time);
+        self
+    }
+    
+    /// Create from dashboard health check
+    pub fn from_dashboard(check: &DashboardHealthCheck) -> Self {
+        Self {
+            name: check.name.clone(),
+            status: HealthStatus::from_dashboard_status(check.status),
+            details: Some(check.details.clone()),
+            last_check: Some(Utc::now()),
+        }
+    }
+    
+    /// Format as styled lines
+    pub fn as_lines(&self) -> Vec<Line> {
+        let mut lines = Vec::new();
+        
+        // Name and status
+        lines.push(Line::from(vec![
+            Span::raw(&self.name),
+            Span::raw(": "),
+            Span::styled(
+                self.status.label(),
+                Style::default()
+                    .fg(self.status.color())
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]));
+        
+        // Details if present
+        if let Some(details) = &self.details {
+            lines.push(Line::from(vec![
+                Span::raw("  "),
+                Span::raw(details),
+            ]));
+        }
+        
+        // Last check time if present
+        if let Some(time) = self.last_check {
+            let now = chrono::Utc::now();
+            let diff = now.signed_duration_since(time);
+            
+            let time_str = if diff.num_seconds() < 60 {
+                format!("{} seconds ago", diff.num_seconds())
+            } else if diff.num_minutes() < 60 {
+                format!("{} minutes ago", diff.num_minutes())
+            } else {
+                format!("{} hours ago", diff.num_hours())
+            };
+            
+            lines.push(Line::from(vec![
+                Span::raw("  Last check: "),
+                Span::raw(time_str),
+            ]));
+        }
+        
+        lines
+    }
+}
+
+/// Widget for displaying health checks
 pub struct HealthWidget<'a> {
     /// Health checks to display
     health_checks: &'a [HealthCheck],
-    
     /// Widget title
     title: &'a str,
-    
-    /// Whether to show detailed information
-    detailed: bool,
 }
 
 impl<'a> HealthWidget<'a> {
@@ -51,226 +171,110 @@ impl<'a> HealthWidget<'a> {
         Self {
             health_checks,
             title,
-            detailed: false,
         }
     }
     
-    /// Create a new detailed health widget
-    pub fn new_detailed(health_checks: &'a [HealthCheck], title: &'a str) -> Self {
-        Self {
-            health_checks,
-            title,
-            detailed: true,
+    /// Create a new health widget from dashboard health checks
+    pub fn from_dashboard(health_checks: &'a [DashboardHealthCheck], _title: &'a str) -> Vec<HealthCheck> {
+        health_checks.iter().map(HealthCheck::from_dashboard).collect()
+    }
+    
+    /// Get overall health status based on individual checks
+    pub fn overall_health(&self) -> HealthStatus {
+        if self.health_checks.is_empty() {
+            return HealthStatus::Unknown;
+        }
+        
+        let has_critical = self.health_checks.iter().any(|check| check.status == HealthStatus::Critical);
+        if has_critical {
+            return HealthStatus::Critical;
+        }
+        
+        let has_warning = self.health_checks.iter().any(|check| check.status == HealthStatus::Warning);
+        if has_warning {
+            return HealthStatus::Warning;
+        }
+        
+        if self.health_checks.iter().all(|check| check.status == HealthStatus::Healthy) {
+            HealthStatus::Healthy
+        } else {
+            HealthStatus::Unknown
         }
     }
     
-    /// Set detailed mode
-    pub fn detailed(mut self, detailed: bool) -> Self {
-        self.detailed = detailed;
-        self
-    }
-}
-
-impl<'a> Widget for HealthWidget<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    /// Render the widget
+    pub fn render(&self, f: &mut Frame, area: Rect) {
         // Create base block
+        let overall_status = self.overall_health();
+        
+        // Create block with colored title based on overall status
+        let title = format!("{} - {}", self.title, overall_status.label());
         let block = Block::default()
             .borders(Borders::ALL)
-            .title(self.title);
+            .title(Span::styled(
+                title,
+                Style::default()
+                    .fg(overall_status.color())
+                    .add_modifier(Modifier::BOLD)
+            ));
         
         // Render block
-        block.clone().render(area, buf);
+        f.render_widget(block.clone(), area);
         
         // Get inner area
         let inner_area = block.inner(area);
         
-        // Handle empty health checks
+        // If there are no health checks, show a message
         if self.health_checks.is_empty() {
-            let text = vec![Spans::from(vec![
-                Span::styled("No health checks available", Style::default().fg(Color::Yellow))
-            ])];
-            
-            let paragraph = Paragraph::new(text)
-                .style(Style::default().fg(Color::White));
-            
-            paragraph.render(inner_area, buf);
+            let message = Paragraph::new(vec![
+                Line::from(vec![
+                    Span::styled(
+                        "No health checks available",
+                        Style::default().fg(Color::Gray),
+                    ),
+                ]),
+            ]);
+            f.render_widget(message, inner_area);
             return;
         }
         
-        // Calculate overall health
-        let (healthy, unhealthy) = count_statuses(self.health_checks);
-        let overall_status = if unhealthy == 0 {
-            HealthStatus::Healthy
-        } else if unhealthy > healthy {
-            HealthStatus::Unhealthy
-        } else {
-            HealthStatus::Warning
-        };
-        
-        // Create layout
+        // Create layout with two columns for health checks
         let chunks = Layout::default()
-            .direction(Direction::Vertical)
+            .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(1),
-                Constraint::Length(1),
-                Constraint::Min(0),
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
             ])
             .split(inner_area);
         
-        // Render overall status
-        let _overall_text = format!("Overall: {}", get_status_name(overall_status));
-        let overall_spans = Spans::from(vec![
-            Span::raw("Overall: "),
-            Span::styled(
-                get_status_name(overall_status),
-                get_status_style(overall_status),
-            ),
-        ]);
+        // Split health checks between columns
+        let mid = (self.health_checks.len() + 1) / 2;
+        let (left_checks, right_checks) = self.health_checks.split_at(mid);
         
-        let overall_paragraph = Paragraph::new(overall_spans)
-            .style(Style::default().fg(Color::White));
+        // Render left column
+        let left_lines: Vec<Line> = left_checks
+            .iter()
+            .flat_map(|check| {
+                let mut lines = check.as_lines();
+                lines.push(Line::from(""));
+                lines
+            })
+            .collect();
         
-        overall_paragraph.render(chunks[0], buf);
+        let left_paragraph = Paragraph::new(left_lines);
+        f.render_widget(left_paragraph, chunks[0]);
         
-        // Render summary
-        let summary_spans = Spans::from(vec![
-            Span::styled(
-                format!("{} healthy", healthy),
-                Style::default().fg(Color::Green),
-            ),
-            Span::raw(", "),
-            Span::styled(
-                format!("{} unhealthy", unhealthy),
-                if unhealthy > 0 {
-                    Style::default().fg(Color::Red)
-                } else {
-                    Style::default().fg(Color::Green)
-                },
-            ),
-        ]);
+        // Render right column
+        let right_lines: Vec<Line> = right_checks
+            .iter()
+            .flat_map(|check| {
+                let mut lines = check.as_lines();
+                lines.push(Line::from(""));
+                lines
+            })
+            .collect();
         
-        let summary_paragraph = Paragraph::new(summary_spans)
-            .style(Style::default().fg(Color::White));
-        
-        summary_paragraph.render(chunks[1], buf);
-        
-        // Render health checks as table or simple list
-        if self.detailed {
-            render_detailed_health_checks(self.health_checks, chunks[2], buf);
-        } else {
-            render_simple_health_checks(self.health_checks, chunks[2], buf);
-        }
+        let right_paragraph = Paragraph::new(right_lines);
+        f.render_widget(right_paragraph, chunks[1]);
     }
-}
-
-/// Render health checks as a simple list
-fn render_simple_health_checks(health_checks: &[HealthCheck], area: Rect, buf: &mut Buffer) {
-    // Create content
-    let mut content = Vec::new();
-    
-    for check in health_checks {
-        let status_style = get_status_style(check.status);
-        let status_str = get_status_symbol(check.status);
-        
-        content.push(Spans::from(vec![
-            Span::styled(status_str, status_style),
-            Span::raw(" "),
-            Span::styled(&check.name, Style::default()),
-        ]));
-    }
-    
-    // Render paragraph
-    let paragraph = Paragraph::new(content)
-        .style(Style::default().fg(Color::White));
-    
-    paragraph.render(area, buf);
-}
-
-/// Render health checks as a detailed table
-fn render_detailed_health_checks(health_checks: &[HealthCheck], area: Rect, buf: &mut Buffer) {
-    // Create table rows
-    let rows: Vec<Row> = health_checks
-        .iter()
-        .map(|check| {
-            let status_style = get_status_style(check.status);
-            let status_str = get_status_name(check.status);
-            
-            let cells = vec![
-                Cell::from(format!("{}", check.name)).style(Style::default()),
-                Cell::from(format!("{}", status_str)).style(status_style),
-                Cell::from(format!("{}", util::format_timestamp(check.last_checked))).style(Style::default().fg(Color::DarkGray)),
-                Cell::from(format!("{}", check.message)).style(Style::default()),
-            ];
-            
-            Row::new(cells)
-        })
-        .collect();
-    
-    // Create table
-    let table = Table::new(rows)
-        .header(
-            Row::new(vec![
-                Cell::from("Name").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("Status").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("Last Checked").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("Message").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            ])
-        )
-        .widths(&[
-            Constraint::Percentage(25),
-            Constraint::Percentage(15),
-            Constraint::Percentage(20),
-            Constraint::Percentage(40),
-        ])
-        .column_spacing(1);
-    
-    // Render table
-    table.render(area, buf);
-}
-
-/// Get the style for a health status
-fn get_status_style(status: HealthStatus) -> Style {
-    match status {
-        HealthStatus::Healthy => Style::default().fg(Color::Green),
-        HealthStatus::Warning => Style::default().fg(Color::Yellow),
-        HealthStatus::Unhealthy => Style::default().fg(Color::Red),
-    }
-}
-
-/// Get the name of a health status
-fn get_status_name(status: HealthStatus) -> &'static str {
-    match status {
-        HealthStatus::Healthy => "Healthy",
-        HealthStatus::Warning => "Warning",
-        HealthStatus::Unhealthy => "Unhealthy",
-    }
-}
-
-/// Get the symbol for a health status
-fn get_status_symbol(status: HealthStatus) -> &'static str {
-    match status {
-        HealthStatus::Healthy => "✓",
-        HealthStatus::Warning => "!",
-        HealthStatus::Unhealthy => "✗",
-    }
-}
-
-/// Count the number of healthy and unhealthy checks
-fn count_statuses(health_checks: &[HealthCheck]) -> (usize, usize) {
-    let mut healthy = 0;
-    let mut unhealthy = 0;
-    
-    for check in health_checks {
-        match check.status {
-            HealthStatus::Healthy => healthy += 1,
-            HealthStatus::Warning => {
-                // Count warnings as half healthy, half unhealthy
-                healthy += 1;
-                unhealthy += 1;
-            },
-            HealthStatus::Unhealthy => unhealthy += 1,
-        }
-    }
-    
-    (healthy, unhealthy)
 } 

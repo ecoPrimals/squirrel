@@ -33,7 +33,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments
     let args = Args::parse();
     
@@ -79,7 +79,7 @@ async fn main() -> io::Result<()> {
     let (dashboard_service, _rx) = &dashboard_service_with_rx;
     
     // Create monitoring adapter
-    let mut adapter = MonitoringToDashboardAdapter::new();
+    let mut adapter = MonitoringToDashboardAdapter::new_with_defaults();
     
     // Start a task to periodically collect metrics and update the dashboard
     let dashboard_service_clone = dashboard_service.clone();

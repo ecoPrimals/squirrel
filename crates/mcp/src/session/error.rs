@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::error::SquirrelError;
+use squirrel_core::error::SquirrelError;
 
 /// Session error types
 #[derive(Error, Debug)]

@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 use serde_json::json;
-use crate::error::{MCPError, MCPResult};
-use crate::protocol::{MCPMessage, MCPResponse, MessageType, Status};
-use crate::security::{AuthManager, Credentials, User, Permission, Action};
-use crate::types::{CoreState, StateUpdate, MessageHandler};
+use crate::error::{MCPError, Result};
+use crate::protocol::{types::MCPMessage, types::MCPResponse, types::MessageType};
+use crate::security::{Credentials, Permission, Action};
+use crate::integration::prelude::MessageHandler;
+use crate::monitoring::metrics;
 use tracing::{info, error, warn, instrument, Instrument};
 use async_trait::async_trait;
 use uuid::Uuid;
@@ -19,9 +20,9 @@ pub struct CoreMCPAdapter {
     /// Security manager for authentication and authorization
     auth_manager: Arc<AuthManager>,
     /// Metrics collector for operational monitoring
-    metrics: Arc<crate::metrics::MetricsCollector>,
+    metrics: Arc<metrics::MetricsCollector>,
     /// Logger for structured logging
-    logger: crate::logging::Logger,
+    logger: tracing::Logger,
 }
 
 impl CoreMCPAdapter {
@@ -30,8 +31,8 @@ impl CoreMCPAdapter {
         core_state: Arc<RwLock<CoreState>>,
         mcp: Arc<dyn crate::protocol::MCPProtocol>,
         auth_manager: Arc<AuthManager>,
-        metrics: Arc<crate::metrics::MetricsCollector>,
-        logger: crate::logging::Logger,
+        metrics: Arc<metrics::MetricsCollector>,
+        logger: tracing::Logger,
     ) -> Self {
         Self {
             core_state,
@@ -44,7 +45,7 @@ impl CoreMCPAdapter {
 
     /// Initialize the adapter by registering message handlers
     #[instrument(skip(self), name = "core_adapter_init")]
-    pub async fn initialize(&self) -> MCPResult<()> {
+    pub async fn initialize(&self) -> Result<()> {
         info!("Initializing Core-MCP adapter");
         
         // Register handlers for core-related message types
@@ -69,7 +70,7 @@ impl CoreMCPAdapter {
 
     /// Send a state update notification
     #[instrument(skip(self, update), fields(update_type = %update.update_type))]
-    pub async fn notify_state_update(&self, update: StateUpdate) -> MCPResult<()> {
+    pub async fn notify_state_update(&self, update: StateUpdate) -> Result<()> {
         let message = MCPMessage {
             id: Uuid::new_v4().to_string(),
             message_type: MessageType::StateNotification,
@@ -105,7 +106,7 @@ impl CoreMCPAdapter {
         operation_name: &str,
         params: serde_json::Value,
         user: Option<&User>,
-    ) -> MCPResult<serde_json::Value> {
+    ) -> Result<serde_json::Value> {
         // Check authorization if user is provided
         if let Some(user) = user {
             if let Err(e) = self.authorize_operation(user, operation_name).await {
@@ -127,7 +128,7 @@ impl CoreMCPAdapter {
     }
     
     /// Authorize a user for a specific operation
-    async fn authorize_operation(&self, user: &User, operation: &str) -> MCPResult<()> {
+    async fn authorize_operation(&self, user: &User, operation: &str) -> Result<()> {
         let resource = format!("core:{}", operation);
         let permission = Permission::new(&resource, Action::Execute);
         
@@ -141,7 +142,7 @@ impl CoreMCPAdapter {
         &self,
         operation: &str,
         params: serde_json::Value,
-    ) -> MCPResult<serde_json::Value> {
+    ) -> Result<serde_json::Value> {
         // Log operation attempt
         info!(operation = %operation, "Executing core operation");
         
@@ -224,7 +225,7 @@ impl Clone for CoreMCPAdapter {
 #[async_trait]
 impl MessageHandler for CoreMCPAdapter {
     #[instrument(skip(self, message), fields(message_id = %message.id, message_type = ?message.message_type))]
-    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse> {
+    async fn handle_message(&self, message: MCPMessage) -> Result<MCPResponse> {
         // Start performance timer
         let timer = self.metrics.start_timer("core_message_handling_time");
         
@@ -466,9 +467,9 @@ mod tests {
         
         #[async_trait]
         impl crate::protocol::MCPProtocol for MCPProtocol {
-            async fn send_message(&self, message: MCPMessage) -> MCPResult<MCPResponse>;
-            async fn register_handler(&self, message_type: MessageType, handler: Box<dyn MessageHandler>) -> MCPResult<()>;
-            async fn subscribe(&self, message_type: MessageType) -> MCPResult<crate::protocol::MCPSubscription>;
+            async fn send_message(&self, message: MCPMessage) -> Result<MCPResponse>;
+            async fn register_handler(&self, message_type: MessageType, handler: Box<dyn MessageHandler>) -> Result<()>;
+            async fn subscribe(&self, message_type: MessageType) -> Result<crate::protocol::MCPSubscription>;
         }
     }
     

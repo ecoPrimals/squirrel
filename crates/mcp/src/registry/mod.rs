@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use crate::error::{MCPError, Result};
-use crate::mcp::types::{MCPMessage, ProtocolVersion, ProtocolState};
+use crate::types::{MCPMessage, ProtocolVersion, ProtocolState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistryEntry {

@@ -1,9 +1,10 @@
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
-use crate::error::{MCPError, Result};
-use crate::mcp::types::{MCPMessage, CompressionFormat};
-use crate::mcp::compression;
+use futures::Future;
+use bytes::{BytesMut, Buf};
+use crate::types::{MCPMessage, CompressionFormat};
+use crate::compression;
 use serde_json::Value;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
@@ -172,9 +173,9 @@ mod tests {
 
             // Test message
             let test_message = MCPMessage::new(
-                crate::mcp::types::MessageType::Command,
-                crate::mcp::types::ProtocolVersion::new(1, 0),
-                crate::mcp::types::SecurityLevel::None,
+                crate::types::MessageType::Command,
+                crate::types::ProtocolVersion::new(1, 0),
+                crate::types::SecurityLevel::None,
                 vec![0u8; 1000], // Large payload to test compression
             );
 
