@@ -230,7 +230,7 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
         // Read into the buffer
         let bytes_read = self.reader.read_buf(&mut self.buffer).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
                 transport_err
             })?;
         
@@ -298,21 +298,21 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
         let header = (frame.len() as u32).to_be_bytes();
         self.writer.write_all(&header).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
                 transport_err
             })?;
         
         // Write frame payload
         self.writer.write_all(&frame.payload).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
                 transport_err
             })?;
         
         // Flush the writer
         self.writer.flush().await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
                 transport_err
             })?;
         
@@ -362,7 +362,7 @@ impl MessageCodec {
         // Serialize the message to JSON
         let json = serde_json::to_vec(message)
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::SerializationError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::SerializationError(e.to_string()).into();
                 transport_err
             })?;
         
@@ -394,7 +394,7 @@ impl MessageCodec {
         // Deserialize the message from JSON
         let message = serde_json::from_slice(&frame.payload)
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::SerializationError(e).into();
+                let transport_err: crate::error::MCPError = TransportError::SerializationError(e.to_string()).into();
                 transport_err
             })?;
         

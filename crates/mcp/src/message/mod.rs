@@ -633,7 +633,7 @@ pub mod codec {
     /// * Returns error if serialization fails
     pub fn serialize_message_binary(message: &Message) -> Result<Vec<u8>> {
         serde_json::to_vec(message)
-            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e).into()))
+            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e.to_string()).into()))
     }
     
     /// Deserialize a message from binary format
@@ -645,7 +645,7 @@ pub mod codec {
     /// * Returns error if deserialization fails
     pub fn deserialize_message_binary(data: &[u8]) -> Result<Message> {
         serde_json::from_slice(data)
-            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e).into()))
+            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e.to_string()).into()))
     }
 }
 

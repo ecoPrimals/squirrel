@@ -16,6 +16,7 @@ use tokio::net::TcpStream;
 use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
 use super::{Transport, TransportMetadata};
+use crate::error::MCPError;
 
 /// Configuration for the WebSocket transport
 ///
@@ -317,13 +318,15 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
+    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
         // Check if we're connected
         {
             let state = self.connection_state.read().await;
             if *state != WebSocketState::Connected {
-                return Err(TransportError::ConnectionClosed(
-                    "Transport is not connected".into()
+                return Err(MCPError::Transport(
+                    TransportError::ConnectionClosed(
+                        "Transport is not connected".into()
+                    ).into()
                 ));
             }
         }
@@ -331,9 +334,9 @@ impl Transport for WebSocketTransport {
         // Send the command to the socket task
         if let Some(sender) = &self.ws_sender {
             sender.send(SocketCommand::Send(message)).await
-                .map_err(|_| TransportError::ConnectionClosed("Failed to send message to socket task".into()))?;
+                .map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Failed to send message to socket task".into()).into()))?;
         } else {
-            return Err(TransportError::ConnectionClosed("Socket sender is not initialized".into()));
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Socket sender is not initialized".into()).into()));
         }
         
         Ok(())
@@ -346,13 +349,15 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result containing the received message or an error
-    async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
+    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
         // Check if we're connected
         {
             let state = self.connection_state.read().await;
             if *state != WebSocketState::Connected {
-                return Err(TransportError::ConnectionClosed(
-                    "Transport is not connected".into()
+                return Err(MCPError::Transport(
+                    TransportError::ConnectionClosed(
+                        "Transport is not connected".into()
+                    ).into()
                 ));
             }
         }
@@ -362,10 +367,10 @@ impl Transport for WebSocketTransport {
         if let Some(receiver) = &mut *receiver_guard {
             match receiver.recv().await {
                 Some(message) => Ok(message),
-                None => Err(TransportError::ConnectionClosed("Message channel closed".into())),
+                None => Err(MCPError::Transport(TransportError::ConnectionClosed("Message channel closed".into()).into())),
             }
         } else {
-            Err(TransportError::ConnectionClosed("Reader channel is not initialized".into()))
+            Err(MCPError::Transport(TransportError::ConnectionClosed("Reader channel is not initialized".into()).into()))
         }
     }
     
@@ -377,7 +382,7 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn connect(&mut self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> crate::error::Result<()> {
         // Update state to connecting
         {
             let mut state = self.connection_state.write().await;
@@ -425,7 +430,7 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn disconnect(&self) -> Result<(), TransportError> {
+    async fn disconnect(&self) -> crate::error::Result<()> {
         // Update state to disconnecting
         {
             let mut state = self.connection_state.write().await;

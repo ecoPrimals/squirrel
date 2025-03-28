@@ -24,6 +24,7 @@ use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
 use super::{Transport, TransportMetadata};
 use super::frame::{FrameReader, FrameWriter, MessageCodec};
+use crate::error::MCPError;
 
 /// Configuration for the TCP transport
 ///
@@ -502,50 +503,56 @@ impl TcpTransport {
 
 #[async_trait]
 impl Transport for TcpTransport {
-    async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
-        // Check if the transport is connected
-        if !self.is_connected().await {
-            return Err(TransportError::connection_closed(
-                "Cannot send message: not connected"
-            ));
+    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
+        // Check if connected
+        {
+            let state = self.state.read().await;
+            if !matches!(*state, TcpTransportState::Connected) {
+                return Err(TransportError::connection_closed("Not connected").into());
+            }
         }
         
-        // Get the message sender
-        let sender = {
-            let guard = self.message_sender.lock().await;
-            guard.clone()
-        };
-        
-        // Send the message
-        sender.send(message).await.map_err(|e| {
-            TransportError::protocol_error(format!("Failed to send message: {e}"))
-        })
+        // Send message to writer task
+        let msg_sender = self.message_sender.lock().await;
+        match msg_sender.send(message).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(TransportError::protocol_error(format!("Failed to send message: {e}")).into())
+        }
     }
     
-    async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
-        // Check if the transport is connected
-        if !self.is_connected().await {
-            return Err(TransportError::connection_closed(
-                "Cannot receive message: not connected"
-            ));
+    /// Receives a message from the transport
+    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
+        // Check if transport is connected using state directly
+        {
+            let state = self.state.read().await;
+            if *state != TcpTransportState::Connected {
+                return Err(TransportError::connection_closed("Not connected").into());
+            }
         }
         
-        // Get the frame receiver
-        let mut guard = self.frame_receiver.lock().await;
-        let receiver = guard.as_mut().ok_or_else(|| {
-            TransportError::protocol_error("No receiver available")
-        })?;
+        // Lock the frame_receiver so we can access the Option<Receiver>
+        let mut frame_receiver_guard = self.frame_receiver.lock().await;
         
-        // Wait for a message
+        // Check if we have a receiver
+        if frame_receiver_guard.is_none() {
+            return Err(TransportError::protocol_error("No receiver available").into());
+        }
+        
+        // Get a reference to the receiver
+        let receiver = frame_receiver_guard.as_mut().unwrap();
+        
+        // Now receive a message (this is safe as we keep the lock)
         match receiver.recv().await {
-            Some(message) => Ok(message),
-            None => Err(TransportError::connection_closed(
-                "Connection closed while receiving message"
-            )),
+            Some(msg) => Ok(msg),
+            None => {
+                // Channel is closed, remove the receiver
+                *frame_receiver_guard = None;
+                Err(TransportError::connection_closed("Channel closed").into())
+            }
         }
     }
     
-    async fn connect(&mut self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> crate::error::Result<()> {
         // Update state to connecting
         {
             let mut state = self.state.write().await;
@@ -560,35 +567,35 @@ impl Transport for TcpTransport {
                 {
                     *self.state.write().await = TcpTransportState::Failed(e.to_string());
                     
-                    return Err(TransportError::connection_failed(format!(
+                    return Err(MCPError::Transport(TransportError::connection_failed(format!(
                         "Failed to connect to {}: {}", 
                         self.config.remote_address, e
-                    )));
+                    )).into()));
                 }
             }
         };
         
         // Configure the stream
         stream.set_nodelay(true).map_err(|e| {
-            TransportError::connection_failed(format!("Failed to set nodelay: {e}"))
+            MCPError::Transport(TransportError::connection_failed(format!("Failed to set nodelay: {e}")).into())
         })?;
         
         if let Some(interval) = self.config.keep_alive_interval {
             // We need to use socket2 to set keepalive on TcpStream
             // First get the std TcpStream, then create socket2::Socket from it
             let socket = socket2::Socket::from(stream.into_std().map_err(|e| {
-                TransportError::connection_failed(format!("Failed to get std socket: {e}"))
+                MCPError::Transport(TransportError::connection_failed(format!("Failed to get std socket: {e}")).into())
             })?);
             
             // Set keep-alive
             socket.set_keepalive(true).map_err(|e| {
-                TransportError::connection_failed(format!("Failed to set keepalive: {e}"))
+                MCPError::Transport(TransportError::connection_failed(format!("Failed to set keepalive: {e}")).into())
             })?;
             
             // Set keep-alive parameters if available on this platform
             #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
             socket.set_tcp_keepalive(&socket2::TcpKeepalive::new().with_time(std::time::Duration::from_secs(interval))).map_err(|e| {
-                TransportError::connection_failed(format!("Failed to set keepalive parameters: {e}"))
+                MCPError::Transport(TransportError::connection_failed(format!("Failed to set keepalive parameters: {e}")).into())
             })?;
             
             // Convert Socket to std::net::TcpStream explicitly
@@ -646,7 +653,7 @@ impl Transport for TcpTransport {
         Ok(())
     }
     
-    async fn disconnect(&self) -> Result<(), TransportError> {
+    async fn disconnect(&self) -> crate::error::Result<()> {
         // Update state to disconnecting
         {
             let mut state = self.state.write().await;
@@ -667,7 +674,7 @@ impl Transport for TcpTransport {
     
     async fn is_connected(&self) -> bool {
         let state = self.state.read().await;
-        *state == TcpTransportState::Connected
+        matches!(*state, TcpTransportState::Connected)
     }
     
     fn get_metadata(&self) -> TransportMetadata {

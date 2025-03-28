@@ -61,7 +61,7 @@
 
 use crate::error::{MCPError, Result};
 use crate::error::ProtocolError;
-use crate::error::types::TransportError as SimplifiedTransportError;
+use crate::error::transport::TransportError;
 use crate::message::{Message, MessageBuilder};
 use crate::message_router::{MessageRouter, HandlerPriority, MessageRouterError};
 use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject};
@@ -326,10 +326,10 @@ impl MCPServer {
         
         // Bind to the configured address
         let bind_addr = self.config.bind_address.parse::<SocketAddr>()
-            .map_err(|e| MCPError::Transport(SimplifiedTransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
+            .map_err(|e| MCPError::Transport(TransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
         
         let listener = TcpListener::bind(bind_addr).await
-            .map_err(|e| MCPError::Transport(SimplifiedTransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
+            .map_err(|e| MCPError::Transport(TransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
         
         // Start the listener task
         if let Err(e) = self.start_listener_task(listener).await {
@@ -480,18 +480,18 @@ impl MCPServer {
                             Err(e) => {
                                 // Handle transport errors
                                 match e {
-                                    crate::error::transport::TransportError::ConnectionClosed(msg) => {
-                                        warn!("Connection closed: {}", msg);
-                                        break;
+                                    MCPError::Transport(TransportError::ConnectionClosed(msg)) => {
+                                        info!("Client disconnected: {}", msg);
+                                        break; // Break out of the loop
                                     },
-                                    crate::error::transport::TransportError::Timeout(msg) => {
-                                        warn!("Transport timeout: {}", msg);
-                                        continue 'outer_loop;
+                                    MCPError::Transport(TransportError::Timeout(msg)) => {
+                                        warn!("Timeout receiving message: {}", msg);
+                                        continue 'outer_loop; // Continue to the next iteration of the outer loop
                                     },
                                     _ => {
                                         // Other errors are critical
-                                        error!("Transport error from client {}: {}", client_id_clone, e);
-                                        break;
+                                        error!("Error receiving message: {}", e);
+                                        break; // Break out of the loop for any other errors
                                     }
                                 }
                             }

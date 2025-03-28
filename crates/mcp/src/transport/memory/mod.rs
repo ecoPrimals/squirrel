@@ -3,10 +3,12 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, RwLock, Mutex};
 use uuid::Uuid;
 use std::collections::VecDeque;
+use rand;
 
 use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
 use super::{Transport, TransportMetadata};
+use crate::error::MCPError;
 
 /// Configuration for the in-memory transport
 #[derive(Debug, Clone)]
@@ -313,10 +315,9 @@ impl MemoryTransport {
 
 #[async_trait]
 impl Transport for MemoryTransport {
-    async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
-        // Check if connected
+    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
         if !self.is_connected().await {
-            return Err(TransportError::ConnectionClosed("Not connected".into()));
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string()).into()));
         }
         
         // Clone the message for history
@@ -331,21 +332,19 @@ impl Transport for MemoryTransport {
         // Simulate random failures
         if self.config.simulate_failures && rand::random::<f32>() < 0.05 {
             // 5% chance of failure
-            return Err(TransportError::ConnectionClosed("Simulated random send failure".into()));
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Simulated random send failure".to_string()).into()));
         }
         
         // Send to peer
         let peer_sender = self.peer_sender.clone();
         peer_sender.send(message).await
-            .map_err(|_| TransportError::ConnectionClosed("Failed to send message to peer".into()))?;
-        
-        Ok(())
+            .map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Failed to send message to peer".to_string()).into()))
     }
     
-    async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
+    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
         // Check if connected
         if !self.is_connected().await {
-            return Err(TransportError::ConnectionClosed("Not connected".into()));
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string()).into()));
         }
         
         // Get a message from the incoming channel
@@ -360,11 +359,11 @@ impl Transport for MemoryTransport {
                 
                 Ok(message)
             },
-            None => Err(TransportError::ConnectionClosed("Channel closed".into())),
+            None => Err(MCPError::Transport(TransportError::ConnectionClosed("Channel closed".to_string()).into())),
         }
     }
     
-    async fn connect(&mut self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> crate::error::Result<()> {
         // Get current state
         let state = {
             let state = self.state.read().await;
@@ -378,9 +377,9 @@ impl Transport for MemoryTransport {
         
         // Only allow connecting from Disconnected state
         if state != MemoryState::Disconnected {
-            return Err(TransportError::ConnectionFailed(
+            return Err(MCPError::Transport(TransportError::ConnectionFailed(
                 format!("Cannot connect from state: {state:?}")
-            ));
+            ).into()));
         }
         
         // Update state
@@ -396,11 +395,11 @@ impl Transport for MemoryTransport {
         if self.config.simulate_failures && rand::random::<f32>() < 0.1 {
             // 10% chance of failure
             let mut state = self.state.write().await;
-            *state = MemoryState::Failed("Simulated random failure".into());
+            *state = MemoryState::Failed("Simulated random failure".to_string());
             
-            return Err(TransportError::ConnectionFailed(
-                "Simulated random connection failure".into()
-            ));
+            return Err(MCPError::Transport(TransportError::ConnectionFailed(
+                "Simulated random connection failure".to_string()
+            ).into()));
         }
         
         // Update state to connected
@@ -411,8 +410,8 @@ impl Transport for MemoryTransport {
         
         Ok(())
     }
-    
-    async fn disconnect(&self) -> Result<(), TransportError> {
+
+    async fn disconnect(&self) -> crate::error::Result<()> {
         // Update state to disconnecting
         {
             let mut state = self.state.write().await;
@@ -430,12 +429,12 @@ impl Transport for MemoryTransport {
         
         Ok(())
     }
-    
+
     async fn is_connected(&self) -> bool {
         let state = self.state.read().await;
         *state == MemoryState::Connected
     }
-    
+
     fn get_metadata(&self) -> TransportMetadata {
         self.metadata.clone()
     }
