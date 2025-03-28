@@ -17,6 +17,8 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::time;
 use tracing::{debug, error, info, instrument, warn};
 use std::any::Any;
+use std::future::Future;
+use std::pin::Pin;
 
 use crate::tool::{Tool, ToolError, ToolLifecycleHook, ToolManager, ToolState};
 
@@ -48,7 +50,7 @@ pub enum AdvancedBackoffStrategy {
 
 impl AdvancedBackoffStrategy {
     /// Calculate the delay in milliseconds for a given attempt
-    pub fn calculate_delay(&self, attempt: u32) -> u64 {
+    #[must_use] pub fn calculate_delay(&self, attempt: u32) -> u64 {
         use rand::Rng;
         
         match self {
@@ -200,16 +202,15 @@ pub struct EnhancedRecoveryAttempt {
 }
 
 /// Handler for custom recovery actions
-#[async_trait]
 pub trait EnhancedRecoveryHandler: fmt::Debug + Send + Sync {
     /// Handle a custom recovery action
-    async fn handle_action(
-        &self,
-        tool_id: &str,
-        action: &AdvancedRecoveryAction,
-        error: &ToolError,
-        tool_manager: &ToolManager,
-    ) -> Result<bool, ToolError>;
+    fn handle_action<'a>(
+        &'a self,
+        tool_id: &'a str,
+        action: &'a AdvancedRecoveryAction,
+        error: &'a ToolError,
+        tool_manager: &'a ToolManager,
+    ) -> Pin<Box<dyn Future<Output = Result<bool, ToolError>> + Send + 'a>>;
 }
 
 /// Enhanced recovery hook for handling tool errors
@@ -227,7 +228,7 @@ pub struct EnhancedRecoveryHook {
     /// Recovery history
     history: RwLock<Vec<EnhancedRecoveryAttempt>>,
     
-    /// Active recovery attempts (tool_id -> attempt count)
+    /// Active recovery attempts (`tool_id` -> attempt count)
     active_recoveries: Mutex<HashMap<String, u32>>,
     
     /// Error patterns for each tool
@@ -242,7 +243,7 @@ impl Default for EnhancedRecoveryHook {
 
 impl EnhancedRecoveryHook {
     /// Creates a new enhanced recovery hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             default_strategy: EnhancedRecoveryStrategy::default(),
             strategies: RwLock::new(HashMap::new()),
@@ -290,7 +291,7 @@ impl EnhancedRecoveryHook {
             tool_patterns.remove(0);
         }
         
-        tool_patterns.push((Utc::now(), format!("{:?}", error)));
+        tool_patterns.push((Utc::now(), format!("{error:?}")));
     }
     
     /// Record a recovery attempt
@@ -331,12 +332,12 @@ impl EnhancedRecoveryHook {
         
         let result = match action {
             AdvancedRecoveryAction::Reset => {
-                tool_manager.reset_tool(tool_id).await.map(|_| true)
+                tool_manager.reset_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::Restart => {
                 tool_manager.stop_tool(tool_id).await?;
-                tool_manager.start_tool(tool_id).await.map(|_| true)
+                tool_manager.start_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::Recreate => {
@@ -353,7 +354,7 @@ impl EnhancedRecoveryHook {
             
             AdvancedRecoveryAction::Recover { params } => {
                 info!("Triggering recovery mode for tool {} with params: {:?}", tool_id, params);
-                tool_manager.recover_tool(tool_id).await.map(|_| true)
+                tool_manager.recover_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::RetryAfterDelay { delay_ms } => {
@@ -387,7 +388,7 @@ impl EnhancedRecoveryHook {
             action: action.clone(),
             timestamp: Utc::now(),
             successful: result.is_ok(),
-            error_message: result.as_ref().err().map(|e| format!("{}", e)),
+            error_message: result.as_ref().err().map(|e| format!("{e}")),
             attempt_number: 0, // Will be set by the caller
             duration_ms: Some(duration),
             previous_state: prev_state,
@@ -444,104 +445,106 @@ impl ToolLifecycleHook for EnhancedRecoveryHook {
     }
 }
 
-/// Extension to the ToolManager for enhanced recovery
+/// Extension to the `ToolManager` for enhanced recovery
 pub trait ToolManagerRecoveryExt {
     /// Perform enhanced recovery for a tool
-    async fn perform_enhanced_recovery(
-        &self,
-        tool_id: &str,
-        error: &ToolError,
-        recovery_hook: &EnhancedRecoveryHook,
-    ) -> Result<bool, ToolError>;
+    fn perform_enhanced_recovery<'a>(
+        &'a self,
+        tool_id: &'a str,
+        error: &'a ToolError,
+        recovery_hook: &'a EnhancedRecoveryHook,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool, ToolError>> + Send + 'a>>;
 }
 
 impl ToolManagerRecoveryExt for ToolManager {
     /// Perform enhanced recovery for a tool
-    async fn perform_enhanced_recovery(
-        &self,
-        tool_id: &str,
-        error: &ToolError,
-        recovery_hook: &EnhancedRecoveryHook,
-    ) -> Result<bool, ToolError> {
-        // Get the strategy for this tool
-        let strategy = recovery_hook.get_strategy(tool_id).await;
-        
-        // Check if we're already at the maximum attempts
-        let mut active = recovery_hook.active_recoveries.lock().await;
-        let attempt = active.entry(tool_id.to_string()).or_insert(0);
-        
-        if *attempt >= strategy.max_attempts {
-            error!(
-                "Tool {} has reached maximum recovery attempts ({})",
-                tool_id, strategy.max_attempts
-            );
+    fn perform_enhanced_recovery<'a>(
+        &'a self,
+        tool_id: &'a str,
+        error: &'a ToolError,
+        recovery_hook: &'a EnhancedRecoveryHook,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool, ToolError>> + Send + 'a>> {
+        Box::pin(async move {
+            // Get the strategy for this tool
+            let strategy = recovery_hook.get_strategy(tool_id).await;
             
-            // Reset the counter for next time
-            *attempt = 0;
-            return Err(ToolError::TooManyErrors(format!(
-                "Tool {} exceeded maximum recovery attempts ({})",
-                tool_id, strategy.max_attempts
-            )));
-        }
-        
-        // Increment the attempt counter
-        *attempt += 1;
-        let current_attempt = *attempt;
-        drop(active);
-        
-        // Calculate delay based on backoff strategy
-        let delay = strategy.backoff_strategy.calculate_delay(current_attempt - 1);
-        
-        // Wait for the calculated delay
-        if delay > 0 {
-            info!("Waiting {}ms before recovery attempt {}", delay, current_attempt);
-            time::sleep(std::time::Duration::from_millis(delay)).await;
-        }
-        
-        // Try each recovery action in sequence
-        let mut overall_success = false;
-        
-        for (i, action) in strategy.recovery_actions.iter().enumerate() {
-            info!(
-                "Attempting recovery action {} ({:?}) for tool {}",
-                i + 1, action, tool_id
-            );
+            // Check if we're already at the maximum attempts
+            let mut active = recovery_hook.active_recoveries.lock().await;
+            let attempt = active.entry(tool_id.to_string()).or_insert(0);
             
-            match recovery_hook.apply_recovery_action(tool_id, action, error, self).await {
-                Ok(success) => {
-                    if success {
-                        info!(
-                            "Recovery action {} ({:?}) succeeded for tool {}",
-                            i + 1, action, tool_id
-                        );
-                        overall_success = true;
-                        
-                        if strategy.stop_on_success {
-                            break;
+            if *attempt >= strategy.max_attempts {
+                error!(
+                    "Tool {} has reached maximum recovery attempts ({})",
+                    tool_id, strategy.max_attempts
+                );
+                
+                // Reset the counter for next time
+                *attempt = 0;
+                return Err(ToolError::TooManyErrors(format!(
+                    "Tool {} exceeded maximum recovery attempts ({})",
+                    tool_id, strategy.max_attempts
+                )));
+            }
+            
+            // Increment the attempt counter
+            *attempt += 1;
+            let current_attempt = *attempt;
+            drop(active);
+            
+            // Calculate delay based on backoff strategy
+            let delay = strategy.backoff_strategy.calculate_delay(current_attempt - 1);
+            
+            // Wait for the calculated delay
+            if delay > 0 {
+                info!("Waiting {}ms before recovery attempt {}", delay, current_attempt);
+                time::sleep(std::time::Duration::from_millis(delay)).await;
+            }
+            
+            // Try each recovery action in sequence
+            let mut overall_success = false;
+            
+            for (i, action) in strategy.recovery_actions.iter().enumerate() {
+                info!(
+                    "Attempting recovery action {} ({:?}) for tool {}",
+                    i + 1, action, tool_id
+                );
+                
+                match recovery_hook.apply_recovery_action(tool_id, action, error, self).await {
+                    Ok(success) => {
+                        if success {
+                            info!(
+                                "Recovery action {} ({:?}) succeeded for tool {}",
+                                i + 1, action, tool_id
+                            );
+                            overall_success = true;
+                            
+                            if strategy.stop_on_success {
+                                break;
+                            }
+                        } else {
+                            warn!(
+                                "Recovery action {} ({:?}) did not resolve the issue for tool {}",
+                                i + 1, action, tool_id
+                            );
                         }
-                    } else {
-                        warn!(
-                            "Recovery action {} ({:?}) did not resolve the issue for tool {}",
-                            i + 1, action, tool_id
+                    }
+                    Err(e) => {
+                        error!(
+                            "Recovery action {} ({:?}) failed for tool {}: {}",
+                            i + 1, action, tool_id, e
                         );
                     }
                 }
-                Err(e) => {
-                    error!(
-                        "Recovery action {} ({:?}) failed for tool {}: {}",
-                        i + 1, action, tool_id, e
-                    );
-                }
             }
-        }
-        
-        // Reset the attempt counter if successful
-        if overall_success {
-            let mut active = recovery_hook.active_recoveries.lock().await;
-            active.insert(tool_id.to_string(), 0);
-        }
-        
-        Ok(overall_success)
+            
+            // Reset the attempt counter if successful
+            if overall_success {
+                let mut active = recovery_hook.active_recoveries.lock().await;
+                active.insert(tool_id.to_string(), 0);
+            }
+            
+            Ok(overall_success)
+        })
     }
 }
 

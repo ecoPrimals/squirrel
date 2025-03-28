@@ -121,25 +121,8 @@ pub struct PermissionAuditEvent {
     pub context: HashMap<String, String>,
 }
 
-/// Enhanced RBAC Manager that supports role inheritance, permission validation, and audit logging.
-///
-/// Key features:
-/// - Advanced role inheritance (direct, filtered, conditional, delegated)
-/// - Permission validation with rules and context
-/// - Comprehensive audit logging
-/// - High-performance permission caching
-/// - Efficient handling of large role hierarchies
-/// - Thread-safe async operations
-///
-/// The permission caching system drastically improves performance for repeated permission checks
-/// by storing results in an LRU cache. This is particularly beneficial when the same permissions
-/// are checked frequently across the application.
-///
-/// Performance optimizations include:
-/// - Cached permission checks for frequent patterns
-/// - Parallel processing for large role hierarchies
-/// - Efficient batch permission resolution
-/// - Smart cache key generation based on context
+/// Enhanced RBAC management with additional features
+#[derive(Debug)]
 pub struct EnhancedRBACManager {
     /// RBAC Manager
     rbac_manager: Arc<RBACManager>,
@@ -186,7 +169,7 @@ impl Default for EnhancedRBACManager {
 
 impl EnhancedRBACManager {
     /// Create a new enhanced RBAC manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             rbac_manager: Arc::new(RBACManager::new()),
             inheritance_manager: Arc::new(InheritanceManager::new()),
@@ -264,15 +247,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {parent_id}")
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {child_id}")
+            )));
         }
         
         // Create filtered inheritance
@@ -295,15 +278,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {parent_id}")
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {child_id}")
+            )));
         }
         
         // Create conditional inheritance
@@ -322,15 +305,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {parent_id}")
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {child_id}")
+            )));
         }
         
         // Create delegated inheritance
@@ -506,7 +489,7 @@ impl EnhancedRBACManager {
         resource.hash(&mut hasher);
         
         // Convert action to a string representation for hashing
-        let action_str = format!("{:?}", action);
+        let action_str = format!("{action:?}");
         action_str.hash(&mut hasher);
         
         // Hash important context elements that might affect permission

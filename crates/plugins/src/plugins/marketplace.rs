@@ -4,7 +4,7 @@
 //! and management from remote repositories.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -95,7 +95,7 @@ pub trait RepositoryProvider: Send + Sync {
     async fn search_plugins(&self, query: &str) -> Result<Vec<PluginPackageInfo>>;
     
     /// Download a plugin
-    async fn download_plugin(&self, id: &Uuid, path: &PathBuf) -> Result<()>;
+    async fn download_plugin(&self, id: &Uuid, path: &Path) -> Result<()>;
 }
 
 /// HTTP-based repository provider
@@ -170,7 +170,7 @@ impl RepositoryProvider for HttpRepositoryProvider {
         Ok(plugins)
     }
     
-    async fn download_plugin(&self, id: &Uuid, path: &PathBuf) -> Result<()> {
+    async fn download_plugin(&self, id: &Uuid, path: &Path) -> Result<()> {
         let url = format!("{}/download/{}", self.base_url, id);
         let response = self.client.get(&url).send().await?;
         

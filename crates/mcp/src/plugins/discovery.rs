@@ -23,7 +23,7 @@ pub struct PluginProxyExecutor {
 
 impl PluginProxyExecutor {
     /// Create a new plugin proxy executor
-    pub fn new(plugin_id: String, tool_id: String, capabilities: Vec<String>) -> Self {
+    #[must_use] pub const fn new(plugin_id: String, tool_id: String, capabilities: Vec<String>) -> Self {
         Self {
             plugin_id,
             tool_id,
@@ -43,7 +43,7 @@ impl ToolExecutor for PluginProxyExecutor {
         Ok(ToolExecutionResult {
             tool_id: self.tool_id.clone(),
             capability: context.capability.clone(),
-            request_id: context.request_id.clone(),
+            request_id: context.request_id,
             status: ExecutionStatus::Success,
             output: Some(serde_json::json!({"message": "Plugin proxy execution successful"})),
             error_message: None,
@@ -91,7 +91,7 @@ impl PluginDiscoveryManager {
         
         if let Some(tool_id) = tool_id {
             self.tool_manager.unregister_tool(&tool_id).await
-                .map_err(|e| ToolError::ExecutionError(format!("Failed to unregister tool: {}", e)))?;
+                .map_err(|e| ToolError::ExecutionError(format!("Failed to unregister tool: {e}")))?;
             
             // Remove from our tracking
             let mut plugin_tools = self.tools.write().await;
@@ -100,7 +100,7 @@ impl PluginDiscoveryManager {
             info!("Unregistered plugin '{}' (tool '{}')", plugin_id, tool_id);
             Ok(())
         } else {
-            Err(ToolError::ExecutionError(format!("Plugin not registered: {}", plugin_id)))
+            Err(ToolError::ExecutionError(format!("Plugin not registered: {plugin_id}")))
         }
     }
 }

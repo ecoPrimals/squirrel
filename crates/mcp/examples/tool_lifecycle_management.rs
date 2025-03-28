@@ -5,14 +5,13 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::time::{self, Duration};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use squirrel_mcp::tool::{
     AdvancedBackoffStrategy, AdvancedRecoveryAction, Capability, CleanupMethod, ComprehensiveCleanupHook,
     CompositeLifecycleHook, EnhancedRecoveryHook, EnhancedRecoveryStrategy, Parameter, ParameterType,
-    ResourceType, StateTransitionValidator, StateValidationHook, Tool, ToolBuilder, ToolError,
+    ResourceType, StateTransitionValidator, StateValidationHook, ToolBuilder, ToolError,
     ToolExecutor, ToolLifecycleHook, ToolManager, ToolManagerBuilder, ToolManagerRecoveryExt,
     ToolState,
 };

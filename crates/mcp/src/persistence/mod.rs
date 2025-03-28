@@ -324,7 +324,7 @@ impl MCPPersistence {
     ///
     /// Returns an error if the data cannot be saved or if the underlying storage
     /// mechanism fails.
-    pub fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
+    pub const fn save(&self, _key: &str, _data: &[u8]) -> Result<()> {
         // Stub implementation
         Ok(())
     }
@@ -339,7 +339,7 @@ impl MCPPersistence {
     ///
     /// Returns an error if the data cannot be loaded or if the underlying storage
     /// mechanism fails.
-    pub fn load(&self, _key: &str) -> Result<Vec<u8>> {
+    pub const fn load(&self, _key: &str) -> Result<Vec<u8>> {
         // Stub implementation
         Ok(Vec::new())
     }
@@ -354,7 +354,7 @@ impl MCPPersistence {
     ///
     /// Returns an error if the data cannot be deleted or if the underlying storage
     /// mechanism fails.
-    pub fn delete(&self, _key: &str) -> Result<()> {
+    pub const fn delete(&self, _key: &str) -> Result<()> {
         // Stub implementation
         Ok(())
     }
@@ -1066,7 +1066,7 @@ pub struct PersistenceFactory {
 impl PersistenceFactory {
     /// Create a new persistence factory
     #[must_use]
-    pub fn new(config: PersistenceConfig) -> Self {
+    pub const fn new(config: PersistenceConfig) -> Self {
         Self { config }
     }
 

@@ -26,7 +26,7 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Create a new protocol version
-    pub fn new(major: u64, minor: u64, patch: u64) -> Self {
+    #[must_use] pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
         Self {
             major,
             minor,
@@ -65,7 +65,7 @@ impl ProtocolVersion {
     }
     
     /// Parse from a semver Version
-    pub fn from_semver(version: &Version) -> Self {
+    #[must_use] pub fn from_semver(version: &Version) -> Self {
         Self {
             major: version.major,
             minor: version.minor,
@@ -119,7 +119,7 @@ impl VersionRequirement {
         }
     }
     
-    /// Convert to a semver VersionReq
+    /// Convert to a semver `VersionReq`
     pub fn to_semver_req(&self) -> Result<VersionReq> {
         VersionReq::parse(&self.requirement)
             .map_err(|e| anyhow!("Invalid version requirement format: {}", e))
@@ -141,7 +141,7 @@ pub struct ProtocolVersionManager {
 
 impl ProtocolVersionManager {
     /// Create a new protocol version manager
-    pub fn new(current: ProtocolVersion, min_supported: ProtocolVersion) -> Self {
+    #[must_use] pub fn new(current: ProtocolVersion, min_supported: ProtocolVersion) -> Self {
         Self {
             current_version: current,
             min_supported_version: min_supported,
@@ -150,12 +150,12 @@ impl ProtocolVersionManager {
     }
     
     /// Get the current protocol version
-    pub fn current_version(&self) -> &ProtocolVersion {
+    #[must_use] pub const fn current_version(&self) -> &ProtocolVersion {
         &self.current_version
     }
     
     /// Get the minimum supported protocol version
-    pub fn min_supported_version(&self) -> &ProtocolVersion {
+    #[must_use] pub const fn min_supported_version(&self) -> &ProtocolVersion {
         &self.min_supported_version
     }
     
@@ -207,6 +207,13 @@ impl ProtocolVersionManager {
     }
     
     /// Check version compatibility from message
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The message does not contain a `protocol_version` field
+    /// - The `protocol_version` has an invalid format
+    /// - There is an error converting versions to semver format
     pub fn check_message_compatibility(&self, message: &Value) -> Result<bool> {
         // Extract version from message
         let version_value = message.get("protocol_version")
@@ -231,7 +238,7 @@ impl ProtocolVersionManager {
     }
     
     /// Add version information to a message
-    pub fn add_version_to_message(&self, mut message: Value) -> Value {
+    #[must_use] pub fn add_version_to_message(&self, mut message: Value) -> Value {
         let version_value = serde_json::to_value(&self.current_version).unwrap_or_default();
         
         if let Some(obj) = message.as_object_mut() {
@@ -247,6 +254,12 @@ impl ProtocolVersionManager {
     }
     
     /// Check if the current version is compatible with a requirement
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - There is an error converting versions to semver format
+    /// - The semver requirement cannot be parsed
     pub fn is_compatible_with_requirement(&self, requirement: &VersionRequirement) -> Result<bool> {
         self.current_version.is_compatible_with(requirement)
     }

@@ -33,9 +33,9 @@ pub enum RecoveryStrategy {
 impl fmt::Display for RecoveryStrategy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RecoveryStrategy::Reset => write!(f, "Reset"),
-            RecoveryStrategy::Terminate => write!(f, "Terminate"),
-            RecoveryStrategy::Continue => write!(f, "Continue"),
+            Self::Reset => write!(f, "Reset"),
+            Self::Terminate => write!(f, "Terminate"),
+            Self::Continue => write!(f, "Continue"),
         }
     }
 }
@@ -79,7 +79,7 @@ impl Default for RecoveryHook {
 
 impl RecoveryHook {
     /// Creates a new recovery hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             error_history: RwLock::new(HashMap::new()),
             recovery_history: RwLock::new(HashMap::new()),
@@ -92,19 +92,19 @@ impl RecoveryHook {
     }
 
     /// Sets the maximum number of recovery attempts
-    pub fn with_max_recovery_attempts(mut self, max_attempts: usize) -> Self {
+    pub const fn with_max_recovery_attempts(mut self, max_attempts: usize) -> Self {
         self.max_recovery_attempts = max_attempts;
         self
     }
 
     /// Sets the retry interval in milliseconds
-    pub fn with_retry_interval(mut self, interval_ms: u64) -> Self {
+    pub const fn with_retry_interval(mut self, interval_ms: u64) -> Self {
         self.retry_interval_ms = interval_ms;
         self
     }
 
     /// Sets the penalty timeout in milliseconds
-    pub fn with_penalty_timeout(mut self, timeout_ms: u64) -> Self {
+    pub const fn with_penalty_timeout(mut self, timeout_ms: u64) -> Self {
         self.penalty_timeout_ms = timeout_ms;
         self
     }
@@ -162,10 +162,10 @@ impl RecoveryHook {
         // Count consecutive failures
         let mut consecutive_failures = 0;
         for attempt in attempts.iter().rev() {
-            if !attempt.successful {
-                consecutive_failures += 1;
-            } else {
+            if attempt.successful {
                 break;
+            } else {
+                consecutive_failures += 1;
             }
         }
 
@@ -329,14 +329,13 @@ impl ToolLifecycleHook for RecoveryHook {
         // Check error history before starting
         let error_count = {
             let history = self.error_history.read().await;
-            history.get(tool_id).map_or(0, |errors| errors.len())
+            history.get(tool_id).map_or(0, std::vec::Vec::len)
         };
 
         // If too many errors, don't allow starting
         if error_count > self.max_recovery_attempts {
             return Err(ToolError::TooManyErrors(format!(
-                "Tool {} has too many errors ({}), refusing to start",
-                tool_id, error_count
+                "Tool {tool_id} has too many errors ({error_count}), refusing to start"
             )));
         }
 
@@ -351,8 +350,7 @@ impl ToolLifecycleHook for RecoveryHook {
             if !history.is_empty() {
                 let last_strategy = history
                     .last()
-                    .map(|attempt| attempt.strategy)
-                    .unwrap_or(RecoveryStrategy::Reset);
+                    .map_or(RecoveryStrategy::Reset, |attempt| attempt.strategy);
                 self.record_recovery_attempt(tool_id, last_strategy, true)
                     .await;
 
@@ -402,14 +400,13 @@ impl ToolLifecycleHook for RecoveryHook {
         // Similar check as pre_start
         let error_count = {
             let history = self.error_history.read().await;
-            history.get(tool_id).map_or(0, |errors| errors.len())
+            history.get(tool_id).map_or(0, std::vec::Vec::len)
         };
 
         // If too many errors, don't allow resuming
         if error_count > self.max_recovery_attempts {
             return Err(ToolError::TooManyErrors(format!(
-                "Tool {} has too many errors ({}), refusing to resume",
-                tool_id, error_count
+                "Tool {tool_id} has too many errors ({error_count}), refusing to resume"
             )));
         }
 
@@ -427,7 +424,7 @@ impl ToolLifecycleHook for RecoveryHook {
         // When cleaning up, check if there were unresolved errors
         let error_count = {
             let history = self.error_history.read().await;
-            history.get(tool_id).map_or(0, |errors| errors.len())
+            history.get(tool_id).map_or(0, std::vec::Vec::len)
         };
 
         if error_count > 0 {
@@ -473,7 +470,7 @@ impl ToolLifecycleHook for RecoveryHook {
         result: Result<(), ToolError>,
     ) -> Result<(), ToolError> {
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 info!(
                     "Tool '{}' executed successfully, no recovery needed",
                     tool_id
@@ -497,7 +494,7 @@ impl ToolLifecycleHook for RecoveryHook {
                         // Signal that the tool should be terminated
                         Err(ToolError::ExecutionFailed {
                             tool_id: tool_id.to_string(),
-                            reason: format!("Tool terminated due to error: {}", err),
+                            reason: format!("Tool terminated due to error: {err}"),
                         })
                     }
                 }

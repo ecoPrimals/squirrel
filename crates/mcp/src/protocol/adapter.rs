@@ -33,7 +33,7 @@
 //!     // Create a message
 //!     let message = MCPMessage {
 //!         id: MessageId("msg123".to_string()),
-//!         message_type: MessageType::Command,
+//!         type_: MessageType::Command,
 //!         payload: json!({"command": "status"}),
 //!     };
 //!     
@@ -305,7 +305,7 @@ impl MCPProtocolAdapter {
     ///     
     ///     let message = MCPMessage {
     ///         id: MessageId("msg123".to_string()),
-    ///         message_type: MessageType::Command,
+    ///         type_: MessageType::Command,
     ///         payload: json!({"command": "status"}),
     ///     };
     ///     
@@ -317,7 +317,7 @@ impl MCPProtocolAdapter {
 
         if let Some(protocol) = &*protocol_guard {
             // Special handling for setup message
-            if msg.message_type == MessageType::Setup {
+            if msg.type_ == MessageType::Setup {
                 // Setup messages should be processed even without payload
                 return protocol.handle_protocol_message(&msg).await;
             }
@@ -577,7 +577,7 @@ impl MCPProtocolAdapter {
     /// let version = adapter.get_version();
     /// println!("Protocol version: {}", version);
     /// ```
-    pub fn get_version(&self) -> String {
+    #[must_use] pub fn get_version(&self) -> String {
         // The version is a static string, no need to lock
         "1.0".to_string()
     }
@@ -640,7 +640,7 @@ impl MCPProtocol for MCPProtocolAdapter {
 
         if let Some(protocol) = &*protocol_guard {
             // Special handling for setup message
-            if msg.message_type == MessageType::Setup {
+            if msg.type_ == MessageType::Setup {
                 // Setup messages should be processed even without payload
                 return protocol.handle_protocol_message(&msg).await;
             }
@@ -789,7 +789,7 @@ mod tests {
         // Create a test message
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
-            message_type: MessageType::Command,
+            type_: MessageType::Command,
             payload: json!({"command": "test"}),
         };
 
@@ -822,7 +822,7 @@ mod tests {
         // Create a test message
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
-            message_type: MessageType::Command,
+            type_: MessageType::Command,
             payload: json!({"command": "test"}),
         };
 
@@ -910,7 +910,7 @@ mod tests {
         // Both should have the handler
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
-            message_type: MessageType::Command,
+            type_: MessageType::Command,
             payload: json!({"command": "test"}),
         };
 

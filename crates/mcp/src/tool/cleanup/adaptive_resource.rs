@@ -16,7 +16,7 @@ const PREDICTION_WINDOW: i64 = 300; // 5 minutes
 
 /// Resource usage pattern for prediction
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourcePattern {
+pub(super) struct ResourcePattern {
     /// Average usage over time
     pub average_usage: f64,
     /// Usage trend (positive means increasing)
@@ -29,7 +29,7 @@ pub struct ResourcePattern {
 
 /// Adaptive resource limits based on usage patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdaptiveResourceLimits {
+pub(super) struct AdaptiveResourceLimits {
     /// Base resource limits
     pub base_limits: ResourceLimits,
     /// Maximum allowed limits
@@ -42,7 +42,7 @@ pub struct AdaptiveResourceLimits {
 
 /// Resource usage predictor and optimizer
 #[derive(Debug)]
-pub struct AdaptiveResourceManager {
+pub(super) struct AdaptiveResourceManager {
     /// Resource usage patterns by tool
     patterns: Arc<RwLock<HashMap<String, HashMap<ResourceType, ResourcePattern>>>>,
     /// Adaptive limits by tool
@@ -53,7 +53,7 @@ pub struct AdaptiveResourceManager {
 
 impl AdaptiveResourceManager {
     /// Creates a new adaptive resource manager
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             patterns: Arc::new(RwLock::new(HashMap::new())),
             adaptive_limits: Arc::new(RwLock::new(HashMap::new())),
@@ -122,7 +122,7 @@ impl AdaptiveResourceManager {
         {
             let mut history = self.usage_history.write().await;
             let tool_history = history.get_mut(tool_id).ok_or_else(|| {
-                ToolError::ToolNotFound(format!("Tool {} not found for usage recording", tool_id))
+                ToolError::ToolNotFound(format!("Tool {tool_id} not found for usage recording"))
             })?;
 
             tool_history.push(record);
@@ -145,7 +145,7 @@ impl AdaptiveResourceManager {
         let tool_history = {
             let history = self.usage_history.read().await;
             history.get(tool_id)
-                .ok_or_else(|| ToolError::ToolNotFound(format!("Tool {} not found for pattern update", tool_id)))?
+                .ok_or_else(|| ToolError::ToolNotFound(format!("Tool {tool_id} not found for pattern update")))?
                 .clone()
         };
 
@@ -194,7 +194,7 @@ impl AdaptiveResourceManager {
         // Update patterns with the new data
         let mut patterns = self.patterns.write().await;
         let tool_patterns = patterns.get_mut(tool_id)
-            .ok_or_else(|| ToolError::ToolNotFound(format!("Tool {} not found for pattern update", tool_id)))?;
+            .ok_or_else(|| ToolError::ToolNotFound(format!("Tool {tool_id} not found for pattern update")))?;
         
         // Update all patterns at once
         *tool_patterns = new_patterns;
@@ -211,18 +211,17 @@ impl AdaptiveResourceManager {
     ) -> Result<f64, ToolError> {
         let patterns = self.patterns.read().await;
         let tool_patterns = patterns.get(tool_id).ok_or_else(|| {
-            ToolError::ToolNotFound(format!("Tool {} not found for usage prediction", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for usage prediction"))
         })?;
 
         let pattern = tool_patterns.get(&resource_type).ok_or_else(|| {
             ToolError::ToolNotFound(format!(
-                "No pattern found for resource type {:?} in tool {}",
-                resource_type, tool_id
+                "No pattern found for resource type {resource_type:?} in tool {tool_id}"
             ))
         })?;
 
         // Simple linear prediction
-        let predicted = pattern.average_usage + (pattern.trend * PREDICTION_WINDOW as f64);
+        let predicted = pattern.trend.mul_add(PREDICTION_WINDOW as f64, pattern.average_usage);
         
         Ok(predicted.max(0.0)) // Ensure non-negative prediction
     }
@@ -234,7 +233,7 @@ impl AdaptiveResourceManager {
         let should_adjust = {
             let adaptive_limits = self.adaptive_limits.read().await;
             let tool_limits = adaptive_limits.get(tool_id).ok_or_else(|| {
-                ToolError::ToolNotFound(format!("Tool {} not found for limit adjustment", tool_id))
+                ToolError::ToolNotFound(format!("Tool {tool_id} not found for limit adjustment"))
             })?;
             
             let now = Utc::now();
@@ -244,7 +243,7 @@ impl AdaptiveResourceManager {
         if !should_adjust {
             let adaptive_limits = self.adaptive_limits.read().await;
             let tool_limits = adaptive_limits.get(tool_id).ok_or_else(|| {
-                ToolError::ToolNotFound(format!("Tool {} not found for limit adjustment", tool_id))
+                ToolError::ToolNotFound(format!("Tool {tool_id} not found for limit adjustment"))
             })?;
             return Ok(tool_limits.current_limits.clone());
         }
@@ -258,7 +257,7 @@ impl AdaptiveResourceManager {
         // Now update limits with all predictions ready
         let mut adaptive_limits = self.adaptive_limits.write().await;
         let tool_limits = adaptive_limits.get_mut(tool_id).ok_or_else(|| {
-            ToolError::ToolNotFound(format!("Tool {} not found for limit adjustment", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for limit adjustment"))
         })?;
 
         // Calculate adaptive limits based on predictions with safety margins
@@ -293,7 +292,7 @@ impl AdaptiveResourceManager {
     pub async fn get_current_limits(&self, tool_id: &str) -> Result<ResourceLimits, ToolError> {
         let adaptive_limits = self.adaptive_limits.read().await;
         let tool_limits = adaptive_limits.get(tool_id).ok_or_else(|| {
-            ToolError::ToolNotFound(format!("Tool {} not found for limit lookup", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for limit lookup"))
         })?;
 
         Ok(tool_limits.current_limits.clone())

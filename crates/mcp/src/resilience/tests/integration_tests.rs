@@ -3,6 +3,10 @@ use std::time::Duration;
 use std::error::Error as StdError;
 use std::fmt;
 use std::thread;
+use std::future::Future;
+use std::pin::Pin;
+use tokio::time;
+use tokio::test;
 
 use crate::resilience::{
     with_resilience,
@@ -26,8 +30,8 @@ impl fmt::Display for TestError {
 
 impl StdError for TestError {}
 
-#[test]
-fn test_circuit_breaker_with_retry() {
+#[tokio::test]
+async fn test_circuit_breaker_with_retry() {
     // Create components
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
         name: "test-circuit".to_string(),
@@ -54,18 +58,18 @@ fn test_circuit_breaker_with_retry() {
         let counter_clone = counter.clone();
         let result = with_resilience(
             &mut circuit_breaker,
-            &retry,
+            retry.clone(),
             move || {
                 let mut count = counter_clone.lock().unwrap();
                 *count += 1;
                 
                 if *count < 2 {
-                    Err(TestError("Temporary failure".to_string()))
+                    Err(Box::<dyn StdError + Send + Sync>::from(TestError("Temporary failure".to_string())))
                 } else {
                     Ok("Success".to_string())
                 }
             }
-        );
+        ).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success".to_string());
@@ -80,18 +84,18 @@ fn test_circuit_breaker_with_retry() {
         let counter_clone = counter.clone();
         let _ = with_resilience(
             &mut circuit_breaker,
-            &retry,
+            retry.clone(),
             move || {
                 let mut count = counter_clone.lock().unwrap();
                 *count += 1;
                 
-                Err(TestError("Persistent failure".to_string()))
+                Err(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent failure".to_string())))
             }
-        );
+        ).await;
     }
     
     // Circuit should be open now
-    assert_eq!(circuit_breaker.get_state(), CircuitState::Open);
+    assert_eq!(circuit_breaker.state(), CircuitState::Open);
     
     // Counter should reflect 3 initial failures + 2 retries = 5 attempts
     // (The 4th call shouldn't increase the counter as the circuit is already open)
@@ -100,15 +104,15 @@ fn test_circuit_breaker_with_retry() {
     // Any further calls should be immediately rejected
     let result = with_resilience(
         &mut circuit_breaker,
-        &retry,
+        retry.clone(),
         || Ok("This shouldn't be called".to_string())
-    );
+    ).await;
     
     assert!(matches!(result, Err(ResilienceError::CircuitOpen(..))));
 }
 
-#[test]
-fn test_recovery_with_retry() {
+#[tokio::test]
+async fn test_recovery_with_retry() {
     let retry = RetryMechanism::new(RetryConfig {
         max_attempts: 2,
         base_delay: Duration::from_millis(10),
@@ -132,17 +136,19 @@ fn test_recovery_with_retry() {
         let op_counter = operation_counter.clone();
         
         let result = retry.execute(move || {
-            let mut count = op_counter.lock().unwrap();
-            *count += 1;
-            
-            if *count == 1 {
-                // First attempt fails
-                Err(Box::new(TestError("Temporary error".to_string())))
-            } else {
-                // Second attempt succeeds
-                Ok("Success".to_string())
-            }
-        });
+            Box::pin(async move {
+                let mut count = op_counter.lock().unwrap();
+                *count += 1;
+                
+                if *count == 1 {
+                    // First attempt fails
+                    Err(Box::<dyn StdError + Send + Sync>::from(TestError("Temporary error".to_string())))
+                } else {
+                    // Second attempt succeeds
+                    Ok("Success".to_string())
+                }
+            })
+        }).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success".to_string());
@@ -163,7 +169,7 @@ fn test_recovery_with_retry() {
             *count += 1;
             
             // Always fail the operation
-            Err(TestError("Persistent error".to_string()))
+            Err(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
         };
         
         let failure_info = FailureInfo {
@@ -179,19 +185,21 @@ fn test_recovery_with_retry() {
             *count += 1;
             
             // Recovery succeeds
-            Ok("Recovered".to_string())
+            Ok::<String, Box<dyn StdError + Send + Sync>>("Recovered".to_string())
         };
         
         // First try retry
         let retry_result = retry.execute(|| {
-            operation().map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)
-        });
+            Box::pin(async {
+                operation()
+            })
+        }).await;
         
         // Retry should fail after max attempts
         assert!(retry_result.is_err());
         
         // Then try recovery
-        let result = recovery.handle_failure(failure_info, recovery_action);
+        let result: Result<String, _> = recovery.handle_failure(failure_info, recovery_action);
         
         // Recovery should succeed
         assert!(result.is_ok());
@@ -205,8 +213,8 @@ fn test_recovery_with_retry() {
     }
 }
 
-#[test]
-fn test_full_resilience_chain() {
+#[tokio::test]
+async fn test_full_resilience_chain() {
     // Set up all components
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
         name: "test-full-resilience".to_string(),
@@ -245,7 +253,7 @@ fn test_full_resilience_chain() {
             
             if *count == 1 {
                 // First attempt fails
-                Err(TestError("Temporary error".to_string()))
+                Err(Box::<dyn StdError + Send + Sync>::from(TestError("Temporary error".to_string())))
             } else {
                 // Second attempt succeeds
                 Ok("Success via retry".to_string())
@@ -264,17 +272,17 @@ fn test_full_resilience_chain() {
             *count += 1;
             
             // Recovery succeeds
-            Ok("Success via recovery".to_string())
+            Ok::<String, Box<dyn StdError + Send + Sync>>("Success via recovery".to_string())
         };
         
         let result = with_full_resilience(
             &mut circuit_breaker,
-            &retry,
+            retry.clone(),
             &mut recovery,
             failure_info,
             operation,
             recovery_action
-        );
+        ).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success via retry".to_string());
@@ -295,7 +303,7 @@ fn test_full_resilience_chain() {
             *count += 1;
             
             // Always fail
-            Err(TestError("Persistent error".to_string()))
+            Err(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
         };
         
         let failure_info = FailureInfo {
@@ -310,17 +318,17 @@ fn test_full_resilience_chain() {
             *count += 1;
             
             // Recovery succeeds
-            Ok("Success via recovery".to_string())
+            Ok::<String, Box<dyn StdError + Send + Sync>>("Success via recovery".to_string())
         };
         
         let result = with_full_resilience(
             &mut circuit_breaker,
-            &retry,
+            retry.clone(),
             &mut recovery,
             failure_info,
             operation,
             recovery_action
-        );
+        ).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Success via recovery".to_string());
@@ -344,7 +352,7 @@ fn test_full_resilience_chain() {
                 *count += 1;
                 
                 // Always fail
-                Err(TestError("Persistent error".to_string()))
+                Err(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
             };
             
             let failure_info = FailureInfo {
@@ -359,26 +367,26 @@ fn test_full_resilience_chain() {
                 *count += 1;
                 
                 // Even recovery fails
-                Err(Box::new(TestError("Recovery failed too".to_string())))
+                Err(Box::<dyn StdError + Send + Sync>::from(TestError("Recovery failed too".to_string())))
             };
             
             let _ = with_full_resilience(
                 &mut circuit_breaker,
-                &retry,
+                retry.clone(),
                 &mut recovery,
                 failure_info,
                 operation,
                 recovery_action
-            );
+            ).await;
         }
         
         // Circuit should be open now
-        assert_eq!(circuit_breaker.get_state(), CircuitState::Open);
+        assert_eq!(circuit_breaker.state(), CircuitState::Open);
         
         // Try one more operation, it should be rejected immediately
         let result = with_full_resilience(
             &mut circuit_breaker,
-            &retry,
+            retry.clone(),
             &mut recovery,
             FailureInfo {
                 message: "Test failure".to_string(),
@@ -386,9 +394,9 @@ fn test_full_resilience_chain() {
                 context: "test".to_string(),
                 recovery_attempts: 0,
             },
-            || Ok("This shouldn't be called".to_string()),
-            || Ok("Recovery shouldn't be called".to_string())
-        );
+            || Ok::<String, Box<dyn StdError + Send + Sync>>("This shouldn't be called".to_string()),
+            || Ok::<String, Box<dyn StdError + Send + Sync>>("Recovery shouldn't be called".to_string())
+        ).await;
         
         assert!(matches!(result, Err(ResilienceError::CircuitOpen(..))));
         
@@ -400,8 +408,8 @@ fn test_full_resilience_chain() {
     }
 }
 
-#[test]
-fn test_real_world_api_resilience() {
+#[tokio::test]
+async fn test_real_world_api_resilience() {
     // This test simulates a real-world API client with resilience
     
     // Define our components
@@ -442,11 +450,11 @@ fn test_real_world_api_resilience() {
         
         if !connected {
             // Simulate connection failure
-            return Err(TestError("API connection failed".to_string()));
+            return Err(Box::<dyn StdError + Send + Sync>::from(TestError("API connection failed".to_string())));
         }
         
         // If connected, return data
-        Ok("Fresh API data".to_string())
+        Ok::<String, Box<dyn StdError + Send + Sync>>("Fresh API data".to_string())
     };
     
     let failure_info = FailureInfo {
@@ -467,20 +475,20 @@ fn test_real_world_api_resilience() {
         // Return from cache while connection is being established
         let cache = api_cache_recovery.lock().unwrap();
         match cache.as_ref() {
-            Some(data) => Ok(data.clone()),
-            None => Err(Box::new(TestError("No cached data available".to_string())))
+            Some(data) => Ok::<String, Box<dyn StdError + Send + Sync>>(data.clone()),
+            None => Err(Box::<dyn StdError + Send + Sync>::from(TestError("No cached data available".to_string())))
         }
     };
     
     // First call - should recover and return cached data
     let result1 = with_full_resilience(
         &mut circuit_breaker,
-        &retry,
+        retry.clone(),
         &mut recovery,
         failure_info.clone(),
         operation.clone(),
         recovery_action
-    );
+    ).await;
     
     assert!(result1.is_ok());
     assert_eq!(result1.unwrap(), "Cached API data".to_string());
@@ -493,20 +501,129 @@ fn test_real_world_api_resilience() {
         
         if !connected {
             // Simulate connection failure
-            return Err(TestError("API connection failed".to_string()));
+            return Err(Box::<dyn StdError + Send + Sync>::from(TestError("API connection failed".to_string())));
         }
         
         // If connected, return data
-        Ok("Fresh API data".to_string())
+        Ok::<String, Box<dyn StdError + Send + Sync>>("Fresh API data".to_string())
     };
     
     // This should succeed without recovery
     let result2 = with_resilience(
         &mut circuit_breaker,
-        &retry,
+        retry.clone(),
         operation2
-    );
+    ).await;
     
     assert!(result2.is_ok());
     assert_eq!(result2.unwrap(), "Fresh API data".to_string());
+}
+
+#[tokio::test]
+async fn test_with_resilience_success() {
+    let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
+        failure_threshold: 3,
+        recovery_timeout: Duration::from_millis(1000),
+        monitoring_interval: Duration::from_millis(100),
+        ..Default::default()
+    });
+
+    let retry = RetryMechanism::new(RetryConfig {
+        max_attempts: 3,
+        backoff_strategy: Box::new(ConstantBackoff::new(Duration::from_millis(10))),
+        ..Default::default()
+    });
+
+    let result: Result<String, ResilienceError> = with_resilience(
+        &mut circuit_breaker,
+        retry.clone(),
+        move || {
+            // This operation succeeds
+            Result::<String, Box<dyn StdError + Send + Sync>>::Ok("Success".to_string())
+        }
+    ).await;
+
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "Success");
+}
+
+#[tokio::test]
+async fn test_retry_mechanism_and_circuit_integration() {
+    let retry = RetryMechanism::new(RetryConfig {
+        max_attempts: 3, 
+        backoff_strategy: Box::new(ConstantBackoff::new(Duration::from_millis(10))),
+        ..Default::default()
+    });
+    
+    // Should succeed on the second attempt
+    let mut attempt = 0;
+    let retry_result: Result<String, RetryError> = retry.execute(|| {
+        attempt += 1;
+        if attempt == 1 {
+            Err(Box::<dyn StdError + Send + Sync>::from(TestError("Temporary error".to_string())))
+        } else {
+            Ok("Success".to_string())
+        }
+    }).await;
+    
+    assert!(retry_result.is_ok());
+    assert_eq!(retry_result.unwrap(), "Success");
+    assert_eq!(attempt, 2);
+    
+    // Should fail after all retry attempts
+    let retry = RetryMechanism::new(RetryConfig {
+        max_attempts: 3,
+        backoff_strategy: Box::new(ConstantBackoff::new(Duration::from_millis(10))),
+        ..Default::default()
+    });
+    
+    let retry_result: Result<String, RetryError> = retry.execute(|| {
+        Err(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
+    }).await;
+    
+    assert!(retry_result.is_err());
+}
+
+#[tokio::test]
+async fn test_full_resilience_pipeline() {
+    let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
+        failure_threshold: 5,
+        recovery_timeout: Duration::from_millis(100),
+        ..Default::default()
+    });
+    
+    let retry = RetryMechanism::new(RetryConfig {
+        max_attempts: 3,
+        backoff_strategy: Box::new(ConstantBackoff::new(Duration::from_millis(10))),
+        ..Default::default()
+    });
+    
+    let recovery = RecoveryStrategy::new(RecoveryConfig {
+        max_recovery_attempts: 2,
+        recovery_timeout: Duration::from_millis(50),
+        ..Default::default()
+    });
+    
+    let api_data_cache = Arc::new(Mutex::new(HashMap::new()));
+    {
+        let mut cache = api_data_cache.lock().await;
+        cache.insert("test_data".to_string(), 42);
+    }
+    
+    // Test the complete integration
+    let _: Result<i32, ResilienceError> = with_full_resilience(
+        &mut circuit_breaker,
+        retry.clone(),
+        recovery.clone(),
+        move || {
+            // This should succeed
+            Result::<i32, Box<dyn StdError + Send + Sync>>::Ok(123)
+        },
+        move || {
+            // This is the fallback
+            Result::<i32, Box<dyn StdError + Send + Sync>>::Ok(999)
+        }
+    ).await;
+    
+    // ... existing code ...
 } 

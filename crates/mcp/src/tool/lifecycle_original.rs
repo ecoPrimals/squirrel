@@ -178,7 +178,7 @@ pub struct RecoveryAttempt {
 
 impl RecoveryHook {
     /// Create a new recovery hook with default settings
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             default_strategy: RecoveryStrategy {
                 max_attempts: 3,
@@ -200,7 +200,7 @@ impl RecoveryHook {
     }
 
     /// Get tool-specific recovery strategy
-    pub fn get_strategy_for_tool(&self, _tool_id: &str) -> &RecoveryStrategy {
+    #[must_use] pub const fn get_strategy_for_tool(&self, _tool_id: &str) -> &RecoveryStrategy {
         // In a real implementation, this would look up custom strategies by tool ID
         // For now, we'll just return the default strategy
         &self.default_strategy
@@ -212,7 +212,7 @@ impl RecoveryHook {
     }
 
     /// Get recovery history for a tool
-    pub fn get_history_for_tool(&self, tool_id: &str) -> Vec<RecoveryAttempt> {
+    #[must_use] pub fn get_history_for_tool(&self, tool_id: &str) -> Vec<RecoveryAttempt> {
         self.history
             .iter()
             .filter(|attempt| attempt.tool_id == tool_id)
@@ -221,16 +221,16 @@ impl RecoveryHook {
     }
 
     /// Calculate backoff delay for an attempt
-    pub fn calculate_backoff_delay(&self, strategy: &BackoffStrategy, attempt: u32) -> u64 {
+    #[must_use] pub fn calculate_backoff_delay(&self, strategy: &BackoffStrategy, attempt: u32) -> u64 {
         match strategy {
             BackoffStrategy::Fixed(delay) => *delay,
             BackoffStrategy::Exponential(base) => base * 2u64.pow(attempt - 1),
-            BackoffStrategy::Linear(increment) => increment * attempt as u64,
+            BackoffStrategy::Linear(increment) => increment * u64::from(attempt),
         }
     }
 
     /// Check if recovery should be attempted
-    pub fn should_attempt_recovery(&self, _tool_id: &str, error: &ToolError) -> bool {
+    #[must_use] pub const fn should_attempt_recovery(&self, _tool_id: &str, error: &ToolError) -> bool {
         // Check if the error is recoverable
         match error {
             ToolError::NeedsReset(_) => true,
@@ -248,7 +248,7 @@ impl RecoveryHook {
     }
 
     /// Get next recovery action for a tool
-    pub fn get_next_action(&self, tool_id: &str) -> Option<RecoveryAction> {
+    #[must_use] pub fn get_next_action(&self, tool_id: &str) -> Option<RecoveryAction> {
         let strategy = self.get_strategy_for_tool(tool_id);
         let attempts = self.get_history_for_tool(tool_id);
 
@@ -274,7 +274,7 @@ impl Default for RecoveryHook {
     }
 }
 
-/// Basic implementation of ToolLifecycleHook
+/// Basic implementation of `ToolLifecycleHook`
 #[derive(Debug)]
 pub struct BasicLifecycleHook {
     /// History of state changes for each tool
@@ -291,7 +291,7 @@ impl Default for BasicLifecycleHook {
 
 impl BasicLifecycleHook {
     /// Creates a new basic lifecycle hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             state_history: Arc::new(RwLock::new(HashMap::new())),
             max_history_entries: 100,
@@ -299,7 +299,7 @@ impl BasicLifecycleHook {
     }
 
     /// Sets the maximum number of history entries to keep per tool
-    pub fn with_max_history_entries(mut self, max_entries: usize) -> Self {
+    #[must_use] pub const fn with_max_history_entries(mut self, max_entries: usize) -> Self {
         self.max_history_entries = max_entries;
         self
     }
@@ -526,7 +526,7 @@ impl crate::tool::ToolLifecycleHook for BasicLifecycleHook {
         result: Result<(), ToolError>,
     ) -> Result<(), ToolError> {
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 debug!("Post-execute successful for tool: {}", tool_id);
                 self.record_state_change(tool_id, ToolState::Stopped).await;
             }
@@ -577,7 +577,7 @@ impl Default for SecurityLifecycleHook {
 
 impl SecurityLifecycleHook {
     /// Creates a new security lifecycle hook
-    pub fn new() -> Self {
+    #[must_use] pub const fn new() -> Self {
         Self {
             default_security_level: 1,
             allowed_tool_ids: Vec::new(),
@@ -586,7 +586,7 @@ impl SecurityLifecycleHook {
     }
 
     /// Sets the default security level for capabilities
-    pub fn with_default_security_level(mut self, level: u8) -> Self {
+    #[must_use] pub const fn with_default_security_level(mut self, level: u8) -> Self {
         self.default_security_level = level;
         self
     }
@@ -598,7 +598,7 @@ impl SecurityLifecycleHook {
     }
 
     /// Sets whether to enforce allowed tool IDs
-    pub fn enforce_allowed_tools(mut self, enforce: bool) -> Self {
+    #[must_use] pub const fn enforce_allowed_tools(mut self, enforce: bool) -> Self {
         self.enforce_allowed_tools = enforce;
         self
     }
@@ -685,8 +685,7 @@ impl crate::tool::ToolLifecycleHook for SecurityLifecycleHook {
         // Verify security before starting
         if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool_id.to_string()) {
             return Err(ToolError::SecurityViolation(format!(
-                "Tool ID '{}' is not in the allowed list",
-                tool_id
+                "Tool ID '{tool_id}' is not in the allowed list"
             )));
         }
 
@@ -727,8 +726,7 @@ impl crate::tool::ToolLifecycleHook for SecurityLifecycleHook {
         // Verify security before resuming
         if self.enforce_allowed_tools && !self.allowed_tool_ids.contains(&tool_id.to_string()) {
             return Err(ToolError::SecurityViolation(format!(
-                "Tool ID '{}' is not in the allowed list",
-                tool_id
+                "Tool ID '{tool_id}' is not in the allowed list"
             )));
         }
 
@@ -781,7 +779,7 @@ impl crate::tool::ToolLifecycleHook for SecurityLifecycleHook {
         result: Result<(), ToolError>,
     ) -> Result<(), ToolError> {
         match result {
-            Ok(_) => debug!("Security lifecycle: Post-execute successful for tool: {}", tool_id),
+            Ok(()) => debug!("Security lifecycle: Post-execute successful for tool: {}", tool_id),
             Err(e) => warn!("Security lifecycle: Post-execute failed for tool: {}: {:?}", tool_id, e),
         }
         Ok(())
@@ -815,7 +813,7 @@ pub struct CompositeLifecycleHook {
 
 impl CompositeLifecycleHook {
     /// Creates a new composite lifecycle hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self { hooks: Vec::new() }
     }
 

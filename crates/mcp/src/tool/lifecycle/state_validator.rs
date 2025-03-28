@@ -27,7 +27,7 @@ impl Default for StateTransitionGraph {
 
 impl StateTransitionGraph {
     /// Creates a new state transition graph with default transitions
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut transitions = HashMap::new();
         
         // Define valid transitions
@@ -35,7 +35,7 @@ impl StateTransitionGraph {
             ToolState::Registered,
             [ToolState::Active, ToolState::Unregistered, ToolState::Starting, ToolState::Error]
                 .iter()
-                .cloned()
+                .copied()
                 .collect(),
         );
         
@@ -49,7 +49,7 @@ impl StateTransitionGraph {
                 ToolState::Error,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -62,7 +62,7 @@ impl StateTransitionGraph {
                 ToolState::Recovering,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -76,7 +76,7 @@ impl StateTransitionGraph {
                 ToolState::Recovering,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -84,7 +84,7 @@ impl StateTransitionGraph {
             ToolState::Stopping,
             [ToolState::Stopped, ToolState::Error, ToolState::Recovering]
                 .iter()
-                .cloned()
+                .copied()
                 .collect(),
         );
         
@@ -97,7 +97,7 @@ impl StateTransitionGraph {
                 ToolState::Error,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -105,7 +105,7 @@ impl StateTransitionGraph {
             ToolState::Pausing,
             [ToolState::Paused, ToolState::Error, ToolState::Recovering]
                 .iter()
-                .cloned()
+                .copied()
                 .collect(),
         );
         
@@ -118,7 +118,7 @@ impl StateTransitionGraph {
                 ToolState::Recovering,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -126,7 +126,7 @@ impl StateTransitionGraph {
             ToolState::Resuming,
             [ToolState::Active, ToolState::Error, ToolState::Recovering]
                 .iter()
-                .cloned()
+                .copied()
                 .collect(),
         );
         
@@ -139,7 +139,7 @@ impl StateTransitionGraph {
                 ToolState::Recovering,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -152,7 +152,7 @@ impl StateTransitionGraph {
                 ToolState::Stopped,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -165,7 +165,7 @@ impl StateTransitionGraph {
                 ToolState::Unregistered,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -178,7 +178,7 @@ impl StateTransitionGraph {
                 ToolState::Error,
             ]
             .iter()
-            .cloned()
+            .copied()
             .collect(),
         );
         
@@ -204,7 +204,7 @@ impl StateTransitionGraph {
     }
     
     /// Checks if a transition from one state to another is valid
-    pub fn is_valid_transition(&self, from: &ToolState, to: &ToolState) -> bool {
+    #[must_use] pub fn is_valid_transition(&self, from: &ToolState, to: &ToolState) -> bool {
         // If states are the same, consider it valid
         if from == to {
             return true;
@@ -227,7 +227,7 @@ impl StateTransitionGraph {
     }
 
     /// Gets all possible rollback states from a given state
-    pub fn get_rollback_states(&self, state: &ToolState) -> HashSet<ToolState> {
+    #[must_use] pub fn get_rollback_states(&self, state: &ToolState) -> HashSet<ToolState> {
         let mut rollback_states = HashSet::new();
         
         // Find all states that can transition to the current state
@@ -241,7 +241,7 @@ impl StateTransitionGraph {
     }
     
     /// Determines the best rollback state for a given failed transition
-    pub fn determine_best_rollback_state(&self, from: &ToolState, to: &ToolState) -> Option<ToolState> {
+    #[must_use] pub fn determine_best_rollback_state(&self, from: &ToolState, to: &ToolState) -> Option<ToolState> {
         // First choice: roll back to the original state
         if self.is_valid_transition(to, from) {
             return Some(*from);
@@ -252,7 +252,7 @@ impl StateTransitionGraph {
         let to_next_states = self.get_valid_next_states(to);
         
         // Find common safe states (prefer Inactive, Stopped, then Error)
-        let common_states: HashSet<_> = from_next_states.intersection(&to_next_states).cloned().collect();
+        let common_states: HashSet<_> = from_next_states.intersection(&to_next_states).copied().collect();
         
         for preferred in &[ToolState::Inactive, ToolState::Stopped, ToolState::Error] {
             if common_states.contains(preferred) {
@@ -261,7 +261,7 @@ impl StateTransitionGraph {
         }
         
         // Third choice: any common state
-        if let Some(state) = common_states.iter().next().cloned() {
+        if let Some(state) = common_states.iter().next().copied() {
             return Some(state);
         }
         
@@ -333,7 +333,7 @@ impl Default for StateTransitionValidator {
 
 impl StateTransitionValidator {
     /// Creates a new state transition validator
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             graph: Arc::new(RwLock::new(StateTransitionGraph::new())),
             violations: Arc::new(RwLock::new(Vec::new())),
@@ -344,13 +344,13 @@ impl StateTransitionValidator {
     }
     
     /// Set whether to enforce transitions (true) or just log violations (false)
-    pub fn with_enforcement(mut self, enforce: bool) -> Self {
+    #[must_use] pub const fn with_enforcement(mut self, enforce: bool) -> Self {
         self.enforce = enforce;
         self
     }
     
     /// Configure whether to attempt rollback on failed transitions
-    pub fn with_rollback(mut self, rollback: bool) -> Self {
+    #[must_use] pub const fn with_rollback(mut self, rollback: bool) -> Self {
         self.rollback_on_failure = rollback;
         self
     }
@@ -394,7 +394,7 @@ impl StateTransitionValidator {
                     tool_id: tool_id.to_string(),
                     from_state: *from,
                     to_state: *to,
-                    message: format!("Invalid state transition: {:?} -> {:?}", from, to),
+                    message: format!("Invalid state transition: {from:?} -> {to:?}"),
                 };
                 
                 // Attempt rollback if enabled
@@ -434,19 +434,16 @@ impl StateTransitionValidator {
         let rollback_state = graph.determine_best_rollback_state(from, to);
         drop(graph);
         
-        let rollback_state = match rollback_state {
-            Some(state) => state,
-            None => {
-                warn!(
-                    "No suitable rollback state found for tool {}: {:?} -> {:?}",
-                    tool_id, from, to
-                );
-                return Err(ToolError::NoRollbackStateAvailable {
-                    tool_id: tool_id.to_string(),
-                    from_state: *from,
-                    to_state: *to,
-                });
-            }
+        let rollback_state = if let Some(state) = rollback_state { state } else {
+            warn!(
+                "No suitable rollback state found for tool {}: {:?} -> {:?}",
+                tool_id, from, to
+            );
+            return Err(ToolError::NoRollbackStateAvailable {
+                tool_id: tool_id.to_string(),
+                from_state: *from,
+                to_state: *to,
+            });
         };
         
         info!(
@@ -472,7 +469,7 @@ impl StateTransitionValidator {
             rollback_to: rollback_state,
             timestamp: chrono::Utc::now(),
             successful: rollback_result.is_ok(),
-            error: rollback_result.as_ref().err().map(|e| e.to_string()),
+            error: rollback_result.as_ref().err().map(std::string::ToString::to_string),
         };
         
         {
@@ -481,7 +478,7 @@ impl StateTransitionValidator {
         }
         
         match rollback_result {
-            Ok(_) => {
+            Ok(()) => {
                 info!(
                     "Successfully rolled back tool {} to {:?} after failed transition",
                     tool_id, rollback_state
@@ -537,7 +534,7 @@ impl StateTransitionValidator {
     }
 
     /// Get the state transition graph
-    pub fn graph(&self) -> &Arc<RwLock<StateTransitionGraph>> {
+    #[must_use] pub const fn graph(&self) -> &Arc<RwLock<StateTransitionGraph>> {
         &self.graph
     }
 }
@@ -559,7 +556,7 @@ impl Default for StateValidationHook {
 
 impl StateValidationHook {
     /// Creates a new state validation hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             validator: Arc::new(StateTransitionValidator::new()),
             current_states: RwLock::new(HashMap::new()),
@@ -567,7 +564,7 @@ impl StateValidationHook {
     }
     
     /// Create a new state validation hook with a specific validator
-    pub fn with_validator(validator: Arc<StateTransitionValidator>) -> Self {
+    #[must_use] pub fn with_validator(validator: Arc<StateTransitionValidator>) -> Self {
         Self {
             validator,
             current_states: RwLock::new(HashMap::new()),
@@ -582,7 +579,7 @@ impl StateValidationHook {
     /// Update the current state of a tool
     async fn update_state(&self, tool_id: &str, state: ToolState) -> Result<(), ToolError> {
         let mut states = self.current_states.write().await;
-        let prev_state = states.get(tool_id).cloned();
+        let prev_state = states.get(tool_id).copied();
         
         // Validate the transition if there's a previous state
         if let Some(prev) = prev_state {

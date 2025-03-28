@@ -42,17 +42,23 @@ impl std::fmt::Display for AlertSeverity {
 pub enum AlertCondition {
     /// Metric exceeds a threshold
     MetricAbove {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Threshold value that triggers the alert when exceeded
         threshold: MetricValue,
     },
     /// Metric falls below a threshold
     MetricBelow {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Threshold value that triggers the alert when the metric falls below it
         threshold: MetricValue,
     },
     /// Metric equals a value
     MetricEquals {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Exact value that triggers the alert when matched
         value: MetricValue,
     },
     /// Composite condition (AND)
@@ -61,8 +67,11 @@ pub enum AlertCondition {
     Or(Vec<AlertCondition>),
     /// Metric changes by a percentage
     PercentageChange {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Percentage change that triggers the alert (e.g., 20.0 for 20%)
         percentage: f64,
+        /// Time window over which to observe the change
         duration: Duration,
     },
     /// Custom condition (evaluated by a callback)
@@ -76,17 +85,27 @@ pub enum AlertAction {
     Log,
     /// Send an email
     Email {
+        /// List of email addresses to receive the alert
         recipients: Vec<String>,
+        /// Template for the email subject line
         subject_template: String,
+        /// Template for the email body content
         body_template: String,
     },
     /// Send a webhook notification
     Webhook {
+        /// Target URL for the webhook POST request
         url: String,
+        /// Template for the JSON payload to be sent
         payload_template: String,
     },
     /// Execute a command
-    Command { command: String, args: Vec<String> },
+    Command { 
+        /// Command to execute
+        command: String, 
+        /// Command-line arguments
+        args: Vec<String> 
+    },
     /// Custom action (handled by a callback)
     Custom(String),
 }
@@ -165,7 +184,7 @@ pub struct Alert {
 
 impl Alert {
     /// Create a new alert
-    pub fn new(config: AlertConfiguration) -> Self {
+    #[must_use] pub fn new(config: AlertConfiguration) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             config,
@@ -370,7 +389,7 @@ impl Alert {
     }
 
     /// Should this alert be checked now?
-    pub fn should_check(&self) -> bool {
+    #[must_use] pub fn should_check(&self) -> bool {
         // If not enabled, don't check
         if !self.config.enabled {
             return false;
@@ -389,7 +408,7 @@ impl Alert {
     }
 
     /// Should this alert fire now?
-    pub fn should_fire(&self) -> bool {
+    #[must_use] pub fn should_fire(&self) -> bool {
         // If already firing or acknowledged, don't fire again
         if matches!(self.state, AlertState::Firing | AlertState::Acknowledged) {
             // Check if enough time has passed since the last firing
@@ -424,7 +443,7 @@ pub struct AlertManager {
 
 impl AlertManager {
     /// Create a new alert manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             alerts: RwLock::new(HashMap::new()),
             metrics_collector: None,
@@ -716,8 +735,8 @@ async fn process_alert_action(action: &AlertAction, _alert: &Alert) {
     }
 }
 
-// Alert errors
-#[derive(Debug, Clone)]
+/// Errors that can occur during alert operations
+#[derive(Debug)]
 pub enum AlertError {
     /// Alert manager is already running
     AlreadyRunning,
@@ -734,8 +753,8 @@ impl std::fmt::Display for AlertError {
         match self {
             Self::AlreadyRunning => write!(f, "Alert manager is already running"),
             Self::NoMetricsCollector => write!(f, "No metrics collector available"),
-            Self::NotFound(id) => write!(f, "Alert not found: {}", id),
-            Self::Other(msg) => write!(f, "Alert error: {}", msg),
+            Self::NotFound(id) => write!(f, "Alert not found: {id}"),
+            Self::Other(msg) => write!(f, "Alert error: {msg}"),
         }
     }
 }
@@ -744,6 +763,6 @@ impl std::error::Error for AlertError {}
 
 impl From<AlertError> for MCPError {
     fn from(err: AlertError) -> Self {
-        MCPError::Monitoring(err.to_string())
+        Self::Monitoring(err.to_string())
     }
 }

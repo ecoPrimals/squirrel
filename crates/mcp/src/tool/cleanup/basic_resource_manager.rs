@@ -27,7 +27,7 @@ impl Default for BasicResourceManager {
 
 impl BasicResourceManager {
     /// Creates a new resource manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             trackers: Arc::new(RwLock::new(HashMap::new())),
             limits: Arc::new(RwLock::new(HashMap::new())),
@@ -79,7 +79,7 @@ impl ResourceManager for BasicResourceManager {
 
         // Perform cleanup
         tracker.cleanup().await.map_err(|err| {
-            ToolError::ResourceError(format!("Failed to clean up resources: {}", err))
+            ToolError::ResourceError(format!("Failed to clean up resources: {err}"))
         })?;
 
         // Remove from maps
@@ -114,8 +114,7 @@ impl ResourceManager for BasicResourceManager {
                     || new_limits.max_network_connections > max.max_network_connections
                 {
                     return Err(ToolError::ResourceError(format!(
-                        "Requested limits exceed maximum allowed limits for tool {}",
-                        tool_id
+                        "Requested limits exceed maximum allowed limits for tool {tool_id}"
                     )));
                 }
             } else {
@@ -147,7 +146,7 @@ impl ResourceManager for BasicResourceManager {
 
         // Reset the tracker
         tracker.reset().await.map_err(|err| {
-            ToolError::ResourceError(format!("Failed to reset resources: {}", err))
+            ToolError::ResourceError(format!("Failed to reset resources: {err}"))
         })?;
 
         // No need to update limits
@@ -167,7 +166,7 @@ impl ResourceManager for BasicResourceManager {
 
         // Get current usage
         let usage = tracker.get_current_usage().await.map_err(|err| {
-            ToolError::ResourceError(format!("Failed to get resource usage: {}", err))
+            ToolError::ResourceError(format!("Failed to get resource usage: {err}"))
         })?;
 
         // Convert to ResourceUsage
@@ -201,7 +200,7 @@ impl ResourceManager for BasicResourceManager {
 
         // Get current usage
         let usage = tracker.get_current_usage().await.map_err(|err| {
-            ToolError::ResourceError(format!("Failed to get resource usage: {}", err))
+            ToolError::ResourceError(format!("Failed to get resource usage: {err}"))
         })?;
 
         // Check against limits
@@ -235,7 +234,7 @@ impl ResourceManager for BasicResourceManager {
         
         // Release resources associated with this tool
         tracker.cleanup_resource(resource_id).await.map_err(|err| {
-            ToolError::ResourceError(format!("Failed to release resource: {}", err))
+            ToolError::ResourceError(format!("Failed to release resource: {err}"))
         })
     }
 }

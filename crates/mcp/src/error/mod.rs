@@ -29,36 +29,19 @@
 pub mod context;
 /// Error type definitions for MCP operations
 pub mod types;
+/// Transport error conversions
+pub mod transport;
+/// Client error types
+pub mod client;
 
-use thiserror::Error;
 pub use types::MCPError;
+pub use client::ClientError;
+pub use types::ContextError;
+pub use transport::TransportError;
+pub use types::SessionError;
 
-/// Context-specific errors that can occur during MCP operations.
-///
-/// These errors relate to the management and handling of context
-/// in the MCP system, such as initialization failures or invalid states.
-#[derive(Error, Debug)]
-pub enum ContextError {
-    /// Error when context initialization fails
-    #[error("Context initialization failed: {0}")]
-    InitializationFailed(String),
-
-    /// Error when attempting to create a context that already exists
-    #[error("Context already exists: {0}")]
-    AlreadyExists(String),
-
-    /// Error when a required context is not found
-    #[error("Context not found: {0}")]
-    NotFound(String),
-
-    /// Error when a context operation times out
-    #[error("Context operation timed out")]
-    Timeout,
-
-    /// Error when a context is in an invalid state for an operation
-    #[error("Invalid context state: {0}")]
-    InvalidState(String),
-}
+use crate::message::Message;
+use std::convert::TryFrom;
 
 /// Result type for MCP operations that can return an error.
 ///
@@ -77,8 +60,49 @@ pub enum ContextError {
 /// ```
 pub type Result<T> = std::result::Result<T, MCPError>;
 
+// Add a type alias for MCPResult, which is used in some parts of the code
+/// Alias for Result type to maintain backward compatibility
+/// with code that uses `MCPResult` instead of Result.
+pub type MCPResult<T> = Result<T>;
+
 // Re-export specific types from types module
 pub use types::{ConnectionError, ErrorContext, PortErrorKind, ProtocolError, SecurityError};
 
 // Re-export specific types from context module
 pub use context::{ErrorHandler, ErrorHandlerError, ErrorRecord, ErrorSeverity, RecoveryStrategy};
+
+impl TryFrom<Message> for MCPError {
+    type Error = Self;
+
+    fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
+        if message.message_type != crate::message::MessageType::Error {
+            return Err(Self::Protocol(ProtocolError::InvalidFormat(
+                format!("Expected error message, got {:?}", message.message_type)
+            )));
+        }
+
+        // Extract error details from message metadata
+        let error_type = message.metadata.get("error_type")
+            .map_or("unknown", std::string::String::as_str);
+
+        // Create appropriate error based on type
+        match error_type {
+            // Using .into() to convert between the different TransportError types
+            "transport" => Ok(Self::Transport(transport::TransportError::ProtocolError(message.content).into())),
+            "protocol" => Ok(Self::Protocol(ProtocolError::InvalidFormat(message.content))),
+            "security" => Ok(Self::Security(SecurityError::AuthenticationFailed(message.content))),
+            "connection" => Ok(Self::Connection(ConnectionError::Closed(message.content))),
+            "session" => Ok(Self::Session(SessionError::InvalidSession(message.content))),
+            "context" => Ok(Self::Context(ContextError::NotFound(uuid::Uuid::new_v4()))),
+            "client" => Ok(Self::Client(ClientError::RemoteError(message.content))),
+            _ => Ok(Self::Remote(message.content)),
+        }
+    }
+}
+
+// Add implementation of From<ClientError> for MCPError
+impl From<ClientError> for MCPError {
+    fn from(err: ClientError) -> Self {
+        Self::Client(err)
+    }
+}

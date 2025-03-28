@@ -1,69 +1,128 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use crate::error::{MCPError, Result};
+use crate::error::{MCPError, ProtocolError, Result};
 use crate::types::{MCPMessage, ProtocolVersion, ProtocolState};
 
+/// Registry entry for components in the MCP system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistryEntry {
+    /// Unique identifier for the entry
     pub id: String,
+    /// Name of the entry
     pub name: String,
+    /// Type of the entry (e.g., "adapter", "plugin", "service")
+    pub entry_type: String,
+    /// Protocol version supported by the entry
     pub version: ProtocolVersion,
-    pub state: ProtocolState,
+    /// Additional metadata about the entry
     pub metadata: serde_json::Value,
 }
 
-pub struct MCPRegistry {
-    entries: Arc<RwLock<HashMap<String, RegistryEntry>>>,
+/// Registry for MCP components
+#[derive(Debug)]
+pub struct Registry {
+    entries: RwLock<HashMap<String, RegistryEntry>>,
 }
 
-impl MCPRegistry {
-    pub fn new() -> Self {
+impl Registry {
+    /// Creates a new registry
+    #[must_use] pub fn new() -> Self {
         Self {
-            entries: Arc::new(RwLock::new(HashMap::new())),
+            entries: RwLock::new(HashMap::new()),
         }
     }
-
+    
+    /// Register a new entry
+    ///
+    /// # Errors
+    /// Returns an error if an entry with the same ID already exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn register(&self, entry: RegistryEntry) -> Result<()> {
         let mut entries = self.entries.write().await;
+        
         if entries.contains_key(&entry.id) {
-            return Err(MCPError::Protocol(format!("Entry already exists with id: {}", entry.id)));
+            return Err(MCPError::Protocol(ProtocolError::HandlerAlreadyExists(
+                format!("Handler already exists with id: {}", entry.id)
+            )));
         }
+        
         entries.insert(entry.id.clone(), entry);
+        drop(entries); // Early drop the mutex lock
         Ok(())
     }
-
-    pub async fn unregister(&self, id: &str) -> Result<()> {
-        let mut entries = self.entries.write().await;
-        entries.remove(id)
-            .ok_or_else(|| MCPError::Protocol(format!("No entry found with id: {}", id)))?;
-        Ok(())
-    }
-
+    
+    /// Get an entry by ID
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn get_entry(&self, id: &str) -> Result<RegistryEntry> {
         let entries = self.entries.read().await;
+        
         entries.get(id)
             .cloned()
-            .ok_or_else(|| MCPError::Protocol(format!("No entry found with id: {}", id)))
+            .ok_or_else(|| MCPError::Protocol(ProtocolError::HandlerNotFound(
+                format!("No entry found with id: {id}")
+            )))
     }
-
+    
+    /// Checks if an entry exists
+    ///
+    /// # Errors
+    /// Returns an error if the registry lock cannot be acquired.
+    pub async fn has_entry(&self, id: &str) -> Result<bool> {
+        let entries = self.entries.read().await;
+        
+        Ok(entries.contains_key(id))
+    }
+    
+    /// Updates an existing entry
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn update_entry(&self, entry: RegistryEntry) -> Result<()> {
         let mut entries = self.entries.write().await;
+        
         if !entries.contains_key(&entry.id) {
-            return Err(MCPError::Protocol(format!("No entry found with id: {}", entry.id)));
+            return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(
+                format!("No entry found with id: {}", entry.id)
+            )));
         }
+        
         entries.insert(entry.id.clone(), entry);
+        drop(entries); // Early drop the mutex lock
         Ok(())
     }
-
-    pub async fn list_entries(&self) -> Result<Vec<RegistryEntry>> {
+    
+    /// Removes an entry
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
+    pub async fn remove_entry(&self, id: &str) -> Result<()> {
+        let mut entries = self.entries.write().await;
+        
+        if !entries.contains_key(id) {
+            return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(
+                format!("No entry found with id: {id}")
+            )));
+        }
+        
+        entries.remove(id);
+        drop(entries); // Early drop the mutex lock
+        Ok(())
+    }
+    
+    /// Lists all entries
+    pub async fn list_entries(&self) -> Vec<RegistryEntry> {
         let entries = self.entries.read().await;
-        Ok(entries.values().cloned().collect())
+        entries.values().cloned().collect()
     }
 }
 
-impl Default for MCPRegistry {
+impl Default for Registry {
     fn default() -> Self {
         Self::new()
     }

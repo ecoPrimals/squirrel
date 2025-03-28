@@ -75,7 +75,7 @@ impl McpConfig {
     /// # Returns
     ///
     /// Updated configuration with the new max connections setting
-    pub fn with_max_connections(mut self, max_connections: usize) -> Self {
+    #[must_use] pub const fn with_max_connections(mut self, max_connections: usize) -> Self {
         self.max_connections = max_connections;
         self
     }
@@ -89,7 +89,7 @@ impl McpConfig {
     /// # Returns
     ///
     /// Updated configuration with the new timeout setting
-    pub fn with_timeout(mut self, timeout: u64) -> Self {
+    #[must_use] pub const fn with_timeout(mut self, timeout: u64) -> Self {
         self.timeout = timeout;
         self
     }
@@ -103,7 +103,7 @@ impl McpConfig {
     /// # Returns
     ///
     /// Updated configuration with the new buffer size setting
-    pub fn with_buffer_size(mut self, buffer_size: usize) -> Self {
+    #[must_use] pub const fn with_buffer_size(mut self, buffer_size: usize) -> Self {
         self.buffer_size = buffer_size;
         self
     }

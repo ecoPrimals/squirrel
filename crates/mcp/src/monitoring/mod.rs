@@ -334,7 +334,7 @@ impl MCPMonitor {
         match operation {
             StateOperation::Create => metrics.active_contexts += 1,
             StateOperation::Delete => {
-                metrics.active_contexts = metrics.active_contexts.saturating_sub(1)
+                metrics.active_contexts = metrics.active_contexts.saturating_sub(1);
             }
             _ => {}
         }
@@ -606,7 +606,7 @@ pub struct MonitoringSystem {
 
 impl MonitoringSystem {
     /// Create a new monitoring system
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics_collector: Arc::new(MetricsCollector::new()),
             alert_manager: Arc::new(AlertManager::new()),
@@ -617,12 +617,12 @@ impl MonitoringSystem {
     }
 
     /// Get the metrics collector
-    pub fn metrics_collector(&self) -> Arc<MetricsCollector> {
+    #[must_use] pub fn metrics_collector(&self) -> Arc<MetricsCollector> {
         self.metrics_collector.clone()
     }
 
     /// Get the alert manager
-    pub fn alert_manager(&self) -> Arc<AlertManager> {
+    #[must_use] pub fn alert_manager(&self) -> Arc<AlertManager> {
         self.alert_manager.clone()
     }
 
@@ -658,7 +658,7 @@ impl MonitoringSystem {
         if self.dashboard_enabled && self.dashboard_server.is_some() {
             info!("Starting dashboard server");
             if let Some(dashboard) = &self.dashboard_server {
-                dashboard.start().await.map_err(|e| MCPError::Monitoring(format!("Failed to start dashboard: {}", e)))?;
+                dashboard.start().await.map_err(|e| MCPError::Monitoring(format!("Failed to start dashboard: {e}")))?;
             }
         }
 
@@ -688,7 +688,7 @@ impl MonitoringSystem {
         if self.dashboard_enabled && self.dashboard_server.is_some() {
             info!("Stopping dashboard server");
             if let Some(dashboard) = &self.dashboard_server {
-                dashboard.stop().await.map_err(|e| MCPError::Monitoring(format!("Failed to stop dashboard: {}", e)))?;
+                dashboard.stop().await.map_err(|e| MCPError::Monitoring(format!("Failed to stop dashboard: {e}")))?;
             }
         }
 

@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
 
 use crate::error::{MCPError, Result, SecurityError};
-use crate::security::rbac::{Permission, Role, PermissionContext, RBACError};
+use crate::security::rbac::{Permission, Role, PermissionContext};
 
 /// Inheritance relationship type between roles
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,7 +55,7 @@ impl fmt::Display for InheritanceType {
 
 /// Role inheritance node in the inheritance graph
 #[derive(Debug, Clone)]
-pub struct InheritanceNode {
+pub(super) struct InheritanceNode {
     /// Role ID
     pub role_id: String,
     
@@ -71,21 +71,21 @@ pub struct InheritanceNode {
 
 /// Role inheritance graph
 #[derive(Debug)]
-pub struct InheritanceGraph {
+pub(super) struct InheritanceGraph {
     /// Map of role IDs to inheritance nodes
     nodes: HashMap<String, InheritanceNode>,
 }
 
 impl InheritanceGraph {
     /// Create a new inheritance graph
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             nodes: HashMap::new(),
         }
     }
     
     /// Add a role to the graph
-    pub fn add_role(&mut self, role_id: &str) -> Result<()> {
+    pub(super) fn add_role(&mut self, role_id: &str) -> Result<()> {
         if self.nodes.contains_key(role_id) {
             return Ok(());
         }
@@ -104,7 +104,7 @@ impl InheritanceGraph {
     }
     
     /// Add an inheritance relationship
-    pub fn add_inheritance(
+    pub(super) fn add_inheritance(
         &mut self,
         parent_id: &str,
         child_id: &str,
@@ -116,9 +116,9 @@ impl InheritanceGraph {
         
         // Check for cycles
         if self.would_create_cycle(parent_id, child_id)? {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::General(
-                format!("Adding inheritance from {} to {} would create a cycle", parent_id, child_id)
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Adding inheritance from {parent_id} to {child_id} would create a cycle")
+            )));
         }
         
         // Add parent-child relationship
@@ -137,7 +137,7 @@ impl InheritanceGraph {
     }
     
     /// Remove an inheritance relationship
-    pub fn remove_inheritance(&mut self, parent_id: &str, child_id: &str) -> Result<()> {
+    pub(super) fn remove_inheritance(&mut self, parent_id: &str, child_id: &str) -> Result<()> {
         // Remove parent from child's parents
         if let Some(child_node) = self.nodes.get_mut(child_id) {
             child_node.parents.remove(parent_id);
@@ -220,7 +220,7 @@ impl InheritanceGraph {
     }
     
     /// Get all ancestors of a role (parent roles)
-    pub fn get_ancestors(&self, role_id: &str) -> Result<HashSet<String>> {
+    pub(super) fn get_ancestors(&self, role_id: &str) -> Result<HashSet<String>> {
         let mut ancestors = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -251,7 +251,7 @@ impl InheritanceGraph {
     }
     
     /// Get all descendants of a role (child roles)
-    pub fn get_descendants(&self, role_id: &str) -> Result<HashSet<String>> {
+    pub(super) fn get_descendants(&self, role_id: &str) -> Result<HashSet<String>> {
         let mut descendants = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -282,13 +282,13 @@ impl InheritanceGraph {
     }
     
     /// Check if a role inherits from another role
-    pub fn inherits_from(&self, child_id: &str, parent_id: &str) -> Result<bool> {
+    pub(super) fn inherits_from(&self, child_id: &str, parent_id: &str) -> Result<bool> {
         let ancestors = self.get_ancestors(child_id)?;
         Ok(ancestors.contains(parent_id))
     }
     
     /// Get the inheritance relationship between parent and child
-    pub fn get_inheritance_type(
+    pub(super) fn get_inheritance_type(
         &self,
         parent_id: &str,
         child_id: &str,
@@ -300,7 +300,7 @@ impl InheritanceGraph {
     }
     
     /// Get all permissions inherited by a role based on inheritance rules
-    pub fn get_inherited_permissions(
+    pub(super) fn get_inherited_permissions(
         &self,
         role_id: &str,
         role_map: &HashMap<String, Role>,
@@ -379,7 +379,7 @@ impl InheritanceGraph {
             if let Some(time) = context.current_time {
                 let parts: Vec<&str> = condition
                     .trim_start_matches("time_between(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .split(',')
                     .collect();
                 
@@ -415,7 +415,7 @@ impl InheritanceGraph {
             if parts.len() == 2 {
                 let attr_name = parts[0]
                     .trim_start_matches("attribute(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .trim();
                 
                 let attr_value = parts[1].trim();
@@ -432,7 +432,7 @@ impl InheritanceGraph {
     }
     
     /// Get a visual representation of the inheritance graph
-    pub fn to_dot(&self) -> String {
+    pub(super) fn to_dot(&self) -> String {
         let mut dot = String::from("digraph RoleInheritance {\n");
         
         // Add nodes
@@ -458,7 +458,7 @@ impl InheritanceGraph {
     }
     
     /// Get all roles that a role inherits from (directly or indirectly)
-    pub fn get_inherited_roles(&self, role_id: &str) -> HashSet<String> {
+    pub(super) fn get_inherited_roles(&self, role_id: &str) -> HashSet<String> {
         let mut result = HashSet::new();
         let mut visited = HashSet::new();
         
@@ -488,12 +488,12 @@ impl InheritanceGraph {
     }
     
     /// Check if a role exists in the graph
-    pub fn has_role(&self, role_id: &str) -> bool {
+    pub(super) fn has_role(&self, role_id: &str) -> bool {
         self.nodes.contains_key(role_id)
     }
     
     /// Check if there is a direct inheritance relationship between parent and child
-    pub fn has_inheritance(&self, parent_id: &str, child_id: &str) -> bool {
+    pub(super) fn has_inheritance(&self, parent_id: &str, child_id: &str) -> bool {
         if let Some(child_node) = self.nodes.get(child_id) {
             child_node.parents.contains_key(parent_id)
         } else {
@@ -517,7 +517,7 @@ impl Default for InheritanceManager {
 
 impl InheritanceManager {
     /// Create a new inheritance manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             graph: RwLock::new(InheritanceGraph::new()),
         }

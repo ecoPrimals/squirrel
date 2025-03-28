@@ -13,13 +13,12 @@ use crate::security::types::{
     Permission, Role, PermissionContext, Action,
     PermissionCondition,
 };
-use crate::security::rbac::RBACError;
 use crate::types::SecurityLevel;
 
 
 /// Error types for RBAC operations
 #[derive(Debug, thiserror::Error)]
-pub enum InternalRBACError {
+pub(super) enum InternalRBACError {
     /// Role already exists
     #[error("Role already exists: {0}")]
     RoleExists(String),
@@ -37,7 +36,8 @@ pub enum InternalRBACError {
     InternalError(String),
 }
 
-/// Basic RBAC Manager implementation
+/// RBAC Manager for managing roles, permissions, and role assignments
+#[derive(Debug)]
 pub struct RBACManager {
     /// Roles managed by this RBAC manager
     roles: tokio::sync::RwLock<HashMap<String, Role>>,
@@ -47,7 +47,7 @@ pub struct RBACManager {
 
 impl RBACManager {
     /// Create a new RBAC manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             roles: tokio::sync::RwLock::new(HashMap::new()),
             user_roles: tokio::sync::RwLock::new(HashMap::new()),
@@ -62,7 +62,7 @@ impl RBACManager {
         let role = Role {
             id: role_id.clone(),
             name: name.to_string(),
-            description: description.map(|s| s.to_string()),
+            description: description.map(std::string::ToString::to_string),
             permissions: HashSet::new(),
             parent_roles: HashSet::new(),
             security_level: SecurityLevel::Standard,
@@ -76,9 +76,9 @@ impl RBACManager {
             let mut roles = self.roles.write().await;
             // Check if role with this name already exists
             if roles.values().any(|r| r.name == name) {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleExists(
-                    name.to_string()
-                ))));
+                return Err(MCPError::Security(SecurityError::RBACError(
+                    format!("Role exists: {name}")
+                )));
             }
             
             roles.insert(role_id.clone(), role.clone());
@@ -97,9 +97,9 @@ impl RBACManager {
             role.updated_at = Utc::now();
             Ok(())
         } else {
-            Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                role_id.to_string()
-            ))))
+            Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {role_id}")
+            )))
         }
     }
 
@@ -109,9 +109,9 @@ impl RBACManager {
         {
             let roles = self.roles.read().await;
             if !roles.contains_key(role_id) {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    role_id.to_string()
-                ))));
+                return Err(MCPError::Security(SecurityError::RBACError(
+                    format!("Role not found: {role_id}")
+                )));
             }
         }
         
@@ -137,9 +137,9 @@ impl RBACManager {
         let roles = self.roles.read().await;
         roles.get(role_id)
             .cloned()
-            .ok_or_else(|| MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                role_id.to_string()
-            ))))
+            .ok_or_else(|| MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {role_id}")
+            )))
     }
 
     /// Check if a user has a specific permission
@@ -210,7 +210,7 @@ impl Default for RBACManager {
 // For convenience in testing
 /// Type of verification to perform on permissions
 #[derive(Debug, Clone)]
-pub enum VerificationType {
+pub(super) enum VerificationType {
     /// Simple verification
     Simple,
     /// Required verification

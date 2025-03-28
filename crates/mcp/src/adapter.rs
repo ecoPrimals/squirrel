@@ -92,7 +92,7 @@ pub trait MCPInterface {
 
 /// Adapter for the MCP system.
 ///
-/// This struct provides a thread-safe implementation of the MCPInterface trait,
+/// This struct provides a thread-safe implementation of the `MCPInterface` trait,
 /// managing the lifecycle of an underlying MCP implementation. It uses read-write
 /// locks to ensure thread safety and provides a consistent API for MCP operations.
 ///
@@ -114,7 +114,7 @@ pub struct MCPAdapter {
 }
 
 impl MCPAdapter {
-    /// Create a new MCPAdapter.
+    /// Create a new `MCPAdapter`.
     ///
     /// # Arguments
     ///
@@ -122,17 +122,17 @@ impl MCPAdapter {
     ///
     /// # Returns
     ///
-    /// A new, uninitialized MCPAdapter instance
-    pub fn new(_config: MCPConfig) -> Self {
+    /// A new, uninitialized `MCPAdapter` instance
+    #[must_use] pub fn new(_config: MCPConfig) -> Self {
         Self {
             mcp: Arc::new(RwLock::new(None)),
             init_mutex: RwLock::new(()),
         }
     }
 
-    /// Create a new MCPAdapter that is already initialized.
+    /// Create a new `MCPAdapter` that is already initialized.
     ///
-    /// This method creates and initializes an MCPAdapter in a single step.
+    /// This method creates and initializes an `MCPAdapter` in a single step.
     ///
     /// # Arguments
     ///
@@ -221,7 +221,7 @@ impl MCPInterface for MCPAdapter {
     }
 }
 
-/// Create a new MCPAdapter.
+/// Create a new `MCPAdapter`.
 ///
 /// # Arguments
 ///
@@ -229,21 +229,21 @@ impl MCPInterface for MCPAdapter {
 ///
 /// # Returns
 ///
-/// A new, uninitialized MCPAdapter instance
-pub fn create_mcp_adapter(config: MCPConfig) -> MCPAdapter {
+/// A new, uninitialized `MCPAdapter` instance
+#[must_use] pub fn create_mcp_adapter(config: MCPConfig) -> MCPAdapter {
     MCPAdapter::new(config)
 }
 
-/// Create a new MCPAdapter with default configuration.
+/// Create a new `MCPAdapter` with default configuration.
 ///
 /// # Returns
 ///
-/// A new, uninitialized MCPAdapter instance with default configuration
-pub fn create_default_mcp_adapter() -> MCPAdapter {
+/// A new, uninitialized `MCPAdapter` instance with default configuration
+#[must_use] pub fn create_default_mcp_adapter() -> MCPAdapter {
     MCPAdapter::new(MCPConfig::default())
 }
 
-/// Create a new MCPAdapter that is already initialized.
+/// Create a new `MCPAdapter` that is already initialized.
 ///
 /// # Arguments
 ///
@@ -261,7 +261,7 @@ pub fn create_initialized_mcp_adapter(config: MCPConfig) -> Result<MCPAdapter, S
     MCPAdapter::new_initialized(config)
 }
 
-/// Create a new MCPAdapter with default configuration that is already initialized.
+/// Create a new `MCPAdapter` with default configuration that is already initialized.
 ///
 /// # Returns
 ///

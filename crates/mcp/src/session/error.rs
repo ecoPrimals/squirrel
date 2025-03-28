@@ -23,11 +23,15 @@ pub enum SessionError {
     /// Persistence error
     #[error("Persistence error: {0}")]
     Persistence(String),
+    
+    /// Internal error
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 impl From<SessionError> for SquirrelError {
     fn from(err: SessionError) -> Self {
-        SquirrelError::Session(format!("{err}"))
+        Self::Session(format!("{err}"))
     }
 }
 
@@ -54,4 +58,9 @@ impl From<SessionError> for SquirrelError {
 /// Create a persistence error
 #[must_use] pub fn persistence_error(msg: &str) -> SquirrelError {
     SessionError::Persistence(msg.to_string()).into()
+}
+
+/// Create an internal error
+#[must_use] pub fn internal_error(msg: &str) -> SquirrelError {
+    SessionError::Internal(msg.to_string()).into()
 } 

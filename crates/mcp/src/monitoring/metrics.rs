@@ -84,7 +84,7 @@ impl MetricValue {
     }
 
     /// Set a metric value
-    pub fn set(&mut self, value: MetricValue) {
+    pub fn set(&mut self, value: Self) {
         *self = value;
     }
 }
@@ -131,7 +131,7 @@ impl Metric {
     }
 
     /// Add multiple labels to the metric
-    pub fn with_labels(mut self, labels: HashMap<String, String>) -> Self {
+    #[must_use] pub fn with_labels(mut self, labels: HashMap<String, String>) -> Self {
         self.labels.extend(labels);
         self
     }
@@ -162,7 +162,7 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     /// Create a new metrics collector
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             metrics: RwLock::new(HashMap::new()),
             history: RwLock::new(HashMap::new()),

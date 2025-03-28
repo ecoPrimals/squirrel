@@ -12,8 +12,8 @@ struct TestState {
     data: Vec<String>,
 }
 
-#[test]
-fn test_state_sync_basic() {
+#[tokio::test]
+async fn test_state_sync_basic() {
     // Create a state synchronizer with default config
     let syncer = StateSynchronizer::default();
     
@@ -30,7 +30,7 @@ fn test_state_sync_basic() {
         "test-config",
         "backup-service",
         state
-    );
+    ).await;
     
     // Should succeed
     assert!(result.is_ok());
@@ -42,8 +42,8 @@ fn test_state_sync_basic() {
     assert!(metrics.total_bytes_synced > 0);
 }
 
-#[test]
-fn test_state_sync_size_limit() {
+#[tokio::test]
+async fn test_state_sync_size_limit() {
     // Create a state synchronizer with a small size limit
     let syncer = StateSynchronizer::new(StateSyncConfig {
         max_state_size: 50, // Small size limit
@@ -66,7 +66,7 @@ fn test_state_sync_size_limit() {
         "test-runtime",
         "backup-service",
         state
-    );
+    ).await;
     
     // Should fail due to size
     assert!(result.is_err());
@@ -77,8 +77,8 @@ fn test_state_sync_size_limit() {
     assert!(metrics.successful_syncs.is_empty());
 }
 
-#[test]
-fn test_state_sync_multiple_operations() {
+#[tokio::test]
+async fn test_state_sync_multiple_operations() {
     let syncer = StateSynchronizer::default();
     
     // Sync configuration state
@@ -93,7 +93,7 @@ fn test_state_sync_multiple_operations() {
         "config",
         "backup-service",
         config_state
-    );
+    ).await;
     assert!(result1.is_ok());
     
     // Sync runtime state
@@ -108,7 +108,7 @@ fn test_state_sync_multiple_operations() {
         "runtime",
         "backup-service",
         runtime_state
-    );
+    ).await;
     assert!(result2.is_ok());
     
     // Sync recovery state
@@ -123,7 +123,7 @@ fn test_state_sync_multiple_operations() {
         "recovery",
         "backup-service",
         recovery_state
-    );
+    ).await;
     assert!(result3.is_ok());
     
     // Check metrics
@@ -134,8 +134,8 @@ fn test_state_sync_multiple_operations() {
     assert!(metrics.failed_syncs.is_empty());
 }
 
-#[test]
-fn test_state_sync_custom_timeout() {
+#[tokio::test]
+async fn test_state_sync_custom_timeout() {
     let syncer = StateSynchronizer::default();
     
     // Create a test state
@@ -152,14 +152,14 @@ fn test_state_sync_custom_timeout() {
         "backup-service",
         state,
         Duration::from_millis(500)
-    );
+    ).await;
     
     // Should succeed
     assert!(result.is_ok());
 }
 
-#[test]
-fn test_state_sync_reset_metrics() {
+#[tokio::test]
+async fn test_state_sync_reset_metrics() {
     let syncer = StateSynchronizer::default();
     
     // Create a test state
@@ -176,7 +176,7 @@ fn test_state_sync_reset_metrics() {
             &format!("test-config-{}", i),
             "backup-service",
             state.clone()
-        );
+        ).await;
     }
     
     // Check metrics before reset
@@ -193,8 +193,8 @@ fn test_state_sync_reset_metrics() {
     assert_eq!(metrics_after.total_bytes_synced, 0);
 }
 
-#[test]
-fn test_state_sync_update_config() {
+#[tokio::test]
+async fn test_state_sync_update_config() {
     // Create with default config
     let mut syncer = StateSynchronizer::default();
     

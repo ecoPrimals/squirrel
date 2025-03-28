@@ -3,7 +3,6 @@
 //! This module provides a circuit breaker pattern implementation to prevent
 //! cascading failures in distributed systems.
 
-use std::sync::Arc;
 use std::time::Instant;
 use std::fmt;
 use std::error::Error;
@@ -21,8 +20,8 @@ pub enum CircuitBreakerError {
 impl fmt::Display for CircuitBreakerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CircuitBreakerError::CircuitOpen => write!(f, "Circuit is open"),
-            CircuitBreakerError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
+            Self::CircuitOpen => write!(f, "Circuit is open"),
+            Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
         }
     }
 }
@@ -41,7 +40,6 @@ pub enum CircuitState {
 }
 
 /// Configuration for the circuit breaker
-#[derive(Debug, Clone)]
 pub struct CircuitBreakerConfig {
     /// Name of the circuit breaker for identification
     pub name: String,
@@ -66,6 +64,32 @@ impl Default for CircuitBreakerConfig {
             half_open_success_threshold: 2,
             half_open_allowed_calls: 3,
             fallback: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for CircuitBreakerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CircuitBreakerConfig")
+            .field("name", &self.name)
+            .field("failure_threshold", &self.failure_threshold)
+            .field("recovery_timeout_ms", &self.recovery_timeout_ms)
+            .field("half_open_success_threshold", &self.half_open_success_threshold)
+            .field("half_open_allowed_calls", &self.half_open_allowed_calls)
+            .field("fallback", &if self.fallback.is_some() { "Some(Fn)" } else { "None" })
+            .finish()
+    }
+}
+
+impl Clone for CircuitBreakerConfig {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            failure_threshold: self.failure_threshold,
+            recovery_timeout_ms: self.recovery_timeout_ms,
+            half_open_success_threshold: self.half_open_success_threshold,
+            half_open_allowed_calls: self.half_open_allowed_calls,
+            fallback: None, // We don't clone the fallback function
         }
     }
 }
@@ -97,7 +121,7 @@ pub struct CircuitBreaker {
 
 impl CircuitBreaker {
     /// Create a new circuit breaker with the specified configuration
-    pub fn new(config: CircuitBreakerConfig) -> Self {
+    #[must_use] pub const fn new(config: CircuitBreakerConfig) -> Self {
         Self {
             config,
             state: CircuitState::Closed,
@@ -113,12 +137,12 @@ impl CircuitBreaker {
     }
     
     /// Create a new circuit breaker with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(CircuitBreakerConfig::default())
     }
     
     /// Get the current state of the circuit breaker
-    pub fn state(&self) -> CircuitState {
+    #[must_use] pub const fn state(&self) -> CircuitState {
         self.state
     }
     
@@ -132,9 +156,29 @@ impl CircuitBreaker {
     }
     
     /// Execute an operation with the circuit breaker
-    pub fn execute<F, T>(&mut self, operation: F) -> Result<T>
+    ///
+    /// Runs an asynchronous operation using the circuit breaker pattern to prevent
+    /// cascading failures. The operation will only be executed if the circuit is closed
+    /// or in a half-open test state.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The operation to execute, provided as a closure that returns a future
+    ///
+    /// # Returns
+    /// 
+    /// The result of the operation if successful, or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * The circuit breaker is open (`CircuitBreakerError::CircuitOpen`)
+    /// * The operation fails (`CircuitBreakerError::OperationFailed`)
+    /// * The fallback function returns an error when the circuit is open
+    pub async fn execute<F, T>(&mut self, operation: F) -> Result<T>
     where
-        F: FnOnce() -> std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>,
+        F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>> + Send>>,
+        T: Send + 'static,
     {
         // Check circuit state
         match self.state {
@@ -169,7 +213,7 @@ impl CircuitBreaker {
         }
         
         // Execute the operation
-        match operation() {
+        match operation().await {
             Ok(result) => {
                 self.handle_success();
                 Ok(result)
@@ -251,7 +295,7 @@ impl CircuitBreaker {
     }
     
     /// Get metrics about the circuit breaker
-    pub fn get_metrics(&self) -> CircuitBreakerMetrics {
+    #[must_use] pub fn get_metrics(&self) -> CircuitBreakerMetrics {
         CircuitBreakerMetrics {
             name: self.config.name.clone(),
             state: self.state,

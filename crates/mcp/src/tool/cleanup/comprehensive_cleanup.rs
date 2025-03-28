@@ -52,13 +52,13 @@ pub enum ResourceType {
 impl fmt::Display for ResourceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResourceType::Memory => write!(f, "Memory"),
-            ResourceType::File => write!(f, "File"),
-            ResourceType::Network => write!(f, "Network"),
-            ResourceType::Database => write!(f, "Database"),
-            ResourceType::Thread => write!(f, "Thread"),
-            ResourceType::Lock => write!(f, "Lock"),
-            ResourceType::Custom(name) => write!(f, "Custom({})", name),
+            Self::Memory => write!(f, "Memory"),
+            Self::File => write!(f, "File"),
+            Self::Network => write!(f, "Network"),
+            Self::Database => write!(f, "Database"),
+            Self::Thread => write!(f, "Thread"),
+            Self::Lock => write!(f, "Lock"),
+            Self::Custom(name) => write!(f, "Custom({name})"),
         }
     }
 }
@@ -230,7 +230,7 @@ impl Default for ComprehensiveCleanupHook {
 
 impl ComprehensiveCleanupHook {
     /// Creates a new comprehensive cleanup hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut strategies = HashMap::new();
         
         // Default strategies
@@ -286,7 +286,7 @@ impl ComprehensiveCleanupHook {
     }
     
     /// Set the cleanup timeout
-    pub fn with_cleanup_timeout(mut self, timeout_ms: u64) -> Self {
+    pub const fn with_cleanup_timeout(mut self, timeout_ms: u64) -> Self {
         self.cleanup_timeout_ms = timeout_ms;
         self
     }
@@ -346,8 +346,7 @@ impl ComprehensiveCleanupHook {
         }
         
         Err(ToolError::ResourceError(format!(
-            "Resource not found: {}",
-            resource_id
+            "Resource not found: {resource_id}"
         )))
     }
     
@@ -440,7 +439,7 @@ impl ComprehensiveCleanupHook {
             if active.contains(&resource_key) {
                 warn!("Cleanup already in progress for resource {}", resource_id);
                 return Err(ToolError::ResourceError(
-                    format!("Cleanup already in progress for resource {}", resource_id)
+                    format!("Cleanup already in progress for resource {resource_id}")
                 ));
             }
             
@@ -475,17 +474,14 @@ impl ComprehensiveCleanupHook {
                     
                     // Apply a timeout to normal cleanup
                     if let CleanupStrategy::Normal { timeout_ms } = strategy {
-                        match time::timeout(
+                        if let Ok(result) = time::timeout(
                             Duration::from_millis(timeout_ms),
                             self.cleanup_resource_with_strategy(resource_id, &strategy)
-                        ).await {
-                            Ok(result) => result,
-                            Err(_) => {
-                                warn!("Normal cleanup timed out for resource {}, trying forced cleanup", resource_id);
-                                
-                                // Apply forced cleanup strategy directly
-                                self.apply_forced_cleanup_strategy(resource_id).await
-                            }
+                        ).await { result } else {
+                            warn!("Normal cleanup timed out for resource {}, trying forced cleanup", resource_id);
+                            
+                            // Apply forced cleanup strategy directly
+                            self.apply_forced_cleanup_strategy(resource_id).await
                         }
                     } else {
                         self.cleanup_resource_with_strategy(resource_id, &strategy).await
@@ -512,7 +508,7 @@ impl ComprehensiveCleanupHook {
             // Record the cleanup attempt
             let duration = start.elapsed().as_millis() as u64;
             let success = result.is_ok();
-            let error = result.as_ref().err().map(|e| e.to_string());
+            let error = result.as_ref().err().map(std::string::ToString::to_string);
             
             // Create and store the cleanup record
             let record = CleanupRecord {
@@ -538,7 +534,7 @@ impl ComprehensiveCleanupHook {
         })
     }
     
-    /// Non-recursive implementation of cleanup_resource_cascade that returns a future
+    /// Non-recursive implementation of `cleanup_resource_cascade` that returns a future
     fn cleanup_resource_cascade_impl<'a>(
         &'a self,
         parent_id: &'a ResourceId,
@@ -709,15 +705,12 @@ impl ComprehensiveCleanupHook {
                 // Create a timeout future
                 let cleanup_future = self.resource_manager.release_resource(&resource_id.owner);
                 
-                match time::timeout(timeout, cleanup_future).await {
-                    Ok(result) => result,
-                    Err(_) => {
-                        // Timeout occurred, try forced cleanup
-                        warn!("Normal cleanup timed out for resource {}", resource_id);
-                        
-                        // Apply forced cleanup strategy directly
-                        self.apply_forced_cleanup_strategy(resource_id).await
-                    }
+                if let Ok(result) = time::timeout(timeout, cleanup_future).await { result } else {
+                    // Timeout occurred, try forced cleanup
+                    warn!("Normal cleanup timed out for resource {}", resource_id);
+                    
+                    // Apply forced cleanup strategy directly
+                    self.apply_forced_cleanup_strategy(resource_id).await
                 }
             },
             
@@ -825,15 +818,15 @@ impl ComprehensiveCleanupHook {
         }
         
         // If any resources failed to clean up
-        if !errors.is_empty() {
+        if errors.is_empty() {
+            Ok(())
+        } else {
             let error_msg = format!(
                 "Failed to clean up {} resources for tool {}",
                 errors.len(),
                 tool_id
             );
             Err(ToolError::ResourceError(error_msg))
-        } else {
-            Ok(())
         }
     }
     
@@ -922,16 +915,13 @@ impl ToolLifecycleHook for ComprehensiveCleanupHook {
         // Clean up all resources with a timeout
         let cleanup_future = self.cleanup_tool_resources(tool_id, CleanupMethod::Normal);
         
-        match time::timeout(Duration::from_millis(self.cleanup_timeout_ms), cleanup_future).await {
-            Ok(result) => result,
-            Err(_) => {
-                // Timeout occurred, try forced cleanup
-                warn!(
-                    "Normal cleanup timed out for tool {}, attempting forced cleanup",
-                    tool_id
-                );
-                self.cleanup_tool_resources(tool_id, CleanupMethod::Forced).await
-            }
+        if let Ok(result) = time::timeout(Duration::from_millis(self.cleanup_timeout_ms), cleanup_future).await { result } else {
+            // Timeout occurred, try forced cleanup
+            warn!(
+                "Normal cleanup timed out for tool {}, attempting forced cleanup",
+                tool_id
+            );
+            self.cleanup_tool_resources(tool_id, CleanupMethod::Forced).await
         }
     }
 

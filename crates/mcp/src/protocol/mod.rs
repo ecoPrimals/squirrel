@@ -35,7 +35,7 @@
 //! // Create a response from a message
 //! let message = MCPMessage {
 //!     id: MessageId("msg123".to_string()),
-//!     message_type: MessageType::Command,
+//!     type_: MessageType::Command,
 //!     payload: json!({"command": "status"}),
 //! };
 //!
@@ -96,6 +96,16 @@ pub mod adapter;
 pub use adapter::{
     create_protocol_adapter, create_protocol_adapter_with_protocol, MCPProtocolAdapter,
 };
+
+/// Wire format adapter for protocol serialization/deserialization and versioning
+pub mod adapter_wire;
+pub use adapter_wire::{
+    WireFormatAdapter, WireFormatConfig, WireMessage, WireFormat, ProtocolVersion, DomainObject
+};
+
+/// Domain object implementations for protocol serialization/deserialization
+pub mod domain_objects;
+
 /// Implementation module for protocol core functionality
 mod impl_protocol;
 pub use impl_protocol::MCPProtocolImpl;
@@ -115,7 +125,7 @@ pub use impl_protocol::MCPProtocolImpl;
 /// # Fields
 ///
 /// * `version` - Protocol version string, used for compatibility checking
-/// * `max_message_size` - Maximum allowed message size in bytes, prevents DoS attacks
+/// * `max_message_size` - Maximum allowed message size in bytes, prevents `DoS` attacks
 /// * `timeout_ms` - Timeout for protocol operations in milliseconds, ensures responsiveness
 ///
 /// # Examples
@@ -363,7 +373,7 @@ pub trait CommandHandler: Send + Sync + Debug {
 /// // Create a message
 /// let message = MCPMessage {
 ///     id: MessageId("msg123".to_string()),
-///     message_type: MessageType::Command,
+///     type_: MessageType::Command,
 ///     payload: json!({"command": "get_status"}),
 /// };
 ///
@@ -486,11 +496,11 @@ impl MCPProtocolBase {
     pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> Result<MCPResponse> {
         let handler = self
             .handlers
-            .get(&message.message_type.to_string())
+            .get(&message.type_.to_string())
             .ok_or_else(|| {
                 MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler for message type: {:?}",
-                    message.message_type
+                    "No handler for {}",
+                    message.type_
                 )))
             })?;
 
@@ -556,7 +566,7 @@ impl MCPProtocolBase {
     ///
     /// A reference to the current protocol state
     #[must_use]
-    pub fn get_state(&self) -> &Value {
+    pub const fn get_state(&self) -> &Value {
         &self.state
     }
 
@@ -575,7 +585,7 @@ impl MCPProtocolBase {
     ///
     /// A reference to the protocol configuration
     #[must_use]
-    pub fn get_config(&self) -> &ProtocolConfig {
+    pub const fn get_config(&self) -> &ProtocolConfig {
         &self.config
     }
 
@@ -617,6 +627,7 @@ impl MCPProtocolBase {
             ProtocolState::Uninitialized => "uninitialized",
             ProtocolState::Initializing => "initializing",
             ProtocolState::ShuttingDown => "shutting_down",
+            ProtocolState::Closed => "closed",
         };
 
         // Update the existing state object or create a new one
@@ -633,11 +644,11 @@ impl MCPProtocolBase {
     pub async fn handle_protocol_message(&self, message: &MCPMessage) -> ProtocolResult {
         let handler = self
             .handlers
-            .get(&message.message_type.to_string())
+            .get(&message.type_.to_string())
             .ok_or_else(|| {
                 MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler for message type {:?}",
-                    message.message_type
+                    "No handler for {}",
+                    message.type_
                 )))
             })?;
 
@@ -719,8 +730,7 @@ impl MCPProtocolBase {
                     Ok(())
                 } else {
                     Err(ProtocolError::RecoveryFailed(format!(
-                        "Failed to parse message type: {}",
-                        message_type
+                        "Failed to parse message type: {message_type}"
                     )))
                 }
             }
@@ -750,13 +760,13 @@ pub struct MCPProtocolFactory {
 impl MCPProtocolFactory {
     /// Creates a new factory with the specified configuration
     #[must_use]
-    pub fn new(config: ProtocolConfig) -> Self {
+    pub const fn new(config: ProtocolConfig) -> Self {
         Self { config }
     }
 
     /// Creates a new factory with the specified configuration
     #[must_use]
-    pub fn with_config(config: ProtocolConfig) -> Self {
+    pub const fn with_config(config: ProtocolConfig) -> Self {
         Self { config }
     }
 
@@ -828,20 +838,19 @@ pub trait MessageHandler: Send + Sync + std::fmt::Debug {
     fn supported_types(&self) -> Vec<MessageType>;
 }
 
-/// Implementation of FromStr for MessageType to convert strings to message types
+/// Implementation of `FromStr` for `MessageType` to convert strings to message types
 impl FromStr for MessageType {
     type Err = ProtocolError;
 
     fn from_str(s: &str) -> std::result::Result<Self, ProtocolError> {
         match s {
-            "Command" => Ok(MessageType::Command),
-            "Response" => Ok(MessageType::Response),
-            "Event" => Ok(MessageType::Event),
-            "Error" => Ok(MessageType::Error),
-            "Setup" => Ok(MessageType::Setup),
+            "Command" => Ok(Self::Command),
+            "Response" => Ok(Self::Response),
+            "Event" => Ok(Self::Event),
+            "Error" => Ok(Self::Error),
+            "Setup" => Ok(Self::Setup),
             _ => Err(ProtocolError::InvalidFormat(format!(
-                "Invalid message type: {}",
-                s
+                "Invalid message type: {s}"
             ))),
         }
     }

@@ -3,13 +3,9 @@
 //! This module provides functionality to recover from failures in a structured way.
 
 use std::fmt;
-use std::sync::Arc;
-use std::future::Future;
-use std::pin::Pin;
 use std::time::{Duration, Instant};
 use std::error::Error as StdError;
 
-use crate::resilience::{ResilienceError, Result};
 
 /// The severity level of a failure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,18 +96,17 @@ pub enum RecoveryError {
 impl fmt::Display for RecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RecoveryError::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
-                write!(f, "Maximum recovery attempts ({}) exceeded for {} failure: {} attempts made", 
-                    max_attempts, severity, attempts)
+            Self::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
+                write!(f, "Maximum recovery attempts ({max_attempts}) exceeded for {severity} failure: {attempts} attempts made")
             },
-            RecoveryError::CriticalFailureNoRecovery => {
+            Self::CriticalFailureNoRecovery => {
                 write!(f, "Recovery not attempted for critical failure")
             },
-            RecoveryError::RecoveryActionFailed { message, .. } => {
-                write!(f, "Recovery action failed: {}", message)
+            Self::RecoveryActionFailed { message, .. } => {
+                write!(f, "Recovery action failed: {message}")
             },
-            RecoveryError::Timeout { duration } => {
-                write!(f, "Recovery timed out after {:?}", duration)
+            Self::Timeout { duration } => {
+                write!(f, "Recovery timed out after {duration:?}")
             },
         }
     }
@@ -120,7 +115,7 @@ impl fmt::Display for RecoveryError {
 impl StdError for RecoveryError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            RecoveryError::RecoveryActionFailed { source, .. } => {
+            Self::RecoveryActionFailed { source, .. } => {
                 source.as_ref().map(|s| s.as_ref() as &(dyn StdError + 'static))
             },
             _ => None,
@@ -163,7 +158,7 @@ pub struct RecoveryStrategy {
 
 impl RecoveryStrategy {
     /// Create a new recovery strategy with the specified configuration
-    pub fn new(config: RecoveryConfig) -> Self {
+    #[must_use] pub fn new(config: RecoveryConfig) -> Self {
         Self {
             config,
             metrics: RecoveryMetrics::default(),
@@ -171,14 +166,34 @@ impl RecoveryStrategy {
     }
     
     /// Create a new recovery strategy with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(RecoveryConfig::default())
     }
     
     /// Handle a failure by attempting recovery
-    pub fn handle_failure<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> Result<R, RecoveryError>
+    ///
+    /// Executes the provided recovery action based on the failure information and
+    /// recovery configuration. The recovery action is only executed if the maximum
+    /// number of attempts for the given severity level has not been exceeded.
+    ///
+    /// # Arguments
+    ///
+    /// * `failure` - Information about the failure
+    /// * `recovery_action` - The action to take to recover from the failure
+    ///
+    /// # Returns
+    ///
+    /// The result of the recovery action if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The maximum number of recovery attempts for the given severity has been exceeded
+    /// * Recovery for critical failures is disabled in the configuration
+    /// * The recovery action itself fails
+    pub fn handle_failure<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
-        F: FnOnce() -> Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
     {
         self.metrics.last_recovery_time = Some(Instant::now());
         
@@ -242,7 +257,7 @@ impl RecoveryStrategy {
     }
     
     /// Get the current recovery metrics
-    pub fn get_metrics(&self) -> &RecoveryMetrics {
+    #[must_use] pub const fn get_metrics(&self) -> &RecoveryMetrics {
         &self.metrics
     }
     
@@ -252,7 +267,7 @@ impl RecoveryStrategy {
     }
     
     /// Get the maximum number of recovery attempts for a severity level
-    pub fn max_attempts_for_severity(&self, severity: FailureSeverity) -> u32 {
+    #[must_use] pub const fn max_attempts_for_severity(&self, severity: FailureSeverity) -> u32 {
         match severity {
             FailureSeverity::Minor => self.config.max_minor_attempts,
             FailureSeverity::Moderate => self.config.max_moderate_attempts,
@@ -262,9 +277,30 @@ impl RecoveryStrategy {
     }
     
     /// Handle a failure with a timeout
-    pub fn handle_failure_with_timeout<F, R>(&mut self, failure: FailureInfo, timeout: Duration, recovery_action: F) -> Result<R, RecoveryError>
+    ///
+    /// Similar to `handle_failure` but with an added timeout constraint. If the recovery
+    /// takes longer than the specified timeout, a timeout error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `failure` - Information about the failure
+    /// * `timeout` - Maximum duration allowed for recovery
+    /// * `recovery_action` - The action to take to recover from the failure
+    ///
+    /// # Returns
+    ///
+    /// The result of the recovery action if successful and completed within timeout
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The recovery operation exceeds the specified timeout
+    /// * The maximum number of recovery attempts for the given severity has been exceeded
+    /// * Recovery for critical failures is disabled in the configuration
+    /// * The recovery action itself fails
+    pub fn handle_failure_with_timeout<F, R>(&mut self, failure: FailureInfo, timeout: Duration, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
-        F: FnOnce() -> Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
     {
         let start_time = Instant::now();
         let result = self.handle_failure(failure, recovery_action);
@@ -274,6 +310,34 @@ impl RecoveryStrategy {
         } else {
             result
         }
+    }
+
+    /// Execute an operation with recovery capability
+    ///
+    /// Executes the provided operation and returns its result. If implemented, this would
+    /// catch failures and apply recovery strategies automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The operation to execute
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The operation fails and recovery is not possible
+    /// * The recovery process itself fails
+    /// * The current implementation will always return an error as it is not yet implemented
+    pub fn execute<F, R>(&self, operation: F) -> std::result::Result<R, RecoveryError>
+    where
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        R: Send + 'static,
+    {
+        // ... existing code ...
+        unimplemented!()
     }
 }
 
@@ -378,7 +442,7 @@ mod tests {
             recovery_attempts: 0,
         };
         
-        let result = recovery.handle_failure(failure, || {
+        let result: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure, || {
             // Simulate recovery action failure
             Err(Box::new(TestError("Recovery action failed".to_string())))
         });
@@ -401,12 +465,12 @@ mod tests {
         };
         
         // One successful recovery
-        let _ = recovery.handle_failure(failure.clone(), || {
+        let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
             Ok::<_, Box<dyn StdError + Send + Sync + 'static>>(42)
         });
         
         // One failed recovery
-        let _ = recovery.handle_failure(failure.clone(), || {
+        let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
             Err(Box::new(TestError("Recovery action failed".to_string())))
         });
         

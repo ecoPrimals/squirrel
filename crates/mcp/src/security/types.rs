@@ -52,6 +52,42 @@ pub struct Permission {
     pub conditions: Vec<PermissionCondition>,
 }
 
+impl Permission {
+    /// Create a new permission with required fields
+    #[must_use] pub fn new(resource: &str, action: Action) -> Self {
+        Self {
+            id: format!("{}-{}", resource, action.to_string().to_lowercase()),
+            name: format!("{action} {resource}"),
+            resource: resource.to_string(),
+            action,
+            resource_id: None,
+            scope: PermissionScope::All,
+            conditions: Vec::new(),
+        }
+    }
+
+    /// Create a new permission with all fields
+    #[must_use] pub const fn with_details(
+        id: String, 
+        name: String,
+        resource: String, 
+        action: Action, 
+        resource_id: Option<String>,
+        scope: PermissionScope,
+        conditions: Vec<PermissionCondition>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            resource,
+            action,
+            resource_id,
+            scope,
+            conditions,
+        }
+    }
+}
+
 /// Action types for permissions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
@@ -74,13 +110,13 @@ pub enum Action {
 impl std::fmt::Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Action::Create => write!(f, "create"),
-            Action::Read => write!(f, "read"),
-            Action::Write => write!(f, "write"),
-            Action::Update => write!(f, "update"),
-            Action::Delete => write!(f, "delete"),
-            Action::Execute => write!(f, "execute"),
-            Action::Admin => write!(f, "admin"),
+            Self::Create => write!(f, "create"),
+            Self::Read => write!(f, "read"),
+            Self::Write => write!(f, "write"),
+            Self::Update => write!(f, "update"),
+            Self::Delete => write!(f, "delete"),
+            Self::Execute => write!(f, "execute"),
+            Self::Admin => write!(f, "admin"),
         }
     }
 }
@@ -106,16 +142,27 @@ pub enum PermissionScope {
 pub enum PermissionCondition {
     /// Time-based condition (e.g., business hours)
     TimeRange {
+        /// Start time in format HH:MM (24-hour)
         start_time: String,
+        /// End time in format HH:MM (24-hour)
         end_time: String,
+        /// Days of week when condition applies (e.g., "Monday", "Tuesday")
         days: Vec<String>,
     },
     /// Network-based condition (e.g., specific IP range)
-    NetworkRange { cidr: String },
+    NetworkRange { 
+        /// CIDR notation for network range (e.g., "192.168.1.0/24")
+        cidr: String 
+    },
     /// Security level requirement
     MinimumSecurityLevel(SecurityLevel),
     /// Custom attribute-based condition
-    AttributeEquals { attribute: String, value: String },
+    AttributeEquals { 
+        /// Name of the attribute to check
+        attribute: String, 
+        /// Expected value of the attribute
+        value: String 
+    },
 }
 
 /// Context for evaluating permissions
@@ -139,8 +186,8 @@ pub struct PermissionContext {
 
 impl PermissionContext {
     /// Create a new permission context with the given user ID
-    pub fn new(user_id: &str) -> Self {
-        PermissionContext {
+    #[must_use] pub fn new(user_id: &str) -> Self {
+        Self {
             user_id: user_id.to_string(),
             current_time: Some(Utc::now()),
             network_address: None,
@@ -154,7 +201,7 @@ impl PermissionContext {
 
 impl Default for PermissionContext {
     fn default() -> Self {
-        PermissionContext {
+        Self {
             user_id: String::from("system"),
             current_time: Some(Utc::now()),
             network_address: None,
@@ -164,4 +211,37 @@ impl Default for PermissionContext {
             resource_group_id: None,
         }
     }
+}
+
+/// Condition that restricts access based on time
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeWindow {
+    /// Start time in format HH:MM (24-hour)
+    pub start_time: String,
+    /// End time in format HH:MM (24-hour)
+    pub end_time: String,
+    /// Days of week when condition applies (e.g., "Monday", "Tuesday")
+    pub days: Vec<String>,
+}
+
+/// Network range condition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NetworkCondition {
+    /// Restrict access to specific CIDR network range
+    NetworkRange { 
+        /// CIDR notation for network range (e.g., "192.168.1.0/24")
+        cidr: String 
+    },
+}
+
+/// Attribute-based condition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AttributeCondition {
+    /// Condition that checks if an attribute equals a specific value
+    AttributeEquals { 
+        /// Name of the attribute to check
+        attribute: String, 
+        /// Expected value of the attribute
+        value: String 
+    },
 } 

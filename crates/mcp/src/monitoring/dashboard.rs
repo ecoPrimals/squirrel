@@ -226,7 +226,7 @@ impl DashboardServer {
         alert_manager: Arc<AlertManager>,
     ) -> Self {
         let state = DashboardState {
-            config: config.clone(),
+            config: config,
             layout: DashboardLayout::default(),
             server_status: DashboardServerStatus::Stopped,
             last_updated: Utc::now(),
@@ -338,7 +338,7 @@ impl DashboardServer {
     }
 
     /// Get the dashboard state
-    pub fn get_state(&self) -> DashboardState {
+    #[must_use] pub fn get_state(&self) -> DashboardState {
         let state = self.state.read().unwrap();
         DashboardState {
             config: state.config.clone(),
@@ -371,7 +371,7 @@ impl DashboardServer {
             .widgets
             .iter()
             .position(|w| w.id == widget_id)
-            .ok_or_else(|| format!("Widget with ID {} not found", widget_id))?;
+            .ok_or_else(|| format!("Widget with ID {widget_id} not found"))?;
 
         state.layout.widgets.remove(index);
         state.last_updated = Utc::now();

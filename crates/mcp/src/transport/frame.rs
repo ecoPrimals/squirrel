@@ -1,130 +1,404 @@
+// Message framing for MCP transports
+//
+// This module provides a message framing mechanism for MCP (Machine Context Protocol)
+// transports. It implements a simple length-prefixed framing protocol where each frame
+// consists of a 4-byte header containing the frame length, followed by the frame payload.
+//
+// The framing mechanism ensures message boundaries are preserved during transport over
+// byte-oriented streams like TCP connections. It handles message fragmentation and
+// reassembly, allowing complete messages to be reliably sent and received even when
+// the underlying transport may split or combine data.
+//
+// Key components include:
+// - Frame: Represents a protocol frame with its payload
+// - FrameReader: Reads frames from an AsyncRead stream
+// - FrameWriter: Writes frames to an AsyncWrite stream
+// - MessageCodec: Encodes and decodes MCPMessages to and from frames
+
 use bytes::{BytesMut, BufMut, Buf};
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use serde::{Serialize, Deserialize};
 use crate::error::{MCPError, Result};
 use crate::types::MCPMessage;
+use crate::error::transport::TransportError;
 
-const FRAME_HEADER_SIZE: usize = 8; // 4 bytes for magic + 4 bytes for payload length
-const FRAME_MAGIC: u32 = 0x4D435000; // "MCP\0"
+/// Maximum frame size (10 MB)
+///
+/// Frames larger than this size will be rejected for security and resource
+/// management reasons. This helps prevent potential denial of service attacks
+/// through excessively large messages.
+const MAX_FRAME_SIZE: usize = 10 * 1024 * 1024;
 
-#[derive(Debug)]
+/// Frame header size (4 bytes for length)
+///
+/// Each frame starts with a 4-byte (32-bit) big-endian unsigned integer
+/// specifying the length of the payload in bytes.
+const HEADER_SIZE: usize = 4;
+
+/// A frame used for message transport
+///
+/// A frame represents a discrete unit of data in the MCP transport protocol.
+/// Each frame consists of a header (not stored directly in this struct) and a payload.
+/// The payload is the actual message content being transported.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
+    /// Frame payload containing the message data
     pub payload: BytesMut,
 }
 
 impl Frame {
-    pub fn new(payload: BytesMut) -> Self {
+    /// Create a new frame with the given payload
+    ///
+    /// # Arguments
+    ///
+    /// * `payload` - The payload data for the frame
+    ///
+    /// # Returns
+    ///
+    /// A new Frame instance containing the payload
+    #[must_use]
+    pub const fn new(payload: BytesMut) -> Self {
         Self { payload }
     }
-
-    pub fn check_frame(buf: &[u8]) -> Option<usize> {
-        if buf.len() < FRAME_HEADER_SIZE {
-            return None;
-        }
-
-        let mut header = &buf[..FRAME_HEADER_SIZE];
-        let magic = header.get_u32();
-        if magic != FRAME_MAGIC {
-            return None;
-        }
-
-        let payload_len = header.get_u32() as usize;
-        let frame_len = FRAME_HEADER_SIZE + payload_len;
-
-        if buf.len() < frame_len {
-            return None;
-        }
-
-        Some(frame_len)
+    
+    /// Get a reference to the frame payload
+    ///
+    /// # Returns
+    ///
+    /// A reference to the frame's payload
+    #[must_use]
+    pub const fn payload(&self) -> &BytesMut {
+        &self.payload
     }
-
-    pub fn parse(buf: &mut BytesMut) -> Result<Option<Frame>> {
-        if let Some(frame_len) = Frame::check_frame(buf) {
-            let frame_data = buf.split_to(frame_len);
-            let mut payload = frame_data.freeze().slice(FRAME_HEADER_SIZE..);
-            Ok(Some(Frame::new(BytesMut::from(&payload[..]))))
-        } else {
-            Ok(None)
-        }
+    
+    /// Get the length of the frame payload in bytes
+    ///
+    /// # Returns
+    ///
+    /// The length of the frame payload
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.payload.len()
     }
-
-    pub fn serialize(&self) -> BytesMut {
-        let mut buf = BytesMut::with_capacity(FRAME_HEADER_SIZE + self.payload.len());
-        buf.put_u32(FRAME_MAGIC);
-        buf.put_u32(self.payload.len() as u32);
-        buf.extend_from_slice(&self.payload);
-        buf
+    
+    /// Check if the frame payload is empty
+    ///
+    /// # Returns
+    ///
+    /// True if the frame payload is empty, false otherwise
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.payload.is_empty()
     }
 }
 
-pub struct MessageCodec;
-
-impl MessageCodec {
-    pub fn new() -> Self {
-        Self
-    }
-
-    pub async fn encode_message(&self, message: &MCPMessage) -> Result<Frame> {
-        let payload = serde_json::to_vec(message)
-            .map_err(|e| MCPError::SerdeJson(e))?;
-        Ok(Frame::new(BytesMut::from(&payload[..])))
-    }
-
-    pub async fn decode_message(&self, frame: Frame) -> Result<MCPMessage> {
-        serde_json::from_slice(&frame.payload)
-            .map_err(|e| MCPError::SerdeJson(e))
-    }
-}
-
+/// Frame reader for MCP transport
+///
+/// Reads frames from a byte stream, handling message framing protocol details.
+/// It buffers incoming data and processes it to extract complete frames, handling
+/// cases where frame data might be split across multiple reads.
+#[derive(Debug)]
 pub struct FrameReader<R> {
+    /// The underlying reader providing the byte stream
     reader: R,
+    /// Buffer for accumulating data until complete frames can be extracted
     buffer: BytesMut,
 }
 
 impl<R: AsyncRead + Unpin> FrameReader<R> {
+    /// Create a new frame reader
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - The underlying `AsyncRead` stream to read from
+    ///
+    /// # Returns
+    ///
+    /// A new `FrameReader` instance
+    #[must_use]
     pub fn new(reader: R) -> Self {
-        Self {
+        Self { 
             reader,
-            buffer: BytesMut::with_capacity(8 * 1024),
+            buffer: BytesMut::with_capacity(MAX_FRAME_SIZE),
         }
     }
-
-    pub async fn read_frame(&mut self) -> Result<Option<Frame>> {
-        use tokio::io::AsyncReadExt;
-
-        loop {
-            if let Some(frame) = Frame::parse(&mut self.buffer)? {
-                return Ok(Some(frame));
-            }
-
-            if 0 == self.reader.read_buf(&mut self.buffer).await? {
-                if self.buffer.is_empty() {
-                    return Ok(None);
-                } else {
-                    return Err(MCPError::InvalidMessage("connection reset by peer".into()));
-                }
+    
+    /// Read a frame from the underlying stream
+    ///
+    /// Reads and returns the next complete frame from the stream. This method handles
+    /// buffering of partial data and will return None if the stream is at EOF with no
+    /// pending data, or Some(Frame) when a complete frame is available.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Frame))` - A complete frame was read successfully
+    /// * `Ok(None)` - The stream is at EOF with no pending frames
+    /// * `Err(...)` - An error occurred while reading
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - There is an I/O error reading from the underlying stream
+    /// - The frame format is invalid
+    /// - The end of stream is reached with a partial frame
+    pub async fn read_frame(&mut self) -> crate::error::Result<Option<Frame>> {
+        // If the buffer is empty, try to read some data
+        if self.buffer.is_empty() {
+            if self.read_to_buffer().await? == 0 {
+                // EOF, no more frames
+                return Ok(None);
             }
         }
+        
+        // Check if we have at least a complete header
+        if self.buffer.len() < HEADER_SIZE {
+            // Not enough data for header, try to read more
+            if self.read_to_buffer().await? == 0 {
+                // EOF, incomplete frame
+                if !self.buffer.is_empty() {
+                    return Err(TransportError::InvalidFrame(
+                        format!("Incomplete frame at end of stream: received {} bytes", self.buffer.len())
+                    ).into());
+                }
+                return Ok(None);
+            }
+            
+            // Still not enough for header?
+            if self.buffer.len() < HEADER_SIZE {
+                return Err(TransportError::InvalidFrame(
+                    format!("Incomplete frame header: only {} bytes available", self.buffer.len())
+                ).into());
+            }
+        }
+        
+        // Parse and return the frame
+        self.parse_frame()
+    }
+    
+    /// Parse a frame from the current buffer
+    ///
+    /// Attempts to extract a complete frame from the current buffer contents.
+    /// If a complete frame is available, it is returned and removed from the buffer.
+    /// If only a partial frame is available, None is returned and the buffer is left unchanged.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(Frame))` - A complete frame was extracted
+    /// * `Ok(None)` - Only a partial frame is available
+    /// * `Err(...)` - An error occurred while parsing the frame
+    fn parse_frame(&mut self) -> crate::error::Result<Option<Frame>> {
+        // Read the frame length from the header
+        let mut header = [0u8; 4];
+        header.copy_from_slice(&self.buffer[0..4]);
+        let frame_len = u32::from_be_bytes(header) as usize;
+        
+        // Check if the frame is too large
+        if frame_len > MAX_FRAME_SIZE {
+            return Err(TransportError::InvalidFrame(format!(
+                "Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)"
+            )).into());
+        }
+        
+        // Check if we have the complete frame
+        if self.buffer.len() < 4 + frame_len {
+            // Not enough data, don't consume anything
+            return Ok(None);
+        }
+        
+        // We have a complete frame, consume it
+        self.buffer.advance(4); // Skip header
+        let payload = self.buffer.split_to(frame_len);
+        
+        // Return the frame
+        Ok(Some(Frame::new(payload)))
+    }
+    
+    /// Read more data into the buffer
+    ///
+    /// Reads data from the underlying reader into the internal buffer.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(usize)` - The number of bytes read
+    /// * `Err(...)` - An error occurred while reading
+    async fn read_to_buffer(&mut self) -> crate::error::Result<usize> {
+        // Make sure we have capacity for at least the header
+        if self.buffer.capacity() < 4 {
+            self.buffer.reserve(4);
+        }
+        
+        // Read into the buffer
+        let bytes_read = self.reader.read_buf(&mut self.buffer).await
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                transport_err
+            })?;
+        
+        Ok(bytes_read)
     }
 }
 
+/// Frame writer for MCP transport
+///
+/// Writes frames to a byte stream, handling message framing protocol details.
+/// It prefixes each frame with a length header before writing the payload.
+#[derive(Debug)]
 pub struct FrameWriter<W> {
+    /// The underlying writer for the byte stream
     writer: W,
 }
 
 impl<W: AsyncWrite + Unpin> FrameWriter<W> {
-    pub fn new(writer: W) -> Self {
+    /// Create a new frame writer
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - The underlying `AsyncWrite` stream to write to
+    ///
+    /// # Returns
+    ///
+    /// A new `FrameWriter` instance
+    #[must_use]
+    pub const fn new(writer: W) -> Self {
         Self { writer }
     }
-
-    pub async fn write_frame(&mut self, frame: Frame) -> Result<()> {
-        use tokio::io::AsyncWriteExt;
+    
+    /// Write a frame to the stream
+    ///
+    /// Writes a complete frame to the underlying stream, including the length
+    /// header. The frame is written atomically (header and payload are written
+    /// in a single operation) and the stream is flushed afterward.
+    ///
+    /// # Arguments
+    ///
+    /// * `frame` - The frame to write
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The frame is too large (exceeds `MAX_FRAME_SIZE`)
+    /// - There is an I/O error while writing the header or payload
+    /// - The writer cannot be flushed
+    pub async fn write_frame(&mut self, frame: Frame) -> crate::error::Result<()> {
+        // Check frame size
+        if frame.len() > MAX_FRAME_SIZE {
+            let error_msg = format!(
+                "Frame too large: {} bytes (max is {} bytes)",
+                frame.len(), MAX_FRAME_SIZE
+            );
+            let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
+            return Err(transport_err);
+        }
         
-        let buf = frame.serialize();
-        self.writer.write_all(&buf).await?;
-        self.writer.flush().await?;
+        // Write frame length header
+        let header = (frame.len() as u32).to_be_bytes();
+        self.writer.write_all(&header).await
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                transport_err
+            })?;
+        
+        // Write frame payload
+        self.writer.write_all(&frame.payload).await
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                transport_err
+            })?;
+        
+        // Flush the writer
+        self.writer.flush().await
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::IoError(e).into();
+                transport_err
+            })?;
         
         Ok(())
+    }
+}
+
+/// Codec for encoding and decoding MCP messages
+///
+/// Provides functionality for converting between `MCPMessages` and frames.
+/// This codec handles the serialization and deserialization of messages
+/// to and from JSON format for transport.
+#[derive(Debug)]
+pub struct MessageCodec {
+    // Configuration could be added here if needed
+}
+
+impl MessageCodec {
+    /// Create a new message codec
+    ///
+    /// # Returns
+    ///
+    /// A new `MessageCodec` instance for encoding and decoding messages
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {}
+    }
+    
+    /// Encode a message to a frame
+    ///
+    /// Serializes an `MCPMessage` to JSON and creates a frame containing
+    /// the serialized data.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The MCP message to encode
+    ///
+    /// # Returns
+    ///
+    /// Result containing the encoded frame or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The message cannot be serialized to JSON
+    pub async fn encode_message(&self, message: &MCPMessage) -> crate::error::Result<Frame> {
+        // Serialize the message to JSON
+        let json = serde_json::to_vec(message)
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::SerializationError(e).into();
+                transport_err
+            })?;
+        
+        // Create a frame
+        let mut buffer = BytesMut::with_capacity(json.len());
+        buffer.put_slice(&json);
+        
+        Ok(Frame::new(buffer))
+    }
+    
+    /// Decode a message from a frame
+    ///
+    /// Deserializes an `MCPMessage` from the JSON data in a frame.
+    ///
+    /// # Arguments
+    ///
+    /// * `frame` - The frame containing the serialized message
+    ///
+    /// # Returns
+    ///
+    /// Result containing the decoded message or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The frame data cannot be deserialized into an `MCPMessage`
+    /// - The JSON data in the frame is invalid or malformed
+    pub async fn decode_message(&self, frame: &Frame) -> crate::error::Result<MCPMessage> {
+        // Deserialize the message from JSON
+        let message = serde_json::from_slice(&frame.payload)
+            .map_err(|e| {
+                let transport_err: crate::error::MCPError = TransportError::SerializationError(e).into();
+                transport_err
+            })?;
+        
+        Ok(message)
     }
 }
 
@@ -135,32 +409,59 @@ mod tests {
     use crate::types::{MessageType, ProtocolVersion, SecurityLevel, MessageMetadata};
 
     #[tokio::test]
-    async fn test_message_codec() {
-        let codec = MessageCodec::new();
-        
+    async fn test_frame_round_trip() {
+        // Create a message
         let message = MCPMessage::new(
             MessageType::Command,
-            ProtocolVersion::new(1, 0),
-            SecurityLevel::None,
-            vec![1, 2, 3],
+            serde_json::json!({ "test": "value" }),
         );
-
+        
+        // Create codec
+        let codec = MessageCodec::new();
+        
+        // Encode
         let frame = codec.encode_message(&message).await.unwrap();
-        let decoded = codec.decode_message(frame).await.unwrap();
-
-        assert_eq!(decoded.message_type, message.message_type);
-        assert_eq!(decoded.protocol_version, message.protocol_version);
+        
+        // Decode
+        let decoded = codec.decode_message(&frame).await.unwrap();
+        
+        // Verify
+        assert_eq!(decoded.type_, message.type_);
         assert_eq!(decoded.payload, message.payload);
     }
-
-    #[test]
-    fn test_frame_serialization() {
-        let payload = BytesMut::from(&b"test payload"[..]);
-        let frame = Frame::new(payload.clone());
+    
+    #[tokio::test]
+    async fn test_frame_reader_writer() {
+        // Create a message
+        let message = MCPMessage::new(
+            MessageType::Command,
+            serde_json::json!({ "test": "value" }),
+        );
         
-        let serialized = frame.serialize();
-        let mut parsed_frame = Frame::parse(&mut serialized.clone()).unwrap().unwrap();
+        // Create codec
+        let codec = MessageCodec::new();
         
-        assert_eq!(&parsed_frame.payload[..], &payload[..]);
+        // Encode
+        let frame = codec.encode_message(&message).await.unwrap();
+        
+        // Create a buffer
+        let mut buffer = Vec::new();
+        
+        // Write frame
+        {
+            let mut writer = FrameWriter::new(&mut buffer);
+            writer.write_frame(frame).await.unwrap();
+        }
+        
+        // Read frame
+        let mut reader = FrameReader::new(&buffer[..]);
+        let read_frame = reader.read_frame().await.unwrap().unwrap();
+        
+        // Decode
+        let decoded = codec.decode_message(&read_frame).await.unwrap();
+        
+        // Verify
+        assert_eq!(decoded.type_, message.type_);
+        assert_eq!(decoded.payload, message.payload);
     }
 } 

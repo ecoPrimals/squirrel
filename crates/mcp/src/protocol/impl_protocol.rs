@@ -50,7 +50,7 @@ impl MCPProtocolImpl {
 
     /// Gets a reference to the base protocol
     #[must_use]
-    pub fn base(&self) -> &MCPProtocolBase {
+    pub const fn base(&self) -> &MCPProtocolBase {
         &self.base
     }
 
@@ -66,14 +66,19 @@ impl MCPProtocolImpl {
     ) -> crate::error::Result<MCPMessage> {
         Ok(MCPMessage {
             id: request.id.clone(),
-            message_type: MessageType::Response,
+            type_: MessageType::Response,
             payload: serde_json::Value::Null,
+            metadata: None,
+            security: crate::types::SecurityMetadata::default(),
+            timestamp: chrono::Utc::now(),
+            version: request.version.clone(),
+            trace_id: request.trace_id.clone(),
         })
     }
 
     /// Gets the current protocol state
     #[must_use]
-    pub fn get_state(&self) -> &Value {
+    pub const fn get_state(&self) -> &Value {
         self.base.get_state()
     }
 
@@ -84,7 +89,7 @@ impl MCPProtocolImpl {
 
     /// Gets the protocol configuration
     #[must_use]
-    pub fn get_config(&self) -> &ProtocolConfig {
+    pub const fn get_config(&self) -> &ProtocolConfig {
         self.base.get_config()
     }
 
@@ -323,13 +328,13 @@ impl MCPProtocol for MCPProtocolImpl {
         self.validate_message(msg).await?;
 
         // Implement message routing logic based on message type and content
-        match msg.message_type {
+        match msg.type_ {
             MessageType::Command => {
                 // Check if we have a specific handler registered for this command
                 if let Some(command_type) = msg.payload.get("command_type").and_then(|v| v.as_str())
                 {
                     // Create a specialized message type for this command type
-                    let specialized_type = format!("Command:{}", command_type);
+                    let specialized_type = format!("Command:{command_type}");
 
                     // Check if we have a handler for this specialized command type
                     if self.base.handlers.contains_key(&specialized_type) {
@@ -346,7 +351,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 if self
                     .base
                     .handlers
-                    .contains_key(&msg.message_type.to_string())
+                    .contains_key(&msg.type_.to_string())
                 {
                     tracing::debug!("Routing command to generic handler");
                     return Ok(());
@@ -354,8 +359,7 @@ impl MCPProtocol for MCPProtocolImpl {
 
                 // No handler found
                 return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler found for command: {:?}",
-                    msg
+                    "No handler found for command: {msg:?}"
                 ))));
             }
             MessageType::Event => {
@@ -367,16 +371,15 @@ impl MCPProtocol for MCPProtocolImpl {
                     .unwrap_or("unknown");
 
                 // Check for specific event handler
-                let specialized_type = format!("Event:{}", event_type);
+                let specialized_type = format!("Event:{event_type}");
                 if !self.base.handlers.contains_key(&specialized_type)
                     && !self
                         .base
                         .handlers
-                        .contains_key(&msg.message_type.to_string())
+                        .contains_key(&msg.type_.to_string())
                 {
                     return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                        "No handler found for event type: {}",
-                        event_type
+                        "No handler found for event type: {event_type}"
                     ))));
                 }
 
@@ -403,7 +406,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 if self
                     .base
                     .handlers
-                    .contains_key(&msg.message_type.to_string())
+                    .contains_key(&msg.type_.to_string())
                 {
                     tracing::debug!("Routing error to handler");
                     return Ok(());
@@ -417,7 +420,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 // Unhandled message types should be rejected
                 Err(MCPError::Protocol(ProtocolError::InvalidFormat(format!(
                     "Unhandled message type: {:?}",
-                    msg.message_type
+                    msg.type_
                 ))))
             }
         }
@@ -441,7 +444,7 @@ impl MCPProtocol for MCPProtocolImpl {
 
 /// Create a protocol adapter with the provided protocol
 #[allow(dead_code)]
-pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
+pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
     let mut protocol = protocol;
     protocol.initialize()?;
     Ok(protocol.base)
@@ -449,7 +452,7 @@ pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolB
 
 /// Create a protocol adapter with the provided protocol and config
 #[allow(dead_code)]
-pub fn create_protocol_adapter_with_config(
+pub(super) fn create_protocol_adapter_with_config(
     protocol: MCPProtocolImpl,
     config: ProtocolConfig,
 ) -> Result<MCPProtocolBase> {
@@ -472,7 +475,7 @@ mod tests {
         // Create a valid message with the correct fields
         let valid_msg = MCPMessage {
             id: MessageId("test-1".to_string()),
-            message_type: MessageType::Command,
+            type_: MessageType::Command,
             payload: json!({"command": "test", "data": [1, 2, 3]}),
         };
 

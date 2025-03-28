@@ -60,9 +60,9 @@ fn test_recovery_strategy_minor_success() {
     };
     
     // Mock a successful recovery action
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure, || {
         // Simulate successful recovery
-        Ok::<_, Box<dyn StdError + Send + Sync>>(42)
+        Ok::<i32, Box<dyn StdError + Send + Sync>>(42)
     });
     
     assert!(result.is_ok());
@@ -87,9 +87,9 @@ fn test_recovery_strategy_moderate_success() {
     };
     
     // Mock a successful recovery action
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<String, RecoveryError> = recovery.handle_failure(failure, || {
         // Simulate successful recovery
-        Ok::<_, Box<dyn StdError + Send + Sync>>("API recovered".to_string())
+        Ok::<String, Box<dyn StdError + Send + Sync>>("API recovered".to_string())
     });
     
     assert!(result.is_ok());
@@ -114,7 +114,7 @@ fn test_recovery_strategy_severe_success() {
     };
     
     // Mock a successful recovery action
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure, || {
         // Simulate successful recovery
         Ok::<_, Box<dyn StdError + Send + Sync>>(())
     });
@@ -140,7 +140,7 @@ fn test_recovery_strategy_critical_not_attempted() {
     };
     
     // Recovery should not be attempted
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<String, RecoveryError> = recovery.handle_failure(failure, || {
         // This shouldn't be called
         panic!("Recovery action should not be called for critical failures by default");
     });
@@ -169,9 +169,9 @@ fn test_recovery_strategy_critical_attempted() {
     };
     
     // Recovery should be attempted now
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure, || {
         // Simulate successful recovery
-        Ok::<_, Box<dyn StdError + Send + Sync>>(())
+        Ok::<(), Box<dyn StdError + Send + Sync>>(())
     });
     
     assert!(result.is_ok());
@@ -198,8 +198,8 @@ fn test_recovery_strategy_max_minor_attempts() {
         recovery_attempts: 2,
     };
     
-    let result1 = recovery.handle_failure(failure1, || {
-        Ok::<_, Box<dyn StdError + Send + Sync>>(())
+    let result1: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure1, || {
+        Ok::<(), Box<dyn StdError + Send + Sync>>(())
     });
     
     assert!(result1.is_ok());
@@ -212,7 +212,7 @@ fn test_recovery_strategy_max_minor_attempts() {
         recovery_attempts: 3,
     };
     
-    let result2 = recovery.handle_failure(failure2, || {
+    let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
         panic!("This should not be called");
     });
     
@@ -234,8 +234,8 @@ fn test_recovery_strategy_max_moderate_attempts() {
         recovery_attempts: 1,
     };
     
-    let result1 = recovery.handle_failure(failure1, || {
-        Ok::<_, Box<dyn StdError + Send + Sync>>(())
+    let result1: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure1, || {
+        Ok::<(), Box<dyn StdError + Send + Sync>>(())
     });
     
     assert!(result1.is_ok());
@@ -248,7 +248,7 @@ fn test_recovery_strategy_max_moderate_attempts() {
         recovery_attempts: 2,
     };
     
-    let result2 = recovery.handle_failure(failure2, || {
+    let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
         panic!("This should not be called");
     });
     
@@ -256,7 +256,7 @@ fn test_recovery_strategy_max_moderate_attempts() {
 }
 
 #[test]
-fn test_recovery_strategy_action_failed() {
+fn test_recovery_strategy_failure() {
     let mut recovery = RecoveryStrategy::default();
     
     let failure = FailureInfo {
@@ -267,7 +267,7 @@ fn test_recovery_strategy_action_failed() {
     };
     
     // Mock a failed recovery action
-    let result = recovery.handle_failure(failure, || {
+    let result: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure, || {
         Err(Box::new(TestError("Recovery action failed".to_string())))
     });
     
@@ -291,12 +291,12 @@ fn test_recovery_strategy_with_timeout_success() {
     };
     
     // Recovery action completes within timeout
-    let result = recovery.handle_failure_with_timeout(
+    let result: std::result::Result<(), RecoveryError> = recovery.handle_failure_with_timeout(
         failure,
         Duration::from_millis(1000),
         || {
             // Fast operation
-            Ok::<_, Box<dyn StdError + Send + Sync>>(())
+            Ok::<(), Box<dyn StdError + Send + Sync>>(())
         }
     );
     
@@ -315,17 +315,63 @@ fn test_recovery_strategy_with_timeout_exceeded() {
     };
     
     // Recovery action exceeds timeout
-    let result = recovery.handle_failure_with_timeout(
+    let result: std::result::Result<(), RecoveryError> = recovery.handle_failure_with_timeout(
         failure,
         Duration::from_millis(50),
         || {
             // Slow operation
             thread::sleep(Duration::from_millis(100));
-            Ok::<_, Box<dyn StdError + Send + Sync>>(())
+            Ok::<(), Box<dyn StdError + Send + Sync>>(())
         }
     );
     
     assert!(matches!(result, Err(RecoveryError::Timeout { .. })));
+}
+
+#[test]
+fn test_recovery_strategy_metrics() {
+    let mut recovery = RecoveryStrategy::default();
+    
+    // Create a failure
+    let failure = FailureInfo {
+        message: "Minor failure".to_string(),
+        severity: FailureSeverity::Minor,
+        context: "test".to_string(),
+        recovery_attempts: 0,
+    };
+    
+    // Simulate successful recovery action
+    let result: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
+        // Simulate recovery action failure
+        Err(Box::new(TestError("Recovery action failed".to_string())))
+    });
+    
+    assert!(matches!(result, Err(RecoveryError::RecoveryActionFailed { .. })));
+    
+    // Create two more failures with successful recovery
+    for _ in 0..2 {
+        let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
+            Ok::<i32, Box<dyn StdError + Send + Sync>>(42)
+        });
+    }
+    
+    // Create another failure with failed recovery
+    let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
+        Err(Box::new(TestError("Recovery action failed".to_string())))
+    });
+    
+    // Check metrics
+    let metrics = recovery.get_metrics();
+    assert_eq!(metrics.successful_recoveries, 2);
+    assert_eq!(metrics.failed_recoveries, 2);
+    
+    // Reset metrics
+    recovery.reset_metrics();
+    
+    // Metrics should be reset to zero
+    let metrics = recovery.get_metrics();
+    assert_eq!(metrics.successful_recoveries, 0);
+    assert_eq!(metrics.failed_recoveries, 0);
 }
 
 #[test]
@@ -344,10 +390,10 @@ fn test_recovery_strategy_metrics_accumulation() {
         
         // Mock a successful recovery action
         let counter_clone = counter.clone();
-        let _ = recovery.handle_failure(failure.clone(), move || {
+        let _: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure.clone(), move || {
             let mut count = counter_clone.lock().unwrap();
             *count += 1;
-            Ok::<_, Box<dyn StdError + Send + Sync>>(())
+            Ok::<(), Box<dyn StdError + Send + Sync>>(())
         });
     }
     
@@ -359,7 +405,7 @@ fn test_recovery_strategy_metrics_accumulation() {
         recovery_attempts: 0,
     };
     
-    let _ = recovery.handle_failure(failure, || {
+    let _: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure.clone(), || {
         Err(Box::new(TestError("Recovery failed".to_string())))
     });
     
@@ -385,6 +431,42 @@ fn test_recovery_strategy_metrics_accumulation() {
 }
 
 #[test]
+fn test_recovery_strategy_max_severe_attempts() {
+    let mut recovery = RecoveryStrategy::new(RecoveryConfig {
+        max_severe_attempts: 1,
+        ..RecoveryConfig::default()
+    });
+    
+    // Try with no previous attempts (under max)
+    let failure1 = FailureInfo {
+        message: "Severe failure".to_string(),
+        severity: FailureSeverity::Severe,
+        context: "test".to_string(),
+        recovery_attempts: 0,
+    };
+    
+    let result1: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure1, || {
+        Ok::<(), Box<dyn StdError + Send + Sync>>(())
+    });
+    
+    assert!(result1.is_ok());
+    
+    // Try with 1 previous attempt (at max)
+    let failure2 = FailureInfo {
+        message: "Severe failure".to_string(),
+        severity: FailureSeverity::Severe,
+        context: "test".to_string(),
+        recovery_attempts: 1,
+    };
+    
+    let result2: std::result::Result<(), RecoveryError> = recovery.handle_failure(failure2, || {
+        panic!("This should not be called");
+    });
+    
+    assert!(matches!(result2, Err(RecoveryError::MaxAttemptsExceeded { .. })));
+}
+
+#[test]
 fn test_recovery_real_world_scenario() {
     // Simulating a real-world recovery strategy for a database connection
     let mut recovery = RecoveryStrategy::new(RecoveryConfig {
@@ -406,7 +488,7 @@ fn test_recovery_real_world_scenario() {
     
     // First recovery attempt
     let db_connection_clone = db_connection.clone();
-    let result1 = recovery.handle_failure(failure.clone(), move || {
+    let result1: std::result::Result<String, RecoveryError> = recovery.handle_failure(failure.clone(), move || {
         let mut conn = db_connection_clone.lock().unwrap();
         *conn = true; // Set to connected
         Ok::<_, Box<dyn StdError + Send + Sync>>("Connection restored".to_string())
