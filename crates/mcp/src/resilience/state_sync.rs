@@ -13,22 +13,36 @@ use serde::Serialize;
 use std::sync::RwLock;
 use serde_json;
 use serde::de::DeserializeOwned;
-use tracing::{debug, error, info};
-use tokio::time::timeout;
 
 /// Represents the type of state being synchronized
+///
+/// Different types of state may have different synchronization requirements,
+/// validation rules, and priorities. This enum allows the synchronization
+/// mechanism to handle each type appropriately.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StateType {
     /// Configuration state (system settings, parameters)
+    ///
+    /// This state type represents configuration settings that control system behavior.
+    /// Examples include timeouts, feature flags, and other parameters.
     Configuration,
     
     /// Runtime state (current system state during operation)
+    ///
+    /// This state type represents the current operational state of the system.
+    /// Examples include active connections, current workloads, and temporary data.
     Runtime,
     
     /// Recovery state (data needed for recovery procedures)
+    ///
+    /// This state type represents information needed to recover from failures.
+    /// Examples include checkpoints, transaction logs, and backup references.
     Recovery,
     
     /// Audit state (logs, metrics, history data)
+    ///
+    /// This state type represents historical data for auditing and analysis.
+    /// Examples include operation logs, performance metrics, and event history.
     Audit,
 }
 
@@ -110,10 +124,20 @@ pub enum StateSyncError {
     },
 
     /// State not found
-    NotFound(String),
+    ///
+    /// This error occurs when attempting to retrieve state that doesn't exist.
+    NotFound(
+        /// Identifier or description of the state that was not found
+        String
+    ),
 
     /// Deserialization failed
-    DeserializationFailed(String),
+    ///
+    /// This error occurs when the state data couldn't be properly deserialized.
+    DeserializationFailed(
+        /// Error message explaining the deserialization failure
+        String
+    ),
 }
 
 impl fmt::Display for StateSyncError {

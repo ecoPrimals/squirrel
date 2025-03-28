@@ -11,12 +11,7 @@ use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, 
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use uuid::Uuid;
 use crate::error::MCPError;
-use serde_json::Map;
-use std::convert::TryFrom;
-use crate::types::ResponseStatus;
 use base64::Engine;
 
 // ==========================================

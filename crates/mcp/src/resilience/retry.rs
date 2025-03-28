@@ -9,11 +9,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use rand::{Rng, thread_rng};
 use std::error::Error as StdError;
-use std::fmt;
-use futures::future::BoxFuture;
-use std::collections::{HashMap, VecDeque};
 
-use crate::resilience::{ResilienceError, Result};
+use crate::resilience::ResilienceError;
 
 /// Defines different backoff strategies for retry operations
 #[derive(Debug, Clone, Copy, PartialEq)]

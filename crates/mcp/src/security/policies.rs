@@ -12,7 +12,7 @@ use tracing::{info, warn, debug, error, instrument};
 
 use crate::error::{Result, MCPError};
 use crate::error::types::SecurityError;
-use crate::security::types::{Action, Permission, PermissionContext};
+use crate::security::types::Permission;
 use crate::types::SecurityLevel;
 
 /// Security policy types

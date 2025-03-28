@@ -4,6 +4,11 @@
 //! components in the system. These adapters follow the adapter pattern described in
 //! the MCP Integration Guide.
 
+/// Core system adapter for MCP integration
+///
+/// Provides integration between the MCP protocol and core system components.
+/// This adapter handles message routing, state management, authentication,
+/// and other core integration points between MCP and the main application.
 pub mod core_adapter;
 
 pub use core_adapter::CoreMCPAdapter;

@@ -16,7 +16,7 @@ const PREDICTION_WINDOW: i64 = 300; // 5 minutes
 
 /// Resource usage pattern for prediction
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourcePattern {
+pub(super) struct ResourcePattern {
     /// Average usage over time
     pub average_usage: f64,
     /// Usage trend (positive means increasing)
@@ -29,7 +29,7 @@ pub struct ResourcePattern {
 
 /// Adaptive resource limits based on usage patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdaptiveResourceLimits {
+pub(super) struct AdaptiveResourceLimits {
     /// Base resource limits
     pub base_limits: ResourceLimits,
     /// Maximum allowed limits
@@ -42,7 +42,7 @@ pub struct AdaptiveResourceLimits {
 
 /// Resource usage predictor and optimizer
 #[derive(Debug)]
-pub struct AdaptiveResourceManager {
+pub(super) struct AdaptiveResourceManager {
     /// Resource usage patterns by tool
     patterns: Arc<RwLock<HashMap<String, HashMap<ResourceType, ResourcePattern>>>>,
     /// Adaptive limits by tool
@@ -53,7 +53,7 @@ pub struct AdaptiveResourceManager {
 
 impl AdaptiveResourceManager {
     /// Creates a new adaptive resource manager
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             patterns: Arc::new(RwLock::new(HashMap::new())),
             adaptive_limits: Arc::new(RwLock::new(HashMap::new())),

@@ -142,16 +142,27 @@ pub enum PermissionScope {
 pub enum PermissionCondition {
     /// Time-based condition (e.g., business hours)
     TimeRange {
+        /// Start time in format HH:MM (24-hour)
         start_time: String,
+        /// End time in format HH:MM (24-hour)
         end_time: String,
+        /// Days of week when condition applies (e.g., "Monday", "Tuesday")
         days: Vec<String>,
     },
     /// Network-based condition (e.g., specific IP range)
-    NetworkRange { cidr: String },
+    NetworkRange { 
+        /// CIDR notation for network range (e.g., "192.168.1.0/24")
+        cidr: String 
+    },
     /// Security level requirement
     MinimumSecurityLevel(SecurityLevel),
     /// Custom attribute-based condition
-    AttributeEquals { attribute: String, value: String },
+    AttributeEquals { 
+        /// Name of the attribute to check
+        attribute: String, 
+        /// Expected value of the attribute
+        value: String 
+    },
 }
 
 /// Context for evaluating permissions
@@ -200,4 +211,37 @@ impl Default for PermissionContext {
             resource_group_id: None,
         }
     }
+}
+
+/// Condition that restricts access based on time
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeWindow {
+    /// Start time in format HH:MM (24-hour)
+    pub start_time: String,
+    /// End time in format HH:MM (24-hour)
+    pub end_time: String,
+    /// Days of week when condition applies (e.g., "Monday", "Tuesday")
+    pub days: Vec<String>,
+}
+
+/// Network range condition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NetworkCondition {
+    /// Restrict access to specific CIDR network range
+    NetworkRange { 
+        /// CIDR notation for network range (e.g., "192.168.1.0/24")
+        cidr: String 
+    },
+}
+
+/// Attribute-based condition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AttributeCondition {
+    /// Condition that checks if an attribute equals a specific value
+    AttributeEquals { 
+        /// Name of the attribute to check
+        attribute: String, 
+        /// Expected value of the attribute
+        value: String 
+    },
 } 

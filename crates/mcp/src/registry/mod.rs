@@ -1,10 +1,8 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use crate::error::{MCPError, ProtocolError, Result};
-use crate::types::{MCPMessage, ProtocolVersion, ProtocolState};
-use std::fmt;
+use crate::types::ProtocolVersion;
 
 /// Registry entry for components in the MCP system
 #[derive(Debug, Clone, Serialize, Deserialize)]

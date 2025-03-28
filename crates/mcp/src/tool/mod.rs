@@ -1230,7 +1230,7 @@ impl ToolManager {
         {
             let states = self.states.read().await;
             match states.get(tool_id) {
-                Some(ToolState::Active) | Some(ToolState::Started) => {
+                Some(ToolState::Active | ToolState::Started) => {
                     return Err(ToolError::InvalidState(format!(
                         "Tool '{}' is already started",
                         tool_id
@@ -1313,15 +1313,9 @@ impl ToolManager {
         {
             let states = self.states.read().await;
             match states.get(tool_id) {
-                Some(ToolState::Stopped) => {
+                Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already stopped",
-                        tool_id
-                    )));
-                }
-                Some(ToolState::Stopping) => {
-                    return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already stopping",
+                        "Tool '{}' is already stopped or stopping",
                         tool_id
                     )));
                 }
@@ -1402,7 +1396,7 @@ impl ToolManager {
                         tool_id
                     )));
                 }
-                Some(ToolState::Stopped) | Some(ToolState::Stopping) => {
+                Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
                         "Tool '{}' is stopped or stopping",
                         tool_id
@@ -1467,7 +1461,7 @@ impl ToolManager {
         {
             let states = self.states.read().await;
             match states.get(tool_id) {
-                Some(ToolState::Active) | Some(ToolState::Started) => {
+                Some(ToolState::Active | ToolState::Started) => {
                     return Err(ToolError::InvalidState(format!(
                         "Tool '{}' is already active",
                         tool_id
@@ -1479,7 +1473,7 @@ impl ToolManager {
                         tool_id
                     )));
                 }
-                Some(ToolState::Stopped) | Some(ToolState::Stopping) => {
+                Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
                         "Tool '{}' is stopped or stopping",
                         tool_id
@@ -1620,7 +1614,7 @@ impl ToolManager {
         {
             let states = self.states.read().await;
             match states.get(tool_id) {
-                Some(ToolState::Active) | Some(ToolState::Started) => {
+                Some(ToolState::Active | ToolState::Started) => {
                     drop(states); // Release the lock before calling stop_tool
                     self.stop_tool(tool_id).await?;
                 }

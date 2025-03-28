@@ -3,13 +3,9 @@
 //! This module provides functionality to recover from failures in a structured way.
 
 use std::fmt;
-use std::sync::Arc;
-use std::future::Future;
-use std::pin::Pin;
 use std::time::{Duration, Instant};
 use std::error::Error as StdError;
 
-use crate::resilience::{ResilienceError, Result};
 
 /// The severity level of a failure
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

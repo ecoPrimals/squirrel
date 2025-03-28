@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use tokio::sync::{mpsc, RwLock, Mutex};
 use uuid::Uuid;
 use std::collections::VecDeque;
-use std::time::Duration;
 
 use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
@@ -365,7 +364,7 @@ impl Transport for MemoryTransport {
         }
     }
     
-    async fn connect(&self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> Result<(), TransportError> {
         // Get current state
         let state = {
             let state = self.state.read().await;

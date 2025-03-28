@@ -33,21 +33,17 @@
 
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::message::{Message, MessageType};
-use crate::types::{MCPMessage, MessageType as MCPMessageType};
 use async_trait::async_trait;
-use serde_json::{json, Value, Map};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use thiserror::Error;
 use uuid::Uuid;
 use base64;
-use chrono::Utc;
-use std::fmt;
 use std::str::FromStr;
 use base64::engine::general_purpose;
 use base64::Engine;
-use std::convert::TryFrom;
 
 /// Errors specific to wire format protocol adapter operations.
 #[derive(Debug, Error)]

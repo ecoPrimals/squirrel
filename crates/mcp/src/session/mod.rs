@@ -5,7 +5,7 @@
 pub mod manager;
 
 use crate::error::{Result, MCPError};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use serde::{Serialize, Deserialize};
@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 
 use crate::error::types::SessionError;
 use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::security::{Credentials, SecurityManager};
+use crate::security::SecurityManager;
 use crate::persistence::{Persistence, SessionData};
 
 /// Session management module

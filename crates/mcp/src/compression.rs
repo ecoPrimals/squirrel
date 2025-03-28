@@ -3,7 +3,6 @@
 //! This module provides compression and decompression capabilities for MCP messages.
 //! It supports various compression formats, such as Zstd, Gzip, and LZ4.
 
-use std::io::{self, Read, Write};
 #[cfg(feature = "gzip")]
 use flate2::Compression;
 #[cfg(feature = "gzip")]
@@ -11,7 +10,7 @@ use flate2::write::{GzEncoder, ZlibEncoder};
 #[cfg(feature = "gzip")]
 use flate2::read::{GzDecoder, ZlibDecoder};
 
-use crate::error::{Result, MCPError};
+use crate::error::Result;
 use crate::types::CompressionFormat;
 
 /// Compression threshold in bytes

@@ -179,7 +179,16 @@ pub fn get_remote_address_from_old(
     }
 }
 
-// Function to check if compatibility mode is available
+/// Checks if the compatibility mode between old and new transport implementations is available
+///
+/// This function determines whether the system can support compatibility bridges between
+/// the legacy transport system and the new transport implementation. Currently, this
+/// always returns true as the compatibility layer is a core feature.
+///
+/// # Returns
+///
+/// * `true` - Compatibility mode is available
+/// * `false` - Compatibility mode is not available
 pub fn is_compat_available() -> bool {
     true
 } 

@@ -446,7 +446,7 @@ impl MCPProtocol for MCPProtocolImpl {
 
 /// Create a protocol adapter with the provided protocol
 #[allow(dead_code)]
-pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
+pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
     let mut protocol = protocol;
     protocol.initialize()?;
     Ok(protocol.base)
@@ -454,7 +454,7 @@ pub fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolB
 
 /// Create a protocol adapter with the provided protocol and config
 #[allow(dead_code)]
-pub fn create_protocol_adapter_with_config(
+pub(super) fn create_protocol_adapter_with_config(
     protocol: MCPProtocolImpl,
     config: ProtocolConfig,
 ) -> Result<MCPProtocolBase> {

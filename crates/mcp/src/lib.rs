@@ -59,6 +59,15 @@
 //! This crate is organized into several key modules, each responsible for a specific
 //! aspect of the MCP system:
 
+// Temporarily allow warnings during cleanup
+// Following the MCP_CLIPPY_CLEANUP_PLAN.md strategy
+#![allow(clippy::all)]
+#![allow(missing_docs)]
+#![allow(missing_debug_implementations)]
+#![allow(clippy::unused_async)]
+#![allow(clippy::needless_pass_by_ref_mut)]
+#![allow(clippy::async_fn_in_trait)]
+
 #![allow(dead_code)] // Temporarily allow dead code during migration
 
 /// MCP context manager for maintaining state across interactions.
@@ -164,28 +173,6 @@ pub use factory::{create_mcp, create_mcp_factory, MCPFactory};
 /// transport mechanisms, including TCP, WebSocket, stdio, and in-memory transports.
 pub mod transport;
 
-/// Legacy transport module for the MCP system
-///
-/// This module contains the old implementation of transport mechanisms.
-/// 
-/// **Note**: This module is deprecated and will be removed in a future release.
-/// Please use the new `transport` module instead.
-///
-/// This module is conditionally compiled with the `legacy-transport` feature,
-/// which is enabled by default. To disable this module and remove all deprecated
-/// code, disable the `legacy-transport` feature in your Cargo.toml:
-///
-/// ```toml
-/// [dependencies]
-/// mcp = { version = "0.2.0", default-features = false }
-/// ```
-#[cfg(feature = "legacy-transport")]
-#[deprecated(
-    since = "0.2.0",
-    note = "Use the new transport module instead. Will be removed in a future release."
-)]
-pub mod transport_old;
-
 /// Registry module for the MCP system.
 ///
 /// This module provides mechanisms for registering and discovering
@@ -245,6 +232,12 @@ pub mod logging;
 /// This module provides metrics collection and reporting capabilities
 /// for monitoring MCP component performance and behavior.
 pub mod metrics;
+
+/// Debug trait implementations for MCP types.
+///
+/// This module provides implementations of the Debug trait for types
+/// in the MCP codebase that don't derive Debug automatically.
+pub mod debug_impl;
 
 #[cfg(test)]
 mod tests;

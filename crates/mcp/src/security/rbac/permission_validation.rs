@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::{SecurityError, Result};
-use crate::security::rbac::{Permission, Role, PermissionContext, PermissionCondition, PermissionScope, Action, RBACError};
+use crate::security::rbac::{Permission, Role, PermissionContext, PermissionCondition, PermissionScope, Action};
 use crate::error::MCPError;
 use crate::types::SecurityLevel;
 
@@ -41,7 +41,7 @@ pub enum VerificationType {
 
 /// Types of validation for permission validation rules
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ValidationType {
+pub(super) enum ValidationType {
     /// Allow access if the rule matches
     Allow,
     
@@ -125,7 +125,7 @@ pub struct ValidationAuditRecord {
 
 /// Type of expression in a validation rule
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ValidationExpression {
+pub(super) enum ValidationExpression {
     /// Single validation check
     Single(String),
     /// All conditions must be true
@@ -136,7 +136,7 @@ pub enum ValidationExpression {
 
 /// Permission validation engine
 #[derive(Debug)]
-pub struct PermissionValidator {
+pub(super) struct PermissionValidator {
     /// Validation rules
     pub rules: Vec<ValidationRule>,
     
@@ -155,7 +155,7 @@ pub struct PermissionValidator {
 
 impl PermissionValidator {
     /// Create a new permission validator
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             rules: Vec::new(),
             resource_patterns: HashMap::new(),
@@ -166,7 +166,7 @@ impl PermissionValidator {
     }
     
     /// Add a validation rule
-    pub fn add_rule(&mut self, rule: ValidationRule) -> Result<()> {
+    pub(super) fn add_rule(&mut self, rule: ValidationRule) -> Result<()> {
         // Compile resource pattern regex
         let regex = Regex::new(&rule.resource_pattern)
             .map_err(|e| MCPError::Security(SecurityError::RBACError(
@@ -183,13 +183,13 @@ impl PermissionValidator {
     }
     
     /// Remove a validation rule
-    pub fn remove_rule(&mut self, rule_id: &str) {
+    pub(super) fn remove_rule(&mut self, rule_id: &str) {
         self.rules.retain(|r| r.id != rule_id);
         self.resource_patterns.remove(rule_id);
     }
     
     /// Validate a permission request
-    pub fn validate(
+    pub(super) fn validate(
         &mut self,
         user_id: &str,
         resource: &str,
@@ -275,15 +275,15 @@ impl PermissionValidator {
                             
                             return ValidationResult::Granted;
                         }
-                    } else {
-                        // Deny rule matched
-                        audit_record.result = ValidationResult::Denied;
-                        
-                        let record_copy = audit_record.clone();
-                        self.record_audit(record_copy);
-                        
-                        return ValidationResult::Denied;
                     }
+                    
+                    // Deny rule matched
+                    audit_record.result = ValidationResult::Denied;
+                    
+                    let record_copy = audit_record.clone();
+                    self.record_audit(record_copy);
+                    
+                    return ValidationResult::Denied;
                 }
             }
         }
@@ -411,10 +411,10 @@ impl PermissionValidator {
                         if start <= end {
                             // Normal time range (e.g., 9:00-17:00)
                             return current_time_naive >= start && current_time_naive <= end;
-                        } else {
-                            // Overnight time range (e.g., 22:00-6:00)
-                            return current_time_naive >= start || current_time_naive <= end;
                         }
+                        
+                        // Overnight time range (e.g., 22:00-6:00)
+                        return current_time_naive >= start || current_time_naive <= end;
                     }
                 }
                 false
@@ -595,7 +595,7 @@ impl PermissionValidator {
     }
     
     /// Get audit records for a user
-    pub fn get_user_audit(&self, user_id: &str) -> Vec<ValidationAuditRecord> {
+    pub(super) fn get_user_audit(&self, user_id: &str) -> Vec<ValidationAuditRecord> {
         self.audit_log
             .iter()
             .filter(|r| r.user_id == user_id)
@@ -604,7 +604,7 @@ impl PermissionValidator {
     }
     
     /// Get audit records for a resource
-    pub fn get_resource_audit(&self, resource: &str) -> Vec<ValidationAuditRecord> {
+    pub(super) fn get_resource_audit(&self, resource: &str) -> Vec<ValidationAuditRecord> {
         self.audit_log
             .iter()
             .filter(|r| r.resource == resource)
@@ -613,17 +613,17 @@ impl PermissionValidator {
     }
     
     /// Get all audit records
-    pub fn get_all_audit(&self) -> Vec<ValidationAuditRecord> {
+    pub(super) fn get_all_audit(&self) -> Vec<ValidationAuditRecord> {
         self.audit_log.clone()
     }
     
     /// Clear audit records
-    pub fn clear_audit(&mut self) {
+    pub(super) fn clear_audit(&mut self) {
         self.audit_log.clear();
     }
     
     /// Set maximum audit log size
-    pub fn set_max_audit_size(&mut self, size: usize) {
+    pub(super) fn set_max_audit_size(&mut self, size: usize) {
         self.max_audit_size = size;
         
         // Trim audit log if it exceeds the new maximum size

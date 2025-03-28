@@ -5,30 +5,79 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::sync::RwLock;
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
-#[derive(Debug, Error)]
+/// Errors that can occur within the error handling system itself
+///
+/// These represent failures that happen during error recording, recovery,
+/// or management operations.
+#[derive(Debug)]
 pub enum ErrorHandlerError {
-    #[error("Recovery error: {0}")]
+    /// Error that occurs during recovery operations
+    ///
+    /// This represents failures that happen when trying to
+    /// recover from another error.
     Recovery(String),
 
-    #[error("State error: {0}")]
+    /// Error related to state management
+    ///
+    /// This represents failures in maintaining or
+    /// transitioning state during error handling.
     State(String),
 
-    #[error("Strategy error: {0}")]
+    /// Error related to recovery strategy
+    ///
+    /// This represents failures in applying or managing
+    /// error recovery strategies.
     Strategy(String),
 
-    #[error("Context error: {0}")]
+    /// Error related to context management
+    ///
+    /// This represents failures in maintaining or accessing
+    /// error context information.
     Context(String),
 
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
+    /// Error during JSON serialization or deserialization
+    ///
+    /// This occurs when error data cannot be properly
+    /// serialized or deserialized.
+    SerdeJson(serde_json::Error),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl std::fmt::Display for ErrorHandlerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Recovery(msg) => write!(f, "Recovery error: {}", msg),
+            Self::State(msg) => write!(f, "State error: {}", msg),
+            Self::Strategy(msg) => write!(f, "Strategy error: {}", msg),
+            Self::Context(msg) => write!(f, "Context error: {}", msg),
+            Self::SerdeJson(err) => write!(f, "JSON error: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for ErrorHandlerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::SerdeJson(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<serde_json::Error> for ErrorHandlerError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::SerdeJson(err)
+    }
+}
+
+/// Local context for error handling
+///
+/// Provides detailed information about a specific error occurrence,
+/// including identification, timing, classification, and recovery tracking.
+#[derive(Debug)]
 pub struct LocalErrorContext {
     /// Unique identifier for the error context
     pub id: Uuid,
@@ -49,6 +98,17 @@ pub struct LocalErrorContext {
 }
 
 impl LocalErrorContext {
+    /// Creates a new error context with the specified error information
+    ///
+    /// # Arguments
+    ///
+    /// * `error_type` - The type or category of the error
+    /// * `message` - A descriptive message about the error
+    /// * `component` - The component where the error occurred
+    ///
+    /// # Returns
+    ///
+    /// A new LocalErrorContext with default values for other fields
     pub fn new(
         error_type: impl Into<String>,
         message: impl Into<String>,
@@ -66,85 +126,168 @@ impl LocalErrorContext {
         }
     }
 
-    #[must_use]
+    /// Gets the unique identifier for this error context
+    ///
+    /// # Returns
+    ///
+    /// The UUID identifying this error context
     pub fn id(&self) -> Uuid {
         self.id
     }
 
-    #[must_use]
+    /// Gets the timestamp when this error occurred
+    ///
+    /// # Returns
+    ///
+    /// The DateTime when the error was recorded
     pub fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
 
-    #[must_use]
+    /// Gets the type of this error
+    ///
+    /// # Returns
+    ///
+    /// The error type as a string
     pub fn error_type(&self) -> &str {
         &self.error_type
     }
 
-    #[must_use]
+    /// Gets the error message
+    ///
+    /// # Returns
+    ///
+    /// The descriptive error message
     pub fn message(&self) -> &str {
         &self.message
     }
 
-    #[must_use]
+    /// Gets the component where this error occurred
+    ///
+    /// # Returns
+    ///
+    /// The component name as a string
     pub fn component(&self) -> &str {
         &self.component
     }
 
-    #[must_use]
+    /// Gets the severity level of this error
+    ///
+    /// # Returns
+    ///
+    /// The ErrorSeverity level
     pub fn severity(&self) -> ErrorSeverity {
         self.severity
     }
 
-    #[must_use]
+    /// Gets the metadata associated with this error
+    ///
+    /// # Returns
+    ///
+    /// Optional JSON metadata about the error
     pub fn metadata(&self) -> Option<&serde_json::Value> {
         self.metadata.as_ref()
     }
 
-    #[must_use]
+    /// Gets the number of recovery attempts made for this error
+    ///
+    /// # Returns
+    ///
+    /// The count of recovery attempts
     pub fn recovery_attempts(&self) -> u32 {
         self.recovery_attempts
     }
 
-    #[must_use]
+    /// Sets the severity level for this error context
+    ///
+    /// # Arguments
+    ///
+    /// * `severity` - The new severity level
+    ///
+    /// # Returns
+    ///
+    /// The updated context for method chaining
     pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
-    #[must_use]
+    /// Adds metadata to this error context
+    ///
+    /// # Arguments
+    ///
+    /// * `metadata` - JSON metadata about the error
+    ///
+    /// # Returns
+    ///
+    /// The updated context for method chaining
     pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
         self
     }
 
+    /// Increments the recovery attempt counter
+    ///
+    /// This is called each time a recovery attempt is made.
     pub fn increment_recovery_attempts(&mut self) {
         self.recovery_attempts += 1;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// Severity levels for errors
+///
+/// Defines the different levels of severity that can be assigned to errors,
+/// helping prioritize handling and reporting.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ErrorSeverity {
+    /// Low severity - minimal impact, typically handled automatically
     Low,
+    
+    /// Medium severity - moderate impact, may require attention
     Medium,
+    
+    /// High severity - significant impact, requires attention
     High,
+    
+    /// Critical severity - severe impact, requires immediate attention
     Critical,
 }
 
+/// Strategy for recovering from errors
+///
+/// Defines the parameters and approach for attempting recovery after an error occurs,
+/// including retry attempts, backoff timing, and intervention requirements.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecoveryStrategy {
+    /// Maximum number of recovery attempts before giving up
     pub max_attempts: u32,
+    
+    /// Base backoff time in milliseconds between retry attempts
     pub backoff_ms: u64,
+    
+    /// Timeout in milliseconds for each recovery attempt
     pub timeout_ms: u64,
+    
+    /// Whether the recovery requires manual intervention to proceed
     pub requires_manual_intervention: bool,
 }
 
+/// Record of a specific error occurrence
+///
+/// Contains information about a single error event, including
+/// when it occurred, what type of error it was, and any additional details.
 #[derive(Debug, Clone)]
 pub struct ErrorRecord {
+    /// When the error occurred
     pub timestamp: DateTime<Utc>,
+    
+    /// Type/category of the error
     pub error_type: String,
+    
+    /// Human-readable error message
     pub message: String,
+    
+    /// Optional additional details about the error
     pub details: Option<String>,
 }
 
@@ -159,6 +302,15 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
+    /// Creates a new ErrorHandler with the specified history size
+    ///
+    /// # Arguments
+    ///
+    /// * `max_history_size` - Maximum number of error records to keep in history
+    ///
+    /// # Returns
+    ///
+    /// A new ErrorHandler instance
     #[must_use]
     pub fn new(max_history_size: usize) -> Self {
         Self {
@@ -167,6 +319,20 @@ impl ErrorHandler {
         }
     }
 
+    /// Records an error in the history
+    ///
+    /// Adds a new error record to the history, removing the oldest record if
+    /// the history size exceeds the maximum.
+    ///
+    /// # Arguments
+    ///
+    /// * `error_type` - Type/category of the error
+    /// * `message` - Human-readable error message
+    /// * `details` - Optional additional details about the error
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
     #[instrument(skip(self))]
     pub async fn record_error(
         &self,
@@ -190,12 +356,22 @@ impl ErrorHandler {
         Ok(())
     }
 
+    /// Retrieves the complete error history
+    ///
+    /// # Returns
+    ///
+    /// Result containing a vector of all error records in the history
     #[instrument(skip(self))]
     pub async fn get_error_history(&self) -> Result<Vec<ErrorRecord>> {
         let history = self.error_history.read().await;
         Ok(history.iter().cloned().collect())
     }
 
+    /// Clears all error records from the history
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
     #[instrument(skip(self))]
     pub async fn clear_history(&self) -> Result<()> {
         let mut history = self.error_history.write().await;
@@ -214,6 +390,15 @@ impl Clone for ErrorHandler {
 }
 
 impl ErrorHandler {
+    /// Handles an error by recording it and attempting recovery
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The error context to handle
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
     #[instrument]
     pub async fn handle_error(
         &self,
@@ -246,12 +431,31 @@ impl ErrorHandler {
         Ok(())
     }
 
+    /// Retrieves a recovery strategy for the specified error type
+    ///
+    /// # Arguments
+    ///
+    /// * `error_type` - The type of error to find a strategy for
+    ///
+    /// # Returns
+    ///
+    /// An optional recovery strategy if one exists for the error type
     #[instrument(skip(self))]
     async fn get_recovery_strategy(&self, error_type: &str) -> Option<RecoveryStrategy> {
         // Implementation of get_recovery_strategy method
         None
     }
 
+    /// Attempts to recover from an error using the specified strategy
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - The error context to recover from
+    /// * `_strategy` - The recovery strategy to use
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
     #[instrument(skip(self, _context, _strategy))]
     async fn attempt_recovery(
         &self,
@@ -262,6 +466,16 @@ impl ErrorHandler {
         Ok(())
     }
 
+    /// Registers a recovery strategy for a specific error type
+    ///
+    /// # Arguments
+    ///
+    /// * `error_type` - The type of error to register a strategy for
+    /// * `strategy` - The recovery strategy to use
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an error
     #[instrument(skip(self))]
     pub async fn register_recovery_strategy(
         &self,
@@ -299,6 +513,16 @@ impl ErrorHandler {
         // Implementation would go here
     }
 
+    /// Applies a recovery strategy to an error context
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - The error context to apply recovery to
+    /// * `strategy` - The recovery strategy to use
+    ///
+    /// # Returns
+    ///
+    /// Boolean indicating whether recovery was successful
     pub fn apply_recovery_strategy(
         &self,
         // These parameters are intentionally unused in this implementation
@@ -310,6 +534,16 @@ impl ErrorHandler {
         true
     }
 
+    /// Recovers an error context using the specified strategy
+    ///
+    /// # Arguments
+    ///
+    /// * `_context` - The error context to recover
+    /// * `_strategy` - The recovery strategy to use
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an MCPError
     pub fn recover_context(
         &self,
         _context: &mut LocalErrorContext,

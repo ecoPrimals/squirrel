@@ -3,7 +3,6 @@
 //! This module provides a circuit breaker pattern implementation to prevent
 //! cascading failures in distributed systems.
 
-use std::sync::Arc;
 use std::time::Instant;
 use std::fmt;
 use std::error::Error;

@@ -42,17 +42,23 @@ impl std::fmt::Display for AlertSeverity {
 pub enum AlertCondition {
     /// Metric exceeds a threshold
     MetricAbove {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Threshold value that triggers the alert when exceeded
         threshold: MetricValue,
     },
     /// Metric falls below a threshold
     MetricBelow {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Threshold value that triggers the alert when the metric falls below it
         threshold: MetricValue,
     },
     /// Metric equals a value
     MetricEquals {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Exact value that triggers the alert when matched
         value: MetricValue,
     },
     /// Composite condition (AND)
@@ -61,8 +67,11 @@ pub enum AlertCondition {
     Or(Vec<AlertCondition>),
     /// Metric changes by a percentage
     PercentageChange {
+        /// Name of the metric to monitor
         metric_name: String,
+        /// Percentage change that triggers the alert (e.g., 20.0 for 20%)
         percentage: f64,
+        /// Time window over which to observe the change
         duration: Duration,
     },
     /// Custom condition (evaluated by a callback)
@@ -76,17 +85,27 @@ pub enum AlertAction {
     Log,
     /// Send an email
     Email {
+        /// List of email addresses to receive the alert
         recipients: Vec<String>,
+        /// Template for the email subject line
         subject_template: String,
+        /// Template for the email body content
         body_template: String,
     },
     /// Send a webhook notification
     Webhook {
+        /// Target URL for the webhook POST request
         url: String,
+        /// Template for the JSON payload to be sent
         payload_template: String,
     },
     /// Execute a command
-    Command { command: String, args: Vec<String> },
+    Command { 
+        /// Command to execute
+        command: String, 
+        /// Command-line arguments
+        args: Vec<String> 
+    },
     /// Custom action (handled by a callback)
     Custom(String),
 }
@@ -716,8 +735,8 @@ async fn process_alert_action(action: &AlertAction, _alert: &Alert) {
     }
 }
 
-// Alert errors
-#[derive(Debug, Clone)]
+/// Errors that can occur during alert operations
+#[derive(Debug)]
 pub enum AlertError {
     /// Alert manager is already running
     AlreadyRunning,

@@ -5,13 +5,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
-use std::fmt;
 use std::io::Write;
-use std::path::Path;
 
 use tracing::{info, warn, error, debug};
-use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::EnvFilter;
 
 /// Log level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -5,8 +5,6 @@ use chrono::{DateTime, Utc};
 use std::fmt;
 use crate::types::{MCPMessage, MessageType as MCPMessageType, MessageId, SecurityMetadata, ProtocolVersion};
 use std::convert::TryFrom;
-use crate::error::{Result};
-use serde_json::{json, Value};
 
 /// MessageType enum defines the different types of messages that can be sent in the MCP protocol
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -586,7 +584,7 @@ impl Default for MessageBuilder {
 /// Message codec for serialization and deserialization
 pub mod codec {
     use super::*;
-    use crate::error::{Result, MCPError};
+    use crate::error::Result;
     use crate::error::transport::TransportError;
     
     /// Serialize a message to JSON

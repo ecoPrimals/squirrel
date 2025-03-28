@@ -4,13 +4,11 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::io::{stdin, stdout, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use uuid::Uuid;
 use tokio::sync::watch;
-use std::collections::HashMap;
 use std::time::Duration;
 use crate::types;
 
 use crate::error::transport::TransportError;
-use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat, MessageId, MessageType, SecurityMetadata, ProtocolVersion};
-use crate::message::MessagePriority;
+use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat, MessageType, SecurityMetadata, ProtocolVersion};
 use super::{Transport, TransportMetadata};
 
 /// Configuration for the stdio transport
@@ -254,7 +252,7 @@ impl Transport for StdioTransport {
         }
     }
     
-    async fn connect(&self) -> Result<(), TransportError> {
+    async fn connect(&mut self) -> Result<(), TransportError> {
         // Update the state to connecting
         {
             let mut state = self.state.write().await;

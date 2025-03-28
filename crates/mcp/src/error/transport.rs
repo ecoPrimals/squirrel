@@ -1,6 +1,5 @@
 use std::io;
 use std::convert::From;
-use std::fmt;
 use thiserror::Error;
 
 use super::types::MCPError;
@@ -8,33 +7,43 @@ use super::types::MCPError;
 /// Errors that can occur in the transport layer
 #[derive(Debug, Error)]
 pub enum TransportError {
+    /// Error when a connection could not be established with the remote endpoint
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
 
+    /// Error when an existing connection was closed, either by the remote endpoint or locally
     #[error("Connection closed: {0}")]
     ConnectionClosed(String),
 
+    /// Error when an operation timed out waiting for a response or connection
     #[error("Timeout: {0}")]
     Timeout(String),
 
+    /// Error originating from underlying I/O operations
     #[error("IO error: {0}")]
     IoError(std::io::Error),
 
+    /// Error related to the communication protocol, such as invalid message format or sequence
     #[error("Protocol error: {0}")]
     ProtocolError(String),
 
+    /// Error when a frame received or being sent is invalid or malformed
     #[error("Invalid frame: {0}")]
     InvalidFrame(String),
 
+    /// Error related to security mechanisms such as encryption, authentication, or authorization
     #[error("Security error: {0}")]
     SecurityError(String),
 
+    /// Error during serialization or deserialization of messages
     #[error("Serialization error: {0}")]
     SerializationError(serde_json::Error),
 
+    /// Error due to invalid or incompatible configuration parameters
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
 
+    /// Error when an operation is not supported by the current transport
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
 }

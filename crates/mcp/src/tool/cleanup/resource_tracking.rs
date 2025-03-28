@@ -9,9 +9,31 @@ use crate::tool::ToolError;
 
 /// Constants for resource tracking
 pub const TRACKING_INTERVAL_MS: u64 = 1000;
+
+/// Default memory limit for tools (100 MB)
+/// 
+/// Represents the maximum amount of memory a tool can allocate before triggering
+/// resource warnings or restrictions. This value can be overridden with custom limits.
 pub const DEFAULT_MEMORY_LIMIT: usize = 1024 * 1024 * 100; // 100 MB
+
+/// Default CPU time limit for tools (60 seconds)
+/// 
+/// Represents the maximum amount of CPU time a tool can consume before triggering
+/// resource warnings or restrictions. This value can be overridden with custom limits.
 pub const DEFAULT_CPU_TIME_LIMIT: u64 = 60 * 1000; // 60 seconds
+
+/// Default file handle limit for tools
+/// 
+/// Represents the maximum number of file handles a tool can open simultaneously
+/// before triggering resource warnings or restrictions. This value can be overridden
+/// with custom limits.
 pub const DEFAULT_FILE_HANDLE_LIMIT: usize = 100;
+
+/// Default network connection limit for tools
+/// 
+/// Represents the maximum number of concurrent network connections a tool can
+/// establish before triggering resource warnings or restrictions. This value can
+/// be overridden with custom limits.
 pub const DEFAULT_NETWORK_CONNECTION_LIMIT: usize = 20;
 
 /// Resource allocation status

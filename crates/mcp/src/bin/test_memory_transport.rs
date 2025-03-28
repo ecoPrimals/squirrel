@@ -4,7 +4,7 @@ use squirrel_mcp::types::{MCPMessage, MessageType};
 use std::time::Duration;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting memory transport tests...");
     
     match test_create_pair_basic().await {
@@ -17,13 +17,15 @@ async fn main() {
     // fixed in the Transport trait implementation.
     println!("ℹ️ Full message exchange tests skipped due to timing issues");
     println!("✅ Implementation verification complete");
+    
+    Ok(())
 }
 
 async fn test_create_pair_basic() -> Result<(), Box<dyn std::error::Error>> {
     println!("Running basic create_pair test...");
     
     // Create a pair of transports directly using create_pair()
-    let (client, server) = MemoryChannel::create_pair();
+    let (mut client, mut server) = MemoryChannel::create_pair();
     
     // Verify the transports are initially disconnected
     assert!(!client.is_connected().await);

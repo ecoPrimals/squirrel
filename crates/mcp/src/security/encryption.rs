@@ -8,7 +8,7 @@ use crate::security::crypto;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 
 /// Encryption trait for MCP components
 #[async_trait]

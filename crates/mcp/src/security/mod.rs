@@ -8,9 +8,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+/// Security types, data structures, and constants for role-based access control,
+/// permission conditions, and security level definitions
+pub mod types;
+
 pub mod crypto;
 pub mod rbac;
-pub mod types;
 pub mod policies;
 pub mod encryption;
 

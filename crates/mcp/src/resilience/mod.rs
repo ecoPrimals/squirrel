@@ -3,11 +3,25 @@
 //! This module provides mechanisms for enhancing fault tolerance and reliability
 //! in MCP systems. It includes circuit breakers, retry mechanisms, recovery strategies,
 //! state synchronization, and health monitoring.
+//!
+//! The resilience framework is designed to:
+//! - Prevent cascading failures using circuit breakers
+//! - Handle transient errors with retry mechanisms
+//! - Recover from failures using configurable strategies
+//! - Synchronize state between primary and backup systems
+//! - Monitor system health and trigger automatic recovery
+//!
+//! The main components include:
+//! - `CircuitBreaker`: Prevents repeated failures by temporarily disabling operations
+//! - `RetryMechanism`: Automatically retries failed operations with configurable backoff
+//! - `RecoveryStrategy`: Implements recovery procedures for different types of failures
+//! - `StateSynchronizer`: Manages state synchronization between distributed components
+//! - `HealthMonitor`: Tracks component health and triggers recovery when needed
 
 use std::fmt;
 use std::error::Error as StdError;
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::debug;
 
 pub mod circuit_breaker;
 pub mod retry;

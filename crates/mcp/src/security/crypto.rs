@@ -6,11 +6,10 @@
 use crate::error::{Result, MCPError};
 use crate::error::types::SecurityError;
 use crate::types::EncryptionFormat;
-use ring::{aead, digest, hmac, rand as ring_rand};
+use ring::{aead, digest, hmac};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use rand::{RngCore, rngs::OsRng};
-use std::convert::TryInto;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error};
 
 // AES-256-GCM constants
 const AES_256_GCM_KEY_LEN: usize = 32;

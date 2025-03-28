@@ -3,23 +3,31 @@
 //! This module provides a high-level client API for interacting with the Machine Context Protocol.
 //! It handles connection management, message sending/receiving, and event subscription.
 //!
-//! # Examples
+//! ## Features
 //!
-//! ```
-//! use mcp::client::{MCPClient, ClientConfig};
-//! use mcp::message::MessageBuilder;
+//! * Connection management with automatic reconnection
+//! * Command/response handling with timeouts
+//! * Event publishing and subscription
+//! * Support for different transport mechanisms
+//! * Secure communication with transport encryption
+//!
+//! ## Usage Examples
+//!
+//! ```rust,no_run
+//! use squirrel_mcp::client::{MCPClient, ClientConfig};
+//! use squirrel_mcp::message::Message;
 //! use serde_json::json;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     // Create client with default configuration
-//!     let client = MCPClient::new(ClientConfig::default());
+//!     let mut client = MCPClient::new(ClientConfig::default());
 //!     
 //!     // Connect to server
 //!     client.connect().await?;
 //!     
 //!     // Send a command
-//!     let response = client.send_command(
+//!     let response = client.send_command_with_content(
 //!         "get_status",
 //!         json!({
 //!             "detail_level": "full"
@@ -29,42 +37,110 @@
 //!     // Process response
 //!     println!("Response: {:?}", response);
 //!     
-//!     // Disconnect
+//!     // Subscribe to events
+//!     let mut event_receiver = client.subscribe_to_events();
+//!     
+//!     // Handle events in a separate task
+//!     tokio::spawn(async move {
+//!         while let Ok(event) = event_receiver.recv().await {
+//!             if let Some(message) = event {
+//!                 println!("Received event: {:?}", message);
+//!             }
+//!         }
+//!     });
+//!     
+//!     // Publish an event
+//!     client.send_event_with_content(
+//!         "status_changed",
+//!         json!({
+//!             "new_status": "running"
+//!         })
+//!     ).await?;
+//!     
+//!     // Disconnect when done
 //!     client.disconnect().await?;
 //!     
 //!     Ok(())
 //! }
 //! ```
+//!
+//! ## Transport Configuration
+//!
+//! The client can be configured to use different transport mechanisms:
+//!
+//! ```rust,no_run
+//! use squirrel_mcp::client::ClientConfig;
+//! use squirrel_mcp::transport::tcp::{TcpTransport, TcpTransportConfig};
+//! use std::sync::Arc;
+//!
+//! // Create a TCP transport with custom configuration
+//! let tcp_config = TcpTransportConfig::default()
+//!     .with_remote_address("127.0.0.1:9000")
+//!     .with_connection_timeout(5000);
+//!
+//! let mut transport = TcpTransport::new(tcp_config);
+//!
+//! // Use the transport in a client configuration
+//! let client_config = ClientConfig {
+//!     server_address: "127.0.0.1:9000".to_string(),
+//!     transport: Some(Arc::new(transport)),
+//!     ..ClientConfig::default()
+//! };
+//! ```
 
 use crate::error::{MCPError, Result, ClientError};
-use crate::transport::{Transport, TransportMetadata};
-use crate::transport::memory::{MemoryTransport, MemoryTransportConfig};
-use crate::transport::stdio::{StdioTransport, StdioConfig};
+use crate::transport::Transport;
 use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
-use crate::transport::websocket::{WebSocketTransport, WebSocketConfig};
-use crate::message::{Message, MessageBuilder, MessageType, MessagePriority};
-use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject, WireMessage};
-use crate::types::{MessageId, MCPMessage};
+use crate::message::{Message, MessageType};
+use crate::protocol::adapter_wire::WireFormatConfig;
+use crate::types::MCPMessage;
 use crate::session::Session;
-use crate::error::transport::TransportError;
-use crate::error::ProtocolError;
-use crate::session::SessionManager;
-use crate::security::SecurityManager;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc, watch, Mutex, broadcast, oneshot};
+use tokio::sync::{RwLock, mpsc, Mutex, broadcast, oneshot};
 use tokio::time::timeout;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::future::Future;
-use std::pin::Pin;
 use futures::future::{AbortHandle, Abortable};
 
 /// MCP Client configuration
+///
+/// This struct provides configuration options for the MCP client, including
+/// connection parameters, timeouts, and transport settings.
+///
+/// ## Default Configuration
+///
+/// The default configuration uses:
+/// - Server address: 127.0.0.1:8080
+/// - Connection timeout: 5000ms
+/// - Request timeout: 30000ms
+/// - Max reconnect attempts: 3
+/// - Reconnect delay: 1000ms
+/// - Keep-alive interval: 30000ms
+///
+/// ## Custom Transport
+///
+/// You can provide a custom transport implementation by setting the `transport` field.
+/// If not provided, a default TCP transport will be created based on the server address:
+///
+/// ```rust,no_run
+/// use squirrel_mcp::client::ClientConfig;
+/// use squirrel_mcp::transport::websocket::{WebSocketTransport, WebSocketConfig};
+/// use std::sync::Arc;
+///
+/// // Create a WebSocket transport
+/// let ws_transport = WebSocketTransport::new(
+///     WebSocketConfig::default().with_url("ws://127.0.0.1:8080")
+/// );
+///
+/// // Use it in the client configuration
+/// let config = ClientConfig {
+///     transport: Some(Arc::new(ws_transport)),
+///     ..ClientConfig::default()
+/// };
+/// ```
 #[derive(Clone)]
 pub struct ClientConfig {
     /// Server address to connect to
@@ -805,18 +881,44 @@ async fn process_message_internal(
 }
 
 /// Create a transport instance from the client configuration
+///
+/// This function creates an appropriate transport based on the client configuration.
+/// If a custom transport is provided in the config, it will be used directly.
+/// Otherwise, a TCP transport will be created using the server address.
+///
+/// If you need to use a different transport type (like WebSocket), you should
+/// create it externally and provide it via the `transport` field in ClientConfig.
+///
+/// ## Transport Creation
+///
+/// The function creates a transport with these settings:
+/// - Remote address from the server_address field
+/// - Connection timeout from connection_timeout_ms
+/// - Keep-alive interval from keep_alive_interval_ms
+/// - Reconnection parameters from max_reconnect_attempts and reconnect_delay_ms
+///
+/// ## Returns
+///
+/// A Result containing either an Arc-wrapped Transport or an error.
 fn create_transport_from_config(config: &ClientConfig) -> Result<Arc<dyn Transport>> {
+    // If a custom transport is provided, use it
+    if let Some(transport) = &config.transport {
+        return Ok(transport.clone());
+    }
+    
     // Default to TCP transport using the server address
-    let tcp_config = TcpTransportConfig {
-        remote_address: config.server_address.clone(),
-        connection_timeout: config.connection_timeout_ms / 1000, // Convert to seconds
-        keep_alive_interval: config.keep_alive_interval_ms.map(|ms| ms / 1000), // Convert to seconds
-        max_reconnect_attempts: config.max_reconnect_attempts,
-        reconnect_delay_ms: config.reconnect_delay_ms,
-        ..Default::default()
-    };
+    let tcp_config = TcpTransportConfig::default()
+        .with_remote_address(&config.server_address)
+        .with_connection_timeout(config.connection_timeout_ms)
+        .with_keep_alive_interval(config.keep_alive_interval_ms)
+        .with_max_reconnect_attempts(config.max_reconnect_attempts)
+        .with_reconnect_delay_ms(config.reconnect_delay_ms);
     
     let transport = TcpTransport::new(tcp_config);
+    
+    // Note: The transport's connect() method must be called separately
+    // by the client before it can be used.
+    
     Ok(Arc::new(transport))
 }
 

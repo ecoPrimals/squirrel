@@ -5,16 +5,13 @@
 //! It supports registering multiple handlers for different message types,
 //! as well as priority-based message handling.
 
-use std::collections::{HashMap, BTreeMap};
+use std::collections::HashMap;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
-use uuid::Uuid;
-use tracing::{debug, warn, error, instrument};
+use tracing::error;
 
-use crate::error::{MCPError, Result};
-use crate::message::{Message, MessageType};
-use crate::types::MessageId;
+use crate::message::Message;
 
 /// Result type for message handler operations
 pub type MessageHandlerResult = crate::error::Result<Option<Message>>;
@@ -86,7 +83,7 @@ pub trait AsyncMessageHandler: Send + Sync {
 }
 
 /// Handler trait for processing messages
-pub trait MessageHandler: Send + Sync + AsyncMessageHandler {
+pub trait MessageHandler: Send + Sync + AsyncMessageHandler + std::fmt::Debug {
     /// Get the message types this handler can process
     fn supported_message_types(&self) -> Vec<String>;
 
@@ -128,6 +125,7 @@ impl Default for MessageRouterConfig {
 }
 
 /// The router for dispatching messages to appropriate handlers
+#[derive(Debug)]
 pub struct MessageRouter {
     /// Handlers organized by message type and priority
     handlers: Arc<RwLock<HashMap<String, HashMap<HandlerPriority, Vec<Arc<dyn MessageHandler + Send + Sync>>>>>>,
@@ -323,6 +321,7 @@ impl MessageRouter {
 }
 
 /// A composite message handler that delegates to multiple inner handlers
+#[derive(Debug)]
 pub struct CompositeHandler {
     /// Inner handlers
     handlers: Vec<Arc<dyn MessageHandler + Send + Sync>>,

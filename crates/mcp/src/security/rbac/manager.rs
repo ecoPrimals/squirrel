@@ -13,13 +13,12 @@ use crate::security::types::{
     Permission, Role, PermissionContext, Action,
     PermissionCondition,
 };
-use crate::security::rbac::RBACError;
 use crate::types::SecurityLevel;
 
 
 /// Error types for RBAC operations
 #[derive(Debug, thiserror::Error)]
-pub enum InternalRBACError {
+pub(super) enum InternalRBACError {
     /// Role already exists
     #[error("Role already exists: {0}")]
     RoleExists(String),
@@ -37,7 +36,8 @@ pub enum InternalRBACError {
     InternalError(String),
 }
 
-/// Basic RBAC Manager implementation
+/// RBAC Manager for managing roles, permissions, and role assignments
+#[derive(Debug)]
 pub struct RBACManager {
     /// Roles managed by this RBAC manager
     roles: tokio::sync::RwLock<HashMap<String, Role>>,
@@ -210,7 +210,7 @@ impl Default for RBACManager {
 // For convenience in testing
 /// Type of verification to perform on permissions
 #[derive(Debug, Clone)]
-pub enum VerificationType {
+pub(super) enum VerificationType {
     /// Simple verification
     Simple,
     /// Required verification

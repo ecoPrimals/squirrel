@@ -1,21 +1,26 @@
+// WebSocket transport implementation for MCP
+//
+// This module provides a WebSocket-based transport implementation
+// for Machine Context Protocol (MCP) communication. It supports
+// bidirectional message passing over WebSocket connections.
+
 use std::sync::Arc;
 use async_trait::async_trait;
-use tokio::sync::{mpsc, RwLock, Mutex};
+use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio_tungstenite::{connect_async, WebSocketStream, MaybeTlsStream};
 use tokio_tungstenite::tungstenite::Message;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
-use uuid::Uuid;
-use tokio_tungstenite::tungstenite::Error as WsError;
-use native_tls::TlsConnector;
-use futures_util::stream::Stream;
-use std::collections::HashMap;
 
 use crate::error::transport::TransportError;
 use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
 use super::{Transport, TransportMetadata};
 
 /// Configuration for the WebSocket transport
+///
+/// This struct contains all the configuration parameters for
+/// establishing and maintaining a WebSocket connection.
 #[derive(Debug, Clone)]
 pub struct WebSocketConfig {
     /// WebSocket URL to connect to
@@ -58,7 +63,22 @@ impl Default for WebSocketConfig {
     }
 }
 
-/// WebSocket connection state
+/// WebSocket control message types
+///
+/// Internal message types used to control the WebSocket connection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ControlMessage {
+    /// Shutdown the connection
+    Shutdown,
+    /// Reconnect to the server
+    Reconnect,
+    /// Ping the server
+    Ping,
+}
+
+/// State of the WebSocket connection
+///
+/// Represents the current state of the WebSocket connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum WebSocketState {
     /// Not connected
@@ -77,29 +97,10 @@ enum WebSocketState {
     Failed(String),
 }
 
-/// WebSocket transport implementation
-pub struct WebSocketTransport {
-    /// Transport configuration
-    config: WebSocketConfig,
-    
-    /// Current connection state
-    state: Arc<RwLock<WebSocketState>>,
-    
-    /// Message channels for sending/receiving
-    message_receiver: Arc<Mutex<mpsc::Receiver<MCPMessage>>>,
-    message_sender: mpsc::Sender<MCPMessage>,
-    
-    /// Socket channel sender, wrapped in Arc<Mutex> to allow updating
-    socket_sender: Arc<Mutex<mpsc::Sender<SocketCommand>>>,
-    
-    /// Connection ID
-    connection_id: String,
-    
-    /// Transport metadata
-    metadata: TransportMetadata,
-}
-
 /// Commands for the WebSocket socket task
+///
+/// Commands sent to the WebSocket task to control its behavior.
+#[derive(Debug)]
 enum SocketCommand {
     /// Send a message
     Send(MCPMessage),
@@ -108,12 +109,54 @@ enum SocketCommand {
     Close,
 }
 
+/// WebSocket transport for MCP communication
+///
+/// This implementation provides WebSocket-based transport for MCP messages.
+/// It handles connection establishment, message sending/receiving, and
+/// connection cleanup.
+#[derive(Debug)]
+pub struct WebSocketTransport {
+    /// Transport configuration
+    config: WebSocketConfig,
+    
+    /// Connection state
+    connection_state: Arc<tokio::sync::RwLock<WebSocketState>>,
+    
+    /// WebSocket sender
+    ws_sender: Option<mpsc::Sender<SocketCommand>>,
+    
+    /// Receiver from the read task
+    reader_rx: Arc<Mutex<Option<mpsc::Receiver<MCPMessage>>>>,
+    
+    /// Receiver for control messages
+    control_rx: Option<mpsc::Receiver<ControlMessage>>,
+    
+    /// Sender for control messages
+    control_tx: Option<mpsc::Sender<ControlMessage>>,
+    
+    /// Transport metadata
+    metadata: TransportMetadata,
+}
+
 impl WebSocketTransport {
     /// Create a new WebSocket transport
+    ///
+    /// Initializes a new WebSocket transport with the given configuration.
+    /// The transport starts in a disconnected state and needs to be explicitly
+    /// connected before use.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Configuration for the WebSocket transport
+    ///
+    /// # Returns
+    ///
+    /// A new WebSocketTransport instance
     pub fn new(config: WebSocketConfig) -> Self {
         // Create message channels
-        let (msg_tx, msg_rx) = mpsc::channel(100);
-        let (socket_tx, _) = mpsc::channel(100);
+        let (_msg_tx, msg_rx) = mpsc::channel(100);
+        let (socket_tx, _socket_rx) = mpsc::channel(100);
+        let (control_tx, control_rx) = mpsc::channel(100);
         
         let metadata = TransportMetadata {
             transport_type: "websocket".to_string(),
@@ -125,16 +168,29 @@ impl WebSocketTransport {
         
         Self {
             config,
-            state: Arc::new(RwLock::new(WebSocketState::Disconnected)),
-            message_receiver: Arc::new(Mutex::new(msg_rx)),
-            message_sender: msg_tx,
-            socket_sender: Arc::new(Mutex::new(socket_tx)),
-            connection_id: Uuid::new_v4().to_string(),
+            connection_state: Arc::new(tokio::sync::RwLock::new(WebSocketState::Disconnected)),
+            ws_sender: Some(socket_tx),
+            reader_rx: Arc::new(Mutex::new(Some(msg_rx))),
+            control_rx: Some(control_rx),
+            control_tx: Some(control_tx),
             metadata,
         }
     }
     
     /// Start the WebSocket task
+    ///
+    /// Creates and starts the background tasks for handling the WebSocket connection.
+    /// This includes a reader task for incoming messages and a writer task for outgoing messages.
+    ///
+    /// # Arguments
+    ///
+    /// * `socket` - The established WebSocket connection
+    /// * `msg_tx` - Sender for forwarding received messages
+    /// * `socket_rx` - Receiver for commands to the socket task
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or error
     async fn start_websocket_task(
         &self,
         socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -142,7 +198,7 @@ impl WebSocketTransport {
         mut socket_rx: mpsc::Receiver<SocketCommand>
     ) -> Result<(), TransportError> {
         let (mut write, mut read) = socket.split();
-        let state = self.state.clone();
+        let state = self.connection_state.clone();
         
         // Clone for the reader task
         let read_state = state.clone();
@@ -250,10 +306,21 @@ impl WebSocketTransport {
 
 #[async_trait]
 impl Transport for WebSocketTransport {
+    /// Send a message over the WebSocket transport
+    ///
+    /// Sends an MCP message over the established WebSocket connection.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or error
     async fn send_message(&self, message: MCPMessage) -> Result<(), TransportError> {
         // Check if we're connected
         {
-            let state = self.state.read().await;
+            let state = self.connection_state.read().await;
             if *state != WebSocketState::Connected {
                 return Err(TransportError::ConnectionClosed(
                     "Transport is not connected".into()
@@ -262,17 +329,27 @@ impl Transport for WebSocketTransport {
         }
         
         // Send the command to the socket task
-        let socket_sender = self.socket_sender.lock().await;
-        socket_sender.send(SocketCommand::Send(message)).await
-            .map_err(|_| TransportError::ConnectionClosed("Failed to send message to socket task".into()))?;
+        if let Some(sender) = &self.ws_sender {
+            sender.send(SocketCommand::Send(message)).await
+                .map_err(|_| TransportError::ConnectionClosed("Failed to send message to socket task".into()))?;
+        } else {
+            return Err(TransportError::ConnectionClosed("Socket sender is not initialized".into()));
+        }
         
         Ok(())
     }
     
+    /// Receive a message from the WebSocket transport
+    ///
+    /// Waits for and receives the next MCP message from the WebSocket connection.
+    ///
+    /// # Returns
+    ///
+    /// Result containing the received message or an error
     async fn receive_message(&self) -> Result<MCPMessage, TransportError> {
         // Check if we're connected
         {
-            let state = self.state.read().await;
+            let state = self.connection_state.read().await;
             if *state != WebSocketState::Connected {
                 return Err(TransportError::ConnectionClosed(
                     "Transport is not connected".into()
@@ -281,17 +358,29 @@ impl Transport for WebSocketTransport {
         }
         
         // Wait for a message from the receiver
-        let mut receiver = self.message_receiver.lock().await;
-        match receiver.recv().await {
-            Some(message) => Ok(message),
-            None => Err(TransportError::ConnectionClosed("Message channel closed".into())),
+        let mut receiver_guard = self.reader_rx.lock().await;
+        if let Some(receiver) = &mut *receiver_guard {
+            match receiver.recv().await {
+                Some(message) => Ok(message),
+                None => Err(TransportError::ConnectionClosed("Message channel closed".into())),
+            }
+        } else {
+            Err(TransportError::ConnectionClosed("Reader channel is not initialized".into()))
         }
     }
     
-    async fn connect(&self) -> Result<(), TransportError> {
+    /// Connect to the WebSocket server
+    ///
+    /// Establishes a connection to the WebSocket server specified in the configuration.
+    /// This method creates the necessary background tasks for handling the connection.
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or error
+    async fn connect(&mut self) -> Result<(), TransportError> {
         // Update state to connecting
         {
-            let mut state = self.state.write().await;
+            let mut state = self.connection_state.write().await;
             *state = WebSocketState::Connecting;
         }
         
@@ -304,19 +393,17 @@ impl Transport for WebSocketTransport {
         
         let (socket, _) = connection;
         
-        // Create new channels for connection
-        let (socket_tx, socket_rx) = mpsc::channel::<SocketCommand>(100);
+        // Create new channels for the connection
         let (msg_tx, msg_rx) = mpsc::channel::<MCPMessage>(100);
+        let (socket_tx, socket_rx) = mpsc::channel::<SocketCommand>(100);
         
-        // Update the socket sender and message receiver
-        {
-            let mut sender = self.socket_sender.lock().await;
-            *sender = socket_tx;
-        }
+        // Update the socket sender
+        self.ws_sender = Some(socket_tx);
         
+        // Update the reader
         {
-            let mut receiver = self.message_receiver.lock().await;
-            *receiver = msg_rx;
+            let mut reader_guard = self.reader_rx.lock().await;
+            *reader_guard = Some(msg_rx);
         }
         
         // Start WebSocket task
@@ -324,30 +411,44 @@ impl Transport for WebSocketTransport {
         
         // Update state to connected
         {
-            let mut state = self.state.write().await;
+            let mut state = self.connection_state.write().await;
             *state = WebSocketState::Connected;
         }
         
         Ok(())
     }
     
+    /// Disconnect from the WebSocket server
+    ///
+    /// Closes the connection to the WebSocket server and cleans up resources.
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or error
     async fn disconnect(&self) -> Result<(), TransportError> {
         // Update state to disconnecting
         {
-            let mut state = self.state.write().await;
+            let mut state = self.connection_state.write().await;
             *state = WebSocketState::Disconnecting;
         }
         
-        // Send close command to socket task
-        let socket_sender = self.socket_sender.lock().await;
-        let _ = socket_sender.send(SocketCommand::Close).await;
+        // Send close command to socket task if it exists
+        if let Some(sender) = &self.ws_sender {
+            let _ = sender.send(SocketCommand::Close).await;
+        }
         
         // Wait a bit for tasks to finish gracefully
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         
+        // Reset the reader channel
+        {
+            let mut reader_guard = self.reader_rx.lock().await;
+            *reader_guard = None;
+        }
+        
         // Update state to disconnected (if not already done by tasks)
         {
-            let mut state = self.state.write().await;
+            let mut state = self.connection_state.write().await;
             if *state == WebSocketState::Disconnecting {
                 *state = WebSocketState::Disconnected;
             }
@@ -356,11 +457,21 @@ impl Transport for WebSocketTransport {
         Ok(())
     }
     
+    /// Check if the transport is connected
+    ///
+    /// # Returns
+    ///
+    /// True if the transport is in the Connected state, false otherwise
     async fn is_connected(&self) -> bool {
-        let state = self.state.read().await;
+        let state = self.connection_state.read().await;
         *state == WebSocketState::Connected
     }
     
+    /// Get transport metadata
+    ///
+    /// # Returns
+    ///
+    /// Metadata about this transport connection
     fn get_metadata(&self) -> TransportMetadata {
         self.metadata.clone()
     }

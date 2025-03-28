@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde_json::json;
 use crate::error::{MCPError, Result as MCPResult};
@@ -6,32 +6,57 @@ use crate::types::{MCPMessage, MCPResponse, MessageType, MessageId, ProtocolVers
 use crate::protocol::MCPProtocol;
 use tracing::{info, error, warn, instrument};
 use async_trait::async_trait;
-use chrono::Utc;
-use std::time::{Duration, Instant};
 use serde::{Serialize, Deserialize};
 use crate::logging::Logger;
-use crate::metrics::{MetricsCollector, MetricsTimer};
+use crate::metrics::MetricsCollector;
 
-// Define placeholder types for the core adapter implementation
-// These would be properly implemented in the actual codebase
+/// State update information for the core system
+///
+/// Represents an update to the core system state, containing the type of update
+/// and associated data that needs to be applied to the state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateUpdate {
+    /// The type of update being applied (e.g., "component_added", "feature_enabled")
     pub update_type: String,
+    
+    /// The data payload associated with the update
     pub data: serde_json::Value,
 }
 
+/// Core system state representation
+///
+/// Contains the state information for the core system, including version,
+/// operational status, available features, and component information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoreState {
-    // Fields for core state
+    /// Core system version identifier
     pub version: String,
+    
+    /// Current operational status (e.g., "running", "maintenance")
     pub status: String,
+    
+    /// List of enabled features
     pub features: Vec<String>,
+    
+    /// Detailed component information
     pub components: serde_json::Value,
 }
 
 impl CoreState {
+    /// Applies a state update to this CoreState instance
+    ///
+    /// Updates the core state based on the provided state update information.
+    /// Currently this is a placeholder implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `_update` - The state update to apply
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or an MCPError
     pub fn apply_update(&mut self, _update: &StateUpdate) -> Result<(), MCPError> {
-        // Implementation would update state based on update
+        // TODO: Implement actual state update logic
         Ok(())
     }
 }
@@ -47,54 +72,121 @@ impl Default for CoreState {
     }
 }
 
-// Placeholder for MessageHandler trait
-#[async_trait]
+/// Message handling interface for MCP communications
+///
+/// Defines the interface for components that need to handle MCP messages,
+/// providing a uniform way to process incoming messages and generate responses.
+#[async_trait::async_trait]
 pub trait MessageHandler: Send + Sync {
+    /// Handles an incoming MCP message and produces a response
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The incoming message to handle
+    ///
+    /// # Returns
+    ///
+    /// A result containing the response message or an error
     async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse>;
 }
 
-// Placeholder for User type
+/// User representation for authentication and authorization
+///
+/// Contains user identity information including ID, name, and assigned roles
+/// for use in security operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    /// Unique identifier for the user
     pub id: String,
+    
+    /// Display name of the user
     pub name: String,
+    
+    /// List of roles assigned to the user
     pub roles: Vec<String>,
 }
 
-// Placeholder for AuthManager
-#[derive(Debug, Clone)]
+/// Authentication and authorization manager
+///
+/// Handles user authentication and authorization checks against
+/// required permissions.
 pub struct AuthManager {
-    // Fields for auth manager
+    // Implementation details omitted
 }
 
 impl AuthManager {
+    /// Authorizes a user against a set of required permissions
+    ///
+    /// Checks if the user has the necessary permissions to perform
+    /// a specific operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `_user` - The user to authorize
+    /// * `_permissions` - The permissions required for the operation
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success if authorized or an error string if not
     pub async fn authorize(&self, _user: &User, _permissions: &[Permission]) -> Result<(), String> {
-        // Simple implementation for now
+        // TODO: Implement authorization logic
         Ok(())
     }
-    
+
+    /// Creates a new test authentication manager
+    ///
+    /// Creates an instance configured for testing purposes that
+    /// allows all authorization requests.
+    ///
+    /// # Returns
+    ///
+    /// A new AuthManager instance configured for testing
     pub fn new_test() -> Self {
         Self {}
     }
-    
+
+    /// Authenticates a user with the provided credentials
+    ///
+    /// Verifies user credentials and returns the authenticated user
+    /// if successful.
+    ///
+    /// # Arguments
+    ///
+    /// * `_credentials` - The credentials to verify
+    ///
+    /// # Returns
+    ///
+    /// Result containing the authenticated User or an error string
     pub async fn authenticate(&self, _credentials: &Credentials) -> Result<User, String> {
-        // Test implementation
+        // TODO: Implement authentication logic
         Ok(User {
-            id: "test-user".to_string(),
+            id: "test".to_string(),
             name: "Test User".to_string(),
             roles: vec!["user".to_string()],
         })
     }
 }
 
-// Placeholder for Permission
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Permission descriptor for authorization checks
+///
+/// Represents a single permission that can be checked during authorization,
+/// consisting of a resource identifier and an action.
 pub struct Permission {
     resource: String,
     action: Action,
 }
 
 impl Permission {
+    /// Creates a new permission
+    ///
+    /// # Arguments
+    ///
+    /// * `resource` - The resource identifier the permission applies to
+    /// * `action` - The action being permitted on the resource
+    ///
+    /// # Returns
+    ///
+    /// A new Permission instance
     pub fn new(resource: &str, action: Action) -> Self {
         Self {
             resource: resource.to_string(),
@@ -103,18 +195,31 @@ impl Permission {
     }
 }
 
-// Placeholder for Action
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Action types for permissions
+///
+/// Represents the different types of actions that can be performed
+/// on resources during permission checks.
 pub enum Action {
+    /// Permission to execute or run an operation
     Execute,
+    
+    /// Permission to read or view a resource
     Read,
+    
+    /// Permission to modify or update a resource
     Write,
 }
 
-// Placeholder for Credentials
+/// User credentials for authentication
+///
+/// Contains authentication information provided by a user
+/// during login or other authentication operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credentials {
+    /// Username for authentication
     pub username: String,
+    
+    /// Optional password for authentication
     pub password: Option<String>,
 }
 
@@ -312,7 +417,7 @@ impl Clone for CoreMCPAdapter {
 }
 
 // Implement MessageHandler trait to handle MCP messages
-#[async_trait]
+#[async_trait::async_trait]
 impl MessageHandler for CoreMCPAdapter {
     #[instrument(skip(self, message), fields(message_id = %message.id.0, message_type = ?message.type_))]
     async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse> {

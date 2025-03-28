@@ -59,18 +59,14 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, ProtocolError, Result};
-use crate::transport::{Transport, TransportMetadata};
-use crate::message::{Message, MessageBuilder, MessageType};
-use crate::types::MessageId;
-use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject, WireMessage};
+use crate::error::{MCPError, Result};
+use crate::transport::Transport;
+use crate::message::{Message, MessageBuilder};
+use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject};
 use crate::session::Session;
-use crate::message_router::{MessageRouter, MessageHandler, MessageHandlerResult, HandlerPriority, MessageRouterError};
-use crate::types::{SessionToken, UserId};
+use crate::message_router::{MessageRouter, MessageHandler, HandlerPriority, MessageRouterError};
 use crate::error::transport::TransportError;
 use crate::error::types::TransportError as SimplifiedTransportError;
-use crate::transport::tcp::TcpTransportConfig;
-use crate::transport::websocket::{WebSocketTransport, WebSocketConfig};
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -79,15 +75,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tokio::sync::{RwLock, mpsc, watch, Mutex};
+use tokio::sync::{RwLock, watch, Mutex};
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
 use futures::future;
 use uuid::Uuid;
-use std::pin::Pin;
 use futures::pin_mut;
-use chrono::{DateTime, Utc};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 /// MCP Server configuration
 #[derive(Debug, Clone)]
@@ -149,7 +143,7 @@ pub enum ServerState {
 
 /// Command handler for processing command messages
 #[async_trait]
-pub trait CommandHandler: Send + Sync {
+pub trait CommandHandler: Send + Sync + std::fmt::Debug {
     /// Handle a command message
     async fn handle_command(&self, command: &Message) -> Result<Option<Message>>;
     
@@ -739,8 +733,8 @@ impl MCPServer {
     }
 }
 
-/// Server command handler that wraps the message router
-#[derive(Clone)]
+/// Command handler that routes commands to the message router
+#[derive(Debug)]
 pub struct RouterCommandHandler {
     /// Message router
     router: Arc<MessageRouter>,
@@ -801,6 +795,7 @@ impl CommandHandler for RouterCommandHandler {
 }
 
 /// Adapter that converts a CommandHandler to a MessageHandler
+#[derive(Debug)]
 pub struct CommandHandlerAdapter {
     /// Inner command handler
     handler: Box<dyn CommandHandler>,

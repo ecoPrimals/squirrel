@@ -7,9 +7,8 @@ description = "Machine Context Protocol (MCP) implementation for Squirrel"
 license.workspace = true
 
 [features]
-default = ["legacy-transport"]
-legacy-transport = []  # Enable legacy transport module (deprecated, will be removed in a future release)
-full = ["legacy-transport"]
+default = []  # Removed legacy-transport entirely
+full = []     # Updated full features list
 di-tests = []
 metrics = []
 # Compression features

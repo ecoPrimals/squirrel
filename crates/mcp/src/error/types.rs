@@ -276,6 +276,17 @@ impl MCPError {
         }
     }
 
+    /// Determines if this error is recoverable
+    ///
+    /// Recoverable errors can be retried with a reasonable expectation of success.
+    /// Examples include temporary network issues, authentication failures that can
+    /// be resolved by obtaining new credentials, or timeout errors that might succeed
+    /// on a subsequent attempt.
+    ///
+    /// # Returns
+    ///
+    /// * `true` - If the error is recoverable
+    /// * `false` - If the error is not recoverable
     #[must_use]
     pub fn is_recoverable(&self) -> bool {
         match self {
@@ -290,6 +301,15 @@ impl MCPError {
         }
     }
 
+    /// Determines the severity level of this error
+    ///
+    /// Severity levels help prioritize error handling and reporting.
+    /// Higher severity errors require more immediate attention or 
+    /// may have a greater impact on system functionality.
+    ///
+    /// # Returns
+    ///
+    /// The severity level of the error as an ErrorSeverity enum value
     #[must_use]
     pub fn severity(&self) -> ErrorSeverity {
         match self {
@@ -417,6 +437,10 @@ impl From<serde_json::Error> for MCPError {
     }
 }
 
+/// Error handler with retry capabilities
+///
+/// Provides mechanisms for handling errors, including automatic retry with
+/// configurable backoff, error context tracking, and recovery strategies.
 #[derive(Debug)]
 pub struct ErrorHandler {
     /// Maximum number of retry attempts
@@ -431,6 +455,18 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
+    /// Creates a new ErrorHandler with the specified retry parameters
+    ///
+    /// # Arguments
+    ///
+    /// * `max_retries` - Maximum number of times to retry failed operations
+    /// * `retry_delay` - How long to wait between retry attempts
+    /// * `operation` - Name or description of the operation being handled
+    /// * `component` - Name of the component where the operation is performed
+    ///
+    /// # Returns
+    ///
+    /// A new ErrorHandler configured with the specified parameters
     pub fn new(
         max_retries: u32,
         retry_delay: std::time::Duration,
@@ -476,7 +512,11 @@ impl ErrorHandler {
         }
     }
 
-    #[must_use]
+    /// Gets the current error context
+    ///
+    /// # Returns
+    ///
+    /// A reference to the current error context
     pub fn error_context(&self) -> &ErrorContext {
         &self.error_context
     }
@@ -529,16 +569,27 @@ mod tests {
 )]
 #[derive(Debug, Clone, Error)]
 pub enum TransportError {
+    /// Error when a connection could not be established with the remote endpoint
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
+    
+    /// Error when a frame received or being sent is invalid or malformed
     #[error("Invalid frame: {0}")]
     InvalidFrame(String),
+    
+    /// Error when an operation timed out waiting for a response or connection
     #[error("Timeout: {0}")]
     Timeout(String),
+    
+    /// Error related to the communication protocol, such as invalid message format or sequence
     #[error("Protocol error: {0}")]
     ProtocolError(String),
+    
+    /// Error when an existing connection was closed, either by the remote endpoint or locally
     #[error("Connection closed: {0}")]
     ConnectionClosed(String),
+    
+    /// Error originating from underlying I/O operations
     #[error("I/O error: {0}")]
     IoError(String),
 }
@@ -612,74 +663,165 @@ impl From<crate::error::transport::TransportError> for MCPError {
     }
 }
 
-/// Connection-related errors
+/// Errors related to MCP connection operations
+///
+/// This enum represents errors that can occur when establishing or maintaining
+/// network connections within the MCP system, including failures, timeouts, and
+/// connection limit issues.
 #[derive(Debug, Clone, Error)]
 pub enum ConnectionError {
+    /// Error that occurs when a connection cannot be established
+    ///
+    /// This can happen due to network issues, incorrect configuration,
+    /// or when the remote endpoint is unavailable.
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
+    
+    /// Error that occurs when a connection operation exceeds the time limit
+    ///
+    /// This happens when the connection process takes longer than the
+    /// specified timeout period in milliseconds.
     #[error("Connection timeout after {0}ms")]
     Timeout(u64),
+    
+    /// Error that occurs when a connection is closed unexpectedly
+    ///
+    /// This can happen due to network issues, remote endpoint closure,
+    /// or other connection disruptions.
     #[error("Connection closed: {0}")]
     Closed(String),
+    
+    /// Error that occurs when a connection is reset by the peer
+    ///
+    /// This typically happens when the remote endpoint forcibly
+    /// closes the connection.
     #[error("Connection reset")]
     Reset,
+    
+    /// Error that occurs when a connection is refused by the remote endpoint
+    ///
+    /// This typically happens when the remote service is not running,
+    /// or is configured to reject the connection.
     #[error("Connection refused")]
     Refused,
+    
+    /// Error that occurs when the network is unreachable
+    ///
+    /// This can happen due to network configuration issues, firewalls,
+    /// or physical network disconnection.
     #[error("Network unreachable")]
     Unreachable,
+    
+    /// Error that occurs when too many concurrent connections are active
+    ///
+    /// This can happen when the system reaches its maximum connection capacity
+    /// as defined by resource limits or configuration.
     #[error("Too many connections")]
     TooManyConnections,
+    
+    /// Error that occurs when a connection limit is reached for a specific reason
+    ///
+    /// This provides more context about why a connection limit was reached,
+    /// such as per-user limits or rate limiting.
     #[error("Connection limit reached: {0}")]
     LimitReached(String),
 }
 
-/// Protocol-related errors
+/// Errors related to the MCP protocol
+///
+/// This enum represents various error conditions that can occur during protocol
+/// operations, including version mismatches, invalid states, and message format errors.
 #[derive(Debug, Clone, Error)]
 pub enum ProtocolError {
+    /// Error when the protocol version is invalid or incompatible
     #[error("Invalid protocol version: {0}")]
     InvalidVersion(String),
+    
+    /// Error when the protocol is in an invalid state for the requested operation
     #[error("Invalid protocol state: {0}")]
     InvalidState(String),
+    
+    /// Error when a message doesn't conform to the expected format
     #[error("Invalid message format: {0}")]
     InvalidFormat(String),
+    
+    /// Error when protocol negotiation fails between endpoints
     #[error("Protocol negotiation failed: {0}")]
     NegotiationFailed(String),
+    
+    /// Error when the protocol handshake process fails
     #[error("Protocol handshake failed: {0}")]
     HandshakeFailed(String),
+    
+    /// Error when protocol synchronization cannot be established
     #[error("Protocol synchronization failed: {0}")]
     SyncFailed(String),
+    
+    /// Error when a requested protocol capability is not supported
     #[error("Protocol capability not supported: {0}")]
     UnsupportedCapability(String),
+    
+    /// Error related to protocol configuration settings
     #[error("Protocol configuration error: {0}")]
     ConfigurationError(String),
+    
+    /// Error when trying to initialize a protocol that's already initialized
     #[error("Protocol already initialized")]
     ProtocolAlreadyInitialized,
+    
+    /// Error when using a protocol that hasn't been initialized
     #[error("Protocol not initialized")]
     ProtocolNotInitialized,
+    
+    /// Error when the protocol is not in a ready state for the operation
     #[error("Protocol not ready")]
     ProtocolNotReady,
+    
+    /// Error when serializing protocol state
     #[error("Failed to serialize state: {0}")]
     StateSerialization(String),
+    
+    /// Error when deserializing protocol state
     #[error("Failed to deserialize state: {0}")]
     StateDeserialization(String),
+    
+    /// Error when a handler already exists for a message type
     #[error("Handler already exists for message type: {0}")]
     HandlerAlreadyExists(String),
+    
+    /// Error when no handler is found for a message type
     #[error("No handler found for message type: {0}")]
     HandlerNotFound(String),
+    
+    /// Error when a message payload is invalid
     #[error("Invalid payload: {0}")]
     InvalidPayload(String),
+    
+    /// Error when a message exceeds the allowed size limit
     #[error("Message too large: {0}")]
     MessageTooLarge(String),
+    
+    /// Error when a message timestamp is invalid
     #[error("Invalid timestamp: {0}")]
     InvalidTimestamp(String),
+    
+    /// Error when a message operation times out
     #[error("Message timeout: {0}")]
     MessageTimeout(String),
+    
+    /// Error when security metadata is invalid
     #[error("Invalid security metadata: {0}")]
     InvalidSecurityMetadata(String),
+    
+    /// Error when message validation fails
     #[error("Message validation failed: {0}")]
     ValidationFailed(String),
+    
+    /// Error when protocol recovery attempts fail
     #[error("Recovery failed: {0}")]
     RecoveryFailed(String),
+    
+    /// Error in the wire format encoding/decoding
     #[error("Wire format error: {0}")]
     Wire(String),
 }
@@ -687,57 +829,129 @@ pub enum ProtocolError {
 /// Security-related errors
 #[derive(Debug, Clone, Error)]
 pub enum SecurityError {
+    /// Authentication error that occurs when credentials cannot be verified
+    /// or the authentication process fails for any reason
     #[error("Authentication failed: {0}")]
     AuthenticationFailed(String),
+    
+    /// Authorization error that occurs when a user lacks permissions
+    /// to perform the requested operation
     #[error("Authorization failed: {0}")]
     AuthorizationFailed(String),
+    
+    /// Error that occurs when provided credentials are invalid,
+    /// malformed, or do not match expected format
     #[error("Invalid credentials: {0}")]
     InvalidCredentials(String),
+    
+    /// Error that occurs when an authentication token has expired
+    /// and is no longer valid for use
     #[error("Token expired")]
     TokenExpired,
+    
+    /// Error that occurs when a token is invalid, corrupted,
+    /// or cannot be verified
     #[error("Invalid token: {0}")]
     InvalidToken(String),
+    
+    /// Error that occurs when a user role does not exist or
+    /// is not valid in the current context
     #[error("Invalid role: {0}")]
     InvalidRole(String),
+    
+    /// Error that occurs during encryption operations, such as
+    /// key generation, data encryption, or signature creation
     #[error("Encryption failed: {0}")]
     EncryptionFailed(String),
+    
+    /// Error that occurs during decryption operations, such as
+    /// key retrieval, data decryption, or signature verification
     #[error("Decryption failed: {0}")]
     DecryptionFailed(String),
+    
+    /// General security error that occurs within the security
+    /// subsystem but doesn't fit other specific categories
     #[error("Internal security error: {0}")]
     InternalError(String),
+    
+    /// Error that occurs when a message is sent with an insufficient
+    /// security level for the operation being performed
     #[error("Invalid security level: required {required:?}, provided {provided:?}")]
     InvalidSecurityLevel {
+        /// The security level required by the operation or receiver
         required: SecurityLevel,
+        /// The security level provided in the message or request
         provided: SecurityLevel,
     },
+    
+    /// Error that occurs within the underlying system security
+    /// infrastructure or OS security mechanisms
     #[error("System error: {0}")]
     System(String),
+    
+    /// Error that occurs when a permission string has invalid format
+    /// or cannot be parsed correctly
     #[error("Invalid permission format: {0}")]
     InvalidPermissionFormat(String),
+    
+    /// Error that occurs when an action specified in a permission
+    /// is not recognized or not supported
     #[error("Invalid action in permission: {0}")]
     InvalidActionInPermission(String),
+    
+    /// Error that occurs during the creation of a new role
+    /// in the security system
     #[error("Error creating role: {0}")]
     ErrorCreatingRole(String),
+    
+    /// Error related to the Role-Based Access Control system,
+    /// such as role assignment or permission checking
     #[error("RBAC error: {0}")]
     RBACError(String),
+    
+    /// Error that occurs during validation of security-related
+    /// data or operations
     #[error("Validation error: {0}")]
     ValidationError(String),
+    
+    /// Error that occurs when attempting to create a security
+    /// entity with an ID that already exists
     #[error("Duplicate ID error: {0}")]
     DuplicateIDError(String),
+    
+    /// Error that occurs when a security-related entity
+    /// could not be found
     #[error("Not found: {0}")]
     NotFound(String),
+    
+    /// Error that occurs when an operation would violate
+    /// a defined security policy
     #[error("Policy violation: {0}")]
     PolicyViolation(String),
 }
 
-/// Context-related errors
+/// Errors related to MCP context operations
+///
+/// This enum represents errors that can occur when working with MCP contexts,
+/// including context lookup failures, validation errors, and synchronization issues.
 #[derive(Debug, Clone)]
 pub enum ContextError {
-    /// Context not found
+    /// Error that occurs when a context with the specified UUID cannot be found
+    ///
+    /// This typically happens when trying to access a context that doesn't exist
+    /// or has been removed.
     NotFound(uuid::Uuid),
-    /// Context validation error
+    
+    /// Error that occurs when context validation fails
+    ///
+    /// This can happen when a context contains invalid data or doesn't meet
+    /// the required constraints.
     ValidationError(String),
-    /// Context synchronization error
+    
+    /// Error that occurs during context synchronization
+    ///
+    /// This can happen when there are issues synchronizing context data
+    /// between components or systems.
     SyncError(String),
 }
 
@@ -760,21 +974,58 @@ impl std::error::Error for ContextError {}
 //    }
 // }
 
-// Implementation for session error
+/// Errors related to MCP session operations
+///
+/// This enum represents errors that can occur when working with MCP sessions,
+/// including authentication and authorization failures, timeouts, and validation issues.
 #[derive(Debug, Clone, Error)]
 pub enum SessionError {
+    /// Error that occurs when session authentication fails
+    ///
+    /// This typically happens when credentials cannot be verified
+    /// or the authentication process fails for any reason.
     #[error("Authentication failed: {0}")]
     AuthenticationFailed(String),
+    
+    /// Error that occurs when session authorization fails
+    ///
+    /// This typically happens when a user lacks the necessary permissions
+    /// to perform a requested operation.
     #[error("Authorization failed: {0}")]
     AuthorizationFailed(String),
+    
+    /// Error that occurs when a session times out
+    ///
+    /// This can happen when a session exceeds its maximum allowed
+    /// duration or when there is no activity for a specified period.
     #[error("Session timeout: {0}")]
     Timeout(String),
+    
+    /// Error that occurs when a session is invalid
+    ///
+    /// This can happen when a session is malformed, corrupted,
+    /// or doesn't meet the required constraints.
     #[error("Invalid session: {0}")]
     InvalidSession(String),
+    
+    /// Error that occurs when a session cannot be found
+    ///
+    /// This typically happens when trying to access a session
+    /// that doesn't exist or has been removed.
     #[error("Session not found: {0}")]
     NotFound(String),
+    
+    /// Error that occurs during session validation
+    ///
+    /// This can happen when session data fails validation checks
+    /// or doesn't meet the required constraints.
     #[error("Session validation error: {0}")]
     Validation(String),
+    
+    /// General internal error within the session management system
+    ///
+    /// This is used for errors that don't fit into other specific
+    /// categories but occur within the session subsystem.
     #[error("Internal session error: {0}")]
     InternalError(String),
 }
@@ -786,11 +1037,24 @@ impl From<squirrel_core::error::PersistenceError> for MCPError {
     }
 }
 
-// Restore the AlertError definition
+/// Error related to the alert system
+///
+/// Represents errors that occur within the alert processing system,
+/// including notification failures, alert validation errors, and 
+/// alert delivery issues.
 #[derive(Debug, Clone)]
 pub struct AlertError(String);
 
 impl AlertError {
+    /// Creates a new AlertError with the specified message
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - Description of the alert error
+    ///
+    /// # Returns
+    ///
+    /// A new AlertError instance
     pub fn new(message: String) -> Self {
         Self(message)
     }
@@ -811,48 +1075,88 @@ impl From<SessionError> for MCPError {
     }
 }
 
-/// Provides additional context information for errors.
+/// Error context information for MCP errors
 ///
-/// This struct contains metadata about an error, including when it occurred,
-/// what operation was being performed, which component raised the error,
-/// and other relevant contextual information.
-///
-/// # Examples
-///
-/// ```
-/// use mcp::error::{ErrorContext, ErrorSeverity};
-/// use chrono::Utc;
-/// use serde_json::Map;
-///
-/// let context = ErrorContext::new("read_file", "file_system")
-///     .with_severity(ErrorSeverity::Error)
-///     .with_error_code("FS-001");
-/// ```
+/// This struct provides detailed contextual information about errors that occur
+/// within the MCP system, including when they occurred, what operation was being
+/// performed, and additional metadata to assist with debugging and error handling.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {
-    /// When the error occurred
+    /// Timestamp indicating when the error occurred
+    ///
+    /// This helps with chronological tracking and correlation of errors
+    /// with other system events.
     pub timestamp: DateTime<Utc>,
-    /// Operation being performed when the error occurred
+
+    /// Description of the operation being performed when the error occurred
+    ///
+    /// This provides context about what the system was trying to do
+    /// when the error was encountered.
     pub operation: String,
-    /// Component where the error occurred
+
+    /// Name of the component where the error occurred
+    ///
+    /// This identifies which part of the system encountered the error,
+    /// helping with troubleshooting and error localization.
     pub component: String,
-    /// Type of message being processed, if applicable
+
+    /// Type of message being processed when the error occurred, if applicable
+    ///
+    /// This field is optional and only relevant for errors that occur
+    /// during message processing.
     pub message_type: Option<MessageType>,
-    /// Additional details about the error
+
+    /// Additional structured details about the error
+    ///
+    /// This can include any relevant contextual information that might
+    /// help with diagnosing and resolving the issue.
     pub details: Map<String, serde_json::Value>,
+
     /// Severity level of the error
+    ///
+    /// This indicates how serious the error is, ranging from
+    /// informational to critical.
     pub severity: ErrorSeverity,
-    /// Whether the error can be recovered from
+
+    /// Indicates whether the error can be recovered from
+    ///
+    /// If true, the system may attempt to automatically recover
+    /// from this error through retry mechanisms or fallbacks.
     pub is_recoverable: bool,
-    /// Number of retry attempts made so far
+
+    /// Count of retry attempts made for recoverable errors
+    ///
+    /// This tracks how many times the system has attempted to
+    /// recover from this error.
     pub retry_count: u32,
-    /// Unique error code for identification
+
+    /// Unique error code for identification and categorization
+    ///
+    /// This code can be used for error tracking, documentation,
+    /// and reference purposes.
     pub error_code: String,
+
     /// Code location where the error occurred
+    ///
+    /// This optional field provides information about the specific
+    /// location in the source code where the error originated.
     pub source_location: Option<String>,
 }
 
 impl ErrorContext {
+    /// Creates a new error context with basic information
+    ///
+    /// Initializes a new error context with the specified operation and component,
+    /// setting default values for all other fields.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - Description of the operation being performed when the error occurred
+    /// * `component` - Name of the component where the error occurred
+    ///
+    /// # Returns
+    ///
+    /// A new ErrorContext with default values
     pub fn new(operation: impl Into<String>, component: impl Into<String>) -> Self {
         Self {
             timestamp: Utc::now(),
@@ -868,18 +1172,45 @@ impl ErrorContext {
         }
     }
 
+    /// Adds a message type to this error context
+    ///
+    /// # Arguments
+    ///
+    /// * `message_type` - The type of message being processed when the error occurred
+    ///
+    /// # Returns
+    ///
+    /// The updated ErrorContext for method chaining
     #[must_use]
     pub fn with_message_type(mut self, message_type: MessageType) -> Self {
         self.message_type = Some(message_type);
         self
     }
 
+    /// Sets the severity level for this error context
+    ///
+    /// # Arguments
+    ///
+    /// * `severity` - The severity level of the error
+    ///
+    /// # Returns
+    ///
+    /// The updated ErrorContext for method chaining
     #[must_use]
     pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
 
+    /// Adds detailed information to this error context
+    ///
+    /// # Arguments
+    ///
+    /// * `details` - A map of additional details about the error
+    ///
+    /// # Returns
+    ///
+    /// The updated ErrorContext for method chaining
     #[must_use]
     pub fn with_details(mut self, details: Map<String, serde_json::Value>) -> Self {
         self.details = details;
@@ -906,6 +1237,9 @@ impl ErrorContext {
         self
     }
 
+    /// Increments the retry count for this error context
+    ///
+    /// This is called each time a recovery attempt is made for the error.
     pub fn increment_retry_count(&mut self) {
         self.retry_count += 1;
     }

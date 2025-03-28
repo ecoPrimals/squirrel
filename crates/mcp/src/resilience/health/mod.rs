@@ -2,6 +2,21 @@
 //! 
 //! This module provides health monitoring capabilities for MCP components,
 //! including integration with the global monitoring system.
+//!
+//! The health monitoring subsystem allows:
+//! - Tracking the health status of various components
+//! - Executing periodic health checks
+//! - Triggering recovery actions when health issues are detected
+//! - Forwarding health metrics to external monitoring systems
+//! - Subscribing to health status changes
+//!
+//! The main components in this module include:
+//! - `HealthMonitor`: Central component for managing health checks
+//! - `HealthCheck`: Trait for implementing specific component health checks
+//! - `HealthStatus`: Enum representing various health states
+//! - `HealthCheckResult`: Container for health check results
+//! - `HealthMonitoringBridge`: Bridge between MCP health monitoring and external systems
+//! - `MonitoringAdapter`: Interface for integrating with external monitoring systems
 
 mod monitoring_bridge;
 
