@@ -164,7 +164,7 @@ impl Default for HealthCheckConfig {
 
 /// Trait for implementing health checks
 #[async_trait]
-pub trait HealthCheck: Send + Sync {
+pub trait HealthCheck: std::fmt::Debug + Send + Sync {
     /// Unique identifier for this health check
     fn id(&self) -> &str;
     
@@ -295,6 +295,7 @@ impl ComponentHealthTracker {
 }
 
 /// Health monitoring system for MCP components
+#[derive(Debug)]
 pub struct HealthMonitor {
     /// Health checks to run
     health_checks: HashMap<String, Box<dyn HealthCheck>>,
@@ -497,9 +498,16 @@ impl HealthMonitor {
     }
 }
 
-/// Helper trait for working with health checks
+/// Extension trait for Health Check to support downcasting to concrete types
 pub trait HealthCheckExt: HealthCheck {
+    /// Returns a reference to this object as a generic Any trait object
+    /// 
+    /// This allows downcasting to a concrete implementation type.
     fn as_any(&self) -> &dyn std::any::Any;
+    
+    /// Returns a mutable reference to this object as a generic Any trait object
+    /// 
+    /// This allows downcasting to a concrete implementation type for mutation.
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 

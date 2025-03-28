@@ -56,7 +56,7 @@ impl Default for HealthMonitoringBridgeConfig {
 
 /// Trait for adapting to different monitoring systems
 #[async_trait]
-pub trait MonitoringAdapter {
+pub trait MonitoringAdapter: std::fmt::Debug + Send + Sync {
     /// Forward health check results to the monitoring system
     async fn forward_health_data(&self, results: Vec<HealthCheckResult>) -> Result<(), MCPError>;
     
@@ -69,14 +69,23 @@ pub trait MonitoringAdapter {
 }
 
 /// Adapter for the monitoring system
+/// 
+/// Provides integration with external monitoring systems by forwarding
+/// health data and handling alerts.
+#[derive(Debug)]
 pub struct MonitoringSystemAdapter {
-    // This would contain the actual monitoring system client
-    // For now, we'll use placeholder fields
+    /// Endpoint for health data API
     health_api_endpoint: String,
+    /// Endpoint for alert API
     alert_api_endpoint: String,
 }
 
 impl MonitoringSystemAdapter {
+    /// Creates a new monitoring system adapter with the specified API endpoints
+    ///
+    /// # Arguments
+    /// * `health_api_endpoint` - The URL for the health API
+    /// * `alert_api_endpoint` - The URL for the alert API
     pub fn new(health_api_endpoint: String, alert_api_endpoint: String) -> Self {
         Self {
             health_api_endpoint,
@@ -122,12 +131,17 @@ impl MonitoringAdapter for MonitoringSystemAdapter {
 }
 
 /// Adapter that converts monitoring alerts to resilience recovery actions
+#[derive(Debug)]
 pub struct AlertToRecoveryAdapter {
     /// Reference to the recovery strategy
     recovery_strategy: Arc<Mutex<RecoveryStrategy>>,
 }
 
 impl AlertToRecoveryAdapter {
+    /// Creates a new adapter for converting alerts to recovery actions
+    ///
+    /// # Arguments
+    /// * `recovery_strategy` - The recovery strategy to use for handling alerts
     pub fn new(recovery_strategy: Arc<Mutex<RecoveryStrategy>>) -> Self {
         Self {
             recovery_strategy,
@@ -167,22 +181,34 @@ impl AlertToRecoveryAdapter {
 /// Alert severity levels in the monitoring system
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AlertSeverity {
+    /// Informational alert, lowest severity
     Info,
+    /// Warning alert, low severity
     Warning,
+    /// Error alert, moderate severity
     Error,
+    /// Critical alert, highest severity
     Critical,
 }
 
 /// Alert from the monitoring system
 #[derive(Debug, Clone)]
 pub struct MonitoringAlert {
+    /// Unique identifier for the alert
     pub id: Option<String>,
+    /// Name of the alert
     pub name: String,
+    /// Severity level
     pub severity: AlertSeverity,
+    /// Alert message
     pub message: String,
+    /// Source of the alert
     pub source: String,
+    /// Component that triggered the alert
     pub component_id: String,
+    /// When the alert was created
     pub timestamp: chrono::DateTime<Utc>,
+    /// Additional metadata for the alert
     pub attributes: HashMap<String, String>,
 }
 

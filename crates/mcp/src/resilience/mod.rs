@@ -12,9 +12,12 @@ use tracing::{debug, error};
 pub mod circuit_breaker;
 pub mod retry;
 pub mod recovery;
+/// State synchronization mechanisms for resilient distributed systems
 pub mod state_sync;
+/// Health monitoring capabilities for system components
 pub mod health;
 
+/// Error types and handling for resilience operations
 pub mod resilience_error;
 
 pub use circuit_breaker::CircuitBreaker;
@@ -347,7 +350,21 @@ where
     Ok(result)
 }
 
-// Try with recovery and retry
+/// Execute an operation with recovery capabilities
+///
+/// This function executes the provided operation and applies recovery strategies if it fails.
+/// It integrates with the circuit breaker pattern to prevent cascading failures.
+///
+/// # Arguments
+/// * `circuit_breaker` - Optional circuit breaker instance to control circuit state
+/// * `component_id` - Identifier of the component being executed
+/// * `operation` - The operation to execute, which returns a future
+/// * `recovery_strategy` - Strategy to use for recovery in case of failures
+/// * `failure_info` - Information about the failure context
+/// * `recovery_action` - Optional specific recovery action to take
+///
+/// # Returns
+/// The result of the operation or an error if recovery failed
 pub async fn execute_with_recovery<T, F>(
     circuit_breaker: Option<Arc<CircuitBreaker>>,
     component_id: &str,

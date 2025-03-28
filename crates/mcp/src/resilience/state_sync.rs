@@ -71,33 +71,41 @@ impl Default for StateSyncConfig {
 pub enum StateSyncError {
     /// Synchronization timed out
     Timeout {
+        /// Duration after which the operation timed out
         duration: Duration,
     },
     
     /// State data exceeds maximum allowed size
     SizeExceeded {
+        /// Actual size of the state data in bytes
         size: usize,
+        /// Maximum allowed size in bytes
         max_size: usize,
     },
     
     /// State validation failed
     ValidationFailed {
+        /// Error message explaining the validation failure
         message: String,
     },
     
     /// Target system not found or unavailable
     TargetUnavailable {
+        /// Identifier of the target system
         target: String,
     },
     
     /// Serialization or deserialization error
     SerializationError {
+        /// Error message explaining the serialization failure
         message: String,
     },
     
     /// General error during synchronization
     SyncFailed {
+        /// Error message explaining the synchronization failure
         message: String,
+        /// Underlying source of the error, if available
         source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
 
@@ -387,10 +395,12 @@ impl StateSynchronizer {
     }
 }
 
-/// Add struct for StateData which appears to be missing
+/// Container for state data with metadata
 #[derive(Debug, Clone)]
 pub struct StateData {
+    /// The actual state data as a JSON value
     pub data: serde_json::Value,
+    /// Timestamp when the state was last updated
     pub timestamp: Instant,
 }
 
