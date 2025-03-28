@@ -390,8 +390,7 @@ impl TcpTransport {
         let (frame_tx, frame_rx) = mpsc::channel::<MCPMessage>(100);
         
         // Lock the frame_receiver and replace it with our receiver
-        let mut frame_receiver = self.frame_receiver.lock().await;
-        *frame_receiver = Some(frame_rx);
+        *self.frame_receiver.lock().await = Some(frame_rx);
         
         tokio::spawn(async move {
             let mut reader = FrameReader::new(reader);
@@ -532,8 +531,8 @@ impl Transport for TcpTransport {
         }
         
         // Get the frame receiver
-        let mut receiver_opt = self.frame_receiver.lock().await;
-        let receiver = receiver_opt.as_mut().ok_or_else(|| {
+        let mut guard = self.frame_receiver.lock().await;
+        let receiver = guard.as_mut().ok_or_else(|| {
             TransportError::protocol_error("No receiver available")
         })?;
         
@@ -558,13 +557,14 @@ impl Transport for TcpTransport {
             Ok(stream) => stream,
             Err(e) => {
                 // Update state to failed
-                let mut state = self.state.write().await;
-                *state = TcpTransportState::Failed(e.to_string());
-                
-                return Err(TransportError::connection_failed(format!(
-                    "Failed to connect to {}: {}", 
-                    self.config.remote_address, e
-                )));
+                {
+                    *self.state.write().await = TcpTransportState::Failed(e.to_string());
+                    
+                    return Err(TransportError::connection_failed(format!(
+                        "Failed to connect to {}: {}", 
+                        self.config.remote_address, e
+                    )));
+                }
             }
         };
         

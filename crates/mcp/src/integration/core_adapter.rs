@@ -54,6 +54,11 @@ impl CoreState {
     /// # Returns
     ///
     /// Result indicating success or an `MCPError`
+    /// 
+    /// # Errors
+    /// 
+    /// This implementation currently does not return errors, but in a full implementation
+    /// it could return an `MCPError` if the update is invalid or cannot be applied
     pub fn apply_update(&mut self, _update: &StateUpdate) -> Result<(), MCPError> {
         // TODO: Implement actual state update logic
         Ok(())
@@ -127,6 +132,11 @@ impl AuthManager {
     /// # Returns
     ///
     /// Result indicating success if authorized or an error string if not
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error string if the user lacks the required permissions or
+    /// if the authorization check cannot be completed
     pub async fn authorize(&self, _user: &User, _permissions: &[Permission]) -> Result<(), String> {
         // TODO: Implement authorization logic
         Ok(())
@@ -156,6 +166,11 @@ impl AuthManager {
     /// # Returns
     ///
     /// Result containing the authenticated User or an error string
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error string if authentication fails due to invalid credentials,
+    /// account lockout, or other authentication infrastructure issues
     pub async fn authenticate(&self, _credentials: &Credentials) -> Result<User, String> {
         // TODO: Implement authentication logic
         Ok(User {

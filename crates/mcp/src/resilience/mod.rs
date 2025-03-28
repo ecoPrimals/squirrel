@@ -176,6 +176,20 @@ impl From<health::HealthCheckError> for ResilienceError {
 }
 
 /// Create a resilient operation with circuit breaker and retry
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the circuit breaker is open
+/// - If the operation fails and all retry attempts are exhausted
+/// - If any internal resilience mechanism fails
+///
+/// # Panics
+///
+/// This function might panic if:
+/// - The operation closure panics during execution
+/// - The circuit breaker's internal state becomes inconsistent
+/// - Memory allocation fails for internal data structures
 pub async fn with_resilience<F, T>(
     circuit_breaker: &mut circuit_breaker::CircuitBreaker,
     retry: retry::RetryMechanism,
@@ -213,6 +227,19 @@ where
 }
 
 /// Create a resilient operation with recovery strategy
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the operation fails and the recovery strategy fails to recover
+/// - If the recovery action fails to execute properly
+///
+/// # Panics
+///
+/// This function might panic if:
+/// - The operation closure panics during execution
+/// - The recovery action closure panics during execution
+/// - The recovery strategy's internal state becomes inconsistent
 pub async fn with_recovery<F, R, T>(
     recovery_strategy: &mut recovery::RecoveryStrategy,
     failure_info: recovery::FailureInfo,
@@ -236,6 +263,13 @@ where
 }
 
 /// Create a resilient operation with health monitoring
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the component is already in an unhealthy or critical state
+/// - If the operation fails
+/// - If any internal health monitoring mechanism fails
 pub async fn with_health_monitoring<F, T>(
     health_monitor: &health::HealthMonitor,
     component_id: &str,
@@ -266,6 +300,15 @@ where
 }
 
 /// Create a fully resilient operation using circuit breaker, retry, recovery, and health monitoring
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the component is in a critical health state
+/// - If the circuit breaker is open
+/// - If the operation fails and all retry attempts are exhausted
+/// - If the recovery strategy fails to recover from the failure
+/// - If any internal resilience mechanism fails
 pub async fn with_complete_resilience<F, R, T>(
     circuit_breaker: &mut circuit_breaker::CircuitBreaker,
     retry: retry::RetryMechanism,
@@ -334,6 +377,13 @@ where
 }
 
 /// Synchronize state using the state synchronizer
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the operation fails
+/// - If the state synchronization fails
+/// - If any internal state synchronization mechanism fails
 pub async fn with_state_sync<T, F>(
     state_sync: &state_sync::StateSynchronizer,
     state_type: state_sync::StateType,
@@ -372,6 +422,13 @@ where
 ///
 /// # Returns
 /// The result of the operation or an error if recovery failed
+///
+/// # Errors
+///
+/// This function will return an error in the following cases:
+/// - If the circuit breaker is open and prevents execution
+/// - If the operation fails and recovery is not possible or fails
+/// - If any internal recovery mechanism fails
 pub async fn execute_with_recovery<T, F>(
     circuit_breaker: Option<Arc<CircuitBreaker>>,
     component_id: &str,
@@ -405,9 +462,7 @@ where
                 let recovery_result = recovery_strategy.handle_failure(failure_info.clone(), || {
                     // Convert RecoveryAction to the expected type
                     match recovery_action {
-                        RecoveryAction::Reset => Ok(()),
-                        RecoveryAction::Restart => Ok(()),
-                        RecoveryAction::Recreate => Ok(()),
+                        RecoveryAction::Reset | RecoveryAction::Restart | RecoveryAction::Recreate => Ok(()),
                         RecoveryAction::Custom(_action_name) => {
                             Ok(()) // Handle custom action if needed
                         }

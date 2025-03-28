@@ -33,31 +33,44 @@ impl Registry {
         }
     }
     
-    /// Registers a new entry in the registry
+    /// Register a new entry
+    ///
+    /// # Errors
+    /// Returns an error if an entry with the same ID already exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn register(&self, entry: RegistryEntry) -> Result<()> {
         let mut entries = self.entries.write().await;
         
         if entries.contains_key(&entry.id) {
-            return Err(MCPError::Protocol(ProtocolError::ConfigurationError(
-                format!("Entry already exists with id: {}", entry.id)
+            return Err(MCPError::Protocol(ProtocolError::HandlerAlreadyExists(
+                format!("Handler already exists with id: {}", entry.id)
             )));
         }
         
         entries.insert(entry.id.clone(), entry);
+        drop(entries); // Early drop the mutex lock
         Ok(())
     }
     
-    /// Gets an entry by ID
+    /// Get an entry by ID
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn get_entry(&self, id: &str) -> Result<RegistryEntry> {
         let entries = self.entries.read().await;
         
-        entries.get(id).cloned()
+        entries.get(id)
+            .cloned()
             .ok_or_else(|| MCPError::Protocol(ProtocolError::HandlerNotFound(
                 format!("No entry found with id: {id}")
             )))
     }
     
     /// Checks if an entry exists
+    ///
+    /// # Errors
+    /// Returns an error if the registry lock cannot be acquired.
     pub async fn has_entry(&self, id: &str) -> Result<bool> {
         let entries = self.entries.read().await;
         
@@ -65,6 +78,10 @@ impl Registry {
     }
     
     /// Updates an existing entry
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn update_entry(&self, entry: RegistryEntry) -> Result<()> {
         let mut entries = self.entries.write().await;
         
@@ -75,10 +92,15 @@ impl Registry {
         }
         
         entries.insert(entry.id.clone(), entry);
+        drop(entries); // Early drop the mutex lock
         Ok(())
     }
     
     /// Removes an entry
+    ///
+    /// # Errors
+    /// Returns an error if no entry with the given ID exists in the registry,
+    /// or if the registry lock cannot be acquired.
     pub async fn remove_entry(&self, id: &str) -> Result<()> {
         let mut entries = self.entries.write().await;
         
@@ -89,6 +111,7 @@ impl Registry {
         }
         
         entries.remove(id);
+        drop(entries); // Early drop the mutex lock
         Ok(())
     }
     

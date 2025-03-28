@@ -249,6 +249,29 @@ impl StateSynchronizer {
     }
     
     /// Synchronize state data to a target system
+    ///
+    /// Serializes and transmits state data to a target system for synchronization.
+    /// This is used to ensure consistency across distributed components.
+    ///
+    /// # Arguments
+    ///
+    /// * `state_type` - The type of state being synchronized
+    /// * `_state_id` - The identifier for the specific state instance
+    /// * `_target` - The target system to synchronize with
+    /// * `state` - The state data to synchronize
+    ///
+    /// # Returns
+    ///
+    /// Success if the state was successfully synchronized
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StateSyncError` if:
+    /// * The state size exceeds the configured maximum size (`StateSyncError::SizeExceeded`)
+    /// * The serialization of the state fails (`StateSyncError::SerializationError`)
+    /// * The synchronization operation times out (`StateSyncError::Timeout`)
+    /// * The metrics tracking fails to update (`StateSyncError::SyncFailed`)
+    /// * Any other synchronization failure occurs
     pub async fn sync_state<T>(
         &self,
         state_type: StateType,
@@ -261,7 +284,7 @@ impl StateSynchronizer {
     {
         let _start_time = Instant::now();
         self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
-            message: format!("Failed to lock metrics: {}", e),
+            message: format!("Failed to lock metrics: {e}"),
             source: None,
         })?.last_sync_time = Some(_start_time);
         
@@ -273,12 +296,14 @@ impl StateSynchronizer {
         
         // Check if state exceeds maximum size
         if serialized.len() > self.config.max_state_size {
-            // Update metrics for failure
-            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
-                message: format!("Failed to lock metrics: {}", e),
-                source: None,
-            })?;
-            *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
+            // Update metrics for failure - early drop optimization
+            {
+                let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                    message: format!("Failed to lock metrics: {e}"),
+                    source: None,
+                })?;
+                *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
+            } // metrics is dropped here
             
             return Err(StateSyncError::SizeExceeded {
                 size: serialized.len(),
@@ -297,12 +322,14 @@ impl StateSynchronizer {
         
         // Check timeout
         if _start_time.elapsed() > self.config.sync_timeout {
-            // Update metrics for failure
-            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
-                message: format!("Failed to lock metrics: {}", e),
-                source: None,
-            })?;
-            *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
+            // Update metrics for failure - early drop optimization
+            {
+                let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                    message: format!("Failed to lock metrics: {e}"),
+                    source: None,
+                })?;
+                *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
+            } // metrics is dropped here
             
             return Err(StateSyncError::Timeout {
                 duration: self.config.sync_timeout,
@@ -312,24 +339,39 @@ impl StateSynchronizer {
         // In a real implementation, this would communicate with the target system
         // For now, we'll just simulate success
         
-        // Update metrics for success
-        let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
-            message: format!("Failed to lock metrics: {}", e),
-            source: None,
-        })?;
-        *metrics.successful_syncs.entry(state_type).or_insert(0) += 1;
-        metrics.total_bytes_synced += serialized.len();
+        // Update metrics for success and drop early
+        {
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {e}"),
+                source: None,
+            })?;
+            *metrics.successful_syncs.entry(state_type).or_insert(0) += 1;
+            metrics.total_bytes_synced += serialized.len();
+        } // metrics is dropped here
         
         Ok(())
     }
     
-    /// Synchronize state with timeout
-    pub async fn sync_state_with_timeout<T>(&self,
+    /// Sync state with a timeout
+    ///
+    /// # Arguments
+    /// * `state_type` - The type of state to sync
+    /// * `_state_id` - The ID of the state to sync
+    /// * `_target` - The target to sync with
+    /// * `state` - The state to sync
+    /// * `timeout` - The timeout for the sync operation
+    ///
+    /// # Errors
+    /// * Returns `StateSyncError::Timeout` if the operation times out
+    /// * Returns `StateSyncError::SyncFailed` if the sync operation fails
+    /// * Returns `StateSyncError::InvalidStateType` if the state type is invalid
+    pub async fn sync_state_with_timeout<T>(
+        &self,
         state_type: StateType,
         _state_id: &str,
         _target: &str,
         state: T,
-        timeout: Duration
+        timeout: Duration,
     ) -> Result<(), StateSyncError>
     where
         T: Serialize + Clone + Send + Sync + 'static
@@ -346,18 +388,29 @@ impl StateSynchronizer {
         }
     }
     
-    /// Get the current synchronization metrics
+    /// Get metrics for state sync operations
+    /// 
+    /// # Returns
+    /// * `StateSyncMetrics` containing metrics about sync operations
+    ///
+    /// # Errors
+    /// * Returns `StateSyncError::SyncFailed` if metrics cannot be accessed
     pub fn get_metrics(&self) -> Result<StateSyncMetrics, StateSyncError> {
         self.metrics.lock().map(|m| m.clone()).map_err(|e| StateSyncError::SyncFailed {
-            message: format!("Failed to lock metrics: {}", e),
+            message: format!("Failed to lock metrics: {e}"),
             source: None,
         })
     }
     
-    /// Reset the synchronization metrics
+    /// Reset all metrics counters to zero
+    ///
+    /// # Errors
+    /// * Returns `StateSyncError::SyncFailed` if metrics cannot be accessed
     pub fn reset_metrics(&self) -> Result<(), StateSyncError> {
-        self.metrics.lock().map(|mut m| m.reset()).map_err(|e| StateSyncError::SyncFailed {
-            message: format!("Failed to lock metrics: {}", e),
+        self.metrics.lock().map(|mut m| {
+            m.reset();
+        }).map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {e}"),
             source: None,
         })
     }
@@ -372,12 +425,22 @@ impl StateSynchronizer {
         self.config = config;
     }
 
-    /// Retrieve state data of a specific type
+    /// Retrieve state from storage
+    ///
+    /// # Arguments
+    /// * `state_type` - The type of state to retrieve
+    /// * `_state_id` - The ID of the state to retrieve
+    /// * `_query` - Optional query parameters
+    ///
+    /// # Errors
+    /// * Returns `StateSyncError::NotFound` if the state is not found
+    /// * Returns `StateSyncError::SyncFailed` if the retrieval fails
+    /// * Returns `StateSyncError::InvalidStateType` if the state type is invalid
     pub async fn retrieve_state<T>(
         &self,
         state_type: StateType,
         _state_id: &str,
-        _target: &str,
+        _query: Option<&str>,
     ) -> Result<T, StateSyncError>
     where
         T: DeserializeOwned + Send + 'static,
@@ -388,42 +451,72 @@ impl StateSynchronizer {
         // Eventually this will use state_id and target to retrieve specific states
         // For now, we'll just use the latest state by type
         
-        // Track metrics
-        let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
-            message: format!("Failed to lock metrics: {}", e),
-            source: None,
-        })?;
-        metrics.retrieve_requests += 1;
+        // Track metrics - increment request counter
+        {
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {e}"),
+                source: None,
+            })?;
+            metrics.retrieve_requests += 1;
+        } // metrics is dropped here
         
         // Get the cached state
         let state = {
             let states = self.states.read().map_err(|e| StateSyncError::SyncFailed {
-                message: format!("Failed to read states: {}", e),
+                message: format!("Failed to read states: {e}"),
                 source: None,
             })?;
-            match states.get(&state_type) {
-                Some(state) => state.data.clone(),
-                None => return Err(StateSyncError::NotFound("State not found".to_string())),
+            if let Some(state) = states.get(&state_type) { state.data.clone() } else {
+                // Update metrics for failure
+                {
+                    let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                        message: format!("Failed to lock metrics: {e}"),
+                        source: None,
+                    })?;
+                    metrics.retrieve_failures += 1;
+                } // metrics is dropped here
+                return Err(StateSyncError::NotFound("State not found".to_string()));
             }
         };
         
         // Deserialize the state
         match serde_json::from_value(state) {
             Ok(value) => {
-                metrics.retrieve_success += 1;
+                // Update success metric
+                {
+                    let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                        message: format!("Failed to lock metrics: {e}"),
+                        source: None,
+                    })?;
+                    metrics.retrieve_success += 1;
+                } // metrics is dropped here
                 Ok(value)
             }
             Err(e) => {
-                metrics.retrieve_failures += 1;
+                // Update failure metric
+                {
+                    let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                        message: format!("Failed to lock metrics: {e}"),
+                        source: None,
+                    })?;
+                    metrics.retrieve_failures += 1;
+                } // metrics is dropped here
                 Err(StateSyncError::DeserializationFailed(e.to_string()))
             }
         }
     }
 
-    /// Process an updated state
+    /// Process a state update received from another node
+    ///
+    /// # Arguments
+    /// * `_state_type` - The type of state being updated
+    /// * `_state_data` - The new state data
+    ///
+    /// # Errors
+    /// * Returns `StateSyncError::SyncFailed` if the update cannot be processed
     pub async fn process_state_update<T>(
         &self,
-        _state_type: StateType, 
+        _state_type: StateType,
         _state_data: T
     ) -> Result<(), StateSyncError>
     where

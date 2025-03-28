@@ -9,7 +9,6 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use serde::{Serialize, Deserialize};
-use log::error;
 use uuid::Uuid;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
@@ -256,23 +255,25 @@ impl SessionManager {
         let session_token = SessionToken(Uuid::new_v4().to_string());
         
         // Create the session
+        let now = Utc::now();
+        
+        // Configure the session with default parameters
         let session = Session {
             token: session_token.clone(),
             user_id,
             account_id: None,
             role: UserRole::User, // Default role
-            created_at: Utc::now(),
-            last_accessed: Utc::now(),
-            timeout: Some(3600), // Default 1 hour timeout
+            created_at: now,
+            last_accessed: now,
+            timeout: Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)).as_secs()),
             auth_token: None,
             metadata: HashMap::new(),
         };
         
-        // Store the session
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session_token, session.clone());
+        // Store the session in memory
+        self.sessions.write().await.insert(session_token, session.clone());
         
-        // Persist the session if persistence is enabled
+        // If persistence is enabled, store it there too
         if let Some(persistence) = &self.persistence {
             persistence.save_session(&session.to_session_data()).await?;
         }
@@ -282,44 +283,54 @@ impl SessionManager {
 
     /// Get a session by token
     ///
-    /// # Arguments
-    /// * `token` - The session token to look up
-    ///
-    /// # Returns
-    /// The Session object if found and not expired
-    ///
     /// # Errors
-    /// Returns an error if:
-    /// - The session token is invalid or cannot be found
-    /// - The session has expired and is no longer valid
-    /// - The persistence layer encounters an error while loading the session
-    /// - The session data is corrupted or in an invalid format
+    /// Returns an error if the session token is not found, if the session has expired,
+    /// or if the persistence layer encounters errors when retrieving the session.
     pub async fn get_session(&self, token: &SessionToken) -> Result<Session> {
         // Check in-memory sessions first
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(token) {
-            if session.is_expired(self.config.timeout) {
+            // Update last accessed time
+            session.last_accessed = Utc::now();
+            
+            // If the session has a timeout, check if it's expired
+            if session.is_expired(Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)))) {
+                // Remove expired session
                 sessions.remove(token);
+                drop(sessions); // Early drop the mutex lock
+                
+                // If auto-cleanup is enabled, we may want to trigger a background cleanup
+                // of other expired sessions, but that would be handled elsewhere
+                
                 return Err(SessionError::Timeout("Session has expired".to_string()).into());
             }
             
-            session.update_last_accessed();
             return Ok(session.clone());
         }
         
-        // If not found in memory, check persistence
-        if self.config.enable_persistence {
-            if let Some(persistence) = &self.persistence {
-                if let Ok(Some(session_data)) = persistence.load_session(token).await {
-                    let mut session = Session::from_session_data(session_data);
-                    if session.is_expired(self.config.timeout) {
-                        persistence.delete_session(token).await?;
-                        return Err(SessionError::Timeout("Session has expired".to_string()).into());
-                    }
+        // If not found in memory and persistence is enabled, try to load from persistence
+        drop(sessions); // Early drop the mutex lock before potentially expensive operation
+        
+        if let Some(persistence) = &self.persistence {
+            match persistence.load_session(token).await {
+                Ok(Some(session_data)) => {
+                    // Convert session data to session
+                    let session = Session::from_session_data(session_data);
                     
-                    session.update_last_accessed();
-                    sessions.insert(token.clone(), session.clone());
-                    return Ok(session);
+                    // If loaded from persistence, check if expired
+                    if !session.is_expired(Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)))) {
+                        // Add to in-memory cache if not expired
+                        self.sessions.write().await.insert(token.clone(), session.clone());
+                        return Ok(session);
+                    }
+                },
+                Ok(None) => {
+                    // Session not found in persistence
+                    return Err(SessionError::NotFound("Session not found in persistence".to_string()).into());
+                },
+                Err(e) => {
+                    // Error loading from persistence
+                    return Err(e);
                 }
             }
         }
@@ -348,65 +359,60 @@ impl SessionManager {
         Ok(())
     }
 
-    /// Delete all sessions for a user
-    ///
-    /// # Arguments
-    /// * `user_id` - The user ID whose sessions should be deleted
+    /// Delete all sessions for a specific user
     ///
     /// # Errors
-    /// Returns an error if:
-    /// - The persistence layer encounters an error while deleting the sessions
-    /// - One or more sessions cannot be removed from storage
+    /// Returns an error if the persistence layer encounters errors during cleanup.
     pub async fn delete_user_sessions(&self, user_id: &UserId) -> Result<()> {
         let mut sessions = self.sessions.write().await;
         let tokens_to_delete: Vec<SessionToken> = sessions
             .iter()
-            .filter(|(_, session)| session.user_id == *user_id)
-            .map(|(token, _)| token.clone())
+            .filter_map(|(token, session)| {
+                if &session.user_id == user_id {
+                    Some(token.clone())
+                } else {
+                    None
+                }
+            })
             .collect();
-            
+        
         for token in &tokens_to_delete {
             sessions.remove(token);
         }
+        drop(sessions); // Early drop the mutex lock
         
-        if self.config.enable_persistence {
-            if let Some(persistence) = &self.persistence {
-                for token in tokens_to_delete {
-                    persistence.delete_session(&token).await?;
-                }
+        // If persistence is enabled, delete from there too
+        if let Some(persistence) = &self.persistence {
+            for token in tokens_to_delete {
+                persistence.delete_session(&token).await?;
             }
         }
         
         Ok(())
     }
 
-    /// Refresh a session by creating a new one with the same token but reset expiration
+    /// Refresh a session, extending its timeout
+    ///
+    /// # Errors
+    /// Returns an error if the specified session token is not found,
+    /// if the persistence layer encounters errors when saving the refreshed session,
+    /// or if session data cannot be properly accessed or modified.
     pub async fn refresh_session(&self, session_token: &SessionToken) -> Result<Session> {
         // Get the existing session
         let sessions = self.sessions.read().await;
         let old_session = sessions.get(session_token)
-            .ok_or_else(|| MCPError::from(SessionError::NotFound("Session not found".to_string())))?;
+            .ok_or_else(|| SessionError::NotFound("Session not found".to_string()))?
+            .clone();
+        drop(sessions); // Early drop read lock before acquiring write lock
         
-        // Create a new session with the same token but updated creation time
-        let new_session = Session {
-            token: session_token.clone(),
-            user_id: old_session.user_id.clone(),
-            account_id: old_session.account_id.clone(),
-            role: old_session.role.clone(),
-            created_at: Utc::now(),
-            last_accessed: Utc::now(),
-            timeout: old_session.timeout.clone(),
-            auth_token: old_session.auth_token.clone(),
-            metadata: old_session.metadata.clone(),
-        };
+        // Create a new session with same token but updated last_accessed
+        let mut new_session = old_session;
+        new_session.last_accessed = Utc::now();
         
-        drop(sessions);
+        // Update the session in memory
+        self.sessions.write().await.insert(session_token.clone(), new_session.clone());
         
-        // Store the refreshed session
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session_token.clone(), new_session.clone());
-        
-        // Update in persistence if enabled
+        // If persistence is enabled, update there too
         if let Some(persistence) = &self.persistence {
             persistence.save_session(&new_session.to_session_data()).await?;
         }
@@ -416,35 +422,37 @@ impl SessionManager {
 
     /// Clean up expired sessions
     ///
-    /// # Returns
-    /// The number of expired sessions removed
-    ///
     /// # Errors
-    /// Returns an error if:
-    /// - The persistence layer encounters errors while removing expired sessions
-    /// - Session data cannot be properly accessed or modified
+    /// Returns an error if the persistence layer encounters errors during cleanup.
     pub async fn cleanup_expired_sessions(&self) -> Result<usize> {
-        let mut count = 0;
-        let mut sessions = self.sessions.write().await;
-        
-        let expired_tokens: Vec<SessionToken> = sessions
-            .iter()
-            .filter(|(_, session)| session.is_expired(self.config.timeout))
-            .map(|(token, _)| token.clone())
-            .collect();
-            
-        for token in &expired_tokens {
-            sessions.remove(token);
-            count += 1;
-        }
-        
-        if self.config.enable_persistence {
-            if let Some(persistence) = &self.persistence {
-                for token in expired_tokens {
-                    if let Err(e) = persistence.delete_session(&token).await {
-                        error!("Failed to delete expired session from persistence: {}", e);
+        // First get all expired tokens and remove them from memory
+        let expired_tokens = {
+            let mut sessions = self.sessions.write().await;
+            let tokens_to_delete: Vec<SessionToken> = sessions
+                .iter()
+                .filter_map(|(token, session)| {
+                    if session.is_expired(Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)))) {
+                        Some(token.clone())
+                    } else {
+                        None
                     }
-                }
+                })
+                .collect();
+            
+            // Remove all expired sessions from memory
+            for token in &tokens_to_delete {
+                sessions.remove(token);
+            }
+            
+            tokens_to_delete
+        }; // sessions lock is dropped here
+        
+        let count = expired_tokens.len();
+        
+        // Then clean up from persistence if enabled
+        if let Some(persistence) = &self.persistence {
+            for token in expired_tokens {
+                persistence.delete_session(&token).await?;
             }
         }
         
@@ -452,6 +460,22 @@ impl SessionManager {
     }
 
     /// Create a session from an existing token
+    ///
+    /// Creates a new session with a provided token and user ID.
+    /// This is useful when you want to reuse a token that was
+    /// previously generated or provided by an external system.
+    ///
+    /// # Arguments
+    /// * `token` - The token to use for the session
+    /// * `user_id` - The user ID to associate with the session
+    ///
+    /// # Returns
+    /// A Result containing the created session if successful
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// * The persistence layer encounters errors when saving the session
+    /// * Session data cannot be properly accessed or modified
     pub async fn create_session_from_token(&self, token: SessionToken, user_id: UserId) -> Result<Session> {
         let session = Session {
             token: token.clone(),
@@ -465,9 +489,10 @@ impl SessionManager {
             metadata: HashMap::new(),
         };
         
-        // Store the session
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(token, session.clone());
+        // Store the session - use a block to scope the mutex lock
+        {
+            self.sessions.write().await.insert(token, session.clone());
+        }
         
         // Persist the session if persistence is enabled
         if let Some(persistence) = &self.persistence {
@@ -477,66 +502,61 @@ impl SessionManager {
         Ok(session)
     }
 
-    /// Validate a session token
+    /// Handles validation of session with possible auto-cleanup
     pub async fn validate_session(&self, session_token: &SessionToken) -> Result<Session> {
-        let sessions = self.sessions.read().await;
-        if let Some(session) = sessions.get(session_token) {
-            // Check if session has timed out
-            if let Some(timeout) = self.config.timeout {
-                let session_age = SystemTime::now().duration_since(system_time_from_datetime(&session.created_at))
-                    .map_err(|_| MCPError::from(SessionError::InternalError("Could not calculate session age".to_string())))?;
-                
-                if session_age > timeout {
-                    drop(sessions); // Release the read lock before acquiring write lock
-                    
-                    // Handle session timeout and cleanup
+        // Try to get the session
+        match self.get_session(session_token).await {
+            Ok(session) => Ok(session),
+            Err(e) => {
+                // Check if this is a session timeout error
+                if let MCPError::Session(SessionError::Timeout(_)) = &e {
                     if self.config.auto_cleanup {
-                        let mut sessions = self.sessions.write().await;
-                        sessions.remove(session_token);
+                        self.sessions.write().await.remove(session_token);
                         
-                        // Also remove from persistence if enabled
+                        // For auto cleanup, just remove the token
+                        // Full cleanup will be handled by periodic maintenance tasks
                         if let Some(persistence) = &self.persistence {
-                            persistence.delete_session(session_token).await?;
+                            // Try to delete from persistence as well, but don't propagate errors
+                            let _ = persistence.delete_session(session_token).await;
                         }
                     }
-                    
-                    return Err(MCPError::from(SessionError::Timeout("Session has expired".to_string())));
                 }
+                Err(e)
             }
-            
-            Ok(session.clone())
-        } else {
-            Err(MCPError::from(SessionError::NotFound("Session not found".to_string())))
         }
     }
 
-    /// Create a copy of an existing session with a new token
+    /// Copy a session to a new token
+    ///
+    /// # Errors
+    /// Returns an error if the old session token is not found,
+    /// if the persistence layer encounters errors when saving the new session,
+    /// or if session data cannot be properly accessed or modified.
     pub async fn copy_session(&self, old_token: &SessionToken, new_token: SessionToken) -> Result<Session> {
         // Get the existing session
         let sessions = self.sessions.read().await;
         let old_session = sessions.get(old_token)
-            .ok_or_else(|| MCPError::from(SessionError::NotFound("Session not found".to_string())))?;
+            .ok_or_else(|| SessionError::NotFound("Session not found".to_string()))?
+            .clone();
+        drop(sessions); // Early drop the read lock before acquiring write lock
         
-        // Create a new session with a new token but same user and metadata
+        // Create new session with the new token but same data
         let new_session = Session {
             token: new_token.clone(),
             user_id: old_session.user_id.clone(),
             account_id: old_session.account_id.clone(),
             role: old_session.role.clone(),
-            created_at: Utc::now(), // Reset creation time for the new session
-            last_accessed: Utc::now(),
-            timeout: old_session.timeout.clone(),
+            created_at: Utc::now(), // New creation time
+            last_accessed: Utc::now(), // New access time
+            timeout: old_session.timeout,
             auth_token: old_session.auth_token.clone(),
             metadata: old_session.metadata.clone(),
         };
         
-        drop(sessions);
-        
         // Store the new session
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(new_token, new_session.clone());
+        self.sessions.write().await.insert(new_token, new_session.clone());
         
-        // Persist if enabled
+        // If persistence is enabled, store it there too
         if let Some(persistence) = &self.persistence {
             persistence.save_session(&new_session.to_session_data()).await?;
         }

@@ -188,7 +188,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///
@@ -212,7 +212,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///
@@ -232,14 +232,14 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///
     /// This method does not panic.
     pub fn record_histogram(&self, name: &str, value: Duration) {
         // Convert to milliseconds as f64 without precision loss
-        let millis = value.as_secs() as f64 * 1000.0 + value.subsec_millis() as f64;
+        let millis = (value.as_secs() as f64).mul_add(1000.0, f64::from(value.subsec_millis()));
         
         match self.histograms.write() {
             Ok(mut histograms_guard) => {
@@ -269,7 +269,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs errors if any of the underlying RwLocks are poisoned but continues operation with available data.
+    /// This method logs errors if any of the underlying `RwLocks` are poisoned but continues operation with available data.
     ///
     /// # Panics
     ///
@@ -324,7 +324,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///
@@ -344,7 +344,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///
@@ -364,7 +364,7 @@ impl MetricsCollector {
     /// 
     /// # Errors
     ///
-    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
     ///
     /// # Panics
     ///

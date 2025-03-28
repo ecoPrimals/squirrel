@@ -257,10 +257,8 @@ impl Message {
             MessageType::Response => MCPMessageType::Response,
             MessageType::Notification => MCPMessageType::Event,
             MessageType::Error => MCPMessageType::Error,
-            MessageType::Control => MCPMessageType::Setup,
-            MessageType::System => MCPMessageType::Setup,
-            MessageType::StreamChunk => MCPMessageType::Sync,
-            MessageType::Any => MCPMessageType::Sync,
+            MessageType::Control | MessageType::System => MCPMessageType::Setup,
+            MessageType::StreamChunk | MessageType::Any => MCPMessageType::Sync,
         };
 
         // Create a JSON payload from the message content and binary payload
@@ -305,6 +303,13 @@ impl Message {
     }
 
     /// Create a Message from an `MCPMessage`
+    ///
+    /// # Arguments
+    /// * `msg` - The MCP protocol message to convert
+    ///
+    /// # Errors
+    /// * Returns `MCPError::Protocol` if the message has an invalid format
+    /// * Returns `MCPError::Protocol` if the message content cannot be parsed
     pub async fn from_mcp_message(msg: &MCPMessage) -> crate::error::Result<Self> {
         // Extract content from payload
         let content = match msg.payload.get("content") {
@@ -458,13 +463,12 @@ impl MessageBuilder {
         self.message_type = Some(match message_type.as_ref() {
             "request" => MessageType::Request,
             "response" => MessageType::Response,
-            "notification" => MessageType::Notification,
-            "stream_chunk" => MessageType::StreamChunk,
             "error" => MessageType::Error,
             "control" => MessageType::Control,
             "system" => MessageType::System,
             "any" => MessageType::Any,
-            _ => MessageType::Notification,
+            // Default for both "notification" and "stream_chunk" is Notification
+            "notification" | "stream_chunk" | _ => MessageType::Notification,
         });
         self
     }
@@ -502,10 +506,10 @@ impl MessageBuilder {
     pub fn with_priority<T: AsRef<str>>(mut self, priority: T) -> Self {
         self.priority = match priority.as_ref() {
             "low" => MessagePriority::Low,
-            "normal" => MessagePriority::Normal,
             "high" => MessagePriority::High,
             "urgent" => MessagePriority::Urgent,
-            _ => MessagePriority::Normal,
+            // Default for both "normal" and others is Normal
+            "normal" | _ => MessagePriority::Normal,
         };
         self
     }
@@ -599,31 +603,49 @@ pub mod codec {
     use crate::error::transport::TransportError;
     
     /// Serialize a message to JSON
-    #[must_use]
+    ///
+    /// # Arguments
+    /// * `message` - The message to serialize
+    ///
+    /// # Errors
+    /// * Returns error if serialization fails
     pub fn serialize_message(message: &Message) -> Result<String> {
-        serde_json::to_string(message)
-            .map_err(|e| TransportError::SerializationError(e).into())
+        serde_json::to_string(message).map_err(Into::into)
     }
     
     /// Deserialize a message from JSON
-    #[must_use]
+    ///
+    /// # Arguments
+    /// * `json` - The JSON string to deserialize
+    ///
+    /// # Errors
+    /// * Returns error if deserialization fails
     pub fn deserialize_message(json: &str) -> Result<Message> {
-        serde_json::from_str(json)
-            .map_err(|e| TransportError::SerializationError(e).into())
+        serde_json::from_str(json).map_err(Into::into)
     }
     
-    /// Serialize a message to binary format (JSON in this implementation)
-    #[must_use]
+    /// Serialize a message to binary format
+    ///
+    /// # Arguments
+    /// * `message` - The message to serialize
+    ///
+    /// # Errors
+    /// * Returns error if serialization fails
     pub fn serialize_message_binary(message: &Message) -> Result<Vec<u8>> {
         serde_json::to_vec(message)
-            .map_err(|e| TransportError::SerializationError(e).into())
+            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e).into()))
     }
     
     /// Deserialize a message from binary format
-    #[must_use]
+    ///
+    /// # Arguments
+    /// * `data` - The binary data to deserialize
+    ///
+    /// # Errors
+    /// * Returns error if deserialization fails
     pub fn deserialize_message_binary(data: &[u8]) -> Result<Message> {
         serde_json::from_slice(data)
-            .map_err(|e| TransportError::SerializationError(e).into())
+            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e).into()))
     }
 }
 

@@ -16,6 +16,12 @@ use crate::plugins::versioning::{ProtocolVersion, VersionRequirement, ProtocolVe
 use crate::plugins::integration::MockPluginManager;
 
 /// Example function that sets up a basic plugin environment
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The tool manager fails to register the tool
+/// - There are issues with tool configuration or initialization
 pub async fn setup_basic_plugin_environment() -> Result<()> {
     // Create a tool manager
     let tool_manager = Arc::new(ToolManager::builder()
@@ -44,6 +50,13 @@ pub async fn setup_basic_plugin_environment() -> Result<()> {
 }
 
 /// Example function that demonstrates protocol versioning with plugins
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The version compatibility check fails
+/// - The protocol version conversion to semver format fails
+/// - The message compatibility check fails
 pub async fn protocol_versioning_example() -> Result<()> {
     // Create protocol version manager
     let version_manager = ProtocolVersionManager::new(

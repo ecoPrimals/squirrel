@@ -148,6 +148,12 @@ impl MessageRouter {
     }
 
     /// Register a message handler for specific message types
+    ///
+    /// # Arguments
+    /// * `handler` - The handler to register
+    ///
+    /// # Errors
+    /// * Returns `MCPError::MessageRouter` if the handler doesn't support any message types
     pub async fn register_handler<T>(&self, handler: Arc<T>) -> crate::error::Result<()> 
     where 
         T: MessageHandler + Send + Sync + 'static
@@ -155,12 +161,13 @@ impl MessageRouter {
         let message_types = handler.supported_message_types();
         if message_types.is_empty() {
             return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ConfigurationError(
-                "Handler must support at least one message type".to_string(),
+                "Handler does not support any message types".to_string()
             )));
         }
-        
-        // Register for each supported message type
+
+        // Acquire the lock once and modify
         let mut handlers = self.handlers.write().await;
+        
         for message_type in message_types {
             let handlers_map = handlers.entry(message_type.clone()).or_insert_with(HashMap::new);
             
@@ -170,19 +177,26 @@ impl MessageRouter {
             let handlers_vec = handlers_map.entry(handler_priority).or_insert_with(Vec::new);
             handlers_vec.push(handler.clone());
         }
-        
+
+        drop(handlers);
         Ok(())
     }
 
     /// Unregister a message handler
+    ///
+    /// # Arguments
+    /// * `handler` - The handler to unregister
+    ///
+    /// # Errors
+    /// * Returns `MCPError::MessageRouter` if the handler cannot be unregistered
     pub async fn unregister_handler<T>(&self, handler: &Arc<T>) -> crate::error::Result<()> 
     where 
         T: MessageHandler + Send + Sync + 'static
     {
         let message_types = handler.supported_message_types();
         
-        // Unregister from each supported message type
         let mut handlers = self.handlers.write().await;
+        
         for message_type in message_types {
             if let Some(handlers_map) = handlers.get_mut(&message_type) {
                 for handlers_vec in handlers_map.values_mut() {
@@ -190,11 +204,7 @@ impl MessageRouter {
                     if let Some(handler_id) = handler.id() {
                         let handler_id_clone = handler_id.clone();
                         handlers_vec.retain(|h| {
-                            if let Some(id) = h.id() {
-                                id != handler_id_clone
-                            } else {
-                                true
-                            }
+                            h.id().map_or(true, |id| id != handler_id_clone)
                         });
                     }
                 }
@@ -204,36 +214,37 @@ impl MessageRouter {
             }
         }
         
-        // Remove any empty entries
+        // Clean up message types that have no handlers
         handlers.retain(|_, handlers_map| !handlers_map.is_empty());
         
+        drop(handlers);
         Ok(())
     }
 
-    /// Route a message to appropriate handlers based on message type and priority
-    ///
-    /// This method sends the message to handlers registered for its message type,
-    /// starting with the highest priority handlers. If a handler returns a response,
-    /// that response is returned immediately (unless continue_after_response is true).
+    /// Route a message to the appropriate handler
+    /// 
+    /// This function will find handlers that can process the given message type,
+    /// and execute them in priority order. If a handler returns a response,
+    /// that response is returned immediately (unless `continue_after_response` is true).
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - Message validation fails (empty ID, invalid format, etc.)
-    /// - No handler is found for the message type
-    /// - All handlers for the message type fail to process the message
-    /// - All wildcard handlers fail to process the message
+    /// This function will return an error if:
+    /// - The message validation fails (`MCPError::MessageRouter` with `ValidationFailed` variant)
+    ///   - Empty message ID
+    ///   - Invalid message format
+    /// - No handler is found for the message type (`MCPError::MessageRouter` with `NoHandlerFound` variant)
+    /// - All handlers fail to process the message (handler-specific errors are propagated)
+    /// - Handler execution triggers an error that isn't handled internally
     ///
-    /// Even if a handler encounters an error, the router will continue trying other handlers
-    /// before returning a NoHandlerFound error.
     pub async fn route_message(&self, message: &Message) -> MessageHandlerResult {
         // Validate the message first
         self.validate_message(message).await?;
         
         // Get the message type as a string
         let message_type_str = message.message_type.to_string();
+        let continue_after_response = self.config.continue_after_response;
         
-        // Find handlers for this message type
         let handlers = self.handlers.read().await;
         
         // Standard handler lookup
@@ -248,7 +259,12 @@ impl MessageRouter {
                     for handler in handlers_vec {
                         // Try with this handler
                         match handler.handle_message(message.clone()).await {
-                            Ok(Some(response)) => return Ok(Some(response)),
+                            Ok(Some(response)) => {
+                                if !continue_after_response {
+                                    drop(handlers);
+                                    return Ok(Some(response));
+                                }
+                            }
                             Ok(None) => continue, // Handler chose not to handle
                             Err(e) => {
                                 error!("Handler error for message '{}': {}", message.id, e);
@@ -258,11 +274,6 @@ impl MessageRouter {
                     }
                 }
             }
-            
-            // If we're here, no handler actually handled the message
-            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::NoHandlerFound(
-                message_type_str
-            )));
         }
         
         // Try wildcard handlers if available
@@ -277,7 +288,12 @@ impl MessageRouter {
                     for handler in handlers_vec {
                         // Try with this handler
                         match handler.handle_message(message.clone()).await {
-                            Ok(Some(response)) => return Ok(Some(response)),
+                            Ok(Some(response)) => {
+                                if !continue_after_response {
+                                    drop(handlers);
+                                    return Ok(Some(response));
+                                }
+                            }
                             Ok(None) => continue, // Handler chose not to handle
                             Err(e) => {
                                 error!("Wildcard handler error for message '{}': {}", message.id, e);
@@ -287,14 +303,11 @@ impl MessageRouter {
                     }
                 }
             }
-            
-            // If we're here, no wildcard handler actually handled the message
-            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::NoHandlerFound(
-                message_type_str
-            )));
         }
         
-        // No handlers found at all
+        drop(handlers);
+        
+        // If we're here, no handler actually handled the message
         Err(crate::error::MCPError::MessageRouter(MessageRouterError::NoHandlerFound(
             message_type_str
         )))
@@ -324,14 +337,10 @@ impl MessageRouter {
     pub async fn get_handler_count(&self, message_type: &str) -> usize {
         let handlers = self.handlers.read().await;
         
-        if let Some(type_handlers) = handlers.get(message_type) {
-            type_handlers
-                .values()
-                .map(std::vec::Vec::len)
-                .sum()
-        } else {
-            0
-        }
+        handlers.get(message_type).map_or(0, |type_handlers| type_handlers
+            .values()
+            .map(std::vec::Vec::len)
+            .sum())
     }
 }
 

@@ -155,6 +155,26 @@ impl RetryMechanism {
     }
     
     /// Execute an operation with retry logic
+    ///
+    /// Executes the provided operation and automatically retries it if it fails,
+    /// according to the configured retry policy. The operation can be retried multiple 
+    /// times with increasing delays based on the backoff strategy.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The operation to execute, provided as a mutable closure that 
+    ///   returns a future
+    ///
+    /// # Returns
+    /// 
+    /// The result of the operation if successful within the allowed attempts
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RetryError` if:
+    /// * The maximum number of retry attempts is exceeded (`RetryError::MaxAttemptsExceeded`)
+    /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
+    /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
     pub async fn execute<F, T>(&self, mut operation: F) -> std::result::Result<T, RetryError>
     where
         F: FnMut() -> Pin<Box<dyn Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send>>,

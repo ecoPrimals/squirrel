@@ -203,17 +203,17 @@ impl AlertToRecoveryAdapter {
     /// # Arguments
     /// * `alert` - The monitoring alert to process
     ///
-    /// # Returns
-    /// * `Ok(())` if the alert was handled successfully
-    /// * `Err(MCPError)` if the recovery action failed
+    /// # Errors
+    /// * Returns `MCPError` if the health monitor cannot be updated with the alert
+    /// * Returns `MCPError` if the recovery action fails
     pub async fn handle_alert(&self, alert: MonitoringAlert) -> Result<(), MCPError> {
         // Extract component and severity information
         let component_id = alert.component_id.clone();
         let severity = match alert.severity {
-            AlertSeverity::Info => FailureSeverity::Minor,
-            AlertSeverity::Warning => FailureSeverity::Minor,
-            AlertSeverity::Error => FailureSeverity::Moderate,
+            AlertSeverity::Info | AlertSeverity::Warning => FailureSeverity::Minor,
+            AlertSeverity::Error => FailureSeverity::Severe,
             AlertSeverity::Critical => FailureSeverity::Critical,
+            AlertSeverity::Unknown => FailureSeverity::Moderate,
         };
         
         // Create failure info
@@ -246,6 +246,8 @@ pub enum AlertSeverity {
     Error,
     /// Critical alert, highest severity
     Critical,
+    /// Unknown alert, no severity information
+    Unknown,
 }
 
 /// Alert from the monitoring system
@@ -308,9 +310,10 @@ impl HealthMonitoringBridge {
     ///
     /// If the bridge is already running, this method does nothing.
     ///
-    /// # Returns
-    /// * `Ok(())` if the bridge was started successfully
-    /// * `Err(MCPError)` if the bridge could not be started
+    /// # Errors
+    /// * Returns `MCPError` if the bridge is already running
+    /// * Returns `MCPError` if the monitoring adapter fails to start
+    /// * Returns `MCPError` if the bridge task cannot be spawned
     pub async fn start(&self) -> Result<(), MCPError> {
         let mut running = self.running.write().await;
         if *running {
@@ -385,9 +388,9 @@ impl HealthMonitoringBridge {
     /// external monitoring system. If the bridge is not running,
     /// this method does nothing.
     ///
-    /// # Returns
-    /// * `Ok(())` if the bridge was stopped successfully
-    /// * `Err(MCPError)` if the bridge could not be stopped
+    /// # Errors
+    /// * Returns `MCPError` if the bridge is not running
+    /// * Returns `MCPError` if the monitoring adapter fails to stop
     pub async fn stop(&self) -> Result<(), MCPError> {
         let mut running = self.running.write().await;
         if !*running {
@@ -428,9 +431,8 @@ impl HealthMonitoringBridge {
     /// * `handler_id` - Unique identifier for the alert handler
     /// * `recovery_strategy` - Strategy to execute when an alert is triggered
     ///
-    /// # Returns
-    /// * `Ok(())` if registration was successful
-    /// * `Err(MCPError)` if registration failed
+    /// # Errors
+    /// * Returns `MCPError` if the handler cannot be registered
     pub async fn register_alert_handler(
         &self,
         handler_id: &str,
@@ -440,22 +442,16 @@ impl HealthMonitoringBridge {
     }
 }
 
-/// Initialize the integrated health monitoring system
-///
-/// This is a convenience function that sets up the complete health monitoring
-/// integration between MCP and an external monitoring system. It:
-/// 1. Creates a new monitoring bridge with default configuration
-/// 2. Starts the bridge immediately
-/// 3. Registers the provided recovery strategy for alerts
+/// Initialize an integrated health monitoring bridge
 ///
 /// # Arguments
-/// * `resilience_monitor` - Reference to the MCP health monitor
-/// * `monitoring_system` - Reference to the external monitoring system adapter
-/// * `recovery_strategy` - Strategy to execute when alerts are triggered
+/// * `resilience_monitor` - The resilience monitor to integrate with
+/// * `monitoring_system` - The monitoring system to connect to
+/// * `recovery_strategy` - The recovery strategy to use
 ///
-/// # Returns
-/// * `Ok(HealthMonitoringBridge)` - The initialized and running bridge instance
-/// * `Err(MCPError)` - If initialization failed
+/// # Errors
+/// * Returns `MCPError` if the bridge cannot be initialized
+/// * Returns `MCPError` if the monitoring adapter cannot be initialized
 pub async fn initialize_integrated_health_monitoring(
     resilience_monitor: Arc<HealthMonitor>,
     monitoring_system: Arc<dyn MonitoringAdapter + Send + Sync>,

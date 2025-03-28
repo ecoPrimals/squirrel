@@ -207,6 +207,13 @@ impl ProtocolVersionManager {
     }
     
     /// Check version compatibility from message
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The message does not contain a `protocol_version` field
+    /// - The `protocol_version` has an invalid format
+    /// - There is an error converting versions to semver format
     pub fn check_message_compatibility(&self, message: &Value) -> Result<bool> {
         // Extract version from message
         let version_value = message.get("protocol_version")
@@ -247,6 +254,12 @@ impl ProtocolVersionManager {
     }
     
     /// Check if the current version is compatible with a requirement
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - There is an error converting versions to semver format
+    /// - The semver requirement cannot be parsed
     pub fn is_compatible_with_requirement(&self, requirement: &VersionRequirement) -> Result<bool> {
         self.current_version.is_compatible_with(requirement)
     }

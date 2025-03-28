@@ -274,6 +274,13 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
     /// # Returns
     ///
     /// Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The frame is too large (exceeds `MAX_FRAME_SIZE`)
+    /// - There is an I/O error while writing the header or payload
+    /// - The writer cannot be flushed
     pub async fn write_frame(&mut self, frame: Frame) -> crate::error::Result<()> {
         // Check frame size
         if frame.len() > MAX_FRAME_SIZE {
@@ -344,6 +351,11 @@ impl MessageCodec {
     /// # Returns
     ///
     /// Result containing the encoded frame or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The message cannot be serialized to JSON
     pub async fn encode_message(&self, message: &MCPMessage) -> crate::error::Result<Frame> {
         // Serialize the message to JSON
         let json = serde_json::to_vec(message)
@@ -370,6 +382,12 @@ impl MessageCodec {
     /// # Returns
     ///
     /// Result containing the decoded message or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The frame data cannot be deserialized into an `MCPMessage`
+    /// - The JSON data in the frame is invalid or malformed
     pub async fn decode_message(&self, frame: &Frame) -> crate::error::Result<MCPMessage> {
         // Deserialize the message from JSON
         let message = serde_json::from_slice(&frame.payload)

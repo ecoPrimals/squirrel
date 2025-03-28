@@ -171,6 +171,26 @@ impl RecoveryStrategy {
     }
     
     /// Handle a failure by attempting recovery
+    ///
+    /// Executes the provided recovery action based on the failure information and
+    /// recovery configuration. The recovery action is only executed if the maximum
+    /// number of attempts for the given severity level has not been exceeded.
+    ///
+    /// # Arguments
+    ///
+    /// * `failure` - Information about the failure
+    /// * `recovery_action` - The action to take to recover from the failure
+    ///
+    /// # Returns
+    ///
+    /// The result of the recovery action if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The maximum number of recovery attempts for the given severity has been exceeded
+    /// * Recovery for critical failures is disabled in the configuration
+    /// * The recovery action itself fails
     pub fn handle_failure<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
         F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
@@ -257,6 +277,27 @@ impl RecoveryStrategy {
     }
     
     /// Handle a failure with a timeout
+    ///
+    /// Similar to `handle_failure` but with an added timeout constraint. If the recovery
+    /// takes longer than the specified timeout, a timeout error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `failure` - Information about the failure
+    /// * `timeout` - Maximum duration allowed for recovery
+    /// * `recovery_action` - The action to take to recover from the failure
+    ///
+    /// # Returns
+    ///
+    /// The result of the recovery action if successful and completed within timeout
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The recovery operation exceeds the specified timeout
+    /// * The maximum number of recovery attempts for the given severity has been exceeded
+    /// * Recovery for critical failures is disabled in the configuration
+    /// * The recovery action itself fails
     pub fn handle_failure_with_timeout<F, R>(&mut self, failure: FailureInfo, timeout: Duration, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
         F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
@@ -271,6 +312,25 @@ impl RecoveryStrategy {
         }
     }
 
+    /// Execute an operation with recovery capability
+    ///
+    /// Executes the provided operation and returns its result. If implemented, this would
+    /// catch failures and apply recovery strategies automatically.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The operation to execute
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The operation fails and recovery is not possible
+    /// * The recovery process itself fails
+    /// * The current implementation will always return an error as it is not yet implemented
     pub fn execute<F, R>(&self, operation: F) -> std::result::Result<R, RecoveryError>
     where
         F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,

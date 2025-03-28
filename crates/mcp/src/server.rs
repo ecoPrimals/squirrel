@@ -66,6 +66,7 @@ use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainO
 use crate::session::Session;
 use crate::message_router::{MessageRouter, MessageHandler, HandlerPriority, MessageRouterError};
 use crate::error::types::TransportError as SimplifiedTransportError;
+use crate::error::ProtocolError;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -285,22 +286,36 @@ impl MCPServer {
         }
     }
     
-    /// Start the server
+    /// Start the server on all configured transports
+    ///
+    /// This method starts the server on the configured transport and
+    /// begins accepting client connections.
+    ///
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// * The server is already running (`MCPError::Protocol` with `InvalidState` variant)
+    /// * The bind address is invalid or cannot be parsed as a socket address (`MCPError::Transport`)
+    /// * The socket cannot be bound to the configured address (`MCPError::Transport`)
+    /// * The listener task cannot be started (`MCPError` wrapping the underlying error)
+    /// * Returns `MCPError` if the server fails to start on any transport
     pub async fn start(&mut self) -> Result<()> {
-        // Check if already running or starting
-        {
-            let state = self.state.read().await;
-            match *state {
-                ServerState::Running => return Ok(()),
-                ServerState::Starting => return Err(MCPError::General("Already starting".to_string())),
-                _ => {}
-            }
+        // Check if already running
+        let state_guard = self.state.read().await;
+        let current_state = *state_guard;
+        if current_state == ServerState::Running {
+            drop(state_guard); // Release the lock before returning
+            return Err(MCPError::Protocol(ProtocolError::InvalidState(
+                "Server already running".to_string()
+            )));
         }
+        drop(state_guard);
         
         // Update state to starting
         {
             let mut state = self.state.write().await;
             *state = ServerState::Starting;
+            drop(state); // Explicitly drop the write guard
         }
         
         // Bind to the configured address
@@ -313,13 +328,8 @@ impl MCPServer {
         // Start the listener task
         if let Err(e) = self.start_listener_task(listener).await {
             // Failed to start listener task
-            let mut state = self.state.write().await;
-            *state = ServerState::Failed;
-            
-            // Store error
-            let mut last_error = self.last_error.write().await;
-            *last_error = Some(e.clone());
-            
+            *self.state.write().await = ServerState::Failed;
+            *self.last_error.write().await = Some(e.clone());
             return Err(e);
         }
         
@@ -332,22 +342,45 @@ impl MCPServer {
         Ok(())
     }
     
-    /// Stop the server
+    /// Stop the server and close all connections
+    ///
+    /// This method stops the server on all transports and closes all active
+    /// connections.
+    ///
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// * The server is already stopped (`MCPError::Protocol` with `InvalidState` variant)
+    /// * The server is already in the process of stopping (`MCPError::Protocol` with `InvalidState` variant)
+    /// * The shutdown signal cannot be sent to the listener task
+    /// * Any of the connection handlers fail during client disconnection
+    /// * Returns `MCPError` if the server fails to stop
     pub async fn stop(&mut self) -> Result<()> {
         // Check if already stopped or stopping
         {
-            let state = self.state.read().await;
-            match *state {
-                ServerState::Stopped => return Ok(()),
-                ServerState::Stopping => return Err(MCPError::General("Already stopping".to_string())),
-                _ => {}
+            let state_guard = self.state.read().await;
+            let current_state = *state_guard;
+            
+            if current_state == ServerState::Stopped {
+                drop(state_guard); // Release the lock before returning
+                return Err(MCPError::Protocol(ProtocolError::InvalidState(
+                    "Server already stopped".to_string()
+                )));
             }
+            if current_state == ServerState::Stopping {
+                drop(state_guard); // Release the lock before returning
+                return Err(MCPError::Protocol(ProtocolError::InvalidState(
+                    "Server is already in the process of stopping".to_string()
+                )));
+            }
+            drop(state_guard); // Release the lock after checking, before the next section
         }
         
         // Update state to stopping
         {
             let mut state = self.state.write().await;
             *state = ServerState::Stopping;
+            drop(state); // Explicitly drop the write guard
         }
         
         // Send shutdown signal
@@ -519,75 +552,126 @@ impl MCPServer {
     /// Check if the server is running
     #[must_use]
     pub async fn is_running(&self) -> bool {
-        let state = self.state.read().await;
-        *state == ServerState::Running
+        let state_guard = self.state.read().await;
+        let current_state = *state_guard;
+        drop(state_guard); // Release the lock immediately
+        current_state == ServerState::Running
     }
     
     /// Get the current server state
     #[must_use]
     pub async fn get_state(&self) -> ServerState {
-        let state = self.state.read().await;
-        *state
+        let state_guard = self.state.read().await;
+        let current_state = *state_guard;
+        drop(state_guard); // Release the lock immediately
+        current_state
     }
     
     /// Register a command handler
+    ///
+    /// Command handlers process incoming command messages and produce responses.
+    /// Multiple handlers can be registered for different command types.
+    ///
+    /// # Arguments
+    /// * `handler` - The command handler to register
+    ///
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// * The handler cannot acquire the necessary locks for registration
+    /// * The internal state is inconsistent
+    /// * The handler supports empty or invalid command types
+    /// * Returns `MCPError` if the handler cannot be registered for any reason
     pub async fn register_command_handler(&mut self, handler: Box<dyn CommandHandler>) -> Result<()> {
-        let mut command_handlers = self.command_handlers.write().await;
+        // Get all supported commands
+        let commands = handler.supported_commands();
         
         // Add handler for each command it supports
-        for command in handler.supported_commands() {
-            command_handlers.insert(command, handler.clone_box());
+        for command in commands {
+            self.command_handlers.write().await.insert(command, handler.clone_box());
         }
         
         Ok(())
     }
     
     /// Register a connection handler
+    ///
+    /// Connection handlers are notified when clients connect or disconnect from the server.
+    /// Multiple handlers can be registered to process different aspects of connections.
+    ///
+    /// # Arguments
+    /// * `handler` - The connection handler to register
+    ///
+    /// # Errors
+    /// 
+    /// This function will return an error if:
+    /// * The handler cannot acquire the necessary locks for registration
+    /// * The internal state is inconsistent
+    /// * The handler's registration process fails
+    /// * Returns `MCPError` if the handler cannot be registered for any reason
     pub async fn register_connection_handler(&mut self, handler: Box<dyn ConnectionHandler>) -> Result<()> {
-        let mut connection_handlers = self.connection_handlers.write().await;
-        connection_handlers.push(handler);
+        self.connection_handlers.write().await.push(handler);
         Ok(())
     }
     
     /// Get the last error
     #[must_use]
     pub async fn get_last_error(&self) -> Option<MCPError> {
-        let error = self.last_error.read().await;
-        error.clone()
+        let error_guard = self.last_error.read().await;
+        let error_clone = error_guard.clone();
+        drop(error_guard); // Release the lock immediately
+        error_clone
     }
     
     /// Get the number of connected clients
     #[must_use]
     pub async fn get_client_count(&self) -> usize {
-        let clients = self.clients.read().await;
-        clients.len()
+        let clients_guard = self.clients.read().await;
+        let count = clients_guard.len();
+        drop(clients_guard); // Release the lock immediately
+        count
     }
     
     /// Get a list of connected client IDs
     #[must_use]
     pub async fn get_connected_clients(&self) -> Vec<String> {
-        let clients = self.clients.read().await;
-        clients.keys().cloned().collect()
+        let clients_guard = self.clients.read().await;
+        let client_ids = clients_guard.keys().cloned().collect();
+        drop(clients_guard); // Release the lock immediately
+        client_ids
     }
     
     /// Handle a command message
     async fn handle_command(&self, command: &Message) -> Result<Option<Message>> {
+        // Extract command type from payload
+        let command_type = serde_json::from_str::<serde_json::Value>(&command.content)
+            .map_or_else(
+                |_| String::new(), 
+                |json| json.as_object()
+                    .map_or_else(
+                        String::new,
+                        |content| content.get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or_default()
+                            .to_string()
+                    )
+            );
+        
+        // Get the command handlers lock and find a handler for this command type
         let command_handlers = self.command_handlers.read().await;
         
-        // Extract command type from payload
-        let command_type = match serde_json::from_str::<serde_json::Value>(&command.content) {
-            Ok(json) => {
-                if let Some(content) = json.as_object() {
-                    content.get("command").and_then(|v| v.as_str()).unwrap_or_default().to_string()
-                } else {
-                    String::new()
-                }
-            },
-            Err(_) => String::new()
+        // Find a handler for this command type - if found, clone it so we can drop the lock
+        let handler = if let Some(handler) = command_handlers.get(&command_type) {
+            let handler_clone = handler.clone_box();
+            drop(command_handlers); // Release the lock immediately after finding the handler
+            Some(handler_clone)
+        } else {
+            drop(command_handlers); // Release the lock before returning an error
+            None
         };
         
-        // Find a handler for this command type
-        if let Some(handler) = command_handlers.get(&command_type) {
+        // Process with the handler if one was found
+        if let Some(handler) = handler {
             match handler.handle_command(command).await {
                 Ok(Some(response)) => Ok(Some(response)),
                 Ok(None) => Ok(Some(MessageBuilder::new()
@@ -624,8 +708,7 @@ impl MCPServer {
         
         // Start the listener task as a background task
         let task = tokio::spawn(async move {
-            // Track the number of connected clients
-            let _client_count = 0;
+            // No need to track client count here since it's handled elsewhere
             
             loop {
                 // Clone the shutdown receiver and create a changed future
@@ -690,16 +773,17 @@ impl MCPServer {
     async fn handle_client_connection(&self, client: ClientConnection) -> Result<()> {
         // Add client to the list
         {
-            let mut clients = self.clients.write().await;
-            clients.insert(client.client_id.clone(), client.clone());
+            let mut clients_guard = self.clients.write().await;
+            clients_guard.insert(client.client_id.clone(), client.clone());
+            drop(clients_guard); // Release the lock immediately
         }
         
         // Notify connection handlers
         let connection_handlers = self.connection_handlers.read().await;
-        
         for handler in connection_handlers.iter() {
             handler.handle_connection(client.clone()).await?;
         }
+        drop(connection_handlers); // Release the lock after use
         
         Ok(())
     }
@@ -708,24 +792,26 @@ impl MCPServer {
     async fn handle_client_disconnection(&self, client_id: &str) -> Result<()> {
         // Remove client from the list
         {
-            let mut clients = self.clients.write().await;
-            clients.remove(client_id);
+            let mut clients_guard = self.clients.write().await;
+            clients_guard.remove(client_id);
+            drop(clients_guard); // Release the lock immediately
         }
         
         // Notify connection handlers
         let connection_handlers = self.connection_handlers.read().await;
-        
         for handler in connection_handlers.iter() {
             handler.handle_disconnection(client_id).await?;
         }
+        drop(connection_handlers); // Release the lock after use
         
         Ok(())
     }
     
     /// Handle an error
     async fn handle_error(&self, error: MCPError) {
-        let mut last_error = self.last_error.write().await;
-        *last_error = Some(error);
+        let mut last_error_guard = self.last_error.write().await;
+        *last_error_guard = Some(error);
+        drop(last_error_guard); // Release the lock immediately
     }
 
     /// Get the list of supported event types

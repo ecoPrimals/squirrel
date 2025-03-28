@@ -83,14 +83,15 @@ impl fmt::Display for HealthStatus {
 
 impl HealthStatus {
     /// Convert health status to failure severity
+    ///
+    /// Maps the health status to an appropriate failure severity level
+    /// for use with resilience mechanisms.
     #[must_use] pub const fn to_failure_severity(&self) -> Option<FailureSeverity> {
         match self {
-            Self::Healthy => None, // No failure
-            Self::Degraded => Some(FailureSeverity::Minor),
-            Self::Warning => Some(FailureSeverity::Minor),
-            Self::Unhealthy => Some(FailureSeverity::Moderate),
+            Self::Healthy => None, // No failure for healthy status
+            Self::Warning | Self::Degraded => Some(FailureSeverity::Minor),
+            Self::Unhealthy | Self::Unknown => Some(FailureSeverity::Moderate),
             Self::Critical => Some(FailureSeverity::Critical),
-            Self::Unknown => Some(FailureSeverity::Moderate),
         }
     }
     
@@ -345,20 +346,32 @@ impl HealthMonitor {
         Self::new(100) // Default to 100 history entries
     }
     
-    /// Set the recovery strategy for this health monitor
+    /// Add a recovery strategy to this component
+    ///
+    /// # Arguments
+    /// * `recovery` - The recovery strategy to use for this component
+    #[must_use]
     pub fn with_recovery(mut self, recovery: Arc<Mutex<RecoveryStrategy>>) -> Self {
         self.recovery = Some(recovery);
         self
     }
     
     /// Register a health check with the monitor
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the write lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
     pub fn register<H: HealthCheck + 'static>(&mut self, health_check: H) -> crate::error::Result<()> {
         let id = health_check.id().to_string();
         self.health_checks.insert(id.clone(), Box::new(health_check));
         
         // Initialize a tracker for this component if it doesn't exist
         let mut trackers = self.component_trackers.write().map_err(|e| {
-            crate::error::MCPError::General(format!("Failed to acquire write lock for component trackers: {}", e))
+            crate::error::MCPError::General(format!("Failed to acquire write lock for component trackers: {e}"))
         })?;
         
         if !trackers.contains_key(&id) {
@@ -368,10 +381,19 @@ impl HealthMonitor {
             );
         }
         
+        drop(trackers);
         Ok(())
     }
     
     /// Unregister a health check from the monitor
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the write lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
     pub fn unregister(&mut self, id: &str) -> bool {
         let result = self.health_checks.remove(id).is_some();
         
@@ -382,34 +404,74 @@ impl HealthMonitor {
     }
     
     /// Get the current status of a component
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the read lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
     pub fn component_status(&self, component_id: &str) -> HealthStatus {
         match self.component_trackers.read() {
             Ok(trackers) => trackers.get(component_id)
                 .map_or(HealthStatus::Unknown, |tracker| tracker.current_status),
-            Err(_) => HealthStatus::Unknown // Return Unknown if we can't access the trackers
+            Err(_) => HealthStatus::Unknown
         }
     }
     
     /// Get the most recent health check result for a component
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the read lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
     pub fn last_check_result(&self, component_id: &str) -> Option<HealthCheckResult> {
         match self.component_trackers.read() {
             Ok(trackers) => trackers.get(component_id)
                 .and_then(|tracker| tracker.last_result().cloned()),
-            Err(_) => None // Return None if we can't access the trackers
+            Err(_) => None
         }
     }
     
     /// Get the current status of all components
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the read lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
     pub fn all_statuses(&self) -> HashMap<String, HealthStatus> {
         match self.component_trackers.read() {
             Ok(trackers) => trackers.iter()
                 .map(|(id, tracker)| (id.clone(), tracker.current_status))
                 .collect(),
-            Err(_) => HashMap::new() // Return empty map if we can't access the trackers
+            Err(_) => HashMap::new()
         }
     }
     
-    /// Run a health check for a specific component
+    /// Check the health of a specific component
+    ///
+    /// This method will run the health check for the specified component and
+    /// update its status in the health monitor. It will also trigger recovery
+    /// actions if the component status requires it.
+    ///
+    /// # Returns
+    /// 
+    /// Returns `Some(HealthCheckResult)` if the component was found and checked,
+    /// or `None` if no health check was registered for this component.
+    ///
+    /// # Panics
+    ///
+    /// This method might panic if:
+    /// - The health check implementation itself panics
+    /// - The lock for the component tracker is poisoned (indicates a prior panic)
+    /// - Memory allocation fails for internal data structures
     pub async fn check_component(&self, component_id: &str) -> Option<HealthCheckResult> {
         if let Some(check) = self.health_checks.get(component_id) {
             // Perform the health check
@@ -421,16 +483,13 @@ impl HealthMonitor {
                     Ok(mut trackers) => {
                         let should_recover = if let Some(tracker) = trackers.get_mut(component_id) {
                             tracker.update(result.clone());
-                            
-                            // Check if we should trigger recovery
                             tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
                         } else {
                             false
                         };
-                        
                         should_recover
                     },
-                    Err(_) => false // Can't trigger recovery if we can't update trackers
+                    Err(_) => false
                 }
             }; // trackers lock is dropped here
             
@@ -451,6 +510,21 @@ impl HealthMonitor {
     }
     
     /// Run health checks for all registered components
+    ///
+    /// This method will run all registered health checks and update the status
+    /// of each component in the health monitor. It will also trigger recovery
+    /// actions for components that require it.
+    ///
+    /// # Returns
+    ///
+    /// Returns a map of component IDs to their health check results.
+    ///
+    /// # Panics
+    ///
+    /// This method might panic if:
+    /// - Any of the health check implementations panic
+    /// - The locks for component trackers are poisoned (indicates a prior panic)
+    /// - Memory allocation fails for internal data structures
     pub async fn check_all(&self) -> HashMap<String, HealthCheckResult> {
         let mut results = HashMap::new();
         

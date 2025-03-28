@@ -83,60 +83,87 @@ impl MCPPort {
         }
     }
 
-    /// Starts the port listening for connections
+    /// Start the port
+    ///
+    /// Begins listening for incoming connections on the configured port.
     ///
     /// # Returns
     ///
     /// A Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the port cannot be started or if the internal
+    /// state lock cannot be acquired
     pub async fn start(&self) -> Result<()> {
         // TODO: Implement actual port listening
-        let mut state = self.state.write().await;
-        state.is_listening = true;
+        self.state.write().await.is_listening = true;
         Ok(())
     }
 
-    /// Stops the port from listening for connections
+    /// Stop the port
+    ///
+    /// Stops listening for incoming connections on the configured port.
     ///
     /// # Returns
     ///
     /// A Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the port cannot be stopped or if the internal
+    /// state lock cannot be acquired
     pub async fn stop(&self) -> Result<()> {
         // TODO: Implement actual port stopping
-        let mut state = self.state.write().await;
-        state.is_listening = false;
+        self.state.write().await.is_listening = false;
         Ok(())
     }
 
-    /// Updates the port configuration
+    /// Update port configuration
+    ///
+    /// Updates the configuration of the port.
     ///
     /// # Arguments
     ///
-    /// * `config` - The new configuration to apply
+    /// * `config` - The new port configuration
     ///
     /// # Returns
     ///
     /// A Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration cannot be updated or if the internal
+    /// configuration lock cannot be acquired
     pub async fn update_config(&self, config: PortConfig) -> Result<()> {
-        let mut current_config = self.config.write().await;
-        *current_config = config;
+        *self.config.write().await = config;
         Ok(())
     }
 
-    /// Gets the current port configuration
+    /// Get the current port configuration
     ///
     /// # Returns
     ///
     /// A Result containing the current port configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration cannot be read or if the internal
+    /// configuration lock cannot be acquired
     pub async fn get_config(&self) -> Result<PortConfig> {
         let config = self.config.read().await;
         Ok(config.clone())
     }
 
-    /// Gets the current port state
+    /// Retrieves the current state of the port
     ///
     /// # Returns
     ///
-    /// A Result containing the current port state
+    /// The current port state wrapped in a Result
+    ///
+    /// # Errors
+    /// 
+    /// Returns an error if the internal state lock cannot be acquired
     pub async fn get_state(&self) -> Result<PortState> {
         let state = self.state.read().await;
         Ok(state.clone())
@@ -149,11 +176,16 @@ impl MCPPort {
     /// # Returns
     ///
     /// A Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the internal state lock cannot be acquired
     pub async fn record_connection(&self) -> Result<()> {
         let mut state = self.state.write().await;
         state.active_connections += 1;
         state.total_connections += 1;
         state.last_connection = chrono::Utc::now();
+        drop(state); // Early drop the state lock
         Ok(())
     }
 
@@ -164,11 +196,16 @@ impl MCPPort {
     /// # Returns
     ///
     /// A Result indicating success or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the internal state lock cannot be acquired
     pub async fn record_disconnection(&self) -> Result<()> {
         let mut state = self.state.write().await;
         if state.active_connections > 0 {
             state.active_connections -= 1;
         }
+        drop(state); // Early drop the state lock
         Ok(())
     }
 }

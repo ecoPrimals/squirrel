@@ -156,6 +156,25 @@ impl CircuitBreaker {
     }
     
     /// Execute an operation with the circuit breaker
+    ///
+    /// Runs an asynchronous operation using the circuit breaker pattern to prevent
+    /// cascading failures. The operation will only be executed if the circuit is closed
+    /// or in a half-open test state.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The operation to execute, provided as a closure that returns a future
+    ///
+    /// # Returns
+    /// 
+    /// The result of the operation if successful, or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * The circuit breaker is open (`CircuitBreakerError::CircuitOpen`)
+    /// * The operation fails (`CircuitBreakerError::OperationFailed`)
+    /// * The fallback function returns an error when the circuit is open
     pub async fn execute<F, T>(&mut self, operation: F) -> Result<T>
     where
         F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>> + Send>>,

@@ -3,7 +3,7 @@
 //! This module provides compression and decompression capabilities for MCP messages.
 //! It supports various compression formats, such as Zstd, Gzip, and LZ4.
 
-use crate::error::{Result, MCPError};
+use crate::error::Result;
 use crate::types::CompressionFormat;
 
 #[cfg(feature = "gzip")]
