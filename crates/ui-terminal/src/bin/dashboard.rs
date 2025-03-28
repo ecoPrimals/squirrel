@@ -1,72 +1,55 @@
 use std::error::Error;
-use std::io;
+use std::sync::Arc;
 
 use clap::Parser;
-use crossterm;
-use dashboard_core::config::DashboardConfig;
-use dashboard_core::service::DefaultDashboardService;
-use ui_terminal::TuiDashboard;
+use dashboard_core::{
+    config::DashboardConfig, 
+    service::{DashboardService, DefaultDashboardService}
+};
 
-#[derive(Parser)]
-#[clap(
-    name = "MCP Dashboard",
-    about = "A terminal dashboard for MCP metrics",
-    disable_help_flag = true
-)]
+/// Command line arguments for the terminal UI dashboard
+#[derive(Parser, Debug)]
+#[clap(author, version, about)]
 struct Args {
-    /// Update interval in milliseconds
-    #[clap(short, long)]
-    interval: Option<u64>,
+    /// Enable monitoring mode
+    #[clap(long, short = 'm')]
+    monitoring: bool,
     
-    /// Maximum history points to keep
-    #[clap(short = 'p', long)]
-    history_points: Option<usize>,
+    /// Update interval in seconds
+    #[clap(long, short = 'i', default_value = "5")]
+    interval: u64,
     
-    /// Display help in the UI
-    #[clap(short = 'h', long = "show-help")]
-    show_help: bool,
+    /// Maximum number of history points to keep
+    #[clap(long, short = 'p', default_value = "100")]
+    history_points: usize,
+    
+    /// Run in demo mode (no real monitoring)
+    #[clap(long, short = 'd')]
+    demo: bool,
 }
 
 /// Dashboard application entry point
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt::init();
-    
     // Parse command line arguments
     let args = Args::parse();
     
     // Create dashboard configuration
-    let mut config = DashboardConfig::default();
+    let config = DashboardConfig::default()
+        .with_update_interval(args.interval)
+        .with_max_history_points(args.history_points);
     
-    // Override config with command line args
-    if let Some(interval) = args.interval {
-        config.update_interval = interval;
-    }
+    // Create the dashboard service
+    let (dashboard_service, _rx) = DefaultDashboardService::new(config);
     
-    if let Some(points) = args.history_points {
-        config.max_history_points = points;
-    }
+    // Start the dashboard service
+    dashboard_service.start().await?;
     
-    // Create dashboard service
-    let (dashboard_service, _) = DefaultDashboardService::new(config);
+    // Convert to Arc<dyn DashboardService> for the run_simplified function
+    let dashboard_service_arc: Arc<dyn DashboardService> = dashboard_service;
     
-    // Setup the dashboard UI
-    let mut dashboard = TuiDashboard::new(dashboard_service);
-    
-    // Set show help flag (if needed)
-    dashboard.set_show_help(args.show_help);
-    
-    // Run the dashboard
-    dashboard.run().await?;
-    
-    // Restore terminal
-    crossterm::terminal::disable_raw_mode()?;
-    crossterm::execute!(
-        io::stdout(),
-        crossterm::terminal::LeaveAlternateScreen,
-        crossterm::event::DisableMouseCapture
-    )?;
+    // Run the simplified UI with the dashboard service
+    ui_terminal::run_simplified(dashboard_service_arc, args.demo).await?;
     
     Ok(())
 } 

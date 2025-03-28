@@ -6,14 +6,18 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use sysinfo::{System, SystemExt, NetworkExt, NetworksExt};
+use sysinfo::{
+    System, 
+    SystemExt, 
+    NetworkExt
+};
 use squirrel_core::error::Result;
 use tracing::debug;
 use serde::{Serialize, Deserialize};
 use tokio::time::{sleep, Duration};
 
-// Define a type alias for 's' to fix compilation issues
-type s = System;
+// Define a type alias for 'S' to fix compilation issues
+type S = System;
 
 /// Module for adapter implementations of network monitoring functionality
 pub mod adapter;

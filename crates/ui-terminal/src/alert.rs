@@ -4,7 +4,6 @@ use uuid::Uuid;
 use std::sync::Mutex;
 use serde::{Serialize, Deserialize};
 use dashboard_core::data::{Alert as DashboardAlert, AlertSeverity as DashboardAlertSeverity};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Alert severity levels
@@ -293,6 +292,12 @@ impl AlertManager {
     pub fn to_dashboard_alerts(&self) -> Vec<DashboardAlert> {
         let active = self.get_active_alerts();
         active.iter().map(|a| a.to_dashboard_alert()).collect()
+    }
+}
+
+impl Default for AlertManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

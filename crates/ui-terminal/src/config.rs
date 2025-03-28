@@ -165,6 +165,7 @@ mod duration_ms {
     use std::time::Duration;
     use serde::{Deserialize, Deserializer, Serializer};
     
+    #[allow(dead_code)]
     pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -173,6 +174,7 @@ mod duration_ms {
         serializer.serialize_u64(millis)
     }
     
+    #[allow(dead_code)]
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
     where
         D: Deserializer<'de>,
@@ -180,4 +182,29 @@ mod duration_ms {
         let millis = u64::deserialize(deserializer)?;
         Ok(Duration::from_millis(millis))
     }
+}
+
+/// Get the default configuration path
+pub fn default_config_path() -> PathBuf {
+    Config::get_config_path().unwrap_or_else(|_| {
+        if let Some(proj_dirs) = ProjectDirs::from("com", "datasciencebiolab", "mcp-dashboard") {
+            proj_dirs.config_dir().join("config.toml")
+        } else {
+            PathBuf::from("config.toml")
+        }
+    })
+}
+
+/// Load configuration from the specified path
+pub fn load_config(path: &str) -> Result<Config, ConfigError> {
+    let config_path = PathBuf::from(path);
+    
+    if !config_path.exists() {
+        return Ok(Config::default());
+    }
+    
+    let config_str = fs::read_to_string(config_path)?;
+    let config = toml::from_str(&config_str)?;
+    
+    Ok(config)
 } 

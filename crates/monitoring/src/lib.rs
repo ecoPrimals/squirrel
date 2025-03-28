@@ -55,6 +55,9 @@ pub mod plugins;
 /// This module provides a clean API for accessing monitoring data from other crates.
 pub mod api;
 
+/// Module for adapters to connect monitoring to other systems
+pub mod adapter;
+
 #[cfg(feature = "analytics")]
 /// Module for analytics
 pub mod analytics;

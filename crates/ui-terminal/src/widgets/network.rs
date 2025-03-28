@@ -111,9 +111,18 @@ impl<'a> NetworkWidget<'a> {
         
         // Create interface table with all rows
         let rows_with_header = std::iter::once(header).chain(rows).collect::<Vec<_>>();
-        let table = Table::new(rows_with_header)
+        let table = Table::new(
+            rows_with_header,
+            [
+                Constraint::Percentage(20),
+                Constraint::Percentage(10),
+                Constraint::Percentage(25),
+                Constraint::Percentage(25),
+                Constraint::Percentage(20),
+            ]
+        )
             .block(Block::default().borders(Borders::ALL).title("Interface Details"))
-            .widths(&[
+            .widths([
                 Constraint::Percentage(20),
                 Constraint::Percentage(10),
                 Constraint::Percentage(25),

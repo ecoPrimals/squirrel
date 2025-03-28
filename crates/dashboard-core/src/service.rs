@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
 use crate::data::{DashboardData, CpuMetrics, MemoryMetrics, NetworkMetrics, 
-                 DiskMetrics, NetworkInterface, MetricsHistory, DiskUsage, ProtocolData};
+                 DiskMetrics, NetworkInterface};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -19,7 +19,7 @@ use crate::update::DashboardUpdate;
 /// This trait defines the core functionality of a dashboard service,
 /// which collects and provides dashboard data and handles updates.
 #[async_trait]
-pub trait DashboardService: Send + Sync {
+pub trait DashboardService: Send + Sync + std::fmt::Debug {
     /// Get the current dashboard data
     async fn get_dashboard_data(&self) -> Result<DashboardData>;
     
@@ -46,6 +46,7 @@ pub trait DashboardService: Send + Sync {
 }
 
 /// Default implementation of DashboardService
+#[derive(Debug)]
 pub struct DefaultDashboardService {
     /// Configuration
     config: Arc<RwLock<DashboardConfig>>,

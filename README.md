@@ -112,4 +112,25 @@ To run the tests:
 cargo test -p adapter-tests
 ```
 
-See the [adapter-tests README](crates/adapter-tests/README.md) for more details. 
+See the [adapter-tests README](crates/adapter-tests/README.md) for more details.
+
+## Terminal UI Dashboard
+
+The project includes a Terminal User Interface (TUI) dashboard for monitoring system metrics and MCP protocol activities:
+
+```bash
+# Run the basic dashboard
+cargo run --package ui-terminal --bin main
+
+# Run the custom demonstration dashboard
+cargo run --package ui-terminal --example custom_dashboard -- --alerts --mcp
+```
+
+The custom dashboard demonstration provides various command-line options:
+
+- `--interval <SECONDS>`: Set the update interval (default: 3 seconds)
+- `--alerts`: Enable simulated alerts
+- `--mcp`: Show MCP protocol simulation
+- `--pattern <TYPE>`: Set CPU simulation pattern (sine, spike, random)
+
+For more details on the Terminal UI capabilities, see the [ui-terminal README](crates/ui-terminal/README.md). 

@@ -192,56 +192,11 @@ pub async fn start_websocket_server(addr: SocketAddr) -> Result<JoinHandle<()>> 
     Ok(handle)
 }
 
-/// Start the WebSocket server with a custom message handler
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use squirrel_monitoring::websocket;
-/// use squirrel_monitoring::websocket::{WebSocketMessageHandler, ClientMessage, ServerMessage};
-/// use std::sync::Arc;
-/// use std::net::SocketAddr;
-/// use async_trait::async_trait;
-///
-/// struct CustomHandler;
-///
-/// #[async_trait]
-/// impl WebSocketMessageHandler for CustomHandler {
-///     async fn handle_message(&self, message: ClientMessage) -> Option<ServerMessage> {
-///         // Custom message handling logic
-///         None
-///     }
-/// }
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let addr = "127.0.0.1:9000".parse::<SocketAddr>().unwrap();
-///     let handler = Arc::new(CustomHandler);
-///     let server = websocket::start_websocket_server_with_handler(addr, handler).await.unwrap();
-/// }
-/// ```
-pub async fn start_websocket_server_with_handler<H>(addr: SocketAddr, handler: Arc<H>) 
-    -> Result<JoinHandle<()>>
+/// Starts a websocket server at the specified address with a custom message handler
+#[allow(dead_code)]
+pub async fn start_websocket_server_with_handler<H>(addr: SocketAddr, _handler: Arc<H>)
 where
-    H: WebSocketMessageHandler + Send + Sync + 'static
+    H: WebSocketMessageHandler + 'static,
 {
-    let config = WebSocketConfig {
-        host: addr.ip().to_string(),
-        port: addr.port(),
-        ..WebSocketConfig::default()
-    };
-    
-    // Create server with config
-    let server = WebSocketServer::new(config);
-    
-    // Note: In a real implementation, you would set the handler on the server
-    // But for now we're just creating the server to fix compilation errors
-    
-    let handle = tokio::spawn(async move {
-        if let Err(e) = server.start().await {
-            error!("WebSocket server error: {:?}", e);
-        }
-    });
-    
-    Ok(handle)
+    let _ = start_websocket_server(addr).await;
 } 

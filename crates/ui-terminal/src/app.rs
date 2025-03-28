@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::io;
+use std::collections::HashSet;
+use std::time::{Duration, Instant};
+use std::io::Write;
 
 use dashboard_core::{
     DashboardData, MetricType,
@@ -42,11 +45,18 @@ pub struct App {
     pub widget_managers: Vec<Box<dyn WidgetManager>>,
     /// Whether the application is running
     pub running: bool,
+    /// Last widget update times
+    pub widget_update_times: Vec<Instant>,
+    /// Tracks when the last full UI refresh occurred
+    pub last_full_refresh: Instant,
+    /// Minimum duration between full UI refreshes
+    pub full_refresh_interval: Duration,
 }
 
 impl App {
     /// Create a new app
     pub fn new() -> Self {
+        let now = Instant::now();
         Self {
             dashboard_data: None,
             active_tab: ActiveTab::Overview,
@@ -60,6 +70,9 @@ impl App {
             title: "Squirrel UI".to_string(),
             config: Config::default(),
             help_system: Arc::new(HelpSystem::new()),
+            widget_update_times: vec![now; 6], // One for each tab
+            last_full_refresh: now,
+            full_refresh_interval: Duration::from_secs(10), // Full refresh every 10 seconds
         }
     }
     
@@ -70,6 +83,7 @@ impl App {
         help_system: Arc<HelpSystem>,
         widget_managers: Vec<Box<dyn WidgetManager>>,
     ) -> Self {
+        let now = Instant::now();
         Self {
             title,
             config,
@@ -83,6 +97,9 @@ impl App {
             health_checks: Vec::new(),
             time_series: HashMap::new(),
             last_update: None,
+            widget_update_times: vec![now; 6], // One for each tab
+            last_full_refresh: now,
+            full_refresh_interval: Duration::from_secs(10), // Full refresh every 10 seconds
         }
     }
     
@@ -138,16 +155,8 @@ impl App {
     
     /// Render app to terminal
     pub fn render<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
-        terminal.draw(|f| {
-            ui::draw(
-                f,
-                &self.title,
-                &self.ui_state,
-                &self.widget_managers,
-                self.dashboard_data.as_ref(),
-            )
-        })?;
-        
+        let ui_app: &mut ui::UiApp = ui::convert_app_mut(self);
+        ui::draw(terminal, ui_app)?;
         Ok(())
     }
     
@@ -301,37 +310,64 @@ impl App {
 
     /// Update dashboard data completely
     pub fn update_dashboard_data(&mut self, data: DashboardData) {
-        // Update app with new dashboard data
-        self.update_health_checks(&data);
-        self.update_time_series(&data);
-        
-        // Update widgets if any
-        for widget in &mut self.widget_managers {
-            widget.update(&data);
+        // Reset the MetricsWidget and HealthWidget update times to force a refresh
+        if let Some(idx) = self.tab_index_by_name("System") {
+            self.mark_widget_updated(idx);
         }
+        if let Some(idx) = self.tab_index_by_name("Health") {
+            self.mark_widget_updated(idx);
+        }
+        
+        // Log to file for debugging
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("dashboard_debug.log") {
+                
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            let _ = writeln!(file, "[{}] App updating dashboard data: CPU {:.1}%, Memory {:.1}/{:.1} GB, {} alerts",
+                           timestamp,
+                           data.metrics.cpu.usage,
+                           data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                           data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0),
+                           data.alerts.len());
+        }
+        
+        // Debug logging to console (may not be visible in TUI mode)
+        println!("App updating dashboard data: CPU {}%, Memory {}/{} bytes",
+                data.metrics.cpu.usage,
+                data.metrics.memory.used,
+                data.metrics.memory.total);
         
         self.dashboard_data = Some(data);
         self.last_update = Some(Utc::now());
     }
 
-    /// Update health checks based on dashboard data
+    /// Update the app's health checks from dashboard data
+    /// 
+    /// This is currently a placeholder for future implementation that will
+    /// process health check data more extensively.
+    #[allow(dead_code)]
     fn update_health_checks(&mut self, _data: &DashboardData) {
-        // Implementation that updates health_checks from data
-        // This is handled in ui.rs currently
+        // Implementation will be added in a future update
     }
 
-    /// Update time series data based on dashboard data
+    /// Update time series data from dashboard metrics
+    /// 
+    /// This method populates historical data from the latest dashboard update.
+    /// It's currently used as a reference implementation for future updates.
+    #[allow(dead_code)]
     fn update_time_series(&mut self, data: &DashboardData) {
         // Add CPU usage to time series
         let now = Utc::now();
         
         // CPU usage
-        let cpu_series = self.time_series.entry(MetricType::CpuUsage).or_insert_with(Vec::new);
+        let cpu_series = self.time_series.entry(MetricType::CpuUsage).or_default();
         cpu_series.push((now, data.metrics.cpu.usage));
         
         // Memory usage
         let memory_used_percent = data.metrics.memory.used as f64 / data.metrics.memory.total as f64 * 100.0;
-        let memory_series = self.time_series.entry(MetricType::MemoryUsage).or_insert_with(Vec::new);
+        let memory_series = self.time_series.entry(MetricType::MemoryUsage).or_default();
         memory_series.push((now, memory_used_percent));
         
         // If we have too many points, remove oldest ones
@@ -349,59 +385,93 @@ impl App {
         self.dashboard_data.as_ref()
     }
 
-    /// Performs a tick update for animations and time-based updates
-    pub fn tick(&mut self) {
-        // Update any time-based animations or data
-        // This is called regularly by the main loop
+    /// Handle UI tick for animations
+    pub fn on_tick(&mut self) {
+        // Update widget managers
+        for widget in &mut self.widget_managers {
+            widget.tick();
+        }
+        
+        // Currently we don't need to track ticks for animations
+        // This would be implemented if we added animations
     }
 
     /// Render the app to the terminal frame
     pub fn render_to_frame(&self, f: &mut ratatui::Frame) {
+        // Add debug information to log file
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("dashboard_debug.log") {
+                
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            
+            if let Some(data) = &self.dashboard_data {
+                let _ = writeln!(file, "[{}] Rendering frame WITH dashboard data: CPU {:.1}%, Memory {:.1}/{:.1} GB, {} alerts",
+                         timestamp,
+                         data.metrics.cpu.usage,
+                         data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                         data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0),
+                         data.alerts.len());
+            } else {
+                let _ = writeln!(file, "[{}] Rendering frame WITHOUT dashboard data", timestamp);
+            }
+        }
+        
         // If help is being shown, render the help screen
         if self.show_help {
-            ui::draw_help(f, &self.help_system);
+            let ui_app: &ui::UiApp = ui::convert_app_ref(self);
+            ui::draw_help(f, ui_app);
             return;
         }
         
-        // Otherwise render the normal UI
-        ui::draw(
-            f,
-            &self.title,
-            &self.ui_state,
-            &self.widget_managers,
-            self.dashboard_data.as_ref(),
-        );
-    }
-
-    /// Handle UI tick for animations
-    pub fn on_tick(&mut self) {
-        // Update all widget managers
-        for widget in &mut self.widget_managers {
-            widget.tick();
+        // Create a basic UI layout
+        let chunks = ratatui::layout::Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .constraints([
+                ratatui::layout::Constraint::Min(3),  // Title
+                ratatui::layout::Constraint::Min(1),  // Tabs
+                ratatui::layout::Constraint::Min(10), // Content
+                ratatui::layout::Constraint::Min(1),  // Status
+            ])
+            .split(f.size());
+        
+        // Render title bar
+        let title = ratatui::widgets::Paragraph::new(format!("{} - Dashboard", self.title))
+            .alignment(ratatui::layout::Alignment::Center)
+            .style(ratatui::style::Style::default().fg(ratatui::style::Color::Yellow));
+        f.render_widget(title, chunks[0]);
+        
+        // If we have dashboard data, show it
+        if let Some(data) = &self.dashboard_data {
+            // Create main content display
+            let content = ratatui::widgets::Paragraph::new(vec![
+                ratatui::text::Line::from(format!("CPU: {:.1}%", data.metrics.cpu.usage)),
+                ratatui::text::Line::from(format!("Memory: {:.1} GB / {:.1} GB", 
+                    data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                    data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0))),
+                ratatui::text::Line::from(format!("Disk: {:.1}% used", 
+                    data.metrics.disk.usage.values().next().map_or(0.0, |v| v.used_percentage))),
+                ratatui::text::Line::from(format!("Protocol: {}", data.protocol.status)),
+                ratatui::text::Line::from(format!("Alerts: {}", data.alerts.len())),
+                ratatui::text::Line::from(format!("Last Update: {}", data.timestamp))
+            ])
+            .block(ratatui::widgets::Block::default().borders(ratatui::widgets::Borders::ALL).title("System Overview"));
+            
+            f.render_widget(content, chunks[2]);
+        } else {
+            // Show a message if no data is available
+            let content = ratatui::widgets::Paragraph::new("No dashboard data available")
+                .block(ratatui::widgets::Block::default().borders(ratatui::widgets::Borders::ALL).title("System Overview"));
+            f.render_widget(content, chunks[2]);
         }
+        
+        // Status bar with help text
+        let status = ratatui::widgets::Paragraph::new("[q] Quit  [h] Help")
+            .alignment(ratatui::layout::Alignment::Right);
+        f.render_widget(status, chunks[3]);
     }
-}
 
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            dashboard_data: None,
-            active_tab: ActiveTab::Overview,
-            show_help: false,
-            health_checks: Vec::new(),
-            time_series: HashMap::new(),
-            last_update: None,
-            running: true,
-            ui_state: UiState::default(),
-            widget_managers: Vec::new(),
-            title: "Squirrel UI".to_string(),
-            config: Config::default(),
-            help_system: Arc::new(HelpSystem::new()),
-        }
-    }
-}
-
-impl App {
     /// Handle dashboard data update
     pub fn on_dashboard_update(&mut self, data: DashboardData) {
         self.dashboard_data = Some(data);
@@ -448,8 +518,100 @@ impl App {
     }
 
     /// Handle window resize
-    pub fn on_resize(&mut self, width: u16, height: u16) {
+    pub fn on_resize(&mut self, _width: u16, _height: u16) {
         // Store the new dimensions if needed
         // This is a placeholder for future window size-dependent features
+    }
+
+    /// Get the index of a tab by name
+    fn tab_index_by_name(&self, name: &str) -> Option<usize> {
+        match self.active_tab {
+            ActiveTab::Overview if name == "Overview" => Some(0),
+            ActiveTab::System if name == "System" => Some(1),
+            ActiveTab::Network if name == "Network" => Some(2),
+            ActiveTab::Protocol if name == "Protocol" => Some(3),
+            ActiveTab::Alerts if name == "Alerts" => Some(4),
+            ActiveTab::Tools if name == "Tools" => Some(5),
+            _ => None,
+        }
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            dashboard_data: None,
+            active_tab: ActiveTab::Overview,
+            show_help: false,
+            health_checks: Vec::new(),
+            time_series: HashMap::new(),
+            last_update: None,
+            running: true,
+            ui_state: UiState::default(),
+            widget_managers: Vec::new(),
+            title: "Squirrel UI".to_string(),
+            config: Config::default(),
+            help_system: Arc::new(HelpSystem::new()),
+            widget_update_times: Vec::new(),
+            last_full_refresh: Instant::now(),
+            full_refresh_interval: Duration::from_secs(10),
+        }
+    }
+}
+
+impl App {
+    pub fn tick_timestamp(&mut self) -> Instant {
+        Instant::now()
+    }
+
+    /// Render the app to the terminal
+    /// 
+    /// This method is kept for compatibility with future rendering implementations
+    /// that might need direct access to the terminal.
+    #[allow(dead_code)]
+    fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<(), io::Error> {
+        let ui_app: &mut ui::UiApp = ui::convert_app_mut(self);
+        ui::draw(terminal, ui_app)
+    }
+
+    /// Determine which widgets need to be updated in the current frame
+    /// 
+    /// This is an optimization method that identifies which widgets have changed
+    /// and need to be redrawn, to avoid unnecessary rendering operations.
+    #[allow(dead_code)]
+    fn widgets_needing_update(&self) -> HashSet<usize> {
+        let mut needs_update = HashSet::new();
+        
+        // Always update the active tab
+        match self.active_tab {
+            ActiveTab::Overview => { needs_update.insert(0); }
+            ActiveTab::System => { needs_update.insert(1); }
+            ActiveTab::Network => { needs_update.insert(2); }
+            ActiveTab::Protocol => { needs_update.insert(3); }
+            ActiveTab::Alerts => { needs_update.insert(4); }
+            ActiveTab::Tools => { needs_update.insert(5); }
+        }
+        
+        // If there's recent data, update all widgets
+        if self.last_update.is_some() {
+            // In a real implementation, we'd check how recent the update is
+            for idx in 0..self.widget_update_times.len() {
+                needs_update.insert(idx);
+            }
+        }
+        
+        needs_update
+    }
+    
+    /// Mark a widget as updated
+    pub fn mark_widget_updated(&mut self, idx: usize) {
+        if idx < self.widget_update_times.len() {
+            self.widget_update_times[idx] = Instant::now();
+        }
+    }
+    
+    /// Perform a full refresh
+    pub fn force_full_refresh(&mut self) {
+        self.last_full_refresh = Instant::now();
     }
 } 

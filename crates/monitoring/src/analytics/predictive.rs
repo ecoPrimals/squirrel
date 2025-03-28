@@ -377,25 +377,21 @@ impl PredictiveModel {
         })
     }
     
-    /// Make a prediction using ARIMA
-    fn predict_arima(&self, component_id: &str, metric_name: &str, 
-                    training_data: &[DataPoint], now: i64, prediction_horizon: i64) 
-        -> Result<Prediction, AnalyticsError> 
-    {
-        // This is a placeholder for ARIMA prediction
-        // In a real implementation, this would use a proper ARIMA model
+    /// Predict future values using ARIMA model
+    fn predict_arima(&self, _component_id: &str, _metric_name: &str,
+                    _training_data: &[DataPoint], _now: i64, _prediction_horizon: i64)
+        -> Result<Prediction, AnalyticsError> {
+        // Not implemented in basic version
         Err(AnalyticsError::AnalysisError(
             "ARIMA prediction is not yet implemented".to_string()
         ))
     }
     
-    /// Make a prediction using a neural network
-    fn predict_neural_network(&self, component_id: &str, metric_name: &str, 
-                            training_data: &[DataPoint], now: i64, prediction_horizon: i64) 
-        -> Result<Prediction, AnalyticsError> 
-    {
-        // This is a placeholder for neural network prediction
-        // In a real implementation, this would use a proper neural network model
+    /// Predict future values using neural network
+    fn predict_neural_network(&self, _component_id: &str, _metric_name: &str,
+                              _training_data: &[DataPoint], _now: i64, _prediction_horizon: i64)
+        -> Result<Prediction, AnalyticsError> {
+        // Not implemented in basic version
         Err(AnalyticsError::AnalysisError(
             "Neural network prediction is not yet implemented".to_string()
         ))
@@ -421,9 +417,19 @@ impl PredictiveAnalyzer {
     
     /// Create a new predictive analyzer with the given configuration
     pub fn with_config(config: PredictionConfig) -> Self {
-        // This is a placeholder - in a real implementation we'd need
-        // to have access to a TimeSeriesAnalyzer
-        panic!("PredictiveAnalyzer::with_config is not implemented. Use new() instead.");
+        // Create a default time series analyzer
+        let storage_config = crate::analytics::storage::StorageConfig::default();
+        let storage = Arc::new(RwLock::new(
+            crate::analytics::storage::AnalyticsStorage::new(storage_config).expect("Failed to create analytics storage")
+        ));
+        
+        let ts_config = crate::analytics::time_series::TimeSeriesConfig::default();
+        let ts_analyzer = Arc::new(RwLock::new(
+            crate::analytics::time_series::TimeSeriesAnalyzer::new(ts_config, Arc::clone(&storage)).expect("Failed to create time series analyzer")
+        ));
+        
+        // Create the model with the provided config
+        Self::new(config, ts_analyzer).expect("Failed to create predictive analyzer")
     }
     
     /// Make a prediction for a specific component and metric
