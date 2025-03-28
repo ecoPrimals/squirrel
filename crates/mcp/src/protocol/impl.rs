@@ -54,7 +54,7 @@
 //!     // Create a message
 //!     let message = MCPMessage {
 //!         id: MessageId("msg123".to_string()),
-//!         message_type: MessageType::Command,
+//!         type_: MessageType::Command,
 //!         payload: json!({"text": "Hello, MCP!"}),
 //!     };
 //!     
@@ -321,7 +321,7 @@ impl MCPProtocolBase {
     ///
     /// let message = MCPMessage {
     ///     id: MessageId("msg123".to_string()),
-    ///     message_type: MessageType::Command,
+    ///     type_: MessageType::Command,
     ///     payload: json!({"command": "status"}),
     /// };
     ///
@@ -330,16 +330,16 @@ impl MCPProtocolBase {
     /// ```
     pub fn validate_message(&self, message: &MCPMessage) -> ValidationResult {
         // Check if we have a handler for this message type
-        if !matches!(message.message_type, MessageType::Setup) {
-            if !self.handlers.contains_key(&message.message_type) {
+        if !matches!(message.type_, MessageType::Setup) {
+            if !self.handlers.contains_key(&message.type_) {
                 return Err(MCPError::Protocol(ProtocolError::NoHandlerForMessageType(
-                    format!("{:?}", message.message_type),
+                    format!("{:?}", message.type_),
                 )));
             }
         }
 
         // Check payload - should be a valid JSON object for command messages
-        if matches!(message.message_type, MessageType::Command)
+        if matches!(message.type_, MessageType::Command)
             && (!message.payload.is_object() || message.payload.as_object().unwrap().is_empty())
         {
             return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
@@ -403,7 +403,7 @@ impl MCPProtocolBase {
     ///     
     ///     let message = MCPMessage {
     ///         id: MessageId("msg123".to_string()),
-    ///         message_type: MessageType::Command,
+    ///         type_: MessageType::Command,
     ///         payload: json!({"command": "status"}),
     ///     };
     ///     
@@ -412,7 +412,7 @@ impl MCPProtocolBase {
     /// ```
     pub async fn handle_protocol_message(&self, message: &MCPMessage) -> ProtocolResult {
         // Special case for setup messages - these have special handling
-        if message.message_type == MessageType::Setup {
+        if message.type_ == MessageType::Setup {
             // For setup, we just return success and the protocol version
             return Ok(MCPResponse {
                 protocol_version: self.config.version.clone(),
@@ -429,11 +429,11 @@ impl MCPProtocolBase {
         }
 
         // Route to the appropriate handler based on message type
-        if let Some(handler) = self.handlers.get(&message.message_type) {
+        if let Some(handler) = self.handlers.get(&message.type_) {
             handler.handle(message).await
         } else {
             Err(MCPError::Protocol(ProtocolError::NoHandlerForMessageType(
-                format!("{:?}", message.message_type),
+                format!("{:?}", message.type_),
             )))
         }
     }
@@ -607,7 +607,7 @@ impl MCPProtocolBase {
     ///     
     ///     let message = MCPMessage {
     ///         id: MessageId("msg123".to_string()),
-    ///         message_type: MessageType::Command,
+    ///         type_: MessageType::Command,
     ///         payload: json!({"command": "status"}),
     ///     };
     ///     

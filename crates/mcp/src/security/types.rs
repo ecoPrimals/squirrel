@@ -52,6 +52,42 @@ pub struct Permission {
     pub conditions: Vec<PermissionCondition>,
 }
 
+impl Permission {
+    /// Create a new permission with required fields
+    pub fn new(resource: &str, action: Action) -> Self {
+        Self {
+            id: format!("{}-{}", resource, action.to_string().to_lowercase()),
+            name: format!("{} {}", action, resource),
+            resource: resource.to_string(),
+            action,
+            resource_id: None,
+            scope: PermissionScope::All,
+            conditions: Vec::new(),
+        }
+    }
+
+    /// Create a new permission with all fields
+    pub fn with_details(
+        id: String, 
+        name: String,
+        resource: String, 
+        action: Action, 
+        resource_id: Option<String>,
+        scope: PermissionScope,
+        conditions: Vec<PermissionCondition>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            resource,
+            action,
+            resource_id,
+            scope,
+            conditions,
+        }
+    }
+}
+
 /// Action types for permissions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use crate::error::{MCPError, Result};
-use crate::mcp::types::{ProtocolVersion, ProtocolState};
+use crate::types::{ProtocolVersion, ProtocolState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortConfig {

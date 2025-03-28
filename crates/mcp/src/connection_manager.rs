@@ -12,6 +12,8 @@ use anyhow::Result;
 use std::time::Duration;
 use serde_json::Value;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, AtomicBool};
+use std::sync::broadcast;
 
 use crate::mcp::{
     MCPMessage, PortManager, SecurityManager, ErrorHandler, StateManager, ContextManager,
@@ -103,18 +105,23 @@ impl Default for ConnectionManagerConfig {
 }
 
 pub struct ConnectionManager {
-    pub connections: Arc<TokioRwLock<HashMap<String, Connection>>>,
-    pub config: ConnectionConfig,
+    connections: Arc<TokioRwLock<HashMap<String, Connection>>>,
+    config: ConnectionConfig,
     port_config: PortConfig,
-    security_manager: Arc<SecurityManager>,
+    security_manager: Arc<dyn SecurityManager>,
     error_handler: Arc<ErrorHandler>,
+    max_connections: usize,
+    active_connections: Arc<AtomicUsize>,
+    connection_events_tx: broadcast::Sender<ConnectionEvent>,
+    connection_events_rx: broadcast::Receiver<ConnectionEvent>,
+    closed: Arc<AtomicBool>,
 }
 
 impl ConnectionManager {
     pub fn new(
         config: ConnectionManagerConfig,
         port_config: PortConfig,
-        security_manager: Arc<SecurityManager>,
+        security_manager: Arc<dyn SecurityManager>,
         error_handler: Arc<ErrorHandler>,
     ) -> Self {
         Self {
@@ -123,6 +130,11 @@ impl ConnectionManager {
             security_manager,
             error_handler,
             connections: Arc::new(TokioRwLock::new(HashMap::new())),
+            max_connections: config.max_connections as usize,
+            active_connections: Arc::new(AtomicUsize::new(0)),
+            connection_events_tx: broadcast::channel(100).0,
+            connection_events_rx: broadcast::channel(100).1,
+            closed: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -130,7 +142,7 @@ impl ConnectionManager {
     pub async fn create_connection(&self, addr: SocketAddr) -> Result<Connection> {
         let mut connections = self.connections.write().await;
         
-        if connections.len() >= self.config.max_connections as usize {
+        if connections.len() >= self.max_connections {
             return Err(anyhow::anyhow!("Maximum connections reached"));
         }
 

@@ -116,9 +116,9 @@ impl InheritanceGraph {
         
         // Check for cycles
         if self.would_create_cycle(parent_id, child_id)? {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::General(
+            return Err(MCPError::Security(SecurityError::RBACError(
                 format!("Adding inheritance from {} to {} would create a cycle", parent_id, child_id)
-            ))));
+            )));
         }
         
         // Add parent-child relationship

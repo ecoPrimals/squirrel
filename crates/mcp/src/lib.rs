@@ -52,60 +52,7 @@
 //!
 //! ## Usage Examples
 //!
-//! ### Basic Initialization
-//!
-//! ```
-//! use mcp::{create_mcp, MCPConfig};
-//!
-//! // Create an MCP instance with default configuration
-//! let mcp = create_mcp();
-//!
-//! // Initialize the MCP system
-//! mcp.initialize().expect("Failed to initialize MCP");
-//!
-//! // Now you can use the MCP system
-//! let context = mcp.create_context("session-123");
-//! ```
-//!
-//! ### Configuring Security
-//!
-//! ```
-//! use mcp::{MCPConfig, SecurityLevel, factory::MCPFactory};
-//!
-//! // Create a custom configuration with high security
-//! let mut config = MCPConfig::default();
-//! config.encryption_enabled = true;
-//! config.security_level = SecurityLevel::High;
-//!
-//! // Create an MCP instance with the custom configuration
-//! let factory = MCPFactory::with_config(config);
-//! let mcp = factory.create_mcp();
-//!
-//! // Use the secure MCP instance
-//! let security_manager = mcp.get_security_manager();
-//! ```
-//!
-//! ### Working with Protocol Messages
-//!
-//! ```
-//! use mcp::prelude::*;
-//! use mcp::types::{MCPMessage, MessageId, MessageType};
-//! use serde_json::json;
-//!
-//! // Creating and sending a command
-//! let message = MCPMessage {
-//!     id: MessageId("cmd-123".to_string()),
-//!     message_type: MessageType::Command,
-//!     payload: json!({
-//!         "command": "read_file",
-//!         "path": "/path/to/file.txt"
-//!     }),
-//! };
-//!
-//! // Using a protocol adapter to send the message
-//! // (Assuming you have a protocol adapter instance)
-//! // protocol_adapter.send_message(message).await.expect("Failed to send message");
-//! ```
+//! // Examples have been temporarily removed for troubleshooting
 //!
 //! ## Module Organization
 //!
@@ -187,7 +134,8 @@ pub mod plugins;
 pub mod factory;
 
 /// Re-export common types from the error module for easier access.
-pub use error::{MCPError, Result};
+pub use error::types::MCPError;
+pub use error::Result;
 
 pub use context_manager::Context;
 /// Re-export commonly used security types.
@@ -210,62 +158,93 @@ pub use config::McpConfig as MCPConfig;
 /// Re-export factory functions for creating MCP instances.
 pub use factory::{create_mcp, create_mcp_factory, MCPFactory};
 
-/// Prelude module providing commonly used types and traits.
+/// Transport module for the MCP system
 ///
-/// Import this module to quickly access the most commonly used types
-/// and traits without having to import them individually.
-pub mod prelude {
-    // Core types and interfaces
-    pub use crate::context_manager::{Context, ContextManager};
-    
-    // Protocol types
-    pub use crate::types::MessageType;
-    pub use crate::types::ProtocolState;
-    pub use crate::protocol::MCPProtocolBase; 
-    pub use crate::protocol::MCPProtocol;
-    pub use crate::protocol::adapter::MCPProtocolAdapter;
-
-    // Security features
-    pub use crate::types::SecurityLevel;
-    pub use crate::security::SecurityManager;
-    
-    // Tool management
-    pub use crate::tool::{Tool, ToolManager, ToolState};
-    pub use crate::tool::lifecycle::{LifecycleEvent, BasicLifecycleHook};
-    
-    // Monitoring system
-    pub use crate::monitoring::MetricsCollector;
-    pub use crate::monitoring::AlertManager;
-    pub use crate::monitoring::MonitoringSystem;
-    pub use crate::monitoring::alerts::{Alert, AlertSeverity, AlertState};
-    
-    // Error handling
-    pub use crate::error::{MCPError, Result};
-    
-    // RBAC system
-    pub use crate::security::rbac::{
-        RBACManager, 
-        ValidationResult, 
-        ValidationRule, 
-        InheritanceType,
-        ValidationAuditRecord
-    };
-    pub use crate::security::{Action, Permission, PermissionContext, PermissionScope, Role};
-
-    // Plugin integration
-    pub use crate::plugins::{ToolPluginAdapter, ToolPluginFactory, PluginDiscoveryManager, PluginProxyExecutor};
-    pub use crate::plugins::lifecycle::{PluginLifecycleHook, CompositePluginLifecycleHook};
-    // Plugin interfaces
-    pub use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface};
-}
-
+/// This module provides the Transport trait and implementations for different
+/// transport mechanisms, including TCP, WebSocket, stdio, and in-memory transports.
 pub mod transport;
+
+/// Legacy transport module for the MCP system
+///
+/// This module contains the old implementation of transport mechanisms.
+/// 
+/// **Note**: This module is deprecated and will be removed in a future release.
+/// Please use the new `transport` module instead.
+///
+/// This module is conditionally compiled with the `legacy-transport` feature,
+/// which is enabled by default. To disable this module and remove all deprecated
+/// code, disable the `legacy-transport` feature in your Cargo.toml:
+///
+/// ```toml
+/// [dependencies]
+/// mcp = { version = "0.2.0", default-features = false }
+/// ```
+#[cfg(feature = "legacy-transport")]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use the new transport module instead. Will be removed in a future release."
+)]
 pub mod transport_old;
+
+/// Registry module for the MCP system.
+///
+/// This module provides mechanisms for registering and discovering
+/// components within the MCP system.
 pub mod registry;
+
+/// Session management module for the MCP system.
+///
+/// This module handles session creation, tracking, and cleanup
+/// for MCP communication sessions.
 pub mod session;
+
+/// Port management module for the MCP system.
+///
+/// This module provides interfaces and implementations for managing
+/// communication ports and connections.
 pub mod port;
+
+/// Integration module for the MCP system.
+///
+/// This module provides utilities for integrating the MCP system
+/// with other components and systems.
 pub mod integration;
+
+/// Resilience module for the MCP system.
+///
+/// This module provides mechanisms for handling failures, retries,
+/// and circuit breaking within the MCP system.
 pub mod resilience;
+
+/// Compression module for the MCP system.
+pub mod compression;
+
+/// Message format and builder for the MCP protocol
+pub mod message;
+
+/// Message router and handler functionality
+pub mod message_router;
+
+/// Frame encoding/decoding for message transport
+pub mod frame;
+
+/// Client API for the MCP protocol
+pub mod client;
+
+/// Server API for the MCP protocol
+pub mod server;
+
+/// Logging module for the MCP system.
+///
+/// This module provides structured logging capabilities for MCP components,
+/// with support for various log levels and contextual information.
+pub mod logging;
+
+/// Metrics module for the MCP system.
+///
+/// This module provides metrics collection and reporting capabilities
+/// for monitoring MCP component performance and behavior.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;

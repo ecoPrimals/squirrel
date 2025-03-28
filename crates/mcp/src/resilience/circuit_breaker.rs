@@ -41,7 +41,6 @@ pub enum CircuitState {
 }
 
 /// Configuration for the circuit breaker
-#[derive(Debug, Clone)]
 pub struct CircuitBreakerConfig {
     /// Name of the circuit breaker for identification
     pub name: String,
@@ -66,6 +65,32 @@ impl Default for CircuitBreakerConfig {
             half_open_success_threshold: 2,
             half_open_allowed_calls: 3,
             fallback: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for CircuitBreakerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CircuitBreakerConfig")
+            .field("name", &self.name)
+            .field("failure_threshold", &self.failure_threshold)
+            .field("recovery_timeout_ms", &self.recovery_timeout_ms)
+            .field("half_open_success_threshold", &self.half_open_success_threshold)
+            .field("half_open_allowed_calls", &self.half_open_allowed_calls)
+            .field("fallback", &if self.fallback.is_some() { "Some(Fn)" } else { "None" })
+            .finish()
+    }
+}
+
+impl Clone for CircuitBreakerConfig {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+            failure_threshold: self.failure_threshold,
+            recovery_timeout_ms: self.recovery_timeout_ms,
+            half_open_success_threshold: self.half_open_success_threshold,
+            half_open_allowed_calls: self.half_open_allowed_calls,
+            fallback: None, // We don't clone the fallback function
         }
     }
 }
@@ -132,9 +157,10 @@ impl CircuitBreaker {
     }
     
     /// Execute an operation with the circuit breaker
-    pub fn execute<F, T>(&mut self, operation: F) -> Result<T>
+    pub async fn execute<F, T>(&mut self, operation: F) -> Result<T>
     where
-        F: FnOnce() -> std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>,
+        F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>> + Send>>,
+        T: Send + 'static,
     {
         // Check circuit state
         match self.state {
@@ -169,7 +195,7 @@ impl CircuitBreaker {
         }
         
         // Execute the operation
-        match operation() {
+        match operation().await {
             Ok(result) => {
                 self.handle_success();
                 Ok(result)

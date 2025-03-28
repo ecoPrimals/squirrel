@@ -76,9 +76,9 @@ impl RBACManager {
             let mut roles = self.roles.write().await;
             // Check if role with this name already exists
             if roles.values().any(|r| r.name == name) {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleExists(
-                    name.to_string()
-                ))));
+                return Err(MCPError::Security(SecurityError::RBACError(
+                    format!("Role exists: {}", name)
+                )));
             }
             
             roles.insert(role_id.clone(), role.clone());
@@ -97,9 +97,9 @@ impl RBACManager {
             role.updated_at = Utc::now();
             Ok(())
         } else {
-            Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                role_id.to_string()
-            ))))
+            Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", role_id)
+            )))
         }
     }
 
@@ -109,9 +109,9 @@ impl RBACManager {
         {
             let roles = self.roles.read().await;
             if !roles.contains_key(role_id) {
-                return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                    role_id.to_string()
-                ))));
+                return Err(MCPError::Security(SecurityError::RBACError(
+                    format!("Role not found: {}", role_id)
+                )));
             }
         }
         
@@ -137,9 +137,9 @@ impl RBACManager {
         let roles = self.roles.read().await;
         roles.get(role_id)
             .cloned()
-            .ok_or_else(|| MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                role_id.to_string()
-            ))))
+            .ok_or_else(|| MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", role_id)
+            )))
     }
 
     /// Check if a user has a specific permission

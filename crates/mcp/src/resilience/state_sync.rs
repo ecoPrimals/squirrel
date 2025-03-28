@@ -9,7 +9,12 @@ use std::time::{Duration, Instant};
 use std::error::Error as StdError;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
+use std::sync::RwLock;
+use serde_json;
+use serde::de::DeserializeOwned;
+use tracing::{debug, error, info};
+use tokio::time::timeout;
 
 /// Represents the type of state being synchronized
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -95,6 +100,12 @@ pub enum StateSyncError {
         message: String,
         source: Option<Box<dyn StdError + Send + Sync + 'static>>,
     },
+
+    /// State not found
+    NotFound(String),
+
+    /// Deserialization failed
+    DeserializationFailed(String),
 }
 
 impl fmt::Display for StateSyncError {
@@ -118,6 +129,12 @@ impl fmt::Display for StateSyncError {
             }
             StateSyncError::SyncFailed { message, .. } => {
                 write!(f, "Synchronization failed: {}", message)
+            }
+            StateSyncError::NotFound(msg) => {
+                write!(f, "State not found: {}", msg)
+            }
+            StateSyncError::DeserializationFailed(msg) => {
+                write!(f, "Deserialization failed: {}", msg)
             }
         }
     }
@@ -148,6 +165,15 @@ pub struct StateSyncMetrics {
     
     /// Last synchronization time
     pub last_sync_time: Option<Instant>,
+
+    /// Count of retrieve requests
+    pub retrieve_requests: u32,
+
+    /// Count of successful retrievals
+    pub retrieve_success: u32,
+
+    /// Count of failed retrievals
+    pub retrieve_failures: u32,
 }
 
 impl StateSyncMetrics {
@@ -157,6 +183,9 @@ impl StateSyncMetrics {
         self.failed_syncs.clear();
         self.total_bytes_synced = 0;
         self.last_sync_time = None;
+        self.retrieve_requests = 0;
+        self.retrieve_success = 0;
+        self.retrieve_failures = 0;
     }
 }
 
@@ -168,6 +197,9 @@ pub struct StateSynchronizer {
     
     /// Metrics about synchronization operations
     metrics: Arc<Mutex<StateSyncMetrics>>,
+
+    /// Storage for states (added this field since it was missing)
+    states: Arc<RwLock<HashMap<StateType, StateData>>>,
 }
 
 impl StateSynchronizer {
@@ -176,6 +208,7 @@ impl StateSynchronizer {
         Self {
             config,
             metrics: Arc::new(Mutex::new(StateSyncMetrics::default())),
+            states: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
@@ -185,17 +218,18 @@ impl StateSynchronizer {
     }
     
     /// Synchronize state data to a target system
-    pub fn sync_state<T>(&self, 
-        state_type: StateType, 
-        state_id: &str, 
-        target: &str, 
+    pub async fn sync_state<T>(
+        &self,
+        state_type: StateType,
+        _state_id: &str,
+        _target: &str,
         state: T
-    ) -> Result<(), StateSyncError> 
-    where 
-        T: Serialize + Clone + Send + Sync + 'static
+    ) -> Result<(), StateSyncError>
+    where
+        T: Serialize,
     {
-        let start_time = Instant::now();
-        self.metrics.lock().unwrap().last_sync_time = Some(start_time);
+        let _start_time = Instant::now();
+        self.metrics.lock().unwrap().last_sync_time = Some(_start_time);
         
         // Serialize the state to estimate its size
         let serialized = serde_json::to_vec(&state)
@@ -221,8 +255,11 @@ impl StateSynchronizer {
             // For now, we'll just assume it's valid
         }
         
+        // Add a small delay to simulate network I/O
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        
         // Check timeout
-        if start_time.elapsed() > self.config.sync_timeout {
+        if _start_time.elapsed() > self.config.sync_timeout {
             // Update metrics for failure
             let mut metrics = self.metrics.lock().unwrap();
             *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
@@ -244,25 +281,25 @@ impl StateSynchronizer {
     }
     
     /// Synchronize state with timeout
-    pub fn sync_state_with_timeout<T>(&self,
+    pub async fn sync_state_with_timeout<T>(&self,
         state_type: StateType,
-        state_id: &str,
-        target: &str,
+        _state_id: &str,
+        _target: &str,
         state: T,
         timeout: Duration
     ) -> Result<(), StateSyncError>
     where
         T: Serialize + Clone + Send + Sync + 'static
     {
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
         
-        // Create a custom timeout for this operation
-        let result = self.sync_state(state_type, state_id, target, state);
-        
-        if start_time.elapsed() > timeout {
-            Err(StateSyncError::Timeout { duration: timeout })
-        } else {
-            result
+        // Use tokio's timeout mechanism
+        match tokio::time::timeout(
+            timeout,
+            self.sync_state(state_type, _state_id, _target, state)
+        ).await {
+            Ok(result) => result,
+            Err(_) => Err(StateSyncError::Timeout { duration: timeout })
         }
     }
     
@@ -285,22 +322,93 @@ impl StateSynchronizer {
     pub fn update_config(&mut self, config: StateSyncConfig) {
         self.config = config;
     }
+
+    /// Retrieve state data of a specific type
+    pub async fn retrieve_state<T>(
+        &self,
+        state_type: StateType,
+        _state_id: &str,
+        _target: &str,
+    ) -> Result<T, StateSyncError>
+    where
+        T: DeserializeOwned + Send + 'static,
+    {
+        // Update metrics
+        let _start_time = Instant::now();
+        
+        // Eventually this will use state_id and target to retrieve specific states
+        // For now, we'll just use the latest state by type
+        
+        // Track metrics - remove the .await on lock()
+        let mut metrics = self.metrics.lock().unwrap();
+        metrics.retrieve_requests += 1;
+        
+        // Get the cached state
+        let state = {
+            let states = self.states.read().unwrap();
+            match states.get(&state_type) {
+                Some(state) => state.data.clone(),
+                None => return Err(StateSyncError::NotFound("State not found".to_string())),
+            }
+        };
+        
+        // Deserialize the state
+        match serde_json::from_value(state) {
+            Ok(value) => {
+                metrics.retrieve_success += 1;
+                Ok(value)
+            }
+            Err(e) => {
+                metrics.retrieve_failures += 1;
+                Err(StateSyncError::DeserializationFailed(e.to_string()))
+            }
+        }
+    }
+
+    /// Process an updated state
+    pub async fn process_state_update<T>(
+        &self,
+        _state_type: StateType, 
+        _state_data: T
+    ) -> Result<(), StateSyncError>
+    where
+        T: serde::Serialize + Send + 'static,
+    {
+        let _start_time = Instant::now();
+        
+        // This is a stub implementation
+        // In a real implementation, we would:
+        // 1. Validate the state data
+        // 2. Update metrics
+        // 3. Store the state data
+        // 4. Notify subscribers
+        
+        Ok(())
+    }
+}
+
+/// Add struct for StateData which appears to be missing
+#[derive(Debug, Clone)]
+pub struct StateData {
+    pub data: serde_json::Value,
+    pub timestamp: Instant,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    // A test data type
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    use serde::Serialize;
+    use tokio::test;
+
+    #[derive(Serialize, Clone)]
     struct TestState {
         name: String,
         value: u32,
         timestamp: u64,
     }
     
-    #[test]
-    fn test_sync_state_success() {
+    #[tokio::test]
+    async fn test_sync_state_success() {
         let syncer = StateSynchronizer::default();
         
         let test_state = TestState {
@@ -314,7 +422,7 @@ mod tests {
             "test-state",
             "backup-system",
             test_state
-        );
+        ).await;
         
         assert!(result.is_ok());
         
@@ -325,8 +433,8 @@ mod tests {
         assert!(metrics.total_bytes_synced > 0);
     }
     
-    #[test]
-    fn test_sync_state_size_exceeded() {
+    #[tokio::test]
+    async fn test_sync_state_size_exceeded() {
         // Create a synchronizer with a very small size limit
         let syncer = StateSynchronizer::new(StateSyncConfig {
             max_state_size: 10, // Only 10 bytes allowed
@@ -345,7 +453,7 @@ mod tests {
             "test-state",
             "backup-system",
             test_state
-        );
+        ).await;
         
         assert!(result.is_err());
         
@@ -364,8 +472,8 @@ mod tests {
         assert!(metrics.successful_syncs.is_empty());
     }
     
-    #[test]
-    fn test_sync_multiple_state_types() {
+    #[tokio::test]
+    async fn test_sync_multiple_state_types() {
         let syncer = StateSynchronizer::default();
         
         // Sync configuration state
@@ -380,7 +488,7 @@ mod tests {
             "config-state",
             "backup-system",
             config_state
-        );
+        ).await;
         assert!(result1.is_ok());
         
         // Sync runtime state
@@ -395,7 +503,7 @@ mod tests {
             "runtime-state",
             "backup-system",
             runtime_state
-        );
+        ).await;
         assert!(result2.is_ok());
         
         // Sync recovery state
@@ -410,7 +518,7 @@ mod tests {
             "recovery-state",
             "backup-system",
             recovery_state
-        );
+        ).await;
         assert!(result3.is_ok());
         
         // Check metrics
@@ -421,8 +529,8 @@ mod tests {
         assert!(metrics.failed_syncs.is_empty());
     }
     
-    #[test]
-    fn test_reset_metrics() {
+    #[tokio::test]
+    async fn test_reset_metrics() {
         let syncer = StateSynchronizer::default();
         
         // Perform a sync operation
@@ -437,7 +545,7 @@ mod tests {
             "test-state",
             "backup-system",
             test_state
-        );
+        ).await;
         
         // Verify metrics are updated
         let metrics1 = syncer.get_metrics();

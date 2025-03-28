@@ -4,107 +4,159 @@
 /// persistence, authentication, and session lifecycle operations.
 pub mod manager;
 
-use crate::error::Result;
-use tokio::sync::RwLock;
+use crate::error::{Result, MCPError};
+use tokio::sync::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use serde::{Serialize, Deserialize};
 use log::error;
 use uuid::Uuid;
 use std::sync::Arc;
+use chrono::{DateTime, Utc};
 
-use crate::mcp::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::mcp::security::{Credentials, SecurityManager};
-use crate::mcp::persistence::{Persistence, SessionData};
+use crate::error::types::SessionError;
+use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
+use crate::security::{Credentials, SecurityManager};
+use crate::persistence::{Persistence, SessionData};
 
 /// Session management module
 pub mod error;
-pub use error::{SessionError, auth_error, persistence_error, timeout_error, token_error, validation_error};
+pub use error::{auth_error, persistence_error, timeout_error, token_error, validation_error};
 
 /// Session configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionConfig {
-    /// Default session timeout in seconds
-    pub timeout: u64,
-    /// Maximum number of concurrent sessions per user
+    /// Session timeout in seconds (None for no timeout)
+    pub timeout: Option<Duration>,
+    /// Maximum number of sessions per user
     pub max_sessions_per_user: usize,
-    /// Enable persistent sessions
+    /// Whether to enable session persistence
     pub enable_persistence: bool,
-    /// Maximum token age before refresh required
+    /// Maximum age of session token in seconds
     pub max_token_age: u64,
+    /// Whether to check session expiration
+    pub check_expiration: bool,
+    /// Whether to automatically remove expired sessions
+    pub auto_cleanup: bool,
 }
 
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
-            timeout: 3600, // 1 hour default timeout
+            timeout: Some(Duration::from_secs(3600)), // 1 hour default timeout
             max_sessions_per_user: 5,
             enable_persistence: true,
             max_token_age: 86400, // 24 hours
+            check_expiration: true,
+            auto_cleanup: true,
         }
     }
 }
 
 /// Session information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Session {
     /// Session token
     pub token: SessionToken,
-    /// User ID
+    
+    /// User ID associated with this session
     pub user_id: UserId,
-    /// Account ID
+    
+    /// Account ID associated with this session
     pub account_id: Option<AccountId>,
+    
     /// User role for this session
     pub role: UserRole,
-    /// Created time
-    pub created_at: SystemTime,
-    /// Last accessed time
-    pub last_accessed: SystemTime,
+    
+    /// When the session was created
+    pub created_at: DateTime<Utc>,
+    
+    /// When the session was last accessed
+    pub last_accessed: DateTime<Utc>,
+    
     /// Session timeout in seconds
-    pub timeout: u64,
+    pub timeout: Option<u64>,
+    
     /// Authentication token for third-party services
     pub auth_token: Option<AuthToken>,
-    /// Session metadata
+    
+    /// Metadata associated with the session
     pub metadata: HashMap<String, String>,
 }
 
 impl Session {
     /// Create a new session
-    #[must_use] pub fn new(user_id: UserId, role: UserRole, timeout: u64) -> Self {
-        let now = SystemTime::now();
+    pub fn new(token: SessionToken, user_id: UserId) -> Self {
+        let now = Utc::now();
         Self {
-            token: SessionToken(Uuid::new_v4().to_string()),
+            token,
             user_id,
             account_id: None,
-            role,
-            created_at: now,
+            role: UserRole::User, // Default role
+            created_at: now.clone(),
             last_accessed: now,
-            timeout,
+            timeout: Some(3600), // Default 1 hour timeout
             auth_token: None,
             metadata: HashMap::new(),
         }
     }
+    
+    /// Add metadata to the session
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+    
+    /// Set user role for this session
+    pub fn with_role(mut self, role: UserRole) -> Self {
+        self.role = role;
+        self
+    }
+    
+    /// Set account ID for this session
+    pub fn with_account_id(mut self, account_id: AccountId) -> Self {
+        self.account_id = Some(account_id);
+        self
+    }
+    
+    /// Set authentication token for this session
+    pub fn with_auth_token(mut self, auth_token: AuthToken) -> Self {
+        self.auth_token = Some(auth_token);
+        self
+    }
+    
+    /// Set timeout for this session
+    pub fn with_timeout(mut self, timeout_seconds: u64) -> Self {
+        self.timeout = Some(timeout_seconds);
+        self
+    }
 
-    /// Check if the session is expired
-    #[must_use] pub fn is_expired(&self) -> bool {
-        if let Ok(elapsed) = self.last_accessed.elapsed() {
-            elapsed.as_secs() > self.timeout
+    /// Check if the session is expired based on provided timeout
+    pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
+        if let Some(timeout_duration) = timeout {
+            let now = Utc::now();
+            let elapsed = now.signed_duration_since(self.last_accessed);
+            elapsed.num_seconds() as u64 > timeout_duration.as_secs()
+        } else if let Some(session_timeout) = self.timeout {
+            let now = Utc::now();
+            let elapsed = now.signed_duration_since(self.last_accessed);
+            elapsed.num_seconds() as u64 > session_timeout
         } else {
-            true // If we can't determine the elapsed time, consider it expired
+            false // No timeout means session doesn't expire
         }
     }
 
     /// Update the last accessed time
     pub fn update_last_accessed(&mut self) {
-        self.last_accessed = SystemTime::now();
+        self.last_accessed = Utc::now();
     }
 
-    /// Set authentication token
+    /// Add authentication token to metadata
     pub fn set_auth_token(&mut self, token: AuthToken) {
         self.auth_token = Some(token);
     }
 
-    /// Set account ID
+    /// Add account ID to metadata
     pub fn set_account_id(&mut self, account_id: AccountId) {
         self.account_id = Some(account_id);
     }
@@ -116,22 +168,20 @@ impl Session {
 
     /// Get session age in seconds
     #[must_use] pub fn age(&self) -> u64 {
-        self.created_at
-            .elapsed()
-            .unwrap_or_else(|_| Duration::from_secs(0))
-            .as_secs()
+        let now = Utc::now();
+        now.signed_duration_since(self.created_at).num_seconds() as u64
     }
 
     /// Convert to session data for persistence
-    #[must_use] pub fn to_session_data(&self) -> SessionData {
+    pub fn to_session_data(&self) -> SessionData {
         SessionData {
             token: self.token.clone(),
             user_id: self.user_id.clone(),
             account_id: self.account_id.clone(),
             role: self.role.clone(),
-            created_at: self.created_at,
-            last_accessed: self.last_accessed,
-            timeout: self.timeout,
+            created_at: system_time_from_datetime(&self.created_at),
+            last_accessed: system_time_from_datetime(&self.last_accessed),
+            timeout: self.timeout.unwrap_or(3600),
             auth_token: self.auth_token.clone(),
             metadata: self.metadata.clone(),
         }
@@ -144,13 +194,32 @@ impl Session {
             user_id: data.user_id,
             account_id: data.account_id,
             role: data.role,
-            created_at: data.created_at,
-            last_accessed: data.last_accessed,
-            timeout: data.timeout,
+            created_at: datetime_from_system_time(&data.created_at),
+            last_accessed: datetime_from_system_time(&data.last_accessed),
+            timeout: Some(data.timeout),
             auth_token: data.auth_token,
             metadata: data.metadata,
         }
     }
+}
+
+/// Convert DateTime<Utc> to SystemTime
+fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
+    let unix_time = dt.timestamp();
+    let nanos = dt.timestamp_subsec_nanos();
+    
+    SystemTime::UNIX_EPOCH + Duration::from_secs(unix_time as u64) + Duration::from_nanos(nanos as u64)
+}
+
+/// Convert SystemTime to DateTime<Utc>
+fn datetime_from_system_time(st: &SystemTime) -> DateTime<Utc> {
+    let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0));
+    
+    let secs = duration_since_epoch.as_secs() as i64;
+    let nanos = duration_since_epoch.subsec_nanos();
+    
+    DateTime::<Utc>::from_timestamp(secs, nanos).unwrap_or_else(|| Utc::now())
 }
 
 /// Session manager for handling user sessions
@@ -181,46 +250,31 @@ impl SessionManager {
         }
     }
 
-    /// Create a session for a user
-    ///
-    /// # Arguments
-    /// * `credentials` - User credentials for authentication
-    ///
-    /// # Returns
-    /// A new Session object if successful
-    ///
-    /// # Errors
-    /// Returns an error if:
-    /// - Authentication fails with invalid credentials
-    /// - The user account is locked or disabled
-    /// - The session could not be created due to internal errors
-    /// - The session could not be persisted to storage
-    pub async fn create_session(
-        &self,
-        credentials: &Credentials,
-    ) -> Result<Session> {
-        // Authenticate the user - this returns a user ID as a String
-        let user_id_str = self.security.authenticate(credentials).await?;
-        
-        // Convert the string to a UserId and use a default role
-        let user_id = UserId::from(user_id_str);
-        let role = UserRole::User;
+    /// Create a new session for a user
+    pub async fn create_session(&self, user_id: UserId) -> Result<Session> {
+        // Generate a session token
+        let session_token = SessionToken(Uuid::new_v4().to_string());
         
         // Create the session
-        let session = Session::new(
+        let session = Session {
+            token: session_token.clone(),
             user_id,
-            role,
-            self.config.timeout,
-        );
+            account_id: None,
+            role: UserRole::User, // Default role
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            timeout: Some(3600), // Default 1 hour timeout
+            auth_token: None,
+            metadata: HashMap::new(),
+        };
         
         // Store the session
-        self.sessions.write().await.insert(session.token.clone(), session.clone());
+        let mut sessions = self.sessions.write().await;
+        sessions.insert(session_token, session.clone());
         
-        // Persist the session if enabled
-        if self.config.enable_persistence {
-            if let Some(persistence) = &self.persistence {
-                persistence.save_session(&session.to_session_data()).await?;
-            }
+        // Persist the session if persistence is enabled
+        if let Some(persistence) = &self.persistence {
+            persistence.save_session(&session.to_session_data()).await?;
         }
         
         Ok(session)
@@ -244,7 +298,7 @@ impl SessionManager {
         // Check in-memory sessions first
         let mut sessions = self.sessions.write().await;
         if let Some(session) = sessions.get_mut(token) {
-            if session.is_expired() {
+            if session.is_expired(self.config.timeout) {
                 sessions.remove(token);
                 return Err(SessionError::Timeout("Session has expired".to_string()).into());
             }
@@ -258,7 +312,7 @@ impl SessionManager {
             if let Some(persistence) = &self.persistence {
                 if let Ok(Some(session_data)) = persistence.load_session(token).await {
                     let mut session = Session::from_session_data(session_data);
-                    if session.is_expired() {
+                    if session.is_expired(self.config.timeout) {
                         persistence.delete_session(token).await?;
                         return Err(SessionError::Timeout("Session has expired".to_string()).into());
                     }
@@ -326,47 +380,35 @@ impl SessionManager {
         Ok(())
     }
 
-    /// Refresh a session, updating its expiration time
-    ///
-    /// # Arguments
-    /// * `token` - The session token to refresh
-    ///
-    /// # Returns
-    /// The refreshed Session object
-    ///
-    /// # Errors
-    /// Returns an error if:
-    /// - The original session token is invalid or not found
-    /// - The original session has expired
-    /// - The session data cannot be persisted to storage
-    /// - The original session cannot be deleted
-    pub async fn refresh_session(&self, token: &SessionToken) -> Result<Session> {
-        let session = self.get_session(token).await?;
+    /// Refresh a session by creating a new one with the same token but reset expiration
+    pub async fn refresh_session(&self, session_token: &SessionToken) -> Result<Session> {
+        // Get the existing session
+        let sessions = self.sessions.read().await;
+        let old_session = sessions.get(session_token)
+            .ok_or_else(|| MCPError::from(SessionError::NotFound("Session not found".to_string())))?;
         
-        // Create a new session with a new token
-        let new_session = Session::new(
-            session.user_id.clone(),
-            session.role.clone(),
-            self.config.timeout,
-        );
+        // Create a new session with the same token but updated creation time
+        let new_session = Session {
+            token: session_token.clone(),
+            user_id: old_session.user_id.clone(),
+            account_id: old_session.account_id.clone(),
+            role: old_session.role.clone(),
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            timeout: old_session.timeout.clone(),
+            auth_token: old_session.auth_token.clone(),
+            metadata: old_session.metadata.clone(),
+        };
         
-        // Copy over relevant data
-        let mut new_session = new_session;
-        new_session.account_id.clone_from(&session.account_id);
-        new_session.auth_token.clone_from(&session.auth_token);
-        new_session.metadata.clone_from(&session.metadata);
+        drop(sessions);
         
-        // Save the new session
-        self.sessions.write().await.insert(new_session.token.clone(), new_session.clone());
+        // Store the refreshed session
+        let mut sessions = self.sessions.write().await;
+        sessions.insert(session_token.clone(), new_session.clone());
         
-        // Delete the old session
-        self.delete_session(token).await?;
-        
-        // Persist the new session if enabled
-        if self.config.enable_persistence {
-            if let Some(persistence) = &self.persistence {
-                persistence.save_session(&new_session.to_session_data()).await?;
-            }
+        // Update in persistence if enabled
+        if let Some(persistence) = &self.persistence {
+            persistence.save_session(&new_session.to_session_data()).await?;
         }
         
         Ok(new_session)
@@ -387,7 +429,7 @@ impl SessionManager {
         
         let expired_tokens: Vec<SessionToken> = sessions
             .iter()
-            .filter(|(_, session)| session.is_expired())
+            .filter(|(_, session)| session.is_expired(self.config.timeout))
             .map(|(token, _)| token.clone())
             .collect();
             
@@ -407,6 +449,99 @@ impl SessionManager {
         }
         
         Ok(count)
+    }
+
+    /// Create a session from an existing token
+    pub async fn create_session_from_token(&self, token: SessionToken, user_id: UserId) -> Result<Session> {
+        let session = Session {
+            token: token.clone(),
+            user_id,
+            account_id: None,
+            role: UserRole::User, // Default role
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            timeout: Some(3600), // Default 1 hour timeout
+            auth_token: None,
+            metadata: HashMap::new(),
+        };
+        
+        // Store the session
+        let mut sessions = self.sessions.write().await;
+        sessions.insert(token, session.clone());
+        
+        // Persist the session if persistence is enabled
+        if let Some(persistence) = &self.persistence {
+            persistence.save_session(&session.to_session_data()).await?;
+        }
+        
+        Ok(session)
+    }
+
+    /// Validate a session token
+    pub async fn validate_session(&self, session_token: &SessionToken) -> Result<Session> {
+        let sessions = self.sessions.read().await;
+        if let Some(session) = sessions.get(session_token) {
+            // Check if session has timed out
+            if let Some(timeout) = self.config.timeout {
+                let session_age = SystemTime::now().duration_since(system_time_from_datetime(&session.created_at))
+                    .map_err(|_| MCPError::from(SessionError::InternalError("Could not calculate session age".to_string())))?;
+                
+                if session_age > timeout {
+                    drop(sessions); // Release the read lock before acquiring write lock
+                    
+                    // Handle session timeout and cleanup
+                    if self.config.auto_cleanup {
+                        let mut sessions = self.sessions.write().await;
+                        sessions.remove(session_token);
+                        
+                        // Also remove from persistence if enabled
+                        if let Some(persistence) = &self.persistence {
+                            persistence.delete_session(session_token).await?;
+                        }
+                    }
+                    
+                    return Err(MCPError::from(SessionError::Timeout("Session has expired".to_string())));
+                }
+            }
+            
+            Ok(session.clone())
+        } else {
+            Err(MCPError::from(SessionError::NotFound("Session not found".to_string())))
+        }
+    }
+
+    /// Create a copy of an existing session with a new token
+    pub async fn copy_session(&self, old_token: &SessionToken, new_token: SessionToken) -> Result<Session> {
+        // Get the existing session
+        let sessions = self.sessions.read().await;
+        let old_session = sessions.get(old_token)
+            .ok_or_else(|| MCPError::from(SessionError::NotFound("Session not found".to_string())))?;
+        
+        // Create a new session with a new token but same user and metadata
+        let new_session = Session {
+            token: new_token.clone(),
+            user_id: old_session.user_id.clone(),
+            account_id: old_session.account_id.clone(),
+            role: old_session.role.clone(),
+            created_at: Utc::now(), // Reset creation time for the new session
+            last_accessed: Utc::now(),
+            timeout: old_session.timeout.clone(),
+            auth_token: old_session.auth_token.clone(),
+            metadata: old_session.metadata.clone(),
+        };
+        
+        drop(sessions);
+        
+        // Store the new session
+        let mut sessions = self.sessions.write().await;
+        sessions.insert(new_token, new_session.clone());
+        
+        // Persist if enabled
+        if let Some(persistence) = &self.persistence {
+            persistence.save_session(&new_session.to_session_data()).await?;
+        }
+        
+        Ok(new_session)
     }
 }
 

@@ -25,6 +25,8 @@ use crate::mcp::types::{
 use crate::error::{SquirrelError, Result};
 use crate::test_utils::{TestData, TestFactory};
 
+mod domain_objects_test;
+
 // Test fixtures and helpers
 
 /// Test command handler for testing

@@ -10,8 +10,9 @@ pub use core_adapter::CoreMCPAdapter;
 
 /// Re-exports of key integration traits and types
 pub mod prelude {
-    pub use crate::protocol::{MCPProtocol, MessageHandler, MCPMessage, MCPResponse};
-    pub use crate::security::{AuthManager, Credentials, User, Permission, Action};
+    pub use crate::protocol::{MCPProtocol, MessageHandler};
+    pub use crate::types::{MCPMessage, MCPResponse};
+    pub use crate::security::{Credentials, Permission, Action};
     pub use crate::error::{MCPError, MCPResult};
     
     pub use super::core_adapter::CoreMCPAdapter;

@@ -35,7 +35,7 @@
 //! // Create a response from a message
 //! let message = MCPMessage {
 //!     id: MessageId("msg123".to_string()),
-//!     message_type: MessageType::Command,
+//!     type_: MessageType::Command,
 //!     payload: json!({"command": "status"}),
 //! };
 //!
@@ -96,6 +96,16 @@ pub mod adapter;
 pub use adapter::{
     create_protocol_adapter, create_protocol_adapter_with_protocol, MCPProtocolAdapter,
 };
+
+/// Wire format adapter for protocol serialization/deserialization and versioning
+pub mod adapter_wire;
+pub use adapter_wire::{
+    WireFormatAdapter, WireFormatConfig, WireMessage, WireFormat, ProtocolVersion, DomainObject
+};
+
+/// Domain object implementations for protocol serialization/deserialization
+pub mod domain_objects;
+
 /// Implementation module for protocol core functionality
 mod impl_protocol;
 pub use impl_protocol::MCPProtocolImpl;
@@ -363,7 +373,7 @@ pub trait CommandHandler: Send + Sync + Debug {
 /// // Create a message
 /// let message = MCPMessage {
 ///     id: MessageId("msg123".to_string()),
-///     message_type: MessageType::Command,
+///     type_: MessageType::Command,
 ///     payload: json!({"command": "get_status"}),
 /// };
 ///
@@ -486,11 +496,11 @@ impl MCPProtocolBase {
     pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> Result<MCPResponse> {
         let handler = self
             .handlers
-            .get(&message.message_type.to_string())
+            .get(&message.type_.to_string())
             .ok_or_else(|| {
                 MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler for message type: {:?}",
-                    message.message_type
+                    "No handler for {}",
+                    message.type_
                 )))
             })?;
 
@@ -617,6 +627,7 @@ impl MCPProtocolBase {
             ProtocolState::Uninitialized => "uninitialized",
             ProtocolState::Initializing => "initializing",
             ProtocolState::ShuttingDown => "shutting_down",
+            ProtocolState::Closed => "closed",
         };
 
         // Update the existing state object or create a new one
@@ -633,11 +644,11 @@ impl MCPProtocolBase {
     pub async fn handle_protocol_message(&self, message: &MCPMessage) -> ProtocolResult {
         let handler = self
             .handlers
-            .get(&message.message_type.to_string())
+            .get(&message.type_.to_string())
             .ok_or_else(|| {
                 MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler for message type {:?}",
-                    message.message_type
+                    "No handler for {}",
+                    message.type_
                 )))
             })?;
 

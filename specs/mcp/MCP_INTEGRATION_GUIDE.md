@@ -689,6 +689,73 @@ impl MCPPluginAdapter {
 }
 ```
 
+## API Updates - July 2024
+
+### Message Structure Changes
+
+The `MCPMessage` structure has been updated to match the specification more closely:
+
+```rust
+pub struct MCPMessage {
+    /// Unique identifier for the message
+    pub id: MessageId,
+    /// Type of the message (Command, Response, Event, Error)
+    pub type_: MessageType,
+    /// Message payload as JSON value
+    pub payload: serde_json::Value,
+    /// Optional metadata about the message
+    pub metadata: Option<serde_json::Value>,
+    /// Security-related metadata
+    pub security: SecurityMetadata,
+    /// Timestamp when the message was created
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Protocol version used by the message
+    pub version: ProtocolVersion,
+    /// Optional trace ID for distributed tracing
+    pub trace_id: Option<String>,
+}
+```
+
+Key changes:
+- `message_type` field renamed to `type_`
+- Added metadata, security, timestamp, version, and trace_id fields
+- Added supporting structures like SecurityMetadata and EncryptionInfo
+
+### MessageType Updates
+
+The `MessageType` enum now includes additional variants:
+
+```rust
+pub enum MessageType {
+    Command,
+    Response,
+    Event,
+    Error,
+    Setup,
+    Heartbeat,  // New
+    Sync,       // New
+}
+```
+
+### Security Manager Updates
+
+The `SecurityManager` trait now requires an authenticate method:
+
+```rust
+#[async_trait]
+pub trait SecurityManager: Send + Sync {
+    /// Authenticate a user with credentials
+    /// Returns the user ID if authentication is successful
+    async fn authenticate(&self, credentials: &Credentials) -> Result<String>;
+    
+    // ... other methods ...
+}
+```
+
+Important:
+- All code that uses SecurityManager must use the trait object syntax: `Arc<dyn SecurityManager>` rather than `Arc<SecurityManager>`
+- Implementations must provide the authenticate method
+
 ## Conclusion
 
 Effective integration with the MCP crate requires understanding its core components and following proper integration patterns. By using adapters, dependency injection, and appropriate error handling, you can create robust integrations that leverage the full power of the Machine Context Protocol.

@@ -85,6 +85,7 @@
 use serde::{Deserialize, Serialize};
 use uuid;
 use serde_json;
+use chrono;
 
 /// Security level for MCP operations.
 ///
@@ -140,7 +141,7 @@ pub enum SecurityLevel {
 /// - `None`: Provides no encryption and should only be used for non-sensitive data
 /// - `Aes256Gcm`: Provides strong security with reasonable performance
 /// - `ChaCha20Poly1305`: Alternative that may be faster on systems without AES hardware acceleration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
 pub enum EncryptionFormat {
     /// No encryption: Data is transmitted in plaintext
     #[default]
@@ -177,6 +178,10 @@ pub enum MessageType {
     Error,
     /// Setup message: Used for protocol initialization and negotiation
     Setup,
+    /// Heartbeat message: Used for connection health monitoring
+    Heartbeat,
+    /// Sync message: Used for state synchronization
+    Sync,
 }
 
 impl std::fmt::Display for MessageType {
@@ -187,6 +192,8 @@ impl std::fmt::Display for MessageType {
             MessageType::Event => write!(f, "Event"),
             MessageType::Error => write!(f, "Error"),
             MessageType::Setup => write!(f, "Setup"),
+            MessageType::Heartbeat => write!(f, "Heartbeat"),
+            MessageType::Sync => write!(f, "Sync"),
         }
     }
 }
@@ -203,6 +210,7 @@ impl std::fmt::Display for MessageType {
 /// - `None`: No compression, fastest but uses the most bandwidth
 /// - `Gzip`: Widely supported, good balance of compression ratio and speed
 /// - `Zstd`: Modern format with better compression/speed tradeoff than Gzip
+/// - `Lz4`: Fast compression algorithm with good ratio
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CompressionFormat {
     /// No compression: Data is transmitted uncompressed
@@ -212,6 +220,8 @@ pub enum CompressionFormat {
     Gzip,
     /// Zstandard compression: Modern compression with excellent performance
     Zstd,
+    /// LZ4 compression: Fast compression algorithm with good ratio
+    Lz4,
 }
 
 /// Message metadata for MCP messages.
@@ -287,74 +297,237 @@ pub enum ResponseStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MessageId(pub String);
 
-/// MCP Message for communication between components.
+impl MessageId {
+    /// Creates a new message ID using a randomly generated UUID.
+    ///
+    /// This is a convenience method for creating a new message ID
+    /// with a randomly generated UUID, which ensures global uniqueness
+    /// without requiring coordination between components.
+    ///
+    /// # Returns
+    ///
+    /// A new `MessageId` with a random UUID as its value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::types::MessageId;
+    ///
+    /// let id = MessageId::new();
+    /// println!("New message ID: {}", id.0);
+    /// ```
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+    
+    /// Creates a new message ID with a custom prefix and a randomly generated UUID.
+    ///
+    /// This method creates a message ID that combines a custom prefix with a UUID,
+    /// which can be useful for identifying the source or type of message.
+    ///
+    /// # Arguments
+    ///
+    /// * `prefix` - A prefix to add to the UUID
+    ///
+    /// # Returns
+    ///
+    /// A new `MessageId` with the format "{prefix}-{uuid}"
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::types::MessageId;
+    ///
+    /// let id = MessageId::with_prefix("cmd");
+    /// // Would result in something like: "cmd-550e8400-e29b-41d4-a716-446655440000"
+    /// ```
+    pub fn with_prefix(prefix: &str) -> Self {
+        Self(format!("{}-{}", prefix, uuid::Uuid::new_v4()))
+    }
+}
+
+/// Core message structure for MCP communications.
 ///
-/// This is the core message structure used for all MCP communications.
-/// It contains a unique identifier, message type, and payload. This structure
-/// forms the foundation of the MCP protocol and enables communication
-/// between different components of the system.
+/// This structure represents a message in the Machine Context Protocol (MCP),
+/// which is used for communication between components in the system.
 ///
-/// # Message Flow
+/// # Fields
 ///
-/// Messages follow a structured flow through the MCP system:
-/// 1. Created by a sender with a unique ID and message type
-/// 2. Serialized and transmitted through the protocol
-/// 3. Received and deserialized by the recipient
-/// 4. Processed according to the message type
-/// 5. Response generated (if applicable)
-///
-/// # Examples
-///
-/// Command message:
-///
-/// ```
-/// use mcp::types::{MCPMessage, MessageId, MessageType};
-/// use serde_json::json;
-///
-/// let command = MCPMessage {
-///     id: MessageId("cmd-123".to_string()),
-///     message_type: MessageType::Command,
-///     payload: json!({
-///         "command": "read_file",
-///         "path": "/path/to/file.txt"
-///     }),
-/// };
-/// ```
-///
-/// Event message:
-///
-/// ```
-/// use mcp::types::{MCPMessage, MessageId, MessageType};
-/// use serde_json::json;
-///
-/// let event = MCPMessage {
-///     id: MessageId("evt-456".to_string()),
-///     message_type: MessageType::Event,
-///     payload: json!({
-///         "event_type": "file_changed",
-///         "path": "/path/to/file.txt",
-///         "timestamp": 1623456789
-///     }),
-/// };
-/// ```
+/// - `id`: Unique identifier for the message
+/// - `type_`: Type of the message (Command, Response, Event, Error, etc.)
+/// - `payload`: Message payload as JSON value
+/// - `metadata`: Optional metadata about the message
+/// - `security`: Security-related metadata
+/// - `timestamp`: Time when the message was created
+/// - `version`: Protocol version used by the message
+/// - `trace_id`: Optional trace ID for distributed tracing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MCPMessage {
     /// Unique identifier for the message
     pub id: MessageId,
     /// Type of the message (Command, Response, Event, Error)
-    pub message_type: MessageType,
+    pub type_: MessageType,
     /// Message payload as JSON value
     pub payload: serde_json::Value,
+    /// Optional metadata about the message
+    pub metadata: Option<serde_json::Value>,
+    /// Security-related metadata
+    pub security: SecurityMetadata,
+    /// Timestamp when the message was created
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Protocol version used by the message
+    pub version: ProtocolVersion,
+    /// Optional trace ID for distributed tracing
+    pub trace_id: Option<String>,
+}
+
+impl MCPMessage {
+    /// Creates a new MCPMessage with the specified message type and payload.
+    ///
+    /// This constructor sets default values for all other fields:
+    /// - Generates a new unique message ID
+    /// - Sets default security metadata
+    /// - Sets the current timestamp
+    /// - Uses the default protocol version
+    /// - No trace ID (set to None)
+    ///
+    /// # Arguments
+    ///
+    /// * `type_` - The message type
+    /// * `payload` - The message payload as a JSON value
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPMessage` instance with the specified type and payload
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::types::{MCPMessage, MessageType};
+    /// use serde_json::json;
+    ///
+    /// let message = MCPMessage::new(
+    ///     MessageType::Command,
+    ///     json!({"command": "status"})
+    /// );
+    /// ```
+    pub fn new(type_: MessageType, payload: serde_json::Value) -> Self {
+        Self {
+            id: MessageId::new(),
+            type_,
+            payload,
+            metadata: None,
+            security: SecurityMetadata::default(),
+            timestamp: chrono::Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
+        }
+    }
+    
+    /// Creates a new MCPMessage with all fields specified.
+    ///
+    /// This constructor allows full control over all message fields,
+    /// which is useful for creating messages with specific requirements.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The message ID
+    /// * `type_` - The message type
+    /// * `payload` - The message payload
+    /// * `metadata` - Optional message metadata
+    /// * `security` - Security metadata
+    /// * `timestamp` - Message creation timestamp
+    /// * `version` - Protocol version
+    /// * `trace_id` - Optional trace ID for distributed tracing
+    ///
+    /// # Returns
+    ///
+    /// A new `MCPMessage` instance with all fields specified
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mcp::types::{MCPMessage, MessageId, MessageType, SecurityMetadata, ProtocolVersion};
+    /// use serde_json::json;
+    /// use chrono::Utc;
+    ///
+    /// let message = MCPMessage::with_details(
+    ///     MessageId("custom-id".to_string()),
+    ///     MessageType::Command,
+    ///     json!({"command": "status"}),
+    ///     Some(json!({"source": "cli"})),
+    ///     SecurityMetadata::default(),
+    ///     Utc::now(),
+    ///     ProtocolVersion::new(1, 0),
+    ///     Some("trace-123".to_string())
+    /// );
+    /// ```
+    pub fn with_details(
+        id: MessageId,
+        type_: MessageType,
+        payload: serde_json::Value,
+        metadata: Option<serde_json::Value>,
+        security: SecurityMetadata,
+        timestamp: chrono::DateTime<chrono::Utc>,
+        version: ProtocolVersion,
+        trace_id: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            type_,
+            payload,
+            metadata,
+            security,
+            timestamp,
+            version,
+            trace_id,
+        }
+    }
 }
 
 impl Default for MCPMessage {
     fn default() -> Self {
         Self {
-            id: MessageId("default".to_string()),
-            message_type: MessageType::Command,
-            payload: serde_json::json!({}),
+            id: MessageId::new(),
+            type_: MessageType::Command,
+            payload: serde_json::Value::Null,
+            metadata: None,
+            security: SecurityMetadata::default(),
+            timestamp: chrono::Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
         }
     }
+}
+
+/// Security metadata for messages
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SecurityMetadata {
+    /// Security level for the message
+    pub security_level: SecurityLevel,
+    /// Optional encryption information
+    pub encryption_info: Option<EncryptionInfo>,
+    /// Optional digital signature
+    pub signature: Option<String>,
+    /// Optional authentication token
+    pub auth_token: Option<String>,
+    /// Optional permissions
+    pub permissions: Option<Vec<String>>,
+    /// Optional roles
+    pub roles: Option<Vec<String>>,
+}
+
+/// Encryption information for secure communications
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EncryptionInfo {
+    /// Encryption format used
+    pub format: EncryptionFormat,
+    /// Optional encryption key ID
+    pub key_id: Option<String>,
+    /// Optional initialization vector
+    pub iv: Option<Vec<u8>>,
+    /// Optional additional authenticated data
+    pub aad: Option<Vec<u8>>,
 }
 
 /// Command Request Message for executing commands via MCP.
@@ -590,49 +763,11 @@ impl std::fmt::Display for ProtocolVersion {
     }
 }
 
-/// State of the protocol.
+/// Protocol state for MCP operations.
 ///
-/// This enumeration represents the possible states of the MCP protocol
-/// during its lifecycle. It tracks the protocol's state from initialization
-/// through operation to shutdown, allowing components to react appropriately
-/// based on the current state.
-///
-/// # State Transitions
-///
-/// The protocol typically follows this state progression:
-/// 1. Uninitialized → Initializing (when setup begins)
-/// 2. Initializing → Initialized (when basic setup completes)
-/// 3. Initialized → Ready (when fully operational)
-/// 4. Ready → ShuttingDown (when termination begins)
-///
-/// The Error state can be entered from any other state when a problem occurs.
-///
-/// # Usage
-///
-/// ```
-/// use mcp::types::ProtocolState;
-///
-/// fn handle_message(state: ProtocolState, message: &str) -> bool {
-///     match state {
-///         ProtocolState::Uninitialized | ProtocolState::Initializing => {
-///             // Only accept setup messages
-///             message.starts_with("SETUP")
-///         },
-///         ProtocolState::Ready => {
-///             // Accept all normal messages
-///             true
-///         },
-///         ProtocolState::ShuttingDown => {
-///             // Only accept urgent messages
-///             message.starts_with("URGENT")
-///         },
-///         ProtocolState::Error | ProtocolState::Initialized => {
-///             // Limited message handling
-///             message.starts_with("CONTROL")
-///         },
-///     }
-/// }
-/// ```
+/// This enumeration defines the possible states of the MCP protocol,
+/// from uninitialized to fully operational. It is used to track and
+/// manage the lifecycle of protocol connections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProtocolState {
     /// Protocol is uninitialized: Initial state before setup
@@ -647,6 +782,8 @@ pub enum ProtocolState {
     ShuttingDown,
     /// Protocol is in an error state: Problem detected
     Error,
+    /// Protocol is closed: Fully terminated
+    Closed,
 }
 
 impl Default for ProtocolState {
@@ -889,12 +1026,17 @@ mod tests {
         // Create a message with the correct fields
         let message = MCPMessage {
             id: message_id,
-            message_type: MessageType::Command,
+            type_: MessageType::Command,
             payload: serde_json::json!({"command": "test", "data": [1, 2, 3]}),
+            metadata: None,
+            security: SecurityMetadata::default(),
+            timestamp: chrono::Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
         };
 
         // Test the fields that actually exist
-        assert_eq!(message.message_type, MessageType::Command);
+        assert_eq!(message.type_, MessageType::Command);
         assert_eq!(message.id.0, "test-123");
         assert!(message.payload.is_object());
     }

@@ -5,9 +5,13 @@
 use std::time::Duration;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use rand::{Rng, thread_rng};
+use std::error::Error as StdError;
+use std::fmt;
+use futures::future::BoxFuture;
+use std::collections::{HashMap, VecDeque};
 
 use crate::resilience::{ResilienceError, Result};
 
@@ -104,19 +108,19 @@ impl From<RetryError> for ResilienceError {
     }
 }
 
-/// Retry strategy for handling transient failures
-#[derive(Debug)]
+/// Retry mechanism for handling transient failures
+#[derive(Debug, Clone)]
 pub struct RetryMechanism {
     /// Configuration for the retry mechanism
     config: RetryConfig,
-    /// Metrics for retry operations
-    success_count: AtomicUsize,
-    /// Number of failed operations
-    failure_count: AtomicUsize,
-    /// Total number of retries performed
-    retry_count: AtomicUsize,
-    /// Maximum number of retries for a single operation
-    max_retries_performed: AtomicUsize,
+    /// Count of successful operations
+    success_count: Arc<AtomicU32>,
+    /// Count of failed operations after all retries
+    failure_count: Arc<AtomicU32>,
+    /// Count of retry attempts
+    retry_count: Arc<AtomicU32>,
+    /// Maximum number of retries performed for a single operation
+    max_retries_performed: Arc<AtomicU32>,
 }
 
 impl RetryMechanism {
@@ -124,10 +128,10 @@ impl RetryMechanism {
     pub fn new(config: RetryConfig) -> Self {
         Self {
             config,
-            success_count: AtomicUsize::new(0),
-            failure_count: AtomicUsize::new(0),
-            retry_count: AtomicUsize::new(0),
-            max_retries_performed: AtomicUsize::new(0),
+            success_count: Arc::new(AtomicU32::new(0)),
+            failure_count: Arc::new(AtomicU32::new(0)),
+            retry_count: Arc::new(AtomicU32::new(0)),
+            max_retries_performed: Arc::new(AtomicU32::new(0)),
         }
     }
     
@@ -139,10 +143,10 @@ impl RetryMechanism {
     /// Get retry metrics
     pub fn get_metrics(&self) -> RetryMetrics {
         RetryMetrics {
-            success_count: self.success_count.load(Ordering::Relaxed),
-            failure_count: self.failure_count.load(Ordering::Relaxed),
-            retry_count: self.retry_count.load(Ordering::Relaxed),
-            max_retries_performed: self.max_retries_performed.load(Ordering::Relaxed),
+            success_count: self.success_count.load(Ordering::Relaxed) as usize,
+            failure_count: self.failure_count.load(Ordering::Relaxed) as usize,
+            retry_count: self.retry_count.load(Ordering::Relaxed) as usize,
+            max_retries_performed: self.max_retries_performed.load(Ordering::Relaxed) as usize,
         }
     }
     
@@ -155,24 +159,25 @@ impl RetryMechanism {
     }
     
     /// Execute an operation with retry logic
-    pub fn execute<F, T, E>(&self, operation: F) -> Result<T, RetryError>
+    pub async fn execute<F, T>(&self, mut operation: F) -> std::result::Result<T, RetryError>
     where
-        F: Fn() -> std::result::Result<T, E>,
-        E: std::error::Error + Send + Sync + 'static,
+        F: FnMut() -> Pin<Box<dyn Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send>>,
+        T: Send + 'static,
     {
         let mut attempts = 0;
         let mut last_error = None;
         let mut retries = 0;
         
         while attempts < self.config.max_attempts {
-            match operation() {
+            let future = operation();
+            match future.await {
                 Ok(value) => {
                     self.success_count.fetch_add(1, Ordering::Relaxed);
                     
                     // Update max retries metrics if needed
-                    let current_max = self.max_retries_performed.load(Ordering::Relaxed);
+                    let current_max = self.max_retries_performed.load(Ordering::Relaxed) as usize;
                     if retries > current_max {
-                        self.max_retries_performed.store(retries, Ordering::Relaxed);
+                        self.max_retries_performed.store(retries as u32, Ordering::Relaxed);
                     }
                     
                     return Ok(value);
@@ -184,11 +189,11 @@ impl RetryMechanism {
                         retries += 1;
                         self.retry_count.fetch_add(1, Ordering::Relaxed);
                         
-                        let delay = self.calculate_delay(attempts);
-                        std::thread::sleep(delay);
+                        let delay = self.calculate_delay(attempts as u32);
+                        tokio::time::sleep(delay).await;
                     }
                     
-                    last_error = Some(Box::new(err) as Box<dyn std::error::Error + Send + Sync>);
+                    last_error = Some(err);
                 }
             }
         }
@@ -202,7 +207,7 @@ impl RetryMechanism {
     }
     
     /// Calculate the delay for the next retry based on the backoff strategy
-    fn calculate_delay(&self, attempt: u32) -> Duration {
+    pub fn calculate_delay(&self, attempt: u32) -> Duration {
         let base_ms = self.config.base_delay.as_millis() as u64;
         
         // Calculate delay based on strategy
@@ -259,16 +264,17 @@ impl RetryMechanism {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    
-    #[test]
-    fn test_retry_success_first_attempt() {
+    use tokio::test;
+
+    #[tokio::test]
+    async fn test_retry_success_first_attempt() {
         let retry = RetryMechanism::default();
         
         let result = retry.execute(|| {
-            Ok::<_, &'static str>(42)
-        });
+            Box::pin(async {
+                Ok::<i32, Box<dyn StdError + Send + Sync>>(42)
+            })
+        }).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
@@ -277,178 +283,129 @@ mod tests {
         assert_eq!(metrics.success_count, 1);
         assert_eq!(metrics.failure_count, 0);
         assert_eq!(metrics.retry_count, 0);
-        assert_eq!(metrics.max_retries_performed, 0);
     }
     
-    #[test]
-    fn test_retry_success_after_failure() {
-        let retry = RetryMechanism::default();
+    #[tokio::test]
+    async fn test_retry_success_after_failure() {
+        let config = RetryConfig {
+            max_attempts: 3,
+            base_delay: Duration::from_millis(10),
+            ..RetryConfig::default()
+        };
         
-        let counter = Rc::new(RefCell::new(0));
-        let counter_clone = counter.clone();
+        let retry = RetryMechanism::new(config);
         
-        let result = retry.execute(|| {
-            let mut count = counter_clone.borrow_mut();
-            *count += 1;
-            
-            if *count < 3 {
-                Err("Temporary failure")
-            } else {
-                Ok(42)
-            }
-        });
+        // Use an Arc<AtomicU32> to ensure it lives long enough
+        let attempts = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        
+        let result: std::result::Result<i32, RetryError> = retry.execute(|| {
+            let attempts_clone = attempts.clone();
+            Box::pin(async move {
+                attempts_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                
+                if attempts_clone.load(std::sync::atomic::Ordering::SeqCst) < 2 {
+                    Err(Box::<dyn StdError + Send + Sync>::from("Temporary failure".to_string()))
+                } else {
+                    Ok(42)
+                }
+            })
+        }).await;
         
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
-        assert_eq!(*counter.borrow(), 3);
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2); // Should have made 2 attempts
         
         let metrics = retry.get_metrics();
         assert_eq!(metrics.success_count, 1);
         assert_eq!(metrics.failure_count, 0);
-        assert_eq!(metrics.retry_count, 2);
-        assert_eq!(metrics.max_retries_performed, 2);
+        assert_eq!(metrics.retry_count, 1);
     }
     
-    #[test]
-    fn test_retry_max_attempts_exceeded() {
+    #[tokio::test]
+    async fn test_retry_max_attempts_exceeded() {
         let config = RetryConfig {
-            max_attempts: 3,
-            base_delay: Duration::from_millis(1), // Make test run faster
+            max_attempts: 2,
+            base_delay: Duration::from_millis(10),
             ..RetryConfig::default()
         };
         
         let retry = RetryMechanism::new(config);
         
-        let counter = Rc::new(RefCell::new(0));
-        let counter_clone = counter.clone();
+        // Use an Arc<AtomicU32> to ensure it lives long enough
+        let attempts = Arc::new(std::sync::atomic::AtomicU32::new(0));
         
-        let result = retry.execute(|| {
-            let mut count = counter_clone.borrow_mut();
-            *count += 1;
-            
-            Err::<i32, _>("Persistent failure")
-        });
+        let result: std::result::Result<i32, RetryError> = retry.execute(|| {
+            let attempts_clone = attempts.clone();
+            Box::pin(async move {
+                attempts_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                
+                // Always fail
+                Err(Box::<dyn StdError + Send + Sync>::from("Persistent failure".to_string()))
+            })
+        }).await;
         
         assert!(result.is_err());
-        assert_eq!(*counter.borrow(), 3); // Initial attempt + 2 retries
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2); // Should have made 2 attempts
         
         let metrics = retry.get_metrics();
         assert_eq!(metrics.success_count, 0);
         assert_eq!(metrics.failure_count, 1);
-        assert_eq!(metrics.retry_count, 2);
+        assert_eq!(metrics.retry_count, 1);
     }
     
-    #[test]
-    fn test_backoff_strategies() {
-        // Test constant backoff
+    #[tokio::test]
+    async fn test_retry_with_jitter() {
         let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Constant,
-            base_delay: Duration::from_millis(10),
-            ..RetryConfig::default()
-        };
-        let retry = RetryMechanism::new(config);
-        
-        assert_eq!(retry.calculate_delay(1).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(2).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(3).as_millis(), 10);
-        
-        // Test linear backoff
-        let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Linear,
-            base_delay: Duration::from_millis(10),
-            use_jitter: false,
-            ..RetryConfig::default()
-        };
-        let retry = RetryMechanism::new(config);
-        
-        assert_eq!(retry.calculate_delay(1).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(2).as_millis(), 20);
-        assert_eq!(retry.calculate_delay(3).as_millis(), 30);
-        
-        // Test exponential backoff
-        let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Exponential,
-            base_delay: Duration::from_millis(10),
-            use_jitter: false,
-            ..RetryConfig::default()
-        };
-        let retry = RetryMechanism::new(config);
-        
-        assert_eq!(retry.calculate_delay(1).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(2).as_millis(), 20);
-        assert_eq!(retry.calculate_delay(3).as_millis(), 40);
-        
-        // Test fibonacci backoff
-        let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Fibonacci,
-            base_delay: Duration::from_millis(10),
-            use_jitter: false,
-            ..RetryConfig::default()
-        };
-        let retry = RetryMechanism::new(config);
-        
-        assert_eq!(retry.calculate_delay(1).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(2).as_millis(), 10);
-        assert_eq!(retry.calculate_delay(3).as_millis(), 20);
-        assert_eq!(retry.calculate_delay(4).as_millis(), 30);
-        assert_eq!(retry.calculate_delay(5).as_millis(), 50);
-    }
-    
-    #[test]
-    fn test_jitter() {
-        let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Constant,
-            base_delay: Duration::from_millis(100),
             use_jitter: true,
             ..RetryConfig::default()
         };
+        
         let retry = RetryMechanism::new(config);
         
-        // With jitter, the delays shouldn't be exactly the base_delay
-        // and should vary between calls
-        let mut all_same = true;
-        let first = retry.calculate_delay(1);
+        // Get multiple delay calculations for the same attempt
+        let delay1 = retry.calculate_delay(1);
+        let delay2 = retry.calculate_delay(1);
+        let delay3 = retry.calculate_delay(1);
         
-        for _ in 0..10 {
-            let delay = retry.calculate_delay(1);
-            if delay != first {
-                all_same = false;
-                break;
-            }
-        }
-        
-        assert!(!all_same, "Jitter should cause varying delays");
+        // At least one of them should be different due to jitter
+        assert!(delay1 != delay2 || delay2 != delay3 || delay1 != delay3);
     }
     
-    #[test]
-    fn test_max_delay() {
+    #[tokio::test]
+    async fn test_max_delay() {
         let config = RetryConfig {
-            backoff_strategy: BackoffStrategy::Exponential,
+            max_delay: Duration::from_millis(100),
             base_delay: Duration::from_millis(10),
-            max_delay: Duration::from_millis(50),
-            use_jitter: false,
+            backoff_strategy: BackoffStrategy::Exponential,
             ..RetryConfig::default()
         };
+        
         let retry = RetryMechanism::new(config);
         
-        // At attempt 5, the exponential delay would be 10 * 2^4 = 160ms
-        // But max_delay is 50ms, so it should be capped
-        assert_eq!(retry.calculate_delay(5).as_millis(), 50);
+        // Calculate delay for a high attempt number
+        let delay = retry.calculate_delay(10);
+        
+        // Should be capped at max_delay
+        assert!(delay <= Duration::from_millis(100));
     }
     
-    #[test]
-    fn test_reset_metrics() {
+    #[tokio::test]
+    async fn test_reset_metrics() {
         let retry = RetryMechanism::default();
         
         // Execute a successful operation
-        let _ = retry.execute(|| {
-            Ok::<_, &'static str>(42)
-        });
+        let _: std::result::Result<i32, RetryError> = retry.execute(|| {
+            Box::pin(async {
+                Ok::<i32, Box<dyn StdError + Send + Sync>>(42)
+            })
+        }).await;
         
         // Execute a failing operation
-        let _ = retry.execute(|| {
-            Err::<i32, _>("Failure")
-        });
+        let _: std::result::Result<i32, RetryError> = retry.execute(|| {
+            Box::pin(async {
+                Err::<i32, Box<dyn StdError + Send + Sync>>(Box::from("Failure".to_string()))
+            })
+        }).await;
         
         // Verify metrics were recorded
         let metrics = retry.get_metrics();

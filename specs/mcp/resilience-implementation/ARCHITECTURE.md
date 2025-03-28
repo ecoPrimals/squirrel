@@ -1,172 +1,290 @@
-# MCP Resilience Framework Architecture
+# MCP Resilience Module Architecture
 
-**Date**: July 21, 2024  
-**Version**: 0.9.0  
-**Team**: DataScienceBioLab
+## Overview
 
-## 1. Overview
+The Machine Context Protocol (MCP) resilience module provides fault tolerance and reliability mechanisms for distributed systems communication. This document outlines the architectural patterns, component interactions, and implementation principles underlying the resilience module.
 
-The MCP Resilience Framework provides a comprehensive set of components for building fault-tolerant and reliable systems. The framework is designed to be modular, allowing developers to use individual components or combine them for complete resilience strategies.
+## Core Design Principles
 
-## 2. Architecture Diagram
+1. **Defense in Depth** - Multiple resilience mechanisms can be combined for layered protection
+2. **Fail Fast** - Detect failures early and avoid cascading failures 
+3. **Graceful Degradation** - Maintain core functionality when components fail
+4. **Self-Healing** - Automatic recovery from transient failures
+5. **Observability** - Comprehensive metrics and diagnostics
+
+## Component Architecture
+
+The resilience module is composed of five key components that can be used independently or combined:
 
 ```
-┌───────────────────────────────────────────────────────────────────────┐
-│                      MCP Resilience Framework                          │
-└─────────────────────────────────┬─────────────────────────────────────┘
-                                  │
-          ┌─────────────────────────────────────────────┐               
-          │                                             │               
-┌─────────▼───────────┐    ┌───────────────────┐    ┌──▼─────────────┐
-│  Circuit Breaker    │    │  Retry Mechanism  │    │   Recovery     │  
-│                     │    │                   │    │   Strategy     │
-│ - Prevent cascading │    │ - Handle transient│    │                │
-│   failures          │    │   failures        │    │ - Recover from │
-│ - Fast fail when    │    │ - Multiple backoff│    │   different    │
-│   downstream service│    │   strategies      │    │   failure types│
-│   is unavailable    │    │ - Customizable    │    │ - Severity-    │
-│ - Half-open state   │    │   retry attempts  │    │   based        │
-│   for testing       │    │   and delays      │    │   recovery     │
-└─────────┬───────────┘    └─────────┬─────────┘    └──┬─────────────┘
-          │                          │                  │
-          └─────────────────┬────────┴──────────┬──────┘
-                            │                   │
-               ┌────────────▼────────────┐   ┌─▼────────────────────┐
-               │   State Synchronization │   │   Health Monitoring   │
-               │                         │   │                       │
-               │ - Sync state between    │   │ - Monitor component   │
-               │   primary and backup    │   │   health              │
-               │   systems               │   │ - Detect degraded     │
-               │ - Support different     │   │   performance         │
-               │   state types           │   │ - Proactive failure   │
-               │ - Validation and size   │   │   detection           │
-               │   limits                │   │                       │
-               └─────────────────────────┘   └───────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                       Resilience Framework                      │
+├─────────────┬─────────────┬─────────────┬─────────────┬─────────┤
+│  Circuit    │    Retry    │   Recovery  │    State    │ Health  │
+│  Breaker    │  Mechanism  │   Strategy  │    Sync     │ Monitor │
+└─────────────┴─────────────┴─────────────┴─────────────┴─────────┘
 ```
 
-## 3. Core Components
+### 1. Circuit Breaker
 
-### 3.1 Circuit Breaker
+The circuit breaker implements the circuit breaker pattern to prevent cascading failures:
 
-The Circuit Breaker pattern prevents cascading failures by temporarily blocking operations when a downstream service is unavailable or experiencing issues.
-
-**Key Features:**
-- Three states: Closed (normal operation), Open (failing fast), Half-Open (testing recovery)
-- Configurable failure thresholds and recovery timeouts
-- Optional fallback mechanisms
-- Metrics for monitoring circuit state and operation counts
-
-**Implementation**:
-- Located in `resilience/circuit_breaker.rs`
-- Main structs: `CircuitBreaker`, `CircuitBreakerConfig`, `CircuitBreakerMetrics`
-- States represented by the `CircuitState` enum
-
-### 3.2 Retry Mechanism
-
-The Retry Mechanism handles transient failures by automatically retrying operations with configurable backoff strategies.
+```
+┌─────────┐  Success   ┌─────────┐  Failures   ┌─────────┐
+│         │ ─────────► │         │ ─────────► │         │
+│ Closed  │            │Half-Open│            │  Open   │
+│         │ ◄───────── │         │ ◄───────── │         │
+└─────────┘  Successes └─────────┘  Timeout   └─────────┘
+```
 
 **Key Features:**
-- Multiple backoff strategies: Constant, Linear, Exponential, Fibonacci
-- Jitter support to prevent thundering herd problems
-- Configurable retry attempts and delays
-- Metrics for tracking retry counts and success rates
+- Three states: Closed, Open, Half-Open
+- Configurable failure threshold
+- Automatic recovery attempt after timeout
+- Metrics for monitoring
+- Fallback mechanism
 
-**Implementation**:
-- Located in `resilience/retry.rs`
-- Main structs: `RetryMechanism`, `RetryConfig`, `RetryMetrics`
-- Strategies represented by the `BackoffStrategy` enum
+### 2. Retry Mechanism
 
-### 3.3 Recovery Strategy
+The retry mechanism handles transient failures through repeated attempts:
 
-The Recovery Strategy provides mechanisms for recovering from different types of failures based on their severity.
-
-**Key Features:**
-- Severity-based recovery handling (Minor, Moderate, Severe, Critical)
-- Configurable recovery attempts per severity level
-- Recovery metrics and timeout handling
-- Custom recovery actions for different failure types
-
-**Implementation**:
-- Located in `resilience/recovery.rs`
-- Main structs: `RecoveryStrategy`, `RecoveryConfig`, `FailureInfo`, `RecoveryMetrics`
-- Severity levels represented by the `FailureSeverity` enum
-
-### 3.4 State Synchronization
-
-The State Synchronization component maintains consistent state between primary and backup/redundant systems in a distributed environment.
-
-**Key Features:**
-- Support for different state types (Configuration, Runtime, Recovery, Audit)
-- Validation and size limits for state data
-- Metrics for tracking successful and failed synchronizations
-- Configurable timeouts and validation rules
-
-**Implementation**:
-- Located in `resilience/state_sync.rs`
-- Main structs: `StateSynchronizer`, `StateSyncConfig`, `StateSyncMetrics`
-- State types represented by the `StateType` enum
-
-### 3.5 Health Monitoring
-
-The Health Monitoring component (planned) provides mechanisms for monitoring the health of system components and detecting failures proactively.
+```
+┌────────────┐     ┌─────────┐     ┌────────────┐
+│ Operation  │ ──► │ Success │ ──► │ Return     │
+│ Execution  │     └─────────┘     │ Result     │
+└────────────┘            │        └────────────┘
+       │                  ▼
+       │           ┌─────────────┐
+       │           │ No          │
+       │           └─────────────┘
+       ▼                  │
+┌─────────────┐    ┌─────────────┐
+│ Failure     │    │ Max Attempts│
+│ Handling    │ ◄─ │ Reached?    │
+└─────────────┘    └─────────────┘
+       │                  ▲
+       │     ┌────────────┐
+       └────►│ Backoff    │
+             │ Delay      │
+             └────────────┘
+```
 
 **Key Features:**
-- Component health checks with configurable intervals
-- Detection of degraded performance
-- Overall system health calculation
-- Integration with other resilience components
+- Multiple backoff strategies (constant, linear, exponential, Fibonacci)
+- Configurable max attempts and delays
+- Optional jitter to prevent retry storms
+- Detailed metrics collection
 
-**Implementation**:
-- To be located in `resilience/health.rs`
-- Planned structs: `HealthMonitor`, `HealthConfig`, `HealthMetrics`
-- Health states represented by the `HealthStatus` enum
+### 3. Recovery Strategy
 
-## 4. Integration Layer
+The recovery strategy provides mechanisms to recover from failures:
 
-The framework provides helper functions to combine different resilience components for comprehensive protection:
+```
+┌────────────┐     ┌─────────┐     ┌────────────┐
+│ Operation  │ ──► │ Success │ ──► │ Return     │
+│ Execution  │     └─────────┘     │ Result     │
+└────────────┘                     └────────────┘
+       │
+       ▼
+┌─────────────┐    ┌─────────────┐    ┌────────────┐
+│ Failure     │ ──►│ Recovery    │ ──►│ Recovery   │
+│ Detection   │    │ Action      │    │ Result     │
+└─────────────┘    └─────────────┘    └────────────┘
+```
 
-- `with_resilience`: Combines Circuit Breaker and Retry Mechanism
-- `with_recovery`: Applies a Recovery Strategy to an operation
-- `with_full_resilience`: Combines Circuit Breaker, Retry, and Recovery
-- `with_state_sync`: Adds State Synchronization to any operation
+**Key Features:**
+- Different severity levels (minor, major, critical)
+- Recovery attempts based on severity
+- Custom recovery actions
+- Failure tracking and analysis
 
-**Implementation**:
-- Located in `resilience/mod.rs`
-- Common error handling via `ResilienceError` enum
-- Type conversions between component-specific errors and the common error type
+### 4. State Synchronization
 
-## 5. Design Principles
+The state synchronization component ensures consistent state across distributed systems:
 
-The MCP Resilience Framework follows these key design principles:
+```
+┌────────────┐    ┌──────────────┐    ┌───────────┐
+│ Operation  │ ──►│ State Change │ ──►│ Success   │
+│ Execution  │    │ Detection    │    │ Result    │
+└────────────┘    └──────────────┘    └───────────┘
+                          │
+                          ▼
+                  ┌──────────────┐    ┌───────────┐
+                  │ State        │ ──►│ Target    │
+                  │ Serialization│    │ Systems   │
+                  └──────────────┘    └───────────┘
+```
 
-1. **Modularity**: Components can be used independently or combined
-2. **Configurability**: All components have sensible defaults but allow customization
-3. **Observability**: Comprehensive metrics for monitoring and debugging
-4. **Type Safety**: Leveraging Rust's type system for correctness
-5. **Performance**: Minimal overhead during normal operation
-6. **Fault Isolation**: Preventing cascading failures across system boundaries
+**Key Features:**
+- Different state types (configuration, runtime, recovery, audit)
+- Size validation and limits
+- Timeout handling
+- Target system synchronization
 
-## 6. Error Handling
+### 5. Health Monitoring
 
-The framework uses a consistent error handling approach:
+The health monitoring component provides system health information:
 
-1. Component-specific error types (e.g., `CircuitBreakerError`, `RetryError`) for detailed error information
-2. Common `ResilienceError` enum for unified error handling at the integration layer
-3. Conversion traits (`From`) between component errors and the common error type
-4. Standard Rust `Result` return types with appropriate error propagation
+```
+┌────────────┐    ┌──────────────┐    ┌───────────┐
+│ Component  │ ──►│ Health       │ ──►│ Health    │
+│ Monitors   │    │ Aggregation  │    │ Status    │
+└────────────┘    └──────────────┘    └───────────┘
+                          │
+                          ▼
+                  ┌──────────────┐    ┌───────────┐
+                  │ Health       │ ──►│ Alerts &  │
+                  │ Reporting    │    │ Recovery  │
+                  └──────────────┘    └───────────┘
+```
 
-## 7. Future Extensions
+**Key Features:**
+- Component health status tracking
+- Health check scheduling
+- Status aggregation
+- Health state transitions
 
-Planned future extensions to the framework include:
+## Integration Patterns
 
-1. **Async Support**: Full async/await support for all components
-2. **Distributed Circuit Breaker**: Shared circuit state across multiple instances
-3. **Adaptive Retry Strategies**: Dynamically adjusting retry parameters based on failure patterns
-4. **Enhanced Health Monitoring**: More sophisticated health checks and predictive failure detection
-5. **Configuration Management**: Dynamic configuration updates based on system conditions
-6. **Telemetry Integration**: Better integration with OpenTelemetry and metrics collection systems
+The resilience components can be combined in various ways:
 
----
+### 1. Simple Resilience
 
-**Document prepared by:** DataScienceBioLab  
-**Contact:** N/A 
+```rust
+// Simple retry mechanism
+let result = retry_mechanism.execute(|| {
+    perform_operation()
+}).await;
+```
+
+### 2. Combined Circuit Breaker and Retry
+
+```rust
+// Combine circuit breaker and retry
+let result = with_resilience(
+    &mut circuit_breaker,
+    retry_mechanism,
+    || perform_operation()
+).await;
+```
+
+### 3. Full Resilience Stack
+
+```rust
+// Use all resilience components together
+let result = with_full_resilience(
+    &mut circuit_breaker,
+    retry_mechanism,
+    &mut recovery_strategy,
+    failure_info,
+    || perform_operation(),
+    || recovery_action()
+).await;
+```
+
+### 4. State Synchronization
+
+```rust
+// Synchronize state after operation
+let result = with_state_sync(
+    &state_sync,
+    StateType::Runtime,
+    "state-id",
+    "target-system",
+    || perform_operation()
+).await;
+```
+
+## Error Handling Model
+
+The resilience module uses a layered error handling approach:
+
+1. **Component-specific errors** - Each component defines its own error types
+2. **Unified ResilienceError** - Common error type for all resilience operations
+3. **Error conversions** - Automatic conversion between error types
+4. **Error propagation** - Errors flow from inner components to outer layers
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   ResilienceError                   │
+├─────────────┬─────────────┬─────────────┬───────────┤
+│ CircuitOpen │RetryExceeded│RecoveryFailed│ SyncFailed│
+└─────────────┴─────────────┴─────────────┴───────────┘
+```
+
+## Async Implementation
+
+The resilience module uses Rust's async/await for non-blocking operation:
+
+1. **Future-based API** - All public methods return Futures
+2. **Tokio runtime** - Built on the Tokio async runtime
+3. **Cancellation handling** - Supports graceful cancellation
+4. **Backpressure management** - Prevents resource exhaustion
+
+## Metrics and Observability
+
+Each component provides detailed metrics:
+
+1. **Circuit Breaker Metrics**
+   - State transitions
+   - Success/failure counts
+   - Open circuit count
+   - Fallback usage
+
+2. **Retry Metrics**
+   - Retry attempts
+   - Success/failure counts
+   - Maximum retries performed
+
+3. **Recovery Metrics**
+   - Recovery attempts
+   - Success rates
+   - Severity distributions
+
+4. **State Sync Metrics**
+   - Synchronization counts
+   - Bytes transferred
+   - Sync failures
+
+5. **Health Metrics**
+   - Component status
+   - Check durations
+   - Failure rates
+
+## Future Directions
+
+1. **Distributed Circuit Breaker** - Shared circuit breaker state across nodes
+2. **Machine Learning Recovery** - Adaptive recovery based on failure patterns
+3. **Enhanced Observability** - Integration with OpenTelemetry
+4. **Configuration Hot-Reloading** - Dynamic configuration updates
+
+## Implementation Considerations
+
+### Performance
+
+- Minimize allocations in critical paths
+- Use atomic operations for counters
+- Efficient async state management
+- Avoid blocking operations
+
+### Thread Safety
+
+- Thread-safe by design
+- Use of Arc and Mutex/RwLock where needed
+- Atomic counters for metrics
+- Safe concurrent access to shared state
+
+### Memory Usage
+
+- Configurable limits on data sizes
+- Proper cleanup of resources
+- Avoiding memory leaks in error paths
+- Bounded queues for backpressure
+
+## Testing Strategy
+
+1. **Unit Tests** - Testing individual components
+2. **Integration Tests** - Testing component interactions
+3. **Simulated Failures** - Testing with injected failures
+4. **Concurrency Tests** - Testing under concurrent load
+5. **Resource Limit Tests** - Testing behavior at resource limits 

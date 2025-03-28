@@ -264,15 +264,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", parent_id)
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", child_id)
+            )));
         }
         
         // Create filtered inheritance
@@ -295,15 +295,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", parent_id)
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", child_id)
+            )));
         }
         
         // Create conditional inheritance
@@ -322,15 +322,15 @@ impl EnhancedRBACManager {
     ) -> Result<()> {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                parent_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", parent_id)
+            )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
-            return Err(MCPError::Security(SecurityError::RBACError(RBACError::RoleNotFound(
-                child_id.to_string()
-            ))));
+            return Err(MCPError::Security(SecurityError::RBACError(
+                format!("Role not found: {}", child_id)
+            )));
         }
         
         // Create delegated inheritance

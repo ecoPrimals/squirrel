@@ -199,12 +199,12 @@ pub struct TeamWorkflowManager {
     messages: Arc<RwLock<HashMap<String, Vec<TeamMessage>>>>,
     reviews: Arc<RwLock<HashMap<String, ReviewRequest>>>,
     tasks: Arc<RwLock<HashMap<String, Vec<Task>>>>,
-    security: Arc<SecurityManager>,
+    security: Arc<dyn SecurityManager>,
 }
 
 impl TeamWorkflowManager {
     #[instrument(skip(security))]
-    pub fn new(security: Arc<SecurityManager>) -> Self {
+    pub fn new(security: Arc<dyn SecurityManager>) -> Self {
         Self {
             workflows: Arc::new(RwLock::new(HashMap::new())),
             messages: Arc::new(RwLock::new(HashMap::new())),
@@ -648,6 +648,28 @@ impl TeamWorkflowManager {
         let tasks = self.tasks.read().await;
         Ok(tasks.get(workflow_id).cloned().unwrap_or_default())
     }
+}
+
+/// MessageRouter is responsible for routing messages to the appropriate handler
+/// based on message type and content.
+#[derive(Clone)]
+pub struct MessageRouter {
+    /// Map of handlers for different message types
+    handlers: Arc<RwLock<HashMap<MessageType, Vec<Arc<dyn MessageHandler>>>>>,
+    /// Security manager for permission checking
+    security: Arc<dyn SecurityManager>,
+}
+
+impl MessageRouter {
+    /// Create a new message router
+    pub fn new(security: Arc<dyn SecurityManager>) -> Self {
+        Self {
+            handlers: Arc::new(RwLock::new(HashMap::new())),
+            security,
+        }
+    }
+
+    // ... rest of the methods ...
 }
 
 #[cfg(test)]

@@ -176,9 +176,9 @@ impl RecoveryStrategy {
     }
     
     /// Handle a failure by attempting recovery
-    pub fn handle_failure<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> Result<R, RecoveryError>
+    pub fn handle_failure<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
-        F: FnOnce() -> Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
     {
         self.metrics.last_recovery_time = Some(Instant::now());
         
@@ -262,9 +262,9 @@ impl RecoveryStrategy {
     }
     
     /// Handle a failure with a timeout
-    pub fn handle_failure_with_timeout<F, R>(&mut self, failure: FailureInfo, timeout: Duration, recovery_action: F) -> Result<R, RecoveryError>
+    pub fn handle_failure_with_timeout<F, R>(&mut self, failure: FailureInfo, timeout: Duration, recovery_action: F) -> std::result::Result<R, RecoveryError>
     where
-        F: FnOnce() -> Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
     {
         let start_time = Instant::now();
         let result = self.handle_failure(failure, recovery_action);
@@ -274,6 +274,15 @@ impl RecoveryStrategy {
         } else {
             result
         }
+    }
+
+    pub fn execute<F, R>(&self, operation: F) -> std::result::Result<R, RecoveryError>
+    where
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
+        R: Send + 'static,
+    {
+        // ... existing code ...
+        unimplemented!()
     }
 }
 
@@ -378,7 +387,7 @@ mod tests {
             recovery_attempts: 0,
         };
         
-        let result = recovery.handle_failure(failure, || {
+        let result: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure, || {
             // Simulate recovery action failure
             Err(Box::new(TestError("Recovery action failed".to_string())))
         });
@@ -401,12 +410,12 @@ mod tests {
         };
         
         // One successful recovery
-        let _ = recovery.handle_failure(failure.clone(), || {
+        let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
             Ok::<_, Box<dyn StdError + Send + Sync + 'static>>(42)
         });
         
         // One failed recovery
-        let _ = recovery.handle_failure(failure.clone(), || {
+        let _: std::result::Result<i32, RecoveryError> = recovery.handle_failure(failure.clone(), || {
             Err(Box::new(TestError("Recovery action failed".to_string())))
         });
         
