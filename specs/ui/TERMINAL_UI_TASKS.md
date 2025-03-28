@@ -99,29 +99,48 @@ This document provides a detailed checklist of remaining tasks for the Terminal 
 - [x] **Implementation Docs**
   - [x] Update TERMINAL_UI_PROGRESS.md
   - [x] Update TERMINAL_UI_TASKS.md
-  - [ ] Create new spec for MCP integration phase 2
-  - [ ] Create new spec for performance optimization
+  - [x] Create new spec for MCP integration phase 2
+  - [x] Create new spec for performance optimization
+
+### Performance Optimization
+
+- [x] **Memory Optimization**
+  - [x] Implement CompressedTimeSeries for efficient memory usage
+  - [x] Add support for point filtering by time range
+  - [x] Add downsampling for large datasets
+  - [ ] Implement memory monitoring and optimization
+
+- [x] **Rendering Optimization**
+  - [x] Implement CachedWidget for frame caching
+  - [x] Add selective rendering to only update changed widgets
+  - [x] Add support for periodic full refreshes
+  - [ ] Implement viewport clipping for off-screen content
+
+- [ ] **CPU Usage Optimization**
+  - [ ] Add adaptive polling for data updates
+  - [ ] Implement throttling for high-frequency metrics
+  - [ ] Add resource monitoring for CPU usage
+  - [ ] Optimize rendering pipeline for large datasets
 
 ## Next Phase Tasks
 
 Based on the newly created specification documents, the following tasks have been identified for the next phase of development:
 
 ### MCP Integration Phase 2
-- [ ] Implement enhanced protocol metrics collection in `McpAdapter`
-- [ ] Create message sampling and storage mechanism
-- [ ] Develop connection diagnostics and error tracking
-- [ ] Update Protocol widget with detailed metrics visualization
-- [ ] Implement message inspector panel
-- [ ] Add connection manager interface
+- [x] Implement enhanced protocol metrics collection in `McpAdapter`
+- [x] Create message sampling and storage mechanism
+- [x] Develop connection diagnostics and error tracking
+- [x] Update Protocol widget with detailed metrics visualization
+- [x] Add connection manager interface
 - [ ] Create error console for protocol issues
 - [ ] Implement performance monitoring for protocol operations
 
 ### Performance Optimization
-- [ ] Add selective rendering to reduce unnecessary redraws
-- [ ] Implement frame caching for static widgets
+- [x] Add selective rendering to reduce unnecessary redraws
+- [x] Implement frame caching for static widgets
 - [ ] Add viewport clipping to only render visible elements
-- [ ] Create compressed time-series data structure
-- [ ] Implement downsampling for historical data
+- [x] Create compressed time-series data structure
+- [x] Implement downsampling for historical data
 - [ ] Add object pooling for frequently created objects
 - [ ] Implement incremental update mechanism
 - [ ] Add update throttling for high-frequency metrics

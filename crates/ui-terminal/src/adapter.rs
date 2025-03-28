@@ -379,9 +379,38 @@ pub struct LatencyStats {
     pub latency_histogram: Vec<f64>,
 }
 
+/// Connection health status
+#[derive(Debug, Clone)]
+pub struct ConnectionHealth {
+    pub status: ConnectionStatus,
+    pub last_successful: Option<DateTime<Utc>>,
+    pub failure_count: u32,
+    pub latency_ms: Option<u64>,
+    pub error_details: Option<String>,
+}
+
+/// Connection event
+#[derive(Debug, Clone)]
+pub struct ConnectionEvent {
+    pub timestamp: DateTime<Utc>,
+    pub event_type: ConnectionEventType,
+    pub details: Option<String>,
+}
+
+/// Connection event type
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConnectionEventType {
+    Connected,
+    Disconnected,
+    Reconnecting,
+    ReconnectSuccess,
+    ReconnectFailure,
+    Error,
+}
+
 /// MCP metrics provider interface
 #[async_trait]
-pub trait McpMetricsProvider: Send + Sync {
+pub trait McpMetricsProvider: Send + Sync + std::fmt::Debug {
     /// Get current metrics snapshot
     async fn get_metrics(&self) -> Result<McpMetrics, String>;
     
@@ -393,6 +422,21 @@ pub trait McpMetricsProvider: Send + Sync {
     
     /// Configure metrics collection
     async fn configure(&self, config: McpMetricsConfig) -> Result<(), String>;
+    
+    /// Get protocol metrics as a HashMap
+    fn get_protocol_metrics(&self) -> Result<HashMap<String, f64>, String>;
+    
+    /// Get protocol status
+    fn get_protocol_status(&self) -> Result<ProtocolStatus, String>;
+    
+    /// Get connection health information
+    fn connection_health(&self) -> Result<ConnectionHealth, String>;
+    
+    /// Attempt to reconnect to the MCP service
+    async fn reconnect(&self) -> Result<bool, String>;
+    
+    /// Get connection history
+    fn connection_history(&self) -> Result<Vec<ConnectionEvent>, String>;
 }
 
 /// Connection status for MCP client
@@ -782,7 +826,7 @@ impl ProtocolMetricsAdapter {
         }
         
         // Add status information
-        metrics.status.insert("status".to_string(), "operational".to_string());
+        metrics.status.insert("status".to_string(), "connected".to_string());
         
         metrics
     }
@@ -1359,6 +1403,12 @@ pub struct MockMcpMetricsProvider {
     config: McpMetricsConfig,
     /// Whether the mock provider should fail
     should_fail: bool,
+    /// Connection health
+    connection_health: ConnectionHealth,
+    /// Connection history
+    connection_history: Vec<ConnectionEvent>,
+    /// Last reconnect attempt
+    last_reconnect: Option<DateTime<Utc>>,
 }
 
 impl MockMcpMetricsProvider {
@@ -1367,6 +1417,19 @@ impl MockMcpMetricsProvider {
         Self {
             config: McpMetricsConfig::default(),
             should_fail: false,
+            connection_health: ConnectionHealth {
+                status: ConnectionStatus::Connected,
+                last_successful: Some(Utc::now()),
+                failure_count: 0,
+                latency_ms: Some(50),
+                error_details: None,
+            },
+            connection_history: vec![ConnectionEvent {
+                timestamp: Utc::now(),
+                event_type: ConnectionEventType::Connected,
+                details: Some("Initial connection".to_string()),
+            }],
+            last_reconnect: None,
         }
     }
     
@@ -1462,30 +1525,120 @@ impl MockMcpMetricsProvider {
             timestamp: chrono::Utc::now(),
         }
     }
+    
+    /// Add a connection event to history
+    fn add_connection_event(&mut self, event_type: ConnectionEventType, details: Option<String>) {
+        self.connection_history.push(ConnectionEvent {
+            timestamp: Utc::now(),
+            event_type,
+            details,
+        });
+        
+        // Keep history at a reasonable size
+        if self.connection_history.len() > 100 {
+            self.connection_history.remove(0);
+        }
+    }
 }
 
 #[async_trait]
 impl McpMetricsProvider for MockMcpMetricsProvider {
     async fn get_metrics(&self) -> Result<McpMetrics, String> {
+        if self.should_fail {
+            return Err("Failed to get metrics".to_string());
+        }
+        
         Ok(self.generate_mock_metrics())
     }
     
     fn subscribe(&self, _interval_ms: u64) -> mpsc::Receiver<McpMetrics> {
-        let (_tx, rx) = mpsc::channel(100);
+        let (tx, rx) = mpsc::channel(10);
+        
+        // Spawn a task to send mock metrics periodically
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(1000));
+            
+            for _ in 0..10 {
+                interval.tick().await;
+                
+                // Generate random metrics
+                let metrics = MockMcpMetricsProvider::new().generate_mock_metrics();
+                
+                // Send metrics
+                if tx.send(metrics).await.is_err() {
+                    break;
+                }
+            }
+        });
+        
         rx
     }
     
     async fn connection_status(&self) -> ConnectionStatus {
         if self.should_fail {
-            ConnectionStatus::Error("Mock connection error".to_string())
+            ConnectionStatus::Error("Connection failed".to_string())
         } else {
             ConnectionStatus::Connected
         }
     }
     
     async fn configure(&self, _config: McpMetricsConfig) -> Result<(), String> {
-        // Mock implementation doesn't actually apply config
-        Ok(())
+        if self.should_fail {
+            Err("Failed to configure metrics collection".to_string())
+        } else {
+            Ok(())
+        }
+    }
+    
+    fn get_protocol_metrics(&self) -> Result<HashMap<String, f64>, String> {
+        if self.should_fail {
+            return Err("Failed to get protocol metrics".to_string());
+        }
+        
+        let mut metrics = HashMap::new();
+        metrics.insert("request_rate".to_string(), 42.0);
+        metrics.insert("response_rate".to_string(), 40.0);
+        metrics.insert("error_rate".to_string(), 2.0);
+        metrics.insert("latency_avg".to_string(), 50.0);
+        metrics.insert("latency_p95".to_string(), 100.0);
+        metrics.insert("success_rate".to_string(), 95.0);
+        
+        Ok(metrics)
+    }
+    
+    fn get_protocol_status(&self) -> Result<ProtocolStatus, String> {
+        if self.should_fail {
+            return Err("Failed to get protocol status".to_string());
+        }
+        
+        Ok(ProtocolStatus::Connected)
+    }
+    
+    fn connection_health(&self) -> Result<ConnectionHealth, String> {
+        if self.should_fail {
+            return Err("Failed to get connection health".to_string());
+        }
+        
+        Ok(self.connection_health.clone())
+    }
+    
+    async fn reconnect(&self) -> Result<bool, String> {
+        if self.should_fail {
+            return Err("Failed to reconnect".to_string());
+        }
+        
+        // Simulate reconnection
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        
+        Ok(true)
+    }
+    
+    fn connection_history(&self) -> Result<Vec<ConnectionEvent>, String> {
+        if self.should_fail {
+            return Err("Failed to get connection history".to_string());
+        }
+        
+        Ok(self.connection_history.clone())
     }
 }
 

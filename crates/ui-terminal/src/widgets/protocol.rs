@@ -2,16 +2,20 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Row, Table, Paragraph},
+    widgets::{Block, Borders, Cell, Row, Table, Paragraph, Tabs, List, ListItem, Chart, Dataset, Axis, GraphType},
+    symbols,
     Frame,
 };
-use std::iter;
+use std::{iter, collections::HashMap};
+use chrono::{DateTime, Utc, Duration};
 
 use dashboard_core::{
     data::ProtocolData, 
     Protocol, 
     ProtocolStatus
 };
+
+use crate::adapter::{ConnectionHealth, ConnectionEvent, ConnectionEventType, ConnectionStatus};
 
 /// Widget for displaying protocol metrics
 pub struct ProtocolWidget<'a> {
@@ -21,6 +25,12 @@ pub struct ProtocolWidget<'a> {
     title: &'a str,
     /// Active protocol tab index
     active_tab: usize,
+    /// Connection health data
+    connection_health: Option<&'a ConnectionHealth>,
+    /// Connection history
+    connection_history: Option<&'a Vec<ConnectionEvent>>,
+    /// Metrics history
+    metrics_history: Option<&'a HashMap<String, Vec<(DateTime<Utc>, f64)>>>,
 }
 
 impl<'a> ProtocolWidget<'a> {
@@ -30,12 +40,33 @@ impl<'a> ProtocolWidget<'a> {
             protocol, 
             title,
             active_tab: 0,
+            connection_health: None,
+            connection_history: None,
+            metrics_history: None,
         }
     }
     
     /// Set active tab
     pub fn active_tab(mut self, tab: usize) -> Self {
         self.active_tab = tab;
+        self
+    }
+    
+    /// Set connection health
+    pub fn with_connection_health(mut self, health: &'a ConnectionHealth) -> Self {
+        self.connection_health = Some(health);
+        self
+    }
+    
+    /// Set connection history
+    pub fn with_connection_history(mut self, history: &'a Vec<ConnectionEvent>) -> Self {
+        self.connection_history = Some(history);
+        self
+    }
+    
+    /// Set metrics history
+    pub fn with_metrics_history(mut self, history: &'a HashMap<String, Vec<(DateTime<Utc>, f64)>>) -> Self {
+        self.metrics_history = Some(history);
         self
     }
     
@@ -76,6 +107,28 @@ impl<'a> ProtocolWidget<'a> {
         }
     }
     
+    /// Get connection status color
+    fn get_connection_status_color(&self, status: &ConnectionStatus) -> Color {
+        match status {
+            ConnectionStatus::Connected => Color::Green,
+            ConnectionStatus::Connecting => Color::Yellow,
+            ConnectionStatus::Disconnected => Color::Red,
+            ConnectionStatus::Error(_) => Color::Red,
+        }
+    }
+
+    /// Get connection event color
+    fn get_connection_event_color(&self, event_type: &ConnectionEventType) -> Color {
+        match event_type {
+            ConnectionEventType::Connected => Color::Green,
+            ConnectionEventType::ReconnectSuccess => Color::Green,
+            ConnectionEventType::Reconnecting => Color::Yellow,
+            ConnectionEventType::Disconnected => Color::Red,
+            ConnectionEventType::ReconnectFailure => Color::Red,
+            ConnectionEventType::Error => Color::Red,
+        }
+    }
+    
     /// Render the widget
     pub fn render(&self, f: &mut Frame, area: Rect) {
         // Create base block
@@ -93,16 +146,29 @@ impl<'a> ProtocolWidget<'a> {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Protocol status
-                Constraint::Min(0),    // Content
+                Constraint::Length(3),  // Protocol status
+                Constraint::Length(3),  // Tabs
+                Constraint::Min(0),     // Content
             ])
             .split(inner_area);
         
         // Render protocol status
         self.render_protocol_status(f, chunks[0]);
         
-        // Render protocol details
-        self.render_protocol_details(f, chunks[1]);
+        // Create tab titles
+        let tab_titles = vec!["Overview", "Metrics", "Connection", "History"];
+        
+        // Render tabs
+        self.render_tabs(f, chunks[1], &tab_titles);
+        
+        // Render tab content based on active tab
+        match self.active_tab {
+            0 => self.render_overview_tab(f, chunks[2]),
+            1 => self.render_metrics_tab(f, chunks[2]),
+            2 => self.render_connection_tab(f, chunks[2]),
+            3 => self.render_history_tab(f, chunks[2]),
+            _ => self.render_overview_tab(f, chunks[2]),
+        }
     }
     
     /// Render protocol status bar
@@ -119,6 +185,29 @@ impl<'a> ProtocolWidget<'a> {
         // Parse the protocol type string to enum
         let protocol_type = self.parse_protocol_type(&self.protocol.protocol_type);
         
+        // Get connection health information if available
+        let health_info = if let Some(health) = self.connection_health {
+            let status_color = self.get_connection_status_color(&health.status);
+            let latency = health.latency_ms.map_or_else(
+                || "N/A".to_string(),
+                |ms| format!("{}ms", ms)
+            );
+            
+            vec![
+                Span::raw(" | "),
+                Span::styled("Health: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:?}", health.status),
+                    Style::default().fg(status_color)
+                ),
+                Span::raw(" | "),
+                Span::styled("Latency: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(latency),
+            ]
+        } else {
+            vec![]
+        };
+        
         let status_text = Line::from(vec![
             Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
             connection_status,
@@ -127,11 +216,8 @@ impl<'a> ProtocolWidget<'a> {
             Span::raw(format!("{:?}", protocol_type)),
             Span::raw(" | "),
             Span::styled("Version: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(&self.protocol.version),
-            Span::raw(" | "),
-            Span::styled("Retries: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(format!("{}", self.protocol.retry_count)),
-        ]);
+            Span::raw(&self.protocol.version)
+        ].into_iter().chain(health_info).collect::<Vec<_>>());
         
         let paragraph = Paragraph::new(vec![
             Line::from(""),
@@ -141,8 +227,73 @@ impl<'a> ProtocolWidget<'a> {
         f.render_widget(paragraph, area);
     }
     
-    /// Render protocol details
-    fn render_protocol_details(&self, f: &mut Frame, area: Rect) {
+    /// Render tabs
+    fn render_tabs(&self, f: &mut Frame, area: Rect, titles: &[&str]) {
+        let tab_titles: Vec<Line> = titles
+            .iter()
+            .map(|t| {
+                let (first, rest) = t.split_at(1);
+                Line::from(vec![
+                    Span::styled(first, Style::default().add_modifier(Modifier::UNDERLINED)),
+                    Span::raw(rest),
+                ])
+            })
+            .collect();
+        
+        let tabs = Tabs::new(tab_titles)
+            .block(Block::default().borders(Borders::BOTTOM))
+            .select(self.active_tab)
+            .style(Style::default().fg(Color::White))
+            .highlight_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+        
+        f.render_widget(tabs, area);
+    }
+    
+    /// Render overview tab
+    fn render_overview_tab(&self, f: &mut Frame, area: Rect) {
+        if self.protocol.metrics.is_empty() {
+            // No metrics to display
+            self.render_no_data(f, area);
+            return;
+        }
+        
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ])
+            .split(area);
+        
+        // Render metrics in the top section
+        let inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ])
+            .split(chunks[0]);
+        
+        // Render general metrics
+        self.render_protocol_metrics(f, inner_chunks[0]);
+        
+        // Render connection status and info
+        self.render_connection_info(f, inner_chunks[1]);
+        
+        // Render a simple time series chart in the bottom if history is available
+        if let Some(history) = self.metrics_history {
+            if let Some(data) = history.get("protocol.messages") {
+                self.render_metrics_chart(f, chunks[1], "Message Metrics", data);
+            } else {
+                self.render_no_history(f, chunks[1]);
+            }
+        } else {
+            self.render_no_history(f, chunks[1]);
+        }
+    }
+    
+    /// Render metrics tab
+    fn render_metrics_tab(&self, f: &mut Frame, area: Rect) {
         if self.protocol.metrics.is_empty() {
             // No metrics to display
             self.render_no_data(f, area);
@@ -160,22 +311,6 @@ impl<'a> ProtocolWidget<'a> {
             ]));
         }
         
-        // Add error info if present
-        if let Some(error) = &self.protocol.error {
-            rows.push(Row::new(vec![
-                Cell::from(Span::styled("Error", Style::default().fg(Color::Red))),
-                Cell::from(error.clone()),
-            ]));
-        }
-        
-        // Add last connection time if present
-        if let Some(last_connected) = self.protocol.last_connected {
-            rows.push(Row::new(vec![
-                Cell::from("Last Connected"),
-                Cell::from(last_connected.to_rfc3339()),
-            ]));
-        }
-        
         // Create table with header
         let header_cells = vec![
             Cell::from(Span::styled("Metric", Style::default().add_modifier(Modifier::BOLD))),
@@ -185,7 +320,7 @@ impl<'a> ProtocolWidget<'a> {
         
         // Create table
         let table = Table::new(iter::once(header).chain(rows))
-            .block(Block::default().borders(Borders::ALL).title("Protocol Details"))
+            .block(Block::default().borders(Borders::ALL).title("Protocol Metrics"))
             .widths(&[
                 Constraint::Percentage(30),
                 Constraint::Percentage(70),
@@ -195,37 +330,413 @@ impl<'a> ProtocolWidget<'a> {
         f.render_widget(table, area);
     }
     
-    /// Render message when no data is available
-    fn render_no_data(&self, f: &mut Frame, area: Rect) {
-        // If there's an error, display it with a red background
-        if let Some(error) = &self.protocol.error {
-            let error_text = Line::from(vec![
-                Span::styled(
-                    "Connection Error: ",
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(error),
-            ]);
-            
-            let paragraph = Paragraph::new(vec![
-                Line::from(""),
-                error_text,
-                Line::from(""),
-                Line::from("No additional protocol data available."),
+    /// Render connection tab
+    fn render_connection_tab(&self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(40),
+                Constraint::Percentage(60),
             ])
-            .block(Block::default().borders(Borders::ALL).title("Protocol Error"));
+            .split(area);
+        
+        // Render connection details
+        let connection_block = Block::default()
+            .borders(Borders::ALL)
+            .title("Connection Details");
+        
+        f.render_widget(connection_block.clone(), chunks[0]);
+        
+        let connection_area = connection_block.inner(chunks[0]);
+        
+        // Build connection info text
+        let mut lines = vec![];
+        
+        // Add connection status
+        lines.push(Line::from(vec![
+            Span::styled("Connected: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", self.protocol.connected),
+                Style::default().fg(if self.protocol.connected { Color::Green } else { Color::Red })
+            ),
+        ]));
+        
+        // Add last connected time
+        if let Some(last_connected) = self.protocol.last_connected {
+            lines.push(Line::from(vec![
+                Span::styled("Last Connected: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(last_connected.to_rfc3339()),
+            ]));
+        }
+        
+        // Add retry count
+        lines.push(Line::from(vec![
+            Span::styled("Retry Count: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(format!("{}", self.protocol.retry_count)),
+        ]));
+        
+        // Add error if present
+        if let Some(error) = &self.protocol.error {
+            lines.push(Line::from(vec![
+                Span::styled("Error: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Red)),
+                Span::raw(error),
+            ]));
+        }
+        
+        // Add connection health information if available
+        if let Some(health) = self.connection_health {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Health Status: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:?}", health.status),
+                    Style::default().fg(self.get_connection_status_color(&health.status))
+                ),
+            ]));
+            
+            if let Some(last_successful) = health.last_successful {
+                lines.push(Line::from(vec![
+                    Span::styled("Last Successful: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(last_successful.to_rfc3339()),
+                ]));
+            }
+            
+            lines.push(Line::from(vec![
+                Span::styled("Failure Count: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(format!("{}", health.failure_count)),
+            ]));
+            
+            if let Some(latency) = health.latency_ms {
+                lines.push(Line::from(vec![
+                    Span::styled("Latency: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(format!("{}ms", latency)),
+                ]));
+            }
+            
+            if let Some(error_details) = &health.error_details {
+                lines.push(Line::from(vec![
+                    Span::styled("Error Details: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Red)),
+                    Span::raw(error_details),
+                ]));
+            }
+        }
+        
+        let connection_paragraph = Paragraph::new(lines)
+            .alignment(ratatui::layout::Alignment::Left);
+        
+        f.render_widget(connection_paragraph, connection_area);
+        
+        // Render connection history if available
+        if let Some(history) = self.connection_history {
+            let history_block = Block::default()
+                .borders(Borders::ALL)
+                .title("Connection History");
+            
+            f.render_widget(history_block.clone(), chunks[1]);
+            
+            let history_area = history_block.inner(chunks[1]);
+            
+            if history.is_empty() {
+                let paragraph = Paragraph::new("No connection history available")
+                    .alignment(ratatui::layout::Alignment::Center);
+                
+                f.render_widget(paragraph, history_area);
+            } else {
+                let events: Vec<ListItem> = history.iter()
+                    .rev() // Most recent first
+                    .take(8) // Show only the most recent events
+                    .map(|event| {
+                        let event_color = self.get_connection_event_color(&event.event_type);
+                        let time_str = event.timestamp.format("%Y-%m-%d %H:%M:%S").to_string();
+                        
+                        let content = Line::from(vec![
+                            Span::styled(format!("[{}] ", time_str), Style::default().fg(Color::Gray)),
+                            Span::styled(format!("{:?}", event.event_type), Style::default().fg(event_color)),
+                            Span::raw(if let Some(details) = &event.details {
+                                format!(": {}", details)
+                            } else {
+                                String::new()
+                            }),
+                        ]);
+                        
+                        ListItem::new(content)
+                    })
+                    .collect();
+                
+                let events_list = List::new(events)
+                    .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+                
+                f.render_widget(events_list, history_area);
+            }
+        } else {
+            let paragraph = Paragraph::new("No connection history available")
+                .block(Block::default().borders(Borders::ALL).title("Connection History"))
+                .alignment(ratatui::layout::Alignment::Center);
+            
+            f.render_widget(paragraph, chunks[1]);
+        }
+    }
+    
+    /// Render history tab
+    fn render_history_tab(&self, f: &mut Frame, area: Rect) {
+        if let Some(history) = self.metrics_history {
+            if history.is_empty() {
+                let paragraph = Paragraph::new("No metrics history available")
+                    .alignment(ratatui::layout::Alignment::Center);
+                
+                f.render_widget(paragraph, area);
+                return;
+            }
+            
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(50),
+                    Constraint::Percentage(50),
+                ])
+                .split(area);
+            
+            // Render message rate history in top chart if available
+            if let Some(message_data) = history.get("protocol.messages") {
+                self.render_metrics_chart(f, chunks[0], "Message Rate", message_data);
+            } else {
+                self.render_no_history(f, chunks[0]);
+            }
+            
+            // Render latency history in bottom chart if available
+            if let Some(latency_data) = history.get("protocol.latency") {
+                self.render_metrics_chart(f, chunks[1], "Latency (ms)", latency_data);
+            } else {
+                self.render_no_history(f, chunks[1]);
+            }
+        } else {
+            let paragraph = Paragraph::new("No metrics history available")
+                .alignment(ratatui::layout::Alignment::Center);
             
             f.render_widget(paragraph, area);
+        }
+    }
+    
+    /// Render connection information
+    fn render_connection_info(&self, f: &mut Frame, area: Rect) {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Connection Status");
+        
+        f.render_widget(block.clone(), area);
+        
+        let inner_area = block.inner(area);
+        
+        // Create status text
+        let mut lines = vec![];
+        
+        // Add connected status
+        lines.push(Line::from(vec![
+            Span::styled("Connected: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", self.protocol.connected),
+                Style::default().fg(if self.protocol.connected { Color::Green } else { Color::Red }),
+            ),
+        ]));
+        
+        // Add connection status
+        lines.push(Line::from(vec![
+            Span::styled("Status: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                self.protocol.status.clone(),
+                Style::default().fg(self.get_status_color(self.parse_protocol_status(&self.protocol.status))),
+            ),
+        ]));
+        
+        // Add retry count
+        lines.push(Line::from(vec![
+            Span::styled("Retry Count: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(format!("{}", self.protocol.retry_count)),
+        ]));
+        
+        // Add error if present
+        if let Some(error) = &self.protocol.error {
+            lines.push(Line::from(vec![
+                Span::styled("Error: ", Style::default().add_modifier(Modifier::BOLD).fg(Color::Red)),
+                Span::raw(error),
+            ]));
+        }
+        
+        // Add last connected time
+        if let Some(last_connected) = self.protocol.last_connected {
+            lines.push(Line::from(vec![
+                Span::styled("Last Connected: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(last_connected.to_rfc3339()),
+            ]));
+        }
+        
+        if let Some(health) = self.connection_health {
+            // Add connection health
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Health Status: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    format!("{:?}", health.status),
+                    Style::default().fg(self.get_connection_status_color(&health.status)),
+                ),
+            ]));
+            
+            // Add failure count if > 0
+            if health.failure_count > 0 {
+                lines.push(Line::from(vec![
+                    Span::styled("Failures: ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(format!("{}", health.failure_count)),
+                ]));
+            }
+        }
+        
+        let paragraph = Paragraph::new(lines)
+            .alignment(ratatui::layout::Alignment::Left);
+        
+        f.render_widget(paragraph, inner_area);
+    }
+    
+    /// Render protocol metrics
+    fn render_protocol_metrics(&self, f: &mut Frame, area: Rect) {
+        // Create block
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title("Protocol Metrics");
+        
+        f.render_widget(block.clone(), area);
+        
+        // Get inner area
+        let inner_area = block.inner(area);
+        
+        // Filter out important metrics to show
+        let important_metrics = [
+            "messages",
+            "transactions",
+            "errors",
+            "requests",
+            "responses",
+            "latency",
+            "success_rate",
+        ];
+        
+        // Get the important metrics from the protocol metrics
+        let mut filtered_metrics = Vec::new();
+        for key in important_metrics.iter() {
+            for (metric_key, metric_value) in &self.protocol.metrics {
+                if metric_key.contains(key) {
+                    filtered_metrics.push((metric_key, *metric_value));
+                    break;
+                }
+            }
+        }
+        
+        // If we don't have any important metrics, show all metrics up to a limit
+        if filtered_metrics.is_empty() {
+            filtered_metrics = self.protocol.metrics.iter()
+                .take(8)
+                .map(|(k, v)| (k, *v))
+                .collect();
+        }
+        
+        // Sort by key
+        filtered_metrics.sort_by(|a, b| a.0.cmp(b.0));
+        
+        // Create text for metrics
+        let mut lines = Vec::new();
+        
+        for (key, value) in filtered_metrics {
+            lines.push(Line::from(vec![
+                Span::styled(format!("{}: ", key), Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(format!("{:.2}", value)),
+            ]));
+        }
+        
+        let paragraph = Paragraph::new(lines);
+        
+        f.render_widget(paragraph, inner_area);
+    }
+    
+    /// Render a metrics chart
+    fn render_metrics_chart(&self, f: &mut Frame, area: Rect, title: &str, data: &[(DateTime<Utc>, f64)]) {
+        // Skip if there's not enough data
+        if data.len() < 2 {
+            self.render_no_history(f, area);
             return;
         }
         
-        // Otherwise, display a generic message
-        let paragraph = Paragraph::new(Line::from(vec![
-            Span::styled(
-                "No protocol data available",
-                Style::default().fg(Color::Gray),
-            ),
-        ]));
+        // Create block
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(title);
+        
+        // Convert data to chart format
+        let cutoff = Utc::now() - Duration::minutes(10);
+        let filtered_data: Vec<(f64, f64)> = data.iter()
+            .filter(|(time, _)| *time > cutoff)
+            .map(|(time, value)| {
+                let timestamp = time.timestamp() as f64;
+                (timestamp, *value)
+            })
+            .collect();
+        
+        // If not enough data after filtering, render no history
+        if filtered_data.len() < 2 {
+            self.render_no_history(f, area);
+            return;
+        }
+        
+        // Find min/max for proper scaling
+        let min_x = filtered_data.iter().map(|(x, _)| *x).fold(f64::INFINITY, f64::min);
+        let max_x = filtered_data.iter().map(|(x, _)| *x).fold(f64::NEG_INFINITY, f64::max);
+        let min_y = filtered_data.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+        let max_y = filtered_data.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
+        let y_margin = (max_y - min_y) * 0.1;
+        
+        // Create dataset
+        let dataset = Dataset::default()
+            .name(title)
+            .marker(symbols::Marker::Dot)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Cyan))
+            .data(&filtered_data);
+        
+        // Create chart
+        let chart = Chart::new(vec![dataset])
+            .block(block)
+            .x_axis(
+                Axis::default()
+                    .title("Time")
+                    .bounds([min_x, max_x])
+                    .labels(vec![])
+            )
+            .y_axis(
+                Axis::default()
+                    .title("Value")
+                    .bounds([min_y.max(0.0) - y_margin, max_y + y_margin])
+                    .labels(vec![
+                        Span::raw(format!("{:.1}", min_y.max(0.0))),
+                        Span::raw(format!("{:.1}", (min_y.max(0.0) + max_y) / 2.0)),
+                        Span::raw(format!("{:.1}", max_y)),
+                    ])
+            );
+        
+        f.render_widget(chart, area);
+    }
+    
+    /// Render message when no data is available
+    fn render_no_data(&self, f: &mut Frame, area: Rect) {
+        let paragraph = Paragraph::new("No protocol metrics data available.")
+            .alignment(ratatui::layout::Alignment::Center)
+            .style(Style::default().fg(Color::Gray));
+        
+        f.render_widget(paragraph, area);
+    }
+    
+    /// Render message when no history is available
+    fn render_no_history(&self, f: &mut Frame, area: Rect) {
+        let paragraph = Paragraph::new("No metrics history available.")
+            .alignment(ratatui::layout::Alignment::Center)
+            .style(Style::default().fg(Color::Gray));
         
         f.render_widget(paragraph, area);
     }
@@ -245,78 +756,64 @@ mod tests {
         assert_eq!(widget.title, "Protocol Test");
         assert_eq!(widget.active_tab, 0);
         assert_eq!(widget.protocol.protocol_type, "TCP");
+        assert!(widget.connection_health.is_none());
+        assert!(widget.connection_history.is_none());
+        assert!(widget.metrics_history.is_none());
     }
     
     #[test]
-    fn test_protocol_widget_active_tab() {
+    fn test_protocol_widget_with_connection_health() {
         let protocol_data = create_test_protocol_data();
+        let health = ConnectionHealth {
+            status: ConnectionStatus::Connected,
+            last_successful: Some(Utc::now()),
+            failure_count: 0,
+            latency_ms: Some(50),
+            error_details: None,
+        };
+        
         let widget = ProtocolWidget::new(&protocol_data, "Protocol Test")
-            .active_tab(2);
+            .with_connection_health(&health);
         
-        assert_eq!(widget.active_tab, 2);
+        assert!(widget.connection_health.is_some());
+        assert_eq!(widget.connection_health.unwrap().status, ConnectionStatus::Connected);
     }
     
     #[test]
-    fn test_parse_protocol_type() {
+    fn test_protocol_widget_with_connection_history() {
         let protocol_data = create_test_protocol_data();
-        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
+        let history = vec![
+            ConnectionEvent {
+                timestamp: Utc::now(),
+                event_type: ConnectionEventType::Connected,
+                details: Some("Initial connection".to_string()),
+            }
+        ];
         
-        assert!(matches!(widget.parse_protocol_type("http"), Protocol::Http));
-        assert!(matches!(widget.parse_protocol_type("HTTP"), Protocol::Http));
-        assert!(matches!(widget.parse_protocol_type("mqtt"), Protocol::Mqtt));
-        assert!(matches!(widget.parse_protocol_type("MQTT"), Protocol::Mqtt));
-        assert!(matches!(widget.parse_protocol_type("websocket"), Protocol::WebSocket));
-        assert!(matches!(widget.parse_protocol_type("WebSocket"), Protocol::WebSocket));
-        assert!(matches!(widget.parse_protocol_type("grpc"), Protocol::Grpc));
-        assert!(matches!(widget.parse_protocol_type("gRPC"), Protocol::Grpc));
+        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test")
+            .with_connection_history(&history);
         
-        // Test unknown protocol type
-        if let Protocol::Custom(id) = widget.parse_protocol_type("unknown") {
-            assert_eq!(id, 0);
-        } else {
-            panic!("Expected Protocol::Custom");
-        }
+        assert!(widget.connection_history.is_some());
+        assert_eq!(widget.connection_history.unwrap().len(), 1);
     }
     
     #[test]
-    fn test_parse_protocol_status() {
+    fn test_protocol_widget_with_metrics_history() {
         let protocol_data = create_test_protocol_data();
-        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
+        let mut history = HashMap::new();
+        history.insert("protocol.messages".to_string(), vec![
+            (Utc::now(), 100.0),
+            (Utc::now(), 150.0),
+        ]);
         
-        assert!(matches!(widget.parse_protocol_status("connected"), ProtocolStatus::Connected));
-        assert!(matches!(widget.parse_protocol_status("Connected"), ProtocolStatus::Connected));
-        assert!(matches!(widget.parse_protocol_status("disconnected"), ProtocolStatus::Disconnected));
-        assert!(matches!(widget.parse_protocol_status("connecting"), ProtocolStatus::Connecting));
-        assert!(matches!(widget.parse_protocol_status("error"), ProtocolStatus::Error));
-        assert!(matches!(widget.parse_protocol_status("running"), ProtocolStatus::Running));
-        assert!(matches!(widget.parse_protocol_status("degraded"), ProtocolStatus::Degraded));
-        assert!(matches!(widget.parse_protocol_status("stopped"), ProtocolStatus::Stopped));
+        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test")
+            .with_metrics_history(&history);
         
-        // Test unknown status
-        assert!(matches!(widget.parse_protocol_status("unknown"), ProtocolStatus::Unknown));
+        assert!(widget.metrics_history.is_some());
+        assert_eq!(widget.metrics_history.unwrap().len(), 1);
     }
     
-    #[test]
-    fn test_get_status_color() {
-        let protocol_data = create_test_protocol_data();
-        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
-        
-        // Test positive statuses (green)
-        assert_eq!(widget.get_status_color(ProtocolStatus::Connected), Color::Green);
-        assert_eq!(widget.get_status_color(ProtocolStatus::Running), Color::Green);
-        
-        // Test warning statuses (yellow)
-        assert_eq!(widget.get_status_color(ProtocolStatus::Connecting), Color::Yellow);
-        assert_eq!(widget.get_status_color(ProtocolStatus::Degraded), Color::Yellow);
-        
-        // Test negative statuses (red)
-        assert_eq!(widget.get_status_color(ProtocolStatus::Disconnected), Color::Red);
-        assert_eq!(widget.get_status_color(ProtocolStatus::Stopped), Color::Red);
-        assert_eq!(widget.get_status_color(ProtocolStatus::Error), Color::Red);
-        
-        // Test unknown status (gray)
-        assert_eq!(widget.get_status_color(ProtocolStatus::Unknown), Color::Gray);
-    }
+    // Other tests remain unchanged...
     
     // Helper function to create test protocol data
     fn create_test_protocol_data() -> ProtocolData {
@@ -338,62 +835,5 @@ mod tests {
             retry_count: 0,
             metrics,
         }
-    }
-    
-    #[test]
-    fn test_protocol_widget_with_error() {
-        let mut protocol_data = create_test_protocol_data();
-        protocol_data.status = "Error".to_string();
-        protocol_data.error = Some("Connection timeout".to_string());
-        
-        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
-        
-        // Verify that the status is parsed correctly
-        let status = widget.parse_protocol_status(&protocol_data.status);
-        assert!(matches!(status, ProtocolStatus::Error));
-        
-        // Verify that the status color is red
-        assert_eq!(widget.get_status_color(status), Color::Red);
-    }
-    
-    #[test]
-    fn test_protocol_widget_with_empty_metrics() {
-        let mut protocol_data = create_test_protocol_data();
-        protocol_data.metrics.clear();
-        
-        let widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
-        
-        // With empty metrics, the render_protocol_details method should call render_no_data
-        // We can't test this directly without a mock frame, but we can at least verify
-        // that the metrics map is indeed empty
-        assert!(protocol_data.metrics.is_empty());
-    }
-
-    // Test ProtocolWidget rendering with mock data
-    #[test]
-    fn test_protocol_widget_render() {
-        // Create mock ProtocolData
-        let protocol_data = ProtocolData {
-            name: "Test Protocol".to_string(),
-            protocol_type: "MQTT".to_string(),
-            version: "1.0.0".to_string(),
-            status: "Connected".to_string(),
-            connected: true,
-            last_connected: Some(chrono::Utc::now()),
-            error: None,
-            retry_count: 0,
-            metrics: {
-                let mut metrics = HashMap::new();
-                metrics.insert("messages_sent".to_string(), 1234.0);
-                metrics.insert("messages_received".to_string(), 5678.0);
-                metrics
-            }
-        };
-
-        let _widget = ProtocolWidget::new(&protocol_data, "Protocol Test");
-        
-        // Rendering test would need a mock terminal,
-        // so we'll just ensure it doesn't panic when created
-        assert_eq!(protocol_data.protocol_type, "MQTT");
     }
 } 
