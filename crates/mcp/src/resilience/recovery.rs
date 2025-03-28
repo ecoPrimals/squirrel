@@ -96,18 +96,17 @@ pub enum RecoveryError {
 impl fmt::Display for RecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RecoveryError::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
-                write!(f, "Maximum recovery attempts ({}) exceeded for {} failure: {} attempts made", 
-                    max_attempts, severity, attempts)
+            Self::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
+                write!(f, "Maximum recovery attempts ({max_attempts}) exceeded for {severity} failure: {attempts} attempts made")
             },
-            RecoveryError::CriticalFailureNoRecovery => {
+            Self::CriticalFailureNoRecovery => {
                 write!(f, "Recovery not attempted for critical failure")
             },
-            RecoveryError::RecoveryActionFailed { message, .. } => {
-                write!(f, "Recovery action failed: {}", message)
+            Self::RecoveryActionFailed { message, .. } => {
+                write!(f, "Recovery action failed: {message}")
             },
-            RecoveryError::Timeout { duration } => {
-                write!(f, "Recovery timed out after {:?}", duration)
+            Self::Timeout { duration } => {
+                write!(f, "Recovery timed out after {duration:?}")
             },
         }
     }
@@ -116,7 +115,7 @@ impl fmt::Display for RecoveryError {
 impl StdError for RecoveryError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            RecoveryError::RecoveryActionFailed { source, .. } => {
+            Self::RecoveryActionFailed { source, .. } => {
                 source.as_ref().map(|s| s.as_ref() as &(dyn StdError + 'static))
             },
             _ => None,
@@ -159,7 +158,7 @@ pub struct RecoveryStrategy {
 
 impl RecoveryStrategy {
     /// Create a new recovery strategy with the specified configuration
-    pub fn new(config: RecoveryConfig) -> Self {
+    #[must_use] pub fn new(config: RecoveryConfig) -> Self {
         Self {
             config,
             metrics: RecoveryMetrics::default(),
@@ -167,7 +166,7 @@ impl RecoveryStrategy {
     }
     
     /// Create a new recovery strategy with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(RecoveryConfig::default())
     }
     
@@ -238,7 +237,7 @@ impl RecoveryStrategy {
     }
     
     /// Get the current recovery metrics
-    pub fn get_metrics(&self) -> &RecoveryMetrics {
+    #[must_use] pub const fn get_metrics(&self) -> &RecoveryMetrics {
         &self.metrics
     }
     
@@ -248,7 +247,7 @@ impl RecoveryStrategy {
     }
     
     /// Get the maximum number of recovery attempts for a severity level
-    pub fn max_attempts_for_severity(&self, severity: FailureSeverity) -> u32 {
+    #[must_use] pub const fn max_attempts_for_severity(&self, severity: FailureSeverity) -> u32 {
         match severity {
             FailureSeverity::Minor => self.config.max_minor_attempts,
             FailureSeverity::Moderate => self.config.max_moderate_attempts,

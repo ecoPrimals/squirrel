@@ -281,8 +281,8 @@ pub struct MCPClient {
 }
 
 impl MCPClient {
-    /// Create a new MCPClient with the provided configuration
-    pub fn new(config: ClientConfig) -> Self {
+    /// Create a new `MCPClient` with the provided configuration
+    #[must_use] pub fn new(config: ClientConfig) -> Self {
         let (tx, rx) = mpsc::channel(100);
         let (event_tx, _) = broadcast::channel(100);
         
@@ -386,7 +386,7 @@ impl MCPClient {
             let transport_guard = self.transport.read().await;
             if let Some(transport) = &*transport_guard {
                 disconnect_result = transport.disconnect().await.map_err(|e| {
-                    MCPError::Transport(crate::error::transport::TransportError::ConnectionClosed(format!("Disconnect failed: {}", e)).into())
+                    MCPError::Transport(crate::error::transport::TransportError::ConnectionClosed(format!("Disconnect failed: {e}")).into())
                 });
             }
         }
@@ -445,7 +445,7 @@ impl MCPClient {
         // Convert Message to MCPMessage and send it
         let mcp_message = MCPMessage::try_from(&command)
             .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to convert Message to MCPMessage: {}", e)
+                format!("Failed to convert Message to MCPMessage: {e}")
             )))?;
         
         let send_result = transport.send_message(mcp_message).await;
@@ -509,7 +509,7 @@ impl MCPClient {
         // Convert Message to MCPMessage and send it
         let mcp_message = MCPMessage::try_from(&event)
             .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to convert Message to MCPMessage: {}", e)
+                format!("Failed to convert Message to MCPMessage: {e}")
             )))?;
         
         transport.send_message(mcp_message).await?;
@@ -725,8 +725,8 @@ pub struct CompositeEventHandler {
 }
 
 impl CompositeEventHandler {
-    /// Create a new CompositeEventHandler
-    pub fn new() -> Self {
+    /// Create a new `CompositeEventHandler`
+    #[must_use] pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
         }
@@ -887,15 +887,15 @@ async fn process_message_internal(
 /// Otherwise, a TCP transport will be created using the server address.
 ///
 /// If you need to use a different transport type (like WebSocket), you should
-/// create it externally and provide it via the `transport` field in ClientConfig.
+/// create it externally and provide it via the `transport` field in `ClientConfig`.
 ///
 /// ## Transport Creation
 ///
 /// The function creates a transport with these settings:
-/// - Remote address from the server_address field
-/// - Connection timeout from connection_timeout_ms
-/// - Keep-alive interval from keep_alive_interval_ms
-/// - Reconnection parameters from max_reconnect_attempts and reconnect_delay_ms
+/// - Remote address from the `server_address` field
+/// - Connection timeout from `connection_timeout_ms`
+/// - Keep-alive interval from `keep_alive_interval_ms`
+/// - Reconnection parameters from `max_reconnect_attempts` and `reconnect_delay_ms`
 ///
 /// ## Returns
 ///

@@ -127,7 +127,7 @@ pub struct Tool {
 
 impl Tool {
     /// Creates a new builder for Tool
-    pub fn builder() -> ToolBuilder {
+    #[must_use] pub fn builder() -> ToolBuilder {
         ToolBuilder::new()
     }
 }
@@ -149,13 +149,13 @@ pub struct ToolBuilder {
 }
 
 impl ToolBuilder {
-    /// Creates a new ToolBuilder with default values
-    pub fn new() -> Self {
+    /// Creates a new `ToolBuilder` with default values
+    #[must_use] pub fn new() -> Self {
         Self {
             id: None,
             name: None,
             version: "0.1.0".to_string(),
-            description: "".to_string(),
+            description: String::new(),
             capabilities: Vec::new(),
             security_level: 0,
         }
@@ -186,19 +186,19 @@ impl ToolBuilder {
     }
 
     /// Adds a capability to the tool
-    pub fn capability(mut self, capability: Capability) -> Self {
+    #[must_use] pub fn capability(mut self, capability: Capability) -> Self {
         self.capabilities.push(capability);
         self
     }
 
     /// Sets the tool security level
-    pub fn security_level(mut self, level: u8) -> Self {
+    #[must_use] pub const fn security_level(mut self, level: u8) -> Self {
         self.security_level = level;
         self
     }
 
     /// Builds the Tool
-    pub fn build(self) -> Tool {
+    #[must_use] pub fn build(self) -> Tool {
         Tool {
             id: self.id.expect("Tool ID is required"),
             name: self.name.expect("Tool name is required"),
@@ -383,76 +383,73 @@ pub enum ToolError {
 impl std::fmt::Display for ToolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ToolError::DependencyNotFound(msg) => write!(f, "Dependency not found: {}", msg),
-            ToolError::ToolNotFound(msg) => write!(f, "Tool not found: {}", msg),
-            ToolError::ExecutorNotFound(msg) => write!(f, "Executor not found: {}", msg),
-            ToolError::InitializationFailed { tool_id, reason } => {
-                write!(f, "Tool '{}' initialization failed: {}", tool_id, reason)
+            Self::DependencyNotFound(msg) => write!(f, "Dependency not found: {msg}"),
+            Self::ToolNotFound(msg) => write!(f, "Tool not found: {msg}"),
+            Self::ExecutorNotFound(msg) => write!(f, "Executor not found: {msg}"),
+            Self::InitializationFailed { tool_id, reason } => {
+                write!(f, "Tool '{tool_id}' initialization failed: {reason}")
             }
-            ToolError::ExecutionFailed { tool_id, reason } => {
-                write!(f, "Tool '{}' execution failed: {}", tool_id, reason)
+            Self::ExecutionFailed { tool_id, reason } => {
+                write!(f, "Tool '{tool_id}' execution failed: {reason}")
             }
-            ToolError::ExecutionError(msg) => write!(f, "Execution error: {}", msg),
-            ToolError::AlreadyRegistered(msg) => write!(f, "Tool already registered: {}", msg),
-            ToolError::AlreadyInState { tool_id, state } => {
-                write!(f, "Tool '{}' is already in state: {:?}", tool_id, state)
+            Self::ExecutionError(msg) => write!(f, "Execution error: {msg}"),
+            Self::AlreadyRegistered(msg) => write!(f, "Tool already registered: {msg}"),
+            Self::AlreadyInState { tool_id, state } => {
+                write!(f, "Tool '{tool_id}' is already in state: {state:?}")
             }
-            ToolError::ResourceLimitExceeded {
+            Self::ResourceLimitExceeded {
                 tool_id,
                 resource_type,
                 current,
                 limit,
             } => write!(
                 f,
-                "Tool '{}' exceeded {} limit: {} > {}",
-                tool_id, resource_type, current, limit
+                "Tool '{tool_id}' exceeded {resource_type} limit: {current} > {limit}"
             ),
-            ToolError::NoStateHistory(msg) => write!(f, "No state history for tool: {}", msg),
-            ToolError::InternalError(msg) => write!(f, "Internal error: {}", msg),
-            ToolError::InvalidStateTransition {
+            Self::NoStateHistory(msg) => write!(f, "No state history for tool: {msg}"),
+            Self::InternalError(msg) => write!(f, "Internal error: {msg}"),
+            Self::InvalidStateTransition {
                 tool_id,
                 from_state,
                 to_state,
                 message,
             } => write!(
                 f,
-                "Invalid state transition for tool '{}': {:?} -> {:?} - {}",
-                tool_id, from_state, to_state, message
+                "Invalid state transition for tool '{tool_id}': {from_state:?} -> {to_state:?} - {message}"
             ),
-            ToolError::InvalidManagerState { expected, actual } => write!(
+            Self::InvalidManagerState { expected, actual } => write!(
                 f,
-                "Invalid manager state: expected {}, actual {}",
-                expected, actual
+                "Invalid manager state: expected {expected}, actual {actual}"
             ),
-            ToolError::InvalidState(msg) => write!(f, "Invalid state: {}", msg),
-            ToolError::LifecycleError(msg) => write!(f, "Lifecycle error: {}", msg),
-            ToolError::RegistrationFailed(msg) => write!(f, "Registration failed: {}", msg),
-            ToolError::UnregistrationFailed(msg) => write!(f, "Unregistration failed: {}", msg),
-            ToolError::ValidationFailed(msg) => write!(f, "Validation failed: {}", msg),
-            ToolError::ResourceError(msg) => write!(f, "Resource error: {}", msg),
-            ToolError::ToolError(msg) => write!(f, "Tool error: {}", msg),
-            ToolError::SecurityViolation(msg) => write!(f, "Security violation: {}", msg),
-            ToolError::NeedsReset(msg) => write!(f, "Tool needs reset: {}", msg),
-            ToolError::TooManyErrors(msg) => write!(f, "Too many errors: {}", msg),
-            ToolError::CapabilityNotFound(cap, tool) => {
-                write!(f, "Capability '{}' not found for tool '{}'", cap, tool)
+            Self::InvalidState(msg) => write!(f, "Invalid state: {msg}"),
+            Self::LifecycleError(msg) => write!(f, "Lifecycle error: {msg}"),
+            Self::RegistrationFailed(msg) => write!(f, "Registration failed: {msg}"),
+            Self::UnregistrationFailed(msg) => write!(f, "Unregistration failed: {msg}"),
+            Self::ValidationFailed(msg) => write!(f, "Validation failed: {msg}"),
+            Self::ResourceError(msg) => write!(f, "Resource error: {msg}"),
+            Self::ToolError(msg) => write!(f, "Tool error: {msg}"),
+            Self::SecurityViolation(msg) => write!(f, "Security violation: {msg}"),
+            Self::NeedsReset(msg) => write!(f, "Tool needs reset: {msg}"),
+            Self::TooManyErrors(msg) => write!(f, "Too many errors: {msg}"),
+            Self::CapabilityNotFound(cap, tool) => {
+                write!(f, "Capability '{cap}' not found for tool '{tool}'")
             }
-            ToolError::PermissionDenied(msg) => write!(f, "Permission denied: {}", msg),
-            ToolError::RollbackFailed {
+            Self::PermissionDenied(msg) => write!(f, "Permission denied: {msg}"),
+            Self::RollbackFailed {
                 tool_id,
                 original_error,
                 rollback_error,
-            } => write!(f, "Rollback failed for tool '{}': original error: {}, rollback error: {}", tool_id, original_error, rollback_error),
-            ToolError::NoRollbackStateAvailable {
+            } => write!(f, "Rollback failed for tool '{tool_id}': original error: {original_error}, rollback error: {rollback_error}"),
+            Self::NoRollbackStateAvailable {
                 tool_id,
                 from_state,
                 to_state,
-            } => write!(f, "No rollback state available for tool '{}' from state: {:?} to state: {:?}", tool_id, from_state, to_state),
-            ToolError::RollbackPartiallySuccessful {
+            } => write!(f, "No rollback state available for tool '{tool_id}' from state: {from_state:?} to state: {to_state:?}"),
+            Self::RollbackPartiallySuccessful {
                 tool_id,
                 original_error,
                 message,
-            } => write!(f, "Rollback partially successful for tool '{}': original error: {}, message: {}", tool_id, original_error, message),
+            } => write!(f, "Rollback partially successful for tool '{tool_id}': original error: {original_error}, message: {message}"),
         }
     }
 }
@@ -678,19 +675,19 @@ pub struct ToolManager {
     recovery_hook: Option<Arc<RecoveryHook>>,
 }
 
-/// Builder for ToolManager
+/// Builder for `ToolManager`
 pub struct ToolManagerBuilder {
-    /// Optional lifecycle hook, defaults to BasicLifecycleHook if not provided
+    /// Optional lifecycle hook, defaults to `BasicLifecycleHook` if not provided
     lifecycle_hook: Option<Arc<dyn ToolLifecycleHook>>,
-    /// Optional resource manager, defaults to BasicResourceManager if not provided
+    /// Optional resource manager, defaults to `BasicResourceManager` if not provided
     resource_manager: Option<Arc<dyn ResourceManager>>,
     /// Optional recovery hook for handling tool errors
     recovery_hook: Option<Arc<RecoveryHook>>,
 }
 
 impl ToolManagerBuilder {
-    /// Create a new ToolManagerBuilder
-    pub fn new() -> Self {
+    /// Create a new `ToolManagerBuilder`
+    #[must_use] pub fn new() -> Self {
         Self {
             lifecycle_hook: None,
             resource_manager: None,
@@ -716,8 +713,8 @@ impl ToolManagerBuilder {
         self
     }
 
-    /// Build the ToolManager
-    pub fn build(self) -> ToolManager {
+    /// Build the `ToolManager`
+    #[must_use] pub fn build(self) -> ToolManager {
         ToolManager {
             tools: RwLock::new(HashMap::new()),
             states: RwLock::new(HashMap::new()),
@@ -741,8 +738,8 @@ impl Default for ToolManagerBuilder {
 }
 
 impl ToolManager {
-    /// Builder for ToolManager
-    pub fn builder() -> ToolManagerBuilder {
+    /// Builder for `ToolManager`
+    #[must_use] pub fn builder() -> ToolManagerBuilder {
         ToolManagerBuilder::new()
     }
 
@@ -832,7 +829,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_register(&tool)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Registration hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Registration hook failed: {e}")))?;
 
         // Register the tool
         {
@@ -881,7 +878,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_unregister(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Unregistration hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Unregistration hook failed: {e}")))?;
 
         // Unregister the tool
         {
@@ -922,7 +919,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_activate(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Activation hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Activation hook failed: {e}")))?;
 
         // Activate the tool
         {
@@ -949,7 +946,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_deactivate(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Deactivation hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Deactivation hook failed: {e}")))?;
 
         // Deactivate the tool
         {
@@ -1014,7 +1011,7 @@ impl ToolManager {
                 &current_state,
                 &state,
                 Some("Manual state update from ToolManager".to_string()),
-            ).await?
+            ).await?;
         }
 
         // Update the state
@@ -1107,8 +1104,7 @@ impl ToolManager {
             ToolState::Inactive => self.lifecycle_hook.on_deactivate(tool_id).await?,
             ToolState::Error => {
                 let error = ToolError::InvalidState(format!(
-                    "Tool {} rolled back to error state",
-                    tool_id
+                    "Tool {tool_id} rolled back to error state"
                 ));
                 self.lifecycle_hook.on_error(tool_id, &error).await?;
             }
@@ -1232,26 +1228,22 @@ impl ToolManager {
             match states.get(tool_id) {
                 Some(ToolState::Active | ToolState::Started) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already started",
-                        tool_id
+                        "Tool '{tool_id}' is already started"
                     )));
                 }
                 Some(ToolState::Starting) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already starting",
-                        tool_id
+                        "Tool '{tool_id}' is already starting"
                     )));
                 }
                 Some(ToolState::Error) => {
                     return Err(ToolError::ToolError(format!(
-                        "Tool '{}' is in error state and cannot be started",
-                        tool_id
+                        "Tool '{tool_id}' is in error state and cannot be started"
                     )));
                 }
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 _ => {} // Continue with other states
@@ -1268,14 +1260,14 @@ impl ToolManager {
         self.lifecycle_hook
             .pre_start(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Pre-start hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Pre-start hook failed: {e}")))?;
 
         // Call the executor's start method
         {
             let executors = self.executors.read().await;
             if let Some(executor) = executors.get(tool_id) {
                 executor.start().await.map_err(|e| {
-                    ToolError::ExecutionError(format!("Failed to start tool: {}", e))
+                    ToolError::ExecutionError(format!("Failed to start tool: {e}"))
                 })?;
             } else {
                 return Err(ToolError::ExecutorNotFound(tool_id.to_string()));
@@ -1292,7 +1284,7 @@ impl ToolManager {
         self.lifecycle_hook
             .post_start(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Post-start hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Post-start hook failed: {e}")))?;
 
         info!("Tool started: {}", tool_id);
         Ok(())
@@ -1315,14 +1307,12 @@ impl ToolManager {
             match states.get(tool_id) {
                 Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already stopped or stopping",
-                        tool_id
+                        "Tool '{tool_id}' is already stopped or stopping"
                     )));
                 }
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 _ => {} // Continue with other states
@@ -1339,14 +1329,14 @@ impl ToolManager {
         self.lifecycle_hook
             .pre_stop(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Pre-stop hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Pre-stop hook failed: {e}")))?;
 
         // Call the executor's stop method
         {
             let executors = self.executors.read().await;
             if let Some(executor) = executors.get(tool_id) {
                 executor.stop().await.map_err(|e| {
-                    ToolError::ExecutionError(format!("Failed to stop tool: {}", e))
+                    ToolError::ExecutionError(format!("Failed to stop tool: {e}"))
                 })?;
             } else {
                 return Err(ToolError::ExecutorNotFound(tool_id.to_string()));
@@ -1363,7 +1353,7 @@ impl ToolManager {
         self.lifecycle_hook
             .post_stop(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Post-stop hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Post-stop hook failed: {e}")))?;
 
         info!("Tool stopped: {}", tool_id);
         Ok(())
@@ -1386,26 +1376,22 @@ impl ToolManager {
             match states.get(tool_id) {
                 Some(ToolState::Paused) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already paused",
-                        tool_id
+                        "Tool '{tool_id}' is already paused"
                     )));
                 }
                 Some(ToolState::Pausing) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already pausing",
-                        tool_id
+                        "Tool '{tool_id}' is already pausing"
                     )));
                 }
                 Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is stopped or stopping",
-                        tool_id
+                        "Tool '{tool_id}' is stopped or stopping"
                     )));
                 }
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 _ => {} // Continue with other states
@@ -1423,7 +1409,7 @@ impl ToolManager {
             let executors = self.executors.read().await;
             if let Some(executor) = executors.get(tool_id) {
                 executor.pause().await.map_err(|e| {
-                    ToolError::ExecutionError(format!("Failed to pause tool: {}", e))
+                    ToolError::ExecutionError(format!("Failed to pause tool: {e}"))
                 })?;
             } else {
                 return Err(ToolError::ExecutorNotFound(tool_id.to_string()));
@@ -1440,7 +1426,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_pause(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Pause hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Pause hook failed: {e}")))?;
 
         info!("Tool paused: {}", tool_id);
         Ok(())
@@ -1463,33 +1449,28 @@ impl ToolManager {
             match states.get(tool_id) {
                 Some(ToolState::Active | ToolState::Started) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already active",
-                        tool_id
+                        "Tool '{tool_id}' is already active"
                     )));
                 }
                 Some(ToolState::Resuming) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already resuming",
-                        tool_id
+                        "Tool '{tool_id}' is already resuming"
                     )));
                 }
                 Some(ToolState::Stopped | ToolState::Stopping) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is stopped or stopping",
-                        tool_id
+                        "Tool '{tool_id}' is stopped or stopping"
                     )));
                 }
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 Some(ToolState::Paused) => {} // Expected state
                 _ => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is not paused",
-                        tool_id
+                        "Tool '{tool_id}' is not paused"
                     )));
                 }
             }
@@ -1506,7 +1487,7 @@ impl ToolManager {
             let executors = self.executors.read().await;
             if let Some(executor) = executors.get(tool_id) {
                 executor.resume().await.map_err(|e| {
-                    ToolError::ExecutionError(format!("Failed to resume tool: {}", e))
+                    ToolError::ExecutionError(format!("Failed to resume tool: {e}"))
                 })?;
             } else {
                 return Err(ToolError::ExecutorNotFound(tool_id.to_string()));
@@ -1523,7 +1504,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_resume(tool_id)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Resume hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Resume hook failed: {e}")))?;
 
         info!("Tool resumed: {}", tool_id);
         Ok(())
@@ -1548,14 +1529,12 @@ impl ToolManager {
             match states.get(&tool_id) {
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 Some(ToolState::Updating) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already updating",
-                        tool_id
+                        "Tool '{tool_id}' is already updating"
                     )));
                 }
                 _ => {} // Continue with other states
@@ -1572,7 +1551,7 @@ impl ToolManager {
         self.lifecycle_hook
             .on_update(&updated_tool)
             .await
-            .map_err(|e| ToolError::LifecycleError(format!("Update hook failed: {}", e)))?;
+            .map_err(|e| ToolError::LifecycleError(format!("Update hook failed: {e}")))?;
 
         // Update the tool registry
         {
@@ -1660,20 +1639,17 @@ impl ToolManager {
                 Some(ToolState::Error) => {} // Expected state
                 Some(ToolState::Recovering) => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is already recovering",
-                        tool_id
+                        "Tool '{tool_id}' is already recovering"
                     )));
                 }
                 Some(ToolState::Unregistered) => {
                     return Err(ToolError::ToolNotFound(format!(
-                        "Tool '{}' is unregistered",
-                        tool_id
+                        "Tool '{tool_id}' is unregistered"
                     )));
                 }
                 _ => {
                     return Err(ToolError::InvalidState(format!(
-                        "Tool '{}' is not in error state",
-                        tool_id
+                        "Tool '{tool_id}' is not in error state"
                     )));
                 }
             }
@@ -1723,8 +1699,7 @@ impl ToolManager {
                         states.insert(tool_id.to_string(), ToolState::Error);
                     }
                     Err(ToolError::UnregistrationFailed(format!(
-                        "Failed to terminate tool '{}' during recovery",
-                        tool_id
+                        "Failed to terminate tool '{tool_id}' during recovery"
                     )))
                 }
             }

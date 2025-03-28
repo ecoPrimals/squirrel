@@ -48,7 +48,7 @@ pub enum AdvancedBackoffStrategy {
 
 impl AdvancedBackoffStrategy {
     /// Calculate the delay in milliseconds for a given attempt
-    pub fn calculate_delay(&self, attempt: u32) -> u64 {
+    #[must_use] pub fn calculate_delay(&self, attempt: u32) -> u64 {
         use rand::Rng;
         
         match self {
@@ -227,7 +227,7 @@ pub struct EnhancedRecoveryHook {
     /// Recovery history
     history: RwLock<Vec<EnhancedRecoveryAttempt>>,
     
-    /// Active recovery attempts (tool_id -> attempt count)
+    /// Active recovery attempts (`tool_id` -> attempt count)
     active_recoveries: Mutex<HashMap<String, u32>>,
     
     /// Error patterns for each tool
@@ -242,7 +242,7 @@ impl Default for EnhancedRecoveryHook {
 
 impl EnhancedRecoveryHook {
     /// Creates a new enhanced recovery hook
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             default_strategy: EnhancedRecoveryStrategy::default(),
             strategies: RwLock::new(HashMap::new()),
@@ -290,7 +290,7 @@ impl EnhancedRecoveryHook {
             tool_patterns.remove(0);
         }
         
-        tool_patterns.push((Utc::now(), format!("{:?}", error)));
+        tool_patterns.push((Utc::now(), format!("{error:?}")));
     }
     
     /// Record a recovery attempt
@@ -331,12 +331,12 @@ impl EnhancedRecoveryHook {
         
         let result = match action {
             AdvancedRecoveryAction::Reset => {
-                tool_manager.reset_tool(tool_id).await.map(|_| true)
+                tool_manager.reset_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::Restart => {
                 tool_manager.stop_tool(tool_id).await?;
-                tool_manager.start_tool(tool_id).await.map(|_| true)
+                tool_manager.start_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::Recreate => {
@@ -353,7 +353,7 @@ impl EnhancedRecoveryHook {
             
             AdvancedRecoveryAction::Recover { params } => {
                 info!("Triggering recovery mode for tool {} with params: {:?}", tool_id, params);
-                tool_manager.recover_tool(tool_id).await.map(|_| true)
+                tool_manager.recover_tool(tool_id).await.map(|()| true)
             },
             
             AdvancedRecoveryAction::RetryAfterDelay { delay_ms } => {
@@ -387,7 +387,7 @@ impl EnhancedRecoveryHook {
             action: action.clone(),
             timestamp: Utc::now(),
             successful: result.is_ok(),
-            error_message: result.as_ref().err().map(|e| format!("{}", e)),
+            error_message: result.as_ref().err().map(|e| format!("{e}")),
             attempt_number: 0, // Will be set by the caller
             duration_ms: Some(duration),
             previous_state: prev_state,
@@ -444,7 +444,7 @@ impl ToolLifecycleHook for EnhancedRecoveryHook {
     }
 }
 
-/// Extension to the ToolManager for enhanced recovery
+/// Extension to the `ToolManager` for enhanced recovery
 pub trait ToolManagerRecoveryExt {
     /// Perform enhanced recovery for a tool
     async fn perform_enhanced_recovery(

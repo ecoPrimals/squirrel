@@ -15,7 +15,7 @@ use crate::metrics::MetricsCollector;
 /// and associated data that needs to be applied to the state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateUpdate {
-    /// The type of update being applied (e.g., "component_added", "feature_enabled")
+    /// The type of update being applied (e.g., "`component_added`", "`feature_enabled`")
     pub update_type: String,
     
     /// The data payload associated with the update
@@ -42,7 +42,7 @@ pub struct CoreState {
 }
 
 impl CoreState {
-    /// Applies a state update to this CoreState instance
+    /// Applies a state update to this `CoreState` instance
     ///
     /// Updates the core state based on the provided state update information.
     /// Currently this is a placeholder implementation.
@@ -53,7 +53,7 @@ impl CoreState {
     ///
     /// # Returns
     ///
-    /// Result indicating success or an MCPError
+    /// Result indicating success or an `MCPError`
     pub fn apply_update(&mut self, _update: &StateUpdate) -> Result<(), MCPError> {
         // TODO: Implement actual state update logic
         Ok(())
@@ -139,8 +139,8 @@ impl AuthManager {
     ///
     /// # Returns
     ///
-    /// A new AuthManager instance configured for testing
-    pub fn new_test() -> Self {
+    /// A new `AuthManager` instance configured for testing
+    #[must_use] pub const fn new_test() -> Self {
         Self {}
     }
 
@@ -186,7 +186,7 @@ impl Permission {
     /// # Returns
     ///
     /// A new Permission instance
-    pub fn new(resource: &str, action: Action) -> Self {
+    #[must_use] pub fn new(resource: &str, action: Action) -> Self {
         Self {
             resource: resource.to_string(),
             action,
@@ -323,12 +323,12 @@ impl CoreMCPAdapter {
     
     /// Authorize a user for a specific operation
     async fn authorize_operation(&self, user: &User, operation: &str) -> MCPResult<()> {
-        let resource = format!("core:{}", operation);
+        let resource = format!("core:{operation}");
         let permission = Permission::new(&resource, Action::Execute);
         
         self.auth_manager.authorize(user, &[permission])
             .await
-            .map_err(|e| MCPError::Authorization(e.to_string()))
+            .map_err(|e| MCPError::Authorization(e))
     }
     
     /// Perform the actual core operation
@@ -386,7 +386,7 @@ impl CoreMCPAdapter {
         // Record metrics
         let duration = timer.elapsed();
         self.metrics.record_histogram(
-            &format!("core_operation_{}_time", operation),
+            &format!("core_operation_{operation}_time"),
             duration,
         );
         self.metrics.increment_counter("core_operations_success");
@@ -526,7 +526,7 @@ impl MessageHandler for CoreMCPAdapter {
 }
 
 // Helper function to determine if an error should trigger circuit breaking
-fn is_circuit_breaking_error(error: &MCPError) -> bool {
+const fn is_circuit_breaking_error(error: &MCPError) -> bool {
     matches!(error, 
         MCPError::Connection(_) | 
         MCPError::Network(_) |

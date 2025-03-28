@@ -20,8 +20,8 @@ pub enum CircuitBreakerError {
 impl fmt::Display for CircuitBreakerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CircuitBreakerError::CircuitOpen => write!(f, "Circuit is open"),
-            CircuitBreakerError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
+            Self::CircuitOpen => write!(f, "Circuit is open"),
+            Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
         }
     }
 }
@@ -121,7 +121,7 @@ pub struct CircuitBreaker {
 
 impl CircuitBreaker {
     /// Create a new circuit breaker with the specified configuration
-    pub fn new(config: CircuitBreakerConfig) -> Self {
+    #[must_use] pub const fn new(config: CircuitBreakerConfig) -> Self {
         Self {
             config,
             state: CircuitState::Closed,
@@ -137,12 +137,12 @@ impl CircuitBreaker {
     }
     
     /// Create a new circuit breaker with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(CircuitBreakerConfig::default())
     }
     
     /// Get the current state of the circuit breaker
-    pub fn state(&self) -> CircuitState {
+    #[must_use] pub const fn state(&self) -> CircuitState {
         self.state
     }
     
@@ -276,7 +276,7 @@ impl CircuitBreaker {
     }
     
     /// Get metrics about the circuit breaker
-    pub fn get_metrics(&self) -> CircuitBreakerMetrics {
+    #[must_use] pub fn get_metrics(&self) -> CircuitBreakerMetrics {
         CircuitBreakerMetrics {
             name: self.config.name.clone(),
             state: self.state,

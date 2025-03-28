@@ -113,7 +113,7 @@ pub struct CompositePluginLifecycleHook<T: ToolLifecycleHook> {
 
 impl<T: ToolLifecycleHook> CompositePluginLifecycleHook<T> {
     /// Create a new composite lifecycle hook
-    pub fn new(base_hook: T, plugin_hook: PluginLifecycleHook) -> Self {
+    pub const fn new(base_hook: T, plugin_hook: PluginLifecycleHook) -> Self {
         Self {
             plugin_hook,
             base_hook,

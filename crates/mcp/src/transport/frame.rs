@@ -55,7 +55,7 @@ impl Frame {
     ///
     /// A new Frame instance containing the payload
     #[must_use]
-    pub fn new(payload: BytesMut) -> Self {
+    pub const fn new(payload: BytesMut) -> Self {
         Self { payload }
     }
     
@@ -65,7 +65,7 @@ impl Frame {
     ///
     /// A reference to the frame's payload
     #[must_use]
-    pub fn payload(&self) -> &BytesMut {
+    pub const fn payload(&self) -> &BytesMut {
         &self.payload
     }
     
@@ -108,11 +108,11 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
     ///
     /// # Arguments
     ///
-    /// * `reader` - The underlying AsyncRead stream to read from
+    /// * `reader` - The underlying `AsyncRead` stream to read from
     ///
     /// # Returns
     ///
-    /// A new FrameReader instance
+    /// A new `FrameReader` instance
     #[must_use]
     pub fn new(reader: R) -> Self {
         Self { 
@@ -193,8 +193,7 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
         // Check if the frame is too large
         if frame_len > MAX_FRAME_SIZE {
             return Err(TransportError::InvalidFrame(format!(
-                "Frame too large: {} bytes (max is {} bytes)",
-                frame_len, MAX_FRAME_SIZE
+                "Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)"
             )).into());
         }
         
@@ -252,13 +251,13 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
     ///
     /// # Arguments
     ///
-    /// * `writer` - The underlying AsyncWrite stream to write to
+    /// * `writer` - The underlying `AsyncWrite` stream to write to
     ///
     /// # Returns
     ///
-    /// A new FrameWriter instance
+    /// A new `FrameWriter` instance
     #[must_use]
-    pub fn new(writer: W) -> Self {
+    pub const fn new(writer: W) -> Self {
         Self { writer }
     }
     
@@ -314,7 +313,7 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
 
 /// Codec for encoding and decoding MCP messages
 ///
-/// Provides functionality for converting between MCPMessages and frames.
+/// Provides functionality for converting between `MCPMessages` and frames.
 /// This codec handles the serialization and deserialization of messages
 /// to and from JSON format for transport.
 #[derive(Debug)]
@@ -327,15 +326,15 @@ impl MessageCodec {
     ///
     /// # Returns
     ///
-    /// A new MessageCodec instance for encoding and decoding messages
+    /// A new `MessageCodec` instance for encoding and decoding messages
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {}
     }
     
     /// Encode a message to a frame
     ///
-    /// Serializes an MCPMessage to JSON and creates a frame containing
+    /// Serializes an `MCPMessage` to JSON and creates a frame containing
     /// the serialized data.
     ///
     /// # Arguments
@@ -362,7 +361,7 @@ impl MessageCodec {
     
     /// Decode a message from a frame
     ///
-    /// Deserializes an MCPMessage from the JSON data in a frame.
+    /// Deserializes an `MCPMessage` from the JSON data in a frame.
     ///
     /// # Arguments
     ///

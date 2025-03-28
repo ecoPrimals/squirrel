@@ -86,7 +86,7 @@ pub struct Session {
 
 impl Session {
     /// Create a new session
-    pub fn new(token: SessionToken, user_id: UserId) -> Self {
+    #[must_use] pub fn new(token: SessionToken, user_id: UserId) -> Self {
         let now = Utc::now();
         Self {
             token,
@@ -108,31 +108,31 @@ impl Session {
     }
     
     /// Set user role for this session
-    pub fn with_role(mut self, role: UserRole) -> Self {
+    #[must_use] pub fn with_role(mut self, role: UserRole) -> Self {
         self.role = role;
         self
     }
     
     /// Set account ID for this session
-    pub fn with_account_id(mut self, account_id: AccountId) -> Self {
+    #[must_use] pub fn with_account_id(mut self, account_id: AccountId) -> Self {
         self.account_id = Some(account_id);
         self
     }
     
     /// Set authentication token for this session
-    pub fn with_auth_token(mut self, auth_token: AuthToken) -> Self {
+    #[must_use] pub fn with_auth_token(mut self, auth_token: AuthToken) -> Self {
         self.auth_token = Some(auth_token);
         self
     }
     
     /// Set timeout for this session
-    pub fn with_timeout(mut self, timeout_seconds: u64) -> Self {
+    #[must_use] pub const fn with_timeout(mut self, timeout_seconds: u64) -> Self {
         self.timeout = Some(timeout_seconds);
         self
     }
 
     /// Check if the session is expired based on provided timeout
-    pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
+    #[must_use] pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
         if let Some(timeout_duration) = timeout {
             let now = Utc::now();
             let elapsed = now.signed_duration_since(self.last_accessed);
@@ -173,7 +173,7 @@ impl Session {
     }
 
     /// Convert to session data for persistence
-    pub fn to_session_data(&self) -> SessionData {
+    #[must_use] pub fn to_session_data(&self) -> SessionData {
         SessionData {
             token: self.token.clone(),
             user_id: self.user_id.clone(),
@@ -203,15 +203,15 @@ impl Session {
     }
 }
 
-/// Convert DateTime<Utc> to SystemTime
+/// Convert `DateTime`<Utc> to `SystemTime`
 fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
     let unix_time = dt.timestamp();
     let nanos = dt.timestamp_subsec_nanos();
     
-    SystemTime::UNIX_EPOCH + Duration::from_secs(unix_time as u64) + Duration::from_nanos(nanos as u64)
+    SystemTime::UNIX_EPOCH + Duration::from_secs(unix_time as u64) + Duration::from_nanos(u64::from(nanos))
 }
 
-/// Convert SystemTime to DateTime<Utc>
+/// Convert `SystemTime` to `DateTime`<Utc>
 fn datetime_from_system_time(st: &SystemTime) -> DateTime<Utc> {
     let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_else(|_| Duration::from_secs(0));
@@ -554,7 +554,7 @@ pub struct SessionManagerFactory {
 
 impl SessionManagerFactory {
     /// Create a new session manager factory
-    #[must_use] pub fn new(config: SessionConfig) -> Self {
+    #[must_use] pub const fn new(config: SessionConfig) -> Self {
         Self { config }
     }
     

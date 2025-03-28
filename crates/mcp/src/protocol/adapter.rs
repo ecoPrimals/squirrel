@@ -577,7 +577,7 @@ impl MCPProtocolAdapter {
     /// let version = adapter.get_version();
     /// println!("Protocol version: {}", version);
     /// ```
-    pub fn get_version(&self) -> String {
+    #[must_use] pub fn get_version(&self) -> String {
         // The version is a static string, no need to lock
         "1.0".to_string()
     }

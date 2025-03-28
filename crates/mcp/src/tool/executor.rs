@@ -158,7 +158,7 @@ impl RemoteToolExecutor {
     }
 
     /// Sets the request timeout
-    pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
+    #[must_use] pub const fn with_timeout(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = timeout_ms;
         self
     }
@@ -197,8 +197,7 @@ impl ToolExecutor for RemoteToolExecutor {
                     match response.json::<JsonValue>().await {
                         Ok(json) => Ok(json),
                         Err(e) => Err(ToolError::ExecutionError(format!(
-                            "Failed to parse response: {}",
-                            e
+                            "Failed to parse response: {e}"
                         ))),
                     }
                 } else {
@@ -209,8 +208,7 @@ impl ToolExecutor for RemoteToolExecutor {
                 }
             }
             Err(e) => Err(ToolError::ExecutionError(format!(
-                "Failed to send request: {}",
-                e
+                "Failed to send request: {e}"
             ))),
         };
 
@@ -247,7 +245,7 @@ impl ToolExecutor for RemoteToolExecutor {
     }
 }
 
-/// Update trait imports to remove ToolCapability
+/// Update trait imports to remove `ToolCapability`
 pub use crate::tool::{Tool, ToolState};
 
 // Instead of redefining, we import and use the ToolExecutor trait from the module

@@ -13,13 +13,13 @@ use std::error::Error as StdError;
 use crate::resilience::ResilienceError;
 
 /// Defines different backoff strategies for retry operations
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackoffStrategy {
     /// Constant delay between retries
     Constant,
-    /// Linear increase in delay (base_delay * attempt)
+    /// Linear increase in delay (`base_delay` * attempt)
     Linear,
-    /// Exponential increase in delay (base_delay * 2^attempt)
+    /// Exponential increase in delay (`base_delay` * 2^attempt)
     Exponential,
     /// Fibonacci sequence for delay
     Fibonacci,
@@ -90,16 +90,15 @@ impl From<RetryError> for ResilienceError {
     fn from(value: RetryError) -> Self {
         match value {
             RetryError::MaxAttemptsExceeded { attempts, error } => {
-                ResilienceError::RetryExceeded(format!(
-                    "Maximum retry attempts ({}) exceeded: {}", 
-                    attempts, error
+                Self::RetryExceeded(format!(
+                    "Maximum retry attempts ({attempts}) exceeded: {error}"
                 ))
             },
             RetryError::Cancelled(msg) => {
-                ResilienceError::General(format!("Retry operation cancelled: {}", msg))
+                Self::General(format!("Retry operation cancelled: {msg}"))
             },
             RetryError::Internal(msg) => {
-                ResilienceError::General(format!("Retry internal error: {}", msg))
+                Self::General(format!("Retry internal error: {msg}"))
             },
         }
     }
@@ -122,7 +121,7 @@ pub struct RetryMechanism {
 
 impl RetryMechanism {
     /// Create a new retry mechanism with the specified configuration
-    pub fn new(config: RetryConfig) -> Self {
+    #[must_use] pub fn new(config: RetryConfig) -> Self {
         Self {
             config,
             success_count: Arc::new(AtomicU32::new(0)),
@@ -133,12 +132,12 @@ impl RetryMechanism {
     }
     
     /// Create a new retry mechanism with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(RetryConfig::default())
     }
     
     /// Get retry metrics
-    pub fn get_metrics(&self) -> RetryMetrics {
+    #[must_use] pub fn get_metrics(&self) -> RetryMetrics {
         RetryMetrics {
             success_count: self.success_count.load(Ordering::Relaxed) as usize,
             failure_count: self.failure_count.load(Ordering::Relaxed) as usize,
@@ -204,7 +203,7 @@ impl RetryMechanism {
     }
     
     /// Calculate the delay for the next retry based on the backoff strategy
-    pub fn calculate_delay(&self, attempt: u32) -> Duration {
+    #[must_use] pub fn calculate_delay(&self, attempt: u32) -> Duration {
         let base_ms = self.config.base_delay.as_millis() as u64;
         
         // Calculate delay based on strategy
@@ -212,7 +211,7 @@ impl RetryMechanism {
             BackoffStrategy::Constant => base_ms,
             
             BackoffStrategy::Linear => {
-                base_ms * attempt as u64
+                base_ms * u64::from(attempt)
             },
             
             BackoffStrategy::Exponential => {

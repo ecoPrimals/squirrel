@@ -101,14 +101,14 @@ impl DomainObject for Message {
                                 "system" => crate::message::MessageType::System,
                                 _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                     "msg_type".to_string(), 
-                                    format!("Unknown message type: {}", msg_type_str)
+                                    format!("Unknown message type: {msg_type_str}")
                                 ))),
                             };
                             
                             // Extract optional fields
                             let in_reply_to = obj.get("reply_to")
                                 .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                                .map(std::string::ToString::to_string);
                             
                             // Extract binary payload if present
                             let binary_payload = obj.get("binary")
@@ -116,12 +116,12 @@ impl DomainObject for Message {
                                 .map(|s| base64::engine::general_purpose::STANDARD.decode(s))
                                 .transpose()
                                 .map_err(|e| MCPError::from(WireFormatError::Deserialization(
-                                    format!("Invalid base64 in binary field: {}", e)
+                                    format!("Invalid base64 in binary field: {e}")
                                 )))?;
                             
                             // Extract timestamp or use current time
                             let timestamp = obj.get("timestamp")
-                                .and_then(|v| v.as_i64())
+                                .and_then(serde_json::Value::as_i64)
                                 .map(|ts| chrono::DateTime::from_timestamp(ts, 0))
                                 .flatten()
                                 .unwrap_or_else(Utc::now);
@@ -129,12 +129,12 @@ impl DomainObject for Message {
                             // Extract topic if present
                             let topic = obj.get("topic")
                                 .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                                .map(std::string::ToString::to_string);
                             
                             // Extract context ID if present
                             let context_id = obj.get("context_id")
                                 .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                                .map(std::string::ToString::to_string);
                             
                             // Extract metadata
                             let metadata = if let Some(meta_value) = obj.get("metadata") {
@@ -150,7 +150,7 @@ impl DomainObject for Message {
                             };
                             
                             // Create the Message
-                            Ok(Message {
+                            Ok(Self {
                                 id,
                                 message_type,
                                 priority: crate::message::MessagePriority::Normal, // Default value
@@ -278,7 +278,7 @@ impl DomainObject for MCPMessage {
                                 "sync" => crate::types::MessageType::Sync,
                                 _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                     "type".to_string(), 
-                                    format!("Unknown message type: {}", type_str)
+                                    format!("Unknown message type: {type_str}")
                                 ))),
                             };
                             
@@ -308,18 +308,17 @@ impl DomainObject for MCPMessage {
                                     // Extract encryption info
                                     let encryption_info = sec_obj.get("encryption_info")
                                         .and_then(|v| v.as_object())
-                                        .map(|_| None) // Simplified for now
-                                        .unwrap_or(None);
+                                        .and_then(|_| None);
                                     
                                     // Extract signature
                                     let signature = sec_obj.get("signature")
                                         .and_then(|v| v.as_str())
-                                        .map(|s| s.to_string());
+                                        .map(std::string::ToString::to_string);
                                     
                                     // Extract auth token
                                     let auth_token = sec_obj.get("auth_token")
                                         .and_then(|v| v.as_str())
-                                        .map(|s| s.to_string());
+                                        .map(std::string::ToString::to_string);
                                     
                                     crate::types::SecurityMetadata {
                                         security_level,
@@ -338,7 +337,7 @@ impl DomainObject for MCPMessage {
                             
                             // Extract timestamp or use current time
                             let timestamp = obj.get("timestamp")
-                                .and_then(|v| v.as_i64())
+                                .and_then(serde_json::Value::as_i64)
                                 .map(|ts| chrono::DateTime::from_timestamp(ts, 0))
                                 .flatten()
                                 .unwrap_or_else(Utc::now);
@@ -351,10 +350,10 @@ impl DomainObject for MCPMessage {
                             // Extract trace ID if present
                             let trace_id = obj.get("trace_id")
                                 .and_then(|v| v.as_str())
-                                .map(|s| s.to_string());
+                                .map(std::string::ToString::to_string);
                             
                             // Create the MCPMessage
-                            Ok(MCPMessage {
+                            Ok(Self {
                                 id: crate::types::MessageId(id_str),
                                 type_: msg_type,
                                 payload,

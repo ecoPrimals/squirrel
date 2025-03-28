@@ -125,7 +125,7 @@ impl MonitoringSystemAdapter {
     /// # Arguments
     /// * `health_api_endpoint` - The URL for the health API
     /// * `alert_api_endpoint` - The URL for the alert API
-    pub fn new(health_api_endpoint: String, alert_api_endpoint: String) -> Self {
+    #[must_use] pub const fn new(health_api_endpoint: String, alert_api_endpoint: String) -> Self {
         Self {
             health_api_endpoint,
             alert_api_endpoint,
@@ -189,7 +189,7 @@ impl AlertToRecoveryAdapter {
     ///
     /// # Arguments
     /// * `recovery_strategy` - The recovery strategy to use for handling alerts
-    pub fn new(recovery_strategy: Arc<Mutex<RecoveryStrategy>>) -> Self {
+    pub const fn new(recovery_strategy: Arc<Mutex<RecoveryStrategy>>) -> Self {
         Self {
             recovery_strategy,
         }
@@ -231,7 +231,7 @@ impl AlertToRecoveryAdapter {
             debug!("Executing default recovery action for alert: {}", alert.message);
             Ok(())
         })
-        .map_err(|e| MCPError::General(format!("Recovery failed: {}", e)))
+        .map_err(|e| MCPError::General(format!("Recovery failed: {e}")))
     }
 }
 

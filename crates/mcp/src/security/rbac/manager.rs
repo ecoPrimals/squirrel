@@ -47,7 +47,7 @@ pub struct RBACManager {
 
 impl RBACManager {
     /// Create a new RBAC manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             roles: tokio::sync::RwLock::new(HashMap::new()),
             user_roles: tokio::sync::RwLock::new(HashMap::new()),
@@ -62,7 +62,7 @@ impl RBACManager {
         let role = Role {
             id: role_id.clone(),
             name: name.to_string(),
-            description: description.map(|s| s.to_string()),
+            description: description.map(std::string::ToString::to_string),
             permissions: HashSet::new(),
             parent_roles: HashSet::new(),
             security_level: SecurityLevel::Standard,
@@ -77,7 +77,7 @@ impl RBACManager {
             // Check if role with this name already exists
             if roles.values().any(|r| r.name == name) {
                 return Err(MCPError::Security(SecurityError::RBACError(
-                    format!("Role exists: {}", name)
+                    format!("Role exists: {name}")
                 )));
             }
             
@@ -98,7 +98,7 @@ impl RBACManager {
             Ok(())
         } else {
             Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", role_id)
+                format!("Role not found: {role_id}")
             )))
         }
     }
@@ -110,7 +110,7 @@ impl RBACManager {
             let roles = self.roles.read().await;
             if !roles.contains_key(role_id) {
                 return Err(MCPError::Security(SecurityError::RBACError(
-                    format!("Role not found: {}", role_id)
+                    format!("Role not found: {role_id}")
                 )));
             }
         }
@@ -138,7 +138,7 @@ impl RBACManager {
         roles.get(role_id)
             .cloned()
             .ok_or_else(|| MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", role_id)
+                format!("Role not found: {role_id}")
             )))
     }
 

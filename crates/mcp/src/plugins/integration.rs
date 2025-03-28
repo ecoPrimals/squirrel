@@ -24,7 +24,7 @@ pub trait PluginManagerInterface: Send + Sync + Debug {
     async fn unregister_plugin(&self, id: &Uuid) -> Result<()>;
 }
 
-/// Mock implementation of PluginManagerInterface for development
+/// Mock implementation of `PluginManagerInterface` for development
 #[derive(Debug)]
 pub struct MockPluginManager {
     /// Map of plugin UUIDs to plugin instances
@@ -32,7 +32,7 @@ pub struct MockPluginManager {
 }
 
 impl MockPluginManager {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             plugins: RwLock::new(HashMap::new()),
         }
@@ -63,20 +63,20 @@ impl PluginManagerInterface for MockPluginManager {
     }
 }
 
-/// Trait extension for McpPlugin to get the tool ID
+/// Trait extension for `McpPlugin` to get the tool ID
 pub trait McpPluginToolId {
     fn tool_id(&self) -> &str;
 }
 
 impl<T: McpPlugin> McpPluginToolId for T {
-    fn tool_id(&self) -> &str {
+    fn tool_id(&self) -> &'static str {
         // This is a mock implementation that returns a placeholder
         // In a real implementation, this would be overridden or implemented differently
         "unknown-tool"
     }
 }
 
-/// Helper struct to bridge from McpPlugin to Plugin
+/// Helper struct to bridge from `McpPlugin` to Plugin
 #[derive(Debug)]
 struct PluginWrapper<T: McpPlugin + ?Sized> {
     /// The wrapped plugin instance
@@ -248,7 +248,7 @@ impl PluginSystemIntegration {
     }
     
     /// Get the protocol version manager
-    pub fn version_manager(&self) -> &ProtocolVersionManager {
+    pub const fn version_manager(&self) -> &ProtocolVersionManager {
         &self.version_manager
     }
 }
@@ -313,23 +313,21 @@ impl crate::tool::ToolExecutor for PluginToolExecutor {
         
         // Convert the result to a ToolExecutionResult
         let success = result.get("success")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
             
         let output = result.get("result").cloned();
         let error_message = result.get("error")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+            .map(std::string::ToString::to_string);
             
         let execution_time_ms = result.get("execution_time_ms")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
             
         let timestamp = result.get("timestamp")
             .and_then(|v| v.as_str())
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.into())
-            .unwrap_or_else(chrono::Utc::now);
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok()).map_or_else(chrono::Utc::now, std::convert::Into::into);
             
         Ok(ToolExecutionResult {
             tool_id: tool_id.clone(),

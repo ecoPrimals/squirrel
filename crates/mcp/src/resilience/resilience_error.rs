@@ -29,13 +29,13 @@ pub enum ResilienceError {
 impl fmt::Display for ResilienceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResilienceError::CircuitOpen(msg) => write!(f, "Circuit breaker open: {}", msg),
-            ResilienceError::RetryExceeded(msg) => write!(f, "Maximum retry attempts exceeded: {}", msg),
-            ResilienceError::RecoveryFailed(msg) => write!(f, "Recovery strategy failed: {}", msg),
-            ResilienceError::SyncFailed(msg) => write!(f, "State synchronization failed: {}", msg),
-            ResilienceError::Timeout(msg) => write!(f, "Operation timed out: {}", msg),
-            ResilienceError::General(msg) => write!(f, "Resilience error: {}", msg),
-            ResilienceError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
+            Self::CircuitOpen(msg) => write!(f, "Circuit breaker open: {msg}"),
+            Self::RetryExceeded(msg) => write!(f, "Maximum retry attempts exceeded: {msg}"),
+            Self::RecoveryFailed(msg) => write!(f, "Recovery strategy failed: {msg}"),
+            Self::SyncFailed(msg) => write!(f, "State synchronization failed: {msg}"),
+            Self::Timeout(msg) => write!(f, "Operation timed out: {msg}"),
+            Self::General(msg) => write!(f, "Resilience error: {msg}"),
+            Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
         }
     }
 }
@@ -49,10 +49,10 @@ impl From<crate::resilience::circuit_breaker::CircuitBreakerError> for Resilienc
     fn from(err: crate::resilience::circuit_breaker::CircuitBreakerError) -> Self {
         match err {
             crate::resilience::circuit_breaker::CircuitBreakerError::CircuitOpen => {
-                ResilienceError::CircuitOpen("Circuit is open, failing fast".to_string())
+                Self::CircuitOpen("Circuit is open, failing fast".to_string())
             }
             crate::resilience::circuit_breaker::CircuitBreakerError::OperationFailed(msg) => {
-                ResilienceError::General(format!("Operation failed: {}", msg))
+                Self::General(format!("Operation failed: {msg}"))
             }
         }
     }
@@ -62,19 +62,18 @@ impl From<crate::resilience::recovery::RecoveryError> for ResilienceError {
     fn from(err: crate::resilience::recovery::RecoveryError) -> Self {
         match err {
             crate::resilience::recovery::RecoveryError::RecoveryActionFailed { message, .. } => {
-                ResilienceError::RecoveryFailed(message)
+                Self::RecoveryFailed(message)
             }
             crate::resilience::recovery::RecoveryError::Timeout { duration } => {
-                ResilienceError::Timeout(format!("Recovery timed out after {:?}", duration))
+                Self::Timeout(format!("Recovery timed out after {duration:?}"))
             }
             crate::resilience::recovery::RecoveryError::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
-                ResilienceError::RecoveryFailed(
-                    format!("Maximum recovery attempts ({}) exceeded for {} failure: {} attempts made", 
-                        max_attempts, severity, attempts)
+                Self::RecoveryFailed(
+                    format!("Maximum recovery attempts ({max_attempts}) exceeded for {severity} failure: {attempts} attempts made")
                 )
             }
             crate::resilience::recovery::RecoveryError::CriticalFailureNoRecovery => {
-                ResilienceError::RecoveryFailed("Recovery not attempted for critical failure".to_string())
+                Self::RecoveryFailed("Recovery not attempted for critical failure".to_string())
             }
         }
     }
@@ -84,32 +83,31 @@ impl From<crate::resilience::state_sync::StateSyncError> for ResilienceError {
     fn from(err: crate::resilience::state_sync::StateSyncError) -> Self {
         match err {
             crate::resilience::state_sync::StateSyncError::Timeout { .. } => {
-                ResilienceError::Timeout("State synchronization timed out".to_string())
+                Self::Timeout("State synchronization timed out".to_string())
             }
             crate::resilience::state_sync::StateSyncError::SizeExceeded { size, max_size } => {
-                ResilienceError::SyncFailed(format!(
-                    "State size exceeds maximum: {} > {}",
-                    size, max_size
+                Self::SyncFailed(format!(
+                    "State size exceeds maximum: {size} > {max_size}"
                 ))
             }
             crate::resilience::state_sync::StateSyncError::ValidationFailed { message } => {
-                ResilienceError::SyncFailed(format!("State validation failed: {}", message))
+                Self::SyncFailed(format!("State validation failed: {message}"))
             }
             crate::resilience::state_sync::StateSyncError::TargetUnavailable { target } => {
-                ResilienceError::SyncFailed(format!("Target unavailable: {}", target))
+                Self::SyncFailed(format!("Target unavailable: {target}"))
             }
             crate::resilience::state_sync::StateSyncError::SerializationError { message } => {
-                ResilienceError::SyncFailed(format!("State serialization error: {}", message))
+                Self::SyncFailed(format!("State serialization error: {message}"))
             }
             crate::resilience::state_sync::StateSyncError::SyncFailed {
                 message,
                 source: _,
-            } => ResilienceError::SyncFailed(format!("Sync failed: {}", message)),
+            } => Self::SyncFailed(format!("Sync failed: {message}")),
             crate::resilience::state_sync::StateSyncError::NotFound(message) => {
-                ResilienceError::SyncFailed(format!("State not found: {}", message))
+                Self::SyncFailed(format!("State not found: {message}"))
             },
             crate::resilience::state_sync::StateSyncError::DeserializationFailed(message) => {
-                ResilienceError::SyncFailed(format!("State deserialization failed: {}", message))
+                Self::SyncFailed(format!("State deserialization failed: {message}"))
             },
         }
     }
@@ -119,16 +117,15 @@ impl From<crate::resilience::retry::RetryError> for ResilienceError {
     fn from(err: crate::resilience::retry::RetryError) -> Self {
         match err {
             crate::resilience::retry::RetryError::MaxAttemptsExceeded { attempts, error } => {
-                ResilienceError::RetryExceeded(format!(
-                    "Maximum retry attempts ({}) exceeded: {}",
-                    attempts, error
+                Self::RetryExceeded(format!(
+                    "Maximum retry attempts ({attempts}) exceeded: {error}"
                 ))
             }
             crate::resilience::retry::RetryError::Cancelled(msg) => {
-                ResilienceError::RetryExceeded(format!("Retry cancelled: {}", msg))
+                Self::RetryExceeded(format!("Retry cancelled: {msg}"))
             }
             crate::resilience::retry::RetryError::Internal(msg) => {
-                ResilienceError::RetryExceeded(format!("Retry internal error: {}", msg))
+                Self::RetryExceeded(format!("Retry internal error: {msg}"))
             }
         }
     }

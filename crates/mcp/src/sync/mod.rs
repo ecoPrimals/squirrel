@@ -14,11 +14,11 @@ use tokio::sync::RwLock;
 use uuid;
 use uuid::Uuid;
 
-/// Convert an MCPError to a SquirrelError
+/// Convert an `MCPError` to a `SquirrelError`
 fn to_core_error<T>(result: std::result::Result<T, MCPError>) -> Result<T> {
     match result {
         Ok(value) => Ok(value),
-        Err(err) => Err(SquirrelError::generic(format!("MCP error: {}", err))),
+        Err(err) => Err(SquirrelError::generic(format!("MCP error: {err}"))),
     }
 }
 
@@ -77,9 +77,9 @@ impl Default for SyncState {
 }
 
 impl SyncState {
-    /// Creates a new SyncState with default values
+    /// Creates a new `SyncState` with default values
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             is_syncing: false,
             last_sync: None,
@@ -149,13 +149,13 @@ impl MCPSync {
         }
     }
 
-    /// Creates a new MCPSync instance asynchronously
+    /// Creates a new `MCPSync` instance asynchronously
     ///
     /// # Arguments
     /// * `config` - Configuration for synchronization
     ///
     /// # Returns
-    /// A Result containing the new MCPSync instance, or an error
+    /// A Result containing the new `MCPSync` instance, or an error
     pub async fn create(config: SyncConfig) -> Result<Self> {
         let _start = Instant::now();
 
@@ -184,7 +184,7 @@ impl MCPSync {
         Ok(instance)
     }
 
-    /// Creates a new MCPSync instance synchronously
+    /// Creates a new `MCPSync` instance synchronously
     ///
     /// This is used in cases where we need a synchronous constructor,
     /// such as in Default implementations. This method uses the synchronous
@@ -194,8 +194,8 @@ impl MCPSync {
     /// * `config` - Configuration for synchronization
     ///
     /// # Returns
-    /// A new MCPSync instance
-    pub fn create_sync(config: SyncConfig) -> Self {
+    /// A new `MCPSync` instance
+    #[must_use] pub fn create_sync(config: SyncConfig) -> Self {
         // Create components synchronously
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
         let monitor = Arc::new(MCPMonitor::default_sync());
@@ -213,13 +213,13 @@ impl MCPSync {
         }
     }
 
-    /// Returns a default instance of MCPSync
+    /// Returns a default instance of `MCPSync`
     ///
     /// This is primarily used in testing or when a fully-featured instance is not required.
     /// This uses synchronous initialization and is suitable for default implementations.
     ///
     /// # Returns
-    /// A new MCPSync instance
+    /// A new `MCPSync` instance
     #[must_use]
     pub fn default_instance() -> Self {
         // Use synchronous constructor with default config
@@ -242,7 +242,7 @@ impl MCPSync {
         to_core_error(self.init_internal().await)
     }
 
-    /// Internal implementation of init that returns MCPError
+    /// Internal implementation of init that returns `MCPError`
     async fn init_internal(&mut self) -> std::result::Result<(), MCPError> {
         // Check if already initialized
         if *self.initialized.read().await {
@@ -326,7 +326,7 @@ impl MCPSync {
         to_core_error(self.ensure_initialized_internal().await)
     }
 
-    /// Internal implementation of ensure_initialized that returns MCPError
+    /// Internal implementation of `ensure_initialized` that returns `MCPError`
     async fn ensure_initialized_internal(&self) -> std::result::Result<(), MCPError> {
         let initialized = *self.initialized.read().await;
         if !initialized {
@@ -345,7 +345,7 @@ impl MCPSync {
         to_core_error(self.load_persisted_changes_internal().await)
     }
 
-    /// Internal implementation of load_persisted_changes that returns MCPError
+    /// Internal implementation of `load_persisted_changes` that returns `MCPError`
     async fn load_persisted_changes_internal(&self) -> std::result::Result<(), MCPError> {
         // Remove the ensure_initialized check to avoid circular dependency
         // The caller (init_internal) will have already set initialized to true
@@ -392,7 +392,7 @@ impl MCPSync {
         to_core_error(self.sync_internal().await)
     }
 
-    /// Internal implementation of sync that returns MCPError
+    /// Internal implementation of sync that returns `MCPError`
     async fn sync_internal(&self) -> std::result::Result<SyncResult, MCPError> {
         let _start = Instant::now();
         self.ensure_initialized_internal().await?;
@@ -464,7 +464,7 @@ impl MCPSync {
         // Record sync metrics
         let elapsed_millis = _start.elapsed().as_millis();
         self.monitor
-            .record_message(&format!("sync_duration_ms_{}", elapsed_millis))
+            .record_message(&format!("sync_duration_ms_{elapsed_millis}"))
             .await;
 
         Ok(SyncResult {
@@ -527,10 +527,10 @@ impl MCPSync {
         Ok(self.state_manager.subscribe_changes())
     }
 
-    /// Alias for sync() method
+    /// Alias for `sync()` method
     ///
     /// This is provided for backward compatibility with code that expects
-    /// a synchronize() method.
+    /// a `synchronize()` method.
     ///
     /// # Errors
     /// Returns an error if synchronization fails

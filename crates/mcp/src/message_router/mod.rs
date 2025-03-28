@@ -37,17 +37,17 @@ impl std::error::Error for MessageRouterError {}
 impl std::fmt::Display for MessageRouterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MessageRouterError::NoHandlerFound(message_type) => {
-                write!(f, "No handler found for message type: {}", message_type)
+            Self::NoHandlerFound(message_type) => {
+                write!(f, "No handler found for message type: {message_type}")
             }
-            MessageRouterError::ValidationFailed(msg) => {
-                write!(f, "Message validation failed: {}", msg)
+            Self::ValidationFailed(msg) => {
+                write!(f, "Message validation failed: {msg}")
             }
-            MessageRouterError::ConfigurationError(msg) => {
-                write!(f, "Message router configuration error: {}", msg)
+            Self::ConfigurationError(msg) => {
+                write!(f, "Message router configuration error: {msg}")
             }
-            MessageRouterError::HandlerError(msg) => {
-                write!(f, "Handler execution error: {}", msg)
+            Self::HandlerError(msg) => {
+                write!(f, "Handler execution error: {msg}")
             }
         }
     }
@@ -71,7 +71,7 @@ pub enum HandlerPriority {
 
 impl Default for HandlerPriority {
     fn default() -> Self {
-        HandlerPriority::Medium
+        Self::Medium
     }
 }
 
@@ -135,12 +135,12 @@ pub struct MessageRouter {
 
 impl MessageRouter {
     /// Create a new message router with default configuration
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self::with_config(MessageRouterConfig::default())
     }
 
     /// Create a new message router with custom configuration
-    pub fn with_config(config: MessageRouterConfig) -> Self {
+    #[must_use] pub fn with_config(config: MessageRouterConfig) -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
             config,
@@ -312,7 +312,7 @@ impl MessageRouter {
         if let Some(type_handlers) = handlers.get(message_type) {
             type_handlers
                 .values()
-                .map(|handlers_list| handlers_list.len())
+                .map(std::vec::Vec::len)
                 .sum()
         } else {
             0
@@ -333,7 +333,7 @@ pub struct CompositeHandler {
 
 impl CompositeHandler {
     /// Create a new composite handler with the specified priority
-    pub fn new(priority: HandlerPriority) -> Self {
+    #[must_use] pub fn new(priority: HandlerPriority) -> Self {
         Self {
             handlers: Vec::new(),
             message_types: Vec::new(),

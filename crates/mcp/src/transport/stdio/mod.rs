@@ -85,7 +85,7 @@ pub struct StdioTransport {
 
 impl StdioTransport {
     /// Create a new stdio transport
-    pub fn new(config: StdioConfig) -> Self {
+    #[must_use] pub fn new(config: StdioConfig) -> Self {
         let (tx, rx) = mpsc::channel(100);
         let (message_tx, message_rx) = watch::channel(None);
         
@@ -155,7 +155,7 @@ impl StdioTransport {
                         message_tx.send(Some(message)).ok();
                     }
                     Err(e) => {
-                        eprintln!("Error reading from stdin: {}", e);
+                        eprintln!("Error reading from stdin: {e}");
                         break;
                     }
                 }
@@ -188,7 +188,7 @@ impl StdioTransport {
                 let json = match serde_json::to_string(&message) {
                     Ok(j) => j,
                     Err(e) => {
-                        eprintln!("Failed to serialize message: {}", e);
+                        eprintln!("Failed to serialize message: {e}");
                         continue;
                     }
                 };
@@ -196,21 +196,21 @@ impl StdioTransport {
                 // Write message to stdout based on format
                 let result = if use_ndjson {
                     // Write as NDJSON (Newline-Delimited JSON)
-                    stdout.write_all(format!("{}\n", json).as_bytes()).await
+                    stdout.write_all(format!("{json}\n").as_bytes()).await
                 } else {
                     // Write as JSON with terminator
-                    stdout.write_all(format!("{}\0", json).as_bytes()).await
+                    stdout.write_all(format!("{json}\0").as_bytes()).await
                 };
                 
                 // Check for write errors
                 if let Err(e) = result {
-                    eprintln!("Failed to write to stdout: {}", e);
+                    eprintln!("Failed to write to stdout: {e}");
                     break;
                 }
                 
                 // Ensure output is flushed
                 if let Err(e) = stdout.flush().await {
-                    eprintln!("Failed to flush stdout: {}", e);
+                    eprintln!("Failed to flush stdout: {e}");
                     break;
                 }
             }
@@ -230,7 +230,7 @@ impl Transport for StdioTransport {
         // Use the command_sender to send messages
         self.command_sender.send(message)
             .await
-            .map_err(|e| TransportError::ConnectionClosed(format!("Failed to send message: {}", e)))?;
+            .map_err(|e| TransportError::ConnectionClosed(format!("Failed to send message: {e}")))?;
         
         Ok(())
     }

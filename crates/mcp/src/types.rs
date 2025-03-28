@@ -187,13 +187,13 @@ pub enum MessageType {
 impl std::fmt::Display for MessageType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MessageType::Command => write!(f, "Command"),
-            MessageType::Response => write!(f, "Response"),
-            MessageType::Event => write!(f, "Event"),
-            MessageType::Error => write!(f, "Error"),
-            MessageType::Setup => write!(f, "Setup"),
-            MessageType::Heartbeat => write!(f, "Heartbeat"),
-            MessageType::Sync => write!(f, "Sync"),
+            Self::Command => write!(f, "Command"),
+            Self::Response => write!(f, "Response"),
+            Self::Event => write!(f, "Event"),
+            Self::Error => write!(f, "Error"),
+            Self::Setup => write!(f, "Setup"),
+            Self::Heartbeat => write!(f, "Heartbeat"),
+            Self::Sync => write!(f, "Sync"),
         }
     }
 }
@@ -316,7 +316,7 @@ impl MessageId {
     /// let id = MessageId::new();
     /// println!("New message ID: {}", id.0);
     /// ```
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
     }
     
@@ -341,7 +341,7 @@ impl MessageId {
     /// let id = MessageId::with_prefix("cmd");
     /// // Would result in something like: "cmd-550e8400-e29b-41d4-a716-446655440000"
     /// ```
-    pub fn with_prefix(prefix: &str) -> Self {
+    #[must_use] pub fn with_prefix(prefix: &str) -> Self {
         Self(format!("{}-{}", prefix, uuid::Uuid::new_v4()))
     }
 }
@@ -382,7 +382,7 @@ pub struct MCPMessage {
 }
 
 impl MCPMessage {
-    /// Creates a new MCPMessage with the specified message type and payload.
+    /// Creates a new `MCPMessage` with the specified message type and payload.
     ///
     /// This constructor sets default values for all other fields:
     /// - Generates a new unique message ID
@@ -411,7 +411,7 @@ impl MCPMessage {
     ///     json!({"command": "status"})
     /// );
     /// ```
-    pub fn new(type_: MessageType, payload: serde_json::Value) -> Self {
+    #[must_use] pub fn new(type_: MessageType, payload: serde_json::Value) -> Self {
         Self {
             id: MessageId::new(),
             type_,
@@ -424,7 +424,7 @@ impl MCPMessage {
         }
     }
     
-    /// Creates a new MCPMessage with all fields specified.
+    /// Creates a new `MCPMessage` with all fields specified.
     ///
     /// This constructor allows full control over all message fields,
     /// which is useful for creating messages with specific requirements.
@@ -462,7 +462,7 @@ impl MCPMessage {
     ///     Some("trace-123".to_string())
     /// );
     /// ```
-    pub fn with_details(
+    #[must_use] pub const fn with_details(
         id: MessageId,
         type_: MessageType,
         payload: serde_json::Value,
@@ -557,7 +557,7 @@ pub struct CommandRequestMessage {
 
 /// Command Response Message for returning command execution results.
 ///
-/// This message type is sent in response to a CommandRequestMessage and
+/// This message type is sent in response to a `CommandRequestMessage` and
 /// includes the status of the command execution and optional result data.
 ///
 /// # Examples
@@ -740,7 +740,7 @@ pub struct ProtocolVersion {
 impl ProtocolVersion {
     /// Creates a new protocol version
     #[must_use]
-    pub fn new(major: u32, minor: u32) -> Self {
+    pub const fn new(major: u32, minor: u32) -> Self {
         Self { major, minor }
     }
 
@@ -994,10 +994,10 @@ impl Default for UserRole {
 impl std::fmt::Display for UserRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UserRole::Admin => write!(f, "Admin"),
-            UserRole::User => write!(f, "User"),
-            UserRole::Guest => write!(f, "Guest"),
-            UserRole::Custom(role) => write!(f, "Custom({role})"),
+            Self::Admin => write!(f, "Admin"),
+            Self::User => write!(f, "User"),
+            Self::Guest => write!(f, "Guest"),
+            Self::Custom(role) => write!(f, "Custom({role})"),
         }
     }
 }

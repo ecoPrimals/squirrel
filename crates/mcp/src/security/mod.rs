@@ -150,7 +150,7 @@ pub struct SecurityManagerImpl {
 
 impl SecurityManagerImpl {
     /// Create a new security manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             rbac_manager: Arc::new(EnhancedRBACManager::new()),
             policy_manager: Arc::new(PolicyManager::new(true)),
@@ -184,17 +184,17 @@ impl SecurityManagerImpl {
     }
     
     /// Get the policy manager
-    pub fn policy_manager(&self) -> Arc<PolicyManager> {
+    #[must_use] pub fn policy_manager(&self) -> Arc<PolicyManager> {
         self.policy_manager.clone()
     }
     
     /// Get the RBAC manager
-    pub fn rbac_manager(&self) -> Arc<EnhancedRBACManager> {
+    #[must_use] pub fn rbac_manager(&self) -> Arc<EnhancedRBACManager> {
         self.rbac_manager.clone()
     }
     
     /// Get the encryption manager
-    pub fn encryption_manager(&self) -> Arc<dyn Encryption> {
+    #[must_use] pub fn encryption_manager(&self) -> Arc<dyn Encryption> {
         self.encryption_manager.clone()
     }
     
@@ -203,7 +203,7 @@ impl SecurityManagerImpl {
         self.session_encryption_formats.insert(session_id, format);
     }
     
-    /// Get the encryption format for a session (defaults to Aes256Gcm)
+    /// Get the encryption format for a session (defaults to `Aes256Gcm`)
     fn get_session_encryption_format(&self, session_id: &str) -> EncryptionFormat {
         self.session_encryption_formats.get(session_id)
             .copied()
@@ -259,7 +259,7 @@ impl SecurityManager for SecurityManagerImpl {
         // Convert the JSON data to bytes
         let data_bytes = serde_json::to_vec(data)
             .map_err(|e| crate::error::MCPError::Security(crate::error::types::SecurityError::EncryptionFailed(
-                format!("Failed to serialize data: {}", e)
+                format!("Failed to serialize data: {e}")
             )))?;
         
         // Use the encryption manager to encrypt the data
@@ -276,7 +276,7 @@ impl SecurityManager for SecurityManagerImpl {
         // Parse the decrypted bytes as JSON
         serde_json::from_slice(&decrypted_bytes)
             .map_err(|e| crate::error::MCPError::Security(crate::error::types::SecurityError::DecryptionFailed(
-                format!("Failed to parse decrypted data as JSON: {}", e)
+                format!("Failed to parse decrypted data as JSON: {e}")
             )))
     }
     

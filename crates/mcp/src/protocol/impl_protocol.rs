@@ -50,7 +50,7 @@ impl MCPProtocolImpl {
 
     /// Gets a reference to the base protocol
     #[must_use]
-    pub fn base(&self) -> &MCPProtocolBase {
+    pub const fn base(&self) -> &MCPProtocolBase {
         &self.base
     }
 
@@ -78,7 +78,7 @@ impl MCPProtocolImpl {
 
     /// Gets the current protocol state
     #[must_use]
-    pub fn get_state(&self) -> &Value {
+    pub const fn get_state(&self) -> &Value {
         self.base.get_state()
     }
 
@@ -89,7 +89,7 @@ impl MCPProtocolImpl {
 
     /// Gets the protocol configuration
     #[must_use]
-    pub fn get_config(&self) -> &ProtocolConfig {
+    pub const fn get_config(&self) -> &ProtocolConfig {
         self.base.get_config()
     }
 
@@ -334,7 +334,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 if let Some(command_type) = msg.payload.get("command_type").and_then(|v| v.as_str())
                 {
                     // Create a specialized message type for this command type
-                    let specialized_type = format!("Command:{}", command_type);
+                    let specialized_type = format!("Command:{command_type}");
 
                     // Check if we have a handler for this specialized command type
                     if self.base.handlers.contains_key(&specialized_type) {
@@ -359,8 +359,7 @@ impl MCPProtocol for MCPProtocolImpl {
 
                 // No handler found
                 return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler found for command: {:?}",
-                    msg
+                    "No handler found for command: {msg:?}"
                 ))));
             }
             MessageType::Event => {
@@ -372,7 +371,7 @@ impl MCPProtocol for MCPProtocolImpl {
                     .unwrap_or("unknown");
 
                 // Check for specific event handler
-                let specialized_type = format!("Event:{}", event_type);
+                let specialized_type = format!("Event:{event_type}");
                 if !self.base.handlers.contains_key(&specialized_type)
                     && !self
                         .base
@@ -380,8 +379,7 @@ impl MCPProtocol for MCPProtocolImpl {
                         .contains_key(&msg.type_.to_string())
                 {
                     return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                        "No handler found for event type: {}",
-                        event_type
+                        "No handler found for event type: {event_type}"
                     ))));
                 }
 

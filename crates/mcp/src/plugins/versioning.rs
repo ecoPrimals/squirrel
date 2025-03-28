@@ -26,7 +26,7 @@ pub struct ProtocolVersion {
 
 impl ProtocolVersion {
     /// Create a new protocol version
-    pub fn new(major: u64, minor: u64, patch: u64) -> Self {
+    #[must_use] pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
         Self {
             major,
             minor,
@@ -65,7 +65,7 @@ impl ProtocolVersion {
     }
     
     /// Parse from a semver Version
-    pub fn from_semver(version: &Version) -> Self {
+    #[must_use] pub fn from_semver(version: &Version) -> Self {
         Self {
             major: version.major,
             minor: version.minor,
@@ -119,7 +119,7 @@ impl VersionRequirement {
         }
     }
     
-    /// Convert to a semver VersionReq
+    /// Convert to a semver `VersionReq`
     pub fn to_semver_req(&self) -> Result<VersionReq> {
         VersionReq::parse(&self.requirement)
             .map_err(|e| anyhow!("Invalid version requirement format: {}", e))
@@ -141,7 +141,7 @@ pub struct ProtocolVersionManager {
 
 impl ProtocolVersionManager {
     /// Create a new protocol version manager
-    pub fn new(current: ProtocolVersion, min_supported: ProtocolVersion) -> Self {
+    #[must_use] pub fn new(current: ProtocolVersion, min_supported: ProtocolVersion) -> Self {
         Self {
             current_version: current,
             min_supported_version: min_supported,
@@ -150,12 +150,12 @@ impl ProtocolVersionManager {
     }
     
     /// Get the current protocol version
-    pub fn current_version(&self) -> &ProtocolVersion {
+    #[must_use] pub const fn current_version(&self) -> &ProtocolVersion {
         &self.current_version
     }
     
     /// Get the minimum supported protocol version
-    pub fn min_supported_version(&self) -> &ProtocolVersion {
+    #[must_use] pub const fn min_supported_version(&self) -> &ProtocolVersion {
         &self.min_supported_version
     }
     
@@ -231,7 +231,7 @@ impl ProtocolVersionManager {
     }
     
     /// Add version information to a message
-    pub fn add_version_to_message(&self, mut message: Value) -> Value {
+    #[must_use] pub fn add_version_to_message(&self, mut message: Value) -> Value {
         let version_value = serde_json::to_value(&self.current_version).unwrap_or_default();
         
         if let Some(obj) = message.as_object_mut() {

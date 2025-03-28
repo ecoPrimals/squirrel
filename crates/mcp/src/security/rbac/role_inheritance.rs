@@ -117,7 +117,7 @@ impl InheritanceGraph {
         // Check for cycles
         if self.would_create_cycle(parent_id, child_id)? {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Adding inheritance from {} to {} would create a cycle", parent_id, child_id)
+                format!("Adding inheritance from {parent_id} to {child_id} would create a cycle")
             )));
         }
         
@@ -379,7 +379,7 @@ impl InheritanceGraph {
             if let Some(time) = context.current_time {
                 let parts: Vec<&str> = condition
                     .trim_start_matches("time_between(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .split(',')
                     .collect();
                 
@@ -415,7 +415,7 @@ impl InheritanceGraph {
             if parts.len() == 2 {
                 let attr_name = parts[0]
                     .trim_start_matches("attribute(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .trim();
                 
                 let attr_value = parts[1].trim();
@@ -517,7 +517,7 @@ impl Default for InheritanceManager {
 
 impl InheritanceManager {
     /// Create a new inheritance manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             graph: RwLock::new(InheritanceGraph::new()),
         }

@@ -71,35 +71,35 @@ pub enum HealthStatus {
 impl fmt::Display for HealthStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HealthStatus::Healthy => write!(f, "Healthy"),
-            HealthStatus::Degraded => write!(f, "Degraded"),
-            HealthStatus::Warning => write!(f, "Warning"),
-            HealthStatus::Unhealthy => write!(f, "Unhealthy"),
-            HealthStatus::Critical => write!(f, "Critical"),
-            HealthStatus::Unknown => write!(f, "Unknown"),
+            Self::Healthy => write!(f, "Healthy"),
+            Self::Degraded => write!(f, "Degraded"),
+            Self::Warning => write!(f, "Warning"),
+            Self::Unhealthy => write!(f, "Unhealthy"),
+            Self::Critical => write!(f, "Critical"),
+            Self::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
 impl HealthStatus {
     /// Convert health status to failure severity
-    pub fn to_failure_severity(&self) -> Option<FailureSeverity> {
+    #[must_use] pub const fn to_failure_severity(&self) -> Option<FailureSeverity> {
         match self {
-            HealthStatus::Healthy => None, // No failure
-            HealthStatus::Degraded => Some(FailureSeverity::Minor),
-            HealthStatus::Warning => Some(FailureSeverity::Minor),
-            HealthStatus::Unhealthy => Some(FailureSeverity::Moderate),
-            HealthStatus::Critical => Some(FailureSeverity::Critical),
-            HealthStatus::Unknown => Some(FailureSeverity::Moderate),
+            Self::Healthy => None, // No failure
+            Self::Degraded => Some(FailureSeverity::Minor),
+            Self::Warning => Some(FailureSeverity::Minor),
+            Self::Unhealthy => Some(FailureSeverity::Moderate),
+            Self::Critical => Some(FailureSeverity::Critical),
+            Self::Unknown => Some(FailureSeverity::Moderate),
         }
     }
     
     /// Check if this status requires recovery action
-    pub fn requires_recovery(&self) -> bool {
+    #[must_use] pub const fn requires_recovery(&self) -> bool {
         matches!(self, 
-            HealthStatus::Unhealthy | 
-            HealthStatus::Critical |
-            HealthStatus::Degraded)
+            Self::Unhealthy | 
+            Self::Critical |
+            Self::Degraded)
     }
 }
 
@@ -124,7 +124,7 @@ pub struct HealthCheckResult {
 
 impl HealthCheckResult {
     /// Create a new health check result
-    pub fn new(component_id: String, status: HealthStatus, message: String) -> Self {
+    #[must_use] pub fn new(component_id: String, status: HealthStatus, message: String) -> Self {
         Self {
             component_id,
             status,
@@ -135,13 +135,13 @@ impl HealthCheckResult {
     }
     
     /// Add a metric to the health check result
-    pub fn with_metric(mut self, key: &str, value: f64) -> Self {
+    #[must_use] pub fn with_metric(mut self, key: &str, value: f64) -> Self {
         self.metrics.insert(key.to_string(), value);
         self
     }
     
     /// Check if this result requires recovery
-    pub fn requires_recovery(&self) -> bool {
+    #[must_use] pub const fn requires_recovery(&self) -> bool {
         self.status.requires_recovery()
     }
 }
@@ -273,12 +273,12 @@ impl ComponentHealthTracker {
     /// Update the health tracker with a new check result
     fn update(&mut self, result: HealthCheckResult) {
         // Check if status has changed
-        if result.status != self.current_status {
+        if result.status == self.current_status {
+            self.consecutive_count += 1;
+        } else {
             self.previous_status = self.current_status;
             self.current_status = result.status;
             self.consecutive_count = 1;
-        } else {
-            self.consecutive_count += 1;
         }
         
         // Store the result in history
@@ -292,7 +292,7 @@ impl ComponentHealthTracker {
     }
     
     /// Check if recovery should be triggered based on current status
-    fn should_trigger_recovery(&self, failure_threshold: u32) -> bool {
+    const fn should_trigger_recovery(&self, failure_threshold: u32) -> bool {
         match self.current_status {
             HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Unknown => false,
             HealthStatus::Degraded | HealthStatus::Unhealthy | HealthStatus::Critical => {
@@ -304,7 +304,7 @@ impl ComponentHealthTracker {
     }
     
     /// Get the last health check result if available
-    fn last_result(&self) -> Option<&HealthCheckResult> {
+    const fn last_result(&self) -> Option<&HealthCheckResult> {
         self.last_result.as_ref()
     }
 }
@@ -330,7 +330,7 @@ pub struct HealthMonitor {
 
 impl HealthMonitor {
     /// Create a new health monitor
-    pub fn new(max_history_size: usize) -> Self {
+    #[must_use] pub fn new(max_history_size: usize) -> Self {
         Self {
             health_checks: HashMap::new(),
             component_trackers: RwLock::new(HashMap::new()),
@@ -341,7 +341,7 @@ impl HealthMonitor {
     }
     
     /// Create a default health monitor
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(100) // Default to 100 history entries
     }
     
@@ -380,8 +380,7 @@ impl HealthMonitor {
     pub fn component_status(&self, component_id: &str) -> HealthStatus {
         let trackers = self.component_trackers.read().unwrap();
         trackers.get(component_id)
-            .map(|tracker| tracker.current_status)
-            .unwrap_or(HealthStatus::Unknown)
+            .map_or(HealthStatus::Unknown, |tracker| tracker.current_status)
     }
     
     /// Get the most recent health check result for a component
@@ -442,7 +441,7 @@ impl HealthMonitor {
         
         // First collect all component IDs to avoid holding locks during iteration
         let component_ids: Vec<String> = self.health_checks.keys()
-            .map(|id| id.to_string())
+            .map(std::string::ToString::to_string)
             .collect();
         
         // Run all health checks and collect results
@@ -483,7 +482,7 @@ impl HealthMonitor {
                 }
                 
                 // Execute recovery strategy - this cannot be awaited while holding locks
-                strategy.handle_failure(failure_info.clone(), || {
+                strategy.handle_failure(failure_info, || {
                     // Simple no-op recovery action that succeeds
                     Ok::<_, Box<dyn StdError + Send + Sync + 'static>>(())
                 })
@@ -491,7 +490,7 @@ impl HealthMonitor {
             
             // Now evaluate the result
             match recovery_result {
-                Ok(_) => true,
+                Ok(()) => true,
                 Err(_) => false,
             }
         } else {

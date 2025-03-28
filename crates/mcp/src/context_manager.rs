@@ -287,7 +287,7 @@ impl ContextManager {
         validation: ContextValidation,
     ) -> Result<()> {
         // Validate schema
-        if validation.schema.is_null() || is_none_or_matches(validation.schema.as_object(), |o| o.is_empty())
+        if validation.schema.is_null() || is_none_or_matches(validation.schema.as_object(), serde_json::Map::is_empty)
         {
             return Err(MCPError::Context(ContextError::ValidationError(
                 "Invalid validation schema".into(),
@@ -433,23 +433,20 @@ impl ContextManager {
         persistence: Arc<MCPPersistence>,
         sync: Option<Arc<MCPSync>>,
     ) -> Result<Self> {
-        let sync = match sync {
-            Some(s) => s,
-            None => {
-                // Create default sync instance
-                let sync_config = SyncConfig {
-                    sync_interval: config.sync_interval.unwrap_or(60),
-                    max_retries: config.max_retries.unwrap_or(3),
-                    timeout_ms: config.timeout_ms.unwrap_or(5000),
-                    cleanup_older_than_days: config.cleanup_older_than_days.unwrap_or(30),
-                };
-                Arc::new(MCPSync::new(
-                    sync_config,
-                    persistence.clone(),
-                    Arc::new(MCPMonitor::default()),
-                    Arc::new(StateSyncManager::new()),
-                ))
-            }
+        let sync = if let Some(s) = sync { s } else {
+            // Create default sync instance
+            let sync_config = SyncConfig {
+                sync_interval: config.sync_interval.unwrap_or(60),
+                max_retries: config.max_retries.unwrap_or(3),
+                timeout_ms: config.timeout_ms.unwrap_or(5000),
+                cleanup_older_than_days: config.cleanup_older_than_days.unwrap_or(30),
+            };
+            Arc::new(MCPSync::new(
+                sync_config,
+                persistence,
+                Arc::new(MCPMonitor::default()),
+                Arc::new(StateSyncManager::new()),
+            ))
         };
 
         Ok(Self {

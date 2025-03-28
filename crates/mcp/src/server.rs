@@ -253,7 +253,7 @@ impl MCPServer {
     pub fn new(config: ServerConfig) -> Self {
         // Generate server ID if not provided
         let config = if config.server_id.is_none() {
-            let mut config = config.clone();
+            let mut config = config;
             config.server_id = Some(Uuid::new_v4().to_string());
             config
         } else {
@@ -352,7 +352,7 @@ impl MCPServer {
         
         // Send shutdown signal
         if let Err(e) = self.shutdown_signal.0.send(true) {
-            eprintln!("Failed to send shutdown signal: {}", e);
+            eprintln!("Failed to send shutdown signal: {e}");
         }
         
         // Cancel listener task if running
@@ -425,13 +425,10 @@ impl MCPServer {
                     'outer_loop: loop {
                         // Fix: Create a mutable Box to try to get a mutable reference
                         let mut transport_boxed = Box::new(Arc::clone(&transport));
-                        let receive_result = match Arc::get_mut(&mut *transport_boxed) {
-                            Some(transport_mut) => transport_mut.receive_message().await,
-                            None => {
-                                // If we can't get a mutable reference, log an error and break
-                                error!("Failed to get mutable reference to transport for client {}", client_id_clone);
-                                break;
-                            }
+                        let receive_result = if let Some(transport_mut) = Arc::get_mut(&mut *transport_boxed) { transport_mut.receive_message().await } else {
+                            // If we can't get a mutable reference, log an error and break
+                            error!("Failed to get mutable reference to transport for client {}", client_id_clone);
+                            break;
                         };
 
                         match receive_result {
@@ -439,7 +436,7 @@ impl MCPServer {
                                 // Process the message
                                 // In a real implementation, you would handle the message appropriately
                                 // For now, we'll just log it
-                                println!("Received message: {:?}", mcp_message);
+                                println!("Received message: {mcp_message:?}");
                             },
                             Err(e) => {
                                 // Handle transport errors
@@ -480,7 +477,7 @@ impl MCPServer {
                     let client_id_clone = client_id_clone.clone();
                     tokio::spawn(async move {
                         // Process disconnect notifications
-                        for handler in handlers_copy.iter() {
+                        for handler in &handlers_copy {
                             if let Err(e) = handler.handle_disconnection(&client_id_clone).await {
                                 error!("Error in connection handler: {}", e);
                             }
@@ -654,7 +651,7 @@ impl MCPServer {
                                 info!("TCP server listening on {}", addr);
                             },
                             Err(e) => {
-                                eprintln!("Error accepting connection: {}", e);
+                                eprintln!("Error accepting connection: {e}");
                                 
                                 // If the server is stopping, break the loop
                                 if let Ok(state_val) = state.try_read() {
@@ -746,7 +743,7 @@ pub struct RouterCommandHandler {
 
 impl RouterCommandHandler {
     /// Create a new router command handler
-    pub fn new(router: Arc<MessageRouter>) -> Self {
+    #[must_use] pub const fn new(router: Arc<MessageRouter>) -> Self {
         Self { router }
     }
 }
@@ -771,7 +768,7 @@ impl CommandHandler for RouterCommandHandler {
             },
             Err(crate::error::MCPError::MessageRouter(err)) => match err {
                 MessageRouterError::NoHandlerFound(msg_type) => {
-                    eprintln!("No handler found for message type: {}", msg_type);
+                    eprintln!("No handler found for message type: {msg_type}");
                     // Create a default success response when no handler found
                     let msg = MessageBuilder::new()
                         .with_message_type("response")
@@ -798,7 +795,7 @@ impl CommandHandler for RouterCommandHandler {
     }
 }
 
-/// Adapter that converts a CommandHandler to a MessageHandler
+/// Adapter that converts a `CommandHandler` to a `MessageHandler`
 #[derive(Debug)]
 pub struct CommandHandlerAdapter {
     /// Inner command handler
@@ -809,7 +806,7 @@ pub struct CommandHandlerAdapter {
 
 impl CommandHandlerAdapter {
     /// Create a new command handler adapter
-    pub fn new(handler: Box<dyn CommandHandler>) -> Self {
+    #[must_use] pub fn new(handler: Box<dyn CommandHandler>) -> Self {
         Self {
             handler,
             priority: HandlerPriority::Medium,
@@ -817,7 +814,7 @@ impl CommandHandlerAdapter {
     }
     
     /// Create a new command handler adapter with custom priority
-    pub fn with_priority(handler: Box<dyn CommandHandler>, priority: HandlerPriority) -> Self {
+    #[must_use] pub fn with_priority(handler: Box<dyn CommandHandler>, priority: HandlerPriority) -> Self {
         Self {
             handler,
             priority,
@@ -848,7 +845,7 @@ impl CommandHandler for CommandHandlerAdapter {
     }
 
     fn clone_box(&self) -> Box<dyn CommandHandler> {
-        Box::new(CommandHandlerAdapter {
+        Box::new(Self {
             handler: self.handler.clone_box(),
             priority: self.priority,
         })

@@ -331,7 +331,7 @@ pub fn hash(data: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>> {
 }
 
 /// Encode a byte slice as a base64 string
-pub fn base64_encode(data: &[u8]) -> String {
+#[must_use] pub fn base64_encode(data: &[u8]) -> String {
     BASE64.encode(data)
 }
 
@@ -339,7 +339,7 @@ pub fn base64_encode(data: &[u8]) -> String {
 pub fn base64_decode(encoded: &str) -> Result<Vec<u8>> {
     BASE64.decode(encoded).map_err(|err| {
         MCPError::Security(SecurityError::InternalError(
-            format!("Failed to decode base64: {}", err),
+            format!("Failed to decode base64: {err}"),
         ))
     })
 }

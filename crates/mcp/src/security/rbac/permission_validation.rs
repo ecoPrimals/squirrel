@@ -170,7 +170,7 @@ impl PermissionValidator {
         // Compile resource pattern regex
         let regex = Regex::new(&rule.resource_pattern)
             .map_err(|e| MCPError::Security(SecurityError::RBACError(
-                format!("Invalid resource pattern regex: {}", e)
+                format!("Invalid resource pattern regex: {e}")
             )))?;
         
         self.resource_patterns.insert(rule.id.clone(), regex);
@@ -228,7 +228,7 @@ impl PermissionValidator {
         
         for (key, value) in &context.attributes {
             audit_record.context.insert(
-                format!("attr_{}", key),
+                format!("attr_{key}"),
                 value.clone(),
             );
         }
@@ -494,7 +494,7 @@ impl PermissionValidator {
             if let Some(time) = context.current_time {
                 let parts: Vec<&str> = condition
                     .trim_start_matches("time_between(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .split(',')
                     .collect();
                 
@@ -529,7 +529,7 @@ impl PermissionValidator {
             if parts.len() == 2 {
                 let attr_name = parts[0]
                     .trim_start_matches("attribute(")
-                    .trim_end_matches(")")
+                    .trim_end_matches(')')
                     .trim();
                 
                 let attr_value = parts[1].trim();
@@ -549,9 +549,9 @@ impl PermissionValidator {
                     ">="
                 } else if condition.contains("<=") {
                     "<="
-                } else if condition.contains(">") {
+                } else if condition.contains('>') {
                     ">"
-                } else if condition.contains("<") {
+                } else if condition.contains('<') {
                     "<"
                 } else if condition.contains("==") {
                     "=="
@@ -648,7 +648,7 @@ impl Default for AsyncPermissionValidator {
 
 impl AsyncPermissionValidator {
     /// Create a new async permission validator
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             validator: RwLock::new(PermissionValidator::new()),
         }

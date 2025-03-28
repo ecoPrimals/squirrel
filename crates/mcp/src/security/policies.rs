@@ -232,9 +232,7 @@ impl PolicyManager {
         let policies_by_type = self.policies_by_type.read().await;
         let policies = self.policies.read().await;
         
-        let policy_ids = policies_by_type.get(policy_type)
-            .map(|ids| ids.clone())
-            .unwrap_or_else(HashSet::new);
+        let policy_ids = policies_by_type.get(policy_type).map_or_else(HashSet::new, std::clone::Clone::clone);
             
         let result = policy_ids.iter()
             .filter_map(|id| policies.get(id).cloned())
@@ -290,35 +288,32 @@ impl PolicyManager {
         let handlers = self.handlers.read().await;
         let handler = handlers.values().find(|h| h.policy_type() == policy.policy_type);
         
-        match handler {
-            Some(evaluator) => {
-                debug!("Evaluating policy {} with evaluator {}", policy_id, evaluator.id());
-                let result = evaluator.evaluate(&policy, context).await?;
-                
-                // Handle enforcement based on policy level and result
-                if self.enforcement_enabled && matches!(result, PolicyEvaluationResult::Violation(_)) {
-                    match policy.enforcement_level {
-                        EnforcementLevel::Advisory => {
-                            info!("Advisory policy violation: {} - {:?}", policy_id, result);
-                            Ok(PolicyEvaluationResult::Warning(format!("Advisory policy violation: {}", policy_id)))
-                        },
-                        EnforcementLevel::Warning => {
-                            warn!("Warning policy violation: {} - {:?}", policy_id, result);
-                            Ok(PolicyEvaluationResult::Warning(format!("Warning policy violation: {}", policy_id)))
-                        },
-                        EnforcementLevel::Enforced | EnforcementLevel::Critical => {
-                            error!("Enforced policy violation: {} - {:?}", policy_id, result);
-                            Err(MCPError::Security(SecurityError::PolicyViolation(format!("Policy violation: {}", policy_id))))
-                        }
+        if let Some(evaluator) = handler {
+            debug!("Evaluating policy {} with evaluator {}", policy_id, evaluator.id());
+            let result = evaluator.evaluate(&policy, context).await?;
+            
+            // Handle enforcement based on policy level and result
+            if self.enforcement_enabled && matches!(result, PolicyEvaluationResult::Violation(_)) {
+                match policy.enforcement_level {
+                    EnforcementLevel::Advisory => {
+                        info!("Advisory policy violation: {} - {:?}", policy_id, result);
+                        Ok(PolicyEvaluationResult::Warning(format!("Advisory policy violation: {policy_id}")))
+                    },
+                    EnforcementLevel::Warning => {
+                        warn!("Warning policy violation: {} - {:?}", policy_id, result);
+                        Ok(PolicyEvaluationResult::Warning(format!("Warning policy violation: {policy_id}")))
+                    },
+                    EnforcementLevel::Enforced | EnforcementLevel::Critical => {
+                        error!("Enforced policy violation: {} - {:?}", policy_id, result);
+                        Err(MCPError::Security(SecurityError::PolicyViolation(format!("Policy violation: {policy_id}"))))
                     }
-                } else {
-                    Ok(result)
                 }
-            },
-            None => {
-                warn!("No evaluator found for policy type: {:?}", policy.policy_type);
-                Ok(PolicyEvaluationResult::Warning(format!("No evaluator found for policy type: {:?}", policy.policy_type)))
+            } else {
+                Ok(result)
             }
+        } else {
+            warn!("No evaluator found for policy type: {:?}", policy.policy_type);
+            Ok(PolicyEvaluationResult::Warning(format!("No evaluator found for policy type: {:?}", policy.policy_type)))
         }
     }
     
@@ -358,7 +353,7 @@ impl PolicyManager {
     }
     
     /// Get enforcement status
-    pub fn enforcement_enabled(&self) -> bool {
+    pub const fn enforcement_enabled(&self) -> bool {
         self.enforcement_enabled
     }
 }
@@ -372,7 +367,7 @@ pub struct PasswordPolicyEvaluator {
 }
 
 impl PasswordPolicyEvaluator {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             id: "password_policy_evaluator".to_string(),
         }
@@ -387,37 +382,32 @@ impl PolicyEvaluator for PasswordPolicyEvaluator {
         
         // Get password requirements from policy
         let min_length = policy.settings.get("min_length")
-            .map(|s| s.parse::<usize>().unwrap_or(8))
-            .unwrap_or(8);
+            .map_or(8, |s| s.parse::<usize>().unwrap_or(8));
             
         let require_uppercase = policy.settings.get("require_uppercase")
-            .map(|s| s.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+            .map_or(true, |s| s.parse::<bool>().unwrap_or(true));
             
         let require_lowercase = policy.settings.get("require_lowercase")
-            .map(|s| s.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+            .map_or(true, |s| s.parse::<bool>().unwrap_or(true));
             
         let require_digits = policy.settings.get("require_digits")
-            .map(|s| s.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+            .map_or(true, |s| s.parse::<bool>().unwrap_or(true));
             
         let require_special = policy.settings.get("require_special")
-            .map(|s| s.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+            .map_or(true, |s| s.parse::<bool>().unwrap_or(true));
         
         // Check password requirements
         let mut violations = Vec::new();
         
         if password.len() < min_length {
-            violations.push(format!("Password must be at least {} characters", min_length));
+            violations.push(format!("Password must be at least {min_length} characters"));
         }
         
-        if require_uppercase && !password.chars().any(|c| c.is_uppercase()) {
+        if require_uppercase && !password.chars().any(char::is_uppercase) {
             violations.push("Password must contain at least one uppercase letter".to_string());
         }
         
-        if require_lowercase && !password.chars().any(|c| c.is_lowercase()) {
+        if require_lowercase && !password.chars().any(char::is_lowercase) {
             violations.push("Password must contain at least one lowercase letter".to_string());
         }
         
@@ -454,7 +444,7 @@ pub struct RateLimitPolicyEvaluator {
 }
 
 impl RateLimitPolicyEvaluator {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             id: "rate_limit_policy_evaluator".to_string(),
             rate_limits: RwLock::new(HashMap::new()),
@@ -479,18 +469,16 @@ impl PolicyEvaluator for RateLimitPolicyEvaluator {
     async fn evaluate(&self, policy: &SecurityPolicy, context: &PolicyContext) -> Result<PolicyEvaluationResult> {
         // Get rate limit settings from policy
         let max_requests = policy.settings.get("max_requests")
-            .map(|s| s.parse::<usize>().unwrap_or(100))
-            .unwrap_or(100);
+            .map_or(100, |s| s.parse::<usize>().unwrap_or(100));
             
         let time_window = policy.settings.get("time_window_seconds")
-            .map(|s| s.parse::<i64>().unwrap_or(60))
-            .unwrap_or(60);
+            .map_or(60, |s| s.parse::<i64>().unwrap_or(60));
         
         // Get key to use for rate limiting (user_id or ip_address)
         let key = if let Some(user_id) = &context.user_id {
-            format!("user:{}", user_id)
+            format!("user:{user_id}")
         } else if let Some(ip) = &context.ip_address {
-            format!("ip:{}", ip)
+            format!("ip:{ip}")
         } else {
             return Ok(PolicyEvaluationResult::Warning("No user ID or IP address provided for rate limiting".to_string()));
         };
@@ -539,7 +527,7 @@ pub struct SessionPolicyEvaluator {
 }
 
 impl SessionPolicyEvaluator {
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             id: "session_policy_evaluator".to_string(),
         }
@@ -557,12 +545,10 @@ impl PolicyEvaluator for SessionPolicyEvaluator {
         
         // Get session policy settings
         let max_session_age = policy.settings.get("max_session_age_minutes")
-            .map(|s| s.parse::<i64>().unwrap_or(60))
-            .unwrap_or(60);
+            .map_or(60, |s| s.parse::<i64>().unwrap_or(60));
             
         let require_secure = policy.settings.get("require_secure")
-            .map(|s| s.parse::<bool>().unwrap_or(true))
-            .unwrap_or(true);
+            .map_or(true, |s| s.parse::<bool>().unwrap_or(true));
             
         let session_created_at = context.request_info.get("session_created_at")
             .and_then(|s| s.parse::<i64>().ok())
@@ -579,7 +565,7 @@ impl PolicyEvaluator for SessionPolicyEvaluator {
         
         if session_age_minutes > max_session_age {
             return Ok(PolicyEvaluationResult::Violation(
-                format!("Session expired: {} minutes old (max {})", session_age_minutes, max_session_age)
+                format!("Session expired: {session_age_minutes} minutes old (max {max_session_age})")
             ));
         }
         

@@ -69,13 +69,13 @@ pub enum ResilienceError {
 impl fmt::Display for ResilienceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResilienceError::CircuitOpen(msg) => write!(f, "Circuit open: {}", msg),
-            ResilienceError::RetryExceeded(msg) => write!(f, "Retry exceeded: {}", msg),
-            ResilienceError::RecoveryFailed(msg) => write!(f, "Recovery failed: {}", msg),
-            ResilienceError::SyncFailed(msg) => write!(f, "State synchronization failed: {}", msg),
-            ResilienceError::Timeout(msg) => write!(f, "Timeout: {}", msg),
-            ResilienceError::General(msg) => write!(f, "Resilience error: {}", msg),
-            ResilienceError::OperationFailed(msg) => write!(f, "Operation failed: {}", msg),
+            Self::CircuitOpen(msg) => write!(f, "Circuit open: {msg}"),
+            Self::RetryExceeded(msg) => write!(f, "Retry exceeded: {msg}"),
+            Self::RecoveryFailed(msg) => write!(f, "Recovery failed: {msg}"),
+            Self::SyncFailed(msg) => write!(f, "State synchronization failed: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
+            Self::General(msg) => write!(f, "Resilience error: {msg}"),
+            Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
         }
     }
 }
@@ -90,10 +90,10 @@ impl From<circuit_breaker::CircuitBreakerError> for ResilienceError {
     fn from(err: circuit_breaker::CircuitBreakerError) -> Self {
         match err {
             circuit_breaker::CircuitBreakerError::CircuitOpen => {
-                ResilienceError::CircuitOpen("Circuit is open".to_string())
+                Self::CircuitOpen("Circuit is open".to_string())
             }
             circuit_breaker::CircuitBreakerError::OperationFailed(msg) => {
-                ResilienceError::General(format!("Circuit breaker operation failed: {}", msg))
+                Self::General(format!("Circuit breaker operation failed: {msg}"))
             }
         }
     }
@@ -103,19 +103,18 @@ impl From<recovery::RecoveryError> for ResilienceError {
     fn from(err: recovery::RecoveryError) -> Self {
         match err {
             recovery::RecoveryError::MaxAttemptsExceeded { severity, attempts, max_attempts } => {
-                ResilienceError::RecoveryFailed(format!(
-                    "Maximum recovery attempts ({}) exceeded for {} failure: {} attempts made",
-                    max_attempts, severity, attempts
+                Self::RecoveryFailed(format!(
+                    "Maximum recovery attempts ({max_attempts}) exceeded for {severity} failure: {attempts} attempts made"
                 ))
             }
             recovery::RecoveryError::CriticalFailureNoRecovery => {
-                ResilienceError::RecoveryFailed("Recovery not attempted for critical failure".to_string())
+                Self::RecoveryFailed("Recovery not attempted for critical failure".to_string())
             }
             recovery::RecoveryError::RecoveryActionFailed { message, .. } => {
-                ResilienceError::RecoveryFailed(format!("Recovery action failed: {}", message))
+                Self::RecoveryFailed(format!("Recovery action failed: {message}"))
             }
             recovery::RecoveryError::Timeout { duration } => {
-                ResilienceError::Timeout(format!("Recovery timed out after {:?}", duration))
+                Self::Timeout(format!("Recovery timed out after {duration:?}"))
             }
         }
     }
@@ -125,31 +124,30 @@ impl From<state_sync::StateSyncError> for ResilienceError {
     fn from(err: state_sync::StateSyncError) -> Self {
         match err {
             state_sync::StateSyncError::Timeout { duration } => {
-                ResilienceError::Timeout(format!("State synchronization timed out after {:?}", duration))
+                Self::Timeout(format!("State synchronization timed out after {duration:?}"))
             }
             state_sync::StateSyncError::SizeExceeded { size, max_size } => {
-                ResilienceError::SyncFailed(format!(
-                    "State size ({} bytes) exceeds maximum allowed size ({} bytes)", 
-                    size, max_size
+                Self::SyncFailed(format!(
+                    "State size ({size} bytes) exceeds maximum allowed size ({max_size} bytes)"
                 ))
             }
             state_sync::StateSyncError::ValidationFailed { message } => {
-                ResilienceError::SyncFailed(format!("State validation failed: {}", message))
+                Self::SyncFailed(format!("State validation failed: {message}"))
             }
             state_sync::StateSyncError::TargetUnavailable { target } => {
-                ResilienceError::SyncFailed(format!("Target system unavailable: {}", target))
+                Self::SyncFailed(format!("Target system unavailable: {target}"))
             }
             state_sync::StateSyncError::SerializationError { message } => {
-                ResilienceError::SyncFailed(format!("State serialization error: {}", message))
+                Self::SyncFailed(format!("State serialization error: {message}"))
             }
             state_sync::StateSyncError::SyncFailed { message, .. } => {
-                ResilienceError::SyncFailed(format!("Synchronization failed: {}", message))
+                Self::SyncFailed(format!("Synchronization failed: {message}"))
             }
             state_sync::StateSyncError::NotFound(message) => {
-                ResilienceError::SyncFailed(format!("State not found: {}", message))
+                Self::SyncFailed(format!("State not found: {message}"))
             }
             state_sync::StateSyncError::DeserializationFailed(message) => {
-                ResilienceError::SyncFailed(format!("State deserialization failed: {}", message))
+                Self::SyncFailed(format!("State deserialization failed: {message}"))
             }
         }
     }
@@ -159,21 +157,18 @@ impl From<health::HealthCheckError> for ResilienceError {
     fn from(err: health::HealthCheckError) -> Self {
         match err {
             health::HealthCheckError::Timeout { component_id, duration } => {
-                ResilienceError::Timeout(format!(
-                    "Health check for component '{}' timed out after {:?}",
-                    component_id, duration
+                Self::Timeout(format!(
+                    "Health check for component '{component_id}' timed out after {duration:?}"
                 ))
             },
             health::HealthCheckError::CheckFailed { component_id, message } => {
-                ResilienceError::General(format!(
-                    "Health check for component '{}' failed: {}",
-                    component_id, message
+                Self::General(format!(
+                    "Health check for component '{component_id}' failed: {message}"
                 ))
             },
             health::HealthCheckError::ComponentUnavailable { component_id } => {
-                ResilienceError::General(format!(
-                    "Component '{}' is unavailable for health check",
-                    component_id
+                Self::General(format!(
+                    "Component '{component_id}' is unavailable for health check"
                 ))
             },
         }
@@ -202,7 +197,7 @@ where
                     Ok(value) => Ok(value),
                     Err(e) => {
                         let boxed: Box<dyn StdError + Send + Sync> = 
-                            Box::new(ResilienceError::General(format!("{}", e)));
+                            Box::new(ResilienceError::General(format!("{e}")));
                         Err(boxed)
                     }
                 }
@@ -214,7 +209,7 @@ where
     
     // Execute with circuit breaker
     let cb_future = circuit_breaker.execute(move || Box::pin(circuit_op));
-    cb_future.await.map_err(|e| e.into())
+    cb_future.await.map_err(std::convert::Into::into)
 }
 
 /// Create a resilient operation with recovery strategy
@@ -235,7 +230,7 @@ where
             // Operation failed, attempt recovery
             recovery_strategy
                 .handle_failure(failure_info, recovery_action)
-                .map_err(|e| e.into())
+                .map_err(std::convert::Into::into)
         }
     }
 }
@@ -255,8 +250,7 @@ where
     
     if status == health::HealthStatus::Critical || status == health::HealthStatus::Unhealthy {
         return Err(ResilienceError::General(format!(
-            "Cannot execute operation: component '{}' is in {} state",
-            component_id, status
+            "Cannot execute operation: component '{component_id}' is in {status} state"
         )));
     }
     
@@ -266,7 +260,7 @@ where
         Err(err) => {
             // Update health check on failure
             // In a real implementation, this would trigger an async health check
-            Err(ResilienceError::General(format!("Operation failed: {}", err)))
+            Err(ResilienceError::General(format!("Operation failed: {err}")))
         }
     }
 }
@@ -291,8 +285,7 @@ where
     let status = health_monitor.component_status(component_id);
     if status == health::HealthStatus::Critical {
         return Err(ResilienceError::General(format!(
-            "Cannot execute operation: component '{}' is in critical state",
-            component_id
+            "Cannot execute operation: component '{component_id}' is in critical state"
         )));
     }
     
@@ -315,7 +308,7 @@ where
                         Err(e) => {
                             // Could trigger health check here
                             let boxed: Box<dyn StdError + Send + Sync> = 
-                                Box::new(ResilienceError::General(format!("{}", e)));
+                                Box::new(ResilienceError::General(format!("{e}")));
                             Err(boxed)
                         }
                     }
@@ -335,7 +328,7 @@ where
         Err(_e) => {
             recovery_strategy
                 .handle_failure(failure_info, recovery_action)
-                .map_err(|e| e.into())
+                .map_err(std::convert::Into::into)
         }
     }
 }

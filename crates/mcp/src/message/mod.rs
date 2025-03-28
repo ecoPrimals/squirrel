@@ -6,7 +6,7 @@ use std::fmt;
 use crate::types::{MCPMessage, MessageType as MCPMessageType, MessageId, SecurityMetadata, ProtocolVersion};
 use std::convert::TryFrom;
 
-/// MessageType enum defines the different types of messages that can be sent in the MCP protocol
+/// `MessageType` enum defines the different types of messages that can be sent in the MCP protocol
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum MessageType {
     /// Request message requiring a response
@@ -35,9 +35,9 @@ pub enum MessageType {
 }
 
 impl MessageType {
-    /// Convert MessageType to a string representation
+    /// Convert `MessageType` to a string representation
     #[must_use]
-    pub fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &str {
         match self {
             Self::Request => "request",
             Self::Response => "response",
@@ -59,7 +59,7 @@ impl fmt::Display for MessageType {
 
 impl Default for MessageType {
     fn default() -> Self {
-        MessageType::Notification
+        Self::Notification
     }
 }
 
@@ -81,17 +81,17 @@ pub enum MessagePriority {
 
 impl Default for MessagePriority {
     fn default() -> Self {
-        MessagePriority::Normal
+        Self::Normal
     }
 }
 
 impl AsRef<str> for MessagePriority {
     fn as_ref(&self) -> &str {
         match self {
-            MessagePriority::Low => "low",
-            MessagePriority::Normal => "normal",
-            MessagePriority::High => "high",
-            MessagePriority::Urgent => "urgent",
+            Self::Low => "low",
+            Self::Normal => "normal",
+            Self::High => "high",
+            Self::Urgent => "urgent",
         }
     }
 }
@@ -206,42 +206,42 @@ impl Message {
     
     /// Set message priority
     #[must_use]
-    pub fn with_priority(mut self, priority: MessagePriority) -> Self {
+    pub const fn with_priority(mut self, priority: MessagePriority) -> Self {
         self.priority = priority;
         self
     }
     
     /// Set binary payload
-    pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
+    #[must_use] pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
         self.binary_payload = Some(payload);
         self
     }
     
     /// Set context ID
-    pub fn with_context(mut self, context_id: String) -> Self {
+    #[must_use] pub fn with_context(mut self, context_id: String) -> Self {
         self.context_id = Some(context_id);
         self
     }
     
     /// Set topic
-    pub fn with_topic(mut self, topic: String) -> Self {
+    #[must_use] pub fn with_topic(mut self, topic: String) -> Self {
         self.topic = Some(topic);
         self
     }
     
     /// Add metadata entry
-    pub fn with_metadata(mut self, key: String, value: String) -> Self {
+    #[must_use] pub fn with_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self
     }
     
     /// Clone this message as a response to itself
-    pub fn create_response(&self, content: String) -> Self {
+    #[must_use] pub fn create_response(&self, content: String) -> Self {
         Self::response(content, self.destination.clone(), self.source.clone(), &self.id)
     }
     
     /// Clone this message as an error response to itself
-    pub fn create_error_response(&self, error_message: String) -> Self {
+    #[must_use] pub fn create_error_response(&self, error_message: String) -> Self {
         let mut response = Self::error(error_message, self.destination.clone(), self.source.clone());
         response.in_reply_to = Some(self.id.clone());
         if let Some(context) = &self.context_id {
@@ -250,7 +250,7 @@ impl Message {
         response
     }
 
-    /// Convert a Message to an MCPMessage
+    /// Convert a Message to an `MCPMessage`
     pub async fn to_mcp_message(&self) -> MCPMessage {
         let message_type = match self.message_type {
             MessageType::Request => MCPMessageType::Command,
@@ -304,7 +304,7 @@ impl Message {
         }
     }
 
-    /// Create a Message from an MCPMessage
+    /// Create a Message from an `MCPMessage`
     pub async fn from_mcp_message(msg: &MCPMessage) -> crate::error::Result<Self> {
         // Extract content from payload
         let content = match msg.payload.get("content") {
@@ -510,14 +510,14 @@ impl MessageBuilder {
         self
     }
     
-    /// Set in_reply_to field
+    /// Set `in_reply_to` field
     #[must_use]
     pub fn in_reply_to<T: Into<String>>(mut self, message_id: T) -> Self {
         self.in_reply_to = Some(message_id.into());
         self
     }
     
-    /// Alias for in_reply_to
+    /// Alias for `in_reply_to`
     #[must_use]
     pub fn with_in_reply_to<T: Into<String>>(self, message_id: T) -> Self {
         self.in_reply_to(message_id)
@@ -594,7 +594,7 @@ impl Default for MessageBuilder {
 
 /// Message codec for serialization and deserialization
 pub mod codec {
-    use super::*;
+    use super::Message;
     use crate::error::Result;
     use crate::error::transport::TransportError;
     
@@ -627,7 +627,7 @@ pub mod codec {
     }
 }
 
-/// Implementation of TryFrom<Message> for MCPMessage
+/// Implementation of `TryFrom`<Message> for `MCPMessage`
 impl TryFrom<Message> for MCPMessage {
     type Error = crate::error::MCPError;
 
@@ -637,7 +637,7 @@ impl TryFrom<Message> for MCPMessage {
     }
 }
 
-/// Implementation of TryFrom<MCPMessage> for Message
+/// Implementation of `TryFrom`<MCPMessage> for Message
 impl TryFrom<MCPMessage> for Message {
     type Error = crate::error::MCPError;
 
@@ -647,23 +647,23 @@ impl TryFrom<MCPMessage> for Message {
     }
 }
 
-/// Implementation of TryFrom<&Message> for MCPMessage
+/// Implementation of `TryFrom`<&Message> for `MCPMessage`
 impl TryFrom<&Message> for MCPMessage {
     type Error = crate::error::MCPError;
 
     fn try_from(message: &Message) -> std::result::Result<Self, Self::Error> {
         // Clone and then use the implementation for owned Message
-        MCPMessage::try_from(message.clone())
+        Self::try_from(message.clone())
     }
 }
 
-/// Implementation of TryFrom<&MCPMessage> for Message
+/// Implementation of `TryFrom`<&`MCPMessage`> for Message
 impl TryFrom<&MCPMessage> for Message {
     type Error = crate::error::MCPError;
 
     fn try_from(msg: &MCPMessage) -> std::result::Result<Self, Self::Error> {
         // Clone and then use the implementation for owned MCPMessage
-        Message::try_from(msg.clone())
+        Self::try_from(msg.clone())
     }
 }
 

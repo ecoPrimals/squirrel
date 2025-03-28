@@ -27,7 +27,7 @@ pub struct Registry {
 
 impl Registry {
     /// Creates a new registry
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             entries: RwLock::new(HashMap::new()),
         }
@@ -53,7 +53,7 @@ impl Registry {
         
         entries.get(id).cloned()
             .ok_or_else(|| MCPError::Protocol(ProtocolError::HandlerNotFound(
-                format!("No entry found with id: {}", id)
+                format!("No entry found with id: {id}")
             )))
     }
     
@@ -84,7 +84,7 @@ impl Registry {
         
         if !entries.contains_key(id) {
             return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(
-                format!("No entry found with id: {}", id)
+                format!("No entry found with id: {id}")
             )));
         }
         

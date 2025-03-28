@@ -86,20 +86,20 @@ pub enum ProtocolVersion {
 
 impl ProtocolVersion {
     /// Get the string representation of the protocol version
-    pub fn as_str(&self) -> &'static str {
+    #[must_use] pub const fn as_str(&self) -> &'static str {
         match self {
-            ProtocolVersion::V1_0 => "1.0",
-            ProtocolVersion::V0_9 => "0.9",
-            ProtocolVersion::Latest => "1.0", // Latest is currently 1.0
+            Self::V1_0 => "1.0",
+            Self::V0_9 => "0.9",
+            Self::Latest => "1.0", // Latest is currently 1.0
         }
     }
 
     /// Parse a protocol version from a string
     pub fn from_str(version: &str) -> crate::error::Result<Self> {
         match version {
-            "1.0" => Ok(ProtocolVersion::V1_0),
-            "0.9" => Ok(ProtocolVersion::V0_9),
-            "latest" => Ok(ProtocolVersion::Latest),
+            "1.0" => Ok(Self::V1_0),
+            "0.9" => Ok(Self::V0_9),
+            "latest" => Ok(Self::Latest),
             _ => Err(MCPError::from(WireFormatError::UnsupportedVersion(version.to_string()))),
         }
     }
@@ -158,7 +158,7 @@ pub struct WireMessage {
 
 impl WireMessage {
     /// Create a new wire message
-    pub fn new(version: ProtocolVersion, data: Vec<u8>, format: WireFormat) -> Self {
+    #[must_use] pub fn new(version: ProtocolVersion, data: Vec<u8>, format: WireFormat) -> Self {
         Self {
             version: version.as_str().to_string(),
             data,
@@ -168,7 +168,7 @@ impl WireMessage {
     }
 
     /// Add metadata to the wire message
-    pub fn with_metadata(mut self, key: &str, value: Value) -> Self {
+    #[must_use] pub fn with_metadata(mut self, key: &str, value: Value) -> Self {
         self.metadata.insert(key.to_string(), value);
         self
     }
@@ -182,7 +182,7 @@ impl WireMessage {
     }
 
     /// Create a wire message from a string
-    pub fn from_string(version: ProtocolVersion, content: &str) -> Self {
+    #[must_use] pub fn from_string(version: ProtocolVersion, content: &str) -> Self {
         Self::new(
             version,
             content.as_bytes().to_vec(),
@@ -223,7 +223,7 @@ impl std::fmt::Debug for WireFormatAdapter {
 
 impl WireFormatAdapter {
     /// Create a new wire format adapter with the given configuration
-    pub fn new(config: WireFormatConfig) -> Self {
+    #[must_use] pub fn new(config: WireFormatConfig) -> Self {
         Self {
             config,
             version_mappings: Arc::new(RwLock::new(HashMap::new())),
@@ -231,7 +231,7 @@ impl WireFormatAdapter {
     }
     
     /// Get the current configuration
-    pub fn get_config(&self) -> &WireFormatConfig {
+    #[must_use] pub const fn get_config(&self) -> &WireFormatConfig {
         &self.config
     }
 
@@ -358,11 +358,11 @@ impl WireFormatAdapter {
                 // Extract fields manually to avoid payload field mismatch
                 if let Some(obj) = transformed.as_object() {
                     // Required fields
-                    let id = WireFormatAdapter::extract_string_or_default(obj, "id", || Uuid::new_v4().to_string());
-                    let message_type_str = WireFormatAdapter::extract_string_or_default(obj, "message_type", || "notification".to_string());
-                    let content = WireFormatAdapter::extract_string_or_default(obj, "content", || "".to_string());
-                    let source = WireFormatAdapter::extract_string_or_default(obj, "source", || "unknown".to_string());
-                    let destination = WireFormatAdapter::extract_string_or_default(obj, "destination", || "*".to_string());
+                    let id = Self::extract_string_or_default(obj, "id", || Uuid::new_v4().to_string());
+                    let message_type_str = Self::extract_string_or_default(obj, "message_type", || "notification".to_string());
+                    let content = Self::extract_string_or_default(obj, "content", || String::new());
+                    let source = Self::extract_string_or_default(obj, "source", || "unknown".to_string());
+                    let destination = Self::extract_string_or_default(obj, "destination", || "*".to_string());
                     
                     // Parse message type
                     let message_type = match message_type_str.as_str() {
@@ -377,9 +377,9 @@ impl WireFormatAdapter {
                     };
                     
                     // Optional fields
-                    let in_reply_to = obj.get("in_reply_to").and_then(|v| v.as_str()).map(|s| s.to_string());
-                    let context_id = obj.get("context_id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                    let topic = obj.get("topic").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    let in_reply_to = obj.get("in_reply_to").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
+                    let context_id = obj.get("context_id").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
+                    let topic = obj.get("topic").and_then(|v| v.as_str()).map(std::string::ToString::to_string);
                     
                     // Decode base64 to binary
                     let binary_payload = obj.get("binary_payload").and_then(|v| v.as_str()).map(|s| {
@@ -426,11 +426,11 @@ impl WireFormatAdapter {
                     .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
                 
                 if let Some(obj) = json.as_object() {
-                    let id = WireFormatAdapter::extract_string_or_default(obj, "id", || Uuid::new_v4().to_string());
-                    let message_type_str = WireFormatAdapter::extract_string_or_default(obj, "message_type", || "notification".to_string());
-                    let content = WireFormatAdapter::extract_string_or_default(obj, "content", || "".to_string());
-                    let source = WireFormatAdapter::extract_string_or_default(obj, "source", || "unknown".to_string());
-                    let destination = WireFormatAdapter::extract_string_or_default(obj, "destination", || "*".to_string());
+                    let id = Self::extract_string_or_default(obj, "id", || Uuid::new_v4().to_string());
+                    let message_type_str = Self::extract_string_or_default(obj, "message_type", || "notification".to_string());
+                    let content = Self::extract_string_or_default(obj, "content", || String::new());
+                    let source = Self::extract_string_or_default(obj, "source", || "unknown".to_string());
+                    let destination = Self::extract_string_or_default(obj, "destination", || "*".to_string());
                     
                     // Parse message type
                     let message_type = match message_type_str.as_str() {
@@ -497,51 +497,48 @@ impl WireFormatAdapter {
         
         // Basic validation for now
         // In a full implementation, we would validate against a proper schema
-        match message.format {
-            WireFormat::Json => {
-                let json: Value = serde_json::from_slice(&message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
-                
-                // Simple validation: check that it's an object with required fields
-                if !json.is_object() {
-                    return Err(MCPError::from(WireFormatError::InvalidFieldValue("root".to_string(), "not an object".to_string())));
-                }
-                
-                let obj = json.as_object().unwrap();
-                
-                // Validate required fields based on message type
-                if let Some(message_type) = obj.get("message_type") {
-                    if let Some(message_type) = message_type.as_str() {
-                        // Check fields based on message type
-                        match message_type {
-                            "command" => {
-                                if !obj.contains_key("id") {
-                                    return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
-                                }
-                                if !obj.contains_key("payload") {
-                                    return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
-                                }
-                            },
-                            "event" => {
-                                if !obj.contains_key("id") {
-                                    return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
-                                }
-                                if !obj.contains_key("payload") {
-                                    return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
-                                }
-                            },
-                            // Add validation for other message types
-                            _ => {},
-                        }
-                    }
-                } else {
-                    return Err(MCPError::from(WireFormatError::MissingField("message_type".to_string())));
-                }
-            },
-            _ => {
-                // For other formats, we'd implement appropriate validation
-                // For now, we'll skip validation for non-JSON formats
+        if message.format == WireFormat::Json {
+            let json: Value = serde_json::from_slice(&message.data)
+                .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+            
+            // Simple validation: check that it's an object with required fields
+            if !json.is_object() {
+                return Err(MCPError::from(WireFormatError::InvalidFieldValue("root".to_string(), "not an object".to_string())));
             }
+            
+            let obj = json.as_object().unwrap();
+            
+            // Validate required fields based on message type
+            if let Some(message_type) = obj.get("message_type") {
+                if let Some(message_type) = message_type.as_str() {
+                    // Check fields based on message type
+                    match message_type {
+                        "command" => {
+                            if !obj.contains_key("id") {
+                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
+                            }
+                            if !obj.contains_key("payload") {
+                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
+                            }
+                        },
+                        "event" => {
+                            if !obj.contains_key("id") {
+                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
+                            }
+                            if !obj.contains_key("payload") {
+                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
+                            }
+                        },
+                        // Add validation for other message types
+                        _ => {},
+                    }
+                }
+            } else {
+                return Err(MCPError::from(WireFormatError::MissingField("message_type".to_string())));
+            }
+        } else {
+            // For other formats, we'd implement appropriate validation
+            // For now, we'll skip validation for non-JSON formats
         }
         
         Ok(())
@@ -553,16 +550,14 @@ impl WireFormatAdapter {
         F: FnOnce() -> String
     {
         obj.get(key)
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(default)
+            .and_then(|v| v.as_str()).map_or_else(default, std::string::ToString::to_string)
     }
 }
 
 // Implementation of From<WireFormatError> for MCPError to enable error conversion
 impl From<WireFormatError> for MCPError {
     fn from(error: WireFormatError) -> Self {
-        MCPError::Protocol(ProtocolError::Wire(error.to_string()))
+        Self::Protocol(ProtocolError::Wire(error.to_string()))
     }
 }
 

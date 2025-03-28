@@ -184,7 +184,7 @@ pub struct Alert {
 
 impl Alert {
     /// Create a new alert
-    pub fn new(config: AlertConfiguration) -> Self {
+    #[must_use] pub fn new(config: AlertConfiguration) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             config,
@@ -389,7 +389,7 @@ impl Alert {
     }
 
     /// Should this alert be checked now?
-    pub fn should_check(&self) -> bool {
+    #[must_use] pub fn should_check(&self) -> bool {
         // If not enabled, don't check
         if !self.config.enabled {
             return false;
@@ -408,7 +408,7 @@ impl Alert {
     }
 
     /// Should this alert fire now?
-    pub fn should_fire(&self) -> bool {
+    #[must_use] pub fn should_fire(&self) -> bool {
         // If already firing or acknowledged, don't fire again
         if matches!(self.state, AlertState::Firing | AlertState::Acknowledged) {
             // Check if enough time has passed since the last firing
@@ -443,7 +443,7 @@ pub struct AlertManager {
 
 impl AlertManager {
     /// Create a new alert manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             alerts: RwLock::new(HashMap::new()),
             metrics_collector: None,
@@ -753,8 +753,8 @@ impl std::fmt::Display for AlertError {
         match self {
             Self::AlreadyRunning => write!(f, "Alert manager is already running"),
             Self::NoMetricsCollector => write!(f, "No metrics collector available"),
-            Self::NotFound(id) => write!(f, "Alert not found: {}", id),
-            Self::Other(msg) => write!(f, "Alert error: {}", msg),
+            Self::NotFound(id) => write!(f, "Alert not found: {id}"),
+            Self::Other(msg) => write!(f, "Alert error: {msg}"),
         }
     }
 }
@@ -763,6 +763,6 @@ impl std::error::Error for AlertError {}
 
 impl From<AlertError> for MCPError {
     fn from(err: AlertError) -> Self {
-        MCPError::Monitoring(err.to_string())
+        Self::Monitoring(err.to_string())
     }
 }

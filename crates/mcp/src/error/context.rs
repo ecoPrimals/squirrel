@@ -49,11 +49,11 @@ pub enum ErrorHandlerError {
 impl std::fmt::Display for ErrorHandlerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Recovery(msg) => write!(f, "Recovery error: {}", msg),
-            Self::State(msg) => write!(f, "State error: {}", msg),
-            Self::Strategy(msg) => write!(f, "Strategy error: {}", msg),
-            Self::Context(msg) => write!(f, "Context error: {}", msg),
-            Self::SerdeJson(err) => write!(f, "JSON error: {}", err),
+            Self::Recovery(msg) => write!(f, "Recovery error: {msg}"),
+            Self::State(msg) => write!(f, "State error: {msg}"),
+            Self::Strategy(msg) => write!(f, "Strategy error: {msg}"),
+            Self::Context(msg) => write!(f, "Context error: {msg}"),
+            Self::SerdeJson(err) => write!(f, "JSON error: {err}"),
         }
     }
 }
@@ -108,7 +108,7 @@ impl LocalErrorContext {
     ///
     /// # Returns
     ///
-    /// A new LocalErrorContext with default values for other fields
+    /// A new `LocalErrorContext` with default values for other fields
     pub fn new(
         error_type: impl Into<String>,
         message: impl Into<String>,
@@ -131,7 +131,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The UUID identifying this error context
-    pub fn id(&self) -> Uuid {
+    #[must_use] pub const fn id(&self) -> Uuid {
         self.id
     }
 
@@ -139,8 +139,8 @@ impl LocalErrorContext {
     ///
     /// # Returns
     ///
-    /// The DateTime when the error was recorded
-    pub fn timestamp(&self) -> DateTime<Utc> {
+    /// The `DateTime` when the error was recorded
+    #[must_use] pub const fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
 
@@ -149,7 +149,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The error type as a string
-    pub fn error_type(&self) -> &str {
+    #[must_use] pub fn error_type(&self) -> &str {
         &self.error_type
     }
 
@@ -158,7 +158,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The descriptive error message
-    pub fn message(&self) -> &str {
+    #[must_use] pub fn message(&self) -> &str {
         &self.message
     }
 
@@ -167,7 +167,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The component name as a string
-    pub fn component(&self) -> &str {
+    #[must_use] pub fn component(&self) -> &str {
         &self.component
     }
 
@@ -175,8 +175,8 @@ impl LocalErrorContext {
     ///
     /// # Returns
     ///
-    /// The ErrorSeverity level
-    pub fn severity(&self) -> ErrorSeverity {
+    /// The `ErrorSeverity` level
+    #[must_use] pub const fn severity(&self) -> ErrorSeverity {
         self.severity
     }
 
@@ -185,7 +185,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// Optional JSON metadata about the error
-    pub fn metadata(&self) -> Option<&serde_json::Value> {
+    #[must_use] pub const fn metadata(&self) -> Option<&serde_json::Value> {
         self.metadata.as_ref()
     }
 
@@ -194,7 +194,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The count of recovery attempts
-    pub fn recovery_attempts(&self) -> u32 {
+    #[must_use] pub const fn recovery_attempts(&self) -> u32 {
         self.recovery_attempts
     }
 
@@ -207,7 +207,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The updated context for method chaining
-    pub fn with_severity(mut self, severity: ErrorSeverity) -> Self {
+    #[must_use] pub const fn with_severity(mut self, severity: ErrorSeverity) -> Self {
         self.severity = severity;
         self
     }
@@ -221,7 +221,7 @@ impl LocalErrorContext {
     /// # Returns
     ///
     /// The updated context for method chaining
-    pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
+    #[must_use] pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
         self
     }
@@ -302,7 +302,7 @@ pub struct ErrorHandler {
 }
 
 impl ErrorHandler {
-    /// Creates a new ErrorHandler with the specified history size
+    /// Creates a new `ErrorHandler` with the specified history size
     ///
     /// # Arguments
     ///
@@ -310,7 +310,7 @@ impl ErrorHandler {
     ///
     /// # Returns
     ///
-    /// A new ErrorHandler instance
+    /// A new `ErrorHandler` instance
     #[must_use]
     pub fn new(max_history_size: usize) -> Self {
         Self {
@@ -491,7 +491,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    fn recover_connection(_context: &LocalErrorContext) {
+    const fn recover_connection(_context: &LocalErrorContext) {
         // Implementation would go here
     }
 
@@ -500,7 +500,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    fn recover_state(_context: &LocalErrorContext) {
+    const fn recover_state(_context: &LocalErrorContext) {
         // Implementation would go here
     }
 
@@ -509,7 +509,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
-    fn recover_protocol(_context: &LocalErrorContext) {
+    const fn recover_protocol(_context: &LocalErrorContext) {
         // Implementation would go here
     }
 
@@ -543,7 +543,7 @@ impl ErrorHandler {
     ///
     /// # Returns
     ///
-    /// Result indicating success or an MCPError
+    /// Result indicating success or an `MCPError`
     pub fn recover_context(
         &self,
         _context: &mut LocalErrorContext,

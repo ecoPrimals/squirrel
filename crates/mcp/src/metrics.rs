@@ -188,7 +188,7 @@ impl MetricsCollector {
     /// 
     /// # Panics
     /// 
-    /// Panics if the underlying RwLock is poisoned
+    /// Panics if the underlying `RwLock` is poisoned
     pub fn increment_counter(&self, name: &str) {
         let mut counters_guard = self.counters.write().unwrap();
         let counter = counters_guard
@@ -201,7 +201,7 @@ impl MetricsCollector {
     /// 
     /// # Panics
     /// 
-    /// Panics if the underlying RwLock is poisoned
+    /// Panics if the underlying `RwLock` is poisoned
     pub fn set_gauge(&self, name: &str, value: i64) {
         let mut gauges = self.gauges.write().unwrap();
         gauges.insert(name.to_string(), value);
@@ -211,7 +211,7 @@ impl MetricsCollector {
     /// 
     /// # Panics
     /// 
-    /// Panics if the underlying RwLock is poisoned
+    /// Panics if the underlying `RwLock` is poisoned
     pub fn record_histogram(&self, name: &str, value: Duration) {
         let millis = value.as_millis() as f64;
         let mut histograms_guard = self.histograms.write().unwrap();
@@ -236,7 +236,7 @@ impl MetricsCollector {
     /// 
     /// # Panics
     /// 
-    /// Panics if any of the underlying RwLocks are poisoned
+    /// Panics if any of the underlying `RwLocks` are poisoned
     #[must_use]
     pub fn get_metrics(&self) -> Vec<Metric> {
         let mut metrics = Vec::new();
@@ -283,7 +283,7 @@ impl MetricsCollector {
     /// 
     /// # Panics
     /// 
-    /// Panics if the underlying RwLock is poisoned
+    /// Panics if the underlying `RwLock` is poisoned
     #[must_use]
     pub fn get_counter(&self, name: &str) -> Option<u64> {
         let counters = self.counters.read().unwrap();

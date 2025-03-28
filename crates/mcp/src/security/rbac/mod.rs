@@ -169,7 +169,7 @@ impl Default for EnhancedRBACManager {
 
 impl EnhancedRBACManager {
     /// Create a new enhanced RBAC manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             rbac_manager: Arc::new(RBACManager::new()),
             inheritance_manager: Arc::new(InheritanceManager::new()),
@@ -248,13 +248,13 @@ impl EnhancedRBACManager {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", parent_id)
+                format!("Role not found: {parent_id}")
             )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", child_id)
+                format!("Role not found: {child_id}")
             )));
         }
         
@@ -279,13 +279,13 @@ impl EnhancedRBACManager {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", parent_id)
+                format!("Role not found: {parent_id}")
             )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", child_id)
+                format!("Role not found: {child_id}")
             )));
         }
         
@@ -306,13 +306,13 @@ impl EnhancedRBACManager {
         // Verify roles exist
         if self.rbac_manager.get_role(parent_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", parent_id)
+                format!("Role not found: {parent_id}")
             )));
         }
         
         if self.rbac_manager.get_role(child_id).await.is_err() {
             return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {}", child_id)
+                format!("Role not found: {child_id}")
             )));
         }
         
@@ -489,7 +489,7 @@ impl EnhancedRBACManager {
         resource.hash(&mut hasher);
         
         // Convert action to a string representation for hashing
-        let action_str = format!("{:?}", action);
+        let action_str = format!("{action:?}");
         action_str.hash(&mut hasher);
         
         // Hash important context elements that might affect permission

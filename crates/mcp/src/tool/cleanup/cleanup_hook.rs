@@ -54,8 +54,7 @@ impl CleanupHook for BasicCleanupHook {
             let registrations = self.registration_times.read().await;
             if registrations.contains_key(tool_id) {
                 return Err(ToolError::RegistrationFailed(format!(
-                    "Tool '{}' is already registered",
-                    tool_id
+                    "Tool '{tool_id}' is already registered"
                 )));
             }
         }
@@ -129,11 +128,11 @@ impl CleanupHook for BasicCleanupHook {
 #[async_trait]
 impl ToolLifecycleHook for BasicCleanupHook {
     async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
-        <BasicCleanupHook as CleanupHook>::register_tool(self, tool).await
+        <Self as CleanupHook>::register_tool(self, tool).await
     }
 
     async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
-        <BasicCleanupHook as CleanupHook>::cleanup_tool(self, tool_id).await
+        <Self as CleanupHook>::cleanup_tool(self, tool_id).await
     }
 
     async fn on_activate(&self, _tool_id: &str) -> Result<(), ToolError> {
@@ -153,7 +152,7 @@ impl ToolLifecycleHook for BasicCleanupHook {
     }
 
     async fn on_cleanup(&self, tool_id: &str) -> Result<(), ToolError> {
-        <BasicCleanupHook as CleanupHook>::cleanup_tool(self, tool_id).await
+        <Self as CleanupHook>::cleanup_tool(self, tool_id).await
     }
 
     async fn pre_start(&self, _tool_id: &str) -> Result<(), ToolError> {

@@ -31,7 +31,7 @@ pub enum SessionError {
 
 impl From<SessionError> for SquirrelError {
     fn from(err: SessionError) -> Self {
-        SquirrelError::Session(format!("{err}"))
+        Self::Session(format!("{err}"))
     }
 }
 

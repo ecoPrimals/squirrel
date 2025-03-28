@@ -41,7 +41,7 @@ pub struct ResourceTrackerUsage {
 
 impl ResourceTracker {
     /// Creates a new resource tracker for the specified tool
-    pub fn new(tool_id: &str) -> Self {
+    #[must_use] pub fn new(tool_id: &str) -> Self {
         Self {
             data: Arc::new(ResourceTrackerData {
                 tool_id: tool_id.to_string(),

@@ -62,7 +62,7 @@ pub type Result<T> = std::result::Result<T, MCPError>;
 
 // Add a type alias for MCPResult, which is used in some parts of the code
 /// Alias for Result type to maintain backward compatibility
-/// with code that uses MCPResult instead of Result.
+/// with code that uses `MCPResult` instead of Result.
 pub type MCPResult<T> = Result<T>;
 
 // Re-export specific types from types module
@@ -76,27 +76,26 @@ impl TryFrom<Message> for MCPError {
 
     fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
         if message.message_type != crate::message::MessageType::Error {
-            return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
+            return Err(Self::Protocol(ProtocolError::InvalidFormat(
                 format!("Expected error message, got {:?}", message.message_type)
             )));
         }
 
         // Extract error details from message metadata
         let error_type = message.metadata.get("error_type")
-            .map(|s| s.as_str())
-            .unwrap_or("unknown");
+            .map_or("unknown", std::string::String::as_str);
 
         // Create appropriate error based on type
         match error_type {
             // Using .into() to convert between the different TransportError types
-            "transport" => Ok(MCPError::Transport(transport::TransportError::ProtocolError(message.content).into())),
-            "protocol" => Ok(MCPError::Protocol(ProtocolError::InvalidFormat(message.content))),
-            "security" => Ok(MCPError::Security(SecurityError::AuthenticationFailed(message.content))),
-            "connection" => Ok(MCPError::Connection(ConnectionError::Closed(message.content))),
-            "session" => Ok(MCPError::Session(SessionError::InvalidSession(message.content))),
-            "context" => Ok(MCPError::Context(ContextError::NotFound(uuid::Uuid::new_v4()))),
-            "client" => Ok(MCPError::Client(ClientError::RemoteError(message.content))),
-            _ => Ok(MCPError::Remote(message.content)),
+            "transport" => Ok(Self::Transport(transport::TransportError::ProtocolError(message.content).into())),
+            "protocol" => Ok(Self::Protocol(ProtocolError::InvalidFormat(message.content))),
+            "security" => Ok(Self::Security(SecurityError::AuthenticationFailed(message.content))),
+            "connection" => Ok(Self::Connection(ConnectionError::Closed(message.content))),
+            "session" => Ok(Self::Session(SessionError::InvalidSession(message.content))),
+            "context" => Ok(Self::Context(ContextError::NotFound(uuid::Uuid::new_v4()))),
+            "client" => Ok(Self::Client(ClientError::RemoteError(message.content))),
+            _ => Ok(Self::Remote(message.content)),
         }
     }
 }
@@ -104,6 +103,6 @@ impl TryFrom<Message> for MCPError {
 // Add implementation of From<ClientError> for MCPError
 impl From<ClientError> for MCPError {
     fn from(err: ClientError) -> Self {
-        MCPError::Client(err)
+        Self::Client(err)
     }
 }

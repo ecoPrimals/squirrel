@@ -36,9 +36,9 @@ impl ToolPluginAdapter {
         Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {}", tool_id),
+                name: format!("Tool Plugin - {tool_id}"),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {}", tool_id),
+                description: format!("Plugin adapter for tool: {tool_id}"),
                 status: PluginStatus::Registered,
             },
             tool_manager,
@@ -56,9 +56,9 @@ impl ToolPluginAdapter {
         Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {}", tool_id),
+                name: format!("Tool Plugin - {tool_id}"),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {}", tool_id),
+                description: format!("Plugin adapter for tool: {tool_id}"),
                 status: PluginStatus::Registered,
             },
             tool_manager,
@@ -68,7 +68,7 @@ impl ToolPluginAdapter {
     }
     
     /// Get the tool ID
-    pub fn tool_id(&self) -> &str {
+    #[must_use] pub fn tool_id(&self) -> &str {
         &self.tool_id
     }
     
@@ -207,7 +207,7 @@ pub struct ToolPluginFactory {
 
 impl ToolPluginFactory {
     /// Create a new tool plugin factory
-    pub fn new(tool_manager: Arc<ToolManager>) -> Self {
+    pub const fn new(tool_manager: Arc<ToolManager>) -> Self {
         Self {
             tool_manager,
         }

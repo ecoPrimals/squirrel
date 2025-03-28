@@ -151,7 +151,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_max_message_size(mut self, size: usize) -> Self {
+    pub const fn with_max_message_size(mut self, size: usize) -> Self {
         self.max_message_size = size;
         self
     }
@@ -166,7 +166,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_connection_timeout(mut self, timeout_ms: u64) -> Self {
+    pub const fn with_connection_timeout(mut self, timeout_ms: u64) -> Self {
         self.connection_timeout = timeout_ms / 1000;
         if self.connection_timeout == 0 {
             self.connection_timeout = 1; // Minimum 1 second
@@ -199,7 +199,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_encryption(mut self, encryption_format: crate::types::EncryptionFormat) -> Self {
+    pub const fn with_encryption(mut self, encryption_format: crate::types::EncryptionFormat) -> Self {
         self.encryption = encryption_format;
         self
     }
@@ -214,7 +214,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_compression(mut self, compression_format: crate::types::CompressionFormat) -> Self {
+    pub const fn with_compression(mut self, compression_format: crate::types::CompressionFormat) -> Self {
         self.compression = compression_format;
         self
     }
@@ -229,7 +229,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_max_reconnect_attempts(mut self, max_attempts: u32) -> Self {
+    pub const fn with_max_reconnect_attempts(mut self, max_attempts: u32) -> Self {
         self.max_reconnect_attempts = max_attempts;
         self
     }
@@ -244,7 +244,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub fn with_reconnect_delay_ms(mut self, delay_ms: u64) -> Self {
+    pub const fn with_reconnect_delay_ms(mut self, delay_ms: u64) -> Self {
         self.reconnect_delay_ms = delay_ms;
         self
     }
@@ -361,11 +361,11 @@ impl TcpTransport {
     /// Start the reader task to process incoming messages
     ///
     /// Creates and starts a background task to read frames from the TCP stream,
-    /// decode them into MCPMessages, and forward them to the frame_receiver channel.
+    /// decode them into `MCPMessages`, and forward them to the `frame_receiver` channel.
     ///
     /// # Arguments
     ///
-    /// * `reader` - An AsyncRead implementation (typically a TCP stream)
+    /// * `reader` - An `AsyncRead` implementation (typically a TCP stream)
     ///
     /// # Returns
     ///
@@ -416,12 +416,12 @@ impl TcpTransport {
                             Ok(message) => {
                                 // Forward the message to the channel
                                 if let Err(e) = frame_tx.send(message).await {
-                                    eprintln!("Failed to forward message: {}", e);
+                                    eprintln!("Failed to forward message: {e}");
                                     break 'reader_loop;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to decode frame: {}", e);
+                                eprintln!("Failed to decode frame: {e}");
                                 continue 'reader_loop;
                             }
                         }
@@ -431,7 +431,7 @@ impl TcpTransport {
                         break 'reader_loop;
                     }
                     Err(e) => {
-                        eprintln!("Failed to read frame: {}", e);
+                        eprintln!("Failed to read frame: {e}");
                         break 'reader_loop;
                     }
                 }
@@ -475,12 +475,12 @@ impl TcpTransport {
                             Ok(frame) => {
                                 // Write the frame
                                 if let Err(e) = writer.write_frame(frame).await {
-                                    eprintln!("Failed to write frame: {}", e);
+                                    eprintln!("Failed to write frame: {e}");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to encode message: {}", e);
+                                eprintln!("Failed to encode message: {e}");
                                 continue;
                             }
                         }
@@ -570,25 +570,25 @@ impl Transport for TcpTransport {
         
         // Configure the stream
         stream.set_nodelay(true).map_err(|e| {
-            TransportError::connection_failed(format!("Failed to set nodelay: {}", e))
+            TransportError::connection_failed(format!("Failed to set nodelay: {e}"))
         })?;
         
         if let Some(interval) = self.config.keep_alive_interval {
             // We need to use socket2 to set keepalive on TcpStream
             // First get the std TcpStream, then create socket2::Socket from it
             let socket = socket2::Socket::from(stream.into_std().map_err(|e| {
-                TransportError::connection_failed(format!("Failed to get std socket: {}", e))
+                TransportError::connection_failed(format!("Failed to get std socket: {e}"))
             })?);
             
             // Set keep-alive
             socket.set_keepalive(true).map_err(|e| {
-                TransportError::connection_failed(format!("Failed to set keepalive: {}", e))
+                TransportError::connection_failed(format!("Failed to set keepalive: {e}"))
             })?;
             
             // Set keep-alive parameters if available on this platform
             #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
             socket.set_tcp_keepalive(&socket2::TcpKeepalive::new().with_time(std::time::Duration::from_secs(interval))).map_err(|e| {
-                TransportError::connection_failed(format!("Failed to set keepalive parameters: {}", e))
+                TransportError::connection_failed(format!("Failed to set keepalive parameters: {e}"))
             })?;
             
             // Convert Socket to std::net::TcpStream explicitly

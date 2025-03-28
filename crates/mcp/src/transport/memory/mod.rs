@@ -84,7 +84,7 @@ pub struct MemoryChannel {
 
 impl MemoryChannel {
     /// Create a new memory channel
-    pub fn new(buffer_size: usize, max_history: Option<usize>) -> Self {
+    #[must_use] pub fn new(buffer_size: usize, max_history: Option<usize>) -> Self {
         let (a_to_b_tx, _) = mpsc::channel(buffer_size);
         let (b_to_a_tx, _) = mpsc::channel(buffer_size);
         
@@ -97,7 +97,7 @@ impl MemoryChannel {
     }
     
     /// Create a single memory transport with the given configuration
-    pub fn create_transport(&self, config: MemoryTransportConfig) -> MemoryTransport {
+    #[must_use] pub fn create_transport(&self, config: MemoryTransportConfig) -> MemoryTransport {
         // Create message channels
         let (out_tx, _) = mpsc::channel(config.buffer_size);
         let (_, in_rx) = mpsc::channel(config.buffer_size);
@@ -114,7 +114,7 @@ impl MemoryChannel {
         };
         
         MemoryTransport {
-            config: config.clone(),
+            config: config,
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
             outgoing_channel: out_tx,
             incoming_channel: Arc::new(Mutex::new(in_rx)),
@@ -127,7 +127,7 @@ impl MemoryChannel {
     }
     
     /// Create a pair of memory transports directly
-    pub fn create_transport_pair(self, config_a: Option<MemoryTransportConfig>, config_b: Option<MemoryTransportConfig>) -> (MemoryTransport, MemoryTransport) {
+    #[must_use] pub fn create_transport_pair(self, config_a: Option<MemoryTransportConfig>, config_b: Option<MemoryTransportConfig>) -> (MemoryTransport, MemoryTransport) {
         let config_a = config_a.unwrap_or_default();
         let config_b = config_b.unwrap_or_default();
         
@@ -179,7 +179,7 @@ impl MemoryChannel {
     }
     
     /// Create a pair of memory transports with default configuration
-    pub fn create_pair() -> (MemoryTransport, MemoryTransport) {
+    #[must_use] pub fn create_pair() -> (MemoryTransport, MemoryTransport) {
         let channel = Self::new(100, Some(100));
         
         let config_a = MemoryTransportConfig {
@@ -208,7 +208,7 @@ impl MemoryChannel {
     }
     
     /// Create a pair of Arc-wrapped transports
-    pub fn create_pair_arc() -> (Arc<dyn Transport>, Arc<dyn Transport>) {
+    #[must_use] pub fn create_pair_arc() -> (Arc<dyn Transport>, Arc<dyn Transport>) {
         let channel = Self::new(100, Some(100));
         
         let config_a = MemoryTransportConfig {
@@ -259,7 +259,7 @@ pub struct MemoryTransport {
 
 impl MemoryTransport {
     /// Create a new memory transport
-    pub fn new(config: MemoryTransportConfig) -> Self {
+    #[must_use] pub fn new(config: MemoryTransportConfig) -> Self {
         // Create message channels
         let (out_tx, _) = mpsc::channel(config.buffer_size);
         let (_, in_rx) = mpsc::channel(config.buffer_size);
@@ -379,7 +379,7 @@ impl Transport for MemoryTransport {
         // Only allow connecting from Disconnected state
         if state != MemoryState::Disconnected {
             return Err(TransportError::ConnectionFailed(
-                format!("Cannot connect from state: {:?}", state)
+                format!("Cannot connect from state: {state:?}")
             ));
         }
         

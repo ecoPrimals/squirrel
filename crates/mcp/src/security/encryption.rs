@@ -32,7 +32,7 @@ pub struct EncryptionManager {
 
 impl EncryptionManager {
     /// Create a new encryption manager
-    pub fn new(default_format: EncryptionFormat) -> Self {
+    #[must_use] pub fn new(default_format: EncryptionFormat) -> Self {
         Self { 
             default_format,
             keys: RwLock::new(std::collections::HashMap::new()),
@@ -40,7 +40,7 @@ impl EncryptionManager {
     }
 
     /// Get the default encryption format
-    pub fn default_format(&self) -> EncryptionFormat {
+    pub const fn default_format(&self) -> EncryptionFormat {
         self.default_format
     }
 
@@ -118,12 +118,12 @@ impl Encryption for EncryptionManager {
 }
 
 /// Create a new encryption manager with default settings
-pub fn create_encryption_manager() -> Arc<dyn Encryption> {
+#[must_use] pub fn create_encryption_manager() -> Arc<dyn Encryption> {
     Arc::new(EncryptionManager::new(EncryptionFormat::Aes256Gcm))
 }
 
 /// Create a new encryption manager with a specific format
-pub fn create_encryption_manager_with_format(format: EncryptionFormat) -> Arc<dyn Encryption> {
+#[must_use] pub fn create_encryption_manager_with_format(format: EncryptionFormat) -> Arc<dyn Encryption> {
     Arc::new(EncryptionManager::new(format))
 }
 

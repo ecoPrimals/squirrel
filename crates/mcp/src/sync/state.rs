@@ -26,7 +26,7 @@ pub struct StateChange {
 }
 
 /// Types of operations that can be performed on contexts
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StateOperation {
     /// Create a new context
     Create,

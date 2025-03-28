@@ -11,7 +11,7 @@
 pub mod debug_impls {
     use std::fmt;
 
-    /// Implementation of Debug for ToolManagerBuilder
+    /// Implementation of Debug for `ToolManagerBuilder`
     ///
     /// This struct contains fields that are not Debug, such as function pointers
     /// and trait objects. This implementation formats the fields in a readable way.
@@ -43,10 +43,10 @@ pub mod debug_impls {
         }
     }
 
-    /// Implementation of Debug for MessageBuilder
+    /// Implementation of Debug for `MessageBuilder`
     ///
-    /// Since the fields of MessageBuilder are private, we can't access them directly.
-    /// Instead, we provide a basic Debug implementation that shows it's a MessageBuilder.
+    /// Since the fields of `MessageBuilder` are private, we can't access them directly.
+    /// Instead, we provide a basic Debug implementation that shows it's a `MessageBuilder`.
     impl fmt::Debug for crate::message::MessageBuilder {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "MessageBuilder {{ ... }}")

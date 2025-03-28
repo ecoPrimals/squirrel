@@ -32,14 +32,14 @@ pub enum ClientError {
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ClientError::NotConnected(msg) => write!(f, "Client not connected: {}", msg),
-            ClientError::Timeout(msg) => write!(f, "Timeout: {}", msg),
-            ClientError::ResponseChannelClosed(msg) => write!(f, "Response channel closed: {}", msg),
-            ClientError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
-            ClientError::ConnectionFailed(msg) => write!(f, "Connection failed: {}", msg),
-            ClientError::InvalidMessage(msg) => write!(f, "Invalid message: {}", msg),
-            ClientError::AlreadyConnected(msg) => write!(f, "Already connected: {}", msg),
-            ClientError::RemoteError(msg) => write!(f, "Remote error: {}", msg),
+            Self::NotConnected(msg) => write!(f, "Client not connected: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
+            Self::ResponseChannelClosed(msg) => write!(f, "Response channel closed: {msg}"),
+            Self::SerializationError(msg) => write!(f, "Serialization error: {msg}"),
+            Self::ConnectionFailed(msg) => write!(f, "Connection failed: {msg}"),
+            Self::InvalidMessage(msg) => write!(f, "Invalid message: {msg}"),
+            Self::AlreadyConnected(msg) => write!(f, "Already connected: {msg}"),
+            Self::RemoteError(msg) => write!(f, "Remote error: {msg}"),
         }
     }
 }

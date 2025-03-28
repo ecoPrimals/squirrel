@@ -49,10 +49,10 @@ pub enum StateType {
 impl fmt::Display for StateType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StateType::Configuration => write!(f, "Configuration"),
-            StateType::Runtime => write!(f, "Runtime"),
-            StateType::Recovery => write!(f, "Recovery"),
-            StateType::Audit => write!(f, "Audit"),
+            Self::Configuration => write!(f, "Configuration"),
+            Self::Runtime => write!(f, "Runtime"),
+            Self::Recovery => write!(f, "Recovery"),
+            Self::Audit => write!(f, "Audit"),
         }
     }
 }
@@ -143,30 +143,29 @@ pub enum StateSyncError {
 impl fmt::Display for StateSyncError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StateSyncError::Timeout { duration } => {
-                write!(f, "Synchronization timed out after {:?}", duration)
+            Self::Timeout { duration } => {
+                write!(f, "Synchronization timed out after {duration:?}")
             }
-            StateSyncError::SizeExceeded { size, max_size } => {
-                write!(f, "State size ({} bytes) exceeds maximum allowed size ({} bytes)", 
-                    size, max_size)
+            Self::SizeExceeded { size, max_size } => {
+                write!(f, "State size ({size} bytes) exceeds maximum allowed size ({max_size} bytes)")
             }
-            StateSyncError::ValidationFailed { message } => {
-                write!(f, "State validation failed: {}", message)
+            Self::ValidationFailed { message } => {
+                write!(f, "State validation failed: {message}")
             }
-            StateSyncError::TargetUnavailable { target } => {
-                write!(f, "Target system unavailable: {}", target)
+            Self::TargetUnavailable { target } => {
+                write!(f, "Target system unavailable: {target}")
             }
-            StateSyncError::SerializationError { message } => {
-                write!(f, "Serialization error: {}", message)
+            Self::SerializationError { message } => {
+                write!(f, "Serialization error: {message}")
             }
-            StateSyncError::SyncFailed { message, .. } => {
-                write!(f, "Synchronization failed: {}", message)
+            Self::SyncFailed { message, .. } => {
+                write!(f, "Synchronization failed: {message}")
             }
-            StateSyncError::NotFound(msg) => {
-                write!(f, "State not found: {}", msg)
+            Self::NotFound(msg) => {
+                write!(f, "State not found: {msg}")
             }
-            StateSyncError::DeserializationFailed(msg) => {
-                write!(f, "Deserialization failed: {}", msg)
+            Self::DeserializationFailed(msg) => {
+                write!(f, "Deserialization failed: {msg}")
             }
         }
     }
@@ -175,7 +174,7 @@ impl fmt::Display for StateSyncError {
 impl StdError for StateSyncError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
-            StateSyncError::SyncFailed { source, .. } => {
+            Self::SyncFailed { source, .. } => {
                 source.as_ref().map(|s| s.as_ref() as &(dyn StdError + 'static))
             }
             _ => None,
@@ -236,7 +235,7 @@ pub struct StateSynchronizer {
 
 impl StateSynchronizer {
     /// Create a new state synchronizer with the given configuration
-    pub fn new(config: StateSyncConfig) -> Self {
+    #[must_use] pub fn new(config: StateSyncConfig) -> Self {
         Self {
             config,
             metrics: Arc::new(Mutex::new(StateSyncMetrics::default())),
@@ -245,7 +244,7 @@ impl StateSynchronizer {
     }
     
     /// Create a new state synchronizer with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(StateSyncConfig::default())
     }
     
@@ -336,7 +335,7 @@ impl StateSynchronizer {
     }
     
     /// Get the current synchronization metrics
-    pub fn get_metrics(&self) -> StateSyncMetrics {
+    #[must_use] pub fn get_metrics(&self) -> StateSyncMetrics {
         self.metrics.lock().unwrap().clone()
     }
     
@@ -346,7 +345,7 @@ impl StateSynchronizer {
     }
     
     /// Get the current configuration
-    pub fn get_config(&self) -> &StateSyncConfig {
+    #[must_use] pub const fn get_config(&self) -> &StateSyncConfig {
         &self.config
     }
     

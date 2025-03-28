@@ -114,7 +114,7 @@ pub struct ExamplePlugin {
 }
 
 impl ExamplePlugin {
-    pub fn new(name: &str, version: &str, description: &str) -> Self {
+    #[must_use] pub fn new(name: &str, version: &str, description: &str) -> Self {
         Self {
             metadata: PluginMetadata {
                 id: Uuid::new_v4(),
@@ -127,7 +127,7 @@ impl ExamplePlugin {
         }
     }
     
-    pub fn with_version_requirements(
+    #[must_use] pub fn with_version_requirements(
         name: &str, 
         version: &str, 
         description: &str,

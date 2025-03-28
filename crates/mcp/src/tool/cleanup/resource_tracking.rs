@@ -140,7 +140,7 @@ pub struct ResourceTracker {
 
 impl ResourceTracker {
     /// Creates a new resource tracker with the specified history size
-    pub fn new(max_history_size: usize) -> Self {
+    #[must_use] pub fn new(max_history_size: usize) -> Self {
         Self {
             resources: Arc::new(RwLock::new(HashMap::new())),
             limits: Arc::new(RwLock::new(HashMap::new())),
@@ -158,7 +158,7 @@ impl ResourceTracker {
         
         if resources.contains_key(tool_id) {
             return Err(ToolError::RegistrationFailed(
-                format!("Tool {} is already registered for resource tracking", tool_id)
+                format!("Tool {tool_id} is already registered for resource tracking")
             ));
         }
         
@@ -183,7 +183,7 @@ impl ResourceTracker {
         
         if !limits_map.contains_key(tool_id) && !self.resources.read().await.contains_key(tool_id) {
             return Err(ToolError::ToolNotFound(
-                format!("Tool {} not found for setting resource limits", tool_id)
+                format!("Tool {tool_id} not found for setting resource limits")
             ));
         }
         
@@ -199,7 +199,7 @@ impl ResourceTracker {
         
         resources.get(tool_id)
             .ok_or_else(|| ToolError::ToolNotFound(
-                format!("Tool {} not found for resource usage lookup", tool_id)
+                format!("Tool {tool_id} not found for resource usage lookup")
             ))
             .cloned()
     }
@@ -211,7 +211,7 @@ impl ResourceTracker {
         
         limits.get(tool_id)
             .ok_or_else(|| ToolError::ToolNotFound(
-                format!("Tool {} not found for resource limits lookup", tool_id)
+                format!("Tool {tool_id} not found for resource limits lookup")
             ))
             .cloned()
     }
@@ -227,11 +227,11 @@ impl ResourceTracker {
         let limits = self.limits.read().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for memory tracking", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for memory tracking"))
         )?;
         
         let limit = limits.get(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for memory limits", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for memory limits"))
         )?;
         
         // Convert bytes to u64 before adding
@@ -259,11 +259,11 @@ impl ResourceTracker {
         let limits = self.limits.read().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for CPU time tracking", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for CPU time tracking"))
         )?;
         
         let limit = limits.get(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for CPU time limits", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for CPU time limits"))
         )?;
         
         usage.cpu_time_ms += time_ms;
@@ -290,11 +290,11 @@ impl ResourceTracker {
         let limits = self.limits.read().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for file handle tracking", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for file handle tracking"))
         )?;
         
         let limit = limits.get(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for file handle limits", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for file handle limits"))
         )?;
         
         // Convert u32 to usize for compatibility
@@ -326,11 +326,11 @@ impl ResourceTracker {
         let limits = self.limits.read().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for network connection tracking", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for network connection tracking"))
         )?;
         
         let limit = limits.get(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for network connection limits", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for network connection limits"))
         )?;
         
         // Convert u32 to usize for compatibility
@@ -361,7 +361,7 @@ impl ResourceTracker {
         let mut resources = self.resources.write().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for file handle release", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for file handle release"))
         )?;
         
         // Convert u32 to usize for compatibility
@@ -383,7 +383,7 @@ impl ResourceTracker {
         let mut resources = self.resources.write().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for network connection release", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for network connection release"))
         )?;
         
         // Convert u32 to usize for compatibility
@@ -405,7 +405,7 @@ impl ResourceTracker {
         let mut resources = self.resources.write().await;
         
         let usage = resources.get_mut(tool_id).ok_or_else(|| 
-            ToolError::ToolNotFound(format!("Tool {} not found for resource release", tool_id))
+            ToolError::ToolNotFound(format!("Tool {tool_id} not found for resource release"))
         )?;
         
         // Record file handle releases

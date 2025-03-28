@@ -151,8 +151,8 @@ impl WebSocketTransport {
     ///
     /// # Returns
     ///
-    /// A new WebSocketTransport instance
-    pub fn new(config: WebSocketConfig) -> Self {
+    /// A new `WebSocketTransport` instance
+    #[must_use] pub fn new(config: WebSocketConfig) -> Self {
         // Create message channels
         let (_msg_tx, msg_rx) = mpsc::channel(100);
         let (socket_tx, _socket_rx) = mpsc::channel(100);
@@ -202,7 +202,7 @@ impl WebSocketTransport {
         
         // Clone for the reader task
         let read_state = state.clone();
-        let read_msg_tx = msg_tx.clone();
+        let read_msg_tx = msg_tx;
         
         // Start reader task
         tokio::spawn(async move {
@@ -213,12 +213,12 @@ impl WebSocketTransport {
                         match serde_json::from_str::<MCPMessage>(&text) {
                             Ok(message) => {
                                 if let Err(e) = read_msg_tx.send(message).await {
-                                    eprintln!("Failed to forward message to channel: {}", e);
+                                    eprintln!("Failed to forward message to channel: {e}");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to parse message: {}", e);
+                                eprintln!("Failed to parse message: {e}");
                                 continue;
                             }
                         }
@@ -228,12 +228,12 @@ impl WebSocketTransport {
                         match serde_json::from_slice::<MCPMessage>(&bin) {
                             Ok(message) => {
                                 if let Err(e) = read_msg_tx.send(message).await {
-                                    eprintln!("Failed to forward message to channel: {}", e);
+                                    eprintln!("Failed to forward message to channel: {e}");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to parse binary message: {}", e);
+                                eprintln!("Failed to parse binary message: {e}");
                                 continue;
                             }
                         }
@@ -254,7 +254,7 @@ impl WebSocketTransport {
                     }
                     Err(e) => {
                         // Error reading from socket
-                        eprintln!("Error reading from WebSocket: {}", e);
+                        eprintln!("Error reading from WebSocket: {e}");
                         break;
                     }
                 }
@@ -274,21 +274,21 @@ impl WebSocketTransport {
                         let json = match serde_json::to_string(&message) {
                             Ok(j) => j,
                             Err(e) => {
-                                eprintln!("Failed to serialize message: {}", e);
+                                eprintln!("Failed to serialize message: {e}");
                                 continue;
                             }
                         };
                         
                         // Send as text message
                         if let Err(e) = write.send(Message::Text(json)).await {
-                            eprintln!("Failed to send message: {}", e);
+                            eprintln!("Failed to send message: {e}");
                             break;
                         }
                     }
                     SocketCommand::Close => {
                         // Close the connection gracefully
                         if let Err(e) = write.close().await {
-                            eprintln!("Error closing WebSocket: {}", e);
+                            eprintln!("Error closing WebSocket: {e}");
                         }
                         break;
                     }

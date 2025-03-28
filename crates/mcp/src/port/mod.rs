@@ -68,8 +68,8 @@ impl MCPPort {
     ///
     /// # Returns
     ///
-    /// A new MCPPort instance initialized with the given configuration
-    pub fn new(config: PortConfig) -> Self {
+    /// A new `MCPPort` instance initialized with the given configuration
+    #[must_use] pub fn new(config: PortConfig) -> Self {
         let state = PortState {
             is_listening: false,
             active_connections: 0,
