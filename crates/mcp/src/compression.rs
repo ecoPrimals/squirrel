@@ -3,15 +3,17 @@
 //! This module provides compression and decompression capabilities for MCP messages.
 //! It supports various compression formats, such as Zstd, Gzip, and LZ4.
 
+use crate::error::{Result, MCPError};
+use crate::types::CompressionFormat;
+
 #[cfg(feature = "gzip")]
 use flate2::Compression;
 #[cfg(feature = "gzip")]
-use flate2::write::{GzEncoder, ZlibEncoder};
+use flate2::write::GzEncoder;
 #[cfg(feature = "gzip")]
-use flate2::read::{GzDecoder, ZlibDecoder};
-
-use crate::error::Result;
-use crate::types::CompressionFormat;
+use flate2::read::GzDecoder;
+#[cfg(any(feature = "gzip", feature = "lz4"))]
+use std::io::{Read, Write};
 
 /// Compression threshold in bytes
 const COMPRESSION_THRESHOLD: usize = 1024;
@@ -38,7 +40,6 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
         CompressionFormat::None => Ok(data.to_vec()),
         CompressionFormat::Zstd => {
             // Simple implementation using zstd crate
-            // In a real implementation, you would use the zstd-rs crate
             #[cfg(feature = "zstd")]
             {
                 zstd::encode_all(data, 3).map_err(|e| MCPError::Serialization(format!("Zstd compression failed: {}", e)))
@@ -51,7 +52,6 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
         }
         CompressionFormat::Gzip => {
             // Simple implementation using flate2 crate
-            // In a real implementation, you would use the flate2 crate
             #[cfg(feature = "gzip")]
             {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -66,18 +66,22 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
         }
         CompressionFormat::Lz4 => {
             // Simple implementation using lz4 crate
-            // In a real implementation, you would use the lz4 crate
             #[cfg(feature = "lz4")]
             {
                 let mut compressed = Vec::new();
-                lz4::EncoderBuilder::new()
+                let mut encoder = lz4::EncoderBuilder::new()
                     .build(&mut compressed)
-                    .map_err(|e| MCPError::Serialization(format!("LZ4 compression failed: {}", e)))?
-                    .write_all(data)
-                    .map_err(|e| MCPError::Serialization(format!("LZ4 write failed: {}", e)))?
-                    .finish()
-                    .map_err(|e| MCPError::Serialization(format!("LZ4 finalization failed: {}", e)))?;
-                Ok(compressed)
+                    .map_err(|e| MCPError::Serialization(format!("LZ4 compression failed: {}", e)))?;
+                
+                // Write the data to the encoder
+                encoder.write_all(data)
+                    .map_err(|e| MCPError::Serialization(format!("LZ4 write failed: {}", e)))?;
+                
+                // Finish the compression and get back the Vec<u8>
+                let (compressed_vec, result) = encoder.finish();
+                result.map_err(|e| MCPError::Serialization(format!("LZ4 finalization failed: {}", e)))?;
+                
+                Ok(compressed_vec.to_vec())
             }
             #[cfg(not(feature = "lz4"))]
             {
@@ -141,10 +145,12 @@ pub fn decompress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
             #[cfg(feature = "lz4")]
             {
                 let mut decompressed = Vec::new();
-                lz4::Decoder::new(data)
-                    .map_err(|e| MCPError::Deserialization(format!("LZ4 decompression failed: {}", e)))?
-                    .read_to_end(&mut decompressed)
+                let mut decoder = lz4::Decoder::new(data)
+                    .map_err(|e| MCPError::Deserialization(format!("LZ4 decompression failed: {}", e)))?;
+                
+                decoder.read_to_end(&mut decompressed)
                     .map_err(|e| MCPError::Deserialization(format!("LZ4 read failed: {}", e)))?;
+                    
                 Ok(decompressed)
             }
             #[cfg(not(feature = "lz4"))]

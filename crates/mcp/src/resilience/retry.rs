@@ -198,7 +198,10 @@ impl RetryMechanism {
         
         Err(RetryError::MaxAttemptsExceeded { 
             attempts: self.config.max_attempts, 
-            error: last_error.unwrap() 
+            error: last_error.unwrap_or_else(|| Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Unknown error during retry operation"
+            )))
         })
     }
     

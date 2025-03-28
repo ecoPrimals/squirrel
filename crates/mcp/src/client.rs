@@ -206,6 +206,8 @@ impl std::fmt::Debug for ClientConfig {
             .field("keep_alive_interval_ms", &self.keep_alive_interval_ms)
             .field("client_id", &self.client_id)
             .field("auth_token", &self.auth_token)
+            .field("transport", &if self.transport.is_some() { "Some(Transport)" } else { "None" })
+            .field("wire_format_config", &self.wire_format_config)
             .field("parameters", &self.parameters)
             .finish()
     }
@@ -312,39 +314,54 @@ impl MCPClient {
         self.transport.read().await.is_some()
     }
     
-    /// Connect to the server
+    /// Connect to the MCP server
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Transport creation fails due to invalid configuration
+    /// - The client fails to establish a connection with the server
+    /// - The underlying transport encounters an error during connection
+    /// - The reader task cannot be started
     pub async fn connect(&mut self) -> Result<()> {
         // If already connected, return
         if self.is_connected().await {
             return Ok(());
         }
         
-        // Create and connect the transport
-        let mut transport_guard = self.transport.write().await;
-        *transport_guard = Some(create_transport_from_config(&self.config)?);
+        // Create the transport
+        let transport = create_transport_from_config(&self.config);
+        
+        // Store the transport
+        {
+            let mut transport_guard = self.transport.write().await;
+            *transport_guard = Some(transport);
+        }
         
         // Start message processing task
-        let mut message_task_guard = self.message_task.write().await;
-        let mut message_rx_guard = self.message_rx.write().await;
-        
-        if message_task_guard.is_none() {
-            if let Some(rx) = message_rx_guard.take() {
-                // Clone references to pass to the task
-                let pending_requests = self.pending_requests.clone();
-                let event_handlers = self.event_handlers.clone();
-                let event_channel = self.event_channel.clone();
-                let last_error = self.last_error.clone();
-                
-                // Spawn a new task to process messages
-                *message_task_guard = Some(tokio::spawn(async move {
-                    process_messages(
-                        rx,
-                        pending_requests,
-                        event_handlers,
-                        event_channel,
-                        last_error
-                    ).await;
-                }));
+        {
+            let mut message_task_guard = self.message_task.write().await;
+            let mut message_rx_guard = self.message_rx.write().await;
+            
+            if message_task_guard.is_none() {
+                if let Some(rx) = message_rx_guard.take() {
+                    // Clone references to pass to the task
+                    let pending_requests = self.pending_requests.clone();
+                    let event_handlers = self.event_handlers.clone();
+                    let event_channel = self.event_channel.clone();
+                    let last_error = self.last_error.clone();
+                    
+                    // Spawn a new task to process messages
+                    *message_task_guard = Some(tokio::spawn(async move {
+                        process_messages(
+                            rx,
+                            pending_requests,
+                            event_handlers,
+                            event_channel,
+                            last_error
+                        ).await;
+                    }));
+                }
             }
         }
         
@@ -355,6 +372,12 @@ impl MCPClient {
     }
     
     /// Disconnect from the MCP server
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The client is already in the process of disconnecting
+    /// - The transport fails to disconnect cleanly
     pub async fn disconnect(&self) -> Result<()> {
         // Check if already disconnected or disconnecting
         {
@@ -414,12 +437,25 @@ impl MCPClient {
     
     /// Get the current client state
     pub async fn get_state(&self) -> ClientState {
-        match self.state.read().await {
-            guard => *guard,
-        }
+        // Copy the state directly from the read lock
+        *self.state.read().await
     }
     
     /// Send a command to the server and wait for a response
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The client is not connected
+    /// - Message serialization fails
+    /// - The transport fails to send the message
+    /// - The response channel is closed unexpectedly
+    /// - A timeout occurs while waiting for a response
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal transport is `None` after the earlier check determined it exists.
+    /// This should never happen in normal operation.
     pub async fn send_command(&self, command: Message) -> Result<Message> {
         // Get the transport
         let transport_guard = self.transport.read().await;
@@ -431,7 +467,19 @@ impl MCPClient {
             )));
         }
 
-        let transport = transport_guard.as_ref().unwrap();
+        // Clone the transport to avoid holding the guard during the send operation
+        let transport = match transport_guard.as_ref() {
+            Some(t) => Arc::clone(t),
+            None => {
+                // This should never happen as we already checked above, but we handle it for safety
+                return Err(MCPError::Client(ClientError::NotConnected(
+                    "Transport unexpectedly disconnected".to_string(),
+                )));
+            }
+        };
+        
+        // We can drop the guard now that we've cloned the transport
+        drop(transport_guard);
         
         // Create response channel
         let (response_tx, response_rx) = oneshot::channel();
@@ -451,9 +499,8 @@ impl MCPClient {
         let send_result = transport.send_message(mcp_message).await;
         
         if let Err(e) = send_result {
-            // Clean up pending request
-            let mut pending_requests = self.pending_requests.write().await;
-            pending_requests.remove(&command.id);
+            // Clean up pending request - use a smaller scope for the write lock
+            self.pending_requests.write().await.remove(&command.id);
             return Err(e.into());
         }
         
@@ -475,13 +522,29 @@ impl MCPClient {
     }
     
     /// Send a command to the server with the given name and content, and wait for a response
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The client is not connected
+    /// - Message serialization fails
+    /// - The transport fails to send the message
+    /// - The response channel is closed unexpectedly
+    /// - A timeout occurs while waiting for a response
     pub async fn send_command_with_content<T>(&self, command_name: &str, content: T) -> Result<Message> 
     where
         T: Into<serde_json::Value>
     {
+        // Convert content to JSON
+        let content_value = content.into();
+        let content_str = serde_json::to_string(&content_value)
+            .map_err(|e| MCPError::Client(ClientError::SerializationError(
+                format!("Failed to serialize command content: {e}")
+            )))?;
+        
         // Create a message with the command
         let mut message = Message::request(
-            serde_json::to_string(&content.into()).unwrap_or_default(),
+            content_str,
             self.config.client_id.clone().unwrap_or_else(|| "unknown".to_string()),
             "*".to_string(),
         );
@@ -494,6 +557,18 @@ impl MCPClient {
     }
     
     /// Send an event message to the server (no response expected)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The client is not connected
+    /// - Message serialization fails
+    /// - The transport fails to send the message
+    ///
+    /// # Panics
+    ///
+    /// Panics if the internal transport is `None` after the earlier check determined it exists.
+    /// This should never happen in normal operation.
     pub async fn send_event(&self, event: Message) -> Result<()> {
         let transport_guard = self.transport.read().await;
 
@@ -504,7 +579,19 @@ impl MCPClient {
             )));
         }
 
-        let transport = transport_guard.as_ref().unwrap();
+        // Clone the transport to avoid holding the guard during the send operation
+        let transport = match transport_guard.as_ref() {
+            Some(t) => Arc::clone(t),
+            None => {
+                // This should never happen as we already checked above, but we handle it for safety
+                return Err(MCPError::Client(ClientError::NotConnected(
+                    "Transport unexpectedly disconnected".to_string(),
+                )));
+            }
+        };
+        
+        // We can drop the guard now that we've cloned the transport
+        drop(transport_guard);
         
         // Convert Message to MCPMessage and send it
         let mcp_message = MCPMessage::try_from(&event)
@@ -512,19 +599,32 @@ impl MCPClient {
                 format!("Failed to convert Message to MCPMessage: {e}")
             )))?;
         
-        transport.send_message(mcp_message).await?;
-        
-        Ok(())
+        transport.send_message(mcp_message).await.map_err(Into::into)
     }
     
-    /// Also add a helper method to send events with content
+    /// Send an event with the given name and content
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The client is not connected
+    /// - Content serialization fails
+    /// - Message serialization fails
+    /// - The transport fails to send the message
     pub async fn send_event_with_content<T>(&self, event_name: &str, content: T) -> Result<()> 
     where
         T: Into<serde_json::Value>
     {
+        // Convert content to JSON
+        let content_value = content.into();
+        let content_str = serde_json::to_string(&content_value)
+            .map_err(|e| MCPError::Client(ClientError::SerializationError(
+                format!("Failed to serialize event content: {e}")
+            )))?;
+        
         // Create a message with the event
         let mut message = Message::notification(
-            serde_json::to_string(&content.into()).unwrap_or_default(),
+            content_str,
             self.config.client_id.clone().unwrap_or_else(|| "unknown".to_string()),
             "*".to_string(),
         );
@@ -536,6 +636,12 @@ impl MCPClient {
     }
     
     /// Register an event handler for events
+    ///
+    /// # Errors
+    ///
+    /// This method currently does not produce errors, but returns a Result for consistency with
+    /// other registration methods and to allow for future error conditions (such as validation errors)
+    /// to be added without breaking the API.
     pub async fn register_event_handler(&self, handler: Arc<dyn EventHandler>) -> Result<()> {
         let mut handlers = self.event_handlers.write().await;
         
@@ -576,7 +682,20 @@ impl MCPClient {
             )));
         }
         
-        let transport = transport_guard.as_ref().unwrap().clone();
+        // Clone the transport to avoid holding the guard
+        let transport = match transport_guard.as_ref() {
+            Some(t) => t.clone(),
+            None => {
+                // This should never happen as we already checked above, but handle for safety
+                return Err(MCPError::Client(ClientError::NotConnected(
+                    "Transport unexpectedly disconnected".to_string(),
+                )));
+            }
+        };
+        
+        // Release the transport guard early
+        drop(transport_guard);
+        
         let message_tx = self.message_tx.clone();
         
         // Create abortable reader task
@@ -712,8 +831,8 @@ impl MCPClient {
     
     /// Handle an error
     async fn handle_error(&self, error: MCPError) -> Result<()> {
-        let mut last_error = self.last_error.write().await;
-        *last_error = Some(error);
+        // Update the last error directly without keeping the lock open
+        *self.last_error.write().await = Some(error);
         Ok(())
     }
 }
@@ -899,11 +1018,11 @@ async fn process_message_internal(
 ///
 /// ## Returns
 ///
-/// A Result containing either an Arc-wrapped Transport or an error.
-fn create_transport_from_config(config: &ClientConfig) -> Result<Arc<dyn Transport>> {
+/// An Arc-wrapped Transport implementation.
+fn create_transport_from_config(config: &ClientConfig) -> Arc<dyn Transport> {
     // If a custom transport is provided, use it
     if let Some(transport) = &config.transport {
-        return Ok(transport.clone());
+        return transport.clone();
     }
     
     // Default to TCP transport using the server address
@@ -919,7 +1038,7 @@ fn create_transport_from_config(config: &ClientConfig) -> Result<Arc<dyn Transpo
     // Note: The transport's connect() method must be called separately
     // by the client before it can be used.
     
-    Ok(Arc::new(transport))
+    Arc::new(transport)
 }
 
 #[cfg(test)]

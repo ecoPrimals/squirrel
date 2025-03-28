@@ -186,44 +186,77 @@ impl MetricsCollector {
 
     /// Increment a counter
     /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
     /// # Panics
-    /// 
-    /// Panics if the underlying `RwLock` is poisoned
+    ///
+    /// This method does not panic unless there is a critical system failure.
     pub fn increment_counter(&self, name: &str) {
-        let mut counters_guard = self.counters.write().unwrap();
-        let counter = counters_guard
-            .entry(name.to_string())
-            .or_insert_with(|| AtomicU64::new(0));
-        counter.fetch_add(1, Ordering::SeqCst);
+        match self.counters.write() {
+            Ok(mut counters_guard) => {
+                let counter = counters_guard
+                    .entry(name.to_string())
+                    .or_insert_with(|| AtomicU64::new(0));
+                counter.fetch_add(1, Ordering::SeqCst);
+            },
+            Err(e) => {
+                // Log the error but don't propagate it since metrics shouldn't affect core functionality
+                log::error!("Failed to increment counter '{}': RwLock poisoned: {}", name, e);
+            }
+        }
     }
 
     /// Set a gauge
     /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
     /// # Panics
-    /// 
-    /// Panics if the underlying `RwLock` is poisoned
+    ///
+    /// This method does not panic.
     pub fn set_gauge(&self, name: &str, value: i64) {
-        let mut gauges = self.gauges.write().unwrap();
-        gauges.insert(name.to_string(), value);
+        match self.gauges.write() {
+            Ok(mut gauges) => {
+                gauges.insert(name.to_string(), value);
+            },
+            Err(e) => {
+                log::error!("Failed to set gauge '{}': RwLock poisoned: {}", name, e);
+            }
+        }
     }
 
     /// Record a histogram value
     /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
     /// # Panics
-    /// 
-    /// Panics if the underlying `RwLock` is poisoned
+    ///
+    /// This method does not panic.
     pub fn record_histogram(&self, name: &str, value: Duration) {
-        let millis = value.as_millis() as f64;
-        let mut histograms_guard = self.histograms.write().unwrap();
-        let values = histograms_guard
-            .entry(name.to_string())
-            .or_insert_with(Vec::new);
+        // Convert to milliseconds as f64 without precision loss
+        let millis = value.as_secs() as f64 * 1000.0 + value.subsec_millis() as f64;
         
-        if values.len() >= self.max_histogram_size {
-            values.remove(0); // Remove oldest value if at capacity
+        match self.histograms.write() {
+            Ok(mut histograms_guard) => {
+                let values = histograms_guard
+                    .entry(name.to_string())
+                    .or_insert_with(Vec::new);
+                
+                if values.len() >= self.max_histogram_size {
+                    values.remove(0); // Remove oldest value if at capacity
+                }
+                
+                values.push(millis);
+            },
+            Err(e) => {
+                log::error!("Failed to record histogram '{}': RwLock poisoned: {}", name, e);
+            }
         }
-        
-        values.push(millis);
     }
 
     /// Start a timer
@@ -234,46 +267,54 @@ impl MetricsCollector {
 
     /// Get all metrics
     /// 
+    /// # Errors
+    ///
+    /// This method logs errors if any of the underlying RwLocks are poisoned but continues operation with available data.
+    ///
     /// # Panics
-    /// 
-    /// Panics if any of the underlying `RwLocks` are poisoned
+    ///
+    /// This method does not panic.
     #[must_use]
     pub fn get_metrics(&self) -> Vec<Metric> {
         let mut metrics = Vec::new();
         
         // Add counters
-        {
-            let counters = self.counters.read().unwrap();
+        if let Ok(counters) = self.counters.read() {
             for (name, counter) in counters.iter() {
                 metrics.push(Metric::new_counter(
                     name.clone(),
                     counter.load(Ordering::SeqCst),
                 ));
             }
+        } else {
+            log::error!("Failed to read counters: RwLock poisoned");
         }
         
         // Add gauges
-        {
-            let gauges = self.gauges.read().unwrap();
+        if let Ok(gauges) = self.gauges.read() {
             for (name, value) in gauges.iter() {
                 metrics.push(Metric::new_gauge(name.clone(), *value));
             }
+        } else {
+            log::error!("Failed to read gauges: RwLock poisoned");
         }
         
         // Add histograms
-        {
-            let histograms = self.histograms.read().unwrap();
+        if let Ok(histograms) = self.histograms.read() {
             for (name, values) in histograms.iter() {
                 metrics.push(Metric::new_histogram(name.clone(), values.clone()));
             }
+        } else {
+            log::error!("Failed to read histograms: RwLock poisoned");
         }
         
         // Add timers
-        {
-            let timers = self.timers.read().unwrap();
+        if let Ok(timers) = self.timers.read() {
             for (name, values) in timers.iter() {
                 metrics.push(Metric::new_timer(name.clone(), values.clone()));
             }
+        } else {
+            log::error!("Failed to read timers: RwLock poisoned");
         }
         
         metrics
@@ -281,25 +322,62 @@ impl MetricsCollector {
 
     /// Get a counter value
     /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
     /// # Panics
-    /// 
-    /// Panics if the underlying `RwLock` is poisoned
+    ///
+    /// This method does not panic.
     #[must_use]
     pub fn get_counter(&self, name: &str) -> Option<u64> {
-        let counters = self.counters.read().unwrap();
-        counters.get(name).map(|c| c.load(Ordering::SeqCst))
+        match self.counters.read() {
+            Ok(counters) => counters.get(name).map(|c| c.load(Ordering::SeqCst)),
+            Err(e) => {
+                log::error!("Failed to read counter '{}': RwLock poisoned: {}", name, e);
+                None
+            }
+        }
     }
 
     /// Get a gauge value
+    /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
+    /// # Panics
+    ///
+    /// This method does not panic.
+    #[must_use]
     pub fn get_gauge(&self, name: &str) -> Option<i64> {
-        let gauges = self.gauges.read().unwrap();
-        gauges.get(name).copied()
+        match self.gauges.read() {
+            Ok(gauges) => gauges.get(name).copied(),
+            Err(e) => {
+                log::error!("Failed to read gauge '{}': RwLock poisoned: {}", name, e);
+                None
+            }
+        }
     }
 
     /// Get histogram values
+    /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying RwLock is poisoned but continues operation.
+    ///
+    /// # Panics
+    ///
+    /// This method does not panic.
+    #[must_use]
     pub fn get_histogram(&self, name: &str) -> Option<Vec<f64>> {
-        let histograms = self.histograms.read().unwrap();
-        histograms.get(name).cloned()
+        match self.histograms.read() {
+            Ok(histograms) => histograms.get(name).cloned(),
+            Err(e) => {
+                log::error!("Failed to read histogram '{}': RwLock poisoned: {}", name, e);
+                None
+            }
+        }
     }
 }
 
@@ -309,42 +387,42 @@ impl Clone for MetricsCollector {
         let new_collector = Self::new();
         
         // Copy counter values
-        {
-            let counters = self.counters.read().unwrap();
-            let mut new_counters = new_collector.counters.write().unwrap();
+        if let (Ok(counters), Ok(mut new_counters)) = (self.counters.read(), new_collector.counters.write()) {
             for (name, counter) in counters.iter() {
                 new_counters.insert(
                     name.clone(),
                     AtomicU64::new(counter.load(Ordering::SeqCst)),
                 );
             }
+        } else {
+            log::error!("Failed to clone counters: RwLock poisoned");
         }
         
         // Copy gauge values
-        {
-            let gauges = self.gauges.read().unwrap();
-            let mut new_gauges = new_collector.gauges.write().unwrap();
+        if let (Ok(gauges), Ok(mut new_gauges)) = (self.gauges.read(), new_collector.gauges.write()) {
             for (name, value) in gauges.iter() {
                 new_gauges.insert(name.clone(), *value);
             }
+        } else {
+            log::error!("Failed to clone gauges: RwLock poisoned");
         }
         
         // Copy histogram values
-        {
-            let histograms = self.histograms.read().unwrap();
-            let mut new_histograms = new_collector.histograms.write().unwrap();
+        if let (Ok(histograms), Ok(mut new_histograms)) = (self.histograms.read(), new_collector.histograms.write()) {
             for (name, values) in histograms.iter() {
                 new_histograms.insert(name.clone(), values.clone());
             }
+        } else {
+            log::error!("Failed to clone histograms: RwLock poisoned");
         }
         
         // Copy timer values
-        {
-            let timers = self.timers.read().unwrap();
-            let mut new_timers = new_collector.timers.write().unwrap();
+        if let (Ok(timers), Ok(mut new_timers)) = (self.timers.read(), new_collector.timers.write()) {
             for (name, values) in timers.iter() {
                 new_timers.insert(name.clone(), values.clone());
             }
+        } else {
+            log::error!("Failed to clone timers: RwLock poisoned");
         }
         
         new_collector

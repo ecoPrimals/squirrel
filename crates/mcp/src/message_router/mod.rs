@@ -210,7 +210,22 @@ impl MessageRouter {
         Ok(())
     }
 
-    /// Route a message to the appropriate handler
+    /// Route a message to appropriate handlers based on message type and priority
+    ///
+    /// This method sends the message to handlers registered for its message type,
+    /// starting with the highest priority handlers. If a handler returns a response,
+    /// that response is returned immediately (unless continue_after_response is true).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Message validation fails (empty ID, invalid format, etc.)
+    /// - No handler is found for the message type
+    /// - All handlers for the message type fail to process the message
+    /// - All wildcard handlers fail to process the message
+    ///
+    /// Even if a handler encounters an error, the router will continue trying other handlers
+    /// before returning a NoHandlerFound error.
     pub async fn route_message(&self, message: &Message) -> MessageHandlerResult {
         // Validate the message first
         self.validate_message(message).await?;

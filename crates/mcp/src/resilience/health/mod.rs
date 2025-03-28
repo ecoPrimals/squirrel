@@ -352,18 +352,23 @@ impl HealthMonitor {
     }
     
     /// Register a health check with the monitor
-    pub fn register<H: HealthCheck + 'static>(&mut self, health_check: H) {
+    pub fn register<H: HealthCheck + 'static>(&mut self, health_check: H) -> crate::error::Result<()> {
         let id = health_check.id().to_string();
         self.health_checks.insert(id.clone(), Box::new(health_check));
         
         // Initialize a tracker for this component if it doesn't exist
-        let mut trackers = self.component_trackers.write().unwrap();
+        let mut trackers = self.component_trackers.write().map_err(|e| {
+            crate::error::MCPError::General(format!("Failed to acquire write lock for component trackers: {}", e))
+        })?;
+        
         if !trackers.contains_key(&id) {
             trackers.insert(
                 id.clone(),
                 ComponentHealthTracker::new(id, self.max_history_size)
             );
         }
+        
+        Ok(())
     }
     
     /// Unregister a health check from the monitor
@@ -378,24 +383,30 @@ impl HealthMonitor {
     
     /// Get the current status of a component
     pub fn component_status(&self, component_id: &str) -> HealthStatus {
-        let trackers = self.component_trackers.read().unwrap();
-        trackers.get(component_id)
-            .map_or(HealthStatus::Unknown, |tracker| tracker.current_status)
+        match self.component_trackers.read() {
+            Ok(trackers) => trackers.get(component_id)
+                .map_or(HealthStatus::Unknown, |tracker| tracker.current_status),
+            Err(_) => HealthStatus::Unknown // Return Unknown if we can't access the trackers
+        }
     }
     
     /// Get the most recent health check result for a component
     pub fn last_check_result(&self, component_id: &str) -> Option<HealthCheckResult> {
-        let trackers = self.component_trackers.read().unwrap();
-        trackers.get(component_id)
-            .and_then(|tracker| tracker.last_result().cloned())
+        match self.component_trackers.read() {
+            Ok(trackers) => trackers.get(component_id)
+                .and_then(|tracker| tracker.last_result().cloned()),
+            Err(_) => None // Return None if we can't access the trackers
+        }
     }
     
     /// Get the current status of all components
     pub fn all_statuses(&self) -> HashMap<String, HealthStatus> {
-        let trackers = self.component_trackers.read().unwrap();
-        trackers.iter()
-            .map(|(id, tracker)| (id.clone(), tracker.current_status))
-            .collect()
+        match self.component_trackers.read() {
+            Ok(trackers) => trackers.iter()
+                .map(|(id, tracker)| (id.clone(), tracker.current_status))
+                .collect(),
+            Err(_) => HashMap::new() // Return empty map if we can't access the trackers
+        }
     }
     
     /// Run a health check for a specific component
@@ -406,17 +417,21 @@ impl HealthMonitor {
             
             // Update the tracker
             let should_trigger_recovery = {
-                let mut trackers = self.component_trackers.write().unwrap();
-                let should_recover = if let Some(tracker) = trackers.get_mut(component_id) {
-                    tracker.update(result.clone());
-                    
-                    // Check if we should trigger recovery
-                    tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
-                } else {
-                    false
-                };
-                
-                should_recover
+                match self.component_trackers.write() {
+                    Ok(mut trackers) => {
+                        let should_recover = if let Some(tracker) = trackers.get_mut(component_id) {
+                            tracker.update(result.clone());
+                            
+                            // Check if we should trigger recovery
+                            tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
+                        } else {
+                            false
+                        };
+                        
+                        should_recover
+                    },
+                    Err(_) => false // Can't trigger recovery if we can't update trackers
+                }
             }; // trackers lock is dropped here
             
             // Trigger recovery outside the lock if needed
@@ -653,7 +668,7 @@ pub mod tests {
         
         // Register a mock health check
         let mock_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
-        monitor.register(mock_check);
+        monitor.register(mock_check).unwrap();
         
         // Check the component
         let result = monitor.check_component("test-component").await.unwrap();
@@ -674,7 +689,7 @@ pub mod tests {
         config.failure_threshold = 2;
         // TODO: Set the config on mock_check
         
-        monitor.register(mock_check);
+        monitor.register(mock_check).unwrap();
         
         // Initial check
         let result = monitor.check_component("test-component").await.unwrap();

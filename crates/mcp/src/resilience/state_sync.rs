@@ -260,7 +260,10 @@ impl StateSynchronizer {
         T: Serialize,
     {
         let _start_time = Instant::now();
-        self.metrics.lock().unwrap().last_sync_time = Some(_start_time);
+        self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {}", e),
+            source: None,
+        })?.last_sync_time = Some(_start_time);
         
         // Serialize the state to estimate its size
         let serialized = serde_json::to_vec(&state)
@@ -271,7 +274,10 @@ impl StateSynchronizer {
         // Check if state exceeds maximum size
         if serialized.len() > self.config.max_state_size {
             // Update metrics for failure
-            let mut metrics = self.metrics.lock().unwrap();
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {}", e),
+                source: None,
+            })?;
             *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
             
             return Err(StateSyncError::SizeExceeded {
@@ -292,7 +298,10 @@ impl StateSynchronizer {
         // Check timeout
         if _start_time.elapsed() > self.config.sync_timeout {
             // Update metrics for failure
-            let mut metrics = self.metrics.lock().unwrap();
+            let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to lock metrics: {}", e),
+                source: None,
+            })?;
             *metrics.failed_syncs.entry(state_type).or_insert(0) += 1;
             
             return Err(StateSyncError::Timeout {
@@ -304,7 +313,10 @@ impl StateSynchronizer {
         // For now, we'll just simulate success
         
         // Update metrics for success
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {}", e),
+            source: None,
+        })?;
         *metrics.successful_syncs.entry(state_type).or_insert(0) += 1;
         metrics.total_bytes_synced += serialized.len();
         
@@ -335,13 +347,19 @@ impl StateSynchronizer {
     }
     
     /// Get the current synchronization metrics
-    #[must_use] pub fn get_metrics(&self) -> StateSyncMetrics {
-        self.metrics.lock().unwrap().clone()
+    pub fn get_metrics(&self) -> Result<StateSyncMetrics, StateSyncError> {
+        self.metrics.lock().map(|m| m.clone()).map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {}", e),
+            source: None,
+        })
     }
     
     /// Reset the synchronization metrics
-    pub fn reset_metrics(&self) {
-        self.metrics.lock().unwrap().reset();
+    pub fn reset_metrics(&self) -> Result<(), StateSyncError> {
+        self.metrics.lock().map(|mut m| m.reset()).map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {}", e),
+            source: None,
+        })
     }
     
     /// Get the current configuration
@@ -370,13 +388,19 @@ impl StateSynchronizer {
         // Eventually this will use state_id and target to retrieve specific states
         // For now, we'll just use the latest state by type
         
-        // Track metrics - remove the .await on lock()
-        let mut metrics = self.metrics.lock().unwrap();
+        // Track metrics
+        let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
+            message: format!("Failed to lock metrics: {}", e),
+            source: None,
+        })?;
         metrics.retrieve_requests += 1;
         
         // Get the cached state
         let state = {
-            let states = self.states.read().unwrap();
+            let states = self.states.read().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to read states: {}", e),
+                source: None,
+            })?;
             match states.get(&state_type) {
                 Some(state) => state.data.clone(),
                 None => return Err(StateSyncError::NotFound("State not found".to_string())),
@@ -460,7 +484,7 @@ mod tests {
         assert!(result.is_ok());
         
         // Check metrics
-        let metrics = syncer.get_metrics();
+        let metrics = syncer.get_metrics().unwrap();
         assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
         assert!(metrics.failed_syncs.is_empty());
         assert!(metrics.total_bytes_synced > 0);
@@ -500,7 +524,7 @@ mod tests {
         }
         
         // Check metrics
-        let metrics = syncer.get_metrics();
+        let metrics = syncer.get_metrics().unwrap();
         assert_eq!(*metrics.failed_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
         assert!(metrics.successful_syncs.is_empty());
     }
@@ -555,7 +579,7 @@ mod tests {
         assert!(result3.is_ok());
         
         // Check metrics
-        let metrics = syncer.get_metrics();
+        let metrics = syncer.get_metrics().unwrap();
         assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
         assert_eq!(*metrics.successful_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
         assert_eq!(*metrics.successful_syncs.get(&StateType::Recovery).unwrap_or(&0), 1);
@@ -581,15 +605,15 @@ mod tests {
         ).await;
         
         // Verify metrics are updated
-        let metrics1 = syncer.get_metrics();
+        let metrics1 = syncer.get_metrics().unwrap();
         assert!(!metrics1.successful_syncs.is_empty());
         assert!(metrics1.total_bytes_synced > 0);
         
         // Reset metrics
-        syncer.reset_metrics();
+        syncer.reset_metrics().unwrap();
         
         // Verify metrics are reset
-        let metrics2 = syncer.get_metrics();
+        let metrics2 = syncer.get_metrics().unwrap();
         assert!(metrics2.successful_syncs.is_empty());
         assert_eq!(metrics2.total_bytes_synced, 0);
     }
