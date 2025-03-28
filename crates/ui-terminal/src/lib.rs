@@ -1,253 +1,111 @@
-/*!
- * Terminal UI implementation of the Squirrel monitoring dashboard.
- * 
- * This crate provides a terminal-based user interface for the dashboard
- * using the Ratatui library.
- */
+//! Terminal UI implementation for the Squirrel dashboard
+//! 
+//! This crate provides a terminal user interface for monitoring system resources, 
+//! network activity, and protocol metrics.
 
-pub mod adapter;
-pub mod app;
-pub mod events;
-pub mod ui;
-pub mod util;
-pub mod config;
-pub mod widgets;
-
-#[cfg(test)]
-mod tests;
-
-use std::io;
+use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use std::io;
+use dashboard_core::service::DashboardService;
+use crate::ui::Ui;
 
-use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-    execute,
-};
+// Import only the modules we need
+pub mod service;
+pub mod adapter;
+pub mod mock_adapter;
+mod state;
+pub mod widgets;
+mod app;
+mod ui;
+mod config;
+mod util;
+mod help;
+mod widget_manager;
+mod alert;
+mod events;
 
-use ratatui::{
-    backend::CrosstermBackend,
-    Terminal,
-};
+#[cfg(test)]
+pub mod tests;
 
-use dashboard_core::{
-    DashboardService,
-    DashboardUpdate,
-    service::DefaultDashboardService,
-    config::DashboardConfig,
-};
+// Re-export the dashboard service
+pub use service::TerminalDashboardService;
+pub use adapter::{McpMetricsProvider, MonitoringToDashboardAdapter, DashboardMonitor};
+use crate::mock_adapter::MockAdapter;
 
-use adapter::{MonitoringToDashboardAdapter, MockMcpClient, McpMetricsProvider};
-
-/// Terminal UI Dashboard
-pub struct TuiDashboard {
-    /// Dashboard service for data access
-    dashboard_service: Arc<dyn DashboardService>,
-    
-    /// Application state
-    app: app::App,
-    
-    /// Update receiver channel
-    update_rx: Option<mpsc::Receiver<DashboardUpdate>>,
-    
-    /// UI tick rate (for animations and non-input updates)
-    tick_rate: Duration,
-    
-    /// Monitoring to Dashboard adapter
-    monitoring_adapter: Option<MonitoringToDashboardAdapter>,
+pub mod monitoring {
+    //! Monitoring-related functionality
+    //! 
+    //! This module contains types and functions for interacting with the monitoring system.
 }
 
-impl TuiDashboard {
-    /// Create a new TUI dashboard
-    pub fn new(dashboard_service: Arc<dyn DashboardService>) -> Self {
-        Self {
-            dashboard_service,
-            app: app::App::new(),
-            update_rx: None,
-            tick_rate: Duration::from_millis(250),
-            monitoring_adapter: None,
-        }
-    }
+/// Run the terminal UI application
+/// 
+/// This function initializes the terminal UI, sets up the dashboard service, and runs
+/// the main application loop until the user exits.
+/// 
+/// # Arguments
+/// 
+/// * `dashboard_service` - The dashboard service to use for retrieving metrics
+/// 
+/// # Returns
+/// 
+/// Returns a Result indicating success or failure
+pub async fn run<S>(dashboard_service: S) -> io::Result<()>
+where
+    S: DashboardService + 'static
+{
+    // Initialize the UI
+    let mut ui = Ui::new(dashboard_service)?;
     
-    /// Create a new TUI dashboard with monitoring adapter
-    pub fn new_with_monitoring() -> Self {
-        // Create default dashboard config
-        let config = DashboardConfig::default()
-            .with_update_interval(5) // 5 seconds
-            .with_max_history_points(1000);
-        
-        // Create dashboard service
-        let (dashboard_service, rx) = DefaultDashboardService::new(config);
-        
-        // Create monitoring adapter
-        let monitoring_adapter = MonitoringToDashboardAdapter::new();
-        
-        Self {
-            dashboard_service: dashboard_service.clone(),
-            app: app::App::new(),
-            update_rx: Some(rx),
-            tick_rate: Duration::from_millis(250),
-            monitoring_adapter: Some(monitoring_adapter),
-        }
-    }
+    // Run the UI
+    ui.run().await?;
     
-    /// Create a new TUI dashboard with MCP integration
-    pub fn new_with_mcp() -> Self {
-        // Create default dashboard config
-        let config = DashboardConfig::default()
-            .with_update_interval(5) // 5 seconds
-            .with_max_history_points(1000);
-        
-        // Create dashboard service
-        let (dashboard_service, rx) = DefaultDashboardService::new(config);
-        
-        // Create mock MCP client for testing
-        let mcp_client = Arc::new(MockMcpClient::new()) as Arc<dyn McpMetricsProvider>;
-        
-        // Create monitoring adapter with MCP client
-        let monitoring_adapter = MonitoringToDashboardAdapter::new_with_mcp_client(Some(mcp_client));
-        
-        Self {
-            dashboard_service: dashboard_service.clone(),
-            app: app::App::new(),
-            update_rx: Some(rx),
-            tick_rate: Duration::from_millis(250),
-            monitoring_adapter: Some(monitoring_adapter),
-        }
-    }
-    
-    /// Create a new TUI dashboard with default service
-    pub fn new_with_default_service(dashboard_service: Arc<DefaultDashboardService>) -> Self {
-        Self::new(dashboard_service as Arc<dyn DashboardService>)
-    }
-    
-    /// Create a new TUI dashboard from a DefaultDashboardService tuple with receiver
-    pub fn new_from_default_service(dashboard_service_tuple: (Arc<DefaultDashboardService>, mpsc::Receiver<DashboardUpdate>)) -> Self {
-        let (dashboard_service, rx) = dashboard_service_tuple;
-        Self {
-            dashboard_service: dashboard_service.clone(),
-            app: app::App::new(),
-            update_rx: Some(rx),
-            tick_rate: Duration::from_millis(250),
-            monitoring_adapter: None,
-        }
-    }
-    
-    /// Run the dashboard UI
-    pub async fn run(&mut self) -> io::Result<()> {
-        // Initialize terminal
-        terminal::enable_raw_mode()?;
-        let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-        let backend = CrosstermBackend::new(stdout);
-        let mut terminal = Terminal::new(backend)?;
-        
-        // Subscribe to dashboard updates if not already subscribed
-        if self.update_rx.is_none() {
-            self.update_rx = Some(self.dashboard_service.subscribe().await);
-        }
-        
-        // Load initial dashboard data
-        match self.dashboard_service.get_dashboard_data().await {
-            Ok(data) => self.app.update_dashboard_data(data),
-            Err(e) => eprintln!("Failed to load initial dashboard data: {}", e),
-        }
-        
-        // Start events handling
-        let mut events = events::Events::new(self.tick_rate);
-        
-        // Start monitoring adapter if available
-        if let Some(mut adapter) = self.monitoring_adapter.take() {
-            let dashboard_service_clone = self.dashboard_service.clone();
-            tokio::spawn(async move {
-                let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
-                
-                loop {
-                    interval.tick().await;
-                    
-                    // Collect dashboard data from monitoring
-                    let data = adapter.collect_dashboard_data();
-                    
-                    // Update dashboard
-                    let _ = dashboard_service_clone.update_dashboard_data(data).await;
-                }
-            });
-        }
-        
-        // Main loop
-        loop {
-            // Draw UI
-            terminal.draw(|f| ui::draw(f, &mut self.app))?;
-            
-            // Handle events
-            if let Some(event) = events.next()? {
-                // Pass appropriate events to the app
-                match event {
-                    events::Event::Key(key_event) => {
-                        if !self.app.handle_event(key_event) {
-                            break;
-                        }
-                    }
-                    events::Event::Mouse(mouse_event) => {
-                        self.app.handle_mouse(mouse_event);
-                    }
-                    events::Event::Resize(width, height) => {
-                        self.app.handle_resize(width, height);
-                    }
-                    events::Event::Tick => {
-                        // Just continue, handled by tick logic below
-                    }
-                }
-            }
-            
-            // Check for dashboard updates
-            if let Some(rx) = &mut self.update_rx {
-                while let Ok(Some(update)) = rx.try_recv().map_or(Ok::<Option<DashboardUpdate>, tokio::sync::mpsc::error::TryRecvError>(None), |u| Ok(Some(u))) {
-                    self.app.handle_update(update);
-                }
-            }
-            
-            // Tick for animations
-            if events.tick() {
-                self.app.tick();
-            }
-        }
-        
-        // Restore terminal
-        terminal::disable_raw_mode()?;
-        execute!(
-            terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture
-        )?;
-        terminal.show_cursor()?;
-        
-        Ok(())
-    }
+    Ok(())
 }
 
-// Re-export commonly used types
-pub use app::App;
-pub use events::Event;
-pub use config::ConfigError;
-pub use adapter::{McpAdapter, McpMetricsConfig};
-
-// Export the compatibility layer for data structure conversion
-pub mod compatibility {
-    use dashboard_core::data::{ProtocolData};
-    use crate::adapter::McpAdapter;
+/// Run the terminal UI dashboard.
+/// This is a simplified implementation that will be expanded later.
+pub async fn run_simplified(_dashboard_service: Arc<dyn DashboardService>, demo_mode: bool) -> Result<(), Box<dyn Error>> 
+{
+    println!("Starting terminal dashboard in simplified mode...");
     
-    /// Convert between new and old data formats
-    pub fn protocol_to_metrics(protocol: &ProtocolData) -> ProtocolData {
-        // Replace with simple return for now until we resolve the MetricsSnapshot issue
-        protocol.clone()
+    if demo_mode {
+        println!("Demo mode activated. Using mock adapter for dashboard metrics.");
+        
+        // Create and initialize mock adapter
+        let mock_adapter: Arc<dyn MonitoringToDashboardAdapter> = Arc::new(MockAdapter::new());
+        
+        // Display some basic information
+        println!("Getting connection status...");
+        match mock_adapter.get_connection_status().await {
+            Ok(status) => println!("Connection status: {:?}", status),
+            Err(err) => println!("Error getting connection status: {}", err),
+        }
+        
+        println!("Getting dashboard data...");
+        match mock_adapter.get_dashboard_data().await {
+            Ok(data) => println!("Dashboard data retrieved with timestamp: {}", data.timestamp),
+            Err(err) => println!("Error getting dashboard data: {}", err),
+        }
+        
+        // Display performance metrics if available
+        println!("Getting performance metrics...");
+        match mock_adapter.get_performance_metrics().await {
+            Ok(metrics) => println!("Performance metrics retrieved: CPU: {}%, Memory: {}MB", 
+                             metrics.cpu_usage.unwrap_or(0.0),
+                             metrics.memory_usage.unwrap_or(0.0)),
+            Err(err) => println!("Error getting performance metrics: {}", err),
+        }
+        
+        println!("\nPress Enter to exit...");
+        let mut buffer = String::new();
+        std::io::stdin().read_line(&mut buffer)?;
+    } else {
+        println!("Non-demo mode is currently not supported in simplified mode.");
+        println!("Please restart with --demo flag or use the web UI instead.");
+        std::thread::sleep(Duration::from_secs(5));
     }
     
-    /// Convert between old and new data formats
-    pub fn metrics_to_protocol(metrics: &ProtocolData) -> ProtocolData {
-        // Replace with simple return for now until we resolve the MetricsSnapshot issue
-        metrics.clone()
-    }
+    Ok(())
 } 

@@ -38,6 +38,17 @@
 use async_trait::async_trait;
 use crate::error::transport::TransportError;
 use crate::types::MCPMessage;
+use crate::error::{MCPError, Result};
+use crate::types::{
+    ProtocolVersion,
+    ProtocolState,
+    SecurityLevel,
+    CompressionFormat,
+    EncryptionFormat,
+    MessageMetadata,
+    MessageType,
+};
+use crate::security::{SecurityManager, SecurityConfig, Credentials};
 
 /// MCP Frame implementation for message framing over byte streams
 ///
@@ -246,13 +257,6 @@ pub trait Transport: Send + Sync {
     #[must_use]
     fn get_metadata(&self) -> TransportMetadata;
 }
-
-// Export Transport implementations
-pub use tcp::TcpTransport;
-pub use websocket::WebSocketTransport;
-pub use stdio::StdioTransport;
-pub use memory::MemoryTransport;
-pub use memory::MemoryChannel;
 
 #[cfg(test)]
 mod tests {

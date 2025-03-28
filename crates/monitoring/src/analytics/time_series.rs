@@ -251,33 +251,27 @@ impl TimeSeriesAnalyzer {
         Ok(result)
     }
     
-    /// Get data for a specific component and metric
+    /// Get data points for a component's metric in a time window
     pub async fn get_data(&self, component_id: &str, metric_name: &str, window: TimeWindow) 
         -> Result<Vec<DataPoint>, AnalyticsError> 
     {
-        // Convert the time window to timestamps
+        // Convert window to timestamps
         let (start, end) = window.to_timestamps();
         
-        // Check if the window is too large
+        // Check if time window is too large
         if end - start > self.config.max_time_window {
-            return Err(AnalyticsError::ConfigError(
-                format!("Time window too large: {} ms (max: {} ms)",
+            return Err(AnalyticsError::AnalysisError(format!(
+                "Time window ({} ms) exceeds maximum allowed ({} ms)", 
                     end - start, self.config.max_time_window)
             ));
         }
         
         // Get the data from storage
-        // In a real implementation, this would query the storage system
-        // For now, we'll return mock data
-        let mut data_points = Vec::new();
-        
         // Attempt to get data from storage
         let storage_result = self.storage.read().await.get_data_points(component_id, metric_name, start, end).await;
         
-        match storage_result {
-            Ok(points) => {
-                data_points = points;
-            },
+        let data_points = match storage_result {
+            Ok(points) => points,
             Err(e) => {
                 match e {
                     storage::StorageError::IoError(e) => return Err(AnalyticsError::IoError(e.to_string())),
@@ -286,7 +280,7 @@ impl TimeSeriesAnalyzer {
                     storage::StorageError::Other(e) => return Err(AnalyticsError::AnalysisError(e)),
                 }
             }
-        }
+        };
         
         // If there's too much data, downsample it
         let data = if data_points.len() > self.config.max_data_points {
@@ -438,6 +432,16 @@ impl TimeSeriesAnalyzer {
         }
         
         result
+    }
+
+    /// Calculate the forecast based on the time series data
+    fn calculate_forecast(&self, _days_ahead: u32) -> Result<Vec<DataPoint>, AnalyticsError> {
+        // This is just a placeholder as we're not implementing a full forecasting algorithm
+        // In a real implementation, this would use proper forecasting techniques
+        
+        Err(AnalyticsError::AnalysisError(
+            "Forecasting not implemented in this version".to_string()
+        ))
     }
 }
 

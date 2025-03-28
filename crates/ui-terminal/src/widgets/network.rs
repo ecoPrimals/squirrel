@@ -1,245 +1,136 @@
 use ratatui::{
-    buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Span, Text, Line},
-    widgets::{Block, Borders, Paragraph, Table, Row, Cell, Widget},
+    text::{Line, Span},
+    widgets::{Block, Borders, Cell, Row, Table, Paragraph},
+    Frame,
 };
 
-use crate::adapter::NetworkSnapshot;
-use crate::util;
+use dashboard_core::data::NetworkMetrics;
+use crate::util::{format_bytes, format_bytes_rate};
 
 /// Widget for displaying network metrics
 pub struct NetworkWidget<'a> {
-    /// Network metrics data
-    metrics: &'a NetworkSnapshot,
-    
+    /// Network metrics to display
+    metrics: &'a NetworkMetrics,
     /// Widget title
     title: &'a str,
-    
-    /// Whether to show detailed information
-    detailed: bool,
 }
 
 impl<'a> NetworkWidget<'a> {
     /// Create a new network widget
-    pub fn new(metrics: &'a NetworkSnapshot, title: &'a str) -> Self {
-        Self {
-            metrics,
-            title,
-            detailed: false,
-        }
+    pub fn new(metrics: &'a NetworkMetrics, title: &'a str) -> Self {
+        Self { metrics, title }
     }
     
-    /// Create a new detailed network widget
-    pub fn new_detailed(metrics: &'a NetworkSnapshot, title: &'a str) -> Self {
-        Self {
-            metrics,
-            title,
-            detailed: true,
-        }
-    }
-    
-    /// Set detailed mode
-    pub fn detailed(mut self, detailed: bool) -> Self {
-        self.detailed = detailed;
-        self
-    }
-}
-
-impl<'a> Widget for NetworkWidget<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    /// Render the widget
+    pub fn render(&self, f: &mut Frame, area: Rect) {
         // Create base block
         let block = Block::default()
             .borders(Borders::ALL)
             .title(self.title);
         
         // Render block
-        block.clone().render(area, buf);
+        f.render_widget(block.clone(), area);
         
         // Get inner area
         let inner_area = block.inner(area);
         
+        // Format network stats
+        let total_rx = format_bytes_rate(self.metrics.total_rx_bytes, "/s");
+        let total_tx = format_bytes_rate(self.metrics.total_tx_bytes, "/s");
+        
         // Create layout
-        let chunks = if self.detailed {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(5),  // Summary section
-                    Constraint::Min(0),     // Connections table
-                ])
-                .split(inner_area)
-        } else {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Min(0)])
-                .split(inner_area)
-        };
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Stats header
+                Constraint::Min(0),    // Interface list
+            ])
+            .split(inner_area);
         
-        // Render summary
-        render_network_summary(self.metrics, chunks[0], buf);
+        // Create stats header with RX/TX info
+        let rx_line = Line::from(vec![
+            Span::styled("Received: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(total_rx),
+            Span::raw(format!(" ({} packets/s)", self.metrics.total_rx_packets)),
+        ]);
         
-        // Render connections table if detailed
-        if self.detailed && chunks.len() > 1 {
-            render_connections_table(self.metrics, chunks[1], buf);
-        }
-    }
-}
-
-/// Render network summary
-fn render_network_summary(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffer) {
-    // Create content
-    let mut content = Vec::new();
-    
-    // Add bytes in/out
-    content.push(Line::from(vec![
-        Span::styled("Bytes In: ", Style::default().fg(Color::White)),
-        Span::styled(
-            util::format_bytes(metrics.rx_bytes),
-            Style::default().fg(Color::Blue),
-        ),
-        Span::raw("   "),
-        Span::styled("Bytes Out: ", Style::default().fg(Color::White)),
-        Span::styled(
-            util::format_bytes(metrics.tx_bytes),
-            Style::default().fg(Color::Green),
-        ),
-    ]));
-    
-    // Add connections
-    let active_connections = metrics.interfaces.len();
-    content.push(Line::from(vec![
-        Span::styled("Active Interfaces: ", Style::default().fg(Color::White)),
-        Span::styled(
-            active_connections.to_string(),
-            Style::default().fg(Color::Cyan),
-        ),
-    ]));
-    
-    // Add packets in/out
-    content.push(Line::from(vec![
-        Span::styled("Packets In: ", Style::default().fg(Color::White)),
-        Span::styled(
-            metrics.rx_packets.to_string(),
-            Style::default().fg(Color::Blue),
-        ),
-        Span::raw("   "),
-        Span::styled("Packets Out: ", Style::default().fg(Color::White)),
-        Span::styled(
-            metrics.tx_packets.to_string(),
-            Style::default().fg(Color::Green),
-        ),
-    ]));
-    
-    // Count errors (dummy value for now)
-    let errors = 0;
-    content.push(Line::from(vec![
-        Span::styled("Errors: ", Style::default().fg(Color::White)),
-        Span::styled(
-            errors.to_string(),
-            if errors > 0 {
-                Style::default().fg(Color::Red)
-            } else {
+        let tx_line = Line::from(vec![
+            Span::styled("Transmitted: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(total_tx),
+            Span::raw(format!(" ({} packets/s)", self.metrics.total_tx_packets)),
+        ]);
+        
+        let stats_paragraph = Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled(
+                    format!("Network Interfaces ({})", self.metrics.interfaces.len()),
+                    Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+                ),
+            ]),
+            rx_line,
+            tx_line,
+        ]);
+        
+        f.render_widget(stats_paragraph, chunks[0]);
+        
+        // Create interface list rows
+        let mut rows = Vec::new();
+        
+        // Add header row
+        let header = Row::new(vec![
+            Cell::from(Span::styled("Interface", Style::default().add_modifier(Modifier::BOLD))),
+            Cell::from(Span::styled("Status", Style::default().add_modifier(Modifier::BOLD))),
+            Cell::from(Span::styled("RX", Style::default().add_modifier(Modifier::BOLD))),
+            Cell::from(Span::styled("TX", Style::default().add_modifier(Modifier::BOLD))),
+            Cell::from(Span::styled("Errors", Style::default().add_modifier(Modifier::BOLD))),
+        ]);
+        
+        // Add interface rows
+        for interface in &self.metrics.interfaces {
+            let status_style = if interface.is_up {
                 Style::default().fg(Color::Green)
-            },
-        ),
-    ]));
-    
-    // Calculate packet loss rate (dummy value for now)
-    let packet_loss_rate = 0.0;
-    let loss_rate_color = if packet_loss_rate < 0.01 {
-        Color::Green
-    } else if packet_loss_rate < 0.05 {
-        Color::Yellow
-    } else {
-        Color::Red
-    };
-    
-    content.push(Line::from(vec![
-        Span::styled("Packet Loss: ", Style::default().fg(Color::White)),
-        Span::styled(
-            util::format_percentage(packet_loss_rate * 100.0),
-            Style::default().fg(loss_rate_color),
-        ),
-    ]));
-    
-    // Render paragraph
-    let paragraph = Paragraph::new(content)
-        .style(Style::default().fg(Color::White));
-    
-    paragraph.render(area, buf);
-}
-
-/// Render connections table
-fn render_connections_table(metrics: &NetworkSnapshot, area: Rect, buf: &mut Buffer) {
-    // Create table header block
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .title("Network Interfaces");
-    
-    // Render block
-    block.clone().render(area, buf);
-    
-    // Get inner area
-    let inner_area = block.inner(area);
-    
-    // Handle no connections
-    if metrics.interfaces.is_empty() {
-        let text = vec![Line::from(vec![
-            Span::styled("No active interfaces", Style::default().fg(Color::Yellow))
-        ])];
-        
-        let paragraph = Paragraph::new(text)
-            .style(Style::default().fg(Color::White));
-        
-        paragraph.render(inner_area, buf);
-        return;
-    }
-    
-    // Create table rows
-    let rows: Vec<Row> = metrics.interfaces
-        .iter()
-        .map(|(name, info)| {
-            // Determine connection status color
-            let status_color = if info.is_up {
-                Color::Green
             } else {
-                Color::Red
+                Style::default().fg(Color::Red)
             };
             
-            let cells = vec![
-                Cell::from(name.clone()).style(Style::default()),
-                Cell::from(format!("{}", util::format_bytes(info.rx_bytes))).style(Style::default()),
-                Cell::from(format!("{}", util::format_bytes(info.tx_bytes))).style(Style::default()),
-                Cell::from(format!("{}", info.rx_packets)).style(Style::default()),
-                Cell::from(format!("{}", if info.is_up { "Up" } else { "Down" }))
-                    .style(Style::default().fg(status_color)),
-            ];
-            
-            Row::new(cells)
-        })
-        .collect();
-    
-    // Create table
-    let table = Table::new(rows)
-        .header(
-            Row::new(vec![
-                Cell::from("Interface").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("RX Bytes").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("TX Bytes").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("RX Packets").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Cell::from("Status").style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            ])
+            rows.push(
+                Row::new(vec![
+                    Cell::from(interface.name.clone()),
+                    Cell::from(Span::styled(
+                        if interface.is_up { "UP" } else { "DOWN" },
+                        status_style,
+                    )),
+                    Cell::from(format_bytes(interface.rx_bytes)),
+                    Cell::from(format_bytes(interface.tx_bytes)),
+                    Cell::from(format!("Rx: {}, Tx: {}", interface.rx_errors, interface.tx_errors)),
+                ])
+            );
+        }
+        
+        // Create interface table with all rows
+        let rows_with_header = std::iter::once(header).chain(rows).collect::<Vec<_>>();
+        let table = Table::new(
+            rows_with_header,
+            [
+                Constraint::Percentage(20),
+                Constraint::Percentage(10),
+                Constraint::Percentage(25),
+                Constraint::Percentage(25),
+                Constraint::Percentage(20),
+            ]
         )
-        .widths(&[
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-        ])
-        .column_spacing(1);
-    
-    // Render table
-    table.render(inner_area, buf);
+            .block(Block::default().borders(Borders::ALL).title("Interface Details"))
+            .widths([
+                Constraint::Percentage(20),
+                Constraint::Percentage(10),
+                Constraint::Percentage(25),
+                Constraint::Percentage(25),
+                Constraint::Percentage(20),
+            ])
+            .column_spacing(1);
+        
+        f.render_widget(table, chunks[1]);
+    }
 } 

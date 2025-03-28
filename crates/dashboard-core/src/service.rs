@@ -9,7 +9,8 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
-use crate::data::{DashboardData, CpuMetrics, MemoryMetrics, NetworkMetrics, DiskMetrics, NetworkInterface};
+use crate::data::{DashboardData, CpuMetrics, MemoryMetrics, NetworkMetrics, 
+                 DiskMetrics, NetworkInterface};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -18,7 +19,7 @@ use crate::update::DashboardUpdate;
 /// This trait defines the core functionality of a dashboard service,
 /// which collects and provides dashboard data and handles updates.
 #[async_trait]
-pub trait DashboardService: Send + Sync {
+pub trait DashboardService: Send + Sync + std::fmt::Debug {
     /// Get the current dashboard data
     async fn get_dashboard_data(&self) -> Result<DashboardData>;
     
@@ -45,6 +46,7 @@ pub trait DashboardService: Send + Sync {
 }
 
 /// Default implementation of DashboardService
+#[derive(Debug)]
 pub struct DefaultDashboardService {
     /// Configuration
     config: Arc<RwLock<DashboardConfig>>,
@@ -59,6 +61,13 @@ pub struct DefaultDashboardService {
 }
 
 impl DefaultDashboardService {
+    /// Create a new DefaultDashboardService with default configuration
+    pub fn default() -> Arc<Self> {
+        let config = DashboardConfig::default();
+        let (service, _) = Self::new(config);
+        service
+    }
+
     /// Create a new dashboard service with the given configuration
     pub fn new(config: DashboardConfig) -> (Arc<Self>, mpsc::Receiver<DashboardUpdate>) {
         let (tx, rx) = mpsc::channel(100);
@@ -81,22 +90,24 @@ impl DefaultDashboardService {
                     swap_total: 0,
                 },
                 network: NetworkMetrics {
-                    rx_per_sec: 0.0,
-                    tx_per_sec: 0.0,
-                    rx_total: 0,
-                    tx_total: 0,
-                    interfaces: HashMap::new(),
+                    interfaces: Vec::new(),
+                    total_rx_bytes: 0,
+                    total_tx_bytes: 0,
+                    total_rx_packets: 0,
+                    total_tx_packets: 0,
                 },
                 disk: DiskMetrics {
-                    disks: HashMap::new(),
-                    io_per_sec: 0.0,
-                    read_per_sec: 0.0,
-                    write_per_sec: 0.0,
+                    usage: HashMap::new(),
+                    total_reads: 0,
+                    total_writes: 0,
+                    read_bytes: 0,
+                    written_bytes: 0,
                 },
                 history: crate::data::MetricsHistory::default(),
             },
             protocol: crate::data::ProtocolData::default(),
             alerts: Vec::new(),
+            timestamp: Utc::now(),
         };
         
         let service = Arc::new(Self {
@@ -125,50 +136,56 @@ impl DefaultDashboardService {
         data.metrics.memory.total = 16_000_000_000; // ~16GB
         
         // Use dummy disk data - assuming we have at least one disk
-        let root_disk = data.metrics.disk.disks.entry("root".to_string())
-            .or_insert_with(|| crate::data::DiskInfo {
+        let root_disk = data.metrics.disk.usage.entry("root".to_string())
+            .or_insert_with(|| crate::data::DiskUsage {
                 mount_point: "/".to_string(),
                 total: 1_000_000_000_000, // ~1TB
                 used: 500_000_000_000, // ~500GB
                 free: 500_000_000_000,
-                fs_type: "ext4".to_string(),
+                used_percentage: 50.0,
             });
         
         root_disk.used = 500_000_000_000; // ~500GB
         root_disk.total = 1_000_000_000_000; // ~1TB
+        root_disk.free = root_disk.total - root_disk.used;
+        root_disk.used_percentage = (root_disk.used as f64 / root_disk.total as f64) * 100.0;
         
         // Update network metrics with dummy data
         data.metrics.network.interfaces.clear();
-        data.metrics.network.rx_total = 1_500_000; // 1.5MB received
-        data.metrics.network.tx_total = 500_000; // 500KB sent
-        data.metrics.network.rx_per_sec = 1000.0;
-        data.metrics.network.tx_per_sec = 500.0;
+        data.metrics.network.total_rx_bytes = 1_500_000; // 1.5MB received
+        data.metrics.network.total_tx_bytes = 500_000; // 500KB sent
+        data.metrics.network.total_rx_packets = 10000;
+        data.metrics.network.total_tx_packets = 5000;
         
         // Add some dummy network interfaces
         let interface1 = NetworkInterface {
             name: "eth0".to_string(),
-            rx_per_sec: 800.0,
-            tx_per_sec: 400.0,
-            rx_total: 1_000_000, // 1MB
-            tx_total: 400_000, // 400KB
             is_up: true,
+            rx_bytes: 1_000_000, // 1MB
+            tx_bytes: 400_000, // 400KB
+            rx_packets: 8000,
+            tx_packets: 4000,
+            rx_errors: 0,
+            tx_errors: 0,
         };
         
         let interface2 = NetworkInterface {
             name: "wlan0".to_string(),
-            rx_per_sec: 200.0,
-            tx_per_sec: 100.0,
-            rx_total: 500_000, // 500KB
-            tx_total: 100_000, // 100KB
             is_up: true,
+            rx_bytes: 500_000, // 500KB
+            tx_bytes: 100_000, // 100KB
+            rx_packets: 2000,
+            tx_packets: 1000,
+            rx_errors: 0,
+            tx_errors: 0,
         };
         
-        data.metrics.network.interfaces.insert("eth0".to_string(), interface1);
-        data.metrics.network.interfaces.insert("wlan0".to_string(), interface2);
+        data.metrics.network.interfaces.push(interface1);
+        data.metrics.network.interfaces.push(interface2);
         
-        // Add timestamp to metrics history
+        // Add timestamp
         let timestamp = Utc::now();
-        data.metrics.history.timestamps.push(timestamp);
+        data.timestamp = timestamp;
         
         // Update metric history with dummy data
         let mut history = self.metric_history.write().await;
@@ -189,30 +206,57 @@ impl DefaultDashboardService {
         let network_rx_history = history.entry("network.rx_bytes".to_string())
             .or_insert_with(Vec::new);
             
-        network_rx_history.push((timestamp, data.metrics.network.rx_total as f64));
+        network_rx_history.push((timestamp, data.metrics.network.total_rx_bytes as f64));
         
         let network_tx_history = history.entry("network.tx_bytes".to_string())
             .or_insert_with(Vec::new);
             
-        network_tx_history.push((timestamp, data.metrics.network.tx_total as f64));
+        network_tx_history.push((timestamp, data.metrics.network.total_tx_bytes as f64));
+        
+        // Also update the metrics history in dashboard data
+        let cpu_usage = data.metrics.cpu.usage;
+        let mem_used = data.metrics.memory.used;
+        let rx_bytes = data.metrics.network.total_rx_bytes;
+        let tx_bytes = data.metrics.network.total_tx_bytes;
+        
+        data.metrics.history.cpu.push((timestamp, cpu_usage));
+        data.metrics.history.memory.push((timestamp, mem_used as f64));
+        data.metrics.history.network.push((timestamp, (rx_bytes, tx_bytes)));
         
         // Trim history if needed
         let config = self.config.read().await;
-        let max_history_points = config.max_history_points;
         
-        for (_, points) in history.iter_mut() {
-            if points.len() > max_history_points {
-                *points = points.drain(points.len() - max_history_points..).collect();
+        // Get the max history points
+        let max_points = config.max_history_points;
+        
+        // Trim metric_history
+        for (_, values) in history.iter_mut() {
+            if values.len() > max_points {
+                values.drain(0..values.len() - max_points);
             }
         }
         
-        // Create a clone for sending update
-        let data_clone = data.clone();
-        drop(data);
+        // Trim dashboard data history
+        let cpu_len = data.metrics.history.cpu.len();
+        if cpu_len > max_points {
+            data.metrics.history.cpu.drain(0..cpu_len - max_points);
+        }
         
-        // Send update to subscribers
-        if let Err(e) = self.update_sender.send(DashboardUpdate::FullUpdate(data_clone)).await {
-            return Err(DashboardError::Update(format!("Failed to send update: {}", e)));
+        let memory_len = data.metrics.history.memory.len();
+        if memory_len > max_points {
+            data.metrics.history.memory.drain(0..memory_len - max_points);
+        }
+        
+        let network_len = data.metrics.history.network.len();
+        if network_len > max_points {
+            data.metrics.history.network.drain(0..network_len - max_points);
+        }
+        
+        for (_, values) in data.metrics.history.custom.iter_mut() {
+            let values_len = values.len();
+            if values_len > max_points {
+                values.drain(0..values_len - max_points);
+            }
         }
         
         Ok(())

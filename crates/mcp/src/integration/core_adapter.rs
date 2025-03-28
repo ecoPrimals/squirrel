@@ -4,10 +4,12 @@ use serde_json::json;
 use crate::error::{MCPError, Result as MCPResult};
 use crate::types::{MCPMessage, MCPResponse, MessageType, MessageId, ProtocolVersion, SecurityMetadata, ResponseStatus, MessageMetadata};
 use crate::protocol::MCPProtocol;
-use tracing::{info, error, warn, instrument};
+use tracing::{info, error, warn, instrument, Instrument};
 use serde::{Serialize, Deserialize};
 use crate::logging::Logger;
 use crate::metrics::MetricsCollector;
+use uuid::Uuid;
+use chrono::Utc;
 
 /// State update information for the core system
 ///
@@ -80,7 +82,6 @@ impl Default for CoreState {
 ///
 /// Defines the interface for components that need to handle MCP messages,
 /// providing a uniform way to process incoming messages and generate responses.
-#[async_trait::async_trait]
 pub trait MessageHandler: Send + Sync {
     /// Handles an incoming MCP message and produces a response
     ///
@@ -91,7 +92,10 @@ pub trait MessageHandler: Send + Sync {
     /// # Returns
     ///
     /// A result containing the response message or an error
-    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse>;
+    fn handle_message<'a>(
+        &'a self, 
+        message: MCPMessage
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = MCPResult<MCPResponse>> + Send + 'a>>;
 }
 
 /// User representation for authentication and authorization
@@ -271,7 +275,7 @@ impl CoreMCPAdapter {
 
     /// Initialize the adapter by registering message handlers
     #[instrument(skip(self), name = "core_adapter_init")]
-    pub async fn initialize(&self) -> MCPResult<()> {
+    pub async fn initialize(&self) -> Result<()> {
         info!("Initializing Core-MCP adapter");
         
         // Note: In the real implementation, we would register handlers
@@ -284,7 +288,7 @@ impl CoreMCPAdapter {
 
     /// Send a state update notification
     #[instrument(skip(self, update), fields(update_type = %update.update_type))]
-    pub async fn notify_state_update(&self, update: StateUpdate) -> MCPResult<()> {
+    pub async fn notify_state_update(&self, update: StateUpdate) -> Result<()> {
         let message = MCPMessage {
             id: MessageId::new(),
             type_: MessageType::Event,
@@ -323,7 +327,7 @@ impl CoreMCPAdapter {
         operation_name: &str,
         params: serde_json::Value,
         user: Option<&User>,
-    ) -> MCPResult<serde_json::Value> {
+    ) -> Result<serde_json::Value> {
         // Check authorization if user is provided
         if let Some(user) = user {
             if let Err(e) = self.authorize_operation(user, operation_name).await {
@@ -351,7 +355,7 @@ impl CoreMCPAdapter {
         &self,
         operation: &str,
         params: serde_json::Value,
-    ) -> MCPResult<serde_json::Value> {
+    ) -> Result<serde_json::Value> {
         // Log operation attempt
         info!(operation = %operation, "Executing core operation");
         

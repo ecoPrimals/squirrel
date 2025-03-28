@@ -8,12 +8,15 @@ description = "Terminal UI implementation for the Squirrel monitoring dashboard"
 # Dashboard core
 dashboard-core = { path = "../dashboard-core" }
 
+# Squirrel monitoring
+squirrel-monitoring = { path = "../monitoring" }
+
 # TUI dependencies
-ratatui = "0.24.0"
+ratatui = { version = "0.25.0", features = ["all-widgets"] }
 crossterm = "0.27.0"
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.36", features = ["full"] }
 async-trait = "0.1"
 
 # Serialization
@@ -24,26 +27,39 @@ serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 
 # Command-line arguments
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5.1", features = ["derive"] }
 
 # System monitoring
 sysinfo = "0.29.10"
 
 # Utilities
 tui-input = "0.8.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # Random number generation
 rand = "0.8.5"
 
 # Configuration
-config = "0.13"
+config = "0.13.4"
 toml = "0.8"
-directories = "5.0"
+directories = "5.0.1"
 thiserror = "1.0"
+anyhow = "1.0"
 
 # Logging and error handling
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+
+# Additional dependencies
+tui-logger = { version = "0.10.0", default-features = false, features = ["crossterm"] }
+ctrlc = "3.4.1"
+log = "0.4.20"
+env_logger = "0.11.0"
+lazy_static = "1.4.0"
+home = "0.5.9"
+comfy-table = "7.1.0"
+strum = { version = "0.26", features = ["derive"] }
+strum_macros = "0.26"
 
 [dev-dependencies]
 tokio-test = "0.4"

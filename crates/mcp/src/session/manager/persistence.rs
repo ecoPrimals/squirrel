@@ -6,6 +6,8 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use tracing::{error, info, instrument};
 use thiserror::Error;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use sha2::Sha256;
 use sha2::Digest;
 use hex;
 
@@ -243,7 +245,7 @@ impl StatePersistence {
     /// Returns an error if serialization fails
     fn calculate_checksum(state: &State) -> Result<String, PersistenceError> {
         let json = serde_json::to_string(state)?;
-        let mut hasher = sha2::Sha256::new();
+        let mut hasher = Sha256::new();
         hasher.update(json.as_bytes());
         let result = hasher.finalize();
         Ok(hex::encode(result))

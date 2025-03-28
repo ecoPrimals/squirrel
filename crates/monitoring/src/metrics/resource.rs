@@ -14,17 +14,27 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use sysinfo::{System, SystemExt, CpuExt, NetworkExt, ProcessStatus, DiskExt, Process, ProcessExt, PidExt};
+use sysinfo::{
+    System, 
+    SystemExt, 
+    CpuExt, 
+    NetworkExt, 
+    ProcessStatus, 
+    DiskExt, 
+    Process, 
+    ProcessExt, 
+    PidExt,
+    NetworksExt,
+};
 use crate::metrics::performance::PerformanceCollectorAdapter;
 use chrono;
-use sysinfo::{NetworksExt};
 use crate::metrics::types::{
     CpuMetrics, DiskMetrics, MemoryMetrics, MetricsCollectorFactory,
     MetricsError, NetworkMetrics, ResourceMetricsCollector as ResourceMetricsCollectorTrait
 };
 
-// Define a type alias for 's' to fix compilation issues
-type s = System;
+// Define a type alias for 'S' to fix compilation issues
+type S = System;
 
 /// Information about a process
 #[derive(Debug, Clone, Serialize, Deserialize)]

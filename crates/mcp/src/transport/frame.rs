@@ -15,8 +15,10 @@
 // - FrameWriter: Writes frames to an AsyncWrite stream
 // - MessageCodec: Encodes and decodes MCPMessages to and from frames
 
-use bytes::{Buf, BufMut, BytesMut};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use bytes::{BytesMut, BufMut, Buf};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use serde::{Serialize, Deserialize};
+use crate::error::{MCPError, Result};
 use crate::types::MCPMessage;
 use crate::error::transport::TransportError;
 
@@ -403,8 +405,9 @@ impl MessageCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{MessageType, MessageId};
-    
+    use chrono::Utc;
+    use crate::types::{MessageType, ProtocolVersion, SecurityLevel, MessageMetadata};
+
     #[tokio::test]
     async fn test_frame_round_trip() {
         // Create a message

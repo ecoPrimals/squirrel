@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 
 use crate::error::types::SessionError;
 use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::security::SecurityManager;
+use crate::security::{Credentials, SecurityManager};
 use crate::persistence::{Persistence, SessionData};
 
 /// Session management module
