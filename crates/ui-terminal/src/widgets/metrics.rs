@@ -171,7 +171,14 @@ impl<'a> MetricsWidget<'a> {
         let header_and_rows = std::iter::once(header).chain(rows).collect::<Vec<_>>();
         
         // Create table
-        let table = Table::new(header_and_rows)
+        let table = Table::new(
+            header_and_rows,
+            [
+                Constraint::Percentage(40),
+                Constraint::Percentage(35),
+                Constraint::Percentage(25),
+            ]
+        )
             .block(Block::default()
                 .borders(Borders::ALL)
                 .title("Disk Usage"))
@@ -227,7 +234,13 @@ impl<'a> MetricsWidget<'a> {
         }
         
         // Create table
-        let table = Table::new(rows)
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
+            ]
+        )
             .block(Block::default().title("System Information"))
             .widths(&[
                 Constraint::Percentage(50),

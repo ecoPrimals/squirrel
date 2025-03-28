@@ -150,6 +150,7 @@ impl<'a> AlertsWidget<'a> {
     }
     
     /// Get severity style based on DashboardAlertSeverity
+    #[allow(dead_code)]
     fn get_dashboard_severity_style(&self, severity: DashboardAlertSeverity) -> Style {
         match severity {
             DashboardAlertSeverity::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),

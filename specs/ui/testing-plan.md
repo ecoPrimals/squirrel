@@ -237,6 +237,12 @@ fn generate_metrics_history(metrics: &[&str], points: usize) -> HashMap<String, 
 - Implement unit tests for `ProtocolWidget` tab navigation
 - Implement unit tests for `McpMetricsProvider` connection health
 - Implement unit tests for metrics rendering
+- Implement unit tests for `CompressedTimeSeries` functionality:
+  - Base point tracking
+  - Multiple resampling strategies 
+  - Statistics calculation
+  - Time range analysis
+  - Empty series handling
 
 ### Phase 2: Integration Tests (Planned)
 - Create test harness for dashboard integration
@@ -260,6 +266,132 @@ All tests will be integrated into the CI pipeline with the following requirement
 - **Unit Tests**: >90% coverage for UI components
 - **Integration Tests**: >85% coverage for end-to-end flows
 - **Performance Tests**: Cover all critical rendering paths
+
+## CompressedTimeSeries Tests
+
+### Basic Functionality Tests
+- **Base Point Tracking**
+  - Test correct base point setting on first point add
+  - Verify subsequent points are stored as deltas
+  - Test clear() method resets base point tracking
+  - Test proper handling of has_base_point field
+
+- **Point Addition and Retrieval**
+  - Test adding multiple points
+  - Verify correct order of retrieved points
+  - Test point retrieval after clearing
+
+- **Capacity Management**
+  - Test behavior when reaching max capacity
+  - Verify oldest points are removed first
+  - Test with different capacity settings
+
+### Resampling Strategy Tests
+- **EvenlySpaced Strategy**
+  - Test downsampling with various target sizes
+  - Verify points are distributed evenly
+  - Test edge cases (target size = 1, target size > points)
+
+- **LargestValues Strategy**
+  - Test retrieval of largest values
+  - Verify correct number of points returned
+  - Test with negative values and edge cases
+
+- **SignificantChanges Strategy**
+  - Test extraction of points with significant changes
+  - Verify threshold parameter works correctly
+  - Test with various threshold values
+
+### Statistics Tests
+- **Basic Statistics**
+  - Test min/max/avg calculation
+  - Verify correct point count
+  - Test with empty series
+
+- **Time Range Statistics**
+  - Test statistics within specified time ranges
+  - Verify proper handling of ranges outside data
+  - Test partial overlapping ranges
+
+### Time Range Analysis Tests
+- **Range Calculation**
+  - Test time_range() method
+  - Verify correct min/max timestamps
+  - Test with empty series
+
+### Edge Case Tests
+- **Empty Series**
+  - Test behavior with no points
+  - Verify all operations handle empty series gracefully
+  - Test adding points after clearing
+
+- **Negative Values**
+  - Test with negative value deltas
+  - Verify correct reconstruction of original values
+  - Test statistics with negative values
+
+- **Large Datasets**
+  - Test performance with large number of points
+  - Verify memory usage scales appropriately
+  - Test downsampling large datasets
+
+## Test Data Generation for CompressedTimeSeries
+
+```rust
+// Generate time series test data
+fn generate_time_series_data<T>(
+    count: usize,
+    start_time: DateTime<Utc>,
+    value_gen: impl Fn(usize) -> T
+) -> Vec<(DateTime<Utc>, T)>
+where
+    T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T> + Default
+{
+    let mut data = Vec::with_capacity(count);
+    
+    for i in 0..count {
+        let timestamp = start_time + chrono::Duration::seconds(i as i64 * 60);
+        let value = value_gen(i);
+        data.push((timestamp, value));
+    }
+    
+    data
+}
+
+// Test different resampling strategies
+fn test_resampling_strategies<T>(
+    data: &[(DateTime<Utc>, T)],
+    target_size: usize
+) -> HashMap<&'static str, Vec<(DateTime<Utc>, T)>>
+where
+    T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T> + Default + PartialOrd
+{
+    let mut series = CompressedTimeSeries::new(data.len());
+    
+    // Add all data points
+    for &(timestamp, value) in data {
+        series.add(timestamp, value);
+    }
+    
+    // Test different strategies
+    let mut results = HashMap::new();
+    
+    // Evenly spaced strategy (default)
+    results.insert("evenly_spaced", series.downsample(target_size));
+    
+    // Largest values strategy
+    let largest_strategy = ResampleStrategy::LargestValues;
+    results.insert("largest_values", series.downsample_with_strategy(target_size, largest_strategy));
+    
+    // Significant changes strategy with threshold
+    let significant_threshold = Default::default(); // Use appropriate threshold for type T
+    let significant_strategy = ResampleStrategy::SignificantChanges(significant_threshold);
+    results.insert("significant_changes", 
+                  series.downsample_with_strategy(target_size, significant_strategy));
+    
+    results
+}
+```
 
 ## Conclusion
 

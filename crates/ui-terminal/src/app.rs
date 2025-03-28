@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::io;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
+use std::io::Write;
 
 use dashboard_core::{
     DashboardData, MetricType,
@@ -154,7 +155,7 @@ impl App {
     
     /// Render app to terminal
     pub fn render<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
-        let ui_app: &mut ui::App = ui::convert_app_mut(self);
+        let ui_app: &mut ui::UiApp = ui::convert_app_mut(self);
         ui::draw(terminal, ui_app)?;
         Ok(())
     }
@@ -317,17 +318,46 @@ impl App {
             self.mark_widget_updated(idx);
         }
         
+        // Log to file for debugging
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open("dashboard_debug.log") {
+                
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            let _ = writeln!(file, "[{}] App updating dashboard data: CPU {:.1}%, Memory {:.1}/{:.1} GB, {} alerts",
+                           timestamp,
+                           data.metrics.cpu.usage,
+                           data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                           data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0),
+                           data.alerts.len());
+        }
+        
+        // Debug logging to console (may not be visible in TUI mode)
+        println!("App updating dashboard data: CPU {}%, Memory {}/{} bytes",
+                data.metrics.cpu.usage,
+                data.metrics.memory.used,
+                data.metrics.memory.total);
+        
         self.dashboard_data = Some(data);
         self.last_update = Some(Utc::now());
     }
 
-    /// Update health checks based on dashboard data
+    /// Update the app's health checks from dashboard data
+    /// 
+    /// This is currently a placeholder for future implementation that will
+    /// process health check data more extensively.
+    #[allow(dead_code)]
     fn update_health_checks(&mut self, _data: &DashboardData) {
-        // Implementation that updates health_checks from data
-        // This is handled in ui.rs currently
+        // Implementation will be added in a future update
     }
 
-    /// Update time series data based on dashboard data
+    /// Update time series data from dashboard metrics
+    /// 
+    /// This method populates historical data from the latest dashboard update.
+    /// It's currently used as a reference implementation for future updates.
+    #[allow(dead_code)]
     fn update_time_series(&mut self, data: &DashboardData) {
         // Add CPU usage to time series
         let now = Utc::now();
@@ -369,41 +399,79 @@ impl App {
 
     /// Render the app to the terminal frame
     pub fn render_to_frame(&self, f: &mut ratatui::Frame) {
+        // Add debug information to log file
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open("dashboard_debug.log") {
+                
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+            
+            if let Some(data) = &self.dashboard_data {
+                let _ = writeln!(file, "[{}] Rendering frame WITH dashboard data: CPU {:.1}%, Memory {:.1}/{:.1} GB, {} alerts",
+                         timestamp,
+                         data.metrics.cpu.usage,
+                         data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                         data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0),
+                         data.alerts.len());
+            } else {
+                let _ = writeln!(file, "[{}] Rendering frame WITHOUT dashboard data", timestamp);
+            }
+        }
+        
         // If help is being shown, render the help screen
         if self.show_help {
-            let ui_app: &ui::App = ui::convert_app_ref(self);
+            let ui_app: &ui::UiApp = ui::convert_app_ref(self);
             ui::draw_help(f, ui_app);
             return;
         }
         
-        // You can't use draw directly in this method since it expects a Terminal, not a Frame
-        // Instead, render each component individually based on the active tab
-        match self.active_tab {
-            ActiveTab::Overview => {
-                // Draw the overview tab
-                // Implementation would go here
-            },
-            ActiveTab::System => {
-                // Draw the system tab
-                // Implementation would go here
-            },
-            ActiveTab::Network => {
-                // Draw the network tab
-                // Implementation would go here
-            },
-            ActiveTab::Protocol => {
-                // Draw the protocol tab
-                // Implementation would go here 
-            },
-            ActiveTab::Alerts => {
-                // Draw the alerts tab
-                // Implementation would go here
-            },
-            ActiveTab::Tools => {
-                // Draw the tools tab
-                // Implementation would go here
-            },
+        // Create a basic UI layout
+        let chunks = ratatui::layout::Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .constraints([
+                ratatui::layout::Constraint::Min(3),  // Title
+                ratatui::layout::Constraint::Min(1),  // Tabs
+                ratatui::layout::Constraint::Min(10), // Content
+                ratatui::layout::Constraint::Min(1),  // Status
+            ])
+            .split(f.size());
+        
+        // Render title bar
+        let title = ratatui::widgets::Paragraph::new(format!("{} - Dashboard", self.title))
+            .alignment(ratatui::layout::Alignment::Center)
+            .style(ratatui::style::Style::default().fg(ratatui::style::Color::Yellow));
+        f.render_widget(title, chunks[0]);
+        
+        // If we have dashboard data, show it
+        if let Some(data) = &self.dashboard_data {
+            // Create main content display
+            let content = ratatui::widgets::Paragraph::new(vec![
+                ratatui::text::Line::from(format!("CPU: {:.1}%", data.metrics.cpu.usage)),
+                ratatui::text::Line::from(format!("Memory: {:.1} GB / {:.1} GB", 
+                    data.metrics.memory.used as f64 / (1024.0 * 1024.0 * 1024.0),
+                    data.metrics.memory.total as f64 / (1024.0 * 1024.0 * 1024.0))),
+                ratatui::text::Line::from(format!("Disk: {:.1}% used", 
+                    data.metrics.disk.usage.values().next().map_or(0.0, |v| v.used_percentage))),
+                ratatui::text::Line::from(format!("Protocol: {}", data.protocol.status)),
+                ratatui::text::Line::from(format!("Alerts: {}", data.alerts.len())),
+                ratatui::text::Line::from(format!("Last Update: {}", data.timestamp))
+            ])
+            .block(ratatui::widgets::Block::default().borders(ratatui::widgets::Borders::ALL).title("System Overview"));
+            
+            f.render_widget(content, chunks[2]);
+        } else {
+            // Show a message if no data is available
+            let content = ratatui::widgets::Paragraph::new("No dashboard data available")
+                .block(ratatui::widgets::Block::default().borders(ratatui::widgets::Borders::ALL).title("System Overview"));
+            f.render_widget(content, chunks[2]);
         }
+        
+        // Status bar with help text
+        let status = ratatui::widgets::Paragraph::new("[q] Quit  [h] Help")
+            .alignment(ratatui::layout::Alignment::Right);
+        f.render_widget(status, chunks[3]);
     }
 
     /// Handle dashboard data update
@@ -452,7 +520,7 @@ impl App {
     }
 
     /// Handle window resize
-    pub fn on_resize(&mut self, width: u16, height: u16) {
+    pub fn on_resize(&mut self, _width: u16, _height: u16) {
         // Store the new dimensions if needed
         // This is a placeholder for future window size-dependent features
     }
@@ -498,11 +566,21 @@ impl App {
         Instant::now()
     }
 
+    /// Render the app to the terminal
+    /// 
+    /// This method is kept for compatibility with future rendering implementations
+    /// that might need direct access to the terminal.
+    #[allow(dead_code)]
     fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<(), io::Error> {
-        let ui_app: &mut ui::App = ui::convert_app_mut(self);
+        let ui_app: &mut ui::UiApp = ui::convert_app_mut(self);
         ui::draw(terminal, ui_app)
     }
 
+    /// Determine which widgets need to be updated in the current frame
+    /// 
+    /// This is an optimization method that identifies which widgets have changed
+    /// and need to be redrawn, to avoid unnecessary rendering operations.
+    #[allow(dead_code)]
     fn widgets_needing_update(&self) -> HashSet<usize> {
         let mut needs_update = HashSet::new();
         

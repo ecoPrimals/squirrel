@@ -10,7 +10,7 @@ members = [
     "crates/rule-system",
     "crates/ui-web",
     "crates/dashboard-core",
-    "crates/ui-terminal", 
+    "crates/ui-terminal",
     "crates/adapter-tests", 
     "adapter-pattern-tests", 
     "adapter-pattern-examples",

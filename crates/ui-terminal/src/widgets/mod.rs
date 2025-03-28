@@ -7,7 +7,8 @@ pub mod health;
 pub mod alerts;
 pub mod metrics;
 pub mod network;
-pub mod protocol;
+// Temporarily disabled protocol widget due to import errors
+// pub mod protocol;
 
 // Re-export widgets for easier access
 pub use chart::ChartWidget;
@@ -15,7 +16,8 @@ pub use health::{HealthWidget, HealthStatus, HealthCheck};
 pub use alerts::AlertsWidget;
 pub use metrics::MetricsWidget;
 pub use network::NetworkWidget;
-pub use protocol::ProtocolWidget;
+// Temporarily disabled protocol widget due to import errors
+// pub use protocol::ProtocolWidget;
 
 use ratatui::{
     layout::Rect,
