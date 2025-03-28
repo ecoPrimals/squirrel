@@ -86,10 +86,31 @@ Tasks remaining:
 
 ## Implementation Plan
 
-### Week 1: Setup and Debug Traits
-- Disable all warnings temporarily
-- Implement Debug for core types (Phase 2, first half)
+### Week 1: Setup and Debug Traits (In Progress)
+- Disable all warnings temporarily (Completed)
+- Implement Debug for core types (Phase 2, first half) (In Progress)
 - Update the MCP_REFACTORING_SUMMARY.md file
+
+### Incremental Warning Fixes Approach
+Since running `cargo clippy --fix` or `cargo fix` on the entire codebase is not effectively applying all fixes due to the large number of warnings, we'll adopt a more incremental approach:
+
+1. **Fix warnings by category:**
+   - Start with simpler warnings like `uninlined_format_args` and `use_self`
+   - Move to unused imports and variables
+   - Address more complex issues like must_use attributes and documentation
+   
+2. **Fix warnings by module:**
+   - Target one module at a time (e.g., logging, metrics, server)
+   - Use targeted commands like `cargo fix --lib -p squirrel-mcp` on specific files
+   - Make manual edits for complex warnings that automated tools struggle with
+
+3. **Track and commit incrementally:**
+   - Fix a batch of related warnings
+   - Run tests to ensure no regressions
+   - Commit changes with descriptive messages
+   - Update progress in the tracking table
+
+This incremental approach will be more manageable and reduce the risk of conflicts or regressions.
 
 ### Week 2: Complete Debug Traits
 - Complete Debug implementations for all types
