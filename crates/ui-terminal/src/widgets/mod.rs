@@ -5,6 +5,8 @@ pub mod connection_health;
 pub mod health;
 pub mod metrics;
 pub mod network;
+pub mod protocol;
+pub mod system;
 
 // Optional: Define a common Widget trait if needed
 // use ratatui::{

@@ -1,4 +1,4 @@
-use dashboard_core::data::{Alert, Metrics, AlertSeverity};
+use dashboard_core::data::{Alert, Metrics, AlertSeverity, ProtocolData};
 use dashboard_core::service::DashboardService;
 use chrono::{DateTime, Utc};
 use std::collections::{HashMap, VecDeque};
@@ -36,10 +36,10 @@ impl Default for ActiveTab {
 pub struct AppState {
     // Data fetched from provider
     pub metrics: Option<Metrics>,
+    pub protocol_data: Option<ProtocolData>,
     pub connection_health: Option<ConnectionHealth>,
     pub connection_status: ConnectionStatus,
     pub alerts: Vec<Alert>,
-    pub protocol_metrics: HashMap<String, f64>,
     pub recent_errors: Vec<UiError>,
 
     // Internal UI State
@@ -62,10 +62,10 @@ impl Default for AppState {
      fn default() -> Self {
          Self {
              metrics: None,
+             protocol_data: None,
              connection_health: None,
              connection_status: ConnectionStatus::Unknown,
              alerts: Vec::new(),
-             protocol_metrics: HashMap::new(),
              recent_errors: Vec::new(),
              active_tab: ActiveTab::default(),
              show_help: false,
@@ -97,14 +97,39 @@ impl App {
         }
     }
 
+    /// Infers the CoreHealthStatus based on ProtocolData.
+    ///
+    /// Maps the `connected` status and the `status` string from `ProtocolData`
+    /// to a `CoreHealthStatus` enum variant (Ok, Warning, Critical, Unknown).
+    fn infer_connection_status(protocol: &ProtocolData) -> CoreHealthStatus {
+        if !protocol.connected {
+            return CoreHealthStatus::Critical; // Not connected is critical
+        }
+
+        let status_lower = protocol.status.to_lowercase();
+        if status_lower.is_empty() {
+            return CoreHealthStatus::Unknown; // Connected, but empty status is unknown
+        }
+
+        if status_lower.contains("ok") || status_lower.contains("connected") {
+            CoreHealthStatus::Ok
+        } else if status_lower.contains("warn") || status_lower.contains("degraded") {
+            CoreHealthStatus::Warning
+        } else if status_lower.contains("error") || status_lower.contains("failed") || status_lower.contains("critical") {
+            CoreHealthStatus::Critical // Explicitly map error states to Critical
+        } else {
+            CoreHealthStatus::Unknown // Connected, but status string is unrecognized
+        }
+    }
+
     /// Placeholder for handling key input events
     pub fn on_key(&mut self, key: KeyEvent) {
          match key.code {
              KeyCode::Char('q') => self.state.should_quit = true,
              KeyCode::Char('h') => self.state.show_help = !self.state.show_help,
              KeyCode::Char('1') => self.state.active_tab = ActiveTab::Overview,
-             KeyCode::Char('2') => self.state.active_tab = ActiveTab::System,
-             KeyCode::Char('3') => self.state.active_tab = ActiveTab::Network,
+             KeyCode::Char('2') => self.state.active_tab = ActiveTab::Network,
+             KeyCode::Char('3') => self.state.active_tab = ActiveTab::System,
              KeyCode::Char('4') => self.state.active_tab = ActiveTab::Protocol,
              KeyCode::Char('5') => self.state.active_tab = ActiveTab::Alerts,
              _ => {}
@@ -126,29 +151,20 @@ impl App {
             Ok(dashboard_data) => {
                 // --- Update Metrics --- 
                 let metrics = dashboard_data.metrics;
+                let protocol = dashboard_data.protocol;
                 self.state.metrics = Some(metrics.clone()); // Clone metrics if needed elsewhere
+
+                // --- Update Protocol Data --- 
+                self.state.protocol_data = Some(protocol.clone());
 
                 // --- Update Alerts --- 
                 self.state.alerts = dashboard_data.alerts;
 
                 // --- Update Connection Status (Infer from ProtocolData) ---
-                let status_str_lower = dashboard_data.protocol.status.to_lowercase();
-                self.state.connection_status = if dashboard_data.protocol.connected {
-                    if status_str_lower.contains("ok") || status_str_lower.contains("connected") || status_str_lower.is_empty() {
-                        CoreHealthStatus::Ok
-                    } else if status_str_lower.contains("warn") || status_str_lower.contains("degraded") {
-                        CoreHealthStatus::Warning
-                    } else {
-                        // Connected but status indicates an issue?
-                        CoreHealthStatus::Warning // Or Critical? Defaulting to Warning
-                    }
-                } else {
-                    // Not connected usually implies critical
-                    CoreHealthStatus::Critical
-                };
+                self.state.connection_status = Self::infer_connection_status(&protocol);
                 
                 // --- Update Connection Health String --- 
-                self.state.connection_health = Some(dashboard_data.protocol.status);
+                self.state.connection_health = Some(protocol.status);
 
                 // --- Update Time Series --- 
                 let cpu_usage = metrics.cpu.usage as f64;
@@ -170,7 +186,7 @@ impl App {
                 // --- End Time Series Update --- 
                 
                 // Check for protocol errors
-                if let Some(protocol_error) = dashboard_data.protocol.error {
+                if let Some(protocol_error) = protocol.error {
                      let err_msg = format!("Protocol error reported: {}", protocol_error);
                      warn!("{}", err_msg);
                      self.state.add_error(UiError::ProviderSpecificError(err_msg));
@@ -184,6 +200,7 @@ impl App {
 
                 // Reset state or set to error indicators
                 self.state.metrics = None;
+                self.state.protocol_data = None;
                 self.state.alerts.clear();
                 self.state.connection_status = CoreHealthStatus::Unknown; // Or Critical?
                 self.state.connection_health = None;

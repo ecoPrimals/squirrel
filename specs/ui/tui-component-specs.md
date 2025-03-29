@@ -1,37 +1,33 @@
-# TUI (ui-terminal) Component Specifications
+# TUI (ui-terminal) Component Specifications (Post-Rollback)
 
-This document provides detailed specifications for the core components of the `ui-terminal` rebuild, complementing the `tui-rebuild-plan.md`.
+This document provides detailed specifications for the core components of the `ui-terminal` **based on the current, simpler implementation**, complementing the `tui-rebuild-plan.md` and reflecting the post-rollback state.
 
-## 1. Main Application State (`app.rs::App`)
+## 1. Main Application State (`app.rs::AppState`)
 
-The `App` struct will hold the overall state of the TUI.
+The `AppState` struct holds the overall state of the TUI, primarily populated by data fetched via the `DashboardService`.
 
 ```rust
-// Tentative structure in app.rs
-use dashboard_core::adapter::McpMetricsProviderTrait;
-use dashboard_core::data::{DashboardData, McpMetrics, Alert}; // Add Alert
-use crate::adapter::{ConnectionHealth, ConnectionStatus}; // Assuming these are in the *new* crate::adapter or similar
+// Current structure in app.rs
+use dashboard_core::data::{Metrics, Alert}; // Using core data types
+use dashboard_core::health::{HealthStatus as CoreHealthStatus}; // Using core status enum
+use crate::error::Error as UiError;
 use chrono::{DateTime, Utc};
-use std::collections::{HashMap, VecDeque}; // Use VecDeque for history
-use std::sync::Arc;
-use tokio::sync::Mutex; // If provider is mutex-guarded
+use std::collections::VecDeque;
 
-pub enum ActiveTab {
-    Overview,
-    System,
-    Network,
-    Protocol,
-    Alerts,
-}
+// Placeholder types reflecting current app.rs usage
+// ConnectionHealth is currently just a String from DashboardData.protocol.status
+// ConnectionStatus is derived into CoreHealthStatus
+
+pub enum ActiveTab { /* ... */ }
 
 pub struct AppState {
-    // Data fetched from provider
-    pub metrics: Option<McpMetrics>,
-    pub connection_health: Option<ConnectionHealth>,
-    pub connection_status: ConnectionStatus, // Assume a default like Disconnected
+    // Data fetched from provider (via DashboardData)
+    pub metrics: Option<Metrics>,
+    pub connection_health: Option<String>, // Currently derived String
+    pub connection_status: CoreHealthStatus, // Derived from DashboardData.protocol
     pub alerts: Vec<Alert>,
-    pub protocol_metrics: HashMap<String, f64>, // Or appropriate type
-    pub recent_errors: Vec<String>, // Errors from the provider
+    // pub protocol_metrics: HashMap<String, f64>, // Not explicitly stored currently
+    pub recent_errors: Vec<UiError>,
 
     // Internal UI State
     pub active_tab: ActiveTab,
@@ -39,102 +35,129 @@ pub struct AppState {
     pub should_quit: bool,
     pub last_update: Option<DateTime<Utc>>,
 
-    // Time series data for charts (Map Metric Key -> History)
-    // Example key: "cpu_usage", "mem_usage", "net_rx_eth0", "net_tx_eth0"
-    pub time_series: HashMap<String, VecDeque<(f64, f64)>>, // (timestamp, value)
-    pub time_window_secs: u64, // Duration of history to keep/display
+    // Time series data for charts (Specific histories)
+    pub cpu_history: VecDeque<(DateTime<Utc>, f64)>, // (timestamp, value)
+    pub memory_history: VecDeque<(DateTime<Utc>, f64)>,
     pub max_history_points: usize, // Max data points per series
 }
 
 pub struct App {
     pub state: AppState,
-    // Keep the provider trait object
-    // Ensure the provider is Send + Sync if used across async tasks/threads
-    pub provider: Arc<dyn McpMetricsProviderTrait + Send + Sync>,
+    // Using the DashboardService trait
+    pub provider: Arc<dyn dashboard_core::service::DashboardService + Send + Sync + 'static>,
 }
 
 impl App {
-    // pub fn new(provider: Arc<dyn McpMetricsProviderTrait + Send + Sync>) -> Self { ... }
-    // pub async fn update(&mut self) { /* Fetch data from provider */ }
-    // pub fn on_key(&mut self, key: KeyEvent) { /* Handle input */ }
-    // pub fn on_tick(&mut self) { /* Update internal state like time series */ }
+    pub fn new(provider: Arc<dyn DashboardService + Send + Sync + 'static>) -> Self { /* ... */ }
+    pub async fn update(&mut self) { /* Fetch DashboardData from provider */ }
+    pub fn on_key(&mut self, key: KeyEvent) { /* Handle input */ }
+    pub fn on_tick(&mut self) { /* Currently empty */ }
+    pub fn get_health_checks(&self) -> Vec<crate::widgets::health::HealthCheck>; // Generates checks from state
 }
 ```
 
 ## 2. Widget Data Requirements (`widgets/*.rs`)
 
-Widgets should be designed to render based on immutable references to data derived from `AppState`.
+Widgets render based on data available in or derived from `AppState`.
 
-*   **`HealthWidget`:** Needs `&Vec<HealthCheck>` (or similar derived structure from `AppState.connection_health`, `AppState.metrics`, etc.). We'll need to define `HealthCheck` or reuse/adapt the old one.
-*   **`MetricsWidget`:** Needs `Option<&McpMetrics>`. Displays CPU %, Mem %, basic counts.
-*   **`AlertsWidget`:** Needs `&[Alert]`. Displays recent alerts.
-*   **`NetworkWidget`:** Needs `Option<&NetworkMetrics>` (likely nested within `McpMetrics`). Displays interface list, IPs, status, basic RX/TX totals.
-*   **`ChartWidget`:** Needs `&VecDeque<(f64, f64)>` for data points, title, potentially axis bounds/labels. Should be generic enough for CPU, Mem, Network IO.
-*   **`ConnectionHealthWidget`:** Needs `Option<&ConnectionHealth>` and `&ConnectionStatus`. Displays status, latency, etc.
+*   **`HealthWidget` (`health.rs`):**
+    *   Input: `&[HealthCheck]` (Generated by `app.get_health_checks()`).
+    *   Renders: List of health checks with status and messages.
+    *   Status: **Implemented**. Needs unit tests.
+*   **`MetricsWidget` (`metrics.rs`):**
+    *   Input: `&AppState` (accesses `app.state.metrics`).
+    *   Renders: Basic CPU %, Mem %, Disk usage.
+    *   Status: **Implemented**. Needs unit tests.
+*   **`ChartWidget` (`chart.rs`):**
+    *   Input: `&VecDeque<(DateTime<Utc>, f64)>` for data points, `&str` for title.
+    *   Renders: Simple line chart for time-series data.
+    *   Status: **Implemented** (used for CPU and Memory). Needs unit tests and potential enhancements.
+*   **`AlertsWidget` (`alerts.rs`):**
+    *   Input: `&[Alert]` (from `app.state.alerts`).
+    *   Renders: List of recent alerts.
+    *   Status: **Placeholder**. Needs implementation and unit tests.
+*   **`NetworkWidget` (`network.rs`):**
+    *   Input: `Option<&NetworkMetrics>` (from `app.state.metrics.network`).
+    *   Renders: Network interface data (IPs, RX/TX totals/rates).
+    *   Status: **Placeholder**. Needs implementation and unit tests.
+*   **`ProtocolWidget` (New file `widgets/protocol.rs`):**
+    *   Input: Derived data from `DashboardData.protocol` (e.g., status string, basic metrics if available).
+    *   Renders: Basic protocol information.
+    *   Status: **Missing**. Needs implementation and unit tests.
+*   **`ConnectionHealthWidget` (`connection_health.rs`):**
+    *   Input: Currently only `app.state.connection_status` (CoreHealthStatus) and `app.state.connection_health` (String) are available.
+    *   Renders: Basic connection status indication.
+    *   Status: **Placeholder**. The advanced widget described previously is **not implemented**. Needs implementation based on *available* data, or marked for future work pending advanced MCP integration.
 
-## 3. Error Handling
+## 3. Error Handling (`error.rs`, `app.rs`)
 
-*   Errors from the `McpMetricsProviderTrait` during the update cycle should be:
-    *   Logged using the `log` crate.
-    *   Stored in `AppState.recent_errors`.
-    *   Potentially displayed in a dedicated status area (e.g., footer or a specific widget).
-*   UI rendering errors (`ratatui` errors) should ideally be logged, and the application might need to attempt recovery or exit gracefully. Panics should be avoided.
-*   Define a specific `Error` enum in `error.rs` for UI-specific failures.
+*   Errors from the `DashboardService` during the `app.update()` call are:
+    *   Logged using the `log` crate (`error!`).
+    *   Stored in `AppState.recent_errors` (as `UiError::DataProvider`).
+    *   UI state is partially reset (metrics cleared, status set to Unknown).
+*   UI rendering errors (`ratatui` errors) bubble up from `run_ui`.
+*   `UiError` enum defined in `error.rs` handles DataProvider errors and potentially others.
 
-## 4. Data Fetching Loop (`app.rs` or main loop in `lib.rs`)
+## 4. Data Fetching Loop (`app.rs`)
 
-*   An async task/loop should run periodically (e.g., every 1-2 seconds).
-*   Inside the loop:
-    1.  Call `provider.get_metrics()`.
-    2.  Call `provider.get_connection_health()`.
-    3.  Call `provider.get_connection_status()`.
-    4.  Call `provider.get_recent_errors()`.
-    5.  (Optional) Call `provider.get_protocol_metrics()`.
-    6.  Update the fields in `AppState` with the results. Handle potential errors from the provider calls.
-    7.  Update `AppState.last_update`.
-    8.  Trigger a UI redraw if necessary.
+*   The `app.update()` async method is called periodically based on `update_rate` in `lib.rs`.
+*   Inside `app.update()`:
+    1.  Call `provider.get_dashboard_data().await`.
+    2.  If Ok, update `AppState` fields (`metrics`, `alerts`, derive `connection_status` and `connection_health`, update `cpu_history`, `memory_history`).
+    3.  If Err, log the error, store it in `recent_errors`, and reset relevant parts of `AppState`.
+    4.  Update `AppState.last_update`.
 
 ## 5. Main Entry Point (`lib.rs`)
 
-*   Define a public async function to start the UI.
-*   It should take the `McpMetricsProviderTrait` as an argument.
-*   It needs to initialize the terminal, create the `App` instance, run the main event loop (handling input and ticks), and restore the terminal on exit.
+*   The public `run_ui` async function initializes and runs the TUI.
+*   It takes the `Terminal`, `DashboardService` trait object, `tick_rate`, and `update_rate`.
+*   Initializes terminal raw mode and alternate screen.
+*   Creates the `App` instance.
+*   Creates an `EventHandler`.
+*   Runs the main loop:
+    *   Draws the UI using `ui::render`.
+    *   Handles events (Tick, Key) via `app.on_tick()` and `app.on_key()`.
+    *   Calls `app.update().await` based on `update_rate`.
+    *   Checks `app.state.should_quit`.
+*   Restores the terminal on exit.
+*   Returns `Result<()>` using the crate's `Error` type.
 
 ```rust
-// Tentative structure in lib.rs
-use dashboard_core::adapter::McpMetricsProviderTrait;
+// Current structure in lib.rs
+use dashboard_core::service::DashboardService;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::{app::App, event::EventHandler, ui}; // Assuming these modules exist
+use crate::{app::App, event::{EventHandler, Event}, ui, error::Result};
 use ratatui::backend::Backend;
 use ratatui::Terminal;
 
-// Define a Result type for the run function
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 pub async fn run_ui<B: Backend>(
-    
     terminal: &mut Terminal<B>,
-    provider: Arc<dyn McpMetricsProviderTrait + Send + Sync>,
-    tick_rate: Duration,      // e.g., Duration::from_millis(250)
-    update_rate: Duration,    // e.g., Duration::from_secs(1)
+    provider: Arc<dyn DashboardService + Send + Sync + 'static>,
+    tick_rate: Duration,
+    update_rate: Duration,
 ) -> Result<()> {
-    // 1. Setup logging, terminal raw mode, alternate screen
+    // Setup terminal...
+    let mut app = App::new(provider.clone());
+    let mut event_handler = EventHandler::new(tick_rate);
+    let mut last_update_time = std::time::Instant::now();
 
-    // 2. Create App instance
-    let app = App::new(provider);
-
-    // 3. Create EventHandler (handles input and ticks)
-    // let event_handler = EventHandler::new(tick_rate);
-
-    // 4. Run main loop
-    // loop {
-        // handle events (input, tick) -> update app state
-        // draw ui
-        // check app.state.should_quit
-    // }
-
-    // 5. Restore terminal
+    loop {
+        // Render...
+        // Handle events...
+        match event_handler.next()? {
+            Event::Tick => app.on_tick(),
+            Event::Key(key) => app.on_key(key),
+            // ... other events ignored ...
+        }
+        // Trigger update...
+        if last_update_time.elapsed() >= update_rate {
+            app.update().await;
+            last_update_time = std::time::Instant::now();
+        }
+        // Check quit...
+    }
+    // Restore terminal...
     Ok(())
 }
 ``` 

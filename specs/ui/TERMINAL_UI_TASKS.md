@@ -1,205 +1,138 @@
-# Terminal UI Implementation Task Checklist
+# Terminal UI Implementation Task Checklist (Phased Approach)
 
 ## Overview
-This document provides a detailed checklist of remaining tasks for the Terminal UI implementation using Ratatui 0.24.0 and the modernized dashboard-core data structures.
+This document provides a detailed checklist of **current and upcoming tasks** for the Terminal UI implementation, reflecting the state **after a significant rollback** and organized according to the phased development plan outlined in `IMPLEMENTATION_PROGRESS.md`.
 
-## High Priority Tasks
+It uses Ratatui 0.24.0+ and integrates with `dashboard-core` data structures.
 
-### Widget Updates
-
-- [x] **NetworkWidget**
-  - [x] Update to use total_rx_bytes and total_tx_bytes
-  - [x] Fix interface table rendering
-  - [x] Update stats formatting
-  
-- [x] **MetricsWidget**
-  - [x] Update disk usage rendering to use disk.usage
-  - [x] Update network metrics rendering
-  - [x] Fix other_metrics rendering
-  
-- [x] **AlertWidget**
-  - [x] Update to use AlertSeverity enum
-  - [x] Handle alert acknowledgment properly
-  - [x] Fix rendering with updated alert data structure
-  
-- [x] **HealthWidget**
-  - [x] Update to use direct HealthStatus field access
-  - [x] Add conversion from dashboard_core types
-  - [x] Fix health check rendering
-  
-- [x] **ProtocolWidget**
-  - [x] Update protocol status handling
-  - [x] Fix table rendering with new data models
-  
-- [x] **ChartWidget**
-  - [x] Fix time-series data visualization
-  - [x] Update to work with new MetricsHistory structure
-
-### Adapter Implementation
-
-- [x] **MonitoringToDashboardAdapter**
-  - [x] Fix MetricsHistory naming conflict (renamed to LocalMetricsHistory)
-  - [x] Update metrics snapshot handling 
-  - [x] Fix primary type conversion issues
-
-- [x] **McpAdapter**
-  - [x] Complete integration with MetricsSnapshot
-  - [x] Fix method access on MutexGuard<dyn McpClient>
-  - [x] Implement proper error handling
-  - [x] Add retry mechanism for transient failures
-
-### App Implementation
-
-- [x] **Main App**
-  - [x] Fix run_app method to use correct parameters
-  - [x] Update draw function to handle new rendering
-  
-- [x] **Event Handling**
-  - [x] Fix handle_event method to work with key events
-  - [x] Update handle_mouse method to handle clicks correctly
-  
-- [x] **State Management**
-  - [x] Fix update methods to use correct field access
-  - [x] Update tab navigation to work with new state
-
-### Code Quality
-
-- [x] **Warnings Cleanup**
-  - [x] Fix critical unused imports (DashboardService, Rng)
-  - [x] Fix unused variables in adapter.rs (disk_used, disk_total)
-  - [x] Fix unused variables in ui.rs (terminal)
-  - [x] Fix unused variables in app.rs (width, height)
-  - [x] Fix unused parameters in health.rs (title)
-  
-- [ ] **Remaining Warnings**
-  - [ ] Evaluate and fix or suppress remaining 10 warnings
-  - [ ] Document why certain unused methods and fields are kept
-
-## Medium Priority Tasks
-
-### Testing
-
-- [x] Update integration tests to use new dashboard-core data structures
-- [x] Add unit tests for ChartWidget
-- [x] Add unit tests for AlertsWidget
-- [x] Add unit tests for ProtocolWidget
-- [ ] Add unit tests for NetworkWidget
-- [ ] Add unit tests for MetricsWidget
-- [ ] Add unit tests for HealthWidget
-- [ ] Add end-to-end tests for the UI flow
-- [ ] Add performance tests for large data sets
-
-### Documentation
-
-- [ ] **Code Comments**
-  - [ ] Add documentation for widgets
-  - [ ] Document adapter interfaces
-  - [ ] Update app documentation
-  
-- [x] **Implementation Docs**
-  - [x] Update TERMINAL_UI_PROGRESS.md
-  - [x] Update TERMINAL_UI_TASKS.md
-  - [x] Create new spec for MCP integration phase 2
-  - [x] Create new spec for performance optimization
-
-### Performance Optimization
-
-- [x] **Memory Optimization**
-  - [x] Implement CompressedTimeSeries for efficient memory usage
-    - Enhanced with proper base point tracking and fixed critical overwrite issues
-    - Added multiple resampling strategies (EvenlySpaced, LargestValues, SignificantChanges)
-    - Implemented statistics calculation functionality (min, max, avg)
-    - Improved time range analysis and empty series handling
-  - [x] Add support for point filtering by time range
-  - [x] Add downsampling for large datasets
-  - [ ] Implement memory monitoring and optimization
-
-- [x] **Rendering Optimization**
-  - [x] Implement CachedWidget for frame caching
-  - [x] Add selective rendering to only update changed widgets
-  - [x] Add support for periodic full refreshes
-  - [ ] Implement viewport clipping for off-screen content
-
-- [ ] **CPU Usage Optimization**
-  - [ ] Add adaptive polling for data updates
-  - [ ] Implement throttling for high-frequency metrics
-  - [ ] Add resource monitoring for CPU usage
-  - [ ] Optimize rendering pipeline for large datasets
-
-## Next Phase Tasks
-
-Based on the newly created specification documents, the following tasks have been identified for the next phase of development:
-
-### MCP Integration Phase 2
-- [x] Implement enhanced protocol metrics collection in `McpAdapter`
-- [x] Create message sampling and storage mechanism
-- [x] Develop connection diagnostics and error tracking
-- [x] Update Protocol widget with detailed metrics visualization
-- [x] Add connection manager interface
-- [ ] Create error console for protocol issues
-- [ ] Implement performance monitoring for protocol operations
-
-### Performance Optimization
-- [x] Add selective rendering to reduce unnecessary redraws
-- [x] Implement frame caching for static widgets
-- [ ] Add viewport clipping to only render visible elements
-- [x] Create compressed time-series data structure
-- [x] Implement downsampling for historical data
-- [ ] Add object pooling for frequently created objects
-- [ ] Implement incremental update mechanism
-- [ ] Add update throttling for high-frequency metrics
-- [ ] Implement adaptive resolution for charts
-
-### Test Coverage Improvement
-- [ ] Create test utilities and helper functions
-- [ ] Implement mock dashboard service
-- [ ] Create test terminal implementation
-- [ ] Add widget rendering tests
-- [ ] Implement app state management tests
-- [ ] Add adapter transformation tests
-- [ ] Create integration tests for widget interactions
-- [ ] Implement performance benchmark tests
-- [ ] Set up CI/CD pipeline for automated testing
-- [ ] Create test coverage reporting dashboard
-
-### Documentation
-- [ ] Update architecture documentation to reflect optimizations
-- [ ] Create test pattern documentation
-- [ ] Add developer guides for using test fixtures
-- [ ] Document performance best practices
-
-## Low Priority Tasks
-
-### Accessibility
-
-- [ ] **Screen Reader Support**
-  - [ ] Add text descriptions for charts
-  - [ ] Implement keyboard navigation for all elements
-  - [ ] Add high-contrast mode
-
-### Localization 
-
-- [ ] **Internationalization**
-  - [ ] Extract UI strings
-  - [ ] Add localization infrastructure
-  - [ ] Support multiple languages
-
-## Implementation Strategy
-
-1. ✅ Fix critical compilation errors first (COMPLETED)
-2. ✅ Address primary warnings that affect development (COMPLETED)
-3. Complete comprehensive tests for all widgets
-4. Implement performance optimizations
-5. Enhance MCP integration
-6. Add advanced UI features
-
-## Archival Candidates
-
-The following specs can be considered for archiving as they've been fully implemented:
-- ratatui-upgrade-guide.md
-- protocol-widget-upgrade-example.md
-- ratatui-implementation-strategy.md
+## Current State Summary
+- **Implemented**: Basic Ratatui app structure, Overview tab, Health widget, Metrics widget, Chart widget (CPU/Mem).
+- **Placeholders**: Network tab/widget, Alerts tab/widget.
+- **Missing**: System tab, Protocol tab/widget, advanced MCP integration, performance optimizations.
 
 ---
 
-*Last updated: August 28, 2024* 
+## Phase 1: Core Functionality & Stabilization (Current Focus)
+**Goal:** Implement all basic tabs and widgets, establish foundational testing.
+
+### Core Widgets & Tabs
+- [ ] **Network Widget Implementation** (`widgets/network.rs`)
+  - [ ] Fetch and display network interface data (rx/tx bytes, rates) from `DashboardData`.
+  - [ ] Implement rendering logic (e.g., table format).
+- [ ] **Alerts Widget Implementation** (`widgets/alerts.rs`)
+  - [ ] Fetch and display alerts from `DashboardData`.
+  - [ ] Implement rendering logic (e.g., list format, severity colors).
+- [ ] **Protocol Widget Implementation** (New file `widgets/protocol.rs`)
+  - [ ] Fetch and display basic protocol status/metrics from `DashboardData`.
+  - [ ] Implement rendering logic.
+- [ ] **System Tab & Widgets** (`ui.rs`, new widgets)
+  - [ ] Define required widgets (e.g., process list, system info).
+  - [ ] Implement widgets and tab rendering.
+- [ ] **Tab Implementation** (`ui.rs`)
+  - [ ] Implement `render_network_tab` using `NetworkWidget`.
+  - [ ] Implement `render_alerts_tab` using `AlertsWidget`.
+  - [ ] Implement `render_protocol_tab` using `ProtocolWidget`.
+  - [ ] Implement `render_system_tab` using new system widgets.
+- [ ] **Refine Connection Status** (`app.rs`)
+  - [ ] Improve logic for inferring `AppState.connection_status` from `DashboardData.protocol`.
+
+### Foundational Testing
+- [ ] **Health Widget Tests** (`widgets/health.rs`)
+  - [ ] Add unit tests for `HealthCheck` logic and rendering.
+- [ ] **Metrics Widget Tests** (`widgets/metrics.rs`)
+  - [ ] Add unit tests for metrics display and formatting.
+- [ ] **Chart Widget Tests** (`widgets/chart.rs`)
+  - [ ] Add unit tests for chart rendering with different data scenarios.
+- [ ] **Network Widget Tests** (`widgets/network.rs`)
+  - [ ] Add unit tests once widget is implemented.
+- [ ] **Alerts Widget Tests** (`widgets/alerts.rs`)
+  - [ ] Add unit tests once widget is implemented.
+- [ ] **Protocol Widget Tests** (`widgets/protocol.rs`)
+  - [ ] Add unit tests once widget is implemented.
+- [ ] **System Widget Tests** (New widget files)
+  - [ ] Add unit tests once widgets are implemented.
+- [ ] **App State Tests** (`app.rs`)
+  - [ ] Add unit tests for state updates and health check generation.
+- [ ] **Basic End-to-End Tests**
+  - [ ] Implement basic app flow tests (startup, tab switching, data update).
+
+### Basic Code Quality & Docs
+- [ ] **Warnings Cleanup (Critical)**
+  - [ ] Evaluate and fix or suppress critical compiler warnings.
+- [ ] **Code Comments (Essential)**
+  - [ ] Add documentation for essential core logic in `app.rs` and `ui.rs`.
+  - [ ] Add basic documentation for new Phase 1 widgets.
+- [ ] **Error Handling (Basic)**
+  - [ ] Review and refine error handling in `app.rs` update logic.
+  - [ ] Add more specific error types in `error.rs` if needed for Phase 1 features.
+
+---
+
+## Phase 2: Enhancements & Refinement
+**Goal:** Improve usability, code quality, and test coverage of the core features.
+
+### Feature Refinement
+- [ ] **Chart Widget Enhancements** (`widgets/chart.rs`)
+  - [ ] Improve axis scaling and labeling.
+  - [ ] Add dynamic time window adjustment (if desired).
+- [ ] **Layout & Display Refinement** (`ui.rs`, `widgets/*.rs`)
+  - [ ] Review and improve layout consistency across tabs.
+  - [ ] Enhance data display clarity and formatting.
+- [ ] **User Input Handling** (`app.rs`, `event.rs`)
+  - [ ] Review and refine keybinding logic.
+  - [ ] Consider adding basic help screen (`?` key toggle).
+
+### Comprehensive Code Quality & Docs
+- [ ] **Warnings Cleanup (All)**
+  - [ ] Address all remaining compiler warnings.
+  - [ ] Document reasons for any intentionally unused code/variables.
+- [ ] **Code Comments & Docs (`rustdoc`)**
+  - [ ] Add comprehensive `rustdoc` for all public functions, structs, and modules.
+  - [ ] Improve inline comments for complex logic.
+- [ ] **Error Handling (Robustness)**
+  - [ ] Enhance error reporting in the UI (e.g., status bar messages).
+  - [ ] Ensure graceful handling of unexpected data provider errors.
+
+### Testing Expansion
+- [ ] **Unit Test Coverage**
+  - [ ] Increase coverage for existing and Phase 1 components.
+  - [ ] Add tests for edge cases and error conditions.
+- [ ] **End-to-End Test Expansion**
+  - [ ] Cover more user interactions (e.g., specific keybindings).
+  - [ ] Test UI behavior with various `DashboardData` scenarios (e.g., empty data, errors).
+- [ ] **Mocking Implementation**
+  - [ ] Implement a basic mock `DashboardService` for more controlled testing.
+
+---
+
+## Phase 3+: Future Considerations (Optimization, Advanced MCP, Polish)
+**Goal:** Re-introduce performance optimizations, implement deeper MCP integration, and add advanced features.
+
+### Performance Optimization (Phase 3)
+- [ ] **Profiling**
+  - [ ] Profile Phase 1/2 application under load to identify bottlenecks.
+- [ ] **Memory Optimization**
+  - [ ] Re-evaluate `CompressedTimeSeries` or similar structures for history.
+  - [ ] Investigate memory usage for large datasets.
+- [ ] **Rendering Optimization**
+  - [ ] Investigate `CachedWidget` or selective rendering.
+  - [ ] Investigate viewport clipping.
+- [ ] **CPU Usage Optimization**
+  - [ ] Investigate adaptive polling/throttling.
+
+### Advanced MCP Integration (Phase 4)
+- [ ] Implement detailed `ConnectionHealth` struct and monitoring.
+- [ ] Implement `ConnectionHealthWidget`.
+- [ ] Implement UI-initiated reconnection logic (if needed).
+- [ ] Implement MCP error console / advanced views.
+- [ ] Investigate direct MCP client interaction (if needed).
+
+### Advanced Features & Polish (Phase 5)
+- [ ] Theming and Customization.
+- [ ] User Preferences Persistence.
+- [ ] Advanced Filtering/Sorting.
+- [ ] Accessibility Improvements (Screen reader, etc.).
+- [ ] Advanced Testing (Benchmarks, CI/CD Integration).
+- [ ] Documentation (Architecture, Developer Guides).
+
+--- 

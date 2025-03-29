@@ -46,22 +46,17 @@ fn render_title_bar<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
     // TODO: Add status indicators (connection, errors) to the title bar?
 }
 
-fn render_content<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_content<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     match app.state.active_tab {
         ActiveTab::Overview => render_overview_tab::<B>(app, frame, area),
-        // ActiveTab::System => { /* render system tab */ }
-        // ActiveTab::Network => { /* render network tab */ }
-        // ActiveTab::Protocol => { /* render protocol tab */ }
-        // ActiveTab::Alerts => { /* render alerts tab */ }
-        _ => { // Default for unimplemented tabs
-            let placeholder = Paragraph::new("Tab content not yet implemented.")
-                .block(Block::default().borders(Borders::ALL).title("Placeholder"));
-            frame.render_widget(placeholder, area);
-        }
+        ActiveTab::Network => render_network_tab::<B>(app, frame, area),
+        ActiveTab::Alerts => render_alerts_tab::<B>(app, frame, area),
+        ActiveTab::Protocol => render_protocol_tab::<B>(app, frame, area),
+        ActiveTab::System => render_system_tab::<B>(app, frame, area),
     }
 }
 
-fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     // Example layout for Overview tab (e.g., 2x2 grid)
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -107,7 +102,23 @@ fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect)
     // e.g., widgets::chart::render(frame, app, right_chunks[0], "CPU Usage");
 }
 
-fn render_footer<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_network_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+    widgets::network::render_network_widget::<B>(frame, app, area);
+}
+
+fn render_alerts_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+    widgets::alerts::render_alerts_widget::<B>(frame, app, area);
+}
+
+fn render_protocol_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+    widgets::protocol::render_protocol_widget::<B>(frame, app, area);
+}
+
+fn render_system_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+    widgets::system::render_system_widgets::<B>(frame, app, area);
+}
+
+fn render_footer<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     let connection_status_text = format!(
         "Connection: {:?}", // Use Debug format
         app.state.connection_status
@@ -123,7 +134,7 @@ fn render_footer<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(footer, area);
 }
 
-fn render_help_popup<B: Backend>(_app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_help_popup<B: Backend>(_app: &App, frame: &mut Frame, area: Rect) {
     let help_text = vec![
         Line::from(Span::styled("Help", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow))),
         Line::from(""),

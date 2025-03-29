@@ -3,6 +3,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use tracing::{info, error};
 use squirrel_interfaces::plugins::PluginRegistry;
+use dashboard_core::config::DashboardConfig;
 
 // Conditional imports for TUI
 #[cfg(feature = "tui")]
@@ -49,7 +50,8 @@ async fn main() -> Result<()> {
                 // --- Placeholder for actual TUI launch ---
                 // TODO: Replace this with the actual call to ui_terminal::run_ui
                 // For now, let's simulate using the DefaultDashboardService like in the example
-                let dashboard_service = Arc::new(Mutex::new(DefaultDashboardService::new()));
+                let (dashboard_service, _) = DefaultDashboardService::new(DashboardConfig::default());
+                let dashboard_service = Arc::new(Mutex::new(dashboard_service));
                 let data_update_interval_ms = 1000; // Example: update data every 1 second
                 let ui_refresh_rate_ms = 50;       // Example: refresh UI every 50ms
 
