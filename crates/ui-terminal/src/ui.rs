@@ -8,9 +8,10 @@ use ratatui::{
     Frame,
 };
 use crate::widgets; // Import widgets module
+use dashboard_core::service::DashboardService;
 
 /// Renders the user interface widgets.
-pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_>) {
+pub fn render<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &mut App<S>, frame: &mut Frame<'_>) {
     // Define main layout: Title, Content, Footer
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -21,16 +22,16 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_>) {
         ].as_ref())
         .split(frame.size());
 
-    render_title_bar::<B>(app, frame, main_chunks[0]);
-    render_content::<B>(app, frame, main_chunks[1]);
-    render_footer::<B>(app, frame, main_chunks[2]);
+    render_title_bar::<B, S>(app, frame, main_chunks[0]);
+    render_content::<B, S>(app, frame, main_chunks[1]);
+    render_footer::<B, S>(app, frame, main_chunks[2]);
 
     if app.state.show_help {
-        render_help_popup::<B>(app, frame, frame.size());
+        render_help_popup::<B, S>(app, frame, frame.size());
     }
 }
 
-fn render_title_bar<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_title_bar<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
     let titles = ["Overview", "System", "Network", "Protocol", "Alerts"];
     let tabs = Tabs::new(titles.iter().cloned().map(Line::from).collect::<Vec<_>>())
         .block(Block::default().borders(Borders::BOTTOM))
@@ -46,17 +47,17 @@ fn render_title_bar<B: Backend>(app: &App, frame: &mut Frame<'_>, area: Rect) {
     // TODO: Add status indicators (connection, errors) to the title bar?
 }
 
-fn render_content<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+fn render_content<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
     match app.state.active_tab {
-        ActiveTab::Overview => render_overview_tab::<B>(app, frame, area),
-        ActiveTab::Network => render_network_tab::<B>(app, frame, area),
-        ActiveTab::Alerts => render_alerts_tab::<B>(app, frame, area),
-        ActiveTab::Protocol => render_protocol_tab::<B>(app, frame, area),
-        ActiveTab::System => render_system_tab::<B>(app, frame, area),
+        ActiveTab::Overview => render_overview_tab::<B, S>(app, frame, area),
+        ActiveTab::Network => render_network_tab::<B, S>(app, frame, area),
+        ActiveTab::Alerts => render_alerts_tab::<B, S>(app, frame, area),
+        ActiveTab::Protocol => render_protocol_tab::<B, S>(app, frame, area),
+        ActiveTab::System => render_system_tab::<B, S>(app, frame, area),
     }
 }
 
-fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+fn render_overview_tab<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
     // Example layout for Overview tab (e.g., 2x2 grid)
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -77,7 +78,7 @@ fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     // ---------------------------
 
     // --- Render Metrics Widget ---
-    widgets::metrics::render::<B>(frame, app, left_chunks[1]);
+    widgets::metrics::render::<B, S>(frame, app, left_chunks[1]);
     // ---------------------------
 
     // --- Render CPU Chart --- 
@@ -102,23 +103,23 @@ fn render_overview_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     // e.g., widgets::chart::render(frame, app, right_chunks[0], "CPU Usage");
 }
 
-fn render_network_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
-    widgets::network::render_network_widget::<B>(frame, app, area);
+fn render_network_tab<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
+    widgets::network::render_network_widget::<B, S>(frame, app, area);
 }
 
-fn render_alerts_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
-    widgets::alerts::render_alerts_widget::<B>(frame, app, area);
+fn render_alerts_tab<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
+    widgets::alerts::render_alerts_widget::<B, S>(frame, app, area);
 }
 
-fn render_protocol_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
-    widgets::protocol::render_protocol_widget::<B>(frame, app, area);
+fn render_protocol_tab<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
+    widgets::protocol::render_protocol_widget::<B, S>(frame, app, area);
 }
 
-fn render_system_tab<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
-    widgets::system::render_system_widgets::<B>(frame, app, area);
+fn render_system_tab<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
+    widgets::system::render_system_widgets::<B, S>(frame, app, area);
 }
 
-fn render_footer<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
+fn render_footer<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
     let connection_status_text = format!(
         "Connection: {:?}", // Use Debug format
         app.state.connection_status
@@ -134,7 +135,7 @@ fn render_footer<B: Backend>(app: &App, frame: &mut Frame, area: Rect) {
     frame.render_widget(footer, area);
 }
 
-fn render_help_popup<B: Backend>(_app: &App, frame: &mut Frame, area: Rect) {
+fn render_help_popup<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(_app: &App<S>, frame: &mut Frame<'_>, area: Rect) {
     let help_text = vec![
         Line::from(Span::styled("Help", Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow))),
         Line::from(""),

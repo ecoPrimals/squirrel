@@ -40,7 +40,7 @@ pub async fn run_ui<B: Backend>(
 
         // Render the UI
         terminal.draw(|frame| {
-            ui::render::<B>(&mut app, frame)
+            ui::render::<B, dyn DashboardService + Send + Sync + 'static>(&mut app, frame)
         })?;
 
         // Handle events

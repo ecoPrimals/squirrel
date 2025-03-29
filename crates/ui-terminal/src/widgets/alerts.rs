@@ -9,7 +9,8 @@ use ratatui::{
     Frame,
 };
 use crate::app::App;
-use dashboard_core::data::AlertSeverity;
+use dashboard_core::data::{AlertSeverity};
+use dashboard_core::service::DashboardService;
 
 // Function to determine the color based on AlertSeverity
 // ... (determine_severity_color remains internal, no doc needed unless exported)
@@ -18,7 +19,11 @@ use dashboard_core::data::AlertSeverity;
 ///
 /// Displays a scrollable list of alerts fetched from the application state.
 /// Alerts are colored based on their severity.
-pub fn render_alerts_widget<B: Backend>(frame: &mut Frame, app: &App, area: Rect) {
+pub fn render_alerts_widget<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
+    frame: &mut Frame<'_>,
+    app: &App<S>,
+    area: Rect,
+) {
     let alerts = &app.state.alerts;
 
     let list_items: Vec<ListItem> = alerts
@@ -56,7 +61,8 @@ pub fn render_alerts_widget<B: Backend>(frame: &mut Frame, app: &App, area: Rect
 mod tests {
     use super::*;
     use crate::app::{App, AppState};
-    use dashboard_core::alerts::{Alert, AlertSeverity, AlertState};
+    use dashboard_core::data::Alert;
+    use crate::tests::app_integration_test::MockDashboardService;
     use ratatui::{
         backend::TestBackend,
         buffer::Buffer,
@@ -66,10 +72,11 @@ mod tests {
     };
     use std::collections::VecDeque;
     use chrono::Utc;
+    use std::sync::Arc;
 
     // Helper to create a default App
-    fn create_test_app() -> App {
-        App::default()
+    fn create_test_app() -> App<MockDashboardService> {
+        App::new(Arc::new(MockDashboardService::new()))
     }
 
     // Helper to create sample alerts
@@ -79,16 +86,14 @@ mod tests {
             id: "alert1".to_string(),
             message: "High CPU usage detected".to_string(),
             severity: AlertSeverity::Critical,
-            state: AlertState::Active,
             timestamp: Utc::now(),
             source: "system_monitor".to_string(),
-            details: Default::default(), // Empty details for simplicity
+            details: Default::default(), // Assuming Alert has `details`
         });
         alerts.push_back(Alert {
             id: "alert2".to_string(),
             message: "Low disk space warning".to_string(),
             severity: AlertSeverity::Warning,
-            state: AlertState::Active,
             timestamp: Utc::now(),
             source: "disk_monitor".to_string(),
             details: Default::default(),
@@ -97,7 +102,6 @@ mod tests {
             id: "alert3".to_string(),
             message: "Informational message".to_string(),
             severity: AlertSeverity::Info,
-            state: AlertState::Active,
             timestamp: Utc::now(),
             source: "general".to_string(),
             details: Default::default(),
@@ -115,7 +119,7 @@ mod tests {
         let area = Rect::new(0, 0, 50, 5);
 
         terminal.draw(|f| {
-            render_alerts_widget::<TestBackend>(f, &app, area);
+            render_alerts_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let expected = Buffer::with_lines(vec![
@@ -138,7 +142,7 @@ mod tests {
         let area = Rect::new(0, 0, 60, 7);
 
         terminal.draw(|f| {
-            render_alerts_widget::<TestBackend>(f, &app, area);
+            render_alerts_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let mut expected = Buffer::with_lines(vec![

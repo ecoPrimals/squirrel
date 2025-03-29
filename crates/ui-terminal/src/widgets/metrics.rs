@@ -10,10 +10,11 @@ use ratatui::{
 };
 use crate::app::App;
 use crate::util::format_bytes;
+use dashboard_core::service::DashboardService;
 
-pub fn render<B: Backend>(
+pub fn render<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
     frame: &mut Frame<'_>,
-    app: &App,
+    app: &App<S>,
     area: Rect
 ) {
     let block = Block::default().borders(Borders::ALL).title("Key Metrics");

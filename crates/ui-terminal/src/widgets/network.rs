@@ -10,12 +10,17 @@ use ratatui::{
 };
 use crate::app::App; // App is no longer generic
 use dashboard_core::data::NetworkInterface; // Assuming this is the correct type
+use dashboard_core::service::DashboardService;
 
 /// Renders the Network tab widget.
 ///
 /// Displays details about network interfaces, including total Rx/Tx bytes and packets,
 /// and per-interface statistics like name, status, IP addresses, Rx/Tx bytes, packets, and errors.
-pub fn render_network_widget<B: Backend>(frame: &mut Frame, app: &App, area: Rect) {
+pub fn render_network_widget<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
+    frame: &mut Frame<'_>,
+    app: &App<S>,
+    area: Rect,
+) {
     let metrics = match &app.state.metrics {
         Some(m) => m,
         None => {
@@ -84,10 +89,11 @@ mod tests {
     };
     use std::collections::HashMap;
     use chrono::Utc;
+    use std::sync::Arc;
 
     // Helper function to create a default App instance
-    fn create_test_app() -> App {
-        App::default() // Assuming App::default() exists and is suitable
+    fn create_test_app() -> App<MockDashboardService> {
+        App::new(Arc::new(MockDashboardService::new()))
     }
 
     // Helper function to create basic Metrics with empty network interfaces
@@ -116,7 +122,7 @@ mod tests {
         let area = Rect::new(0, 0, 40, 5);
 
         terminal.draw(|f| {
-            render_network_widget::<TestBackend>(f, &app, area);
+            render_network_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let expected = Buffer::with_lines(vec![
@@ -138,7 +144,7 @@ mod tests {
         let area = Rect::new(0, 0, 50, 5);
 
         terminal.draw(|f| {
-            render_network_widget::<TestBackend>(f, &app, area);
+            render_network_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let mut expected = Buffer::with_lines(vec![
@@ -197,7 +203,7 @@ mod tests {
         let area = Rect::new(0, 0, 50, 6);
 
         terminal.draw(|f| {
-            render_network_widget::<TestBackend>(f, &app, area);
+            render_network_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let mut expected = Buffer::with_lines(vec![

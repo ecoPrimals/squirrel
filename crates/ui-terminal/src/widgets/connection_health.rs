@@ -8,9 +8,10 @@ use ratatui::{
     Frame,
 };
 use crate::app::App; // App is no longer generic
+use dashboard_core::service::DashboardService;
 
-pub fn render<B: Backend>(
-    _app: &App, // Changed &App<P> to &App
+pub fn render<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
+    _app: &App<S>,
     frame: &mut Frame<'_>,
     area: Rect
 ) {

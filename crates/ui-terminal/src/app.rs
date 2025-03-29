@@ -82,14 +82,14 @@ impl Default for AppState {
 
 
 #[derive(Debug)]
-pub struct App {
+pub struct App<S: DashboardService + Send + Sync + 'static + ?Sized> {
     pub state: AppState,
-    pub provider: Arc<dyn DashboardService + Send + Sync + 'static>,
+    pub provider: Arc<S>,
 }
 
-impl App {
+impl<S: DashboardService + Send + Sync + 'static + ?Sized> App<S> {
     /// Constructs a new instance of `App`.
-    pub fn new(provider: Arc<dyn DashboardService + Send + Sync + 'static>) -> Self {
+    pub fn new(provider: Arc<S>) -> Self {
         let state = AppState::default();
         Self {
             state,
@@ -303,6 +303,19 @@ impl App {
          );
 
         checks
+    }
+
+    // Placeholder for handling key events (e.g., tab switching)
+    pub async fn handle_key_event(&mut self, _key: KeyEvent) {
+        // TODO: Implement key handling logic, especially for tab switching
+        // For example:
+        // match key.code {
+        //     KeyCode::Char('1') => self.state.active_tab = ActiveTab::Overview,
+        //     KeyCode::Char('2') => self.state.active_tab = ActiveTab::System,
+        //     ...
+        //     KeyCode::Char('q') => self.state.should_quit = true,
+        //     _ => {}
+        // }
     }
 }
 

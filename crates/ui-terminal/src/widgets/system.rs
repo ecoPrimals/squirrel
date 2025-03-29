@@ -8,6 +8,7 @@ use ratatui::{
 };
 use crate::app::App;
 use crate::util; // For format_bytes
+use dashboard_core::service::DashboardService;
 
 /// Renders the System tab widgets.
 ///
@@ -15,7 +16,11 @@ use crate::util; // For format_bytes
 /// - CPU: Overall usage, per-core usage, load averages, temperature.
 /// - Memory: RAM (Total, Used, Free, Available), Swap (Total, Used).
 /// - Disk: Usage per mount point (sorted), Total I/O reads/writes.
-pub fn render_system_widgets<B: Backend>(frame: &mut Frame, app: &App, area: Rect) {
+pub fn render_system_widgets<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
+    frame: &mut Frame<'_>,
+    app: &App<S>,
+    area: Rect,
+) {
     let metrics = match &app.state.metrics {
         Some(m) => m,
         None => {
@@ -114,10 +119,11 @@ mod tests {
     };
     use std::collections::HashMap;
     use chrono::Utc;
+    use std::sync::Arc;
 
     // Helper to create a default App
-    fn create_test_app() -> App {
-        App::default()
+    fn create_test_app() -> App<MockDashboardService> {
+        App::new(Arc::new(MockDashboardService::new()))
     }
 
     // Helper to create basic metrics for testing
@@ -167,7 +173,7 @@ mod tests {
         let area = Rect::new(0, 0, 40, 5);
 
         terminal.draw(|f| {
-            render_system_widgets::<TestBackend>(f, &app, area);
+            render_system_widgets::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let expected = Buffer::with_lines(vec![
@@ -190,7 +196,7 @@ mod tests {
         let area = Rect::new(0, 0, 120, 12);
 
         terminal.draw(|f| {
-            render_system_widgets::<TestBackend>(f, &app, area);
+            render_system_widgets::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         // Expected buffer needs to be constructed carefully for 3 columns
@@ -280,7 +286,7 @@ mod tests {
         let area = Rect::new(0, 0, 120, 14);
 
         terminal.draw(|f| {
-            render_system_widgets::<TestBackend>(f, &app, area);
+            render_system_widgets::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let expected_lines = vec![

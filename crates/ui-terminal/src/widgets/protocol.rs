@@ -8,13 +8,18 @@ use ratatui::{
 };
 use crate::app::App;
 use dashboard_core::health::HealthStatus as CoreHealthStatus; // Import the enum
+use dashboard_core::service::DashboardService;
 
 /// Renders the Protocol tab widget.
 ///
 /// Displays the overall connection status and detailed protocol information
 /// fetched from the application state's `protocol_data` field, including name,
 /// type, version, connection status, last connection time, retries, errors, and protocol-specific metrics.
-pub fn render_protocol_widget<B: Backend>(frame: &mut Frame, app: &App, area: Rect) {
+pub fn render_protocol_widget<B: Backend, S: DashboardService + Send + Sync + 'static + ?Sized>(
+    frame: &mut Frame<'_>,
+    app: &App<S>,
+    area: Rect,
+) {
     let state = &app.state;
     let mut text = Vec::<Line>::new();
 
@@ -105,7 +110,7 @@ pub fn render_protocol_widget<B: Backend>(frame: &mut Frame, app: &App, area: Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::{App, AppState, ConnectionStatus};
+    use crate::app::{App, AppState};
     use ratatui::{
         backend::TestBackend,
         buffer::Buffer,
@@ -114,10 +119,13 @@ mod tests {
         Terminal,
     };
     use std::collections::VecDeque;
+    use chrono::Utc;
+    use dashboard_core::service::MockDashboardService;
+    use std::sync::Arc;
 
     // Helper to create a default App
-    fn create_test_app() -> App {
-        App::default()
+    fn create_test_app() -> App<MockDashboardService> {
+        App::new(Arc::new(MockDashboardService::new()))
     }
 
     // Helper function to create basic ProtocolData
@@ -128,6 +136,35 @@ mod tests {
             last_message_time: Some(Utc::now()), // Use current time for simplicity
             error_count: 0,
             // Add other fields as needed based on ProtocolData definition
+            name: "MockProto".to_string(),
+            protocol_type: "Mock".to_string(),
+            version: "0.1".to_string(),
+            status: "Connected".to_string(),
+            connected: true,
+            last_connected: Some(Utc::now()),
+            retry_count: 0,
+            error: None,
+            metrics: Default::default(),
+        }
+    }
+
+    // Helper function to create more detailed ProtocolData
+    fn create_detailed_protocol_data() -> ProtocolData {
+        let mut metrics = std::collections::HashMap::new();
+        metrics.insert("latency_ms".to_string(), 15.5);
+        metrics.insert("throughput_kbps".to_string(), 1024.7);
+
+        ProtocolData {
+            name: "ExampleMCP".to_string(),
+            protocol_type: "CustomTCP".to_string(),
+            version: "1.2.3".to_string(),
+            status: "ActivePolling".to_string(),
+            connected: true,
+            last_connected: Some(chrono::DateTime::parse_from_rfc3339("2024-01-01T10:00:00+00:00").unwrap().with_timezone(&chrono::Utc)),
+            retry_count: 2,
+            error: Some("Timeout during last poll".to_string()),
+            metrics,
+            // Populate other fields if they exist in ProtocolData struct
         }
     }
 
@@ -141,7 +178,7 @@ mod tests {
         let area = Rect::new(0, 0, 50, 5);
 
         terminal.draw(|f| {
-            render_protocol_widget::<TestBackend>(f, &app, area);
+            render_protocol_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
         let expected = Buffer::with_lines(vec![
@@ -159,28 +196,44 @@ mod tests {
 
     #[test]
     fn test_render_protocol_widget_basic_data() {
-        let backend = TestBackend::new(50, 5);
+        // Increased size to accommodate more details
+        let backend = TestBackend::new(60, 16);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut app = create_test_app();
-        app.state.protocol = Some(create_basic_protocol_data());
-        app.state.connection_status = ConnectionStatus::Connected; // Explicitly set Connected
-        let area = Rect::new(0, 0, 50, 5);
+        app.state.protocol_data = Some(create_detailed_protocol_data());
+        // Set overall status (can differ from protocol_data.status)
+        app.state.connection_status = ConnectionStatus::Warning; 
+        let area = Rect::new(0, 0, 60, 16);
 
         terminal.draw(|f| {
-            render_protocol_widget::<TestBackend>(f, &app, area);
+            render_protocol_widget::<TestBackend, _>(f, &app, area);
         }).unwrap();
 
-        // Expected buffer will depend on how the widget formats the data
-        // Assuming a format like: "Status: Connected | Sent: 10 | Rcvd: 5"
-        let expected = Buffer::with_lines(vec![
-            "┌Protocol Monitor─────────────────────────────────┐",
-            "│Status: Connected  | Sent: 10 | Rcvd: 5         │", // Example format
-            "│                                                 │",
-            "│                                                 │",
-            "└─────────────────────────────────────────────────┘",
+        // Updated expected buffer for detailed view
+        let mut expected = Buffer::with_lines(vec![
+            "┌Protocol Status────────────────────────────────────────────┐",
+            "│Overall Status: Warning                                   │", // Uses app.state.connection_status
+            "│                                                          │",
+            "│Protocol Name: ExampleMCP                                 │",
+            "│Type:          CustomTCP                                 │",
+            "│Version:       1.2.3                                     │",
+            "│Status:        ActivePolling                             │", // Uses protocol_data.status
+            "│Connected:     Yes                                       │",
+            "│Last Conn.:    2024-01-01 10:00:00 UTC                   │",
+            "│Retries:       2                                         │",
+            "│                                                          │",
+            "│Error:         Timeout during last poll                  │", // Error message
+            "│                                                          │",
+            "│Protocol Metrics:                                         │",
+            "│  latency_ms: 15.50                                       │", // Sorted metrics
+            "│  throughput_kbps: 1024.70                                │", // Sorted metrics
+            "└───────────────────────────────────────────────────────────┘",
         ]);
-        // Style for Connected status (e.g., Green)
-        expected.set_style(Rect::new(1, 1, 48, 1), Style::default().fg(Color::Green));
+        // Styles
+        expected.set_style(Rect::new(1, 1, 25, 1), Style::default().fg(Color::Yellow).bold()); // Overall Status: Warning
+        expected.set_style(Rect::new(1, 11, 58, 1), Style::default().fg(Color::Red)); // Error line
+        expected.set_style(Rect::new(1, 11, 15, 1), Style::default().fg(Color::Red).bold()); // Error label
+
 
         terminal.backend().assert_buffer(&expected);
     }
