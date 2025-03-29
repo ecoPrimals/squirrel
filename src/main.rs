@@ -5,7 +5,7 @@ use squirrel_interfaces::plugins::PluginRegistry;
 
 mod plugins;
 mod adapter;
-mod lib;
+// mod lib; // Removed as src/lib/ directory was deleted during refactoring
 
 #[tokio::main]
 async fn main() -> Result<()> {
