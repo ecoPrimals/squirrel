@@ -7,8 +7,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
-use crate::error::{MCPError, Result};
-use crate::types::{ProtocolVersion, ProtocolState};
+use crate::error::Result;
 
 /// Configuration for an MCP port
 ///

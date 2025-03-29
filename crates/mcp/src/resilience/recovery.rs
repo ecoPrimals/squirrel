@@ -331,7 +331,7 @@ impl RecoveryStrategy {
     /// * The operation fails and recovery is not possible
     /// * The recovery process itself fails
     /// * The current implementation will always return an error as it is not yet implemented
-    pub fn execute<F, R>(&self, operation: F) -> std::result::Result<R, RecoveryError>
+    pub fn execute<F, R>(&self, _operation: F) -> std::result::Result<R, RecoveryError>
     where
         F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync + 'static>>,
         R: Send + 'static,

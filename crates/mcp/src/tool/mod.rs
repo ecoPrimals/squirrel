@@ -132,20 +132,30 @@ impl Tool {
     }
 }
 
-/// Builder for Tool
+/// Error that can occur during tool building
+#[derive(Debug, thiserror::Error)]
+pub enum ToolBuildError {
+    #[error("Tool ID is required")]
+    MissingId,
+    #[error("Tool name is required")]
+    MissingName,
+}
+
+/// Builder for creating `Tool` instances
+#[derive(Default)]
 pub struct ToolBuilder {
-    /// Optional tool ID, required before building
     id: Option<String>,
-    /// Optional tool name, required before building
     name: Option<String>,
-    /// Tool version, defaults to "0.1.0"
     version: String,
-    /// Tool description, defaults to empty string
     description: String,
-    /// List of tool capabilities
     capabilities: Vec<Capability>,
-    /// Security level (0-10, 0 being lowest), defaults to 0
     security_level: u8,
+    // Lifecycle hook for the tool
+    lifecycle_hook: Option<Arc<dyn ToolLifecycleHook + Send + Sync>>,
+    // Resource manager for the tool
+    resource_manager: Option<Arc<dyn ResourceManager + Send + Sync>>,
+    // Recovery hook for the tool
+    recovery_hook: Option<Arc<RecoveryHook>>,
 }
 
 impl ToolBuilder {
@@ -158,28 +168,35 @@ impl ToolBuilder {
             description: String::new(),
             capabilities: Vec::new(),
             security_level: 0,
+            lifecycle_hook: None,
+            resource_manager: None,
+            recovery_hook: None,
         }
     }
 
     /// Sets the tool ID
+    #[must_use]
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
 
     /// Sets the tool name
+    #[must_use]
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
     /// Sets the tool version
+    #[must_use]
     pub fn version(mut self, version: impl Into<String>) -> Self {
         self.version = version.into();
         self
     }
 
     /// Sets the tool description
+    #[must_use]
     pub fn description(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
         self
@@ -198,21 +215,18 @@ impl ToolBuilder {
     }
 
     /// Builds the Tool
-    #[must_use] pub fn build(self) -> Tool {
-        Tool {
-            id: self.id.expect("Tool ID is required"),
-            name: self.name.expect("Tool name is required"),
+    ///
+    /// # Errors
+    /// Returns a `ToolBuildError` if the ID or name is missing.
+    #[must_use] pub fn build(self) -> Result<Tool, ToolBuildError> {
+        Ok(Tool {
+            id: self.id.ok_or_else(|| ToolBuildError::MissingId)?,
+            name: self.name.ok_or_else(|| ToolBuildError::MissingName)?,
             version: self.version,
             description: self.description,
             capabilities: self.capabilities,
             security_level: self.security_level,
-        }
-    }
-}
-
-impl Default for ToolBuilder {
-    fn default() -> Self {
-        Self::new()
+        })
     }
 }
 
@@ -696,18 +710,21 @@ impl ToolManagerBuilder {
     }
 
     /// Set the lifecycle hook
+    #[must_use]
     pub fn lifecycle_hook(mut self, hook: impl ToolLifecycleHook + 'static) -> Self {
         self.lifecycle_hook = Some(Arc::new(hook));
         self
     }
 
     /// Set the resource manager
+    #[must_use]
     pub fn resource_manager(mut self, manager: impl ResourceManager + 'static) -> Self {
         self.resource_manager = Some(Arc::new(manager));
         self
     }
 
     /// Set the recovery hook
+    #[must_use]
     pub fn recovery_hook(mut self, hook: RecoveryHook) -> Self {
         self.recovery_hook = Some(Arc::new(hook));
         self
@@ -772,6 +789,7 @@ impl ToolManager {
     }
 
     /// Sets a recovery hook for error handling
+    #[must_use]
     pub fn with_recovery_hook(mut self, recovery_hook: RecoveryHook) -> Self {
         self.recovery_hook = Some(Arc::new(recovery_hook));
         self
@@ -832,28 +850,25 @@ impl ToolManager {
             .map_err(|e| ToolError::LifecycleError(format!("Registration hook failed: {e}")))?;
 
         // Register the tool
+        // Store the tool (acquire and release lock)
+        self.tools.write().await.insert(tool_id.clone(), tool.clone());
+
+        // Set the initial state (acquire and release lock)
+        self.states.write().await.insert(tool_id.clone(), ToolState::Registered);
+
+        // Store the executor (acquire and release lock)
+        self.executors.write().await.insert(tool_id.clone(), Arc::new(executor));
+
+        // Update the capability map (acquire lock, update, release lock)
         {
-            let mut tools = self.tools.write().await;
-            let mut states = self.states.write().await;
-            let mut executors = self.executors.write().await;
-            let mut capability_map = self.capability_map.write().await;
-
-            // Store the tool
-            tools.insert(tool_id.clone(), tool.clone());
-
-            // Set the initial state
-            states.insert(tool_id.clone(), ToolState::Registered);
-
-            // Store the executor
-            executors.insert(tool_id.clone(), Arc::new(executor));
-
-            // Update the capability map
-            let tool_capabilities = capability_map
+            let mut capability_map_guard = self.capability_map.write().await;
+            let tool_capabilities = capability_map_guard
                 .entry(tool_id.clone())
                 .or_insert_with(HashSet::new);
             for capability in &tool.capabilities {
                 tool_capabilities.insert(capability.name.clone());
             }
+            // Lock guard drops here
         }
 
         info!("Tool registered: {} ({})", tool.name, tool_id);
@@ -881,24 +896,17 @@ impl ToolManager {
             .map_err(|e| ToolError::LifecycleError(format!("Unregistration hook failed: {e}")))?;
 
         // Unregister the tool
-        {
-            let mut tools = self.tools.write().await;
-            let mut states = self.states.write().await;
-            let mut executors = self.executors.write().await;
-            let mut capability_map = self.capability_map.write().await;
+        // Remove the tool (acquire and release lock)
+        self.tools.write().await.remove(tool_id);
 
-            // Remove the tool
-            tools.remove(tool_id);
+        // Remove the state (acquire and release lock)
+        self.states.write().await.remove(tool_id);
 
-            // Remove the state
-            states.remove(tool_id);
+        // Remove the executor (acquire and release lock)
+        self.executors.write().await.remove(tool_id);
 
-            // Remove the executor
-            executors.remove(tool_id);
-
-            // Remove from the capability map
-            capability_map.remove(tool_id);
-        }
+        // Remove from the capability map (acquire and release lock)
+        self.capability_map.write().await.remove(tool_id);
 
         info!("Tool unregistered: {}", tool_id);
         Ok(())
@@ -990,11 +998,8 @@ impl ToolManager {
         state: ToolState,
     ) -> Result<(), ToolError> {
         // Get the current state
-        let current_state = match self.get_tool_state(tool_id).await {
-            Some(state) => state,
-            None => {
-                return Err(ToolError::ToolNotFound(tool_id.to_string()));
-            }
+        let Some(current_state) = self.get_tool_state(tool_id).await else {
+            return Err(ToolError::ToolNotFound(tool_id.to_string()));
         };
 
         // Skip if already in this state
@@ -1038,11 +1043,8 @@ impl ToolManager {
         );
 
         // Get the current state
-        let current_state = match self.get_tool_state(tool_id).await {
-            Some(state) => state,
-            None => {
-                return Err(ToolError::ToolNotFound(tool_id.to_string()));
-            }
+        let Some(current_state) = self.get_tool_state(tool_id).await else {
+            return Err(ToolError::ToolNotFound(tool_id.to_string()));
         };
 
         // Check that the current state matches the from_state
@@ -1162,6 +1164,17 @@ impl ToolManager {
             timestamp: chrono::Utc::now(),                     // Use correct type
         };
 
+        // Helper closure to handle the conversion from u128 to u64 safely
+        let duration_ms_u64 = |duration: std::time::Duration| {
+            u64::try_from(duration.as_millis()).unwrap_or_else(|e| {
+                warn!(
+                    "Execution duration ({:?}) exceeds u64::MAX. Clamping. Error: {}",
+                    duration, e
+                );
+                u64::MAX
+            })
+        };
+
         // Execute the tool
         match executor.execute(context).await {
             Ok(result) => {
@@ -1170,14 +1183,15 @@ impl ToolManager {
                     tool_id = tool_id,
                     capability = capability,
                     request_id = request_id,
-                    duration_ms = duration.as_millis(),
+                    duration_ms = duration.as_millis(), // Keep u128 for logging
                     status = ?result.status,
                     "Tool execution completed"
                 );
 
                 // Preserve the result from the executor, just update the timing
                 let mut updated_result = result;
-                updated_result.execution_time_ms = duration.as_millis() as u64;
+                // Use the helper closure for safe conversion
+                updated_result.execution_time_ms = duration_ms_u64(duration);
 
                 Ok(updated_result)
             }
@@ -1187,7 +1201,7 @@ impl ToolManager {
                     tool_id = tool_id,
                     capability = capability,
                     request_id = request_id,
-                    duration_ms = duration.as_millis(),
+                    duration_ms = duration.as_millis(), // Keep u128 for logging
                     error = ?error,
                     "Tool execution failed"
                 );
@@ -1204,7 +1218,8 @@ impl ToolManager {
                     status: ExecutionStatus::Failure,
                     output: None,
                     error_message: Some(error.to_string()),
-                    execution_time_ms: duration.as_millis() as u64,
+                    // Use the helper closure for safe conversion
+                    execution_time_ms: duration_ms_u64(duration),
                     timestamp: chrono::Utc::now(),
                 })
             }
@@ -1555,24 +1570,19 @@ impl ToolManager {
 
         // Update the tool registry
         {
-            let mut tools = self.tools.write().await;
-            let mut capability_map = self.capability_map.write().await;
+            // Update the tool (acquire and release lock)
+            self.tools.write().await.insert(tool_id.clone(), updated_tool.clone());
 
-            // Update the tool
-            tools.insert(tool_id.clone(), updated_tool.clone());
-
-            // Update capability map
-            // First remove old capabilities
-            if let Some(old_capabilities) = capability_map.get_mut(&tool_id) {
-                old_capabilities.clear();
-            }
-
-            // Add new capabilities
-            let tool_capabilities = capability_map
-                .entry(tool_id.clone())
-                .or_insert_with(HashSet::new);
-            for capability in &updated_tool.capabilities {
-                tool_capabilities.insert(capability.name.clone());
+            // Update the capability map (acquire lock, update, release lock)
+            {
+                let mut capability_map_guard = self.capability_map.write().await;
+                let tool_capabilities = capability_map_guard
+                    .entry(tool_id.to_string())
+                    .or_insert_with(HashSet::new);
+                for capability in &updated_tool.capabilities {
+                    tool_capabilities.insert(capability.name.clone());
+                }
+                // Drop capability_map lock here
             }
         }
 
@@ -1662,11 +1672,7 @@ impl ToolManager {
         }
 
         // Get the recovery strategy
-        let strategy = if let Some(recovery_hook) = self.recovery_hook.as_ref() {
-            recovery_hook.get_strategy(tool_id)
-        } else {
-            RecoveryStrategy::Reset // Default strategy
-        };
+        let strategy = self.recovery_hook.as_ref().map_or(RecoveryStrategy::Reset, |recovery_hook| recovery_hook.get_strategy(tool_id));
 
         info!("Recovering tool {} with strategy: {}", tool_id, strategy);
 

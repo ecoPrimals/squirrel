@@ -45,13 +45,19 @@
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
     MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult, ValidationResult,
+    MCPMessage, MCPResponse,
+    MessageHandler,
+    MessageType,
+    ProtocolState, ProtocolVersion,
+    CommandResponse,
 };
-use crate::types::{MCPMessage, MessageType, ProtocolState};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
+use std::sync::{Arc, Mutex as StdMutex}; // Using standard Mutex for state
+use tokio::sync::Mutex as TokioMutex; // Using Tokio Mutex for async operations if needed
 
 /// Errors specific to MCP protocol adapter operations.
 ///
@@ -100,6 +106,7 @@ pub enum ProtocolAdapterError {
 ///     println!("Protocol ready: {}", is_ready);
 /// }
 /// ```
+#[derive(Debug)]
 pub struct MCPProtocolAdapter {
     /// Inner protocol implementation, wrapped in an Option to allow lazy initialization
     inner: Arc<RwLock<Option<MCPProtocolBase>>>,
@@ -397,8 +404,8 @@ impl MCPProtocolAdapter {
     /// ```
     pub async fn register_handler(
         &self,
-        message_type: crate::types::MessageType,
-        handler: Box<dyn super::CommandHandler>,
+        message_type: crate::protocol::MessageType,
+        handler: Box<dyn CommandHandler>,
     ) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
@@ -441,7 +448,7 @@ impl MCPProtocolAdapter {
     ///     // Will likely error since we didn't register a handler
     /// }
     /// ```
-    pub async fn unregister_handler(&self, message_type: &crate::types::MessageType) -> Result<()> {
+    pub async fn unregister_handler(&self, message_type: &crate::protocol::MessageType) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
             protocol.unregister_handler(message_type)

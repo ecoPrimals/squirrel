@@ -6,7 +6,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use crate::types::SecurityLevel;
+use uuid;
 
 /// Role in the RBAC system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,4 +244,249 @@ pub enum AttributeCondition {
         /// Expected value of the attribute
         value: String 
     },
-} 
+}
+
+// Security-related types for MCP
+
+/// Security level for MCP operations.
+///
+/// This enumeration defines the various security levels supported by the MCP system,
+/// from low to critical. These levels are used to specify the required security
+/// for different operations and resources, enabling fine-grained security control.
+///
+/// # Ordering
+///
+/// Security levels form a total ordering where:
+/// Low < Standard < High < Critical
+///
+/// This allows for easy comparison of security requirements.
+///
+/// # Usage
+///
+/// ```
+/// use crate::security::types::SecurityLevel;
+///
+/// // Function that requires a minimum security level
+/// fn secure_operation(level: SecurityLevel) -> bool {
+///     if level >= SecurityLevel::High {
+///         // Perform high-security operation
+///         true
+///     } else {
+///         // Reject with insufficient security
+///         false
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash, Default)]
+pub enum SecurityLevel {
+    /// Low security level: Minimal security requirements for non-sensitive operations
+    Low = 0,
+    /// Standard security level: Default for most operations
+    #[default]
+    Standard = 5,
+    /// High security level: For sensitive operations requiring stronger security
+    High = 10,
+    /// Critical security level: Maximum security for the most sensitive operations
+    Critical = 15,
+}
+
+/// Encryption format for secure communications.
+///
+/// This enumeration defines the supported encryption algorithms for
+/// securing communications within the MCP system. The appropriate
+/// format should be selected based on security requirements and
+/// performance considerations.
+///
+/// # Security Considerations
+///
+/// - `None`: Provides no encryption and should only be used for non-sensitive data
+/// - `Aes256Gcm`: Provides strong security with reasonable performance
+/// - `ChaCha20Poly1305`: Alternative that may be faster on systems without AES hardware acceleration
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
+pub enum EncryptionFormat {
+    /// No encryption: Data is transmitted in plaintext
+    #[default]
+    None,
+    /// AES-256-GCM encryption: Industry standard authenticated encryption
+    Aes256Gcm,
+    /// ChaCha20-Poly1305 encryption: Modern stream cipher with authentication
+    ChaCha20Poly1305,
+}
+
+/// Encryption information for secure communications
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct EncryptionInfo {
+    /// Encryption format used
+    pub format: EncryptionFormat,
+    /// Optional encryption key ID
+    pub key_id: Option<String>,
+    /// Optional initialization vector
+    pub iv: Option<Vec<u8>>,
+    /// Optional additional authenticated data
+    pub aad: Option<Vec<u8>>,
+}
+
+/// Security metadata for messages
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SecurityMetadata {
+    /// Security level for the message
+    pub security_level: SecurityLevel,
+    /// Optional encryption information
+    pub encryption_info: Option<EncryptionInfo>,
+    /// Optional digital signature
+    pub signature: Option<String>,
+    /// Optional authentication token
+    pub auth_token: Option<String>,
+    /// Optional permissions
+    pub permissions: Option<Vec<String>>,
+    /// Optional roles
+    pub roles: Option<Vec<String>>,
+}
+
+// --- Identity Types ---
+
+/// Wrapper type for User IDs.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserId(pub String);
+
+impl Default for UserId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UserId {
+    /// Create a new user ID
+    #[must_use]
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for UserId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for UserId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for UserId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// Wrapper type for Role IDs.
+pub type RoleId = String;
+
+/// User role within the MCP system.
+///
+/// ... (doc comment) ...
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum UserRole {
+    /// Administrator role: Full system access
+    Admin,
+    /// User role: Standard access for normal operations
+    User,
+    /// Guest role: Limited access, typically read-only
+    Guest,
+    /// Custom role: Role with specific permissions
+    Custom(String), // Using String for custom roles
+}
+
+impl Default for UserRole {
+    fn default() -> Self {
+        Self::Guest // Changed default to Guest as per the original types.rs code that was removed
+    }
+}
+
+impl std::fmt::Display for UserRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Admin => write!(f, "Admin"),
+            Self::User => write!(f, "User"),
+            Self::Guest => write!(f, "Guest"),
+            Self::Custom(role) => write!(f, "Custom({role})"),
+        }
+    }
+}
+
+// --- End Identity Types/UserRole ---
+
+// --- Type Aliases ---
+
+/// Type alias for a Permission identifier (typically a String).
+pub type PermissionId = String;
+
+// --- End Type Aliases ---
+
+// --- Token Types ---
+
+/// Session token type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SessionToken(pub String);
+
+impl Default for SessionToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SessionToken {
+    /// Create a new session token
+    #[must_use]
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for SessionToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for SessionToken {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+/// Authentication token type
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AuthToken(pub String);
+
+impl Default for AuthToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AuthToken {
+    /// Create a new authentication token
+    #[must_use]
+    pub fn new() -> Self {
+        Self(uuid::Uuid::new_v4().to_string())
+    }
+}
+
+impl std::fmt::Display for AuthToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for AuthToken {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+// --- End Token Types ---
+
+// Other security-related types (like Role, Permission, etc.) will go here. 

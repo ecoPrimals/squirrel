@@ -33,12 +33,42 @@ pub mod types;
 pub mod transport;
 /// Client error types
 pub mod client;
+/// Connection error types
+pub mod connection;
+/// Protocol error types
+pub mod protocol_err;
+/// Security error types
+pub mod security_err;
+/// Session error types
+pub mod session;
+/// Context-specific error types
+pub mod context_err;
+/// Alert error types
+pub mod alert;
+/// RBAC error types
+pub mod rbac;
+/// Error handler struct
+pub mod handler;
+/// Port error kind types
+pub mod port;
+/// Tests for error types
+#[cfg(test)]
+mod types_tests;
 
 pub use types::MCPError;
 pub use client::ClientError;
-pub use types::ContextError;
+pub use connection::ConnectionError;
+pub use protocol_err::ProtocolError;
+pub use security_err::SecurityError;
+pub use session::SessionError;
+pub use context_err::ContextError;
+pub use alert::AlertError;
+pub use rbac::RBACError;
+pub use handler::ErrorHandler;
+pub use port::PortErrorKind;
+
+pub use types::{ErrorContext};
 pub use transport::TransportError;
-pub use types::SessionError;
 
 use crate::message::Message;
 use std::convert::TryFrom;
@@ -65,12 +95,11 @@ pub type Result<T> = std::result::Result<T, MCPError>;
 /// with code that uses `MCPResult` instead of Result.
 pub type MCPResult<T> = Result<T>;
 
-// Re-export specific types from types module
-pub use types::{ConnectionError, ErrorContext, PortErrorKind, ProtocolError, SecurityError};
-
 // Re-export specific types from context module
-pub use context::{ErrorHandler, ErrorHandlerError, ErrorRecord, ErrorSeverity, RecoveryStrategy};
+pub use context::{ErrorHandlerError, ErrorRecord, ErrorSeverity, RecoveryStrategy};
 
+// Commenting out conflicting implementation - Use MCPError::from_message instead for now.
+/*
 impl TryFrom<Message> for MCPError {
     type Error = Self;
 
@@ -99,6 +128,7 @@ impl TryFrom<Message> for MCPError {
         }
     }
 }
+*/
 
 // Add implementation of From<ClientError> for MCPError
 impl From<ClientError> for MCPError {

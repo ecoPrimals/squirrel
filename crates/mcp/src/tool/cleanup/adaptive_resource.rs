@@ -287,14 +287,15 @@ impl AdaptiveResourceManager {
         Ok(new_limits)
     }
 
-    /// Gets the current adaptive limits for a tool
-    #[instrument(skip(self))]
-    pub async fn get_current_limits(&self, tool_id: &str) -> Result<ResourceLimits, ToolError> {
-        let adaptive_limits = self.adaptive_limits.read().await;
-        let tool_limits = adaptive_limits.get(tool_id).ok_or_else(|| {
+    /// Gets the current resource limits for a specific tool.
+    #[instrument(skip(self), fields(tool_id = %tool_id))]
+    pub async fn get_tool_limits(&self, tool_id: &str) -> Result<ResourceLimits, ToolError> {
+        // Introduce a binding for the lock guard
+        let limits_map = self.adaptive_limits.read().await;
+        let tool_limits = limits_map.get(tool_id).ok_or_else(|| {
             ToolError::ToolNotFound(format!("Tool {tool_id} not found for limit lookup"))
         })?;
-
+        // Clone the limits to avoid holding the lock beyond this point
         Ok(tool_limits.current_limits.clone())
     }
 

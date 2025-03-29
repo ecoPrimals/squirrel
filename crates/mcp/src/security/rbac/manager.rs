@@ -7,13 +7,14 @@ use std::collections::{HashMap, HashSet};
 use tracing::info;
 use uuid::Uuid;
 use chrono::Utc;
+use tokio::sync::RwLock;
 
 use crate::error::{SecurityError, Result, MCPError};
 use crate::security::types::{
     Permission, Role, PermissionContext, Action,
     PermissionCondition,
 };
-use crate::types::SecurityLevel;
+use super::super::types::{RoleId, SecurityLevel};
 
 
 /// Error types for RBAC operations
@@ -55,6 +56,18 @@ impl RBACManager {
     }
 
     /// Create a new role
+    ///
+    /// # Arguments
+    /// * `name` - Name of the role
+    /// * `description` - Optional description of the role
+    ///
+    /// # Returns
+    /// A new `Role` instance with the specified properties
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * A role with the same name already exists
+    /// * Any underlying storage or database operation fails
     pub async fn create_role(&self, name: &str, description: Option<&str>) -> Result<Role> {
         let role_id = Uuid::new_v4().to_string();
         let now = Utc::now();
@@ -89,6 +102,18 @@ impl RBACManager {
     }
 
     /// Add permission to a role
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to add the permission to
+    /// * `permission` - Permission to add to the role
+    ///
+    /// # Returns
+    /// `Ok(())` if the permission was successfully added
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The role with the specified ID does not exist
+    /// * Any underlying storage or database operation fails
     pub async fn add_permission_to_role(&self, role_id: &str, permission: Permission) -> Result<()> {
         let mut roles = self.roles.write().await;
         
@@ -104,8 +129,20 @@ impl RBACManager {
     }
 
     /// Assign role to a user
+    ///
+    /// # Arguments
+    /// * `user_id` - ID of the user to assign the role to
+    /// * `role_id` - ID of the role to assign
+    ///
+    /// # Returns
+    /// `Ok(())` if the role was successfully assigned
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The role with the specified ID does not exist
+    /// * Any underlying storage or database operation fails
     pub async fn assign_role_to_user(&self, user_id: &str, role_id: &str) -> Result<()> {
-        // Check if role exists
+        // Verify role exists
         {
             let roles = self.roles.read().await;
             if !roles.contains_key(role_id) {
@@ -117,9 +154,11 @@ impl RBACManager {
         
         // Add role to user
         {
-            let mut user_roles = self.user_roles.write().await;
-            let user_role_set = user_roles.entry(user_id.to_string()).or_insert_with(HashSet::new);
-            user_role_set.insert(role_id.to_string());
+            // Use write() lock and chain the subsequent operations
+            self.user_roles.write().await
+                .entry(user_id.to_string())
+                .or_insert_with(HashSet::new)
+                .insert(role_id.to_string());
         }
         
         info!("Assigned role {} to user {}", role_id, user_id);
@@ -127,12 +166,29 @@ impl RBACManager {
     }
 
     /// Get roles for a user
+    ///
+    /// # Arguments
+    /// * `user_id` - ID of the user to get roles for
+    ///
+    /// # Returns
+    /// A set of role IDs assigned to the user
     pub async fn get_user_roles(&self, user_id: &str) -> HashSet<String> {
         let user_roles = self.user_roles.read().await;
         user_roles.get(user_id).cloned().unwrap_or_default()
     }
 
     /// Get a role by ID
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to retrieve
+    ///
+    /// # Returns
+    /// The role with the specified ID
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The role with the specified ID does not exist
+    /// * Any underlying storage or database operation fails
     pub async fn get_role(&self, role_id: &str) -> Result<Role> {
         let roles = self.roles.read().await;
         roles.get(role_id)
@@ -143,6 +199,20 @@ impl RBACManager {
     }
 
     /// Check if a user has a specific permission
+    ///
+    /// # Arguments
+    /// * `user_id` - ID of the user to check
+    /// * `resource` - Resource to check permission for
+    /// * `action` - Action to check permission for
+    /// * `context` - Additional context information for condition evaluation
+    ///
+    /// # Returns
+    /// `true` if the user has the permission, `false` otherwise
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The permission condition evaluation fails
+    /// * Any underlying storage or database operation fails
     pub async fn has_permission(&self, user_id: &str, resource: &str, action: Action, context: &PermissionContext) -> Result<bool> {
         let user_role_ids = self.get_user_roles(user_id).await;
         if user_role_ids.is_empty() {
@@ -174,7 +244,7 @@ impl RBACManager {
                 // Check all conditions
                 let mut all_conditions_pass = true;
                 for condition in &perm.conditions {
-                    if !self.evaluate_condition(condition, context) {
+                    if !Self::evaluate_condition(condition, context) {
                         all_conditions_pass = false;
                         break;
                     }
@@ -190,7 +260,7 @@ impl RBACManager {
     }
 
     /// Evaluate a permission condition against the context
-    fn evaluate_condition(&self, condition: &PermissionCondition, context: &PermissionContext) -> bool {
+    fn evaluate_condition(condition: &PermissionCondition, context: &PermissionContext) -> bool {
         match condition {
             PermissionCondition::MinimumSecurityLevel(level) => {
                 context.security_level >= *level

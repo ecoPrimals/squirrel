@@ -2,13 +2,16 @@
 //!
 //! This module provides encryption functionality for sensitive data in MCP.
 
-use crate::error::Result;
-use crate::types::EncryptionFormat;
+use crate::config::SecurityConfig;
+use crate::error::{Result, SecurityError, MCPError};
+use crate::protocol::types::EncryptionFormat;
 use crate::security::crypto;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, instrument};
+use ring::{aead, hmac};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 /// Encryption trait for MCP components
 #[async_trait]
@@ -51,26 +54,61 @@ impl EncryptionManager {
     
     /// Get or generate a key for the specified format
     async fn get_or_generate_key(&self, format: EncryptionFormat) -> Result<Vec<u8>> {
-        let mut keys = self.keys.write().await;
-        
-        if !keys.contains_key(&format) && format != EncryptionFormat::None {
-            // Generate a new key for this format
-            let new_key = crypto::generate_key(format)?;
-            keys.insert(format, new_key);
+        // Early return for None format
+        if format == EncryptionFormat::None {
+            return Ok(Vec::new());
         }
         
-        // Return the key (or empty for None format)
-        Ok(keys.get(&format).cloned().unwrap_or_else(Vec::new))
+        // First check if the key exists (read lock)
+        {
+            let keys = self.keys.read().await;
+            if let Some(key) = keys.get(&format) {
+                return Ok(key.clone());
+            }
+        } // read lock is dropped here
+        
+        // Key doesn't exist, generate and store it with write lock
+        let new_key = crypto::generate_key(format);
+        {
+            let mut keys = self.keys.write().await;
+            // Check again in case another thread generated the key while we were waiting
+            if keys.contains_key(&format) {
+                // Another thread generated the key, use that one
+                return Ok(keys.get(&format).cloned().unwrap_or_default());
+            }
+            keys.insert(format, new_key.clone());
+        } // write lock is dropped here
+        
+        Ok(new_key)
     }
     
-    /// Set a key for the specified format
+    /// Set a key for the specified format.
+    ///
+    /// Stores the provided `key` for the given `format`. If the format is
+    /// `EncryptionFormat::None`, this operation is a no-op and returns `Ok(())`.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - The encryption format the key is for.
+    /// * `key` - The cryptographic key bytes.
+    ///
+    /// # Errors
+    ///
+    /// This function generally returns `Ok(())`.
+    /// However, it might theoretically return an error if the internal lock
+    /// protecting the key map becomes poisoned due to a panic in another thread
+    /// holding the lock.
     pub async fn set_key(&self, format: EncryptionFormat, key: Vec<u8>) -> Result<()> {
         if format == EncryptionFormat::None {
             return Ok(());
         }
         
-        let mut keys = self.keys.write().await;
-        keys.insert(format, key);
+        // Scope the write lock to minimize duration
+        {
+            let mut keys = self.keys.write().await;
+            keys.insert(format, key);
+        } // write lock is dropped here
+        
         Ok(())
     }
 }
@@ -104,12 +142,15 @@ impl Encryption for EncryptionManager {
     #[instrument(skip(self))]
     async fn generate_key(&self, format: EncryptionFormat) -> Result<Vec<u8>> {
         // Generate a new key for this format
-        let new_key = crypto::generate_key(format)?;
+        let new_key = crypto::generate_key(format);
         
         // Store the key for future use
         if format != EncryptionFormat::None {
-            let mut keys = self.keys.write().await;
-            keys.insert(format, new_key.clone());
+            // Scope the write lock to minimize duration
+            {
+                let mut keys = self.keys.write().await;
+                keys.insert(format, new_key.clone());
+            } // write lock is dropped here
         }
         
         debug!("Generated new key for {:?}", format);

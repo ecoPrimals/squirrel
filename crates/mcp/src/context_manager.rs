@@ -1,4 +1,4 @@
-use crate::error::types::ContextError;
+use crate::error::ContextError;
 use crate::error::{MCPError, Result};
 use crate::monitoring::MCPMonitor;
 use crate::persistence::{MCPPersistence, PersistenceConfig};

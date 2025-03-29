@@ -192,15 +192,12 @@ impl MCPInterface for MCPAdapter {
             let runtime = tokio::runtime::Handle::current();
             runtime.block_on(async {
                 let reader = self.mcp.read().await;
-                match &*reader {
-                    Some(mcp) => {
-                        // Call get_config() and then clone the resulting McpConfig if Ok
-                        mcp.get_config()
-                    }
-                    None => Err(SquirrelError::mcp(
+                (*reader).as_ref().map_or_else(
+                    || Err(SquirrelError::mcp(
                         "MCP is not initialized. Call initialize() first.",
                     )),
-                }
+                    |mcp| mcp.get_config()
+                )
             })
         })
     }
@@ -210,12 +207,12 @@ impl MCPInterface for MCPAdapter {
             let runtime = tokio::runtime::Handle::current();
             runtime.block_on(async {
                 let reader = self.mcp.read().await;
-                match &*reader {
-                    Some(mcp) => mcp.send_message(message),
-                    None => Err(SquirrelError::mcp(
+                (*reader).as_ref().map_or_else(
+                    || Err(SquirrelError::mcp(
                         "MCP is not initialized. Call initialize() first.",
                     )),
-                }
+                    |mcp| mcp.send_message(message)
+                )
             })
         })
     }

@@ -31,6 +31,17 @@ use squirrel_core::error::{Result as CoreResult, SquirrelError as CoreError};
 use thiserror::Error;
 use uuid;
 
+// Import the moved error types
+use crate::error::connection::ConnectionError;
+use crate::error::protocol_err::ProtocolError;
+use crate::error::security_err::SecurityError;
+use crate::error::session::SessionError;
+use crate::error::context_err::ContextError;
+use crate::error::alert::AlertError;
+use crate::error::rbac::RBACError;
+use crate::error::port::PortErrorKind; // Keep this? MCPError doesn't use it directly yet.
+use crate::protocol::adapter_wire::WireFormatError;
+
 /// Main error type for MCP operations.
 ///
 /// This enum represents all possible errors that can occur during MCP operations.
@@ -205,34 +216,6 @@ pub enum MCPError {
     InvalidState(String),
 }
 
-/// Error kinds for port-related errors.
-///
-/// These represent different ways in which network port operations can fail,
-/// such as when a port is not available, access is denied, or the port is
-/// outside the valid range.
-#[derive(Debug, Clone, Error)]
-pub enum PortErrorKind {
-    /// The requested port is not available
-    #[error("Port {0} is not available")]
-    NotAvailable(u16),
-    
-    /// Access to the requested port was denied
-    #[error("Access to port {0} was denied")]
-    AccessDenied(u16),
-    
-    /// The port is outside the valid range
-    #[error("Port {0} is outside the valid range")]
-    InvalidRange(u16),
-    
-    /// The port is already in use
-    #[error("Port {0} is already in use")]
-    InUse(u16),
-    
-    /// A generic port-related error
-    #[error("Port error: {0}")]
-    Other(String),
-}
-
 impl MCPError {
     /// Creates an error from an MCP error message
     #[must_use] pub fn from_message(message: &crate::message::Message) -> Self {
@@ -354,6 +337,46 @@ impl MCPError {
         }
         .to_string()
     }
+
+    /// Returns a short string code representing the error type.
+    pub fn code_str(&self) -> &'static str {
+        match self {
+            MCPError::Network(_) => "NETWORK_ERROR",
+            MCPError::Protocol(_) => "PROTOCOL_ERROR",
+            MCPError::Serialization(_) => "SERIALIZATION_ERROR",
+            MCPError::Transport(_) => "TRANSPORT_ERROR",
+            MCPError::Timeout(_) => "TIMEOUT_ERROR",
+            MCPError::Configuration(_) => "CONFIG_ERROR",
+            MCPError::Io(_) => "IO_ERROR",
+            MCPError::State(_) => "STATE_ERROR",
+            MCPError::Crypto(_) => "CRYPTO_ERROR",
+            MCPError::Authentication(_) => "AUTH_ERROR",
+            MCPError::Authorization(_) => "AUTHZ_ERROR",
+            MCPError::NotFound(_) => "NOT_FOUND",
+            MCPError::InvalidInput(_) => "INVALID_INPUT",
+            MCPError::Internal(_) => "INTERNAL_ERROR",
+            MCPError::Plugin(_) => "PLUGIN_ERROR",
+            MCPError::Resource(_) => "RESOURCE_ERROR",
+            MCPError::NotImplemented(_) => "NOT_IMPLEMENTED",
+            MCPError::Remote(_) => "REMOTE_ERROR",
+            MCPError::Connection(_) => "CONNECTION_ERROR",
+            MCPError::Session(_) => "SESSION_ERROR",
+            MCPError::Context(_) => "CONTEXT_ERROR",
+            MCPError::Client(_) => "CLIENT_ERROR",
+            MCPError::Security(_) => "SECURITY_ERROR",
+            MCPError::RBAC(_) => "RBAC_ERROR",
+            MCPError::Alert(_) => "ALERT_ERROR",
+            MCPError::UnsupportedVersion(_) => "UNSUPPORTED_VERSION",
+            MCPError::UnsupportedOperation(_) => "UNSUPPORTED_OPERATION",
+            MCPError::Core(_) => "CORE_ERROR",
+        }
+    }
+}
+
+impl fmt::Display for MCPError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.error_code())
+    }
 }
 
 // Add From implementations for various error types
@@ -367,526 +390,6 @@ impl From<serde_json::Error> for MCPError {
     fn from(err: serde_json::Error) -> Self {
         Self::SerdeJsonDetail(err.to_string())
     }
-}
-
-/// Error handler with retry capabilities
-///
-/// Provides mechanisms for handling errors, including automatic retry with
-/// configurable backoff, error context tracking, and recovery strategies.
-#[derive(Debug)]
-pub struct ErrorHandler {
-    /// Maximum number of retry attempts
-    /// This defines how many times the handler will retry an operation before giving up
-    max_retries: u32,
-    /// Delay between retry attempts
-    /// Specifies how long to wait between retry attempts
-    retry_delay: std::time::Duration,
-    /// Context information for errors
-    /// Contains metadata and context about the errors being handled
-    error_context: ErrorContext,
-}
-
-impl ErrorHandler {
-    /// Creates a new `ErrorHandler` with the specified retry parameters
-    ///
-    /// # Arguments
-    ///
-    /// * `max_retries` - Maximum number of times to retry failed operations
-    /// * `retry_delay` - How long to wait between retry attempts
-    /// * `operation` - Name or description of the operation being handled
-    /// * `component` - Name of the component where the operation is performed
-    ///
-    /// # Returns
-    ///
-    /// A new `ErrorHandler` configured with the specified parameters
-    pub fn new(
-        max_retries: u32,
-        retry_delay: std::time::Duration,
-        operation: impl Into<String>,
-        component: impl Into<String>,
-    ) -> Self {
-        Self {
-            max_retries,
-            retry_delay,
-            error_context: ErrorContext::new(operation, component),
-        }
-    }
-
-    /// Handles operation errors with automatic retries
-    ///
-    /// # Arguments
-    /// * `operation` - A closure that returns a `CoreResult<T>`
-    ///
-    /// # Returns
-    /// * `CoreResult<T>` - The result of the operation or the last error encountered
-    ///
-    /// # Errors
-    /// Returns an error if the operation failed after all retry attempts or
-    /// if the error is not recoverable
-    pub async fn handle_error<F, T>(&mut self, operation: F) -> CoreResult<T>
-    where
-        F: Fn() -> CoreResult<T> + Send + Sync,
-    {
-        loop {
-            match operation() {
-                Ok(result) => return Ok(result),
-                Err(error) => {
-                    self.error_context.increment_retry_count();
-
-                    if !error.is_recoverable() || self.error_context.retry_count >= self.max_retries
-                    {
-                        return Err(error);
-                    }
-
-                    tokio::time::sleep(self.retry_delay).await;
-                }
-            }
-        }
-    }
-
-    /// Gets the current error context
-    ///
-    /// # Returns
-    ///
-    /// A reference to the current error context
-    #[must_use] pub const fn error_context(&self) -> &ErrorContext {
-        &self.error_context
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_context() {
-        let context = ErrorContext::new("test_op", "test_component")
-            .with_message_type(MessageType::Command)
-            .with_severity(ErrorSeverity::High)
-            .with_error_code("TEST-001")
-            .with_source_location("test.rs:42");
-
-        assert_eq!(context.operation, "test_op");
-        assert_eq!(context.component, "test_component");
-        assert_eq!(context.message_type, Some(MessageType::Command));
-        assert_eq!(context.severity, ErrorSeverity::High);
-        assert_eq!(context.error_code, "TEST-001");
-        assert_eq!(context.source_location, Some("test.rs:42".to_string()));
-    }
-
-    #[test]
-    fn test_error_recovery() {
-        let version_mismatch = MCPError::Protocol(ProtocolError::InvalidVersion(
-            "Version mismatch".to_string(),
-        ));
-        assert!(!version_mismatch.is_recoverable());
-        assert_eq!(version_mismatch.severity(), ErrorSeverity::High);
-
-        let timeout = MCPError::Connection(ConnectionError::Timeout(5000));
-        assert!(timeout.is_recoverable());
-        assert_eq!(timeout.severity(), ErrorSeverity::Low);
-    }
-}
-
-/// Errors related to MCP connection operations
-///
-/// This enum represents errors that can occur when establishing or maintaining
-/// network connections within the MCP system, including failures, timeouts, and
-/// connection limit issues.
-#[derive(Debug, Clone, Error)]
-pub enum ConnectionError {
-    /// Error that occurs when a connection cannot be established
-    ///
-    /// This can happen due to network issues, incorrect configuration,
-    /// or when the remote endpoint is unavailable.
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
-    
-    /// Error that occurs when a connection operation exceeds the time limit
-    ///
-    /// This happens when the connection process takes longer than the
-    /// specified timeout period in milliseconds.
-    #[error("Connection timeout after {0}ms")]
-    Timeout(u64),
-    
-    /// Error that occurs when a connection is closed unexpectedly
-    ///
-    /// This can happen due to network issues, remote endpoint closure,
-    /// or other connection disruptions.
-    #[error("Connection closed: {0}")]
-    Closed(String),
-    
-    /// Error that occurs when a connection is reset by the peer
-    ///
-    /// This typically happens when the remote endpoint forcibly
-    /// closes the connection.
-    #[error("Connection reset")]
-    Reset,
-    
-    /// Error that occurs when a connection is refused by the remote endpoint
-    ///
-    /// This typically happens when the remote service is not running,
-    /// or is configured to reject the connection.
-    #[error("Connection refused")]
-    Refused,
-    
-    /// Error that occurs when the network is unreachable
-    ///
-    /// This can happen due to network configuration issues, firewalls,
-    /// or physical network disconnection.
-    #[error("Network unreachable")]
-    Unreachable,
-    
-    /// Error that occurs when too many concurrent connections are active
-    ///
-    /// This can happen when the system reaches its maximum connection capacity
-    /// as defined by resource limits or configuration.
-    #[error("Too many connections")]
-    TooManyConnections,
-    
-    /// Error that occurs when a connection limit is reached for a specific reason
-    ///
-    /// This provides more context about why a connection limit was reached,
-    /// such as per-user limits or rate limiting.
-    #[error("Connection limit reached: {0}")]
-    LimitReached(String),
-}
-
-/// Errors related to the MCP protocol
-///
-/// This enum represents various error conditions that can occur during protocol
-/// operations, including version mismatches, invalid states, and message format errors.
-#[derive(Debug, Clone, Error)]
-pub enum ProtocolError {
-    /// Error when the protocol version is invalid or incompatible
-    #[error("Invalid protocol version: {0}")]
-    InvalidVersion(String),
-    
-    /// Error when the protocol is in an invalid state for the requested operation
-    #[error("Invalid protocol state: {0}")]
-    InvalidState(String),
-    
-    /// Error when a message doesn't conform to the expected format
-    #[error("Invalid message format: {0}")]
-    InvalidFormat(String),
-    
-    /// Error when protocol negotiation fails between endpoints
-    #[error("Protocol negotiation failed: {0}")]
-    NegotiationFailed(String),
-    
-    /// Error when the protocol handshake process fails
-    #[error("Protocol handshake failed: {0}")]
-    HandshakeFailed(String),
-    
-    /// Error when protocol synchronization cannot be established
-    #[error("Protocol synchronization failed: {0}")]
-    SyncFailed(String),
-    
-    /// Error when a requested protocol capability is not supported
-    #[error("Protocol capability not supported: {0}")]
-    UnsupportedCapability(String),
-    
-    /// Error related to protocol configuration settings
-    #[error("Protocol configuration error: {0}")]
-    ConfigurationError(String),
-    
-    /// Error when trying to initialize a protocol that's already initialized
-    #[error("Protocol already initialized")]
-    ProtocolAlreadyInitialized,
-    
-    /// Error when using a protocol that hasn't been initialized
-    #[error("Protocol not initialized")]
-    ProtocolNotInitialized,
-    
-    /// Error when the protocol is not in a ready state for the operation
-    #[error("Protocol not ready")]
-    ProtocolNotReady,
-    
-    /// Error when serializing protocol state
-    #[error("Failed to serialize state: {0}")]
-    StateSerialization(String),
-    
-    /// Error when deserializing protocol state
-    #[error("Failed to deserialize state: {0}")]
-    StateDeserialization(String),
-    
-    /// Error when a handler already exists for a message type
-    #[error("Handler already exists for message type: {0}")]
-    HandlerAlreadyExists(String),
-    
-    /// Error when no handler is found for a message type
-    #[error("No handler found for message type: {0}")]
-    HandlerNotFound(String),
-    
-    /// Error when a message payload is invalid
-    #[error("Invalid payload: {0}")]
-    InvalidPayload(String),
-    
-    /// Error when a message exceeds the allowed size limit
-    #[error("Message too large: {0}")]
-    MessageTooLarge(String),
-    
-    /// Error when a message timestamp is invalid
-    #[error("Invalid timestamp: {0}")]
-    InvalidTimestamp(String),
-    
-    /// Error when a message operation times out
-    #[error("Message timeout: {0}")]
-    MessageTimeout(String),
-    
-    /// Error when security metadata is invalid
-    #[error("Invalid security metadata: {0}")]
-    InvalidSecurityMetadata(String),
-    
-    /// Error when message validation fails
-    #[error("Message validation failed: {0}")]
-    ValidationFailed(String),
-    
-    /// Error when protocol recovery attempts fail
-    #[error("Recovery failed: {0}")]
-    RecoveryFailed(String),
-    
-    /// Error in the wire format encoding/decoding
-    #[error("Wire format error: {0}")]
-    Wire(String),
-}
-
-/// Security-related errors
-#[derive(Debug, Clone, Error)]
-pub enum SecurityError {
-    /// Authentication error that occurs when credentials cannot be verified
-    /// or the authentication process fails for any reason
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
-    
-    /// Authorization error that occurs when a user lacks permissions
-    /// to perform the requested operation
-    #[error("Authorization failed: {0}")]
-    AuthorizationFailed(String),
-    
-    /// Error that occurs when provided credentials are invalid,
-    /// malformed, or do not match expected format
-    #[error("Invalid credentials: {0}")]
-    InvalidCredentials(String),
-    
-    /// Error that occurs when an authentication token has expired
-    /// and is no longer valid for use
-    #[error("Token expired")]
-    TokenExpired,
-    
-    /// Error that occurs when a token is invalid, corrupted,
-    /// or cannot be verified
-    #[error("Invalid token: {0}")]
-    InvalidToken(String),
-    
-    /// Error that occurs when a user role does not exist or
-    /// is not valid in the current context
-    #[error("Invalid role: {0}")]
-    InvalidRole(String),
-    
-    /// Error that occurs during encryption operations, such as
-    /// key generation, data encryption, or signature creation
-    #[error("Encryption failed: {0}")]
-    EncryptionFailed(String),
-    
-    /// Error that occurs during decryption operations, such as
-    /// key retrieval, data decryption, or signature verification
-    #[error("Decryption failed: {0}")]
-    DecryptionFailed(String),
-    
-    /// General security error that occurs within the security
-    /// subsystem but doesn't fit other specific categories
-    #[error("Internal security error: {0}")]
-    InternalError(String),
-    
-    /// Error that occurs when a message is sent with an insufficient
-    /// security level for the operation being performed
-    #[error("Invalid security level: required {required:?}, provided {provided:?}")]
-    InvalidSecurityLevel {
-        /// The security level required by the operation or receiver
-        required: SecurityLevel,
-        /// The security level provided in the message or request
-        provided: SecurityLevel,
-    },
-    
-    /// Error that occurs within the underlying system security
-    /// infrastructure or OS security mechanisms
-    #[error("System error: {0}")]
-    System(String),
-    
-    /// Error that occurs when a permission string has invalid format
-    /// or cannot be parsed correctly
-    #[error("Invalid permission format: {0}")]
-    InvalidPermissionFormat(String),
-    
-    /// Error that occurs when an action specified in a permission
-    /// is not recognized or not supported
-    #[error("Invalid action in permission: {0}")]
-    InvalidActionInPermission(String),
-    
-    /// Error that occurs during the creation of a new role
-    /// in the security system
-    #[error("Error creating role: {0}")]
-    ErrorCreatingRole(String),
-    
-    /// Error related to the Role-Based Access Control system,
-    /// such as role assignment or permission checking
-    #[error("RBAC error: {0}")]
-    RBACError(String),
-    
-    /// Error that occurs during validation of security-related
-    /// data or operations
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    
-    /// Error that occurs when attempting to create a security
-    /// entity with an ID that already exists
-    #[error("Duplicate ID error: {0}")]
-    DuplicateIDError(String),
-    
-    /// Error that occurs when a security-related entity
-    /// could not be found
-    #[error("Not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs when an operation would violate
-    /// a defined security policy
-    #[error("Policy violation: {0}")]
-    PolicyViolation(String),
-}
-
-/// Errors related to MCP context operations
-///
-/// This enum represents errors that can occur when working with MCP contexts,
-/// including context lookup failures, validation errors, and synchronization issues.
-#[derive(Debug, Clone, Error)]
-pub enum ContextError {
-    /// Error that occurs when a context with the specified UUID cannot be found
-    ///
-    /// This typically happens when trying to access a context that doesn't exist
-    /// or has been removed.
-    NotFound(uuid::Uuid),
-    
-    /// Error that occurs when context validation fails
-    ///
-    /// This can happen when a context contains invalid data or doesn't meet
-    /// the required constraints.
-    ValidationError(String),
-    
-    /// Error that occurs during context synchronization
-    ///
-    /// This can happen when there are issues synchronizing context data
-    /// between components or systems.
-    SyncError(String),
-}
-
-impl std::fmt::Display for ContextError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound(id) => write!(f, "Context not found: {id}"),
-            Self::ValidationError(msg) => write!(f, "Context validation error: {msg}"),
-            Self::SyncError(msg) => write!(f, "Context sync error: {msg}"),
-        }
-    }
-}
-
-/// Errors related to MCP session operations
-///
-/// This enum represents errors that can occur when working with MCP sessions,
-/// including authentication and authorization failures, timeouts, and validation issues.
-#[derive(Debug, Clone, Error)]
-pub enum SessionError {
-    /// Error that occurs when session authentication fails
-    ///
-    /// This typically happens when credentials cannot be verified
-    /// or the authentication process fails for any reason.
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
-    
-    /// Error that occurs when session authorization fails
-    ///
-    /// This typically happens when a user lacks the necessary permissions
-    /// to perform a requested operation.
-    #[error("Authorization failed: {0}")]
-    AuthorizationFailed(String),
-    
-    /// Error that occurs when a session times out
-    ///
-    /// This can happen when a session exceeds its maximum allowed
-    /// duration or when there is no activity for a specified period.
-    #[error("Session timeout: {0}")]
-    Timeout(String),
-    
-    /// Error that occurs when a session is invalid
-    ///
-    /// This can happen when a session is malformed, corrupted,
-    /// or doesn't meet the required constraints.
-    #[error("Invalid session: {0}")]
-    InvalidSession(String),
-    
-    /// Error that occurs when a session cannot be found
-    ///
-    /// This typically happens when trying to access a session
-    /// that doesn't exist or has been removed.
-    #[error("Session not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs during session validation
-    ///
-    /// This can happen when session data fails validation checks
-    /// or doesn't meet the required constraints.
-    #[error("Session validation error: {0}")]
-    Validation(String),
-    
-    /// General internal error within the session management system
-    ///
-    /// This is used for errors that don't fit into other specific
-    /// categories but occur within the session subsystem.
-    #[error("Internal session error: {0}")]
-    InternalError(String),
-}
-
-// Add the persistence error implementation
-impl From<squirrel_core::error::PersistenceError> for MCPError {
-    fn from(err: squirrel_core::error::PersistenceError) -> Self {
-        Self::PersistenceDetail(err.to_string())
-    }
-}
-
-/// Error related to the alert system
-///
-/// Represents errors that occur within the alert processing system,
-/// including notification failures, alert validation errors, and 
-/// alert delivery issues.
-#[derive(Debug, Clone, Error)]
-pub enum AlertError {
-    /// Error that occurs when a notification fails to be sent
-    #[error("Notification failed: {0}")]
-    NotificationFailed(String),
-    
-    /// Error that occurs when an alert validation fails
-    #[error("Alert validation failed: {0}")]
-    ValidationFailed(String),
-    
-    /// Error that occurs when an alert delivery fails
-    #[error("Alert delivery failed: {0}")]
-    DeliveryFailed(String),
-    
-    /// Error that occurs when an alert processing fails
-    #[error("Alert processing failed: {0}")]
-    ProcessingFailed(String),
-    
-    /// Error that occurs when an alert is not found
-    #[error("Alert not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs when an alert is already processed
-    #[error("Alert already processed: {0}")]
-    AlreadyProcessed(String),
-    
-    /// Error that occurs when an alert is not authorized
-    #[error("Alert not authorized: {0}")]
-    NotAuthorized(String),
 }
 
 /// Error context information for MCP errors
@@ -1112,9 +615,20 @@ impl From<crate::error::transport::TransportError> for MCPError {
     }
 }
 
-// Add implementation for From<SessionError> for MCPError
+impl From<WireFormatError> for MCPError {
+    fn from(err: WireFormatError) -> Self {
+        MCPError::Protocol(ProtocolError::Wire(err.to_string()))
+    }
+}
+
+impl From<ProtocolError> for MCPError {
+    fn from(err: ProtocolError) -> Self {
+        MCPError::Protocol(err)
+    }
+}
+
 impl From<SessionError> for MCPError {
     fn from(err: SessionError) -> Self {
-        Self::Session(err)
+        MCPError::Session(err)
     }
 }

@@ -1,14 +1,23 @@
 use std::sync::Arc;
 use async_trait::async_trait;
-use tokio::sync::{mpsc, RwLock, Mutex};
+use tokio::sync::{mpsc::{self, UnboundedSender, UnboundedReceiver}, RwLock, Mutex as TokioMutex, Mutex as StdMutex};
 use uuid::Uuid;
 use std::collections::VecDeque;
 use rand;
-
 use crate::error::transport::TransportError;
-use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
+use crate::protocol::MCPMessage;
+use crate::security::types::EncryptionFormat;
+use crate::types::CompressionFormat;
 use super::{Transport, TransportMetadata};
 use crate::error::MCPError;
+use crate::error::Result;
+use log::{error, trace};
+use std::fmt;
+use std::net::SocketAddr;
+use std::sync::Mutex;
+use crate::transport::types::ConnectionState;
+use crate::transport::{TransportEvent, TransportMetadata};
+use std::collections::HashMap;
 
 /// Configuration for the in-memory transport
 #[derive(Debug, Clone)]
@@ -109,10 +118,14 @@ impl MemoryChannel {
         
         let metadata = TransportMetadata {
             transport_type: "memory".to_string(),
-            remote_address: format!("memory://{}", config.name),
-            local_address: None,
+            peer_addr: None,
+            local_addr: None,
             encryption: config.encryption,
             compression: config.compression,
+            connected_at: chrono::Utc::now(),
+            state: ConnectionState::Disconnected,
+            protocol_version: "unknown".to_string(),
+            additional_metadata: Default::default(),
         };
         
         MemoryTransport {
@@ -151,10 +164,14 @@ impl MemoryChannel {
             max_history: self.max_history,
             metadata: TransportMetadata {
                 transport_type: "memory".to_string(),
-                remote_address: format!("memory://{}", config_a.name),
-                local_address: None,
+                peer_addr: None,
+                local_addr: None,
                 encryption: config_a.encryption,
                 compression: config_a.compression,
+                connected_at: chrono::Utc::now(),
+                state: ConnectionState::Disconnected,
+                protocol_version: "unknown".to_string(),
+                additional_metadata: Default::default(),
             },
         };
         
@@ -170,10 +187,14 @@ impl MemoryChannel {
             max_history: self.max_history,
             metadata: TransportMetadata {
                 transport_type: "memory".to_string(),
-                remote_address: format!("memory://{}", config_b.name),
-                local_address: None,
+                peer_addr: None,
+                local_addr: None,
                 encryption: config_b.encryption,
                 compression: config_b.compression,
+                connected_at: chrono::Utc::now(),
+                state: ConnectionState::Disconnected,
+                protocol_version: "unknown".to_string(),
+                additional_metadata: Default::default(),
             },
         };
         
@@ -199,13 +220,13 @@ impl MemoryChannel {
     
     /// Get a reference to the message history
     pub async fn get_history(&self) -> Vec<MCPMessage> {
-        let history = self.history.lock().await;
+        let history = self.history.lock().unwrap();
         history.iter().cloned().collect()
     }
     
     /// Clear the message history
     pub async fn clear_history(&self) {
-        let mut history = self.history.lock().await;
+        let mut history = self.history.lock().unwrap();
         history.clear();
     }
     
@@ -237,14 +258,14 @@ pub struct MemoryTransport {
     /// Current connection state
     state: Arc<RwLock<MemoryState>>,
     
-    /// Outgoing message channel
-    outgoing_channel: mpsc::Sender<MCPMessage>,
+    /// Outgoing message channel (Unbounded)
+    outgoing_channel: UnboundedSender<MCPMessage>,
     
-    /// Incoming message channel
-    incoming_channel: Arc<Mutex<mpsc::Receiver<MCPMessage>>>,
+    /// Incoming message channel (Unbounded)
+    incoming_channel: Arc<Mutex<UnboundedReceiver<MCPMessage>>>,
     
-    /// Sender to the peer transport
-    peer_sender: Arc<mpsc::Sender<MCPMessage>>,
+    /// Sender to the peer transport (Unbounded)
+    peer_sender: Arc<UnboundedSender<MCPMessage>>,
     
     /// Connection ID
     connection_id: String,
@@ -260,28 +281,37 @@ pub struct MemoryTransport {
 }
 
 impl MemoryTransport {
-    /// Create a new memory transport
-    #[must_use] pub fn new(config: MemoryTransportConfig) -> Self {
-        // Create message channels
-        let (out_tx, _) = mpsc::channel(config.buffer_size);
-        let (_, in_rx) = mpsc::channel(config.buffer_size);
+    /// Creates a new memory transport layer.
+    #[must_use]
+    #[allow(unused_variables)] // Allow unused channel ends here, handled by pair creation
+    pub fn new(config: &MemoryTransportConfig) -> Self {
+        // Create communication channels for this client
+        let (server_sender, client_receiver) = mpsc::unbounded_channel::<MCPMessage>();
+        let (client_sender, server_receiver) = mpsc::unbounded_channel::<MCPMessage>();
+        
+        // Create message channels (Unbounded)
+        let (tx, rx) = mpsc::unbounded_channel::<MCPMessage>();
         
         // Create peer sender - this will be updated when connecting to a peer
-        let (peer_tx, _) = mpsc::channel(1);
+        let (peer_tx, _peer_rx) = mpsc::unbounded_channel::<MCPMessage>();
         
         let metadata = TransportMetadata {
             transport_type: "memory".to_string(),
-            remote_address: format!("memory://{}", config.name),
-            local_address: None,
+            peer_addr: None,
+            local_addr: None,
             encryption: config.encryption,
             compression: config.compression,
+            connected_at: chrono::Utc::now(),
+            state: ConnectionState::Disconnected,
+            protocol_version: "unknown".to_string(),
+            additional_metadata: Default::default(),
         };
         
         Self {
             config: config.clone(),
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
-            outgoing_channel: out_tx,
-            incoming_channel: Arc::new(Mutex::new(in_rx)),
+            outgoing_channel: tx,
+            incoming_channel: Arc::new(Mutex::new(rx)),
             peer_sender: Arc::new(peer_tx),
             connection_id: Uuid::new_v4().to_string(),
             history: Arc::new(Mutex::new(VecDeque::new())),
@@ -292,16 +322,12 @@ impl MemoryTransport {
     
     /// Add a message to the history
     async fn add_to_history(&self, message: MCPMessage) {
-        let mut history = self.history.lock().await;
-        
-        // Add the message to history
-        history.push_back(message);
-        
-        // Enforce maximum history size
         if let Some(max) = self.max_history {
-            while history.len() > max {
+            let mut history = self.history.lock().unwrap();
+            if history.len() >= max {
                 history.pop_front();
             }
+            history.push_back(message);
         }
     }
     
@@ -315,40 +341,26 @@ impl MemoryTransport {
 
 #[async_trait]
 impl Transport for MemoryTransport {
-    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
-        if !self.is_connected().await {
-            return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string()).into()));
-        }
-        
-        // Clone the message for history
-        let message_copy = message.clone();
-        
-        // Add to history before sending
-        self.add_to_history(message_copy).await;
-        
-        // Simulate latency
-        self.simulate_latency().await;
-        
-        // Simulate random failures
-        if self.config.simulate_failures && rand::random::<f32>() < 0.05 {
-            // 5% chance of failure
-            return Err(MCPError::Transport(TransportError::ConnectionClosed("Simulated random send failure".to_string()).into()));
-        }
-        
-        // Send to peer
+    async fn send_message(&self, message: MCPMessage) -> Result<()> {
+        trace!("MemoryTransport [{}] sending message to peer", self.connection_id);
         let peer_sender = self.peer_sender.clone();
-        peer_sender.send(message).await
-            .map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Failed to send message to peer".to_string()).into()))
+        match peer_sender.send(message) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                error!("Failed to send message over memory channel: {}", e);
+                Err(TransportError::ConnectionFailed(format!("Memory channel send failed: {}", e)).into())
+            }
+        }
     }
     
-    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
+    async fn receive_message(&self) -> Result<MCPMessage> {
         // Check if connected
         if !self.is_connected().await {
             return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string()).into()));
         }
         
         // Get a message from the incoming channel
-        let mut rx = self.incoming_channel.lock().await;
+        let mut rx = self.incoming_channel.lock().unwrap();
         match rx.recv().await {
             Some(message) => {
                 // Simulate latency for receiving
@@ -363,7 +375,7 @@ impl Transport for MemoryTransport {
         }
     }
     
-    async fn connect(&mut self) -> crate::error::Result<()> {
+    async fn connect(&mut self) -> Result<()> {
         // Get current state
         let state = {
             let state = self.state.read().await;
@@ -394,8 +406,8 @@ impl Transport for MemoryTransport {
         // Simulate random failures if configured
         if self.config.simulate_failures && rand::random::<f32>() < 0.1 {
             // 10% chance of failure
-            let mut state = self.state.write().await;
-            *state = MemoryState::Failed("Simulated random failure".to_string());
+            // Update state directly without creating a temporary variable
+            *self.state.write().await = MemoryState::Failed("Simulated random failure".to_string());
             
             return Err(MCPError::Transport(TransportError::ConnectionFailed(
                 "Simulated random connection failure".to_string()
@@ -411,7 +423,7 @@ impl Transport for MemoryTransport {
         Ok(())
     }
 
-    async fn disconnect(&self) -> crate::error::Result<()> {
+    async fn disconnect(&self) -> Result<()> {
         // Update state to disconnecting
         {
             let mut state = self.state.write().await;

@@ -39,7 +39,7 @@ pub async fn setup_basic_plugin_environment() -> Result<()> {
         
     // Register the tool
     tool_manager.register_tool(
-        tool,
+        tool?,
         crate::tool::executor::BasicToolExecutor::new("sample-tool")
     ).await?;
     

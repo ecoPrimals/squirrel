@@ -5,7 +5,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
-use std::io::Write;
 
 use tracing::{info, warn, error, debug};
 

@@ -41,9 +41,9 @@ use tokio::sync::RwLock;
 use thiserror::Error;
 use uuid::Uuid;
 use base64;
-use std::str::FromStr;
 use base64::engine::general_purpose;
 use base64::Engine;
+use serde::{Serialize, Deserialize};
 
 /// Errors specific to wire format protocol adapter operations.
 #[derive(Debug, Error)]
@@ -74,12 +74,13 @@ pub enum WireFormatError {
 }
 
 /// Wire format protocol versions supported by the adapter
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ProtocolVersion {
-    /// Version 1.0 (current stable)
-    V1_0,
-    /// Version 0.9 (legacy)
+    #[serde(rename = "0.9")]
     V0_9,
+    /// Version 1.0 (current stable)
+    #[serde(rename = "1.0")]
+    V1_0,
     /// Latest version (alias for the latest stable version)
     Latest,
 }
@@ -551,13 +552,6 @@ impl WireFormatAdapter {
     {
         obj.get(key)
             .and_then(|v| v.as_str()).map_or_else(default, std::string::ToString::to_string)
-    }
-}
-
-// Implementation of From<WireFormatError> for MCPError to enable error conversion
-impl From<WireFormatError> for MCPError {
-    fn from(error: WireFormatError) -> Self {
-        Self::Protocol(ProtocolError::Wire(error.to_string()))
     }
 }
 

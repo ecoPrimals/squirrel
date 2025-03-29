@@ -19,12 +19,21 @@ use tokio::sync::{mpsc, RwLock, Mutex};
 use tokio::net::TcpStream;
 use uuid::Uuid;
 use socket2;
-
-use crate::error::transport::TransportError;
-use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
+use tokio::net::{TcpListener, ToSocketAddrs};
+use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+use std::net::SocketAddr;
+use std::str::FromStr;
+use crate::error::{MCPError, Result, TransportError};
+use crate::message::Message;
+use crate::protocol::MCPMessage;
+use crate::transport::types::ConnectionState;
+use crate::security::types::EncryptionFormat;
+use crate::types::CompressionFormat;
 use super::{Transport, TransportMetadata};
 use super::frame::{FrameReader, FrameWriter, MessageCodec};
-use crate::error::MCPError;
+use crate::security::EncryptionFormat as SecurityEncryptionFormat;
+use futures_util::{SinkExt, StreamExt};
+use std::collections::HashMap;
 
 /// Configuration for the TCP transport
 ///
@@ -200,7 +209,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub const fn with_encryption(mut self, encryption_format: crate::types::EncryptionFormat) -> Self {
+    pub const fn with_encryption(mut self, encryption_format: EncryptionFormat) -> Self {
         self.encryption = encryption_format;
         self
     }
@@ -215,7 +224,7 @@ impl TcpTransportConfig {
     ///
     /// The updated configuration
     #[must_use]
-    pub const fn with_compression(mut self, compression_format: crate::types::CompressionFormat) -> Self {
+    pub const fn with_compression(mut self, compression_format: CompressionFormat) -> Self {
         self.compression = compression_format;
         self
     }
@@ -287,7 +296,6 @@ enum TcpTransportState {
 /// Provides TCP-based transport for MCP messages using a framing protocol to
 /// preserve message boundaries. The implementation handles connection establishment,
 /// reconnection, message serialization, and the full connection lifecycle.
-#[derive(Debug)]
 pub struct TcpTransport {
     /// Transport configuration
     config: TcpTransportConfig,
@@ -337,13 +345,21 @@ impl TcpTransport {
         // Clone the receiver for the constructor
         let rx_option = Some(rx);
         
+        // Attempt to parse addresses from config
+        let peer_addr = SocketAddr::from_str(&config.remote_address).ok();
+        let local_addr = config.local_bind_address.as_deref().and_then(|s| SocketAddr::from_str(s).ok());
+        
         // Create metadata
         let metadata = TransportMetadata {
             transport_type: "tcp".to_string(),
-            remote_address: config.remote_address.clone(),
-            local_address: config.local_bind_address.clone(),
+            peer_addr,
+            local_addr,
             encryption: config.encryption,
             compression: config.compression,
+            connected_at: chrono::Utc::now(),
+            state: ConnectionState::Disconnected,
+            protocol_version: "unknown".to_string(),
+            additional_metadata: Default::default(),
         };
         
         // Generate a unique connection ID
@@ -371,15 +387,15 @@ impl TcpTransport {
     /// # Returns
     ///
     /// Result indicating success or an error
-    async fn start_reader_task<R>(&self, reader: R) -> Result<(), TransportError> 
+    async fn start_reader_task<R>(&self, reader: R) -> Result<()> 
     where 
         R: tokio::io::AsyncRead + Unpin + Send + 'static 
     {
         let addr = self.config.remote_address.clone();
         if addr.is_empty() {
-            return Err(TransportError::connection_failed(
-                "TCP transport requires a remote address"
-            ));
+            return Err(TransportError::ConnectionFailed(
+                "TCP transport requires a remote address".to_string()
+            ).into());
         }
         
         // Generate a unique stream ID
@@ -446,7 +462,7 @@ impl TcpTransport {
     }
     
     /// Start the writer task to process outgoing messages
-    async fn start_writer_task<W>(&self, writer: W, mut msg_rx: mpsc::Receiver<MCPMessage>) -> Result<(), TransportError> 
+    async fn start_writer_task<W>(&self, writer: W, mut msg_rx: mpsc::Receiver<MCPMessage>) -> Result<()> 
     where 
         W: tokio::io::AsyncWrite + Unpin + Send + 'static 
     {
@@ -515,7 +531,7 @@ impl Transport for TcpTransport {
         // Send message to writer task
         let msg_sender = self.message_sender.lock().await;
         match msg_sender.send(message).await {
-            Ok(_) => Ok(()),
+            Ok(()) => Ok(()),
             Err(e) => Err(TransportError::protocol_error(format!("Failed to send message: {e}")).into())
         }
     }
@@ -530,25 +546,26 @@ impl Transport for TcpTransport {
             }
         }
         
-        // Lock the frame_receiver so we can access the Option<Receiver>
+        // Lock the frame_receiver and check for a receiver in a single block
         let mut frame_receiver_guard = self.frame_receiver.lock().await;
         
-        // Check if we have a receiver
-        if frame_receiver_guard.is_none() {
-            return Err(TransportError::protocol_error("No receiver available").into());
-        }
-        
-        // Get a reference to the receiver
-        let receiver = frame_receiver_guard.as_mut().unwrap();
-        
-        // Now receive a message (this is safe as we keep the lock)
-        match receiver.recv().await {
-            Some(msg) => Ok(msg),
-            None => {
+        // Check if we have a receiver and process message in a single code path
+        if let Some(receiver) = frame_receiver_guard.as_mut() {
+            // Now receive a message (this is safe as we keep the lock)
+            if let Some(msg) = receiver.recv().await {
+                // Drop the guard as soon as we have the message
+                drop(frame_receiver_guard);
+                Ok(msg)
+            } else {
                 // Channel is closed, remove the receiver
                 *frame_receiver_guard = None;
+                drop(frame_receiver_guard);
                 Err(TransportError::connection_closed("Channel closed").into())
             }
+        } else {
+            // No receiver available
+            drop(frame_receiver_guard);
+            Err(TransportError::protocol_error("No receiver available").into())
         }
     }
     
@@ -602,7 +619,9 @@ impl Transport for TcpTransport {
             let std_stream: std::net::TcpStream = socket.into();
             
             // Convert back to Tokio's TcpStream
-            let socket = TcpStream::from_std(std_stream).unwrap();
+            let socket = TcpStream::from_std(std_stream).map_err(|e| {
+                MCPError::Transport(TransportError::connection_failed(format!("Failed to convert std socket to tokio socket: {e}")).into())
+            })?;
             
             // Create a new channel for message sending
             let (msg_tx, msg_rx) = mpsc::channel(100);

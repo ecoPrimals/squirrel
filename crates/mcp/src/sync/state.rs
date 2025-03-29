@@ -90,25 +90,34 @@ impl StateSyncManager {
     /// # Errors
     /// Returns an error if the change cannot be recorded
     pub async fn record_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
-        let mut version = self.current_version.write().await;
-        *version += 1;
+        // Increment version in a scoped block to limit lock duration
+        let current_version = {
+            let mut version = self.current_version.write().await;
+            *version += 1;
+            *version // Return the current version value
+        }; // version lock is dropped here
 
+        // Create the change object
         let change = StateChange {
             id: Uuid::new_v4(),
             context_id: context.id,
             operation,
             data: serde_json::to_value(context)?,
             timestamp: Utc::now(),
-            version: *version,
+            version: current_version,
         };
 
-        let mut changes = self.changes.write().await;
-        changes.push_back(change.clone());
+        // Add to changes collection in a scoped block
+        {
+            let mut changes = self.changes.write().await;
+            changes.push_back(change.clone());
 
-        // If we have too many changes, remove the oldest ones
-        while changes.len() > self.max_changes {
-            changes.pop_front();
-        }
+            // If we have too many changes, remove the oldest ones
+            while changes.len() > self.max_changes {
+                changes.pop_front();
+            }
+            drop(changes); // Explicitly drop the lock to release it early
+        } // changes lock is dropped here
 
         // Broadcast the change to any subscribers
         let _ = self.sender.send(change);
@@ -124,7 +133,7 @@ impl StateSyncManager {
         self.sender.subscribe()
     }
 
-    /// Gets all changes since a specific version
+    /// Get changes since a specific version
     ///
     /// # Arguments
     /// * `version` - The version number to get changes since
@@ -132,8 +141,8 @@ impl StateSyncManager {
     /// # Errors
     /// Returns an error if the changes cannot be retrieved
     pub async fn get_changes_since(&self, version: u64) -> Result<Vec<StateChange>> {
-        let changes = self.changes.read().await;
-        let result: Vec<StateChange> = changes
+        // Use a constructor approach to immediately collect the filtered changes while holding the lock
+        let result = self.changes.read().await
             .iter()
             .filter(|change| change.version > version)
             .cloned()
@@ -150,21 +159,27 @@ impl StateSyncManager {
     /// # Errors
     /// Returns an error if the change cannot be applied
     pub async fn apply_change(&self, change: StateChange) -> Result<()> {
-        let mut version = self.current_version.write().await;
-        if change.version <= *version {
-            // We've already applied this change or have a newer version
-            return Ok(());
-        }
+        // First check and update version with a minimal lock duration
+        {
+            let mut version = self.current_version.write().await;
+            if change.version <= *version {
+                // We've already applied this change or have a newer version
+                return Ok(());
+            }
+            *version = change.version;
+        } // version lock is dropped here
 
-        *version = change.version;
+        // Then update changes with a separate lock
+        {
+            let mut changes = self.changes.write().await;
+            changes.push_back(change.clone());
 
-        let mut changes = self.changes.write().await;
-        changes.push_back(change.clone());
-
-        // If we have too many changes, remove the oldest ones
-        while changes.len() > self.max_changes {
-            changes.pop_front();
-        }
+            // If we have too many changes, remove the oldest ones
+            while changes.len() > self.max_changes {
+                changes.pop_front();
+            }
+            drop(changes); // Explicitly drop the lock to release it early
+        } // changes lock is dropped here
 
         // Broadcast the change to any subscribers
         let _ = self.sender.send(change);

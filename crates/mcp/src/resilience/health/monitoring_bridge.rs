@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::Utc;
 use log::{debug, error, info};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
-use tokio::time::interval;
 
 use crate::error::MCPError;
-use crate::resilience::health::{HealthCheckResult, HealthMonitor, HealthStatus};
+use crate::resilience::health::{HealthCheckResult, HealthMonitor, HealthStatus, HealthCheck, HealthCheckConfig};
 use crate::resilience::recovery::{FailureInfo, FailureSeverity, RecoveryStrategy};
 
 /// Bridge that forwards MCP resilience health data to the global monitoring system
@@ -98,7 +96,7 @@ pub trait MonitoringAdapter: std::fmt::Debug + Send + Sync {
     async fn register_alert_handler(
         &self, 
         handler_id: &str, 
-        recovery_strategy: Arc<Mutex<RecoveryStrategy>>
+        _recovery_strategy: Arc<Mutex<RecoveryStrategy>>
     ) -> Result<(), MCPError>;
 }
 
@@ -155,7 +153,7 @@ impl MonitoringAdapter for MonitoringSystemAdapter {
     async fn register_alert_handler(
         &self, 
         handler_id: &str, 
-        recovery_strategy: Arc<Mutex<RecoveryStrategy>>
+        _recovery_strategy: Arc<Mutex<RecoveryStrategy>>
     ) -> Result<(), MCPError> {
         // In a real implementation, this would register a callback with the monitoring system
         // that would be triggered when an alert is fired
@@ -323,50 +321,56 @@ impl HealthMonitoringBridge {
         *running = true;
         drop(running); // Release the write lock
         
-        // Clone the required fields for the task
+        info!("Starting health monitoring bridge...");
+        
+        // Clone needed references
         let resilience_monitor = self.resilience_monitor.clone();
         let monitoring_system = self.monitoring_system.clone();
         let config = self.config.clone();
-        let running = self.running.clone();
+        let running_flag = self.running.clone();
         
-        // Start the forwarding task
+        // Create background task
         let handle = tokio::spawn(async move {
-            let mut interval_timer = interval(Duration::from_secs(config.forward_interval));
-            
-            info!("Health monitoring bridge started with forward interval of {} seconds", 
-                  config.forward_interval);
+            let interval_seconds = config.forward_interval;
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_seconds));
             
             loop {
-                interval_timer.tick().await;
+                interval.tick().await;
                 
-                // Check if we should still be running
-                let is_running = {
-                    let run_guard = running.read().await;
-                    *run_guard
-                };
-                
-                if !is_running {
+                // Check if we should stop
+                if !*running_flag.read().await {
                     break;
                 }
                 
-                // Get all health checks
-                let results = resilience_monitor.check_all().await;
+                // Collect health data from resilience monitor
+                let components = resilience_monitor.get_all_component_status();
+                let mut results = Vec::new();
                 
-                // Filter results if needed
-                let filtered_results: Vec<HealthCheckResult> = if config.forward_all_components {
-                    results.into_iter()
-                          .map(|(_, result)| result)
-                          .collect()
-                } else {
-                    results.into_iter()
-                          .filter(|(_, check_result)| check_result.status != HealthStatus::Healthy)
-                          .map(|(_, result)| result)
-                          .collect()
-                };
+                for (component_id, status) in components {
+                    // Only forward unhealthy components if configured that way
+                    if !config.forward_all_components && matches!(status, HealthStatus::Healthy) {
+                        continue;
+                    }
+                    
+                    // Get full health check result if available
+                    if let Some(result) = resilience_monitor.get_component_result(&component_id) {
+                        results.push(result);
+                    } else {
+                        // Create a basic result if no detailed result is available
+                        results.push(HealthCheckResult {
+                            component_id: component_id.clone(),
+                            status,
+                            message: format!("Component {component_id} is {status:?}"),
+                            metrics: HashMap::new(),
+                            timestamp: std::time::Instant::now(),
+                        });
+                    }
+                }
                 
-                // Forward the results
-                if !filtered_results.is_empty() {
-                    if let Err(e) = monitoring_system.forward_health_data(filtered_results).await {
+                // Forward to monitoring system
+                if !results.is_empty() {
+                    debug!("Forwarding {} health results to monitoring system", results.len());
+                    if let Err(e) = monitoring_system.forward_health_data(results).await {
                         error!("Failed to forward health data to monitoring system: {}", e);
                     }
                 }
@@ -376,8 +380,7 @@ impl HealthMonitoringBridge {
         });
         
         // Store the task handle
-        let mut task_handle = self.task_handle.lock().await;
-        *task_handle = Some(handle);
+        self.task_handle.lock().await.replace(handle);
         
         Ok(())
     }
@@ -401,8 +404,8 @@ impl HealthMonitoringBridge {
         drop(running); // Release the write lock
         
         // Wait for the task to complete
-        let mut task_handle = self.task_handle.lock().await;
-        if let Some(handle) = task_handle.take() {
+        let handle = self.task_handle.lock().await.take();
+        if let Some(handle) = handle {
             tokio::spawn(async move {
                 if let Err(e) = handle.await {
                     error!("Error while stopping health monitoring bridge: {}", e);
@@ -436,9 +439,9 @@ impl HealthMonitoringBridge {
     pub async fn register_alert_handler(
         &self,
         handler_id: &str,
-        recovery_strategy: Arc<Mutex<RecoveryStrategy>>,
+        _recovery_strategy: Arc<Mutex<RecoveryStrategy>>,
     ) -> Result<(), MCPError> {
-        self.monitoring_system.register_alert_handler(handler_id, recovery_strategy).await
+        self.monitoring_system.register_alert_handler(handler_id, _recovery_strategy).await
     }
 }
 
@@ -480,6 +483,55 @@ pub async fn initialize_integrated_health_monitoring(
     Ok(bridge)
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct TestHealthCheck {
+    healthy: bool,
+    error_message: Option<String>,
+    check_count: Arc<Mutex<u32>>,
+    config: HealthCheckConfig,
+}
+
+impl TestHealthCheck {
+    pub(super) fn new(healthy: bool, error_message: Option<String>) -> Self {
+        Self {
+            healthy,
+            error_message,
+            check_count: Arc::new(Mutex::new(0)),
+            config: HealthCheckConfig::default(),
+        }
+    }
+}
+
+#[async_trait]
+impl HealthCheck for TestHealthCheck {
+    fn id(&self) -> &'static str {
+        "test-component"
+    }
+    
+    async fn check(&self) -> HealthCheckResult {
+        let status = if self.healthy {
+            HealthStatus::Healthy
+        } else {
+            HealthStatus::Degraded
+        };
+        HealthCheckResult {
+            component_id: "test-component".to_string(),
+            status,
+            message: self.error_message.clone().unwrap_or_default(),
+            metrics: HashMap::new(),
+            timestamp: std::time::Instant::now(),
+        }
+    }
+    
+    fn config(&self) -> &HealthCheckConfig {
+        &self.config
+    }
+    
+    fn config_mut(&mut self) -> &mut HealthCheckConfig {
+        &mut self.config
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -489,16 +541,19 @@ mod tests {
     use crate::resilience::recovery::RecoveryStrategy;
     
     // Test health check implementation
+    #[derive(Debug, Clone)]
     struct TestHealthCheck {
         component_id: String,
-        status: Arc<RwLock<HealthStatus>>,
+        status: Arc<tokio::sync::RwLock<HealthStatus>>,
+        config: HealthCheckConfig,
     }
     
     impl TestHealthCheck {
         fn new(component_id: &str, status: HealthStatus) -> Self {
             Self {
                 component_id: component_id.to_string(),
-                status: Arc::new(RwLock::new(status)),
+                status: Arc::new(tokio::sync::RwLock::new(status)),
+                config: HealthCheckConfig::default(),
             }
         }
         
@@ -508,34 +563,20 @@ mod tests {
         }
     }
     
-    #[async_trait]
-    impl HealthCheck for TestHealthCheck {
-        fn id(&self) -> &str {
-            &self.component_id
-        }
-        
-        async fn check(&self) -> HealthCheckResult {
-            let status = *self.status.read().await;
-            HealthCheckResult {
-                component_id: self.component_id.clone(),
-                status,
-                message: format!("Test component status: {:?}", status),
-                metrics: HashMap::new(),
-            }
-        }
-    }
-    
     // Test monitoring adapter
+    #[derive(Debug, Default)]
     struct TestMonitoringAdapter {
-        forward_count: Arc<AtomicUsize>,
-        last_results: Arc<Mutex<Vec<HealthCheckResult>>>,
+        metrics: Arc<Mutex<HashMap<String, u64>>>,
+        errors: Arc<Mutex<HashMap<String, u64>>>,
+        events: Arc<Mutex<Vec<String>>>,
     }
     
     impl TestMonitoringAdapter {
         fn new() -> Self {
             Self {
-                forward_count: Arc::new(AtomicUsize::new(0)),
-                last_results: Arc::new(Mutex::new(Vec::new())),
+                metrics: Arc::new(Mutex::new(HashMap::new())),
+                errors: Arc::new(Mutex::new(HashMap::new())),
+                events: Arc::new(Mutex::new(Vec::new())),
             }
         }
         
@@ -590,31 +631,20 @@ mod tests {
         }
     }
     
-    impl RecoveryStrategy for TestRecoveryStrategy {
-        fn handle_failure(
-            &mut self, 
-            failure: FailureInfo,
-            _default_action: impl FnOnce() -> Result<(), Box<dyn std::error::Error>>
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            self.recovery_count.fetch_add(1, Ordering::SeqCst);
-            let mut last_failure = self.last_failure.lock().unwrap();
-            *last_failure = Some(failure);
-            Ok(())
-        }
-    }
-    
     #[tokio::test]
     async fn test_health_monitoring_bridge() {
         // Set up test components
-        let resilience_monitor = Arc::new(HealthMonitor::new());
+        let mut resilience_monitor = HealthMonitor::new(10);
         let monitoring_adapter = Arc::new(TestMonitoringAdapter::new());
         
         // Register test health checks
         let health_check1 = TestHealthCheck::new("test-component-1", HealthStatus::Healthy);
         let health_check2 = TestHealthCheck::new("test-component-2", HealthStatus::Degraded);
         
-        resilience_monitor.register(Box::new(health_check1.clone())).await.unwrap();
-        resilience_monitor.register(Box::new(health_check2.clone())).await.unwrap();
+        resilience_monitor.register(health_check1.clone()).unwrap();
+        resilience_monitor.register(health_check2.clone()).unwrap();
+        
+        let resilience_monitor = Arc::new(resilience_monitor);
         
         // Create bridge with a short interval for testing
         let bridge_config = HealthMonitoringBridgeConfig {

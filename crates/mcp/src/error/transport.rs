@@ -3,6 +3,7 @@ use std::convert::From;
 use thiserror::Error;
 
 use super::types::MCPError;
+use crate::protocol::MCPMessage;
 
 /// Errors that can occur in the transport layer
 #[derive(Debug, Error, Clone)]
@@ -46,6 +47,10 @@ pub enum TransportError {
     /// Error when an operation is not supported by the current transport
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
+
+    /// Error when a send operation fails
+    #[error("Send error: {0}")]
+    SendError(String),
 }
 
 impl TransportError {
@@ -97,9 +102,9 @@ impl From<io::Error> for TransportError {
     }
 }
 
-impl From<tokio::sync::mpsc::error::SendError<crate::types::MCPMessage>> for TransportError {
-    fn from(err: tokio::sync::mpsc::error::SendError<crate::types::MCPMessage>) -> Self {
-        Self::ProtocolError(format!("Failed to send message: {err}"))
+impl From<tokio::sync::mpsc::error::SendError<MCPMessage>> for TransportError {
+    fn from(err: tokio::sync::mpsc::error::SendError<MCPMessage>) -> Self {
+        Self::SendError(format!("Failed to send message: {}", err))
     }
 }
 

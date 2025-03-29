@@ -1,7 +1,7 @@
 use crate::context_manager::Context;
 use crate::error::Result;
 use crate::sync::StateChange;
-use crate::types::{AccountId, AuthToken, ProtocolVersion, SessionToken, UserId, UserRole};
+use crate::types::{AccountId, ProtocolVersion, UserId};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use crate::security::types::{AuthToken, SessionToken, UserRole};
+use crate::error::MCPError;
 
 /// Configuration settings for the persistence layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -780,18 +782,20 @@ impl Persistence for FilePersistence {
     }
 
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>> {
-        // We would need an index for this, but for simplicity we'll scan all users
-        let keys = self.list_keys("users/").await?;
-        for key in keys {
-            if let Some(data) = self.load_data(&key).await? {
-                let user: UserData = serde_json::from_slice(&data).map_err(|e| {
-                    PersistenceError::Format(format!("Failed to deserialize user: {e}"))
-                })?;
-                if user.username == username {
-                    return Ok(Some(user));
+        // List all user keys
+        let user_keys = self.list_keys("users/").await?;
+        
+        // Scan through user files to find the matching username
+        for user_key in user_keys {
+            if let Some(data) = self.load_data(&user_key).await? {
+                if let Ok(user) = serde_json::from_slice::<UserData>(&data) {
+                    if user.username == username {
+                        return Ok(Some(user));
+                    }
                 }
             }
         }
+        
         Ok(None)
     }
 
@@ -966,20 +970,19 @@ impl Persistence for MemoryPersistence {
     }
 
     async fn load_user_by_username(&self, username: &str) -> Result<Option<UserData>> {
-        let data = self
+        // Create a vector of potential matches while holding the lock
+        let matches = self
             .data
             .read()
-            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
-        for (key, value) in data.iter() {
-            if key.starts_with("users/") {
-                if let Ok(user) = serde_json::from_slice::<UserData>(value) {
-                    if user.username == username {
-                        return Ok(Some(user));
-                    }
-                }
-            }
-        }
-        Ok(None)
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?
+            .iter()
+            .filter(|(key, _)| key.starts_with("users/"))
+            .filter_map(|(_, value)| {
+                serde_json::from_slice::<UserData>(value).ok()
+            })
+            .find(|user| user.username == username);
+            
+        Ok(matches)
     }
 
     async fn delete_user(&self, id: &UserId) -> Result<()> {
@@ -1012,42 +1015,39 @@ impl Persistence for MemoryPersistence {
     }
 
     async fn save_data(&self, key: &str, value: &[u8]) -> Result<()> {
-        let mut data = self
-            .data
+        self.data
             .write()
-            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
-        data.insert(key.to_string(), value.to_vec());
+            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?
+            .insert(key.to_string(), value.to_vec());
         Ok(())
     }
 
     async fn load_data(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let data = self
+        Ok(self
             .data
             .read()
-            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
-        Ok(data.get(key).cloned())
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?
+            .get(key)
+            .cloned())
     }
 
     async fn delete_data(&self, key: &str) -> Result<()> {
-        let mut data = self
-            .data
+        self.data
             .write()
-            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?;
-        data.remove(key);
+            .map_err(|_| PersistenceError::IO("Failed to acquire write lock".to_string()))?
+            .remove(key);
         Ok(())
     }
 
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let data = self
+        Ok(self
             .data
             .read()
-            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?;
-        let keys: Vec<String> = data
+            .map_err(|_| PersistenceError::IO("Failed to acquire read lock".to_string()))?
             .keys()
             .filter(|k| k.starts_with(prefix))
             .cloned()
-            .collect();
-        Ok(keys)
+            .collect())
     }
 
     async fn close(&self) -> Result<()> {

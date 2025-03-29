@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
 use std::time::Duration;
 use std::error::Error as StdError;
 use std::fmt;
@@ -11,11 +12,11 @@ use tokio::test;
 use crate::resilience::{
     with_resilience,
     with_recovery,
-    with_full_resilience,
+    with_complete_resilience,
     ResilienceError
 };
 use crate::resilience::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
-use crate::resilience::retry::{RetryMechanism, RetryConfig, BackoffStrategy};
+use crate::resilience::retry::{RetryMechanism, RetryConfig, BackoffStrategy, RetryError, ConstantBackoff};
 use crate::resilience::recovery::{RecoveryStrategy, RecoveryConfig, FailureInfo, FailureSeverity};
 
 // A test error type
@@ -275,7 +276,7 @@ async fn test_full_resilience_chain() {
             Ok::<String, Box<dyn StdError + Send + Sync>>("Success via recovery".to_string())
         };
         
-        let result = with_full_resilience(
+        let result = with_complete_resilience(
             &mut circuit_breaker,
             retry.clone(),
             &mut recovery,
@@ -321,7 +322,7 @@ async fn test_full_resilience_chain() {
             Ok::<String, Box<dyn StdError + Send + Sync>>("Success via recovery".to_string())
         };
         
-        let result = with_full_resilience(
+        let result = with_complete_resilience(
             &mut circuit_breaker,
             retry.clone(),
             &mut recovery,
@@ -370,7 +371,7 @@ async fn test_full_resilience_chain() {
                 Err(Box::<dyn StdError + Send + Sync>::from(TestError("Recovery failed too".to_string())))
             };
             
-            let _ = with_full_resilience(
+            let _ = with_complete_resilience(
                 &mut circuit_breaker,
                 retry.clone(),
                 &mut recovery,
@@ -384,7 +385,7 @@ async fn test_full_resilience_chain() {
         assert_eq!(circuit_breaker.state(), CircuitState::Open);
         
         // Try one more operation, it should be rejected immediately
-        let result = with_full_resilience(
+        let result = with_complete_resilience(
             &mut circuit_breaker,
             retry.clone(),
             &mut recovery,
@@ -481,7 +482,7 @@ async fn test_real_world_api_resilience() {
     };
     
     // First call - should recover and return cached data
-    let result1 = with_full_resilience(
+    let result1 = with_complete_resilience(
         &mut circuit_breaker,
         retry.clone(),
         &mut recovery,
@@ -611,7 +612,7 @@ async fn test_full_resilience_pipeline() {
     }
     
     // Test the complete integration
-    let _: Result<i32, ResilienceError> = with_full_resilience(
+    let _: Result<i32, ResilienceError> = with_complete_resilience(
         &mut circuit_breaker,
         retry.clone(),
         recovery.clone(),

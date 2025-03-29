@@ -66,7 +66,10 @@
 #![allow(missing_debug_implementations)]
 #![allow(clippy::unused_async)]
 #![allow(clippy::needless_pass_by_ref_mut)]
-#![allow(clippy::async_fn_in_trait)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::redundant_pub_crate)]
+#![allow(clippy::missing_errors_doc)] // TODO: Add error documentation
+#![allow(clippy::missing_panics_doc)] // TODO: Add panic documentation
 
 #![allow(dead_code)] // Temporarily allow dead code during migration
 
@@ -143,13 +146,16 @@ pub mod plugins;
 pub mod factory;
 
 /// Re-export common types from the error module for easier access.
+pub use error::{MCPError, Result, ErrorContext};
 pub use error::types::MCPError;
 pub use error::Result;
 
 pub use context_manager::Context;
 /// Re-export commonly used security types.
 pub use security::{SecurityManager, SecurityManagerImpl};
-pub use types::{EncryptionFormat, SecurityLevel};
+pub use types::{UserId, AccountId};
+pub use protocol::MessageId;
+pub use security::types::{EncryptionFormat, SecurityLevel};
 
 /// Adapter for MCP operations with dependency injection support.
 pub mod adapter;
@@ -238,6 +244,12 @@ pub mod metrics;
 /// This module provides implementations of the Debug trait for types
 /// in the MCP codebase that don't derive Debug automatically.
 pub mod debug_impl;
+
+/// MCP context manager for maintaining state across interactions.
+///
+/// The context manager provides mechanisms to create, retrieve, update,
+/// and manage contexts that store state information for different sessions.
+pub use context_manager::ContextManager;
 
 #[cfg(test)]
 mod tests;

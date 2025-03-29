@@ -62,26 +62,28 @@ impl ToolExecutor for ExampleToolExecutor {
 #[derive(Debug)]
 struct CustomRecoveryHandler;
 
-#[async_trait::async_trait]
 impl squirrel_mcp::tool::EnhancedRecoveryHandler for CustomRecoveryHandler {
-    async fn handle_action(
-        &self,
-        tool_id: &str,
-        action: &AdvancedRecoveryAction,
-        _error: &ToolError,
-        _tool_manager: &ToolManager,
-    ) -> Result<bool, ToolError> {
-        if let AdvancedRecoveryAction::Custom { name, params } = action {
-            info!(
-                "Handling custom recovery action '{}' for tool {} with params: {:?}",
-                name, tool_id, params
-            );
-            // Simulate successful custom recovery
-            Ok(true)
-        } else {
-            // We only handle custom actions
-            Ok(false)
-        }
+    // Manually implement the signature to match the trait
+    fn handle_action<'a>(
+        &'a self,
+        tool_id: &'a str,
+        action: &'a AdvancedRecoveryAction,
+        _error: &'a ToolError,
+        _tool_manager: &'a ToolManager,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<bool, ToolError>> + Send + 'a>> {
+        Box::pin(async move {
+            if let AdvancedRecoveryAction::Custom { name, params } = action {
+                info!(
+                    "Handling custom recovery action '{}' for tool {} with params: {:?}",
+                    name, tool_id, params
+                );
+                // Simulate successful custom recovery
+                Ok(true)
+            } else {
+                // We only handle custom actions
+                Ok(false)
+            }
+        })
     }
 }
 

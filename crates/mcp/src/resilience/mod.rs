@@ -280,7 +280,7 @@ where
     T: Send + 'static,
 {
     // Check current health status before executing
-    let status = health_monitor.component_status(component_id);
+    let status = health_monitor.get_component_status(component_id);
     
     if status == health::HealthStatus::Critical || status == health::HealthStatus::Unhealthy {
         return Err(ResilienceError::General(format!(
@@ -325,7 +325,7 @@ where
     T: Send + 'static,
 {
     // Check health status first
-    let status = health_monitor.component_status(component_id);
+    let status = health_monitor.get_component_status(component_id);
     if status == health::HealthStatus::Critical {
         return Err(ResilienceError::General(format!(
             "Cannot execute operation: component '{component_id}' is in critical state"

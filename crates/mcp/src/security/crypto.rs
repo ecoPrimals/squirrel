@@ -4,12 +4,18 @@
 //! for secure communication and data protection.
 
 use crate::error::{Result, MCPError};
-use crate::error::types::SecurityError;
-use crate::types::EncryptionFormat;
-use ring::{aead, digest, hmac};
+use crate::config::SecurityConfig;
+use crate::error::SecurityError;
+use crate::protocol::types::EncryptionFormat;
+use ring::{aead, hmac};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use rand::{RngCore, rngs::OsRng};
 use tracing::{debug, error};
+use crate::security::types::{KeyId, SecurityContext, SecurityLevel, Permission, Action};
+use async_trait::async_trait;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
+use crate::security::policies::{PolicyEngine, PolicyRequest, PolicyDecision};
 
 // AES-256-GCM constants
 const AES_256_GCM_KEY_LEN: usize = 32;
@@ -24,27 +30,16 @@ const CHACHA20_POLY1305_TAG_LEN: usize = 16;
 // HMAC constants
 const HMAC_KEY_LEN: usize = 32;
 
-/// Generate a random key for the specified encryption format
-pub fn generate_key(format: EncryptionFormat) -> Result<Vec<u8>> {
-    let key_len = match format {
-        EncryptionFormat::None => 0,
-        EncryptionFormat::Aes256Gcm => AES_256_GCM_KEY_LEN,
-        EncryptionFormat::ChaCha20Poly1305 => CHACHA20_POLY1305_KEY_LEN,
-    };
-
-    if key_len == 0 {
-        return Ok(Vec::new());
-    }
-
-    let mut key = vec![0u8; key_len];
-    OsRng.fill_bytes(&mut key);
-    
-    debug!("Generated {} byte key for {:?}", key_len, format);
-    Ok(key)
-}
-
 /// Generate a random nonce for the specified encryption format
-fn generate_nonce(format: EncryptionFormat) -> Result<Vec<u8>> {
+///
+/// # Arguments
+///
+/// * `format` - The encryption format to generate a nonce for
+///
+/// # Returns
+///
+/// * `Vec<u8>` - The generated nonce
+fn generate_nonce(format: EncryptionFormat) -> Vec<u8> {
     let nonce_len = match format {
         EncryptionFormat::None => 0,
         EncryptionFormat::Aes256Gcm => AES_256_GCM_NONCE_LEN,
@@ -52,16 +47,56 @@ fn generate_nonce(format: EncryptionFormat) -> Result<Vec<u8>> {
     };
 
     if nonce_len == 0 {
-        return Ok(Vec::new());
+        return Vec::new();
     }
 
     let mut nonce = vec![0u8; nonce_len];
     OsRng.fill_bytes(&mut nonce);
     
-    Ok(nonce)
+    nonce
+}
+
+/// Generate a random key for the specified encryption format
+///
+/// # Arguments
+///
+/// * `format` - The encryption format to generate a key for
+///
+/// # Returns
+///
+/// * `Vec<u8>` - The generated key
+pub fn generate_key(format: EncryptionFormat) -> Vec<u8> {
+    let key_len = match format {
+        EncryptionFormat::None => 0,
+        EncryptionFormat::Aes256Gcm => AES_256_GCM_KEY_LEN,
+        EncryptionFormat::ChaCha20Poly1305 => CHACHA20_POLY1305_KEY_LEN,
+    };
+
+    if key_len == 0 {
+        return Vec::new();
+    }
+
+    let mut key = vec![0u8; key_len];
+    OsRng.fill_bytes(&mut key);
+    
+    debug!("Generated {} byte key for {:?}", key_len, format);
+    key
 }
 
 /// Get the AEAD algorithm for the specified encryption format
+///
+/// # Arguments
+///
+/// * `format` - The encryption format to get the algorithm for
+///
+/// # Returns
+///
+/// * `Result<&'static aead::Algorithm>` - The AEAD algorithm
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * `format` is `EncryptionFormat::None`, as this indicates no encryption algorithm was selected
 fn get_aead_algorithm(format: EncryptionFormat) -> Result<&'static aead::Algorithm> {
     match format {
         EncryptionFormat::None => Err(MCPError::Security(SecurityError::EncryptionFailed(
@@ -87,6 +122,14 @@ fn get_aead_algorithm(format: EncryptionFormat) -> Result<&'static aead::Algorit
 /// # Returns
 ///
 /// * `Result<Vec<u8>>` - Encrypted data with nonce prepended
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The key length does not match the expected length for the chosen encryption format
+/// * Failed to create the encryption key from the provided key bytes
+/// * Failed to create a unique nonce
+/// * The encryption operation fails
 pub fn encrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
     // If no encryption is specified, return the data as-is
     if format == EncryptionFormat::None {
@@ -117,7 +160,7 @@ pub fn encrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<
     })?;
 
     // Generate nonce
-    let nonce_vec = generate_nonce(format)?;
+    let nonce_vec = generate_nonce(format);
     let nonce = aead::Nonce::try_assume_unique_for_key(&nonce_vec).map_err(|_| {
         MCPError::Security(SecurityError::EncryptionFailed(
             "Failed to create nonce".to_string(),
@@ -162,6 +205,15 @@ pub fn encrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<
 /// # Returns
 ///
 /// * `Result<Vec<u8>>` - Decrypted data
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The key length does not match the expected length for the chosen encryption format
+/// * The encrypted data is too short to contain a valid nonce and ciphertext
+/// * Failed to create the decryption key from the provided key bytes
+/// * Failed to extract the nonce from the encrypted data
+/// * The decryption operation fails (e.g., due to data tampering or incorrect key)
 pub fn decrypt(encrypted_data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
     // If no encryption is specified, return the data as-is
     if format == EncryptionFormat::None {
@@ -238,16 +290,22 @@ pub fn decrypt(encrypted_data: &[u8], key: &[u8], format: EncryptionFormat) -> R
     Ok(plaintext.to_vec())
 }
 
-/// Sign data with the specified key using HMAC-SHA256
+/// Sign data using HMAC-SHA256
 ///
 /// # Arguments
 ///
 /// * `data` - Data to sign
-/// * `key` - Signing key (should be 32 bytes)
+/// * `key` - Signing key
 ///
 /// # Returns
 ///
-/// * `Result<Vec<u8>>` - Signature
+/// * `Result<Vec<u8>>` - The HMAC signature
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The key length is not equal to the expected HMAC key length (32 bytes)
+/// * Failed to create the HMAC key from the provided key bytes
 pub fn sign(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     if key.len() != HMAC_KEY_LEN {
         return Err(MCPError::Security(SecurityError::InternalError(
@@ -262,17 +320,24 @@ pub fn sign(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     Ok(signature.as_ref().to_vec())
 }
 
-/// Verify a signature against data using HMAC-SHA256
+/// Verify a signature using HMAC-SHA256
 ///
 /// # Arguments
 ///
-/// * `data` - Data that was signed
-/// * `signature` - Signature to verify
-/// * `key` - Signing key (should be 32 bytes)
+/// * `data` - The data that was signed
+/// * `signature` - The signature to verify
+/// * `key` - The key used for signing
 ///
 /// # Returns
 ///
-/// * `Result<bool>` - True if signature is valid, false otherwise
+/// * `Result<bool>` - True if the signature is valid, false otherwise
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The key length is not equal to the expected HMAC key length (32 bytes)
+/// * Failed to create the HMAC key from the provided key bytes
+/// * The signature verification process fails
 pub fn verify(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool> {
     if key.len() != HMAC_KEY_LEN {
         return Err(MCPError::Security(SecurityError::InternalError(
@@ -299,34 +364,34 @@ pub enum HashAlgorithm {
     Blake3,
 }
 
-/// Hash data with the specified algorithm
+/// Hash data using the specified algorithm
 ///
 /// # Arguments
 ///
 /// * `data` - Data to hash
-/// * `algorithm` - Hash algorithm to use
+/// * `algorithm` - The hashing algorithm to use
 ///
 /// # Returns
 ///
-/// * `Result<Vec<u8>>` - Hash digest
-pub fn hash(data: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>> {
+/// * `Vec<u8>` - The computed hash
+#[must_use]
+pub fn hash(data: &[u8], algorithm: HashAlgorithm) -> Vec<u8> {
     match algorithm {
         HashAlgorithm::Sha256 => {
-            let digest = digest::digest(&digest::SHA256, data);
-            Ok(digest.as_ref().to_vec())
-        },
-        HashAlgorithm::Sha512 => {
-            let digest = digest::digest(&digest::SHA512, data);
-            Ok(digest.as_ref().to_vec())
-        },
-        HashAlgorithm::Blake3 => {
-            // Ring doesn't support BLAKE3 directly, so we use the sha2 crate which is already a dependency
-            let mut hasher = sha2::Sha256::new();
             use sha2::Digest;
+            let mut hasher = sha2::Sha256::new();
             hasher.update(data);
-            let result = hasher.finalize();
-            Ok(result.to_vec())
-        },
+            hasher.finalize().to_vec()
+        }
+        HashAlgorithm::Sha512 => {
+            use sha2::Digest;
+            let mut hasher = sha2::Sha512::new();
+            hasher.update(data);
+            hasher.finalize().to_vec()
+        }
+        HashAlgorithm::Blake3 => {
+            blake3::hash(data).as_bytes().to_vec()
+        }
     }
 }
 
@@ -336,6 +401,15 @@ pub fn hash(data: &[u8], algorithm: HashAlgorithm) -> Result<Vec<u8>> {
 }
 
 /// Decode a base64 string to bytes
+///
+/// # Arguments
+///
+/// * `encoded` - The base64 encoded string.
+///
+/// # Errors
+///
+/// Returns `MCPError::Security(SecurityError::InternalError)` if the input
+/// string `encoded` is not valid base64 according to the standard alphabet.
 pub fn base64_decode(encoded: &str) -> Result<Vec<u8>> {
     BASE64.decode(encoded).map_err(|err| {
         MCPError::Security(SecurityError::InternalError(
@@ -351,7 +425,7 @@ mod tests {
     #[test]
     fn test_encryption_roundtrip_aes_gcm() {
         let data = b"test data for AES-GCM encryption";
-        let key = generate_key(EncryptionFormat::Aes256Gcm).unwrap();
+        let key = generate_key(EncryptionFormat::Aes256Gcm);
         let encrypted = encrypt(data, &key, EncryptionFormat::Aes256Gcm).unwrap();
         let decrypted = decrypt(&encrypted, &key, EncryptionFormat::Aes256Gcm).unwrap();
         assert_eq!(data, decrypted.as_slice());
@@ -360,7 +434,7 @@ mod tests {
     #[test]
     fn test_encryption_roundtrip_chacha20_poly1305() {
         let data = b"test data for ChaCha20-Poly1305 encryption";
-        let key = generate_key(EncryptionFormat::ChaCha20Poly1305).unwrap();
+        let key = generate_key(EncryptionFormat::ChaCha20Poly1305);
         let encrypted = encrypt(data, &key, EncryptionFormat::ChaCha20Poly1305).unwrap();
         let decrypted = decrypt(&encrypted, &key, EncryptionFormat::ChaCha20Poly1305).unwrap();
         assert_eq!(data, decrypted.as_slice());
@@ -386,18 +460,18 @@ mod tests {
     #[test]
     fn test_hashing_sha256() {
         let data = b"test data for SHA-256 hashing";
-        let hash_result = hash(data, HashAlgorithm::Sha256).unwrap();
+        let hash_result = hash(data, HashAlgorithm::Sha256);
         assert_eq!(hash_result.len(), 32); // SHA-256 produces 32-byte digests
         
         // Hash the same data again to verify determinism
-        let hash_result2 = hash(data, HashAlgorithm::Sha256).unwrap();
+        let hash_result2 = hash(data, HashAlgorithm::Sha256);
         assert_eq!(hash_result, hash_result2);
     }
 
     #[test]
     fn test_hashing_sha512() {
         let data = b"test data for SHA-512 hashing";
-        let hash_result = hash(data, HashAlgorithm::Sha512).unwrap();
+        let hash_result = hash(data, HashAlgorithm::Sha512);
         assert_eq!(hash_result.len(), 64); // SHA-512 produces 64-byte digests
     }
     
@@ -411,14 +485,14 @@ mod tests {
     
     #[test]
     fn test_key_generation() {
-        let aes_key = generate_key(EncryptionFormat::Aes256Gcm).unwrap();
+        let aes_key = generate_key(EncryptionFormat::Aes256Gcm);
         assert_eq!(aes_key.len(), AES_256_GCM_KEY_LEN);
         
-        let chacha_key = generate_key(EncryptionFormat::ChaCha20Poly1305).unwrap();
+        let chacha_key = generate_key(EncryptionFormat::ChaCha20Poly1305);
         assert_eq!(chacha_key.len(), CHACHA20_POLY1305_KEY_LEN);
         
         // Make sure two generated keys are different
-        let another_key = generate_key(EncryptionFormat::Aes256Gcm).unwrap();
+        let another_key = generate_key(EncryptionFormat::Aes256Gcm);
         assert_ne!(aes_key, another_key);
     }
     
@@ -434,7 +508,7 @@ mod tests {
     #[test]
     fn test_tampered_data() {
         let data = b"test data for integrity check";
-        let key = generate_key(EncryptionFormat::Aes256Gcm).unwrap();
+        let key = generate_key(EncryptionFormat::Aes256Gcm);
         
         let mut encrypted = encrypt(data, &key, EncryptionFormat::Aes256Gcm).unwrap();
         

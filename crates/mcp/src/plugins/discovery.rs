@@ -93,9 +93,8 @@ impl PluginDiscoveryManager {
             self.tool_manager.unregister_tool(&tool_id).await
                 .map_err(|e| ToolError::ExecutionError(format!("Failed to unregister tool: {e}")))?;
             
-            // Remove from our tracking
-            let mut plugin_tools = self.tools.write().await;
-            plugin_tools.remove(plugin_id);
+            // Remove from our tracking directly without creating a temporary variable
+            self.tools.write().await.remove(plugin_id);
             
             info!("Unregistered plugin '{}' (tool '{}')", plugin_id, tool_id);
             Ok(())

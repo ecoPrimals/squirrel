@@ -1,39 +1,23 @@
-// Message framing for MCP transports
+// Frame implementation for MCP transport
 //
-// This module provides a message framing mechanism for MCP (Machine Context Protocol)
-// transports. It implements a simple length-prefixed framing protocol where each frame
-// consists of a 4-byte header containing the frame length, followed by the frame payload.
+// This module provides a framing mechanism for MCP messages sent over byte streams.
+// It handles encoding/decoding messages into frames and preserving message boundaries.
 //
-// The framing mechanism ensures message boundaries are preserved during transport over
-// byte-oriented streams like TCP connections. It handles message fragmentation and
-// reassembly, allowing complete messages to be reliably sent and received even when
-// the underlying transport may split or combine data.
-//
-// Key components include:
-// - Frame: Represents a protocol frame with its payload
-// - FrameReader: Reads frames from an AsyncRead stream
-// - FrameWriter: Writes frames to an AsyncWrite stream
-// - MessageCodec: Encodes and decodes MCPMessages to and from frames
+// The framing protocol is simple:
+// - Each frame starts with a 4-byte length header, containing the byte length of the payload
+// - The header is in big-endian byte order for network compatibility
+// - The payload follows immediately after the header
+// - No explicit footer or frame boundary marker is used
 
-use bytes::{BytesMut, BufMut, Buf};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
-use serde::{Serialize, Deserialize};
-use crate::error::{MCPError, Result};
-use crate::types::MCPMessage;
-use crate::error::transport::TransportError;
+use bytes::{BytesMut, BufMut, Buf};
+use crate::protocol::MCPMessage;
+use crate::error::{Result, MCPError, WireFormatError, ProtocolError, TransportError};
+use serde_json;
 
-/// Maximum frame size (10 MB)
-///
-/// Frames larger than this size will be rejected for security and resource
-/// management reasons. This helps prevent potential denial of service attacks
-/// through excessively large messages.
-const MAX_FRAME_SIZE: usize = 10 * 1024 * 1024;
-
-/// Frame header size (4 bytes for length)
-///
-/// Each frame starts with a 4-byte (32-bit) big-endian unsigned integer
-/// specifying the length of the payload in bytes.
-const HEADER_SIZE: usize = 4;
+// Constants for framing
+const HEADER_SIZE: usize = 4;      // 4-byte header for length
+const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024; // 16 MB max frame size
 
 /// A frame used for message transport
 ///
@@ -295,7 +279,17 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
         }
         
         // Write frame length header
-        let header = (frame.len() as u32).to_be_bytes();
+        let header = u32::try_from(frame.len())
+            .map_err(|_| {
+                let error_msg = format!(
+                    "Frame size exceeds maximum representable u32 value: {} bytes",
+                    frame.len()
+                );
+                let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
+                transport_err
+            })?
+            .to_be_bytes();
+            
         self.writer.write_all(&header).await
             .map_err(|e| {
                 let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
@@ -399,6 +393,84 @@ impl MessageCodec {
             })?;
         
         Ok(message)
+    }
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<MCPMessage>, MCPError> {
+        // Check if we have enough data to read the length
+        if src.len() < 4 {
+            return Ok(None);
+        }
+
+        // Read the message length (u32)
+        let mut length_bytes = [0u8; 4];
+        length_bytes.copy_from_slice(&src[..4]);
+        let length = u32::from_be_bytes(length_bytes) as usize;
+
+        // Check if we have the complete message
+        if src.len() < 4 + length {
+            src.reserve(4 + length - src.len());
+            return Ok(None);
+        }
+
+        // Consume the length prefix
+        src.advance(4);
+
+        // Read the message data
+        let data = src.split_to(length);
+
+        // Deserialize the message (assuming JSON for now)
+        serde_json::from_slice::<MCPMessage>(&data).map(Some)
+            .map_err(|e| MCPError::Transport(TransportError::SerializationError(e.to_string())))
+    }
+
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<MCPMessage>, MCPError> {
+        match self.decode(buf)? {
+            Some(frame) => Ok(Some(frame)),
+            None => {
+                if buf.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(MCPError::Transport(TransportError::SerializationError("Bytes remaining on stream".into())))
+                }
+            }
+        }
+    }
+
+    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> Result<(), MCPError> {
+        // Serialize the message (assuming JSON for now)
+        let encoded = serde_json::to_vec(&item)
+            .map_err(|e| MCPError::Transport(TransportError::SerializationError(e.to_string())))?;
+
+        // Write the length prefix (u32)
+        let len = encoded.len() as u32;
+        dst.reserve(4 + encoded.len());
+        dst.put_u32(len);
+
+        // Write the message data
+        dst.put_slice(&encoded);
+
+        Ok(())
+    }
+}
+
+impl Decoder for MessageCodec {
+    type Item = MCPMessage;
+    type Error = MCPError;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>> {
+        FrameReader::decode(src)
+    }
+
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>> {
+        FrameReader::decode_eof(buf)
+    }
+}
+
+impl Encoder<MCPMessage> for MessageCodec {
+    type Error = MCPError;
+
+    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> Result<()> {
+        FrameWriter::encode(&item, dst)
     }
 }
 

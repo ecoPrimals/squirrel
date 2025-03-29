@@ -94,7 +94,7 @@ use crate::session::Session;
 use crate::transport::Transport;
 use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
 use crate::protocol::WireFormatConfig;
-use crate::types::MCPMessage;
+use crate::protocol::MCPMessage;
 
 use futures::future::{AbortHandle, Abortable};
 use serde_json::Value;

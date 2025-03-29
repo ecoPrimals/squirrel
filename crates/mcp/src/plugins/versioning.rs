@@ -53,6 +53,11 @@ impl ProtocolVersion {
     }
     
     /// Convert to a semver Version
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the version string cannot be parsed as a valid semver version.
+    /// This could happen if the pre-release or build metadata contains invalid characters.
     pub fn to_semver(&self) -> Result<Version> {
         let version_str = match (&self.pre_release, &self.build) {
             (Some(pre), Some(build)) => format!("{}.{}.{}-{}+{}", self.major, self.minor, self.patch, pre, build),
@@ -84,6 +89,12 @@ impl ProtocolVersion {
     }
     
     /// Check if this version is compatible with a version requirement
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The version cannot be converted to a semver Version
+    /// - The requirement cannot be parsed as a valid semver requirement
     pub fn is_compatible_with(&self, requirement: &VersionRequirement) -> Result<bool> {
         let version = self.to_semver()?;
         let req = requirement.to_semver_req()?;
@@ -120,6 +131,12 @@ impl VersionRequirement {
     }
     
     /// Convert to a semver `VersionReq`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the requirement string cannot be parsed as a valid semver
+    /// requirement. This can happen if the syntax is incorrect or contains invalid 
+    /// operators or version numbers.
     pub fn to_semver_req(&self) -> Result<VersionReq> {
         VersionReq::parse(&self.requirement)
             .map_err(|e| anyhow!("Invalid version requirement format: {}", e))
@@ -160,6 +177,12 @@ impl ProtocolVersionManager {
     }
     
     /// Register a plugin with version requirements
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The current protocol version is not compatible with the plugin's requirements
+    /// - There is an error comparing versions (invalid format)
     pub async fn register_plugin(&self, plugin_id: uuid::Uuid, requirement: VersionRequirement) -> Result<()> {
         // Verify compatibility
         if !self.current_version.is_compatible_with(&requirement)? {
@@ -173,31 +196,45 @@ impl ProtocolVersionManager {
             ));
         }
         
-        // Store requirement
-        let mut requirements = self.plugin_requirements.write().await;
-        requirements.insert(plugin_id, requirement);
+        // Store requirement - directly insert without holding lock longer than necessary
+        self.plugin_requirements.write().await.insert(plugin_id, requirement);
         
         Ok(())
     }
     
     /// Check if a plugin is compatible with the current protocol version
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - There is an error comparing versions (invalid format)
+    /// - The version requirement cannot be parsed
     pub async fn is_plugin_compatible(&self, plugin_id: uuid::Uuid) -> Result<bool> {
         let requirements = self.plugin_requirements.read().await;
         
-        if let Some(req) = requirements.get(&plugin_id) {
-            self.current_version.is_compatible_with(req)
-        } else {
-            // If no requirements are specified, assume compatible
-            Ok(true)
-        }
+        requirements.get(&plugin_id).map_or_else(
+            || Ok(true), // If no requirements are specified, assume compatible
+            |req| self.current_version.is_compatible_with(req)
+        )
     }
     
     /// Get all plugins compatible with a specific version
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - There is an error checking compatibility for any plugin
+    /// - The version requirement cannot be parsed
     pub async fn get_compatible_plugins(&self, version: &ProtocolVersion) -> Result<Vec<uuid::Uuid>> {
-        let requirements = self.plugin_requirements.read().await;
+        // Create a clone of all requirements with a short-lived lock
+        let requirements = {
+            let requirements_guard = self.plugin_requirements.read().await;
+            requirements_guard.clone()
+        };
+        
         let mut compatible_plugins = Vec::new();
         
-        for (plugin_id, req) in requirements.iter() {
+        for (plugin_id, req) in &requirements {
             if version.is_compatible_with(req)? {
                 compatible_plugins.push(*plugin_id);
             }

@@ -81,6 +81,8 @@ use futures::pin_mut;
 use futures::future;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+use std::pin::Pin;
+use crate::protocol::adapter_wire::DomainObject;
 
 /// MCP Server configuration
 #[derive(Debug, Clone)]
@@ -294,17 +296,17 @@ impl MCPServer {
     
     /// Start the server on all configured transports
     ///
-    /// This method starts the server on the configured transport and
-    /// begins accepting client connections.
+    /// This method starts the server on all configured transports and begins
+    /// accepting client connections.
     ///
     /// # Errors
     /// 
     /// This function will return an error if:
     /// * The server is already running (`MCPError::Protocol` with `InvalidState` variant)
-    /// * The bind address is invalid or cannot be parsed as a socket address (`MCPError::Transport`)
-    /// * The socket cannot be bound to the configured address (`MCPError::Transport`)
-    /// * The listener task cannot be started (`MCPError` wrapping the underlying error)
-    /// * Returns `MCPError` if the server fails to start on any transport
+    /// * The server fails to bind to the configured address (`MCPError::Transport` with `ConnectionFailed` variant)
+    /// * The server fails to start the listener task
+    /// * The server fails to set up required internal components
+    /// * Returns `MCPError` if the server fails to start for any reason
     pub async fn start(&mut self) -> Result<()> {
         // Check if already running
         let state_guard = self.state.read().await;
@@ -414,23 +416,23 @@ impl MCPServer {
         
         // Disconnect all clients
         {
-            // Create a future for each client disconnection
-            let mut disconnect_futures = Vec::new();
-            let clients_map = self.clients.clone();
-            let connection_handlers = self.connection_handlers.clone();
-            
             // Get a list of clients to disconnect
             let client_list: Vec<(String, ClientConnection)> = {
-                let clients_guard = clients_map.read().await;
+                let clients_guard = self.clients.read().await;
                 clients_guard.iter().map(|(id, conn)| (id.clone(), conn.clone())).collect()
             };
             
+            // Create disconnect futures for each client
+            let mut disconnect_futures = Vec::new();
+            
             for (client_id, client) in client_list {
+                // Clone the Arc values for each client task
+                let clients_map_clone = self.clients.clone();
+                let connection_handlers_clone = self.connection_handlers.clone();
+                
                 // Send a disconnect message to each client
                 let client_id_clone = client_id.clone();
                 let transport = client.transport.clone();
-                let clients_map = clients_map.clone();
-                let connection_handlers = connection_handlers.clone();
                 
                 // Create a disconnect message
                 let disconnect_msg = MessageBuilder::new()
@@ -440,16 +442,12 @@ impl MCPServer {
                     .with_destination(client_id.clone())
                     .build();
                 
-                // Convert to wire format and send
-                let _wire_format_adapter = self.wire_format_adapter.clone();
-                
                 // Create a task to handle async disconnect message
                 tokio::spawn(async move {
                     // Try to convert the message to wire format
                     match disconnect_msg.to_wire_message(crate::protocol::adapter_wire::ProtocolVersion::V1_0).await {
                         Ok(_wire) => {
                             // Send the wire message to the client
-                            // This would typically send the wire message through the transport
                             debug!("Sent disconnect message to client {}", client_id);
                         },
                         Err(e) => {
@@ -462,8 +460,10 @@ impl MCPServer {
                 let disconnect_fut = async move {
                     // Process messages until the client disconnects
                     'outer_loop: loop {
-                        // Fix: Create a mutable Box to try to get a mutable reference
+                        // Create a mutable Box to try to get a mutable reference to the transport
                         let mut transport_boxed = Box::new(Arc::clone(&transport));
+                        
+                        // Get mutable reference to transport if possible
                         let receive_result = if let Some(transport_mut) = Arc::get_mut(&mut *transport_boxed) { transport_mut.receive_message().await } else {
                             // If we can't get a mutable reference, log an error and break
                             error!("Failed to get mutable reference to transport for client {}", client_id_clone);
@@ -473,8 +473,6 @@ impl MCPServer {
                         match receive_result {
                             Ok(mcp_message) => {
                                 // Process the message
-                                // In a real implementation, you would handle the message appropriately
-                                // For now, we'll just log it
                                 println!("Received message: {mcp_message:?}");
                             },
                             Err(e) => {
@@ -500,13 +498,13 @@ impl MCPServer {
 
                     // Client disconnected, remove from list and notify handlers
                     {
-                        let mut clients_guard = clients_map.write().await;
+                        let mut clients_guard = clients_map_clone.write().await;
                         clients_guard.remove(&client_id_clone);
                     }
                     
                     // Create a Vec of cloned handlers for the async block
                     let mut handlers_copy: Vec<Arc<Box<dyn ConnectionHandler>>> = Vec::new();
-                    let handlers_guard = connection_handlers.read().await;
+                    let handlers_guard = connection_handlers_clone.read().await;
                     for handler in handlers_guard.iter() {
                         handlers_copy.push(Arc::new(handler.clone_box()));
                     }
@@ -654,41 +652,33 @@ impl MCPServer {
             .map_or_else(
                 |_| String::new(), 
                 |json| json.as_object()
-                    .map_or_else(
-                        String::new,
-                        |content| content.get("command")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or_default()
-                            .to_string()
-                    )
+                    .and_then(|content| content.get("command")
+                        .and_then(|v| v.as_str())
+                        .map(ToString::to_string))
+                    .unwrap_or_default()
             );
-        
-        // Get the command handlers lock and find a handler for this command type
-        let command_handlers = self.command_handlers.read().await;
-        
-        // Find a handler for this command type - if found, clone it so we can drop the lock
-        let handler = if let Some(handler) = command_handlers.get(&command_type) {
-            let handler_clone = handler.clone_box();
-            drop(command_handlers); // Release the lock immediately after finding the handler
-            Some(handler_clone)
-        } else {
-            drop(command_handlers); // Release the lock before returning an error
-            None
+
+        // Find a handler for this command type - clone it to release the lock quickly
+        let handler = {
+            let command_handlers = self.command_handlers.read().await;
+            command_handlers.get(&command_type)
+                .map(|h| h.clone_box())
         };
         
         // Process with the handler if one was found
-        if let Some(handler) = handler {
-            match handler.handle_command(command).await {
-                Ok(Some(response)) => Ok(Some(response)),
-                Ok(None) => Ok(Some(MessageBuilder::new()
-                    .with_message_type("response")
-                    .with_correlation_id(command.id.clone())
-                    .with_payload(json!({"status": "success"}))
-                    .build())),
-                Err(e) => Err(e)
-            }
-        } else {
-            Err(MCPError::General(format!("No handler found for command type: {command_type}")))
+        match handler {
+            Some(handler) => {
+                match handler.handle_command(command).await {
+                    Ok(Some(response)) => Ok(Some(response)),
+                    Ok(None) => Ok(Some(MessageBuilder::new()
+                        .with_message_type("response")
+                        .with_correlation_id(command.id.clone())
+                        .with_payload(json!({"status": "success"}))
+                        .build())),
+                    Err(e) => Err(e)
+                }
+            },
+            None => Err(MCPError::General(format!("No handler found for command type: {command_type}")))
         }
     }
     

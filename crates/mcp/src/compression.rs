@@ -4,6 +4,8 @@
 //! It supports various compression formats, such as Zstd, Gzip, and LZ4.
 
 use crate::error::Result;
+#[cfg(any(feature = "zstd", feature = "gzip", feature = "lz4"))]
+use crate::error::MCPError;
 use crate::types::CompressionFormat;
 
 #[cfg(feature = "gzip")]
@@ -34,7 +36,10 @@ const COMPRESSION_THRESHOLD: usize = 1024;
 ///
 /// # Errors
 ///
-/// Returns an error if compression fails for any reason
+/// Returns an error if:
+/// * Compression fails due to invalid input data
+/// * The compression algorithm encounters an internal error
+/// * A required compression feature is not enabled at compile time but requested at runtime
 pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
     match format {
         CompressionFormat::None => Ok(data.to_vec()),
@@ -42,7 +47,7 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
             // Simple implementation using zstd crate
             #[cfg(feature = "zstd")]
             {
-                zstd::encode_all(data, 3).map_err(|e| MCPError::Serialization(format!("Zstd compression failed: {}", e)))
+                zstd::encode_all(data, 3).map_err(|e| MCPError::Serialization(format!("Zstd compression failed: {e}")))
             }
             #[cfg(not(feature = "zstd"))]
             {
@@ -55,8 +60,8 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
             #[cfg(feature = "gzip")]
             {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                encoder.write_all(data).map_err(|e| MCPError::Serialization(format!("Gzip compression failed: {}", e)))?;
-                encoder.finish().map_err(|e| MCPError::Serialization(format!("Gzip finalization failed: {}", e)))
+                encoder.write_all(data).map_err(|e| MCPError::Serialization(format!("Gzip compression failed: {e}")))?;
+                encoder.finish().map_err(|e| MCPError::Serialization(format!("Gzip finalization failed: {e}")))
             }
             #[cfg(not(feature = "gzip"))]
             {
@@ -71,17 +76,17 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
                 let mut compressed = Vec::new();
                 let mut encoder = lz4::EncoderBuilder::new()
                     .build(&mut compressed)
-                    .map_err(|e| MCPError::Serialization(format!("LZ4 compression failed: {}", e)))?;
+                    .map_err(|e| MCPError::Serialization(format!("LZ4 compression failed: {e}")))?;
                 
                 // Write the data to the encoder
                 encoder.write_all(data)
-                    .map_err(|e| MCPError::Serialization(format!("LZ4 write failed: {}", e)))?;
+                    .map_err(|e| MCPError::Serialization(format!("LZ4 write failed: {e}")))?;
                 
                 // Finish the compression and get back the Vec<u8>
                 let (compressed_vec, result) = encoder.finish();
-                result.map_err(|e| MCPError::Serialization(format!("LZ4 finalization failed: {}", e)))?;
+                result.map_err(|e| MCPError::Serialization(format!("LZ4 finalization failed: {e}")))?;
                 
-                Ok(compressed_vec.to_vec())
+                Ok(compressed_vec)
             }
             #[cfg(not(feature = "lz4"))]
             {
@@ -108,7 +113,10 @@ pub fn compress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
 ///
 /// # Errors
 ///
-/// Returns an error if decompression fails for any reason
+/// Returns an error if:
+/// * Decompression fails due to invalid or corrupted input data
+/// * The decompression algorithm encounters an internal error
+/// * A required compression feature is not enabled at compile time but requested at runtime
 pub fn decompress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
     match format {
         CompressionFormat::None => Ok(data.to_vec()),
@@ -116,7 +124,7 @@ pub fn decompress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
             // Simple implementation using zstd crate
             #[cfg(feature = "zstd")]
             {
-                zstd::decode_all(data).map_err(|e| MCPError::Deserialization(format!("Zstd decompression failed: {}", e)))
+                zstd::decode_all(data).map_err(|e| MCPError::Deserialization(format!("Zstd decompression failed: {e}")))
             }
             #[cfg(not(feature = "zstd"))]
             {
@@ -131,7 +139,7 @@ pub fn decompress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
                 let mut decoder = GzDecoder::new(data);
                 let mut decompressed = Vec::new();
                 decoder.read_to_end(&mut decompressed)
-                    .map_err(|e| MCPError::Deserialization(format!("Gzip decompression failed: {}", e)))?;
+                    .map_err(|e| MCPError::Deserialization(format!("Gzip decompression failed: {e}")))?;
                 Ok(decompressed)
             }
             #[cfg(not(feature = "gzip"))]
@@ -146,10 +154,10 @@ pub fn decompress(data: &[u8], format: CompressionFormat) -> Result<Vec<u8>> {
             {
                 let mut decompressed = Vec::new();
                 let mut decoder = lz4::Decoder::new(data)
-                    .map_err(|e| MCPError::Deserialization(format!("LZ4 decompression failed: {}", e)))?;
+                    .map_err(|e| MCPError::Deserialization(format!("LZ4 decompression failed: {e}")))?;
                 
                 decoder.read_to_end(&mut decompressed)
-                    .map_err(|e| MCPError::Deserialization(format!("LZ4 read failed: {}", e)))?;
+                    .map_err(|e| MCPError::Deserialization(format!("LZ4 read failed: {e}")))?;
                     
                 Ok(decompressed)
             }

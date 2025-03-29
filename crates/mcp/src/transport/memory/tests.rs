@@ -127,8 +127,8 @@ async fn test_memory_transport_creation_directly() {
     
     assert_eq!(client_meta.transport_type, "memory");
     assert_eq!(server_meta.transport_type, "memory");
-    assert!(client_meta.remote_address.contains("memory://client"));
-    assert!(server_meta.remote_address.contains("memory://server"));
+    assert!(client_meta.peer_addr.is_none());
+    assert!(server_meta.peer_addr.is_none());
     
     // Disconnect and verify
     client.disconnect().await.unwrap();

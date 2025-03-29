@@ -5,7 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use super::alerts::AlertManager;
 use super::metrics::MetricsCollector;
 
@@ -243,7 +243,13 @@ impl DashboardServer {
     /// Start the dashboard server
     pub async fn start(&self) -> Result<(), String> {
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = match self.state.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    error!("Failed to acquire state write lock in start: {}", e);
+                    return Err("Failed to acquire lock".to_string());
+                }
+            };
 
             // Check if already running
             if matches!(
@@ -256,10 +262,17 @@ impl DashboardServer {
             // Update status
             state.server_status = DashboardServerStatus::Starting;
             state.last_updated = Utc::now();
+            drop(state);
         }
 
         // Start the server
-        let config = self.state.read().unwrap().config.clone();
+        let config = match self.state.read() {
+            Ok(guard) => guard.config.clone(),
+            Err(e) => {
+                error!("Failed to acquire state read lock for config in start: {}", e);
+                return Err("Failed to acquire lock".to_string());
+            }
+        };
         let state_arc = self.state.clone();
         let metrics = self.metrics_collector.clone();
         let alerts = self.alert_manager.clone();
@@ -272,7 +285,15 @@ impl DashboardServer {
 
             // Update server status
             {
-                let mut state = state_arc.write().unwrap();
+                let mut state = match state_arc.write() {
+                    Ok(guard) => guard,
+                    Err(e) => {
+                        error!("Failed to acquire state write lock in server task (start): {}", e);
+                        // Cannot easily return error from spawned task, log and potentially exit?
+                        // For now, just logging.
+                        return;
+                    }
+                };
                 state.server_status = DashboardServerStatus::Running;
                 state.last_updated = Utc::now();
             }
@@ -281,11 +302,17 @@ impl DashboardServer {
             loop {
                 // Check if we should stop
                 {
-                    let state = state_arc.read().unwrap();
-                    if matches!(
-                        state.server_status,
-                        DashboardServerStatus::Stopping | DashboardServerStatus::Stopped
-                    ) {
+                    let should_stop = match state_arc.read() {
+                        Ok(state) => matches!(
+                            state.server_status,
+                            DashboardServerStatus::Stopping | DashboardServerStatus::Stopped
+                        ),
+                        Err(e) => {
+                            error!("Failed to acquire state read lock in server task (loop check): {}", e);
+                            true // Assume stop if we can't read state
+                        }
+                    };
+                    if should_stop {
                         break;
                     }
                 }
@@ -300,7 +327,14 @@ impl DashboardServer {
 
             // Final status update
             {
-                let mut state = state_arc.write().unwrap();
+                let mut state = match state_arc.write() {
+                     Ok(guard) => guard,
+                     Err(e) => {
+                         error!("Failed to acquire state write lock in server task (stop): {}", e);
+                         // Log and exit task if we can't write final state
+                         return;
+                     }
+                };
                 state.server_status = DashboardServerStatus::Stopped;
                 state.last_updated = Utc::now();
                 state.connected_clients = 0;
@@ -315,7 +349,13 @@ impl DashboardServer {
     /// Stop the dashboard server
     pub async fn stop(&self) -> Result<(), String> {
         {
-            let mut state = self.state.write().unwrap();
+            let mut state = match self.state.write() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    error!("Failed to acquire state write lock in stop: {}", e);
+                    return Err("Failed to acquire lock".to_string());
+                }
+            };
 
             // Check if already stopped
             if matches!(
@@ -339,33 +379,66 @@ impl DashboardServer {
 
     /// Get the dashboard state
     #[must_use] pub fn get_state(&self) -> DashboardState {
-        let state = self.state.read().unwrap();
-        DashboardState {
-            config: state.config.clone(),
-            layout: state.layout.clone(),
-            server_status: state.server_status,
-            last_updated: state.last_updated,
-            connected_clients: state.connected_clients,
+        match self.state.read() {
+            Ok(state) => DashboardState {
+                config: state.config.clone(),
+                layout: state.layout.clone(),
+                server_status: state.server_status,
+                last_updated: state.last_updated,
+                connected_clients: state.connected_clients,
+            },
+            Err(e) => {
+                error!("Failed to acquire state read lock in get_state: {}", e);
+                // Return a default or empty state if lock is poisoned
+                // Note: Requires DashboardState to implement Default or manual default creation
+                 DashboardState {
+                    config: DashboardConfig::default(),
+                    layout: DashboardLayout::default(),
+                    server_status: DashboardServerStatus::Error,
+                    last_updated: Utc::now(),
+                    connected_clients: 0,
+                }
+            }
         }
     }
 
     /// Update the dashboard layout
     pub fn update_layout(&self, layout: DashboardLayout) {
-        let mut state = self.state.write().unwrap();
-        state.layout = layout;
-        state.last_updated = Utc::now();
+        match self.state.write() {
+            Ok(mut state) => {
+                state.layout = layout;
+                state.last_updated = Utc::now();
+            }
+            Err(e) => {
+                error!("Failed to acquire state write lock in update_layout: {}", e);
+                // Do nothing if lock is poisoned
+            }
+        }
     }
 
     /// Add a widget to the dashboard
     pub fn add_widget(&self, widget: Widget) {
-        let mut state = self.state.write().unwrap();
-        state.layout.widgets.push(widget);
-        state.last_updated = Utc::now();
+         match self.state.write() {
+            Ok(mut state) => {
+                state.layout.widgets.push(widget);
+                state.last_updated = Utc::now();
+            }
+            Err(e) => {
+                 error!("Failed to acquire state write lock in add_widget: {}", e);
+                 // Do nothing if lock is poisoned
+            }
+        }
     }
 
     /// Remove a widget from the dashboard
     pub fn remove_widget(&self, widget_id: &str) -> Result<(), String> {
-        let mut state = self.state.write().unwrap();
+        let mut state = match self.state.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire state write lock in remove_widget: {}", e);
+                return Err("Failed to acquire lock".to_string());
+            }
+        };
         let index = state
             .layout
             .widgets
@@ -375,6 +448,7 @@ impl DashboardServer {
 
         state.layout.widgets.remove(index);
         state.last_updated = Utc::now();
+        drop(state);
 
         Ok(())
     }
@@ -394,8 +468,16 @@ async fn update_dashboard_data(
 
     // Update dashboard last updated timestamp
     {
-        let mut state = state.write().unwrap();
-        state.last_updated = Utc::now();
+        match state.write() {
+            Ok(mut state) => {
+                state.last_updated = Utc::now();
+            }
+            Err(e) => {
+                error!("Failed to acquire state write lock in update_dashboard_data: {}", e);
+                // Do nothing further in this update cycle if lock fails
+                return;
+            }
+        }
     }
 
     // In a real implementation, this would update a real-time dashboard

@@ -231,20 +231,13 @@ impl RecoveryHook {
 
     /// Check if recovery should be attempted
     #[must_use] pub const fn should_attempt_recovery(&self, _tool_id: &str, error: &ToolError) -> bool {
-        // Check if the error is recoverable
-        match error {
-            ToolError::NeedsReset(_) => true,
-            ToolError::ExecutionFailed { .. } => true,
-            ToolError::InitializationFailed { .. } => true,
-            ToolError::ResourceError(_) => true,
-            ToolError::ExecutionError(_) => true,
-            // Not recoverable
-            ToolError::SecurityViolation(_) => false,
-            ToolError::TooManyErrors(_) => false,
-            ToolError::PermissionDenied(_) => false,
-            // Others may be recoverable
-            _ => true,
-        }
+        // Recovery should be attempted unless the error is explicitly non-recoverable.
+        !matches!(error,
+            ToolError::SecurityViolation(_) |
+            ToolError::TooManyErrors(_) |
+            ToolError::PermissionDenied(_)
+            // Add any other non-recoverable error types here if needed.
+        )
     }
 
     /// Get next recovery action for a tool
@@ -592,6 +585,7 @@ impl SecurityLifecycleHook {
     }
 
     /// Adds an allowed tool ID
+    #[must_use]
     pub fn allow_tool(mut self, tool_id: impl Into<String>) -> Self {
         self.allowed_tool_ids.push(tool_id.into());
         self
@@ -875,11 +869,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     #[instrument(skip(self))]
@@ -907,11 +898,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     #[instrument(skip(self, error))]
@@ -927,11 +915,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     #[instrument(skip(self))]
@@ -958,11 +943,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     #[instrument(skip(self))]
@@ -989,11 +971,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     #[instrument(skip(self))]
@@ -1044,11 +1023,8 @@ impl crate::tool::ToolLifecycleHook for CompositeLifecycleHook {
             }
         }
 
-        if let Some(err) = last_error {
-            Err(err)
-        } else {
-            Ok(())
-        }
+        // Return Ok(()) if all hooks succeeded, otherwise return the first error
+        last_error.map_or(Ok(()), Err)
     }
 
     async fn register_tool(&self, tool: &Tool) -> Result<(), ToolError> {

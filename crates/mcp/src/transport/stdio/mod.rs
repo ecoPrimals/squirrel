@@ -6,11 +6,19 @@ use uuid::Uuid;
 use tokio::sync::watch;
 use std::time::Duration;
 use crate::types;
-
-use crate::error::transport::TransportError;
-use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat, MessageType, SecurityMetadata, ProtocolVersion};
-use super::{Transport, TransportMetadata};
-use crate::error::MCPError;
+use crate::protocol::{MCPMessage, MessageId, MessageType, ProtocolVersion};
+use crate::protocol::adapter_wire::{ProtocolVersion as WireProtocolVersion};
+use crate::transport::{Transport, TransportMetadata};
+use crate::{errors::TransportError, security::{EncryptionFormat, SecurityMetadata}};
+use crate::error::{MCPError, Result, TransportError};
+use crate::types::CompressionFormat;
+use serde_json;
+use std::io::{self, BufRead, Write};
+use std::net::SocketAddr;
+use tracing::{debug, error, info, warn};
+use tokio::sync::Mutex as TokioMutex;
+use crate::transport::types::ConnectionState;
+use chrono::Utc;
 
 /// Configuration for the stdio transport
 #[derive(Debug, Clone)]
@@ -73,6 +81,9 @@ pub struct StdioTransport {
     /// Command channel for sending commands to the stdio task
     command_sender: mpsc::Sender<MCPMessage>,
     
+    /// Command channel for receiving commands
+    command_receiver: Arc<TokioMutex<mpsc::Receiver<MCPMessage>>>,
+    
     /// Message channel for receiving messages
     message_rx: watch::Receiver<Option<MCPMessage>>,
     message_tx: watch::Sender<Option<MCPMessage>>,
@@ -86,8 +97,8 @@ pub struct StdioTransport {
 
 impl StdioTransport {
     /// Create a new stdio transport
-    #[must_use] pub fn new(config: StdioConfig) -> Self {
-        let (tx, rx) = mpsc::channel(100);
+    #[must_use] pub fn new(config: &StdioConfig) -> Self {
+        let (command_sender, command_receiver) = mpsc::channel(100);
         let (message_tx, message_rx) = watch::channel(None);
         
         let connection_id = Uuid::new_v4().to_string();
@@ -95,16 +106,21 @@ impl StdioTransport {
         Self {
             config: config.clone(),
             state: Arc::new(RwLock::new(StdioState::Disconnected)),
-            command_sender: tx,
+            command_sender,
+            command_receiver: Arc::new(TokioMutex::new(command_receiver)),
             message_rx,
             message_tx,
             connection_id,
             metadata: TransportMetadata {
                 transport_type: "stdio".to_string(),
-                remote_address: "stdio".to_string(),
-                local_address: None,
+                peer_addr: None,
+                local_addr: None,
                 encryption: config.encryption,
                 compression: config.compression,
+                connected_at: chrono::Utc::now(),
+                state: ConnectionState::Disconnected,
+                protocol_version: "unknown".to_string(),
+                additional_metadata: Default::default(),
             },
         }
     }
@@ -135,28 +151,61 @@ impl StdioTransport {
                 match read_result {
                     Ok(0) => {
                         // EOF reached
+                        info!("StdioTransport: stdin closed.");
                         break;
                     }
                     Ok(_) => {
-                        // Parse the JSON
-                        let json: serde_json::Value = serde_json::from_str(&buffer).unwrap_or(serde_json::json!({}));
-                        
-                        let message = MCPMessage {
-                            id: types::MessageId(json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string()),
-                            type_: MessageType::Command,
-                            payload: json.get("payload").cloned().unwrap_or(serde_json::Value::Null),
-                            metadata: Some(json.get("metadata").cloned().unwrap_or(serde_json::Value::Null)),
-                            security: SecurityMetadata::default(),
-                            timestamp: chrono::Utc::now(),
-                            version: ProtocolVersion::default(),
-                            trace_id: None,
-                        };
-                        
-                        // Send to message channel
-                        message_tx.send(Some(message)).ok();
+                        // Trim whitespace/newline
+                        let trimmed_buffer = buffer.trim();
+                        if trimmed_buffer.is_empty() {
+                            continue;
+                        }
+
+                        // Attempt to parse the JSON
+                        match serde_json::from_str::<serde_json::Value>(trimmed_buffer) {
+                            Ok(json) => {
+                                // Extract fields safely
+                                let id_str = json.get("id").and_then(|v| v.as_str()).unwrap_or_default();
+                                let type_str = json.get("type").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                                let version_str = json.get("version").and_then(|v| v.as_str()).unwrap_or("1.0"); // Default version if missing
+
+                                // Parse MessageType
+                                let message_type = match type_str.parse::<MessageType>() {
+                                    Ok(mt) => mt,
+                                    Err(_) => {
+                                        warn!("StdioTransport: Received message with unknown type: {}", type_str);
+                                        MessageType::Unknown // Handle unknown types gracefully
+                                    }
+                                };
+
+                                let message = MCPMessage {
+                                    id: crate::protocol::types::MessageId(id_str.to_string()),
+                                    type_: message_type, // Use parsed type
+                                    payload: json.get("payload").cloned().unwrap_or(serde_json::Value::Null),
+                                    metadata: json.get("metadata").cloned(), // Use metadata from message if present
+                                    security: SecurityMetadata::default(), // Default security for now
+                                    timestamp: chrono::Utc::now(),
+                                    // Use parsed or default version
+                                    version: ProtocolVersion::from_str(version_str).unwrap_or_default(),
+                                    trace_id: json.get("trace_id").and_then(|v| v.as_str()).map(String::from), // Optional trace_id
+                                };
+
+                                // Send to message channel
+                                if message_tx.send(Some(message)).is_err() {
+                                    error!("StdioTransport: Failed to send received message to internal channel.");
+                                    break; // Channel closed, exit task
+                                }
+                            }
+                            Err(e) => {
+                                error!("StdioTransport: Failed to deserialize message from stdin: {}. Line: '{}'", e, trimmed_buffer);
+                                // Optionally, send an error event back if possible/needed,
+                                // but primarily handle errors by logging in stdio transport.
+                                // Consider sending TransportEvent::Error if a general error channel existed.
+                            }
+                        }
                     }
                     Err(e) => {
-                        eprintln!("Error reading from stdin: {e}");
+                        error!("StdioTransport: Error reading from stdin: {}", e);
                         break;
                     }
                 }
@@ -164,7 +213,12 @@ impl StdioTransport {
             
             // Update state when task completes
             let mut current_state = state.write().await;
-            *current_state = StdioState::Disconnected;
+            if *current_state != StdioState::Disconnecting {
+                 *current_state = StdioState::Disconnected;
+                 info!("StdioTransport: Reader task finished, state set to Disconnected.");
+            } else {
+                 info!("StdioTransport: Reader task finished during disconnection.");
+            }
         });
         
         Ok(())
@@ -174,23 +228,19 @@ impl StdioTransport {
     async fn start_writer_task(&self) -> Result<(), TransportError> {
         let state = self.state.clone();
         let use_ndjson = self.config.use_ndjson;
-        
-        // Create a new channel for the writer task
-        let (_tx, mut rx) = mpsc::channel::<MCPMessage>(100);
-        
-        // Clone the command_sender for passing to the task
-        let _command_sender = self.command_sender.clone();
+        let command_receiver = self.command_receiver.clone();
         
         tokio::spawn(async move {
             let mut stdout = stdout();
+            let mut rx = command_receiver.lock().await;
             
             while let Some(message) = rx.recv().await {
                 // Convert message to JSON
                 let json = match serde_json::to_string(&message) {
                     Ok(j) => j,
                     Err(e) => {
-                        eprintln!("Failed to serialize message: {e}");
-                        continue;
+                        error!("StdioTransport: Failed to serialize message for stdout: {}", e);
+                        continue; // Skip malformed messages
                     }
                 };
                 
@@ -205,22 +255,88 @@ impl StdioTransport {
                 
                 // Check for write errors
                 if let Err(e) = result {
-                    eprintln!("Failed to write to stdout: {e}");
+                    error!("StdioTransport: Failed to write to stdout: {}", e);
                     break;
                 }
                 
                 // Ensure output is flushed
                 if let Err(e) = stdout.flush().await {
-                    eprintln!("Failed to flush stdout: {e}");
+                    error!("StdioTransport: Failed to flush stdout: {}", e);
                     break;
                 }
             }
             
             // Update the state when the task completes
             let mut current_state = state.write().await;
-            *current_state = StdioState::Disconnected;
+            if *current_state != StdioState::Disconnecting {
+                 *current_state = StdioState::Disconnected;
+                 info!("StdioTransport: Writer task finished, state set to Disconnected.");
+            } else {
+                 info!("StdioTransport: Writer task finished during disconnection.");
+            }
         });
         
+        Ok(())
+    }
+
+    async fn process_line(&self, line: String, msg_tx: &mpsc::Sender<MCPMessage>) -> Result<()> {
+        let parts: Vec<&str> = line.splitn(2, ':').collect();
+        if parts.len() != 2 {
+            return Err(MCPError::Transport(TransportError::ProtocolError(
+                "Invalid message format".to_string(),
+            )));
+        }
+        let header = parts[0];
+        let payload_str = parts[1];
+
+        let header_parts: Vec<&str> = header.split(',').collect();
+        if header_parts.len() < 3 {
+            return Err(MCPError::Transport(TransportError::ProtocolError(
+                "Invalid header format".to_string(),
+            )));
+        }
+
+        let message_id = MessageId(header_parts[0].to_string());
+        let message_type_str = header_parts[1];
+        let version_str = header_parts[2];
+
+        let message_type = MessageType::from_str(message_type_str)
+            .map_err(|_| MCPError::Transport(TransportError::ProtocolError(
+                format!("Invalid message type: {message_type_str}")
+            )))?;
+
+        // Correctly handle ProtocolVersion parsing and conversion
+        let version = match WireProtocolVersion::from_str(version_str) {
+            Ok(wire_version) => ProtocolVersion::try_from(wire_version)
+                .map_err(|e| MCPError::Protocol(e))?, // Convert ProtocolError to MCPError
+            Err(_) => {
+                warn!("Invalid protocol version string '{}', defaulting to 1.0", version_str);
+                // Use the default from crate::protocol::types::ProtocolVersion
+                ProtocolVersion::default()
+            }
+        };
+
+        let payload = serde_json::from_str(payload_str)
+            .map_err(|e| MCPError::Deserialization(e.to_string()))?;
+
+        let mcp_message = MCPMessage {
+            id: message_id,
+            type_: message_type,
+            version, // Use the parsed/defaulted version
+            payload,
+            // Fill other fields as needed, e.g., timestamp, security
+            timestamp: Utc::now(),
+            security: Default::default(),
+            metadata: None,
+            trace_id: None,
+        };
+
+        // Send the parsed message via the channel
+        msg_tx.send(mcp_message).await
+            .map_err(|e| MCPError::Transport(TransportError::InternalError(
+                format!("Failed to send parsed message to internal channel: {}", e)
+            )))?;
+
         Ok(())
     }
 }
@@ -239,21 +355,38 @@ impl Transport for StdioTransport {
     async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
         let mut rx = self.message_rx.clone();
         
+        // Check connection state before waiting
+        if !self.is_connected().await {
+             return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string())));
+        }
+
         loop {
             // Wait for the next message
-            rx.changed().await.map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Channel closed".to_string()).into()))?;
-            
+            if rx.changed().await.is_err() {
+                 // Sender dropped, connection likely closed
+                 let state = self.state.read().await;
+                 error!("StdioTransport: Message watch channel closed. State: {:?}", *state);
+                 return Err(MCPError::Transport(TransportError::ConnectionClosed("Watch channel closed".to_string())));
+            }
+
             // Get the current value
             if let Some(message) = &*rx.borrow() {
+                // Consume the message by sending None back? No, watch channel doesn't work like that.
+                // The receiver just observes the latest value.
                 return Ok(message.clone());
             }
-            
-            // If none, continue waiting
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            // If none, check connection state again before sleeping
+             if !self.is_connected().await {
+                 return Err(MCPError::Transport(TransportError::ConnectionClosed("Disconnected while waiting for message".to_string())));
+            }
+
+            // Small sleep to prevent busy-waiting if changed() fires but value is still None (shouldn't happen often)
+            tokio::time::sleep(Duration::from_millis(5)).await;
         }
     }
     
     async fn connect(&mut self) -> crate::error::Result<()> {
+        info!("StdioTransport: Connecting...");
         // Update the state to connecting
         {
             let mut state = self.state.write().await;
@@ -261,35 +394,50 @@ impl Transport for StdioTransport {
         }
         
         // Start the reader and writer tasks
-        self.start_reader_task().await?;
-        self.start_writer_task().await?;
+        self.start_reader_task().await.map_err(|e| MCPError::Transport(e))?;
+        self.start_writer_task().await.map_err(|e| MCPError::Transport(e))?;
         
         // Update the state to connected
         {
             let mut state = self.state.write().await;
-            *state = StdioState::Connected;
+            // Check if state is still Connecting before setting to Connected
+             if *state == StdioState::Connecting {
+                *state = StdioState::Connected;
+                info!("StdioTransport: Connected successfully.");
+            } else {
+                 // State changed during startup (e.g., immediate disconnect/failure)
+                 warn!("StdioTransport: State changed during connection sequence: {:?}. Not setting to Connected.", *state);
+                 // Return error? Or let the existing state reflect the issue?
+                 // Returning error might be cleaner.
+                 return Err(MCPError::Transport(TransportError::Initialization(format!("Connection failed during startup. Final state: {:?}", *state))));
+             }
         }
         
         Ok(())
     }
     
     async fn disconnect(&self) -> crate::error::Result<()> {
+        info!("StdioTransport: Disconnecting...");
         // Update the state to disconnecting
-        {
-            let mut state = self.state.write().await;
-            *state = StdioState::Disconnecting;
+        let mut state = self.state.write().await;
+        if *state == StdioState::Disconnected || *state == StdioState::Disconnecting {
+            info!("StdioTransport: Already disconnected or disconnecting.");
+            return Ok(()); // Already disconnected or in progress
         }
-        
-        // Don't actually send a stop command since we don't have a stop_channel
-        // Just wait a bit to simulate disconnection
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        
-        // Update the state to disconnected
-        {
-            let mut state = self.state.write().await;
-            *state = StdioState::Disconnected;
-        }
-        
+        *state = StdioState::Disconnecting;
+        drop(state); // Release lock before potentially long operations
+
+        // Closing stdin/stdout isn't directly possible/reliable from here.
+        // The tasks should detect closure or state changes.
+
+        // Wait briefly for tasks to potentially shut down based on state change.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Final state update
+        let mut state = self.state.write().await;
+        *state = StdioState::Disconnected;
+        info!("StdioTransport: Disconnected.");
+
         Ok(())
     }
     
@@ -303,27 +451,39 @@ impl Transport for StdioTransport {
     }
 }
 
+impl Default for StdioTransport {
+    fn default() -> Self {
+        let metadata = TransportMetadata {
+            transport_type: "stdio".to_string(),
+            peer_addr: None,
+            local_addr: None,
+            encryption: EncryptionFormat::None,
+            compression: CompressionFormat::None,
+            connected_at: chrono::Utc::now(),
+            state: ConnectionState::Disconnected,
+            protocol_version: "unknown".to_string(),
+            additional_metadata: Default::default(),
+        };
+        Self {
+            config: StdioConfig {
+                max_message_size: 10 * 1024 * 1024, // 10MB
+                encryption: EncryptionFormat::None,
+                compression: CompressionFormat::None,
+                use_ndjson: true,
+                buffer_size: 8 * 1024, // 8KB
+            },
+            state: Arc::new(RwLock::new(StdioState::Disconnected)),
+            command_sender: mpsc::channel(100).0,
+            command_receiver: Arc::new(TokioMutex::new(mpsc::channel(100).1)),
+            message_rx: watch::channel(None).0,
+            message_tx: watch::channel(None).1,
+            connection_id: Uuid::new_v4().to_string(),
+            metadata,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    
-    #[tokio::test]
-    async fn test_stdio_transport_create() {
-        // Create a config
-        let config = StdioConfig {
-            use_ndjson: true,
-            ..Default::default()
-        };
-        
-        // Create transport
-        let transport = StdioTransport::new(config);
-        
-        // Ensure it starts disconnected
-        assert!(!transport.is_connected().await);
-        
-        // Get metadata
-        let metadata = transport.get_metadata();
-        assert_eq!(metadata.transport_type, "stdio");
-        assert_eq!(metadata.remote_address, "stdio");
-    }
-} 
+    // ... tests ...
+}

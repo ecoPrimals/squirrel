@@ -36,13 +36,15 @@
 // more compatible with Arc wrapping for thread-safe sharing.
 
 use async_trait::async_trait;
-use crate::error::transport::TransportError;
-use crate::types::MCPMessage;
-use crate::error::Result;
-use crate::types::{
-    CompressionFormat,
-    EncryptionFormat,
-};
+use crate::message::Message;
+use crate::protocol::MCPMessage;
+use crate::security::EncryptionFormat;
+use crate::types::CompressionFormat;
+use std::net::SocketAddr;
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
+use crate::error::{Result, MCPError};
 
 /// MCP Frame implementation for message framing over byte streams
 ///
@@ -74,26 +76,25 @@ pub mod stdio;
 /// component communication without network overhead.
 pub mod memory;
 
-/// Metadata about a transport connection
-///
-/// Contains descriptive information about a transport connection,
-/// including type, addressing, encryption, and compression details.
-#[derive(Debug, Clone)]
+/// Metadata associated with a transport connection
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransportMetadata {
-    /// Type of transport (tcp, websocket, stdio, etc.)
-    pub transport_type: String,
-    
-    /// Remote address for the connection, if applicable
-    pub remote_address: String,
-    
-    /// Local address for the connection, if applicable
-    pub local_address: Option<String>,
-    
-    /// Encryption format used by the transport
-    pub encryption: crate::types::EncryptionFormat,
-    
-    /// Compression format used by the transport
-    pub compression: crate::types::CompressionFormat,
+    /// Unique connection ID
+    pub connection_id: String,
+    /// Remote address of the connection
+    pub remote_address: Option<SocketAddr>,
+    /// Local address of the connection
+    pub local_address: Option<SocketAddr>,
+    /// Timestamp when the connection was established
+    pub connected_at: DateTime<Utc>,
+    /// Last activity timestamp
+    pub last_activity: DateTime<Utc>,
+    /// Encryption format used, if any
+    pub encryption_format: Option<EncryptionFormat>,
+    /// Compression format used, if any
+    pub compression_format: Option<CompressionFormat>,
+    /// Additional metadata
+    pub additional_info: HashMap<String, String>,
 }
 
 /// Transport trait defining the interface for different transport mechanisms
@@ -256,6 +257,7 @@ pub trait Transport: Send + Sync {
 mod tests {
     use super::*;
     use std::sync::{Arc, atomic::AtomicBool};
+    use crate::error::transport::TransportError;
     
     /// Mock Transport for testing
     ///
@@ -272,11 +274,14 @@ mod tests {
             Self {
                 connected: Arc::new(AtomicBool::new(false)),
                 metadata: TransportMetadata {
-                    transport_type: "mock".to_string(),
-                    remote_address: "mock://localhost".to_string(),
+                    connection_id: "mock_connection_id".to_string(),
+                    remote_address: None,
                     local_address: None,
-                    encryption: crate::types::EncryptionFormat::None,
-                    compression: crate::types::CompressionFormat::None,
+                    connected_at: Utc::now(),
+                    last_activity: Utc::now(),
+                    encryption_format: None,
+                    compression_format: None,
+                    additional_info: HashMap::new(),
                 },
             }
         }
@@ -345,7 +350,7 @@ mod tests {
         assert!(transport.is_connected().await);
         
         let metadata = transport.get_metadata();
-        assert_eq!(metadata.transport_type, "mock");
+        assert_eq!(metadata.connection_id, "mock_connection_id");
         
         // Test receiving a message
         let message = transport.receive_message().await.unwrap();

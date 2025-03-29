@@ -73,6 +73,11 @@ use crate::types::{
     MCPMessage, MCPResponse, MessageMetadata, MessageType, ProtocolState, ResponseStatus,
 };
 
+/// Protocol-related types module
+pub mod types;
+// Re-export types from the protocol::types module
+pub use types::*;
+
 /// Protocol-specific result type for operations that return a response.
 ///
 /// This type is an alias for `Result<MCPResponse>` and is used throughout
@@ -109,6 +114,16 @@ pub mod domain_objects;
 /// Implementation module for protocol core functionality
 mod impl_protocol;
 pub use impl_protocol::MCPProtocolImpl;
+
+/// Serialization helpers for protocol operations
+pub mod serialization_helpers;
+
+/// Serialization utility functions
+pub mod serialization_utils;
+
+/// Module for domain object tests
+#[cfg(test)]
+mod domain_objects_tests;
 
 /// Configuration for the MCP protocol.
 ///
@@ -800,25 +815,92 @@ impl Default for MCPProtocolFactory {
     }
 }
 
-/// Core trait for MCP protocol implementation
+/// Trait defining the MCP protocol operations.
+///
+/// This trait specifies the core functionality of the MCP protocol, including
+/// handling messages, validating message structures, routing messages, and
+/// managing the protocol state. Implementations of this trait provide the
+/// concrete logic for the protocol operations.
 #[async_trait::async_trait]
-pub trait MCPProtocol: Send + Sync {
-    /// Handles an incoming message according to the protocol
+pub trait MCPProtocol: Send + Sync + Debug {
+    /// Handles an incoming message, processing it according to the protocol rules.
+    ///
+    /// This method is the main entry point for processing messages. It takes an
+    /// incoming `MCPMessage`, validates it, determines the appropriate action
+    /// based on the message type (e.g., command, event, response), and produces
+    /// a response or performs the required side effects.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The `MCPMessage` to handle.
+    ///
+    /// # Returns
+    ///
+    /// A `ProtocolResult` containing the `MCPResponse` if successful, or an
+    /// `MCPError` if processing fails.
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult;
 
-    /// Validates a message according to protocol rules
+    /// Validates the structure and content of an incoming message.
+    ///
+    /// This method checks if a message conforms to the protocol specification,
+    /// including verifying required fields, checking data types, and ensuring
+    /// the message size is within limits.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The `MCPMessage` to validate.
+    ///
+    /// # Returns
+    ///
+    /// A `ValidationResult` which is `Ok(())` if validation succeeds, or an
+    /// `MCPError` (typically `ProtocolError`) if validation fails.
     async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult;
 
-    /// Routes a message to its appropriate handler
+    /// Routes a message to the appropriate handler or destination.
+    ///
+    /// Based on the message type and content, this method determines where
+    /// the message should be sent for further processing. This might involve
+    /// looking up command handlers, dispatching events, or forwarding responses.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - The `MCPMessage` to route.
+    ///
+    /// # Returns
+    ///
+    /// A `RoutingResult` which is `Ok(())` if routing is successful, or an
+    /// `MCPError` if routing fails (e.g., handler not found).
     async fn route_message(&self, msg: &MCPMessage) -> RoutingResult;
 
-    /// Sets the protocol state
+    /// Sets the current state of the protocol.
+    ///
+    /// Allows external components to update the protocol's operational state,
+    /// for example, setting it to `Ready` after initialization or `Error` if
+    /// a critical failure occurs.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_state` - The `ProtocolState` to set.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<()>` indicating success or failure.
     async fn set_state(&self, new_state: ProtocolState) -> Result<()>;
 
-    /// Gets the current protocol state
+    /// Gets the current state of the protocol.
+    ///
+    /// Returns the current operational state of the protocol handler.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<ProtocolState>` containing the current state or an error.
     async fn get_state(&self) -> Result<ProtocolState>;
-
-    /// Gets the protocol version
+    
+    /// Gets the protocol version string.
+    ///
+    /// # Returns
+    ///
+    /// The protocol version string (e.g., "1.0").
     fn get_version(&self) -> String;
 }
 
@@ -836,24 +918,6 @@ pub trait MessageHandler: Send + Sync + std::fmt::Debug {
 
     /// Returns the message types this handler can process
     fn supported_types(&self) -> Vec<MessageType>;
-}
-
-/// Implementation of `FromStr` for `MessageType` to convert strings to message types
-impl FromStr for MessageType {
-    type Err = ProtocolError;
-
-    fn from_str(s: &str) -> std::result::Result<Self, ProtocolError> {
-        match s {
-            "Command" => Ok(Self::Command),
-            "Response" => Ok(Self::Response),
-            "Event" => Ok(Self::Event),
-            "Error" => Ok(Self::Error),
-            "Setup" => Ok(Self::Setup),
-            _ => Err(ProtocolError::InvalidFormat(format!(
-                "Invalid message type: {s}"
-            ))),
-        }
-    }
 }
 
 #[cfg(test)]

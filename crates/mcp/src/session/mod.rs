@@ -13,9 +13,10 @@ use uuid::Uuid;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
-use crate::error::types::SessionError;
-use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::security::{Credentials, SecurityManager};
+use crate::error::session::SessionError;
+use crate::types::{AccountId};
+use crate::security::types::{SessionToken, UserId, UserRole, AuthToken};
+use crate::security::SecurityManager;
 use crate::persistence::{Persistence, SessionData};
 
 /// Session management module
@@ -101,6 +102,7 @@ impl Session {
     }
     
     /// Add metadata to the session
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
@@ -131,18 +133,26 @@ impl Session {
     }
 
     /// Check if the session is expired based on provided timeout
-    #[must_use] pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
-        if let Some(timeout_duration) = timeout {
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(self.last_accessed);
-            elapsed.num_seconds() as u64 > timeout_duration.as_secs()
-        } else if let Some(session_timeout) = self.timeout {
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(self.last_accessed);
-            elapsed.num_seconds() as u64 > session_timeout
-        } else {
-            false // No timeout means session doesn't expire
-        }
+    #[must_use]
+    pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
+        timeout.map_or_else(
+            || { // Closure for timeout = None
+                // Check self.timeout
+                self.timeout.map_or(
+                    false, // self.timeout = None => false
+                    |session_timeout| { // self.timeout = Some(session_timeout)
+                        let now = Utc::now();
+                        let elapsed = now.signed_duration_since(self.last_accessed);
+                        elapsed.num_seconds() as u64 > session_timeout
+                    }
+                )
+            },
+            |timeout_duration| { // Closure for timeout = Some(timeout_duration)
+                let now = Utc::now();
+                let elapsed = now.signed_duration_since(self.last_accessed);
+                elapsed.num_seconds() as u64 > timeout_duration.as_secs()
+            }
+        )
     }
 
     /// Update the last accessed time
@@ -187,14 +197,16 @@ impl Session {
     }
 
     /// Create from session data
-    #[must_use] pub fn from_session_data(data: SessionData) -> Self {
+    #[must_use]
+    #[allow(clippy::cast_sign_loss)]
+    pub fn from_session_data(data: SessionData) -> Self {
         Self {
             token: data.token,
             user_id: data.user_id,
             account_id: data.account_id,
             role: data.role,
-            created_at: datetime_from_system_time(&data.created_at),
-            last_accessed: datetime_from_system_time(&data.last_accessed),
+            created_at: datetime_from_system_time(data.created_at),
+            last_accessed: datetime_from_system_time(data.last_accessed),
             timeout: Some(data.timeout),
             auth_token: data.auth_token,
             metadata: data.metadata,
@@ -203,6 +215,7 @@ impl Session {
 }
 
 /// Convert `DateTime`<Utc> to `SystemTime`
+#[allow(clippy::cast_sign_loss)]
 fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
     let unix_time = dt.timestamp();
     let nanos = dt.timestamp_subsec_nanos();
@@ -210,11 +223,10 @@ fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
     SystemTime::UNIX_EPOCH + Duration::from_secs(unix_time as u64) + Duration::from_nanos(u64::from(nanos))
 }
 
-/// Convert `SystemTime` to `DateTime`<Utc>
-fn datetime_from_system_time(st: &SystemTime) -> DateTime<Utc> {
-    let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_else(|_| Duration::from_secs(0));
-    
+/// Helper function to convert SystemTime to DateTime<Utc>
+fn datetime_from_system_time(st: SystemTime) -> DateTime<Utc> {
+    let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    #[allow(clippy::cast_possible_wrap)] // Allow u64->i64 for timestamp conversion
     let secs = duration_since_epoch.as_secs() as i64;
     let nanos = duration_since_epoch.subsec_nanos();
     
@@ -600,6 +612,9 @@ impl Default for SessionManagerFactory {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::error::SessionError;
+    use std::time::Duration;
     // Remove tests causing compilation issues
     // We'll add properly injected tests later
 }

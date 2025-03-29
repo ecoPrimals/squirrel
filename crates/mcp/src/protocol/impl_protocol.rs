@@ -6,8 +6,13 @@ use std::sync::Arc;
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
     CommandHandler, MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult,
+    MessageId,
 };
-use crate::types::{MCPMessage, MCPResponse, MessageType, ProtocolState};
+use crate::protocol::types::{MCPMessage, MessageType, ProtocolState, ProtocolVersion};
+use crate::types::{MCPResponse, MessageMetadata, ResponseStatus};
+use crate::security::SecurityMetadata;
+use crate::security::SecurityContext;
+use crate::security::SecurityError;
 
 /// Protocol adapter state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -69,7 +74,7 @@ impl MCPProtocolImpl {
             type_: MessageType::Response,
             payload: serde_json::Value::Null,
             metadata: None,
-            security: crate::types::SecurityMetadata::default(),
+            security: SecurityMetadata::default(),
             timestamp: chrono::Utc::now(),
             version: request.version.clone(),
             trace_id: request.trace_id.clone(),
@@ -230,6 +235,20 @@ impl MCPProtocolImpl {
     /// - The handler unregistration fails for any reason
     pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.base.unregister_handler(message_type)
+    }
+
+    /// Create a basic MCP message with essential fields.
+    fn create_basic_message(id: MessageId, type_: MessageType, payload: Value) -> MCPMessage {
+        MCPMessage {
+            id,
+            version: ProtocolVersion::default(),
+            type_,
+            payload: serde_json::to_vec(&payload).unwrap_or_default(), // Convert payload to Vec<u8>
+            metadata: MessageMetadata::default(),
+            // security: SecurityMetadata::default(), // Needs import from crate::security
+            // timestamp: chrono::Utc::now(), // Use metadata timestamp
+            // trace_id: None, // Use metadata field if needed
+        }
     }
 }
 
@@ -426,14 +445,14 @@ impl MCPProtocol for MCPProtocolImpl {
         }
     }
 
-    async fn set_state(&self, _state: ProtocolState) -> Result<()> {
+    async fn set_state(&self, _state: crate::types::ProtocolState) -> Result<()> {
         // This is a no-op since the state is managed by the adapter, not the protocol
         Ok(())
     }
 
-    async fn get_state(&self) -> Result<ProtocolState> {
+    async fn get_state(&self) -> Result<crate::types::ProtocolState> {
         // This adapter is always in Initialized state if it can respond
-        Ok(ProtocolState::Initialized)
+        Ok(crate::types::ProtocolState::Initialized)
     }
 
     fn get_version(&self) -> String {

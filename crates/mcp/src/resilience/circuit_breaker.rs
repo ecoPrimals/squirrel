@@ -185,6 +185,7 @@ impl CircuitBreaker {
             CircuitState::Open => {
                 // Check if recovery timeout has elapsed
                 if let Some(open_time) = self.open_time {
+                    #[allow(clippy::cast_possible_truncation)] // u128 -> u64 for elapsed millis is safe here
                     let elapsed = open_time.elapsed().as_millis() as u64;
                     if elapsed >= self.config.recovery_timeout_ms {
                         // Transition to half-open state

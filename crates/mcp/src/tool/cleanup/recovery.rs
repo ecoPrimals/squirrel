@@ -164,9 +164,8 @@ impl RecoveryHook {
         for attempt in attempts.iter().rev() {
             if attempt.successful {
                 break;
-            } else {
-                consecutive_failures += 1;
             }
+            consecutive_failures += 1;
         }
 
         // Determine the strategy based on failure patterns

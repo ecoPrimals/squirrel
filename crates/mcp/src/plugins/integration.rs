@@ -157,6 +157,13 @@ impl PluginSystemIntegration {
     }
     
     /// Register all active tools as plugins
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The factory fails to create plugin adapters
+    /// - There is an error with the plugin registration process
+    /// - The protocol version requirements are incompatible
     pub async fn register_tools_as_plugins(&self) -> Result<Vec<Uuid>> {
         let factory = ToolPluginFactory::new(self.tool_manager.clone());
         let adapters = factory.create_plugin_adapters().await?;
@@ -177,10 +184,9 @@ impl PluginSystemIntegration {
             let plugin_id = self.plugin_manager.register_plugin(plugin_arc).await?;
             plugin_ids.push(plugin_id);
             
-            // Store the mapping (using a placeholder tool_id for now)
-            let mut map = self.plugin_to_tool_map.write().await;
+            // Store the mapping with shorter lock duration
             let tool_id = "adapter-tool"; // Placeholder
-            map.insert(plugin_id, tool_id.to_string());
+            self.plugin_to_tool_map.write().await.insert(plugin_id, tool_id.to_string());
             info!("Registered tool '{}' as plugin '{}'", tool_id, plugin_id);
         }
         
@@ -188,45 +194,60 @@ impl PluginSystemIntegration {
     }
     
     /// Register a single tool as a plugin
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The plugin registration process fails
+    /// - There is an error with the plugin system
     pub async fn register_tool_as_plugin(&self, adapter: Arc<dyn McpPlugin>) -> Result<Uuid> {
         // Register the plugin using the wrapper to avoid direct casting
         let plugin_arc = PluginWrapper::new(adapter);
         let plugin_id = self.plugin_manager.register_plugin(plugin_arc).await?;
         
-        // Store the mapping
-        {
-            let mut map = self.plugin_to_tool_map.write().await;
-            let tool_id = "adapter-tool"; // Placeholder
-            map.insert(plugin_id, tool_id.to_string());
-            info!("Registered tool '{}' as plugin '{}'", tool_id, plugin_id);
-        }
+        // Store the mapping with shorter lock duration
+        let tool_id = "adapter-tool"; // Placeholder
+        self.plugin_to_tool_map.write().await.insert(plugin_id, tool_id.to_string());
+        info!("Registered tool '{}' as plugin '{}'", tool_id, plugin_id);
         
         Ok(plugin_id)
     }
     
     /// Get a plugin by tool ID
     pub async fn get_plugin_by_tool_id(&self, tool_id: &str) -> Option<Arc<dyn Plugin>> {
-        let map = self.plugin_to_tool_map.read().await;
-        for (plugin_id, tid) in map.iter() {
-            if tid == tool_id {
-                return self.plugin_manager.get_plugin(plugin_id).await;
-            }
+        // Get tool-to-plugin mapping, cloning only what we need while minimizing lock duration
+        let plugin_id = {
+            let map = self.plugin_to_tool_map.read().await;
+            
+            // Find the plugin ID for this tool ID
+            map.iter()
+                .find(|(_, tid)| tid.as_str() == tool_id)
+                .map(|(plugin_id, _)| *plugin_id)
+        };
+        
+        // If we found a plugin ID, fetch the plugin
+        if let Some(plugin_id) = plugin_id {
+            return self.plugin_manager.get_plugin(&plugin_id).await;
         }
         
         None
     }
     
     /// Handle tool state changes
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The plugin status cannot be updated
+    /// - There is an internal error in the plugin system
     pub async fn handle_tool_state_change(&self, tool_id: &str, state: ToolState) -> Result<()> {
         // Get the plugin for this tool
         if let Some(_plugin) = self.get_plugin_by_tool_id(tool_id).await {
             // Update plugin status based on tool state
             let new_status = match state {
-                ToolState::Active => PluginStatus::Running,
-                ToolState::Inactive => PluginStatus::ShutDown,
+                ToolState::Active | ToolState::Started => PluginStatus::Running,
+                ToolState::Inactive | ToolState::Stopped => PluginStatus::ShutDown,
                 ToolState::Error => PluginStatus::Error,
-                ToolState::Started => PluginStatus::Running,
-                ToolState::Stopped => PluginStatus::ShutDown,
                 _ => PluginStatus::Registered,
             };
             
