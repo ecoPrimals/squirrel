@@ -1,0 +1,76 @@
+[package]
+name = "ui-terminal"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal UI implementation for the Squirrel monitoring dashboard"
+
+[features]
+default = ["mcp-integration"]
+mcp-integration = ["squirrel-mcp"]
+
+[dependencies]
+# Dashboard core
+dashboard-core = { path = "../dashboard-core" }
+
+# Squirrel monitoring
+squirrel-monitoring = { path = "../monitoring" }
+
+# MCP integration
+squirrel-mcp = { path = "../mcp", optional = true, package = "squirrel-mcp" }
+
+# TUI dependencies
+# Inherit ratatui from workspace, keeping specific features
+ratatui = { workspace = true, features = ["all-widgets"] }
+crossterm = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = { workspace = true }
+futures = { workspace = true }
+tokio-util = { workspace = true, features = ["codec", "rt"] } # Keep specific features if needed
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Command-line arguments
+clap = { version = "4.5.1", features = ["derive"] } # Keep specific version/features if needed
+
+# System monitoring
+sysinfo = { workspace = true }
+
+# Utilities
+tui-input = "0.8.0" # Keep specific version if not in workspace
+uuid = { workspace = true }
+
+# Random number generation
+rand = { workspace = true }
+
+# Configuration
+config = "0.13.4" # Keep specific version if not in workspace
+toml = "0.8" # Keep specific version if not in workspace
+directories = "5.0.1" # Keep specific version if not in workspace
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging and error handling
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Additional dependencies
+# tui-logger = { version = "0.11.0", features = ["tracing-support"] } // Removed tui-logger dependency
+ctrlc = "3.4.1" # Keep specific version if not in workspace
+log = { workspace = true }
+env_logger = "0.11.0" # Keep specific version if not in workspace
+lazy_static = { workspace = true }
+home = "0.5.9" # Keep specific version if not in workspace
+comfy-table = "7.1.0" # Keep specific version if not in workspace
+strum = { version = "0.26", features = ["derive"] } # Keep specific version/features if needed
+strum_macros = "0.26" # Keep specific version if needed
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+mockall = { workspace = true } 

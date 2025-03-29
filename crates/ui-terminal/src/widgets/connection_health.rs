@@ -1,5 +1,5 @@
-// crates/ui-terminal/src/widgets/alerts.rs
-// Placeholder for AlertsWidget implementation
+// crates/ui-terminal/src/widgets/connection_health.rs
+// Placeholder for ConnectionHealthWidget implementation
 
 use ratatui::{
     backend::Backend,
@@ -14,7 +14,7 @@ pub fn render<B: Backend>(
     frame: &mut Frame<'_>,
     area: Rect
 ) {
-    let widget = Paragraph::new("Alerts Widget Placeholder")
-        .block(Block::default().borders(Borders::ALL).title("Active Alerts"));
+    let widget = Paragraph::new("Connection Health Widget Placeholder")
+        .block(Block::default().borders(Borders::ALL).title("Connection Health"));
     frame.render_widget(widget, area);
 } 

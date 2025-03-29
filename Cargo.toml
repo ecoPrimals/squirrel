@@ -66,6 +66,10 @@ sled = "0.34.7"
 # Cryptography
 ring = "0.17.7"
 
+# TUI
+ratatui = { version = "0.26.3", features = ["all-widgets"] }
+crossterm = "0.27.0"
+
 # Utils
 bytes = "1.5.0"
 lazy_static = "1.4.0"
@@ -121,7 +125,7 @@ description = "A modular and maintainable Rust project"
 
 [dependencies]
 # Core dependencies
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.0", features = ["full"], optional = true }
 futures = "0.3"
 async-trait = "0.1"
 thiserror = "1.0"
@@ -134,7 +138,7 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 libloading = "0.8"
 
 # Required for the simple_journal example
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"], optional = true }
 squirrel-commands = { path = "crates/commands" }
 
 # Squirrel crates
@@ -189,21 +193,25 @@ opentelemetry-jaeger = { version = "0.19" }
 
 # New dependencies
 log = "0.4"
-ratatui = "0.26"
 crossterm = "0.27"
+ui-terminal = { path = "crates/ui-terminal", optional = true }
+dashboard-core = { path = "crates/dashboard-core", optional = true }
 
 [features]
-default = []
-with-plugins = []
-example-plugins = []
-commands = []
-marketplace = []
+default = ["cli", "plugins", "tui"]
+cli = ["dep:clap"]
+plugins = []
+tui = ["dep:ui-terminal", "dep:dashboard-core", "dep:tokio"]
 
 # ... existing code ... 
 
 [[example]]
 name = "simple_journal"
 path = "examples/simple_journal.rs" 
+
+[[example]]
+name = "connection_health_monitor"
+path = "examples/connection_health_monitor.rs"
 
 [workspace.metadata]
 rust-version = "1.70.0"

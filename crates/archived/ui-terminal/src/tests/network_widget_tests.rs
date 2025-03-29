@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use dashboard_core::data::{NetworkMetrics, NetworkInterface};
 use crate::widgets::network::NetworkWidget;
 

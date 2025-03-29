@@ -60,6 +60,10 @@ pub enum ConnectionStatus {
     Disconnected,
     /// Connecting to MCP service
     Connecting,
+    /// Connection is degraded (connected but with issues)
+    Degraded,
+    /// Unknown status
+    Unknown,
     /// Error connecting to MCP service
     Error(String),
 }
@@ -67,11 +71,40 @@ pub enum ConnectionStatus {
 /// Connection health status
 #[derive(Debug, Clone)]
 pub struct ConnectionHealth {
+    /// Latency in milliseconds
+    pub latency_ms: f64,
+    /// Packet loss percentage (0-100)
+    pub packet_loss: f64,
+    /// Connection stability percentage (0-100)
+    pub stability: f64,
+    /// Signal strength percentage (0-100)
+    pub signal_strength: f64,
+    /// Connection health score (0.0-1.0)
+    pub health_score: f64,
+    /// Current connection status
     pub status: ConnectionStatus,
-    pub last_successful: Option<DateTime<Utc>>,
-    pub failure_count: u32,
-    pub latency_ms: Option<u64>,
-    pub error_details: Option<String>,
+    /// When the connection was established
+    pub connected_since: Option<DateTime<Utc>>,
+    /// When the last status change occurred
+    pub last_status_change: Option<DateTime<Utc>>,
+    /// Last checked timestamp
+    pub last_checked: DateTime<Utc>,
+}
+
+impl Default for ConnectionHealth {
+    fn default() -> Self {
+        Self {
+            latency_ms: 0.0,
+            packet_loss: 0.0,
+            stability: 100.0,
+            signal_strength: 100.0,
+            health_score: 1.0,
+            status: ConnectionStatus::Disconnected,
+            connected_since: None,
+            last_status_change: Some(Utc::now()),
+            last_checked: Utc::now(),
+        }
+    }
 }
 
 /// Connection event
@@ -496,6 +529,8 @@ impl fmt::Display for ConnectionStatus {
             ConnectionStatus::Connected => write!(f, "Connected"),
             ConnectionStatus::Disconnected => write!(f, "Disconnected"),
             ConnectionStatus::Connecting => write!(f, "Connecting"),
+            ConnectionStatus::Degraded => write!(f, "Degraded"),
+            ConnectionStatus::Unknown => write!(f, "Unknown"),
             ConnectionStatus::Error(msg) => write!(f, "Error: {}", msg),
         }
     }

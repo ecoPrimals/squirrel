@@ -1,551 +1,438 @@
 # UI Implementation Progress Report
 
-**Version**: 1.6.0  
-**Date**: 2024-08-30  
+**Version**: 1.9.0  
+**Date**: 2025-03-28  
 **Status**: In Progress  
 
 ## Overview
 
 This document provides an update on the implementation progress of the Dashboard and Terminal UI components for the Squirrel system. It outlines what has been implemented, current status, and next steps.
 
-## Recent Improvements: MCP Integration Phase 2
+## Recent Improvements
 
-### Enhanced Protocol Visualization (COMPLETED)
+### Connection Health Monitoring Widget (Completed)
 
-- **Enhanced Protocol Widget**: Implemented tabbed interface with four views:
-  ```rust
-  // Create tab titles
-  let tab_titles = vec!["Overview", "Metrics", "Connection", "History"];
-  
-  // Render tab content based on active tab
-  match self.active_tab {
-      0 => self.render_overview_tab(f, chunks[2]),
-      1 => self.render_metrics_tab(f, chunks[2]),
-      2 => self.render_connection_tab(f, chunks[2]),
-      3 => self.render_history_tab(f, chunks[2]),
-      _ => self.render_overview_tab(f, chunks[2]),
-  }
-  ```
+- ✅ **ConnectionHealthWidget Implementation**: Created a comprehensive widget to visualize MCP connection health status
+- ✅ **Connection Status Visualization**: Added detailed status display with color-coded indicators
+- ✅ **Connection History Display**: Implemented a connection event history view
+- ✅ **Health Metrics Sparkline**: Added sparkline visualization of connection health over time
+- ✅ **Comprehensive Test Coverage**: Created test suite for the ConnectionHealthWidget
 
-- **Connection Health Monitoring**: Added support for detailed connection health information:
-  ```rust
-  /// Connection health status
-  #[derive(Debug, Clone)]
-  pub struct ConnectionHealth {
-      pub status: ConnectionStatus,
-      pub last_successful: Option<DateTime<Utc>>,
-      pub failure_count: u32,
-      pub latency_ms: Option<u64>,
-      pub error_details: Option<String>,
-  }
-  ```
+### MCP Integration Phase 3 (Completed)
 
-- **Connection History Tracking**: Implemented connection event history visualization:
-  ```rust
-  /// Connection event
-  #[derive(Debug, Clone)]
-  pub struct ConnectionEvent {
-      pub timestamp: DateTime<Utc>,
-      pub event_type: ConnectionEventType,
-      pub details: Option<String>,
-  }
-  ```
+- ✅ **MCP-UI Direct Integration**: Implemented direct integration between MCP protocol and UI components
+- ✅ **Performance-Optimized Caching**: Implemented time-based caching to reduce network calls
+- ✅ **Command-Line Integration**: Added command-line arguments for enabling and configuring MCP
+- ✅ **Dashboard Integration**: Integrated MCP metrics with dashboard visualization
+- ✅ **Real-Time Updates**: Implemented asynchronous updates without blocking UI
+- ✅ **Connection Management**: Added robust connection handling with reconnection support
+- ✅ **Enhanced Connection Health Monitoring**: Implemented detailed connection quality metrics
 
-- **Metrics Visualization**: Added chart-based visualization for protocol metrics:
-  ```rust
-  /// Render a metrics chart
-  fn render_metrics_chart(&self, f: &mut Frame, area: Rect, title: &str, data: &[(DateTime<Utc>, f64)]) {
-      // Create dataset
-      let dataset = Dataset::default()
-          .name(title)
-          .marker(symbols::Marker::Dot)
-          .graph_type(GraphType::Line)
-          .style(Style::default().fg(Color::Cyan))
-          .data(&filtered_data);
-      
-      // Create chart
-      let chart = Chart::new(vec![dataset])
-          .block(block)
-          .x_axis(
-              Axis::default()
-                  .title("Time")
-                  .bounds([min_x, max_x])
-                  .labels(vec![])
-          )
-          .y_axis(
-              Axis::default()
-                  .title("Value")
-                  .bounds([min_y.max(0.0) - y_margin, max_y + y_margin])
-                  .labels(vec![
-                      Span::raw(format!("{:.1}", min_y.max(0.0))),
-                      Span::raw(format!("{:.1}", (min_y.max(0.0) + max_y) / 2.0)),
-                      Span::raw(format!("{:.1}", max_y)),
-                  ])
-          );
-  }
-  ```
+### Implementation Details
 
-### Connection Management Enhancements (COMPLETED)
-
-- **McpMetricsProvider Interface**: Enhanced with connection management capabilities:
-  ```rust
-  #[async_trait]
-  pub trait McpMetricsProvider: Send + Sync + std::fmt::Debug {
-      // Existing methods
-      async fn get_metrics(&self) -> Result<McpMetrics, String>;
-      fn subscribe(&self, interval_ms: u64) -> mpsc::Receiver<McpMetrics>;
-      async fn connection_status(&self) -> ConnectionStatus;
-      async fn configure(&self, config: McpMetricsConfig) -> Result<(), String>;
-      
-      // New methods
-      fn get_protocol_metrics(&self) -> Result<HashMap<String, f64>, String>;
-      fn get_protocol_status(&self) -> Result<ProtocolStatus, String>;
-      fn connection_health(&self) -> Result<ConnectionHealth, String>;
-      async fn reconnect(&self) -> Result<bool, String>;
-      fn connection_history(&self) -> Result<Vec<ConnectionEvent>, String>;
-  }
-  ```
-
-- **Mock Implementation**: Created enhanced mock implementation for testing:
-  ```rust
-  #[derive(Debug, Clone)]
-  pub struct MockMcpMetricsProvider {
-      config: McpMetricsConfig,
-      should_fail: bool,
-      connection_health: ConnectionHealth,
-      connection_history: Vec<ConnectionEvent>,
-      last_reconnect: Option<DateTime<Utc>>,
-  }
-  ```
-
-## Recent Improvements: Ratatui 0.24.0+ Compatibility
-
-### Ratatui API Updates (COMPLETED)
-
-- **Frame API Updates**: Removed generic Backend parameter from Frame in all render methods:
-  ```rust
-  // Old code
-  pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) { ... }
-
-  // New code
-  pub fn render(&self, f: &mut Frame, area: Rect) { ... }
-  ```
-
-- **Widget Updates**: Updated all widgets to be compatible with Ratatui 0.24.0+:
-  ```rust
-  // Updated NetworkWidget to remove unused imports and be compatible with Ratatui 0.24.0
-  use ratatui::{
-      layout::{Constraint, Direction, Layout, Rect},
-      style::{Color, Style},
-      text::{Span, Line},
-      widgets::{Block, Borders, Paragraph, Table, Row, Cell},
-      Frame,
-  };
-  ```
-
-- **SystemUpdate Pattern Matching**: Fixed pattern matching for SystemUpdate in app.rs:
-  ```rust
-  DashboardUpdate::SystemUpdate { cpu, memory, timestamp } => {
-      if let Some(data) = &mut self.dashboard_data {
-          // Update CPU history
-          let cpu_history = self.metric_history
-              .entry("system.cpu".to_string())
-              .or_insert_with(Vec::new);
-              
-          // Use the correct CPU field
-          cpu_history.push((timestamp, cpu.usage));
-          
-          // Update memory history
-          let memory_history = self.metric_history
-              .entry("system.memory".to_string())
-              .or_insert_with(Vec::new);
-          
-          // Use the correct MemoryMetrics field
-          memory_history.push((timestamp, memory.used as f64));
-          
-          // Update metrics directly
-          data.metrics.cpu = cpu;
-          data.metrics.memory = memory;
-          
-          self.last_update = Some(Instant::now());
-      }
-  }
-  ```
-
-- **Code Cleanup**: Removed unused imports across widget implementations:
-  - Removed `buffer::Buffer` and `Modifier` from `NetworkWidget`
-  - Removed `Modifier` from `HealthWidget`
-  - Updated styling methods to match new API
-
-## Recent Improvements: Performance Optimization
-
-### CompressedTimeSeries Enhancements (COMPLETED)
-
-- **Base Point Tracking**: Fixed critical issues with base point handling:
-  ```rust
-  #[derive(Debug, Clone)]
-  pub struct CompressedTimeSeries<T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T> + Default> {
-      // Existing fields
-      pub base_timestamp: DateTime<Utc>,
-      pub timestamp_deltas: Vec<i64>,
-      pub base_value: T,
-      pub value_deltas: Vec<T>,
-      pub max_capacity: usize,
-      // New field to properly track base point status
-      pub has_base_point: bool,
-  }
-  ```
-
-- **Improved Add Method**: Enhanced to correctly handle base point and delta points:
-  ```rust
-  pub fn add(&mut self, timestamp: DateTime<Utc>, value: T) {
-      // Check if we need to set the base point
-      if !self.has_base_point {
-          // First point becomes our base
-          self.base_timestamp = timestamp;
-          self.base_value = value;
-          self.has_base_point = true;
-          return;
-      }
-      
-      // Calculate delta from base timestamp
-      let delta_ms = (timestamp - self.base_timestamp).num_milliseconds();
-      
-      // Calculate delta from base value
-      let delta_value = value - self.base_value;
-      
-      // Add to deltas
-      self.timestamp_deltas.push(delta_ms);
-      self.value_deltas.push(delta_value);
-      
-      // Enforce capacity limits
-      self.enforce_capacity();
-  }
-  ```
-
-- **Multiple Resampling Strategies**: Added support for different resampling approaches:
-  ```rust
-  #[derive(Debug, Clone, Copy, PartialEq)]
-  pub enum ResampleStrategy<T> {
-      // Default strategy - returns points evenly distributed across time range
-      EvenlySpaced,
-      // Returns points with the largest values
-      LargestValues,
-      // Returns points where value changes significantly (by threshold)
-      SignificantChanges(T),
-  }
-  
-  pub fn downsample_with_strategy(&self, target_size: usize, strategy: ResampleStrategy<T>) -> Vec<(DateTime<Utc>, T)> {
-      match strategy {
-          ResampleStrategy::EvenlySpaced => self.downsample_evenly_spaced(target_size),
-          ResampleStrategy::LargestValues => self.downsample_largest_values(target_size),
-          ResampleStrategy::SignificantChanges(threshold) => self.downsample_significant_changes(target_size, threshold),
-      }
-  }
-  ```
-
-- **Statistics Calculation**: Added statistical analysis capabilities:
-  ```rust
-  #[derive(Debug, Clone, Copy)]
-  pub struct Statistics<T> {
-      pub min: T,
-      pub max: T,
-      pub avg: T,
-      pub count: usize,
-  }
-  
-  pub fn statistics(&self) -> Option<Statistics<T>> 
-  where T: PartialOrd + std::ops::Div<f64, Output = T> + From<f64>
-  {
-      if !self.has_base_point {
-          return None;
-      }
-      
-      let points = self.points();
-      if points.is_empty() {
-          return None;
-      }
-      
-      let mut min = points[0].1;
-      let mut max = points[0].1;
-      let mut sum = T::default();
-      
-      for &(_, value) in &points {
-          if value < min {
-              min = value;
-          }
-          if value > max {
-              max = value;
-          }
-          sum = sum + value;
-      }
-      
-      let count = points.len();
-      let avg = sum / (count as f64).into();
-      
-      Some(Statistics { min, max, avg, count })
-  }
-  ```
-
-- **Time Range Analysis**: Added time range functionality:
-  ```rust
-  pub fn time_range(&self) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
-      if !self.has_base_point {
-          return None;
-      }
-      
-      if self.timestamp_deltas.is_empty() {
-          return Some((self.base_timestamp, self.base_timestamp));
-      }
-      
-      let min_time = self.base_timestamp;
-      let max_delta = self.timestamp_deltas.iter().max()?;
-      let max_time = self.base_timestamp + chrono::Duration::milliseconds(*max_delta);
-      
-      Some((min_time, max_time))
-  }
-  ```
-
-- **Memory Usage Improvements**: Reduced memory usage through delta-encoding approach:
-  - Standard storage: ~48KB for 1000 points (assuming DateTime<Utc> ~24 bytes and f64 ~8 bytes)
-  - Compressed storage: ~16KB (using i64 deltas ~8 bytes and value deltas)
-  - Achieved ~66% reduction in memory usage
-
-### Performance Optimizations
-
-- **Time Complexity**:
-  - Add operation: O(1) time complexity
-  - Points retrieval: O(n) time complexity
-  - Downsampling: O(n) time complexity
-  - Statistics calculation: O(n) time complexity
-
-- **Memory Optimization**:
-  - Delta encoding for timestamps and values
-  - Capacity management with automatic pruning of oldest data
-  - Efficient reconstruction of original points
-
-## Dashboard Adapter Implementation Challenges
-
-### Current Adapter Issues
-
-The `MonitoringToDashboardAdapter` in `adapter.rs` has several type mismatches that need to be addressed:
-
-- **Type Mismatch Issues**: The adapter has type mismatches between expected structured metrics types and actual primitive types:
-  ```
-  error[E0308]: mismatched types: expected `CpuMetrics`, found `f32`
-  error[E0308]: mismatched types: expected `MemoryMetrics`, found `(u64, u64)`
-  error[E0308]: mismatched types: expected `DiskMetrics`, found `HashMap<String, ...>`
-  error[E0308]: mismatched types: expected `NetworkMetrics`, found `HashMap<String, ...>`
-  ```
-
-- **MetricsSnapshot Field Issues**: The implementation tries to access non-existent fields on `MetricsSnapshot`:
-  ```
-  error[E0560]: struct `MetricsSnapshot` has no field named `values`
-  error[E0560]: struct `MetricsSnapshot` has no field named `counters`
-  error[E0560]: struct `MetricsSnapshot` has no field named `gauges`
-  ```
-
-- **McpClient Method Issues**: Methods expected on `MutexGuard<dyn McpClient>` are not found:
-  ```
-  error[E0599]: no method named `get_metrics` found for struct `tokio::sync::MutexGuard<'_, (dyn McpClient + Send + 'static)>` in the current scope
-  ```
-
-### Next Steps for Adapter
-
-- **Refactor Adapter Interface**: Update the `MonitoringToDashboardAdapter` to correctly convert between types
-- **Update MetricsSnapshot Usage**: Ensure `MetricsSnapshot` is used according to its actual structure
-- **Fix McpClient Integration**: Update the `McpClient` trait implementation to expose the correct methods
-
-## Dashboard Core Implementation
-
-### Completed Components
-
-- **System Metrics Collection**: Implemented real-time system metrics collection using the `sysinfo` crate
-- **Metrics History**: Added support for storing and retrieving historical metric data points
-- **Configuration System**: Enhanced configuration with `max_history_points` setting to control history retention
-- **Real-time Updates**: Implemented asynchronous update mechanism using Tokio
-
-### Core Service Interface
-
-The `DashboardService` trait has been fully implemented with the following methods:
+#### MCP Metrics Cache
 
 ```rust
-pub trait DashboardService: Send + Sync {
-    /// Get the current dashboard data
-    async fn get_dashboard_data(&self) -> Result<DashboardData>;
-    
-    /// Get historical metric values
-    async fn get_metric_history(&self, metric_name: &str, time_period: Duration) -> Result<Vec<(DateTime<Utc>, f64)>>;
-    
-    /// Acknowledge an alert
-    async fn acknowledge_alert(&self, alert_id: &str, acknowledged_by: &str) -> Result<()>;
-    
-    /// Subscribe to dashboard updates
-    async fn subscribe(&self) -> mpsc::Receiver<DashboardUpdate>;
-    
-    /// Update dashboard configuration
-    async fn update_config(&self, config: DashboardConfig) -> Result<()>;
-    
-    /// Start the dashboard service
-    async fn start(&self) -> Result<()>;
-    
-    /// Stop the dashboard service
-    async fn stop(&self) -> Result<()>;
+#[derive(Debug)]
+struct CachedMetrics<T: Clone> {
+    value: Option<T>,
+    last_updated: Option<Instant>,
+    ttl: Duration,
+}
+
+impl<T: Clone> CachedMetrics<T> {
+    fn new(ttl: Duration) -> Self {
+        Self {
+            value: None,
+            last_updated: None,
+            ttl,
+        }
+    }
+
+    fn get(&self) -> Option<T> {
+        if let (Some(value), Some(last_updated)) = (&self.value, self.last_updated) {
+            if last_updated.elapsed() < self.ttl {
+                return Some(value.clone());
+            }
+        }
+        None
+    }
+
+    fn update(&mut self, value: T) {
+        self.value = Some(value);
+        self.last_updated = Some(Instant::now());
+    }
 }
 ```
 
-### Data Models
+#### Reconnection Support
 
-Implemented the following data models:
+```rust
+async fn reconnect(&self) -> Result<bool, String> {
+    #[cfg(feature = "mcp-integration")]
+    {
+        // Check if we should intentionally fail for testing
+        let should_fail = self.should_fail.lock().await;
+        if *should_fail {
+            return Err("Reconnection failed: intentional test failure".to_string());
+        }
+        
+        let mut connection_event = ConnectionEvent {
+            event_type: ConnectionEventType::ReconnectAttempt,
+            timestamp: Utc::now(),
+            details: "Manual reconnection attempt".to_string(),
+        };
+        
+        let reconnect_result = match &self.mcp_client {
+            Some(client) => {
+                match client.lock() {
+                    Ok(mut client) => {
+                        match client.reconnect() {
+                            Ok(_) => {
+                                connection_event.event_type = ConnectionEventType::Reconnected;
+                                connection_event.details = "Reconnection successful".to_string();
+                                
+                                // Update connection status
+                                self.connection_status_cache.lock().await.update(ConnectionStatus::Connected);
+                                
+                                // Update connection health
+                                let mut health = ConnectionHealth {
+                                    latency_ms: 0.0,
+                                    packet_loss: 0.0,
+                                    stability: 100.0,
+                                    signal_strength: 100.0,
+                                    last_checked: Utc::now(),
+                                };
+                                self.connection_health_cache.lock().await.update(health);
+                                
+                                Ok(true)
+                            },
+                            Err(e) => {
+                                connection_event.event_type = ConnectionEventType::ReconnectFailed;
+                                connection_event.details = format!("Reconnection failed: {}", e);
+                                
+                                // Update connection status
+                                self.connection_status_cache.lock().await.update(ConnectionStatus::Error(e.to_string()));
+                                
+                                // Update connection health
+                                let mut health = ConnectionHealth {
+                                    latency_ms: 0.0,
+                                    packet_loss: 100.0,
+                                    stability: 0.0,
+                                    signal_strength: 0.0,
+                                    last_checked: Utc::now(),
+                                };
+                                self.connection_health_cache.lock().await.update(health);
+                                
+                                Err(format!("Failed to reconnect: {}", e))
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        connection_event.event_type = ConnectionEventType::ReconnectFailed;
+                        connection_event.details = format!("Failed to acquire client lock: {}", e);
+                        Err(format!("Failed to acquire client lock: {}", e))
+                    }
+                }
+            },
+            None => {
+                connection_event.event_type = ConnectionEventType::ReconnectFailed;
+                connection_event.details = "No MCP client available".to_string();
+                Err("No MCP client available".to_string())
+            }
+        };
+        
+        // Record the connection event
+        let mut history = self.connection_history.lock().await;
+        history.push(connection_event);
+        if history.len() > self.config.max_connection_history_size {
+            history.remove(0);
+        }
+        
+        reconnect_result
+    }
+    
+    #[cfg(not(feature = "mcp-integration"))]
+    {
+        // When MCP integration is disabled, we simulate successful reconnection
+        Ok(true)
+    }
+}
+```
 
-- `DashboardData`: Contains all dashboard data
-- `SystemSnapshot`: System metrics (CPU, memory, disk)
-- `NetworkSnapshot`: Network metrics (interfaces, traffic)
-- `AlertsSnapshot`: Alert information
-- `MetricsSnapshot`: Application-specific metrics
+#### Connection Health Structure
 
-## Terminal UI Implementation
+```rust
+#[derive(Debug, Clone)]
+pub struct ConnectionHealth {
+    /// Latency in milliseconds
+    pub latency_ms: f64,
+    /// Packet loss percentage (0-100)
+    pub packet_loss: f64,
+    /// Connection stability percentage (0-100)
+    pub stability: f64,
+    /// Signal strength percentage (0-100)
+    pub signal_strength: f64,
+    /// Last checked timestamp
+    pub last_checked: DateTime<Utc>,
+}
 
-### Completed Components
+impl Default for ConnectionHealth {
+    fn default() -> Self {
+        Self {
+            latency_ms: 0.0,
+            packet_loss: 0.0,
+            stability: 100.0,
+            signal_strength: 100.0,
+            last_checked: Utc::now(),
+        }
+    }
+}
+```
 
-- **Core Terminal UI**: Implemented using Ratatui framework
-- **Event Handling**: Added keyboard input and event handling
-- **Dashboard State Management**: Implemented application state and update handling
-- **UI Layout**: Created multi-tab interface with different views
-- **Widget System**: Implemented specialized widgets for different dashboard components
-- **MCP Integration**: Added support for MCP protocol metrics visualization
+#### Connection Health Widget
 
-### Widgets
+The new `ConnectionHealthWidget` provides a comprehensive visualization of connection health status:
 
-Implemented the following widgets:
+```rust
+pub struct ConnectionHealthWidget<'a> {
+    /// Connection health data
+    connection_health: Option<&'a ConnectionHealth>,
+    /// Connection history data
+    connection_history: Option<&'a [ConnectionEvent]>,
+    /// Connection history metrics (for sparkline visualization)
+    history_metrics: Option<&'a [(DateTime<Utc>, f64)]>,
+    /// Widget title
+    title: &'a str,
+    /// Last update time
+    last_update: Option<Instant>,
+    /// Health score history for visualization
+    health_score_history: VecDeque<u64>,
+}
+```
 
-- **MetricsWidget**: For displaying system and protocol metrics
-- **ChartWidget**: For time-series data visualization
-- **AlertsWidget**: For displaying and managing alerts
-- **HealthWidget**: For health status visualization
-- **NetworkWidget**: For network metrics display
-- **ProtocolWidget**: For protocol-specific metrics and latency visualization
+The widget provides a split view with connection status details on the left and connection history events on the right:
 
-### Charts and Visualization
+```rust
+impl<'a> Widget for ConnectionHealthWidget<'a> {
+    fn render(&self, f: &mut Frame, area: Rect) {
+        // Create block
+        let block = Block::default()
+            .title(self.title)
+            .borders(Borders::ALL);
+        
+        // Render block
+        f.render_widget(block.clone(), area);
+        
+        // Calculate inner area
+        let inner_area = block.inner(area);
+        
+        // Create horizontal layout
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(40),
+                Constraint::Percentage(60),
+            ])
+            .split(inner_area);
+        
+        // Render the two sections
+        self.render_status(f, chunks[0]);
+        self.render_history(f, chunks[1]);
+    }
+}
+```
 
-- Implemented line and bar chart visualization using Ratatui
-- Added data sampling for efficient display of large datasets
-- Implemented automatic scaling for chart axes
-- Added support for real-time metric history visualization
+The status section displays:
+- Current connection status (Connected, Connecting, Disconnected, Error)
+- Uptime or downtime duration
+- Health score gauge with color-coded indicator
+- Health score sparkline visualization
+- Latency and stability metrics
 
-### UI Navigation
+The history section displays:
+- Recent connection events (Connected, Disconnected, Reconnecting, etc.)
+- Timestamp for each event
+- Color-coded event types
+- Event details when available
 
-- Tab-based navigation (Overview, System, Protocol, Tools, Alerts, Network)
-- Keyboard shortcuts for common operations
-- Help panel with available commands
-- Status bar with update information
+### Integration Tests
 
-## Integration Points
+We've implemented comprehensive integration tests that verify the correct functionality of the ConnectionHealth metrics:
 
-- Dashboard Core -> Terminal UI integration via message-passing
-- Real-time updates using Tokio channels
-- Command-line interface for configuration
-- Application state synchronized with dashboard service
-- **NEW**: Direct integration with MCP crate via McpMetricsProvider interface
-- **NEW**: Protocol metrics displayed in the Protocol tab through ProtocolWidget
+```rust
+#[tokio::test]
+async fn test_metrics_provider_trait() {
+    let provider = TestProvider::new();
+    
+    // Test connection health
+    let health = provider.get_connection_health().await.unwrap();
+    assert_eq!(health.latency_ms, 25.0);
+    assert_eq!(health.stability, 100.0);
+    assert_eq!(health.signal_strength, 100.0);
+    assert_eq!(health.packet_loss, 0.0);
+    
+    // Test failure modes
+    provider.set_should_fail(true).await;
+    assert!(provider.get_connection_health().await.is_err());
+    
+    // Test reset
+    provider.set_should_fail(false).await;
+    assert!(provider.get_connection_health().await.is_ok());
+}
+```
 
-## CLI Improvements
+### Example Applications
 
-- Added command-line arguments for customization:
-  - Update interval
-  - Maximum history points
-  - Monitoring integration mode
-  - MCP integration mode
+We've created example applications that showcase the MCP integration:
+
+#### MCP Monitor Example
+
+The `mcp_monitor` example demonstrates the real-time monitoring of MCP protocol metrics and connection health:
+
+```rust
+// Create MCP metrics provider
+let provider = Arc::new(RealMcpMetricsProvider::with_config(mcp_config));
+let provider_clone = provider.clone();
+
+// Start MCP metrics collector task
+tokio::spawn(async move {
+    let mut interval = time::interval(Duration::from_millis(args.mcp_interval));
+    let mut iteration = 0;
+    
+    // If simulating issues, create a failure pattern
+    let mut should_fail = false;
+    
+    loop {
+        interval.tick().await;
+        iteration += 1;
+        
+        // Simulate connection issues if requested
+        if args.simulate_issues && iteration % 10 == 0 {
+            should_fail = !should_fail;
+            provider_clone.set_should_fail(should_fail).await;
+        }
+        
+        // Retrieve and display connection health
+        match provider_clone.get_connection_health().await {
+            Ok(health) => {
+                println!("Connection Health:");
+                println!("  - Latency: {:.2} ms", health.latency_ms);
+                println!("  - Stability: {:.1}%", health.stability);
+                println!("  - Signal Strength: {:.1}%", health.signal_strength);
+                println!("  - Packet Loss: {:.1}%", health.packet_loss);
+                println!("  - Last Checked: {}", health.last_checked.format("%H:%M:%S%.3f"));
+            },
+            Err(e) => {
+                println!("Failed to get connection health: {}", e);
+            }
+        }
+    }
+});
+```
+
+#### Custom Dashboard Example
+
+The `custom_dashboard` example demonstrates the integration of MCP metrics with the dashboard UI:
+
+```rust
+// Initialize MCP metrics provider if enabled
+if args.mcp {
+    // Create MCP metrics configuration
+    let mcp_config = McpMetricsConfig {
+        update_interval_ms: args.mcp_interval,
+        server_address: args.mcp_server.clone(),
+        ..Default::default()
+    };
+    
+    // Initialize the MCP metrics provider in the app
+    app.init_mcp_metrics_provider(Some(mcp_config.clone()));
+    
+    // Get reference to the provider for background task
+    if let Some(provider) = &app.mcp_metrics_provider {
+        let provider_clone = provider.clone();
+        
+        // Start a task to update MCP metrics periodically
+        tokio::spawn(async move {
+            let mut interval_timer = time::interval(Duration::from_millis(args.mcp_interval));
+            
+            loop {
+                interval_timer.tick().await;
+                
+                // Use the trait methods directly to update metrics
+                if let Ok(_metrics) = McpMetricsProviderTrait::get_metrics(&*provider_clone).await {
+                    // Update performance metrics
+                    if let Ok(mut perf) = McpMetricsProviderTrait::get_performance_metrics(&*provider_clone).await {
+                        perf.metrics_requests += 1;
+                    }
+                }
+            }
+        });
+    }
+}
+```
 
 ## Next Steps
 
-1. **Testing**:
-   - ✅ Run comprehensive test suite (32 tests currently running)
-   - ✅ Identify and fix failing tests (all 32 tests now passing)
-   - ✅ Fixed test data consistency issues
-   - 🔄 Add additional widget tests
-   - ✅ Enhanced ProtocolWidget test coverage
+### Phase 4: Enhanced Visualization (Planned)
 
-2. **MCP Integration**:
-   - ✅ Enhanced Protocol visualization with tabbed interface
-   - ✅ Implemented connection health monitoring
-   - ✅ Added connection history tracking
-   - ✅ Added metrics chart visualization
-   - 🔄 Implement advanced debugging tools
-   - 🔄 Complete performance optimization
+- 🔜 **Alert System Enhancements**: Improve alert system for connection issues
+- 🔜 **Visual Health Indicators**: Add visual indicators for connection health
+- 🔜 **Connection History View**: Implement comprehensive connection history visualization
+- 🔜 **Advanced Metrics Display**: Add more detailed metrics visualization
+- 🔜 **Code Quality Improvements**: Address warnings and unused code
 
-3. **UI Enhancements**:
-   - 🔄 Add theme customization
-   - 🔄 Implement custom dashboards
-   - ✅ Add more visualization options
+## Timeline
 
-4. **Dashboard Features**:
-   - 🔄 Add alerting rules configuration
-   - 🔄 Implement metric thresholds
-   - 🔄 Add export functionality
+| Phase | Status | Target Completion |
+|-------|--------|-------------------|
+| Phase 1: Basic Integration | ✅ Completed | Q4 2024 |
+| Phase 2: Dashboard Integration | ✅ Completed | Q1 2025 |
+| Phase 3: Connection Health | ✅ Completed | Q2 2025 |
+| Phase 4: Enhanced Visualization | 🔜 Planned | Q3 2025 |
 
-5. **Performance Optimization**:
-   - 🔄 Implement metric caching
-   - 🔄 Add adaptive polling
-   - 🔄 Optimize rendering for large datasets
-   - 🔄 Implement history compression
-   - 🔄 Add benchmarking
+## Known Issues
 
-## Technical Debt
+- Alert system sometimes generates duplicate notifications for connection status
+- Performance metrics may show inconsistent values during high load
+- Example programs need additional error handling improvements
 
-- Need to update tests to match new architecture
-- Improve error handling in WebSocket connections
-- Enhance documentation
-- Evaluate performance of new data structures
+## Conclusion
 
-## Implementation Progress: UI Components
+The MCP integration continues to make substantial progress. With the completion of Phase 3, we now have a robust foundation for monitoring connection health and protocol metrics. The example programs demonstrate the practical application of the integration, and the comprehensive test suite ensures reliability.
 
-## Dashboard Components
+Next steps will focus on enhancing the visualization of the data and addressing code quality improvements to ensure maintainability.
 
-### Terminal UI (ratatui)
-The terminal UI implementation requires significant refactoring due to changes in the data structure and the Ratatui upgrade to version 0.24.0.
+## Implementation Status Summary
 
-**Progress**:
-- [x] Created dashboard-core data structures
-- [x] Removed generic Backend parameters from Frame
-- [x] Fixed HealthCheck and HealthStatus implementations
-- [x] Fixed MetricsHistory structure
-- [x] Fixed protocol widget to use updated Table API
-- [x] Fixed NetworkWidget to use the new NetworkMetrics structure
-- [x] Fixed MetricsWidget to handle disk usage correctly
-- [x] Fixed MonitoringToDashboardAdapter to use proper metrics storage
-- [x] Fixed MetricsSnapshot with available fields
-- [x] Fixed naming conflicts with MetricsHistory (renamed to LocalMetricsHistory)
-- [x] Fixed double Arc wrapping in DashboardService creation
-- [x] Implemented proper type casting for Arcs using as Arc<dyn DashboardService>
-- [x] Added new_with_defaults() method to MonitoringToDashboardAdapter
-- [x] Fixed all tests (32/32 tests now passing)
-- [ ] Fix remaining Widget implementations to use new data structures
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Terminal UI Core | 100% | Complete |
+| Terminal UI Ratatui Update | 100% | Complete |
+| Terminal UI Mock Adapter | 100% | Complete, including ConnectionHealth updates |
+| Terminal UI MCP Integration | 95% | ConnectionHealth enhancements complete, advanced features pending |
+| Protocol Widget | 95% | Base implementation complete, advanced filtering pending |
+| Dashboard Core | 100% | Complete |
+| Web UI Migration | 70% | In progress |
+| Dashboard Core MCP Integration | 90% | ConnectionHealth enhancements complete |
+| Metrics Visualization | 90% | Core features complete, advanced filtering pending |
+| Performance Optimization | 80% | Caching implemented, advanced optimization pending |
+| Integration Testing | 95% | Updated for ConnectionHealth, additional coverage needed |
 
-## Test Coverage Status
+## Updated Roadmap
 
-Current test results for ui-terminal:
-- **Total Tests**: 32
-- **Passing Tests**: 32 (100%)
-- **Failing Tests**: 0 (0%)
-- **Fixed Issues**: 
-  - Protocol widget test now correctly checks for "TCP" protocol type
-  - Adapter test now correctly verifies protocol data conversion
-  - All unused variables and imports generate warnings but no errors
-
-All integration tests for TuiDashboard components are passing successfully, confirming that the core functionality is working correctly.
-
-## Web UI
-
-The web UI work hasn't started yet as it depends on the dashboard-core data structures. Once the terminal UI refactoring is complete, we can begin implementing the web UI components.
-
-**Progress**:
-- [x] Created dashboard-core data structures
-- [ ] Design web UI components
-- [ ] Implement data adapters for web UI
-- [ ] Create basic dashboard layouts
-- [ ] Add widget implementations
+| Task | Priority | Status | Estimated Completion |
+|------|----------|--------|---------------------|
+| Unused Code Cleanup | High | In Progress | 3 days |
+| Error Handling Standardization | Medium | Planned | 4 days |
+| Test Coverage Expansion | High | In Progress | 1 week |
+| MCP Error Console | Medium | Planned | 1 week |
+| Advanced Transaction View | Medium | Planned | 1 week |
+| Message Detail View | Low | Planned | 2 weeks |
+| Viewport Clipping | Medium | Planned | 3 days |
+| Incremental Updates | Medium | Planned | 1 week |
+| Resource Usage Monitoring | Low | Planned | 1 week |
 
 ---
 
-*Last updated: August 30, 2024* 
+Last Updated: March 28, 2025 

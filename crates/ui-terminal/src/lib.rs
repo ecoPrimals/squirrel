@@ -1,111 +1,65 @@
-//! Terminal UI implementation for the Squirrel dashboard
-//! 
-//! This crate provides a terminal user interface for monitoring system resources, 
-//! network activity, and protocol metrics.
+pub mod app;
+pub mod error;
+pub mod event;
+pub mod ui;
+pub mod util;
+pub mod widgets;
 
-use std::error::Error;
+// Re-export main run function and error type
+pub use error::{Error, Result};
+
+use dashboard_core::service::DashboardService;
+use ratatui::{backend::Backend, Terminal};
 use std::sync::Arc;
 use std::time::Duration;
-use std::io;
-use dashboard_core::service::DashboardService;
-use crate::ui::Ui;
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::ExecutableCommand;
 
-// Import only the modules we need
-pub mod service;
-pub mod adapter;
-pub mod mock_adapter;
-mod state;
-pub mod widgets;
-mod app;
-mod ui;
-mod config;
-mod util;
-mod help;
-mod widget_manager;
-mod alert;
-mod events;
+/// Main function to run the terminal UI.
+pub async fn run_ui<B: Backend>(
+    terminal: &mut Terminal<B>,
+    provider: Arc<dyn DashboardService + Send + Sync + 'static>,
+    tick_rate: Duration,
+    update_rate: Duration,
+) -> Result<()> {
+    // Setup terminal
+    crossterm::terminal::enable_raw_mode()?;
+    std::io::stdout().execute(EnterAlternateScreen)?;
+    // Optionally clear the screen: terminal.clear()?;
 
-#[cfg(test)]
-pub mod tests;
+    // Create app and event handler
+    let mut app = app::App::new(provider.clone());
+    let mut event_handler = event::EventHandler::new(tick_rate);
+    let mut last_update_time = std::time::Instant::now();
 
-// Re-export the dashboard service
-pub use service::TerminalDashboardService;
-pub use adapter::{McpMetricsProvider, MonitoringToDashboardAdapter, DashboardMonitor};
-use crate::mock_adapter::MockAdapter;
-
-pub mod monitoring {
-    //! Monitoring-related functionality
-    //! 
-    //! This module contains types and functions for interacting with the monitoring system.
-}
-
-/// Run the terminal UI application
-/// 
-/// This function initializes the terminal UI, sets up the dashboard service, and runs
-/// the main application loop until the user exits.
-/// 
-/// # Arguments
-/// 
-/// * `dashboard_service` - The dashboard service to use for retrieving metrics
-/// 
-/// # Returns
-/// 
-/// Returns a Result indicating success or failure
-pub async fn run<S>(dashboard_service: S) -> io::Result<()>
-where
-    S: DashboardService + 'static
-{
-    // Initialize the UI
-    let mut ui = Ui::new(dashboard_service)?;
-    
-    // Run the UI
-    ui.run().await?;
-    
-    Ok(())
-}
-
-/// Run the terminal UI dashboard.
-/// This is a simplified implementation that will be expanded later.
-pub async fn run_simplified(_dashboard_service: Arc<dyn DashboardService>, demo_mode: bool) -> Result<(), Box<dyn Error>> 
-{
-    println!("Starting terminal dashboard in simplified mode...");
-    
-    if demo_mode {
-        println!("Demo mode activated. Using mock adapter for dashboard metrics.");
-        
-        // Create and initialize mock adapter
-        let mock_adapter: Arc<dyn MonitoringToDashboardAdapter> = Arc::new(MockAdapter::new());
-        
-        // Display some basic information
-        println!("Getting connection status...");
-        match mock_adapter.get_connection_status().await {
-            Ok(status) => println!("Connection status: {:?}", status),
-            Err(err) => println!("Error getting connection status: {}", err),
+    // Main loop
+    loop {
+        if app.state.should_quit {
+            break;
         }
-        
-        println!("Getting dashboard data...");
-        match mock_adapter.get_dashboard_data().await {
-            Ok(data) => println!("Dashboard data retrieved with timestamp: {}", data.timestamp),
-            Err(err) => println!("Error getting dashboard data: {}", err),
+
+        // Render the UI
+        terminal.draw(|frame| {
+            ui::render::<B>(&mut app, frame)
+        })?;
+
+        // Handle events
+        match event_handler.next()? {
+            event::Event::Tick => app.on_tick(),
+            event::Event::Key(key) => app.on_key(key),
+            event::Event::Mouse(_) => { /* Ignore mouse events for now */ }
+            event::Event::Resize(_, _) => { /* Ignore resize events for now */ }
         }
-        
-        // Display performance metrics if available
-        println!("Getting performance metrics...");
-        match mock_adapter.get_performance_metrics().await {
-            Ok(metrics) => println!("Performance metrics retrieved: CPU: {}%, Memory: {}MB", 
-                             metrics.cpu_usage.unwrap_or(0.0),
-                             metrics.memory_usage.unwrap_or(0.0)),
-            Err(err) => println!("Error getting performance metrics: {}", err),
+
+        // Trigger data update based on update_rate
+        if last_update_time.elapsed() >= update_rate {
+            app.update().await;
+            last_update_time = std::time::Instant::now();
         }
-        
-        println!("\nPress Enter to exit...");
-        let mut buffer = String::new();
-        std::io::stdin().read_line(&mut buffer)?;
-    } else {
-        println!("Non-demo mode is currently not supported in simplified mode.");
-        println!("Please restart with --demo flag or use the web UI instead.");
-        std::thread::sleep(Duration::from_secs(5));
     }
-    
+
+    // Restore terminal
+    crossterm::terminal::disable_raw_mode()?;
+    std::io::stdout().execute(LeaveAlternateScreen)?;
     Ok(())
 } 

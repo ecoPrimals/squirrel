@@ -36,15 +36,16 @@ pub struct MockAdapter {
 
 impl MockAdapter {
     pub fn new() -> Self {
+        // Create a default ConnectionHealth and modify it
+        let mut health = ConnectionHealth::default();
+        health.latency_ms = 15.0;
+        health.stability = 100.0;
+        health.signal_strength = 100.0;
+        health.status = ConnectionStatus::Connected;
+        
         Self {
             connection_status: Mutex::new(ConnectionStatus::Connected),
-            connection_health: Mutex::new(ConnectionHealth {
-                status: ConnectionStatus::Connected,
-                last_successful: Some(Utc::now()),
-                failure_count: 0,
-                latency_ms: Some(15),
-                error_details: None,
-            }),
+            connection_health: Mutex::new(health),
             connection_history: Mutex::new(vec![
                 ConnectionEvent {
                     event_type: ConnectionEventType::Connected,
@@ -65,9 +66,35 @@ impl MockAdapter {
         let mut current = self.connection_status.lock().await;
         *current = status.clone();
         
-        // Also update connection health
+        // Also update connection health stability
         let mut health = self.connection_health.lock().await;
-        health.status = status;
+        match status {
+            ConnectionStatus::Connected => {
+                health.stability = 100.0;
+                health.signal_strength = 100.0;
+            },
+            ConnectionStatus::Disconnected => {
+                health.stability = 0.0;
+                health.signal_strength = 0.0;
+            },
+            ConnectionStatus::Connecting => {
+                health.stability = 50.0;
+                health.signal_strength = 50.0;
+            },
+            ConnectionStatus::Error(_) => {
+                health.stability = 0.0;
+                health.signal_strength = 0.0;
+            },
+            ConnectionStatus::Degraded => {
+                health.stability = 30.0;
+                health.signal_strength = 30.0;
+            },
+            ConnectionStatus::Unknown => {
+                health.stability = 50.0;
+                health.signal_strength = 50.0;
+            },
+        }
+        health.last_checked = Utc::now();
         
         // Add to connection history
         let mut history = self.connection_history.lock().await;
@@ -350,9 +377,10 @@ impl McpMetricsProviderTrait for MockAdapter {
             *status = ConnectionStatus::Error("Mock failure".to_string());
             
             let mut health = self.connection_health.lock().await;
-            health.status = ConnectionStatus::Error("Mock failure".to_string());
-            health.failure_count += 1;
-            health.error_details = Some("Mock failure".to_string());
+            health.stability = 0.0;
+            health.signal_strength = 0.0;
+            health.packet_loss = 50.0;
+            health.last_checked = Utc::now();
             
             // Add to connection history
             let mut history = self.connection_history.lock().await;
@@ -370,9 +398,14 @@ impl McpMetricsProviderTrait for MockAdapter {
         }
         
         // Simulate reconnection by updating the connection status
+        let mut status = self.connection_status.lock().await;
+        *status = ConnectionStatus::Connected;
+        
         let mut health = self.connection_health.lock().await;
-        health.status = ConnectionStatus::Connected;
-        health.last_successful = Some(Utc::now());
+        health.stability = 100.0;
+        health.signal_strength = 100.0;
+        health.packet_loss = 0.0;
+        health.last_checked = Utc::now();
         
         // Add to connection history
         let mut history = self.connection_history.lock().await;

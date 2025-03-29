@@ -2,65 +2,23 @@
 name = "ui-terminal"
 version = "0.1.0"
 edition = "2021"
-description = "Terminal UI implementation for the Squirrel monitoring dashboard"
 
 [dependencies]
-# Dashboard core
-dashboard-core = { path = "../dashboard-core" }
-
-# Squirrel monitoring
-squirrel-monitoring = { path = "../monitoring" }
-
-# TUI dependencies
-ratatui = { version = "0.25.0", features = ["all-widgets"] }
+ratatui = { version = "0.27.0", features = ["crossterm"] }
 crossterm = "0.27.0"
-
-# Async runtime
-tokio = { version = "1.36", features = ["full"] }
-async-trait = "0.1"
-
-# Serialization
+tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-# Time handling
-chrono = { version = "0.4", features = ["serde"] }
-
-# Command-line arguments
-clap = { version = "4.5.1", features = ["derive"] }
-
-# System monitoring
-sysinfo = "0.29.10"
-
-# Utilities
-tui-input = "0.8.0"
-uuid = { version = "1.6", features = ["v4", "serde"] }
-
-# Random number generation
-rand = "0.8.5"
-
-# Configuration
-config = "0.13.4"
-toml = "0.8"
-directories = "5.0.1"
+log = "0.4"
 thiserror = "1.0"
 anyhow = "1.0"
 
-# Logging and error handling
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+# Workspace dependency
+dashboard-core = { path = "../dashboard-core" }
 
-# Additional dependencies
-tui-logger = { version = "0.10.0", default-features = false, features = ["crossterm"] }
-ctrlc = "3.4.1"
-log = "0.4.20"
-env_logger = "0.11.0"
-lazy_static = "1.4.0"
-home = "0.5.9"
-comfy-table = "7.1.0"
-strum = { version = "0.26", features = ["derive"] }
-strum_macros = "0.26"
+# Optional dependency for MCP client (if needed directly)
+# squirrel_mcp = { path = "../../squirrel-mcp" } # Assuming path structure
 
 [dev-dependencies]
-tokio-test = "0.4"
-mockall = "0.11" 
+# Add development dependencies if needed (e.g., for tests) 

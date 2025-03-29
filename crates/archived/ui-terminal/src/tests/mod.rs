@@ -5,4 +5,6 @@
 // Widget tests
 pub mod network_widget_tests;
 pub mod metrics_widget_tests;
-pub mod health_widget_tests; 
+pub mod health_widget_tests;
+pub mod chart_widget_tests;
+pub mod connection_health_widget_tests; 
