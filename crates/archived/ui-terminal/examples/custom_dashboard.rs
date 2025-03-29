@@ -7,11 +7,17 @@ use std::io::prelude::*;
 use clap::Parser;
 use dashboard_core::{
     config::DashboardConfig,
-    data::{DashboardData, Metrics, ProtocolData},
+    data::{DashboardData, Metrics, ProtocolData, MetricsHistory},
     service::DefaultDashboardService,
+    DashboardService,
 };
 use tokio::time;
-use ui_terminal::TuiDashboard;
+use ui_terminal::{
+    app::App,
+    alert, 
+    mcp_adapter::{McpMetricsConfig, RealMcpMetricsProvider},
+    adapter::McpMetricsProviderTrait
+};
 use std::collections::HashMap;
 use chrono::Utc;
 use rand::prelude::*;
@@ -55,6 +61,14 @@ struct Args {
     /// Enable verbose logging
     #[clap(short = 'v', long)]
     verbose: bool,
+    
+    /// MCP server address (when mcp is enabled)
+    #[clap(long, default_value = "127.0.0.1:8778")]
+    mcp_server: String,
+    
+    /// MCP update interval in milliseconds
+    #[clap(long, default_value = "1000")]
+    mcp_interval: u64,
 }
 
 /// Entry point for the custom dashboard example
@@ -80,23 +94,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create dashboard service
     let (dashboard_service, _) = DefaultDashboardService::new(config);
     
-    // Create a dashboard with custom widgets
-    let mut dashboard = TuiDashboard::new(dashboard_service.clone());
+    // Start the dashboard service
+    dashboard_service.start().await.unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to start dashboard service: {}", e);
+    });
+    
+    // Create app with proper configuration
+    let mut app = App::new();
     
     // Create alert manager
-    let alert_manager = dashboard.alert_manager();
+    let alert_manager = Arc::new(alert::AlertManager::new());
     
     // Add some initial alerts if enabled
     if args.alerts {
         alert_manager.add_alert(
-            ui_terminal::alert::AlertSeverity::Info,
+            alert::AlertSeverity::Info,
             "Dashboard example started".to_string(),
             "System".to_string(),
             "Startup".to_string(),
         );
         
         alert_manager.add_alert(
-            ui_terminal::alert::AlertSeverity::Info,
+            alert::AlertSeverity::Info,
             format!("Using {} pattern for CPU simulation", args.pattern),
             "System".to_string(),
             "Configuration".to_string(),
@@ -105,7 +124,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     // Create a shared data store for latest dashboard data
     let dashboard_data = Arc::new(std::sync::Mutex::new(DashboardData::default()));
-    let dashboard_data_clone = dashboard_data.clone();
+    
+    // Initialize MCP metrics provider if enabled
+    if args.mcp {
+        println!("Initializing MCP metrics provider with server {}", args.mcp_server);
+        
+        // Create MCP metrics configuration
+        let mcp_config = McpMetricsConfig {
+            update_interval_ms: args.mcp_interval,
+            server_address: args.mcp_server.clone(),
+            ..Default::default()
+        };
+        
+        // Initialize the MCP metrics provider in the app
+        app.init_mcp_metrics_provider(Some(mcp_config.clone()));
+        
+        // Get reference to the provider for background task
+        if let Some(provider) = &app.mcp_metrics_provider {
+            let provider_clone = provider.clone();
+            
+            // Start a task to update MCP metrics periodically
+            tokio::spawn(async move {
+                let mut interval_timer = time::interval(Duration::from_millis(args.mcp_interval));
+                
+                loop {
+                    interval_timer.tick().await;
+                    
+                    // Use the trait methods directly to update metrics
+                    if let Ok(_metrics) = McpMetricsProviderTrait::get_metrics(&*provider_clone).await {
+                        // We could process the metrics here if needed
+                        // For now, just logging if verbose is enabled
+                        if args.verbose {
+                            println!("Updated MCP metrics");
+                        }
+                    }
+                }
+            });
+        }
+    }
     
     // Start a background task to update metrics periodically
     if args.interval > 0 {
@@ -189,7 +245,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     
                     if alerts_enabled {
                         alert_mgr.add_alert(
-                            ui_terminal::alert::AlertSeverity::Warning,
+                            alert::AlertSeverity::Warning,
                             format!("MCP Protocol status changed to {}", protocol_status),
                             "Protocol".to_string(),
                             "Status Change".to_string(),
@@ -251,136 +307,100 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             total_rx_packets: tick_count * 100,
                             total_tx_packets: tick_count * 80,
                         },
-                        history: dashboard_core::data::MetricsHistory::default(),
+                        history: MetricsHistory::default(),
                     },
                     protocol: ProtocolData {
                         name: "MCP".to_string(),
                         protocol_type: "Custom".to_string(),
                         version: "1.0".to_string(),
-                        connected: true,
+                        connected: protocol_status == "Connected",
                         last_connected: Some(Utc::now()),
                         status: protocol_status.to_string(),
                         error: None,
                         retry_count: 0,
                         metrics: {
-                            let mut metrics = HashMap::new();
-                            metrics.insert("throughput".to_string(), 1024.0 * tick_count as f64);
-                            metrics.insert("active_clients".to_string(), 2.0);
-                            metrics.insert("connections".to_string(), 4.0);
-                            metrics
+                            let mut m = HashMap::new();
+                            m.insert("request_count".to_string(), tick_count as f64 * 10.0);
+                            m.insert("response_count".to_string(), tick_count as f64 * 9.0);
+                            m.insert("request_rate".to_string(), 10.0);
+                            m.insert("response_rate".to_string(), 9.0);
+                            m.insert("error_rate".to_string(), if tick_count % 10 == 0 { 1.0 } else { 0.0 });
+                            m
                         },
                     },
-                    alerts: vec![],
+                    alerts: alert_mgr.to_dashboard_alerts(),
                     timestamp: Utc::now(),
                 };
                 
-                // Update the shared data store first (this is our fallback approach)
-                {
-                    if verbose {
-                        println!("Updating shared data store");
-                    }
-                    let mut dashboard_data = dashboard_data_clone.lock().unwrap();
-                    *dashboard_data = data.clone();
-                }
+                // Update dashboard data
+                *dashboard_data.lock().unwrap() = data.clone();
                 
-                // Update the dashboard with retries if it fails
-                let mut retry_count = 0;
-                let mut last_error_msg = None;
-                
-                while retry_count <= max_retries {
-                    if verbose {
-                        println!("Updating dashboard service (attempt {})", retry_count + 1);
-                    }
-                    
-                    match service_clone.update_dashboard_data(data.clone()).await {
-                        Ok(_) => {
-                            if retry_count > 0 {
-                                println!("Successfully updated dashboard data after {} retries", retry_count);
-                            } else if verbose {
-                                println!("Successfully updated dashboard data");
-                            }
-                            break;
-                        },
-                        Err(e) => {
-                            // Store error message as String to avoid move issues
-                            let error_msg = e.to_string();
-                            last_error_msg = Some(error_msg.clone());
+                // Update the dashboard service
+                let data_clone = data.clone();
+                match service_clone.update_dashboard_data(data_clone).await {
+                    Ok(_) => {
+                        if verbose {
+                            println!("Dashboard data updated successfully");
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Failed to update dashboard data: {}", e);
+                        
+                        // Try retries
+                        let mut retry_count = 0;
+                        while retry_count < max_retries {
                             retry_count += 1;
+                            println!("Retrying update ({}/{})", retry_count, max_retries);
                             
-                            if retry_count > max_retries {
-                                eprintln!("Failed to update dashboard data after {} retries: {}", 
-                                          max_retries, last_error_msg.as_ref().unwrap());
-                                
-                                // Add an alert about update failure
-                                if alerts_enabled {
-                                    alert_mgr.add_alert(
-                                        ui_terminal::alert::AlertSeverity::Warning,
-                                        format!("Dashboard update failed: {}", last_error_msg.as_ref().unwrap()),
-                                        "System".to_string(),
-                                        "Update Error".to_string(),
-                                    );
-                                }
+                            // Wait a bit before retrying
+                            time::sleep(Duration::from_millis(500)).await;
+                            
+                            // Try again with a fresh clone
+                            if service_clone.update_dashboard_data(data.clone()).await.is_ok() {
+                                println!("Update succeeded on retry {}", retry_count);
                                 break;
                             }
-                            
-                            // Log the error
-                            if verbose {
-                                println!("Update attempt {} failed: {}", retry_count, error_msg);
-                            }
-                            
-                            // Add a small delay between retries with exponential backoff
-                            let delay = Duration::from_millis(100 * (1 << retry_count.min(10)));
-                            time::sleep(delay).await;
                         }
                     }
                 }
                 
-                // Add random alerts if enabled
-                if alerts_enabled && tick_count % 7 == 0 && last_alert_time.elapsed() > Duration::from_secs(10) {
-                    // Only add a new alert every 10+ seconds to avoid flooding
-                    let severity = match tick_count % 3 {
-                        0 => ui_terminal::alert::AlertSeverity::Info,
-                        1 => ui_terminal::alert::AlertSeverity::Warning,
-                        _ => ui_terminal::alert::AlertSeverity::Critical,
-                    };
+                // Add random alerts if enabled and it's been at least 5 seconds since the last alert
+                if alerts_enabled && last_alert_time.elapsed() > Duration::from_secs(5) {
+                    let mut rng = rand::thread_rng();
                     
-                    let message = match severity {
-                        ui_terminal::alert::AlertSeverity::Info => "System information event".to_string(),
-                        ui_terminal::alert::AlertSeverity::Warning => format!("CPU usage increased to {:.1}%", cpu_usage),
-                        ui_terminal::alert::AlertSeverity::Critical => "Memory pressure detected".to_string(),
-                        _ => "Unknown event".to_string(),
-                    };
-                    
-                    alert_mgr.add_alert(
-                        severity,
-                        message,
-                        "Simulation".to_string(),
-                        "Test Alert".to_string(),
-                    );
-                    
-                    last_alert_time = std::time::Instant::now();
-                }
-                
-                // Add special CPU alerts if extremely high
-                if alerts_enabled && cpu_usage > 90.0 {
-                    alert_mgr.add_alert(
-                        ui_terminal::alert::AlertSeverity::Critical,
-                        format!("CPU usage is critically high: {:.1}%", cpu_usage),
-                        "System".to_string(),
-                        "Performance".to_string(),
-                    );
+                    if rng.gen_range(0.0..1.0) < 0.3 {
+                        // 30% chance of a new alert
+                        let severity = match rng.gen_range(0..4) {
+                            0 => alert::AlertSeverity::Critical,
+                            1 => alert::AlertSeverity::Warning,
+                            2 => alert::AlertSeverity::Info,
+                            _ => alert::AlertSeverity::Error,
+                        };
+                        
+                        let message = match severity {
+                            alert::AlertSeverity::Critical => format!("Critical alert at tick {}", tick_count),
+                            alert::AlertSeverity::Warning => format!("Warning alert at tick {}", tick_count),
+                            alert::AlertSeverity::Info => format!("Info alert at tick {}", tick_count),
+                            alert::AlertSeverity::Error => format!("Error alert at tick {}", tick_count),
+                        };
+                        
+                        alert_mgr.add_alert(
+                            severity,
+                            message,
+                            "System".to_string(),
+                            "Simulation".to_string(),
+                        );
+                        
+                        last_alert_time = std::time::Instant::now();
+                    }
                 }
             }
         });
     }
     
-    // Modify the dashboard to use our custom data source when the channel fails
-    if let Some(ref mut adapter) = dashboard.monitoring_adapter_mut() {
-        adapter.set_data_source(dashboard_data);
-    }
+    // Run the terminal UI
+    ui_terminal::run_simplified(dashboard_service, true).await?;
     
-    // Run the dashboard
-    dashboard.run().await?;
-    
+    println!("Dashboard example completed");
     Ok(())
 } 

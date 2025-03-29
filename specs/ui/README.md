@@ -1,129 +1,91 @@
 ---
-title: Squirrel Terminal UI Specifications
+title: Squirrel UI Specifications
 version: 2.0.0
-date: 2024-08-28
-status: implementation
+date: 2024-03-29
+status: active
 ---
 
 # Squirrel UI Specifications
 
 ## Overview
 
-This directory contains specifications and documentation for the user interfaces of the Squirrel AI Coding Assistant. The UI implementations include:
+This directory contains specifications and documentation for the user interfaces of the Squirrel system. The primary focus currently is the Terminal UI.
 
-1. **Terminal UI**: A responsive, efficient terminal UI using the Ratatui framework
-2. **Web UI**: A browser-based interface for remote access
-3. **Desktop UI**: A future native GUI using Rust frameworks (planned)
+1.  **Terminal UI (`ui-terminal`)**: A responsive, efficient terminal UI using the Ratatui framework.
+2.  **Web UI (`ui-web`)**: A browser-based interface (status/plans may need review).
+3.  **Desktop UI (`ui-desktop`)**: A future native GUI (status/plans may need review).
 
-## Current Status
+## Current Status (Terminal UI - Post-Rollback)
 
-The Terminal UI implementation has made significant progress:
+The Terminal UI implementation was recently **rolled back** to a simpler, foundational state.
 
-- ✅ Core Terminal UI features successfully implemented with Ratatui 0.24.0
-- ✅ All widgets updated to use the new dashboard-core data structures
-- ✅ Dashboard binary compiles and runs correctly
-- ✅ Primary warnings and errors have been resolved
-- 🔄 Moving into the optimization and enhancement phase
+- ✅ Core Terminal UI features implemented with Ratatui 0.24.0+.
+- ✅ Integrates with `dashboard-core` via the `DashboardService` trait.
+- ✅ Basic Overview tab with Health, Metrics, and CPU/Memory charts is functional.
+- ✅ Dashboard binary compiles and runs correctly.
+- ✅ Primary warnings and errors resolved in the core structure.
+- 🔄 Development is now focused on incrementally adding core features (Network, Alerts, Protocol, System tabs) and improving test coverage based on the revised plan. **Advanced MCP integration and performance optimizations are NOT currently implemented.**
 
 ## Documentation Structure
 
-This directory contains the following key documentation:
+This directory aims to contain the **active** specifications for the UI. Outdated or historical documents are moved to the `old/` subdirectory.
 
 ### Active Specifications
 
-| File | Description | Status |
-|------|-------------|--------|
-| `README.md` | This overview document | Updated |
-| `TERMINAL_UI_PROGRESS.md` | Detailed progress tracking for Terminal UI | Active |
-| `TERMINAL_UI_TASKS.md` | Task checklist for implementation | Active |
-| `05-dashboard.md` | Core dashboard specification | Reference |
-| `dashboard_integration.md` | Terminal UI integration with dashboard-core | Reference |
-| `mcp_integration.md` | Integration with MCP protocol | In Progress |
+| File                       | Description                                        | Status  |
+| :------------------------- | :------------------------------------------------- | :------ |
+| `README.md`                | This overview document                             | Updated |
+| `IMPLEMENTATION_PROGRESS.md` | Detailed progress tracking for Terminal UI        | Active  |
+| `TERMINAL_UI_TASKS.md`     | Task checklist for Terminal UI implementation       | Active  |
+| `tui-component-specs.md`   | Specifications for core TUI widgets and state     | Active  |
+| `dashboard_integration.md` | How Terminal UI integrates with `DashboardService` | Active  |
+| `05-dashboard.md`          | Core dashboard specification (Needs Review)        | Review  |
+| `terminal-ui-strategy.md`  | High-level strategy for Terminal UI (Needs Review) | Review  |
+| `web-ui-strategy.md`       | Strategy for Web UI (Needs Review)                 | Review  |
+| `desktop-ui-strategy.md`   | Strategy for Desktop UI (Needs Review)             | Review  |
+| `TERMINAL_UI_SUMMARY.md`   | Summary of Terminal UI (Needs Review)              | Review  |
+| `old/`                     | Directory containing archived/outdated specs       | Archive |
 
-### Implementation References
+*(File list reflects expected state after moving recommended files)*
 
-| File | Description | Status |
-|------|-------------|--------|
-| `component-architecture.md` | UI component architecture | Reference |
-| `integration_patterns.md` | Patterns for dashboard-core integration | Reference |
-| `TERMINAL_UI_SUMMARY.md` | Summary of Terminal UI implementation | Reference |
-| `IMPLEMENTATION_PROGRESS.md` | Historical implementation progress report | Reference |
-| `UI_IMPLEMENTATION_STATUS.md` | Status report for UI implementation | Reference |
+### Archived / Outdated Specifications (`old/`)
 
-### Strategy Documents
+The `old/` directory contains specifications that are no longer relevant due to implementation changes, completion, or strategic shifts (e.g., the recent rollback). This includes previous testing plans, roadmaps, status reports, integration plans related to the more complex pre-rollback implementation, and completed migration guides.
 
-| File | Description | Status |
-|------|-------------|--------|
-| `desktop-ui-strategy.md` | Strategy for desktop UI implementation | Planning |
-| `web-ui-strategy.md` | Strategy for web UI implementation | Planning |
-| `terminal-ui-strategy.md` | Terminal UI implementation strategy | Reference |
-| `implementation-roadmap.md` | Implementation timeline | Reference |
+## Key Architecture Concepts (Current ui-terminal)
 
-### Archival Candidates
+The `ui-terminal` uses Ratatui and follows a basic structure:
 
-These specifications have been fully implemented and can be considered for archival:
+1.  **App State (`app.rs`)**: Holds UI state, fetched data (`DashboardData`), and update logic.
+2.  **UI Rendering (`ui.rs`)**: Handles main layout, tab rendering, and delegates to widgets.
+3.  **Widgets (`widgets/*.rs`)**: Reusable components responsible for rendering specific data slices (Health, Metrics, Charts, etc.).
+4.  **Event Handling (`event.rs`, `lib.rs`)**: Manages input and tick events.
+5.  **Main Loop (`lib.rs`)**: Orchestrates rendering, event handling, and periodic data updates via `DashboardService`.
 
-| File | Description | Status |
-|------|-------------|--------|
-| `ratatui-upgrade-guide.md` | Guide for upgrading to Ratatui 0.24.0 | Completed |
-| `protocol-widget-upgrade-example.md` | Example for upgrading protocol widget | Completed |
-| `ratatui-implementation-strategy.md` | Strategy for Ratatui implementation | Completed |
-| `ratatui-update-executive-summary.md` | Summary of Ratatui update | Completed |
-| `RATATUI_UPDATE_REPORT.md` | Detailed report on Ratatui update | Completed |
-| `ratatui-integration.md` | Initial Ratatui integration plan | Completed |
-| `framework-evaluation.md` | Evaluation of UI frameworks | Completed |
-| `ui-migration-plan.md` | Plan for UI migration | Completed |
+## Next Steps (Terminal UI)
 
-## Key Architecture Concepts
+Development will follow the revised plan outlined in `IMPLEMENTATION_PROGRESS.md` and `TERMINAL_UI_TASKS.md`, focusing on:
 
-The Squirrel UI is structured into several key layers across all implementations:
+1.  **Implement Missing Widgets/Tabs**: Network, Alerts, Protocol, System.
+2.  **Improve Testing**: Add unit tests for existing and new widgets, implement basic E2E tests.
+3.  **Refine Core Features**: Improve connection status logic, enhance charts.
+4.  **Code Quality**: Address warnings, add documentation.
 
-1. **Application Layer**: Core application management and coordination
-2. **Screen Layer**: Full-screen interfaces for different functionality
-3. **Container Layer**: Layout components for organizing UI elements
-4. **Widget Layer**: Individual interactive UI elements
-
-These layers work together to create a composable, maintainable UI system, with implementation-specific adaptations for each platform.
-
-## Next Phase: MCP Integration and Performance Optimization
-
-The project is now moving into the next phase with these priorities:
-
-1. **Complete MCP Integration**
-   - Finish McpAdapter implementation
-   - Add protocol-specific visualizations
-   - Implement robust connection management
-   
-2. **Performance Optimization**
-   - Optimize rendering for large datasets
-   - Improve memory efficiency
-   - Add performance monitoring
-   
-3. **Test Coverage**
-   - Complete unit tests for all widgets
-   - Add end-to-end tests
-   - Implement performance benchmarks
-
-## Upcoming Specifications
-
-We plan to create these new specifications:
-
-1. `mcp-integration-phase2.md`: Detailed plan for enhanced MCP integration
-2. `terminal-ui-optimization.md`: Performance optimization strategies
-3. `ui-test-coverage-plan.md`: Comprehensive testing strategy
+*(Advanced MCP integration and performance optimization are lower priority / future considerations).*
 
 ## Getting Started
 
-For developers working on the Squirrel UI:
+For developers working on the `ui-terminal`:
 
-1. Review `TERMINAL_UI_PROGRESS.md` for current status
-2. Check `TERMINAL_UI_TASKS.md` for pending tasks
-3. Refer to `component-architecture.md` for architecture details
+1.  Review `IMPLEMENTATION_PROGRESS.md` for current status and roadmap.
+2.  Check `TERMINAL_UI_TASKS.md` for pending tasks.
+3.  Refer to `tui-component-specs.md` for widget/state details.
+4.  Refer to `dashboard_integration.md` for data flow details.
 
 ## References
 
-- [Ratatui Documentation](https://github.com/ratatui-org/ratatui)
-- [Crossterm Documentation](https://github.com/crossterm-rs/crossterm)
-- [Squirrel Core Specifications](../README.md)
-- [Dashboard Core Documentation](../../crates/dashboard-core/README.md)
-- [Terminal UI Source Code](../../crates/ui-terminal) 
+- [Ratatui Documentation](https://docs.rs/ratatui/latest/ratatui/)
+- [Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)
+- [Squirrel Core Specifications](../README.md) (Verify Link/Relevance)
+- [Dashboard Core Documentation](../../crates/dashboard-core/README.md) (Verify Link)
+- [Terminal UI Source Code](../../crates/ui-terminal) (Verify Link) 

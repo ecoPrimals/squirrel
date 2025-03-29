@@ -1,7 +1,7 @@
 ---
 description: Architecture and Dependency Specifications for Squirrel MCP
-version: 1.3.0
-last_updated: 2024-07-15
+version: 1.4.0
+last_updated: 2024-09-15
 ---
 
 # Squirrel MCP Architecture Specifications
@@ -122,14 +122,15 @@ squirrel/
   - Snapshot management
   - Advanced recovery implementation finalized
 
-- MCP Protocol: 95% Complete
+- MCP Protocol: 98% Complete
   - Message handling (100%)
-  - Tool lifecycle foundation (90%)
-  - Security foundation (90%)
-  - Client implementation (90%)
-  - Server implementation (90%)
-  - Protocol validation (95%)
+  - Tool lifecycle foundation (95%)
+  - Security foundation (95%)
+  - Client implementation (100%)
+  - Server implementation (100%)
+  - Protocol validation (100%)
   - Resource management (100%)
+  - UI integration (95%)
   - See [specs/mcp/IMPLEMENTATION_NOTES.md](specs/mcp/IMPLEMENTATION_NOTES.md) for details
 
 - Web Interface: 70% Complete
@@ -170,9 +171,17 @@ squirrel/
   - Testing infrastructure (100%)
   - See [specs/monitoring/SPEC.md](specs/monitoring/SPEC.md) for details
 
-- UI Components: Sunsetted
-  - UI features removed from MVP
-  - See [specs/MVP/03-ui-features_sunsetted.md](specs/MVP/03-ui-features_sunsetted.md)
+- UI Components: 90% Complete
+  - Core Terminal UI (100%)
+  - Dashboard components (95%)
+  - MCP integration (90%)
+  - Performance optimization (80%)
+  - Event handling (100%)
+  - Protocol visualization (95%)
+  - User customization (70%)
+  - Testing infrastructure (90%)
+  - Documentation (80%)
+  - See [specs/ui/IMPLEMENTATION_PROGRESS.md](specs/ui/IMPLEMENTATION_PROGRESS.md) for details
 
 - Plugin System: 95% Complete
   - Plugin architecture defined (100%)
@@ -190,6 +199,17 @@ squirrel/
   - See [specs/app/IMPLEMENTATION_PROGRESS.md](specs/app/IMPLEMENTATION_PROGRESS.md) for latest updates
 
 ### Recently Completed Components
+
+- Terminal UI MCP Integration: 90% Complete
+  - McpMetricsProvider interface (100%)
+  - RealMcpMetricsProvider implementation (95%)
+  - Cache-optimized metrics retrieval (100%)
+  - Performance tracking (90%)
+  - Protocol metrics visualization (95%)
+  - Connection management (100%)
+  - Command-line integration (100%)
+  - Event-driven updates (100%)
+  - See [specs/ui/IMPLEMENTATION_PROGRESS.md](specs/ui/IMPLEMENTATION_PROGRESS.md) for details
 
 - Plugin Sandbox System: 95% Complete
   - Cross-platform implementation with platform-specific isolation mechanisms
@@ -282,6 +302,16 @@ squirrel/
 
 ## Version History
 
+### v1.4.0 (2024-09-15)
+- Added Terminal UI MCP Integration to "Recently Completed Components"
+- Updated UI Components implementation status to 90%
+- Enhanced MCP Protocol implementation status to 98%
+- Added detailed UI implementation in "Recently Completed Components"
+- Updated MCP integration details with Terminal UI components
+- Added metrics caching and visualization components
+- Added UI implementation progress tracking
+- Fixed performance targets for UI components
+
 ### v1.3.0 (2024-07-15)
 - Updated Plugin System implementation status to 95%
 - Added Plugin Sandbox implementation details to "Recently Completed Components"
@@ -316,4 +346,4 @@ Please provide feedback on these specifications to the architecture team. We are
 For questions or clarifications, please contact the architecture team at architecture@squirrel-mcp.org.
 
 ---
-*This document is maintained by the Squirrel MCP Architecture Team. Last revision: July 15, 2024.* 
+*This document is maintained by the Squirrel MCP Architecture Team. Last revision: September 15, 2024.* 

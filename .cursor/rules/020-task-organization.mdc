@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: ENFORCE consistent task organization and automation across teams
 globs: specs/**/*
 crossRefs:
@@ -20,7 +25,7 @@ alwaysApply: true
 
 ## Requirements
 
-### Specification Structure
+### Specification Structure Example
 ```
 specs/
 ├── SPECS.md           # Root specification document
