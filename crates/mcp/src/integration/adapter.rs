@@ -2,57 +2,196 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde_json::{Value, json};
+use serde_json::{json};
 use async_trait::async_trait;
 use tracing::{info, error, warn, instrument, debug};
+use chrono::Utc;
+use std::time::Duration;
+use std::fmt;
 
-use crate::error::{MCPError, ProtocolError, Result as MCPResult, SecurityError, ConnectionError, ContextError, SessionError};
-use crate::protocol::types::{MCPMessage, MessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
-use crate::security::types::{SecurityMetadata, SecurityContext};
-use crate::types::{MCPResponse, ResponseStatus, MessageMetadata, ProtocolState, ProtocolVersion as TypesProtocolVersion};
-use crate::config::CoreAdapterConfig;
-use crate::integration::types::{CoreState, StateUpdate, User, MessageHandler};
-use crate::metrics::{Metrics, MetricsCollector};
-use crate::protocol::{self, MCPProtocol, ValidationResult, RoutingResult, MessageId};
-use crate::security::{AuthToken, Permission, SessionToken, Credentials};
-use crate::plugin::manager::PluginManager;
-use super::auth::AuthManager;
-use super::helpers::{create_error_response, create_success_response, extract_credentials};
+// Import from error module
+use crate::error::{Result as MCPResult, SecurityError, MCPError};
 
-/// Core-MCP adapter for integrating core system functionality with MCP
-#[derive(Debug)]
+// Import the traits for Resource and Action
+use crate::security::traits::{ResourceTrait, ActionTrait};
+
+// Define Resource and Action locally to avoid circular imports
+/// Resource that can be accessed with permissions
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resource {
+    /// Resource identifier
+    pub id: String,
+    /// Optional resource attributes
+    pub attributes: Option<serde_json::Value>,
+}
+
+// Implement Display for Resource
+impl fmt::Display for Resource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Resource({})", self.id)
+    }
+}
+
+// Implement ResourceTrait for Resource
+impl ResourceTrait for Resource {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    
+    fn attributes(&self) -> Option<&serde_json::Value> {
+        self.attributes.as_ref()
+    }
+}
+
+/// Action that can be performed on a resource
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Action {
+    /// String representation of the action
+    pub action: String,
+}
+
+impl Action {
+    /// Create a new action
+    pub fn new(action: &str) -> Self {
+        Self {
+            action: action.to_string()
+        }
+    }
+    
+    /// Execute action
+    pub fn Execute() -> Self {
+        Self {
+            action: "execute".to_string()
+        }
+    }
+    
+    /// Convert to string reference
+    pub fn as_ref(&self) -> &str {
+        &self.action
+    }
+}
+
+// Implement Display for Action
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Action({})", self.action)
+    }
+}
+
+// Implement ActionTrait for Action
+impl ActionTrait for Action {
+    fn as_ref(&self) -> &str {
+        &self.action
+    }
+}
+
+// Import from security module
+use crate::security::Token;
+
+// Import from security::types
+use crate::security::types::SecurityMetadata;
+
+// Import from types module
+use crate::types::{MCPResponse, ResponseStatus, MessageMetadata, ProtocolState};
+
+// Import from integration types
+use crate::integration::types::{CoreState, StateUpdate};
+
+// Import from protocol module
+use crate::protocol::{MCPProtocol, ValidationResult, RoutingResult, ProtocolResult};
+use crate::protocol::types::{MCPMessage, MessageType, MessageId, ProtocolVersion};
+
+// Import helpers
+use super::helpers::{create_error_response, create_success_response};
+
+/// Simple metrics collection for operational monitoring
+#[derive(Clone, Debug)]
+pub struct Metrics {
+    // Fields would be added here for a real implementation
+}
+
+impl Metrics {
+    /// Create a new metrics collector
+    pub fn new() -> Self {
+        Self {}
+    }
+    
+    /// Start a timer and return an object that tracks elapsed time
+    pub fn start_timer(&self, name: &str) -> MetricsTimer {
+        debug!("Starting timer: {}", name);
+        MetricsTimer::new()
+    }
+    
+    /// Record a value in a histogram
+    pub fn record_histogram(&self, name: &str, duration: Duration) {
+        debug!("Recording histogram {}: {}ms", name, duration.as_millis());
+    }
+    
+    /// Increment a counter
+    pub fn increment_counter(&self, name: &str) {
+        debug!("Incrementing counter: {}", name);
+    }
+}
+
+/// Timer for tracking elapsed time
+pub struct MetricsTimer {
+    start_time: std::time::Instant,
+}
+
+impl MetricsTimer {
+    /// Create a new timer
+    pub fn new() -> Self {
+        Self {
+            start_time: std::time::Instant::now(),
+        }
+    }
+    
+    /// Get the elapsed time since the timer was started
+    pub fn elapsed(&self) -> Duration {
+        self.start_time.elapsed()
+    }
+}
+
+/// Core MCP adapter implementation
+/// 
+/// This struct provides a bridge between the core system state and the MCP protocol,
+/// handling communication, security, and state management.
+#[derive(Clone)]
 pub struct CoreMCPAdapter {
     /// Core state manager
     core_state: Arc<RwLock<CoreState>>,
     /// MCP protocol interface
-    protocol_handler: Arc<dyn MCPProtocol + Send + Sync>,
+    protocol_handler: Arc<dyn MCPProtocol>,
     /// Security manager for authentication and authorization
-    auth_manager: Arc<AuthManager>, // Use the type from auth.rs
+    auth_manager: Arc<dyn crate::security::manager::SecurityManager>,
     /// Metrics collector for operational monitoring
-    metrics: Arc<MetricsCollector>,
-    /// Configuration for the adapter
-    config: CoreAdapterConfig,
-    /// Plugin manager for managing plugins
-    plugin_manager: Arc<PluginManager>,
+    metrics: Arc<Metrics>,
+}
+
+impl std::fmt::Debug for CoreMCPAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CoreMCPAdapter")
+            .field("core_state", &"Arc<RwLock<CoreState>>")
+            .field("protocol_handler", &"Arc<dyn MCPProtocol>")
+            .field("auth_manager", &"Arc<dyn crate::security::manager::SecurityManager>")
+            .field("metrics", &self.metrics)
+            .finish()
+    }
 }
 
 impl CoreMCPAdapter {
     /// Create a new Core-MCP adapter
     pub fn new(
         core_state: Arc<RwLock<CoreState>>,
-        protocol_handler: Arc<dyn MCPProtocol + Send + Sync>,
-        auth_manager: Arc<AuthManager>,
-        metrics: Arc<MetricsCollector>,
-        config: CoreAdapterConfig,
-        plugin_manager: Arc<PluginManager>,
+        protocol_handler: Arc<dyn MCPProtocol>,
+        auth_manager: Arc<dyn crate::security::manager::SecurityManager>,
+        metrics: Arc<Metrics>,
     ) -> Self {
         Self {
             core_state,
             protocol_handler,
             auth_manager,
             metrics,
-            config,
-            plugin_manager,
         }
     }
 
@@ -60,7 +199,7 @@ impl CoreMCPAdapter {
     #[instrument(skip(self), name = "core_adapter_init")]
     pub async fn initialize(&self) -> crate::error::Result<()> {
         info!("Initializing Core-MCP adapter");
-        info!("Core-MCP adapter will handle Event and Command message types");
+        // TODO: Register handlers with a message router
         info!("Core-MCP adapter initialization complete");
         Ok(())
     }
@@ -68,14 +207,14 @@ impl CoreMCPAdapter {
     /// Send a state update notification
     #[instrument(skip(self, update), fields(update_type = %update.update_type))]
     pub async fn notify_state_update(&self, update: StateUpdate) -> crate::error::Result<()> {
-        let message = crate::protocol::MCPMessage {
+        let message = MCPMessage {
             id: MessageId::new(),
-            type_: crate::protocol::MessageType::Event,
+            type_: MessageType::Event,
             payload: serde_json::to_value(update)?,
             metadata: None,
             security: SecurityMetadata::default(),
             timestamp: chrono::Utc::now(),
-            version: crate::protocol::types::ProtocolVersion::default(),
+            version: ProtocolVersion::default(),
             trace_id: None,
         };
         
@@ -99,32 +238,34 @@ impl CoreMCPAdapter {
     }
 
     /// Execute a core operation
-    #[instrument(skip(self, operation_name, params), fields(operation = %operation_name))]
+    #[instrument(skip(self, params), fields(operation = %operation_name))]
     pub async fn execute_core_operation(
         &self, 
         operation_name: &str,
         params: serde_json::Value,
-        user: Option<&User>,
+        token: Option<&Token>,
     ) -> crate::error::Result<serde_json::Value> {
-        if let Some(user) = user {
-            if let Err(e) = self.authorize_operation(user, operation_name).await {
-                error!(error = %e, "Authorization failed for core operation");
-                return Err(e);
+        // Check authorization if token is provided
+        if let Some(token) = token {
+            let resource = Resource {
+                id: format!("command:{}", operation_name),
+                attributes: None,
+            };
+            let action = Action::Execute();
+            
+            // Authorize the operation
+            match self.auth_manager.authorize(token, &resource, &action, None).await {
+                Ok(_) => {
+                    debug!("Authorization successful for operation: {}", operation_name);
+                },
+                Err(e) => {
+                    error!(error = %e, "Authorization failed for operation: {}", operation_name);
+                    return Err(SecurityError::AuthorizationFailed(format!("Operation not authorized: {}", operation_name)).into());
+                }
             }
         }
+        
         self.perform_core_operation(operation_name, params).await
-    }
-    
-    /// Authorizes a specific operation for a given user.
-    async fn authorize_operation(&self, user: &User, operation: &str) -> MCPResult<()> {
-        info!("Authorizing operation '{}' for user {}", operation, user.id);
-        let resource = format!("command:{}", operation);
-        let required_permission = crate::security::Permission::new(&resource, crate::security::Action::Execute);
-        debug!("Checking permission: {:?}", required_permission);
-        // Use the AuthManager from self.auth_manager
-        self.auth_manager.authorize(user, &[required_permission])
-            .await
-            .map_err(|e| MCPError::Authorization(e))
     }
     
     /// Perform the actual core operation
@@ -132,9 +273,10 @@ impl CoreMCPAdapter {
         &self,
         operation: &str,
         params: serde_json::Value,
-    ) -> Result<serde_json::Value, MCPError> {
+    ) -> MCPResult<serde_json::Value> {
         info!(operation = %operation, "Executing core operation");
         let timer = self.metrics.start_timer("core_operation_time");
+        
         let result = match operation {
             "get_state" => {
                 let state = self.core_state.read().await.clone();
@@ -161,195 +303,171 @@ impl CoreMCPAdapter {
                 return Err(MCPError::UnsupportedOperation(operation.to_string()));
             }
         };
+        
         let duration = timer.elapsed();
-        self.metrics.record_histogram(&format!("core_operation_{operation}_time"), duration);
+        self.metrics.record_histogram(&format!("core_operation_{}_time", operation), duration);
         self.metrics.increment_counter("core_operations_success");
-        info!(operation = %operation, duration_ms = %duration.as_millis(), "Core operation completed successfully");
+        
+        info!(
+            operation = %operation, 
+            duration_ms = %duration.as_millis(),
+            "Core operation completed successfully"
+        );
+        
         Ok(result)
     }
 
-    /// Placeholder for extracting security context from a message
-    async fn extract_security_context(&self, _message: &crate::protocol::MCPMessage) -> MCPResult<SecurityContext> {
-        // TODO: Implement actual security context extraction
-        Ok(SecurityContext::default())
-    }
-}
-
-// Allow cloning of the adapter for use in message handlers
-impl Clone for CoreMCPAdapter {
-    fn clone(&self) -> Self {
-        Self {
-            core_state: self.core_state.clone(),
-            protocol_handler: self.protocol_handler.clone(),
-            auth_manager: self.auth_manager.clone(),
-            metrics: self.metrics.clone(),
-            config: self.config.clone(),
-            plugin_manager: self.plugin_manager.clone(),
-        }
-    }
-}
-
-// Implement MessageHandler trait to handle MCP messages
-#[async_trait::async_trait]
-impl MessageHandler for CoreMCPAdapter {
-    async fn handle_message(&self, message: crate::protocol::MCPMessage) -> MCPResult<MCPResponse> {
-        info!("Core adapter processing message: ID={}", message.id.0);
-        let security_context = self.extract_security_context(&message).await?; 
-
-        let result = match message.type_ {
-            crate::protocol::MessageType::Sync => {
-                info!("Handling Sync message (state query)");
-                match self.execute_core_operation("get_state", Value::Null, security_context.user_context.as_ref()).await {
-                    Ok(result) => Ok(create_success_response(&message, &result)),
-                    Err(e) => Ok(create_error_response(&message, e)),
+    /// Handle a command message
+    #[instrument(skip(self, msg), fields(message_id = %msg.id.0))]
+    async fn handle_command_message(&self, msg: &MCPMessage) -> MCPResult<MCPResponse> {
+        debug!("Handling command message: {}", msg.id.0);
+        
+        // Extract operation name and params from the message payload
+        let operation = msg.payload.get("operation")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| MCPError::InvalidOperation("Missing operation field".to_string()))?;
+        
+        let params = msg.payload.get("params")
+            .unwrap_or(&json!({}))
+            .clone();
+        
+        // Get user token from security metadata if available
+        let user_token = if let Some(ref auth_token) = msg.security.auth_token {
+            // Cast to SecurityManager and validate token
+            match self.auth_manager.validate_token(auth_token).await {
+                Ok(token) => Some(token),
+                Err(e) => {
+                    warn!(error=%e, "Invalid auth token provided");
+                    None
                 }
             }
-            crate::protocol::MessageType::Command => {
-                info!("Handling Command message");
-                let command_payload: Value = serde_json::from_value(message.payload.clone())
-                    .map_err(|e| MCPError::Protocol(ProtocolError::InvalidFormat(format!("Invalid command payload format: {}", e))))?;
+        } else {
+            None
+        };
+        
+        // Execute the operation
+        match self.execute_core_operation(operation, params, user_token.as_ref()).await {
+            Ok(result) => Ok(self.create_success_response(result, Some(msg.id.clone()))),
+            Err(e) => {
+                error!(error = %e, "Failed to execute operation: {}", operation);
+                Ok(self.create_error_response(e, Some(msg.id.clone())))
+            }
+        }
+    }
 
-                let command = command_payload.get("command")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| MCPError::Protocol(ProtocolError::InvalidFormat("Missing command field in payload".to_string())))?;
+    /// Handle a sync message
+    #[instrument(skip(self, msg), fields(message_id = %msg.id.0))]
+    async fn handle_sync_message(&self, msg: &MCPMessage) -> MCPResult<MCPResponse> {
+        debug!("Handling sync message: {}", msg.id.0);
+        
+        // For sync messages, simply return the current state
+        match serde_json::to_value(self.core_state.read().await.clone()) {
+            Ok(state) => Ok(self.create_success_response(state, Some(msg.id.clone()))),
+            Err(e) => {
+                error!(error = %e, "Failed to serialize core state");
+                Ok(self.create_error_response(MCPError::InternalError(e.to_string()), Some(msg.id.clone())))
+            }
+        }
+    }
+
+    /// Create an error response for a message
+    pub fn create_error_response(&self, error: MCPError, message_id: Option<MessageId>) -> MCPResponse {
+        let error_details = json!({
+            "error": error.to_string(),
+        });
+        
+        let response = MCPResponse {
+            protocol_version: "1.0".to_string(),
+            message_id: message_id.unwrap_or_else(MessageId::new),
+            status: ResponseStatus::Error,
+            payload: vec![error_details],
+            error_message: Some(error.to_string()),
+            metadata: MessageMetadata::default(),
+        };
+        
+        response
+    }
+    
+    /// Create a success response for a message
+    pub fn create_success_response(&self, data: serde_json::Value, message_id: Option<MessageId>) -> MCPResponse {
+        let response = MCPResponse {
+            protocol_version: "1.0".to_string(),
+            message_id: message_id.unwrap_or_else(MessageId::new),
+            status: ResponseStatus::Success,
+            payload: vec![data],
+            error_message: None,
+            metadata: MessageMetadata::default(),
+        };
+        
+        response
+    }
+}
+
+// Implementation of the message handling trait
+#[async_trait]
+impl crate::integration::types::MessageHandler for CoreMCPAdapter {
+    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse> {
+        info!("CoreMCPAdapter: Handling message: {}", message.id.0);
+        
+        match message.type_ {
+            MessageType::Command => self.handle_command_message(&message).await,
+            MessageType::Sync => self.handle_sync_message(&message).await,
+            MessageType::Event => {
+                // Just acknowledge events
+                Ok(self.create_success_response(json!({ "status": "acknowledged" }), Some(message.id.clone())))
+            },
+            MessageType::Error => {
+                // Log errors but don't do much else
+                let error_details = message.payload.get("error")
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "Unknown error".to_string());
                 
-                let params = command_payload.get("params").cloned().unwrap_or(Value::Null);
-
-                let user: Option<User> = if let Some(creds) = extract_credentials(&message) { 
-                    match self.auth_manager.authenticate(&creds).await {
-                        Ok(user) => Some(user),
-                        Err(e) => {
-                            error!("Authentication failed: {}", e);
-                            return Ok(create_error_response(&message, MCPError::Security(SecurityError::AuthenticationFailed(e))));
-                        }
-                    }
-                } else {
-                    security_context.user_context
-                };
-
-                if let Some(ref user) = user { 
-                    match self.authorize_operation(user, command).await {
-                        Ok(_) => {
-                            info!("Operation authorized for user {:?}", user.id);
-                        }
-                        Err(e) => {
-                            warn!("Authorization failed for user {:?}: {}", user.id, e);
-                            return Ok(create_error_response(&message, e)); 
-                        }
-                    }
-                } else {
-                    warn!("Authorization skipped: No authenticated user context for message {}", message.id.0);
-                    return Ok(create_error_response(&message, MCPError::NotAuthorized("Authentication required".to_string())));
-                }
-
-                match self.execute_core_operation(command, params, user.as_ref()).await {
-                    Ok(result) => Ok(create_success_response(&message, &result)),
-                    Err(e) => {
-                        error!(error = %e, "Core command execution failed");
-                        Ok(create_error_response(&message, e))
-                    }
-                }
+                warn!("Received error message: {}", error_details);
+                Ok(MCPResponse {
+                    protocol_version: message.version.version_string(),
+                    message_id: message.id.clone(),
+                    status: ResponseStatus::Error,
+                    payload: vec![json!({"error": error_details})],
+                    error_message: Some(error_details),
+                    metadata: MessageMetadata::default(),
+                })
             },
             _ => {
-                warn!("Received unhandled message type: {:?}", message.type_);
-                Ok(create_error_response(
-                    &message,
-                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_))
+                warn!("Unsupported message type: {:?}", message.type_);
+                Ok(self.create_error_response(
+                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)),
+                    Some(message.id.clone())
                 ))
             }
-        };
-
-        // self.metrics.record_message_handled(&message.type_);
-        result
+        }
     }
 }
 
-// Implementation of MCPProtocol trait for CoreMCPAdapter
-#[async_trait::async_trait]
-impl crate::protocol::MCPProtocol for CoreMCPAdapter {
-    async fn handle_message(&self, msg: crate::protocol::MCPMessage) -> crate::protocol::ProtocolResult {
-        debug!(message_id = %msg.id.0, message_type = ?msg.type_, "Handling message");
-        // self.metrics.record_message_received(&msg);
-
-        if msg.version.major != 0 { // Assuming ProtocolVersion has major
-            return Err(MCPError::UnsupportedVersion(msg.version.to_string())); // Use to_string()
-        }
-
-        match msg.type_ {
-            crate::protocol::MessageType::Command => self.handle_command_message(msg).await,
-            crate::protocol::MessageType::Sync => self.handle_sync_message(msg).await,
-            crate::protocol::MessageType::Error => {
-                error!(message_id = %msg.id.0, payload = ?String::from_utf8_lossy(&msg.payload), "Received Error message");
-                Ok(None)
-            }
-            crate::protocol::MessageType::Response => {
-                warn!(message_id = %msg.id.0, "Received unexpected Response message");
-                Ok(None)
-            }
-            _ => {
-                 warn!(message_id = %msg.id.0, message_type = ?msg.type_, "Received unhandled message type");
-                 Err(MCPError::UnsupportedOperation(format!("Core adapter cannot handle {:?} directly", msg.type_)))
-            }
-        }
-    }
-
-    async fn validate_message(&self, _msg: &crate::protocol::MCPMessage) -> ValidationResult {
-        Ok(())
-    }
-
-    async fn route_message(&self, _msg: &crate::protocol::MCPMessage) -> RoutingResult {
-        Ok(None)
+// Implement MCPProtocol for CoreMCPAdapter by delegating to the protocol handler
+#[async_trait]
+impl MCPProtocol for CoreMCPAdapter {
+    async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
+        // Delegate to the message handler implementation
+        crate::integration::types::MessageHandler::handle_message(self, msg).await
     }
     
-    async fn set_state(&self, new_state: crate::types::ProtocolState) -> crate::error::Result<()> {
-        warn!("CoreMCPAdapter::set_state called with {:?}, but state mapping is not fully implemented.", new_state);
-        // TODO: Implement mapping from ProtocolState enum to CoreState fields if needed
-        Ok(())
+    async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {
+        self.protocol_handler.validate_message(msg).await
     }
     
-    async fn get_state(&self) -> crate::error::Result<crate::types::ProtocolState> {
-        // let state = self.core_state.read().await;
-        // Ok(crate::types::ProtocolState {
-        //     version: state.version.clone(),
-        //     status: state.status.clone(),
-        //     features: state.features.clone(),
-        //     components: state.components.clone(),
-        // }) // <-- This is struct-like construction
-
-        // TODO: Map CoreState status to ProtocolState enum variant
-        let core_state_status = self.core_state.read().await.status.clone();
-        let protocol_state = match core_state_status.as_str() {
-            "running" | "active" => crate::types::ProtocolState::Ready,
-            "initializing" => crate::types::ProtocolState::Initializing,
-            "disconnected" => crate::types::ProtocolState::Disconnected,
-            _ => crate::types::ProtocolState::Error, // Default to Error for unknown statuses
-        };
-        Ok(protocol_state)
+    async fn route_message(&self, msg: &MCPMessage) -> RoutingResult {
+        self.protocol_handler.route_message(msg).await
     }
-
+    
+    async fn set_state(&self, new_state: ProtocolState) -> MCPResult<()> {
+        self.protocol_handler.set_state(new_state).await
+    }
+    
+    async fn get_state(&self) -> MCPResult<ProtocolState> {
+        self.protocol_handler.get_state().await
+    }
+    
     fn get_version(&self) -> String {
-        // TODO: Implement version retrieval
-        "1.0".to_string()
+        self.protocol_handler.get_version()
     }
-
-    #[instrument(skip(self, msg))]
-    async fn handle_command_message(&self, msg: crate::protocol::MCPMessage) -> crate::protocol::ProtocolResult {
-        // Simplified: Call the main handle_message which uses the MessageHandler trait
-        match self.handle_message(msg).await {
-            Ok(response_option) => Ok(Some(response_option)), // Assume handle_message returns ProtocolResult<Option<MCPResponse>>
-            Err(e) => Err(e), // Propagate error
-        }
-    }
-
-    #[instrument(skip(self, msg))]
-    async fn handle_sync_message(&self, msg: crate::protocol::MCPMessage) -> crate::protocol::ProtocolResult {
-        // Simplified: Call the main handle_message which uses the MessageHandler trait
-        match self.handle_message(msg).await {
-            Ok(response_option) => Ok(Some(response_option)), // Assume handle_message returns ProtocolResult<Option<MCPResponse>>
-            Err(e) => Err(e), // Propagate error
-        }
-    }
-
-    // The create_*_response methods are now in helpers.rs
-    // The extract_security_context method is part of the CoreMCPAdapter impl block
 } 
