@@ -4,15 +4,33 @@
 //! domain objects used in the MCP protocol. These implementations enable translation
 //! between domain objects and wire format messages.
 
-use crate::error::Result;
-use crate::message::Message;
-use crate::types::MCPMessage;
-use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, ProtocolVersion, WireFormat};
+use crate::error::{self, ProtocolError};
+use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, WireProtocolVersion, WireFormat};
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use crate::error::MCPError;
 use base64::Engine;
+use crate::protocol::types::{MCPMessage, MessageId, MessageType as ProtocolMessageType, ProtocolVersion, Header};
+use crate::message::MessageType as DomainMessageType;
+use crate::types::ResponseStatus;
+use crate::security::types::{
+    EncryptionFormat, 
+    EncryptionInfo as SecurityEncryptionInfo,
+    SecurityLevel, 
+    SecurityMetadata,
+};
+use crate::integration::types::SecurityContext;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::IntoDeserializer;
+use std::collections::HashMap;
+use std::str::FromStr;
+use serde::de::Error as SerdeError;
+use crate::security::AuthCredentials;
+use tracing::{debug, error, info, warn};
+use crate::protocol::serialization_utils::extract_string;
+use crate::message::Message;
+use crate::protocol::types::MessageType;
 
 // ==========================================
 // Message Domain Object Implementation
@@ -20,15 +38,15 @@ use base64::Engine;
 
 #[async_trait]
 impl DomainObject for Message {
-    async fn to_wire_message(&self, version: ProtocolVersion) -> Result<WireMessage> {
+    async fn to_wire_message(&self, version: crate::protocol::adapter_wire::WireProtocolVersion) -> crate::error::Result<WireMessage> {
         // Convert Message to Value based on protocol version
         let json_value = match version {
-            ProtocolVersion::V1_0 | ProtocolVersion::Latest => {
+            crate::protocol::adapter_wire::WireProtocolVersion::V1_0 | crate::protocol::adapter_wire::WireProtocolVersion::Latest => {
                 // Current version format - direct serialization
                 serde_json::to_value(self)
                     .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?
             },
-            ProtocolVersion::V0_9 => {
+            crate::protocol::adapter_wire::WireProtocolVersion::V0_9 => {
                 // Legacy format (v0.9)
                 // Here we adapt our current model to the old wire format
                 let mut obj = serde_json::Map::new();
@@ -62,12 +80,12 @@ impl DomainObject for Message {
         WireMessage::from_json(version, json_value)
     }
     
-    async fn from_wire_message(message: &WireMessage) -> Result<Self>
+    async fn from_wire_message(message: &WireMessage) -> crate::error::Result<Self>
     where
         Self: Sized,
     {
-        // Parse the version to determine how to decode
-        let version = ProtocolVersion::from_str(&message.version)?;
+        // Parse the version using adapter_wire::ProtocolVersion
+        let version = crate::protocol::adapter_wire::WireProtocolVersion::from_str(&message.version)?;
         
         match message.format {
             WireFormat::Json => {
@@ -76,12 +94,12 @@ impl DomainObject for Message {
                     .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
                 
                 match version {
-                    ProtocolVersion::V1_0 | ProtocolVersion::Latest => {
+                    crate::protocol::adapter_wire::WireProtocolVersion::V1_0 | crate::protocol::adapter_wire::WireProtocolVersion::Latest => {
                         // Current version format - direct deserialization
                         serde_json::from_value(json)
                             .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
                     },
-                    ProtocolVersion::V0_9 => {
+                    crate::protocol::adapter_wire::WireProtocolVersion::V0_9 => {
                         // Legacy format (v0.9) - need to adapt to current model
                         if let Some(obj) = json.as_object() {
                             // Extract required fields with validation
@@ -92,16 +110,16 @@ impl DomainObject for Message {
                             let destination = extract_string(obj, "destination")?;
                             
                             // Convert message type string to enum
-                            let message_type = match msg_type_str.as_str() {
-                                "request" => crate::message::MessageType::Request,
-                                "response" => crate::message::MessageType::Response,
-                                "notification" => crate::message::MessageType::Notification,
-                                "error" => crate::message::MessageType::Error,
-                                "control" => crate::message::MessageType::Control,
-                                "system" => crate::message::MessageType::System,
+                            let message_type: DomainMessageType = match msg_type_str.as_str() {
+                                "request" => DomainMessageType::Request,
+                                "response" => DomainMessageType::Response,
+                                "notification" => DomainMessageType::Notification,
+                                "error" => DomainMessageType::Error,
+                                "control" => DomainMessageType::Control,
+                                "system" => DomainMessageType::System,
                                 _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                     "msg_type".to_string(), 
-                                    format!("Unknown message type: {msg_type_str}")
+                                    format!("Unknown message type: {}", msg_type_str)
                                 ))),
                             };
                             
@@ -151,10 +169,10 @@ impl DomainObject for Message {
                             
                             // Create the Message
                             Ok(Self {
-                                id,
+                                id: id.clone(), // ID should be String for Message struct
                                 message_type,
                                 priority: crate::message::MessagePriority::Normal, // Default value
-                                content,
+                                content: content.clone(), // Clone content as it might be used elsewhere
                                 binary_payload,
                                 timestamp,
                                 in_reply_to,
@@ -192,196 +210,37 @@ impl DomainObject for Message {
 
 #[async_trait]
 impl DomainObject for MCPMessage {
-    async fn to_wire_message(&self, version: ProtocolVersion) -> Result<WireMessage> {
-        // Convert MCPMessage to Value based on protocol version
-        let json_value = match version {
-            ProtocolVersion::V1_0 | ProtocolVersion::Latest => {
-                // Current version format
-                serde_json::to_value(self)
-                    .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?
-            },
-            ProtocolVersion::V0_9 => {
-                // Legacy format (v0.9)
-                let mut obj = serde_json::Map::new();
-                
-                // Map core fields
-                obj.insert("id".to_string(), json!(self.id.0));
-                obj.insert("type".to_string(), json!(format!("{:?}", self.type_).to_lowercase()));
-                
-                // Add payload
-                obj.insert("payload".to_string(), self.payload.clone());
-                
-                // Add metadata if present
-                if let Some(metadata) = &self.metadata {
-                    obj.insert("metadata".to_string(), metadata.clone());
-                }
-                
-                // Add security information
-                obj.insert("security".to_string(), json!({
-                    "security_level": format!("{:?}", self.security.security_level).to_lowercase(),
-                    "has_signature": self.security.signature.is_some(),
-                }));
-                
-                // Add timestamp
-                obj.insert("timestamp".to_string(), json!(self.timestamp.timestamp()));
-                
-                // Add version
-                obj.insert("version".to_string(), json!(format!("{}.{}", self.version.major, self.version.minor)));
-                
-                // Add trace ID if present
-                if let Some(trace_id) = &self.trace_id {
-                    obj.insert("trace_id".to_string(), json!(trace_id));
-                }
-                
-                Value::Object(obj)
-            }
-        };
-        
-        // Create wire message with the JSON value
-        WireMessage::from_json(version, json_value)
+    async fn to_wire_message(&self, version: WireProtocolVersion) -> crate::error::Result<WireMessage> {
+        let data = serde_json::to_vec(self)
+            .map_err(|e| ProtocolError::StateSerialization(format!("Failed to serialize MCPMessage to JSON bytes: {}", e)))?;
+        Ok(WireMessage::new(version, data, WireFormat::Json))
     }
-    
-    async fn from_wire_message(message: &WireMessage) -> Result<Self>
+
+    async fn from_wire_message(message: &WireMessage) -> crate::error::Result<Self>
     where
         Self: Sized,
     {
-        // Parse the version to determine how to decode
-        let version = ProtocolVersion::from_str(&message.version)?;
-        
-        match message.format {
-            WireFormat::Json => {
-                // Parse the JSON data
-                let json: Value = serde_json::from_slice(&message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
-                
-                match version {
-                    ProtocolVersion::V1_0 | ProtocolVersion::Latest => {
-                        // Current version format - direct deserialization
-                        serde_json::from_value(json)
-                            .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
-                    },
-                    ProtocolVersion::V0_9 => {
-                        // Legacy format (v0.9) - need to adapt to current model
-                        if let Some(obj) = json.as_object() {
-                            // Extract required fields
-                            let id_str = extract_string(obj, "id")?;
-                            let type_str = extract_string(obj, "type")?;
-                            
-                            // Parse message type
-                            let msg_type = match type_str.as_str() {
-                                "command" => crate::types::MessageType::Command,
-                                "response" => crate::types::MessageType::Response,
-                                "event" => crate::types::MessageType::Event,
-                                "error" => crate::types::MessageType::Error,
-                                "setup" => crate::types::MessageType::Setup,
-                                "heartbeat" => crate::types::MessageType::Heartbeat,
-                                "sync" => crate::types::MessageType::Sync,
-                                _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
-                                    "type".to_string(), 
-                                    format!("Unknown message type: {type_str}")
-                                ))),
-                            };
-                            
-                            // Extract payload
-                            let payload = obj.get("payload")
-                                .cloned()
-                                .unwrap_or(Value::Null);
-                            
-                            // Extract metadata if present
-                            let metadata = obj.get("metadata").cloned();
-                            
-                            // Extract security information
-                            let security = if let Some(sec) = obj.get("security") {
-                                if let Some(sec_obj) = sec.as_object() {
-                                    // Extract security level
-                                    let security_level = sec_obj.get("security_level")
-                                        .and_then(|v| v.as_str())
-                                        .map(|s| match s {
-                                            "low" => crate::types::SecurityLevel::Low,
-                                            "medium" => crate::types::SecurityLevel::Standard,
-                                            "high" => crate::types::SecurityLevel::High,
-                                            "critical" => crate::types::SecurityLevel::Critical,
-                                            _ => crate::types::SecurityLevel::default(),
-                                        })
-                                        .unwrap_or_default();
-                                    
-                                    // Extract encryption info
-                                    let encryption_info = sec_obj.get("encryption_info")
-                                        .and_then(|v| v.as_object())
-                                        .and_then(|_| None);
-                                    
-                                    // Extract signature
-                                    let signature = sec_obj.get("signature")
-                                        .and_then(|v| v.as_str())
-                                        .map(std::string::ToString::to_string);
-                                    
-                                    // Extract auth token
-                                    let auth_token = sec_obj.get("auth_token")
-                                        .and_then(|v| v.as_str())
-                                        .map(std::string::ToString::to_string);
-                                    
-                                    crate::types::SecurityMetadata {
-                                        security_level,
-                                        encryption_info,
-                                        signature,
-                                        auth_token,
-                                        permissions: None,
-                                        roles: None,
-                                    }
-                                } else {
-                                    crate::types::SecurityMetadata::default()
-                                }
-                            } else {
-                                crate::types::SecurityMetadata::default()
-                            };
-                            
-                            // Extract timestamp or use current time
-                            let timestamp = obj.get("timestamp")
-                                .and_then(serde_json::Value::as_i64)
-                                .map(|ts| chrono::DateTime::from_timestamp(ts, 0))
-                                .flatten()
-                                .unwrap_or_else(Utc::now);
-                            
-                            // Extract version
-                            let version_str = obj.get("version")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("0.9");
-                                
-                            // Extract trace ID if present
-                            let trace_id = obj.get("trace_id")
-                                .and_then(|v| v.as_str())
-                                .map(std::string::ToString::to_string);
-                            
-                            // Create the MCPMessage
-                            Ok(Self {
-                                id: crate::types::MessageId(id_str),
-                                type_: msg_type,
-                                payload,
-                                metadata,
-                                security,
-                                timestamp,
-                                version: crate::types::ProtocolVersion { major: 1, minor: 0 },
-                                trace_id,
-                            })
-                        } else {
-                            Err(MCPError::from(WireFormatError::InvalidFieldValue(
-                                "root".to_string(), 
-                                "Expected JSON object".to_string()
-                            )))
-                        }
-                    }
-                }
-            },
-            WireFormat::Binary | WireFormat::Cbor => {
-                // For now, treat binary and CBOR as JSON
-                // In a full implementation, these would have separate decoders
-                let json: Value = serde_json::from_slice(&message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
-                
-                serde_json::from_value(json)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
-            }
+        if message.format != WireFormat::Json {
+            return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
+                "Only JSON wire format supported currently".to_string(),
+            )));
         }
+
+        // Deserialize using the helper struct which is now in another module
+        // We need to make the helper structs public within the crate (pub(crate))
+        // and import them here.
+        use crate::protocol::serialization_helpers::MCPMessageDefinitionHelper;
+
+        let helper: MCPMessageDefinitionHelper = serde_json::from_slice(&message.data)
+            .map_err(|e| MCPError::Serialization(format!("Failed to deserialize MCPMessage helper from wire data: {}", e)))?;
+
+        // Convert the helper into the final MCPMessage using its TryFrom impl (also moved)
+        MCPMessage::try_from(helper).map_err(|e: ProtocolError| {
+            MCPError::Protocol(ProtocolError::ValidationFailed(format!(
+                "Conversion from MCPMessageDefinitionHelper failed: {}",
+                e
+            )))
+        })
     }
 }
 
@@ -389,204 +248,101 @@ impl DomainObject for MCPMessage {
 // Helper Functions
 // ==========================================
 
-/// Helper function to extract a string field from a JSON object
-fn extract_string(obj: &serde_json::Map<String, Value>, field: &str) -> Result<String> {
-    Ok(obj.get(field)
-        .ok_or_else(|| MCPError::from(WireFormatError::MissingField(field.to_string())))?
-        .as_str()
-        .ok_or_else(|| MCPError::from(WireFormatError::InvalidFieldValue(field.to_string(), "not a string".to_string())))?
-        .to_string())
+// Removed: Moved to serialization_utils.rs
+// /// Helper function to extract a string field from a JSON object
+// fn extract_string(obj: &serde_json::Map<String, Value>, field: &str) -> Result<String> {
+//     Ok(obj.get(field)
+//         .ok_or_else(|| MCPError::from(WireFormatError::MissingField(field.to_string())))?
+//         .as_str()
+//         .ok_or_else(|| MCPError::from(WireFormatError::InvalidFieldValue(field.to_string(), "not a string".to_string())))?
+//         .to_string())
+// }
+
+// ==========================================
+// Deserialization Implementation for MCPMessage
+// ==========================================
+
+// --- Serde Implementation ---
+
+impl<'de> Deserialize<'de> for MCPMessage {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Import the helper struct
+        use crate::protocol::serialization_helpers::MCPMessageDefinitionHelper;
+        
+        let helper = MCPMessageDefinitionHelper::deserialize(deserializer)?;
+        
+        // Convert ProtocolError into D::Error using serde::de::Error::custom
+        MCPMessage::try_from(helper).map_err(|e: ProtocolError| {
+            // Use SerdeError::custom (imported as SerdeError)
+            SerdeError::custom(format!("MCPMessage::try_from failed: {}", e))
+        })
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::message::{MessageType, MessagePriority};
-    
-    #[tokio::test]
-    async fn test_message_to_wire_format_v1() {
-        // Create a test message
-        let message = Message {
-            id: Uuid::new_v4().to_string(),
-            message_type: MessageType::Request,
-            priority: MessagePriority::Normal,
-            content: "Test content".to_string(),
-            binary_payload: None,
-            timestamp: Utc::now(),
-            in_reply_to: None,
-            source: "test-client".to_string(),
-            destination: "test-server".to_string(),
-            context_id: Some("test-context".to_string()),
-            topic: Some("test-topic".to_string()),
-            metadata: {
-                let mut map = HashMap::new();
-                map.insert("key1".to_string(), "value1".to_string());
-                map
-            },
-        };
-        
-        // Convert to wire format
-        let wire_message = message.to_wire_message(ProtocolVersion::V1_0).await.unwrap();
-        
-        // Verify wire message properties
-        assert_eq!(wire_message.version, "1.0");
-        assert_eq!(wire_message.format, WireFormat::Json);
-        
-        // Convert back to message
-        let decoded = Message::from_wire_message(&wire_message).await.unwrap();
-        
-        // Verify round-trip conversion
-        assert_eq!(decoded.id, message.id);
-        assert_eq!(decoded.message_type, message.message_type);
-        assert_eq!(decoded.content, message.content);
-        assert_eq!(decoded.source, message.source);
-        assert_eq!(decoded.destination, message.destination);
+// ==========================================
+// Tests
+// ==========================================
+
+// MOVED to domain_objects_tests.rs
+
+// ------------ Core Logic ------------
+
+// MOVED to domain_objects_tests.rs
+
+// --- Helper Structs Definition ---
+// MOVED to serialization_helpers.rs
+
+// --- TryFrom Implementations for Core Types ---
+
+impl TryFrom<WireProtocolVersion> for ProtocolVersion {
+    type Error = ProtocolError;
+    fn try_from(value: WireProtocolVersion) -> std::result::Result<Self, Self::Error> {
+        match value {
+            WireProtocolVersion::V1_0 => Ok(Self { major: 1, minor: 0}),
+            WireProtocolVersion::V0_9 => Ok(Self { major: 0, minor: 9}),
+            // Assuming Latest maps to 1.0 for now
+            WireProtocolVersion::Latest => Ok(Self { major: 1, minor: 0}), 
+        }
     }
-    
-    #[tokio::test]
-    async fn test_message_to_wire_format_v09() {
-        // Create a test message
-        let message = Message {
-            id: "test-123".to_string(),
-            message_type: MessageType::Notification,
-            priority: MessagePriority::High,
-            content: "Legacy message".to_string(),
-            binary_payload: Some(vec![1, 2, 3, 4]),
-            timestamp: Utc::now(),
-            in_reply_to: Some("ref-456".to_string()),
-            source: "client-a".to_string(),
-            destination: "server-b".to_string(),
-            context_id: None,
-            topic: Some("updates".to_string()),
-            metadata: {
-                let mut map = HashMap::new();
-                map.insert("version".to_string(), "0.9".to_string());
-                map
-            },
-        };
-        
-        // Convert to wire format using v0.9
-        let wire_message = message.to_wire_message(ProtocolVersion::V0_9).await.unwrap();
-        
-        // Verify wire message properties
-        assert_eq!(wire_message.version, "0.9");
-        assert_eq!(wire_message.format, WireFormat::Json);
-        
-        // Parse the JSON to verify format-specific adaptations
-        let json: Value = serde_json::from_slice(&wire_message.data).unwrap();
-        let obj = json.as_object().unwrap();
-        
-        // Verify legacy format specific fields
-        assert_eq!(obj.get("id").unwrap().as_str().unwrap(), "test-123");
-        assert_eq!(obj.get("msg_type").unwrap().as_str().unwrap(), "notification");
-        assert_eq!(obj.get("content").unwrap().as_str().unwrap(), "Legacy message");
-        assert_eq!(obj.get("reply_to").unwrap().as_str().unwrap(), "ref-456");
-        
-        // Verify binary encoding
-        assert!(obj.get("binary").is_some());
-        
-        // Convert back to message
-        let decoded = Message::from_wire_message(&wire_message).await.unwrap();
-        
-        // Verify core fields match
-        assert_eq!(decoded.id, message.id);
-        assert_eq!(decoded.message_type, message.message_type);
-        assert_eq!(decoded.content, message.content);
-        assert_eq!(decoded.in_reply_to, message.in_reply_to);
-        assert_eq!(decoded.source, message.source);
-        assert_eq!(decoded.destination, message.destination);
-        
-        // Verify binary payload
-        assert_eq!(decoded.binary_payload, message.binary_payload);
+}
+
+impl TryFrom<String> for MessageType {
+    type Error = crate::error::ProtocolError;
+    fn try_from(value: String) -> std::result::Result<Self, crate::error::ProtocolError> {
+        match value.to_lowercase().as_str() {
+            "command" => Ok(MessageType::Command),
+            "response" => Ok(MessageType::Response),
+            "event" => Ok(MessageType::Event),
+            "error" => Ok(MessageType::Error),
+            "setup" => Ok(MessageType::Setup),
+            "heartbeat" => Ok(MessageType::Heartbeat),
+            "sync" => Ok(MessageType::Sync),
+            "unknown" => Ok(MessageType::Unknown),
+            _ => Err(ProtocolError::InvalidFormat(format!(
+                "Unknown message type string: {}",
+                value
+            ))),
+        }
     }
-    
-    #[tokio::test]
-    async fn test_mcpmessage_to_wire_format() {
-        use crate::types::{MessageId, SecurityMetadata, ProtocolVersion as MCPProtocolVersion};
-        
-        // Create a test MCPMessage
-        let message = MCPMessage {
-            id: MessageId("mcpmsg-123".to_string()),
-            type_: crate::types::MessageType::Command,
-            payload: json!({"action": "get_status", "detail": "full"}),
-            metadata: Some(json!({"client_version": "2.1.0"})),
-            security: SecurityMetadata {
-                security_level: crate::types::SecurityLevel::High,
-                encryption_info: None,
-                signature: Some("sig123".to_string()),
-                auth_token: None,
-                permissions: None,
-                roles: None,
-            },
-            timestamp: Utc::now(),
-            version: MCPProtocolVersion("1.0".to_string()),
-            trace_id: Some("trace-abc".to_string()),
-        };
-        
-        // Convert to wire format
-        let wire_message = message.to_wire_message(ProtocolVersion::V1_0).await.unwrap();
-        
-        // Verify wire message properties
-        assert_eq!(wire_message.version, "1.0");
-        assert_eq!(wire_message.format, WireFormat::Json);
-        
-        // Convert back to message
-        let decoded = MCPMessage::from_wire_message(&wire_message).await.unwrap();
-        
-        // Verify round-trip conversion
-        assert_eq!(decoded.id.0, message.id.0);
-        assert_eq!(decoded.type_, message.type_);
-        assert_eq!(decoded.payload, message.payload);
-        assert_eq!(decoded.security.security_level, message.security.security_level);
-        assert_eq!(decoded.security.signature, message.security.signature);
-        assert_eq!(decoded.security.encrypted, message.security.encrypted);
-        assert_eq!(decoded.security.signed, message.security.signed);
-        assert_eq!(decoded.trace_id, message.trace_id);
-    }
-    
-    #[tokio::test]
-    async fn test_mcpmessage_legacy_conversion() {
-        use crate::types::{MessageId, SecurityMetadata, ProtocolVersion as MCPProtocolVersion};
-        
-        // Create a test MCPMessage
-        let message = MCPMessage {
-            id: MessageId("legacy-id-123".to_string()),
-            type_: crate::types::MessageType::Event,
-            payload: json!({"event_type": "status_changed", "status": "online"}),
-            metadata: None,
-            security: SecurityMetadata {
-                encrypted: true,
-                signed: true,
-                key_id: None,
-                signature: None,
-            },
-            timestamp: Utc::now(),
-            version: MCPProtocolVersion("0.9".to_string()),
-            trace_id: None,
-        };
-        
-        // Convert to legacy wire format
-        let wire_message = message.to_wire_message(ProtocolVersion::V0_9).await.unwrap();
-        
-        // Verify wire message properties
-        assert_eq!(wire_message.version, "0.9");
-        
-        // Parse the JSON to verify format-specific adaptations
-        let json: Value = serde_json::from_slice(&wire_message.data).unwrap();
-        let obj = json.as_object().unwrap();
-        
-        // Verify legacy format fields
-        assert_eq!(obj.get("id").unwrap().as_str().unwrap(), "legacy-id-123");
-        assert_eq!(obj.get("type").unwrap().as_str().unwrap(), "event");
-        
-        // Convert back to message
-        let decoded = MCPMessage::from_wire_message(&wire_message).await.unwrap();
-        
-        // Verify core fields match
-        assert_eq!(decoded.id.0, message.id.0);
-        assert_eq!(decoded.type_, message.type_);
-        assert_eq!(decoded.payload, message.payload);
-        assert_eq!(decoded.security.encrypted, message.security.encrypted);
-        assert_eq!(decoded.security.signed, message.security.signed);
-    }
-} 
+}
+
+impl TryFrom<String> for EncryptionFormat {
+     // Explicitly name the error type to resolve ambiguity
+     type Error = crate::error::ProtocolError;
+     // Explicitly use ProtocolError in the return type
+     fn try_from(value: String) -> std::result::Result<Self, crate::error::ProtocolError> {
+         match value.to_lowercase().as_str() {
+             "aes-256-gcm" => Ok(Self::Aes256Gcm),
+             "chacha20-poly1305" => Ok(Self::ChaCha20Poly1305),
+             "none" => Ok(Self::None),
+             _ => Err(ProtocolError::ValidationFailed(format!(
+                 "Unknown encryption format string: {}", value))),
+         }
+     }
+}
+
+// -- TryFrom Implementations for Helpers --
+// MOVED to serialization_helpers.rs

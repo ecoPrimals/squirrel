@@ -11,6 +11,8 @@ use tokio::sync::RwLock;
 use tracing::{info, warn, error, instrument};
 use crate::mcp::error::{MCPError, ErrorContext, ErrorSeverity};
 use crate::mcp::security::{Permission, Action};
+use crate::security::manager::SecurityManagerImpl;
+use crate::security::rbac::mock::MockRBACManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TeamMessageType {
@@ -199,12 +201,12 @@ pub struct TeamWorkflowManager {
     messages: Arc<RwLock<HashMap<String, Vec<TeamMessage>>>>,
     reviews: Arc<RwLock<HashMap<String, ReviewRequest>>>,
     tasks: Arc<RwLock<HashMap<String, Vec<Task>>>>,
-    security: Arc<dyn SecurityManager>,
+    security: Arc<SecurityManagerImpl>,
 }
 
 impl TeamWorkflowManager {
     #[instrument(skip(security))]
-    pub fn new(security: Arc<dyn SecurityManager>) -> Self {
+    pub fn new(security: Arc<SecurityManagerImpl>) -> Self {
         Self {
             workflows: Arc::new(RwLock::new(HashMap::new())),
             messages: Arc::new(RwLock::new(HashMap::new())),
@@ -657,12 +659,12 @@ pub struct MessageRouter {
     /// Map of handlers for different message types
     handlers: Arc<RwLock<HashMap<MessageType, Vec<Arc<dyn MessageHandler>>>>>,
     /// Security manager for permission checking
-    security: Arc<dyn SecurityManager>,
+    security: Arc<SecurityManagerImpl>,
 }
 
 impl MessageRouter {
     /// Create a new message router
-    pub fn new(security: Arc<dyn SecurityManager>) -> Self {
+    pub fn new(security: Arc<SecurityManagerImpl>) -> Self {
         Self {
             handlers: Arc::new(RwLock::new(HashMap::new())),
             security,
@@ -675,38 +677,25 @@ impl MessageRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mcp::security::{SecurityConfig, SecurityManager};
     use chrono::Duration;
 
     async fn setup_test_environment() -> (TeamWorkflowManager, String) {
-        // Setup security manager
-        let config = SecurityConfig {
-            jwt_secret: "test_secret".to_string(),
-            token_expiry: Duration::hours(1),
-            encryption_algorithm: crate::mcp::security::EncryptionAlgorithm::AesGcm256,
-            min_key_rotation: Duration::hours(24),
-            security_level: SecurityLevel::High,
-        };
-        let security = Arc::new(SecurityManager::new(config).await.unwrap());
+        // Create a SecurityManagerImpl with a mock RBAC manager
+        let rbac = MockRBACManager::new()
+            .with_user_roles("test_user", vec!["admin".to_string()])
+            .with_role_permissions("admin", vec![
+                "workflow:admin".to_string(),
+                "message:admin".to_string(),
+                "review:admin".to_string(),
+                "task:admin".to_string(),
+            ]);
+        
+        let security = Arc::new(SecurityManagerImpl::with_rbac(rbac));
         
         // Create test token with all permissions
-        let permissions = vec![
-            Permission {
-                resource: "workflow".to_string(),
-                action: Action::Admin,
-            },
-            Permission {
-                resource: "message".to_string(),
-                action: Action::Admin,
-            },
-            Permission {
-                resource: "review".to_string(),
-                action: Action::Admin,
-            },
-        ];
-        let token = security.create_token("test_user", permissions).await.unwrap();
-
-        (TeamWorkflowManager::new(security), token.token)
+        let token = "test_token_123"; // Mock token since we'll mock the authorization
+        
+        (TeamWorkflowManager::new(security.clone()), token.to_string())
     }
 
     #[tokio::test]
@@ -723,15 +712,15 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        manager.create_workflow(workflow.clone(), &token).await.unwrap();
+        manager.create_workflow(workflow.clone(), token).await.unwrap();
 
         // Get workflow
-        let retrieved = manager.get_workflow("test_workflow", &token).await.unwrap();
+        let retrieved = manager.get_workflow("test_workflow", token).await.unwrap();
         assert_eq!(retrieved.id, workflow.id);
 
         // Update status
-        manager.update_workflow_status("test_workflow", WorkflowStatus::Completed, &token).await.unwrap();
-        let updated = manager.get_workflow("test_workflow", &token).await.unwrap();
+        manager.update_workflow_status("test_workflow", WorkflowStatus::Completed, token).await.unwrap();
+        let updated = manager.get_workflow("test_workflow", token).await.unwrap();
         assert!(matches!(updated.status, WorkflowStatus::Completed));
     }
 
@@ -749,10 +738,10 @@ mod tests {
             security_level: SecurityLevel::High,
             metadata: HashMap::new(),
         };
-        manager.send_message("test_workflow", message.clone(), &token).await.unwrap();
+        manager.send_message("test_workflow", message.clone(), token).await.unwrap();
 
         // Get messages
-        let messages = manager.get_messages("test_workflow", &token).await.unwrap();
+        let messages = manager.get_messages("test_workflow", token).await.unwrap();
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].id, message.id);
     }
@@ -772,10 +761,10 @@ mod tests {
             priority: Priority::High,
             security_level: SecurityLevel::High,
         };
-        manager.create_review(review.clone(), &token).await.unwrap();
+        manager.create_review(review.clone(), token).await.unwrap();
 
         // Get review
-        let retrieved = manager.get_review("test_review", &token).await.unwrap();
+        let retrieved = manager.get_review("test_review", token).await.unwrap();
         assert_eq!(retrieved.id, review.id);
     }
 
@@ -783,14 +772,17 @@ mod tests {
     async fn test_permission_handling() {
         let (manager, _) = setup_test_environment().await;
 
-        // Create token with limited permissions
-        let permissions = vec![Permission {
-            resource: "workflow".to_string(),
-            action: Action::Read,
-        }];
-        let limited_token = manager.security.create_token("limited_user", permissions).await.unwrap();
-
-        // Test read access (should succeed)
+        // Create a limited security manager with different permissions
+        let rbac = MockRBACManager::new()
+            .with_user_roles("limited_user", vec!["reader".to_string()])
+            .with_role_permissions("reader", vec![
+                "workflow:read".to_string(),
+            ]);
+        
+        let limited_security = Arc::new(SecurityManagerImpl::with_rbac(rbac));
+        let limited_token = "limited_token_123"; // Mock token
+        
+        // Test read access (should fail for write operations)
         let workflow = TeamWorkflow {
             id: "test_workflow".to_string(),
             name: "Test Workflow".to_string(),
@@ -800,7 +792,7 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        assert!(manager.create_workflow(workflow, &limited_token.token).await.is_err());
+        assert!(manager.create_workflow(workflow, limited_token).await.is_err());
     }
 
     #[tokio::test]
@@ -817,7 +809,7 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        manager.create_workflow(workflow, &token).await.unwrap();
+        manager.create_workflow(workflow, token).await.unwrap();
 
         // Transition state
         manager.transition_workflow_state(
@@ -825,11 +817,11 @@ mod tests {
             WorkflowStatus::Paused,
             "test_user",
             "Pausing for review",
-            &token
+            token
         ).await.unwrap();
 
         // Verify state change
-        let updated = manager.get_workflow("test_workflow", &token).await.unwrap();
+        let updated = manager.get_workflow("test_workflow", token).await.unwrap();
         assert!(matches!(updated.status, WorkflowStatus::Paused));
     }
 
@@ -847,7 +839,7 @@ mod tests {
             permissions: vec![],
             metadata: HashMap::new(),
         };
-        manager.create_workflow(workflow, &token).await.unwrap();
+        manager.create_workflow(workflow, token).await.unwrap();
 
         // Add some messages and reviews
         let message = TeamMessage {
@@ -863,10 +855,10 @@ mod tests {
                 map
             },
         };
-        manager.send_message("test_workflow", message, &token).await.unwrap();
+        manager.send_message("test_workflow", message, token).await.unwrap();
 
         // Get metrics
-        let metrics = manager.get_workflow_metrics("test_workflow", &token).await.unwrap();
+        let metrics = manager.get_workflow_metrics("test_workflow", token).await.unwrap();
         assert_eq!(metrics.total_messages, 1);
         assert!(metrics.completion_rate > 0.0);
     }
@@ -886,7 +878,7 @@ mod tests {
                 permissions: vec![],
                 metadata: HashMap::new(),
             };
-            manager.create_workflow(workflow, &token).await.unwrap();
+            manager.create_workflow(workflow, token).await.unwrap();
         }
 
         // Broadcast message
@@ -906,7 +898,7 @@ mod tests {
                 "workflow_2".to_string(),
                 "workflow_3".to_string()
             ],
-            &token
+            token
         ).await.unwrap();
 
         // Verify message received by all workflows

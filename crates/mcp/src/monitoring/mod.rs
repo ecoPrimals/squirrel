@@ -265,8 +265,9 @@ impl MCPMonitor {
     ///
     /// * `message_type` - The type of message being processed
     pub async fn record_message(&self, message_type: &str) {
-        let mut metrics = self.metrics.write().await;
-        metrics.total_messages += 1;
+        // Acquire lock, increment, and drop lock immediately
+        self.metrics.write().await.total_messages += 1;
+        // Update OpenTelemetry counter separately
         self.message_counter
             .add(1, &[KeyValue::new("type", message_type.to_string())]);
     }
@@ -277,8 +278,9 @@ impl MCPMonitor {
     ///
     /// * `error_type` - The type of error that occurred
     pub async fn record_error(&self, error_type: &str) {
-        let mut metrics = self.metrics.write().await;
-        metrics.total_errors += 1;
+        // Acquire lock, increment, and drop lock immediately
+        self.metrics.write().await.total_errors += 1;
+        // Update OpenTelemetry counter separately
         self.error_counter
             .add(1, &[KeyValue::new("type", error_type.to_string())]);
     }
@@ -290,31 +292,40 @@ impl MCPMonitor {
     /// * `duration_ms` - The duration of the sync operation in milliseconds
     /// * `success` - Whether the sync operation was successful
     pub async fn record_sync_operation(&self, duration_ms: f64, success: bool) {
-        let mut metrics = self.metrics.write().await;
-        metrics.sync_operations += 1;
-        metrics.last_sync_duration_ms = duration_ms;
-
-        // Update health information
-        let mut health = self.health.write().await;
-        if success {
-            health.sync_status.last_successful_sync = Utc::now();
-            health.sync_status.consecutive_failures = 0;
-
-            // A successful sync always sets health to true as long as resources are good
-            health.is_healthy = true;
-
-            health.sync_status.is_syncing = false;
-        } else {
-            health.sync_status.consecutive_failures += 1;
-
-            // Immediately mark as unhealthy if there are 3 or more consecutive failures
-            if health.sync_status.consecutive_failures >= 3 {
-                health.is_healthy = false;
-            }
-
-            health.sync_status.is_syncing = false;
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.sync_operations += 1;
+            metrics.last_sync_duration_ms = duration_ms;
+            // Drop the metrics lock early as it's no longer needed
+            drop(metrics);
         }
 
+        // Update health information
+        {
+            let mut health = self.health.write().await;
+            if success {
+                health.sync_status.last_successful_sync = Utc::now();
+                health.sync_status.consecutive_failures = 0;
+
+                // A successful sync always sets health to true as long as resources are good
+                health.is_healthy = true;
+
+                health.sync_status.is_syncing = false;
+            } else {
+                health.sync_status.consecutive_failures += 1;
+
+                // Immediately mark as unhealthy if there are 3 or more consecutive failures
+                if health.sync_status.consecutive_failures >= 3 {
+                    health.is_healthy = false;
+                }
+
+                health.sync_status.is_syncing = false;
+            }
+            // Drop the health lock early as it's no longer needed
+            drop(health);
+        }
+
+        // Record OpenTelemetry metric after locks are released
         self.sync_duration.record(
             duration_ms,
             &[KeyValue::new("success", success.to_string())],
@@ -328,17 +339,22 @@ impl MCPMonitor {
     /// * `operation` - The type of operation performed on the context
     /// * `context` - The context on which the operation was performed
     pub async fn record_context_operation(&self, operation: StateOperation, context: &Context) {
-        let mut metrics = self.metrics.write().await;
-        metrics.context_operations += 1;
+        {
+            let mut metrics = self.metrics.write().await;
+            metrics.context_operations += 1;
 
-        match operation {
-            StateOperation::Create => metrics.active_contexts += 1,
-            StateOperation::Delete => {
-                metrics.active_contexts = metrics.active_contexts.saturating_sub(1);
+            match operation {
+                StateOperation::Create => metrics.active_contexts += 1,
+                StateOperation::Delete => {
+                    metrics.active_contexts = metrics.active_contexts.saturating_sub(1);
+                }
+                _ => {}
             }
-            _ => {}
+            // Drop the metrics lock early as it's no longer needed
+            drop(metrics);
         }
 
+        // Record OpenTelemetry metric after lock is released
         self.context_operation_counter.add(
             1,
             &[
@@ -411,6 +427,9 @@ impl MCPMonitor {
         // record_sync_operation changes it
         health.is_healthy = was_healthy;
 
+        // Drop the health lock early as it's no longer needed
+        drop(health);
+
         Ok(())
     }
 
@@ -433,6 +452,7 @@ impl MCPMonitor {
             active_contexts: metrics_guard.active_contexts,
             last_sync_duration_ms: metrics_guard.last_sync_duration_ms,
         };
+        drop(metrics_guard);
         Ok(metrics)
     }
 
@@ -664,6 +684,7 @@ impl MonitoringSystem {
 
         // Update status
         *status = MonitoringStatus::Running;
+        drop(status); // Explicitly drop the lock guard here
         info!("Monitoring system started");
 
         Ok(())
@@ -680,21 +701,24 @@ impl MonitoringSystem {
             return Err(MCPError::Monitoring("Monitoring system is not running".to_string()));
         }
 
-        // Stop alert manager
-        info!("Stopping alert manager");
-        self.alert_manager.stop().await.map_err(|e| MCPError::Monitoring(e.to_string()))?;
+        *status = MonitoringStatus::Stopping;
+        drop(status);
 
-        // Stop dashboard server if enabled
-        if self.dashboard_enabled && self.dashboard_server.is_some() {
-            info!("Stopping dashboard server");
+        // Stop metrics collector (No explicit stop needed)
+
+        // Stop alert manager
+        self.alert_manager.stop().await?;
+
+        // Stop dashboard if enabled
+        if self.dashboard_enabled {
             if let Some(dashboard) = &self.dashboard_server {
-                dashboard.stop().await.map_err(|e| MCPError::Monitoring(format!("Failed to stop dashboard: {e}")))?;
+                dashboard.stop().await?;
             }
         }
 
-        // Update status
+        let mut status = self.status.write().await;
         *status = MonitoringStatus::Stopped;
-        info!("Monitoring system stopped");
+        drop(status);
 
         Ok(())
     }
@@ -735,6 +759,12 @@ impl DashboardServer {
     }
 
     /// Start the dashboard server
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - The dashboard server is already running
+    /// - Failed to start the server on the specified port
     pub async fn start(&self) -> Result<()> {
         let mut running = self.running.write().await;
 
@@ -772,6 +802,12 @@ impl DashboardServer {
     }
 
     /// Stop the dashboard server
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - Failed to properly shutdown the server
+    /// - Failed to clean up resources
     pub async fn stop(&self) -> Result<()> {
         let mut running = self.running.write().await;
 
@@ -782,6 +818,7 @@ impl DashboardServer {
 
         // Set running flag to false
         *running = false;
+        drop(running); // Explicitly drop the lock guard here
 
         Ok(())
     }

@@ -24,6 +24,9 @@ use uuid::Uuid;
 
 use squirrel_plugins::dynamic::{PluginMetadata, PluginDependency};
 use squirrel_plugins::{RepositoryInfo, PluginPackageInfo};
+use squirrel_mcp::plugins::interfaces::{PluginMetadata as MCPPluginMetadata, PluginCapability};
+use squirrel_mcp::plugins::repository::{PluginRepository, LocalPluginRepository, PluginPackage};
+use squirrel_mcp::error::{Result, PluginError};
 
 /// Command-line arguments
 #[derive(Parser)]

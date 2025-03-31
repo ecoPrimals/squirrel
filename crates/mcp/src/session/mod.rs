@@ -7,16 +7,20 @@ pub mod manager;
 use crate::error::{Result, MCPError};
 use tokio::sync::RwLock;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, Instant};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use async_trait::async_trait;
 
-use crate::error::types::SessionError;
-use crate::types::{AccountId, AuthToken, SessionToken, UserId, UserRole};
-use crate::security::{Credentials, SecurityManager};
+use crate::error::session::SessionError;
+use crate::types::{AccountId};
+use crate::security::{SessionToken, AuthToken, UserId, RoleId};
+use crate::security::manager::SecurityManagerImpl;
 use crate::persistence::{Persistence, SessionData};
+use crate::security::token::TokenManager;
+use crate::error::{SecurityError};
 
 /// Session management module
 pub mod error;
@@ -65,7 +69,7 @@ pub struct Session {
     pub account_id: Option<AccountId>,
     
     /// User role for this session
-    pub role: UserRole,
+    pub role: RoleId,
     
     /// When the session was created
     pub created_at: DateTime<Utc>,
@@ -91,7 +95,7 @@ impl Session {
             token,
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: now.clone(),
             last_accessed: now,
             timeout: Some(3600), // Default 1 hour timeout
@@ -101,13 +105,14 @@ impl Session {
     }
     
     /// Add metadata to the session
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
     
     /// Set user role for this session
-    #[must_use] pub fn with_role(mut self, role: UserRole) -> Self {
+    #[must_use] pub fn with_role(mut self, role: RoleId) -> Self {
         self.role = role;
         self
     }
@@ -131,18 +136,26 @@ impl Session {
     }
 
     /// Check if the session is expired based on provided timeout
-    #[must_use] pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
-        if let Some(timeout_duration) = timeout {
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(self.last_accessed);
-            elapsed.num_seconds() as u64 > timeout_duration.as_secs()
-        } else if let Some(session_timeout) = self.timeout {
-            let now = Utc::now();
-            let elapsed = now.signed_duration_since(self.last_accessed);
-            elapsed.num_seconds() as u64 > session_timeout
-        } else {
-            false // No timeout means session doesn't expire
-        }
+    #[must_use]
+    pub fn is_expired(&self, timeout: Option<Duration>) -> bool {
+        timeout.map_or_else(
+            || { // Closure for timeout = None
+                // Check self.timeout
+                self.timeout.map_or(
+                    false, // self.timeout = None => false
+                    |session_timeout| { // self.timeout = Some(session_timeout)
+                        let now = Utc::now();
+                        let elapsed = now.signed_duration_since(self.last_accessed);
+                        elapsed.num_seconds() as u64 > session_timeout
+                    }
+                )
+            },
+            |timeout_duration| { // Closure for timeout = Some(timeout_duration)
+                let now = Utc::now();
+                let elapsed = now.signed_duration_since(self.last_accessed);
+                elapsed.num_seconds() as u64 > timeout_duration.as_secs()
+            }
+        )
     }
 
     /// Update the last accessed time
@@ -187,14 +200,16 @@ impl Session {
     }
 
     /// Create from session data
-    #[must_use] pub fn from_session_data(data: SessionData) -> Self {
+    #[must_use]
+    #[allow(clippy::cast_sign_loss)]
+    pub fn from_session_data(data: SessionData) -> Self {
         Self {
             token: data.token,
             user_id: data.user_id,
             account_id: data.account_id,
             role: data.role,
-            created_at: datetime_from_system_time(&data.created_at),
-            last_accessed: datetime_from_system_time(&data.last_accessed),
+            created_at: datetime_from_system_time(data.created_at),
+            last_accessed: datetime_from_system_time(data.last_accessed),
             timeout: Some(data.timeout),
             auth_token: data.auth_token,
             metadata: data.metadata,
@@ -203,6 +218,7 @@ impl Session {
 }
 
 /// Convert `DateTime`<Utc> to `SystemTime`
+#[allow(clippy::cast_sign_loss)]
 fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
     let unix_time = dt.timestamp();
     let nanos = dt.timestamp_subsec_nanos();
@@ -210,11 +226,10 @@ fn system_time_from_datetime(dt: &DateTime<Utc>) -> SystemTime {
     SystemTime::UNIX_EPOCH + Duration::from_secs(unix_time as u64) + Duration::from_nanos(u64::from(nanos))
 }
 
-/// Convert `SystemTime` to `DateTime`<Utc>
-fn datetime_from_system_time(st: &SystemTime) -> DateTime<Utc> {
-    let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_else(|_| Duration::from_secs(0));
-    
+/// Helper function to convert SystemTime to DateTime<Utc>
+fn datetime_from_system_time(st: SystemTime) -> DateTime<Utc> {
+    let duration_since_epoch = st.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+    #[allow(clippy::cast_possible_wrap)] // Allow u64->i64 for timestamp conversion
     let secs = duration_since_epoch.as_secs() as i64;
     let nanos = duration_since_epoch.subsec_nanos();
     
@@ -222,14 +237,13 @@ fn datetime_from_system_time(st: &SystemTime) -> DateTime<Utc> {
 }
 
 /// Session manager for handling user sessions
-#[derive(Debug)]
 pub struct SessionManager {
     /// Session configuration
     config: SessionConfig,
     /// Active sessions
     sessions: RwLock<HashMap<SessionToken, Session>>,
     /// Security manager for authentication
-    security: Arc<dyn SecurityManager>,
+    security: Arc<crate::security::manager::SecurityManagerImpl>,
     /// Persistence manager for session storage
     persistence: Option<Arc<dyn Persistence>>,
 }
@@ -238,7 +252,7 @@ impl SessionManager {
     /// Create a new session manager
     pub fn new(
         config: SessionConfig,
-        security: Arc<dyn SecurityManager>,
+        security: Arc<crate::security::manager::SecurityManagerImpl>,
         persistence: Option<Arc<dyn Persistence>>,
     ) -> Self {
         Self {
@@ -262,7 +276,7 @@ impl SessionManager {
             token: session_token.clone(),
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: now,
             last_accessed: now,
             timeout: Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)).as_secs()),
@@ -481,7 +495,7 @@ impl SessionManager {
             token: token.clone(),
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: Utc::now(),
             last_accessed: Utc::now(),
             timeout: Some(3600), // Default 1 hour timeout
@@ -573,22 +587,18 @@ pub struct SessionManagerFactory {
 }
 
 impl SessionManagerFactory {
-    /// Create a new session manager factory
+    /// Create a new session manager factory with the provided configuration
     #[must_use] pub const fn new(config: SessionConfig) -> Self {
         Self { config }
     }
     
-    /// Create a session manager
+    /// Create a new session manager with the provided security and persistence managers
     pub fn create_manager(
         &self,
-        security: Arc<dyn SecurityManager>,
+        security: Arc<crate::security::manager::SecurityManagerImpl>,
         persistence: Option<Arc<dyn Persistence>>,
     ) -> Arc<SessionManager> {
-        Arc::new(SessionManager::new(
-            self.config.clone(),
-            security,
-            persistence,
-        ))
+        Arc::new(SessionManager::new(self.config.clone(), security, persistence))
     }
 }
 
@@ -600,9 +610,19 @@ impl Default for SessionManagerFactory {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::error::SessionError;
+    use std::time::Duration;
     // Remove tests causing compilation issues
     // We'll add properly injected tests later
 }
 
 // Re-export important types
-pub use manager::MCPSessionManager; 
+pub use manager::MCPSessionManager;
+
+/// Represents the state of an active session
+// #[derive(Debug)] // Remove Debug derive because dyn SecurityManager doesn't implement it
+pub struct SessionState {
+    pub session: Session,
+    pub last_activity: Instant,
+} 

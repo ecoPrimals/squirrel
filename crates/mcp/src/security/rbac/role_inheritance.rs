@@ -7,12 +7,16 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
-use crate::error::{MCPError, Result, SecurityError};
-use crate::security::rbac::{Permission, Role, PermissionContext};
+use crate::error::{MCPError, Result, SecurityError, RBACError};
+use crate::security::types::{Role, PermissionContext};
+use super::unified::PermissionDefinition;
+use crate::context_manager::Context;
 
 /// Inheritance relationship type between roles
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum InheritanceType {
     /// Direct inheritance (child inherits all permissions from parent)
     Direct,
@@ -85,9 +89,9 @@ impl InheritanceGraph {
     }
     
     /// Add a role to the graph
-    pub(super) fn add_role(&mut self, role_id: &str) -> Result<()> {
+    pub(super) fn add_role(&mut self, role_id: &str) {
         if self.nodes.contains_key(role_id) {
-            return Ok(());
+            return;
         }
         
         self.nodes.insert(
@@ -99,8 +103,6 @@ impl InheritanceGraph {
                 depth: 0,
             },
         );
-        
-        Ok(())
     }
     
     /// Add an inheritance relationship
@@ -111,11 +113,11 @@ impl InheritanceGraph {
         inheritance_type: InheritanceType,
     ) -> Result<()> {
         // Ensure both roles exist
-        self.add_role(parent_id)?;
-        self.add_role(child_id)?;
+        self.add_role(parent_id);
+        self.add_role(child_id);
         
         // Check for cycles
-        if self.would_create_cycle(parent_id, child_id)? {
+        if self.would_create_cycle(parent_id, child_id) {
             return Err(MCPError::Security(SecurityError::RBACError(
                 format!("Adding inheritance from {parent_id} to {child_id} would create a cycle")
             )));
@@ -131,13 +133,13 @@ impl InheritanceGraph {
         }
         
         // Update inheritance depths
-        self.update_depths()?;
+        self.update_depths();
         
         Ok(())
     }
     
     /// Remove an inheritance relationship
-    pub(super) fn remove_inheritance(&mut self, parent_id: &str, child_id: &str) -> Result<()> {
+    pub(super) fn remove_inheritance(&mut self, parent_id: &str, child_id: &str) {
         // Remove parent from child's parents
         if let Some(child_node) = self.nodes.get_mut(child_id) {
             child_node.parents.remove(parent_id);
@@ -149,13 +151,11 @@ impl InheritanceGraph {
         }
         
         // Update inheritance depths
-        self.update_depths()?;
-        
-        Ok(())
+        self.update_depths();
     }
     
     /// Update inheritance depths for all nodes
-    fn update_depths(&mut self) -> Result<()> {
+    fn update_depths(&mut self) {
         // Reset all depths
         for node in self.nodes.values_mut() {
             node.depth = 0;
@@ -185,15 +185,13 @@ impl InheritanceGraph {
                 }
             }
         }
-        
-        Ok(())
     }
     
     /// Check if adding an inheritance relationship would create a cycle
-    fn would_create_cycle(&self, parent_id: &str, child_id: &str) -> Result<bool> {
+    fn would_create_cycle(&self, parent_id: &str, child_id: &str) -> bool {
         // If parent and child are the same, it's a cycle
         if parent_id == child_id {
-            return Ok(true);
+            return true;
         }
         
         // Check if child is already an ancestor of parent
@@ -203,7 +201,7 @@ impl InheritanceGraph {
         
         while let Some(current_id) = queue.pop_front() {
             if current_id == parent_id {
-                return Ok(true);
+                return true;
             }
             
             if let Some(current_node) = self.nodes.get(&current_id) {
@@ -216,11 +214,11 @@ impl InheritanceGraph {
             }
         }
         
-        Ok(false)
+        false
     }
     
     /// Get all ancestors of a role (parent roles)
-    pub(super) fn get_ancestors(&self, role_id: &str) -> Result<HashSet<String>> {
+    pub(super) fn get_ancestors(&self, role_id: &str) -> HashSet<String> {
         let mut ancestors = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -247,11 +245,17 @@ impl InheritanceGraph {
             }
         }
         
-        Ok(ancestors)
+        ancestors
     }
     
     /// Get all descendants of a role (child roles)
-    pub(super) fn get_descendants(&self, role_id: &str) -> Result<HashSet<String>> {
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to get descendants for
+    ///
+    /// # Returns
+    /// A `HashSet` containing the IDs of all descendant roles
+    pub(super) fn get_descendants(&self, role_id: &str) -> HashSet<String> {
         let mut descendants = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -278,13 +282,13 @@ impl InheritanceGraph {
             }
         }
         
-        Ok(descendants)
+        descendants
     }
     
     /// Check if a role inherits from another role
-    pub(super) fn inherits_from(&self, child_id: &str, parent_id: &str) -> Result<bool> {
-        let ancestors = self.get_ancestors(child_id)?;
-        Ok(ancestors.contains(parent_id))
+    pub(super) fn inherits_from(&self, child_id: &str, parent_id: &str) -> bool {
+        let ancestors = self.get_ancestors(child_id);
+        ancestors.contains(parent_id)
     }
     
     /// Get the inheritance relationship between parent and child
@@ -293,32 +297,38 @@ impl InheritanceGraph {
         parent_id: &str,
         child_id: &str,
     ) -> Option<InheritanceType> {
-        if let Some(child_node) = self.nodes.get(child_id) {
-            return child_node.parents.get(parent_id).cloned();
-        }
-        None
+        self.nodes.get(child_id).and_then(|child_node| child_node.parents.get(parent_id).cloned())
     }
     
-    /// Get all permissions inherited by a role based on inheritance rules
+    /// Get all permissions inherited by a role
+    ///
+    /// Retrieves all permissions that a role inherits from its ancestor roles,
+    /// considering inheritance types and conditions.
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to get inherited permissions for
+    /// * `role_map` - Map of role IDs to Role objects
+    /// * `context` - Optional permission context for evaluating conditional inheritance
+    ///
+    /// # Returns
+    /// A `HashSet` containing all inherited permissions
     pub(super) fn get_inherited_permissions(
         &self,
         role_id: &str,
         role_map: &HashMap<String, Role>,
         context: Option<&PermissionContext>,
-    ) -> Result<HashSet<Permission>> {
+    ) -> HashSet<PermissionDefinition> {
         let mut permissions = HashSet::new();
-        let ancestors = self.get_ancestors(role_id)?;
+        let ancestors = self.get_ancestors(role_id);
         
         for ancestor_id in ancestors {
-            if let Some(ancestor_role) = role_map.get(&ancestor_id) {
+            role_map.get(&ancestor_id).map(|ancestor_role| {
                 let inheritance_type = self.get_inheritance_type(&ancestor_id, role_id);
                 
                 match inheritance_type {
                     Some(InheritanceType::Direct) => {
                         // Direct inheritance: include all permissions
-                        for permission in &ancestor_role.permissions {
-                            permissions.insert(permission.clone());
-                        }
+                        permissions.extend(ancestor_role.permissions.clone());
                     }
                     
                     Some(InheritanceType::Filtered {
@@ -337,10 +347,8 @@ impl InheritanceGraph {
                     Some(InheritanceType::Conditional { condition }) => {
                         // Conditional inheritance: evaluate condition
                         if let Some(ctx) = context {
-                            if self.evaluate_condition(&condition, ctx) {
-                                for permission in &ancestor_role.permissions {
-                                    permissions.insert(permission.clone());
-                                }
+                            if Self::evaluate_condition(&condition, ctx) {
+                                permissions.extend(ancestor_role.permissions.clone());
                             }
                         }
                     }
@@ -348,29 +356,25 @@ impl InheritanceGraph {
                     Some(InheritanceType::Delegated { expires_at, .. }) => {
                         // Delegated inheritance: check expiration
                         let now = Utc::now();
-                        if expires_at.is_none() || expires_at.unwrap() > now {
-                            for permission in &ancestor_role.permissions {
-                                permissions.insert(permission.clone());
-                            }
+                        if expires_at.map_or(true, |exp_time| exp_time > now) {
+                            permissions.extend(ancestor_role.permissions.clone());
                         }
                     }
                     
                     None => {
                         // No direct inheritance, but ancestor is in the ancestry graph
                         // This means there's an indirect inheritance
-                        for permission in &ancestor_role.permissions {
-                            permissions.insert(permission.clone());
-                        }
+                        permissions.extend(ancestor_role.permissions.clone());
                     }
                 }
-            }
+            });
         }
         
-        Ok(permissions)
+        permissions
     }
     
     /// Evaluate a condition expression
-    fn evaluate_condition(&self, condition: &str, context: &PermissionContext) -> bool {
+    fn evaluate_condition(condition: &str, context: &PermissionContext) -> bool {
         // Simple condition evaluation based on context attributes
         // In a real implementation, this would use a proper expression evaluator
         
@@ -494,10 +498,37 @@ impl InheritanceGraph {
     
     /// Check if there is a direct inheritance relationship between parent and child
     pub(super) fn has_inheritance(&self, parent_id: &str, child_id: &str) -> bool {
-        if let Some(child_node) = self.nodes.get(child_id) {
+        self.nodes.get(child_id).map_or(false, |child_node| child_node.parents.contains_key(parent_id))
+    }
+
+    /// Check if a role has a direct inheritance relationship with another role
+    pub(super) fn has_direct_inheritance(&self, child_id: &str, parent_id: &str) -> bool {
+        self.nodes.get(child_id).map_or(false, |child_node| 
             child_node.parents.contains_key(parent_id)
-        } else {
-            false
+        )
+    }
+
+    /// Get all roles that inherit from a role (directly or indirectly)
+    pub(super) fn get_inherited_by_roles(&self, role_id: &str) -> HashSet<String> {
+        let mut result = HashSet::new();
+        let mut visited = HashSet::new();
+        
+        self.dfs_children(role_id, &mut result, &mut visited);
+        
+        result
+    }
+
+    /// Perform depth-first search to find all children of a role
+    fn dfs_children(&self, role_id: &str, result: &mut HashSet<String>, visited: &mut HashSet<String>) {
+        if !visited.insert(role_id.to_string()) {
+            return;
+        }
+
+        if let Some(node) = self.nodes.get(role_id) {
+            for child_id in node.children.keys() {
+                result.insert(child_id.to_string());
+                self.dfs_children(child_id, result, visited);
+            }
         }
     }
 }
@@ -524,22 +555,67 @@ impl InheritanceManager {
     }
     
     /// Add a role to the inheritance graph
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to add
+    ///
+    /// # Returns
+    /// `Ok(())` if the role was successfully added
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * An internal graph operation fails
+    /// * There is a failure in acquiring the write lock
     pub async fn add_role(&self, role_id: &str) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.add_role(role_id)
+        self.graph.write().await.add_role(role_id);
+        Ok(())
     }
     
     /// Add a direct inheritance relationship
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    ///
+    /// # Returns
+    /// `Ok(())` if the inheritance relationship was successfully created
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The parent role does not exist
+    /// * The child role does not exist
+    /// * Adding this relationship would create a cycle in the inheritance graph
+    /// * There is a failure in acquiring the write lock
     pub async fn add_direct_inheritance(
         &self,
         parent_id: &str,
         child_id: &str,
     ) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.add_inheritance(parent_id, child_id, InheritanceType::Direct)
+        self.graph.write().await.add_inheritance(parent_id, child_id, InheritanceType::Direct)?;
+        Ok(())
     }
     
     /// Add a filtered inheritance relationship
+    ///
+    /// Creates an inheritance relationship where the child role only inherits
+    /// specific permissions from the parent role, controlled by inclusion and
+    /// exclusion lists.
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    /// * `include` - Set of permission IDs to include (empty means include all)
+    /// * `exclude` - Set of permission IDs to exclude
+    ///
+    /// # Returns
+    /// `Ok(())` if the filtered inheritance relationship was successfully created
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The parent role does not exist
+    /// * The child role does not exist
+    /// * Adding this relationship would create a cycle in the inheritance graph
+    /// * There is a failure in acquiring the write lock
     pub async fn add_filtered_inheritance(
         &self,
         parent_id: &str,
@@ -547,35 +623,75 @@ impl InheritanceManager {
         include: HashSet<String>,
         exclude: HashSet<String>,
     ) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.add_inheritance(
+        self.graph.write().await.add_inheritance(
             parent_id,
             child_id,
             InheritanceType::Filtered {
                 include,
                 exclude,
             },
-        )
+        )?;
+        Ok(())
     }
     
     /// Add a conditional inheritance relationship
+    ///
+    /// Creates an inheritance relationship where the child role only inherits
+    /// permissions from the parent role when a specific condition is met.
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    /// * `condition` - String expression representing the condition for inheritance
+    ///
+    /// # Returns
+    /// `Ok(())` if the conditional inheritance relationship was successfully created
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The parent role does not exist
+    /// * The child role does not exist
+    /// * Adding this relationship would create a cycle in the inheritance graph
+    /// * The condition string is invalid or malformed
+    /// * There is a failure in acquiring the write lock
     pub async fn add_conditional_inheritance(
         &self,
         parent_id: &str,
         child_id: &str,
         condition: String,
     ) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.add_inheritance(
+        self.graph.write().await.add_inheritance(
             parent_id,
             child_id,
             InheritanceType::Conditional {
                 condition,
             },
-        )
+        )?;
+        Ok(())
     }
     
     /// Add a delegated inheritance relationship
+    ///
+    /// Creates a temporary inheritance relationship where the child role inherits
+    /// permissions from the parent role through delegation by another user.
+    /// This can be used for temporary access grants or specific delegation scenarios.
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    /// * `delegator_id` - ID of the user who delegated the permissions
+    /// * `expires_at` - Optional expiration time for the delegation
+    ///
+    /// # Returns
+    /// `Ok(())` if the delegated inheritance relationship was successfully created
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The parent role does not exist
+    /// * The child role does not exist
+    /// * The delegator does not have delegation permissions
+    /// * Adding this relationship would create a cycle in the inheritance graph
+    /// * There is a failure in acquiring the write lock
     pub async fn add_delegated_inheritance(
         &self,
         parent_id: &str,
@@ -583,58 +699,107 @@ impl InheritanceManager {
         delegator_id: String,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.add_inheritance(
+        self.graph.write().await.add_inheritance(
             parent_id,
             child_id,
             InheritanceType::Delegated {
                 delegator_id,
                 expires_at,
             },
-        )
+        )?;
+        Ok(())
     }
     
     /// Remove an inheritance relationship
+    ///
+    /// Removes an existing inheritance relationship between the parent and child roles.
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    ///
+    /// # Returns
+    /// `Ok(())` if the inheritance relationship was successfully removed
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The parent role does not exist
+    /// * The child role does not exist
+    /// * No inheritance relationship exists between the roles
+    /// * There is a failure in acquiring the write lock
     pub async fn remove_inheritance(
         &self,
         parent_id: &str,
         child_id: &str,
     ) -> Result<()> {
-        let mut graph = self.graph.write().await;
-        graph.remove_inheritance(parent_id, child_id)
+        self.graph.write().await.remove_inheritance(parent_id, child_id);
+        Ok(())
     }
     
     /// Get all ancestors of a role
-    pub async fn get_ancestors(&self, role_id: &str) -> Result<HashSet<String>> {
+    ///
+    /// Retrieves all roles that the specified role inherits from, directly or indirectly.
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to get ancestors for
+    ///
+    /// # Returns
+    /// A `HashSet` containing the IDs of all ancestor roles
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The role does not exist
+    /// * The inheritance graph cannot be traversed
+    /// * There is a failure in acquiring the read lock
+    pub async fn get_ancestors(&self, role_id: &str) -> HashSet<String> {
         let graph = self.graph.read().await;
         graph.get_ancestors(role_id)
     }
     
     /// Get all descendants of a role
-    pub async fn get_descendants(&self, role_id: &str) -> Result<HashSet<String>> {
+    ///
+    /// Retrieves all roles that inherit from the specified role, directly or indirectly.
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to get descendants for
+    ///
+    /// # Returns
+    /// A `HashSet` containing the IDs of all descendant roles
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The role does not exist
+    /// * The inheritance graph cannot be traversed
+    /// * There is a failure in acquiring the read lock
+    pub async fn get_descendants(&self, role_id: &str) -> HashSet<String> {
         let graph = self.graph.read().await;
         graph.get_descendants(role_id)
     }
     
     /// Check if a role inherits from another role
+    ///
+    /// Determines whether a child role inherits from a parent role,
+    /// either directly or through inheritance chains.
+    ///
+    /// # Arguments
+    /// * `child_id` - ID of the child role to check
+    /// * `parent_id` - ID of the parent role to check
+    ///
+    /// # Returns
+    /// `Ok(true)` if the child role inherits from the parent role, `Ok(false)` otherwise
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * Either the child or parent role does not exist
+    /// * There is a failure in acquiring the read lock
+    /// * The inheritance graph cannot be traversed
     pub async fn inherits_from(
         &self,
         child_id: &str,
         parent_id: &str,
     ) -> Result<bool> {
         let graph = self.graph.read().await;
-        graph.inherits_from(child_id, parent_id)
-    }
-    
-    /// Get all permissions inherited by a role
-    pub async fn get_inherited_permissions(
-        &self,
-        role_id: &str,
-        role_map: &HashMap<String, Role>,
-        context: Option<&PermissionContext>,
-    ) -> Result<HashSet<Permission>> {
-        let graph = self.graph.read().await;
-        graph.get_inherited_permissions(role_id, role_map, context)
+        Ok(graph.inherits_from(child_id, parent_id))
     }
     
     /// Get inheritance diagram as DOT format
@@ -642,4 +807,42 @@ impl InheritanceManager {
         let graph = self.graph.read().await;
         graph.to_dot()
     }
-} 
+
+    /// Get the inheritance type between two roles
+    ///
+    /// # Arguments
+    /// * `parent_id` - ID of the parent role
+    /// * `child_id` - ID of the child role
+    ///
+    /// # Returns
+    /// The inheritance type if a relationship exists, None otherwise
+    ///
+    /// # Errors
+    /// This function will return an error if there is a failure in acquiring the read lock
+    pub async fn get_inheritance_type(&self, parent_id: &str, child_id: &str) -> Result<Option<InheritanceType>> {
+        let graph = self.graph.read().await;
+        Ok(graph.get_inheritance_type(parent_id, child_id))
+    }
+
+    /// Get all permissions inherited by a role
+    ///
+    /// # Arguments
+    /// * `role_id` - ID of the role to get permissions for
+    /// * `role_map` - Map of role IDs to roles
+    /// * `context` - Optional permission context for evaluating conditional inheritance
+    ///
+    /// # Returns
+    /// Set of inherited permissions
+    ///
+    /// # Errors
+    /// This function will return an error if there is a failure in acquiring the read lock
+    pub async fn get_inherited_permissions(
+        &self,
+        role_id: &str,
+        role_map: &HashMap<String, Role>,
+        context: Option<&PermissionContext>,
+    ) -> Result<HashSet<PermissionDefinition>> {
+        let graph = self.graph.read().await;
+        Ok(graph.get_inherited_permissions(role_id, role_map, context))
+    }
+}

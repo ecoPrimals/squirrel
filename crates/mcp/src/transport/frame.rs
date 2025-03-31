@@ -1,39 +1,25 @@
-// Message framing for MCP transports
+// Frame implementation for MCP transport
 //
-// This module provides a message framing mechanism for MCP (Machine Context Protocol)
-// transports. It implements a simple length-prefixed framing protocol where each frame
-// consists of a 4-byte header containing the frame length, followed by the frame payload.
+// This module provides a framing mechanism for MCP messages sent over byte streams.
+// It handles encoding/decoding messages into frames and preserving message boundaries.
 //
-// The framing mechanism ensures message boundaries are preserved during transport over
-// byte-oriented streams like TCP connections. It handles message fragmentation and
-// reassembly, allowing complete messages to be reliably sent and received even when
-// the underlying transport may split or combine data.
-//
-// Key components include:
-// - Frame: Represents a protocol frame with its payload
-// - FrameReader: Reads frames from an AsyncRead stream
-// - FrameWriter: Writes frames to an AsyncWrite stream
-// - MessageCodec: Encodes and decodes MCPMessages to and from frames
+// The framing protocol is simple:
+// - Each frame starts with a 4-byte length header, containing the byte length of the payload
+// - The header is in big-endian byte order for network compatibility
+// - The payload follows immediately after the header
+// - No explicit footer or frame boundary marker is used
 
-use bytes::{BytesMut, BufMut, Buf};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
-use serde::{Serialize, Deserialize};
-use crate::error::{MCPError, Result};
-use crate::types::MCPMessage;
-use crate::error::transport::TransportError;
+use bytes::{BytesMut, BufMut, Buf};
+use crate::protocol::MCPMessage;
+use crate::error::{Result, MCPError, ProtocolError, TransportError};
+use crate::protocol::adapter_wire::WireFormatError;
+use serde_json;
+use tokio_util::codec::{Decoder, Encoder};
 
-/// Maximum frame size (10 MB)
-///
-/// Frames larger than this size will be rejected for security and resource
-/// management reasons. This helps prevent potential denial of service attacks
-/// through excessively large messages.
-const MAX_FRAME_SIZE: usize = 10 * 1024 * 1024;
-
-/// Frame header size (4 bytes for length)
-///
-/// Each frame starts with a 4-byte (32-bit) big-endian unsigned integer
-/// specifying the length of the payload in bytes.
-const HEADER_SIZE: usize = 4;
+// Constants for framing
+const HEADER_SIZE: usize = 4;      // 4-byte header for length
+const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024; // 16 MB max frame size
 
 /// A frame used for message transport
 ///
@@ -295,7 +281,17 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
         }
         
         // Write frame length header
-        let header = (frame.len() as u32).to_be_bytes();
+        let header = u32::try_from(frame.len())
+            .map_err(|_| {
+                let error_msg = format!(
+                    "Frame size exceeds maximum representable u32 value: {} bytes",
+                    frame.len()
+                );
+                let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
+                transport_err
+            })?
+            .to_be_bytes();
+            
         self.writer.write_all(&header).await
             .map_err(|e| {
                 let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
@@ -399,6 +395,90 @@ impl MessageCodec {
             })?;
         
         Ok(message)
+    }
+}
+
+impl Decoder for MessageCodec {
+    type Item = MCPMessage;
+    type Error = TransportError;
+
+    fn decode(&mut self, src: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
+        // Check if we have enough data to read the length
+        if src.len() < HEADER_SIZE {
+            return Ok(None);
+        }
+
+        // Read the message length (u32)
+        let mut length_bytes = [0u8; HEADER_SIZE];
+        length_bytes.copy_from_slice(&src[..HEADER_SIZE]);
+        let length = u32::from_be_bytes(length_bytes) as usize;
+
+        // Check for potentially malicious large frame size early
+        if length > MAX_FRAME_SIZE {
+             return Err(TransportError::InvalidFrame(
+                format!("Frame size too large: {} > {}", length, MAX_FRAME_SIZE)
+            ));
+        }
+
+        // Check if we have the complete message frame (header + payload)
+        if src.len() < HEADER_SIZE + length {
+            // Not enough data yet, reserve space and wait for more
+            src.reserve(HEADER_SIZE + length - src.len());
+            return Ok(None);
+        }
+
+        // Consume the length prefix
+        src.advance(HEADER_SIZE);
+
+        // Read the message data payload
+        let data = src.split_to(length);
+
+        // Deserialize the message from the payload (assuming JSON)
+        serde_json::from_slice::<MCPMessage>(&data)
+            .map(Some)
+            .map_err(|e| TransportError::SerializationError(e.to_string()))
+    }
+
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
+        match self.decode(buf)? {
+            Some(frame) => Ok(Some(frame)),
+            None => {
+                if buf.is_empty() {
+                    Ok(None)
+                } else {
+                    // Data remains but not enough for a full frame, indicates an error
+                    Err(TransportError::InvalidFrame("Bytes remaining on stream at EOF".into()))
+                }
+            }
+        }
+    }
+}
+
+impl Encoder<MCPMessage> for MessageCodec {
+    type Error = TransportError;
+
+    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> std::result::Result<(), Self::Error> {
+        // Serialize the message (assuming JSON for now)
+        let encoded = serde_json::to_vec(&item)
+            .map_err(|e| TransportError::SerializationError(e.to_string()))?;
+
+        let len = encoded.len();
+
+        // Check if frame size exceeds limit before encoding
+        if len > MAX_FRAME_SIZE {
+            return Err(TransportError::InvalidFrame(
+                format!("Message too large to encode: {} > {}", len, MAX_FRAME_SIZE)
+            ));
+        }
+
+        // Write the length prefix (u32)
+        dst.reserve(HEADER_SIZE + len);
+        dst.put_u32(len as u32); // Length is of the payload
+
+        // Write the message data payload
+        dst.put_slice(&encoded);
+
+        Ok(())
     }
 }
 

@@ -14,6 +14,8 @@ use tokio;
 use tracing::{info, error, Level};
 use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
+use squirrel_mcp::plugins::marketplace::{MarketplaceManager, RepositoryConfig};
+use squirrel_mcp::error::Result;
 
 // Import directly from squirrel_plugins
 use squirrel_plugins::RepositoryManager;

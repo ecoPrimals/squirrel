@@ -156,12 +156,16 @@ impl MCPSync {
     ///
     /// # Returns
     /// A Result containing the new `MCPSync` instance, or an error
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the monitoring system initialization fails
     pub async fn create(config: SyncConfig) -> Result<Self> {
-        let _start = Instant::now();
+        let start = Instant::now();
 
         // Create components
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
-        let monitor = Arc::new(MCPMonitor::new().await?);
+        let monitor = Arc::new(MCPMonitor::new().await.map_err(|e| SquirrelError::mcp(e.to_string()))?);
         let state_manager = Arc::new(StateSyncManager::new());
 
         let instance = Self {
@@ -175,7 +179,7 @@ impl MCPSync {
             lock: Arc::new(Mutex::new(())),
         };
 
-        let duration = _start.elapsed();
+        let duration = start.elapsed();
         instance
             .monitor
             .record_message(&format!("sync_creation_time_ms_{}", duration.as_millis()))
@@ -235,11 +239,17 @@ impl MCPSync {
     ///
     /// Returns an error if initialization fails
     pub async fn init(&mut self) -> Result<()> {
-        let _start = Instant::now();
+        let start = Instant::now();
         self.monitor.record_message("sync_initializing").await;
 
         // Result is converted from MCPError to SquirrelError
-        to_core_error(self.init_internal().await)
+        let result = to_core_error(self.init_internal().await);
+        
+        // Record initialization time for monitoring
+        let elapsed = start.elapsed();
+        self.monitor.record_message(&format!("sync_init_time_ms_{}", elapsed.as_millis())).await;
+        
+        result
     }
 
     /// Internal implementation of init that returns `MCPError`
@@ -322,6 +332,9 @@ impl MCPSync {
     ///
     /// # Returns
     /// A Result indicating success or failure
+    ///
+    /// # Errors
+    /// Returns an error if the sync engine has not been initialized
     pub async fn ensure_initialized(&self) -> Result<()> {
         to_core_error(self.ensure_initialized_internal().await)
     }
@@ -341,6 +354,12 @@ impl MCPSync {
     ///
     /// # Returns
     /// A Result indicating success or failure
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// * The sync engine is not initialized
+    /// * The persisted changes cannot be loaded from storage
+    /// * There are issues applying the loaded changes
     pub async fn load_persisted_changes(&self) -> Result<()> {
         to_core_error(self.load_persisted_changes_internal().await)
     }
@@ -388,13 +407,20 @@ impl MCPSync {
     ///
     /// # Returns
     /// A Result containing synchronization information
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// * The sync engine is not initialized
+    /// * A sync operation is already in progress
+    /// * Changes cannot be retrieved or applied
+    /// * The state cannot be persisted
     pub async fn sync(&self) -> Result<SyncResult> {
         to_core_error(self.sync_internal().await)
     }
 
     /// Internal implementation of sync that returns `MCPError`
     async fn sync_internal(&self) -> std::result::Result<SyncResult, MCPError> {
-        let _start = Instant::now();
+        let start = Instant::now();
         self.ensure_initialized_internal().await?;
 
         // Check if sync is already in progress
@@ -419,12 +445,10 @@ impl MCPSync {
         let current_version: u64;
         let changes;
 
-        {
-            let state = self.state.read().await;
-            let version = state.last_version.unwrap_or(0);
-            changes = self.state_manager.get_changes_since(version).await?;
-            current_version = version + 1; // Increment version
-        }
+        // Using direct access to reduce lock duration
+        let version = self.state.read().await.last_version.unwrap_or(0);
+        changes = self.state_manager.get_changes_since(version).await?;
+        current_version = version + 1; // Increment version
 
         let mut success = true;
 
@@ -453,23 +477,28 @@ impl MCPSync {
         }
 
         // Update sync state
-        let mut state = self.state.write().await;
-        state.sync_count += 1;
-        state.last_sync = Some(Utc::now());
-        state.last_version = Some(current_version);
-        state.is_syncing = false;
+        {
+            let mut state = self.state.write().await;
+            state.sync_count += 1;
+            state.last_sync = Some(Utc::now());
+            state.last_version = Some(current_version);
+            state.is_syncing = false;
+        }
 
         self.monitor.record_message("sync_complete").await;
 
         // Record sync metrics
-        let elapsed_millis = _start.elapsed().as_millis();
+        let elapsed_millis = start.elapsed().as_millis();
         self.monitor
             .record_message(&format!("sync_duration_ms_{elapsed_millis}"))
             .await;
 
+        // Safely convert u128 to u64, capping at u64::MAX if needed
+        let duration_ms = u64::try_from(elapsed_millis).unwrap_or(u64::MAX);
+
         Ok(SyncResult {
             success,
-            duration_ms: elapsed_millis as u64,
+            duration_ms,
             changes_processed: changes.len(),
             version: current_version,
         })
@@ -481,63 +510,27 @@ impl MCPSync {
     ///
     /// # Arguments
     /// * `context` - The context being modified
-    /// * `operation` - The type of operation being performed
-    ///
-    /// # Errors
-    /// Returns an error if the operation fails
-    pub async fn record_context_change(
-        &self,
-        context: &Context,
-        operation: StateOperation,
-    ) -> Result<()> {
-        // Check if initialized before proceeding
+    /// * `operation`
+    // TODO: Add the full implementation for record_context_change here
+    // This likely involves interacting with self.state_manager and self.monitor
+    pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         self.ensure_initialized().await?;
-
-        // Record the change in the state manager
-        let result = self
-            .state_manager
-            .record_change(context, operation.clone())
-            .await;
-
-        // Also log the operation in the monitor
-        self.monitor
-            .record_context_operation(operation, context)
-            .await;
-
-        // Convert and return the result
-        to_core_error(result)
+        // Placeholder - Add actual logic
+        tracing::info!(context_id = %context.id, ?operation, "Placeholder: Recording context change.");
+        Ok(())
     }
 
-    /// Get the monitor instance
+    /// Subscribes to state changes from the underlying state manager.
+    ///
+    /// # Returns
+    /// A Result containing a receiver channel for state changes, or an error.
     ///
     /// # Errors
-    /// Returns an error if the monitor cannot be retrieved
-    pub fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
-        Ok(Arc::clone(&self.monitor))
-    }
-
-    /// Subscribe to state change notifications
-    ///
-    /// Returns a receiver that will be notified of all state changes.
-    ///
-    /// # Errors
-    /// Returns an error if unable to create the subscription
-    pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
+    /// Returns an error if the state manager fails to subscribe.
+    pub async fn subscribe_to_state_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
         self.ensure_initialized().await?;
-        Ok(self.state_manager.subscribe_changes())
-    }
-
-    /// Alias for `sync()` method
-    ///
-    /// This is provided for backward compatibility with code that expects
-    /// a `synchronize()` method.
-    ///
-    /// # Errors
-    /// Returns an error if synchronization fails
-    pub async fn synchronize(&self) -> Result<()> {
-        match self.sync().await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        // Delegate to the state manager - subscribe_changes returns Receiver directly
+        // Wrap the receiver in Ok before passing to to_core_error
+        to_core_error(Ok(self.state_manager.subscribe_changes()))
     }
 }

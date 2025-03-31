@@ -1,9 +1,13 @@
+//! Main entry point for the Squirrel application
+
 use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
 use tracing::{info, error};
 use squirrel_interfaces::plugins::PluginRegistry;
+use squirrel_mcp::plugins::PluginManager;
 use dashboard_core::config::DashboardConfig;
+use std::sync::Arc;
 
 // Conditional imports for TUI
 #[cfg(feature = "tui")]
@@ -11,7 +15,7 @@ use dashboard_core::service::{DashboardService, DefaultDashboardService};
 #[cfg(feature = "tui")]
 use ui_terminal;
 #[cfg(feature = "tui")]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 mod plugins;
 mod adapter;
@@ -119,4 +123,4 @@ async fn main() -> Result<()> {
     }
     
     Ok(())
-} 
+}

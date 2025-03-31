@@ -23,13 +23,29 @@
 //! - Additional details about the error
 
 use crate::error::context::ErrorSeverity;
-use crate::types::{MessageType, SecurityLevel};
+use crate::protocol::types::MessageType;
+use crate::security::types::SecurityLevel;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use squirrel_core::error::{Result as CoreResult, SquirrelError as CoreError};
 use thiserror::Error;
 use uuid;
+use std::fmt;
+
+// Import the moved error types
+use crate::error::connection::ConnectionError;
+use crate::error::protocol_err::ProtocolError;
+use crate::error::security_err::SecurityError;
+use crate::error::session::SessionError;
+use crate::error::context_err::ContextError;
+use crate::error::alert::AlertError;
+use crate::error::rbac::RBACError;
+use crate::error::port::PortErrorKind; // Keep this? MCPError doesn't use it directly yet.
+use crate::protocol::adapter_wire::WireFormatError;
+
+// Add import for ClientError
+use crate::error::client::ClientError;
 
 /// Main error type for MCP operations.
 ///
@@ -50,187 +66,149 @@ use uuid;
 ///     Ok(())
 /// }
 /// ```
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone)]
 pub enum MCPError {
     /// Error originating from the MCP transport layer
-    #[error("Transport error: {0}")]
     Transport(crate::error::transport::TransportError),
     
     /// Protocol errors
-    #[error("Protocol error: {0}")]
     Protocol(ProtocolError),
     
     /// Security errors
-    #[error("Security error: {0}")]
     Security(SecurityError),
     
     /// Connection errors
-    #[error("Connection error: {0}")]
     Connection(ConnectionError),
     
     /// Session errors
-    #[error("Session error: {0}")]
     Session(SessionError),
     
     /// Context errors
-    #[error("Context error: {0}")]
     Context(ContextError),
     
     /// Client errors
-    #[error("Client error: {0}")]
     Client(crate::error::client::ClientError),
     
     /// Message router errors
-    #[error("Message router error: {0}")]
     MessageRouter(crate::message_router::MessageRouterError),
     
+    /// Plugin system errors
+    Plugin(crate::error::plugin::PluginError),
+    
     /// Serialization errors
-    #[error("Serialization error: {0}")]
     Serialization(String),
     
     /// Deserialization errors
-    #[error("Deserialization error: {0}")]
     Deserialization(String),
     
     /// Invalid message errors
-    #[error("Invalid message: {0}")]
     InvalidMessage(String),
     
     /// State errors
-    #[error("State error: {0}")]
     State(String),
     
     /// Authorization errors
-    #[error("Authorization error: {0}")]
     Authorization(String),
     
     /// Unsupported operation errors
-    #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
     
     /// Circuit breaker errors
-    #[error("Circuit breaker error: {0}")]
     CircuitBreaker(String),
     
     /// IO errors - Use string representation since `std::io::Error` is not Clone
-    #[error("IO error: {0}")]
     IoDetail(String),
     
     /// JSON errors (`serde_json`) - Use string representation since `serde_json::Error` is not Clone
-    #[error("JSON error: {0}")]
     SerdeJsonDetail(String),
     
     /// Squirrel core errors - Use string representation since `SquirrelError` is not Clone
-    #[error("Squirrel core error: {0}")]
     SquirrelDetail(String),
     
     /// Persistence errors - Use string representation since `PersistenceError` is not Clone
-    #[error("Persistence error: {0}")]
     PersistenceDetail(String),
     
     /// Alert errors
-    #[error("Alert error: {0}")]
     Alert(AlertError),
     
     /// Storage errors
-    #[error("Storage error: {0}")]
     Storage(String),
     
     /// Not initialized errors
-    #[error("Not initialized: {0}")]
     NotInitialized(String),
     
     /// General errors
-    #[error("General error: {0}")]
     General(String),
     
     /// Network errors
-    #[error("Network error: {0}")]
     Network(String),
     
     /// Already in progress errors
-    #[error("Already in progress: {0}")]
     AlreadyInProgress(String),
     
     /// Monitoring system errors
-    #[error("Monitoring error: {0}")]
     Monitoring(String),
     
     /// Not connected errors
-    #[error("Not connected: {0}")]
     NotConnected(String),
     
     /// Timeout errors
-    #[error("Timeout: {0}")]
     Timeout(String),
     
     /// Remote errors
-    #[error("Remote error: {0}")]
     Remote(String),
     
     /// Configuration errors
-    #[error("Configuration error: {0}")]
     Configuration(String),
     
     /// Unexpected errors
-    #[error("Unexpected error: {0}")]
     Unexpected(String),
     
     /// Version mismatch errors
-    #[error("Version mismatch: {0}")]
     VersionMismatch(String),
     
     /// Unsupported errors
-    #[error("Unsupported: {0}")]
     Unsupported(String),
     
     /// Invalid argument errors
-    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
     
     /// Not found errors
-    #[error("Not found: {0}")]
     NotFound(String),
     
     /// Not implemented errors
-    #[error("Not implemented: {0}")]
     NotImplemented(String),
     
     /// Not authorized errors
-    #[error("Not authorized: {0}")]
     NotAuthorized(String),
     
     /// Invalid state errors
-    #[error("Invalid state: {0}")]
     InvalidState(String),
+    
+    /// Invalid operation errors
+    InvalidOperation(String),
+    
+    /// Internal system error
+    InternalError(String),
 }
 
-/// Error kinds for port-related errors.
-///
-/// These represent different ways in which network port operations can fail,
-/// such as when a port is not available, access is denied, or the port is
-/// outside the valid range.
-#[derive(Debug, Clone, Error)]
-pub enum PortErrorKind {
-    /// The requested port is not available
-    #[error("Port {0} is not available")]
-    NotAvailable(u16),
-    
-    /// Access to the requested port was denied
-    #[error("Access to port {0} was denied")]
-    AccessDenied(u16),
-    
-    /// The port is outside the valid range
-    #[error("Port {0} is outside the valid range")]
-    InvalidRange(u16),
-    
-    /// The port is already in use
-    #[error("Port {0} is already in use")]
-    InUse(u16),
-    
-    /// A generic port-related error
-    #[error("Port error: {0}")]
-    Other(String),
+/// Errors related to Authentication and Authorization
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AuthError {
+    #[error("Invalid credentials provided.")]
+    InvalidCredentials,
+    #[error("Authentication token is invalid or expired.")]
+    InvalidToken,
+    #[error("User account is locked or inactive.")]
+    AccountLocked,
+    #[error("Permission denied for action on resource '{0}'.")]
+    PermissionDenied(String), // Holds permission identifier
+    #[error("Authorization context is missing or invalid.")]
+    MissingContext,
+    #[error("External authentication provider error: {0}")]
+    ProviderError(String),
+    #[error("An internal authentication error occurred: {0}")]
+    InternalError(String),
 }
 
 impl MCPError {
@@ -271,7 +249,8 @@ impl MCPError {
             Self::Security(
                 SecurityError::AuthenticationFailed(_) | SecurityError::TokenExpired,
             )
-            | Self::Connection(ConnectionError::Timeout(_) | ConnectionError::Reset) => true,
+            | Self::Connection(ConnectionError::Timeout(_) | ConnectionError::Reset)
+            | Self::UnsupportedOperation(_) => true,
 
             // Default case - all other errors are non-recoverable
             _ => false,
@@ -301,6 +280,7 @@ impl MCPError {
             ) => ErrorSeverity::High,
 
             Self::Protocol(ProtocolError::InvalidVersion(_)) => ErrorSeverity::High,
+            Self::UnsupportedOperation(_) => ErrorSeverity::Medium,
 
             // All other errors are low severity
             _ => ErrorSeverity::Low,
@@ -311,7 +291,7 @@ impl MCPError {
     ///
     /// The error code consists of a category prefix and a numeric code, e.g., "MCP-001".
     /// This can be used for error tracking and reporting.
-    #[must_use] pub fn error_code(&self) -> String {
+    #[must_use] pub fn code_str(&self) -> &'static str {
         match self {
             Self::Transport(_) => "MCP-001",
             Self::Protocol(_) => "MCP-002",
@@ -319,40 +299,94 @@ impl MCPError {
             Self::Connection(_) => "MCP-004",
             Self::Session(_) => "MCP-005",
             Self::Context(_) => "MCP-006",
-            Self::Serialization(_) => "MCP-007",
-            Self::Deserialization(_) => "MCP-008",
-            Self::InvalidMessage(_) => "MCP-009",
-            Self::State(_) => "MCP-010",
-            Self::Authorization(_) => "MCP-011",
-            Self::UnsupportedOperation(_) => "MCP-012",
-            Self::CircuitBreaker(_) => "MCP-013",
-            Self::IoDetail(_) => "MCP-014",
-            Self::SerdeJsonDetail(_) => "MCP-015",
-            Self::SquirrelDetail(_) => "MCP-016",
-            Self::PersistenceDetail(_) => "MCP-017",
-            Self::Alert(_) => "MCP-018",
-            Self::Storage(_) => "MCP-019",
-            Self::NotInitialized(_) => "MCP-020",
-            Self::General(_) => "MCP-021",
-            Self::Network(_) => "MCP-022",
-            Self::AlreadyInProgress(_) => "MCP-023",
-            Self::Monitoring(_) => "MCP-024",
-            Self::NotConnected(_) => "MCP-025",
-            Self::Timeout(_) => "MCP-026",
-            Self::Remote(_) => "MCP-027",
-            Self::Configuration(_) => "MCP-028",
-            Self::Unexpected(_) => "MCP-029",
-            Self::VersionMismatch(_) => "MCP-030",
-            Self::Unsupported(_) => "MCP-031",
-            Self::InvalidArgument(_) => "MCP-032",
-            Self::NotFound(_) => "MCP-033",
-            Self::NotImplemented(_) => "MCP-034",
-            Self::NotAuthorized(_) => "MCP-035",
-            Self::InvalidState(_) => "MCP-036",
-            Self::Client(_) => "MCP-037",
-            Self::MessageRouter(_) => "MCP-038",
+            Self::Client(_) => "MCP-007",
+            Self::MessageRouter(_) => "MCP-008",
+            Self::Serialization(_) => "MCP-009",
+            Self::Deserialization(_) => "MCP-010",
+            Self::InvalidMessage(_) => "MCP-011",
+            Self::State(_) => "MCP-012",
+            Self::Authorization(_) => "MCP-013",
+            Self::UnsupportedOperation(_) => "MCP-014",
+            Self::CircuitBreaker(_) => "MCP-015",
+            Self::IoDetail(_) => "MCP-016",
+            Self::SerdeJsonDetail(_) => "MCP-017",
+            Self::SquirrelDetail(_) => "MCP-018",
+            Self::PersistenceDetail(_) => "MCP-019",
+            Self::Alert(_) => "MCP-020",
+            Self::Storage(_) => "MCP-021",
+            Self::NotInitialized(_) => "MCP-022",
+            Self::General(_) => "MCP-023",
+            Self::Network(_) => "MCP-024",
+            Self::AlreadyInProgress(_) => "MCP-025",
+            Self::Monitoring(_) => "MCP-026",
+            Self::NotConnected(_) => "MCP-027",
+            Self::Timeout(_) => "MCP-028",
+            Self::Remote(_) => "MCP-029",
+            Self::Configuration(_) => "MCP-030",
+            Self::Unexpected(_) => "MCP-031",
+            Self::VersionMismatch(_) => "MCP-033",
+            Self::Unsupported(_) => "MCP-034",
+            Self::InvalidArgument(_) => "MCP-035",
+            Self::NotFound(_) => "MCP-036",
+            Self::NotImplemented(_) => "MCP-037",
+            Self::NotAuthorized(_) => "MCP-038",
+            Self::InvalidState(_) => "MCP-039",
+            Self::InvalidOperation(_) => "MCP-040",
+            Self::InternalError(_) => "MCP-041",
+            Self::Plugin(_) => "MCP-032",
         }
-        .to_string()
+    }
+
+    /// For backwards compatibility with existing code
+    #[must_use] pub fn error_code(&self) -> String {
+        self.code_str().to_string()
+    }
+
+    /// Returns a string representation of the general error category.
+    pub fn category_str(&self) -> &'static str {
+        match self {
+            MCPError::Transport(_) => "TRANSPORT",
+            MCPError::Protocol(_) => "PROTOCOL",
+            MCPError::Security(_) => "SECURITY",
+            MCPError::Network(_) => "NETWORK",
+            MCPError::Serialization(_) => "SERIALIZATION",
+            MCPError::Authorization(_) => "AUTHORIZATION",
+            MCPError::Configuration(_) => "CONFIGURATION",
+            MCPError::InvalidArgument(_) => "INVALID_ARGUMENT",
+            MCPError::NotFound(_) => "NOT_FOUND",
+            MCPError::Connection(_) => "CONNECTION",
+            MCPError::Session(_) => "SESSION",
+            MCPError::Context(_) => "CONTEXT",
+            MCPError::Client(_) => "CLIENT",
+            MCPError::MessageRouter(_) => "MESSAGE_ROUTER",
+            MCPError::Deserialization(_) => "DESERIALIZATION",
+            MCPError::InvalidMessage(_) => "INVALID_MESSAGE",
+            MCPError::State(_) => "STATE",
+            MCPError::UnsupportedOperation(_) => "UNSUPPORTED_OPERATION",
+            MCPError::CircuitBreaker(_) => "CIRCUIT_BREAKER",
+            MCPError::IoDetail(_) => "IO",
+            MCPError::SerdeJsonDetail(_) => "SERDE_JSON",
+            MCPError::SquirrelDetail(_) => "SQUIRREL",
+            MCPError::PersistenceDetail(_) => "PERSISTENCE",
+            MCPError::Alert(_) => "ALERT",
+            MCPError::Storage(_) => "STORAGE",
+            MCPError::NotInitialized(_) => "NOT_INITIALIZED",
+            MCPError::General(_) => "GENERAL",
+            MCPError::AlreadyInProgress(_) => "ALREADY_IN_PROGRESS",
+            MCPError::Monitoring(_) => "MONITORING",
+            MCPError::NotConnected(_) => "NOT_CONNECTED",
+            MCPError::Timeout(_) => "TIMEOUT",
+            MCPError::Remote(_) => "REMOTE",
+            MCPError::Unexpected(_) => "UNEXPECTED",
+            MCPError::Plugin(_) => "PLUGIN",
+            MCPError::VersionMismatch(_) => "VERSION_MISMATCH",
+            MCPError::Unsupported(_) => "UNSUPPORTED",
+            MCPError::NotImplemented(_) => "NOT_IMPLEMENTED",
+            MCPError::NotAuthorized(_) => "NOT_AUTHORIZED",
+            MCPError::InvalidState(_) => "INVALID_STATE",
+            MCPError::InvalidOperation(_) => "INVALID_OPERATION",
+            Self::InternalError(_) => "INTERNAL_ERROR",
+        }
     }
 }
 
@@ -367,526 +401,6 @@ impl From<serde_json::Error> for MCPError {
     fn from(err: serde_json::Error) -> Self {
         Self::SerdeJsonDetail(err.to_string())
     }
-}
-
-/// Error handler with retry capabilities
-///
-/// Provides mechanisms for handling errors, including automatic retry with
-/// configurable backoff, error context tracking, and recovery strategies.
-#[derive(Debug)]
-pub struct ErrorHandler {
-    /// Maximum number of retry attempts
-    /// This defines how many times the handler will retry an operation before giving up
-    max_retries: u32,
-    /// Delay between retry attempts
-    /// Specifies how long to wait between retry attempts
-    retry_delay: std::time::Duration,
-    /// Context information for errors
-    /// Contains metadata and context about the errors being handled
-    error_context: ErrorContext,
-}
-
-impl ErrorHandler {
-    /// Creates a new `ErrorHandler` with the specified retry parameters
-    ///
-    /// # Arguments
-    ///
-    /// * `max_retries` - Maximum number of times to retry failed operations
-    /// * `retry_delay` - How long to wait between retry attempts
-    /// * `operation` - Name or description of the operation being handled
-    /// * `component` - Name of the component where the operation is performed
-    ///
-    /// # Returns
-    ///
-    /// A new `ErrorHandler` configured with the specified parameters
-    pub fn new(
-        max_retries: u32,
-        retry_delay: std::time::Duration,
-        operation: impl Into<String>,
-        component: impl Into<String>,
-    ) -> Self {
-        Self {
-            max_retries,
-            retry_delay,
-            error_context: ErrorContext::new(operation, component),
-        }
-    }
-
-    /// Handles operation errors with automatic retries
-    ///
-    /// # Arguments
-    /// * `operation` - A closure that returns a `CoreResult<T>`
-    ///
-    /// # Returns
-    /// * `CoreResult<T>` - The result of the operation or the last error encountered
-    ///
-    /// # Errors
-    /// Returns an error if the operation failed after all retry attempts or
-    /// if the error is not recoverable
-    pub async fn handle_error<F, T>(&mut self, operation: F) -> CoreResult<T>
-    where
-        F: Fn() -> CoreResult<T> + Send + Sync,
-    {
-        loop {
-            match operation() {
-                Ok(result) => return Ok(result),
-                Err(error) => {
-                    self.error_context.increment_retry_count();
-
-                    if !error.is_recoverable() || self.error_context.retry_count >= self.max_retries
-                    {
-                        return Err(error);
-                    }
-
-                    tokio::time::sleep(self.retry_delay).await;
-                }
-            }
-        }
-    }
-
-    /// Gets the current error context
-    ///
-    /// # Returns
-    ///
-    /// A reference to the current error context
-    #[must_use] pub const fn error_context(&self) -> &ErrorContext {
-        &self.error_context
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_error_context() {
-        let context = ErrorContext::new("test_op", "test_component")
-            .with_message_type(MessageType::Command)
-            .with_severity(ErrorSeverity::High)
-            .with_error_code("TEST-001")
-            .with_source_location("test.rs:42");
-
-        assert_eq!(context.operation, "test_op");
-        assert_eq!(context.component, "test_component");
-        assert_eq!(context.message_type, Some(MessageType::Command));
-        assert_eq!(context.severity, ErrorSeverity::High);
-        assert_eq!(context.error_code, "TEST-001");
-        assert_eq!(context.source_location, Some("test.rs:42".to_string()));
-    }
-
-    #[test]
-    fn test_error_recovery() {
-        let version_mismatch = MCPError::Protocol(ProtocolError::InvalidVersion(
-            "Version mismatch".to_string(),
-        ));
-        assert!(!version_mismatch.is_recoverable());
-        assert_eq!(version_mismatch.severity(), ErrorSeverity::High);
-
-        let timeout = MCPError::Connection(ConnectionError::Timeout(5000));
-        assert!(timeout.is_recoverable());
-        assert_eq!(timeout.severity(), ErrorSeverity::Low);
-    }
-}
-
-/// Errors related to MCP connection operations
-///
-/// This enum represents errors that can occur when establishing or maintaining
-/// network connections within the MCP system, including failures, timeouts, and
-/// connection limit issues.
-#[derive(Debug, Clone, Error)]
-pub enum ConnectionError {
-    /// Error that occurs when a connection cannot be established
-    ///
-    /// This can happen due to network issues, incorrect configuration,
-    /// or when the remote endpoint is unavailable.
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
-    
-    /// Error that occurs when a connection operation exceeds the time limit
-    ///
-    /// This happens when the connection process takes longer than the
-    /// specified timeout period in milliseconds.
-    #[error("Connection timeout after {0}ms")]
-    Timeout(u64),
-    
-    /// Error that occurs when a connection is closed unexpectedly
-    ///
-    /// This can happen due to network issues, remote endpoint closure,
-    /// or other connection disruptions.
-    #[error("Connection closed: {0}")]
-    Closed(String),
-    
-    /// Error that occurs when a connection is reset by the peer
-    ///
-    /// This typically happens when the remote endpoint forcibly
-    /// closes the connection.
-    #[error("Connection reset")]
-    Reset,
-    
-    /// Error that occurs when a connection is refused by the remote endpoint
-    ///
-    /// This typically happens when the remote service is not running,
-    /// or is configured to reject the connection.
-    #[error("Connection refused")]
-    Refused,
-    
-    /// Error that occurs when the network is unreachable
-    ///
-    /// This can happen due to network configuration issues, firewalls,
-    /// or physical network disconnection.
-    #[error("Network unreachable")]
-    Unreachable,
-    
-    /// Error that occurs when too many concurrent connections are active
-    ///
-    /// This can happen when the system reaches its maximum connection capacity
-    /// as defined by resource limits or configuration.
-    #[error("Too many connections")]
-    TooManyConnections,
-    
-    /// Error that occurs when a connection limit is reached for a specific reason
-    ///
-    /// This provides more context about why a connection limit was reached,
-    /// such as per-user limits or rate limiting.
-    #[error("Connection limit reached: {0}")]
-    LimitReached(String),
-}
-
-/// Errors related to the MCP protocol
-///
-/// This enum represents various error conditions that can occur during protocol
-/// operations, including version mismatches, invalid states, and message format errors.
-#[derive(Debug, Clone, Error)]
-pub enum ProtocolError {
-    /// Error when the protocol version is invalid or incompatible
-    #[error("Invalid protocol version: {0}")]
-    InvalidVersion(String),
-    
-    /// Error when the protocol is in an invalid state for the requested operation
-    #[error("Invalid protocol state: {0}")]
-    InvalidState(String),
-    
-    /// Error when a message doesn't conform to the expected format
-    #[error("Invalid message format: {0}")]
-    InvalidFormat(String),
-    
-    /// Error when protocol negotiation fails between endpoints
-    #[error("Protocol negotiation failed: {0}")]
-    NegotiationFailed(String),
-    
-    /// Error when the protocol handshake process fails
-    #[error("Protocol handshake failed: {0}")]
-    HandshakeFailed(String),
-    
-    /// Error when protocol synchronization cannot be established
-    #[error("Protocol synchronization failed: {0}")]
-    SyncFailed(String),
-    
-    /// Error when a requested protocol capability is not supported
-    #[error("Protocol capability not supported: {0}")]
-    UnsupportedCapability(String),
-    
-    /// Error related to protocol configuration settings
-    #[error("Protocol configuration error: {0}")]
-    ConfigurationError(String),
-    
-    /// Error when trying to initialize a protocol that's already initialized
-    #[error("Protocol already initialized")]
-    ProtocolAlreadyInitialized,
-    
-    /// Error when using a protocol that hasn't been initialized
-    #[error("Protocol not initialized")]
-    ProtocolNotInitialized,
-    
-    /// Error when the protocol is not in a ready state for the operation
-    #[error("Protocol not ready")]
-    ProtocolNotReady,
-    
-    /// Error when serializing protocol state
-    #[error("Failed to serialize state: {0}")]
-    StateSerialization(String),
-    
-    /// Error when deserializing protocol state
-    #[error("Failed to deserialize state: {0}")]
-    StateDeserialization(String),
-    
-    /// Error when a handler already exists for a message type
-    #[error("Handler already exists for message type: {0}")]
-    HandlerAlreadyExists(String),
-    
-    /// Error when no handler is found for a message type
-    #[error("No handler found for message type: {0}")]
-    HandlerNotFound(String),
-    
-    /// Error when a message payload is invalid
-    #[error("Invalid payload: {0}")]
-    InvalidPayload(String),
-    
-    /// Error when a message exceeds the allowed size limit
-    #[error("Message too large: {0}")]
-    MessageTooLarge(String),
-    
-    /// Error when a message timestamp is invalid
-    #[error("Invalid timestamp: {0}")]
-    InvalidTimestamp(String),
-    
-    /// Error when a message operation times out
-    #[error("Message timeout: {0}")]
-    MessageTimeout(String),
-    
-    /// Error when security metadata is invalid
-    #[error("Invalid security metadata: {0}")]
-    InvalidSecurityMetadata(String),
-    
-    /// Error when message validation fails
-    #[error("Message validation failed: {0}")]
-    ValidationFailed(String),
-    
-    /// Error when protocol recovery attempts fail
-    #[error("Recovery failed: {0}")]
-    RecoveryFailed(String),
-    
-    /// Error in the wire format encoding/decoding
-    #[error("Wire format error: {0}")]
-    Wire(String),
-}
-
-/// Security-related errors
-#[derive(Debug, Clone, Error)]
-pub enum SecurityError {
-    /// Authentication error that occurs when credentials cannot be verified
-    /// or the authentication process fails for any reason
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
-    
-    /// Authorization error that occurs when a user lacks permissions
-    /// to perform the requested operation
-    #[error("Authorization failed: {0}")]
-    AuthorizationFailed(String),
-    
-    /// Error that occurs when provided credentials are invalid,
-    /// malformed, or do not match expected format
-    #[error("Invalid credentials: {0}")]
-    InvalidCredentials(String),
-    
-    /// Error that occurs when an authentication token has expired
-    /// and is no longer valid for use
-    #[error("Token expired")]
-    TokenExpired,
-    
-    /// Error that occurs when a token is invalid, corrupted,
-    /// or cannot be verified
-    #[error("Invalid token: {0}")]
-    InvalidToken(String),
-    
-    /// Error that occurs when a user role does not exist or
-    /// is not valid in the current context
-    #[error("Invalid role: {0}")]
-    InvalidRole(String),
-    
-    /// Error that occurs during encryption operations, such as
-    /// key generation, data encryption, or signature creation
-    #[error("Encryption failed: {0}")]
-    EncryptionFailed(String),
-    
-    /// Error that occurs during decryption operations, such as
-    /// key retrieval, data decryption, or signature verification
-    #[error("Decryption failed: {0}")]
-    DecryptionFailed(String),
-    
-    /// General security error that occurs within the security
-    /// subsystem but doesn't fit other specific categories
-    #[error("Internal security error: {0}")]
-    InternalError(String),
-    
-    /// Error that occurs when a message is sent with an insufficient
-    /// security level for the operation being performed
-    #[error("Invalid security level: required {required:?}, provided {provided:?}")]
-    InvalidSecurityLevel {
-        /// The security level required by the operation or receiver
-        required: SecurityLevel,
-        /// The security level provided in the message or request
-        provided: SecurityLevel,
-    },
-    
-    /// Error that occurs within the underlying system security
-    /// infrastructure or OS security mechanisms
-    #[error("System error: {0}")]
-    System(String),
-    
-    /// Error that occurs when a permission string has invalid format
-    /// or cannot be parsed correctly
-    #[error("Invalid permission format: {0}")]
-    InvalidPermissionFormat(String),
-    
-    /// Error that occurs when an action specified in a permission
-    /// is not recognized or not supported
-    #[error("Invalid action in permission: {0}")]
-    InvalidActionInPermission(String),
-    
-    /// Error that occurs during the creation of a new role
-    /// in the security system
-    #[error("Error creating role: {0}")]
-    ErrorCreatingRole(String),
-    
-    /// Error related to the Role-Based Access Control system,
-    /// such as role assignment or permission checking
-    #[error("RBAC error: {0}")]
-    RBACError(String),
-    
-    /// Error that occurs during validation of security-related
-    /// data or operations
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    
-    /// Error that occurs when attempting to create a security
-    /// entity with an ID that already exists
-    #[error("Duplicate ID error: {0}")]
-    DuplicateIDError(String),
-    
-    /// Error that occurs when a security-related entity
-    /// could not be found
-    #[error("Not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs when an operation would violate
-    /// a defined security policy
-    #[error("Policy violation: {0}")]
-    PolicyViolation(String),
-}
-
-/// Errors related to MCP context operations
-///
-/// This enum represents errors that can occur when working with MCP contexts,
-/// including context lookup failures, validation errors, and synchronization issues.
-#[derive(Debug, Clone, Error)]
-pub enum ContextError {
-    /// Error that occurs when a context with the specified UUID cannot be found
-    ///
-    /// This typically happens when trying to access a context that doesn't exist
-    /// or has been removed.
-    NotFound(uuid::Uuid),
-    
-    /// Error that occurs when context validation fails
-    ///
-    /// This can happen when a context contains invalid data or doesn't meet
-    /// the required constraints.
-    ValidationError(String),
-    
-    /// Error that occurs during context synchronization
-    ///
-    /// This can happen when there are issues synchronizing context data
-    /// between components or systems.
-    SyncError(String),
-}
-
-impl std::fmt::Display for ContextError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound(id) => write!(f, "Context not found: {id}"),
-            Self::ValidationError(msg) => write!(f, "Context validation error: {msg}"),
-            Self::SyncError(msg) => write!(f, "Context sync error: {msg}"),
-        }
-    }
-}
-
-/// Errors related to MCP session operations
-///
-/// This enum represents errors that can occur when working with MCP sessions,
-/// including authentication and authorization failures, timeouts, and validation issues.
-#[derive(Debug, Clone, Error)]
-pub enum SessionError {
-    /// Error that occurs when session authentication fails
-    ///
-    /// This typically happens when credentials cannot be verified
-    /// or the authentication process fails for any reason.
-    #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
-    
-    /// Error that occurs when session authorization fails
-    ///
-    /// This typically happens when a user lacks the necessary permissions
-    /// to perform a requested operation.
-    #[error("Authorization failed: {0}")]
-    AuthorizationFailed(String),
-    
-    /// Error that occurs when a session times out
-    ///
-    /// This can happen when a session exceeds its maximum allowed
-    /// duration or when there is no activity for a specified period.
-    #[error("Session timeout: {0}")]
-    Timeout(String),
-    
-    /// Error that occurs when a session is invalid
-    ///
-    /// This can happen when a session is malformed, corrupted,
-    /// or doesn't meet the required constraints.
-    #[error("Invalid session: {0}")]
-    InvalidSession(String),
-    
-    /// Error that occurs when a session cannot be found
-    ///
-    /// This typically happens when trying to access a session
-    /// that doesn't exist or has been removed.
-    #[error("Session not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs during session validation
-    ///
-    /// This can happen when session data fails validation checks
-    /// or doesn't meet the required constraints.
-    #[error("Session validation error: {0}")]
-    Validation(String),
-    
-    /// General internal error within the session management system
-    ///
-    /// This is used for errors that don't fit into other specific
-    /// categories but occur within the session subsystem.
-    #[error("Internal session error: {0}")]
-    InternalError(String),
-}
-
-// Add the persistence error implementation
-impl From<squirrel_core::error::PersistenceError> for MCPError {
-    fn from(err: squirrel_core::error::PersistenceError) -> Self {
-        Self::PersistenceDetail(err.to_string())
-    }
-}
-
-/// Error related to the alert system
-///
-/// Represents errors that occur within the alert processing system,
-/// including notification failures, alert validation errors, and 
-/// alert delivery issues.
-#[derive(Debug, Clone, Error)]
-pub enum AlertError {
-    /// Error that occurs when a notification fails to be sent
-    #[error("Notification failed: {0}")]
-    NotificationFailed(String),
-    
-    /// Error that occurs when an alert validation fails
-    #[error("Alert validation failed: {0}")]
-    ValidationFailed(String),
-    
-    /// Error that occurs when an alert delivery fails
-    #[error("Alert delivery failed: {0}")]
-    DeliveryFailed(String),
-    
-    /// Error that occurs when an alert processing fails
-    #[error("Alert processing failed: {0}")]
-    ProcessingFailed(String),
-    
-    /// Error that occurs when an alert is not found
-    #[error("Alert not found: {0}")]
-    NotFound(String),
-    
-    /// Error that occurs when an alert is already processed
-    #[error("Alert already processed: {0}")]
-    AlreadyProcessed(String),
-    
-    /// Error that occurs when an alert is not authorized
-    #[error("Alert not authorized: {0}")]
-    NotAuthorized(String),
 }
 
 /// Error context information for MCP errors
@@ -914,11 +428,11 @@ pub struct ErrorContext {
     /// helping with troubleshooting and error localization.
     pub component: String,
 
-    /// Type of message being processed when the error occurred, if applicable
-    ///
-    /// This field is optional and only relevant for errors that occur
-    /// during message processing.
+    /// Optional: Type of message being processed when error occurred
     pub message_type: Option<MessageType>,
+
+    /// Optional: Security level context at the time of the error
+    pub security_level: Option<SecurityLevel>,
 
     /// Additional structured details about the error
     ///
@@ -977,6 +491,7 @@ impl ErrorContext {
             operation: operation.into(),
             component: component.into(),
             message_type: None,
+            security_level: None,
             details: Map::new(),
             severity: ErrorSeverity::Low,
             is_recoverable: true,
@@ -1069,14 +584,11 @@ impl From<MCPError> for CoreError {
             MCPError::Connection(e) => Self::MCP(format!("Connection error: {e}")),
             MCPError::Session(e) => Self::MCP(format!("Session error: {e}")),
             MCPError::Context(e) => Self::MCP(format!("Context error: {e}")),
-            MCPError::Client(e) => Self::MCP(format!("Client error: {e}")),
-            MCPError::MessageRouter(e) => Self::MCP(format!("Message router error: {e}")),
             MCPError::Serialization(e) => Self::MCP(format!("Serialization error: {e}")),
             MCPError::Deserialization(e) => Self::MCP(format!("Deserialization error: {e}")),
             MCPError::InvalidMessage(e) => Self::MCP(format!("Invalid message: {e}")),
             MCPError::State(e) => Self::MCP(format!("State error: {e}")),
             MCPError::Authorization(e) => Self::MCP(format!("Authorization error: {e}")),
-            MCPError::UnsupportedOperation(e) => Self::MCP(format!("Unsupported operation: {e}")),
             MCPError::CircuitBreaker(e) => Self::MCP(format!("Circuit breaker error: {e}")),
             MCPError::IoDetail(e) => Self::MCP(format!("IO error: {e}")),
             MCPError::SerdeJsonDetail(e) => Self::MCP(format!("Serde JSON error: {e}")),
@@ -1101,6 +613,12 @@ impl From<MCPError> for CoreError {
             MCPError::NotImplemented(e) => Self::MCP(format!("Not implemented: {e}")),
             MCPError::NotAuthorized(e) => Self::MCP(format!("Not authorized: {e}")),
             MCPError::InvalidState(e) => Self::MCP(format!("Invalid state: {e}")),
+            MCPError::Client(e) => Self::MCP(format!("Client error: {e}")),
+            MCPError::MessageRouter(e) => Self::MCP(format!("Message router error: {e}")),
+            MCPError::Plugin(e) => Self::MCP(format!("Plugin error: {e}")),
+            MCPError::InvalidOperation(e) => Self::MCP(format!("Invalid operation: {e}")),
+            MCPError::InternalError(e) => Self::MCP(format!("Internal error: {e}")),
+            MCPError::UnsupportedOperation(e) => Self::MCP(format!("Unsupported operation: {e}")),
         }
     }
 }
@@ -1112,9 +630,184 @@ impl From<crate::error::transport::TransportError> for MCPError {
     }
 }
 
-// Add implementation for From<SessionError> for MCPError
+impl From<WireFormatError> for MCPError {
+    fn from(err: WireFormatError) -> Self {
+        MCPError::Protocol(ProtocolError::Wire(err.to_string()))
+    }
+}
+
+impl From<ProtocolError> for MCPError {
+    fn from(err: ProtocolError) -> Self {
+        MCPError::Protocol(err)
+    }
+}
+
 impl From<SessionError> for MCPError {
     fn from(err: SessionError) -> Self {
         Self::Session(err)
+    }
+}
+
+// Remove duplicate imports that are causing errors
+// pub use crate::error::{
+//     transport::TransportError, 
+//     security_err::SecurityError,
+//     protocol_err::ProtocolError,
+//     session::SessionError,
+// };
+
+// Add missing From implementations for various error types
+impl From<SecurityError> for MCPError {
+    fn from(err: SecurityError) -> Self {
+        Self::Security(err)
+    }
+}
+
+impl From<ContextError> for MCPError {
+    fn from(err: ContextError) -> Self {
+        Self::Context(err)
+    }
+}
+
+impl From<ConnectionError> for MCPError {
+    fn from(err: ConnectionError) -> Self {
+        Self::Connection(err)
+    }
+}
+
+// Comment out implementation that uses ClientError since it's causing issues
+// impl From<ClientError> for MCPError {
+//     fn from(err: ClientError) -> Self {
+//         Self::Client(err)
+//     }
+// }
+
+impl From<crate::message_router::MessageRouterError> for MCPError {
+    fn from(err: crate::message_router::MessageRouterError) -> Self {
+        Self::MessageRouter(err)
+    }
+}
+
+impl From<crate::error::plugin::PluginError> for MCPError {
+    fn from(err: crate::error::plugin::PluginError) -> Self {
+        Self::Plugin(err)
+    }
+}
+
+pub type Result<T, E = MCPError> = std::result::Result<T, E>;
+
+// Comment out the From<MCPError> for DomainError implementation until DomainError is defined
+/*
+impl From<MCPError> for DomainError {
+    fn from(err: MCPError) -> Self {
+        match err {
+            MCPError::Transport(e) => Self::MCP(format!("Transport error: {e}")),
+            MCPError::Protocol(e) => Self::MCP(format!("Protocol error: {e}")),
+            MCPError::Security(e) => Self::MCP(format!("Security error: {e}")),
+            MCPError::Connection(e) => Self::MCP(format!("Connection error: {e}")),
+            MCPError::Session(e) => Self::MCP(format!("Session error: {e}")),
+            MCPError::Context(e) => Self::MCP(format!("Context error: {e}")),
+            MCPError::Client(e) => Self::MCP(format!("Client error: {e}")),
+            MCPError::MessageRouter(e) => Self::MCP(format!("Message router error: {e}")),
+            MCPError::Plugin(e) => Self::MCP(format!("Plugin error: {e}")),
+            MCPError::Serialization(e) => Self::MCP(format!("Serialization error: {e}")),
+            MCPError::Deserialization(e) => Self::MCP(format!("Deserialization error: {e}")),
+            MCPError::InvalidMessage(e) => Self::MCP(format!("Invalid message: {e}")),
+            MCPError::State(e) => Self::MCP(format!("State error: {e}")),
+            MCPError::Authorization(e) => Self::MCP(format!("Authorization error: {e}")),
+            MCPError::UnsupportedOperation(e) => Self::MCP(format!("Unsupported operation: {e}")),
+            MCPError::CircuitBreaker(e) => Self::MCP(format!("Circuit breaker error: {e}")),
+            MCPError::IoDetail(e) => Self::MCP(format!("IO error: {e}")),
+            MCPError::SerdeJsonDetail(e) => Self::MCP(format!("JSON error: {e}")),
+            MCPError::SquirrelDetail(e) => Self::MCP(format!("Squirrel core error: {e}")),
+            MCPError::PersistenceDetail(e) => Self::MCP(format!("Persistence error: {e}")),
+            MCPError::Alert(e) => Self::MCP(format!("Alert error: {e}")),
+            MCPError::Storage(e) => Self::MCP(format!("Storage error: {e}")),
+            MCPError::NotInitialized(e) => Self::MCP(format!("Not initialized: {e}")),
+            MCPError::General(e) => Self::MCP(format!("General error: {e}")),
+            MCPError::Network(e) => Self::MCP(format!("Network error: {e}")),
+            MCPError::AlreadyInProgress(e) => Self::MCP(format!("Already in progress: {e}")),
+            MCPError::Monitoring(e) => Self::MCP(format!("Monitoring error: {e}")),
+            MCPError::NotConnected(e) => Self::MCP(format!("Not connected: {e}")),
+            MCPError::Timeout(e) => Self::MCP(format!("Timeout: {e}")),
+            MCPError::Remote(e) => Self::MCP(format!("Remote error: {e}")),
+            MCPError::Configuration(e) => Self::MCP(format!("Configuration error: {e}")),
+            MCPError::Unexpected(e) => Self::MCP(format!("Unexpected error: {e}")),
+            MCPError::VersionMismatch(e) => Self::MCP(format!("Version mismatch: {e}")),
+            MCPError::Unsupported(e) => Self::MCP(format!("Unsupported: {e}")),
+            MCPError::InvalidArgument(e) => Self::MCP(format!("Invalid argument: {e}")),
+            MCPError::NotFound(e) => Self::MCP(format!("Not found: {e}")),
+            MCPError::NotImplemented(e) => Self::MCP(format!("Not implemented: {e}")),
+            MCPError::NotAuthorized(e) => Self::MCP(format!("Not authorized: {e}")),
+            MCPError::InvalidState(e) => Self::MCP(format!("Invalid state: {e}")),
+            MCPError::InvalidOperation(e) => Self::MCP(format!("Invalid operation: {e}")),
+            MCPError::InternalError(e) => Self::MCP(format!("Internal error: {e}")),
+        }
+    }
+}
+*/
+
+// Add the Error trait implementation
+impl std::error::Error for MCPError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Transport(e) => Some(e),
+            Self::Protocol(e) => Some(e),
+            Self::Security(e) => Some(e),
+            Self::Connection(e) => Some(e),
+            Self::Session(e) => Some(e),
+            Self::Client(e) => Some(e),
+            Self::Alert(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+// Add the Display trait implementation for MCPError
+impl std::fmt::Display for MCPError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transport(e) => write!(f, "Transport error: {}", e),
+            Self::Protocol(e) => write!(f, "Protocol error: {}", e),
+            Self::Security(e) => write!(f, "Security error: {}", e),
+            Self::Connection(e) => write!(f, "Connection error: {}", e),
+            Self::Session(e) => write!(f, "Session error: {}", e),
+            Self::Context(e) => write!(f, "Context error: {}", e),
+            Self::Client(e) => write!(f, "Client error: {}", e),
+            Self::MessageRouter(e) => write!(f, "Message router error: {}", e),
+            Self::Plugin(e) => write!(f, "Plugin error: {}", e),
+            Self::Serialization(e) => write!(f, "Serialization error: {}", e),
+            Self::Deserialization(e) => write!(f, "Deserialization error: {}", e),
+            Self::InvalidMessage(e) => write!(f, "Invalid message: {}", e),
+            Self::State(e) => write!(f, "State error: {}", e),
+            Self::Authorization(e) => write!(f, "Authorization error: {}", e),
+            Self::UnsupportedOperation(e) => write!(f, "Unsupported operation: {}", e),
+            Self::CircuitBreaker(e) => write!(f, "Circuit breaker error: {}", e),
+            Self::IoDetail(e) => write!(f, "IO error: {}", e),
+            Self::SerdeJsonDetail(e) => write!(f, "JSON error: {}", e),
+            Self::SquirrelDetail(e) => write!(f, "Squirrel core error: {}", e),
+            Self::PersistenceDetail(e) => write!(f, "Persistence error: {}", e),
+            Self::Alert(e) => write!(f, "Alert error: {}", e),
+            Self::Storage(e) => write!(f, "Storage error: {}", e),
+            Self::NotInitialized(e) => write!(f, "Not initialized: {}", e),
+            Self::General(e) => write!(f, "General error: {}", e),
+            Self::Network(e) => write!(f, "Network error: {}", e),
+            Self::AlreadyInProgress(e) => write!(f, "Already in progress: {}", e),
+            Self::Monitoring(e) => write!(f, "Monitoring error: {}", e),
+            Self::NotConnected(e) => write!(f, "Not connected: {}", e),
+            Self::Timeout(e) => write!(f, "Timeout: {}", e),
+            Self::Remote(e) => write!(f, "Remote error: {}", e),
+            Self::Configuration(e) => write!(f, "Configuration error: {}", e),
+            Self::Unexpected(e) => write!(f, "Unexpected error: {}", e),
+            Self::VersionMismatch(e) => write!(f, "Version mismatch: {}", e),
+            Self::Unsupported(e) => write!(f, "Unsupported: {}", e),
+            Self::InvalidArgument(e) => write!(f, "Invalid argument: {}", e),
+            Self::NotFound(e) => write!(f, "Not found: {}", e),
+            Self::NotImplemented(e) => write!(f, "Not implemented: {}", e),
+            Self::NotAuthorized(e) => write!(f, "Not authorized: {}", e),
+            Self::InvalidState(e) => write!(f, "Invalid state: {}", e),
+            Self::InvalidOperation(e) => write!(f, "Invalid operation: {}", e),
+            Self::InternalError(e) => write!(f, "Internal error: {}", e),
+        }
     }
 }

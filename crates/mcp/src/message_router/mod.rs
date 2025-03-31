@@ -83,7 +83,12 @@ pub trait AsyncMessageHandler: Send + Sync {
 }
 
 /// Handler trait for processing messages
-pub trait MessageHandler: Send + Sync + AsyncMessageHandler + std::fmt::Debug {
+#[async_trait]
+pub trait MessageHandler: Send + Sync + std::fmt::Debug {
+    /// Handle a message and optionally return a response
+    /// This method needs to be async.
+    async fn handle_message(&self, message: Message) -> MessageHandlerResult;
+
     /// Get the message types this handler can process
     fn supported_message_types(&self) -> Vec<String>;
 
@@ -233,22 +238,26 @@ impl MessageRouter {
         Ok(())
     }
 
-    /// Route a message to the appropriate handler
-    /// 
-    /// This function will find handlers that can process the given message type,
-    /// and execute them in priority order. If a handler returns a response,
-    /// that response is returned immediately (unless `continue_after_response` is true).
+    /// Route a message to appropriate handlers based on message type
+    ///
+    /// This method routes a message to registered handlers based on the message type.
+    /// Handlers are tried in priority order (highest first) until one returns a response
+    /// or all have been tried.
+    ///
+    /// # Arguments
+    /// * `message` - The message to route
+    ///
+    /// # Returns
+    /// * `Ok(Some(Message))` - If a handler processed the message and returned a response
+    /// * `Ok(None)` - If a handler processed the message but didn't return a response
+    /// * `Err(MCPError)` - If an error occurred during routing
     ///
     /// # Errors
     ///
     /// This function will return an error if:
-    /// - The message validation fails (`MCPError::MessageRouter` with `ValidationFailed` variant)
-    ///   - Empty message ID
-    ///   - Invalid message format
-    /// - No handler is found for the message type (`MCPError::MessageRouter` with `NoHandlerFound` variant)
-    /// - All handlers fail to process the message (handler-specific errors are propagated)
-    /// - Handler execution triggers an error that isn't handled internally
-    ///
+    /// * Message validation fails (`MCPError::MessageRouter` with `ValidationFailed` variant)
+    /// * No handler is found for the message type (`MCPError::MessageRouter` with `NoHandlerFound` variant)
+    /// * A handler error occurs that can't be handled internally
     pub async fn route_message(&self, message: &Message) -> MessageHandlerResult {
         // Validate the message first
         self.validate_message(message).await?;
@@ -299,14 +308,19 @@ impl MessageRouter {
     }
 
     /// Validate the message structure before routing
+    ///
+    /// # Arguments
+    /// * `message` - The message to validate
+    ///
+    /// # Errors
+    /// * Returns `MCPError::MessageRouter` with `ValidationFailed` variant if validation fails
     async fn validate_message(&self, message: &Message) -> crate::error::Result<()> {
-        // Check if ID is empty and return error if it is
-        (!message.id.is_empty()).then_some(())
-            .ok_or_else(|| {
-                crate::error::MCPError::MessageRouter(MessageRouterError::ValidationFailed(
-                    "Message ID cannot be empty".to_string(),
-                ))
-            })?;
+        // Check if ID is empty
+        if message.id.is_empty() {
+            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ValidationFailed(
+                "Message ID cannot be empty".to_string(),
+            )));
+        }
         
         // More validations could be added here
         
@@ -392,7 +406,25 @@ impl AsyncMessageHandler for CompositeHandler {
     }
 }
 
+#[async_trait]
 impl MessageHandler for CompositeHandler {
+    async fn handle_message(&self, message: Message) -> MessageHandlerResult {
+        // Iterate through handlers and try to handle the message
+        // This needs more sophisticated logic based on priority, configuration etc.
+        for handler in &self.handlers {
+            // Check if the handler supports the type before calling
+            if handler.supported_message_types().contains(&message.message_type.to_string()) {
+                match handler.handle_message(message.clone()).await { // Clone message for each handler
+                    Ok(Some(response)) => return Ok(Some(response)), // Return first response
+                    Ok(None) => continue, // Try next handler
+                    Err(e) => return Err(e), // Propagate error
+                }
+            }
+        }
+        // If no handler produced a response
+        Ok(None)
+    }
+
     fn supported_message_types(&self) -> Vec<String> {
         self.message_types.clone()
     }
@@ -408,7 +440,8 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use crate::message::MessageBuilder;
 
-    /// A mock handler for testing
+    /// Mock handler for testing
+    #[derive(Debug)]
     struct MockHandler {
         message_types: Vec<String>,
         priority: HandlerPriority,

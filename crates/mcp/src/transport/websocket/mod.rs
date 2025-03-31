@@ -1,22 +1,33 @@
-// WebSocket transport implementation for MCP
-//
+//! WebSocket transport implementation for MCP.
+
 // This module provides a WebSocket-based transport implementation
 // for Machine Context Protocol (MCP) communication. It supports
 // bidirectional message passing over WebSocket connections.
 
-use std::sync::Arc;
+use crate::error::{Result, TransportError, MCPError};
+use crate::transport::types::{ConnectionState, TransportMetadata};
+use crate::transport::{Transport};
+use crate::protocol::MCPMessage;
+use crate::security::types::EncryptionFormat;
+use crate::types::CompressionFormat;
 use async_trait::async_trait;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
-use tokio_tungstenite::{connect_async, WebSocketStream, MaybeTlsStream};
-use tokio_tungstenite::tungstenite::Message;
-use futures_util::{SinkExt, StreamExt};
-use tokio::net::TcpStream;
-
-use crate::error::transport::TransportError;
-use crate::types::{MCPMessage, EncryptionFormat, CompressionFormat};
-use super::{Transport, TransportMetadata};
-use crate::error::MCPError;
+use futures_util::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio_tungstenite::{
+    connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
+};
+use tracing::{debug, warn, error, info, trace};
+use log;
+use std::ops::DerefMut;
+use crate::message::Message as DomainMessage;
+use crate::transport::frame::{MessageCodec};
+use uuid::Uuid;
+use chrono::Utc;
+use std::collections::HashMap;
+use crate::protocol::types::{MessageType as ProtocolMessageType, MessageId};
 
 /// Configuration for the WebSocket transport
 ///
@@ -77,25 +88,20 @@ enum ControlMessage {
     Ping,
 }
 
-/// State of the WebSocket connection
-///
-/// Represents the current state of the WebSocket connection.
+/// Simple state of the WebSocket connection
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum WebSocketState {
-    /// Not connected
     Disconnected,
-    
-    /// In the process of connecting
     Connecting,
-    
-    /// Connected and ready to send/receive
     Connected,
-    
-    /// In the process of disconnecting
-    Disconnecting,
-    
-    /// Connection has failed
     Failed(String),
+}
+
+impl WebSocketState {
+    /// Check if the state is Connected
+    fn is_connected(&self) -> bool {
+        matches!(self, Self::Connected)
+    }
 }
 
 /// Commands for the WebSocket socket task
@@ -121,7 +127,7 @@ pub struct WebSocketTransport {
     config: WebSocketConfig,
     
     /// Connection state
-    connection_state: Arc<tokio::sync::RwLock<WebSocketState>>,
+    connection_state: Arc<Mutex<WebSocketState>>,
     
     /// WebSocket sender
     ws_sender: Option<mpsc::Sender<SocketCommand>>,
@@ -135,8 +141,14 @@ pub struct WebSocketTransport {
     /// Sender for control messages
     control_tx: Option<mpsc::Sender<ControlMessage>>,
     
+    /// Peer address
+    peer_addr: Arc<Mutex<Option<SocketAddr>>>,
+    
+    /// Local address
+    local_addr: Arc<Mutex<Option<SocketAddr>>>,
+    
     /// Transport metadata
-    metadata: TransportMetadata,
+    metadata: Arc<Mutex<TransportMetadata>>,
 }
 
 impl WebSocketTransport {
@@ -159,22 +171,27 @@ impl WebSocketTransport {
         let (socket_tx, _socket_rx) = mpsc::channel(100);
         let (control_tx, control_rx) = mpsc::channel(100);
         
-        let metadata = TransportMetadata {
-            transport_type: "websocket".to_string(),
-            remote_address: config.url.clone(),
+        let transport_metadata = TransportMetadata {
+            connection_id: Uuid::new_v4().to_string(),
+            remote_address: config.url.parse().ok(),
             local_address: None,
-            encryption: config.encryption,
-            compression: config.compression,
+            encryption_format: Some(config.encryption),
+            compression_format: Some(config.compression),
+            connected_at: Utc::now(),
+            last_activity: Utc::now(),
+            additional_info: HashMap::new(),
         };
         
         Self {
             config,
-            connection_state: Arc::new(tokio::sync::RwLock::new(WebSocketState::Disconnected)),
+            connection_state: Arc::new(Mutex::new(WebSocketState::Disconnected)),
             ws_sender: Some(socket_tx),
             reader_rx: Arc::new(Mutex::new(Some(msg_rx))),
             control_rx: Some(control_rx),
             control_tx: Some(control_tx),
-            metadata,
+            peer_addr: Arc::new(Mutex::new(None)),
+            local_addr: Arc::new(Mutex::new(None)),
+            metadata: Arc::new(Mutex::new(transport_metadata)),
         }
     }
     
@@ -188,6 +205,7 @@ impl WebSocketTransport {
     /// * `socket` - The established WebSocket connection
     /// * `msg_tx` - Sender for forwarding received messages
     /// * `socket_rx` - Receiver for commands to the socket task
+    /// * `state_clone` - Cloned state to update from tasks
     ///
     /// # Returns
     ///
@@ -196,13 +214,13 @@ impl WebSocketTransport {
         &self,
         socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
         msg_tx: mpsc::Sender<MCPMessage>,
-        mut socket_rx: mpsc::Receiver<SocketCommand>
-    ) -> Result<(), TransportError> {
+        mut socket_rx: mpsc::Receiver<SocketCommand>,
+        state_clone: Arc<Mutex<WebSocketState>>,
+    ) -> Result<()> {
         let (mut write, mut read) = socket.split();
-        let state = self.connection_state.clone();
         
         // Clone for the reader task
-        let read_state = state.clone();
+        let read_state = state_clone.clone();
         let read_msg_tx = msg_tx;
         
         // Start reader task
@@ -213,13 +231,13 @@ impl WebSocketTransport {
                         // Parse as JSON
                         match serde_json::from_str::<MCPMessage>(&text) {
                             Ok(message) => {
-                                if let Err(e) = read_msg_tx.send(message).await {
-                                    eprintln!("Failed to forward message to channel: {e}");
+                                if read_msg_tx.send(message).await.is_err() {
+                                    error!("Failed to forward message to channel");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to parse message: {e}");
+                                error!("Failed to parse message: {}", e);
                                 continue;
                             }
                         }
@@ -228,68 +246,73 @@ impl WebSocketTransport {
                         // Parse as binary JSON
                         match serde_json::from_slice::<MCPMessage>(&bin) {
                             Ok(message) => {
-                                if let Err(e) = read_msg_tx.send(message).await {
-                                    eprintln!("Failed to forward message to channel: {e}");
+                                if read_msg_tx.send(message).await.is_err() {
+                                    error!("Failed to forward message to channel");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to parse binary message: {e}");
+                                error!("Failed to parse binary message: {}", e);
                                 continue;
                             }
                         }
                     }
-                    Ok(Message::Ping(_)) => {
-                        // Respond to ping (handled automatically by tungstenite)
-                    }
-                    Ok(Message::Pong(_)) => {
-                        // Pong response (could update last activity timestamp)
+                    Ok(Message::Ping(_) | Message::Pong(_)) => {
+                        // Handle ping/pong, maybe log or ignore
+                        debug!("Received ping/pong");
                     }
                     Ok(Message::Close(_)) => {
                         // Connection closed by the server
+                        info!("WebSocket connection closed by peer.");
                         break;
                     }
                     Ok(Message::Frame(_)) => {
-                        // Ignore frame messages
-                        continue;
+                        // Handle unexpected frame types if necessary
+                        warn!("Received unexpected WebSocket frame type");
                     }
                     Err(e) => {
                         // Error reading from socket
-                        eprintln!("Error reading from WebSocket: {e}");
+                        error!("Error reading from WebSocket: {}", e);
                         break;
                     }
                 }
             }
             
             // Update state to disconnected
-            let mut current_state = read_state.write().await;
-            *current_state = WebSocketState::Disconnected;
+            info!("WebSocket reader task finished.");
+            let mut current_state = read_state.lock().await;
+            if *current_state != WebSocketState::Disconnected {
+                 *current_state = WebSocketState::Disconnected;
+                 info!("WebSocket state set to Disconnected by reader task.");
+            }
         });
         
         // Start writer task
+        let write_state = state_clone;
         tokio::spawn(async move {
-            while let Some(cmd) = socket_rx.recv().await {
-                match cmd {
+            while let Some(command) = socket_rx.recv().await {
+                match command {
                     SocketCommand::Send(message) => {
                         // Serialize to JSON
                         let json = match serde_json::to_string(&message) {
                             Ok(j) => j,
                             Err(e) => {
-                                eprintln!("Failed to serialize message: {e}");
+                                error!("WebSocket: Failed to serialize message: {}", e);
                                 continue;
                             }
                         };
                         
                         // Send as text message
                         if let Err(e) = write.send(Message::Text(json)).await {
-                            eprintln!("Failed to send message: {e}");
+                            error!("WebSocket: Failed to send message: {}", e);
                             break;
                         }
                     }
                     SocketCommand::Close => {
                         // Close the connection gracefully
+                        info!("WebSocket writer task received Close command.");
                         if let Err(e) = write.close().await {
-                            eprintln!("Error closing WebSocket: {e}");
+                            error!("Error closing WebSocket: {}", e);
                         }
                         break;
                     }
@@ -297,11 +320,59 @@ impl WebSocketTransport {
             }
             
             // Update state to disconnected
-            let mut current_state = state.write().await;
-            *current_state = WebSocketState::Disconnected;
+            info!("WebSocket writer task finished.");
+            let mut current_state = write_state.lock().await;
+            if *current_state != WebSocketState::Disconnected {
+                *current_state = WebSocketState::Disconnected;
+                info!("WebSocket state set to Disconnected by writer task.");
+            }
         });
         
         Ok(())
+    }
+
+    /// Check if the transport is connected (implementation moved here)
+    async fn is_connected_impl(&self) -> bool {
+        let state_guard = self.connection_state.lock().await;
+        state_guard.is_connected()
+    }
+
+    /// Placeholder for internal message sending logic
+    async fn send_internal(&self, ws_message: Message) -> Result<()> {
+        if let Some(sender) = &self.ws_sender {
+            match ws_message {
+                Message::Text(text) => {
+                    match serde_json::from_str::<MCPMessage>(&text) {
+                        Ok(mcp_message) => {
+                            if sender.send(SocketCommand::Send(mcp_message)).await.is_err() {
+                                error!("WebSocket: Failed to send command to writer task");
+                                return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
+                            }
+                        }
+                        Err(e) => {
+                            error!("WebSocket: Failed to deserialize text message for sending: {}", e);
+                            return Err(MCPError::Serialization(e.to_string()));
+                        }
+                    }
+                }
+                Message::Binary(bytes) => {
+                     error!("WebSocket: send_internal cannot directly send raw binary via MCPMessage command.");
+                     return Err(MCPError::UnsupportedOperation("Raw binary send via send_internal needs rework".to_string()));
+                }
+                _ => {
+                    debug!("WebSocket: send_internal ignoring non-data message type");
+                }
+            }
+            Ok(())
+        } else {
+            Err(TransportError::connection_closed("WebSocket sender unavailable".to_string()).into())
+        }
+    }
+
+    /// Placeholder for handling received WebSocket messages
+    async fn handle_received_message(&self, _message: Message) -> Result<Option<MCPMessage>> {
+        // TODO: Implement deserialization and handling of Ping/Pong/Close/Binary/Text
+        Ok(None)
     }
 }
 
@@ -318,28 +389,19 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn send_message(&self, message: MCPMessage) -> crate::error::Result<()> {
-        // Check if we're connected
-        {
-            let state = self.connection_state.read().await;
-            if *state != WebSocketState::Connected {
-                return Err(MCPError::Transport(
-                    TransportError::ConnectionClosed(
-                        "Transport is not connected".into()
-                    ).into()
-                ));
-            }
+    async fn send_message(&self, message: MCPMessage) -> Result<()> {
+        if !self.is_connected_impl().await {
+            return Err(TransportError::connection_closed("Cannot send message, not connected").into());
         }
-        
-        // Send the command to the socket task
         if let Some(sender) = &self.ws_sender {
-            sender.send(SocketCommand::Send(message)).await
-                .map_err(|_| MCPError::Transport(TransportError::ConnectionClosed("Failed to send message to socket task".into()).into()))?;
+             if sender.send(SocketCommand::Send(message)).await.is_err() {
+                 error!("WebSocket: Failed to send command to writer task");
+                 return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
+             }
+             Ok(())
         } else {
-            return Err(MCPError::Transport(TransportError::ConnectionClosed("Socket sender is not initialized".into()).into()));
+             Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
         }
-        
-        Ok(())
     }
     
     /// Receive a message from the WebSocket transport
@@ -349,28 +411,29 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result containing the received message or an error
-    async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
-        // Check if we're connected
-        {
-            let state = self.connection_state.read().await;
-            if *state != WebSocketState::Connected {
-                return Err(MCPError::Transport(
-                    TransportError::ConnectionClosed(
-                        "Transport is not connected".into()
-                    ).into()
-                ));
-            }
+    async fn receive_message(&self) -> Result<MCPMessage> {
+        if !self.is_connected_impl().await {
+            return Err(TransportError::connection_closed("Cannot receive message, not connected").into());
         }
+        trace!("Attempting to receive message from reader channel...");
+        let mut reader_guard = self.reader_rx.lock().await;
         
-        // Wait for a message from the receiver
-        let mut receiver_guard = self.reader_rx.lock().await;
-        if let Some(receiver) = &mut *receiver_guard {
-            match receiver.recv().await {
-                Some(message) => Ok(message),
-                None => Err(MCPError::Transport(TransportError::ConnectionClosed("Message channel closed".into()).into())),
+        if let Some(ref mut rx) = *reader_guard {
+            let received: Option<MCPMessage> = rx.recv().await;
+            match received {
+                Some(mcp_message) => {
+                    debug!("Received message via channel: ID {}", mcp_message.id.0);
+                    Ok(mcp_message)
+                }
+                None => {
+                    error!("Reader channel (reader_rx) is closed. Cannot receive message.");
+                    *self.connection_state.lock().await = WebSocketState::Disconnected;
+                    Err(TransportError::connection_closed("Reader channel closed").into())
+                }
             }
         } else {
-            Err(MCPError::Transport(TransportError::ConnectionClosed("Reader channel is not initialized".into()).into()))
+            error!("Reader channel (reader_rx) is None. Cannot receive message.");
+            Err(TransportError::ConnectionClosed("Reader channel unavailable".to_string()).into())
         }
     }
     
@@ -382,42 +445,98 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn connect(&mut self) -> crate::error::Result<()> {
-        // Update state to connecting
+    async fn connect(&mut self) -> Result<()> {
         {
-            let mut state = self.connection_state.write().await;
+            let mut state = self.connection_state.lock().await;
+            if *state != WebSocketState::Disconnected {
+                warn!("WebSocket connect called while not disconnected ({:?})", *state);
+                return Ok(());
+            }
             *state = WebSocketState::Connecting;
         }
         
-        // Connect to the WebSocket server
-        let connection = connect_async(&self.config.url).await
-            .map_err(|e| TransportError::ConnectionFailed(format!(
-                "Failed to connect to {}: {}", 
-                self.config.url, e
-            )))?;
+        info!("Connecting to WebSocket URL: {}", self.config.url);
+        let connection_result = connect_async(&self.config.url).await;
         
-        let (socket, _) = connection;
+        let (socket, response) = match connection_result {
+            Ok(conn) => conn,
+            Err(e) => {
+                error!("Failed to connect to {}: {}", self.config.url, e);
+                *self.connection_state.lock().await = WebSocketState::Failed(e.to_string());
+                return Err(TransportError::connection_failed(format!(
+                    "Failed to connect to {}: {}", 
+                    self.config.url, e
+                )).into());
+            }
+        };
+        info!("WebSocket connection established. Response: {:?}", response.status());
         
-        // Create new channels for the connection
+        let (peer_addr, local_addr) = match socket.get_ref() {
+            #[cfg(feature = "native-tls")] // Keep native-tls handling if feature enabled
+            MaybeTlsStream::NativeTls(tls) => (
+                tls.get_ref().get_ref().peer_addr().ok(), 
+                tls.get_ref().get_ref().local_addr().ok()
+            ),
+            // Prioritize rustls if enabled
+            #[cfg(feature = "rustls-tls-native-roots")] // Or rustls-tls-webpki-roots
+            MaybeTlsStream::Rustls(tls) => {
+                // Access the underlying TcpStream through the appropriate path for rustls
+                // This might involve accessing private fields or using methods if available
+                // Assuming `tls.get_ref().0` provides access to the underlying stream structure
+                // Adjust based on the actual structure provided by tokio-rustls
+                 match tls.get_ref() {
+                     // Assuming the underlying stream is accessible via .0 or similar
+                     // You might need to inspect the `tokio_rustls::client::TlsStream` structure
+                     // For example: `tls.get_ref().io.peer_addr()` if `io` holds the TcpStream
+                     // If direct access isn't possible, alternative methods might be needed.
+                     // Placeholder: Adapt this based on actual `tokio-rustls` API
+                     _ => (None, None) // Default if specific access pattern unclear
+                     // Example if underlying TCP is directly accessible:
+                     // (tls.get_ref().0.peer_addr().ok(), tls.get_ref().0.local_addr().ok())
+                 }
+            },
+            MaybeTlsStream::Plain(tcp) => (
+                tcp.peer_addr().ok(),
+                tcp.local_addr().ok()
+            ),
+            // Handle unexpected variants or cases where no TLS feature is enabled
+            _ => {
+                 warn!("Could not determine peer/local address from WebSocket stream type.");
+                 (None, None)
+            },
+        };
+
+        *self.peer_addr.lock().await = peer_addr;
+        *self.local_addr.lock().await = local_addr;
+
+        {
+            let mut meta = self.metadata.lock().await;
+            meta.remote_address = peer_addr;
+            meta.local_address = local_addr;
+            meta.connected_at = Utc::now();
+            meta.last_activity = Utc::now();
+        }
+
         let (msg_tx, msg_rx) = mpsc::channel::<MCPMessage>(100);
         let (socket_tx, socket_rx) = mpsc::channel::<SocketCommand>(100);
         
-        // Update the socket sender
         self.ws_sender = Some(socket_tx);
         
-        // Update the reader
         {
             let mut reader_guard = self.reader_rx.lock().await;
             *reader_guard = Some(msg_rx);
         }
         
-        // Start WebSocket task
-        self.start_websocket_task(socket, msg_tx, socket_rx).await?;
+        self.start_websocket_task(socket, msg_tx, socket_rx, self.connection_state.clone()).await?;
         
-        // Update state to connected
         {
-            let mut state = self.connection_state.write().await;
-            *state = WebSocketState::Connected;
+            let mut state = self.connection_state.lock().await;
+             if *state == WebSocketState::Connecting {
+                *state = WebSocketState::Connected;
+                info!("WebSocket transport connected successfully.");
+            } else {
+                warn!("WebSocket state changed during connection ({:?}), not setting to Connected.", *state);
+            }
         }
         
         Ok(())
@@ -430,35 +549,29 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Result indicating success or error
-    async fn disconnect(&self) -> crate::error::Result<()> {
-        // Update state to disconnecting
+    async fn disconnect(&self) -> Result<()> {
         {
-            let mut state = self.connection_state.write().await;
-            *state = WebSocketState::Disconnecting;
+            let mut state = self.connection_state.lock().await;
+            if *state == WebSocketState::Disconnected {
+                info!("WebSocket already disconnected.");
+                return Ok(());
+            }
+            *state = WebSocketState::Disconnected;
         }
-        
-        // Send close command to socket task if it exists
+
         if let Some(sender) = &self.ws_sender {
-            let _ = sender.send(SocketCommand::Close).await;
+            if let Err(e) = sender.send(SocketCommand::Close).await {
+                error!("Failed to send close command to WebSocket task: {}", e);
+            }
         }
-        
-        // Wait a bit for tasks to finish gracefully
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
-        // Reset the reader channel
+
         {
             let mut reader_guard = self.reader_rx.lock().await;
             *reader_guard = None;
         }
-        
-        // Update state to disconnected (if not already done by tasks)
-        {
-            let mut state = self.connection_state.write().await;
-            if *state == WebSocketState::Disconnecting {
-                *state = WebSocketState::Disconnected;
-            }
-        }
-        
+
+        info!("WebSocket disconnected.");
+
         Ok(())
     }
     
@@ -468,8 +581,7 @@ impl Transport for WebSocketTransport {
     ///
     /// True if the transport is in the Connected state, false otherwise
     async fn is_connected(&self) -> bool {
-        let state = self.connection_state.read().await;
-        *state == WebSocketState::Connected
+        self.is_connected_impl().await
     }
     
     /// Get transport metadata
@@ -477,9 +589,54 @@ impl Transport for WebSocketTransport {
     /// # Returns
     ///
     /// Metadata about this transport connection
-    fn get_metadata(&self) -> TransportMetadata {
-        self.metadata.clone()
+    async fn get_metadata(&self) -> crate::transport::types::TransportMetadata {
+        // Await the lock future, then clone the guarded data
+        let metadata_guard = self.metadata.lock().await;
+        metadata_guard.clone()
     }
+
+    /// Send raw bytes over the WebSocket transport
+    /// Sends raw bytes as a WebSocket Binary message.
+    async fn send_raw(&self, bytes: &[u8]) -> crate::error::Result<()> {
+        if !self.is_connected_impl().await {
+            return Err(TransportError::connection_closed("Cannot send raw bytes, not connected").into());
+        }
+        // --- TODO: Implement actual raw byte sending --- 
+        // This requires modifying SocketCommand to handle Vec<u8> and the writer task
+        // to send Message::Binary. For now, return UnsupportedOperation.
+        error!("send_raw requires modification to SocketCommand enum and writer task");
+        Err(MCPError::UnsupportedOperation("send_raw not fully implemented for WebSocketTransport".to_string()))
+        // Example (once SocketCommand::SendRaw is added):
+        // if let Some(sender) = &self.ws_sender {
+        //     let cmd = SocketCommand::SendRaw(bytes.to_vec());
+        //     if sender.send(cmd).await.is_err() {
+        //         error!("WebSocket: Failed to send raw bytes command to writer task");
+        //         Err(TransportError::SendError("Writer task channel closed".to_string()).into())
+        //     } else {
+        //         Ok(())
+        //     }
+        // } else {
+        //     Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
+        // }
+        // --- End TODO ---
+    }
+}
+
+async fn handle_connection(
+    peer: SocketAddr,
+    stream: TcpStream,
+) -> Result<()> {
+    Ok(())
+}
+
+async fn process_socket(
+    socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    msg_tx: mpsc::Sender<MCPMessage>,
+    mut socket_rx: mpsc::Receiver<SocketCommand>,
+    control_tx: mpsc::Sender<ControlMessage>,
+    state: Arc<Mutex<WebSocketState>>,
+    peer: SocketAddr,
+) {
 }
 
 #[cfg(test)]
@@ -503,6 +660,6 @@ mod tests {
         // Get metadata
         let metadata = transport.get_metadata();
         assert_eq!(metadata.transport_type, "websocket");
-        assert_eq!(metadata.remote_address, "ws://localhost:9001");
+        assert_eq!(metadata.peer_addr, "ws://localhost:9001");
     }
 } 

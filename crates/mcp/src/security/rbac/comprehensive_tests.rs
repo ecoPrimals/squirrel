@@ -110,7 +110,7 @@ async fn test_basic_role_operations() -> Result<()> {
     // Create test roles
     let read_perm = create_test_permission("Read", "document", Action::Read);
     let write_perm = create_test_permission("Write", "document", Action::Update);
-    let admin_perm = create_test_permission("Admin", "system", Action::Admin);
+    let admin_perm = create_test_permission("Admin", "system", Action::Admin());
     
     let reader_role = create_test_role("Reader", vec![read_perm.clone()]);
     let writer_role = create_test_role("Writer", vec![write_perm.clone()]);
@@ -226,7 +226,7 @@ async fn test_direct_inheritance() -> Result<()> {
     let read_perm = create_test_permission("Read", "document", Action::Read);
     let write_perm = create_test_permission("Write", "document", Action::Update);
     let delete_perm = create_test_permission("Delete", "document", Action::Delete);
-    let admin_perm = create_test_permission("Admin", "system", Action::Admin);
+    let admin_perm = create_test_permission("Admin", "system", Action::Admin());
     
     // Create test roles
     let user_role = create_test_role("User", vec![read_perm.clone()]);
@@ -324,7 +324,7 @@ async fn test_filtered_inheritance() -> Result<()> {
     let create_reports_perm = create_test_permission("CreateReports", "reports", Action::Create);
     let export_reports_perm = create_test_permission("ExportReports", "reports", Action::Execute);
     let delete_reports_perm = create_test_permission("DeleteReports", "reports", Action::Delete);
-    let manage_users_perm = create_test_permission("ManageUsers", "users", Action::Admin);
+    let manage_users_perm = create_test_permission("ManageUsers", "users", Action::Admin());
     
     // Create roles
     let reporter_role = create_test_role(
@@ -386,7 +386,7 @@ async fn test_filtered_inheritance() -> Result<()> {
         _ => panic!("Admin should have delete permission"),
     }
     
-    let result = rbac.check_permission("admin1", "users", Action::Admin, Some(context.clone())).await?;
+    let result = rbac.check_permission("admin1", "users", Action::Admin(), Some(context.clone())).await?;
     match result {
         ValidationResult::Granted => {},
         _ => panic!("Admin should have user management permission"),
@@ -1129,7 +1129,7 @@ async fn test_end_to_end_rbac_flow() -> Result<()> {
     let edit_reports_perm = create_test_permission("EditReports", "reports", Action::Update);
     let approve_reports_perm = create_test_permission("ApproveReports", "reports", Action::Approve);
     let delete_reports_perm = create_test_permission("DeleteReports", "reports", Action::Delete);
-    let manage_users_perm = create_test_permission("ManageUsers", "users", Action::Admin);
+    let manage_users_perm = create_test_permission("ManageUsers", "users", Action::Admin());
     
     // Create roles
     let analyst_role = create_test_role("Analyst", vec![view_reports_perm.clone()]);
@@ -1328,7 +1328,7 @@ async fn test_complex_inheritance_scenarios() -> Result<()> {
     let write_perm = create_test_permission("Write", "resource", Action::Update);
     let execute_perm = create_test_permission("Execute", "resource", Action::Execute);
     let delete_perm = create_test_permission("Delete", "resource", Action::Delete);
-    let admin_perm = create_test_permission("Admin", "resource", Action::Admin);
+    let admin_perm = create_test_permission("Admin", "resource", Action::Admin());
     
     // Roles for diamond inheritance pattern:
     //      Base
@@ -1405,7 +1405,7 @@ async fn test_complex_inheritance_scenarios() -> Result<()> {
     }
     
     // Bottom should NOT inherit Admin from Admin (filtered out)
-    let result = rbac.check_permission("test_user", "resource", Action::Admin, Some(context.clone())).await?;
+    let result = rbac.check_permission("test_user", "resource", Action::Admin(), Some(context.clone())).await?;
     match result {
         ValidationResult::Denied { .. } => {},
         _ => panic!("Should NOT inherit Admin from Admin (filtered out)"),
@@ -1564,7 +1564,7 @@ async fn test_combined_performance() -> Result<()> {
             1 => Action::Update,
             2 => Action::Delete,
             3 => Action::Execute,
-            _ => Action::Admin,
+            _ => Action::Admin(),
         };
         
         let perm = create_test_permission(&format!("Perm{}", i), &format!("resource/{}", i % 10), action);
@@ -1619,7 +1619,7 @@ async fn test_combined_performance() -> Result<()> {
                 1 => Action::Update,
                 2 => Action::Delete,
                 3 => Action::Execute,
-                _ => Action::Admin,
+                _ => Action::Admin(),
             }),
             validation_expression: if i % 3 == 0 {
                 "context.attributes.get('clearance') == Some(&String::from('High'))".to_string()
@@ -1649,7 +1649,7 @@ async fn test_combined_performance() -> Result<()> {
     
     // Test multiple permission checks with timeout
     let resources = ["resource/1", "resource/3", "resource/5", "resource/7", "resource/9"];
-    let actions = [Action::Read, Action::Update, Action::Delete, Action::Execute, Action::Admin];
+    let actions = [Action::Read, Action::Update, Action::Delete, Action::Execute, Action::Admin()];
     
     // Combined timeout for all operations
     let result = timeout(
@@ -1890,7 +1890,7 @@ async fn test_cross_linking_inheritance() -> Result<()> {
     let b_perm = create_test_permission("PermB", "resource", Action::Update);
     let c_perm = create_test_permission("PermC", "resource", Action::Delete);
     let d_perm = create_test_permission("PermD", "resource", Action::Execute);
-    let e_perm = create_test_permission("PermE", "resource", Action::Admin);
+    let e_perm = create_test_permission("PermE", "resource", Action::Admin());
     
     let mut updated_a = role_a.clone();
     updated_a.permissions.insert(a_perm.clone());
@@ -1916,7 +1916,7 @@ async fn test_cross_linking_inheritance() -> Result<()> {
     let context = create_test_context("test_user");
     
     // Should have E's permission directly
-    let result = rbac.check_permission("test_user", "resource", Action::Admin, Some(context.clone())).await?;
+    let result = rbac.check_permission("test_user", "resource", Action::Admin(), Some(context.clone())).await?;
     match result {
         ValidationResult::Granted => {},
         _ => panic!("Should have direct permission from E"),

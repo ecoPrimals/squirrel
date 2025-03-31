@@ -10,10 +10,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, warn, debug, error, instrument};
 
-use crate::error::{Result, MCPError};
-use crate::error::types::SecurityError;
-use crate::security::types::Permission;
-use crate::types::SecurityLevel;
+use crate::error::{Result, MCPError, SecurityError};
+use crate::security::types::{RoleId, Permission};
+use crate::security::types::SecurityLevel;
 
 /// Security policy types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -180,12 +179,16 @@ impl PolicyManager {
         
         debug!("Adding policy evaluator: id={}, type={:?}", evaluator_id, policy_type);
         
-        let mut handlers = self.handlers.write().await;
-        if handlers.contains_key(&evaluator_id) {
-            return Err(MCPError::Security(SecurityError::DuplicateIDError("Policy evaluator with that ID already exists".into())));
-        }
+        // Scope the lock to minimize duration
+        {
+            let mut handlers = self.handlers.write().await;
+            if handlers.contains_key(&evaluator_id) {
+                return Err(MCPError::Security(SecurityError::DuplicateIDError("Policy evaluator with that ID already exists".into())));
+            }
+            
+            handlers.insert(evaluator_id, evaluator);
+        } // handlers lock is dropped here
         
-        handlers.insert(evaluator_id, evaluator);
         Ok(())
     }
     
@@ -196,22 +199,29 @@ impl PolicyManager {
             return Err(MCPError::Security(SecurityError::ValidationError("Policy ID cannot be empty".into())));
         }
         
-        let mut policies = self.policies.write().await;
-        let mut policies_by_type = self.policies_by_type.write().await;
-        
-        if policies.contains_key(&policy.id) {
-            return Err(MCPError::Security(SecurityError::DuplicateIDError("Policy with that ID already exists".into())));
-        }
-        
-        // Update policies by type
-        let policy_type_entry = policies_by_type.entry(policy.policy_type.clone()).or_insert_with(HashSet::new);
-        policy_type_entry.insert(policy.id.clone());
-        
-        // Store policy ID for logging
+        // Store policy ID for logging and later use
         let policy_id = policy.id.clone();
+        let policy_type = policy.policy_type.clone();
         
-        // Insert policy
-        policies.insert(policy_id.clone(), policy);
+        // First check if the policy already exists (read lock is enough)
+        {
+            let policies = self.policies.read().await;
+            if policies.contains_key(&policy_id) {
+                return Err(MCPError::Security(SecurityError::DuplicateIDError("Policy with that ID already exists".into())));
+            }
+        } // read lock is dropped here
+        
+        // Update policies_by_type more directly without holding a temporary variable
+        self.policies_by_type.write().await
+            .entry(policy_type)
+            .or_insert_with(HashSet::new)
+            .insert(policy_id.clone());
+        
+        // Insert the policy
+        {
+            let mut policies = self.policies.write().await;
+            policies.insert(policy_id.clone(), policy);
+        } // policies lock is dropped here
         
         info!("Added policy: {}", policy_id);
         Ok(())
@@ -229,28 +239,54 @@ impl PolicyManager {
     /// Get policies by type
     #[instrument]
     pub async fn get_policies_by_type(&self, policy_type: &PolicyType) -> Result<Vec<SecurityPolicy>> {
-        let policies_by_type = self.policies_by_type.read().await;
-        let policies = self.policies.read().await;
+        // First get the policy IDs with a read lock on policies_by_type
+        let policy_ids = {
+            let policies_by_type = self.policies_by_type.read().await;
+            policies_by_type.get(policy_type).map_or_else(HashSet::new, std::clone::Clone::clone)
+        }; // policies_by_type lock is dropped here
         
-        let policy_ids = policies_by_type.get(policy_type).map_or_else(HashSet::new, std::clone::Clone::clone);
-            
-        let result = policy_ids.iter()
-            .filter_map(|id| policies.get(id).cloned())
-            .collect();
-            
+        // Now get the policies with a read lock on policies
+        let mut result = Vec::new();
+        {
+            let policies = self.policies.read().await;
+            for id in &policy_ids {
+                if let Some(policy) = policies.get(id) {
+                    result.push(policy.clone());
+                }
+            }
+        } // policies lock is dropped here
+        
         Ok(result)
     }
     
     /// Delete a policy
     #[instrument]
     pub async fn delete_policy(&self, policy_id: &str) -> Result<()> {
-        let mut policies = self.policies.write().await;
-        let mut policies_by_type = self.policies_by_type.write().await;
+        // First get policy type (read lock)
+        let policy_type = {
+            let policies = self.policies.read().await;
+            match policies.get(policy_id) {
+                Some(policy) => policy.policy_type.clone(),
+                None => return Err(MCPError::Security(SecurityError::NotFound("Policy not found".into())))
+            }
+        }; // read lock is dropped here
         
-        if let Some(policy) = policies.remove(policy_id) {
-            if let Some(type_set) = policies_by_type.get_mut(&policy.policy_type) {
+        // Remove from policies map
+        let removed_policy = {
+            let mut policies = self.policies.write().await;
+            policies.remove(policy_id)
+        }; // policies lock is dropped here
+        
+        // If policy was found and removed, update policies_by_type
+        if let Some(_) = removed_policy {
+            // Obtain the lock first to avoid the drop in scrutinee issue
+            let mut policies_by_type = self.policies_by_type.write().await;
+            if let Some(type_set) = policies_by_type.get_mut(&policy_type) {
                 type_set.remove(policy_id);
             }
+            // Explicitly drop the lock to make it clear
+            drop(policies_by_type);
+            
             info!("Deleted policy: {}", policy_id);
             Ok(())
         } else {
@@ -261,16 +297,23 @@ impl PolicyManager {
     /// Update a policy
     #[instrument(skip(policy))]
     pub async fn update_policy(&self, policy: SecurityPolicy) -> Result<()> {
-        let mut policies = self.policies.write().await;
-        
-        if !policies.contains_key(&policy.id) {
-            return Err(MCPError::Security(SecurityError::NotFound("Policy not found".into())));
-        }
-        
         // Store policy ID for logging
         let policy_id = policy.id.clone();
         
-        policies.insert(policy_id.clone(), policy);
+        // First check if the policy exists
+        {
+            let policies = self.policies.read().await;
+            if !policies.contains_key(&policy_id) {
+                return Err(MCPError::Security(SecurityError::NotFound("Policy not found".into())));
+            }
+        } // read lock is dropped here
+        
+        // Update the policy
+        {
+            let mut policies = self.policies.write().await;
+            policies.insert(policy_id.clone(), policy);
+        } // write lock is dropped here
+        
         info!("Updated policy: {}", policy_id);
         Ok(())
     }
@@ -285,8 +328,11 @@ impl PolicyManager {
             return Ok(PolicyEvaluationResult::Passed);
         }
         
-        let handlers = self.handlers.read().await;
-        let handler = handlers.values().find(|h| h.policy_type() == policy.policy_type);
+        // Find the handler directly instead of holding onto the lock
+        let handler = self.handlers.read().await
+            .values()
+            .find(|h| h.policy_type() == policy.policy_type)
+            .cloned();
         
         if let Some(evaluator) = handler {
             debug!("Evaluating policy {} with evaluator {}", policy_id, evaluator.id());
@@ -346,7 +392,16 @@ impl PolicyManager {
         self.enforcement_enabled = enabled;
     }
     
-    /// Get all policies
+    /// Get all policies stored in the manager.
+    ///
+    /// Retrieves a clone of all currently registered security policies.
+    ///
+    /// # Errors
+    ///
+    /// This function currently does not return errors under normal circumstances.
+    /// However, it might theoretically return an error if the internal lock
+    /// protecting the policy map becomes poisoned due to a panic in another thread
+    /// holding the lock.
     pub async fn get_all_policies(&self) -> Result<Vec<SecurityPolicy>> {
         let policies = self.policies.read().await;
         Ok(policies.values().cloned().collect())
@@ -475,38 +530,48 @@ impl PolicyEvaluator for RateLimitPolicyEvaluator {
             .map_or(60, |s| s.parse::<i64>().unwrap_or(60));
         
         // Get key to use for rate limiting (user_id or ip_address)
-        let key = if let Some(user_id) = &context.user_id {
-            format!("user:{user_id}")
-        } else if let Some(ip) = &context.ip_address {
-            format!("ip:{ip}")
-        } else {
-            return Ok(PolicyEvaluationResult::Warning("No user ID or IP address provided for rate limiting".to_string()));
-        };
+        let ip_address = context.ip_address.clone().unwrap_or_default(); // Extract ip address to avoid multiple clones
+        let key = context.user_id.as_ref().map_or_else(
+            || /* None case */ format!("rate_limit:anonymous:{}:{}", &policy.id, &ip_address),
+            |user_id| /* Some case */ format!("rate_limit:{}:{}:{}", user_id, &policy.id, &ip_address)
+        );
         
-        // Cleanup old entries periodically
         self.cleanup_old_entries().await;
         
-        // Check rate limit
-        let mut rate_limits = self.rate_limits.write().await;
         let now = Utc::now();
         
-        let timestamps = rate_limits.entry(key.clone()).or_insert_with(Vec::new);
+        // Process the timestamps and determine the count atomically
+        let exceeded_limit;
+        let key_for_error = key.clone(); // Create a clone for the error message
         
-        // Remove old timestamps outside the window
-        timestamps.retain(|timestamp| {
-            (now - *timestamp).num_seconds() < time_window
-        });
-        
-        // Check if rate limit is exceeded
-        if timestamps.len() >= max_requests {
-            return Ok(PolicyEvaluationResult::Violation(
-                format!("Rate limit exceeded: {} requests in {} seconds (max {})", 
-                    timestamps.len(), time_window, max_requests)
-            ));
+        {
+            // Scope the lock acquisition to minimize lock time
+            let mut rate_limits = self.rate_limits.write().await;
+            let timestamps = rate_limits.entry(key).or_insert_with(Vec::new);
+            
+            // Remove old timestamps outside the window
+            timestamps.retain(|timestamp| {
+                (now - *timestamp).num_seconds() < time_window
+            });
+            
+            // Get the current count
+            let current_count = timestamps.len();
+            
+            // Add current timestamp only if not exceeded
+            exceeded_limit = current_count >= max_requests;
+            if !exceeded_limit {
+                timestamps.push(now);
+            }
+            
+            // Lock is dropped at the end of this block
         }
         
-        // Add current timestamp
-        timestamps.push(now);
+        // Check if rate limit is exceeded and return appropriate result
+        if exceeded_limit {
+            return Ok(PolicyEvaluationResult::Violation(
+                format!("Rate limit exceeded for {key_for_error}: maximum {max_requests} requests in {time_window} seconds")
+            ));
+        }
         
         Ok(PolicyEvaluationResult::Passed)
     }
@@ -537,10 +602,9 @@ impl SessionPolicyEvaluator {
 #[async_trait::async_trait]
 impl PolicyEvaluator for SessionPolicyEvaluator {
     async fn evaluate(&self, policy: &SecurityPolicy, context: &PolicyContext) -> Result<PolicyEvaluationResult> {
-        // Get session token from context
-        let session_token = match &context.session_token {
-            Some(token) => token,
-            None => return Ok(PolicyEvaluationResult::Violation("No session token provided".to_string())),
+        // Get session token from context using let...else pattern
+        let Some(_session_token) = &context.session_token else {
+            return Ok(PolicyEvaluationResult::Violation("No session token provided".to_string()));
         };
         
         // Get session policy settings

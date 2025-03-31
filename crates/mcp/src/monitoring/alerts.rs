@@ -279,8 +279,8 @@ impl Alert {
                     // Get historical values
                     if let Some(history) = metrics_collector.get_metric_history(metric_name) {
                         // Find a value from the past
-                        let _now = Utc::now();
-                        let target_time = _now - *duration;
+                        let now = Utc::now();
+                        let target_time = now - *duration;
 
                         // Find the closest historical value to the target time
                         let mut closest_index = 0;
@@ -337,16 +337,16 @@ impl Alert {
 
     /// Fire the alert
     pub fn fire(&mut self, triggered_value: Option<MetricValue>) {
-        let _now = Utc::now();
+        let now = Utc::now();
 
         // Update state
         self.state = AlertState::Firing;
 
         // Update timestamps
         if self.first_fired_at.is_none() {
-            self.first_fired_at = Some(_now);
+            self.first_fired_at = Some(now);
         }
-        self.last_fired_at = Some(_now);
+        self.last_fired_at = Some(now);
 
         // Update triggered value
         self.triggered_value = triggered_value;
@@ -367,14 +367,14 @@ impl Alert {
 
     /// Acknowledge the alert
     pub fn acknowledge(&mut self, user: &str) {
-        let _now = Utc::now();
+        let now = Utc::now();
 
         // Update state
         self.state = AlertState::Acknowledged;
 
         // Update acknowledged info
         self.acknowledged_by = Some(user.to_string());
-        self.acknowledged_at = Some(_now);
+        self.acknowledged_at = Some(now);
     }
 
     /// Suppress the alert
@@ -388,23 +388,19 @@ impl Alert {
         self.last_checked_at = Some(Utc::now());
     }
 
-    /// Should this alert be checked now?
-    #[must_use] pub fn should_check(&self) -> bool {
-        // If not enabled, don't check
-        if !self.config.enabled {
-            return false;
-        }
-
-        // If never checked, definitely check
-        if self.last_checked_at.is_none() {
-            return true;
-        }
-
-        // Check if enough time has passed since the last check
-        let _now = Utc::now();
-        let duration = Duration::seconds(self.config.check_interval_seconds as i64);
-
-        _now - self.last_checked_at.unwrap() >= duration
+    /// Determines if the alert should be checked based on the last checked time and interval.
+    fn should_check(&self) -> bool {
+        self.last_checked_at.map_or(true, |last_checked| {
+            // Check if enough time has passed since the last check
+            let now = Utc::now();
+            // Convert check_interval_seconds (u64) to i64 for Duration::seconds
+            let duration = i64::try_from(self.config.check_interval_seconds).map_or_else(|_| {
+                warn!("Invalid check_interval_seconds: {}. Using default of 60s", self.config.check_interval_seconds);
+                Duration::seconds(60) // Default to 60 seconds if cast fails
+            }, |secs| Duration::seconds(secs));
+             // Use signed_duration_since for DateTime subtraction
+            now.signed_duration_since(last_checked) >= duration
+        })
     }
 
     /// Should this alert fire now?
@@ -413,10 +409,11 @@ impl Alert {
         if matches!(self.state, AlertState::Firing | AlertState::Acknowledged) {
             // Check if enough time has passed since the last firing
             if let Some(last_fired_at) = self.last_fired_at {
-                let _now = Utc::now();
+                let now = Utc::now();
+                #[allow(clippy::cast_possible_wrap)] // Allow u64->i64 for Duration
                 let duration = Duration::seconds(self.config.minimum_interval_seconds as i64);
 
-                return _now - last_fired_at >= duration;
+                return now - last_fired_at >= duration;
             }
         }
 
@@ -434,20 +431,21 @@ impl Alert {
 #[derive(Debug)]
 pub struct AlertManager {
     /// Alerts by ID
-    alerts: RwLock<HashMap<String, Alert>>,
+    alerts: Arc<RwLock<HashMap<String, Alert>>>,
     /// Metrics collector
     metrics_collector: Option<Arc<MetricsCollector>>,
-    /// Whether the manager is running
-    running: RwLock<bool>,
+    /// Whether the manager is running (shared state for task)
+    running: Arc<RwLock<bool>>,
 }
 
 impl AlertManager {
-    /// Create a new alert manager
-    #[must_use] pub fn new() -> Self {
+    /// Create a new `AlertManager`
+    #[must_use]
+    pub fn new() -> Self {
         Self {
-            alerts: RwLock::new(HashMap::new()),
+            alerts: Arc::new(RwLock::new(HashMap::new())),
             metrics_collector: None,
-            running: RwLock::new(false),
+            running: Arc::new(RwLock::new(false)), // Wrap in Arc
         }
     }
 
@@ -461,41 +459,70 @@ impl AlertManager {
         let alert = Alert::new(config);
         let id = alert.id.clone();
 
-        let mut alerts = self.alerts.write().unwrap();
-        alerts.insert(id.clone(), alert);
+        // Corrected logic: Directly attempt to get write lock
+        match self.alerts.write() {
+            Ok(mut alerts) => {
+                alerts.insert(id.clone(), alert);
+            }
+            Err(e) => {
+                error!("Failed to acquire alerts write lock for add_alert: {}", e);
+                // Alert might not be added, but we still return the generated ID
+            }
+        }
 
         id
     }
 
     /// Get an alert by ID
     pub fn get_alert(&self, id: &str) -> Option<Alert> {
-        let alerts = self.alerts.read().unwrap();
-        alerts.get(id).cloned()
+        match self.alerts.read() {
+            Ok(alerts) => alerts.get(id).cloned(),
+            Err(e) => {
+                error!("Failed to acquire alerts read lock for get_alert: {}", e);
+                None
+            }
+        }
     }
 
     /// Get all alerts
     pub fn get_all_alerts(&self) -> Vec<Alert> {
-        let alerts = self.alerts.read().unwrap();
-        alerts.values().cloned().collect()
+        match self.alerts.read() {
+            Ok(alerts) => alerts.values().cloned().collect(),
+            Err(e) => {
+                error!("Failed to acquire alerts read lock for get_all_alerts: {}", e);
+                Vec::new()
+            }
+        }
     }
 
     /// Get active alerts (firing or acknowledged)
     pub fn get_active_alerts(&self) -> Vec<Alert> {
-        let alerts = self.alerts.read().unwrap();
-        alerts
-            .values()
-            .filter(|alert| matches!(alert.state, AlertState::Firing | AlertState::Acknowledged))
-            .cloned()
-            .collect()
+        match self.alerts.read() {
+            Ok(alerts) => alerts
+                .values()
+                .filter(|alert| matches!(alert.state, AlertState::Firing | AlertState::Acknowledged))
+                .cloned()
+                .collect(),
+            Err(e) => {
+                error!("Failed to acquire alerts read lock for get_active_alerts: {}", e);
+                Vec::new()
+            }
+        }
     }
 
     /// Update an existing alert
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert is not found
+    /// Returns an error if the alert is not found or the lock is poisoned
     pub fn update_alert(&self, id: &str, config: AlertConfiguration) -> Result<()> {
-        let mut alerts = self.alerts.write().unwrap();
+        let mut alerts = match self.alerts.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire alerts lock for update_alert: {}", e);
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
         if let Some(alert) = alerts.get_mut(id) {
             alert.config = config;
             Ok(())
@@ -508,9 +535,15 @@ impl AlertManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert is not found
+    /// Returns an error if the alert is not found or the lock is poisoned
     pub fn remove_alert(&self, id: &str) -> Result<()> {
-        let mut alerts = self.alerts.write().unwrap();
+        let mut alerts = match self.alerts.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire alerts lock for remove_alert: {}", e);
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
         if alerts.remove(id).is_some() {
             Ok(())
         } else {
@@ -522,28 +555,47 @@ impl AlertManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert manager is already running
+    /// Returns an error if the alert manager is already running, no metrics collector is set, or a lock is poisoned.
     pub async fn start(&self) -> Result<()> {
+        // Retrieve the shared MetricsCollector
+        let Some(metrics_collector) = self.metrics_collector.clone() else {
+            return Err(AlertError::NoMetricsCollector.into());
+        };
+
         // Mark the alert manager as running
         {
-            let mut running = self.running.write().unwrap();
-            if *running {
+            let mut running_guard = match self.running.write() { // Use self.running directly
+                Ok(guard) => guard,
+                Err(e) => {
+                    error!("Failed to acquire running write lock for start: {}", e);
+                    return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+                }
+            };
+            if *running_guard {
                 return Err(AlertError::AlreadyRunning.into());
             }
-            
-            // Ensure we have a metrics collector
-            if self.metrics_collector.is_none() {
-                return Err(AlertError::NoMetricsCollector.into());
-            }
-            
-            *running = true;
+            *running_guard = true;
         } // Drop the write lock
         
-        // Clone the references we need for the async task
-        let alerts_ref = self.alerts.read().unwrap().clone();
-        let alerts = Arc::new(RwLock::new(alerts_ref));
-        let metrics_collector = self.metrics_collector.as_ref().unwrap().clone();
-        let running = Arc::new(RwLock::new(true));
+        // Clone the alerts map (needs read lock)
+        let alerts_map = match self.alerts.read() {
+            Ok(alerts_guard) => alerts_guard.clone(),
+            Err(e) => {
+                error!("Failed to acquire alerts read lock for start: {}", e);
+                 // Attempt to reset running state before returning error
+                {
+                    match self.running.write() {
+                        Ok(mut running_guard) => *running_guard = false,
+                        Err(e_run) => error!("Failed to re-acquire running lock to reset state: {}", e_run),
+                    }
+                }
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
+
+        // Create a new Arc<RwLock> for the cloned alerts map for the task
+        let task_alerts = Arc::new(RwLock::new(alerts_map)); 
+        let task_running = self.running.clone(); // Clone the Arc<RwLock<bool>> 
         
         // Spawn the alert checking loop
         tokio::spawn(async move {
@@ -551,17 +603,23 @@ impl AlertManager {
             
             loop {
                 // Check if we should keep running
-                {
-                    let running_guard = running.read().unwrap();
-                    if !*running_guard {
-                        break;
+                let should_run = match task_running.read() { // Use task_running
+                    Ok(running_guard) => *running_guard,
+                    Err(e) => {
+                        error!("Failed to acquire running read lock in alert loop: {}", e);
+                        false // Stop loop if lock is poisoned
                     }
+                };
+
+                if !should_run {
+                    break;
                 }
                 
-                // Check all alerts
-                check_alerts(&alerts, &metrics_collector).await;
+                // Check all alerts using the task's alerts map
+                check_alerts(&task_alerts, &metrics_collector).await; // Pass task_alerts
                 
-                // Sleep for the check interval
+                // Sleep for the check interval (use a default or config value)
+                // TODO: Make check interval configurable
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             }
             
@@ -575,13 +633,22 @@ impl AlertManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert manager is not running
+    /// Returns an error if the alert manager is not running or the lock is poisoned
     pub async fn stop(&self) -> Result<()> {
-        let mut running = self.running.write().unwrap();
-        if !*running {
-            return Err(AlertError::Other("Alert manager is not running".to_string()).into());
+        let mut running_guard = match self.running.write() { // Use self.running
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire running lock for stop: {}", e);
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
+        if !*running_guard {
+            // Changed error type to match function description (was Other)
+            return Err(AlertError::Other("Alert manager is not running".to_string()).into()); 
         }
-        *running = false;
+        *running_guard = false;
+        drop(running_guard);
+
         Ok(())
     }
 
@@ -589,9 +656,15 @@ impl AlertManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert is not found
+    /// Returns an error if the alert is not found or the lock is poisoned
     pub fn acknowledge_alert(&self, id: &str, user: &str) -> Result<()> {
-        let mut alerts = self.alerts.write().unwrap();
+        let mut alerts = match self.alerts.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire alerts lock for acknowledge_alert: {}", e);
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
         if let Some(alert) = alerts.get_mut(id) {
             alert.state = AlertState::Acknowledged;
             alert.acknowledged_by = Some(user.to_string());
@@ -606,9 +679,15 @@ impl AlertManager {
     ///
     /// # Errors
     ///
-    /// Returns an error if the alert is not found
+    /// Returns an error if the alert is not found or the lock is poisoned
     pub fn suppress_alert(&self, id: &str) -> Result<()> {
-        let mut alerts = self.alerts.write().unwrap();
+        let mut alerts = match self.alerts.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire alerts lock for suppress_alert: {}", e);
+                return Err(AlertError::Other("Failed to acquire lock".to_string()).into());
+            }
+        };
         if let Some(alert) = alerts.get_mut(id) {
             alert.state = AlertState::Suppressed;
             Ok(())
@@ -634,7 +713,13 @@ async fn check_alerts(
 
     // Check which alerts need to be fired
     {
-        let mut alerts_map = alerts.write().unwrap();
+        let mut alerts_map = match alerts.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire alerts lock for check_alerts: {}", e);
+                return; // Exit if we can't get the lock
+            }
+        };
 
         for (id, alert) in alerts_map.iter_mut() {
             // Update checked timestamp

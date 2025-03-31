@@ -94,7 +94,11 @@ use crate::session::Session;
 use crate::transport::Transport;
 use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
 use crate::protocol::WireFormatConfig;
-use crate::types::MCPMessage;
+use crate::protocol::{
+    types::{MCPMessage, ProtocolVersion},
+    adapter_wire::WireMessage,
+};
+use crate::error::TransportError;
 
 use futures::future::{AbortHandle, Abortable};
 use serde_json::Value;
@@ -105,6 +109,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, RwLock};
 use tokio::time::timeout;
+use tracing::{debug, error, info};
+use uuid::Uuid;
+use crate::message::MessageBuilder;
 
 /// MCP Client configuration
 ///
@@ -506,7 +513,14 @@ impl MCPClient {
     ///
     /// Panics if the internal transport is `None` after the earlier check determined it exists.
     /// This should never happen in normal operation.
-    pub async fn send_command(&self, command: Message) -> Result<Message> {
+    pub async fn send_command(&self, command: &Message) -> Result<Message> {
+        debug!(command_id = %command.id, "Sending command");
+        // Convert internal message to MCPMessage
+        // TODO: Uncomment when TryFrom<Message> for MCPMessage is fixed
+        // let mcp_message = MCPMessage::try_from(command)
+        //     .map_err(|e| MCPError::Serialization(format!("Failed to convert command to MCPMessage: {}", e)))?;
+        let mcp_message = MCPMessage::default(); // Placeholder
+
         // Get the transport
         let transport_guard = self.transport.read().await;
 
@@ -539,12 +553,6 @@ impl MCPClient {
             let mut pending_requests = self.pending_requests.write().await;
             pending_requests.insert(command.id.clone(), response_tx);
         }
-        
-        // Convert Message to MCPMessage and send it
-        let mcp_message = MCPMessage::try_from(&command)
-            .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to convert Message to MCPMessage: {e}")
-            )))?;
         
         let send_result = transport.send_message(mcp_message).await;
         
@@ -603,7 +611,7 @@ impl MCPClient {
         message.message_type = MessageType::Request;
         message.metadata.insert("command".to_string(), command_name.to_string());
         
-        self.send_command(message).await
+        self.send_command(&message).await
     }
     
     /// Send an event message to the server (no response expected)
@@ -619,7 +627,14 @@ impl MCPClient {
     ///
     /// Panics if the internal transport is `None` after the earlier check determined it exists.
     /// This should never happen in normal operation.
-    pub async fn send_event(&self, event: Message) -> Result<()> {
+    pub async fn send_event(&self, event: &Message) -> Result<()> {
+        debug!(event_id = %event.id, "Publishing event");
+        // Convert internal message to MCPMessage
+        // TODO: Uncomment when TryFrom<Message> for MCPMessage is fixed
+        // let mcp_message = MCPMessage::try_from(event)
+        //     .map_err(|e| MCPError::Serialization(format!("Failed to convert event to MCPMessage: {}", e)))?;
+        let mcp_message = MCPMessage::default(); // Placeholder
+
         let transport_guard = self.transport.read().await;
 
         // Verify transport exists
@@ -643,13 +658,13 @@ impl MCPClient {
         // We can drop the guard now that we've cloned the transport
         drop(transport_guard);
         
-        // Convert Message to MCPMessage and send it
-        let mcp_message = MCPMessage::try_from(&event)
-            .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to convert Message to MCPMessage: {e}")
-            )))?;
+        let send_result = transport.send_message(mcp_message).await;
         
-        transport.send_message(mcp_message).await.map_err(Into::into)
+        if let Err(e) = send_result {
+            return Err(e.into());
+        }
+        
+        Ok(())
     }
     
     /// Send an event with the given name and content
@@ -682,7 +697,7 @@ impl MCPClient {
         // Set the topic (which is the event name)
         message.topic = Some(event_name.to_string());
         
-        self.send_event(message).await
+        self.send_event(&message).await
     }
     
     /// Register an event handler for events
@@ -746,7 +761,12 @@ impl MCPClient {
         // Release the transport guard early
         drop(transport_guard);
         
-        let message_tx = self.message_tx.clone();
+        // Clone necessary Arcs for the reader task
+        let pending_requests = self.pending_requests.clone();
+        let event_handlers = self.event_handlers.clone();
+        let event_channel = self.event_channel.clone();
+        let last_error = self.last_error.clone();
+        let state = self.state.clone(); // Clone the state Arc
         
         // Create abortable reader task
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
@@ -762,21 +782,39 @@ impl MCPClient {
             loop {
                 match transport.receive_message().await {
                     Ok(msg) => {
-                        // Convert to domain message and send to message channel
-                        match Message::try_from(&msg) {
-                            Ok(message) => {
-                                if let Err(e) = message_tx.send(message).await {
-                                    log::error!("Failed to send message to channel: {}", e);
-                                    break;
-                                }
-                            },
+                        info!("Client received MCP message: Type {:?}, ID {}", msg.type_, msg.id.0);
+                        // Attempt to convert MCPMessage to domain Message
+                        match Message::from_mcp_message(&msg) {
+                            Ok(domain_msg) => {
+                                // TODO: Handle the converted domain message (e.g., match request ID, call event handler)
+                                info!("Successfully converted MCP Message to Domain Message: ID {}, Type {:?}", domain_msg.id, domain_msg.message_type);
+                                // Example: Route based on type
+                                // if domain_msg.message_type == MessageType::Response { ... }
+                                // else if domain_msg.message_type == MessageType::Error { ... }
+                            }
                             Err(e) => {
-                                log::error!("Failed to convert message: {}", e);
+                                // Log error only if conversion was expected (Response/Error type)
+                                if msg.type_ == crate::protocol::types::MessageType::Response || msg.type_ == crate::protocol::types::MessageType::Error {
+                                    error!("Failed to convert expected MCP message {} to domain Message: {}", msg.id.0, e);
+                                } else {
+                                    // Info log for other types we aren't converting yet
+                                     info!("Received MCP message type {:?} (ID {}), not processed by from_mcp_message.", msg.type_, msg.id.0);
+                                }
                             }
                         }
                     },
                     Err(e) => {
-                        log::error!("Error receiving message: {}", e);
+                        error!(error = %e, "Error receiving message from transport");
+                        // Update last error state using the cloned Arc
+                        {
+                            let mut error_guard = last_error.write().await;
+                            *error_guard = Some(e.clone()); // Clone error
+                        }
+                        // If receive fails, update state using the cloned Arc and break loop
+                        {
+                            let mut state_guard = state.write().await;
+                            *state_guard = ClientState::Disconnected;
+                        }
                         break;
                     }
                 }

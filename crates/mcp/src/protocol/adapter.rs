@@ -44,14 +44,33 @@
 
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
-    MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult, ValidationResult,
+    MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, 
+    RoutingResult, ValidationResult, RoutingDecision, CommandHandler
 };
-use crate::types::{MCPMessage, MessageType, ProtocolState};
+use crate::protocol::types::{
+    MCPMessage,
+    MessageType,
+    ProtocolVersion,
+    CommandResponse
+};
+use crate::types::{
+    MCPResponse, 
+    ResponseStatus, 
+    MessageMetadata, 
+    ProtocolState
+};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
+use std::sync::{Arc as StdArc, Mutex as StdMutex}; // Using standard Mutex for state, renamed Arc to avoid duplication
+use tokio::sync::Mutex as TokioMutex; // Using Tokio Mutex for async operations if needed
+use crate::protocol::CommandHandler as ProtocolCommandHandler; 
+use crate::protocol::types::{MCPMessage as ProtocolMCPMessage, MessageType as ProtocolMessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
+use crate::types::{MCPResponse as TypesMCPResponse, ResponseStatus as TypesResponseStatus, MessageMetadata as TypesMessageMetadata, ProtocolState as TypesProtocolState, ProtocolVersion as TypesProtocolVersion}; // Remove CommandResponse here
+use crate::message_router::MessageHandler;
+use crate::transport::Transport;
 
 /// Errors specific to MCP protocol adapter operations.
 ///
@@ -100,6 +119,7 @@ pub enum ProtocolAdapterError {
 ///     println!("Protocol ready: {}", is_ready);
 /// }
 /// ```
+#[derive(Debug)]
 pub struct MCPProtocolAdapter {
     /// Inner protocol implementation, wrapped in an Option to allow lazy initialization
     inner: Arc<RwLock<Option<MCPProtocolBase>>>,
@@ -397,8 +417,8 @@ impl MCPProtocolAdapter {
     /// ```
     pub async fn register_handler(
         &self,
-        message_type: crate::types::MessageType,
-        handler: Box<dyn super::CommandHandler>,
+        message_type: crate::protocol::MessageType,
+        handler: Box<dyn CommandHandler>,
     ) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
@@ -441,7 +461,7 @@ impl MCPProtocolAdapter {
     ///     // Will likely error since we didn't register a handler
     /// }
     /// ```
-    pub async fn unregister_handler(&self, message_type: &crate::types::MessageType) -> Result<()> {
+    pub async fn unregister_handler(&self, message_type: &crate::protocol::MessageType) -> Result<()> {
         let mut inner = self.inner.write().await;
         if let Some(protocol) = &mut *inner {
             protocol.unregister_handler(message_type)
@@ -670,14 +690,14 @@ impl MCPProtocol for MCPProtocolAdapter {
         }
     }
 
-    async fn route_message(&self, _msg: &MCPMessage) -> RoutingResult {
+    async fn route_message(&self, msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
         let protocol_guard = self.inner.read().await;
 
         if let Some(ref _protocol) = *protocol_guard {
             // Check if the protocol has registered a handler for this message type
             // For now, we're just implementing a basic placeholder
             // In the future, this would delegate to protocol's handlers
-            Ok(())
+            Ok(RoutingDecision::NoRouteFound)
         } else {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }

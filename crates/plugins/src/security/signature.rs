@@ -410,6 +410,29 @@ impl SignatureVerifier {
         
         Ok(signature)
     }
+    
+    /// Verify a signature against plugin metadata
+    pub async fn verify(&self, metadata: &PluginMetadata, signature_bytes: &[u8]) -> Result<bool> {
+        // Use the signature bytes to create a signature object
+        // In a real implementation, this would parse the signature properly
+        let signature = PluginSignature {
+            plugin_id: metadata.id,
+            signature: signature_bytes.to_vec(),
+            algorithm: SignatureAlgorithm::default(),
+            public_key: Vec::new(),
+            signer: "Unknown".to_string(),
+            timestamp: 0,
+            scope: SignatureScope::default(),
+        };
+        
+        // Store the signature for later use
+        let mut signatures = self.signatures.write().await;
+        signatures.insert(metadata.id, signature);
+        
+        // Verify the signature
+        let result = self.verify_plugin_signature(metadata, None).await?;
+        Ok(result.valid)
+    }
 }
 
 impl Default for SignatureVerifier {

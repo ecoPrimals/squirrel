@@ -1,10 +1,36 @@
-//! MCP configuration types and utilities.
-//!
-//! This module provides configuration structures for the Machine Context Protocol (MCP)
-//! system, allowing customization of connection parameters, performance settings,
-//! and operational limits.
+// crates/mcp/src/config/mod.rs
+//! Configuration structures for MCP components.
 
 use serde::{Deserialize, Serialize};
+use crate::security::types::EncryptionFormat; // Assuming EncryptionFormat is needed
+
+/// Configuration for security-related functionality
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    /// Default encryption format to use
+    pub encryption_default_format: String,
+    // Add other security configuration fields as needed
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            encryption_default_format: "AES256GCM".to_string(),
+        }
+    }
+}
+
+/// Configuration for RBAC functionality
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RBACConfig {
+    // Add RBAC configuration fields as needed
+}
+
+impl Default for RBACConfig {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 /// Configuration for MCP server and client operations.
 ///
@@ -22,6 +48,8 @@ pub struct McpConfig {
     pub timeout: u64,
     /// Size of internal communication buffers in bytes
     pub buffer_size: usize,
+    /// Security configuration
+    pub security: SecurityConfig,
 }
 
 impl Default for McpConfig {
@@ -42,6 +70,7 @@ impl Default for McpConfig {
             max_connections: 100,
             timeout: 30,
             buffer_size: 8192,
+            security: SecurityConfig::default(),
         }
     }
 }
@@ -107,4 +136,63 @@ impl McpConfig {
         self.buffer_size = buffer_size;
         self
     }
+    
+    /// Sets the security configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `security` - Security configuration
+    ///
+    /// # Returns
+    ///
+    /// Updated configuration with the new security settings
+    #[must_use] pub fn with_security(mut self, security: SecurityConfig) -> Self {
+        self.security = security;
+        self
+    }
 }
+
+/// Configuration for Memory Transport.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryTransportConfig {
+    /// Transport name, useful for debugging
+    pub name: String,
+    
+    /// Channel buffer size
+    pub buffer_size: usize,
+    
+    /// Maximum message count in history
+    pub max_history: Option<usize>,
+    
+    /// Simulate latency in milliseconds
+    pub simulated_latency_ms: Option<u64>,
+    
+    /// Simulate random connection failures
+    pub simulate_failures: bool,
+    
+    /// Encryption format (for metadata only)
+    pub encryption: crate::security::types::EncryptionFormat,
+    
+    /// Compression format (for metadata only)
+    pub compression: crate::types::CompressionFormat,
+    
+    /// Channel size option (from original definition)
+    pub channel_size: Option<usize>,
+}
+
+impl Default for MemoryTransportConfig {
+    fn default() -> Self {
+        Self {
+            name: "memory".to_string(),
+            buffer_size: 100,
+            max_history: Some(1000),
+            simulated_latency_ms: None,
+            simulate_failures: false,
+            encryption: crate::security::types::EncryptionFormat::default(),
+            compression: crate::types::CompressionFormat::None,
+            channel_size: None,
+        }
+    }
+}
+
+// Add other config structs as needed (e.g., TcpTransportConfig, WebSocketConfig, StdioConfig, PersistenceConfig, SyncConfig) 

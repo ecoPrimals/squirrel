@@ -1,3 +1,9 @@
+//!
+//! Binary for testing the in-memory transport channel implementation.
+//! 
+//! This program sets up a memory channel, sends a message, receives it,
+//! and verifies the content.
+
 use squirrel_mcp::transport::memory::MemoryChannel;
 use squirrel_mcp::transport::Transport;
 

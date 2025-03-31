@@ -41,9 +41,9 @@ use tokio::sync::RwLock;
 use thiserror::Error;
 use uuid::Uuid;
 use base64;
-use std::str::FromStr;
 use base64::engine::general_purpose;
 use base64::Engine;
+use serde::{Serialize, Deserialize};
 
 /// Errors specific to wire format protocol adapter operations.
 #[derive(Debug, Error)]
@@ -71,20 +71,26 @@ pub enum WireFormatError {
     /// Invalid field value
     #[error("Invalid field value for {0}: {1}")]
     InvalidFieldValue(String, String),
+    
+    /// Invalid field type
+    #[error("Invalid field type for {0}, expected {1}")]
+    InvalidFieldType(String, String),
 }
 
 /// Wire format protocol versions supported by the adapter
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ProtocolVersion {
-    /// Version 1.0 (current stable)
-    V1_0,
-    /// Version 0.9 (legacy)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum WireProtocolVersion {
+    #[serde(rename = "0.9")]
     V0_9,
+    /// Version 1.0 (current stable)
+    #[serde(rename = "1.0")]
+    V1_0,
     /// Latest version (alias for the latest stable version)
+    #[default]
     Latest,
 }
 
-impl ProtocolVersion {
+impl WireProtocolVersion {
     /// Get the string representation of the protocol version
     #[must_use] pub const fn as_str(&self) -> &'static str {
         match self {
@@ -106,7 +112,7 @@ impl ProtocolVersion {
 }
 
 /// Format of the wire message
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WireFormat {
     /// JSON format
     Json,
@@ -120,9 +126,9 @@ pub enum WireFormat {
 #[derive(Debug, Clone)]
 pub struct WireFormatConfig {
     /// Default protocol version to use
-    pub default_version: ProtocolVersion,
+    pub default_version: WireProtocolVersion,
     /// Supported protocol versions
-    pub supported_versions: Vec<ProtocolVersion>,
+    pub supported_versions: Vec<WireProtocolVersion>,
     /// Wire format to use
     pub format: WireFormat,
     /// Maximum message size in bytes
@@ -134,8 +140,8 @@ pub struct WireFormatConfig {
 impl Default for WireFormatConfig {
     fn default() -> Self {
         Self {
-            default_version: ProtocolVersion::V1_0,
-            supported_versions: vec![ProtocolVersion::V1_0, ProtocolVersion::V0_9],
+            default_version: WireProtocolVersion::V1_0,
+            supported_versions: vec![WireProtocolVersion::V1_0, WireProtocolVersion::V0_9],
             format: WireFormat::Json,
             max_message_size: 10 * 1024 * 1024, // 10MB
             schema_validation: true,
@@ -144,7 +150,7 @@ impl Default for WireFormatConfig {
 }
 
 /// A wire format message that can be serialized for transport
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WireMessage {
     /// Protocol version
     pub version: String,
@@ -158,7 +164,7 @@ pub struct WireMessage {
 
 impl WireMessage {
     /// Create a new wire message
-    #[must_use] pub fn new(version: ProtocolVersion, data: Vec<u8>, format: WireFormat) -> Self {
+    #[must_use] pub fn new(version: WireProtocolVersion, data: Vec<u8>, format: WireFormat) -> Self {
         Self {
             version: version.as_str().to_string(),
             data,
@@ -174,7 +180,7 @@ impl WireMessage {
     }
 
     /// Create a wire message from a JSON value
-    pub fn from_json(version: ProtocolVersion, value: Value) -> crate::error::Result<Self> {
+    pub fn from_json(version: WireProtocolVersion, value: Value) -> crate::error::Result<Self> {
         let data = serde_json::to_vec(&value)
             .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
 
@@ -182,7 +188,7 @@ impl WireMessage {
     }
 
     /// Create a wire message from a string
-    #[must_use] pub fn from_string(version: ProtocolVersion, content: &str) -> Self {
+    #[must_use] pub fn from_string(version: WireProtocolVersion, content: &str) -> Self {
         Self::new(
             version,
             content.as_bytes().to_vec(),
@@ -195,7 +201,7 @@ impl WireMessage {
 #[async_trait]
 pub trait DomainObject: Send + Sync {
     /// Convert the domain object to a wire message
-    async fn to_wire_message(&self, version: ProtocolVersion) -> crate::error::Result<WireMessage>;
+    async fn to_wire_message(&self, version: WireProtocolVersion) -> crate::error::Result<WireMessage>;
 
     /// Create a domain object from a wire message
     async fn from_wire_message(message: &WireMessage) -> crate::error::Result<Self>
@@ -236,7 +242,7 @@ impl WireFormatAdapter {
     }
 
     /// Register a version mapping function that translates between protocol versions
-    pub async fn register_version_mapping<F>(&self, from_version: ProtocolVersion, to_version: ProtocolVersion, mapper: F)
+    pub async fn register_version_mapping<F>(&self, from_version: WireProtocolVersion, to_version: WireProtocolVersion, mapper: F)
     where
         F: Fn(Value) -> crate::error::Result<Value> + Send + Sync + 'static,
     {
@@ -269,16 +275,19 @@ impl WireFormatAdapter {
                 json_obj.insert("destination".to_string(), serde_json::Value::String(message.destination.clone()));
                 
                 // Add optional fields
-                if let Some(ref topic) = message.topic {
-                    json_obj.insert("topic".to_string(), serde_json::Value::String(topic.clone()));
+                if let Some(topic) = &message.topic {
+                    let topic_str: String = topic.to_string();
+                    json_obj.insert("topic".to_string(), serde_json::Value::String(topic_str));
                 }
                 
-                if let Some(ref context_id) = message.context_id {
-                    json_obj.insert("context_id".to_string(), serde_json::Value::String(context_id.clone()));
+                if let Some(context_id) = &message.context_id {
+                    let context_id_str: String = context_id.to_string();
+                    json_obj.insert("context_id".to_string(), serde_json::Value::String(context_id_str));
                 }
                 
-                if let Some(ref in_reply_to) = message.in_reply_to {
-                    json_obj.insert("in_reply_to".to_string(), serde_json::Value::String(in_reply_to.clone()));
+                if let Some(in_reply_to) = &message.in_reply_to {
+                    let in_reply_to_str: String = in_reply_to.to_string();
+                    json_obj.insert("in_reply_to".to_string(), serde_json::Value::String(in_reply_to_str));
                 }
                 
                 if !message.metadata.is_empty() {
@@ -298,7 +307,7 @@ impl WireFormatAdapter {
                 
                 // Apply version-specific transformations if needed
                 let version = self.config.default_version;
-                let transformed = self.apply_version_transform(json, ProtocolVersion::Latest, version).await?;
+                let transformed = self.apply_version_transform(json, WireProtocolVersion::Latest, version).await?;
                 
                 // Serialize to bytes
                 let data = serde_json::to_vec(&transformed)
@@ -344,7 +353,7 @@ impl WireFormatAdapter {
     /// Convert from wire format to an MCP message
     pub async fn from_wire_format(&self, wire_message: &WireMessage) -> crate::error::Result<Message> {
         // Parse the message version
-        let source_version = ProtocolVersion::from_str(&wire_message.version)?;
+        let source_version = WireProtocolVersion::from_str(&wire_message.version)?;
         
         match wire_message.format {
             WireFormat::Json => {
@@ -353,7 +362,7 @@ impl WireFormatAdapter {
                     .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
                 
                 // Apply version-specific transformations to convert to latest format
-                let transformed = self.apply_version_transform(json, source_version, ProtocolVersion::Latest).await?;
+                let transformed = self.apply_version_transform(json, source_version, WireProtocolVersion::Latest).await?;
                 
                 // Extract fields manually to avoid payload field mismatch
                 if let Some(obj) = transformed.as_object() {
@@ -462,8 +471,8 @@ impl WireFormatAdapter {
     async fn apply_version_transform(
         &self,
         data: Value,
-        from_version: ProtocolVersion,
-        to_version: ProtocolVersion,
+        from_version: WireProtocolVersion,
+        to_version: WireProtocolVersion,
     ) -> crate::error::Result<Value> {
         // If versions are the same, no transformation needed
         if from_version == to_version {
@@ -554,13 +563,6 @@ impl WireFormatAdapter {
     }
 }
 
-// Implementation of From<WireFormatError> for MCPError to enable error conversion
-impl From<WireFormatError> for MCPError {
-    fn from(error: WireFormatError) -> Self {
-        Self::Protocol(ProtocolError::Wire(error.to_string()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -606,8 +608,8 @@ mod tests {
         
         // Register a version mapping from 0.9 to 1.0
         adapter.register_version_mapping(
-            ProtocolVersion::V0_9,
-            ProtocolVersion::V1_0,
+            WireProtocolVersion::V0_9,
+            WireProtocolVersion::V1_0,
             |value| {
                 let mut obj = value.as_object().unwrap().clone();
                 
@@ -629,7 +631,7 @@ mod tests {
             }
         });
         
-        let wire_message = WireMessage::from_json(ProtocolVersion::V0_9, v09_data).unwrap();
+        let wire_message = WireMessage::from_json(WireProtocolVersion::V0_9, v09_data).unwrap();
         
         // Convert to v1.0 message
         let message = adapter.from_wire_format(&wire_message).await.unwrap();
@@ -654,7 +656,7 @@ mod tests {
             }
         });
         
-        let valid_wire = WireMessage::from_json(ProtocolVersion::V1_0, valid_data).unwrap();
+        let valid_wire = WireMessage::from_json(WireProtocolVersion::V1_0, valid_data).unwrap();
         
         // Should validate successfully
         assert!(adapter.validate_schema(&valid_wire).is_ok());
@@ -668,7 +670,7 @@ mod tests {
             }
         });
         
-        let invalid_wire = WireMessage::from_json(ProtocolVersion::V1_0, invalid_data).unwrap();
+        let invalid_wire = WireMessage::from_json(WireProtocolVersion::V1_0, invalid_data).unwrap();
         
         // Should fail validation
         assert!(adapter.validate_schema(&invalid_wire).is_err());

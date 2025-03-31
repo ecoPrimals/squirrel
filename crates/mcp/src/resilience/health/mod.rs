@@ -403,56 +403,49 @@ impl HealthMonitor {
         result
     }
     
-    /// Get the current status of a component
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the read lock for component trackers cannot be acquired.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if the component ID is invalid.
-    pub fn component_status(&self, component_id: &str) -> HealthStatus {
-        match self.component_trackers.read() {
-            Ok(trackers) => trackers.get(component_id)
-                .map_or(HealthStatus::Unknown, |tracker| tracker.current_status),
-            Err(_) => HealthStatus::Unknown
-        }
+    /// Get the current health status of a component
+    pub fn get_component_status(&self, component_id: &str) -> HealthStatus {
+        self.component_trackers.read()
+            .map_or(HealthStatus::Unknown, |trackers| 
+                trackers.get(component_id)
+                    .map_or(HealthStatus::Unknown, |tracker| tracker.current_status)
+            )
     }
     
-    /// Get the most recent health check result for a component
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the read lock for component trackers cannot be acquired.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if the component ID is invalid.
-    pub fn last_check_result(&self, component_id: &str) -> Option<HealthCheckResult> {
-        match self.component_trackers.read() {
-            Ok(trackers) => trackers.get(component_id)
-                .and_then(|tracker| tracker.last_result().cloned()),
-            Err(_) => None
-        }
+    /// Get the last health check result for a component
+    pub fn get_component_result(&self, component_id: &str) -> Option<HealthCheckResult> {
+        self.component_trackers.read()
+            .map_or(None, |trackers| 
+                trackers.get(component_id)
+                    .and_then(|tracker| tracker.last_result().cloned())
+            )
     }
     
     /// Get the current status of all components
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if the read lock for component trackers cannot be acquired.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if the component ID is invalid.
-    pub fn all_statuses(&self) -> HashMap<String, HealthStatus> {
-        match self.component_trackers.read() {
-            Ok(trackers) => trackers.iter()
-                .map(|(id, tracker)| (id.clone(), tracker.current_status))
-                .collect(),
-            Err(_) => HashMap::new()
-        }
+    pub fn get_all_component_status(&self) -> HashMap<String, HealthStatus> {
+        self.component_trackers.read()
+            .map_or_else(|_| HashMap::new(), |trackers| {
+                trackers.iter()
+                    .map(|(id, tracker)| (id.clone(), tracker.current_status))
+                    .collect()
+            })
+    }
+    
+    /// Update component status and trigger recovery if needed
+    pub fn update_component_status(
+        &self,
+        component_id: &str,
+        result: HealthCheckResult,
+        check: &dyn HealthCheck,
+    ) -> bool {
+        self.component_trackers.write()
+            .map_or(false, |mut trackers| {
+                trackers.get_mut(component_id)
+                    .map_or(false, |tracker| {
+                        tracker.update(result.clone());
+                        tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
+                    })
+            })
     }
     
     /// Check the health of a specific component
@@ -659,15 +652,16 @@ pub mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     /// Mock health check for testing
+    #[derive(Debug)]
     pub struct MockHealthCheck {
         /// ID of the health check
-        id: String,
+        pub id: String,
         /// Configuration for the health check
-        config: HealthCheckConfig,
+        pub config: HealthCheckConfig,
         /// Status to return
-        status: Arc<std::sync::RwLock<HealthStatus>>,
+        pub status: Arc<std::sync::RwLock<HealthStatus>>,
         /// Call count
-        call_count: Arc<AtomicU32>,
+        pub call_count: Arc<AtomicU32>,
     }
 
     impl MockHealthCheck {
@@ -748,8 +742,8 @@ pub mod tests {
         let result = monitor.check_component("test-component").await.unwrap();
         
         assert_eq!(result.status, HealthStatus::Healthy);
-        assert_eq!(monitor.component_status("test-component"), HealthStatus::Healthy);
-        assert_eq!(monitor.all_statuses().get("test-component"), Some(&HealthStatus::Healthy));
+        assert_eq!(monitor.get_component_status("test-component"), HealthStatus::Healthy);
+        assert_eq!(monitor.get_all_component_status().get("test-component"), Some(&HealthStatus::Healthy));
     }
     
     #[tokio::test]

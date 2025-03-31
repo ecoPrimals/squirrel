@@ -64,9 +64,10 @@ use crate::error::ProtocolError;
 use crate::error::transport::TransportError;
 use crate::message::{Message, MessageBuilder};
 use crate::message_router::{MessageRouter, HandlerPriority, MessageRouterError};
-use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject};
+use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject as WireDomainObject};
 use crate::session::Session;
 use crate::transport::Transport;
+use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
 
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -81,6 +82,8 @@ use futures::pin_mut;
 use futures::future;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+use std::pin::Pin;
+use chrono::Utc;
 
 /// MCP Server configuration
 #[derive(Debug, Clone)]
@@ -294,17 +297,17 @@ impl MCPServer {
     
     /// Start the server on all configured transports
     ///
-    /// This method starts the server on the configured transport and
-    /// begins accepting client connections.
+    /// This method starts the server on all configured transports and begins
+    /// accepting client connections.
     ///
     /// # Errors
     /// 
     /// This function will return an error if:
     /// * The server is already running (`MCPError::Protocol` with `InvalidState` variant)
-    /// * The bind address is invalid or cannot be parsed as a socket address (`MCPError::Transport`)
-    /// * The socket cannot be bound to the configured address (`MCPError::Transport`)
-    /// * The listener task cannot be started (`MCPError` wrapping the underlying error)
-    /// * Returns `MCPError` if the server fails to start on any transport
+    /// * The server fails to bind to the configured address (`MCPError::Transport` with `ConnectionFailed` variant)
+    /// * The server fails to start the listener task
+    /// * The server fails to set up required internal components
+    /// * Returns `MCPError` if the server fails to start for any reason
     pub async fn start(&mut self) -> Result<()> {
         // Check if already running
         let state_guard = self.state.read().await;
@@ -414,43 +417,50 @@ impl MCPServer {
         
         // Disconnect all clients
         {
-            // Create a future for each client disconnection
-            let mut disconnect_futures = Vec::new();
-            let clients_map = self.clients.clone();
-            let connection_handlers = self.connection_handlers.clone();
-            
             // Get a list of clients to disconnect
             let client_list: Vec<(String, ClientConnection)> = {
-                let clients_guard = clients_map.read().await;
+                let clients_guard = self.clients.read().await;
                 clients_guard.iter().map(|(id, conn)| (id.clone(), conn.clone())).collect()
             };
             
+            // Create disconnect futures for each client
+            let mut disconnect_futures = Vec::new();
+            
             for (client_id, client) in client_list {
+                // Clone the Arc values for each client task
+                let clients_map_clone = self.clients.clone();
+                let connection_handlers_clone = self.connection_handlers.clone();
+                
                 // Send a disconnect message to each client
                 let client_id_clone = client_id.clone();
-                let transport = client.transport.clone();
-                let clients_map = clients_map.clone();
-                let connection_handlers = connection_handlers.clone();
+                let transport = client.transport.clone(); // Get the transport for this client
+                let transport_clone = transport.clone(); // Clone transport for the spawn task below
                 
                 // Create a disconnect message
                 let disconnect_msg = MessageBuilder::new()
                     .with_message_type("control")
-                    .with_content("disconnect")
+                    .with_content_str("disconnect")
                     .with_source("server")
-                    .with_destination(client_id.clone())
+                    .with_destination(&client_id_clone)
                     .build();
                 
-                // Convert to wire format and send
-                let _wire_format_adapter = self.wire_format_adapter.clone();
-                
                 // Create a task to handle async disconnect message
-                tokio::spawn(async move {
+                tokio::spawn(async move { // Move the clone into this task
                     // Try to convert the message to wire format
-                    match disconnect_msg.to_wire_message(crate::protocol::adapter_wire::ProtocolVersion::V1_0).await {
-                        Ok(_wire) => {
-                            // Send the wire message to the client
-                            // This would typically send the wire message through the transport
-                            debug!("Sent disconnect message to client {}", client_id);
+                    match disconnect_msg.to_wire_message(crate::protocol::adapter_wire::WireProtocolVersion::V1_0).await {
+                        Ok(wire_msg) => {
+                            // Serialize the WireMessage to bytes before sending raw
+                            match serde_json::to_vec(&wire_msg) { 
+                                Ok(wire_bytes) => {
+                                    // Use the cloned transport here
+                                    if let Err(e) = transport_clone.send_raw(&wire_bytes).await {
+                                        error!("Error sending disconnect message during shutdown: {}", e);
+                                    }
+                                },
+                                Err(e) => {
+                                    error!("Failed to serialize disconnect message: {}", e);
+                                }
+                            }
                         },
                         Err(e) => {
                             error!("Failed to convert disconnect message to wire format: {}", e);
@@ -458,12 +468,14 @@ impl MCPServer {
                     }
                 });
                 
-                // Add disconnect future
+                // Add disconnect future (uses the original transport Arc)
                 let disconnect_fut = async move {
                     // Process messages until the client disconnects
                     'outer_loop: loop {
-                        // Fix: Create a mutable Box to try to get a mutable reference
+                        // Create a mutable Box to try to get a mutable reference to the transport
                         let mut transport_boxed = Box::new(Arc::clone(&transport));
+                        
+                        // Get mutable reference to transport if possible
                         let receive_result = if let Some(transport_mut) = Arc::get_mut(&mut *transport_boxed) { transport_mut.receive_message().await } else {
                             // If we can't get a mutable reference, log an error and break
                             error!("Failed to get mutable reference to transport for client {}", client_id_clone);
@@ -473,8 +485,6 @@ impl MCPServer {
                         match receive_result {
                             Ok(mcp_message) => {
                                 // Process the message
-                                // In a real implementation, you would handle the message appropriately
-                                // For now, we'll just log it
                                 println!("Received message: {mcp_message:?}");
                             },
                             Err(e) => {
@@ -500,13 +510,13 @@ impl MCPServer {
 
                     // Client disconnected, remove from list and notify handlers
                     {
-                        let mut clients_guard = clients_map.write().await;
+                        let mut clients_guard = clients_map_clone.write().await;
                         clients_guard.remove(&client_id_clone);
                     }
                     
                     // Create a Vec of cloned handlers for the async block
                     let mut handlers_copy: Vec<Arc<Box<dyn ConnectionHandler>>> = Vec::new();
-                    let handlers_guard = connection_handlers.read().await;
+                    let handlers_guard = connection_handlers_clone.read().await;
                     for handler in handlers_guard.iter() {
                         handlers_copy.push(Arc::new(handler.clone_box()));
                     }
@@ -649,122 +659,94 @@ impl MCPServer {
     
     /// Handle a command message
     async fn handle_command(&self, command: &Message) -> Result<Option<Message>> {
-        // Extract command type from payload
-        let command_type = serde_json::from_str::<serde_json::Value>(&command.content)
-            .map_or_else(
-                |_| String::new(), 
-                |json| json.as_object()
-                    .map_or_else(
-                        String::new,
-                        |content| content.get("command")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or_default()
-                            .to_string()
-                    )
-            );
+        let command_type = command.get_message_type_str();
         
-        // Get the command handlers lock and find a handler for this command type
-        let command_handlers = self.command_handlers.read().await;
-        
-        // Find a handler for this command type - if found, clone it so we can drop the lock
-        let handler = if let Some(handler) = command_handlers.get(&command_type) {
-            let handler_clone = handler.clone_box();
-            drop(command_handlers); // Release the lock immediately after finding the handler
-            Some(handler_clone)
-        } else {
-            drop(command_handlers); // Release the lock before returning an error
-            None
-        };
+        // Find a handler for this command type
+        let handler = self.command_handlers.read().await.get(command_type).cloned();
         
         // Process with the handler if one was found
-        if let Some(handler) = handler {
-            match handler.handle_command(command).await {
-                Ok(Some(response)) => Ok(Some(response)),
-                Ok(None) => Ok(Some(MessageBuilder::new()
-                    .with_message_type("response")
-                    .with_correlation_id(command.id.clone())
-                    .with_payload(json!({"status": "success"}))
-                    .build())),
-                Err(e) => Err(e)
-            }
-        } else {
-            Err(MCPError::General(format!("No handler found for command type: {command_type}")))
+        match handler {
+            Some(handler) => {
+                match handler.handle_command(command).await {
+                    Ok(Some(response)) => Ok(Some(response)),
+                    Ok(None) => Ok(Some(MessageBuilder::new()
+                        .with_message_type("response")
+                        .with_correlation_id(command.id.clone())
+                        .with_content(json!({"status": "success"}))
+                        .build())),
+                    Err(e) => Err(e)
+                }
+            },
+            None => Err(MCPError::General(format!("No handler found for command type: {command_type}")))
         }
     }
     
     /// Start the listener task to accept client connections
     async fn start_listener_task(&self, listener: TcpListener) -> Result<()> {
-        // First check if the listener task is already running
-        {
-            let task_guard = self.listener_task.lock().await;
-            if task_guard.is_some() {
-                return Ok(());
-            }
-            drop(task_guard);
-        }
-        
-        // Clone required components for the task
+        info!("Starting MCP server listener task on {}", listener.local_addr()?);
+        let clients = self.clients.clone();
+        let wire_format_adapter = self.wire_format_adapter.clone();
+        let message_router = self.message_router.clone();
+        let mut shutdown_rx = self.shutdown_signal.1.clone();
+        let connection_handlers = self.connection_handlers.clone();
         let state = self.state.clone();
-        let shutdown_rx = self.shutdown_signal.1.clone();
-        
-        // Start the listener task as a background task
-        let task = tokio::spawn(async move {
+
+        tokio::spawn(async move {
             loop {
-                // Create a select between shutdown and accept
-                let mut shutdown_rx_clone = shutdown_rx.clone();
-                let shutdown_fut = shutdown_rx_clone.changed();
-                pin_mut!(shutdown_fut);
-                
-                let accept_fut = listener.accept();
-                
-                // Wait for either shutdown or a new connection
-                match tokio::select! {
-                    _ = &mut shutdown_fut => {
-                        error!("Shutdown signal received, stopping listener");
-                        break;
-                    },
-                    accept_result = accept_fut => {
-                        accept_result
-                    }
-                } {
-                    Ok((_stream, addr)) => {
-                        info!("TCP server listening on {}", addr);
-                    },
-                    Err(e) => {
-                        eprintln!("Error accepting connection: {e}");
-                        
-                        // If the server is stopping, break the loop
-                        let should_break = state.try_read()
-                            .map(|guard| *guard == ServerState::Stopping)
-                            .unwrap_or(false);
-                            
-                        if should_break {
-                            break;
+                tokio::select! {
+                    // Accept new connections
+                    result = listener.accept() => {
+                        match result {
+                            Ok((stream, addr)) => {
+                                // TODO: Replace this placeholder with robust client handling
+                                warn!(client_addr = %addr, "Placeholder: Accepted new client connection. Full handling needed.");
+                                // let client_id = Uuid::new_v4().to_string();
+                                // let transport = Arc::new(TcpTransport::new_with_stream(stream, addr, TcpTransportConfig::default()));
+                                // let session = Arc::new(Session::new(&client_id, addr)); // Create a session
+                                // let client = ClientConnection {
+                                //     client_id: client_id.clone(),
+                                //     address: addr,
+                                //     session,
+                                //     transport: transport.clone(),
+                                //     connected_at: Utc::now(),
+                                //     metadata: HashMap::new(),
+                                // };
+                                // clients.write().await.insert(client_id.clone(), client.clone());
+                                // 
+                                // // Trigger connection handlers
+                                // let handlers = connection_handlers.read().await;
+                                // for handler in handlers.iter() {
+                                //     if let Err(e) = handler.handle_connection(client.clone()).await {
+                                //         error!(client_id = %client_id, error = %e, "Connection handler failed");
+                                //     }
+                                // }
+                                // 
+                                // // Spawn a task to handle messages from this client
+                                // let client_clone = client.clone();
+                                // let router_clone = message_router.clone();
+                                // tokio::spawn(async move {
+                                //     // ... message handling loop ...
+                                // });
+                            }
+                            Err(e) => {
+                                error!(error = %e, "Failed to accept connection");
+                                // Consider exponential backoff or stopping if accept fails repeatedly
+                                tokio::time::sleep(Duration::from_secs(1)).await;
+                            }
                         }
-                        
-                        // Otherwise, sleep briefly to avoid tight loop on error
-                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                    // Check for shutdown signal
+                    _ = shutdown_rx.changed() => {
+                        info!("Shutdown signal received, stopping listener task.");
+                        break;
                     }
                 }
             }
-            
-            // We're exiting the loop, ensure the server state is updated
-            if let Ok(mut state_guard) = state.try_write() {
-                // Only update if we're not already stopping/stopped
-                if *state_guard == ServerState::Running {
-                    *state_guard = ServerState::Stopped;
-                }
-                drop(state_guard);
-            }
+            // Update server state when listener stops
+            *state.write().await = ServerState::Stopped;
+            info!("MCP server listener task stopped.");
         });
-        
-        // Store the task handle
-        {
-            let mut task_guard = self.listener_task.lock().await;
-            *task_guard = Some(task);
-            drop(task_guard);
-        }
-        
+
         Ok(())
     }
     
@@ -878,7 +860,7 @@ impl CommandHandler for RouterCommandHandler {
                         MessageBuilder::new()
                             .with_message_type("response")
                             .with_correlation_id(command.id.clone())
-                            .with_payload(json!({"status": "success"}))
+                            .with_content(json!({"status": "success"}))
                             .build()
                     }))
                 })
@@ -890,7 +872,7 @@ impl CommandHandler for RouterCommandHandler {
                         Ok(Some(MessageBuilder::new()
                             .with_message_type("response")
                             .with_correlation_id(command.id.clone())
-                            .with_payload(json!({"status": "success", "message": format!("No handler found for {}", msg_type)}))
+                            .with_content(json!({"status": "success", "message": format!("No handler found for {}", msg_type)}))
                             .build()))
                     } else {
                         // Pass through other errors
@@ -954,7 +936,7 @@ impl CommandHandler for CommandHandlerAdapter {
                         MessageBuilder::new()
                             .with_message_type("response")
                             .with_correlation_id(command.id.clone())
-                            .with_payload(json!({"status": "success"}))
+                            .with_content(json!({"status": "success"}))
                             .build()
                     }))
                 })

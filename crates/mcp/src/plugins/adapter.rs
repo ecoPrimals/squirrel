@@ -11,7 +11,7 @@ use uuid::Uuid;
 use tracing::{debug, error};
 
 // Use local interfaces instead of squirrel-plugins
-use crate::plugins::interfaces::{Plugin, PluginMetadata, McpPlugin, PluginStatus};
+use crate::plugins::interfaces::{Plugin, PluginMetadata, McpPlugin, PluginStatus, PluginCapability};
 use crate::tool::{Tool, ToolManager};
 use super::versioning::VersionRequirement;
 
@@ -35,11 +35,12 @@ impl ToolPluginAdapter {
     pub fn new(tool_id: String, tool_manager: Arc<ToolManager>) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {tool_id}"),
+                id: Uuid::new_v4().to_string(),
+                name: "Tool Plugin".to_string(),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {tool_id}"),
+                description: "Adapter for tool plugins".to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             tool_manager,
             tool_id,
@@ -55,11 +56,12 @@ impl ToolPluginAdapter {
     ) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {tool_id}"),
+                id: Uuid::new_v4().to_string(),
+                name: "Tool Plugin".to_string(),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {tool_id}"),
+                description: "Adapter for tool plugins with version requirements".to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             tool_manager,
             tool_id,
@@ -74,10 +76,11 @@ impl ToolPluginAdapter {
     
     /// Get the tool from the manager
     async fn get_tool(&self) -> Result<Tool> {
-        match self.tool_manager.get_tool(&self.tool_id).await {
-            Some(tool) => Ok(tool),
-            None => Err(anyhow!("Tool not found: {}", self.tool_id)),
-        }
+        self.tool_manager.get_tool(&self.tool_id).await
+            .map_or_else(
+                || Err(anyhow!("Tool not found: {}", self.tool_id)),
+                |tool| Ok(tool)
+            )
     }
 }
 
@@ -85,8 +88,11 @@ impl std::fmt::Debug for ToolPluginAdapter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ToolPluginAdapter")
             .field("tool_id", &self.tool_id)
+            .field("plugin_id", &self.metadata.id)
+            .field("plugin_name", &self.metadata.name)
+            .field("metadata", &self.metadata)
             .field("version_requirements", &self.version_requirements.requirement)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -119,7 +125,7 @@ impl McpPlugin for ToolPluginAdapter {
             
         let parameters = message.get("parameters")
             .cloned()
-            .unwrap_or(serde_json::json!({}));
+            .unwrap_or_else(|| serde_json::json!({}));
             
         let request_id = message.get("request_id")
             .and_then(|v| v.as_str())

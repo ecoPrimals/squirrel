@@ -6,8 +6,15 @@ use std::sync::Arc;
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
     CommandHandler, MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult,
+    MessageId, RoutingDecision,
 };
-use crate::types::{MCPMessage, MCPResponse, MessageType, ProtocolState};
+use crate::protocol::types::{MCPMessage, MessageType, ProtocolVersion};
+use crate::types::{MCPResponse, MessageMetadata, ResponseStatus, ProtocolState};
+use crate::types::ProtocolState as CoreProtocolState;
+use crate::security::types::SecurityMetadata;
+use crate::integration::types::SecurityContext;
+use crate::error::SecurityError;
+use tracing::warn;
 
 /// Protocol adapter state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -69,7 +76,7 @@ impl MCPProtocolImpl {
             type_: MessageType::Response,
             payload: serde_json::Value::Null,
             metadata: None,
-            security: crate::types::SecurityMetadata::default(),
+            security: SecurityMetadata::default(),
             timestamp: chrono::Utc::now(),
             version: request.version.clone(),
             trace_id: request.trace_id.clone(),
@@ -231,10 +238,25 @@ impl MCPProtocolImpl {
     pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
         self.base.unregister_handler(message_type)
     }
+
+    /// Create a basic MCP message with essential fields.
+    fn create_basic_message(id: MessageId, type_: MessageType, payload: Value) -> MCPMessage {
+        MCPMessage {
+            id,
+            version: ProtocolVersion::default(),
+            type_,
+            payload,
+            metadata: None,
+            security: SecurityMetadata::default(),
+            timestamp: chrono::Utc::now(),
+            trace_id: None,
+        }
+    }
 }
 
 #[async_trait::async_trait]
 impl MCPProtocol for MCPProtocolImpl {
+    /// Handles an incoming MCP message.
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         match self.get_internal_state() {
             Ok(state) => {
@@ -258,6 +280,15 @@ impl MCPProtocol for MCPProtocolImpl {
         self.handle_message_internal(&msg).await
     }
 
+    /// Validates an incoming MCP message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The message format is invalid
+    /// - The message payload is invalid
+    /// - The message size exceeds the maximum allowed
+    /// - The message timestamp is invalid
     async fn validate_message(&self, message: &MCPMessage) -> Result<()> {
         // Basic validation already performed in the base protocol
         self.base.validate_message(message)?;
@@ -323,6 +354,13 @@ impl MCPProtocol for MCPProtocolImpl {
         Ok(())
     }
 
+    /// Routes an incoming MCP message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No route is found for the message
+    /// - The message type is invalid
     async fn route_message(&self, msg: &MCPMessage) -> RoutingResult {
         // First validate the message
         self.validate_message(msg).await?;
@@ -343,7 +381,7 @@ impl MCPProtocol for MCPProtocolImpl {
                             "Routing command to specialized handler: {}",
                             specialized_type
                         );
-                        return Ok(());
+                        return Ok(RoutingDecision::RouteToHandler(specialized_type));
                     }
                 }
 
@@ -354,13 +392,11 @@ impl MCPProtocol for MCPProtocolImpl {
                     .contains_key(&msg.type_.to_string())
                 {
                     tracing::debug!("Routing command to generic handler");
-                    return Ok(());
+                    return Ok(RoutingDecision::RouteToHandler(msg.type_.to_string()));
                 }
 
                 // No handler found
-                return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler found for command: {msg:?}"
-                ))));
+                return Ok(RoutingDecision::NoRouteFound);
             }
             MessageType::Event => {
                 // For events, we can broadcast to multiple handlers if needed
@@ -378,25 +414,21 @@ impl MCPProtocol for MCPProtocolImpl {
                         .handlers
                         .contains_key(&msg.type_.to_string())
                 {
-                    return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                        "No handler found for event type: {event_type}"
-                    ))));
+                    return Ok(RoutingDecision::NoRouteFound);
                 }
 
                 tracing::debug!("Routing event to handler(s)");
-                Ok(())
+                Ok(RoutingDecision::Broadcast)
             }
             MessageType::Response => {
                 // For responses, we need to match with the original request
                 // This is typically handled by the client side, but we should validate
                 if msg.payload.get("message_id").is_none() {
-                    return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
-                        "Response missing original message_id".to_string(),
-                    )));
+                    return Ok(RoutingDecision::NoRouteFound);
                 }
 
                 tracing::debug!("Response message validated for routing");
-                Ok(())
+                Ok(RoutingDecision::RouteToHandler("response_handler".to_string()))
             }
             MessageType::Error => {
                 // Error messages should be logged and possibly trigger recovery
@@ -409,12 +441,12 @@ impl MCPProtocol for MCPProtocolImpl {
                     .contains_key(&msg.type_.to_string())
                 {
                     tracing::debug!("Routing error to handler");
-                    return Ok(());
+                    return Ok(RoutingDecision::RouteToHandler("error_handler".to_string()));
                 }
 
                 // If no specific handler, we log the error but consider it handled
                 tracing::warn!("No specific handler for error message, treating as handled");
-                Ok(())
+                Ok(RoutingDecision::RouteToHandler("handled_error_handler".to_string()))
             }
             _ => {
                 // Unhandled message types should be rejected
@@ -426,14 +458,22 @@ impl MCPProtocol for MCPProtocolImpl {
         }
     }
 
-    async fn set_state(&self, _state: ProtocolState) -> Result<()> {
-        // This is a no-op since the state is managed by the adapter, not the protocol
+    /// Sets the protocol state.
+    async fn set_state(&self, _state: CoreProtocolState) -> Result<()> {
+        // This adapter might not directly manage state in the way the trait expects.
+        // The state might be implicitly managed by the base protocol or transport.
+        // Or, it might need to interact with the `base` field's state.
         Ok(())
     }
 
-    async fn get_state(&self) -> Result<ProtocolState> {
-        // This adapter is always in Initialized state if it can respond
-        Ok(ProtocolState::Initialized)
+    /// Gets the current protocol state.
+    async fn get_state(&self) -> Result<CoreProtocolState> {
+        // Assuming base.get_state() returns a JSON value that needs deserialization
+        // We might need a specific function in base or here to handle this conversion
+        // For now, let's return the default state or an error.
+        // TODO: Implement proper state retrieval and deserialization
+        warn!("get_state called, returning default state as deserialization not fully implemented");
+        Ok(CoreProtocolState::default())
     }
 
     fn get_version(&self) -> String {

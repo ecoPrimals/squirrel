@@ -221,7 +221,7 @@ impl SecurityManager {
             p.resource == required_permission.resource && 
             matches!(
                 (&p.action, &required_permission.action),
-                (Action::Admin, _) |
+                (Action::Admin(), _) |
                 (Action::Write, Action::Read) |
                 (a1, a2) if a1 == a2
             )

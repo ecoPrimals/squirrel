@@ -282,11 +282,11 @@ impl StateSynchronizer {
     where
         T: Serialize,
     {
-        let _start_time = Instant::now();
+        let start_time = Instant::now();
         self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
             message: format!("Failed to lock metrics: {e}"),
             source: None,
-        })?.last_sync_time = Some(_start_time);
+        })?.last_sync_time = Some(start_time);
         
         // Serialize the state to estimate its size
         let serialized = serde_json::to_vec(&state)
@@ -321,7 +321,7 @@ impl StateSynchronizer {
         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         
         // Check timeout
-        if _start_time.elapsed() > self.config.sync_timeout {
+        if start_time.elapsed() > self.config.sync_timeout {
             // Update metrics for failure - early drop optimization
             {
                 let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
@@ -356,8 +356,8 @@ impl StateSynchronizer {
     ///
     /// # Arguments
     /// * `state_type` - The type of state to sync
-    /// * `_state_id` - The ID of the state to sync
-    /// * `_target` - The target to sync with
+    /// * `state_id` - The ID of the state to sync
+    /// * `target` - The target to sync with
     /// * `state` - The state to sync
     /// * `timeout` - The timeout for the sync operation
     ///
@@ -378,14 +378,14 @@ impl StateSynchronizer {
     {
         let _start_time = Instant::now();
         
-        // Use tokio's timeout mechanism
-        match tokio::time::timeout(
+        // Use tokio's timeout mechanism with map_or_else
+        tokio::time::timeout(
             timeout,
             self.sync_state(state_type, _state_id, _target, state)
-        ).await {
-            Ok(result) => result,
-            Err(_) => Err(StateSyncError::Timeout { duration: timeout })
-        }
+        ).await.map_or_else(
+            |_elapsed_error| Err(StateSyncError::Timeout { duration: timeout }), // Err(Elapsed) case
+            |inner_result| inner_result                                         // Ok(inner_result) case
+        )
     }
     
     /// Get metrics for state sync operations

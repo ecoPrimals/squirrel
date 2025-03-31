@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
-use tracing::warn;
+use tracing::{error, warn};
 
 /// Metric type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -124,7 +124,8 @@ impl Metric {
         }
     }
 
-    /// Add a label to the metric
+    /// Adds a label to the metric.
+    #[must_use]
     pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.labels.insert(key.into(), value.into());
         self
@@ -177,25 +178,45 @@ impl MetricsCollector {
 
     /// Register a new metric
     pub fn register_metric(&self, metric: Metric) {
-        let mut metrics = self.metrics.write().unwrap();
-        metrics.insert(metric.name.clone(), metric);
+        match self.metrics.write() {
+            Ok(mut metrics) => {
+                metrics.insert(metric.name.clone(), metric);
+            }
+            Err(e) => error!("Failed to acquire metrics write lock for registration: {}", e),
+        }
     }
 
     /// Get a metric by name
     pub fn get_metric(&self, name: &str) -> Option<Metric> {
-        let metrics = self.metrics.read().unwrap();
-        metrics.get(name).cloned()
+        match self.metrics.read() {
+            Ok(metrics) => metrics.get(name).cloned(),
+            Err(e) => {
+                error!("Failed to acquire metrics read lock for get_metric: {}", e);
+                None
+            }
+        }
     }
 
     /// Get all metrics
     pub fn get_all_metrics(&self) -> HashMap<String, Metric> {
-        let metrics = self.metrics.read().unwrap();
-        metrics.clone()
+        match self.metrics.read() {
+            Ok(metrics) => metrics.clone(),
+            Err(e) => {
+                error!("Failed to acquire metrics read lock for get_all_metrics: {}", e);
+                HashMap::new()
+            }
+        }
     }
 
     /// Update a metric value
     pub fn update_metric(&self, name: &str, value: MetricValue) {
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = match self.metrics.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire metrics write lock for update_metric: {}", e);
+                return;
+            }
+        };
 
         if let Some(metric) = metrics.get_mut(name) {
             // Update the metric value
@@ -203,16 +224,16 @@ impl MetricsCollector {
             metric.last_updated = Utc::now();
 
             // Update history
-            let mut history = self.history.write().unwrap();
-            let metric_history = history.entry(name.to_string()).or_default();
-
-            // Add the new data point
-            metric_history.push((Utc::now(), value));
-
-            // Trim history if it exceeds the maximum length
-            if metric_history.len() > self.max_history_length {
-                let excess = metric_history.len() - self.max_history_length;
-                metric_history.drain(0..excess);
+            match self.history.write() {
+                Ok(mut history) => {
+                    let metric_history = history.entry(name.to_string()).or_default();
+                    metric_history.push((Utc::now(), value));
+                    if metric_history.len() > self.max_history_length {
+                        let excess = metric_history.len() - self.max_history_length;
+                        metric_history.drain(0..excess);
+                    }
+                }
+                Err(e) => error!("Failed to acquire history write lock for update_metric: {}", e),
             }
         } else {
             warn!("Attempted to update non-existent metric: {}", name);
@@ -221,32 +242,39 @@ impl MetricsCollector {
 
     /// Increment a counter metric
     pub fn increment_counter(&self, name: &str) {
-        let mut metrics = self.metrics.write().unwrap();
-
-        if let Some(metric) = metrics.get_mut(name) {
-            if let MetricValue::Integer(val) = &mut metric.value {
-                *val += 1;
-            } else if let MetricValue::Float(val) = &mut metric.value {
-                *val += 1.0;
-            } else {
-                warn!("Attempted to increment non-counter metric: {}", name);
+        let mut metrics = match self.metrics.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire metrics write lock for increment_counter: {}", e);
                 return;
             }
+        };
 
-            metric.last_updated = Utc::now();
+        if let Some(metric) = metrics.get_mut(name) {
+            let updated = match &mut metric.value {
+                MetricValue::Integer(val) => { *val += 1; true },
+                MetricValue::Float(val) => { *val += 1.0; true },
+                _ => {
+                    warn!("Attempted to increment non-counter metric: {}", name);
+                    false
+                }
+            };
 
-            // Update history
-            let value = metric.value.clone();
-            let mut history = self.history.write().unwrap();
-            let metric_history = history.entry(name.to_string()).or_default();
-
-            // Add the new data point
-            metric_history.push((Utc::now(), value));
-
-            // Trim history if it exceeds the maximum length
-            if metric_history.len() > self.max_history_length {
-                let excess = metric_history.len() - self.max_history_length;
-                metric_history.drain(0..excess);
+            if updated {
+                metric.last_updated = Utc::now();
+                // Update history
+                let value = metric.value.clone();
+                match self.history.write() {
+                    Ok(mut history) => {
+                        let metric_history = history.entry(name.to_string()).or_default();
+                        metric_history.push((Utc::now(), value));
+                        if metric_history.len() > self.max_history_length {
+                            let excess = metric_history.len() - self.max_history_length;
+                            metric_history.drain(0..excess);
+                        }
+                    }
+                    Err(e) => error!("Failed to acquire history write lock for increment_counter: {}", e),
+                }
             }
         } else {
             warn!("Attempted to increment non-existent metric: {}", name);
@@ -255,7 +283,13 @@ impl MetricsCollector {
 
     /// Add a value to a histogram metric
     pub fn observe_histogram(&self, name: &str, value: f64) {
-        let mut metrics = self.metrics.write().unwrap();
+        let mut metrics = match self.metrics.write() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire metrics write lock for observe_histogram: {}", e);
+                return;
+            }
+        };
 
         if let Some(metric) = metrics.get_mut(name) {
             if let MetricValue::Histogram(values) = &mut metric.value {
@@ -264,16 +298,16 @@ impl MetricsCollector {
 
                 // Update history
                 let value_clone = metric.value.clone();
-                let mut history = self.history.write().unwrap();
-                let metric_history = history.entry(name.to_string()).or_default();
-
-                // Add the new data point
-                metric_history.push((Utc::now(), value_clone));
-
-                // Trim history if it exceeds the maximum length
-                if metric_history.len() > self.max_history_length {
-                    let excess = metric_history.len() - self.max_history_length;
-                    metric_history.drain(0..excess);
+                match self.history.write() {
+                    Ok(mut history) => {
+                        let metric_history = history.entry(name.to_string()).or_default();
+                        metric_history.push((Utc::now(), value_clone));
+                        if metric_history.len() > self.max_history_length {
+                            let excess = metric_history.len() - self.max_history_length;
+                            metric_history.drain(0..excess);
+                        }
+                    }
+                    Err(e) => error!("Failed to acquire history write lock for observe_histogram: {}", e),
                 }
             } else {
                 warn!("Attempted to observe non-histogram metric: {}", name);
@@ -285,77 +319,66 @@ impl MetricsCollector {
 
     /// Get metric history
     pub fn get_metric_history(&self, name: &str) -> Option<Vec<(DateTime<Utc>, MetricValue)>> {
-        let history = self.history.read().unwrap();
-        history.get(name).cloned()
+        match self.history.read() {
+            Ok(history) => history.get(name).cloned(),
+            Err(e) => {
+                error!("Failed to acquire history read lock for get_metric_history: {}", e);
+                None
+            }
+        }
     }
 
     /// Create a performance snapshot
     pub fn create_performance_snapshot(&self) -> PerformanceSnapshot {
-        let metrics = self.metrics.read().unwrap();
+        let metrics_guard = match self.metrics.read() {
+            Ok(guard) => guard,
+            Err(e) => {
+                error!("Failed to acquire metrics read lock for snapshot: {}", e);
+                // Return a default snapshot if lock fails
+                return PerformanceSnapshot {
+                    timestamp: Utc::now(),
+                    message_latency_ms: 0.0,
+                    command_execution_time_ms: 0.0,
+                    memory_usage_bytes: 0u64,
+                    error_rate: 0.0,
+                    message_throughput: 0.0,
+                };
+            }
+        };
 
-        // Extract key performance metrics
-        let message_latency = metrics
-            .get("message_latency_ms")
-            .and_then(|m| {
-                if let MetricValue::Float(val) = m.value {
-                    Some(val)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0.0);
+        let get_metric_value = |name: &str| -> Option<MetricValue> {
+            metrics_guard.get(name).map(|m| m.value.clone())
+        };
 
-        let command_execution_time = metrics
-            .get("command_execution_time_ms")
-            .and_then(|m| {
-                if let MetricValue::Float(val) = m.value {
-                    Some(val)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0.0);
+        let get_float = |name: &str| -> f64 {
+            get_metric_value(name).and_then(|v| match v {
+                MetricValue::Float(f) => Some(f),
+                _ => None,
+            }).unwrap_or(0.0)
+        };
 
-        let memory_usage_bytes = metrics
-            .get("memory_usage_bytes")
-            .and_then(|m| {
-                if let MetricValue::Integer(val) = m.value {
-                    Some(val as u64)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0);
+        let _get_int = |name: &str| -> i64 {
+            get_metric_value(name).and_then(|v| match v {
+                MetricValue::Integer(i) => Some(i),
+                _ => None,
+            }).unwrap_or(0)
+        };
 
-        let error_rate = metrics
-            .get("error_rate")
-            .and_then(|m| {
-                if let MetricValue::Float(val) = m.value {
-                    Some(val)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0.0);
+        // Placeholder for memory usage collection
+        // TODO: Implement correct memory usage calculation
+        let memory_usage_bytes = 0u64;
 
-        let message_throughput = metrics
-            .get("message_throughput")
-            .and_then(|m| {
-                if let MetricValue::Float(val) = m.value {
-                    Some(val)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0.0);
+        // Placeholder for CPU usage collection
+        // TODO: Implement correct CPU usage calculation
+        let _cpu_usage_percent = 0.0;
 
         PerformanceSnapshot {
             timestamp: Utc::now(),
-            message_latency_ms: message_latency,
-            command_execution_time_ms: command_execution_time,
+            message_latency_ms: get_float("message_latency_ms"),
+            command_execution_time_ms: get_float("command_execution_time_ms"),
             memory_usage_bytes,
-            error_rate,
-            message_throughput,
+            error_rate: get_float("error_rate"),
+            message_throughput: get_float("message_throughput"),
         }
     }
 }

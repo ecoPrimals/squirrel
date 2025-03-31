@@ -1,4 +1,5 @@
 // Enhanced permission validation for RBAC system
+
 //
 // This module provides advanced permission validation capabilities for the RBAC system,
 // including fine-grained permission control, contextual validation, and permission patterns.
@@ -10,10 +11,12 @@ use chrono::{DateTime, NaiveTime, Utc, Timelike};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::{SecurityError, Result};
-use crate::security::rbac::{Permission, Role, PermissionContext, PermissionCondition, PermissionScope, Action};
+use crate::error::{SecurityError, Result, RBACError};
+use crate::security::types::{Role, PermissionContext, PermissionCondition, PermissionScope, Action, SecurityLevel};
 use crate::error::MCPError;
-use crate::types::SecurityLevel;
+use tracing::{debug, error};
+use crate::context_manager::Context;
+use super::unified::PermissionDefinition;
 
 /// Represents the validation result for a permission check
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,59 +236,92 @@ impl PermissionValidator {
             );
         }
         
-        // Check if user has matching permissions
+        // Check if any permission directly allows access
         for permission in user_permissions {
-            if self.matches_permission(permission, resource, &action, context) {
-                audit_record.matched_permissions.push(permission.id.clone());
+            if Self::matches_permission(permission, resource, action, context) {
+                // Permission matches direct permission, grant access
+                // Create a basic audit record
+                if self.audit_enabled {
+                    let record_copy = ValidationAuditRecord {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        user_id: user_id.to_string(),
+                        timestamp: Utc::now(),
+                        resource: resource.to_string(),
+                        action,
+                        result: ValidationResult::Granted,
+                        rule_id: format!("permission:{}", permission.id),
+                        rule_name: format!("Permission: {}", permission.resource),
+                        is_allow: true,
+                        context: context.attributes.clone(),
+                        matched_permissions: vec![permission.id.clone()],
+                    };
+                    
+                    self.record_audit(record_copy);
+                }
+                
+                return ValidationResult::Granted;
             }
         }
         
         // Apply validation rules in priority order
         for i in 0..self.rules.len() {
-            // Clone rule data we need to avoid borrow issues
-            let rule_id = self.rules[i].id.clone();
-            let rule_name = self.rules[i].name.clone();
-            let is_allow = self.rules[i].is_allow;
-            let validation_expr = self.rules[i].validation_expr.clone();
-            let verification = self.rules[i].verification.clone();
+            // Get rule reference
+            let rule = &self.rules[i];
+
+            // Skip rules for other actions
+            if rule.action != action && rule.action != Action::Admin() {
+                continue;
+            }
+
+            // Check if resource matches pattern
+            let pattern_matches = self.resource_patterns.get(&rule.id)
+                .map_or(false, |pattern| pattern.is_match(resource));
             
-            // Check if rule applies
-            if self.rule_applies(&self.rules[i], resource, &action) {
-                audit_record.rule_id = rule_id;
-                audit_record.rule_name = rule_name;
-                audit_record.is_allow = is_allow;
-                
-                // Evaluate expression without holding a borrow to self.rules
-                if let Ok(result) = self.evaluate_expression(&ValidationExpression::Single(validation_expr), context, user_roles) {
-                    if (is_allow && result) || (!is_allow && !result) {
-                        // Allow rule matched, check for verification requirements
-                        if let Some(_verification_type) = verification {
-                            audit_record.result = ValidationResult::NeedsVerification;
-                            
-                            let record_copy = audit_record.clone();
-                            self.record_audit(record_copy);
-                            
-                            return ValidationResult::NeedsVerification;
-                        } else {
-                            // Immediately grant without verification
-                            audit_record.result = ValidationResult::Granted;
-                            
-                            let record_copy = audit_record.clone();
-                            self.record_audit(record_copy);
-                            
-                            return ValidationResult::Granted;
-                        }
-                    }
-                    
-                    // Deny rule matched
-                    audit_record.result = ValidationResult::Denied;
+            if !pattern_matches {
+                continue;
+            }
+
+            // Clone rule data we need to avoid borrow issues
+            let rule_id = rule.id.clone();
+            let rule_name = rule.name.clone();
+            let is_allow = rule.is_allow;
+            let validation_expr = rule.validation_expr.clone();
+            let verification = rule.verification.clone();
+            
+            // Rule applies
+            audit_record.rule_id = rule_id;
+            audit_record.rule_name = rule_name;
+            audit_record.is_allow = is_allow;
+            
+            // Evaluate expression without holding a borrow to self.rules
+            let result = Self::evaluate_expression(&ValidationExpression::Single(validation_expr), context, user_roles);
+            if (is_allow && result) || (!is_allow && !result) {
+                // Allow rule matched, check for verification requirements
+                if let Some(_verification_type) = verification {
+                    audit_record.result = ValidationResult::NeedsVerification;
                     
                     let record_copy = audit_record.clone();
                     self.record_audit(record_copy);
                     
-                    return ValidationResult::Denied;
+                    return ValidationResult::NeedsVerification;
                 }
+                
+                // Immediately grant without verification
+                audit_record.result = ValidationResult::Granted;
+                
+                let record_copy = audit_record.clone();
+                self.record_audit(record_copy);
+                
+                return ValidationResult::Granted;
             }
+            
+            // Deny rule matched
+            audit_record.result = ValidationResult::Denied;
+            
+            let record_copy = audit_record.clone();
+            self.record_audit(record_copy);
+            
+            return ValidationResult::Denied;
         }
         
         // If no explicit rules matched, use the permission matching result
@@ -301,9 +337,9 @@ impl PermissionValidator {
     }
     
     /// Check if a rule applies to a resource and action
-    fn rule_applies(&self, rule: &ValidationRule, resource: &str, action: &Action) -> bool {
+    fn rule_applies(&self, rule: &ValidationRule, resource: &str, action: Action) -> bool {
         // Check if rule applies to this action
-        if rule.action != *action && rule.action != Action::Admin {
+        if rule.action != action && rule.action != Action::Admin() {
             return false;
         }
         
@@ -315,16 +351,15 @@ impl PermissionValidator {
         false
     }
     
-    /// Check if a permission matches a resource and action
+    /// Check if a permission matches the given resource and action in the context
     fn matches_permission(
-        &self,
         permission: &Permission,
         resource: &str,
-        action: &Action,
+        action: Action,
         context: &PermissionContext,
     ) -> bool {
         // Check action
-        if permission.action != *action && permission.action != Action::Admin {
+        if permission.action != action && permission.action != Action::Admin() {
             return false;
         }
         
@@ -347,31 +382,23 @@ impl PermissionValidator {
         // Check scope
         let scope_match = match &permission.scope {
             PermissionScope::Own => {
-                if let Some(owner_id) = &context.resource_owner_id {
+                context.resource_owner_id.as_ref().map_or(false, |owner_id| 
                     owner_id == &context.user_id
-                } else {
-                    false
-                }
+                )
             },
             
             PermissionScope::Group => {
-                if let Some(_group_id) = &context.resource_group_id {
+                context.resource_group_id.as_ref().map_or(false, |_group_id| 
                     // In a real implementation, check if user is in the same group
                     true
-                } else {
-                    false
-                }
+                )
             },
             
             PermissionScope::All => true,
             
             PermissionScope::Pattern(pattern) => {
                 // Try to match the pattern against the resource
-                if let Ok(regex) = Regex::new(pattern) {
-                    regex.is_match(resource)
-                } else {
-                    false
-                }
+                Regex::new(pattern).map_or(false, |regex| regex.is_match(resource))
             },
         };
         
@@ -381,7 +408,7 @@ impl PermissionValidator {
         
         // Check conditions
         for condition in &permission.conditions {
-            if !self.evaluate_condition(condition, context) {
+            if !Self::evaluate_condition(condition, context) {
                 return false;
             }
         }
@@ -390,7 +417,7 @@ impl PermissionValidator {
     }
     
     /// Evaluate a permission condition
-    fn evaluate_condition(&self, condition: &PermissionCondition, context: &PermissionContext) -> bool {
+    fn evaluate_condition(condition: &PermissionCondition, context: &PermissionContext) -> bool {
         match condition {
             PermissionCondition::TimeRange { start_time, end_time, days } => {
                 if let Some(current_time) = context.current_time {
@@ -421,12 +448,12 @@ impl PermissionValidator {
             },
             
             PermissionCondition::NetworkRange { cidr } => {
-                if let Some(addr) = &context.network_address {
+                context.network_address.as_ref().map_or(false, |addr| {
                     // In a real implementation, use a proper CIDR matching library
-                    addr.starts_with(cidr.split('/').next().unwrap_or(""))
-                } else {
-                    false
-                }
+                    // Extract network part of CIDR without unwrap
+                    let network_part = cidr.split('/').next().unwrap_or_default();
+                    addr.starts_with(network_part)
+                })
             },
             
             PermissionCondition::MinimumSecurityLevel(level) => {
@@ -434,58 +461,52 @@ impl PermissionValidator {
             },
             
             PermissionCondition::AttributeEquals { attribute, value } => {
-                if let Some(attr_value) = context.attributes.get(attribute) {
-                    attr_value == value
-                } else {
-                    false
-                }
+                context.attributes.get(attribute).map_or(false, |attr_value| attr_value == value)
             },
         }
     }
     
     /// Evaluate a validation expression
     fn evaluate_expression(
-        &self,
         expression: &ValidationExpression,
         context: &PermissionContext,
         roles: &[Role],
-    ) -> Result<bool> {
+    ) -> bool {
         match expression {
             ValidationExpression::Single(condition) => {
-                Ok(self.evaluate_string_condition(condition, context, roles).unwrap_or(false))
+                Self::evaluate_string_condition(condition, context, roles)
             },
             ValidationExpression::And(conditions) => {
                 for condition in conditions {
-                    if !self.evaluate_string_condition(condition, context, roles).unwrap_or(false) {
-                        return Ok(false);
+                    if !Self::evaluate_string_condition(condition, context, roles) {
+                        return false;
                     }
                 }
-                Ok(true)
+                true
             },
             ValidationExpression::Or(conditions) => {
                 for condition in conditions {
-                    if self.evaluate_string_condition(condition, context, roles).unwrap_or(false) {
-                        return Ok(true);
+                    if Self::evaluate_string_condition(condition, context, roles) {
+                        return true;
                     }
                 }
-                Ok(false)
+                false
             },
         }
     }
     
     /// Evaluate a string condition expression
     fn evaluate_string_condition(
-        &self,
         condition: &str, 
         context: &PermissionContext,
         _roles: &[Role],
-    ) -> Result<bool> {
+    ) -> bool {
         // Simple implementation for evaluating string expressions
-        Ok(self.evaluate_basic_condition(condition, context))
+        Self::evaluate_basic_condition(condition, context)
     }
     
     /// Evaluate a basic string condition
-    fn evaluate_basic_condition(&self, condition: &str, context: &PermissionContext) -> bool {
+    fn evaluate_basic_condition(condition: &str, context: &PermissionContext) -> bool {
         // Simple condition evaluation based on context attributes
         // In a real implementation, this would use a proper expression evaluator
         
@@ -654,7 +675,17 @@ impl AsyncPermissionValidator {
         }
     }
     
-    /// Add a validation rule
+    /// Add a validation rule to the permission validator.
+    ///
+    /// # Arguments
+    /// * `rule` - The validation rule to add
+    ///
+    /// # Returns
+    /// * `Ok(())` if the rule was added successfully
+    ///
+    /// # Errors
+    /// * Returns a `SecurityError::RBACError` if the resource pattern regex is invalid
+    /// * Returns an error if the rule could not be added due to internal failures
     pub async fn add_rule(&self, rule: ValidationRule) -> Result<()> {
         let mut validator = self.validator.write().await;
         validator.add_rule(rule)
@@ -721,4 +752,32 @@ impl AsyncPermissionValidator {
         let mut validator = self.validator.write().await;
         validator.audit_enabled = enabled;
     }
+}
+
+// Make the module public
+pub(super) fn validate_permission_format(permission: &str) -> Result<(String, String)> {
+    // Format should be "action:resource"
+    let parts: Vec<&str> = permission.split(':').collect();
+    if parts.len() != 2 {
+        return Err(SecurityError::RBACError(
+            format!("Invalid permission format: {permission}, expected 'action:resource'")
+        ).into());
+    }
+    
+    let action = parts[0].trim();
+    let resource = parts[1].trim();
+    
+    if action.is_empty() {
+        return Err(SecurityError::RBACError(
+            format!("Empty action in permission: {permission}")
+        ).into());
+    }
+    
+    if resource.is_empty() {
+        return Err(SecurityError::RBACError(
+            format!("Empty resource in permission: {permission}")
+        ).into());
+    }
+    
+    Ok((action.to_string(), resource.to_string()))
 } 

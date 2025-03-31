@@ -9,17 +9,37 @@
 /// Provides integration between the MCP protocol and core system components.
 /// This adapter handles message routing, state management, authentication,
 /// and other core integration points between MCP and the main application.
-pub mod core_adapter;
+// pub mod core_adapter; <-- Remove this
 
-pub use core_adapter::CoreMCPAdapter;
+// New module declarations
+pub mod adapter;
+pub mod auth;
+pub mod helpers;
+pub mod types;
+
+// Re-export the main adapter
+pub use adapter::CoreMCPAdapter;
+
+// Declare tests module
+#[cfg(test)]
+mod tests;
 
 /// Re-exports of key integration traits and types
 pub mod prelude {
     pub use crate::protocol::MCPProtocol;
-    pub use crate::integration::core_adapter::MessageHandler;
-    pub use crate::types::{MCPMessage, MCPResponse};
-    pub use crate::security::{Credentials, Permission, Action};
+    pub use crate::integration::types::MessageHandler; // Updated path
+    pub use crate::protocol::types::MCPMessage; // Use MCPMessage from protocol::types
+    pub use crate::types::MCPResponse; // Use MCPResponse from crate::types
+    pub use crate::security::{AuthCredentials, Action}; // Import from security directly
     pub use crate::error::{MCPError, Result as MCPResult};
     
-    pub use super::core_adapter::CoreMCPAdapter;
-} 
+    pub use super::adapter::CoreMCPAdapter; // Updated path
+}
+
+// Re-export core components needed by external crates using the adapter
+// Clean up imports to avoid circular dependencies
+pub use crate::error::{MCPError, Result as MCPResult}; // Use MCPError and Result from error module
+pub use crate::security::{AuthCredentials, SecurityLevel}; // Import from security directly
+
+// Re-export transport-related types
+// ... existing code ... 
