@@ -407,7 +407,7 @@ impl ContextManager {
     /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self))]
     pub async fn sync(&self) -> Result<()> {
-        if let Err(e) = self.sync.as_ref().synchronize().await {
+        if let Err(e) = self.sync.as_ref().sync().await {
             error!("Context synchronization failed: {}", e);
             return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
         }
@@ -421,7 +421,7 @@ impl ContextManager {
     /// Returns `ContextError::SyncError` if subscription fails.
     #[instrument(skip(self))]
     pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
-        self.sync.subscribe_changes().await.map_err(|e| {
+        self.sync.subscribe_to_state_changes().await.map_err(|e| {
             MCPError::Context(ContextError::SyncError(format!(
                 "Failed to subscribe to changes: {e}"
             )))
@@ -455,6 +455,48 @@ impl ContextManager {
             validations: Arc::new(RwLock::new(HashMap::new())),
             sync,
         })
+    }
+
+    async fn sync_with_network(&self) {
+        // Directly use self.sync since it's not an Option
+        info!("Starting network synchronization...");
+        if let Err(e) = self.sync.sync().await { // Call sync directly on self.sync (which is Arc<MCPSync>)
+            error!("Synchronization failed: {}", e);
+        }
+    }
+
+    async fn start_sync_task(&self) {
+        // Directly use self.sync since it's not an Option
+        let receiver = match self.sync.subscribe_to_state_changes().await {
+            Ok(rx) => rx,
+            Err(e) => {
+                error!("Failed to subscribe to sync changes: {}", e);
+                return;
+            }
+        };
+        info!("Sync task started, listening for changes...");
+        // Placeholder loop - needs implementation to consume receiver
+        let mut receiver = receiver; // Make mutable to call recv()
+        tokio::spawn(async move {
+            loop {
+                match receiver.recv().await {
+                    Ok(change) => {
+                        info!("Received state change via sync subscription: {:?}", change);
+                        // TODO: Process the change if needed by ContextManager itself
+                    }
+                    Err(e) => {
+                        error!("Error receiving sync change: {:?}", e);
+                        // Handle specific errors like Lagged or Closed
+                        if matches!(e, tokio::sync::broadcast::error::RecvError::Closed) {
+                            warn!("Sync broadcast channel closed. Exiting listener task.");
+                            break;
+                        }
+                        // Add a small delay before retrying on other errors?
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    }
+                }
+            }
+        });
     }
 }
 

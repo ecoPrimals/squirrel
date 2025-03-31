@@ -17,7 +17,19 @@ use crate::PluginStatus;
 use crate::discovery::{PluginDiscovery, DefaultPluginDiscovery};
 use crate::state::PluginStateManager;
 use crate::PluginError;
-use crate::security::SecurityManager;
+use crate::security::{SecurityManager, SecurityManagerAdapter};
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::manager::SecurityManagerImpl;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::crypto::DefaultCryptoProvider;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::auth::DefaultTokenManager;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::identity::DefaultIdentityManager;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::rbac::BasicRBACManager;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::audit::DefaultAuditService;
 // Removing unused imports from signature
 // use crate::security::signature::{SignatureVerifier, PluginSignature};
 
@@ -80,14 +92,14 @@ pub trait PluginManagerTrait: PluginRegistry {
 /// Plugin manager implementation
 pub struct PluginManager {
     plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
-    security_manager: Arc<dyn SecurityManager + Send + Sync>,
+    security_manager: Arc<SecurityManagerAdapter>,
 }
 
 impl std::fmt::Debug for PluginManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PluginManager")
             .field("plugins", &"<RwLock<HashMap<Uuid, Arc<dyn Plugin>>>>")
-            .field("security_manager", &"<Arc<dyn SecurityManager>>")
+            .field("security_manager", &"<Arc<SecurityManagerAdapter>>")
             .finish()
     }
 }
@@ -95,9 +107,34 @@ impl std::fmt::Debug for PluginManager {
 impl PluginManager {
     /// Create a new plugin manager
     #[must_use] pub fn new() -> Self {
-        // Use EnhancedSecurityManager as default
-        use crate::security::EnhancedSecurityManager;
-        let security_manager = Arc::new(EnhancedSecurityManager::new());
+        // Initialize the security manager
+        #[cfg(feature = "mcp")]
+        let security_manager = {
+            // Create necessary components for the security manager
+            let key_storage = Arc::new(InMemoryKeyStorage::new());
+            let crypto_provider = Arc::new(DefaultCryptoProvider::new());
+            let token_manager = Arc::new(DefaultTokenManager::new(
+                key_storage.clone(),
+                crypto_provider.clone(),
+            ));
+            let identity_manager = Arc::new(DefaultIdentityManager::new());
+            let rbac_manager = Arc::new(BasicRBACManager::new());
+            let audit_service = Arc::new(DefaultAuditService::new());
+            
+            // Create the MCP security manager with these components
+            let mcp_security_manager = Arc::new(SecurityManagerImpl::new(
+                crypto_provider,
+                token_manager,
+                identity_manager,
+                rbac_manager,
+                audit_service,
+            )) as Arc<dyn SecurityManager>;
+            
+            Arc::new(SecurityManagerAdapter::new(mcp_security_manager))
+        };
+        
+        #[cfg(not(feature = "mcp"))]
+        let security_manager = Arc::new(SecurityManagerAdapter::default());
         
         Self {
             plugins: RwLock::new(HashMap::new()),
@@ -106,7 +143,7 @@ impl PluginManager {
     }
     
     /// Get the security manager
-    pub async fn get_security_manager(&self) -> Result<Arc<dyn SecurityManager + Send + Sync>> {
+    pub async fn get_security_manager(&self) -> Result<Arc<SecurityManagerAdapter>> {
         Ok(self.security_manager.clone())
     }
     
@@ -411,7 +448,7 @@ pub struct DefaultPluginManager {
     state_manager: Arc<dyn PluginStateManager + Send + Sync>,
     
     /// Security manager
-    security_manager: Arc<dyn SecurityManager + Send + Sync>,
+    security_manager: Arc<SecurityManagerAdapter>,
 }
 
 impl std::fmt::Debug for DefaultPluginManager {
@@ -421,7 +458,7 @@ impl std::fmt::Debug for DefaultPluginManager {
             .field("statuses", &"<RwLock<HashMap<Uuid, PluginStatus>>>")
             .field("name_to_id", &"<RwLock<HashMap<String, Uuid>>>")
             .field("state_manager", &"<Arc<dyn PluginStateManager>>")
-            .field("security_manager", &"<Arc<dyn SecurityManager>>")
+            .field("security_manager", &"<Arc<SecurityManagerAdapter>>")
             .finish()
     }
 }
@@ -429,11 +466,33 @@ impl std::fmt::Debug for DefaultPluginManager {
 impl DefaultPluginManager {
     /// Create a new plugin manager with the specified state manager
     pub fn new(state_manager: Arc<dyn PluginStateManager>, 
-               security_manager: Option<Arc<dyn SecurityManager + Send + Sync>>) -> Self {
-        // Use the provided security manager or create a new EnhancedSecurityManager
+               security_manager: Option<Arc<SecurityManagerAdapter>>) -> Self {
         let security_manager = security_manager.unwrap_or_else(|| {
-            use crate::security::EnhancedSecurityManager;
-            Arc::new(EnhancedSecurityManager::new())
+            #[cfg(feature = "mcp")]
+            let security_adapter = {
+                // Create all the necessary components for SecurityManagerImpl
+                let crypto_provider = Arc::new(DefaultCryptoProvider::new());
+                let token_manager = Arc::new(DefaultTokenManager::new());
+                let identity_manager = Arc::new(DefaultIdentityManager::new());
+                let rbac_manager = Arc::new(BasicRBACManager::new());
+                let audit_service = Arc::new(DefaultAuditService::new());
+                
+                // Create the MCP security manager with these components
+                let mcp_security_manager = Arc::new(SecurityManagerImpl::new(
+                    crypto_provider,
+                    token_manager,
+                    identity_manager,
+                    rbac_manager,
+                    audit_service,
+                ));
+                
+                Arc::new(SecurityManagerAdapter::new(mcp_security_manager))
+            };
+            
+            #[cfg(not(feature = "mcp"))]
+            let security_adapter = Arc::new(SecurityManagerAdapter::default());
+            
+            security_adapter
         });
         
         Self {
@@ -570,7 +629,7 @@ impl DefaultPluginManager {
     }
     
     /// Get the security manager
-    pub fn security_manager(&self) -> Arc<dyn SecurityManager + Send + Sync> {
+    pub fn security_manager(&self) -> Arc<SecurityManagerAdapter> {
         self.security_manager.clone()
     }
 }

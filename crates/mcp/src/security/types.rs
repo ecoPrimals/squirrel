@@ -4,13 +4,14 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::any::Any;
 use crate::security::traits::{ResourceTrait, ActionTrait};
 
 // Re-export UserId from the identity module
 pub use crate::security::identity::UserId;
 
-// Re-export Token and Credentials from token module
-pub use crate::security::token::{Token, Credentials};
+// Re-export Token and AuthCredentials from token module
+pub use crate::security::token::{Token, AuthCredentials};
 
 /// Resource that can be accessed with permissions
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,10 +56,14 @@ impl ResourceTrait for Resource {
     fn attributes(&self) -> Option<&serde_json::Value> {
         self.attributes.as_ref()
     }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// Action that can be performed on a resource
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Action {
     /// String representation of the action
     pub action: String,
@@ -100,6 +105,13 @@ impl Action {
         }
     }
     
+    /// Admin action with highest privileges
+    pub fn Admin() -> Self {
+        Self {
+            action: "admin".to_string()
+        }
+    }
+    
     /// Convert to string reference
     pub fn as_ref(&self) -> &str {
         &self.action
@@ -117,6 +129,10 @@ impl fmt::Display for Action {
 impl ActionTrait for Action {
     fn as_ref(&self) -> &str {
         &self.action
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

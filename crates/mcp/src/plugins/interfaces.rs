@@ -29,11 +29,30 @@ pub enum PluginStatus {
     Error,
 }
 
+/// Capabilities of a plugin
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PluginCapability {
+    /// Plugin provides a tool capability
+    Tool,
+    /// Plugin provides a protocol extension
+    ProtocolExtension,
+    /// Plugin provides a security extension
+    SecurityExtension,
+    /// Plugin provides a monitoring extension
+    MonitoringExtension,
+    /// Plugin provides a persistence extension
+    PersistenceExtension,
+    /// Plugin provides a UI extension
+    UIExtension,
+    /// Plugin provides a custom capability
+    Custom(String),
+}
+
 /// Metadata about a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginMetadata {
     /// Unique plugin ID
-    pub id: Uuid,
+    pub id: String,
     /// Plugin name
     pub name: String,
     /// Plugin version
@@ -42,6 +61,8 @@ pub struct PluginMetadata {
     pub description: String,
     /// Plugin status
     pub status: PluginStatus,
+    /// Plugin capabilities
+    pub capabilities: Vec<PluginCapability>,
 }
 
 /// Interface for a plugin
@@ -88,11 +109,11 @@ pub trait PluginManagerInterface: Send + Sync + Debug {
     async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()>;
     
     /// Get a plugin by ID
-    async fn get_plugin_by_id(&self, plugin_id: Uuid) -> Result<Option<Arc<dyn Plugin>>>;
+    async fn get_plugin_by_id(&self, plugin_id: String) -> Result<Option<Arc<dyn Plugin>>>;
     
     /// Execute a plugin with the given message
-    async fn execute_mcp_plugin(&self, plugin_id: Uuid, message: serde_json::Value) -> Result<serde_json::Value>;
+    async fn execute_mcp_plugin(&self, plugin_id: String, message: serde_json::Value) -> Result<serde_json::Value>;
     
     /// Update the status of a plugin
-    async fn update_plugin_status(&self, plugin_id: Uuid, status: PluginStatus) -> Result<()>;
+    async fn update_plugin_status(&self, plugin_id: String, status: PluginStatus) -> Result<()>;
 } 

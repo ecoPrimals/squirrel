@@ -2,14 +2,13 @@ use std::sync::Arc;
 use std::collections::HashSet;
 
 use crate::security::{
-    EnhancedRBACManager,
-    Role,
-    Permission,
+    // Remove old RBAC types
+    RBACManager,
+    BasicRBACManager,
     Action,
+    Resource,
     SecurityManager,
-    SecurityManagerImpl,
     Credentials,
-    PermissionScope,
 };
 use crate::types::{SecurityLevel, EncryptionFormat};
 use crate::error::Result;
@@ -21,36 +20,24 @@ mod security_test;
 mod integration_test;
 mod performance_benchmark;
 
+// Integration tests for the security subsystem
+mod rbac_integration;
+mod auth_tests;
+
+// Add more test modules as needed
+
 // Helper functions for test setup
 
 /// Creates a test RBAC manager
-fn create_test_rbac_manager() -> Arc<EnhancedRBACManager> {
-    Arc::new(EnhancedRBACManager::new())
-}
-
-/// Creates a test permission for use in tests
-fn create_test_permission(name: &str, resource: &str, action: Action) -> Permission {
-    Permission {
-        id: format!("perm-{}-{}", resource, name),
-        name: name.to_string(),
-        resource: resource.to_string(),
-        action,
-        resource_id: None,
-        scope: PermissionScope::All,
-        conditions: Vec::new(),
-    }
-}
-
-/// Creates a test security manager
-fn create_test_security_manager() -> impl SecurityManager {
-    SecurityManagerImpl::new()
+fn create_test_rbac_manager() -> Arc<dyn RBACManager> {
+    Arc::new(BasicRBACManager::new())
 }
 
 /// Creates test credentials for authentication
 fn create_test_credentials(username: &str, password: &str) -> Credentials {
     Credentials {
         username: username.to_string(),
-        password: Some(password.to_string()),
-        token: None,
+        password: password.to_string(),
+        additional_factors: None,
     }
 } 

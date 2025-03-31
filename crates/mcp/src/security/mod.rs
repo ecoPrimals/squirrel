@@ -13,6 +13,9 @@ pub mod types;
 pub mod init;
 pub mod traits;
 
+// Import the Arc type for the initialize_security_manager function
+use std::sync::Arc;
+
 // --- Public Re-exports ---
 // Re-export the key types and traits that form the public API of this security module.
 
@@ -22,11 +25,14 @@ pub use self::types::{
     Resource,
     UserId,
     Token,
-    Credentials,
+    AuthCredentials,
     EncryptionFormat,
     EncryptionInfo,
     SecurityMetadata,
     SecurityLevel,
+    RoleId,
+    //EntityId,  // Comment out these types that are causing issues
+    //UserRole,  // Comment out these types that are causing issues
 };
 
 // RBAC specific types from the unified module
@@ -35,11 +41,34 @@ pub use self::rbac::{
     BasicRBACManager,
     MockRBACManager,
     RBACManagerImpl,
-    RoleDefinition,
+    Permission,
+    // Add re-exports of the needed types
+    RoleDefinition, 
     PermissionDefinition,
     RolePermission,
     RoleDetailsResponse,
 };
+
+// Explicitly re-export Permission validation types from the rbac module
+pub use self::rbac::permission_validation::{
+    ValidationResult,
+    ValidationRule,
+    ValidationAuditRecord,
+};
+
+// Also export the module for future imports
+pub mod interfaces {
+    pub use super::rbac::unified::*;
+}
+
+// Make the unified module's contents public 
+// pub use self::rbac::unified;
+
+// Create a module to hold UnifiedSecurity implementations with public visibility
+pub mod unified {
+    // Re-export security implementation for external use
+    pub use super::rbac::manager::RBACManagerImpl as UnifiedSecurity;
+}
 
 // User and authentication types
 pub use self::token::{SessionToken, AuthToken};
@@ -53,8 +82,7 @@ pub use self::auth::DefaultAuthManager;
 pub use self::auth::SecurityContext;
 pub use self::auth::UserContext;
 
-pub use self::crypto::CryptoProvider;
-pub use self::crypto::DefaultCryptoProvider;
+pub use self::crypto::{CryptoProvider, DefaultCryptoProvider, KeyPurpose, KeyStorage};
 pub use self::crypto::encrypt;
 pub use self::crypto::decrypt;
 pub use self::crypto::generate_key;
@@ -62,12 +90,15 @@ pub use self::crypto::generate_key;
 pub use self::identity::IdentityManager;
 pub use self::identity::DefaultIdentityManager;
 
-pub use self::key_storage::KeyStorage;
-pub use self::key_storage::KeyPurpose;
-pub use self::key_storage::InMemoryKeyStorage;
+// Make the manager re-exports explicit
+pub use self::manager::{SecurityManager, SecurityManagerImpl, TypedSecurityManager, CombinedSecurityManager};
 
-pub use self::manager::SecurityManager;
-pub use self::manager::SecurityManagerImpl;
+// Re-export keysystem components
+pub use self::key_storage::{KeyStorage, InMemoryKeyStorage};
+pub use self::token::{TokenManager, DefaultTokenManager};
+
+// Ensure we're re-exporting RBACError for correct error handling
+pub use crate::error::RBACError;
 
 // Re-export initialization functions
 pub use self::init::{
@@ -78,11 +109,9 @@ pub use self::init::{
 
 pub use self::traits::{ResourceTrait, ActionTrait, make_permission_string};
 
-use std::sync::Arc;
-
 /// Initialize the security subsystem with the provided configuration.
 /// Returns a new instance of the security manager.
-pub fn initialize_security_manager(config: crate::config::SecurityConfig) -> Arc<dyn SecurityManager> {
+pub fn initialize_security_manager(_config: crate::config::SecurityConfig) -> Arc<dyn SecurityManager> {
     // Create implementations
     let key_storage = Arc::new(key_storage::InMemoryKeyStorage::new());
     let identity_manager = Arc::new(identity::DefaultIdentityManager::new());
@@ -117,9 +146,24 @@ mod tests {
     }
 }
 
-// Documentation
+// Module documentation in separate files
+/// Documentation from the README.md file
 #[doc = include_str!("README.md")]
 pub struct SecurityDocumentation;
 
+/// Maintenance documentation
 #[doc = include_str!("MAINTENANCE.md")]
 pub struct SecurityMaintenance;
+
+// The following re-exports are duplicates of those at the top of the file
+// They have been commented out to avoid E0252 errors (duplicated exports)
+/*
+pub use self::auth::{SecurityContext};
+pub use self::identity::{UserId};
+pub use self::rbac::{Permission, Action, Resource};
+pub use self::token::{Token, AuthCredentials, SessionToken, AuthToken};
+pub use self::crypto::{CryptoProvider, DefaultCryptoProvider, KeyPurpose, KeyStorage, DefaultKeyStorage};
+pub use self::manager::{SecurityManager, SecurityManagerImpl, TypedSecurityManager, CombinedSecurityManager};
+pub use self::types::{SecurityLevel, EncryptionFormat};
+pub use self::identity::{IdentityManager, DefaultIdentityManager};
+*/

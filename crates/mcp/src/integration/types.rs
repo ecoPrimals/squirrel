@@ -3,9 +3,20 @@
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use crate::error::MCPResult;
-use crate::protocol::MCPMessage;
+use crate::protocol::types::MCPMessage;
 use crate::types::MCPResponse;
 use crate::error::MCPError; // Import MCPError
+use std::collections::HashMap;
+use std::sync::Arc;
+use crate::security::{
+    AuthCredentials, 
+    Token, 
+    Resource, 
+    Action,
+    UserId
+};
+use std::net::IpAddr;
+use chrono::{DateTime, Utc};
 
 /// Placeholder User struct
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -82,19 +93,26 @@ impl Default for CoreState {
     }
 }
 
-/// Security Context Placeholder
+/// Security Context for MCP operations
 #[derive(Debug, Clone, Default)]
 pub struct SecurityContext {
+    /// User context information
     pub user_context: Option<User>,
-    pub credentials: Option<crate::security::Credentials>,
-    // Add other fields like session token, permissions etc.
+    /// Credentials if authentication is in progress
+    pub credentials: Option<AuthCredentials>,
+    /// Authentication token if user is authenticated
+    pub token: Option<Token>,
+    /// Source IP address of the request
+    pub source_ip: Option<IpAddr>,
+    /// Timestamp of the request
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 /// Message handling interface for MCP communications
 ///
 /// Defines the interface for components that need to handle MCP messages,
 /// providing a uniform way to process incoming messages and generate responses.
-#[async_trait::async_trait]
+#[async_trait]
 pub trait MessageHandler: Send + Sync {
     /// Handles an incoming MCP message and produces a response
     ///

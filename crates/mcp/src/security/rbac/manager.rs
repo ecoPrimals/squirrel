@@ -5,17 +5,15 @@
 
 use std::collections::{HashMap, HashSet};
 use tracing::info;
-use uuid::Uuid;
 use chrono::Utc;
 use tokio::sync::RwLock;
+use async_trait::async_trait;
 
-use crate::error::{SecurityError, Result, MCPError};
-use crate::security::types::{
-    Permission, Role, PermissionContext, Action,
-    PermissionCondition,
-};
-use super::super::types::{RoleId, SecurityLevel};
-
+use crate::error::{SecurityError, Result};
+use crate::context_manager::Context;
+use super::unified::RBACManager;
+use super::unified::RoleDefinition;
+use super::unified::RoleDetailsResponse;
 
 /// Error types for RBAC operations
 #[derive(Debug, thiserror::Error)]
@@ -37,124 +35,84 @@ pub(super) enum InternalRBACError {
     InternalError(String),
 }
 
-/// RBAC Manager for managing roles, permissions, and role assignments
-#[derive(Debug)]
-pub struct RBACManager {
-    /// Roles managed by this RBAC manager
-    roles: tokio::sync::RwLock<HashMap<String, Role>>,
-    /// User-to-role mappings
-    user_roles: tokio::sync::RwLock<HashMap<String, HashSet<String>>>,
+/// Inner role structure for RBACManagerImpl
+#[derive(Debug, Clone)]
+struct RoleInternal {
+    /// Role definition
+    definition: RoleDefinition,
+    /// Permissions assigned to this role
+    permissions: HashSet<String>,
+    /// Parent roles from which this role inherits permissions
+    parent_roles: HashSet<String>,
 }
 
-impl RBACManager {
+/// RBAC Manager for managing roles, permissions, and role assignments
+#[derive(Debug)]
+pub struct RBACManagerImpl {
+    /// Roles managed by this RBAC manager
+    roles: RwLock<HashMap<String, RoleInternal>>,
+    /// User-to-role mappings
+    user_roles: RwLock<HashMap<String, HashSet<String>>>,
+}
+
+impl RBACManagerImpl {
     /// Create a new RBAC manager
     #[must_use] pub fn new() -> Self {
         Self {
-            roles: tokio::sync::RwLock::new(HashMap::new()),
-            user_roles: tokio::sync::RwLock::new(HashMap::new()),
+            roles: RwLock::new(HashMap::new()),
+            user_roles: RwLock::new(HashMap::new()),
         }
     }
 
-    /// Create a new role
-    ///
-    /// # Arguments
-    /// * `name` - Name of the role
-    /// * `description` - Optional description of the role
-    ///
-    /// # Returns
-    /// A new `Role` instance with the specified properties
-    ///
-    /// # Errors
-    /// This function will return an error if:
-    /// * A role with the same name already exists
-    /// * Any underlying storage or database operation fails
-    pub async fn create_role(&self, name: &str, description: Option<&str>) -> Result<Role> {
-        let role_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
+    /// Get user roles as a HashSet
+    async fn get_user_roles_set(&self, user_id: &str) -> HashSet<String> {
+        let user_roles = self.user_roles.read().await;
+        user_roles.get(user_id).cloned().unwrap_or_default()
+    }
+}
+
+#[async_trait]
+impl RBACManager for RBACManagerImpl {
+    fn name(&self) -> &str {
+        "RBACManagerImpl"
+    }
+    
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+
+    async fn has_permission(&self, user_id: &str, permission: &str, _context: Option<&Context>) -> Result<bool> {
+        let user_roles = self.get_user_roles_set(user_id).await;
         
-        let role = Role {
-            id: role_id.clone(),
-            name: name.to_string(),
-            description: description.map(std::string::ToString::to_string),
-            permissions: HashSet::new(),
-            parent_roles: HashSet::new(),
-            security_level: SecurityLevel::Standard,
-            can_delegate: false,
-            managed_roles: HashSet::new(),
-            created_at: now,
-            updated_at: now,
-        };
+        // If the user has no roles, they have no permissions
+        if user_roles.is_empty() {
+            return Ok(false);
+        }
         
-        {
-            let mut roles = self.roles.write().await;
-            // Check if role with this name already exists
-            if roles.values().any(|r| r.name == name) {
-                return Err(MCPError::Security(SecurityError::RBACError(
-                    format!("Role exists: {name}")
-                )));
+        // Check each role for the permission
+        let roles = self.roles.read().await;
+        for role_id in user_roles {
+            if let Some(role) = roles.get(&role_id) {
+                if role.permissions.contains(permission) {
+                    return Ok(true);
+                }
             }
-            
-            roles.insert(role_id.clone(), role.clone());
         }
         
-        info!("Created role {} with ID {}", name, role_id);
-        Ok(role)
+        Ok(false)
     }
-
-    /// Add permission to a role
-    ///
-    /// # Arguments
-    /// * `role_id` - ID of the role to add the permission to
-    /// * `permission` - Permission to add to the role
-    ///
-    /// # Returns
-    /// `Ok(())` if the permission was successfully added
-    ///
-    /// # Errors
-    /// This function will return an error if:
-    /// * The role with the specified ID does not exist
-    /// * Any underlying storage or database operation fails
-    pub async fn add_permission_to_role(&self, role_id: &str, permission: Permission) -> Result<()> {
-        let mut roles = self.roles.write().await;
-        
-        if let Some(role) = roles.get_mut(role_id) {
-            role.permissions.insert(permission);
-            role.updated_at = Utc::now();
-            Ok(())
-        } else {
-            Err(MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {role_id}")
-            )))
-        }
-    }
-
-    /// Assign role to a user
-    ///
-    /// # Arguments
-    /// * `user_id` - ID of the user to assign the role to
-    /// * `role_id` - ID of the role to assign
-    ///
-    /// # Returns
-    /// `Ok(())` if the role was successfully assigned
-    ///
-    /// # Errors
-    /// This function will return an error if:
-    /// * The role with the specified ID does not exist
-    /// * Any underlying storage or database operation fails
-    pub async fn assign_role_to_user(&self, user_id: &str, role_id: &str) -> Result<()> {
+    
+    async fn assign_role(&self, user_id: &str, role_id: &str) -> Result<()> {
         // Verify role exists
         {
             let roles = self.roles.read().await;
             if !roles.contains_key(role_id) {
-                return Err(MCPError::Security(SecurityError::RBACError(
-                    format!("Role not found: {role_id}")
-                )));
+                return Err(SecurityError::RoleNotFound(role_id.to_string()).into());
             }
         }
         
         // Add role to user
         {
-            // Use write() lock and chain the subsequent operations
             self.user_roles.write().await
                 .entry(user_id.to_string())
                 .or_insert_with(HashSet::new)
@@ -164,127 +122,94 @@ impl RBACManager {
         info!("Assigned role {} to user {}", role_id, user_id);
         Ok(())
     }
-
-    /// Get roles for a user
-    ///
-    /// # Arguments
-    /// * `user_id` - ID of the user to get roles for
-    ///
-    /// # Returns
-    /// A set of role IDs assigned to the user
-    pub async fn get_user_roles(&self, user_id: &str) -> HashSet<String> {
-        let user_roles = self.user_roles.read().await;
-        user_roles.get(user_id).cloned().unwrap_or_default()
-    }
-
-    /// Get a role by ID
-    ///
-    /// # Arguments
-    /// * `role_id` - ID of the role to retrieve
-    ///
-    /// # Returns
-    /// The role with the specified ID
-    ///
-    /// # Errors
-    /// This function will return an error if:
-    /// * The role with the specified ID does not exist
-    /// * Any underlying storage or database operation fails
-    pub async fn get_role(&self, role_id: &str) -> Result<Role> {
-        let roles = self.roles.read().await;
-        roles.get(role_id)
-            .cloned()
-            .ok_or_else(|| MCPError::Security(SecurityError::RBACError(
-                format!("Role not found: {role_id}")
-            )))
-    }
-
-    /// Check if a user has a specific permission
-    ///
-    /// # Arguments
-    /// * `user_id` - ID of the user to check
-    /// * `resource` - Resource to check permission for
-    /// * `action` - Action to check permission for
-    /// * `context` - Additional context information for condition evaluation
-    ///
-    /// # Returns
-    /// `true` if the user has the permission, `false` otherwise
-    ///
-    /// # Errors
-    /// This function will return an error if:
-    /// * The permission condition evaluation fails
-    /// * Any underlying storage or database operation fails
-    pub async fn has_permission(&self, user_id: &str, resource: &str, action: Action, context: &PermissionContext) -> Result<bool> {
-        let user_role_ids = self.get_user_roles(user_id).await;
-        if user_role_ids.is_empty() {
-            return Ok(false);
-        }
-
-        let roles = self.roles.read().await;
-        
-        // Get all permissions from user roles
-        let mut all_permissions = HashSet::new();
-        
-        for role_id in &user_role_ids {
-            if let Some(role) = roles.get(role_id) {
-                // Add direct permissions
-                for perm in &role.permissions {
-                    all_permissions.insert(perm);
-                }
+    
+    async fn revoke_role(&self, user_id: &str, role_id: &str) -> Result<()> {
+        let mut removed = false;
+        {
+            let mut user_roles = self.user_roles.write().await;
+            if let Some(roles) = user_roles.get_mut(user_id) {
+                removed = roles.remove(role_id);
             }
         }
-
-        // Check if any permission matches
-        for perm in all_permissions {
-            if perm.resource == resource && (perm.action == action || perm.action == Action::Admin) {
-                // Basic match found, check conditions if any
-                if perm.conditions.is_empty() {
-                    return Ok(true);
-                }
-
-                // Check all conditions
-                let mut all_conditions_pass = true;
-                for condition in &perm.conditions {
-                    if !Self::evaluate_condition(condition, context) {
-                        all_conditions_pass = false;
-                        break;
-                    }
-                }
-
-                if all_conditions_pass {
-                    return Ok(true);
-                }
-            }
+        
+        if removed {
+            info!("Revoked role {} from user {}", role_id, user_id);
+        } else {
+            info!("User {} did not have role {}, nothing to revoke", user_id, role_id);
         }
-
-        Ok(false)
+        
+        Ok(())
+    }
+    
+    async fn get_user_roles(&self, user_id: &str) -> Result<Vec<String>> {
+        let roles = self.get_user_roles_set(user_id).await;
+        Ok(roles.into_iter().collect())
+    }
+    
+    async fn has_role(&self, user_id: &str, role_id: &str) -> Result<bool> {
+        let user_roles = self.get_user_roles_set(user_id).await;
+        Ok(user_roles.contains(role_id))
     }
 
-    /// Evaluate a permission condition against the context
-    fn evaluate_condition(condition: &PermissionCondition, context: &PermissionContext) -> bool {
-        match condition {
-            PermissionCondition::MinimumSecurityLevel(level) => {
-                context.security_level >= *level
+    async fn get_role_details(&self, role_id: &str) -> Result<Option<RoleDetailsResponse>> {
+        let roles = self.roles.read().await;
+        
+        if let Some(role) = roles.get(role_id) {
+            Ok(Some(RoleDetailsResponse {
+                role: role.definition.clone(),
+                permissions: Vec::new(), // Simplified for now
+                parent_roles: role.parent_roles.iter().cloned().collect(),
+                child_roles: Vec::new(),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn create_role(&self, role_id: &str, name: &str, description: &str) -> Result<()> {
+        let now = Utc::now();
+        
+        let role = RoleInternal {
+            definition: RoleDefinition {
+                id: role_id.to_string(),
+                name: name.to_string(),
+                description: description.to_string(),
+                is_system_role: false,
+                created_at: now,
+                updated_at: now,
             },
-            // Simplified implementation for other conditions
-            _ => true
+            permissions: HashSet::new(),
+            parent_roles: HashSet::new(),
+        };
+        
+        let mut roles = self.roles.write().await;
+        
+        // Check if role with this ID already exists
+        if roles.contains_key(role_id) {
+            return Err(SecurityError::RoleExists(role_id.to_string()).into());
+        }
+        
+        roles.insert(role_id.to_string(), role);
+        
+        info!("Created role {} with ID {}", name, role_id);
+        Ok(())
+    }
+
+    async fn add_permission_to_role(&self, role_id: &str, permission: &str) -> Result<()> {
+        let mut roles = self.roles.write().await;
+        
+        if let Some(role) = roles.get_mut(role_id) {
+            role.permissions.insert(permission.to_string());
+            role.definition.updated_at = Utc::now();
+            Ok(())
+        } else {
+            Err(SecurityError::RoleNotFound(role_id.to_string()).into())
         }
     }
 }
 
-impl Default for RBACManager {
+impl Default for RBACManagerImpl {
     fn default() -> Self {
         Self::new()
     }
-}
-
-// For convenience in testing
-/// Type of verification to perform on permissions
-#[derive(Debug, Clone)]
-pub(super) enum VerificationType {
-    /// Simple verification
-    Simple,
-    /// Required verification
-    Required,
-    /// Optional verification
-    Optional,
 } 

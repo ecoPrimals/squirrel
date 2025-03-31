@@ -4,6 +4,7 @@
 //! which allow for type-safe interactions while avoiding circular dependencies.
 
 use std::fmt::{Debug, Display};
+use std::any::Any;
 use serde_json::Value;
 
 /// Trait for resources that can be authorized
@@ -16,6 +17,9 @@ pub trait ResourceTrait: Debug + Display {
     
     /// Get optional attributes for this resource
     fn attributes(&self) -> Option<&Value>;
+    
+    /// Convert to Any for downcasting
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// Trait for actions that can be performed on resources
@@ -25,6 +29,9 @@ pub trait ResourceTrait: Debug + Display {
 pub trait ActionTrait: Debug + Display {
     /// Get the string representation of this action
     fn as_ref(&self) -> &str;
+    
+    /// Convert to Any for downcasting
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// Helper function to create a permission string from an action and resource

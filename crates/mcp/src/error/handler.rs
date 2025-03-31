@@ -1,4 +1,4 @@
-use crate::error::context::{ErrorContext, ErrorSeverity};
+use crate::error::types::ErrorContext;
 use squirrel_core::error::Result as CoreResult;
 
 /// Error handler with retry capabilities

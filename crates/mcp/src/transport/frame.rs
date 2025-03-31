@@ -12,8 +12,10 @@
 use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::protocol::MCPMessage;
-use crate::error::{Result, MCPError, WireFormatError, ProtocolError, TransportError};
+use crate::error::{Result, MCPError, ProtocolError, TransportError};
+use crate::protocol::adapter_wire::WireFormatError;
 use serde_json;
+use tokio_util::codec::{Decoder, Encoder};
 
 // Constants for framing
 const HEADER_SIZE: usize = 4;      // 4-byte header for length
@@ -394,83 +396,89 @@ impl MessageCodec {
         
         Ok(message)
     }
+}
 
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<MCPMessage>, MCPError> {
+impl Decoder for MessageCodec {
+    type Item = MCPMessage;
+    type Error = TransportError;
+
+    fn decode(&mut self, src: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
         // Check if we have enough data to read the length
-        if src.len() < 4 {
+        if src.len() < HEADER_SIZE {
             return Ok(None);
         }
 
         // Read the message length (u32)
-        let mut length_bytes = [0u8; 4];
-        length_bytes.copy_from_slice(&src[..4]);
+        let mut length_bytes = [0u8; HEADER_SIZE];
+        length_bytes.copy_from_slice(&src[..HEADER_SIZE]);
         let length = u32::from_be_bytes(length_bytes) as usize;
 
-        // Check if we have the complete message
-        if src.len() < 4 + length {
-            src.reserve(4 + length - src.len());
+        // Check for potentially malicious large frame size early
+        if length > MAX_FRAME_SIZE {
+             return Err(TransportError::InvalidFrame(
+                format!("Frame size too large: {} > {}", length, MAX_FRAME_SIZE)
+            ));
+        }
+
+        // Check if we have the complete message frame (header + payload)
+        if src.len() < HEADER_SIZE + length {
+            // Not enough data yet, reserve space and wait for more
+            src.reserve(HEADER_SIZE + length - src.len());
             return Ok(None);
         }
 
         // Consume the length prefix
-        src.advance(4);
+        src.advance(HEADER_SIZE);
 
-        // Read the message data
+        // Read the message data payload
         let data = src.split_to(length);
 
-        // Deserialize the message (assuming JSON for now)
-        serde_json::from_slice::<MCPMessage>(&data).map(Some)
-            .map_err(|e| MCPError::Transport(TransportError::SerializationError(e.to_string())))
+        // Deserialize the message from the payload (assuming JSON)
+        serde_json::from_slice::<MCPMessage>(&data)
+            .map(Some)
+            .map_err(|e| TransportError::SerializationError(e.to_string()))
     }
 
-    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<MCPMessage>, MCPError> {
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
         match self.decode(buf)? {
             Some(frame) => Ok(Some(frame)),
             None => {
                 if buf.is_empty() {
                     Ok(None)
                 } else {
-                    Err(MCPError::Transport(TransportError::SerializationError("Bytes remaining on stream".into())))
+                    // Data remains but not enough for a full frame, indicates an error
+                    Err(TransportError::InvalidFrame("Bytes remaining on stream at EOF".into()))
                 }
             }
         }
     }
-
-    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> Result<(), MCPError> {
-        // Serialize the message (assuming JSON for now)
-        let encoded = serde_json::to_vec(&item)
-            .map_err(|e| MCPError::Transport(TransportError::SerializationError(e.to_string())))?;
-
-        // Write the length prefix (u32)
-        let len = encoded.len() as u32;
-        dst.reserve(4 + encoded.len());
-        dst.put_u32(len);
-
-        // Write the message data
-        dst.put_slice(&encoded);
-
-        Ok(())
-    }
-}
-
-impl Decoder for MessageCodec {
-    type Item = MCPMessage;
-    type Error = MCPError;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>> {
-        FrameReader::decode(src)
-    }
-
-    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>> {
-        FrameReader::decode_eof(buf)
-    }
 }
 
 impl Encoder<MCPMessage> for MessageCodec {
-    type Error = MCPError;
+    type Error = TransportError;
 
-    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> Result<()> {
-        FrameWriter::encode(&item, dst)
+    fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> std::result::Result<(), Self::Error> {
+        // Serialize the message (assuming JSON for now)
+        let encoded = serde_json::to_vec(&item)
+            .map_err(|e| TransportError::SerializationError(e.to_string()))?;
+
+        let len = encoded.len();
+
+        // Check if frame size exceeds limit before encoding
+        if len > MAX_FRAME_SIZE {
+            return Err(TransportError::InvalidFrame(
+                format!("Message too large to encode: {} > {}", len, MAX_FRAME_SIZE)
+            ));
+        }
+
+        // Write the length prefix (u32)
+        dst.reserve(HEADER_SIZE + len);
+        dst.put_u32(len as u32); // Length is of the payload
+
+        // Write the message data payload
+        dst.put_slice(&encoded);
+
+        Ok(())
     }
 }
 

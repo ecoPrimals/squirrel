@@ -86,8 +86,8 @@ use serde::{Deserialize, Serialize};
 use uuid;
 use serde_json;
 use chrono;
-use crate::protocol::MessageId;
-use crate::errors::MCPError;
+use crate::protocol::types::MessageId;
+use crate::error::MCPError;
 use chrono::{DateTime, Utc};
 
 /// Compression format for efficient data transfer.
@@ -150,9 +150,10 @@ pub struct MessageMetadata {
 /// - Success: The operation completed successfully
 /// - Error: The operation failed
 /// - Pending: The operation is still being processed
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ResponseStatus {
     /// Success: The operation completed successfully
+    #[default]
     Success,
     /// Error: The operation failed
     Error,
@@ -287,20 +288,35 @@ pub struct HandshakeMessage {
 ///     metadata: MessageMetadata::default(),
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MCPResponse {
     /// Protocol version
+    #[serde(default = "default_protocol_version")]
     pub protocol_version: String,
     /// Message ID this is responding to
-    pub message_id: String,
+    #[serde(default = "default_message_id")]
+    pub message_id: MessageId,
     /// Status of the response
+    #[serde(default)]
     pub status: ResponseStatus,
     /// Response payload
-    pub payload: Vec<u8>,
+    #[serde(default)]
+    pub payload: Vec<serde_json::Value>,
     /// Error message if status is Error
+    #[serde(default)]
     pub error_message: Option<String>,
     /// Response metadata
+    #[serde(default)]
     pub metadata: MessageMetadata,
+}
+
+/// Helper functions for serde default
+fn default_protocol_version() -> String {
+    "1.0".to_string()
+}
+
+fn default_message_id() -> MessageId {
+    MessageId("none".to_string()) // Or MessageId::new() if appropriate
 }
 
 /// MCP Command structure for executing operations.
@@ -419,42 +435,6 @@ pub enum ProtocolState {
 impl Default for ProtocolState {
     fn default() -> Self {
         Self::Uninitialized
-    }
-}
-
-/// User ID type
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct UserId(pub String);
-
-impl Default for UserId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl UserId {
-    /// Create a new user ID
-    #[must_use]
-    pub fn new() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-}
-
-impl std::fmt::Display for UserId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<String> for UserId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl From<&str> for UserId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
     }
 }
 

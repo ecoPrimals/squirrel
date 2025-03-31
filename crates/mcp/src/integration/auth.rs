@@ -1,76 +1,106 @@
 //! Authentication and authorization manager for the integration layer.
 
-use crate::security::{Credentials, Permission};
-use super::types::User;
+use std::sync::Arc;
+use crate::security::{
+    Resource,
+    Action,
+    Token,
+    manager::{SecurityManagerImpl, SecurityManager},
+    SecurityContext,
+    UserId
+};
+use crate::security::token::AuthCredentials;
+use crate::error::{Result, SecurityError};
+use tracing::{info, warn, error};
 
-/// Authentication and authorization manager
+/// Authentication and authorization manager for the integration layer.
 ///
 /// Handles user authentication and authorization checks against
 /// required permissions.
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct AuthManager {
-    // Implementation details omitted
+    security_manager: Arc<SecurityManagerImpl>,
 }
 
 impl AuthManager {
-    /// Authorizes a user against a set of required permissions
-    ///
-    /// Checks if the user has the necessary permissions to perform
-    /// a specific operation.
-    ///
-    /// # Arguments
-    ///
-    /// * `_user` - The user to authorize
-    /// * `_permissions` - The permissions required for the operation
-    ///
-    /// # Returns
-    ///
-    /// Result indicating success if authorized or an error string if not
-    /// 
-    /// # Errors
-    /// 
-    /// Returns an error string if the user lacks the required permissions or
-    /// if the authorization check cannot be completed
-    pub async fn authorize(&self, _user: &User, _permissions: &[Permission]) -> Result<(), String> {
-        // TODO: Implement authorization logic
+    /// Create a new authentication manager
+    pub fn new(security_manager: Arc<SecurityManagerImpl>) -> Self {
+        Self { security_manager }
+    }
+
+    /// Authenticate a user based on credentials
+    pub async fn authenticate(&self, credentials: &AuthCredentials) -> Result<Token> {
+        info!("Authenticating user: {}", credentials.username);
+        self.security_manager.authenticate(credentials).await
+    }
+
+    /// Validate a token string and return the parsed token
+    pub async fn validate_token(&self, token_str: &str) -> Result<Token> {
+        self.security_manager.validate_token(token_str).await
+    }
+
+    /// Authorize a user for a specific set of permissions
+    #[tracing::instrument(skip(self, token, required_permissions), fields(user_id = %token.user_id.0))]
+    pub async fn authorize(&self, token: &Token, required_permissions: &[Permission]) -> Result<()> {
+        for permission in required_permissions {
+            let resource = Resource { 
+                id: permission.resource.clone(), 
+                attributes: None 
+            };
+            let action = Action::new(&permission.action);
+            
+            // Pass security context if available
+            let context = None; // Optional context
+            
+            self.security_manager
+                .authorize_concrete(token, &resource, &action, context)
+                .await?;
+        }
+        
+        info!("Authorization successful for user: {}", token.user_id.0);
         Ok(())
     }
+}
 
-    /// Creates a new test authentication manager
-    ///
-    /// Creates an instance configured for testing purposes that
-    /// allows all authorization requests.
-    ///
-    /// # Returns
-    ///
-    /// A new `AuthManager` instance configured for testing
-    #[must_use] pub const fn new_test() -> Self {
-        Self {}
-    }
+/// User representation in the integration layer
+#[derive(Debug, Clone)]
+pub struct User {
+    /// User unique identifier
+    pub id: String,
+    /// Authentication token, if the user is authenticated
+    pub token: Option<Token>,
+    /// User's roles, if available
+    pub roles: Vec<String>,
+}
 
-    /// Authenticates a user with the provided credentials
-    ///
-    /// Verifies user credentials and returns the authenticated user
-    /// if successful.
-    ///
-    /// # Arguments
-    ///
-    /// * `_credentials` - The credentials to verify
-    ///
-    /// # Returns
-    ///
-    /// Result containing the authenticated User or an error string
-    /// 
-    /// # Errors
-    /// 
-    /// Returns an error string if authentication fails due to invalid credentials,
-    /// account lockout, or other authentication infrastructure issues
-    pub async fn authenticate(&self, _credentials: &Credentials) -> Result<User, String> {
-        // TODO: Implement authentication logic
-        // We need Credentials definition from crate::security
-        Ok(User {
-            id: "test".to_string(), // Placeholder
-            name: "Test User".to_string(),
-        })
+impl User {
+    /// Create a new user with the given ID
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            token: None,
+            roles: Vec::new(),
+        }
     }
+    
+    /// Create a new user from a token
+    pub fn from_token(token: Token) -> Self {
+        Self {
+            id: token.user_id.0.to_string(),
+            roles: token.roles.clone(),
+            token: Some(token),
+        }
+    }
+    
+    /// Check if the user has a specific role
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.contains(&role.to_string())
+    }
+}
+
+// Add a local Permission type definition to use in this module
+#[derive(Debug, Clone)]
+pub struct Permission {
+    pub resource: String,
+    pub action: String,
 } 

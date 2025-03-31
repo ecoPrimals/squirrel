@@ -6,9 +6,20 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::info;
+use tracing::warn;
 
 use crate::tool::{ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus, ToolError};
 // Use local interfaces instead of squirrel-plugins
+
+use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginManagerInterface};
+use crate::plugins::loader::PluginLoader;
+use crate::plugins::registry::PluginRegistry;
+use crate::error::{Result, PluginError};
+use std::path::{Path, PathBuf};
+use tokio::sync::{Mutex, RwLock};
+use std::collections::HashMap;
+use std::{fs, io};
+use crate::plugins::types::PluginSource;
 
 /// Executor for plugin proxy
 #[derive(Debug)]

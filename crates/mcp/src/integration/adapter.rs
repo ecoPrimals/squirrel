@@ -8,94 +8,28 @@ use tracing::{info, error, warn, instrument, debug};
 use chrono::Utc;
 use std::time::Duration;
 use std::fmt;
+use std::any::Any;
 
 // Import from error module
 use crate::error::{Result as MCPResult, SecurityError, MCPError};
-
-// Import the traits for Resource and Action
-use crate::security::traits::{ResourceTrait, ActionTrait};
-
-// Define Resource and Action locally to avoid circular imports
-/// Resource that can be accessed with permissions
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Resource {
-    /// Resource identifier
-    pub id: String,
-    /// Optional resource attributes
-    pub attributes: Option<serde_json::Value>,
-}
-
-// Implement Display for Resource
-impl fmt::Display for Resource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Resource({})", self.id)
-    }
-}
-
-// Implement ResourceTrait for Resource
-impl ResourceTrait for Resource {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    
-    fn attributes(&self) -> Option<&serde_json::Value> {
-        self.attributes.as_ref()
-    }
-}
-
-/// Action that can be performed on a resource
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Action {
-    /// String representation of the action
-    pub action: String,
-}
-
-impl Action {
-    /// Create a new action
-    pub fn new(action: &str) -> Self {
-        Self {
-            action: action.to_string()
-        }
-    }
-    
-    /// Execute action
-    pub fn Execute() -> Self {
-        Self {
-            action: "execute".to_string()
-        }
-    }
-    
-    /// Convert to string reference
-    pub fn as_ref(&self) -> &str {
-        &self.action
-    }
-}
-
-// Implement Display for Action
-impl fmt::Display for Action {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Action({})", self.action)
-    }
-}
-
-// Implement ActionTrait for Action
-impl ActionTrait for Action {
-    fn as_ref(&self) -> &str {
-        &self.action
-    }
-}
 
 // Import from security module
 use crate::security::Token;
 
 // Import from security::types
-use crate::security::types::SecurityMetadata;
+use crate::security::types::{SecurityMetadata, Resource, Action};
+
+// Import from security::manager
+use crate::security::manager::SecurityManager;
 
 // Import from types module
 use crate::types::{MCPResponse, ResponseStatus, MessageMetadata, ProtocolState};
 
 // Import from integration types
 use crate::integration::types::{CoreState, StateUpdate};
+
+// Import context manager for Context
+use crate::context_manager::Context;
 
 // Import from protocol module
 use crate::protocol::{MCPProtocol, ValidationResult, RoutingResult, ProtocolResult};
@@ -163,7 +97,7 @@ pub struct CoreMCPAdapter {
     /// MCP protocol interface
     protocol_handler: Arc<dyn MCPProtocol>,
     /// Security manager for authentication and authorization
-    auth_manager: Arc<dyn crate::security::manager::SecurityManager>,
+    auth_manager: Arc<dyn SecurityManager>,
     /// Metrics collector for operational monitoring
     metrics: Arc<Metrics>,
 }
@@ -173,7 +107,7 @@ impl std::fmt::Debug for CoreMCPAdapter {
         f.debug_struct("CoreMCPAdapter")
             .field("core_state", &"Arc<RwLock<CoreState>>")
             .field("protocol_handler", &"Arc<dyn MCPProtocol>")
-            .field("auth_manager", &"Arc<dyn crate::security::manager::SecurityManager>")
+            .field("auth_manager", &"Arc<dyn SecurityManager>")
             .field("metrics", &self.metrics)
             .finish()
     }
@@ -184,7 +118,7 @@ impl CoreMCPAdapter {
     pub fn new(
         core_state: Arc<RwLock<CoreState>>,
         protocol_handler: Arc<dyn MCPProtocol>,
-        auth_manager: Arc<dyn crate::security::manager::SecurityManager>,
+        auth_manager: Arc<dyn SecurityManager>,
         metrics: Arc<Metrics>,
     ) -> Self {
         Self {
@@ -253,8 +187,8 @@ impl CoreMCPAdapter {
             };
             let action = Action::Execute();
             
-            // Authorize the operation
-            match self.auth_manager.authorize(token, &resource, &action, None).await {
+            // Use the concrete authorization via the SecurityManager trait
+            match self.auth_manager.authorize_concrete(token, &resource, &action, None).await {
                 Ok(_) => {
                     debug!("Authorization successful for operation: {}", operation_name);
                 },

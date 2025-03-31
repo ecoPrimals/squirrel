@@ -8,27 +8,18 @@ use anyhow::Result;
 use std::sync::Arc;
 use std::fmt::Debug;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 use tracing::info;
 
 use super::ToolPluginFactory;
-use super::interfaces::{Plugin, McpPlugin, PluginStatus};
+use super::interfaces::{Plugin, McpPlugin, PluginStatus, PluginManagerInterface};
 use super::versioning::{ProtocolVersion, ProtocolVersionManager};
 use crate::tool::{ToolManager, ToolContext, ToolState, ExecutionStatus, ToolExecutionResult};
-
-// Mock Interface for PluginManagerInterface until we have the actual implementation
-#[async_trait::async_trait]
-pub trait PluginManagerInterface: Send + Sync + Debug {
-    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<Uuid>;
-    async fn get_plugin(&self, id: &Uuid) -> Option<Arc<dyn Plugin>>;
-    async fn unregister_plugin(&self, id: &Uuid) -> Result<()>;
-}
 
 /// Mock implementation of `PluginManagerInterface` for development
 #[derive(Debug)]
 pub struct MockPluginManager {
-    /// Map of plugin UUIDs to plugin instances
-    plugins: RwLock<HashMap<Uuid, Arc<dyn Plugin>>>,
+    /// Map of plugin IDs to plugin instances
+    plugins: RwLock<HashMap<String, Arc<dyn Plugin>>>,
 }
 
 impl MockPluginManager {
@@ -47,18 +38,23 @@ impl Default for MockPluginManager {
 
 #[async_trait::async_trait]
 impl PluginManagerInterface for MockPluginManager {
-    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<Uuid> {
-        let id = plugin.metadata().id;
+    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+        let id = plugin.metadata().id.clone();
         self.plugins.write().await.insert(id, plugin);
-        Ok(id)
+        Ok(())
     }
     
-    async fn get_plugin(&self, id: &Uuid) -> Option<Arc<dyn Plugin>> {
-        self.plugins.read().await.get(id).cloned()
+    async fn get_plugin_by_id(&self, plugin_id: String) -> Result<Option<Arc<dyn Plugin>>> {
+        Ok(self.plugins.read().await.get(&plugin_id).cloned())
     }
     
-    async fn unregister_plugin(&self, id: &Uuid) -> Result<()> {
-        self.plugins.write().await.remove(id);
+    async fn execute_mcp_plugin(&self, plugin_id: String, message: serde_json::Value) -> Result<serde_json::Value> {
+        // Implementation would go here
+        Ok(serde_json::json!({"status": "executed"}))
+    }
+    
+    async fn update_plugin_status(&self, plugin_id: String, status: PluginStatus) -> Result<()> {
+        // Implementation would go here
         Ok(())
     }
 }
@@ -68,7 +64,7 @@ pub trait McpPluginToolId {
     fn tool_id(&self) -> &str;
 }
 
-impl<T: McpPlugin> McpPluginToolId for T {
+impl<T: McpPlugin + ?Sized> McpPluginToolId for T {
     fn tool_id(&self) -> &'static str {
         // This is a mock implementation that returns a placeholder
         // In a real implementation, this would be overridden or implemented differently
@@ -119,7 +115,7 @@ pub struct PluginSystemIntegration {
     plugin_manager: Arc<dyn PluginManagerInterface>,
     
     /// Mapping from plugin ID to tool ID
-    plugin_to_tool_map: RwLock<HashMap<Uuid, String>>,
+    plugin_to_tool_map: RwLock<HashMap<String, String>>,
     
     /// Protocol version manager
     version_manager: ProtocolVersionManager,
@@ -137,7 +133,7 @@ impl PluginSystemIntegration {
             plugin_to_tool_map: RwLock::new(HashMap::new()),
             version_manager: ProtocolVersionManager::new(
                 ProtocolVersion::new(1, 0, 0),  // Current version
-                ProtocolVersion::new(1, 0, 0),  // Minimum supported version
+                vec![ProtocolVersion::new(1, 0, 0)],  // Supported versions
             ),
         }
     }
@@ -164,7 +160,7 @@ impl PluginSystemIntegration {
     /// - The factory fails to create plugin adapters
     /// - There is an error with the plugin registration process
     /// - The protocol version requirements are incompatible
-    pub async fn register_tools_as_plugins(&self) -> Result<Vec<Uuid>> {
+    pub async fn register_tools_as_plugins(&self) -> Result<Vec<String>> {
         let factory = ToolPluginFactory::new(self.tool_manager.clone());
         let adapters = factory.create_plugin_adapters().await?;
         
@@ -173,20 +169,31 @@ impl PluginSystemIntegration {
             // Check compatibility with version manager
             let version_req = adapter.protocol_version_requirements();
             if !self.version_manager.is_compatible_with_requirement(&version_req)? {
-                info!("Skipping registration of tool '{}' due to incompatible version requirements",
-                      adapter.tool_id());
+                info!("Skipping registration of tool due to incompatible version requirements");
                 continue;
             }
             
-            // Register the adapter as a plugin using the wrapper
+            // Get the plugin ID before wrapping
+            let plugin_id = adapter.metadata().id.clone();
+            
+            // Add the plugin_id to the result vector
+            plugin_ids.push(plugin_id.clone());
+            
+            // Create a clone of the adapter for registration
             let adapter_arc = Arc::new(adapter);
-            let plugin_arc = PluginWrapper::new(adapter_arc);
-            let plugin_id = self.plugin_manager.register_plugin(plugin_arc).await?;
-            plugin_ids.push(plugin_id);
+            
+            // Register the adapter as a plugin using the wrapper
+            let plugin_arc = PluginWrapper::new(adapter_arc.clone());
+            self.plugin_manager.register_plugin(plugin_arc).await?;
             
             // Store the mapping with shorter lock duration
-            let tool_id = "adapter-tool"; // Placeholder
-            self.plugin_to_tool_map.write().await.insert(plugin_id, tool_id.to_string());
+            // Use a placeholder or generate a proper tool ID
+            let tool_id = format!("tool-{}", plugin_id);
+            {
+                let mut map = self.plugin_to_tool_map.write().await;
+                map.insert(plugin_id.clone(), tool_id.clone());
+            }
+            
             info!("Registered tool '{}' as plugin '{}'", tool_id, plugin_id);
         }
         
@@ -200,14 +207,22 @@ impl PluginSystemIntegration {
     /// Returns an error if:
     /// - The plugin registration process fails
     /// - There is an error with the plugin system
-    pub async fn register_tool_as_plugin(&self, adapter: Arc<dyn McpPlugin>) -> Result<Uuid> {
+    pub async fn register_tool_as_plugin(&self, adapter: Arc<dyn McpPlugin>) -> Result<String> {
+        // Get the plugin ID from the metadata
+        let plugin_id = adapter.metadata().id.clone();
+        
         // Register the plugin using the wrapper to avoid direct casting
-        let plugin_arc = PluginWrapper::new(adapter);
-        let plugin_id = self.plugin_manager.register_plugin(plugin_arc).await?;
+        let plugin_arc = PluginWrapper::new(adapter.clone());
+        self.plugin_manager.register_plugin(plugin_arc).await?;
         
         // Store the mapping with shorter lock duration
-        let tool_id = "adapter-tool"; // Placeholder
-        self.plugin_to_tool_map.write().await.insert(plugin_id, tool_id.to_string());
+        // Use a placeholder or generate a proper tool ID
+        let tool_id = format!("tool-{}", plugin_id);
+        {
+            let mut map = self.plugin_to_tool_map.write().await;
+            map.insert(plugin_id.clone(), tool_id.clone());
+        }
+        
         info!("Registered tool '{}' as plugin '{}'", tool_id, plugin_id);
         
         Ok(plugin_id)
@@ -222,12 +237,14 @@ impl PluginSystemIntegration {
             // Find the plugin ID for this tool ID
             map.iter()
                 .find(|(_, tid)| tid.as_str() == tool_id)
-                .map(|(plugin_id, _)| *plugin_id)
+                .map(|(plugin_id, _)| plugin_id.clone())
         };
         
         // If we found a plugin ID, fetch the plugin
         if let Some(plugin_id) = plugin_id {
-            return self.plugin_manager.get_plugin(&plugin_id).await;
+            if let Ok(Some(plugin)) = self.plugin_manager.get_plugin_by_id(plugin_id).await {
+                return Some(plugin);
+            }
         }
         
         None
@@ -384,7 +401,7 @@ mod tests {
         // Create an integration with version 1.0.0
         let version_manager = ProtocolVersionManager::new(
             ProtocolVersion::new(1, 0, 0),
-            ProtocolVersion::new(1, 0, 0),
+            vec![ProtocolVersion::new(1, 0, 0)],
         );
         let integration = PluginSystemIntegration::with_version_manager(
             tool_manager,

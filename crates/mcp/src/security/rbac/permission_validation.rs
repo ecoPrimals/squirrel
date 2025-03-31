@@ -11,11 +11,12 @@ use chrono::{DateTime, NaiveTime, Utc, Timelike};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::{SecurityError, Result};
-use crate::security::rbac::{Permission, Role, PermissionContext, PermissionCondition, PermissionScope, Action};
+use crate::error::{SecurityError, Result, RBACError};
+use crate::security::types::{Role, PermissionContext, PermissionCondition, PermissionScope, Action, SecurityLevel};
 use crate::error::MCPError;
-use crate::security::types::SecurityLevel;
 use tracing::{debug, error};
+use crate::context_manager::Context;
+use super::unified::PermissionDefinition;
 
 /// Represents the validation result for a permission check
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,7 +269,7 @@ impl PermissionValidator {
             let rule = &self.rules[i];
 
             // Skip rules for other actions
-            if rule.action != action && rule.action != Action::Admin {
+            if rule.action != action && rule.action != Action::Admin() {
                 continue;
             }
 
@@ -338,7 +339,7 @@ impl PermissionValidator {
     /// Check if a rule applies to a resource and action
     fn rule_applies(&self, rule: &ValidationRule, resource: &str, action: Action) -> bool {
         // Check if rule applies to this action
-        if rule.action != action && rule.action != Action::Admin {
+        if rule.action != action && rule.action != Action::Admin() {
             return false;
         }
         
@@ -358,7 +359,7 @@ impl PermissionValidator {
         context: &PermissionContext,
     ) -> bool {
         // Check action
-        if permission.action != action && permission.action != Action::Admin {
+        if permission.action != action && permission.action != Action::Admin() {
             return false;
         }
         
@@ -751,4 +752,32 @@ impl AsyncPermissionValidator {
         let mut validator = self.validator.write().await;
         validator.audit_enabled = enabled;
     }
+}
+
+// Make the module public
+pub(super) fn validate_permission_format(permission: &str) -> Result<(String, String)> {
+    // Format should be "action:resource"
+    let parts: Vec<&str> = permission.split(':').collect();
+    if parts.len() != 2 {
+        return Err(SecurityError::RBACError(
+            format!("Invalid permission format: {permission}, expected 'action:resource'")
+        ).into());
+    }
+    
+    let action = parts[0].trim();
+    let resource = parts[1].trim();
+    
+    if action.is_empty() {
+        return Err(SecurityError::RBACError(
+            format!("Empty action in permission: {permission}")
+        ).into());
+    }
+    
+    if resource.is_empty() {
+        return Err(SecurityError::RBACError(
+            format!("Empty resource in permission: {permission}")
+        ).into());
+    }
+    
+    Ok((action.to_string(), resource.to_string()))
 } 

@@ -54,4 +54,8 @@ pub enum SessionError {
     /// categories but occur within the session subsystem.
     #[error("Internal session error: {0}")]
     InternalError(String),
+
+    /// Error reported by the remote peer
+    #[error("Remote session error: {0}")]
+    RemoteError(String),
 } 

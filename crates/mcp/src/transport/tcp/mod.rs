@@ -1,4 +1,5 @@
 // TCP transport implementation for MCP
+
 //
 // This module provides a TCP-based transport implementation for Machine Context Protocol
 // (MCP) communication. It handles establishing TCP connections, message framing,
@@ -25,15 +26,19 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use crate::error::{MCPError, Result, TransportError};
 use crate::message::Message;
-use crate::protocol::MCPMessage;
+use crate::protocol::types::MCPMessage;
+use crate::transport::Transport;
+use crate::transport::types::TransportMetadata;
+use crate::error::transport::TransportError as WireTransportError;
+use crate::security::types::{EncryptionFormat, SecurityMetadata};
+use crate::transport::frame::{MessageCodec};
 use crate::transport::types::ConnectionState;
-use crate::security::types::EncryptionFormat;
-use crate::types::CompressionFormat;
-use super::{Transport, TransportMetadata};
-use super::frame::{FrameReader, FrameWriter, MessageCodec};
-use crate::security::EncryptionFormat as SecurityEncryptionFormat;
+use super::frame::{FrameReader, FrameWriter};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
+use chrono::Utc;
+use crate::types::CompressionFormat;
+use tracing::error;
 
 /// Configuration for the TCP transport
 ///
@@ -296,6 +301,7 @@ enum TcpTransportState {
 /// Provides TCP-based transport for MCP messages using a framing protocol to
 /// preserve message boundaries. The implementation handles connection establishment,
 /// reconnection, message serialization, and the full connection lifecycle.
+#[derive(Debug)]
 pub struct TcpTransport {
     /// Transport configuration
     config: TcpTransportConfig,
@@ -350,16 +356,15 @@ impl TcpTransport {
         let local_addr = config.local_bind_address.as_deref().and_then(|s| SocketAddr::from_str(s).ok());
         
         // Create metadata
-        let metadata = TransportMetadata {
-            transport_type: "tcp".to_string(),
-            peer_addr,
-            local_addr,
-            encryption: config.encryption,
-            compression: config.compression,
-            connected_at: chrono::Utc::now(),
-            state: ConnectionState::Disconnected,
-            protocol_version: "unknown".to_string(),
-            additional_metadata: Default::default(),
+        let transport_metadata = TransportMetadata {
+            connection_id: Uuid::new_v4().to_string(),
+            remote_address: peer_addr,
+            local_address: local_addr,
+            encryption_format: Some(config.encryption),
+            compression_format: Some(config.compression),
+            connected_at: Utc::now(),
+            last_activity: Utc::now(),
+            additional_info: HashMap::new(),
         };
         
         // Generate a unique connection ID
@@ -371,7 +376,7 @@ impl TcpTransport {
             message_sender: Arc::new(Mutex::new(tx)),
             frame_receiver: Arc::new(Mutex::new(rx_option)),
             connection_id,
-            metadata,
+            metadata: transport_metadata,
         }
     }
     
@@ -695,9 +700,16 @@ impl Transport for TcpTransport {
         let state = self.state.read().await;
         matches!(*state, TcpTransportState::Connected)
     }
-    
-    fn get_metadata(&self) -> TransportMetadata {
+
+    async fn get_metadata(&self) -> crate::transport::types::TransportMetadata {
         self.metadata.clone()
+    }
+
+    // Add placeholder implementation for send_raw
+    async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
+        // TODO: Implement actual raw byte sending logic for TCP
+        error!("send_raw is not yet implemented for TcpTransport");
+        Err(TransportError::UnsupportedOperation("send_raw not implemented".to_string()).into())
     }
 }
 

@@ -11,7 +11,14 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use crate::protocol::types::MessageId;
-use crate::utils::generate_id;
+use serde_json::json;
+use tracing::{debug, error, info, warn};
+use crate::error::MCPError;
+use std::str::FromStr;
+use base64::engine::general_purpose;
+use crate::types::MCPResponse;
+use crate::types::ResponseStatus;
+use crate::error::ProtocolError;
 
 /// `MessageType` enum defines the different types of messages that can be sent in the MCP protocol
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -67,6 +74,24 @@ impl fmt::Display for MessageType {
 impl Default for MessageType {
     fn default() -> Self {
         Self::Notification
+    }
+}
+
+impl std::str::FromStr for MessageType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "request" => Ok(MessageType::Request),
+            "response" => Ok(MessageType::Response),
+            "notification" => Ok(MessageType::Notification),
+            "stream_chunk" => Ok(MessageType::StreamChunk),
+            "error" => Ok(MessageType::Error),
+            "control" => Ok(MessageType::Control),
+            "system" => Ok(MessageType::System),
+            "any" => Ok(MessageType::Any),
+            _ => Err(format!("Unknown message type: {}", s)),
+        }
     }
 }
 
@@ -257,72 +282,247 @@ impl Message {
         response
     }
 
-    /// Convert a Message to an `MCPMessage`
-    pub async fn to_mcp_message(&self) -> MCPMessage {
-        // Convert payload String to serde_json::Value
-        let payload_value: Value = serde_json::from_str(&self.content).unwrap_or_else(|_| json!(self.content));
-
-        MCPMessage {
-            id: self.id.clone().into(), // Convert String to MessageId
-            type_: self.message_type.clone().into(), // Convert MessageType to protocol::types::MessageType
-            version: ProtocolVersion::default(), // Add default version
-            payload: serde_json::to_value(payload_value).unwrap_or_default(), // E0308 fix: payload needs to be Value
-            metadata: None, // Construct MessageMetadata directly
-            security: SecurityMetadata::default(), // Add default security
-            timestamp: self.timestamp, // Add timestamp
-            trace_id: None, // Add default trace_id
+    /// Get the message type as a string
+    pub fn get_message_type_str(&self) -> &str {
+        match self.message_type {
+            MessageType::Request => "request",
+            MessageType::Response => "response",
+            MessageType::Notification => "notification",
+            MessageType::StreamChunk => "stream_chunk",
+            MessageType::Error => "error",
+            MessageType::Control => "control",
+            MessageType::System => "system",
+            MessageType::Any => "any",
         }
+    }
+
+    /// Convert a Message to an `MCPMessage`
+    pub async fn to_mcp_message(&self) -> MCPResult<MCPMessage> {
+        // Convert message::MessageType to protocol::types::MessageType
+        let protocol_message_type = match self.message_type {
+            MessageType::Request => crate::protocol::types::MessageType::Command,
+            MessageType::Response => crate::protocol::types::MessageType::Response,
+            MessageType::Notification => crate::protocol::types::MessageType::Event,
+            MessageType::Error => crate::protocol::types::MessageType::Error,
+            MessageType::StreamChunk => crate::protocol::types::MessageType::Event, // Map to Event as fallback
+            MessageType::Control => crate::protocol::types::MessageType::Heartbeat, // Map to Heartbeat as closest match
+            MessageType::System => crate::protocol::types::MessageType::Setup, // Map to Setup as closest match
+            MessageType::Any => crate::protocol::types::MessageType::Unknown, // Map to Unknown
+        };
+
+        Ok(MCPMessage {
+            id: MessageId(self.id.clone()),
+            type_: protocol_message_type,
+            version: ProtocolVersion::default(),
+            timestamp: self.timestamp,
+            payload: serde_json::to_value(&self.content)?,
+            metadata: if self.metadata.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_value(&self.metadata)?)
+            },
+            security: SecurityMetadata::default(),
+            trace_id: None,
+        })
     }
 
     /// Create a Message from an `MCPMessage`
     ///
     /// # Arguments
-    /// * `msg` - The MCP protocol message to convert
+    /// * `message` - The MCP protocol message to convert
     ///
     /// # Errors
-    /// * Returns `MCPError::Protocol` if the message has an invalid format
+    /// * Returns `MCPError::Protocol` if the message is not a valid response or error
     /// * Returns `MCPError::Protocol` if the message content cannot be parsed
-    pub async fn from_mcp_message(msg: &MCPMessage) -> crate::error::Result<Self> {
-        // Convert payload Vec<u8> to String
-        let content = String::from_utf8(msg.payload.clone())
-            .map_err(|e| MCPError::Deserialization(format!("Invalid UTF-8 in payload: {}", e)))?;
+    pub fn from_mcp_message(message: &crate::protocol::types::MCPMessage) -> Result<Self, MCPError> {
+        // Map protocol::types::MessageType to message::MessageType
+        let message_type = match message.type_ {
+            crate::protocol::types::MessageType::Command => MessageType::Request,
+            crate::protocol::types::MessageType::Response => MessageType::Response,
+            crate::protocol::types::MessageType::Event => MessageType::Notification,
+            crate::protocol::types::MessageType::Error => MessageType::Error,
+            crate::protocol::types::MessageType::Sync => MessageType::Request, // Mapping Sync to Request
+            // Map other protocol types to appropriate domain types (e.g., System)
+            crate::protocol::types::MessageType::Setup => MessageType::System,
+            crate::protocol::types::MessageType::Heartbeat => MessageType::System,
+            crate::protocol::types::MessageType::Unknown => MessageType::System, // Or handle as error?
+        };
 
-        // Map protocol::types::MessageType back to message::MessageType
-        let message_type = match msg.type_ {
-            ProtocolMessageType::Command => MessageType::Request,
-            ProtocolMessageType::Response => MessageType::Response,
-            ProtocolMessageType::Event => MessageType::Notification,
-            ProtocolMessageType::Error => MessageType::Error,
-            ProtocolMessageType::Setup => MessageType::Control,
-            ProtocolMessageType::Heartbeat => MessageType::System,
-            ProtocolMessageType::Sync => MessageType::StreamChunk,
-            ProtocolMessageType::Unknown => {
-                warn!("Received MCPMessage with Unknown type, mapping to System");
-                MessageType::System // Handle Unknown case (E0004 fix)
+        // Extract payload as content string (assuming JSON - potentially lossy)
+        // TODO: Review payload handling - should content be Value or handle binary?
+        let content = serde_json::to_string(&message.payload).unwrap_or_else(|_| "{}".to_string());
+
+        // Extract metadata from MCPMessage.metadata (Option<Value>)
+        let mut metadata_map = HashMap::new();
+        if let Some(Value::Object(map)) = &message.metadata {
+             for (k, v) in map {
+                 if let Value::String(s) = v {
+                     metadata_map.insert(k.clone(), s.clone());
+                 }
             }
-        };
+        }
 
-        // Extract metadata if needed (MCPMessage now has Option<Value>)
-        let metadata_map = if let Some(meta_val) = &msg.metadata {
-            serde_json::from_value(meta_val.clone()).unwrap_or_default()
-        } else {
-            HashMap::new()
-        };
+        // Extract other fields. 
+        // TODO: Review source/destination mapping based on specs. Should it come from metadata or security context?
+        let source = metadata_map.get("source").cloned().unwrap_or_else(|| "unknown_source".to_string());
+        let destination = metadata_map.get("destination").cloned().unwrap_or_else(|| "unknown_destination".to_string());
+        // TODO: Review in_reply_to logic. Should only be set if explicitly present?
+        let in_reply_to = metadata_map.get("in_reply_to").cloned(); // Attempt to get from metadata, no fallback for now.
 
         Ok(Self {
-            id: msg.id.0.clone(), // Extract String from MessageId
+            id: message.id.0.clone(),
             message_type,
-            priority: MessagePriority::Normal, // Default priority
+            priority: MessagePriority::Normal, // TODO: Map priority if available in MCPMessage
             content,
-            binary_payload: None, // TODO: How to handle binary payload?
-            timestamp: msg.timestamp, // Use timestamp from MCPMessage
-            in_reply_to: None, // TODO: How to get this?
-            source: String::new(), // TODO: Where to get source?
-            destination: String::new(), // TODO: Where to get destination?
-            context_id: None, // TODO: How to get this?
-            topic: None, // TODO: How to get this?
+            binary_payload: None, // TODO: Handle binary payload if needed
+            timestamp: message.timestamp, // Use timestamp from MCPMessage
+            in_reply_to, // Use extracted value (or None)
+            source,
+            destination,
+            context_id: metadata_map.get("context_id").cloned(),
+            topic: metadata_map.get("topic").cloned(),
             metadata: metadata_map,
         })
+    }
+}
+
+/// Builder for creating Message objects
+pub struct MessageBuilder {
+    message_type: MessageType,
+    content: String,
+    binary_payload: Option<Vec<u8>>,
+    source: String,
+    destination: String,
+    priority: MessagePriority,
+    context_id: Option<String>,
+    topic: Option<String>,
+    metadata: HashMap<String, String>,
+    in_reply_to: Option<String>,
+}
+
+impl MessageBuilder {
+    /// Create a new message builder
+    pub fn new() -> Self {
+        Self {
+            message_type: MessageType::Notification,
+            content: String::new(),
+            binary_payload: None,
+            source: String::new(),
+            destination: String::new(),
+            priority: MessagePriority::Normal,
+            context_id: None,
+            topic: None,
+            metadata: HashMap::new(),
+            in_reply_to: None,
+        }
+    }
+
+    /// Set the message type
+    pub fn with_message_type(mut self, message_type: &str) -> Self {
+        self.message_type = MessageType::from_str(message_type).unwrap_or(MessageType::Notification);
+        self
+    }
+
+    /// Set the content
+    pub fn with_content(mut self, content: serde_json::Value) -> Self {
+        self.content = content.to_string();
+        self
+    }
+
+    /// Set the content as string directly
+    pub fn with_content_str(mut self, content: &str) -> Self {
+        self.content = content.to_string();
+        self
+    }
+
+    /// Set the payload (alias for with_content)
+    pub fn with_payload(mut self, payload: serde_json::Value) -> Self {
+        self.content = payload.to_string();
+        self
+    }
+
+    /// Set binary payload
+    pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
+        self.binary_payload = Some(payload);
+        self
+    }
+
+    /// Set the source
+    pub fn with_source(mut self, source: &str) -> Self {
+        self.source = source.to_string();
+        self
+    }
+
+    /// Set the destination
+    pub fn with_destination(mut self, destination: &str) -> Self {
+        self.destination = destination.to_string();
+        self
+    }
+
+    /// Set the priority
+    pub fn with_priority(mut self, priority: MessagePriority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    /// Set the priority from string
+    pub fn with_priority_str(mut self, priority: &str) -> Self {
+        self.priority = match priority {
+            "low" => MessagePriority::Low,
+            "high" => MessagePriority::High,
+            "urgent" => MessagePriority::Urgent,
+            _ => MessagePriority::Normal,
+        };
+        self
+    }
+
+    /// Set the context ID
+    pub fn with_context_id(mut self, context_id: String) -> Self {
+        self.context_id = Some(context_id);
+        self
+    }
+    
+    /// Set the correlation ID (alternative name for context_id to maintain compatibility)
+    pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
+        self.context_id = Some(correlation_id);
+        self
+    }
+
+    /// Set the topic
+    pub fn with_topic(mut self, topic: &str) -> Self {
+        self.topic = Some(topic.to_string());
+        self
+    }
+
+    /// Add metadata
+    pub fn with_metadata(mut self, key: &str, value: &str) -> Self {
+        self.metadata.insert(key.to_string(), value.to_string());
+        self
+    }
+
+    /// Set in_reply_to
+    pub fn in_reply_to(mut self, message_id: &str) -> Self {
+        self.in_reply_to = Some(message_id.to_string());
+        self
+    }
+
+    /// Build the message
+    #[must_use]
+    pub fn build(self) -> Message {
+        Message {
+            id: Uuid::new_v4().to_string(),
+            message_type: self.message_type,
+            priority: self.priority,
+            content: self.content,
+            binary_payload: self.binary_payload,
+            timestamp: Utc::now(),
+            in_reply_to: self.in_reply_to,
+            source: self.source,
+            destination: self.destination,
+            context_id: self.context_id,
+            topic: self.topic,
+            metadata: self.metadata,
+        }
     }
 }
 
@@ -342,382 +542,7 @@ impl Message {
 ///     .with_metadata("version", "1.0")
 ///     .build();
 /// ```
-pub struct MessageBuilder {
-    message_type: Option<MessageType>,
-    content: Option<String>,
-    binary_payload: Option<Vec<u8>>,
-    source: Option<String>,
-    destination: Option<String>,
-    priority: MessagePriority,
-    in_reply_to: Option<String>,
-    context_id: Option<String>,
-    topic: Option<String>,
-    metadata: HashMap<String, String>,
-}
-
-impl MessageBuilder {
-    /// Create a new message builder
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            message_type: None,
-            content: None,
-            binary_payload: None,
-            source: None,
-            destination: None,
-            priority: MessagePriority::Normal,
-            in_reply_to: None,
-            context_id: None,
-            topic: None,
-            metadata: HashMap::new(),
-        }
-    }
-    
-    /// Set message ID explicitly
-    #[must_use]
-    pub fn with_id<T: Into<String>>(mut self, id: T) -> Self {
-        self.metadata.insert("id".to_string(), id.into());
-        self
-    }
-    
-    /// Set correlation ID
-    #[must_use]
-    pub fn with_correlation_id<T: Into<String>>(mut self, correlation_id: T) -> Self {
-        self.in_reply_to = Some(correlation_id.into());
-        self
-    }
-    
-    /// Set message type
-    #[must_use]
-    pub fn with_message_type<T: AsRef<str>>(mut self, message_type: T) -> Self {
-        self.message_type = Some(match message_type.as_ref() {
-            "request" => MessageType::Request,
-            "response" => MessageType::Response,
-            "error" => MessageType::Error,
-            "control" => MessageType::Control,
-            "system" => MessageType::System,
-            "any" => MessageType::Any,
-            // Default for both "notification" and "stream_chunk" is Notification
-            "notification" | "stream_chunk" | _ => MessageType::Notification,
-        });
-        self
-    }
-    
-    /// Set message content
-    #[must_use]
-    pub fn with_content<T: Into<String>>(mut self, content: T) -> Self {
-        self.content = Some(content.into());
-        self
-    }
-    
-    /// Set binary payload
-    #[must_use]
-    pub fn with_binary_payload(mut self, payload: Vec<u8>) -> Self {
-        self.binary_payload = Some(payload);
-        self
-    }
-    
-    /// Set message source
-    #[must_use]
-    pub fn with_source<T: Into<String>>(mut self, source: T) -> Self {
-        self.source = Some(source.into());
-        self
-    }
-    
-    /// Set message destination
-    #[must_use]
-    pub fn with_destination<T: Into<String>>(mut self, destination: T) -> Self {
-        self.destination = Some(destination.into());
-        self
-    }
-    
-    /// Set message priority 
-    #[must_use]
-    pub fn with_priority<T: AsRef<str>>(mut self, priority: T) -> Self {
-        self.priority = match priority.as_ref() {
-            "low" => MessagePriority::Low,
-            "high" => MessagePriority::High,
-            "urgent" => MessagePriority::Urgent,
-            // Default for both "normal" and others is Normal
-            "normal" | _ => MessagePriority::Normal,
-        };
-        self
-    }
-    
-    /// Set `in_reply_to` field
-    #[must_use]
-    pub fn in_reply_to<T: Into<String>>(mut self, message_id: T) -> Self {
-        self.in_reply_to = Some(message_id.into());
-        self
-    }
-    
-    /// Alias for `in_reply_to`
-    #[must_use]
-    pub fn with_in_reply_to<T: Into<String>>(self, message_id: T) -> Self {
-        self.in_reply_to(message_id)
-    }
-    
-    /// Set context ID
-    #[must_use]
-    pub fn with_context<T: Into<String>>(mut self, context_id: T) -> Self {
-        self.context_id = Some(context_id.into());
-        self
-    }
-    
-    /// Set topic
-    #[must_use]
-    pub fn with_topic<T: Into<String>>(mut self, topic: T) -> Self {
-        self.topic = Some(topic.into());
-        self
-    }
-    
-    /// Add metadata key/value pair
-    #[must_use]
-    pub fn with_metadata<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
-        self.metadata.insert(key.into(), value.into());
-        self
-    }
-    
-    /// Set all metadata at once
-    #[must_use]
-    pub fn with_metadata_map(mut self, metadata: HashMap<String, String>) -> Self {
-        self.metadata = metadata;
-        self
-    }
-    
-    /// Set payload from a JSON value
-    #[must_use]
-    pub fn with_payload<T: Into<serde_json::Value>>(mut self, payload: T) -> Self {
-        let json = serde_json::to_string(&payload.into()).unwrap_or_default();
-        self.content = Some(json);
-        self
-    }
-    
-    /// Build the Message
-    #[must_use]
-    pub fn build(self) -> Message {
-        let message_type = self.message_type.unwrap_or(MessageType::Notification);
-        let content = self.content.unwrap_or_default();
-        let source = self.source.unwrap_or_else(|| "unknown".to_string());
-        let destination = self.destination.unwrap_or_else(|| "*".to_string());
-        
-        let mut message = Message::new(message_type, content, source, destination);
-        
-        // Set the id from metadata if it exists
-        if let Some(id) = self.metadata.get("id").cloned() {
-            message.id = id;
-        }
-        
-        message.binary_payload = self.binary_payload;
-        message.in_reply_to = self.in_reply_to;
-        message.context_id = self.context_id;
-        message.topic = self.topic;
-        
-        message.priority = self.priority;
-        message.metadata = self.metadata;
-        
-        message
-    }
-}
-
-impl Default for MessageBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Message codec for serialization and deserialization
-pub mod codec {
-    use super::Message;
-    use crate::error::Result;
-    use crate::error::transport::TransportError;
-    
-    /// Serialize a message to JSON
-    ///
-    /// # Arguments
-    /// * `message` - The message to serialize
-    ///
-    /// # Errors
-    /// * Returns error if serialization fails
-    pub fn serialize_message(message: &Message) -> Result<String> {
-        serde_json::to_string(message).map_err(Into::into)
-    }
-    
-    /// Deserialize a message from JSON
-    ///
-    /// # Arguments
-    /// * `json` - The JSON string to deserialize
-    ///
-    /// # Errors
-    /// * Returns error if deserialization fails
-    pub fn deserialize_message(json: &str) -> Result<Message> {
-        serde_json::from_str(json).map_err(Into::into)
-    }
-    
-    /// Serialize a message to binary format
-    ///
-    /// # Arguments
-    /// * `message` - The message to serialize
-    ///
-    /// # Errors
-    /// * Returns error if serialization fails
-    pub fn serialize_message_binary(message: &Message) -> Result<Vec<u8>> {
-        serde_json::to_vec(message)
-            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e.to_string()).into()))
-    }
-    
-    /// Deserialize a message from binary format
-    ///
-    /// # Arguments
-    /// * `data` - The binary data to deserialize
-    ///
-    /// # Errors
-    /// * Returns error if deserialization fails
-    pub fn deserialize_message_binary(data: &[u8]) -> Result<Message> {
-        serde_json::from_slice(data)
-            .map_err(|e| crate::error::MCPError::Transport(TransportError::SerializationError(e.to_string()).into()))
-    }
-}
-
-/// Implementation of `TryFrom`<Message> for `MCPMessage`
-impl TryFrom<Message> for MCPMessage {
-    type Error = crate::error::MCPError;
-
-    fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
-        // Simply call the to_mcp_message method which already exists
-        Ok(async_std::task::block_on(message.to_mcp_message()))
-    }
-}
-
-/// Implementation of `TryFrom`<MCPMessage> for Message
-impl TryFrom<MCPMessage> for Message {
-    type Error = crate::error::MCPError;
-
-    fn try_from(msg: MCPMessage) -> std::result::Result<Self, Self::Error> {
-        // Call the from_mcp_message method which handles the conversion
-        Ok(async_std::task::block_on(Self::from_mcp_message(&msg))?)
-    }
-}
-
-/// Implementation of `TryFrom`<&Message> for `MCPMessage`
-impl TryFrom<&Message> for MCPMessage {
-    type Error = crate::error::MCPError;
-
-    fn try_from(message: &Message) -> std::result::Result<Self, Self::Error> {
-        // Clone and then use the implementation for owned Message
-        Self::try_from(message.clone())
-    }
-}
-
-/// Implementation of `TryFrom`<&`MCPMessage`> for Message
-impl TryFrom<&MCPMessage> for Message {
-    type Error = crate::error::MCPError;
-
-    fn try_from(msg: &MCPMessage) -> std::result::Result<Self, Self::Error> {
-        // Clone and then use the implementation for owned MCPMessage
-        Self::try_from(msg.clone())
-    }
-}
-
-pub fn create_command_message(
-    command: &str,
-    params: Option<Value>,
-    metadata: Option<MessageMetadata>,
-    // security: Option<SecurityMetadata>, // Add if needed, ensure import
-) -> MCPMessage {
-    MCPMessage {
-        id: MessageId::new(), // Use direct path
-        version: ProtocolVersion::default(), // Use direct path
-        type_: MessageType::Command, // Use direct path
-        payload: serde_json::to_vec(&json!({ "command": command, "params": params })).unwrap_or_default(),
-        metadata: metadata.unwrap_or_default(),
-        // security: security.unwrap_or_default(), // Needs SecurityMetadata
-    }
-}
-
-impl From<MessageType> for ProtocolMessageType {
-    fn from(mt: MessageType) -> Self {
-        match mt {
-            MessageType::Request => ProtocolMessageType::Command,
-            MessageType::Response => ProtocolMessageType::Response,
-            MessageType::Notification => ProtocolMessageType::Event,
-            MessageType::StreamChunk => ProtocolMessageType::Sync, // Example mapping
-            MessageType::Error => ProtocolMessageType::Error,
-            MessageType::Control => ProtocolMessageType::Setup, // Example mapping
-            MessageType::System => ProtocolMessageType::Heartbeat, // Example mapping
-            MessageType::Any => ProtocolMessageType::Unknown, // Example mapping
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_message_creation() {
-        let msg = Message::request(
-            "Hello world".to_string(),
-            "client-1".to_string(),
-            "server-1".to_string(),
-        );
-        
-        assert_eq!(msg.message_type, MessageType::Request);
-        assert_eq!(msg.content, "Hello world");
-        assert_eq!(msg.source, "client-1");
-        assert_eq!(msg.destination, "server-1");
-        assert_eq!(msg.priority, MessagePriority::Normal);
-    }
-    
-    #[test]
-    fn test_message_builder_pattern() {
-        let msg = Message::notification(
-            "Notification".to_string(),
-            "system".to_string(),
-            "*".to_string(),
-        )
-        .with_priority(MessagePriority::High)
-        .with_context("ctx-123".to_string())
-        .with_topic("alerts".to_string())
-        .with_metadata("category".to_string(), "system".to_string());
-        
-        assert_eq!(msg.message_type, MessageType::Notification);
-        assert_eq!(msg.priority, MessagePriority::High);
-        assert_eq!(msg.context_id, Some("ctx-123".to_string()));
-        assert_eq!(msg.topic, Some("alerts".to_string()));
-        assert_eq!(msg.metadata.get("category"), Some(&"system".to_string()));
-    }
-    
-    #[test]
-    fn test_message_response() {
-        let request = Message::request(
-            "Query data".to_string(),
-            "client-1".to_string(),
-            "server-1".to_string(),
-        );
-        
-        let response = request.create_response("Response data".to_string());
-        
-        assert_eq!(response.message_type, MessageType::Response);
-        assert_eq!(response.in_reply_to, Some(request.id.clone()));
-        assert_eq!(response.source, "server-1");
-        assert_eq!(response.destination, "client-1");
-    }
-    
-    #[test]
-    fn test_message_serialization() {
-        let msg = Message::notification(
-            "Test message".to_string(),
-            "client-1".to_string(),
-            "server-1".to_string(),
-        )
-        .with_metadata("version".to_string(), "1.0".to_string());
-        
-        let json = codec::serialize_message(&msg).unwrap();
-        let decoded = codec::deserialize_message(&json).unwrap();
-        
-        assert_eq!(decoded.id, msg.id);
-        assert_eq!(decoded.content, msg.content);
-        assert_eq!(decoded.metadata.get("version"), Some(&"1.0".to_string()));
-    }
-} 
+///
+/// This concludes the documentation for the message module.
+#[doc(hidden)]
+pub struct MessageDocumentation;

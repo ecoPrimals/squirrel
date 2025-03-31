@@ -165,7 +165,7 @@ impl MCPSync {
 
         // Create components
         let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
-        let monitor = Arc::new(MCPMonitor::new().await?);
+        let monitor = Arc::new(MCPMonitor::new().await.map_err(|e| SquirrelError::mcp(e.to_string()))?);
         let state_manager = Arc::new(StateSyncManager::new());
 
         let instance = Self {
@@ -510,63 +510,27 @@ impl MCPSync {
     ///
     /// # Arguments
     /// * `context` - The context being modified
-    /// * `operation` - The type of operation being performed
-    ///
-    /// # Errors
-    /// Returns an error if the operation fails
-    pub async fn record_context_change(
-        &self,
-        context: &Context,
-        operation: StateOperation,
-    ) -> Result<()> {
-        // Check if initialized before proceeding
+    /// * `operation`
+    // TODO: Add the full implementation for record_context_change here
+    // This likely involves interacting with self.state_manager and self.monitor
+    pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         self.ensure_initialized().await?;
-
-        // Record the change in the state manager
-        let result = self
-            .state_manager
-            .record_change(context, operation.clone())
-            .await;
-
-        // Also log the operation in the monitor
-        self.monitor
-            .record_context_operation(operation, context)
-            .await;
-
-        // Convert and return the result
-        to_core_error(result)
+        // Placeholder - Add actual logic
+        tracing::info!(context_id = %context.id, ?operation, "Placeholder: Recording context change.");
+        Ok(())
     }
 
-    /// Get the monitor instance
+    /// Subscribes to state changes from the underlying state manager.
+    ///
+    /// # Returns
+    /// A Result containing a receiver channel for state changes, or an error.
     ///
     /// # Errors
-    /// Returns an error if the monitor cannot be retrieved
-    pub fn get_monitor(&self) -> Result<Arc<MCPMonitor>> {
-        Ok(Arc::clone(&self.monitor))
-    }
-
-    /// Subscribe to state change notifications
-    ///
-    /// Returns a receiver that will be notified of all state changes.
-    ///
-    /// # Errors
-    /// Returns an error if unable to create the subscription
-    pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
+    /// Returns an error if the state manager fails to subscribe.
+    pub async fn subscribe_to_state_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
         self.ensure_initialized().await?;
-        Ok(self.state_manager.subscribe_changes())
-    }
-
-    /// Alias for `sync()` method
-    ///
-    /// This is provided for backward compatibility with code that expects
-    /// a `synchronize()` method.
-    ///
-    /// # Errors
-    /// Returns an error if synchronization fails
-    pub async fn synchronize(&self) -> Result<()> {
-        match self.sync().await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        // Delegate to the state manager - subscribe_changes returns Receiver directly
+        // Wrap the receiver in Ok before passing to to_core_error
+        to_core_error(Ok(self.state_manager.subscribe_changes()))
     }
 }

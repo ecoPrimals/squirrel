@@ -3,7 +3,9 @@ use std::convert::From;
 use thiserror::Error;
 
 use super::types::MCPError;
-use crate::protocol::MCPMessage;
+use crate::protocol::types::MCPMessage;
+use serde_json::Error as SerdeJsonError;
+use std::io::Error as IoError;
 
 /// Errors that can occur in the transport layer
 #[derive(Debug, Error, Clone)]
@@ -51,6 +53,10 @@ pub enum TransportError {
     /// Error when a send operation fails
     #[error("Send error: {0}")]
     SendError(String),
+
+    /// Error reported by the remote peer
+    #[error("Remote transport error: {0}")]
+    RemoteError(String),
 }
 
 impl TransportError {

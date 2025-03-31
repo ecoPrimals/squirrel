@@ -6,19 +6,23 @@ use uuid::Uuid;
 use tokio::sync::watch;
 use std::time::Duration;
 use crate::types;
-use crate::protocol::{MCPMessage, MessageId, MessageType, ProtocolVersion};
-use crate::protocol::adapter_wire::{ProtocolVersion as WireProtocolVersion};
-use crate::transport::{Transport, TransportMetadata};
-use crate::{errors::TransportError, security::{EncryptionFormat, SecurityMetadata}};
-use crate::error::{MCPError, Result, TransportError};
+use crate::protocol::types::{MCPMessage, MessageId, MessageType, ProtocolVersion};
+use crate::protocol::adapter_wire::{WireProtocolVersion};
+use crate::transport::Transport;
+use crate::transport::types::TransportMetadata;
+use crate::security::types::{EncryptionFormat, SecurityMetadata};
+use crate::error::{MCPError, Result};
+use crate::error::transport::TransportError;
 use crate::types::CompressionFormat;
 use serde_json;
 use std::io::{self, BufRead, Write};
 use std::net::SocketAddr;
+use std::str::FromStr;
 use tracing::{debug, error, info, warn};
 use tokio::sync::Mutex as TokioMutex;
 use crate::transport::types::ConnectionState;
 use chrono::Utc;
+use std::collections::HashMap;
 
 /// Configuration for the stdio transport
 #[derive(Debug, Clone)]
@@ -71,6 +75,7 @@ enum StdioState {
 }
 
 /// Stdio transport implementation
+#[derive(Debug)]
 pub struct StdioTransport {
     /// Transport configuration
     config: StdioConfig,
@@ -103,6 +108,17 @@ impl StdioTransport {
         
         let connection_id = Uuid::new_v4().to_string();
         
+        let transport_metadata = TransportMetadata {
+            connection_id: Uuid::new_v4().to_string(),
+            remote_address: None,
+            local_address: None,
+            encryption_format: Some(config.encryption),
+            compression_format: Some(config.compression),
+            connected_at: Utc::now(),
+            last_activity: Utc::now(),
+            additional_info: HashMap::new(),
+        };
+        
         Self {
             config: config.clone(),
             state: Arc::new(RwLock::new(StdioState::Disconnected)),
@@ -111,22 +127,12 @@ impl StdioTransport {
             message_rx,
             message_tx,
             connection_id,
-            metadata: TransportMetadata {
-                transport_type: "stdio".to_string(),
-                peer_addr: None,
-                local_addr: None,
-                encryption: config.encryption,
-                compression: config.compression,
-                connected_at: chrono::Utc::now(),
-                state: ConnectionState::Disconnected,
-                protocol_version: "unknown".to_string(),
-                additional_metadata: Default::default(),
-            },
+            metadata: transport_metadata,
         }
     }
     
     /// Start the reader task for stdin
-    async fn start_reader_task(&self) -> Result<(), TransportError> {
+    async fn start_reader_task(&self) -> Result<()> {
         let state = self.state.clone();
         let message_tx = self.message_tx.clone();
         let use_ndjson = self.config.use_ndjson;
@@ -178,6 +184,19 @@ impl StdioTransport {
                                     }
                                 };
 
+                                // Parse major/minor from version_str or default
+                                let version = match version_str.split_once('.') {
+                                    Some((major_str, minor_str)) => {
+                                        let major = major_str.parse::<u16>().unwrap_or(1);
+                                        let minor = minor_str.parse::<u16>().unwrap_or(0);
+                                        crate::protocol::types::ProtocolVersion { major, minor }
+                                    }
+                                    None => {
+                                        warn!("Invalid protocol version format '{}', using default 1.0", version_str);
+                                        crate::protocol::types::ProtocolVersion::default()
+                                    }
+                                };
+
                                 let message = MCPMessage {
                                     id: crate::protocol::types::MessageId(id_str.to_string()),
                                     type_: message_type, // Use parsed type
@@ -186,7 +205,7 @@ impl StdioTransport {
                                     security: SecurityMetadata::default(), // Default security for now
                                     timestamp: chrono::Utc::now(),
                                     // Use parsed or default version
-                                    version: ProtocolVersion::from_str(version_str).unwrap_or_default(),
+                                    version,
                                     trace_id: json.get("trace_id").and_then(|v| v.as_str()).map(String::from), // Optional trace_id
                                 };
 
@@ -225,7 +244,7 @@ impl StdioTransport {
     }
     
     /// Start the writer task for stdout
-    async fn start_writer_task(&self) -> Result<(), TransportError> {
+    async fn start_writer_task(&self) -> Result<()> {
         let state = self.state.clone();
         let use_ndjson = self.config.use_ndjson;
         let command_receiver = self.command_receiver.clone();
@@ -308,7 +327,7 @@ impl StdioTransport {
         // Correctly handle ProtocolVersion parsing and conversion
         let version = match WireProtocolVersion::from_str(version_str) {
             Ok(wire_version) => ProtocolVersion::try_from(wire_version)
-                .map_err(|e| MCPError::Protocol(e))?, // Convert ProtocolError to MCPError
+                .map_err(MCPError::Protocol)?,
             Err(_) => {
                 warn!("Invalid protocol version string '{}', defaulting to 1.0", version_str);
                 // Use the default from crate::protocol::types::ProtocolVersion
@@ -333,7 +352,7 @@ impl StdioTransport {
 
         // Send the parsed message via the channel
         msg_tx.send(mcp_message).await
-            .map_err(|e| MCPError::Transport(TransportError::InternalError(
+            .map_err(|e| MCPError::Transport(TransportError::SendError(
                 format!("Failed to send parsed message to internal channel: {}", e)
             )))?;
 
@@ -394,23 +413,24 @@ impl Transport for StdioTransport {
         }
         
         // Start the reader and writer tasks
-        self.start_reader_task().await.map_err(|e| MCPError::Transport(e))?;
-        self.start_writer_task().await.map_err(|e| MCPError::Transport(e))?;
+        self.start_reader_task().await?;
+        self.start_writer_task().await?;
         
         // Update the state to connected
         {
             let mut state = self.state.write().await;
-            // Check if state is still Connecting before setting to Connected
-             if *state == StdioState::Connecting {
+            if *state == StdioState::Connecting {
                 *state = StdioState::Connected;
                 info!("StdioTransport: Connected successfully.");
             } else {
-                 // State changed during startup (e.g., immediate disconnect/failure)
                  warn!("StdioTransport: State changed during connection sequence: {:?}. Not setting to Connected.", *state);
-                 // Return error? Or let the existing state reflect the issue?
-                 // Returning error might be cleaner.
-                 return Err(MCPError::Transport(TransportError::Initialization(format!("Connection failed during startup. Final state: {:?}", *state))));
-             }
+                 // Properly wrapped error
+                 return Err(MCPError::Transport(
+                    TransportError::connection_failed(
+                        format!("Connection failed during startup. Final state: {:?}", *state)
+                    )
+                 ));
+            }
         }
         
         Ok(())
@@ -446,23 +466,30 @@ impl Transport for StdioTransport {
         *state == StdioState::Connected
     }
     
-    fn get_metadata(&self) -> TransportMetadata {
+    async fn get_metadata(&self) -> crate::transport::types::TransportMetadata {
         self.metadata.clone()
+    }
+
+    // Update send_raw to return UnsupportedOperation
+    async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
+        error!("send_raw is not supported for StdioTransport");
+        Err(MCPError::Transport(TransportError::UnsupportedOperation("send_raw not supported for StdioTransport".to_string())))
     }
 }
 
 impl Default for StdioTransport {
     fn default() -> Self {
+        let (command_sender, command_receiver) = mpsc::channel(100);
+        let (message_tx, message_rx) = watch::channel(None);
         let metadata = TransportMetadata {
-            transport_type: "stdio".to_string(),
-            peer_addr: None,
-            local_addr: None,
-            encryption: EncryptionFormat::None,
-            compression: CompressionFormat::None,
-            connected_at: chrono::Utc::now(),
-            state: ConnectionState::Disconnected,
-            protocol_version: "unknown".to_string(),
-            additional_metadata: Default::default(),
+            connection_id: Uuid::new_v4().to_string(),
+            remote_address: None,
+            local_address: None,
+            encryption_format: Some(EncryptionFormat::None),
+            compression_format: Some(CompressionFormat::None),
+            connected_at: Utc::now(),
+            last_activity: Utc::now(),
+            additional_info: HashMap::new(),
         };
         Self {
             config: StdioConfig {
@@ -473,10 +500,10 @@ impl Default for StdioTransport {
                 buffer_size: 8 * 1024, // 8KB
             },
             state: Arc::new(RwLock::new(StdioState::Disconnected)),
-            command_sender: mpsc::channel(100).0,
-            command_receiver: Arc::new(TokioMutex::new(mpsc::channel(100).1)),
-            message_rx: watch::channel(None).0,
-            message_tx: watch::channel(None).1,
+            command_sender,
+            command_receiver: Arc::new(TokioMutex::new(command_receiver)),
+            message_rx,
+            message_tx,
             connection_id: Uuid::new_v4().to_string(),
             metadata,
         }

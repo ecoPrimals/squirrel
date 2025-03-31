@@ -3,7 +3,7 @@
 use crate::error::ProtocolError;
 use crate::protocol::adapter_wire;
 use crate::protocol::types::{MCPMessage, MessageId, MessageType};
-use crate::security::types::{EncryptionFormat, EncryptionInfo, SecurityLevel, SecurityMetadata};
+use crate::security::types::{EncryptionInfo, SecurityLevel, SecurityMetadata};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
@@ -18,10 +18,11 @@ pub(crate) struct MCPMessageDefinitionHelper {
     pub(crate) id: String, // Use String directly as MessageId has Serialize/Deserialize issues
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub(crate) timestamp: DateTime<Utc>,
-    pub(crate) version: adapter_wire::ProtocolVersion, // Use wire version
+    pub(crate) version: adapter_wire::WireProtocolVersion, // Use WireProtocolVersion
     #[serde(rename = "type_")]
     pub(crate) type_: String, // Deserialize as string first
     pub(crate) payload: Value,
+    pub(crate) metadata: Value, // Store metadata as Value
     #[serde(default)]
     pub(crate) security: Option<SecurityMetadataHelper>,
 }
@@ -62,8 +63,8 @@ impl TryFrom<MCPMessageDefinitionHelper> for MCPMessage {
             version: helper.version.try_into()?, // Propagates ProtocolError
             type_: helper.type_.try_into()?,     // Propagates ProtocolError
             payload: helper.payload,
+            metadata: Some(helper.metadata), // Wrap in Some()
             security: security_metadata,
-            metadata: None,
             trace_id: None,
         })
     }

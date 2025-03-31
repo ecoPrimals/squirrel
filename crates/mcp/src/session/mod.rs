@@ -7,17 +7,20 @@ pub mod manager;
 use crate::error::{Result, MCPError};
 use tokio::sync::RwLock;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, Instant};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use async_trait::async_trait;
 
 use crate::error::session::SessionError;
 use crate::types::{AccountId};
-use crate::security::types::{SessionToken, UserId, UserRole, AuthToken};
-use crate::security::SecurityManager;
+use crate::security::{SessionToken, AuthToken, UserId, RoleId};
+use crate::security::manager::SecurityManagerImpl;
 use crate::persistence::{Persistence, SessionData};
+use crate::security::token::TokenManager;
+use crate::error::{SecurityError};
 
 /// Session management module
 pub mod error;
@@ -66,7 +69,7 @@ pub struct Session {
     pub account_id: Option<AccountId>,
     
     /// User role for this session
-    pub role: UserRole,
+    pub role: RoleId,
     
     /// When the session was created
     pub created_at: DateTime<Utc>,
@@ -92,7 +95,7 @@ impl Session {
             token,
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: now.clone(),
             last_accessed: now,
             timeout: Some(3600), // Default 1 hour timeout
@@ -109,7 +112,7 @@ impl Session {
     }
     
     /// Set user role for this session
-    #[must_use] pub fn with_role(mut self, role: UserRole) -> Self {
+    #[must_use] pub fn with_role(mut self, role: RoleId) -> Self {
         self.role = role;
         self
     }
@@ -234,14 +237,13 @@ fn datetime_from_system_time(st: SystemTime) -> DateTime<Utc> {
 }
 
 /// Session manager for handling user sessions
-#[derive(Debug)]
 pub struct SessionManager {
     /// Session configuration
     config: SessionConfig,
     /// Active sessions
     sessions: RwLock<HashMap<SessionToken, Session>>,
     /// Security manager for authentication
-    security: Arc<dyn SecurityManager>,
+    security: Arc<crate::security::manager::SecurityManagerImpl>,
     /// Persistence manager for session storage
     persistence: Option<Arc<dyn Persistence>>,
 }
@@ -250,7 +252,7 @@ impl SessionManager {
     /// Create a new session manager
     pub fn new(
         config: SessionConfig,
-        security: Arc<dyn SecurityManager>,
+        security: Arc<crate::security::manager::SecurityManagerImpl>,
         persistence: Option<Arc<dyn Persistence>>,
     ) -> Self {
         Self {
@@ -274,7 +276,7 @@ impl SessionManager {
             token: session_token.clone(),
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: now,
             last_accessed: now,
             timeout: Some(self.config.timeout.unwrap_or(Duration::from_secs(3600)).as_secs()),
@@ -493,7 +495,7 @@ impl SessionManager {
             token: token.clone(),
             user_id,
             account_id: None,
-            role: UserRole::User, // Default role
+            role: RoleId("user".to_string()), // Default role
             created_at: Utc::now(),
             last_accessed: Utc::now(),
             timeout: Some(3600), // Default 1 hour timeout
@@ -585,22 +587,18 @@ pub struct SessionManagerFactory {
 }
 
 impl SessionManagerFactory {
-    /// Create a new session manager factory
+    /// Create a new session manager factory with the provided configuration
     #[must_use] pub const fn new(config: SessionConfig) -> Self {
         Self { config }
     }
     
-    /// Create a session manager
+    /// Create a new session manager with the provided security and persistence managers
     pub fn create_manager(
         &self,
-        security: Arc<dyn SecurityManager>,
+        security: Arc<crate::security::manager::SecurityManagerImpl>,
         persistence: Option<Arc<dyn Persistence>>,
     ) -> Arc<SessionManager> {
-        Arc::new(SessionManager::new(
-            self.config.clone(),
-            security,
-            persistence,
-        ))
+        Arc::new(SessionManager::new(self.config.clone(), security, persistence))
     }
 }
 
@@ -620,4 +618,11 @@ mod tests {
 }
 
 // Re-export important types
-pub use manager::MCPSessionManager; 
+pub use manager::MCPSessionManager;
+
+/// Represents the state of an active session
+// #[derive(Debug)] // Remove Debug derive because dyn SecurityManager doesn't implement it
+pub struct SessionState {
+    pub session: Session,
+    pub last_activity: Instant,
+} 

@@ -28,10 +28,18 @@ mod tests;
 pub mod prelude {
     pub use crate::protocol::MCPProtocol;
     pub use crate::integration::types::MessageHandler; // Updated path
-    pub use crate::protocol::MCPMessage; // Use MCPMessage from protocol
+    pub use crate::protocol::types::MCPMessage; // Use MCPMessage from protocol::types
     pub use crate::types::MCPResponse; // Use MCPResponse from crate::types
-    pub use crate::security::{Credentials, Permission, Action};
+    pub use crate::security::{AuthCredentials, Action}; // Import from security directly
     pub use crate::error::{MCPError, Result as MCPResult};
     
     pub use super::adapter::CoreMCPAdapter; // Updated path
-} 
+}
+
+// Re-export core components needed by external crates using the adapter
+// Clean up imports to avoid circular dependencies
+pub use crate::error::{MCPError, Result as MCPResult}; // Use MCPError and Result from error module
+pub use crate::security::{AuthCredentials, SecurityLevel}; // Import from security directly
+
+// Re-export transport-related types
+// ... existing code ... 

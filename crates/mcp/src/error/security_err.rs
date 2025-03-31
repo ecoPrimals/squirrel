@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::types::SecurityLevel; // Import SecurityLevel
+use crate::security::types::SecurityLevel; // Import SecurityLevel from the correct location
 
 /// Security-related errors
 #[derive(Debug, Clone, Error)]
@@ -28,6 +28,10 @@ pub enum SecurityError {
     /// or cannot be verified
     #[error("Invalid token: {0}")]
     InvalidToken(String),
+    
+    /// Error that occurs when a token cannot be generated
+    #[error("Token generation failed: {0}")]
+    TokenGenerationFailed(String),
     
     /// Error that occurs when a user role does not exist or
     /// is not valid in the current context
@@ -103,4 +107,29 @@ pub enum SecurityError {
     /// a defined security policy
     #[error("Policy violation: {0}")]
     PolicyViolation(String),
+    
+    /// Error reported by the remote peer
+    #[error("Remote security error: {0}")]
+    RemoteError(String),
+    
+    /// Error that occurs when an operation is not supported
+    /// by a specific security implementation
+    #[error("Operation not supported: {0}")]
+    Unsupported(String),
+    
+    /// Error that occurs when a role already exists
+    #[error("Role already exists: {0}")]
+    RoleExists(String),
+    
+    /// Error that occurs when a role does not exist
+    #[error("Role not found: {0}")]
+    RoleNotFound(String),
+    
+    /// Error that occurs when a permission could not be found
+    #[error("Permission not found: {0}")]
+    PermissionNotFound(String),
+    
+    /// Error that occurs when permission is already assigned to a role
+    #[error("Permission already exists in role: {0}")]
+    PermissionExists(String),
 } 

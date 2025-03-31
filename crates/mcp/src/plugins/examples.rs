@@ -11,7 +11,7 @@ use async_trait::async_trait;
 
 use crate::tool::{Tool, ToolManager};
 use crate::tool::lifecycle::BasicLifecycleHook;
-use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin};
+use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginCapability};
 use crate::plugins::versioning::{ProtocolVersion, VersionRequirement, ProtocolVersionManager};
 use crate::plugins::integration::MockPluginManager;
 
@@ -61,7 +61,11 @@ pub async fn protocol_versioning_example() -> Result<()> {
     // Create protocol version manager
     let version_manager = ProtocolVersionManager::new(
         ProtocolVersion::new(1, 2, 0),  // Current version
-        ProtocolVersion::new(1, 0, 0),  // Minimum supported version
+        vec![
+            ProtocolVersion::new(1, 0, 0),  // Minimum supported version
+            ProtocolVersion::new(1, 1, 0),
+            ProtocolVersion::new(1, 2, 0),
+        ],
     );
     
     // Create a tool manager
@@ -130,11 +134,12 @@ impl ExamplePlugin {
     #[must_use] pub fn new(name: &str, version: &str, description: &str) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
+                id: Uuid::new_v4().to_string(),
                 name: name.to_string(),
                 version: version.to_string(),
                 description: description.to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             version_requirements: VersionRequirement::new(">=1.0.0, <2.0.0"),
         }
@@ -148,11 +153,12 @@ impl ExamplePlugin {
     ) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
+                id: Uuid::new_v4().to_string(),
                 name: name.to_string(),
                 version: version.to_string(),
                 description: description.to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             version_requirements: VersionRequirement::new(requirements),
         }

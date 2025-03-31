@@ -6,10 +6,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::{debug, info, error, warn};
 
 use crate::tool::{Tool, ToolLifecycleHook, ToolError};
-use crate::plugins::interfaces::PluginManagerInterface;
+use crate::plugins::types::PluginLifecycleStep;
+use crate::plugins::interfaces::{PluginManagerInterface, Plugin, PluginStatus};
+use crate::error::{MCPError, Result as MCPResult, PluginError};
 
 /// A lifecycle hook that synchronizes tool state changes to plugin status
 #[derive(Debug)]
@@ -59,21 +61,19 @@ impl PluginLifecycleHook {
 
 #[async_trait]
 impl ToolLifecycleHook for PluginLifecycleHook {
-    async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
-        // Start monitoring this tool
+    async fn on_register(&self, tool: &Tool) -> std::result::Result<(), ToolError> {
         self.monitor_tool(&tool.id).await;
         debug!("Tool registered and monitored: {}", tool.id);
         Ok(())
     }
 
-    async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Stop monitoring this tool
+    async fn on_unregister(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.unmonitor_tool(tool_id).await;
         debug!("Tool unregistered and unmonitored: {}", tool_id);
         Ok(())
     }
 
-    async fn on_activate(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn on_activate(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         if self.is_monitored(tool_id).await {
             debug!("Tool activated: {}", tool_id);
             // Could update plugin status here if needed
@@ -81,7 +81,7 @@ impl ToolLifecycleHook for PluginLifecycleHook {
         Ok(())
     }
 
-    async fn on_deactivate(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn on_deactivate(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         if self.is_monitored(tool_id).await {
             debug!("Tool deactivated: {}", tool_id);
             // Could update plugin status here if needed
@@ -89,13 +89,22 @@ impl ToolLifecycleHook for PluginLifecycleHook {
         Ok(())
     }
 
-    async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
+    async fn on_error(&self, tool_id: &str, error: &ToolError) -> std::result::Result<(), ToolError> {
         if self.is_monitored(tool_id).await {
             info!("Tool error: {} - {:?}", tool_id, error);
             // Could update plugin status to error state if needed
         }
         Ok(())
     }
+
+    async fn pre_start(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn post_start(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn pre_stop(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn post_stop(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn on_pause(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn on_resume(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn on_update(&self, _tool: &Tool) -> std::result::Result<(), ToolError> { Ok(()) }
+    async fn on_cleanup(&self, _tool_id: &str) -> std::result::Result<(), ToolError> { Ok(()) }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -123,85 +132,79 @@ impl<T: ToolLifecycleHook> CompositePluginLifecycleHook<T> {
 
 #[async_trait]
 impl<T: ToolLifecycleHook + Send + Sync + 'static> ToolLifecycleHook for CompositePluginLifecycleHook<T> {
-    async fn on_register(&self, tool: &Tool) -> Result<(), ToolError> {
-        // Call both hooks
+    async fn on_register(&self, tool: &Tool) -> std::result::Result<(), ToolError> {
         self.base_hook.on_register(tool).await?;
         self.plugin_hook.on_register(tool).await?;
         Ok(())
     }
 
-    async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Call both hooks
+    async fn on_unregister(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_unregister(tool_id).await?;
         self.plugin_hook.on_unregister(tool_id).await?;
         Ok(())
     }
 
-    async fn on_activate(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Call both hooks
+    async fn on_activate(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_activate(tool_id).await?;
         self.plugin_hook.on_activate(tool_id).await?;
         Ok(())
     }
 
-    async fn on_deactivate(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Call both hooks
+    async fn on_deactivate(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_deactivate(tool_id).await?;
         self.plugin_hook.on_deactivate(tool_id).await?;
         Ok(())
     }
 
-    async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError> {
-        // Call both hooks
+    async fn on_error(&self, tool_id: &str, error: &ToolError) -> std::result::Result<(), ToolError> {
         self.base_hook.on_error(tool_id, error).await?;
         self.plugin_hook.on_error(tool_id, error).await?;
         Ok(())
     }
 
-    // Forward all other methods to both hooks
-    async fn pre_start(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn pre_start(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.pre_start(tool_id).await?;
         self.plugin_hook.pre_start(tool_id).await?;
         Ok(())
     }
 
-    async fn post_start(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn post_start(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.post_start(tool_id).await?;
         self.plugin_hook.post_start(tool_id).await?;
         Ok(())
     }
 
-    async fn pre_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn pre_stop(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.pre_stop(tool_id).await?;
         self.plugin_hook.pre_stop(tool_id).await?;
         Ok(())
     }
 
-    async fn post_stop(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn post_stop(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.post_stop(tool_id).await?;
         self.plugin_hook.post_stop(tool_id).await?;
         Ok(())
     }
 
-    async fn on_pause(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn on_pause(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_pause(tool_id).await?;
         self.plugin_hook.on_pause(tool_id).await?;
         Ok(())
     }
 
-    async fn on_resume(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn on_resume(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_resume(tool_id).await?;
         self.plugin_hook.on_resume(tool_id).await?;
         Ok(())
     }
 
-    async fn on_update(&self, tool: &Tool) -> Result<(), ToolError> {
+    async fn on_update(&self, tool: &Tool) -> std::result::Result<(), ToolError> {
         self.base_hook.on_update(tool).await?;
         self.plugin_hook.on_update(tool).await?;
         Ok(())
     }
 
-    async fn on_cleanup(&self, tool_id: &str) -> Result<(), ToolError> {
+    async fn on_cleanup(&self, tool_id: &str) -> std::result::Result<(), ToolError> {
         self.base_hook.on_cleanup(tool_id).await?;
         self.plugin_hook.on_cleanup(tool_id).await?;
         Ok(())

@@ -1,7 +1,11 @@
+//! Main entry point for the Squirrel application
+
 use anyhow::Result;
 use std::path::PathBuf;
 use tracing::{info, error};
 use squirrel_interfaces::plugins::PluginRegistry;
+use squirrel_mcp::plugins::PluginManager;
+use std::sync::Arc;
 
 mod plugins;
 mod adapter;

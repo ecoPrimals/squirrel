@@ -1,29 +1,26 @@
 use async_trait::async_trait;
 use crate::error::Result;
-use crate::security::types::{Credentials, Token, UserId, Resource, Action, SecurityLevel, EncryptionFormat};
+use crate::security::types::{Token, UserId, Resource, Action, SecurityLevel, EncryptionFormat};
 use crate::security::auth::SecurityContext;
 use crate::security::crypto::CryptoProvider;
-use crate::security::token::TokenManager;
+use crate::security::token::{TokenManager, AuthCredentials};
 use crate::security::rbac::RBACManager;
 use crate::security::identity::IdentityManager;
 use crate::security::audit::AuditService;
 use crate::security::traits::{ResourceTrait, ActionTrait, make_permission_string};
 use std::sync::Arc;
 use tracing::{info, warn, error, instrument};
-use crate::error::MCPError;
+use crate::error::{MCPError, SecurityError};
 use crate::context_manager::Context;
 
-/// Security manager trait for unified security operations
+/// Core Security manager trait for unified security operations that is object-safe
 #[async_trait::async_trait]
 pub trait SecurityManager: Send + Sync {
     /// Authenticate a user with the provided credentials
-    async fn authenticate(&self, credentials: &Credentials) -> Result<Token>;
+    async fn authenticate(&self, credentials: &AuthCredentials) -> Result<Token>;
     
-    /// Authorize a user for a specific resource and action
-    async fn authorize<R, A>(&self, token: &Token, resource: &R, action: &A, context: Option<&Context>) -> Result<()>
-    where
-        R: ResourceTrait + Send + Sync,
-        A: ActionTrait + Send + Sync;
+    /// Authorize a user for a specific resource and action with concrete types
+    async fn authorize_concrete(&self, token: &Token, resource: &Resource, action: &Action, context: Option<&Context>) -> Result<()>;
     
     /// Validate a token string
     async fn validate_token(&self, token_str: &str) -> Result<Token>;
@@ -36,6 +33,24 @@ pub trait SecurityManager: Send + Sync {
     
     /// Get the security manager version
     fn version(&self) -> &str;
+}
+
+/// Extended Security Manager trait with generic authorization methods
+/// This trait is not object-safe but provides more type flexibility
+#[async_trait::async_trait]
+pub trait TypedSecurityManager: SecurityManager {
+    /// Authorize a user for a specific resource and action with generic types
+    async fn authorize<R, A>(&self, token: &Token, resource: &R, action: &A, context: Option<&Context>) -> Result<()>
+    where
+        R: ResourceTrait + Send + Sync,
+        A: ActionTrait + Send + Sync;
+}
+
+/// Combined security manager trait that extends both SecurityManager and TypedSecurityManager
+/// This is used to create a single trait object that implements both traits
+#[async_trait::async_trait]
+pub trait CombinedSecurityManager: SecurityManager + TypedSecurityManager {
+    // No additional methods needed as this is just a combination of the two traits
 }
 
 /// Security Manager implementation
@@ -86,9 +101,9 @@ impl SecurityManagerImpl {
 #[async_trait::async_trait]
 impl SecurityManager for SecurityManagerImpl {
     #[instrument(skip(self, credentials), fields(username = %credentials.username))]
-    async fn authenticate(&self, credentials: &Credentials) -> Result<Token> {
-        // Convert token::Credentials to identity::Credentials
-        let identity_credentials = crate::security::identity::Credentials {
+    async fn authenticate(&self, credentials: &AuthCredentials) -> Result<Token> {
+        // Convert token::AuthCredentials to identity::IdentityCredentials
+        let identity_credentials = crate::security::identity::IdentityCredentials {
             username: credentials.username.clone(),
             password: credentials.password.clone(),
         };
@@ -100,11 +115,45 @@ impl SecurityManager for SecurityManagerImpl {
         Ok(token)
     }
 
+    #[instrument(skip(self, token, resource, action, context))]
+    async fn authorize_concrete(&self, token: &Token, resource: &Resource, action: &Action, context: Option<&Context>) -> Result<()> {
+        let permission_str = format!("{}:{}", action.action, resource.id);
+        
+        let has_permission = self.rbac_manager.has_permission(&token.user_id.0.to_string(), &permission_str, context).await?;
+        
+        if has_permission {
+            self.audit_service.log_authorization_success(&token.user_id, &format!("{}", resource), &format!("{}", action)).await;
+            Ok(())
+        } else {
+            self.audit_service.log_authorization_failure(&token.user_id, &format!("{}", resource), &format!("{}", action), "Permission denied").await;
+            Err(crate::error::SecurityError::AuthorizationFailed(
+                format!("User {} lacks permission {} for resource {}", token.user_id, permission_str, resource)
+            ).into())
+        }
+    }
+
     #[instrument(skip(self, token_str))]
     async fn validate_token(&self, token_str: &str) -> Result<Token> {
         self.token_manager.validate_token(token_str).await
     }
 
+    #[instrument(skip(self, data, key))]
+    async fn encrypt(&self, data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+        self.crypto_provider.encrypt(data, key, self.get_encryption_format_for_context(&SecurityContext::default())).await
+    }
+
+    #[instrument(skip(self, data, key))]
+    async fn decrypt(&self, data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
+        self.crypto_provider.decrypt(data, key, self.get_encryption_format_for_context(&SecurityContext::default())).await
+    }
+
+    fn version(&self) -> &str {
+        &self.version
+    }
+}
+
+#[async_trait::async_trait]
+impl TypedSecurityManager for SecurityManagerImpl {
     #[instrument(skip(self, token, resource, action, context))]
     async fn authorize<R, A>(&self, token: &Token, resource: &R, action: &A, context: Option<&Context>) -> Result<()>
     where
@@ -125,18 +174,10 @@ impl SecurityManager for SecurityManagerImpl {
             ).into())
         }
     }
+}
 
-    #[instrument(skip(self, data, key))]
-    async fn encrypt(&self, data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-        self.crypto_provider.encrypt(data, key, self.get_encryption_format_for_context(&SecurityContext::default())).await
-    }
-
-    #[instrument(skip(self, data, key))]
-    async fn decrypt(&self, data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-        self.crypto_provider.decrypt(data, key, self.get_encryption_format_for_context(&SecurityContext::default())).await
-    }
-
-    fn version(&self) -> &str {
-        &self.version
-    }
+// Implement the combined trait for SecurityManagerImpl
+#[async_trait::async_trait]
+impl CombinedSecurityManager for SecurityManagerImpl {
+    // No additional methods needed
 } 

@@ -11,7 +11,7 @@ use uuid::Uuid;
 use tracing::{debug, error};
 
 // Use local interfaces instead of squirrel-plugins
-use crate::plugins::interfaces::{Plugin, PluginMetadata, McpPlugin, PluginStatus};
+use crate::plugins::interfaces::{Plugin, PluginMetadata, McpPlugin, PluginStatus, PluginCapability};
 use crate::tool::{Tool, ToolManager};
 use super::versioning::VersionRequirement;
 
@@ -35,11 +35,12 @@ impl ToolPluginAdapter {
     pub fn new(tool_id: String, tool_manager: Arc<ToolManager>) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {tool_id}"),
+                id: Uuid::new_v4().to_string(),
+                name: "Tool Plugin".to_string(),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {tool_id}"),
+                description: "Adapter for tool plugins".to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             tool_manager,
             tool_id,
@@ -55,11 +56,12 @@ impl ToolPluginAdapter {
     ) -> Self {
         Self {
             metadata: PluginMetadata {
-                id: Uuid::new_v4(),
-                name: format!("Tool Plugin - {tool_id}"),
+                id: Uuid::new_v4().to_string(),
+                name: "Tool Plugin".to_string(),
                 version: "1.0.0".to_string(),
-                description: format!("Plugin adapter for tool: {tool_id}"),
+                description: "Adapter for tool plugins with version requirements".to_string(),
                 status: PluginStatus::Registered,
+                capabilities: vec![PluginCapability::Tool],
             },
             tool_manager,
             tool_id,

@@ -7,12 +7,16 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 
-use crate::error::{MCPError, Result, SecurityError};
-use crate::security::rbac::{Permission, Role, PermissionContext};
+use crate::error::{MCPError, Result, SecurityError, RBACError};
+use crate::security::types::{Role, PermissionContext};
+use super::unified::PermissionDefinition;
+use crate::context_manager::Context;
 
 /// Inheritance relationship type between roles
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum InheritanceType {
     /// Direct inheritance (child inherits all permissions from parent)
     Direct,
@@ -313,7 +317,7 @@ impl InheritanceGraph {
         role_id: &str,
         role_map: &HashMap<String, Role>,
         context: Option<&PermissionContext>,
-    ) -> HashSet<Permission> {
+    ) -> HashSet<PermissionDefinition> {
         let mut permissions = HashSet::new();
         let ancestors = self.get_ancestors(role_id);
         
@@ -837,7 +841,7 @@ impl InheritanceManager {
         role_id: &str,
         role_map: &HashMap<String, Role>,
         context: Option<&PermissionContext>,
-    ) -> Result<HashSet<Permission>> {
+    ) -> Result<HashSet<PermissionDefinition>> {
         let graph = self.graph.read().await;
         Ok(graph.get_inherited_permissions(role_id, role_map, context))
     }

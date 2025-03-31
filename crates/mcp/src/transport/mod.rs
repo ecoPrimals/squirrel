@@ -38,13 +38,15 @@
 use async_trait::async_trait;
 use crate::message::Message;
 use crate::protocol::MCPMessage;
-use crate::security::EncryptionFormat;
+use crate::security::types::EncryptionFormat;
 use crate::types::CompressionFormat;
 use std::net::SocketAddr;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use crate::error::{Result, MCPError};
+use std::fmt::Debug;
+use uuid;
 
 /// MCP Frame implementation for message framing over byte streams
 ///
@@ -75,27 +77,6 @@ pub mod stdio;
 /// Provides in-memory message passing for testing purposes and internal
 /// component communication without network overhead.
 pub mod memory;
-
-/// Metadata associated with a transport connection
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransportMetadata {
-    /// Unique connection ID
-    pub connection_id: String,
-    /// Remote address of the connection
-    pub remote_address: Option<SocketAddr>,
-    /// Local address of the connection
-    pub local_address: Option<SocketAddr>,
-    /// Timestamp when the connection was established
-    pub connected_at: DateTime<Utc>,
-    /// Last activity timestamp
-    pub last_activity: DateTime<Utc>,
-    /// Encryption format used, if any
-    pub encryption_format: Option<EncryptionFormat>,
-    /// Compression format used, if any
-    pub compression_format: Option<CompressionFormat>,
-    /// Additional metadata
-    pub additional_info: HashMap<String, String>,
-}
 
 /// Transport trait defining the interface for different transport mechanisms
 ///
@@ -156,7 +137,7 @@ pub struct TransportMetadata {
 /// }
 /// ```
 #[async_trait]
-pub trait Transport: Send + Sync {
+pub trait Transport: Send + Sync + Debug {
     /// Send a message over the transport
     ///
     /// Sends an MCP message over the transport. This method blocks until the message
@@ -196,6 +177,27 @@ pub trait Transport: Send + Sync {
     /// - The message cannot be deserialized
     /// - A timeout occurs while waiting for a message
     async fn receive_message(&self) -> crate::error::Result<MCPMessage>;
+
+    /// Send raw bytes over the transport
+    ///
+    /// Sends raw bytes directly over the transport layer. This is useful for sending
+    /// pre-serialized data or control messages that don't conform to the standard
+    /// MCPMessage structure.
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - The raw byte slice to send
+    ///
+    /// # Returns
+    ///
+    /// Result indicating success or error
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if:
+    /// - The transport is not connected
+    /// - The connection is lost during the send operation
+    async fn send_raw(&self, bytes: &[u8]) -> crate::error::Result<()>;
 
     /// Connect to the transport target
     /// 
@@ -241,52 +243,45 @@ pub trait Transport: Send + Sync {
     #[must_use]
     async fn is_connected(&self) -> bool;
 
-    /// Get transport metadata
-    ///
-    /// Retrieves metadata about the transport connection, such as type,
-    /// addressing, and encryption information.
-    ///
-    /// # Returns
-    ///
-    /// Metadata about the transport connection
-    #[must_use]
-    fn get_metadata(&self) -> TransportMetadata;
+    /// Get metadata about the transport connection
+    async fn get_metadata(&self) -> crate::transport::types::TransportMetadata;
 }
+
+pub mod types;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, atomic::AtomicBool};
-    use crate::error::transport::TransportError;
-    
-    /// Mock Transport for testing
-    ///
-    /// A simple transport implementation used for testing the Transport trait
-    /// functionality without requiring actual network or I/O operations.
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use chrono::Utc;
+    use crate::transport::types::TransportMetadata;
+
     pub struct MockTransport {
         pub connected: Arc<AtomicBool>,
         pub metadata: TransportMetadata,
     }
-    
+
     impl MockTransport {
-        /// Create a new mock transport instance
         pub fn new() -> Self {
+            let metadata = TransportMetadata {
+                connection_id: uuid::Uuid::new_v4().to_string(),
+                remote_address: None,
+                local_address: None,
+                connected_at: Utc::now(),
+                last_activity: Utc::now(),
+                encryption_format: None,
+                compression_format: None,
+                additional_info: HashMap::new(),
+            };
+
             Self {
                 connected: Arc::new(AtomicBool::new(false)),
-                metadata: TransportMetadata {
-                    connection_id: "mock_connection_id".to_string(),
-                    remote_address: None,
-                    local_address: None,
-                    connected_at: Utc::now(),
-                    last_activity: Utc::now(),
-                    encryption_format: None,
-                    compression_format: None,
-                    additional_info: HashMap::new(),
-                },
+                metadata,
             }
         }
     }
-    
+
     impl Clone for MockTransport {
         fn clone(&self) -> Self {
             Self {
@@ -295,69 +290,70 @@ mod tests {
             }
         }
     }
-    
-    #[async_trait]
+
     impl Transport for MockTransport {
         async fn send_message(&self, _message: MCPMessage) -> crate::error::Result<()> {
             if !self.is_connected().await {
-                return Err(TransportError::ConnectionClosed("Not connected".into()).into());
+                return Err(TransportError::NotConnected.into());
             }
+            // Just simulate success in the mock
             Ok(())
         }
-        
+
         async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
             if !self.is_connected().await {
-                return Err(TransportError::ConnectionClosed("Not connected".into()).into());
+                return Err(TransportError::NotConnected.into());
             }
-            
-            // Create an MCPMessage directly using the MCPMessage constructor
-            Ok(crate::types::MCPMessage::new(
-                crate::types::MessageType::Response, 
-                serde_json::json!({
-                    "content": "{}",
-                    "source": "mock",
-                    "destination": "test"
-                })
+            // Return a simple test message
+            Ok(MCPMessage::new(
+                crate::protocol::types::MessageType::Response,
+                "mock-response",
+                serde_json::json!({"status": "success"}),
             ))
         }
-        
+
+        async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
+            if !self.is_connected().await {
+                return Err(TransportError::NotConnected.into());
+            }
+            // Just simulate success in the mock
+            Ok(())
+        }
+
         async fn connect(&mut self) -> crate::error::Result<()> {
-            self.connected.store(true, std::sync::atomic::Ordering::SeqCst);
+            self.connected.store(true, Ordering::SeqCst);
             Ok(())
         }
-        
+
         async fn disconnect(&self) -> crate::error::Result<()> {
-            self.connected.store(false, std::sync::atomic::Ordering::SeqCst);
+            self.connected.store(false, Ordering::SeqCst);
             Ok(())
         }
-        
+
         async fn is_connected(&self) -> bool {
-            self.connected.load(std::sync::atomic::Ordering::SeqCst)
+            self.connected.load(Ordering::SeqCst)
         }
-        
-        fn get_metadata(&self) -> TransportMetadata {
+
+        async fn get_metadata(&self) -> crate::transport::types::TransportMetadata {
             self.metadata.clone()
         }
     }
-    
+
     #[tokio::test]
     async fn test_mock_transport() {
-        println!("Starting MockTransport test...");
         let mut transport = MockTransport::new();
         assert!(!transport.is_connected().await);
         
         transport.connect().await.unwrap();
         assert!(transport.is_connected().await);
         
-        let metadata = transport.get_metadata();
-        assert_eq!(metadata.connection_id, "mock_connection_id");
-        
-        // Test receiving a message
-        let message = transport.receive_message().await.unwrap();
-        println!("Received message: {:?}", message);
+        let msg = transport.receive_message().await.unwrap();
+        assert_eq!(msg.message_type(), &crate::protocol::types::MessageType::Response);
         
         transport.disconnect().await.unwrap();
         assert!(!transport.is_connected().await);
-        println!("MockTransport test completed successfully!");
+        
+        // After disconnection, should fail
+        assert!(transport.send_message(msg).await.is_err());
     }
 } 

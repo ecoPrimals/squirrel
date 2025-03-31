@@ -1,11 +1,12 @@
 //! Helper functions for the integration module.
 
-use crate::error::MCPError;
-use crate::protocol::{MCPMessage, MessageType};
+use crate::error::{MCPError, Result};
+use crate::protocol::types::{MCPMessage, MessageId, MessageType};
+use crate::AuthCredentials; // <-- Use crate root (re-exported from security)
 use crate::types::{MCPResponse, ResponseStatus, MessageMetadata};
-use crate::security::Credentials;
+use crate::error::SecurityError; // Added direct import
 use serde_json::{Value, json};
-use tracing::error;
+use tracing::{error, debug};
 
 /// Helper function to determine if an error should trigger circuit breaking
 pub const fn is_circuit_breaking_error(error: &MCPError) -> bool {
@@ -17,7 +18,7 @@ pub const fn is_circuit_breaking_error(error: &MCPError) -> bool {
 }
 
 /// Helper function to extract credentials (assuming payload structure or metadata)
-pub fn extract_credentials(message: &MCPMessage) -> Option<Credentials> {
+pub fn extract_credentials(message: &MCPMessage) -> Option<AuthCredentials> {
     // Example: Try extracting from a specific metadata field first
     if let Some(sec_meta) = message.metadata.as_ref().and_then(|m| m.get("security")) {
         if let Ok(creds) = serde_json::from_value(sec_meta.clone()) {
@@ -43,39 +44,35 @@ pub fn extract_credentials(message: &MCPMessage) -> Option<Credentials> {
 
 /// Creates a successful response message based on the MCPResponse structure from types.rs
 pub fn create_success_response(message: &MCPMessage, payload: &Value) -> MCPResponse {
-    // Serialize payload to bytes
-    let payload_bytes = match serde_json::to_vec(payload) { // Use to_vec for Vec<u8>
-        Ok(bytes) => bytes,
-        Err(e) => {
-            error!("Failed to serialize success payload: {}", e);
-            // Return an error response instead?
-            // For now, returning an empty payload and logging error.
-            Vec::new()
-        }
-    };
+    debug!(message_id = %message.id.0, "Creating success response");
+    // Keep the payload as Value, wrap in a Vec for the MCPResponse field
+    let response_payload = vec![payload.clone()];
 
     MCPResponse {
-        protocol_version: message.version.version_string(), // Use version.version_string()
-        message_id: message.id.0.clone(), // Use id.0
-        status: ResponseStatus::Success, // Use ResponseStatus enum
-        payload: payload_bytes, // Use Vec<u8>
-        metadata: MessageMetadata::default(), // Keep or enhance metadata
-        error_message: None, // No error message for success
+        protocol_version: message.version.version_string(),
+        message_id: message.id.clone(),
+        status: ResponseStatus::Success,
+        payload: response_payload,
+        metadata: MessageMetadata::default(),
+        error_message: None,
     }
 }
 
 /// Creates an error response message based on the MCPResponse structure from types.rs
-pub fn create_error_response(message: &MCPMessage, error: MCPError) -> Option<MCPResponse> {
+pub fn create_error_response(message: &MCPMessage, error: MCPError) -> MCPResponse {
     error!(message_id = %message.id.0, error = %error, "Creating error response");
     let error_string = error.to_string();
-    let error_details = json!({ "message": error_string, "code": error.code_str() }); // Example details
+    // Create the error details as a Value
+    let error_details_value = json!({ "message": error_string.clone(), "code": error.code_str() }); 
 
-    Some(MCPResponse {
+    // Return MCPResponse directly, removed Some()
+    MCPResponse {
         protocol_version: message.version.version_string(), // Add correct field name
-        message_id: message.id.clone(), // Use correct message_id field
+        message_id: message.id.clone(), // Use id directly, it's already MessageId
         status: ResponseStatus::Error,
-        payload: serde_json::to_vec(&error_details).unwrap_or_default(),
+        // Wrap the Value in a vec![] for the payload field
+        payload: vec![error_details_value], 
         error_message: Some(error_string),
         metadata: MessageMetadata::default(), // Add appropriate metadata
-    })
+    }
 } 

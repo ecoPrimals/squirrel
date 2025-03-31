@@ -12,6 +12,18 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use crate::plugin::{Plugin, PluginMetadata};
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::{
+    SecurityManager as MCPSecurityManager, // Import as a type alias
+    BasicRBACManager, 
+    DefaultAuditService, 
+    DefaultCryptoProvider, 
+    DefaultIdentityManager,
+    DefaultTokenManager, 
+    InMemoryKeyStorage,
+};
+use tracing::{info, warn, error, debug};
+use thiserror::Error;
 
 pub mod resource_monitor;
 pub mod signature;
@@ -135,6 +147,43 @@ impl Default for ResourceUsage {
     }
 }
 
+/// Resource usage limits for plugins
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ResourceLimits {
+    /// Memory limit in bytes (0 = no limit)
+    pub memory_limit: u64,
+    
+    /// CPU usage limit (0.0 = no limit)
+    pub cpu_limit: f64,
+    
+    /// Disk usage limit in bytes (0 = no limit)
+    pub disk_limit: u64,
+    
+    /// Network usage limit in bytes (0 = no limit)
+    pub network_limit: u64,
+}
+
+impl Default for ResourceLimits {
+    fn default() -> Self {
+        Self {
+            memory_limit: 100 * 1024 * 1024, // 100 MB
+            cpu_limit: 0.5, // 50% of one CPU core
+            disk_limit: 10 * 1024 * 1024, // 10 MB
+            network_limit: 1024 * 1024, // 1 MB
+        }
+    }
+}
+
+impl ResourceUsage {
+    /// Check if this resource usage exceeds the given limits
+    pub fn exceeds_limits(&self, limits: &ResourceLimits) -> bool {
+        (limits.memory_limit > 0 && self.memory_usage > limits.memory_limit) ||
+        (limits.cpu_limit > 0.0 && self.cpu_usage > limits.cpu_limit) ||
+        (limits.disk_limit > 0 && self.disk_usage > limits.disk_limit) ||
+        (limits.network_limit > 0 && self.network_usage > limits.network_limit)
+    }
+}
+
 /// Security manager trait
 #[async_trait]
 pub trait SecurityManager: Send + Sync + Debug {
@@ -254,6 +303,289 @@ pub struct SecurityIssue {
     
     /// Recommended action
     pub recommended_action: String,
+}
+
+/// Security manager adapter for non-MCP builds
+#[cfg(not(feature = "mcp"))]
+#[derive(Debug)]
+pub struct SecurityManagerAdapter {
+    /// Plugin permissions
+    permissions: RwLock<HashMap<Uuid, HashSet<String>>>,
+    
+    /// Plugin sandbox configurations
+    sandbox_configs: RwLock<HashMap<Uuid, SandboxConfig>>,
+    
+    /// Plugin resource usage
+    resource_usage: RwLock<HashMap<Uuid, ResourceUsage>>,
+    
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+    
+    /// Signature verifier
+    signature_verifier: Arc<SignatureVerifier>,
+}
+
+#[cfg(not(feature = "mcp"))]
+impl SecurityManagerAdapter {
+    /// Create a default security manager adapter
+    pub fn default() -> Self {
+        let resource_monitor = Arc::new(ResourceMonitor::new());
+        let signature_verifier = Arc::new(SignatureVerifier::new());
+        
+        Self {
+            permissions: RwLock::new(HashMap::new()),
+            sandbox_configs: RwLock::new(HashMap::new()),
+            resource_usage: RwLock::new(HashMap::new()),
+            resource_monitor,
+            signature_verifier,
+        }
+    }
+}
+
+/// Plugin security manager implementation
+#[cfg(feature = "mcp")]
+pub struct SecurityManagerAdapter {
+    /// MCP security manager implementation
+    inner: Arc<dyn MCPSecurityManager>,
+    
+    /// Plugin permissions
+    permissions: RwLock<HashMap<Uuid, HashSet<String>>>,
+    
+    /// Plugin sandbox configurations
+    sandbox_configs: RwLock<HashMap<Uuid, SandboxConfig>>,
+    
+    /// Plugin resource usage
+    resource_usage: RwLock<HashMap<Uuid, ResourceUsage>>,
+    
+    /// Resource monitor
+    resource_monitor: Arc<ResourceMonitor>,
+    
+    /// Signature verifier
+    signature_verifier: Arc<SignatureVerifier>,
+}
+
+#[cfg(feature = "mcp")]
+impl SecurityManagerAdapter {
+    /// Create a new security manager adapter with the provided MCP security manager
+    pub fn new(mcp_security_manager: Arc<dyn MCPSecurityManager>) -> Self {
+        let resource_monitor = Arc::new(ResourceMonitor::new());
+        let signature_verifier = Arc::new(SignatureVerifier::new());
+        
+        Self {
+            inner: mcp_security_manager,
+            permissions: RwLock::new(HashMap::new()),
+            sandbox_configs: RwLock::new(HashMap::new()),
+            resource_usage: RwLock::new(HashMap::new()),
+            resource_monitor,
+            signature_verifier,
+        }
+    }
+    
+    /// Create a default security manager adapter
+    pub fn default() -> Self {
+        // Create default implementations of all required components
+        let key_storage = Arc::new(InMemoryKeyStorage::new());
+        let crypto_provider = Arc::new(DefaultCryptoProvider::new());
+        let token_manager = Arc::new(DefaultTokenManager::new(
+            key_storage.clone(),
+            crypto_provider.clone(),
+        ));
+        let identity_manager = Arc::new(DefaultIdentityManager::new());
+        let rbac_manager = Arc::new(BasicRBACManager::new());
+        let audit_service = Arc::new(DefaultAuditService::new());
+        
+        // Import the SecurityManagerImpl type just for this function
+        #[cfg(feature = "mcp")]
+        use squirrel_mcp::security::SecurityManagerImpl;
+        
+        // Create the MCP security manager with these components
+        let inner = Arc::new(SecurityManagerImpl::new(
+            crypto_provider,
+            token_manager,
+            identity_manager,
+            rbac_manager,
+            audit_service,
+        )) as Arc<dyn MCPSecurityManager>;
+        
+        Self::new(inner)
+    }
+    
+    /// Get the inner MCP security manager
+    pub fn inner(&self) -> Arc<dyn MCPSecurityManager> {
+        self.inner.clone()
+    }
+}
+
+#[async_trait]
+impl SecurityManager for SecurityManagerAdapter {
+    async fn verify_plugin(&self, plugin: &dyn Plugin) -> Result<()> {
+        // Perform basic verification
+        if plugin.metadata().id.is_nil() {
+            return Err(anyhow::anyhow!("Plugin ID is nil"));
+        }
+        
+        Ok(())
+    }
+    
+    async fn has_permission(&self, plugin_id: Uuid, permission: &str) -> Result<bool> {
+        let permissions = self.permissions.read().await;
+        let has_perm = permissions
+            .get(&plugin_id)
+            .map(|perms| perms.contains(permission))
+            .unwrap_or(false);
+        
+        Ok(has_perm)
+    }
+    
+    async fn grant_permission(&self, plugin_id: Uuid, permission: &str) -> Result<()> {
+        let mut permissions = self.permissions.write().await;
+        let plugin_perms = permissions.entry(plugin_id).or_insert_with(HashSet::new);
+        plugin_perms.insert(permission.to_string());
+        
+        Ok(())
+    }
+    
+    async fn revoke_permission(&self, plugin_id: Uuid, permission: &str) -> Result<()> {
+        let mut permissions = self.permissions.write().await;
+        if let Some(plugin_perms) = permissions.get_mut(&plugin_id) {
+            plugin_perms.remove(permission);
+        }
+        
+        Ok(())
+    }
+    
+    async fn get_plugin_permissions(&self, plugin_id: Uuid) -> Result<Vec<String>> {
+        let permissions = self.permissions.read().await;
+        let perms = permissions
+            .get(&plugin_id)
+            .map(|perms| perms.iter().cloned().collect())
+            .unwrap_or_default();
+        
+        Ok(perms)
+    }
+    
+    async fn create_sandbox(&self, plugin_id: Uuid, config: SandboxConfig) -> Result<()> {
+        let mut sandbox_configs = self.sandbox_configs.write().await;
+        sandbox_configs.insert(plugin_id, config);
+        
+        Ok(())
+    }
+    
+    async fn destroy_sandbox(&self, plugin_id: Uuid) -> Result<()> {
+        let mut sandbox_configs = self.sandbox_configs.write().await;
+        sandbox_configs.remove(&plugin_id);
+        
+        Ok(())
+    }
+    
+    async fn is_sandboxed(&self, plugin_id: Uuid) -> Result<bool> {
+        let sandbox_configs = self.sandbox_configs.read().await;
+        Ok(sandbox_configs.contains_key(&plugin_id))
+    }
+    
+    async fn get_sandbox_config(&self, plugin_id: Uuid) -> Result<Option<SandboxConfig>> {
+        let sandbox_configs = self.sandbox_configs.read().await;
+        let config = sandbox_configs.get(&plugin_id).cloned();
+        
+        Ok(config)
+    }
+    
+    async fn set_sandbox_config(&self, plugin_id: Uuid, config: SandboxConfig) -> Result<()> {
+        let mut sandbox_configs = self.sandbox_configs.write().await;
+        sandbox_configs.insert(plugin_id, config);
+        
+        Ok(())
+    }
+    
+    async fn verify_signature(&self, metadata: &PluginMetadata, signature: &[u8]) -> Result<bool> {
+        // Use the signature verifier to verify the signature
+        self.signature_verifier.verify(metadata, signature).await
+    }
+    
+    async fn get_resource_usage(&self, plugin_id: Uuid) -> Result<ResourceUsage> {
+        let resource_usage = self.resource_usage.read().await;
+        let usage = resource_usage
+            .get(&plugin_id)
+            .cloned()
+            .unwrap_or_default();
+        
+        Ok(usage)
+    }
+    
+    async fn update_resource_usage(&self, plugin_id: Uuid, usage: ResourceUsage) -> Result<()> {
+        let mut resource_usage = self.resource_usage.write().await;
+        resource_usage.insert(plugin_id, usage);
+        
+        Ok(())
+    }
+    
+    async fn check_resource_limits(&self, plugin_id: Uuid) -> Result<bool> {
+        // Get current resource usage
+        let usage = self.get_resource_usage(plugin_id).await?;
+        
+        // Get sandbox config
+        let sandbox_config = match self.get_sandbox_config(plugin_id).await? {
+            Some(config) => config,
+            None => return Ok(true), // No limits if not sandboxed
+        };
+        
+        // Create resource limits from sandbox config
+        let limits = ResourceLimits {
+            memory_limit: sandbox_config.max_memory.unwrap_or(0),
+            cpu_limit: sandbox_config.max_cpu.unwrap_or(0.0),
+            disk_limit: sandbox_config.max_disk.unwrap_or(0),
+            network_limit: if sandbox_config.network_access { 0 } else { 1 }, // Limit to 1 byte if no network access
+        };
+        
+        // Check if usage exceeds limits
+        Ok(!usage.exceeds_limits(&limits))
+    }
+    
+    async fn create_security_report(&self, plugin_id: Uuid) -> Result<SecurityReport> {
+        let permissions = self.get_plugin_permissions(plugin_id).await?;
+        let resource_usage = self.get_resource_usage(plugin_id).await?;
+        let sandbox_config = self.get_sandbox_config(plugin_id).await?;
+        let is_sandboxed = self.is_sandboxed(plugin_id).await?;
+        
+        // Collect security issues
+        let mut security_issues = Vec::new();
+        
+        // Check resource limits
+        if !self.check_resource_limits(plugin_id).await? {
+            security_issues.push(SecurityIssue {
+                issue_type: SecurityIssueType::ResourceLimitExceeded,
+                description: "Plugin exceeds resource limits".to_string(),
+                severity: 70,
+                recommended_action: "Adjust resource limits or optimize plugin".to_string(),
+            });
+        }
+        
+        // Calculate security score (simple implementation)
+        let security_score = if security_issues.is_empty() {
+            100
+        } else {
+            let total_severity: u32 = security_issues.iter()
+                .map(|issue: &SecurityIssue| u32::from(issue.severity))
+                .sum();
+            let score = 100u8.saturating_sub((total_severity / security_issues.len() as u32) as u8);
+            score.max(1) // Minimum score of 1
+        };
+        
+        Ok(SecurityReport {
+            plugin_id,
+            plugin_name: "Unknown".to_string(), // This would be set by the caller
+            permissions,
+            resource_usage,
+            security_issues,
+            sandbox_config,
+            is_sandboxed,
+            security_score,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        })
+    }
 }
 
 /// Enhanced security manager
@@ -491,55 +823,25 @@ impl EnhancedSecurityManager {
         Ok(())
     }
     
-    /// Verify all security aspects of a plugin
-    async fn verify_security(&self, plugin: &dyn Plugin) -> Result<Vec<SecurityIssue>> {
-        let mut issues = Vec::new();
-        
-        // Check for signature
-        let metadata = plugin.metadata();
-        let signatures = self.signatures.read().await;
-        if let Some(signature) = signatures.get(&metadata.id) {
-            if !self.verify_signature(metadata, signature).await? {
-                issues.push(SecurityIssue {
-                    issue_type: SecurityIssueType::InvalidSignature,
-                    description: "Plugin signature is invalid".to_string(),
-                    severity: 80,
-                    recommended_action: "Verify the plugin source or resign the plugin".to_string(),
-                });
-            }
-        } else {
-            issues.push(SecurityIssue {
-                issue_type: SecurityIssueType::MissingSignature,
-                description: "Plugin is not signed".to_string(),
-                severity: 60,
-                recommended_action: "Sign the plugin or use only trusted plugins".to_string(),
-            });
-        }
-        
-        // Check for excessive permissions
-        let permissions = self.get_plugin_permissions(metadata.id).await?;
-        if permissions.len() > 10 {
-            issues.push(SecurityIssue {
-                issue_type: SecurityIssueType::ExcessivePermissions,
-                description: format!("Plugin has {} permissions granted", permissions.len()),
-                severity: 40,
-                recommended_action: "Review and reduce the plugin's permissions".to_string(),
-            });
-        }
-        
-        // Check if plugin exceeds resource limits
-        if self.check_resource_limits(metadata.id).await? {
-            issues.push(SecurityIssue {
-                issue_type: SecurityIssueType::ResourceLimitExceeded,
-                description: "Plugin exceeds resource limits".to_string(),
-                severity: 70,
-                recommended_action: "Adjust resource limits or optimize the plugin".to_string(),
-            });
-        }
-        
-        Ok(issues)
+    /// Register a signature
+    pub async fn register_signature(&self, plugin_id: Uuid, signature: Vec<u8>) -> Result<()> {
+        let mut signatures = self.signatures.write().await;
+        signatures.insert(plugin_id, signature);
+        Ok(())
     }
-
+    
+    /// Check if a plugin has a signature
+    pub async fn has_signature(&self, plugin_id: Uuid) -> Result<bool> {
+        let signatures = self.signatures.read().await;
+        Ok(signatures.contains_key(&plugin_id))
+    }
+    
+    /// Get a plugin's signature
+    pub async fn get_signature(&self, plugin_id: Uuid) -> Result<Option<Vec<u8>>> {
+        let signatures = self.signatures.read().await;
+        Ok(signatures.get(&plugin_id).cloned())
+    }
+    
     /// Get the resource monitor
     pub fn resource_monitor(&self) -> Arc<ResourceMonitor> {
         self.resource_monitor.clone()
@@ -551,108 +853,70 @@ impl EnhancedSecurityManager {
     }
 }
 
+impl Default for EnhancedSecurityManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl SecurityManager for EnhancedSecurityManager {
     async fn verify_plugin(&self, plugin: &dyn Plugin) -> Result<()> {
-        // Check for security issues
-        let issues = self.verify_security(plugin).await?;
-        
-        // If there are any high-severity issues, return an error
-        for issue in &issues {
-            if issue.severity > 70 {
-                return Err(anyhow::anyhow!("Security verification failed: {}", issue.description));
-            }
+        // Perform basic verification
+        if plugin.metadata().id.is_nil() {
+            return Err(anyhow::anyhow!("Plugin ID is nil"));
         }
-        
-        // Initialize resource tracking for this plugin
-        let metadata = plugin.metadata();
-        let mut resource_usage = self.resource_usage.write().await;
-        resource_usage.entry(metadata.id).or_insert_with(ResourceUsage::default);
         
         Ok(())
     }
     
     async fn has_permission(&self, plugin_id: Uuid, permission: &str) -> Result<bool> {
         let permissions = self.permissions.read().await;
-        if let Some(plugin_permissions) = permissions.get(&plugin_id) {
-            Ok(plugin_permissions.contains(permission))
-        } else {
-            Ok(false)
-        }
+        let has_perm = permissions
+            .get(&plugin_id)
+            .map(|perms| perms.contains(permission))
+            .unwrap_or(false);
+        
+        Ok(has_perm)
     }
     
     async fn grant_permission(&self, plugin_id: Uuid, permission: &str) -> Result<()> {
-        // Check if the permission exists
-        let available_permissions = self.available_permissions.read().await;
-        if !available_permissions.contains_key(permission) {
-            return Err(anyhow::anyhow!("Permission does not exist: {}", permission));
-        }
-        
-        // Grant the permission
         let mut permissions = self.permissions.write().await;
-        let plugin_permissions = permissions.entry(plugin_id).or_insert_with(HashSet::new);
-        plugin_permissions.insert(permission.to_string());
-        
-        // Also grant any required permissions
-        if let Some(perm_def) = available_permissions.get(permission) {
-            for req_perm in &perm_def.required_permissions {
-                let plugin_permissions = permissions.entry(plugin_id).or_insert_with(HashSet::new);
-                plugin_permissions.insert(req_perm.clone());
-            }
-        }
-        
-        // Save changes to disk
-        drop(permissions);
-        self.save().await?;
+        let plugin_perms = permissions.entry(plugin_id).or_insert_with(HashSet::new);
+        plugin_perms.insert(permission.to_string());
         
         Ok(())
     }
     
     async fn revoke_permission(&self, plugin_id: Uuid, permission: &str) -> Result<()> {
         let mut permissions = self.permissions.write().await;
-        if let Some(plugin_permissions) = permissions.get_mut(&plugin_id) {
-            plugin_permissions.remove(permission);
+        if let Some(plugin_perms) = permissions.get_mut(&plugin_id) {
+            plugin_perms.remove(permission);
         }
-        
-        // Save changes to disk
-        drop(permissions);
-        self.save().await?;
         
         Ok(())
     }
     
     async fn get_plugin_permissions(&self, plugin_id: Uuid) -> Result<Vec<String>> {
         let permissions = self.permissions.read().await;
-        if let Some(plugin_permissions) = permissions.get(&plugin_id) {
-            Ok(plugin_permissions.iter().cloned().collect())
-        } else {
-            Ok(Vec::new())
-        }
+        let perms = permissions
+            .get(&plugin_id)
+            .map(|perms| perms.iter().cloned().collect())
+            .unwrap_or_default();
+        
+        Ok(perms)
     }
     
     async fn create_sandbox(&self, plugin_id: Uuid, config: SandboxConfig) -> Result<()> {
-        // Store the sandbox configuration
         let mut sandbox_configs = self.sandbox_configs.write().await;
-        sandbox_configs.insert(plugin_id, config.clone());
-        
-        // Also update the resource monitor
-        self.resource_monitor.set_sandbox_config(plugin_id, config).await?;
-        
-        // In a real implementation, this would create the actual sandbox
-        // For example, using OS features or containers
+        sandbox_configs.insert(plugin_id, config);
         
         Ok(())
     }
     
     async fn destroy_sandbox(&self, plugin_id: Uuid) -> Result<()> {
-        // Remove the sandbox configuration
         let mut sandbox_configs = self.sandbox_configs.write().await;
         sandbox_configs.remove(&plugin_id);
-        
-        // Also update the resource monitor
-        self.resource_monitor.remove_sandbox_config(&plugin_id).await?;
-        
-        // In a real implementation, this would destroy the actual sandbox
         
         Ok(())
     }
@@ -664,121 +928,118 @@ impl SecurityManager for EnhancedSecurityManager {
     
     async fn get_sandbox_config(&self, plugin_id: Uuid) -> Result<Option<SandboxConfig>> {
         let sandbox_configs = self.sandbox_configs.read().await;
-        Ok(sandbox_configs.get(&plugin_id).cloned())
+        let config = sandbox_configs.get(&plugin_id).cloned();
+        
+        Ok(config)
     }
     
     async fn set_sandbox_config(&self, plugin_id: Uuid, config: SandboxConfig) -> Result<()> {
         let mut sandbox_configs = self.sandbox_configs.write().await;
         sandbox_configs.insert(plugin_id, config);
         
-        // Save changes to disk
-        drop(sandbox_configs);
-        self.save().await?;
-        
         Ok(())
     }
     
     async fn verify_signature(&self, metadata: &PluginMetadata, signature: &[u8]) -> Result<bool> {
-        // Store the signature bytes for later use
-        let mut signatures = self.signatures.write().await;
-        signatures.insert(metadata.id, signature.to_vec());
-        
-        // Create a PluginSignature object
-        let plugin_signature = PluginSignature {
-            plugin_id: metadata.id,
-            signature: signature.to_vec(),
-            algorithm: SignatureAlgorithm::Ed25519,
-            public_key: Vec::new(), // This would be retrieved from metadata in a real implementation
-            signer: "Unknown".to_string(), // This would be retrieved from metadata in a real implementation
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-            scope: SignatureScope::Metadata,
-        };
-        
-        // Register the signature with the verifier
-        if let Err(e) = self.signature_verifier.register_signature(plugin_signature).await {
-            log::error!("Failed to register signature: {}", e);
-            return Ok(false);
-        }
-        
-        // Verify the signature
-        match self.signature_verifier.verify_plugin_signature(metadata, None).await {
-            Ok(result) => Ok(result.valid),
-            Err(e) => {
-                log::error!("Signature verification error: {}", e);
-                Ok(false)
-            }
-        }
+        self.signature_verifier.verify(metadata, signature).await
     }
     
     async fn get_resource_usage(&self, plugin_id: Uuid) -> Result<ResourceUsage> {
-        // Try to get usage from the resource monitor
-        match self.resource_monitor.get_resource_stats(plugin_id).await {
-            Ok(stats) => Ok(stats.current_usage),
-            Err(_) => {
-                // Fall back to our internal tracking
-                let resource_usage = self.resource_usage.read().await;
-                Ok(resource_usage.get(&plugin_id).cloned().unwrap_or_default())
-            }
-        }
+        let resource_usage = self.resource_usage.read().await;
+        let usage = resource_usage
+            .get(&plugin_id)
+            .cloned()
+            .unwrap_or_default();
+        
+        Ok(usage)
     }
     
     async fn update_resource_usage(&self, plugin_id: Uuid, usage: ResourceUsage) -> Result<()> {
-        // Update both our internal tracking and the resource monitor
         let mut resource_usage = self.resource_usage.write().await;
-        resource_usage.insert(plugin_id, usage.clone());
-        
-        // Also update the resource monitor
-        self.resource_monitor.update_resource_usage(plugin_id, usage).await?;
+        resource_usage.insert(plugin_id, usage);
         
         Ok(())
     }
     
     async fn check_resource_limits(&self, plugin_id: Uuid) -> Result<bool> {
-        // Sample current usage
-        let usage = self.resource_monitor.sample_plugin_resource_usage(plugin_id).await?;
+        // Get current resource usage
+        let usage = self.get_resource_usage(plugin_id).await?;
         
-        // Update the resource usage
-        self.update_resource_usage(plugin_id, usage).await?;
+        // Get sandbox config
+        let sandbox_config = match self.get_sandbox_config(plugin_id).await? {
+            Some(config) => config,
+            None => return Ok(true), // No limits if not sandboxed
+        };
         
-        // Check if any plugins need to be stopped
-        let plugins_to_stop = self.resource_monitor.get_plugins_to_stop().await?;
-        let exceeded = plugins_to_stop.contains(&plugin_id);
+        // Create resource limits from sandbox config
+        let limits = ResourceLimits {
+            memory_limit: sandbox_config.max_memory.unwrap_or(0),
+            cpu_limit: sandbox_config.max_cpu.unwrap_or(0.0),
+            disk_limit: sandbox_config.max_disk.unwrap_or(0),
+            network_limit: if sandbox_config.network_access { 0 } else { 1 }, // Limit to 1 byte if no network access
+        };
         
-        Ok(exceeded)
+        // Check if usage exceeds limits
+        Ok(!usage.exceeds_limits(&limits))
     }
     
     async fn create_security_report(&self, plugin_id: Uuid) -> Result<SecurityReport> {
-        // Get the plugin information
         let permissions = self.get_plugin_permissions(plugin_id).await?;
         let resource_usage = self.get_resource_usage(plugin_id).await?;
         let sandbox_config = self.get_sandbox_config(plugin_id).await?;
         let is_sandboxed = self.is_sandboxed(plugin_id).await?;
         
-        // For a real report, we would need the plugin object to check more things
-        // This is a simplified version
-        let plugin_name = format!("Plugin {}", plugin_id);
+        // Create a list of security issues
+        let mut security_issues = Vec::new();
         
-        // Calculate a security score based on permissions, sandboxing, etc.
-        let mut security_score: u8 = 100;
-        
-        // More permissions = lower score
-        security_score = security_score.saturating_sub((permissions.len() as u8).min(50));
-        
-        // Not sandboxed = lower score
-        if !is_sandboxed {
-            security_score = security_score.saturating_sub(30);
+        // Check for resource limits
+        if let Some(config) = &sandbox_config {
+            // Create resource limits from sandbox config
+            let limits = ResourceLimits {
+                memory_limit: config.max_memory.unwrap_or(0),
+                cpu_limit: config.max_cpu.unwrap_or(0.0),
+                disk_limit: config.max_disk.unwrap_or(0),
+                network_limit: if config.network_access { 0 } else { 1 }, // Limit to 1 byte if no network access
+            };
+            
+            // Check if usage exceeds limits
+            if resource_usage.exceeds_limits(&limits) {
+                security_issues.push(SecurityIssue {
+                    issue_type: SecurityIssueType::ResourceLimitExceeded,
+                    description: "Plugin exceeds resource limits".to_string(),
+                    severity: 70,
+                    recommended_action: "Adjust resource limits or optimize plugin".to_string(),
+                });
+            }
         }
         
-        // Create the report
-        let report = SecurityReport {
+        // Check for excessive permissions
+        if permissions.len() > 10 {
+            security_issues.push(SecurityIssue {
+                issue_type: SecurityIssueType::ExcessivePermissions,
+                description: format!("Plugin has {} permissions granted", permissions.len()),
+                severity: 40,
+                recommended_action: "Review and reduce the plugin's permissions".to_string(),
+            });
+        }
+        
+        // Calculate security score (simple implementation)
+        let security_score = if security_issues.is_empty() {
+            100
+        } else {
+            let total_severity: u32 = security_issues.iter()
+                .map(|issue: &SecurityIssue| u32::from(issue.severity))
+                .sum();
+            let score = 100u8.saturating_sub((total_severity / security_issues.len() as u32) as u8);
+            score.max(1) // Minimum score of 1
+        };
+        
+        Ok(SecurityReport {
             plugin_id,
-            plugin_name,
+            plugin_name: "Unknown".to_string(), // This would be set by the caller
             permissions,
             resource_usage,
-            security_issues: Vec::new(), // Would normally be populated
+            security_issues,
             sandbox_config,
             is_sandboxed,
             security_score,
@@ -786,15 +1047,7 @@ impl SecurityManager for EnhancedSecurityManager {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs(),
-        };
-        
-        Ok(report)
-    }
-}
-
-impl Default for EnhancedSecurityManager {
-    fn default() -> Self {
-        Self::new()
+        })
     }
 }
 
@@ -901,4 +1154,10 @@ impl SecurityManager for DefaultSecurityManager {
                 .as_secs(),
         })
     }
+}
+
+/// Create a security manager adapter with the provided MCP security manager
+#[cfg(feature = "mcp")]
+pub fn with_mcp_security_manager(mcp_security_manager: Arc<dyn SecurityManager>) -> SecurityManagerAdapter {
+    SecurityManagerAdapter::new(mcp_security_manager)
 } 

@@ -62,4 +62,8 @@ pub enum ConnectionError {
     /// such as per-user limits or rate limiting.
     #[error("Connection limit reached: {0}")]
     LimitReached(String),
+
+    /// Error reported by the remote peer
+    #[error("Remote connection error: {0}")]
+    RemoteError(String),
 } 

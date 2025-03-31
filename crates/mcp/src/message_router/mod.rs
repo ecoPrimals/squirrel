@@ -83,7 +83,12 @@ pub trait AsyncMessageHandler: Send + Sync {
 }
 
 /// Handler trait for processing messages
-pub trait MessageHandler: Send + Sync + AsyncMessageHandler + std::fmt::Debug {
+#[async_trait]
+pub trait MessageHandler: Send + Sync + std::fmt::Debug {
+    /// Handle a message and optionally return a response
+    /// This method needs to be async.
+    async fn handle_message(&self, message: Message) -> MessageHandlerResult;
+
     /// Get the message types this handler can process
     fn supported_message_types(&self) -> Vec<String>;
 
@@ -401,7 +406,25 @@ impl AsyncMessageHandler for CompositeHandler {
     }
 }
 
+#[async_trait]
 impl MessageHandler for CompositeHandler {
+    async fn handle_message(&self, message: Message) -> MessageHandlerResult {
+        // Iterate through handlers and try to handle the message
+        // This needs more sophisticated logic based on priority, configuration etc.
+        for handler in &self.handlers {
+            // Check if the handler supports the type before calling
+            if handler.supported_message_types().contains(&message.message_type.to_string()) {
+                match handler.handle_message(message.clone()).await { // Clone message for each handler
+                    Ok(Some(response)) => return Ok(Some(response)), // Return first response
+                    Ok(None) => continue, // Try next handler
+                    Err(e) => return Err(e), // Propagate error
+                }
+            }
+        }
+        // If no handler produced a response
+        Ok(None)
+    }
+
     fn supported_message_types(&self) -> Vec<String> {
         self.message_types.clone()
     }

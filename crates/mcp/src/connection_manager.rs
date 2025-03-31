@@ -14,6 +14,7 @@ use serde_json::Value;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, AtomicBool};
 use std::sync::broadcast;
+use std::sync::Mutex;
 
 use crate::mcp::{
     MCPMessage, PortManager, SecurityManager, ErrorHandler, StateManager, ContextManager,
@@ -22,7 +23,14 @@ use crate::mcp::{
     security_manager::SecurityManager,
     error::{MCPError, ConnectionError},
     port_manager::{PortConfig, PortAccessControl},
+    config::PortConfig,
+    error::{ErrorHandler, Result},
+    message::MCPMessage,
+    security::manager::SecurityManagerImpl,
+    transport::{self, ConnectionEvent, Transport, TransportMetadata, ConnectionStatus},
+    types::{ConnectionId, ProtocolVersion},
 };
+use crate::transport::tcp::TcpTransport;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectionError {
@@ -108,7 +116,7 @@ pub struct ConnectionManager {
     connections: Arc<TokioRwLock<HashMap<String, Connection>>>,
     config: ConnectionConfig,
     port_config: PortConfig,
-    security_manager: Arc<dyn SecurityManager>,
+    security_manager: Arc<SecurityManagerImpl>,
     error_handler: Arc<ErrorHandler>,
     max_connections: usize,
     active_connections: Arc<AtomicUsize>,
@@ -121,7 +129,7 @@ impl ConnectionManager {
     pub fn new(
         config: ConnectionManagerConfig,
         port_config: PortConfig,
-        security_manager: Arc<dyn SecurityManager>,
+        security_manager: Arc<SecurityManagerImpl>,
         error_handler: Arc<ErrorHandler>,
     ) -> Self {
         Self {
@@ -213,6 +221,32 @@ impl ConnectionManager {
         // Implementation for handling messages
         Ok(())
     }
+
+    async fn handle_new_connection<T: Transport + 'static>(
+        &self,
+        mut transport: T,
+        peer_addr: Option<SocketAddr>,
+        local_addr: Option<SocketAddr>,
+        transport_type: String,
+    ) -> Result<ConnectionId> {
+        let connection_id = Uuid::new_v4().to_string();
+        let transport_arc = Arc::new(Mutex::new(transport));
+        let metadata = TransportMetadata {
+            connection_id: connection_id.clone(),
+            remote_address: peer_addr,
+            local_address: local_addr,
+            transport_type,
+            encryption_format: None, // Assuming no encryption by default for new connections
+            compression_format: None, // Assuming no compression by default
+            status: ConnectionStatus::Connected,
+            last_activity: Utc::now(),
+            protocol_version: ProtocolVersion::new(1, 0), // Default version
+            additional_metadata: HashMap::<String, String>::new(),
+        };
+
+        // Implementation of handle_new_connection method
+        Ok(ConnectionId::new())
+    }
 }
 
 #[cfg(test)]
@@ -225,7 +259,7 @@ mod tests {
     async fn test_connection_creation() {
         let config = ConnectionManagerConfig::default();
         let port_config = PortConfig::default();
-        let security_manager = Arc::new(SecurityManager::new());
+        let security_manager = Arc::new(SecurityManagerImpl::new());
         let error_handler = Arc::new(ErrorHandler::new(100));
 
         let manager = ConnectionManager::new(
@@ -246,7 +280,7 @@ mod tests {
     async fn test_connection_cleanup() {
         let config = ConnectionManagerConfig::default();
         let port_config = PortConfig::default();
-        let security_manager = Arc::new(SecurityManager::new());
+        let security_manager = Arc::new(SecurityManagerImpl::new());
         let error_handler = Arc::new(ErrorHandler::new(100));
 
         let manager = ConnectionManager::new(

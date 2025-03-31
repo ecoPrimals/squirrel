@@ -44,20 +44,33 @@
 
 use crate::error::{MCPError, ProtocolError, Result};
 use crate::protocol::{
-    MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult, ValidationResult,
-    MCPMessage, MCPResponse,
-    MessageHandler,
+    MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, 
+    RoutingResult, ValidationResult, RoutingDecision, CommandHandler
+};
+use crate::protocol::types::{
+    MCPMessage,
     MessageType,
-    ProtocolState, ProtocolVersion,
-    CommandResponse,
+    ProtocolVersion,
+    CommandResponse
+};
+use crate::types::{
+    MCPResponse, 
+    ResponseStatus, 
+    MessageMetadata, 
+    ProtocolState
 };
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use std::sync::{Arc, Mutex as StdMutex}; // Using standard Mutex for state
+use std::sync::{Arc as StdArc, Mutex as StdMutex}; // Using standard Mutex for state, renamed Arc to avoid duplication
 use tokio::sync::Mutex as TokioMutex; // Using Tokio Mutex for async operations if needed
+use crate::protocol::CommandHandler as ProtocolCommandHandler; 
+use crate::protocol::types::{MCPMessage as ProtocolMCPMessage, MessageType as ProtocolMessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
+use crate::types::{MCPResponse as TypesMCPResponse, ResponseStatus as TypesResponseStatus, MessageMetadata as TypesMessageMetadata, ProtocolState as TypesProtocolState, ProtocolVersion as TypesProtocolVersion}; // Remove CommandResponse here
+use crate::message_router::MessageHandler;
+use crate::transport::Transport;
 
 /// Errors specific to MCP protocol adapter operations.
 ///
@@ -677,14 +690,14 @@ impl MCPProtocol for MCPProtocolAdapter {
         }
     }
 
-    async fn route_message(&self, _msg: &MCPMessage) -> RoutingResult {
+    async fn route_message(&self, msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
         let protocol_guard = self.inner.read().await;
 
         if let Some(ref _protocol) = *protocol_guard {
             // Check if the protocol has registered a handler for this message type
             // For now, we're just implementing a basic placeholder
             // In the future, this would delegate to protocol's handlers
-            Ok(())
+            Ok(RoutingDecision::NoRouteFound)
         } else {
             Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
         }

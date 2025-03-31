@@ -60,41 +60,53 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, ProtocolError, Result};
+use crate::error::{MCPError, ProtocolError, Result as MCPResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::str::FromStr;
-use std::sync::Arc;
-
-// Import common types from types module
-use crate::types::{
-    MCPMessage, MCPResponse, MessageMetadata, MessageType, ProtocolState, ResponseStatus,
-};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use tracing::warn;
+use async_trait::async_trait;
 
 /// Protocol-related types module
 pub mod types;
-// Re-export types from the protocol::types module
-pub use types::*;
+
+// Re-export specific types from the protocol::types module - make them available from crate::protocol
+pub use types::{
+    MCPMessage,
+    MessageId,
+    MessageType,
+    Header,
+    ProtocolVersion,
+};
 
 /// Protocol-specific result type for operations that return a response.
 ///
 /// This type is an alias for `Result<MCPResponse>` and is used throughout
 /// the protocol module for operations that produce a response message.
-pub type ProtocolResult = Result<MCPResponse>;
+pub type ProtocolResult = MCPResult<crate::types::MCPResponse>;
 
 /// Result type for validation operations.
 ///
 /// This type is an alias for `Result<()>` and is used for operations
 /// that validate messages without producing a response.
-pub type ValidationResult = Result<()>;
+pub type ValidationResult = MCPResult<()>;
+
+/// Describes the outcome of a message routing attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoutingDecision {
+    /// Route the message to a specific handler identified by its key (usually message type).
+    RouteToHandler(String),
+    /// Broadcast the message to all applicable handlers (typically for events).
+    Broadcast,
+    /// No appropriate handler or route was found for the message.
+    NoRouteFound,
+}
 
 /// Result type for message routing operations.
 ///
-/// This type is an alias for `Result<()>` and is used for operations
+/// This type is an alias for `Result<RoutingDecision>` and is used for operations
 /// that route messages to their appropriate handlers.
-pub type RoutingResult = Result<()>;
+pub type RoutingResult = MCPResult<RoutingDecision>;
 
 /// Adapter module for protocol operations
 pub mod adapter;
@@ -105,7 +117,7 @@ pub use adapter::{
 /// Wire format adapter for protocol serialization/deserialization and versioning
 pub mod adapter_wire;
 pub use adapter_wire::{
-    WireFormatAdapter, WireFormatConfig, WireMessage, WireFormat, ProtocolVersion, DomainObject
+    WireFormatAdapter, WireFormatConfig, WireMessage, WireFormat, WireProtocolVersion, DomainObject
 };
 
 /// Domain object implementations for protocol serialization/deserialization
@@ -117,6 +129,7 @@ pub use impl_protocol::MCPProtocolImpl;
 
 /// Serialization helpers for protocol operations
 pub mod serialization_helpers;
+pub mod constants;
 
 /// Serialization utility functions
 pub mod serialization_utils;
@@ -124,6 +137,9 @@ pub mod serialization_utils;
 /// Module for domain object tests
 #[cfg(test)]
 mod domain_objects_tests;
+
+/// Re-export types from security module
+pub use crate::security::auth::{Permission, Action, AuthToken};
 
 /// Configuration for the MCP protocol.
 ///
@@ -362,7 +378,7 @@ pub trait CommandHandler: Send + Sync + Debug {
     /// using the error types defined in the `error` module. These errors will
     /// be translated into response messages with appropriate error status and
     /// details by the protocol system.
-    async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse>;
+    async fn handle(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse>;
 }
 
 /// Base implementation of the MCP protocol.
@@ -484,14 +500,14 @@ impl MCPProtocolBase {
     ///
     /// A new `MCPResponse` with information from the request message
     #[must_use]
-    pub fn create_response(&self, message: &MCPMessage, status: ResponseStatus) -> MCPResponse {
-        MCPResponse {
+    pub fn create_response(&self, message: &MCPMessage, status: crate::types::ResponseStatus) -> crate::types::MCPResponse {
+        crate::types::MCPResponse {
             protocol_version: self.config.version.clone(),
-            message_id: message.id.0.clone(),
+            message_id: message.id.clone(),
             status,
             payload: Vec::new(),
             error_message: None,
-            metadata: MessageMetadata::default(),
+            metadata: crate::types::MessageMetadata::default(),
         }
     }
 
@@ -508,7 +524,7 @@ impl MCPProtocolBase {
     /// # Errors
     ///
     /// Returns an error if no handler is registered for the message type
-    pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> Result<MCPResponse> {
+    pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse> {
         let handler = self
             .handlers
             .get(&message.type_.to_string())
@@ -541,7 +557,7 @@ impl MCPProtocolBase {
         &mut self,
         message_type: MessageType,
         handler: Box<dyn CommandHandler>,
-    ) -> Result<()> {
+    ) -> MCPResult<()> {
         if self.handlers.contains_key(&message_type.to_string()) {
             return Err(MCPError::Protocol(ProtocolError::HandlerAlreadyExists(
                 format!("Handler already exists for message type: {message_type:?}"),
@@ -564,7 +580,7 @@ impl MCPProtocolBase {
     /// # Errors
     ///
     /// Returns an error if no handler is found for the message type
-    pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
+    pub fn unregister_handler(&mut self, message_type: &MessageType) -> MCPResult<()> {
         self.handlers
             .remove(&message_type.to_string())
             .ok_or_else(|| {
@@ -615,34 +631,34 @@ impl MCPProtocolBase {
 
     /// Gets the protocol state as an enum
     #[must_use]
-    pub fn get_protocol_state(&self) -> ProtocolState {
+    pub fn get_protocol_state(&self) -> crate::types::ProtocolState {
         // Default to initialized state if we can't parse the state
         if self.state.is_null() {
-            return ProtocolState::Initialized;
+            return crate::types::ProtocolState::Initialized;
         }
 
         // Try to extract a string representation of the state
         if let Some(state_str) = self.state.get("state").and_then(|s| s.as_str()) {
             match state_str {
-                "ready" => ProtocolState::Ready,
-                "error" => ProtocolState::Error,
-                _ => ProtocolState::Initialized,
+                "ready" => crate::types::ProtocolState::Ready,
+                "error" => crate::types::ProtocolState::Error,
+                _ => crate::types::ProtocolState::Initialized,
             }
         } else {
-            ProtocolState::Initialized
+            crate::types::ProtocolState::Initialized
         }
     }
 
     /// Sets the protocol state from an enum
-    pub fn set_protocol_state(&mut self, state: ProtocolState) {
+    pub fn set_protocol_state(&mut self, state: crate::types::ProtocolState) {
         let state_str = match state {
-            ProtocolState::Initialized => "initialized",
-            ProtocolState::Ready => "ready",
-            ProtocolState::Error => "error",
-            ProtocolState::Uninitialized => "uninitialized",
-            ProtocolState::Initializing => "initializing",
-            ProtocolState::ShuttingDown => "shutting_down",
-            ProtocolState::Closed => "closed",
+            crate::types::ProtocolState::Initialized => "initialized",
+            crate::types::ProtocolState::Ready => "ready",
+            crate::types::ProtocolState::Error => "error",
+            crate::types::ProtocolState::Uninitialized => "uninitialized",
+            crate::types::ProtocolState::Initializing => "initializing",
+            crate::types::ProtocolState::ShuttingDown => "shutting_down",
+            crate::types::ProtocolState::Closed => "closed",
         };
 
         // Update the existing state object or create a new one
@@ -717,42 +733,43 @@ impl MCPProtocolBase {
 
                 // Create a default handler that returns an error response
                 #[derive(Debug)]
-                struct DefaultHandler;
+                struct DefaultHandler {
+                    // Store necessary context, like the protocol version
+                    protocol_version: String,
+                }
 
                 #[async_trait::async_trait]
                 impl CommandHandler for DefaultHandler {
-                    async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
-                        let response = MCPResponse {
-                            protocol_version: "1.0".to_string(),
-                            message_id: message.id.0.clone(),
-                            status: ResponseStatus::Error,
-                            payload: Vec::new(),
-                            error_message: Some(
-                                "No handler registered for this message type".to_string(),
-                            ),
-                            metadata: MessageMetadata::default(),
-                        };
-
-                        Ok(response)
+                    async fn handle(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse> {
+                        // Create an error response indicating the handler wasn't found
+                        let error = MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
+                            "No handler registered for message type: {}",
+                            message.type_
+                        )));
+                        Ok(crate::types::MCPResponse {
+                            protocol_version: self.protocol_version.clone(), // Use stored version
+                            message_id: message.id.clone(),
+                            status: crate::types::ResponseStatus::Error,
+                            payload: vec![json!({
+                                "error": error.to_string(),
+                                "code": error.code_str(),
+                            })],
+                            error_message: Some(error.to_string()),
+                            metadata: crate::types::MessageMetadata::default(),
+                        })
                     }
                 }
 
-                // Extract message type string
-                let type_str = message_type.to_string();
-                if let Ok(message_type) = MessageType::from_str(&type_str) {
-                    // Register a default handler for this message type
-                    let _ = self.register_handler(message_type, Box::new(DefaultHandler));
-                    Ok(())
-                } else {
-                    Err(ProtocolError::RecoveryFailed(format!(
-                        "Failed to parse message type: {message_type}"
-                    )))
-                }
+                // Register the default handler for the specific message type
+                let default_handler = DefaultHandler { protocol_version: self.config.version.clone() };
+                self.handlers.insert(message_type.clone(), Box::new(default_handler));
+                warn!("Default handler registered for unhandled message type: {}", message_type);
+                Ok(())
             }
             ProtocolError::InvalidState(ref state) => {
                 // Try to reset the protocol state
                 tracing::warn!("Resetting protocol state from invalid state: {}", state);
-                self.set_protocol_state(ProtocolState::Initialized);
+                self.set_protocol_state(crate::types::ProtocolState::Initialized);
                 Ok(())
             }
             // Non-recoverable errors
@@ -868,15 +885,10 @@ pub trait MCPProtocol: Send + Sync + Debug {
     ///
     /// # Returns
     ///
-    /// A `RoutingResult` which is `Ok(())` if routing is successful, or an
-    /// `MCPError` if routing fails (e.g., handler not found).
+    /// A `RoutingResult` containing the `RoutingDecision` or an `MCPError`.
     async fn route_message(&self, msg: &MCPMessage) -> RoutingResult;
 
-    /// Sets the current state of the protocol.
-    ///
-    /// Allows external components to update the protocol's operational state,
-    /// for example, setting it to `Ready` after initialization or `Error` if
-    /// a critical failure occurs.
+    /// Sets the protocol state.
     ///
     /// # Arguments
     ///
@@ -884,98 +896,20 @@ pub trait MCPProtocol: Send + Sync + Debug {
     ///
     /// # Returns
     ///
-    /// A `Result<()>` indicating success or failure.
-    async fn set_state(&self, new_state: ProtocolState) -> Result<()>;
+    /// A `Result` indicating success or an `MCPError`.
+    async fn set_state(&self, new_state: crate::types::ProtocolState) -> MCPResult<()>;
 
-    /// Gets the current state of the protocol.
-    ///
-    /// Returns the current operational state of the protocol handler.
+    /// Gets the current protocol state.
     ///
     /// # Returns
     ///
-    /// A `Result<ProtocolState>` containing the current state or an error.
-    async fn get_state(&self) -> Result<ProtocolState>;
-    
+    /// A `Result` containing the current `ProtocolState` or an `MCPError`.
+    async fn get_state(&self) -> MCPResult<crate::types::ProtocolState>;
+
     /// Gets the protocol version string.
     ///
     /// # Returns
     ///
-    /// The protocol version string (e.g., "1.0").
+    /// The protocol version as a `String`.
     fn get_version(&self) -> String;
-}
-
-/// Trait for handlers that process specific message types
-#[async_trait::async_trait]
-pub trait MessageHandler: Send + Sync + std::fmt::Debug {
-    /// Handles a specific type of message
-    async fn handle(&self, message: &MCPMessage) -> ProtocolResult;
-
-    /// Validates a message according to handler rules
-    async fn validate(&self, message: &MCPMessage) -> ValidationResult;
-
-    /// Routes a message to its appropriate processor
-    async fn route(&self, message: &MCPMessage) -> RoutingResult;
-
-    /// Returns the message types this handler can process
-    fn supported_types(&self) -> Vec<MessageType>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(Clone, Debug, PartialEq)]
-    pub struct ProtocolVersion {
-        major: u32,
-        minor: u32,
-    }
-
-    impl ProtocolVersion {
-        #[allow(dead_code)]
-        pub fn new(major: u32, minor: u32) -> Self {
-            Self { major, minor }
-        }
-    }
-
-    #[derive(Clone, Debug, PartialEq)]
-    #[allow(dead_code)]
-    pub enum ProtocolState {
-        Initialized,
-        Ready,
-        Error,
-    }
-
-    #[derive(Clone, Debug)]
-    #[allow(dead_code)]
-    pub enum CompressionFormat {
-        None,
-        Gzip,
-        Zstd,
-    }
-
-    #[derive(Clone, Debug)]
-    #[allow(dead_code)]
-    pub enum EncryptionFormat {
-        None,
-        Aes256Gcm,
-        ChaCha20Poly1305,
-    }
-
-    #[derive(Clone, Debug, Default)]
-    pub struct MessageMetadata {
-        #[allow(dead_code)]
-        pub timestamp: u64,
-        #[allow(dead_code)]
-        pub source: String,
-        #[allow(dead_code)]
-        pub destination: String,
-    }
-
-    #[derive(Clone, Debug)]
-    #[allow(dead_code)]
-    pub enum ResponseStatus {
-        Success,
-        Error,
-        Pending,
-    }
 }

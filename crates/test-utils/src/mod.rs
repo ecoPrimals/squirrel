@@ -392,21 +392,21 @@ pub mod security {
             id: "perm-read".to_string(),
             name: "Read".to_string(),
             resource: "Document".to_string(),
-            action: Action::Read,
+            action: Action::Read(),
         };
         
         let write_perm = Permission {
             id: "perm-write".to_string(),
             name: "Write".to_string(),
             resource: "Document".to_string(),
-            action: Action::Update,
+            action: Action::Update(),
         };
         
         let admin_perm = Permission {
             id: "perm-admin".to_string(),
             name: "Admin".to_string(),
             resource: "System".to_string(),
-            action: Action::Admin,
+            action: Action::Admin(),
         };
         
         // Create HashSets for permissions 
@@ -483,21 +483,21 @@ pub mod security {
             id: "perm-read".to_string(),
             name: "Read".to_string(),
             resource: "System".to_string(),
-            action: Action::Read,
+            action: Action::Read(),
         };
         
         let write_perm = Permission {
             id: "perm-write".to_string(),
             name: "Write".to_string(),
             resource: "System".to_string(),
-            action: Action::Update,
+            action: Action::Update(),
         };
         
         let admin_perm = Permission {
             id: "perm-admin".to_string(),
             name: "Admin".to_string(),
             resource: "System".to_string(),
-            action: Action::Admin,
+            action: Action::Admin(),
         };
         
         // Create HashSets for permissions
@@ -653,7 +653,7 @@ pub fn create_test_permission(resource: &str) -> Permission {
         id: Uuid::new_v4().to_string(),
         name: format!("{}-permission", resource),
         resource: resource.to_string(),
-        action: Action::Update,
+        action: Action::Update(),
     }
 }
 

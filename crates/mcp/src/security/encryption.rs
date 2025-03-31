@@ -2,13 +2,14 @@
 //!
 //! This module provides encryption functionality for sensitive data in MCP.
 
-use crate::config::SecurityConfig;
-use crate::error::{Result, SecurityError, MCPError};
-use crate::protocol::types::EncryptionFormat;
-use crate::security::crypto;
-use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+// use crate::config::SecurityConfig; // Commented out - path unclear
+use crate::error::{Result, SecurityError, MCPError};
+use crate::security::types::EncryptionFormat; // Use crate::security::types
+use crate::security::crypto;
+use async_trait::async_trait;
+use std::collections::HashMap;
 use tracing::{debug, instrument};
 use ring::{aead, hmac};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -17,11 +18,11 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 #[async_trait]
 pub trait Encryption: Send + Sync {
     /// Encrypt data
-    async fn encrypt(&self, data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>>;
+    async fn encrypt(&self, data: &[u8], format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError>;
     /// Decrypt data
-    async fn decrypt(&self, data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>>;
+    async fn decrypt(&self, data: &[u8], format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError>;
     /// Generate a new encryption key
-    async fn generate_key(&self, format: EncryptionFormat) -> Result<Vec<u8>>;
+    async fn generate_key(&self, format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError>;
 }
 
 /// Encryption manager for MCP
@@ -53,8 +54,7 @@ impl EncryptionManager {
     }
     
     /// Get or generate a key for the specified format
-    async fn get_or_generate_key(&self, format: EncryptionFormat) -> Result<Vec<u8>> {
-        // Early return for None format
+    async fn get_or_generate_key(&self, format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError> {
         if format == EncryptionFormat::None {
             return Ok(Vec::new());
         }
@@ -98,7 +98,7 @@ impl EncryptionManager {
     /// However, it might theoretically return an error if the internal lock
     /// protecting the key map becomes poisoned due to a panic in another thread
     /// holding the lock.
-    pub async fn set_key(&self, format: EncryptionFormat, key: Vec<u8>) -> Result<()> {
+    pub async fn set_key(&self, format: EncryptionFormat, key: Vec<u8>) -> std::result::Result<(), MCPError> {
         if format == EncryptionFormat::None {
             return Ok(());
         }
@@ -116,9 +116,15 @@ impl EncryptionManager {
 #[async_trait]
 impl Encryption for EncryptionManager {
     #[instrument(skip(self, data))]
-    async fn encrypt(&self, data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
-        // Get the appropriate key for this format
-        let key = self.get_or_generate_key(format).await?;
+    async fn encrypt(&self, data: &[u8], format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError> {
+        // Explicitly pin the future if necessary, though match might be sufficient
+        let key_future = self.get_or_generate_key(format);
+        // std::pin::pin!(key_future);
+        
+        let key: Vec<u8> = match key_future.await {
+            Ok(k) => k.to_vec(),
+            Err(e) => return Err(e),
+        };
         
         // Use the crypto module to encrypt the data
         let encrypted = crypto::encrypt(data, &key, format)?;
@@ -128,9 +134,14 @@ impl Encryption for EncryptionManager {
     }
 
     #[instrument(skip(self, data))]
-    async fn decrypt(&self, data: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
-        // Get the appropriate key for this format
-        let key = self.get_or_generate_key(format).await?;
+    async fn decrypt(&self, data: &[u8], format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError> {
+        let key_future = self.get_or_generate_key(format);
+        // std::pin::pin!(key_future);
+
+        let key: Vec<u8> = match key_future.await {
+            Ok(k) => k.to_vec(),
+            Err(e) => return Err(e),
+        };
         
         // Use the crypto module to decrypt the data
         let decrypted = crypto::decrypt(data, &key, format)?;
@@ -140,7 +151,7 @@ impl Encryption for EncryptionManager {
     }
 
     #[instrument(skip(self))]
-    async fn generate_key(&self, format: EncryptionFormat) -> Result<Vec<u8>> {
+    async fn generate_key(&self, format: EncryptionFormat) -> std::result::Result<Vec<u8>, MCPError> {
         // Generate a new key for this format
         let new_key = crypto::generate_key(format);
         

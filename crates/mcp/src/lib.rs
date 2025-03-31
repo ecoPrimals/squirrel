@@ -146,16 +146,20 @@ pub mod plugins;
 pub mod factory;
 
 /// Re-export common types from the error module for easier access.
-pub use error::{MCPError, Result, ErrorContext};
-pub use error::types::MCPError;
+pub use error::{ErrorContext};
+pub use error::MCPError;
 pub use error::Result;
 
 pub use context_manager::Context;
 /// Re-export commonly used security types.
 pub use security::{SecurityManager, SecurityManagerImpl};
-pub use types::{UserId, AccountId};
-pub use protocol::MessageId;
-pub use security::types::{EncryptionFormat, SecurityLevel};
+pub use types::{AccountId};
+pub use protocol::types::{MCPMessage, MessageType as ProtocolMessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
+pub use security::types::{AuthCredentials, SecurityLevel, UserId};
+pub use security::types::{EncryptionFormat};
+pub use security::token::{Token, SessionToken, AuthToken};
+// Comment out the Permission import for now until we resolve the circular dependencies
+// pub use protocol::security::auth::Permission;
 
 /// Adapter for MCP operations with dependency injection support.
 pub mod adapter;
@@ -168,6 +172,8 @@ pub use plugins::adapter::{ToolPluginAdapter, ToolPluginFactory};
 pub use plugins::discovery::{PluginProxyExecutor, PluginDiscoveryManager};
 
 /// Re-export the main configuration type.
+pub use config::McpConfig;
+/// Alias for backward compatibility 
 pub use config::McpConfig as MCPConfig;
 
 /// Re-export factory functions for creating MCP instances.
@@ -250,6 +256,14 @@ pub mod debug_impl;
 /// The context manager provides mechanisms to create, retrieve, update,
 /// and manage contexts that store state information for different sessions.
 pub use context_manager::ContextManager;
+
+pub use crate::protocol::{MCPProtocol};
+pub use crate::integration::adapter::CoreMCPAdapter;
+pub use crate::config::McpConfig as CoreAdapterConfig;
+
+// Only export core types once - these were previously duplicated
+pub use types::{MCPResponse, ResponseStatus}; // Re-export core types
+pub use message::{Message, MessageType, MessagePriority}; // Re-export message types
 
 #[cfg(test)]
 mod tests;

@@ -54,6 +54,12 @@ pub mod port;
 /// Tests for error types
 #[cfg(test)]
 mod types_tests;
+/// Added tool error module
+pub mod tool;
+/// Added config error module
+pub mod config;
+/// Added plugin error module
+pub mod plugin;
 
 pub use types::MCPError;
 pub use client::ClientError;
@@ -66,12 +72,19 @@ pub use alert::AlertError;
 pub use rbac::RBACError;
 pub use handler::ErrorHandler;
 pub use port::PortErrorKind;
+pub use tool::ToolError;
+pub use config::ConfigError;
+pub use plugin::PluginError;
 
 pub use types::{ErrorContext};
 pub use transport::TransportError;
 
-use crate::message::Message;
+use crate::message::{Message, MessageType};
 use std::convert::TryFrom;
+use thiserror::Error;
+use std::fmt::{self, Debug, Display};
+use std::io;
+use squirrel_core::error::SquirrelError;
 
 /// Result type for MCP operations that can return an error.
 ///
@@ -130,9 +143,24 @@ impl TryFrom<Message> for MCPError {
 }
 */
 
-// Add implementation of From<ClientError> for MCPError
-impl From<ClientError> for MCPError {
-    fn from(err: ClientError) -> Self {
-        Self::Client(err)
+/// Generic result type used throughout MCP
+// pub type Result<T, E = MCPError> = std::result::Result<T, E>; // Remove this duplicate alias
+
+/// Documentation structure for failure operation contexts
+#[derive(Debug, Clone)]
+pub struct FailedOperation {
+    /// The name of the operation that failed
+    pub operation: String,
+    /// Additional details about the failure
+    pub details: Option<String>,
+}
+
+impl std::fmt::Display for FailedOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Operation '{}' failed", self.operation)?;
+        if let Some(details) = &self.details {
+            write!(f, ": {}", details)?;
+        }
+        Ok(())
     }
 }

@@ -5,29 +5,32 @@
 //! between domain objects and wire format messages.
 
 use crate::error::{self, ProtocolError};
-use crate::types::MCPMessage;
-use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, ProtocolVersion as WireProtocolVersion, WireFormat};
+use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, WireProtocolVersion, WireFormat};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use crate::error::MCPError;
 use base64::Engine;
-use crate::protocol::types::{MessageId, MessageType, ProtocolVersion};
-use crate::security::{
-    types::{EncryptionFormat, EncryptionInfo, SecurityLevel, SecurityMetadata},
-    Credentials, SecurityContext,
+use crate::protocol::types::{MCPMessage, MessageId, MessageType as ProtocolMessageType, ProtocolVersion, Header};
+use crate::message::MessageType as DomainMessageType;
+use crate::types::ResponseStatus;
+use crate::security::types::{
+    EncryptionFormat, 
+    EncryptionInfo as SecurityEncryptionInfo,
+    SecurityLevel, 
+    SecurityMetadata,
 };
-use crate::protocol::types::{/* CompressionFormat, */ /* MessageMetadata, */ /* RequestStatus, */ ResponseStatus};
+use crate::integration::types::SecurityContext;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::IntoDeserializer;
 use std::collections::HashMap;
 use std::str::FromStr;
 use serde::de::Error as SerdeError;
-use crate::protocol::MessageType as ProtocolMessageType;
-use crate::security::EncryptionInfo as SecurityEncryptionInfo;
+use crate::security::AuthCredentials;
 use tracing::{debug, error, info, warn};
 use crate::protocol::serialization_utils::extract_string;
 use crate::message::Message;
+use crate::protocol::types::MessageType;
 
 // ==========================================
 // Message Domain Object Implementation
@@ -35,15 +38,15 @@ use crate::message::Message;
 
 #[async_trait]
 impl DomainObject for Message {
-    async fn to_wire_message(&self, version: crate::protocol::adapter_wire::ProtocolVersion) -> crate::error::Result<WireMessage> {
+    async fn to_wire_message(&self, version: crate::protocol::adapter_wire::WireProtocolVersion) -> crate::error::Result<WireMessage> {
         // Convert Message to Value based on protocol version
         let json_value = match version {
-            crate::protocol::adapter_wire::ProtocolVersion::V1_0 | crate::protocol::adapter_wire::ProtocolVersion::Latest => {
+            crate::protocol::adapter_wire::WireProtocolVersion::V1_0 | crate::protocol::adapter_wire::WireProtocolVersion::Latest => {
                 // Current version format - direct serialization
                 serde_json::to_value(self)
                     .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?
             },
-            crate::protocol::adapter_wire::ProtocolVersion::V0_9 => {
+            crate::protocol::adapter_wire::WireProtocolVersion::V0_9 => {
                 // Legacy format (v0.9)
                 // Here we adapt our current model to the old wire format
                 let mut obj = serde_json::Map::new();
@@ -82,7 +85,7 @@ impl DomainObject for Message {
         Self: Sized,
     {
         // Parse the version using adapter_wire::ProtocolVersion
-        let version = crate::protocol::adapter_wire::ProtocolVersion::from_str(&message.version)?;
+        let version = crate::protocol::adapter_wire::WireProtocolVersion::from_str(&message.version)?;
         
         match message.format {
             WireFormat::Json => {
@@ -91,12 +94,12 @@ impl DomainObject for Message {
                     .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
                 
                 match version {
-                    crate::protocol::adapter_wire::ProtocolVersion::V1_0 | crate::protocol::adapter_wire::ProtocolVersion::Latest => {
+                    crate::protocol::adapter_wire::WireProtocolVersion::V1_0 | crate::protocol::adapter_wire::WireProtocolVersion::Latest => {
                         // Current version format - direct deserialization
                         serde_json::from_value(json)
                             .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
                     },
-                    crate::protocol::adapter_wire::ProtocolVersion::V0_9 => {
+                    crate::protocol::adapter_wire::WireProtocolVersion::V0_9 => {
                         // Legacy format (v0.9) - need to adapt to current model
                         if let Some(obj) = json.as_object() {
                             // Extract required fields with validation
@@ -107,16 +110,16 @@ impl DomainObject for Message {
                             let destination = extract_string(obj, "destination")?;
                             
                             // Convert message type string to enum
-                            let message_type = match msg_type_str.as_str() {
-                                "request" => crate::message::MessageType::Request,
-                                "response" => crate::message::MessageType::Response,
-                                "notification" => crate::message::MessageType::Notification,
-                                "error" => crate::message::MessageType::Error,
-                                "control" => crate::message::MessageType::Control,
-                                "system" => crate::message::MessageType::System,
+                            let message_type: DomainMessageType = match msg_type_str.as_str() {
+                                "request" => DomainMessageType::Request,
+                                "response" => DomainMessageType::Response,
+                                "notification" => DomainMessageType::Notification,
+                                "error" => DomainMessageType::Error,
+                                "control" => DomainMessageType::Control,
+                                "system" => DomainMessageType::System,
                                 _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                     "msg_type".to_string(), 
-                                    format!("Unknown message type: {msg_type_str}")
+                                    format!("Unknown message type: {}", msg_type_str)
                                 ))),
                             };
                             
@@ -166,10 +169,10 @@ impl DomainObject for Message {
                             
                             // Create the Message
                             Ok(Self {
-                                id: crate::protocol::types::MessageId(id),
+                                id: id.clone(), // ID should be String for Message struct
                                 message_type,
                                 priority: crate::message::MessagePriority::Normal, // Default value
-                                content,
+                                content: content.clone(), // Clone content as it might be used elsewhere
                                 binary_payload,
                                 timestamp,
                                 in_reply_to,
@@ -307,17 +310,18 @@ impl TryFrom<WireProtocolVersion> for ProtocolVersion {
 }
 
 impl TryFrom<String> for MessageType {
-    // Explicitly name the error type to resolve ambiguity
     type Error = crate::error::ProtocolError;
-    // Explicitly use ProtocolError in the return type
     fn try_from(value: String) -> std::result::Result<Self, crate::error::ProtocolError> {
         match value.to_lowercase().as_str() {
             "command" => Ok(MessageType::Command),
             "response" => Ok(MessageType::Response),
             "event" => Ok(MessageType::Event),
             "error" => Ok(MessageType::Error),
+            "setup" => Ok(MessageType::Setup),
+            "heartbeat" => Ok(MessageType::Heartbeat),
             "sync" => Ok(MessageType::Sync),
-            _ => Err(ProtocolError::ValidationFailed(format!(
+            "unknown" => Ok(MessageType::Unknown),
+            _ => Err(ProtocolError::InvalidFormat(format!(
                 "Unknown message type string: {}",
                 value
             ))),

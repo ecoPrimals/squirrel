@@ -3,6 +3,12 @@
 //
 // This module implements plugin system integration for MCP
 
+/// Core plugin types and definitions
+/// 
+/// Contains type definitions, enums, and structs used by the plugin system.
+/// These types are used throughout the plugin system modules.
+pub mod types;
+
 /// Local plugin interfaces to avoid circular dependencies
 ///
 /// Contains core plugin traits and interface definitions used throughout the plugin system.
@@ -26,6 +32,18 @@ pub mod lifecycle;
 /// Implements mechanisms for discovering, loading, and registering plugins.
 /// Supports dynamic loading from various sources including local filesystem and remote repositories.
 pub mod discovery;
+
+/// Plugin loading interface
+///
+/// Provides functionality for loading plugins from various sources including
+/// local files, remote URLs, and embedded plugins.
+pub mod loader;
+
+/// Plugin registry 
+///
+/// Manages the registration, tracking, and retrieval of plugins in the system.
+/// Acts as a central repository for all plugins.
+pub mod registry;
 
 /// Plugin integration with core MCP components
 ///
@@ -58,6 +76,13 @@ pub use self::integration::{PluginSystemIntegration, PluginToolExecutor};
 
 // Re-export versioning
 pub use self::versioning::{ProtocolVersion, VersionRequirement, ProtocolVersionManager};
+
+// Re-export plugin types
+pub use self::types::{PluginSource, PluginLifecycleStep, PluginId};
+
+// Re-export loader and registry
+pub use self::loader::PluginLoader;
+pub use self::registry::PluginRegistry;
 
 #[cfg(test)]
 mod tests; 

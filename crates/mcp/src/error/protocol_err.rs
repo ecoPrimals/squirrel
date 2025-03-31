@@ -97,4 +97,8 @@ pub enum ProtocolError {
     /// Error in the wire format encoding/decoding
     #[error("Wire format error: {0}")]
     Wire(String),
+    
+    /// Error reported by the remote peer
+    #[error("Remote protocol error: {0}")]
+    RemoteError(String),
 } 

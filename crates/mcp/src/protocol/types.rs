@@ -58,19 +58,19 @@ impl std::fmt::Display for MessageType {
 }
 
 impl std::str::FromStr for MessageType {
-    type Err = ();
+    type Err = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Command" => Ok(Self::Command),
-            "Response" => Ok(Self::Response),
-            "Event" => Ok(Self::Event),
-            "Error" => Ok(Self::Error),
-            "Setup" => Ok(Self::Setup),
-            "Heartbeat" => Ok(Self::Heartbeat),
-            "Sync" => Ok(Self::Sync),
-            "Unknown" => Ok(Self::Unknown),
-            _ => Err(()),
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "command" => Ok(Self::Command),
+            "response" => Ok(Self::Response),
+            "event" => Ok(Self::Event),
+            "error" => Ok(Self::Error),
+            "setup" => Ok(Self::Setup),
+            "heartbeat" => Ok(Self::Heartbeat),
+            "sync" => Ok(Self::Sync),
+            "unknown" => Ok(Self::Unknown),
+            _ => Err(format!("Unknown message type: {}", s)),
         }
     }
 }
@@ -82,7 +82,7 @@ impl std::str::FromStr for MessageType {
 /// the API more expressive.
 ///
 /// ... (doc comment) ...
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct MessageId(pub String);
 
 impl MessageId {
@@ -128,31 +128,19 @@ impl std::fmt::Display for ProtocolVersion {
     }
 }
 
-/// Protocol state for MCP operations.
-///
-/// ... (doc comment) ...
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ProtocolState {
-    /// Protocol is uninitialized: Initial state before setup
-    Uninitialized,
-    /// Protocol is initializing: Setup in progress
-    Initializing,
-    /// Protocol is initialized: Basic setup complete
-    Initialized,
-    /// Protocol is ready: Fully operational
-    Ready,
-    /// Protocol is shutting down: Termination in progress
-    ShuttingDown,
-    /// Protocol is in an error state: Problem detected
-    Error,
-    /// Protocol is closed: Fully terminated
-    Closed,
-}
-
-impl Default for ProtocolState {
-    fn default() -> Self {
-        Self::Uninitialized
-    }
+/// Represents the header part of an MCP message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Header {
+    pub id: MessageId,
+    pub message_type: MessageType,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub version: ProtocolVersion,
+    pub security: SecurityMetadata,
+    // Add other fields often found in headers if needed
+    // pub priority: crate::message::MessagePriority, // Example
+    // pub correlation_id: Option<MessageId>, // Example
+    // pub sequence_number: Option<u64>, // Example
+    pub metadata: Option<serde_json::Value>, // Generic metadata
 }
 
 /// Core message structure for MCP communications.
@@ -161,7 +149,7 @@ impl Default for ProtocolState {
 /// which is used for communication between components in the system.
 ///
 /// ... (doc comment) ...
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MCPMessage {
     /// Unique identifier for the message
     pub id: MessageId,
@@ -238,6 +226,28 @@ impl Default for MCPMessage {
         }
     }
 }
+
+/// Represents a response to a command message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandResponse {
+    pub request_id: MessageId,
+    pub status: String, // e.g., "Success", "Failure"
+    pub details: Option<serde_json::Value>,
+}
+
+/// Trait for components that handle specific MCP messages.
+#[async_trait::async_trait]
+pub trait MessageHandler: Send + Sync {
+    async fn handle_message(&self, message: &MCPMessage) -> Result<Option<MCPMessage>>;
+}
+
+// Need imports for trait
+use async_trait::async_trait;
+use crate::error::{MCPError, Result};
+
+// Placeholder type aliases for results specific to protocol operations
+pub type ValidationResult = Result<()>; // Placeholder for validation result
+pub type RoutingResult = Result<()>; // Placeholder for routing result
 
 #[cfg(test)]
 mod tests {
