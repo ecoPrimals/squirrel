@@ -18,6 +18,39 @@ cargo run --example <example_name> -- <arguments>
 
 ## Available Examples
 
+### Connection Health Monitor Example
+
+The `connection_health_monitor` example demonstrates the ConnectionHealthWidget for visualizing connection health status:
+
+```bash
+cargo run --example connection_health_monitor -- --help
+```
+
+Options:
+- `-s, --status <STATUS>`: Initial connection status (connected, disconnected, connecting, error) (default: connected)
+- `-e, --simulate-events`: Simulate random connection events
+- `-i, --interval <INTERVAL>`: Update interval in milliseconds (default: 1000)
+
+Interactive commands:
+- `q`: Quit the application
+- `c`: Connect
+- `d`: Disconnect
+- `r`: Reconnect (with success/failure simulation)
+- `e`: Generate error
+
+Example usages:
+
+```bash
+# Basic connection health monitor with connected status
+cargo run --example connection_health_monitor
+
+# Start with disconnected status and simulate random events
+cargo run --example connection_health_monitor -- --status disconnected --simulate-events
+
+# Fast updates with error status
+cargo run --example connection_health_monitor -- --status error --interval 500
+```
+
 ### Custom Dashboard Example
 
 The `custom_dashboard` example demonstrates a custom TUI dashboard with simulated metrics and MCP protocol integration:

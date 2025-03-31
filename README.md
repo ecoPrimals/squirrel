@@ -126,11 +126,40 @@ cargo run --package ui-terminal --bin main
 cargo run --package ui-terminal --example custom_dashboard -- --alerts --mcp
 ```
 
+### MCP Protocol Integration
+
+The Terminal UI features comprehensive integration with the Machine Context Protocol (MCP):
+
+- **ConnectionHealth Monitoring**: Track connection quality metrics like latency, stability, and packet loss
+- **Metrics Caching**: Efficient time-based caching of metrics
+- **Performance Tracking**: Monitor and optimize metrics collection performance
+- **Error Handling**: Robust error handling with reconnection support
+
+Example MCP monitoring applications:
+
+```bash
+# Run the MCP monitor example
+cargo run --package ui-terminal --example mcp_monitor -- --simulate-issues
+
+# Run the custom dashboard with MCP integration
+cargo run --package ui-terminal --example custom_dashboard -- --mcp
+```
+
+For more details on the MCP integration, see the following documentation:
+- [MCP Implementation Summary](specs/ui/MCP_IMPLEMENTATION_SUMMARY.md)
+- [MCP Examples](specs/ui/MCP_EXAMPLES.md)
+- [Implementation Progress](specs/ui/IMPLEMENTATION_PROGRESS.md)
+
+### Dashboard Options
+
 The custom dashboard demonstration provides various command-line options:
 
 - `--interval <SECONDS>`: Set the update interval (default: 3 seconds)
 - `--alerts`: Enable simulated alerts
 - `--mcp`: Show MCP protocol simulation
+- `--mcp-server <ADDRESS>`: Specify the MCP server address
+- `--mcp-interval <MS>`: Set MCP update interval in milliseconds
+- `--simulate-issues`: Enable simulation of connection issues
 - `--pattern <TYPE>`: Set CPU simulation pattern (sine, spike, random)
 
 For more details on the Terminal UI capabilities, see the [ui-terminal README](crates/ui-terminal/README.md). 

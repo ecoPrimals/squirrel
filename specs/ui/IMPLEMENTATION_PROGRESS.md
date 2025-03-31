@@ -1,551 +1,146 @@
 # UI Implementation Progress Report
 
-**Version**: 1.6.0  
-**Date**: 2024-08-30  
-**Status**: In Progress  
+**Version**: 2.0.0 (Post-Rollback)
+**Date**: 2024-03-29
+**Status**: In Progress (Rebuilding Incrementally)
 
 ## Overview
 
-This document provides an update on the implementation progress of the Dashboard and Terminal UI components for the Squirrel system. It outlines what has been implemented, current status, and next steps.
+This document provides an update on the implementation progress of the Terminal UI component (`ui-terminal`) for the Squirrel system, **reflecting the current state after a significant rollback**. The previous advanced features related to deep MCP integration and performance optimizations are **not currently implemented**.
 
-## Recent Improvements: MCP Integration Phase 2
+Development is now focused on **incrementally rebuilding** functionality through a phased approach: stabilizing the foundation, implementing core features, enhancing usability, and then re-introducing advanced optimizations and integrations.
 
-### Enhanced Protocol Visualization (COMPLETED)
+The current implementation provides a basic Ratatui-based terminal dashboard capable of displaying an overview tab with health checks, system metrics, and CPU/Memory charts, fetching data via the `dashboard-core` service interface.
 
-- **Enhanced Protocol Widget**: Implemented tabbed interface with four views:
-  ```rust
-  // Create tab titles
-  let tab_titles = vec!["Overview", "Metrics", "Connection", "History"];
-  
-  // Render tab content based on active tab
-  match self.active_tab {
-      0 => self.render_overview_tab(f, chunks[2]),
-      1 => self.render_metrics_tab(f, chunks[2]),
-      2 => self.render_connection_tab(f, chunks[2]),
-      3 => self.render_history_tab(f, chunks[2]),
-      _ => self.render_overview_tab(f, chunks[2]),
-  }
-  ```
+## Current Implemented Features
 
-- **Connection Health Monitoring**: Added support for detailed connection health information:
-  ```rust
-  /// Connection health status
-  #[derive(Debug, Clone)]
-  pub struct ConnectionHealth {
-      pub status: ConnectionStatus,
-      pub last_successful: Option<DateTime<Utc>>,
-      pub failure_count: u32,
-      pub latency_ms: Option<u64>,
-      pub error_details: Option<String>,
-  }
-  ```
+- **Basic Application Structure**: Ratatui application loop, event handling (keyboard, tick), basic layout (Title/Content/Footer).
+- **Core Widgets**:
+    - `HealthWidget`: Displays a list of health checks derived from application state.
+    - `MetricsWidget`: Displays basic system metrics (CPU, Memory, Disk) fetched from the provider.
+    - `ChartWidget`: Renders simple time-series line charts for CPU and Memory history.
+- **Overview Tab**: Renders the Health, Metrics, and CPU/Memory Chart widgets in a 2x2 layout.
+- **Data Fetching**: Regularly fetches `DashboardData` using the `DashboardService` trait implementation provided to the application.
+- **Basic State Management**: Tracks active tab, help/quit flags, basic connection status (inferred), and CPU/Memory history.
 
-- **Connection History Tracking**: Implemented connection event history visualization:
-  ```rust
-  /// Connection event
-  #[derive(Debug, Clone)]
-  pub struct ConnectionEvent {
-      pub timestamp: DateTime<Utc>,
-      pub event_type: ConnectionEventType,
-      pub details: Option<String>,
-  }
-  ```
+## Development Plan (Phased Approach)
 
-- **Metrics Visualization**: Added chart-based visualization for protocol metrics:
-  ```rust
-  /// Render a metrics chart
-  fn render_metrics_chart(&self, f: &mut Frame, area: Rect, title: &str, data: &[(DateTime<Utc>, f64)]) {
-      // Create dataset
-      let dataset = Dataset::default()
-          .name(title)
-          .marker(symbols::Marker::Dot)
-          .graph_type(GraphType::Line)
-          .style(Style::default().fg(Color::Cyan))
-          .data(&filtered_data);
-      
-      // Create chart
-      let chart = Chart::new(vec![dataset])
-          .block(block)
-          .x_axis(
-              Axis::default()
-                  .title("Time")
-                  .bounds([min_x, max_x])
-                  .labels(vec![])
-          )
-          .y_axis(
-              Axis::default()
-                  .title("Value")
-                  .bounds([min_y.max(0.0) - y_margin, max_y + y_margin])
-                  .labels(vec![
-                      Span::raw(format!("{:.1}", min_y.max(0.0))),
-                      Span::raw(format!("{:.1}", (min_y.max(0.0) + max_y) / 2.0)),
-                      Span::raw(format!("{:.1}", max_y)),
-                  ])
-          );
-  }
-  ```
+### Phase 1: Core Functionality & Stabilization (Current Focus)
+Goal: Implement all basic tabs and widgets, establish foundational testing.
 
-### Connection Management Enhancements (COMPLETED)
+- **Implement Missing Tabs/Widgets**: (✅ Done)
+    - `System` tab and associated widgets (e.g., Process List). (✅ Done)
+    - `Network` tab and `NetworkWidget`. (✅ Done)
+    - `Alerts` tab and `AlertsWidget`. (✅ Done)
+    - `Protocol` tab and `ProtocolWidget`. (✅ Done)
+- **Basic MCP Data Display**:
+    - Display basic protocol status/metrics available via `DashboardService`.
+    - Refine `ConnectionStatus` inference from `DashboardData`.
+- **Foundational Testing**:
+    - Add unit tests for *existing* widgets (`Health`, `Metrics`, `Chart`).
+    - Add unit tests for newly implemented Phase 1 widgets (`Network`, `Alerts`, `Protocol`, `System`).
+    - Implement basic end-to-end application tests (tab switching, basic updates).
+- **Code Quality & Documentation (Basic)**:
+    - Address critical compiler warnings. (✅ Done)
+    - Add essential code comments for core logic.
+    - Basic error handling refinement.
 
-- **McpMetricsProvider Interface**: Enhanced with connection management capabilities:
-  ```rust
-  #[async_trait]
-  pub trait McpMetricsProvider: Send + Sync + std::fmt::Debug {
-      // Existing methods
-      async fn get_metrics(&self) -> Result<McpMetrics, String>;
-      fn subscribe(&self, interval_ms: u64) -> mpsc::Receiver<McpMetrics>;
-      async fn connection_status(&self) -> ConnectionStatus;
-      async fn configure(&self, config: McpMetricsConfig) -> Result<(), String>;
-      
-      // New methods
-      fn get_protocol_metrics(&self) -> Result<HashMap<String, f64>, String>;
-      fn get_protocol_status(&self) -> Result<ProtocolStatus, String>;
-      fn connection_health(&self) -> Result<ConnectionHealth, String>;
-      async fn reconnect(&self) -> Result<bool, String>;
-      fn connection_history(&self) -> Result<Vec<ConnectionEvent>, String>;
-  }
-  ```
+### Phase 2: Enhancements & Refinement
+Goal: Improve usability, code quality, and test coverage of the core features.
 
-- **Mock Implementation**: Created enhanced mock implementation for testing:
-  ```rust
-  #[derive(Debug, Clone)]
-  pub struct MockMcpMetricsProvider {
-      config: McpMetricsConfig,
-      should_fail: bool,
-      connection_health: ConnectionHealth,
-      connection_history: Vec<ConnectionEvent>,
-      last_reconnect: Option<DateTime<Utc>>,
-  }
-  ```
+- **Refine Existing Features**:
+    - Enhance `ChartWidget` (scaling, labels, dynamic time windows?).
+    - Improve layout and display logic across tabs.
+    - Refine user input handling.
+- **Code Quality & Documentation (Comprehensive)**:
+    - Address all remaining compiler warnings.
+    - Add comprehensive code comments and documentation (`rustdoc`).
+    - Improve error handling robustness and reporting in the UI.
+- **Testing Expansion**:
+    - Increase unit test coverage for all widgets and app logic.
+    - Expand E2E tests to cover more user interactions and data scenarios.
+    - Introduce basic mocking for `DashboardService`.
 
-## Recent Improvements: Ratatui 0.24.0+ Compatibility
+### Phase 3: Performance Optimization (Future)
+Goal: Re-introduce performance optimizations where necessary.
 
-### Ratatui API Updates (COMPLETED)
-
-- **Frame API Updates**: Removed generic Backend parameter from Frame in all render methods:
-  ```rust
-  // Old code
-  pub fn render<B: Backend>(&self, f: &mut Frame<B>, area: Rect) { ... }
-
-  // New code
-  pub fn render(&self, f: &mut Frame, area: Rect) { ... }
-  ```
-
-- **Widget Updates**: Updated all widgets to be compatible with Ratatui 0.24.0+:
-  ```rust
-  // Updated NetworkWidget to remove unused imports and be compatible with Ratatui 0.24.0
-  use ratatui::{
-      layout::{Constraint, Direction, Layout, Rect},
-      style::{Color, Style},
-      text::{Span, Line},
-      widgets::{Block, Borders, Paragraph, Table, Row, Cell},
-      Frame,
-  };
-  ```
-
-- **SystemUpdate Pattern Matching**: Fixed pattern matching for SystemUpdate in app.rs:
-  ```rust
-  DashboardUpdate::SystemUpdate { cpu, memory, timestamp } => {
-      if let Some(data) = &mut self.dashboard_data {
-          // Update CPU history
-          let cpu_history = self.metric_history
-              .entry("system.cpu".to_string())
-              .or_insert_with(Vec::new);
-              
-          // Use the correct CPU field
-          cpu_history.push((timestamp, cpu.usage));
-          
-          // Update memory history
-          let memory_history = self.metric_history
-              .entry("system.memory".to_string())
-              .or_insert_with(Vec::new);
-          
-          // Use the correct MemoryMetrics field
-          memory_history.push((timestamp, memory.used as f64));
-          
-          // Update metrics directly
-          data.metrics.cpu = cpu;
-          data.metrics.memory = memory;
-          
-          self.last_update = Some(Instant::now());
-      }
-  }
-  ```
-
-- **Code Cleanup**: Removed unused imports across widget implementations:
-  - Removed `buffer::Buffer` and `Modifier` from `NetworkWidget`
-  - Removed `Modifier` from `HealthWidget`
-  - Updated styling methods to match new API
-
-## Recent Improvements: Performance Optimization
-
-### CompressedTimeSeries Enhancements (COMPLETED)
-
-- **Base Point Tracking**: Fixed critical issues with base point handling:
-  ```rust
-  #[derive(Debug, Clone)]
-  pub struct CompressedTimeSeries<T: Copy + std::ops::Sub<Output = T> + std::ops::Add<Output = T> + Default> {
-      // Existing fields
-      pub base_timestamp: DateTime<Utc>,
-      pub timestamp_deltas: Vec<i64>,
-      pub base_value: T,
-      pub value_deltas: Vec<T>,
-      pub max_capacity: usize,
-      // New field to properly track base point status
-      pub has_base_point: bool,
-  }
-  ```
-
-- **Improved Add Method**: Enhanced to correctly handle base point and delta points:
-  ```rust
-  pub fn add(&mut self, timestamp: DateTime<Utc>, value: T) {
-      // Check if we need to set the base point
-      if !self.has_base_point {
-          // First point becomes our base
-          self.base_timestamp = timestamp;
-          self.base_value = value;
-          self.has_base_point = true;
-          return;
-      }
-      
-      // Calculate delta from base timestamp
-      let delta_ms = (timestamp - self.base_timestamp).num_milliseconds();
-      
-      // Calculate delta from base value
-      let delta_value = value - self.base_value;
-      
-      // Add to deltas
-      self.timestamp_deltas.push(delta_ms);
-      self.value_deltas.push(delta_value);
-      
-      // Enforce capacity limits
-      self.enforce_capacity();
-  }
-  ```
-
-- **Multiple Resampling Strategies**: Added support for different resampling approaches:
-  ```rust
-  #[derive(Debug, Clone, Copy, PartialEq)]
-  pub enum ResampleStrategy<T> {
-      // Default strategy - returns points evenly distributed across time range
-      EvenlySpaced,
-      // Returns points with the largest values
-      LargestValues,
-      // Returns points where value changes significantly (by threshold)
-      SignificantChanges(T),
-  }
-  
-  pub fn downsample_with_strategy(&self, target_size: usize, strategy: ResampleStrategy<T>) -> Vec<(DateTime<Utc>, T)> {
-      match strategy {
-          ResampleStrategy::EvenlySpaced => self.downsample_evenly_spaced(target_size),
-          ResampleStrategy::LargestValues => self.downsample_largest_values(target_size),
-          ResampleStrategy::SignificantChanges(threshold) => self.downsample_significant_changes(target_size, threshold),
-      }
-  }
-  ```
-
-- **Statistics Calculation**: Added statistical analysis capabilities:
-  ```rust
-  #[derive(Debug, Clone, Copy)]
-  pub struct Statistics<T> {
-      pub min: T,
-      pub max: T,
-      pub avg: T,
-      pub count: usize,
-  }
-  
-  pub fn statistics(&self) -> Option<Statistics<T>> 
-  where T: PartialOrd + std::ops::Div<f64, Output = T> + From<f64>
-  {
-      if !self.has_base_point {
-          return None;
-      }
-      
-      let points = self.points();
-      if points.is_empty() {
-          return None;
-      }
-      
-      let mut min = points[0].1;
-      let mut max = points[0].1;
-      let mut sum = T::default();
-      
-      for &(_, value) in &points {
-          if value < min {
-              min = value;
-          }
-          if value > max {
-              max = value;
-          }
-          sum = sum + value;
-      }
-      
-      let count = points.len();
-      let avg = sum / (count as f64).into();
-      
-      Some(Statistics { min, max, avg, count })
-  }
-  ```
-
-- **Time Range Analysis**: Added time range functionality:
-  ```rust
-  pub fn time_range(&self) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
-      if !self.has_base_point {
-          return None;
-      }
-      
-      if self.timestamp_deltas.is_empty() {
-          return Some((self.base_timestamp, self.base_timestamp));
-      }
-      
-      let min_time = self.base_timestamp;
-      let max_delta = self.timestamp_deltas.iter().max()?;
-      let max_time = self.base_timestamp + chrono::Duration::milliseconds(*max_delta);
-      
-      Some((min_time, max_time))
-  }
-  ```
-
-- **Memory Usage Improvements**: Reduced memory usage through delta-encoding approach:
-  - Standard storage: ~48KB for 1000 points (assuming DateTime<Utc> ~24 bytes and f64 ~8 bytes)
-  - Compressed storage: ~16KB (using i64 deltas ~8 bytes and value deltas)
-  - Achieved ~66% reduction in memory usage
-
-### Performance Optimizations
-
-- **Time Complexity**:
-  - Add operation: O(1) time complexity
-  - Points retrieval: O(n) time complexity
-  - Downsampling: O(n) time complexity
-  - Statistics calculation: O(n) time complexity
-
+- **Profiling**: Profile Phase 1/2 application under load to identify bottlenecks.
 - **Memory Optimization**:
-  - Delta encoding for timestamps and values
-  - Capacity management with automatic pruning of oldest data
-  - Efficient reconstruction of original points
+    - Re-evaluate and potentially re-implement `CompressedTimeSeries` or similar for history if needed.
+    - Investigate and optimize memory usage for large datasets.
+- **Rendering Optimization**:
+    - Investigate and potentially implement `CachedWidget` patterns or selective rendering if needed.
+    - Investigate viewport clipping.
+- **CPU Usage Optimization**:
+    - Investigate adaptive polling/throttling based on UI activity or system load.
 
-## Dashboard Adapter Implementation Challenges
+### Phase 4: Advanced MCP Integration (Future)
+Goal: Implement deeper integration with MCP beyond basic data display.
 
-### Current Adapter Issues
+- Implement detailed `ConnectionHealth` struct and `ConnectionHealthWidget`.
+- Implement UI-initiated reconnection logic (if required by design).
+- Implement MCP error console / advanced diagnostic views.
+- Investigate direct MCP client interaction if `DashboardService` proves insufficient for advanced needs.
 
-The `MonitoringToDashboardAdapter` in `adapter.rs` has several type mismatches that need to be addressed:
+### Phase 5: Advanced Features & Polish (Future)
+Goal: Add advanced user features and polish the application.
 
-- **Type Mismatch Issues**: The adapter has type mismatches between expected structured metrics types and actual primitive types:
-  ```
-  error[E0308]: mismatched types: expected `CpuMetrics`, found `f32`
-  error[E0308]: mismatched types: expected `MemoryMetrics`, found `(u64, u64)`
-  error[E0308]: mismatched types: expected `DiskMetrics`, found `HashMap<String, ...>`
-  error[E0308]: mismatched types: expected `NetworkMetrics`, found `HashMap<String, ...>`
-  ```
+- Theming and customization.
+- User preferences persistence.
+- Advanced filtering/sorting in tables/lists.
+- Accessibility improvements.
+- Further testing enhancements (benchmarks, CI integration).
 
-- **MetricsSnapshot Field Issues**: The implementation tries to access non-existent fields on `MetricsSnapshot`:
-  ```
-  error[E0560]: struct `MetricsSnapshot` has no field named `values`
-  error[E0560]: struct `MetricsSnapshot` has no field named `counters`
-  error[E0560]: struct `MetricsSnapshot` has no field named `gauges`
-  ```
+## Timeline
 
-- **McpClient Method Issues**: Methods expected on `MutexGuard<dyn McpClient>` are not found:
-  ```
-  error[E0599]: no method named `get_metrics` found for struct `tokio::sync::MutexGuard<'_, (dyn McpClient + Send + 'static)>` in the current scope
-  ```
+Timelines are TBD, especially for phases beyond Phase 1. Progress will be tracked against the phases outlined above.
 
-### Next Steps for Adapter
+## Known Issues (Current State)
 
-- **Refactor Adapter Interface**: Update the `MonitoringToDashboardAdapter` to correctly convert between types
-- **Update MetricsSnapshot Usage**: Ensure `MetricsSnapshot` is used according to its actual structure
-- **Fix McpClient Integration**: Update the `McpClient` trait implementation to expose the correct methods
+- `ProtocolWidget` only shows basic status; needs enhancement for detailed protocol metrics.
+- `System` tab widgets could be enhanced (e.g., using Tables/Lists instead of just Paragraphs).
+- `ConnectionHealthWidget` (detailed version) does not exist.
+- Connection status is crudely inferred; no detailed health monitoring logic.
+- No advanced MCP integration features (caching, detailed status, reconnection logic initiated by UI) are implemented.
+- Limited test coverage for existing widgets and application logic.
+- Performance optimizations (e.g., `CompressedTimeSeries`, `CachedWidget`) are not implemented.
 
-## Dashboard Core Implementation
+## Conclusion (Revised)
 
-### Completed Components
+The `ui-terminal` component has been rolled back to a simpler, foundational state. Development efforts will now focus on **rebuilding functionality incrementally through a phased approach**. Phase 1 targets implementing the core tabs and widgets and establishing basic tests. Subsequent phases will focus on enhancements, performance optimization, and advanced MCP integration as needed.
 
-- **System Metrics Collection**: Implemented real-time system metrics collection using the `sysinfo` crate
-- **Metrics History**: Added support for storing and retrieving historical metric data points
-- **Configuration System**: Enhanced configuration with `max_history_points` setting to control history retention
-- **Real-time Updates**: Implemented asynchronous update mechanism using Tokio
+## Implementation Status Summary (Current - During Phase 1)
 
-### Core Service Interface
+| Component                    | Status      | Notes                                                      |
+| :--------------------------- | :---------- | :--------------------------------------------------------- |
+| Terminal UI Core             | 100%        | Basic Ratatui structure, event loop, layout              |
+| Terminal UI Ratatui Update | 100%        | Using Ratatui 0.24+                                        |
+| Health Widget                | 90%         | Implemented, displays basic checks                         |
+| Metrics Widget               | 80%         | Implemented, displays basic system metrics                 |
+| Chart Widget                 | 80%         | Implemented, basic line chart for CPU/Mem                  |
+| Overview Tab                 | 100%        | Renders existing widgets                                   |
+| System Tab/Widgets           | 100%        | Implemented (Phase 1)                                      |
+| Network Tab/Widget           | 100%        | Implemented (Phase 1)                                      |
+| Alerts Tab/Widget            | 100%        | Implemented (Phase 1)                                      |
+| Protocol Tab/Widget          | 100%        | Implemented (Phase 1) - Basic status only                  |
+| ConnectionHealth Widget      | 0%          | Detailed widget Planned (Phase 4)                          |
+| Foundational Unit Testing    | 20%         | Minimal tests exist; Expansion Planned (Phase 1)           |
+| E2E Testing                  | 5%          | Minimal setup; Expansion Planned (Phase 1/2)               |
+| Performance Optimization     | 0%          | Planned (Phase 3)                                          |
+| Advanced MCP Integration     | 5%          | Minimal (infers status); Detailed Planned (Phase 4)        |
+| Dashboard Core Integration   | 70%         | Fetches data via `DashboardService` trait                  |
 
-The `DashboardService` trait has been fully implemented with the following methods:
 
-```rust
-pub trait DashboardService: Send + Sync {
-    /// Get the current dashboard data
-    async fn get_dashboard_data(&self) -> Result<DashboardData>;
-    
-    /// Get historical metric values
-    async fn get_metric_history(&self, metric_name: &str, time_period: Duration) -> Result<Vec<(DateTime<Utc>, f64)>>;
-    
-    /// Acknowledge an alert
-    async fn acknowledge_alert(&self, alert_id: &str, acknowledged_by: &str) -> Result<()>;
-    
-    /// Subscribe to dashboard updates
-    async fn subscribe(&self) -> mpsc::Receiver<DashboardUpdate>;
-    
-    /// Update dashboard configuration
-    async fn update_config(&self, config: DashboardConfig) -> Result<()>;
-    
-    /// Start the dashboard service
-    async fn start(&self) -> Result<()>;
-    
-    /// Stop the dashboard service
-    async fn stop(&self) -> Result<()>;
-}
-```
+## Updated Roadmap (Phased)
 
-### Data Models
-
-Implemented the following data models:
-
-- `DashboardData`: Contains all dashboard data
-- `SystemSnapshot`: System metrics (CPU, memory, disk)
-- `NetworkSnapshot`: Network metrics (interfaces, traffic)
-- `AlertsSnapshot`: Alert information
-- `MetricsSnapshot`: Application-specific metrics
-
-## Terminal UI Implementation
-
-### Completed Components
-
-- **Core Terminal UI**: Implemented using Ratatui framework
-- **Event Handling**: Added keyboard input and event handling
-- **Dashboard State Management**: Implemented application state and update handling
-- **UI Layout**: Created multi-tab interface with different views
-- **Widget System**: Implemented specialized widgets for different dashboard components
-- **MCP Integration**: Added support for MCP protocol metrics visualization
-
-### Widgets
-
-Implemented the following widgets:
-
-- **MetricsWidget**: For displaying system and protocol metrics
-- **ChartWidget**: For time-series data visualization
-- **AlertsWidget**: For displaying and managing alerts
-- **HealthWidget**: For health status visualization
-- **NetworkWidget**: For network metrics display
-- **ProtocolWidget**: For protocol-specific metrics and latency visualization
-
-### Charts and Visualization
-
-- Implemented line and bar chart visualization using Ratatui
-- Added data sampling for efficient display of large datasets
-- Implemented automatic scaling for chart axes
-- Added support for real-time metric history visualization
-
-### UI Navigation
-
-- Tab-based navigation (Overview, System, Protocol, Tools, Alerts, Network)
-- Keyboard shortcuts for common operations
-- Help panel with available commands
-- Status bar with update information
-
-## Integration Points
-
-- Dashboard Core -> Terminal UI integration via message-passing
-- Real-time updates using Tokio channels
-- Command-line interface for configuration
-- Application state synchronized with dashboard service
-- **NEW**: Direct integration with MCP crate via McpMetricsProvider interface
-- **NEW**: Protocol metrics displayed in the Protocol tab through ProtocolWidget
-
-## CLI Improvements
-
-- Added command-line arguments for customization:
-  - Update interval
-  - Maximum history points
-  - Monitoring integration mode
-  - MCP integration mode
-
-## Next Steps
-
-1. **Testing**:
-   - ✅ Run comprehensive test suite (32 tests currently running)
-   - ✅ Identify and fix failing tests (all 32 tests now passing)
-   - ✅ Fixed test data consistency issues
-   - 🔄 Add additional widget tests
-   - ✅ Enhanced ProtocolWidget test coverage
-
-2. **MCP Integration**:
-   - ✅ Enhanced Protocol visualization with tabbed interface
-   - ✅ Implemented connection health monitoring
-   - ✅ Added connection history tracking
-   - ✅ Added metrics chart visualization
-   - 🔄 Implement advanced debugging tools
-   - 🔄 Complete performance optimization
-
-3. **UI Enhancements**:
-   - 🔄 Add theme customization
-   - 🔄 Implement custom dashboards
-   - ✅ Add more visualization options
-
-4. **Dashboard Features**:
-   - 🔄 Add alerting rules configuration
-   - 🔄 Implement metric thresholds
-   - 🔄 Add export functionality
-
-5. **Performance Optimization**:
-   - 🔄 Implement metric caching
-   - 🔄 Add adaptive polling
-   - 🔄 Optimize rendering for large datasets
-   - 🔄 Implement history compression
-   - 🔄 Add benchmarking
-
-## Technical Debt
-
-- Need to update tests to match new architecture
-- Improve error handling in WebSocket connections
-- Enhance documentation
-- Evaluate performance of new data structures
-
-## Implementation Progress: UI Components
-
-## Dashboard Components
-
-### Terminal UI (ratatui)
-The terminal UI implementation requires significant refactoring due to changes in the data structure and the Ratatui upgrade to version 0.24.0.
-
-**Progress**:
-- [x] Created dashboard-core data structures
-- [x] Removed generic Backend parameters from Frame
-- [x] Fixed HealthCheck and HealthStatus implementations
-- [x] Fixed MetricsHistory structure
-- [x] Fixed protocol widget to use updated Table API
-- [x] Fixed NetworkWidget to use the new NetworkMetrics structure
-- [x] Fixed MetricsWidget to handle disk usage correctly
-- [x] Fixed MonitoringToDashboardAdapter to use proper metrics storage
-- [x] Fixed MetricsSnapshot with available fields
-- [x] Fixed naming conflicts with MetricsHistory (renamed to LocalMetricsHistory)
-- [x] Fixed double Arc wrapping in DashboardService creation
-- [x] Implemented proper type casting for Arcs using as Arc<dyn DashboardService>
-- [x] Added new_with_defaults() method to MonitoringToDashboardAdapter
-- [x] Fixed all tests (32/32 tests now passing)
-- [ ] Fix remaining Widget implementations to use new data structures
-
-## Test Coverage Status
-
-Current test results for ui-terminal:
-- **Total Tests**: 32
-- **Passing Tests**: 32 (100%)
-- **Failing Tests**: 0 (0%)
-- **Fixed Issues**: 
-  - Protocol widget test now correctly checks for "TCP" protocol type
-  - Adapter test now correctly verifies protocol data conversion
-  - All unused variables and imports generate warnings but no errors
-
-All integration tests for TuiDashboard components are passing successfully, confirming that the core functionality is working correctly.
-
-## Web UI
-
-The web UI work hasn't started yet as it depends on the dashboard-core data structures. Once the terminal UI refactoring is complete, we can begin implementing the web UI components.
-
-**Progress**:
-- [x] Created dashboard-core data structures
-- [ ] Design web UI components
-- [ ] Implement data adapters for web UI
-- [ ] Create basic dashboard layouts
-- [ ] Add widget implementations
+| Phase | Task Focus                     | Key Deliverables                                                                    | Status      |
+| :---- | :----------------------------- | :---------------------------------------------------------------------------------- | :---------- |
+| **1** | Core Functionality & Tests     | All basic tabs/widgets (System, Network, Alerts, Protocol), Foundational unit/E2E tests | **In Progress** |
+| **2** | Enhancements & Refinement    | Improved charts/layout, Better error handling, Expanded test coverage, Code quality | Planned     |
+| **3** | Performance Optimization       | Profiling, `CompressedTimeSeries`?, `CachedWidget`?, Adaptive polling?            | Planned     |
+| **4** | Advanced MCP Integration       | `ConnectionHealthWidget`, Reconnection?, Advanced diagnostics?                    | Planned     |
+| **5** | Advanced Features & Polish   | Theming, User prefs, Filtering, Accessibility, CI testing                           | Planned     |
 
 ---
 
-*Last updated: August 30, 2024* 
+Last Updated: 2024-03-29

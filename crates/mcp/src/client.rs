@@ -289,6 +289,56 @@ pub struct MCPClient {
     session: Arc<RwLock<Option<Session>>>,
 }
 
+// Manually implement Debug for MCPClient
+impl std::fmt::Debug for MCPClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Use try_read to avoid blocking in a synchronous context like Debug fmt
+        let transport_str = self.transport.try_read().map_or("<Transport Lock Held>", |guard| 
+            if guard.is_some() { "Some(<Transport Object>)" } else { "None" });
+            
+        // Return static strings instead of formatting complex types
+        let last_error_str = self.last_error.try_read().map_or("<Error Lock Held>", |guard| 
+            if guard.is_some() { "Some(<MCPError>)" } else { "None" });
+        
+        let pending_requests_count = self.pending_requests.try_read().map_or("<Pending Lock Held>".to_string(), |guard| guard.len().to_string());
+        
+        let event_handlers_count = self.event_handlers.try_read().map_or("<Handlers Lock Held>".to_string(), |guard| guard.len().to_string());
+        
+        let message_task_str = self.message_task.try_read().map_or("<Task Lock Held>", |guard| if guard.is_some() { "Some(<JoinHandle>)" } else { "None" });
+        
+        // reader_task uses tokio::sync::Mutex, which has blocking_lock for sync contexts
+        let reader_task_str = self.reader_task.blocking_lock().as_ref().map_or("None", |_| "Some(<AbortHandle>)");
+
+        // Return static strings
+        let state_str = self.state.try_read().map_or("<State Lock Held>", |guard| match *guard {
+            ClientState::Disconnected => "Disconnected",
+            ClientState::Connecting => "Connecting",
+            ClientState::Connected => "Connected",
+            ClientState::Disconnecting => "Disconnecting",
+            ClientState::Failed => "Failed",
+        });
+
+        // Return static strings
+        let session_str = self.session.try_read().map_or("<Session Lock Held>", |guard| 
+             if guard.is_some() { "Some(<Session>)" } else { "None" });
+
+        f.debug_struct("MCPClient")
+            .field("config", &self.config)
+            .field("transport", &transport_str) // Use placeholder
+            .field("last_error", &last_error_str) // Use placeholder
+            .field("message_tx", &"<mpsc::Sender>") // Placeholder
+            .field("message_rx", &"<Arc<RwLock<Option<mpsc::Receiver>>>>") // Placeholder
+            .field("event_channel", &"<Arc<broadcast::Sender>>") // Placeholder
+            .field("pending_requests_count", &pending_requests_count) // Show count
+            .field("event_handlers_count", &event_handlers_count) // Show count
+            .field("message_task", &message_task_str) // Use placeholder
+            .field("reader_task", &reader_task_str) // Use placeholder
+            .field("state", &state_str) // Use placeholder
+            .field("session", &session_str) // Use placeholder
+            .finish()
+    }
+}
+
 impl MCPClient {
     /// Create a new `MCPClient` with the provided configuration
     #[must_use] pub fn new(config: ClientConfig) -> Self {
