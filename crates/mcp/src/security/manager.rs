@@ -1,6 +1,5 @@
-use async_trait::async_trait;
 use crate::error::Result;
-use crate::security::types::{Token, UserId, Resource, Action, SecurityLevel, EncryptionFormat};
+use crate::security::types::{Token, Resource, Action, EncryptionFormat};
 use crate::security::auth::SecurityContext;
 use crate::security::crypto::CryptoProvider;
 use crate::security::token::{TokenManager, AuthCredentials};
@@ -9,8 +8,7 @@ use crate::security::identity::IdentityManager;
 use crate::security::audit::AuditService;
 use crate::security::traits::{ResourceTrait, ActionTrait, make_permission_string};
 use std::sync::Arc;
-use tracing::{info, warn, error, instrument};
-use crate::error::{MCPError, SecurityError};
+use tracing::instrument;
 use crate::context_manager::Context;
 
 /// Core Security manager trait for unified security operations that is object-safe

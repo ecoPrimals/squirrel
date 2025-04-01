@@ -63,9 +63,7 @@
 use crate::error::{MCPError, ProtocolError, Result as MCPResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
-use tracing::warn;
-use async_trait::async_trait;
+use std::{collections::HashMap, fmt::Debug};
 
 /// Protocol-related types module
 pub mod types;
@@ -139,7 +137,7 @@ pub mod serialization_utils;
 mod domain_objects_tests;
 
 /// Re-export types from security module
-pub use crate::security::auth::{Permission, Action, AuthToken};
+pub use crate::security::auth::{Action};
 
 /// Configuration for the MCP protocol.
 ///
@@ -414,24 +412,16 @@ pub trait CommandHandler: Send + Sync + Debug {
 #[derive(Debug)]
 pub struct MCPProtocolBase {
     /// Protocol configuration
-    config: ProtocolConfig,
+    pub(crate) config: ProtocolConfig,
     /// Registered command handlers
     #[allow(clippy::type_complexity)]
-    handlers: HashMap<String, Box<dyn CommandHandler>>,
+    pub(crate) handlers: HashMap<String, Box<dyn CommandHandler>>,
     /// Current protocol state
-    state: Value,
+    pub(crate) state: Value,
 }
 
 impl MCPProtocolBase {
-    /// Creates a new protocol instance with the specified configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The protocol configuration
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPProtocolBase` instance with the specified configuration
+    /// Creates a new protocol instance with the specified configuration
     #[must_use]
     pub fn new(config: ProtocolConfig) -> Self {
         Self {
@@ -440,42 +430,20 @@ impl MCPProtocolBase {
             state: Value::Null,
         }
     }
-
-    /// Creates a new protocol instance with default configuration.
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPProtocolBase` instance with default configuration
+    
+    /// Creates a new protocol instance with default configuration
     #[must_use]
     pub fn new_default() -> Self {
         Self::new(ProtocolConfig::default())
     }
-
-    /// Creates a new protocol instance with custom configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The protocol configuration
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPProtocolBase` instance with the specified configuration
+    
+    /// Creates a new protocol instance with custom configuration
     #[must_use]
     pub fn with_config(config: ProtocolConfig) -> Self {
         Self::new(config)
     }
-
-    /// Creates a new protocol instance with custom dependencies.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The protocol configuration
-    /// * `handlers` - Map of message types to command handlers
-    /// * `initial_state` - Initial protocol state
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPProtocolBase` instance with the specified dependencies
+    
+    /// Creates a protocol instance with custom dependencies
     #[must_use]
     pub fn with_dependencies(
         config: ProtocolConfig,
@@ -488,167 +456,52 @@ impl MCPProtocolBase {
             state: initial_state,
         }
     }
-
-    /// Creates a response message from a request message.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - The request message
-    /// * `status` - The response status
-    ///
-    /// # Returns
-    ///
-    /// A new `MCPResponse` with information from the request message
-    #[must_use]
-    pub fn create_response(&self, message: &MCPMessage, status: crate::types::ResponseStatus) -> crate::types::MCPResponse {
-        crate::types::MCPResponse {
-            protocol_version: self.config.version.clone(),
-            message_id: message.id.clone(),
-            status,
-            payload: Vec::new(),
-            error_message: None,
-            metadata: crate::types::MessageMetadata::default(),
-        }
-    }
-
-    /// Handles a message using the appropriate registered handler.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - The message to handle
-    ///
-    /// # Returns
-    ///
-    /// A `Result<MCPResponse>` containing the response from the handler
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no handler is registered for the message type
-    pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse> {
-        let handler = self
-            .handlers
-            .get(&message.type_.to_string())
-            .ok_or_else(|| {
-                MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler for {}",
-                    message.type_
-                )))
-            })?;
-
-        // Call the handler and return its response directly
-        handler.handle(message).await
-    }
-
-    /// Registers a command handler for a specific message type.
-    ///
-    /// # Arguments
-    ///
-    /// * `message_type` - The message type to register the handler for
-    /// * `handler` - The handler to register
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if the handler was registered successfully
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if a handler is already registered for the message type
+    
+    /// Registers a handler for a message type
     pub fn register_handler(
         &mut self,
         message_type: MessageType,
         handler: Box<dyn CommandHandler>,
     ) -> MCPResult<()> {
-        if self.handlers.contains_key(&message_type.to_string()) {
-            return Err(MCPError::Protocol(ProtocolError::HandlerAlreadyExists(
-                format!("Handler already exists for message type: {message_type:?}"),
-            )));
-        }
         self.handlers.insert(message_type.to_string(), handler);
         Ok(())
     }
-
-    /// Unregisters a command handler for a specific message type.
-    ///
-    /// # Arguments
-    ///
-    /// * `message_type` - The message type to unregister the handler for
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if the handler was unregistered successfully
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no handler is found for the message type
+    
+    /// Unregisters a handler for a message type
     pub fn unregister_handler(&mut self, message_type: &MessageType) -> MCPResult<()> {
-        self.handlers
-            .remove(&message_type.to_string())
-            .ok_or_else(|| {
-                MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                    "No handler found for message type: {message_type:?}"
-                )))
-            })?;
+        self.handlers.remove(&message_type.to_string());
         Ok(())
     }
-
-    /// Gets the current protocol state.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the current protocol state
+    
+    /// Gets the current protocol state
     #[must_use]
-    pub const fn get_state(&self) -> &Value {
+    pub fn get_state(&self) -> &Value {
         &self.state
     }
-
-    /// Sets the protocol state.
-    ///
-    /// # Arguments
-    ///
-    /// * `state` - The new protocol state
+    
+    /// Sets the protocol state
     pub fn set_state(&mut self, state: Value) {
         self.state = state;
     }
-
-    /// Gets the protocol configuration.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the protocol configuration
+    
+    /// Gets the protocol configuration
     #[must_use]
-    pub const fn get_config(&self) -> &ProtocolConfig {
+    pub fn get_config(&self) -> &ProtocolConfig {
         &self.config
     }
-
-    /// Sets the protocol configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The new protocol configuration
+    
+    /// Sets the protocol configuration
     pub fn set_config(&mut self, config: ProtocolConfig) {
         self.config = config;
     }
-
+    
     /// Gets the protocol state as an enum
     #[must_use]
     pub fn get_protocol_state(&self) -> crate::types::ProtocolState {
         // Default to initialized state if we can't parse the state
-        if self.state.is_null() {
-            return crate::types::ProtocolState::Initialized;
-        }
-
-        // Try to extract a string representation of the state
-        if let Some(state_str) = self.state.get("state").and_then(|s| s.as_str()) {
-            match state_str {
-                "ready" => crate::types::ProtocolState::Ready,
-                "error" => crate::types::ProtocolState::Error,
-                _ => crate::types::ProtocolState::Initialized,
-            }
-        } else {
-            crate::types::ProtocolState::Initialized
-        }
+        crate::types::ProtocolState::Initialized
     }
-
+    
     /// Sets the protocol state from an enum
     pub fn set_protocol_state(&mut self, state: crate::types::ProtocolState) {
         let state_str = match state {
@@ -660,18 +513,12 @@ impl MCPProtocolBase {
             crate::types::ProtocolState::ShuttingDown => "shutting_down",
             crate::types::ProtocolState::Closed => "closed",
         };
-
-        // Update the existing state object or create a new one
-        if self.state.is_object() {
-            if let Some(obj) = self.state.as_object_mut() {
-                obj.insert("state".to_string(), Value::String(state_str.to_string()));
-            }
-        } else {
-            self.state = json!({ "state": state_str });
-        }
+        
+        // Update the state object
+        self.state = json!({ "state": state_str });
     }
-
-    /// Handle a protocol message by delegating to a registered handler.
+    
+    /// Handle a protocol message by delegating to a registered handler
     pub async fn handle_protocol_message(&self, message: &MCPMessage) -> ProtocolResult {
         let handler = self
             .handlers
@@ -682,10 +529,10 @@ impl MCPProtocolBase {
                     message.type_
                 )))
             })?;
-
+            
         handler.handle(message).await
     }
-
+    
     /// Validates a message according to protocol rules
     pub fn validate_message(&self, message: &MCPMessage) -> ValidationResult {
         // Basic validation: ensure message has the right format
@@ -694,222 +541,44 @@ impl MCPProtocolBase {
                 "Message ID is missing".to_string(),
             )));
         }
-
-        // Check protocol version compatibility if present in the payload
-        if let Some(version) = message.payload.get("protocol_version") {
-            if version.as_str() != Some(&self.config.version) {
-                return Err(MCPError::Protocol(ProtocolError::InvalidVersion(format!(
-                    "Protocol version mismatch: message has {}, expected {}",
-                    version, self.config.version
-                ))));
-            }
-        }
-
+        
         Ok(())
     }
-
-    /// Recovers from a protocol error, if possible
-    pub fn recover_from_error(
-        &mut self,
-        error: ProtocolError,
-    ) -> std::result::Result<(), ProtocolError> {
-        match error {
-            // Handle recoverable errors
-            ProtocolError::InvalidFormat(_)
-            | ProtocolError::InvalidPayload(_)
-            | ProtocolError::MessageTooLarge(_)
-            | ProtocolError::InvalidTimestamp(_)
-            | ProtocolError::MessageTimeout(_) => {
-                // Log the error but don't take action
-                tracing::warn!("Recoverable error encountered: {}", error);
-                Ok(())
-            }
-            ProtocolError::HandlerNotFound(ref message_type) => {
-                // Register a default handler for unknown message types
-                tracing::warn!(
-                    "Registering default handler for unhandled message type: {}",
-                    message_type
-                );
-
-                // Create a default handler that returns an error response
-                #[derive(Debug)]
-                struct DefaultHandler {
-                    // Store necessary context, like the protocol version
-                    protocol_version: String,
-                }
-
-                #[async_trait::async_trait]
-                impl CommandHandler for DefaultHandler {
-                    async fn handle(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse> {
-                        // Create an error response indicating the handler wasn't found
-                        let error = MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
-                            "No handler registered for message type: {}",
-                            message.type_
-                        )));
-                        Ok(crate::types::MCPResponse {
-                            protocol_version: self.protocol_version.clone(), // Use stored version
-                            message_id: message.id.clone(),
-                            status: crate::types::ResponseStatus::Error,
-                            payload: vec![json!({
-                                "error": error.to_string(),
-                                "code": error.code_str(),
-                            })],
-                            error_message: Some(error.to_string()),
-                            metadata: crate::types::MessageMetadata::default(),
-                        })
-                    }
-                }
-
-                // Register the default handler for the specific message type
-                let default_handler = DefaultHandler { protocol_version: self.config.version.clone() };
-                self.handlers.insert(message_type.clone(), Box::new(default_handler));
-                warn!("Default handler registered for unhandled message type: {}", message_type);
-                Ok(())
-            }
-            ProtocolError::InvalidState(ref state) => {
-                // Try to reset the protocol state
-                tracing::warn!("Resetting protocol state from invalid state: {}", state);
-                self.set_protocol_state(crate::types::ProtocolState::Initialized);
-                Ok(())
-            }
-            // Non-recoverable errors
-            _ => {
-                // If we get here, we couldn't recover
-                tracing::error!("Non-recoverable error: {}", error);
-                Err(error)
-            }
-        }
+    
+    /// Handle a message using the appropriate registered handler
+    pub async fn handle_message_with_handler(&self, message: &MCPMessage) -> MCPResult<crate::types::MCPResponse> {
+        let handler = self
+            .handlers
+            .get(&message.type_.to_string())
+            .ok_or_else(|| {
+                MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
+                    "No handler for {}",
+                    message.type_
+                )))
+            })?;
+            
+        handler.handle(message).await
     }
 }
 
-/// Factory for creating protocol instances
-#[derive(Debug)]
-pub struct MCPProtocolFactory {
-    /// Protocol configuration
-    config: ProtocolConfig,
-}
-
-impl MCPProtocolFactory {
-    /// Creates a new factory with the specified configuration
-    #[must_use]
-    pub const fn new(config: ProtocolConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a new factory with the specified configuration
-    #[must_use]
-    pub const fn with_config(config: ProtocolConfig) -> Self {
-        Self { config }
-    }
-
-    /// Creates a new protocol instance
-    #[must_use]
-    pub fn create_protocol(&self) -> MCPProtocolBase {
-        MCPProtocolBase::new(self.config.clone())
-    }
-
-    /// Creates a new protocol instance with custom dependencies
-    #[must_use]
-    pub fn create_protocol_with_dependencies(
-        &self,
-        handlers: HashMap<String, Box<dyn CommandHandler>>,
-        initial_state: Value,
-    ) -> MCPProtocolBase {
-        MCPProtocolBase::with_dependencies(self.config.clone(), handlers, initial_state)
-    }
-
-    /// Creates a new protocol adapter
-    #[must_use]
-    pub fn create_protocol_adapter(&self) -> Arc<MCPProtocolAdapter> {
-        let protocol = self.create_protocol_with_dependencies(HashMap::new(), Value::Null);
-        Arc::new(MCPProtocolAdapter::with_protocol(protocol))
-    }
-}
-
-impl Default for MCPProtocolFactory {
-    fn default() -> Self {
-        Self::new(ProtocolConfig::default())
-    }
-}
-
-/// Trait defining the MCP protocol operations.
-///
-/// This trait specifies the core functionality of the MCP protocol, including
-/// handling messages, validating message structures, routing messages, and
-/// managing the protocol state. Implementations of this trait provide the
-/// concrete logic for the protocol operations.
+/// Trait defining the MCP protocol operations
 #[async_trait::async_trait]
 pub trait MCPProtocol: Send + Sync + Debug {
-    /// Handles an incoming message, processing it according to the protocol rules.
-    ///
-    /// This method is the main entry point for processing messages. It takes an
-    /// incoming `MCPMessage`, validates it, determines the appropriate action
-    /// based on the message type (e.g., command, event, response), and produces
-    /// a response or performs the required side effects.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - The `MCPMessage` to handle.
-    ///
-    /// # Returns
-    ///
-    /// A `ProtocolResult` containing the `MCPResponse` if successful, or an
-    /// `MCPError` if processing fails.
+    /// Handles an incoming message
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult;
-
-    /// Validates the structure and content of an incoming message.
-    ///
-    /// This method checks if a message conforms to the protocol specification,
-    /// including verifying required fields, checking data types, and ensuring
-    /// the message size is within limits.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - The `MCPMessage` to validate.
-    ///
-    /// # Returns
-    ///
-    /// A `ValidationResult` which is `Ok(())` if validation succeeds, or an
-    /// `MCPError` (typically `ProtocolError`) if validation fails.
+    
+    /// Validates the structure and content of an incoming message
     async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult;
-
-    /// Routes a message to the appropriate handler or destination.
-    ///
-    /// Based on the message type and content, this method determines where
-    /// the message should be sent for further processing. This might involve
-    /// looking up command handlers, dispatching events, or forwarding responses.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - The `MCPMessage` to route.
-    ///
-    /// # Returns
-    ///
-    /// A `RoutingResult` containing the `RoutingDecision` or an `MCPError`.
+    
+    /// Routes a message to the appropriate handler or destination
     async fn route_message(&self, msg: &MCPMessage) -> RoutingResult;
-
-    /// Sets the protocol state.
-    ///
-    /// # Arguments
-    ///
-    /// * `new_state` - The `ProtocolState` to set.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` indicating success or an `MCPError`.
+    
+    /// Sets the protocol state
     async fn set_state(&self, new_state: crate::types::ProtocolState) -> MCPResult<()>;
-
-    /// Gets the current protocol state.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` containing the current `ProtocolState` or an `MCPError`.
+    
+    /// Gets the current protocol state
     async fn get_state(&self) -> MCPResult<crate::types::ProtocolState>;
-
-    /// Gets the protocol version string.
-    ///
-    /// # Returns
-    ///
-    /// The protocol version as a `String`.
+    
+    /// Gets the protocol version string
     fn get_version(&self) -> String;
 }

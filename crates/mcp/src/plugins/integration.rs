@@ -48,12 +48,12 @@ impl PluginManagerInterface for MockPluginManager {
         Ok(self.plugins.read().await.get(&plugin_id).cloned())
     }
     
-    async fn execute_mcp_plugin(&self, plugin_id: String, message: serde_json::Value) -> Result<serde_json::Value> {
+    async fn execute_mcp_plugin(&self, _plugin_id: String, _message: serde_json::Value) -> Result<serde_json::Value> {
         // Implementation would go here
         Ok(serde_json::json!({"status": "executed"}))
     }
     
-    async fn update_plugin_status(&self, plugin_id: String, status: PluginStatus) -> Result<()> {
+    async fn update_plugin_status(&self, _plugin_id: String, _status: PluginStatus) -> Result<()> {
         // Implementation would go here
         Ok(())
     }

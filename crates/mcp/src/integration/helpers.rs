@@ -1,10 +1,10 @@
 //! Helper functions for the integration module.
 
-use crate::error::{MCPError, Result};
-use crate::protocol::types::{MCPMessage, MessageId, MessageType};
+use crate::error::MCPError;
+use crate::protocol::types::{MCPMessage, MessageType};
 use crate::AuthCredentials; // <-- Use crate root (re-exported from security)
 use crate::types::{MCPResponse, ResponseStatus, MessageMetadata};
-use crate::error::SecurityError; // Added direct import
+ // Added direct import
 use serde_json::{Value, json};
 use tracing::{error, debug};
 

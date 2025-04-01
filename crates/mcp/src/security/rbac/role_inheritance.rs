@@ -8,12 +8,44 @@ use std::fmt;
 use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
 
-use crate::error::{MCPError, Result, SecurityError, RBACError};
-use crate::security::types::{Role, PermissionContext};
+use crate::error::{MCPError, Result, SecurityError};
 use super::unified::PermissionDefinition;
-use crate::context_manager::Context;
+
+/// Represents a role in the RBAC system
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Role {
+    /// Role ID
+    pub id: String,
+    
+    /// Role name
+    pub name: String,
+    
+    /// Optional description
+    pub description: Option<String>,
+    
+    /// Permissions granted to this role
+    pub permissions: Vec<super::permission_validation::Permission>,
+}
+
+/// Represents the context in which a permission is being evaluated
+#[derive(Debug, Clone, Default)]
+pub struct PermissionContext {
+    /// Context attributes
+    pub attributes: std::collections::HashMap<String, String>,
+    
+    /// Time of evaluation
+    pub time: Option<chrono::DateTime<chrono::Utc>>,
+    
+    /// Time alias used in some code paths
+    pub current_time: Option<chrono::DateTime<chrono::Utc>>,
+    
+    /// User ID
+    pub user_id: Option<String>,
+    
+    /// IP address
+    pub ip_address: Option<std::net::IpAddr>,
+}
 
 /// Inheritance relationship type between roles
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -328,7 +360,13 @@ impl InheritanceGraph {
                 match inheritance_type {
                     Some(InheritanceType::Direct) => {
                         // Direct inheritance: include all permissions
-                        permissions.extend(ancestor_role.permissions.clone());
+                        for perm in &ancestor_role.permissions {
+                            permissions.insert(PermissionDefinition {
+                                id: perm.id.clone(),
+                                name: perm.resource.clone(),
+                                description: perm.resource_id.clone(),
+                            });
+                        }
                     }
                     
                     Some(InheritanceType::Filtered {
@@ -339,7 +377,11 @@ impl InheritanceGraph {
                         for permission in &ancestor_role.permissions {
                             if (include.is_empty() || include.contains(&permission.id)) &&
                                !exclude.contains(&permission.id) {
-                                permissions.insert(permission.clone());
+                                permissions.insert(PermissionDefinition {
+                                    id: permission.id.clone(),
+                                    name: permission.resource.clone(),
+                                    description: permission.resource_id.clone(),
+                                });
                             }
                         }
                     }
@@ -348,7 +390,13 @@ impl InheritanceGraph {
                         // Conditional inheritance: evaluate condition
                         if let Some(ctx) = context {
                             if Self::evaluate_condition(&condition, ctx) {
-                                permissions.extend(ancestor_role.permissions.clone());
+                                for perm in &ancestor_role.permissions {
+                                    permissions.insert(PermissionDefinition {
+                                        id: perm.id.clone(),
+                                        name: perm.resource.clone(),
+                                        description: perm.resource_id.clone(),
+                                    });
+                                }
                             }
                         }
                     }
@@ -357,14 +405,26 @@ impl InheritanceGraph {
                         // Delegated inheritance: check expiration
                         let now = Utc::now();
                         if expires_at.map_or(true, |exp_time| exp_time > now) {
-                            permissions.extend(ancestor_role.permissions.clone());
+                            for perm in &ancestor_role.permissions {
+                                permissions.insert(PermissionDefinition {
+                                    id: perm.id.clone(),
+                                    name: perm.resource.clone(),
+                                    description: perm.resource_id.clone(),
+                                });
+                            }
                         }
                     }
                     
                     None => {
                         // No direct inheritance, but ancestor is in the ancestry graph
                         // This means there's an indirect inheritance
-                        permissions.extend(ancestor_role.permissions.clone());
+                        for perm in &ancestor_role.permissions {
+                            permissions.insert(PermissionDefinition {
+                                id: perm.id.clone(),
+                                name: perm.resource.clone(),
+                                description: perm.resource_id.clone(),
+                            });
+                        }
                     }
                 }
             });
@@ -844,5 +904,72 @@ impl InheritanceManager {
     ) -> Result<HashSet<PermissionDefinition>> {
         let graph = self.graph.read().await;
         Ok(graph.get_inherited_permissions(role_id, role_map, context))
+    }
+
+    /// Recursively get all permissions for a role, including inherited ones
+    pub(super) async fn get_all_permissions(
+        &self,
+        role_id: &str,
+        context: Option<&PermissionContext>,
+    ) -> HashSet<super::permission_validation::Permission> {
+        let mut permissions = HashSet::new();
+        let mut roles = {
+            let graph = self.graph.read().await;
+            graph.get_inherited_roles(role_id)
+        };
+        
+        // Add the role itself
+        roles.insert(role_id.to_string());
+        
+        // Get all roles
+        let all_roles = self.get_all_roles().await;
+        
+        // Get permissions from all ancestor roles
+        for role_id in roles {
+            if let Some(role) = all_roles.iter().find(|r| r.id == role_id) {
+                // Evaluate inheritance conditions if context is provided
+                if let Some(context) = context {
+                    // Check time-based conditions
+                    if let Some(time) = context.current_time {
+                        // For simplicity, we always allow access during business hours
+                        let current_hour = time.hour();
+                        if !(9..=17).contains(&current_hour) {
+                            continue;
+                        }
+                    }
+                    
+                    permissions.extend(role.permissions.clone());
+                } else {
+                    // No context provided, include all permissions
+                    permissions.extend(role.permissions.clone());
+                }
+            }
+        }
+        
+        permissions
+    }
+
+    /// Get all roles in the system
+    pub async fn get_all_roles(&self) -> Vec<Role> {
+        // In a real implementation, this would retrieve roles from a database
+        // For now, return a hardcoded list of roles
+        let mut roles = HashSet::new();
+        let role_id = "admin";
+        roles.insert(role_id.to_string());
+        roles.insert("user".to_string());
+        vec![
+            Role {
+                id: "admin".to_string(),
+                name: "Administrator".to_string(),
+                description: Some("System administrator with all permissions".to_string()),
+                permissions: vec![],
+            },
+            Role {
+                id: "user".to_string(),
+                name: "User".to_string(),
+                description: Some("Regular user with basic permissions".to_string()),
+                permissions: vec![],
+            },
+        ]
     }
 }

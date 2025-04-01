@@ -12,6 +12,27 @@ use std::error::Error as StdError;
 
 use crate::resilience::ResilienceError;
 
+/// Struct representing a constant backoff strategy
+#[derive(Debug, Clone, Copy)]
+pub struct ConstantBackoff {
+    /// Constant delay to use between retry attempts
+    pub delay: Duration,
+}
+
+impl ConstantBackoff {
+    /// Create a new constant backoff with the specified delay
+    #[must_use]
+    pub fn new(delay: Duration) -> Self {
+        Self { delay }
+    }
+    
+    /// Get the delay for a specific attempt (always returns the same value)
+    #[must_use]
+    pub fn delay_for_attempt(&self, _attempt: u32) -> Duration {
+        self.delay
+    }
+}
+
 /// Defines different backoff strategies for retry operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackoffStrategy {
@@ -283,7 +304,7 @@ impl RetryMechanism {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::test;
+    
 
     #[tokio::test]
     async fn test_retry_success_first_attempt() {

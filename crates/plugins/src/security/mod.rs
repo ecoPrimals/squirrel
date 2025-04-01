@@ -22,8 +22,6 @@ use squirrel_mcp::security::{
     DefaultTokenManager, 
     InMemoryKeyStorage,
 };
-use tracing::{info, warn, error, debug};
-use thiserror::Error;
 
 pub mod resource_monitor;
 pub mod signature;
@@ -339,6 +337,16 @@ impl SecurityManagerAdapter {
             resource_monitor,
             signature_verifier,
         }
+    }
+    
+    /// Get the resource monitor
+    pub fn resource_monitor(&self) -> Arc<ResourceMonitor> {
+        self.resource_monitor.clone()
+    }
+    
+    /// Get the signature verifier
+    pub fn signature_verifier(&self) -> Arc<SignatureVerifier> {
+        self.signature_verifier.clone()
     }
 }
 
@@ -850,6 +858,18 @@ impl EnhancedSecurityManager {
     /// Get the signature verifier
     pub fn signature_verifier(&self) -> Arc<SignatureVerifier> {
         self.signature_verifier.clone()
+    }
+    
+    /// Get the available permissions
+    pub async fn available_permissions(&self) -> HashMap<String, Permission> {
+        self.available_permissions.read().await.clone()
+    }
+    
+    /// Register a new permission
+    pub async fn register_permission(&self, permission: Permission) -> Result<()> {
+        let mut available_permissions = self.available_permissions.write().await;
+        available_permissions.insert(permission.name.clone(), permission);
+        Ok(())
     }
 }
 

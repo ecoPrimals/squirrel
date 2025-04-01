@@ -82,7 +82,7 @@ pub use self::auth::DefaultAuthManager;
 pub use self::auth::SecurityContext;
 pub use self::auth::UserContext;
 
-pub use self::crypto::{CryptoProvider, DefaultCryptoProvider, KeyPurpose, KeyStorage};
+pub use self::crypto::{CryptoProvider, DefaultCryptoProvider};
 pub use self::crypto::encrypt;
 pub use self::crypto::decrypt;
 pub use self::crypto::generate_key;

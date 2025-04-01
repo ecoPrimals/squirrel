@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::error::{Result, SecurityError};
+use crate::error::Result;
 use serde::{Serialize, Deserialize};
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -26,16 +26,16 @@ pub struct IdentityCredentials {
 #[async_trait]
 pub trait IdentityManager: Send + Sync {
     /// Verify user credentials and return the user ID if valid
-    async fn verify_credentials(&self, credentials: &IdentityCredentials) -> Result<UserId>;
+    async fn verify_credentials(&self, _credentials: &IdentityCredentials) -> Result<UserId>;
     
     /// Create a new user with the given credentials
-    async fn create_user(&self, credentials: &IdentityCredentials) -> Result<UserId>;
+    async fn create_user(&self, _credentials: &IdentityCredentials) -> Result<UserId>;
     
     /// Check if a user with the given ID exists
-    async fn user_exists(&self, user_id: &UserId) -> Result<bool>;
+    async fn user_exists(&self, _user_id: &UserId) -> Result<bool>;
     
     /// Get the roles associated with a user
-    async fn get_user_roles(&self, user_id: &UserId) -> Result<Vec<String>>;
+    async fn get_user_roles(&self, _user_id: &UserId) -> Result<Vec<String>>;
 }
 
 /// Default implementation of the IdentityManager
@@ -50,7 +50,7 @@ impl DefaultIdentityManager {
 
 #[async_trait]
 impl IdentityManager for DefaultIdentityManager {
-    async fn verify_credentials(&self, credentials: &IdentityCredentials) -> Result<UserId> {
+    async fn verify_credentials(&self, _credentials: &IdentityCredentials) -> Result<UserId> {
         // This is a placeholder implementation
         // In a real implementation, we would look up the credentials in a data store
         warn!("Using placeholder identity manager - always returning a fixed user ID");
@@ -60,19 +60,19 @@ impl IdentityManager for DefaultIdentityManager {
         Ok(UserId(Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap()))
     }
     
-    async fn create_user(&self, credentials: &IdentityCredentials) -> Result<UserId> {
+    async fn create_user(&self, _credentials: &IdentityCredentials) -> Result<UserId> {
         // This is a placeholder implementation
         let user_id = UserId(Uuid::new_v4());
-        info!(user_id = %user_id.0, username = %credentials.username, "User created");
+        info!(user_id = %user_id.0, username = %_credentials.username, "User created");
         Ok(user_id)
     }
     
-    async fn user_exists(&self, user_id: &UserId) -> Result<bool> {
+    async fn user_exists(&self, _user_id: &UserId) -> Result<bool> {
         // This is a placeholder implementation
         Ok(true)
     }
     
-    async fn get_user_roles(&self, _user_id: &UserId) -> Result<Vec<String>> {
+    async fn get_user_roles(&self, __user_id: &UserId) -> Result<Vec<String>> {
         // This is a placeholder implementation
         // In a real implementation, we would retrieve roles from a data store
         Ok(vec!["user".to_string()])

@@ -6,7 +6,7 @@
 use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{debug, error, info};
+use tracing::info;
 use squirrel_interfaces::plugins::PluginRegistry;
 
 mod registry;
@@ -102,13 +102,15 @@ pub fn create_plugin_manager() -> Arc<PluginManager> {
 }
 
 // Example plugins module for demonstration purposes
-#[cfg(feature = "example-plugins")]
+#[cfg(feature = "plugins")]
 pub mod examples {
     use std::sync::Arc;
-    use squirrel_example_plugins::create_utility_plugin;
+    // use squirrel_example_plugins::create_utility_plugin;
     
     /// Create an example utility plugin
     pub fn create_example_utility_plugin() -> Arc<dyn squirrel_interfaces::plugins::Plugin> {
-        create_utility_plugin()
+        // Placeholder for actual plugin - commented out until the example plugin is available
+        // create_utility_plugin()
+        panic!("Example utility plugin not implemented yet")
     }
 } 

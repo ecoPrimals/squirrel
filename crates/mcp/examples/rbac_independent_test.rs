@@ -76,7 +76,8 @@ trait RBACManager: Send + Sync + 'static {
             let role_details = self.get_role_details(&role_id).await?;
             
             if let Some(role) = role_details {
-                if role.permissions.contains(permission) {
+                // Convert &str to String for comparison with HashSet<String>
+                if role.permissions.contains(&permission.to_string()) {
                     return Ok(true);
                 }
             }
@@ -291,11 +292,11 @@ impl MockRBACManager {
         }
     }
     
-    // Set specific roles for a user
-    async fn with_user_roles(self, user_id: &str, roles: Vec<String>) -> Self {
+    // Set specific roles for a user - fixed to not move self
+    async fn with_user_roles(&self, user_id: &str, roles: Vec<String>) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
         user_roles.insert(user_id.to_string(), roles);
-        self
+        Ok(())
     }
 }
 
@@ -486,10 +487,9 @@ async fn test_mock_rbac_manager() -> Result<()> {
     assert_eq!(dave_roles.len(), 1, "Dave should have 1 role");
     assert!(dave_roles.contains(&"admin".to_string()), "Dave should be an admin");
     
-    // Test with_user_roles method
-    let mock_rbac = MockRBACManager::new(false);
-    let mock_with_roles = mock_rbac.with_user_roles("eve", vec!["user".to_string(), "manager".to_string()]).await;
-    let rbac = Arc::new(mock_with_roles);
+    // Test with_user_roles method - fixed to not move and then clone rbac
+    let rbac = Arc::new(MockRBACManager::new(false));
+    rbac.with_user_roles("eve", vec!["user".to_string(), "manager".to_string()]).await?;
     
     assert!(rbac.has_role("eve", "user").await?, "Eve should be a user");
     assert!(rbac.has_role("eve", "manager").await?, "Eve should be a manager");

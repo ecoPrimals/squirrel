@@ -4,33 +4,18 @@
 //! domain objects used in the MCP protocol. These implementations enable translation
 //! between domain objects and wire format messages.
 
-use crate::error::{self, ProtocolError};
+use crate::error::{ProtocolError, MCPError};
 use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, WireProtocolVersion, WireFormat};
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde_json::{json, Value};
-use crate::error::MCPError;
-use base64::Engine;
-use crate::protocol::types::{MCPMessage, MessageId, MessageType as ProtocolMessageType, ProtocolVersion, Header};
-use crate::message::MessageType as DomainMessageType;
-use crate::types::ResponseStatus;
-use crate::security::types::{
-    EncryptionFormat, 
-    EncryptionInfo as SecurityEncryptionInfo,
-    SecurityLevel, 
-    SecurityMetadata,
-};
-use crate::integration::types::SecurityContext;
-use serde::{Deserialize, Deserializer, Serialize};
-use serde::de::IntoDeserializer;
-use std::collections::HashMap;
-use std::str::FromStr;
-use serde::de::Error as SerdeError;
-use crate::security::AuthCredentials;
-use tracing::{debug, error, info, warn};
 use crate::protocol::serialization_utils::extract_string;
-use crate::message::Message;
-use crate::protocol::types::MessageType;
+use crate::protocol::types::{MCPMessage, MessageType, ProtocolVersion};
+use crate::message::{Message, MessageType as DomainMessageType};
+use crate::security::types::EncryptionFormat;
+
+use async_trait::async_trait;
+use base64::Engine;
+use chrono::Utc;
+use serde::{Deserialize, Deserializer, de::Error as SerdeError};
+use serde_json::{json, Value};
 
 // ==========================================
 // Message Domain Object Implementation

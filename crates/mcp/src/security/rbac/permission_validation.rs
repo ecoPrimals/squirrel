@@ -7,16 +7,147 @@
 use std::collections::{HashMap, HashSet};
 use tokio::sync::RwLock;
 use regex::Regex;
-use chrono::{DateTime, NaiveTime, Utc, Timelike};
+use chrono::{DateTime, NaiveTime, Utc, Timelike, Datelike};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::{SecurityError, Result, RBACError};
-use crate::security::types::{Role, PermissionContext, PermissionCondition, PermissionScope, Action, SecurityLevel};
+use crate::error::{SecurityError, Result};
+use crate::security::types::Action;
 use crate::error::MCPError;
-use tracing::{debug, error};
-use crate::context_manager::Context;
-use super::unified::PermissionDefinition;
+
+/// Represents a role in the RBAC system
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Role {
+    /// Role ID
+    pub id: String,
+    
+    /// Role name
+    pub name: String,
+    
+    /// Optional description
+    pub description: Option<String>,
+    
+    /// Permissions granted to this role
+    pub permissions: Vec<Permission>,
+}
+
+/// Represents the context in which a permission is being evaluated
+#[derive(Debug, Clone, Default)]
+pub struct PermissionContext {
+    /// Context attributes
+    pub attributes: std::collections::HashMap<String, String>,
+    
+    /// Time of evaluation
+    pub time: Option<chrono::DateTime<chrono::Utc>>,
+    
+    /// Time alias used in some code paths
+    pub current_time: Option<chrono::DateTime<chrono::Utc>>,
+    
+    /// User ID
+    pub user_id: Option<String>,
+    
+    /// IP address
+    pub ip_address: Option<std::net::IpAddr>,
+    
+    /// Network address (may include additional information beyond IP)
+    pub network_address: Option<String>,
+    
+    /// Resource owner ID
+    pub resource_owner_id: Option<String>,
+    
+    /// Resource group ID
+    pub resource_group_id: Option<String>,
+    
+    /// Security level
+    pub security_level: Option<u8>,
+}
+
+/// Represents a scope for a permission
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionScope {
+    /// Global scope (applies everywhere)
+    Global,
+    
+    /// User scope (applies to specific user)
+    User(String),
+    
+    /// Group scope (applies to specific group)
+    Group(String),
+    
+    /// Organization scope (applies to specific organization)
+    Organization(String),
+    
+    /// Resource scope (applies to specific resource)
+    Resource(String),
+    
+    /// Instance scope (applies to specific instance)
+    Instance(String),
+    
+    /// Own scope (applies to objects owned by the current user)
+    Own,
+    
+    /// All scope (applies to everything in the specified context)
+    All,
+    
+    /// Pattern scope (applies to resources matching a pattern)
+    Pattern(String),
+}
+
+/// Represents a condition that must be satisfied for a permission to be granted
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PermissionCondition {
+    /// Time range condition
+    TimeRange {
+        /// Start time (24-hour format, HH:MM)
+        start_time: String,
+        
+        /// End time (24-hour format, HH:MM)
+        end_time: String,
+        
+        /// Days of week (0 = Sunday, 1 = Monday, etc.)
+        days: Vec<u8>,
+    },
+    
+    /// Network range condition (CIDR notation)
+    NetworkRange {
+        /// CIDR notation (e.g., "192.168.0.0/24")
+        cidr: String,
+    },
+    
+    /// Minimum security level required (u8 instead of SecurityLevel for Hash)
+    MinimumSecurityLevel(u8),
+    
+    /// Attribute equals specific value
+    AttributeEquals {
+        /// Attribute name
+        attribute: String,
+        
+        /// Expected value
+        value: String,
+    },
+}
+
+/// Represents a permission in the RBAC system
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Permission {
+    /// Unique identifier for the permission
+    pub id: String,
+    
+    /// Resource the permission applies to
+    pub resource: String,
+    
+    /// Action that is permitted
+    pub action: Action,
+    
+    /// Optional scope of the permission
+    pub scope: Option<PermissionScope>,
+    
+    /// Conditions that must be satisfied for the permission to be granted
+    pub conditions: Vec<PermissionCondition>,
+    
+    /// Alternative property used in some code paths
+    pub resource_id: String,
+}
 
 /// Represents the validation result for a permission check
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,6 +332,8 @@ impl PermissionValidator {
         user_permissions: &HashSet<Permission>,
         context: &PermissionContext,
     ) -> ValidationResult {
+        let action_clone = action.clone();
+        
         // Create audit record base
         let audit_record_id = Uuid::new_v4().to_string();
         let mut audit_record = ValidationAuditRecord {
@@ -208,7 +341,7 @@ impl PermissionValidator {
             user_id: user_id.to_string(),
             timestamp: Utc::now(),
             resource: resource.to_string(),
-            action,
+            action: action_clone,
             result: ValidationResult::Denied,
             rule_id: String::new(),
             rule_name: String::new(),
@@ -238,7 +371,7 @@ impl PermissionValidator {
         
         // Check if any permission directly allows access
         for permission in user_permissions {
-            if Self::matches_permission(permission, resource, action, context) {
+            if Self::matches_permission(permission, resource, &action, context) {
                 // Permission matches direct permission, grant access
                 // Create a basic audit record
                 if self.audit_enabled {
@@ -269,7 +402,7 @@ impl PermissionValidator {
             let rule = &self.rules[i];
 
             // Skip rules for other actions
-            if rule.action != action && rule.action != Action::Admin() {
+            if rule.action != action && rule.action != Action::admin() {
                 continue;
             }
 
@@ -339,7 +472,7 @@ impl PermissionValidator {
     /// Check if a rule applies to a resource and action
     fn rule_applies(&self, rule: &ValidationRule, resource: &str, action: Action) -> bool {
         // Check if rule applies to this action
-        if rule.action != action && rule.action != Action::Admin() {
+        if rule.action != action && rule.action != Action::admin() {
             return false;
         }
         
@@ -355,51 +488,52 @@ impl PermissionValidator {
     fn matches_permission(
         permission: &Permission,
         resource: &str,
-        action: Action,
+        action: &Action,
         context: &PermissionContext,
     ) -> bool {
         // Check action
-        if permission.action != action && permission.action != Action::Admin() {
+        if permission.action != *action && permission.action != Action::admin() {
             return false;
         }
         
         // Check resource
-        let resource_match = match &permission.resource_id {
-            // Exact resource ID match
-            Some(id) if id == resource => true,
-            
-            // No specific resource ID, check resource type
-            None => permission.resource == resource,
-            
-            // Specific resource ID doesn't match
-            _ => false,
+        let resource_match = if permission.resource_id == resource {
+            true
+        } else {
+            permission.resource == resource
         };
         
         if !resource_match {
             return false;
         }
         
-        // Check scope
+        // Check if the permission scope matches
         let scope_match = match &permission.scope {
-            PermissionScope::Own => {
-                context.resource_owner_id.as_ref().map_or(false, |owner_id| 
-                    owner_id == &context.user_id
-                )
-            },
-            
-            PermissionScope::Group => {
-                context.resource_group_id.as_ref().map_or(false, |_group_id| 
-                    // In a real implementation, check if user is in the same group
-                    true
-                )
-            },
-            
-            PermissionScope::All => true,
-            
-            PermissionScope::Pattern(pattern) => {
-                // Try to match the pattern against the resource
-                Regex::new(pattern).map_or(false, |regex| regex.is_match(resource))
-            },
+            None => true, // No scope constraint
+            Some(scope) => match scope {
+                PermissionScope::Own => {
+                    context.resource_owner_id.as_ref().map_or(false, |owner_id| 
+                        context.user_id.as_ref().map_or(false, |user_id| owner_id == user_id)
+                    )
+                },
+                
+                PermissionScope::Group(group_id) => {
+                    context.resource_group_id.as_ref().map_or(false, |_resource_group| 
+                        // In a real implementation, check if user is in the same group
+                        !group_id.is_empty()
+                    )
+                },
+                
+                PermissionScope::All => true,
+                
+                PermissionScope::Pattern(pattern) => {
+                    // Try to match the pattern against the resource
+                    Regex::new(pattern).map_or(false, |regex| regex.is_match(resource))
+                },
+
+                // Default case for other scope types
+                _ => false,
+            }
         };
         
         if !scope_match {
@@ -429,8 +563,8 @@ impl PermissionValidator {
                         let current_time_naive = current_time.time();
                         
                         // Check if current day is in allowed days
-                        let current_day = current_time.format("%a").to_string();
-                        if !days.contains(&current_day) {
+                        let current_weekday = current_time.naive_utc().weekday().num_days_from_sunday() as u8;
+                        if !days.contains(&current_weekday) {
                             return false;
                         }
                         
@@ -457,7 +591,7 @@ impl PermissionValidator {
             },
             
             PermissionCondition::MinimumSecurityLevel(level) => {
-                context.security_level >= *level
+                context.security_level.map_or(false, |sl| sl >= *level)
             },
             
             PermissionCondition::AttributeEquals { attribute, value } => {
@@ -582,19 +716,25 @@ impl PermissionValidator {
                 
                 let level_str = parts[1].trim();
                 let required_level = match level_str {
-                    "Low" => SecurityLevel::Low,
-                    "Standard" => SecurityLevel::Standard,
-                    "High" => SecurityLevel::High,
-                    "Critical" => SecurityLevel::Critical,
+                    "Low" => 0,
+                    "Standard" => 1,
+                    "High" => 2,
+                    "Critical" => 3,
                     _ => return false,
                 };
                 
+                // Return false if security_level is None
+                let security_level = match context.security_level {
+                    Some(level) => level,
+                    None => return false,
+                };
+                
                 return match operator {
-                    ">=" => context.security_level >= required_level,
-                    "<=" => context.security_level <= required_level,
-                    ">" => context.security_level > required_level,
-                    "<" => context.security_level < required_level,
-                    "==" => context.security_level == required_level,
+                    ">=" => security_level >= required_level,
+                    "<=" => security_level <= required_level,
+                    ">" => security_level > required_level,
+                    "<" => security_level < required_level,
+                    "==" => security_level == required_level,
                     _ => false,
                 };
             }
@@ -780,4 +920,22 @@ pub(super) fn validate_permission_format(permission: &str) -> Result<(String, St
     }
     
     Ok((action.to_string(), resource.to_string()))
+}
+
+/// Create a new permission
+pub fn new(
+    id: String,
+    resource: String,
+    action: Action,
+    scope: Option<PermissionScope>,
+    conditions: Vec<PermissionCondition>,
+) -> Permission {
+    Permission {
+        id,
+        resource: resource.clone(),
+        action,
+        scope,
+        conditions,
+        resource_id: resource,
+    }
 } 

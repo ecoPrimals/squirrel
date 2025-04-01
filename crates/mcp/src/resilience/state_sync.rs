@@ -339,6 +339,23 @@ impl StateSynchronizer {
         // In a real implementation, this would communicate with the target system
         // For now, we'll just simulate success
         
+        // Store the state in our local cache
+        {
+            let state_data = StateData {
+                data: serde_json::from_slice(&serialized).map_err(|e| StateSyncError::SerializationError {
+                    message: format!("Failed to deserialize serialized data: {e}"),
+                })?,
+                timestamp: Instant::now(),
+            };
+            
+            let mut states = self.states.write().map_err(|e| StateSyncError::SyncFailed {
+                message: format!("Failed to write states: {e}"),
+                source: None,
+            })?;
+            
+            states.insert(state_type, state_data);
+        }
+        
         // Update metrics for success and drop early
         {
             let mut metrics = self.metrics.lock().map_err(|e| StateSyncError::SyncFailed {
@@ -548,7 +565,7 @@ pub struct StateData {
 mod tests {
     use super::*;
     use serde::Serialize;
-    use tokio::test;
+    
 
     #[derive(Serialize, Clone)]
     struct TestState {

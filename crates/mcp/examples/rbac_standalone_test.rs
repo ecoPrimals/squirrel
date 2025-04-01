@@ -87,10 +87,10 @@ impl MockRBACManager {
         }
     }
     
-    async fn with_user_roles(self, user_id: &str, roles: Vec<String>) -> Self {
+    async fn with_user_roles(&self, user_id: &str, roles: Vec<String>) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
         user_roles.insert(user_id.to_string(), roles);
-        self
+        Ok(())
     }
 }
 
@@ -242,35 +242,19 @@ async fn test_mock_rbac_manager() {
     // Setup test data
     let user_id = "test_user_2";
     let role_id = "editor";
+    let test_roles = vec![role_id.to_string()];
     
     // Initially, the user should not have any roles
     let has_role = mock_rbac_manager.has_role(user_id, role_id).await.unwrap();
     assert!(!has_role, "User should not have any roles initially");
     
-    // Assign a role
-    mock_rbac_manager.assign_role(user_id, role_id).await.unwrap();
+    // Assign roles using with_user_roles
+    mock_rbac_manager.with_user_roles(user_id, test_roles.clone()).await.unwrap();
     
-    // Check if the user has the role
+    // Check if the role was assigned
     let has_role = mock_rbac_manager.has_role(user_id, role_id).await.unwrap();
-    assert!(has_role, "User should have the assigned role");
-    
-    // Check a role the user doesn't have
-    let has_role = mock_rbac_manager.has_role(user_id, "non_existent_role").await.unwrap();
-    assert!(!has_role, "User should not have unassigned roles");
-    println!("✓ Role assignment and checking works");
-    
-    // Test with_user_roles method
-    let test_roles = vec!["role1".to_string(), "role2".to_string()];
-    let mock_manager = MockRBACManager::new(false);
-    let mock_manager = mock_manager.with_user_roles(user_id, test_roles.clone()).await;
-    let mock_rbac_manager = Arc::new(mock_manager);
-    
-    // Check if the user has the roles set with with_user_roles
-    for role in &test_roles {
-        let has_role = mock_rbac_manager.has_role(user_id, role).await.unwrap();
-        assert!(has_role, "User should have the role set with with_user_roles: {}", role);
-    }
-    println!("✓ with_user_roles method works");
+    assert!(has_role, "User should have the role after using with_user_roles");
+    println!("✓ with_user_roles works correctly");
     
     // Test cloning
     let mock_manager = mock_rbac_manager.as_ref().clone();

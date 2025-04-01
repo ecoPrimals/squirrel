@@ -268,6 +268,10 @@ impl MessageRouter {
         
         let handlers = self.handlers.read().await;
         
+        // Variable to store the highest priority response
+        let mut highest_priority_response: Option<Message> = None;
+        let mut any_handler_called = false;
+        
         // Try standard and wildcard handlers
         for lookup_key in [&message_type_str, "any"] {
             if let Some(handlers_map) = handlers.get(lookup_key) {
@@ -276,30 +280,53 @@ impl MessageRouter {
                 priorities.sort_by(|a, b| b.cmp(a));
                 
                 // Try handlers in priority order
-                for priority in priorities {
+                'priority_loop: for priority in priorities {
                     if let Some(handlers_vec) = handlers_map.get(priority) {
                         for handler in handlers_vec {
-                            // Try with this handler
-                            match handler.handle_message(message.clone()).await {
-                                Ok(Some(response)) => {
+                            any_handler_called = true;
+                            
+                            // Try with this handler, but with a timeout
+                            let handle_future = handler.handle_message(message.clone());
+                            match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
+                                Ok(Ok(Some(response))) => {
+                                    // Store the response if no higher priority response is stored yet
+                                    if highest_priority_response.is_none() {
+                                        highest_priority_response = Some(response);
+                                    }
+                                    
+                                    // If we're not continuing after response, break out of processing
                                     if !continue_after_response {
-                                        drop(handlers);
-                                        return Ok(Some(response));
+                                        break 'priority_loop;
                                     }
                                 }
-                                Ok(None) => continue, // Handler chose not to handle
-                                Err(e) => {
+                                Ok(Ok(None)) => continue, // Handler chose not to handle
+                                Ok(Err(e)) => {
                                     error!("Handler error for message '{}': {}", message.id, e);
+                                    continue; // Try the next handler
+                                }
+                                Err(_) => {
+                                    // Timeout occurred
+                                    error!("Handler timed out for message '{}'", message.id);
                                     continue; // Try the next handler
                                 }
                             }
                         }
                     }
                 }
+                
+                // If we found a response and we're not continuing, stop here
+                if highest_priority_response.is_some() && !continue_after_response {
+                    break;
+                }
             }
         }
         
         drop(handlers);
+        
+        // If any handler was called and we have a response, return it
+        if any_handler_called && highest_priority_response.is_some() {
+            return Ok(highest_priority_response);
+        }
         
         // If we're here, no handler actually handled the message
         Err(crate::error::MCPError::MessageRouter(MessageRouterError::NoHandlerFound(
@@ -390,12 +417,17 @@ impl AsyncMessageHandler for CompositeHandler {
         // Try each handler in sequence
         for handler in &self.handlers {
             if handler.can_handle(&message) {
-                match handler.handle_message(message.clone()).await {
-                    Ok(Some(response)) => return Ok(Some(response)),
-                    Ok(None) => continue, // Try the next handler
-                    Err(e) => {
+                let handle_future = handler.handle_message(message.clone());
+                match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
+                    Ok(Ok(Some(response))) => return Ok(Some(response)),
+                    Ok(Ok(None)) => continue, // Try the next handler
+                    Ok(Err(e)) => {
                         error!("Handler error in composite: {}", e);
                         continue;
+                    },
+                    Err(_) => {
+                        error!("Handler timed out in composite");
+                        continue; // Try the next handler
                     }
                 }
             }
@@ -414,10 +446,15 @@ impl MessageHandler for CompositeHandler {
         for handler in &self.handlers {
             // Check if the handler supports the type before calling
             if handler.supported_message_types().contains(&message.message_type.to_string()) {
-                match handler.handle_message(message.clone()).await { // Clone message for each handler
-                    Ok(Some(response)) => return Ok(Some(response)), // Return first response
-                    Ok(None) => continue, // Try next handler
-                    Err(e) => return Err(e), // Propagate error
+                let handle_future = handler.handle_message(message.clone());
+                match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
+                    Ok(Ok(Some(response))) => return Ok(Some(response)), // Return first response
+                    Ok(Ok(None)) => continue, // Try next handler
+                    Ok(Err(e)) => return Err(e), // Propagate error
+                    Err(_) => {
+                        error!("Handler timed out in composite");
+                        continue; // Try the next handler
+                    }
                 }
             }
         }
@@ -476,6 +513,7 @@ mod tests {
         }
     }
     
+    #[async_trait]
     impl MessageHandler for MockHandler {
         fn supported_message_types(&self) -> Vec<String> {
             self.message_types.clone()
@@ -483,6 +521,11 @@ mod tests {
         
         fn priority(&self) -> HandlerPriority {
             self.priority
+        }
+        
+        async fn handle_message(&self, _message: Message) -> MessageHandlerResult {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+            Ok(self.response.clone())
         }
     }
     
@@ -506,8 +549,8 @@ mod tests {
     async fn test_route_message_no_handler() {
         let router = MessageRouter::new();
         let message = MessageBuilder::new()
-            .with_message_type("test-type")
-            .with_content("test content")
+            .with_message_type("command")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
@@ -521,13 +564,13 @@ mod tests {
         let router = MessageRouter::new();
         let response = MessageBuilder::new()
             .with_message_type("response")
-            .with_content("response content")
+            .with_content_str("response content")
             .with_source("test")
             .with_destination("test")
             .build();
         
         let handler = Arc::new(MockHandler::new(
-            vec!["test-type".to_string()],
+            vec!["request".to_string()],
             HandlerPriority::Medium,
             Some(response.clone()),
         ));
@@ -535,8 +578,8 @@ mod tests {
         let _ = router.register_handler(handler).await;
         
         let message = MessageBuilder::new()
-            .with_message_type("test-type")
-            .with_content("test content")
+            .with_message_type("request")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
@@ -555,22 +598,22 @@ mod tests {
         
         // Create handlers with different priorities
         let low_priority_handler = Arc::new(MockHandler::new(
-            vec!["test-type".to_string()],
+            vec!["notification".to_string()],
             HandlerPriority::Low,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("low priority")
+                .with_content_str("low priority")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
         ));
         
         let high_priority_handler = Arc::new(MockHandler::new(
-            vec!["test-type".to_string()],
+            vec!["notification".to_string()],
             HandlerPriority::High,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("high priority")
+                .with_content_str("high priority")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
@@ -582,8 +625,8 @@ mod tests {
         
         // Create a message
         let message = MessageBuilder::new()
-            .with_message_type("test-type")
-            .with_content("test content")
+            .with_message_type("notification")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
@@ -611,52 +654,77 @@ mod tests {
         
         // Create handlers with different priorities
         let low_priority_handler = Arc::new(MockHandler::new(
-            vec!["test-type".to_string()],
+            vec!["notification".to_string()],
             HandlerPriority::Low,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("low priority")
+                .with_content_str("low priority")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
         ));
         
         let high_priority_handler = Arc::new(MockHandler::new(
-            vec!["test-type".to_string()],
+            vec!["notification".to_string()],
             HandlerPriority::High,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("high priority")
+                .with_content_str("high priority")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
         ));
         
         // Register handlers
-        let _ = router.register_handler(low_priority_handler.clone()).await;
-        let _ = router.register_handler(high_priority_handler.clone()).await;
+        match router.register_handler(low_priority_handler.clone()).await {
+            Ok(_) => println!("Low priority handler registered successfully"),
+            Err(e) => panic!("Failed to register low priority handler: {}", e),
+        }
         
-        // Create a message
+        match router.register_handler(high_priority_handler.clone()).await {
+            Ok(_) => println!("High priority handler registered successfully"),
+            Err(e) => panic!("Failed to register high priority handler: {}", e),
+        }
+        
+        // Verify both handlers are registered
+        let handler_count = router.get_handler_count("notification").await;
+        println!("Handler count for 'notification': {}", handler_count);
+        assert_eq!(handler_count, 2, "Expected 2 handlers to be registered");
+        
+        // Create a message with the correct type that matches what handlers were registered for
         let message = MessageBuilder::new()
-            .with_message_type("test-type")
-            .with_content("test content")
+            .with_message_type("notification")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
         
+        println!("Message type: {}", message.message_type);
+        println!("Starting route_message call...");
+        
         // Route the message
         let result = router.route_message(&message).await;
-        assert!(result.is_ok());
+        match &result {
+            Ok(response) => println!("Got response: {:?}", response),
+            Err(e) => println!("Error from route_message: {}", e),
+        }
+        assert!(result.is_ok(), "Expected route_message to return Ok, got: {:?}", result);
         
         let received_response = result.unwrap();
-        assert!(received_response.is_some());
+        assert!(received_response.is_some(), "Expected a response from a handler");
         
         // Should still get the high priority handler's response
-        assert_eq!(received_response.unwrap().content, "high priority");
+        let response_content = received_response.unwrap().content;
+        println!("Response content: {}", response_content);
+        assert_eq!(response_content, "high priority", "Expected high priority response");
         
         // Both handlers should have been called
-        assert_eq!(high_priority_handler.get_call_count(), 1);
-        assert_eq!(low_priority_handler.get_call_count(), 1);
+        let high_count = high_priority_handler.get_call_count();
+        let low_count = low_priority_handler.get_call_count();
+        println!("High priority handler call count: {}", high_count);
+        println!("Low priority handler call count: {}", low_count);
+        assert_eq!(high_count, 1, "High priority handler should be called exactly once");
+        assert_eq!(low_count, 1, "Low priority handler should be called exactly once");
     }
     
     #[tokio::test]
@@ -664,22 +732,22 @@ mod tests {
         let mut composite = CompositeHandler::new(HandlerPriority::Medium);
         
         let handler1 = Arc::new(MockHandler::new(
-            vec!["type1".to_string()],
+            vec!["request".to_string()],
             HandlerPriority::Medium,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("handler1 response")
+                .with_content_str("handler1 response")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
         ));
         
         let handler2 = Arc::new(MockHandler::new(
-            vec!["type2".to_string()],
+            vec!["notification".to_string()],
             HandlerPriority::Medium,
             Some(MessageBuilder::new()
                 .with_message_type("response")
-                .with_content("handler2 response")
+                .with_content_str("handler2 response")
                 .with_source("test")
                 .with_destination("test")
                 .build()),
@@ -691,47 +759,53 @@ mod tests {
         // Verify supported message types
         let types = composite.supported_message_types();
         assert_eq!(types.len(), 2);
-        assert!(types.contains(&"type1".to_string()));
-        assert!(types.contains(&"type2".to_string()));
+        assert!(types.contains(&"request".to_string()));
+        assert!(types.contains(&"notification".to_string()));
         
-        // Test type1 message
+        // Test request message
         let message1 = MessageBuilder::new()
-            .with_message_type("type1")
-            .with_content("test content")
+            .with_message_type("request")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
         
-        let result1 = composite.handle_message(message1).await;
+        // Use the MessageHandler trait implementation specifically
+        let result1 = MessageHandler::handle_message(&composite, message1).await;
         assert!(result1.is_ok());
+        
         let response1 = result1.unwrap();
         assert!(response1.is_some());
         assert_eq!(response1.unwrap().content, "handler1 response");
         
-        // Test type2 message
+        // Test notification message
         let message2 = MessageBuilder::new()
-            .with_message_type("type2")
-            .with_content("test content")
+            .with_message_type("notification")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
         
-        let result2 = composite.handle_message(message2).await;
+        // Use the MessageHandler trait implementation specifically
+        let result2 = MessageHandler::handle_message(&composite, message2).await;
         assert!(result2.is_ok());
+        
         let response2 = result2.unwrap();
         assert!(response2.is_some());
         assert_eq!(response2.unwrap().content, "handler2 response");
         
-        // Test unknown type
+        // Test unknown message type (but still valid in the system)
         let message3 = MessageBuilder::new()
-            .with_message_type("unknown")
-            .with_content("test content")
+            .with_message_type("error")
+            .with_content_str("test content")
             .with_source("test")
             .with_destination("test")
             .build();
         
-        let result3 = composite.handle_message(message3).await;
+        // Use the MessageHandler trait implementation specifically
+        let result3 = MessageHandler::handle_message(&composite, message3).await;
         assert!(result3.is_ok());
+        
         let response3 = result3.unwrap();
         assert!(response3.is_none());
     }

@@ -6,11 +6,9 @@
 use crate::error::{Result, SecurityError};
 use crate::security::types::EncryptionFormat;
 use ring::{aead, hmac};
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use rand::{RngCore, rngs::OsRng};
 use tracing::{debug};
 use async_trait::async_trait;
-use std::sync::Arc;
 use ring::aead::{BoundKey, NonceSequence};
 
 // AES-256-GCM constants
@@ -158,7 +156,7 @@ pub fn generate_key(format: EncryptionFormat) -> Vec<u8> {
 ///
 /// Returns an error if:
 /// * `format` is `EncryptionFormat::None`, as this indicates no encryption algorithm was selected
-fn get_aead_algorithm(format: EncryptionFormat) -> Result<&'static aead::Algorithm> {
+fn get_aead_algorithm(format: &EncryptionFormat) -> Result<&'static aead::Algorithm> {
     match format {
         EncryptionFormat::None => Err(SecurityError::EncryptionFailed(
             "No encryption algorithm selected".to_string(),
@@ -206,7 +204,7 @@ impl NonceSequence for StaticNonce {
 ///
 /// Encrypted data as a byte vector or an error
 pub fn encrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
-    let aead_algorithm = get_aead_algorithm(format)?;
+    let aead_algorithm = get_aead_algorithm(&format)?;
     let nonce = generate_nonce(format);
     
     // Create a vector with space for nonce, data, and tag
@@ -251,7 +249,7 @@ pub fn encrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<
 ///
 /// Decrypted data as a byte vector or an error
 pub fn decrypt(data: &[u8], key: &[u8], format: EncryptionFormat) -> Result<Vec<u8>> {
-    let aead_algorithm = get_aead_algorithm(format)?;
+    let aead_algorithm = get_aead_algorithm(&format)?;
     
     let nonce_len = match format {
         EncryptionFormat::None => return Err(SecurityError::DecryptionFailed("No encryption format selected".to_string()).into()),

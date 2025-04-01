@@ -6,12 +6,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
-use tracing::{debug, info, error, warn};
+use tracing::{debug, info};
 
+use crate::plugins::interfaces::PluginManagerInterface;
 use crate::tool::{Tool, ToolLifecycleHook, ToolError};
-use crate::plugins::types::PluginLifecycleStep;
-use crate::plugins::interfaces::{PluginManagerInterface, Plugin, PluginStatus};
-use crate::error::{MCPError, Result as MCPResult, PluginError};
 
 /// A lifecycle hook that synchronizes tool state changes to plugin status
 #[derive(Debug)]
@@ -218,11 +216,11 @@ impl<T: ToolLifecycleHook + Send + Sync + 'static> ToolLifecycleHook for Composi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use crate::tool::{Tool, ToolError};
     use anyhow::Result;
     use async_trait::async_trait;
-    use serde_json::json;
     use std::sync::Arc;
-    use uuid::Uuid;
     use crate::plugins::interfaces::{PluginStatus, Plugin};
 
     // Mock plugin manager for testing
@@ -235,15 +233,15 @@ mod tests {
             Ok(())
         }
 
-        async fn get_plugin_by_id(&self, _plugin_id: Uuid) -> Result<Option<Arc<dyn Plugin>>> {
+        async fn get_plugin_by_id(&self, _plugin_id: String) -> Result<Option<Arc<dyn Plugin>>> {
             Ok(None)
         }
 
-        async fn execute_mcp_plugin(&self, _plugin_id: Uuid, _message: serde_json::Value) -> Result<serde_json::Value> {
+        async fn execute_mcp_plugin(&self, _plugin_id: String, _message: serde_json::Value) -> Result<serde_json::Value> {
             Ok(json!({"result": "mock result"}))
         }
 
-        async fn update_plugin_status(&self, _plugin_id: Uuid, _status: PluginStatus) -> Result<()> {
+        async fn update_plugin_status(&self, _plugin_id: String, _status: PluginStatus) -> Result<()> {
             Ok(())
         }
     }
@@ -263,7 +261,7 @@ mod tests {
             .version("1.0.0")
             .description("A test tool")
             .security_level(1)
-            .build();
+            .build()?;
         
         // Test on_register
         hook.on_register(&tool).await?;

@@ -344,7 +344,7 @@ impl RecoveryStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    
     
     // A test error type
     #[derive(Debug)]

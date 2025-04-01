@@ -46,15 +46,13 @@ impl MockRBACManager {
     /// * `roles` - The roles to assign to the user
     ///
     /// # Returns
-    /// A reference to the updated mock for method chaining.
-    pub async fn with_user_roles(mut self, user_id: &str, roles: Vec<String>) -> Self {
-        {
-            let mut user_roles = self.user_roles.write().await;
-            let role_set = HashSet::from_iter(roles.into_iter());
-            user_roles.insert(user_id.to_string(), role_set);
-        } // ensure the write guard is dropped here
+    /// A result indicating whether the operation was successful.
+    pub async fn with_user_roles(&self, user_id: &str, roles: Vec<String>) -> Result<()> {
+        let mut user_roles = self.user_roles.write().await;
+        let role_set = HashSet::from_iter(roles.into_iter());
+        user_roles.insert(user_id.to_string(), role_set);
         
-        self
+        Ok(())
     }
 }
 

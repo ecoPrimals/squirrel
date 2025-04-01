@@ -1,10 +1,5 @@
-use std::sync::Arc;
-use std::time::Duration;
 use std::fmt;
 use std::error::Error as StdError;
-use std::pin::Pin;
-use std::future::Future;
-use tokio::test;
 
 use crate::resilience::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
 use crate::resilience::ResilienceError;
@@ -32,26 +27,46 @@ impl StdError for TestError {}
 
 #[tokio::test]
 async fn test_circuit_breaker_success() {
+    // Define a wrapper around i32 that can implement From<i32>
+    #[derive(Debug, PartialEq)]
+    struct TestInt(i32);
+    
+    impl From<i32> for TestInt {
+        fn from(value: i32) -> Self {
+            TestInt(value)
+        }
+    }
+
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig::default());
     
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Ok::<_, Box<dyn StdError + Send + Sync>>(42)
+            Ok::<_, Box<dyn StdError + Send + Sync>>(TestInt(42))
         })
     }).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 42);
+    assert_eq!(result.unwrap(), TestInt(42));
     assert_eq!(circuit_breaker.state(), CircuitState::Closed);
 }
 
 #[tokio::test]
 async fn test_circuit_breaker_failure() {
+    // Define a wrapper around i32 that can implement From<i32>
+    #[derive(Debug, PartialEq)]
+    struct TestInt(i32);
+    
+    impl From<i32> for TestInt {
+        fn from(value: i32) -> Self {
+            TestInt(value)
+        }
+    }
+
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig::default());
     
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::new(TestError::generic("test failure".to_string())) as Box<dyn StdError + Send + Sync>)
+            Err::<TestInt, _>(Box::new(TestError::generic("test failure".to_string())) as Box<dyn StdError + Send + Sync>)
         })
     }).await;
     
@@ -59,9 +74,9 @@ async fn test_circuit_breaker_failure() {
     assert_eq!(circuit_breaker.state(), CircuitState::Closed);
     
     // Test another failure to ensure state updating works
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::new(TestError::generic("test failure".to_string())) as Box<dyn StdError + Send + Sync>)
+            Err::<TestInt, _>(Box::new(TestError::generic("test failure".to_string())) as Box<dyn StdError + Send + Sync>)
         })
     }).await;
     
@@ -73,6 +88,16 @@ async fn test_circuit_breaker_failure() {
 
 #[tokio::test]
 async fn test_circuit_breaker_open_circuit() {
+    // Define a wrapper around i32 that can implement From<i32>
+    #[derive(Debug, PartialEq)]
+    struct TestInt(i32);
+    
+    impl From<i32> for TestInt {
+        fn from(value: i32) -> Self {
+            TestInt(value)
+        }
+    }
+
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
         name: "test".to_string(),
         failure_threshold: 2,  // Open after 2 failures
@@ -83,16 +108,16 @@ async fn test_circuit_breaker_open_circuit() {
     });
     
     // First failure
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
     // Second failure - should open circuit
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
@@ -100,9 +125,9 @@ async fn test_circuit_breaker_open_circuit() {
     assert_eq!(circuit_breaker.state(), CircuitState::Open);
     
     // This should be rejected without calling the function
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Ok::<_, Box<dyn StdError + Send + Sync>>(42)
+            Ok::<_, Box<dyn StdError + Send + Sync>>(TestInt(42))
         })
     }).await;
     
@@ -116,6 +141,16 @@ async fn test_circuit_breaker_open_circuit() {
 
 #[tokio::test]
 async fn test_circuit_breaker_half_open() {
+    // Define a wrapper around i32 that can implement From<i32>
+    #[derive(Debug, PartialEq)]
+    struct TestInt(i32);
+    
+    impl From<i32> for TestInt {
+        fn from(value: i32) -> Self {
+            TestInt(value)
+        }
+    }
+
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
         name: "test".to_string(),
         failure_threshold: 2,  // Open after 2 failures
@@ -126,15 +161,15 @@ async fn test_circuit_breaker_half_open() {
     });
     
     // Trip the circuit
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
@@ -148,14 +183,14 @@ async fn test_circuit_breaker_half_open() {
     assert_eq!(circuit_breaker.state(), CircuitState::HalfOpen);
     
     // Should allow one test call
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Ok::<_, Box<dyn StdError + Send + Sync>>(42)
+            Ok::<_, Box<dyn StdError + Send + Sync>>(TestInt(42))
         })
     }).await;
     
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 42);
+    assert_eq!(result.unwrap(), TestInt(42));
     
     // Should transition back to closed after success
     assert_eq!(circuit_breaker.state(), CircuitState::Closed);
@@ -163,6 +198,16 @@ async fn test_circuit_breaker_half_open() {
 
 #[tokio::test]
 async fn test_circuit_breaker_fallback() {
+    // Define a wrapper around i32 that can implement From<i32>
+    #[derive(Debug, PartialEq)]
+    struct TestInt(i32);
+    
+    impl From<i32> for TestInt {
+        fn from(value: i32) -> Self {
+            TestInt(value)
+        }
+    }
+
     let fallback_fn = || 999;
     
     let mut circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
@@ -175,80 +220,115 @@ async fn test_circuit_breaker_fallback() {
     });
     
     // Trip the circuit
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute(|| {
+    let _result: Result<TestInt, ResilienceError> = circuit_breaker.execute(|| {
         Box::pin(async {
-            Err::<i32, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
+            Err::<TestInt, _>(Box::<dyn StdError + Send + Sync>::from(TestError::generic("test failure".to_string())))
         })
     }).await;
     
     assert_eq!(circuit_breaker.state(), CircuitState::Open);
     
     // Now call should use fallback
-    let result: Result<i32, ResilienceError> = circuit_breaker.execute_with_fallback(|| {
+    let result: Result<TestInt, ResilienceError> = circuit_breaker.execute_with_fallback(|| {
         Box::pin(async {
-            Ok::<_, Box<dyn StdError + Send + Sync>>(42)
+            Ok::<_, Box<dyn StdError + Send + Sync>>(TestInt(42))
         })
     }).await;
     
     // Fallback should provide result
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 999);
+    assert_eq!(result.unwrap(), TestInt(999));
 }
 
 #[tokio::test]
 async fn test_fallback_execution() {
+    // Test error type
     #[derive(Debug)]
     struct TestError(String);
-
+    
     impl fmt::Display for TestError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Test error: {}", self.0)
+            write!(f, "TestError: {}", self.0)
         }
     }
-
+    
     impl StdError for TestError {}
-
+    
+    // Create a test wrapper type
+    #[derive(Debug, PartialEq)]
+    struct TestString(String);
+    
+    impl From<i32> for TestString {
+        fn from(value: i32) -> Self {
+            TestString(format!("Fallback result: {}", value))
+        }
+    }
+    
+    // Create a circuit breaker with a fallback function
     let config = CircuitBreakerConfig {
-        name: "test".to_string(),
+        name: "test-cb".to_string(),
         failure_threshold: 3,
-        recovery_timeout_ms: 100,
-        half_open_success_threshold: 1,
-        half_open_allowed_calls: 1,
-        fallback: None,
+        recovery_timeout_ms: 5000,
+        half_open_success_threshold: 2,
+        half_open_allowed_calls: 4,
+        fallback: Some(Box::new(|| 999)),
     };
 
     let mut circuit_breaker = CircuitBreaker::new(config);
     
-    // First, fail enough times to open the circuit
-    for _ in 0..5 {
-        let result: Result<String, ResilienceError> = circuit_breaker.execute(|| {
+    // First, fail enough times to just reach the failure threshold
+    for i in 0..3 {
+        let result: Result<TestString, ResilienceError> = circuit_breaker.execute(|| {
             Box::pin(async {
-                Err::<String, _>(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
+                Err::<TestString, _>(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
             })
         }).await;
-        assert!(result.is_err());
+        
+        println!("Iteration {}: Circuit state: {:?}, Result: {:?}", i, circuit_breaker.state(), result);
+        
+        if i < 2 {
+            // First two iterations should fail with the operation error
+            assert!(result.is_err());
+        } else {
+            // The third iteration triggers the circuit to open
+            assert_eq!(circuit_breaker.state(), CircuitState::Open);
+        }
     }
     
     // Verify the circuit is open
-    assert_eq!(circuit_breaker.state(), CircuitState::Open);
+    let current_state = circuit_breaker.state();
+    println!("After failures, circuit state: {:?}", current_state);
+    assert_eq!(current_state, CircuitState::Open);
     
-    // Now try with a fallback
-    let result: Result<String, ResilienceError> = circuit_breaker.execute_with_fallback(|| {
+    // Now try with explicit execute_with_fallback when circuit is open
+    let result: Result<TestString, ResilienceError> = circuit_breaker.execute_with_fallback(|| {
         Box::pin(async {
-            Err::<String, _>(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
+            Err::<TestString, _>(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
         })
     }).await;
     
-    // The fallback should succeed or we should receive a circuit open error
-    match result {
-        Ok(val) => assert_eq!(val, "Fallback result"),
-        Err(ResilienceError::CircuitOpen(_)) => (), // This is also acceptable
-        Err(e) => panic!("Unexpected error: {:?}", e),
-    }
+    println!("Fallback result: {:?}", result);
+    
+    // The fallback should succeed with the string conversion from i32
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), TestString(String::from("Fallback result: 999")));
+    
+    // Now try with a normal execute when circuit is open - should use fallback
+    let result: Result<TestString, ResilienceError> = circuit_breaker.execute(|| {
+        Box::pin(async {
+            Err::<TestString, _>(Box::<dyn StdError + Send + Sync>::from(TestError("Persistent error".to_string())))
+        })
+    }).await;
+    
+    println!("Normal execute with open circuit result: {:?}", result);
+    
+    // Should also get the fallback result
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), TestString(String::from("Fallback result: 999")));
 } 

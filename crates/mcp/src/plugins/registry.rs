@@ -1,7 +1,6 @@
-use crate::plugins::interfaces::{Plugin, PluginCapability};
+use crate::plugins::interfaces::Plugin;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, info, warn, error};
 use async_trait::async_trait;
 
 use crate::plugins::interfaces::{PluginMetadata};

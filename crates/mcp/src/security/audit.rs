@@ -1,8 +1,6 @@
 use async_trait::async_trait;
-use crate::error::Result;
 use crate::security::types::{UserId, RoleId};
 use tracing::{info, warn};
-use uuid::Uuid;
 
 /// Trait for audit service operations
 #[async_trait]

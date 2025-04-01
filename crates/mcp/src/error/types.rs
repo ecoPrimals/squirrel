@@ -28,10 +28,8 @@ use crate::security::types::SecurityLevel;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
-use squirrel_core::error::{Result as CoreResult, SquirrelError as CoreError};
-use thiserror::Error;
+use squirrel_core::error::SquirrelError as CoreError;
 use uuid;
-use std::fmt;
 
 // Import the moved error types
 use crate::error::connection::ConnectionError;
@@ -40,12 +38,10 @@ use crate::error::security_err::SecurityError;
 use crate::error::session::SessionError;
 use crate::error::context_err::ContextError;
 use crate::error::alert::AlertError;
-use crate::error::rbac::RBACError;
-use crate::error::port::PortErrorKind; // Keep this? MCPError doesn't use it directly yet.
+ // Keep this? MCPError doesn't use it directly yet.
 use crate::protocol::adapter_wire::WireFormatError;
 
 // Add import for ClientError
-use crate::error::client::ClientError;
 
 /// Main error type for MCP operations.
 ///

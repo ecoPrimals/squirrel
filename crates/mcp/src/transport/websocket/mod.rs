@@ -5,29 +5,24 @@
 // bidirectional message passing over WebSocket connections.
 
 use crate::error::{Result, TransportError, MCPError};
-use crate::transport::types::{ConnectionState, TransportMetadata};
+use crate::transport::types::TransportMetadata;
 use crate::transport::{Transport};
 use crate::protocol::MCPMessage;
 use crate::security::types::EncryptionFormat;
 use crate::types::CompressionFormat;
 use async_trait::async_trait;
-use futures_util::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
+use futures_util::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::net::{TcpStream, ToSocketAddrs};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::net::TcpStream;
+use tokio::sync::{mpsc, Mutex};
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
 };
 use tracing::{debug, warn, error, info, trace};
-use log;
-use std::ops::DerefMut;
-use crate::message::Message as DomainMessage;
-use crate::transport::frame::{MessageCodec};
 use uuid::Uuid;
 use chrono::Utc;
 use std::collections::HashMap;
-use crate::protocol::types::{MessageType as ProtocolMessageType, MessageId};
 
 /// Configuration for the WebSocket transport
 ///
@@ -112,6 +107,9 @@ enum SocketCommand {
     /// Send a message
     Send(MCPMessage),
     
+    /// Send raw binary data
+    SendRaw(Vec<u8>),
+    
     /// Close the connection
     Close,
 }
@@ -171,6 +169,11 @@ impl WebSocketTransport {
         let (socket_tx, _socket_rx) = mpsc::channel(100);
         let (control_tx, control_rx) = mpsc::channel(100);
         
+        // Create additional info with transport type
+        let mut additional_info = HashMap::new();
+        additional_info.insert("transport_type".to_string(), "websocket".to_string());
+        additional_info.insert("peer_addr".to_string(), config.url.clone());
+        
         let transport_metadata = TransportMetadata {
             connection_id: Uuid::new_v4().to_string(),
             remote_address: config.url.parse().ok(),
@@ -179,7 +182,7 @@ impl WebSocketTransport {
             compression_format: Some(config.compression),
             connected_at: Utc::now(),
             last_activity: Utc::now(),
-            additional_info: HashMap::new(),
+            additional_info,
         };
         
         Self {
@@ -307,7 +310,14 @@ impl WebSocketTransport {
                             error!("WebSocket: Failed to send message: {}", e);
                             break;
                         }
-                    }
+                    },
+                    SocketCommand::SendRaw(bytes) => {
+                        // Send as binary message
+                        if let Err(e) = write.send(Message::Binary(bytes)).await {
+                            error!("WebSocket: Failed to send raw bytes: {}", e);
+                            break;
+                        }
+                    },
                     SocketCommand::Close => {
                         // Close the connection gracefully
                         info!("WebSocket writer task received Close command.");
@@ -355,7 +365,7 @@ impl WebSocketTransport {
                         }
                     }
                 }
-                Message::Binary(bytes) => {
+                Message::Binary(_bytes) => {
                      error!("WebSocket: send_internal cannot directly send raw binary via MCPMessage command.");
                      return Err(MCPError::UnsupportedOperation("Raw binary send via send_internal needs rework".to_string()));
                 }
@@ -601,41 +611,35 @@ impl Transport for WebSocketTransport {
         if !self.is_connected_impl().await {
             return Err(TransportError::connection_closed("Cannot send raw bytes, not connected").into());
         }
-        // --- TODO: Implement actual raw byte sending --- 
-        // This requires modifying SocketCommand to handle Vec<u8> and the writer task
-        // to send Message::Binary. For now, return UnsupportedOperation.
-        error!("send_raw requires modification to SocketCommand enum and writer task");
-        Err(MCPError::UnsupportedOperation("send_raw not fully implemented for WebSocketTransport".to_string()))
-        // Example (once SocketCommand::SendRaw is added):
-        // if let Some(sender) = &self.ws_sender {
-        //     let cmd = SocketCommand::SendRaw(bytes.to_vec());
-        //     if sender.send(cmd).await.is_err() {
-        //         error!("WebSocket: Failed to send raw bytes command to writer task");
-        //         Err(TransportError::SendError("Writer task channel closed".to_string()).into())
-        //     } else {
-        //         Ok(())
-        //     }
-        // } else {
-        //     Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
-        // }
-        // --- End TODO ---
+        
+        if let Some(sender) = &self.ws_sender {
+            let cmd = SocketCommand::SendRaw(bytes.to_vec());
+            if sender.send(cmd).await.is_err() {
+                error!("WebSocket: Failed to send raw bytes command to writer task");
+                return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
+            }
+            Ok(())
+        } else {
+            error!("WebSocket: No sender available for raw bytes");
+            Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
+        }
     }
 }
 
 async fn handle_connection(
-    peer: SocketAddr,
-    stream: TcpStream,
+    _peer: SocketAddr,
+    _stream: TcpStream,
 ) -> Result<()> {
     Ok(())
 }
 
 async fn process_socket(
-    socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    msg_tx: mpsc::Sender<MCPMessage>,
-    mut socket_rx: mpsc::Receiver<SocketCommand>,
-    control_tx: mpsc::Sender<ControlMessage>,
-    state: Arc<Mutex<WebSocketState>>,
-    peer: SocketAddr,
+    _socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    _msg_tx: mpsc::Sender<MCPMessage>,
+    mut _socket_rx: mpsc::Receiver<SocketCommand>,
+    _control_tx: mpsc::Sender<ControlMessage>,
+    _state: Arc<Mutex<WebSocketState>>,
+    _peer: SocketAddr,
 ) {
 }
 
@@ -658,8 +662,41 @@ mod tests {
         assert!(!transport.is_connected().await);
         
         // Get metadata
-        let metadata = transport.get_metadata();
-        assert_eq!(metadata.transport_type, "websocket");
-        assert_eq!(metadata.peer_addr, "ws://localhost:9001");
+        let metadata = transport.get_metadata().await;
+        assert_eq!(metadata.additional_info.get("transport_type").unwrap_or(&"".to_string()), "websocket");
+        assert_eq!(metadata.additional_info.get("peer_addr").unwrap_or(&"".to_string()), "ws://localhost:9001");
+    }
+    
+    #[tokio::test]
+    async fn test_websocket_transport_send_raw() {
+        // Create a config
+        let config = WebSocketConfig {
+            url: "ws://localhost:9001".to_string(),
+            ..Default::default()
+        };
+        
+        // Create transport
+        let transport = WebSocketTransport::new(config);
+        
+        // Mock the connection state for testing
+        {
+            let mut state = transport.connection_state.lock().await;
+            *state = WebSocketState::Connected;
+        }
+        
+        // Test data to send
+        let data = b"Hello WebSocket Raw Data!";
+        
+        // Since we're mocked as connected but not actually connected, 
+        // this should fail gracefully with a specific error
+        let result = transport.send_raw(data).await;
+        assert!(result.is_err());
+        
+        // We expect a specific error type - either ConnectionClosed or SendError
+        if let Err(e) = result {
+            let e_str = format!("{:?}", e);
+            assert!(e_str.contains("ConnectionClosed") || e_str.contains("SendError"), 
+                    "Expected ConnectionClosed or SendError, got: {:?}", e);
+        }
     }
 } 

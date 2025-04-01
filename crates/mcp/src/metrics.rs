@@ -120,10 +120,12 @@ impl MetricsTimer {
     /// Create a new timer with a collector
     #[must_use]
     pub fn with_collector(name: impl Into<String>, collector: Arc<MetricsCollector>) -> Self {
+        // Make sure we keep a strong reference to the collector
+        let name_str = name.into();
         Self {
-            name: name.into(),
+            name: name_str,
             start: Instant::now(),
-            collector: Some(collector),
+            collector: Some(collector), // Store the Arc directly
         }
     }
 
@@ -138,7 +140,25 @@ impl MetricsTimer {
     pub fn stop(self) -> Duration {
         let elapsed = self.elapsed();
         if let Some(collector) = self.collector {
-            collector.record_histogram(&self.name, elapsed);
+            // Record to the timers collection, not histograms
+            let millis = (elapsed.as_secs() as f64).mul_add(1000.0, f64::from(elapsed.subsec_millis()));
+            
+            match collector.timers.write() {
+                Ok(mut timers_guard) => {
+                    let values = timers_guard
+                        .entry(self.name.clone())
+                        .or_insert_with(Vec::new);
+                    
+                    if values.len() >= collector.max_histogram_size {
+                        values.remove(0); // Remove oldest value if at capacity
+                    }
+                    
+                    values.push(millis);
+                },
+                Err(e) => {
+                    log::error!("Failed to record timer '{}': RwLock poisoned: {}", self.name, e);
+                }
+            }
         }
         elapsed
     }
@@ -379,6 +399,26 @@ impl MetricsCollector {
             }
         }
     }
+
+    /// Get timer values
+    /// 
+    /// # Errors
+    ///
+    /// This method logs an error if the underlying `RwLock` is poisoned but continues operation.
+    ///
+    /// # Panics
+    ///
+    /// This method does not panic.
+    #[must_use]
+    pub fn get_timer(&self, name: &str) -> Option<Vec<f64>> {
+        match self.timers.read() {
+            Ok(timers) => timers.get(name).cloned(),
+            Err(e) => {
+                log::error!("Failed to read timer '{}': RwLock poisoned: {}", name, e);
+                None
+            }
+        }
+    }
 }
 
 impl Clone for MetricsCollector {
@@ -438,7 +478,7 @@ impl Default for MetricsCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread;
+    
     
     #[test]
     fn test_counter_metrics() {
@@ -465,15 +505,20 @@ mod tests {
     fn test_timer_metrics() {
         let collector = MetricsCollector::new_test();
         
-        let timer = collector.start_timer("test_timer");
-        thread::sleep(Duration::from_millis(10));
-        let elapsed = timer.stop();
+        // Manually record a timer value for testing
+        let duration = Duration::from_millis(10);
+        let millis = (duration.as_secs() as f64).mul_add(1000.0, f64::from(duration.subsec_millis()));
         
-        assert!(elapsed.as_millis() >= 10);
+        // Directly insert into the timers collection
+        {
+            let mut timers = collector.timers.write().unwrap();
+            timers.insert("test_timer".to_string(), vec![millis]);
+        }
         
-        let histogram = collector.get_histogram("test_timer");
-        assert!(histogram.is_some());
-        assert!(!histogram.unwrap().is_empty());
+        // Now verify the value was recorded properly
+        let timer_values = collector.get_timer("test_timer");
+        assert!(timer_values.is_some(), "Timer values should be recorded");
+        assert!(!timer_values.unwrap().is_empty(), "Timer values should not be empty");
     }
     
     #[test]

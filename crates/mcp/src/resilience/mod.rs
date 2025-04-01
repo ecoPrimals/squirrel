@@ -175,7 +175,7 @@ impl From<health::HealthCheckError> for ResilienceError {
     }
 }
 
-/// Create a resilient operation with circuit breaker and retry
+/// Create a resilient operation using circuit breaker and retry
 ///
 /// # Errors
 ///
@@ -188,8 +188,7 @@ impl From<health::HealthCheckError> for ResilienceError {
 ///
 /// This function might panic if:
 /// - The operation closure panics during execution
-/// - The circuit breaker's internal state becomes inconsistent
-/// - Memory allocation fails for internal data structures
+/// - The circuit breaker or retry mechanism's internal state becomes inconsistent
 pub async fn with_resilience<F, T>(
     circuit_breaker: &mut circuit_breaker::CircuitBreaker,
     retry: retry::RetryMechanism,
@@ -197,7 +196,7 @@ pub async fn with_resilience<F, T>(
 ) -> Result<T>
 where
     F: Fn() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + Sync + 'static + Clone,
-    T: Send + 'static,
+    T: Send + 'static + From<i32>,
 {
     // Move the operation into the circuit breaker's closure
     let circuit_op = async move {
@@ -322,7 +321,7 @@ pub async fn with_complete_resilience<F, R, T>(
 where
     F: Fn() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + Sync + 'static + Clone,
     R: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + 'static,
-    T: Send + 'static,
+    T: Send + 'static + From<i32>,
 {
     // Check health status first
     let status = health_monitor.get_component_status(component_id);

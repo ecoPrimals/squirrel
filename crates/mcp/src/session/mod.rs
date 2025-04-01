@@ -12,15 +12,11 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
-use async_trait::async_trait;
 
 use crate::error::session::SessionError;
 use crate::types::{AccountId};
 use crate::security::{SessionToken, AuthToken, UserId, RoleId};
-use crate::security::manager::SecurityManagerImpl;
 use crate::persistence::{Persistence, SessionData};
-use crate::security::token::TokenManager;
-use crate::error::{SecurityError};
 
 /// Session management module
 pub mod error;
@@ -610,9 +606,9 @@ impl Default for SessionManagerFactory {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::error::SessionError;
-    use std::time::Duration;
+    
+    
+    
     // Remove tests causing compilation issues
     // We'll add properly injected tests later
 }

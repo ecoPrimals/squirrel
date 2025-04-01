@@ -64,7 +64,6 @@ pub use permission_validation::{
 pub use role_inheritance::InheritanceType;
 
 // Error types
-use crate::error::{Result, SecurityError, MCPError, RBACError};
 
 // Re-export types from other modules
 // This ensures RBAC users can access these types through the rbac module

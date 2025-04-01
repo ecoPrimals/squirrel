@@ -1,6 +1,4 @@
-//! Galaxy tools plugin extension
-//!
-//! This module provides an extension trait for Galaxy plugins that adds tool-related functionality.
+//! Galaxy tool plugin
 
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -97,11 +95,12 @@ mod tests {
     use crate::galaxy::adapter_plugin::GalaxyAdapterPlugin;
     
     // Sample implementation for a Galaxy tool plugin
+    #[allow(dead_code)]
     #[derive(Debug)]
     struct TestGalaxyToolPlugin {
         galaxy_plugin: GalaxyAdapterPlugin,
     }
-    
+
     #[async_trait]
     impl GalaxyPlugin for TestGalaxyToolPlugin {
         async fn connect(&self, connection_info: Value) -> Result<()> {
@@ -120,7 +119,7 @@ mod tests {
             self.galaxy_plugin.get_integration_types()
         }
     }
-    
+
     // Implementation of the core Plugin trait
     #[async_trait]
     impl crate::plugin::Plugin for TestGalaxyToolPlugin {

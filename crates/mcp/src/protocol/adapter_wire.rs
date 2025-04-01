@@ -31,7 +31,7 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, ProtocolError, Result};
+use crate::error::{MCPError, Result};
 use crate::message::{Message, MessageType};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -382,6 +382,7 @@ impl WireFormatAdapter {
                         "control" => MessageType::Control,
                         "system" => MessageType::System,
                         "stream_chunk" => MessageType::StreamChunk,
+                        "command" => MessageType::Request,
                         _ => MessageType::Notification,
                     };
                     
@@ -450,6 +451,7 @@ impl WireFormatAdapter {
                         "control" => MessageType::Control,
                         "system" => MessageType::System,
                         "stream_chunk" => MessageType::StreamChunk,
+                        "command" => MessageType::Request,
                         _ => MessageType::Notification,
                     };
                     
@@ -577,7 +579,7 @@ mod tests {
         // Create a test message
         let message = MessageBuilder::new()
             .with_message_type("request")
-            .with_content("Test message content")
+            .with_content(serde_json::Value::String("Test message content".to_string()))
             .with_source("client-123")
             .with_destination("server-456")
             .with_metadata("version", "1.0")
@@ -603,22 +605,25 @@ mod tests {
 
     #[tokio::test]
     async fn test_version_translation() {
-        // Create a wire format adapter
+        // Create a wire format adapter with a version translation
         let adapter = WireFormatAdapter::new(WireFormatConfig::default());
         
-        // Register a version mapping from 0.9 to 1.0
+        // Register a mapping from v0.9 to v1.0
         adapter.register_version_mapping(
             WireProtocolVersion::V0_9,
             WireProtocolVersion::V1_0,
-            |value| {
-                let mut obj = value.as_object().unwrap().clone();
-                
-                // In v0.9, "msg_type" was used instead of "message_type"
-                if let Some(msg_type) = obj.remove("msg_type") {
-                    obj.insert("message_type".to_string(), msg_type);
+            |data| {
+                if let Value::Object(mut obj) = data {
+                    // Map msg_type to message_type
+                    if let Some(msg_type) = obj.remove("msg_type") {
+                        obj.insert("message_type".to_string(), msg_type);
+                    }
+                    
+                    Ok(Value::Object(obj))
                 }
-                
-                Ok(Value::Object(obj))
+                else {
+                    Ok(data)
+                }
             }
         ).await;
         
@@ -636,8 +641,8 @@ mod tests {
         // Convert to v1.0 message
         let message = adapter.from_wire_format(&wire_message).await.unwrap();
         
-        // Verify translation happened correctly
-        assert_eq!(message.message_type, "command");
+        // Verify translation happened correctly - "command" is mapped to "request" MessageType
+        assert_eq!(message.message_type.to_string(), "request");
     }
 
     #[tokio::test]

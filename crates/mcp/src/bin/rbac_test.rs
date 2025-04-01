@@ -8,7 +8,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 // Define a simplified Context type for permission checks
 #[derive(Debug, Clone, Default)]
 struct Context {
-    attributes: HashMap<String, String>,
+    _attributes: HashMap<String, String>,
 }
 
 // ----- Role and Permission Definitions ----- //
@@ -19,7 +19,7 @@ struct Role {
     name: String,
     description: String,
     permissions: HashSet<String>,
-    is_system_role: bool,
+    _is_system_role: bool,
 }
 
 impl Role {
@@ -29,7 +29,7 @@ impl Role {
             name: name.to_string(),
             description: description.to_string(),
             permissions: HashSet::new(),
-            is_system_role: false,
+            _is_system_role: false,
         }
     }
 
@@ -37,7 +37,8 @@ impl Role {
         self.permissions.insert(permission.to_string());
     }
 
-    fn has_permission(&self, permission: &str) -> bool {
+    // Marked as unused with underscore
+    fn _has_permission(&self, permission: &str) -> bool {
         self.permissions.contains(permission)
     }
 }
@@ -67,7 +68,7 @@ trait RBACManager: Send + Sync + 'static {
         &self, 
         user_id: &str, 
         permission: &str, 
-        context: Option<&Context>
+        _context: Option<&Context>
     ) -> Result<bool> {
         // Default implementation - check if any of the user's roles have this permission
         let roles = self.get_user_roles(user_id).await?;
@@ -76,7 +77,7 @@ trait RBACManager: Send + Sync + 'static {
             let role_details = self.get_role_details(&role_id).await?;
             
             if let Some(role) = role_details {
-                if role.permissions.contains(permission) {
+                if role.permissions.iter().any(|p| p == permission) {
                     return Ok(true);
                 }
             }
@@ -91,7 +92,7 @@ trait RBACManager: Send + Sync + 'static {
     async fn get_role_details(&self, role_id: &str) -> Result<Option<RoleDetailsResponse>>;
     
     /// Get all permissions for a specific role
-    async fn get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>>;
+    async fn _get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>>;
     
     // ---- Role Creation and Management ---- //
     
@@ -105,12 +106,12 @@ trait RBACManager: Send + Sync + 'static {
 // A simplified response for role details
 #[derive(Debug, Clone)]
 struct RoleDetailsResponse {
-    id: String,
-    name: String,
-    description: String,
+    _id: String,
+    _name: String,
+    _description: String,
     permissions: Vec<String>,
-    parent_roles: Vec<String>,
-    child_roles: Vec<String>,
+    _parent_roles: Vec<String>,
+    _child_roles: Vec<String>,
 }
 
 // ----- Basic RBAC Manager Implementation ----- //
@@ -220,46 +221,25 @@ impl RBACManager for BasicRBACManager {
         match role {
             Some(role) => {
                 Ok(Some(RoleDetailsResponse {
-                    id: role.id,
-                    name: role.name,
-                    description: role.description,
+                    _id: role.id,
+                    _name: role.name,
+                    _description: role.description,
                     permissions: role.permissions.into_iter().collect(),
-                    parent_roles: Vec::new(), // Not implemented in basic manager
-                    child_roles: Vec::new(),  // Not implemented in basic manager
+                    _parent_roles: Vec::new(), // Not implemented in basic manager
+                    _child_roles: Vec::new(),  // Not implemented in basic manager
                 }))
             }
             None => Ok(None),
         }
     }
     
-    async fn get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
+    async fn _get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
         let role = self.get_role(role_id).await;
         
         match role {
             Some(role) => Ok(role.permissions.into_iter().collect()),
             None => Err(format!("Role {} does not exist", role_id).into()),
         }
-    }
-    
-    async fn has_permission(
-        &self, 
-        user_id: &str, 
-        permission: &str, 
-        _context: Option<&Context>
-    ) -> Result<bool> {
-        let roles = self.get_user_roles(user_id).await?;
-        
-        for role_id in roles {
-            let role = self.get_role(&role_id).await;
-            
-            if let Some(role) = role {
-                if role.has_permission(permission) {
-                    return Ok(true);
-                }
-            }
-        }
-        
-        Ok(false)
     }
 }
 
@@ -280,10 +260,10 @@ impl MockRBACManager {
     }
     
     // Set specific roles for a user
-    async fn with_user_roles(self, user_id: &str, roles: Vec<String>) -> Self {
+    async fn with_user_roles(&self, user_id: &str, roles: Vec<String>) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
         user_roles.insert(user_id.to_string(), roles);
-        self
+        Ok(())
     }
 }
 
@@ -365,6 +345,51 @@ impl RBACManager for MockRBACManager {
             Some(roles) => Ok(!roles.is_empty()),
             None => Ok(false),
         }
+    }
+
+    // Add the missing implementations
+    async fn get_role_details(&self, role_id: &str) -> Result<Option<RoleDetailsResponse>> {
+        // Mock implementation
+        if self.allow_all || role_id == "*" {
+            return Ok(Some(RoleDetailsResponse {
+                _id: role_id.to_string(),
+                _name: "Mock Role".to_string(),
+                _description: "Mock role for testing".to_string(),
+                permissions: vec!["*".to_string()],
+                _parent_roles: Vec::new(),
+                _child_roles: Vec::new(),
+            }));
+        }
+        
+        // Simple implementation that treats role_id as a string with permissions
+        Ok(Some(RoleDetailsResponse {
+            _id: role_id.to_string(),
+            _name: format!("Role {}", role_id),
+            _description: "Mock role".to_string(),
+            permissions: vec![format!("permission:{}", role_id)],
+            _parent_roles: Vec::new(),
+            _child_roles: Vec::new(),
+        }))
+    }
+    
+    async fn _get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
+        // Mock implementation
+        if self.allow_all || role_id == "*" {
+            return Ok(vec!["*".to_string()]);
+        }
+        
+        // Simple implementation that treats role_id as a permission
+        Ok(vec![format!("permission:{}", role_id)])
+    }
+    
+    async fn create_role(&self, _role_id: &str, _name: &str, _description: &str) -> Result<()> {
+        // Placeholder implementation for mock
+        Ok(())
+    }
+    
+    async fn add_permission_to_role(&self, _role_id: &str, _permission: &str) -> Result<()> {
+        // In the mock, we don't manage actual permissions
+        Ok(())
     }
 }
 
@@ -476,20 +501,19 @@ async fn test_mock_rbac_manager() -> Result<()> {
     
     // Test with_user_roles method
     let mock_rbac = MockRBACManager::new(false);
-    let mock_with_roles = mock_rbac.with_user_roles("eve", vec!["user".to_string(), "manager".to_string()]).await;
-    let rbac = Arc::new(mock_with_roles);
+    let test_roles = vec!["user".to_string(), "manager".to_string()];
+    mock_rbac.with_user_roles("eve", test_roles.clone()).await?;
     
-    assert!(rbac.has_role("eve", "user").await?, "Eve should be a user");
-    assert!(rbac.has_role("eve", "manager").await?, "Eve should be a manager");
-    assert!(!rbac.has_role("eve", "admin").await?, "Eve should not be an admin");
-    
-    let eve_roles = rbac.get_user_roles("eve").await?;
-    assert_eq!(eve_roles.len(), 2, "Eve should have 2 roles");
+    let eve_roles = mock_rbac.get_user_roles("eve").await?;
+    assert_eq!(eve_roles.len(), 2, "Eve should have 2 roles from with_user_roles");
+    assert!(eve_roles.contains(&"user".to_string()), "Eve should have the user role");
+    assert!(eve_roles.contains(&"manager".to_string()), "Eve should have the manager role");
+    println!("✓ with_user_roles works");
     
     // Test cloning
-    let rbac_clone = rbac.clone();
-    assert!(rbac_clone.has_role("eve", "user").await?, "Eve should still be a user after cloning");
-    assert!(rbac_clone.has_role("eve", "manager").await?, "Eve should still be a manager after cloning");
+    let mock_rbac_clone = mock_rbac.clone();
+    assert!(mock_rbac_clone.has_role("eve", "user").await?, "Eve should still be a user after cloning");
+    assert!(mock_rbac_clone.has_role("eve", "manager").await?, "Eve should still be a manager after cloning");
     
     println!("✓ MockRBACManager tests passed");
     

@@ -102,7 +102,7 @@ impl MessageId {
 }
 
 /// Protocol version information
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ProtocolVersion {
     /// Major protocol version
     pub major: u16,
@@ -128,11 +128,21 @@ impl std::fmt::Display for ProtocolVersion {
     }
 }
 
+impl Default for ProtocolVersion {
+    fn default() -> Self {
+        Self {
+            major: 1,
+            minor: 0,
+        }
+    }
+}
+
 /// Represents the header part of an MCP message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Header {
     pub id: MessageId,
     pub message_type: MessageType,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub version: ProtocolVersion,
     pub security: SecurityMetadata,
@@ -162,6 +172,7 @@ pub struct MCPMessage {
     /// Security-related metadata
     pub security: SecurityMetadata, // Needs definition from security::types
     /// Timestamp when the message was created
+    #[serde(with = "chrono::serde::ts_milliseconds")]
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Protocol version used by the message
     pub version: ProtocolVersion, 
@@ -242,8 +253,7 @@ pub trait MessageHandler: Send + Sync {
 }
 
 // Need imports for trait
-use async_trait::async_trait;
-use crate::error::{MCPError, Result};
+use crate::error::Result;
 
 // Placeholder type aliases for results specific to protocol operations
 pub type ValidationResult = Result<()>; // Placeholder for validation result
@@ -252,42 +262,37 @@ pub type RoutingResult = Result<()>; // Placeholder for routing result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::MessageMetadata; // Import from crate::types if still there, adjust if moved
-    use uuid::Uuid;
+     // Import from crate::types if still there, adjust if moved
+    
+    use crate::types::CompressionFormat;
 
     #[test]
     fn test_protocol_version_default() {
         let version = ProtocolVersion::default();
-        assert_eq!(version.major, 0);
-        assert_eq!(version.minor, 1);
-        assert_eq!(version.patch, 0);
-        assert_eq!(version.version_string(), "mcp/0.1.0");
+        assert_eq!(version.major, 1);
+        assert_eq!(version.minor, 0);
+        assert_eq!(version.version_string(), "1.0");
     }
 
     #[test]
     fn test_message_id_new() {
-        let id1 = MessageId::new();
+        let id = MessageId::new();
+        assert!(!id.0.is_empty(), "Generated ID should not be empty");
+        
         let id2 = MessageId::new();
-        assert_ne!(id1.0, id2.0);
-        // Basic check if it's a valid UUID format
-        assert!(Uuid::parse_str(&id1.0).is_ok());
+        assert_ne!(id.0, id2.0, "Generated IDs should be unique");
     }
 
-    // Test moved from src/types.rs
     #[test]
     fn test_message_creation() {
-        let message = MCPMessage {
-            id: MessageId::new(),
-            version: ProtocolVersion::default(),
-            type_: MessageType::Request, // Assuming Request is still a valid variant
-            payload: serde_json::to_vec(&serde_json::json!({ "data": "test" })).unwrap(), // Example payload as Vec<u8>
-            metadata: MessageMetadata::default(),
-            // Removed auth_token, session_token as they are not direct fields in MCPMessage
-            // status and error_message are part of MCPResponse, not MCPMessage
-        };
-        assert_eq!(message.version.version_string(), "mcp/0.1.0");
-        assert_eq!(message.type_, MessageType::Request);
-        assert_eq!(message.payload, serde_json::to_vec(&serde_json::json!({ "data": "test" })).unwrap());
+        let msg = MCPMessage::new(MessageType::Command, serde_json::json!({
+            "action": "test",
+            "value": 42
+        }));
+        
+        assert_eq!(msg.type_, MessageType::Command);
+        assert_eq!(msg.payload["action"], "test");
+        assert_eq!(msg.payload["value"], 42);
     }
 
     // Test moved from src/types.rs

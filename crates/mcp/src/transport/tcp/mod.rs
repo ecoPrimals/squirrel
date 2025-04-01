@@ -15,30 +15,28 @@
 // - Encryption and compression options
 
 use std::sync::Arc;
-use async_trait::async_trait;
-use tokio::sync::{mpsc, RwLock, Mutex};
-use tokio::net::TcpStream;
-use uuid::Uuid;
-use socket2;
-use tokio::net::{TcpListener, ToSocketAddrs};
-use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use crate::error::{MCPError, Result, TransportError};
-use crate::message::Message;
-use crate::protocol::types::MCPMessage;
-use crate::transport::Transport;
-use crate::transport::types::TransportMetadata;
-use crate::error::transport::TransportError as WireTransportError;
-use crate::security::types::{EncryptionFormat, SecurityMetadata};
-use crate::transport::frame::{MessageCodec};
-use crate::transport::types::ConnectionState;
-use super::frame::{FrameReader, FrameWriter};
-use futures_util::{SinkExt, StreamExt};
-use std::collections::HashMap;
+
+use async_trait::async_trait;
+use bytes::BytesMut;
 use chrono::Utc;
-use crate::types::CompressionFormat;
+use socket2;
+use tokio::sync::{mpsc, RwLock, Mutex};
+use tokio::net::TcpStream;
 use tracing::error;
+use uuid::Uuid;
+
+use crate::error::{MCPError, Result, TransportError};
+use crate::frame::Frame;
+use crate::protocol::types::MCPMessage;
+use crate::security::types::EncryptionFormat;
+use crate::transport::Transport;
+use crate::transport::frame::MessageCodec;
+use crate::transport::types::TransportMetadata;
+use crate::types::CompressionFormat;
+use super::frame::{FrameReader, FrameWriter};
 
 /// Configuration for the TCP transport
 ///
@@ -356,6 +354,10 @@ impl TcpTransport {
         let local_addr = config.local_bind_address.as_deref().and_then(|s| SocketAddr::from_str(s).ok());
         
         // Create metadata
+        let mut additional_info = HashMap::new();
+        additional_info.insert("transport_type".to_string(), "tcp".to_string());
+        additional_info.insert("remote_address_str".to_string(), config.remote_address.clone());
+        
         let transport_metadata = TransportMetadata {
             connection_id: Uuid::new_v4().to_string(),
             remote_address: peer_addr,
@@ -364,7 +366,7 @@ impl TcpTransport {
             compression_format: Some(config.compression),
             connected_at: Utc::now(),
             last_activity: Utc::now(),
-            additional_info: HashMap::new(),
+            additional_info,
         };
         
         // Generate a unique connection ID
@@ -705,11 +707,44 @@ impl Transport for TcpTransport {
         self.metadata.clone()
     }
 
-    // Add placeholder implementation for send_raw
-    async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
-        // TODO: Implement actual raw byte sending logic for TCP
-        error!("send_raw is not yet implemented for TcpTransport");
-        Err(TransportError::UnsupportedOperation("send_raw not implemented".to_string()).into())
+    /// Send raw bytes over the transport
+    async fn send_raw(&self, bytes: &[u8]) -> crate::error::Result<()> {
+        // Check if connected
+        {
+            let state = self.state.read().await;
+            if !matches!(*state, TcpTransportState::Connected) {
+                return Err(TransportError::connection_closed("Not connected").into());
+            }
+        }
+        
+        // For the raw send operation, we'll establish a separate direct connection
+        // This is a temporary solution until we refactor to expose the active connection
+        let stream = match TcpStream::connect(&self.config.remote_address).await {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("Failed to connect for raw bytes send: {}", e);
+                return Err(TransportError::ConnectionFailed(format!(
+                    "Failed to connect to {} for raw send: {}", 
+                    self.config.remote_address, e
+                )).into());
+            }
+        };
+        
+        // Create a frame for the raw bytes
+        let mut buffer = BytesMut::with_capacity(bytes.len());
+        buffer.extend_from_slice(bytes);
+        let frame = Frame::new(buffer);
+        
+        // We need to use the FrameWriter to write the frame with proper framing
+        let mut writer = FrameWriter::new(stream);
+        
+        // Write the frame
+        if let Err(e) = writer.write_frame(frame).await {
+            error!("Failed to write raw bytes: {}", e);
+            return Err(e);
+        }
+        
+        Ok(())
     }
 }
 
@@ -732,8 +767,49 @@ mod tests {
         assert!(!transport.is_connected().await);
         
         // Get metadata
-        let metadata = transport.get_metadata();
-        assert_eq!(metadata.transport_type, "tcp");
-        assert_eq!(metadata.remote_address, "127.0.0.1:9000");
+        let metadata = transport.get_metadata().await;
+        assert_eq!(metadata.additional_info.get("transport_type").unwrap_or(&"".to_string()), "tcp");
+        assert!(metadata.remote_address.is_some());
+        assert_eq!(metadata.additional_info.get("remote_address_str").unwrap_or(&"".to_string()), "127.0.0.1:9000");
+    }
+    
+    #[tokio::test]
+    async fn test_tcp_transport_send_raw() {
+        // Set up a mock listener to receive the raw bytes
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        
+        // Create a config pointing to our listener
+        let config = TcpTransportConfig {
+            remote_address: addr.to_string(),
+            ..Default::default()
+        };
+        
+        // Create transport
+        let transport = TcpTransport::new(config);
+        
+        // Mock connection state (normally set by connect())
+        {
+            let mut state = transport.state.write().await;
+            *state = TcpTransportState::Connected;
+        }
+        
+        // Spawn a task to accept the connection and read the data
+        let handle = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut reader = FrameReader::new(socket);
+            if let Ok(Some(frame)) = reader.read_frame().await {
+                return frame.payload.to_vec();
+            }
+            vec![]
+        });
+        
+        // Send raw data
+        let test_data = b"Hello, raw world!";
+        transport.send_raw(test_data).await.expect("Failed to send raw data");
+        
+        // Check that the data was received correctly
+        let received = handle.await.unwrap();
+        assert_eq!(received, test_data);
     }
 } 

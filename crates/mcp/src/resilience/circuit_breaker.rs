@@ -52,7 +52,7 @@ pub struct CircuitBreakerConfig {
     /// Maximum number of calls allowed in half-open state
     pub half_open_allowed_calls: u32,
     /// Fallback function to use when circuit is open
-    pub fallback: Option<Box<dyn Fn() -> Result<()> + Send + Sync>>,
+    pub fallback: Option<Box<dyn Fn() -> i32 + Send + Sync>>,
 }
 
 impl Default for CircuitBreakerConfig {
@@ -178,7 +178,7 @@ impl CircuitBreaker {
     pub async fn execute<F, T>(&mut self, operation: F) -> Result<T>
     where
         F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>> + Send>>,
-        T: Send + 'static,
+        T: Send + 'static + From<i32>,
     {
         // Check circuit state
         match self.state {
@@ -282,16 +282,18 @@ impl CircuitBreaker {
     }
     
     // Handle open circuit by returning an error or using fallback
-    fn handle_open_circuit<T>(&mut self) -> Result<T> {
+    fn handle_open_circuit<T>(&mut self) -> Result<T>
+    where
+        T: From<i32>,
+    {
         // Use fallback if available
         if let Some(fallback) = &self.config.fallback {
-            // Fallback can't directly return T, so we return an error instead
-            let fallback_result = fallback();
+            let fallback_value = fallback();
             self.fallback_count += 1;
-            fallback_result?;
+            return Ok(T::from(fallback_value));
         }
         
-        // Return error if we get here (no fallback or fallback can't produce T)
+        // Return error if we get here (no fallback)
         Err(ResilienceError::from(CircuitBreakerError::CircuitOpen))
     }
     
@@ -304,6 +306,76 @@ impl CircuitBreaker {
             failure_count: self.failure_total_count,
             open_count: self.open_count,
             fallback_count: self.fallback_count,
+        }
+    }
+
+    /// Manually check and update the circuit state based on timeouts
+    /// 
+    /// This method checks if an open circuit should transition to half-open
+    /// based on the recovery timeout.
+    pub fn check_state_transition(&mut self) {
+        if self.state == CircuitState::Open {
+            if let Some(open_time) = self.open_time {
+                #[allow(clippy::cast_possible_truncation)] // u128 -> u64 for elapsed millis is safe here
+                let elapsed = open_time.elapsed().as_millis() as u64;
+                if elapsed >= self.config.recovery_timeout_ms {
+                    // Transition to half-open state
+                    self.state = CircuitState::HalfOpen;
+                    self.half_open_call_count = 0;
+                    self.half_open_success_count = 0;
+                }
+            }
+        }
+    }
+    
+    /// Execute an operation with the circuit breaker using a fallback if available
+    ///
+    /// Similar to `execute`, but will always attempt to use the fallback function
+    /// if the circuit is open or the operation fails.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `operation` - The operation to execute, provided as a closure that returns a future
+    ///
+    /// # Returns
+    /// 
+    /// The result of the operation if successful, or the fallback result if available,
+    /// or an error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * The circuit breaker is open and no fallback is available
+    /// * The operation fails and no fallback is available
+    pub async fn execute_with_fallback<F, T>(&mut self, operation: F) -> Result<T>
+    where
+        F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>> + Send>>,
+        T: Send + 'static + From<i32>,
+    {
+        // Check circuit state
+        if self.state == CircuitState::Open {
+            // If the circuit is open, try to use the fallback
+            if let Some(fallback) = &self.config.fallback {
+                let fallback_value = fallback();
+                self.fallback_count += 1;
+                return Ok(T::from(fallback_value));
+            }
+            return Err(ResilienceError::from(CircuitBreakerError::CircuitOpen));
+        }
+        
+        // Try the regular execution
+        match self.execute(operation).await {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                // On failure, try the fallback
+                if let Some(fallback) = &self.config.fallback {
+                    let fallback_value = fallback();
+                    self.fallback_count += 1;
+                    Ok(T::from(fallback_value))
+                } else {
+                    Err(error)
+                }
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 //! Token management and credential types.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use async_trait::async_trait;
 use std::sync::{Arc, RwLock};

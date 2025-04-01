@@ -409,22 +409,6 @@ impl PluginManager {
         
         Ok(count)
     }
-
-    /// Initialize plugins with default configuration
-    async fn initialize_plugins_default(&self) -> Result<()> {
-        // Create and register a placeholder plugin
-        use crate::discovery::create_placeholder_plugin;
-        let placeholder_metadata = PluginMetadata::new(
-            "system-placeholder", 
-            "1.0.0", 
-            "System placeholder plugin", 
-            "Squirrel System"
-        );
-        let placeholder = create_placeholder_plugin(placeholder_metadata);
-        self.register_plugin(placeholder).await?;
-        
-        Ok(())
-    }
 }
 
 impl Default for PluginManager {
@@ -592,6 +576,7 @@ impl DefaultPluginManager {
     }
     
     /// Check for dependency cycles
+    #[allow(dead_code)]
     async fn check_dependency_cycles(&self, plugin_id: Uuid, path: &mut Vec<Uuid>) -> Result<()> {
         if path.contains(&plugin_id) {
             return Err(PluginError::DependencyCycle(plugin_id).into());
@@ -631,6 +616,11 @@ impl DefaultPluginManager {
     /// Get the security manager
     pub fn security_manager(&self) -> Arc<SecurityManagerAdapter> {
         self.security_manager.clone()
+    }
+
+    /// Get the state manager
+    pub fn state_manager(&self) -> Arc<dyn PluginStateManager + Send + Sync> {
+        self.state_manager.clone()
     }
 }
 

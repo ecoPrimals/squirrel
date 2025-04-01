@@ -18,7 +18,6 @@ use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 use crate::security::{AuthToken, SessionToken, UserId, RoleId};
 use crate::error::MCPError;
-use crate::protocol::types::{MCPMessage, MessageType};
 use tracing::warn;
 
 /// Protocol version as a string (e.g., "1.0")

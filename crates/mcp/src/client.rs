@@ -94,11 +94,7 @@ use crate::session::Session;
 use crate::transport::Transport;
 use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
 use crate::protocol::WireFormatConfig;
-use crate::protocol::{
-    types::{MCPMessage, ProtocolVersion},
-    adapter_wire::WireMessage,
-};
-use crate::error::TransportError;
+use crate::protocol::types::MCPMessage;
 
 use futures::future::{AbortHandle, Abortable};
 use serde_json::Value;
@@ -110,8 +106,6 @@ use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex, RwLock};
 use tokio::time::timeout;
 use tracing::{debug, error, info};
-use uuid::Uuid;
-use crate::message::MessageBuilder;
 
 /// MCP Client configuration
 ///
@@ -403,18 +397,18 @@ impl MCPClient {
             if message_task_guard.is_none() {
                 if let Some(rx) = message_rx_guard.take() {
                     // Clone references to pass to the task
-                    let pending_requests = self.pending_requests.clone();
-                    let event_handlers = self.event_handlers.clone();
-                    let event_channel = self.event_channel.clone();
+                    let _pending_requests = self.pending_requests.clone();
+                    let _event_handlers = self.event_handlers.clone();
+                    let _event_channel = self.event_channel.clone();
                     let last_error = self.last_error.clone();
                     
                     // Spawn a new task to process messages
                     *message_task_guard = Some(tokio::spawn(async move {
                         process_messages(
                             rx,
-                            pending_requests,
-                            event_handlers,
-                            event_channel,
+                            _pending_requests,
+                            _event_handlers,
+                            _event_channel,
                             last_error
                         ).await;
                     }));
@@ -479,8 +473,8 @@ impl MCPClient {
         
         // Clear pending requests
         {
-            let mut pending_requests = self.pending_requests.write().await;
-            pending_requests.clear();
+            let mut _pending_requests = self.pending_requests.write().await;
+            _pending_requests.clear();
         }
         
         // Update state to disconnected
@@ -550,8 +544,8 @@ impl MCPClient {
         
         // Store sender in pending requests
         {
-            let mut pending_requests = self.pending_requests.write().await;
-            pending_requests.insert(command.id.clone(), response_tx);
+            let mut _pending_requests = self.pending_requests.write().await;
+            _pending_requests.insert(command.id.clone(), response_tx);
         }
         
         let send_result = transport.send_message(mcp_message).await;
@@ -762,9 +756,9 @@ impl MCPClient {
         drop(transport_guard);
         
         // Clone necessary Arcs for the reader task
-        let pending_requests = self.pending_requests.clone();
-        let event_handlers = self.event_handlers.clone();
-        let event_channel = self.event_channel.clone();
+        let _pending_requests = self.pending_requests.clone();
+        let _event_handlers = self.event_handlers.clone();
+        let _event_channel = self.event_channel.clone();
         let last_error = self.last_error.clone();
         let state = self.state.clone(); // Clone the state Arc
         
