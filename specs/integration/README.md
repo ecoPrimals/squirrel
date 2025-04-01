@@ -1,4 +1,60 @@
-# Integration Specifications Overview
+# Integration Specifications
+
+This directory contains specifications for integrating various components of the Squirrel system.
+
+## Current Focus: MCP-Monitoring Integration
+
+The team is currently focused on implementing the integration between the MCP Resilience Framework's health monitoring component and the global monitoring system. This integration enables bidirectional communication for health status tracking and automated recovery.
+
+### Implementation Status
+
+- **Overall Status**: In Progress (90% complete)
+- **Current Phase**: Addressing API compatibility issues
+- **Reference**: See [MCP-Monitoring Integration](./mcp-monitoring-integration.md) for detailed specifications
+
+### Core Components Implemented
+
+1. **HealthMonitoringBridge**: Mediates between the MCP resilience health monitor and the monitoring system
+2. **ResilienceHealthCheckAdapter**: Adapts resilience health checks to the monitoring system format
+3. **AlertToRecoveryAdapter**: Converts monitoring alerts to resilience recovery actions
+
+### Known Issues
+
+We've encountered API compatibility issues between the original integration design and the actual monitoring system implementation. These include:
+
+- Structure discrepancies in Alert and Metric types
+- Type system differences affecting component access methods
+- Initialization requirements not accounted for in the original design
+
+### Implementation Plan
+
+Our team has developed a comprehensive plan to address these issues:
+1. Thorough analysis of the actual monitoring system API
+2. Refactoring of adapter implementations to match actual types
+3. Updated testing strategy with actual API components
+4. Documentation updates to reflect correct API usage
+
+For details, see the [Implementation Plan](../mcp/resilience-implementation/IMPLEMENTATION_PLAN.md).
+
+### Timeline
+
+- API Analysis: 2 days
+- Adapter Redesign: 3 days
+- Testing and Validation: 2 days
+- Documentation Update: 1 day
+
+## Other Integration Specifications
+
+This directory also contains specifications for other integration points:
+
+- Authentication integration
+- RBAC integration
+- Plugin system integration
+- Data processing integration
+- External API integration
+- Storage system integration
+
+Each specification includes detailed requirements, architecture diagrams, and implementation guidelines.
 
 ## Component Integration Map
 

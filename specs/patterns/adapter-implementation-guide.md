@@ -671,3 +671,95 @@ impl GalaxyService {
 - [ ] Finalize documentation
 - [ ] Add performance optimizations
 - [ ] Implement advanced features 
+
+## Lessons Learned from MCP-Monitoring Integration
+
+### API Discovery and Verification
+
+The MCP-Monitoring integration revealed several important lessons about adapter implementation:
+
+1. **API Verification First**: Always verify the actual API structures of both systems being integrated before implementing adapters. Our team discovered mismatches between the expected and actual API structures for both the `Alert` and `Metric` types.
+
+2. **Create Minimal Working Examples**: Before building a complete adapter, create minimal examples using both APIs to ensure you understand their behavior. This helps identify implicit assumptions.
+
+3. **Test Type System Compatibility**: Verify that the type system of both components allows the patterns you intend to use. In our case, we discovered that `downcast_ref` was not available for certain types, requiring a different approach.
+
+4. **Document Initialization Requirements**: Ensure you understand the initialization requirements for both systems. We found that some components required additional configuration parameters that weren't accounted for in the original design.
+
+### Adapter Design Patterns
+
+Based on our implementation experience, we recommend these additional patterns:
+
+1. **Type Alias Adapters**: When dealing with incompatible type structures:
+
+```rust
+// Instead of directly using Alert type
+pub type AdapterAlert = alerts::Alert;
+
+// Create wrapper functions to handle type conversions
+fn get_severity(alert: &AdapterAlert) -> Option<Severity> {
+    // Extract severity using the correct API
+    alert.properties().get("severity").and_then(|v| v.as_str().map(|s| s.parse().ok()).flatten())
+}
+```
+
+2. **Feature Flags for API Variations**: Use feature flags to handle API variations:
+
+```rust
+#[cfg(feature = "monitoring_v2")]
+fn create_metric(name: &str, value: f64) -> Metric {
+    Metric::new(name, MetricValue::Gauge(value))
+}
+
+#[cfg(not(feature = "monitoring_v2"))]
+fn create_metric(name: &str, value: f64) -> Metric {
+    Metric::builder().name(name).value(value).build()
+}
+```
+
+3. **Builder Pattern for Complex Adapters**: Use builders to create complex adapters:
+
+```rust
+pub struct HealthMonitoringBridgeBuilder {
+    resilience_monitor: Option<Arc<HealthMonitor>>,
+    metrics_collector: Option<Box<dyn MetricsCollector>>,
+    alert_manager: Option<Box<dyn AlertManager>>,
+    config: HealthMonitoringBridgeConfig,
+}
+
+impl HealthMonitoringBridgeBuilder {
+    pub fn new() -> Self {
+        Self {
+            resilience_monitor: None,
+            metrics_collector: None,
+            alert_manager: None,
+            config: HealthMonitoringBridgeConfig::default(),
+        }
+    }
+    
+    pub fn with_resilience_monitor(mut self, monitor: Arc<HealthMonitor>) -> Self {
+        self.resilience_monitor = Some(monitor);
+        self
+    }
+    
+    // ... other builder methods
+    
+    pub fn build(self) -> Result<HealthMonitoringBridge, AdapterError> {
+        // Validate and construct
+        if self.resilience_monitor.is_none() {
+            return Err(AdapterError::MissingComponent("resilience_monitor"));
+        }
+        
+        Ok(HealthMonitoringBridge {
+            resilience_monitor: self.resilience_monitor.unwrap(),
+            metrics_collector: self.metrics_collector,
+            alert_manager: self.alert_manager,
+            config: self.config,
+        })
+    }
+}
+```
+
+## Testing Adapters
+
+// ... existing code ... 

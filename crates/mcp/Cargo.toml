@@ -67,6 +67,7 @@ blake3 = "1.5.0"  # Added for cryptographic hashing
 url = { version = "2.5", features = ["serde"] }
 libloading = "0.8"  # Added for dynamic loading of plugin libraries
 jsonwebtoken = "8.3.0"  # Added for JWT token management
+once_cell = "1.19.0"
 
 # Shared squirrel dependencies
 squirrel-interfaces = { path = "../interfaces" }
@@ -137,3 +138,11 @@ path = "examples/transaction_example.rs"
 [[example]]
 name = "rbac_independent_test"
 path = "examples/rbac_independent_test.rs"
+
+[[example]]
+name = "monitoring_integration"
+path = "examples/monitoring_integration.rs"
+
+[[example]]
+name = "monitoring_api_test"
+path = "examples/monitoring_api_test.rs"

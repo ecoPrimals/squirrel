@@ -12,17 +12,19 @@
 // pub mod core_adapter; <-- Remove this
 
 // New module declarations
-pub mod adapter;
-pub mod auth;
-pub mod helpers;
 pub mod types;
+pub mod helpers;
+pub mod adapter;
+pub mod alert_recovery_adapter;
+pub mod health_check_adapter;
+pub mod monitoring_bridge_impl;
 
 // Re-export the main adapter
-pub use adapter::CoreMCPAdapter;
+pub use self::adapter::CoreMCPAdapter;
 
-// Declare tests module
+// Tests module
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 /// Re-exports of key integration traits and types
 pub mod prelude {
@@ -43,3 +45,9 @@ pub use crate::security::{AuthCredentials, SecurityLevel}; // Import from securi
 
 // Re-export transport-related types
 // ... existing code ... 
+
+// Module exports
+pub use self::types::{CoreState, StateUpdate};
+pub use self::alert_recovery_adapter::AlertToRecoveryAdapter;
+pub use self::health_check_adapter::{ResilienceHealthCheckAdapter, create_metrics_from_health_result};
+pub use self::monitoring_bridge_impl::{HealthMonitoringBridge, HealthMonitoringBridgeConfig}; 
