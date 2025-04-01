@@ -1,5 +1,4 @@
 use squirrel_mcp::error::Result;
-use squirrel_mcp::plugins::interfaces::PluginManagerInterface;
 use tokio::main;
 
 /// Example demonstrating basic plugin manager usage

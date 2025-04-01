@@ -52,11 +52,11 @@ use crate::protocol::adapter_wire::WireFormatError;
 /// # Examples
 ///
 /// ```
-/// use mcp::error::{MCPError, Result};
+/// use squirrel_mcp::error::{MCPError, Result};
 ///
 /// fn handle_error() -> Result<()> {
 ///     // Operation that might fail
-///     if something_went_wrong {
+///     if false {
 ///         return Err(MCPError::General("Something went wrong".to_string()));
 ///     }
 ///     Ok(())

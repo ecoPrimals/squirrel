@@ -38,7 +38,8 @@ pub use adapter::{MCPAdapter, MCPInterface};
 pub mod prelude {
     // Core types and interfaces from MCP
     pub use squirrel_mcp::context_manager::{Context, ContextManager};
-    pub use squirrel_mcp::{MessageType, SecurityLevel};
+    pub use squirrel_mcp::message::MessageType;
+    pub use squirrel_mcp::security::types::SecurityLevel;
     pub use squirrel_mcp::types::ProtocolState;
     pub use squirrel_mcp::protocol::{MCPProtocolBase, MCPProtocol};
     pub use squirrel_mcp::protocol::adapter::MCPProtocolAdapter;

@@ -17,7 +17,7 @@
 //! Using the Result type:
 //!
 //! ```
-//! use mcp::error::{MCPError, Result};
+//! use squirrel_mcp::error::{MCPError, Result};
 //!
 //! fn perform_operation() -> Result<String> {
 //!     // Operation that could fail
@@ -89,7 +89,7 @@ use std::fmt::{Debug};
 /// # Examples
 ///
 /// ```
-/// use mcp::error::{MCPError, Result};
+/// use squirrel_mcp::error::{MCPError, Result};
 ///
 /// fn read_data() -> Result<Vec<u8>> {
 ///     // Code that might fail

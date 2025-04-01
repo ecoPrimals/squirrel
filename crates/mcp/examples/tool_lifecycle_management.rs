@@ -12,8 +12,7 @@ use squirrel_mcp::tool::{
     AdvancedBackoffStrategy, AdvancedRecoveryAction, Capability, CleanupMethod, ComprehensiveCleanupHook,
     CompositeLifecycleHook, EnhancedRecoveryHook, EnhancedRecoveryStrategy, Parameter, ParameterType,
     ResourceType, StateTransitionValidator, StateValidationHook, ToolBuilder, ToolError,
-    ToolExecutor, ToolLifecycleHook, ToolManager, ToolManagerBuilder, ToolManagerRecoveryExt,
-    ToolState,
+    ToolExecutor, ToolManager, ToolManagerBuilder, ToolState,
 };
 
 // Create a simple tool executor that can simulate errors

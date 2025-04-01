@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A simple message journal for MCP messages
 struct MessageJournal {
-    name: String,
+    _name: String,
     max_entries: usize,
     messages: Arc<Mutex<VecDeque<JournalEntry>>>,
 }
@@ -22,7 +22,7 @@ struct JournalEntry {
 impl MessageJournal {
     fn new(name: &str, max_entries: usize) -> Self {
         Self {
-            name: name.to_string(),
+            _name: name.to_string(),
             max_entries,
             messages: Arc::new(Mutex::new(VecDeque::with_capacity(max_entries))),
         }

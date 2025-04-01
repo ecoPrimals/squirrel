@@ -15,8 +15,9 @@
 //!
 //! ```rust,no_run
 //! use squirrel_mcp::client::{MCPClient, ClientConfig};
-//! use squirrel_mcp::message::Message;
+//! use squirrel_mcp::message::{Message, MessageType};
 //! use serde_json::json;
+//! use tokio::sync::broadcast;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -38,13 +39,26 @@
 //!     println!("Response: {:?}", response);
 //!     
 //!     // Subscribe to events
-//!     let mut event_receiver = client.subscribe_to_events();
+//!     let mut event_receiver = client.subscribe_to_events().await;
 //!     
 //!     // Handle events in a separate task
 //!     tokio::spawn(async move {
-//!         while let Ok(event) = event_receiver.recv().await {
-//!             if let Some(message) = event {
-//!                 println!("Received event: {:?}", message);
+//!         loop {
+//!             match event_receiver.recv().await {
+//!                 Ok(Some(message)) => {
+//!                     println!("Received event: {:?}", message);
+//!                 },
+//!                 Ok(None) => {
+//!                     break;
+//!                 },
+//!                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+//!                     println!("Channel closed");
+//!                     break;
+//!                 },
+//!                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+//!                     println!("Lagged behind");
+//!                     continue;
+//!                 }
 //!             }
 //!         }
 //!     });
@@ -78,7 +92,7 @@
 //!     .with_remote_address("127.0.0.1:9000")
 //!     .with_connection_timeout(5000);
 //!
-//! let mut transport = TcpTransport::new(tcp_config);
+//! let transport = TcpTransport::new(tcp_config);
 //!
 //! // Use the transport in a client configuration
 //! let client_config = ClientConfig {
@@ -133,9 +147,9 @@ use tracing::{debug, error, info};
 /// use std::sync::Arc;
 ///
 /// // Create a WebSocket transport
-/// let ws_transport = WebSocketTransport::new(
-///     WebSocketConfig::default().with_url("ws://127.0.0.1:8080")
-/// );
+/// let mut ws_config = WebSocketConfig::default();
+/// ws_config.url = "ws://127.0.0.1:8080".to_string();
+/// let ws_transport = WebSocketTransport::new(ws_config);
 ///
 /// // Use it in the client configuration
 /// let config = ClientConfig {

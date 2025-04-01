@@ -46,6 +46,24 @@ impl Frame {
         Self { payload }
     }
     
+    /// Create a new frame from a byte vector
+    ///
+    /// Converts the vector into a BytesMut and creates a frame.
+    ///
+    /// # Arguments
+    ///
+    /// * `vec` - The byte vector to use as the payload
+    ///
+    /// # Returns
+    ///
+    /// A new Frame instance containing the payload
+    #[must_use]
+    pub fn from_vec(vec: Vec<u8>) -> Self {
+        let mut bytes = BytesMut::with_capacity(vec.len());
+        bytes.extend_from_slice(&vec);
+        Self { payload: bytes }
+    }
+    
     /// Get a reference to the frame payload
     ///
     /// # Returns
@@ -74,6 +92,120 @@ impl Frame {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.payload.is_empty()
+    }
+}
+
+/// Encoder for MCP frames
+///
+/// This encoder implements the tokio_util::codec::Encoder trait for
+/// encoding Frame instances to be sent over a byte transport.
+#[derive(Debug, Default)]
+pub struct FrameEncoder;
+
+impl FrameEncoder {
+    /// Create a new frame encoder
+    ///
+    /// # Returns
+    ///
+    /// A new FrameEncoder instance
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Encoder<Frame> for FrameEncoder {
+    type Error = crate::error::MCPError;
+
+    fn encode(&mut self, frame: Frame, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        // Calculate frame length and ensure it's within limits
+        let frame_len = frame.len();
+        if frame_len > MAX_FRAME_SIZE {
+            let error_msg = format!(
+                "Frame too large: {} bytes (max is {} bytes)",
+                frame_len, MAX_FRAME_SIZE
+            );
+            return Err(TransportError::InvalidFrame(error_msg).into());
+        }
+        
+        // Write frame length header
+        let header = u32::try_from(frame_len)
+            .map_err(|_| {
+                let error_msg = format!(
+                    "Frame size exceeds maximum representable u32 value: {} bytes",
+                    frame_len
+                );
+                let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
+                transport_err
+            })?
+            .to_be_bytes();
+        
+        // Reserve space in the buffer for the header and payload
+        dst.reserve(HEADER_SIZE + frame_len);
+        
+        // Write the header and payload
+        dst.put_slice(&header);
+        dst.put_slice(&frame.payload);
+        
+        Ok(())
+    }
+}
+
+/// Decoder for MCP frames
+///
+/// This decoder implements the tokio_util::codec::Decoder trait for
+/// decoding bytes into Frame instances.
+#[derive(Debug, Default)]
+pub struct FrameDecoder;
+
+impl FrameDecoder {
+    /// Create a new frame decoder
+    ///
+    /// # Returns
+    ///
+    /// A new FrameDecoder instance
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Decoder for FrameDecoder {
+    type Item = Frame;
+    type Error = crate::error::MCPError;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        // Check if we have enough data for a header
+        if src.len() < HEADER_SIZE {
+            // Not enough data for a header, wait for more
+            return Ok(None);
+        }
+        
+        // Read frame length from header
+        let mut header = [0u8; HEADER_SIZE];
+        header.copy_from_slice(&src[..HEADER_SIZE]);
+        let frame_len = u32::from_be_bytes(header) as usize;
+        
+        // Check if the frame length is valid
+        if frame_len > MAX_FRAME_SIZE {
+            return Err(TransportError::InvalidFrame(format!(
+                "Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)"
+            )).into());
+        }
+        
+        // Check if we have the complete frame data
+        if src.len() < HEADER_SIZE + frame_len {
+            // Not enough data yet, reserve space and wait for more
+            src.reserve(HEADER_SIZE + frame_len - src.len());
+            return Ok(None);
+        }
+        
+        // We have a complete frame, extract it
+        src.advance(HEADER_SIZE); // Skip past the header
+        let payload = src.split_to(frame_len);
+        
+        // Create and return the frame
+        Ok(Some(Frame::new(payload)))
     }
 }
 
@@ -587,5 +719,38 @@ mod tests {
         // Verify
         assert_eq!(decoded.type_, message.type_);
         assert_eq!(decoded.payload, message.payload);
+    }
+    
+    #[test]
+    fn test_frame_encoder_decoder() {
+        // Create test data
+        let message_bytes = b"Hello, MCP!";
+        let mut buf = BytesMut::with_capacity(1024);
+        buf.extend_from_slice(message_bytes);
+        
+        // Create a frame
+        let frame = Frame::new(buf.clone());
+        
+        // Use the encoder to encode the frame
+        let mut encoder = FrameEncoder::new();
+        let mut encoded_buf = BytesMut::new();
+        encoder.encode(frame.clone(), &mut encoded_buf).unwrap();
+        
+        // Verify the encoded buffer has the correct format
+        assert_eq!(encoded_buf.len(), HEADER_SIZE + message_bytes.len());
+        
+        // First 4 bytes should be the length of the payload in big-endian format
+        let expected_len = u32::try_from(message_bytes.len()).unwrap().to_be_bytes();
+        assert_eq!(&encoded_buf[0..4], &expected_len);
+        
+        // Following bytes should be the payload
+        assert_eq!(&encoded_buf[4..], message_bytes);
+        
+        // Now decode the frame
+        let mut decoder = FrameDecoder::new();
+        let decoded_frame = decoder.decode(&mut encoded_buf).unwrap().unwrap();
+        
+        // Make sure the decoded frame has the same payload as the original
+        assert_eq!(decoded_frame.payload(), frame.payload());
     }
 } 

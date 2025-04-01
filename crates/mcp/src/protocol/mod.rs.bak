@@ -1,22 +1,91 @@
-//! Protocol module for the MCP protocol.
-//! 
-//! This module defines the structure of messages, the flow of communication,
-//! and mechanisms for handling different message types.
+//! MCP Protocol module for machine context exchange.
+//!
+//! This module implements the core protocol functionality for the Machine Context Protocol (MCP),
+//! providing a robust framework for message handling, state management, and command execution
+//! between components in a distributed system.
 //!
 //! The MCP protocol is designed to facilitate secure, efficient communication with:
-//! - Standardized message formats
-//! - Robust error handling
-//! - Extensible command handling
-//! - Secure transport layer
-
-pub mod types;
-pub mod adapter;
-pub mod adapter_wire;
+//! - Message format validation
+//! - Protocol state management
+//! - Command routing and execution
+//! - Security integration
+//! - Error handling and recovery
+//!
+//! # Core Components
+//!
+//! The key components in this module include:
+//!
+//! - [`MCPProtocolBase`]: Base implementation of the protocol
+//! - [`MCPProtocolAdapter`]: Thread-safe adapter providing a clean interface
+//! - [`CommandHandler`]: Trait for handling command messages
+//! - [`MCPProtocol`]: Interface for protocol operations
+//!
+//! # Examples
+//!
+//! Creating and using the MCP protocol:
+//!
+//! ```
+//! use squirrel_mcp::protocol::{MCPProtocolBase, ProtocolConfig};
+//! use squirrel_mcp::MCPMessage;
+//! use squirrel_mcp::ProtocolMessageType as MessageType;
+//! use squirrel_mcp::protocol::MessageId;
+//! use serde_json::json;
+//!
+//! // Create a new protocol instance
+//! let protocol = MCPProtocolBase::new_default();
+//!
+//! // Create a message (simplified for example)
+//! let message = MCPMessage {
+//!     id: MessageId("msg123".to_string()),
+//!     type_: MessageType::Command,
+//!     payload: json!({"command": "status"}),
+//!     metadata: json!({}),
+//!     security: json!({}),
+//!     timestamp: chrono::Utc::now(),
+//!     version: "1.0".to_string(),
+//! };
+//! ```
+//!
+//! Using the protocol adapter:
+//!
+//! ```
+//! use squirrel_mcp::protocol::{create_protocol_adapter, MCPProtocol};
+//! use std::sync::Arc;
+//! use serde_json::Value;
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a protocol adapter
+//! let adapter = create_protocol_adapter();
+//! 
+//! // Initialize the adapter
+//! adapter.initialize().await?;
+//! 
+//! // Create a message
+//! let message = MCPMessage {
+//!     id: MessageId("msg123".to_string()),
+//!     type_: MessageType::Command,
+//!     payload: json!({"command": "status"}),
+//!     metadata: json!({}).into(),
+//!     security: Default::default(),
+//!     timestamp: chrono::Utc::now(),
+//!     version: ProtocolTypesProtocolVersion::new(1, 0),
+//!     trace_id: Some(uuid::Uuid::new_v4().to_string()),
+//! };
+//! 
+//! // Check protocol state
+//! let state = adapter.get_state().await;
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::error::{MCPError, ProtocolError, Result as MCPResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt::Debug};
+
+/// Protocol-related types module
+pub mod types;
 
 // Re-export specific types from the protocol::types module - make them available from crate::protocol
 pub use types::{
@@ -56,10 +125,99 @@ pub enum RoutingDecision {
 /// that route messages to their appropriate handlers.
 pub type RoutingResult = MCPResult<RoutingDecision>;
 
+/// Adapter module for protocol operations
+///
+/// ```
+/// use squirrel_mcp::protocol::adapter::{create_protocol_adapter, MCPProtocolAdapter};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::MCPMessage;
+/// use squirrel_mcp::ProtocolMessageType as MessageType;
+/// use squirrel_mcp::ProtocolTypesProtocolVersion;
+/// use serde_json::json;
+/// use chrono::Utc;
+///
+/// async fn example() {
+///     let adapter = create_protocol_adapter();
+///     adapter.initialize().await.expect("Failed to initialize");
+///     
+///     let message = MCPMessage {
+///         id: MessageId("msg123".to_string()),
+///         type_: MessageType::Command,
+///         payload: json!({"command": "status"}),
+///         metadata: json!({}).into(),
+///         security: Default::default(),
+///         timestamp: Utc::now(),
+///         version: ProtocolTypesProtocolVersion::new(1, 0),
+///         trace_id: Some(uuid::Uuid::new_v4().to_string()),
+///     };
+///     
+///     let response = adapter.handle_message(message).await;
+/// }
+/// ```
+pub mod adapter;
 pub use adapter::{
     create_protocol_adapter, create_protocol_adapter_with_protocol, MCPProtocolAdapter,
 };
 
+/// Wire format adapter for protocol serialization/deserialization
+///
+/// The wire format adapter is responsible for converting between domain objects and
+/// wire format messages, providing a consistent serialization/deserialization
+/// mechanism for the protocol.
+///
+/// ```rust,no_run
+/// use squirrel_mcp::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig};
+/// use squirrel_mcp::protocol::{DomainObject, WireMessage};
+/// use serde_json::json;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create a configuration for the wire format adapter
+/// let config = WireFormatConfig::default();
+///
+/// // Create an adapter with the configuration
+/// let adapter = WireFormatAdapter::new(config);
+///
+/// // Create a domain object (implementing the DomainObject trait)
+/// struct MyDomainObject {
+///     type_name: String,
+///     content: serde_json::Value,
+///     version: String,
+/// }
+///
+/// impl DomainObject for MyDomainObject {
+///     fn get_type(&self) -> &str {
+///         &self.type_name
+///     }
+///
+///     fn get_content(&self) -> &serde_json::Value {
+///         &self.content
+///     }
+///
+///     fn get_version(&self) -> &str {
+///         &self.version
+///     }
+/// }
+///
+/// let domain_object = MyDomainObject {
+///     type_name: "user".to_string(),
+///     content: json!({"name": "John", "email": "john@example.com"}),
+///     version: "1.0".to_string(),
+/// };
+///
+/// // Convert to wire format
+/// let wire_message = adapter.to_wire_format(&domain_object).await?;
+///
+/// // Convert back to domain object (using a conversion function in a real app)
+/// let type_name = wire_message.message_type.clone();
+/// let content = wire_message.content.clone();
+/// let version = wire_message.version.clone();
+///
+/// // Verify the conversion worked
+/// assert_eq!(domain_object.type_name, type_name);
+/// # Ok(())
+/// # }
+/// ```
+pub mod adapter_wire;
 pub use adapter_wire::{
     WireFormatAdapter, WireFormatConfig, WireMessage, WireFormat, WireProtocolVersion, DomainObject
 };
@@ -85,17 +243,6 @@ mod domain_objects_tests;
 /// Re-export types from security module
 pub use crate::security::auth::{Action};
 
-/// Protocol trait defining the core interface for wire format conversion.
-///
-/// This trait provides functionality for converting between domain objects and wire format messages.
-/// It handles serialization and deserialization of protocol messages while maintaining type safety
-/// and ensuring data integrity during transmission.
-///
-/// See the `adapter_wire` module for detailed implementation and usage examples.
-pub trait Protocol {
-    // ... existing code ...
-}
-
 /// Configuration for the MCP protocol.
 ///
 /// This structure provides options to customize the behavior of the
@@ -104,36 +251,54 @@ pub trait Protocol {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use squirrel_mcp::protocol::ProtocolConfig;
-/// use squirrel_mcp::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig};
-/// use squirrel_mcp::message::Message;
-/// use squirrel_mcp::message::MessageType;
+/// use squirrel_mcp::protocol::{ProtocolConfig, WireFormatAdapter, WireFormatConfig};
+/// use squirrel_mcp::protocol::{WireMessage, DomainObject};
 /// use serde_json::json;
 /// 
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// // Create a protocol configuration
 /// let config = ProtocolConfig::default();
 /// 
 /// // Create a wire format adapter with the configuration
 /// let adapter = WireFormatAdapter::new(WireFormatConfig::default());
 /// 
-/// // Prepare a message
-/// let message = Message::new(
-///     MessageType::Request,
-///     "test content".to_string(),
-///     "source".to_string(),
-///     "destination".to_string()
-/// );
-/// 
-/// // Convert message to wire format (requires async runtime)
-/// async {
-///     let wire_message = adapter.to_wire_format(&message).await.unwrap();
-///     
-///     // Convert back to message
-///     let decoded_message = adapter.from_wire_format(&wire_message).await.unwrap();
-///     
-///     // Verify the conversion was lossless
-///     assert_eq!(message.id, decoded_message.id);
+/// // Create a domain object (implementing the DomainObject trait)
+/// struct MyDomainObject {
+///     type_name: String,
+///     content: serde_json::Value,
+///     version: String,
+/// }
+///
+/// impl DomainObject for MyDomainObject {
+///     fn get_type(&self) -> &str {
+///         &self.type_name
+///     }
+///
+///     fn get_content(&self) -> &serde_json::Value {
+///         &self.content
+///     }
+///
+///     fn get_version(&self) -> &str {
+///         &self.version
+///     }
+/// }
+///  
+/// let domain_object = MyDomainObject {
+///     type_name: "message".to_string(),
+///     content: json!({"key": "value"}),
+///     version: "1.0".to_string(),
 /// };
+/// 
+/// // Convert domain object to wire format
+/// let wire_message = adapter.to_wire_format(&domain_object).await?;
+/// 
+/// // In a real app, you would convert back to your domain object
+/// // Here we just verify the basic fields match
+/// assert_eq!(domain_object.type_name, wire_message.message_type);
+/// assert_eq!(domain_object.content, wire_message.content);
+/// assert_eq!(domain_object.version, wire_message.version);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProtocolConfig {
@@ -350,8 +515,10 @@ pub trait CommandHandler: Send + Sync + Debug {
 ///
 /// ```
 /// use squirrel_mcp::protocol::{MCPProtocolBase, ProtocolConfig};
-/// use squirrel_mcp::protocol::types::{MessageId, MessageType, MCPMessage, ProtocolVersion};
-/// use squirrel_mcp::security::types::SecurityMetadata;
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::MCPMessage;
+/// use squirrel_mcp::ProtocolMessageType as MessageType;
+/// use squirrel_mcp::ProtocolTypesProtocolVersion;
 /// use squirrel_mcp::types::ResponseStatus;
 /// use serde_json::json;
 /// use chrono::Utc;
@@ -364,10 +531,10 @@ pub trait CommandHandler: Send + Sync + Debug {
 ///     id: MessageId("msg123".to_string()),
 ///     type_: MessageType::Command,
 ///     payload: json!({"command": "get_status"}),
-///     metadata: Some(json!({})),
-///     security: SecurityMetadata::default(),
+///     metadata: json!({}).into(),
+///     security: Default::default(),
 ///     timestamp: Utc::now(),
-///     version: ProtocolVersion::new(1, 0),
+///     version: ProtocolTypesProtocolVersion::new(1, 0),
 ///     trace_id: Some(uuid::Uuid::new_v4().to_string()),
 /// };
 ///

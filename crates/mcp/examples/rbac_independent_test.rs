@@ -37,7 +37,7 @@ impl Role {
         self.permissions.insert(permission.to_string());
     }
 
-    fn has_permission(&self, permission: &str) -> bool {
+    fn _has_permission(&self, permission: &str) -> bool {
         self.permissions.contains(permission)
     }
 }
@@ -67,7 +67,7 @@ trait RBACManager: Send + Sync + 'static {
         &self, 
         user_id: &str, 
         permission: &str, 
-        context: Option<&Context>
+        _context: Option<&Context>
     ) -> Result<bool> {
         // Default implementation - check if any of the user's roles have this permission
         let roles = self.get_user_roles(user_id).await?;
@@ -89,13 +89,13 @@ trait RBACManager: Send + Sync + 'static {
     // ---- Role Details ---- //
     
     /// Get details about a specific role
-    async fn get_role_details(&self, role_id: &str) -> Result<Option<RoleDetailsResponse>> {
+    async fn get_role_details(&self, _role_id: &str) -> Result<Option<RoleDetailsResponse>> {
         // Default implementation - return not implemented
         Ok(None)
     }
     
     /// Get all permissions for a specific role
-    async fn get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
+    async fn _get_permissions_for_role(&self, _role_id: &str) -> Result<Vec<String>> {
         // Default implementation - return empty vector
         Ok(Vec::new())
     }
@@ -103,13 +103,13 @@ trait RBACManager: Send + Sync + 'static {
     // ---- Role Creation and Management ---- //
     
     /// Create a new role
-    async fn create_role(&self, role_id: &str, name: &str, description: &str) -> Result<()> {
+    async fn create_role(&self, _role_id: &str, _name: &str, _description: &str) -> Result<()> {
         // Default implementation - return not implemented
         Err("Role creation not implemented".into())
     }
     
     /// Add a permission to a role
-    async fn add_permission_to_role(&self, role_id: &str, permission: &str) -> Result<()> {
+    async fn add_permission_to_role(&self, _role_id: &str, _permission: &str) -> Result<()> {
         // Default implementation - return not implemented
         Err("Permission management not implemented".into())
     }
@@ -245,7 +245,7 @@ impl RBACManager for BasicRBACManager {
         }
     }
     
-    async fn get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
+    async fn _get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
         let role = self.get_role(role_id).await;
         
         match role {
@@ -266,7 +266,7 @@ impl RBACManager for BasicRBACManager {
             let role = self.get_role(&role_id).await;
             
             if let Some(role) = role {
-                if role.has_permission(permission) {
+                if role._has_permission(permission) {
                     return Ok(true);
                 }
             }

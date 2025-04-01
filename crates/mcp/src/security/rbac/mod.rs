@@ -22,12 +22,15 @@
 //! for all RBAC operations:
 //!
 //! ```rust
-//! use mcp::security::rbac::{RBACManager, BasicRBACManager};
-//!
+//! use squirrel_mcp::security::rbac::{RBACManager, BasicRBACManager};
+//! 
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let rbac = BasicRBACManager::new();
 //!
 //! // Check permissions
 //! let has_permission = rbac.has_permission("user123", "document:read", None).await?;
+//! # Ok(())
+//! # }
 //! ```
 
 // Public modules

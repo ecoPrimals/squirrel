@@ -522,14 +522,15 @@ impl MessageBuilder {
 /// # Examples
 ///
 /// ```
-/// use mcp::message::MessageBuilder;
+/// use squirrel_mcp::message::MessageBuilder;
+/// use serde_json::json;
 /// 
 /// let message = MessageBuilder::new()
 ///     .with_message_type("command")
-///     .with_content("Hello world")
+///     .with_content(json!("Hello world"))
 ///     .with_source("client-1")
 ///     .with_destination("server-1")
-///     .with_priority("high")
+///     .with_priority_str("high")
 ///     .with_metadata("version", "1.0")
 ///     .build();
 /// ```

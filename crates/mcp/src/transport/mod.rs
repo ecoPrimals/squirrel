@@ -97,38 +97,54 @@ pub mod memory;
 ///
 /// ```rust,no_run
 /// use squirrel_mcp::transport::{Transport, tcp::TcpTransport, tcp::TcpTransportConfig};
+/// use squirrel_mcp::protocol::types::{MCPMessage, MessageId, MessageType, ProtocolVersion};
+/// use squirrel_mcp::security::types::SecurityMetadata;
+/// use serde_json::json;
 /// use std::sync::Arc;
+/// use chrono::Utc;
 ///
-/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create a TCP transport with a specific configuration
-///     let config = TcpTransportConfig::default()
-///         .with_remote_address("127.0.0.1:9000")
-///         .with_connection_timeout(5000);
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create a TCP transport with a specific configuration
+/// let config = TcpTransportConfig::default()
+///     .with_remote_address("127.0.0.1:9000")
+///     .with_connection_timeout(5000);
 ///
-///     let mut transport = TcpTransport::new(config);
+/// let mut transport = TcpTransport::new(config);
 ///
-///     // Connect to the remote endpoint
-///     transport.connect().await?;
+/// // Connect to the remote endpoint
+/// transport.connect().await?;
 ///
-///     // Wrap in Arc for safe sharing between threads
-///     let transport = Arc::new(transport);
+/// // Wrap in Arc for safe sharing between threads
+/// let transport = Arc::new(transport);
 ///
-///     // Now the transport can be cloned and shared between threads
-///     let transport_clone = Arc::clone(&transport);
+/// // Now the transport can be cloned and shared between threads
+/// let transport_clone = Arc::clone(&transport);
 ///
-///     // Spawn a task to listen for messages
-///     tokio::spawn(async move {
-///         while let Ok(message) = transport_clone.receive_message().await {
-///             println!("Received message: {:?}", message);
-///         }
-///     });
+/// // Spawn a task to listen for messages
+/// tokio::spawn(async move {
+///     while let Ok(message) = transport_clone.receive_message().await {
+///         println!("Received message: {:?}", message);
+///     }
+/// });
 ///
-///     // Use the original transport to send messages
-///     let message = squirrel_mcp::types::MCPMessage::new_ping();
-///     transport.send_message(message).await?;
+/// // Create a simple ping message
+/// let message = MCPMessage {
+///     id: MessageId("msg123".to_string()),
+///     type_: MessageType::Command,
+///     payload: json!({"command": "ping"}),
+///     metadata: Some(json!({})),
+///     security: SecurityMetadata::default(),
+///     timestamp: Utc::now(),
+///     version: ProtocolVersion::new(1, 0),
+///     trace_id: Some("trace-123".to_string()),
+/// };
 ///
-///     Ok(())
-/// }
+/// // Use the original transport to send messages
+/// transport.send_message(message).await?;
+///
+/// # Ok(())
+/// # }
 /// ```
 #[async_trait]
 pub trait Transport: Send + Sync + Debug {

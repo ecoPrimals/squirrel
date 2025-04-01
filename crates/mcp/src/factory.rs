@@ -25,8 +25,8 @@ use crate::adapter::{MCPAdapter, MCPInterface};
 ///
 /// Basic usage with default configuration:
 ///
-/// ```
-/// use mcp::factory::create_mcp;
+/// ```rust,no_run
+/// use squirrel_mcp::factory::create_mcp;
 ///
 /// // Create an MCP instance with default configuration
 /// let mcp = create_mcp();
@@ -37,20 +37,13 @@ use crate::adapter::{MCPAdapter, MCPInterface};
 ///
 /// Using custom configuration:
 ///
-/// ```
-/// use mcp::{MCPConfig, factory::MCPFactory};
+/// ```no_run
+/// use squirrel_mcp::{MCPConfig, factory::MCPFactory};
 ///
-/// // Create a custom configuration
 /// let mut config = MCPConfig::default();
-/// config.timeout_ms = 10000; // 10 seconds timeout
-/// config.encryption_enabled = true;
+/// config.timeout = 10000; // 10 seconds
 ///
-/// // Create a factory with custom configuration
 /// let factory = MCPFactory::with_config(config);
-///
-/// // Create multiple MCP instances with the same configuration
-/// let mcp1 = factory.create_mcp();
-/// let mcp2 = factory.create_mcp();
 /// ```
 #[derive(Debug)]
 pub struct MCPFactory {
@@ -72,7 +65,7 @@ impl MCPFactory {
     /// # Examples
     ///
     /// ```
-    /// use mcp::factory::MCPFactory;
+    /// use squirrel_mcp::factory::MCPFactory;
     ///
     /// let factory = MCPFactory::new();
     /// let mcp = factory.create_mcp();
@@ -100,10 +93,10 @@ impl MCPFactory {
     /// # Examples
     ///
     /// ```
-    /// use mcp::{MCPConfig, factory::MCPFactory};
+    /// use squirrel_mcp::{MCPConfig, factory::MCPFactory};
     ///
     /// let mut config = MCPConfig::default();
-    /// config.timeout_ms = 10000; // 10 seconds
+    /// config.timeout = 10000; // 10 seconds
     ///
     /// let factory = MCPFactory::with_config(config);
     /// ```
@@ -128,8 +121,8 @@ impl MCPFactory {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use mcp::factory::MCPFactory;
+    /// ```no_run
+    /// use squirrel_mcp::factory::MCPFactory;
     /// use std::sync::Arc;
     ///
     /// let factory = MCPFactory::new();
@@ -170,7 +163,7 @@ impl Default for MCPFactory {
 /// # Examples
 ///
 /// ```
-/// use mcp::factory::create_mcp_factory;
+/// use squirrel_mcp::factory::create_mcp_factory;
 ///
 /// let factory = create_mcp_factory();
 /// let mcp = factory.create_mcp();
@@ -196,8 +189,8 @@ impl Default for MCPFactory {
 ///
 /// # Examples
 ///
-/// ```
-/// use mcp::factory::create_mcp;
+/// ```no_run
+/// use squirrel_mcp::factory::create_mcp;
 ///
 /// // Get an MCP instance directly without creating a factory
 /// let mcp = create_mcp();

@@ -5,32 +5,39 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use mcp::server::{MCPServer, ServerConfig};
-//! use mcp::message::Message;
-//! use mcp::error::Result;
+//! ```no_run
+//! use squirrel_mcp::server::{MCPServer, ServerConfig, CommandHandler};
+//! use squirrel_mcp::message::{Message, MessageType};
+//! use squirrel_mcp::error::Result;
 //! use async_trait::async_trait;
-//! use serde_json::json;
+//! use std::future::Future;
+//! use std::pin::Pin;
+//! use std::sync::Arc;
 //!
 //! // Define a command handler
+//! #[derive(Debug, Clone)]
 //! struct StatusCommandHandler;
 //!
-//! #[async_trait]
 //! impl CommandHandler for StatusCommandHandler {
-//!     async fn handle_command(&self, command: &Message) -> Result<Message> {
-//!         // Process the status command
-//!         Ok(Message::builder()
-//!             .with_message_type("response")
-//!             .with_payload(json!({
-//!                 "status": "online",
-//!                 "version": "1.0.0",
-//!                 "uptime": 3600
-//!             }))
-//!             .build())
+//!     fn handle_command<'a>(
+//!         &'a self, 
+//!         command: &'a Message
+//!     ) -> Pin<Box<dyn Future<Output = Result<Option<Message>>> + Send + 'a>> {
+//!         Box::pin(async move {
+//!             // Process the status command
+//!             let response = Message::new(
+//!                 MessageType::Response,
+//!                 "Status: online".to_string(),
+//!                 command.destination.clone(),
+//!                 command.source.clone()
+//!             );
+//!             
+//!             Ok(Some(response))
+//!         })
 //!     }
 //!
 //!     fn supported_commands(&self) -> Vec<String> {
-//!         vec!["get_status".to_string()]
+//!         vec!["status".to_string()]
 //!     }
 //!
 //!     fn clone_box(&self) -> Box<dyn CommandHandler> {

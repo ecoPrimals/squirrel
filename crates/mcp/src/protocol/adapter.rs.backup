@@ -21,11 +21,11 @@
 //! ```
 //! use squirrel_mcp::protocol::{create_protocol_adapter, MCPProtocol};
 //! use squirrel_mcp::protocol::types::MessageId;
-//! use squirrel_mcp::protocol::types::MCPMessage;
-//! use squirrel_mcp::protocol::types::MessageType;
-//! use squirrel_mcp::protocol::types::ProtocolVersion;
+//! use squirrel_mcp::MCPMessage;
+//! use squirrel_mcp::ProtocolMessageType as MessageType;
 //! use serde_json::json;
 //! use chrono::Utc;
+//! use squirrel_mcp::ProtocolTypesProtocolVersion;
 //!
 //! async fn example() {
 //!     // Create a protocol adapter
@@ -42,7 +42,7 @@
 //!         metadata: Some(json!({})),
 //!         security: Default::default(),
 //!         timestamp: Utc::now(),
-//!         version: ProtocolVersion::new(1, 0),
+//!         version: ProtocolTypesProtocolVersion::new(1, 0),
 //!         trace_id: Some("trace-123".to_string()),
 //!     };
 //!     
@@ -52,10 +52,11 @@
 //! ```
 
 use crate::error::{MCPError, Result};
-use crate::error::protocol_err::ProtocolError;
+use crate::error::context::ErrorSeverity;
+use crate::protocol::adapter_wire::MCPProtocolAdapterWire;
 use crate::protocol::{
     MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, 
-    RoutingResult, ValidationResult, RoutingDecision, CommandHandler
+    RoutingResult, ValidationResult, RoutingDecision, CommandHandler, MessageHandler, ProtocolTypesMessage
 };
 use crate::protocol::types::{
     MCPMessage,
@@ -67,6 +68,31 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
+use crate::security::SecurityManager;
+use crate::sync::state::{StateManager, StateOperation};
+use crate::tools::ToolManager;
+use crate::transport::Transport;
+use anyhow::anyhow;
+use crate::prelude::*;
+
+/// Errors specific to MCP protocol adapter operations.
+///
+/// These errors are specific to the protocol adapter and complement
+/// the more general protocol errors defined in the error module.
+#[derive(Debug, Error)]
+pub enum ProtocolAdapterError {
+    /// Protocol is not initialized.
+    ///
+    /// This error occurs when trying to use the protocol before initialization.
+    #[error("Protocol not initialized")]
+    NotInitialized,
+
+    /// Protocol is already initialized.
+    ///
+    /// This error occurs when trying to initialize an already initialized protocol.
+    #[error("Protocol already initialized")]
+    AlreadyInitialized,
+}
 
 /// Protocol adapter that provides a thread-safe interface for working with the MCP protocol.
 ///
@@ -80,8 +106,8 @@ use tokio::sync::RwLock;
 /// ```
 /// use squirrel_mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
 /// use squirrel_mcp::protocol::types::MessageId;
-/// use squirrel_mcp::protocol::types::MCPMessage;
-/// use squirrel_mcp::protocol::types::MessageType;
+/// use squirrel_mcp::MCPMessage;
+/// use squirrel_mcp::ProtocolMessageType as MessageType;
 /// use serde_json::json;
 /// use std::sync::Arc;
 ///
@@ -296,9 +322,9 @@ impl MCPProtocolAdapter {
     /// ```
     /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     /// use squirrel_mcp::protocol::types::MessageId;
-    /// use squirrel_mcp::protocol::types::MCPMessage;
-    /// use squirrel_mcp::protocol::types::MessageType;
-    /// use squirrel_mcp::protocol::types::ProtocolVersion;
+    /// use squirrel_mcp::MCPMessage;
+    /// use squirrel_mcp::ProtocolMessageType as MessageType;
+    /// use squirrel_mcp::ProtocolTypesProtocolVersion;
     /// use serde_json::json;
     /// use chrono::Utc;
     ///
@@ -313,7 +339,7 @@ impl MCPProtocolAdapter {
     ///         metadata: json!({}).into(),
     ///         security: Default::default(),
     ///         timestamp: Utc::now(),
-    ///         version: ProtocolVersion::new(1, 0),
+    ///         version: ProtocolTypesProtocolVersion::new(1, 0),
     ///         trace_id: Some(uuid::Uuid::new_v4().to_string()),
     ///     };
     ///     
@@ -370,8 +396,8 @@ impl MCPProtocolAdapter {
     /// ```
     /// use squirrel_mcp::protocol::{MCPProtocolAdapter, CommandHandler};
     /// use squirrel_mcp::protocol::types::MessageId;
-    /// use squirrel_mcp::protocol::types::MCPMessage;
-    /// use squirrel_mcp::protocol::types::MessageType;
+    /// use squirrel_mcp::MCPMessage;
+    /// use squirrel_mcp::ProtocolMessageType as MessageType;
     /// use squirrel_mcp::types::{MCPResponse, ResponseStatus};
     /// use squirrel_mcp::error::Result;
     /// use async_trait::async_trait;
@@ -442,8 +468,8 @@ impl MCPProtocolAdapter {
     /// ```
     /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     /// use squirrel_mcp::protocol::types::MessageId;
-    /// use squirrel_mcp::protocol::types::MCPMessage;
-    /// use squirrel_mcp::protocol::types::MessageType;
+    /// use squirrel_mcp::MCPMessage;
+    /// use squirrel_mcp::ProtocolMessageType as MessageType;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();

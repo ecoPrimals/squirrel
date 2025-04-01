@@ -15,19 +15,55 @@
 //! # Examples
 //!
 //! ```
-//! use mcp::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig};
-//! use mcp::protocol::wire::{WireMessage, DomainObject};
+//! use squirrel_mcp::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig};
+//! use squirrel_mcp::protocol::DomainObject;
+//! use squirrel_mcp::message::{Message, MessageType};
 //!
 //! async fn example() {
 //!     // Create a wire format adapter with default config
 //!     let adapter = WireFormatAdapter::new(WireFormatConfig::default());
 //!
 //!     // Convert a domain object to wire format
-//!     let domain_obj = DomainObject::new();
-//!     let wire_message = adapter.to_wire_format(domain_obj).await.unwrap();
+//!     let domain_obj = Message::new(
+//!         MessageType::Request,
+//!         "test".to_string(),
+//!         "source".to_string(),
+//!         "destination".to_string()
+//!     );
+//!     let wire_message = adapter.to_wire_format(&domain_obj).await.unwrap();
 //!
 //!     // Convert wire format back to domain object
 //!     let deserialized = adapter.from_wire_format(&wire_message).await.unwrap();
+//! }
+//! ```
+//!
+//! Wire format adapter for converting between domain objects and wire format messages.
+//! 
+//! Example of using the wire format adapter:
+//! ```no_run
+//! use squirrel_mcp::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig};
+//! use squirrel_mcp::message::{Message, MessageType};
+//! use squirrel_mcp::error::Result;
+//!
+//! async fn convert_message() -> Result<()> {
+//!     let config = WireFormatConfig::default();
+//!     let adapter = WireFormatAdapter::new(config);
+//!     
+//!     let message = Message::new(
+//!         MessageType::Request, 
+//!         "test".to_string(), 
+//!         "source".to_string(), 
+//!         "destination".to_string()
+//!     );
+//!     
+//!     // Convert to wire format
+//!     let wire_message = adapter.to_wire_format(&message).await?;
+//!     
+//!     // Convert back from wire format
+//!     let decoded = adapter.from_wire_format(&wire_message).await?;
+//!     
+//!     assert_eq!(message.id, decoded.id);
+//!     Ok(())
 //! }
 //! ```
 

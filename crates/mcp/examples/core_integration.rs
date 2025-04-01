@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -13,12 +12,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     info!("Starting simplified core integration example");
     
-    // Create protocol adapter
-    let protocol_adapter = squirrel_mcp::protocol::create_protocol_adapter();
+    // Create protocol adapter - not used in this simplified example
+    let _protocol_adapter = squirrel_mcp::protocol::create_protocol_adapter();
     info!("Created protocol adapter successfully");
     
-    // Create a logger
-    let logger = squirrel_mcp::logging::Logger::new("core-integration-example");
+    // Create a logger - not used directly in this simplified example
+    let _logger = squirrel_mcp::logging::Logger::new("core-integration-example");
     info!("Created logger successfully");
     
     // Note: We're avoiding creating the auth manager and metrics collector

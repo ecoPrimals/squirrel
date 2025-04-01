@@ -1,7 +1,6 @@
 use squirrel_mcp::error::Result;
 use squirrel_mcp::protocol::{MessageType, MCPMessage};
 use squirrel_mcp::transport::memory::MemoryChannel;
-use squirrel_mcp::transport::Transport;
 use tokio::main;
 
 /// Example demonstrating a simple transaction flow between two parties
