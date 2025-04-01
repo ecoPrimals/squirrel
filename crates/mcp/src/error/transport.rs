@@ -4,8 +4,6 @@ use thiserror::Error;
 
 use super::types::MCPError;
 use crate::protocol::types::MCPMessage;
-use serde_json::Error as SerdeJsonError;
-use std::io::Error as IoError;
 
 /// Errors that can occur in the transport layer
 #[derive(Debug, Error, Clone)]

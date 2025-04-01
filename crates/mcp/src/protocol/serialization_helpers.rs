@@ -2,7 +2,7 @@
 
 use crate::error::ProtocolError;
 use crate::protocol::adapter_wire;
-use crate::protocol::types::{MCPMessage, MessageId, MessageType};
+use crate::protocol::types::{MCPMessage, MessageId};
 use crate::security::types::{EncryptionInfo, SecurityLevel, SecurityMetadata};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;

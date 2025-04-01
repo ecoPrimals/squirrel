@@ -5,15 +5,16 @@ use clap::Parser;
 use std::path::PathBuf;
 use tracing::{info, error};
 use squirrel_interfaces::plugins::PluginRegistry;
-use squirrel_mcp::plugins::PluginManager;
+use crate::plugins::PluginManager;
+// Fix imports for TUI
+#[cfg(feature = "tui")]
 use dashboard_core::config::DashboardConfig;
+#[cfg(feature = "tui")]
 use std::sync::Arc;
 
 // Conditional imports for TUI
 #[cfg(feature = "tui")]
-use dashboard_core::service::{DashboardService, DefaultDashboardService};
-#[cfg(feature = "tui")]
-use ui_terminal;
+use dashboard_core::service::DefaultDashboardService;
 #[cfg(feature = "tui")]
 use std::sync::Mutex;
 
@@ -55,9 +56,9 @@ async fn main() -> Result<()> {
                 // TODO: Replace this with the actual call to ui_terminal::run_ui
                 // For now, let's simulate using the DefaultDashboardService like in the example
                 let (dashboard_service, _) = DefaultDashboardService::new(DashboardConfig::default());
-                let dashboard_service = Arc::new(Mutex::new(dashboard_service));
-                let data_update_interval_ms = 1000; // Example: update data every 1 second
-                let ui_refresh_rate_ms = 50;       // Example: refresh UI every 50ms
+                let _dashboard_service = Arc::new(Mutex::new(dashboard_service));
+                let _data_update_interval_ms = 1000; // Example: update data every 1 second
+                let _ui_refresh_rate_ms = 50;       // Example: refresh UI every 50ms
 
                 // The actual call would look something like this:
                 // if let Err(e) = ui_terminal::run_ui(dashboard_service, data_update_interval_ms, ui_refresh_rate_ms).await {

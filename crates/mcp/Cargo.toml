@@ -97,3 +97,43 @@ path = "src/lib.rs"
 [[bin]]
 name = "test_memory_transport"
 path = "src/bin/test_memory_transport.rs"
+
+[[bin]]
+name = "rbac_test"
+path = "src/bin/rbac_test.rs"
+
+[[example]]
+name = "tool_lifecycle_management"
+path = "examples/tool_lifecycle_management.rs"
+
+[[example]]
+name = "connection_health_monitor"
+path = "examples/connection_health_monitor.rs"
+
+[[example]]
+name = "core_integration"
+path = "examples/core_integration.rs"
+
+[[example]]
+name = "observability_example"
+path = "examples/observability_example.rs"
+
+[[example]]
+name = "plugin_usage"
+path = "examples/plugin_usage.rs"
+
+[[example]]
+name = "resource_state_plugin"
+path = "examples/resource_state_plugin.rs"
+
+[[example]]
+name = "simple_journal"
+path = "examples/simple_journal.rs"
+
+[[example]]
+name = "transaction_example"
+path = "examples/transaction_example.rs"
+
+[[example]]
+name = "rbac_independent_test"
+path = "examples/rbac_independent_test.rs"

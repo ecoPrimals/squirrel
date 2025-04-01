@@ -31,6 +31,7 @@ async fn test_sync_flow() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     println!("Persistence config: {:?}", &persistence_config);
@@ -161,6 +162,7 @@ async fn test_change_subscription() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence = MCPPersistence::new(persistence_config);
@@ -200,8 +202,12 @@ async fn test_change_subscription() {
         .await
         .expect("Failed to record context change");
 
-    // Verify change was received
-    let received = rx.recv().await.expect("Failed to receive change");
+    // Verify change was received with a timeout
+    let received = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        rx.recv()
+    ).await.expect("Timeout waiting for change").expect("Failed to receive change");
+    
     assert_eq!(
         received.context_id, context.id,
         "Received change should have correct context ID"
@@ -224,8 +230,12 @@ async fn test_change_subscription() {
         .await
         .expect("Failed to record update");
 
-    // Verify second change was received
-    let received2 = rx.recv().await.expect("Failed to receive second change");
+    // Verify second change was received with a timeout
+    let received2 = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        rx.recv()
+    ).await.expect("Timeout waiting for second change").expect("Failed to receive second change");
+    
     assert_eq!(
         received2.context_id, context.id,
         "Second change should have correct context ID"
@@ -269,6 +279,7 @@ async fn test_persistence() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence = MCPPersistence::new(persistence_config);
@@ -323,6 +334,7 @@ async fn test_persistence() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence2 = MCPPersistence::new(persistence_config2);
@@ -383,6 +395,7 @@ async fn test_helper_functions() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence = MCPPersistence::new(persistence_config);
@@ -428,6 +441,7 @@ async fn test_helper_functions() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence2 = MCPPersistence::new(persistence_config2);
@@ -479,6 +493,7 @@ async fn test_sync_helper_functions() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence = MCPPersistence::new(persistence_config);
@@ -521,6 +536,7 @@ async fn test_sync_helper_functions() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence2 = MCPPersistence::new(persistence_config2);
@@ -574,6 +590,7 @@ async fn test_uninitialized_error() {
         enable_compression: false,
         enable_encryption: false,
         storage_format: "json".to_string(),
+        created_at: chrono::Utc::now(),
     };
 
     let mut persistence = MCPPersistence::new(persistence_config);

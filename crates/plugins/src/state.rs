@@ -88,27 +88,60 @@ impl FileStateManager {
 impl PluginStateManager for FileStateManager {
     fn get_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Value>>> + Send + 'a>> {
         Box::pin(async move {
-            // For now, just use the in-memory cache
+            // Check cache first
             let cache = self.cache.read().await;
-            Ok(cache.get(plugin_id).cloned())
+            if let Some(value) = cache.get(plugin_id) {
+                return Ok(Some(value.clone()));
+            }
+            
+            // If not in cache, try to read from file
+            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+            match tokio::fs::read_to_string(&file_path).await {
+                Ok(content) => {
+                    let value: Value = serde_json::from_str(&content)?;
+                    // Update cache
+                    drop(cache);
+                    let mut cache = self.cache.write().await;
+                    cache.insert(*plugin_id, value.clone());
+                    Ok(Some(value))
+                },
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                Err(e) => Err(e.into()),
+            }
         })
     }
     
     fn set_state<'a>(&'a self, plugin_id: &'a Uuid, state: Value) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
-            // For now, just use the in-memory cache
+            // Update cache
             let mut cache = self.cache.write().await;
-            cache.insert(*plugin_id, state);
+            cache.insert(*plugin_id, state.clone());
+            
+            // Ensure directory exists
+            tokio::fs::create_dir_all(&self.base_dir).await?;
+            
+            // Write to file
+            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+            let content = serde_json::to_string(&state)?;
+            tokio::fs::write(&file_path, content).await?;
+            
             Ok(())
         })
     }
     
     fn remove_state<'a>(&'a self, plugin_id: &'a Uuid) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
-            // For now, just use the in-memory cache
+            // Remove from cache
             let mut cache = self.cache.write().await;
             cache.remove(plugin_id);
-            Ok(())
+            
+            // Remove file if exists
+            let file_path = format!("{}/{}.json", self.base_dir, plugin_id);
+            match tokio::fs::remove_file(&file_path).await {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.into()),
+            }
         })
     }
 } 

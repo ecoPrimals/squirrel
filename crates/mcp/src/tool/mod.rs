@@ -139,6 +139,24 @@ pub enum ToolBuildError {
     MissingId,
     #[error("Tool name is required")]
     MissingName,
+    #[error("Tool version is required")]
+    MissingVersion,
+    #[error("Tool description is required")]
+    MissingDescription,
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+}
+
+impl From<ToolBuildError> for ToolError {
+    fn from(error: ToolBuildError) -> Self {
+        match error {
+            ToolBuildError::MissingId => ToolError::ValidationError("Tool missing ID".to_string()),
+            ToolBuildError::MissingName => ToolError::ValidationError("Tool missing name".to_string()),
+            ToolBuildError::MissingVersion => ToolError::ValidationError("Tool missing version".to_string()),
+            ToolBuildError::MissingDescription => ToolError::ValidationError("Tool missing description".to_string()),
+            ToolBuildError::ValidationError(msg) => ToolError::ValidationError(msg),
+        }
+    }
 }
 
 /// Builder for creating `Tool` instances
@@ -350,6 +368,9 @@ pub enum ToolError {
 
     /// Validation failed error
     ValidationFailed(String),
+    
+    /// Validation error with message
+    ValidationError(String),
 
     /// Resource error with message
     ResourceError(String),
@@ -440,6 +461,7 @@ impl std::fmt::Display for ToolError {
             Self::RegistrationFailed(msg) => write!(f, "Registration failed: {msg}"),
             Self::UnregistrationFailed(msg) => write!(f, "Unregistration failed: {msg}"),
             Self::ValidationFailed(msg) => write!(f, "Validation failed: {msg}"),
+            Self::ValidationError(msg) => write!(f, "Validation error: {msg}"),
             Self::ResourceError(msg) => write!(f, "Resource error: {msg}"),
             Self::ToolError(msg) => write!(f, "Tool error: {msg}"),
             Self::SecurityViolation(msg) => write!(f, "Security violation: {msg}"),

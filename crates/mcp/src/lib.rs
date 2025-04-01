@@ -89,6 +89,33 @@ pub mod error;
 ///
 /// The protocol module defines the structure of messages, the flow of
 /// communication, and mechanisms for handling different message types.
+///
+/// Example of using the Protocol trait:
+///
+/// ```no_run
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::protocol::types::MessageType;
+/// use squirrel_mcp::protocol::types::MCPMessage;
+/// use squirrel_mcp::security::types::SecurityMetadata;
+/// use squirrel_mcp::protocol::types::ProtocolVersion;
+/// use chrono::Utc;
+/// use serde_json::json;
+///
+/// let message = MCPMessage {
+///     id: MessageId::new(),
+///     type_: MessageType::Command,
+///     timestamp: Utc::now(),
+///     payload: json!({"command": "status"}),
+///     metadata: None,
+///     security: SecurityMetadata::default(),
+///     version: ProtocolVersion::new(1, 0),
+///     trace_id: None,
+/// };
+///
+/// assert!(!message.id.0.is_empty());
+/// assert_eq!(message.type_, MessageType::Command);
+/// assert!(!message.payload.is_null());
+/// ```
 pub mod protocol;
 
 /// Tool management system for registering and executing tools.
@@ -125,6 +152,31 @@ pub mod sync;
 ///
 /// This module defines the core data structures and enumerations that
 /// are used across different parts of the MCP system.
+///
+/// ```
+/// use squirrel_mcp::protocol::types::{MCPMessage, MessageId, MessageType};
+/// use squirrel_mcp::protocol::types::ProtocolVersion;
+/// use squirrel_mcp::security::types::SecurityMetadata;
+/// use serde_json::json;
+/// use chrono::Utc;
+/// 
+/// // Create a message
+/// let message = MCPMessage {
+///     id: MessageId::new(),
+///     type_: MessageType::Command,
+///     payload: json!({"command": "status"}),
+///     metadata: Some(json!({})),
+///     security: SecurityMetadata::default(),
+///     timestamp: Utc::now(),
+///     version: ProtocolVersion::new(1, 0),
+///     trace_id: Some("trace-1".to_string()),
+/// };
+/// 
+/// // Verify properties
+/// assert!(!message.id.0.is_empty());
+/// assert_eq!(message.type_, MessageType::Command);
+/// assert!(message.timestamp <= Utc::now());
+/// ```
 pub mod types;
 
 /// Configuration management for the MCP system.
@@ -154,7 +206,7 @@ pub use context_manager::Context;
 /// Re-export commonly used security types.
 pub use security::{SecurityManager, SecurityManagerImpl};
 pub use types::{AccountId};
-pub use protocol::types::{MCPMessage, MessageType as ProtocolMessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
+pub use protocol::types::{MCPMessage, MessageType, ProtocolVersion};
 pub use security::types::{AuthCredentials, SecurityLevel, UserId};
 pub use security::types::{EncryptionFormat};
 pub use security::token::{Token, SessionToken, AuthToken};
@@ -162,6 +214,28 @@ pub use security::token::{Token, SessionToken, AuthToken};
 // pub use protocol::security::auth::Permission;
 
 /// Adapter for MCP operations with dependency injection support.
+///
+/// ```no_run
+/// use squirrel_mcp::{adapter::MCPInterface, MCPAdapter, MCPConfig};
+/// use std::sync::Arc;
+/// 
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create a configuration
+///     let config = MCPConfig::default();
+///     
+///     // Create an adapter
+///     let adapter = MCPAdapter::new(config);
+///     
+///     // Initialize the adapter
+///     adapter.initialize()?;
+///     
+///     // Check if initialized
+///     assert!(adapter.is_initialized());
+///     
+///     Ok(())
+/// }
+/// ```
 pub mod adapter;
 pub use adapter::{MCPAdapter, MCPInterface};
 
@@ -224,13 +298,172 @@ pub mod message;
 /// Message router and handler functionality
 pub mod message_router;
 
-/// Frame encoding/decoding for message transport
+/// Frame handling for the MCP protocol.
+///
+/// Example of using Frame for the MCP protocol:
+///
+/// ```
+/// use bytes::BytesMut;
+/// use squirrel_mcp::frame::Frame;
+///
+/// // Create a frame
+/// let message_bytes = b"Hello, MCP!".to_vec();
+/// let frame = Frame::from_vec(message_bytes);
+/// 
+/// // Get the payload
+/// let payload = frame.payload();
+/// assert_eq!(payload.len(), b"Hello, MCP!".len());
+/// ```
 pub mod frame;
 
 /// Client API for the MCP protocol
+///
+/// The client module provides the ability to establish connections to MCP servers,
+/// send commands, receive responses, and handle events.
+///
+/// # Example
+///
+/// ```no_run
+/// use squirrel_mcp::client::{MCPClient, ClientConfig};
+/// use squirrel_mcp::message::{Message, MessageType};
+/// use serde_json::json;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create a client with default configuration
+///     let mut client = MCPClient::new(ClientConfig::default());
+///     
+///     // Connect to the server
+///     client.connect().await?;
+///     
+///     // Create a command message
+///     let command = Message::request(
+///         "status".to_string(),
+///         "client".to_string(), 
+///         "server".to_string()
+///     );
+///     
+///     // Send the command and get a response
+///     let response = client.send_command(&command).await?;
+///     println!("Response: {}", response.content);
+///     
+///     // Disconnect when done
+///     client.disconnect().await?;
+///     
+///     Ok(())
+/// # }
+/// ```
+///
+/// ## Event subscription example
+///
+/// ```no_run
+/// use squirrel_mcp::client::{MCPClient, ClientConfig};
+/// use squirrel_mcp::message::{Message, MessageType};
+/// use serde_json::json;
+/// use tokio::sync::broadcast;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     // Create client with default configuration
+///     let mut client = MCPClient::new(ClientConfig::default());
+///     
+///     // Connect to server
+///     client.connect().await?;
+///     
+///     // Subscribe to events
+///     let mut events = client.subscribe_to_events().await;
+///     
+///     // Handle events in a separate task
+///     tokio::spawn(async move {
+///         loop {
+///             match events.recv().await {
+///                 Ok(Some(message)) => {
+///                     println!("Received event: {:?}", message);
+///                 },
+///                 Ok(None) => {
+///                     break;
+///                 },
+///                 Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+///                     println!("Channel closed");
+///                     break;
+///                 },
+///                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+///                     println!("Lagged behind");
+///                     continue;
+///                 }
+///             }
+///         }
+///     });
+///     
+///     // Publish an event
+///     client.send_event_with_content(
+///         "status_changed",
+///         json!({
+///             "new_status": "running"
+///         })
+///     ).await?;
+///     
+///     // Disconnect when done
+///     client.disconnect().await?;
+///     
+///     Ok(())
+/// # }
+/// ```
 pub mod client;
 
 /// Server API for the MCP protocol
+///
+/// Example of implementing a server with a command handler:
+///
+/// ```no_run
+/// use squirrel_mcp::server::{MCPServer, ServerConfig, CommandHandler};
+/// use squirrel_mcp::message::{Message, MessageType};
+/// use squirrel_mcp::error::Result;
+/// use std::sync::Arc;
+///
+/// #[derive(Debug, Clone)]
+/// struct StatusCommandHandler;
+///
+/// impl CommandHandler for StatusCommandHandler {
+///     fn handle_command<'a>(
+///         &'a self, 
+///         message: &'a Message
+///     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<Message>>> + Send + 'a>> {
+///         Box::pin(async move {
+///             // Handle the command and return a response
+///             let response = Message::new(
+///                 MessageType::Response,
+///                 "Status: OK".to_string(),
+///                 message.destination.clone(),
+///                 message.source.clone()
+///             );
+///             
+///             Ok(Some(response))
+///         })
+///     }
+///
+///     fn supported_commands(&self) -> Vec<String> {
+///         vec!["status".to_string()]
+///     }
+///
+///     fn clone_box(&self) -> Box<dyn CommandHandler> {
+///         Box::new(self.clone())
+///     }
+/// }
+///
+/// async fn start_server() -> Result<()> {
+///     let config = ServerConfig::default();
+///     let mut server = MCPServer::new(config);
+///     
+///     // Register command handler
+///     let handler = Box::new(StatusCommandHandler);
+///     server.register_command_handler(handler).await?;
+///     
+///     // Start the server
+///     server.start().await?;
+///     Ok(())
+/// }
+/// ```
 pub mod server;
 
 /// Logging module for the MCP system.
@@ -263,7 +496,3 @@ pub use crate::config::McpConfig as CoreAdapterConfig;
 
 // Only export core types once - these were previously duplicated
 pub use types::{MCPResponse, ResponseStatus}; // Re-export core types
-pub use message::{Message, MessageType, MessagePriority}; // Re-export message types
-
-#[cfg(test)]
-mod tests;

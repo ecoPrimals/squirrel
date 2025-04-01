@@ -588,15 +588,21 @@ mod tests {
     #[tokio::test]
     async fn test_recovery_hook_strategies() {
         let hook = RecoveryHook::new();
+        let tool = Tool::builder()
+            .id("test-tool")
+            .name("Test Tool")
+            .build()
+            .expect("Failed to build tool");
 
         // Test default strategy
-        assert_eq!(hook.get_strategy("unknown-tool"), RecoveryStrategy::Reset);
+        hook.register_tool(&tool).await.unwrap();
+        assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Reset);
 
-        // Test setting and getting a strategy
-        hook.set_strategy("test-tool", RecoveryStrategy::Terminate);
-        assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Terminate);
+        // Test setting the strategy
+        hook.set_strategy("test-tool", RecoveryStrategy::Continue);
+        assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Continue);
 
-        // Test cleaning up removes the strategy
+        // Test cleanup
         hook.cleanup_tool("test-tool").await.unwrap();
         assert_eq!(hook.get_strategy("test-tool"), RecoveryStrategy::Reset);
     }
@@ -604,7 +610,8 @@ mod tests {
     #[tokio::test]
     async fn test_recovery_hook_error_handling() {
         let hook = RecoveryHook::new();
-        let tool = Tool::builder().id("test-tool").name("Test Tool").build();
+        let tool = Tool::builder().id("test-tool").name("Test Tool").build()
+            .expect("Failed to build tool");
 
         // Register the tool
         hook.register_tool(&tool).await.unwrap();

@@ -1,17 +1,18 @@
 use async_trait::async_trait;
 use crate::error::Result;
-use crate::security::types::{AuthCredentials, Token, UserId, Resource, Action};
+use crate::security::types::{AuthCredentials, Token, UserId, Resource};
 use crate::security::rbac::RBACManager;
 use crate::security::token::TokenManager;
-use crate::security::audit::AuditService;
-use crate::security::identity::IdentityManager;
+use crate::security::identity::{IdentityManager, IdentityCredentials};
 use crate::security::crypto::CryptoProvider;
 use crate::security::traits::{ResourceTrait, ActionTrait, make_permission_string};
-use tracing::{info, warn};
 use std::sync::Arc;
 use crate::context_manager::Context;
 use crate::error::{SecurityError};
 use crate::security::manager::{SecurityManager, TypedSecurityManager, CombinedSecurityManager};
+
+// Re-export Action for public use
+pub use crate::security::types::Action;
 
 /// Security context for authentication and authorization
 #[derive(Debug, Clone, Default)]
@@ -65,7 +66,7 @@ pub trait AuthManager: Send + Sync {
     /// # Returns
     /// * `Ok(())` - If authorization is successful
     /// * `Err(SecurityError)` - If authorization fails
-    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, _context: Option<&Context>) -> Result<()>;
+    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, __context: Option<&Context>) -> Result<()>;
     
     /// Authorize a user for a set of permissions
     ///
@@ -109,7 +110,7 @@ impl AuthManager for AuthManagerImpl {
     async fn authenticate(&self, credentials: &AuthCredentials) -> Result<Token> {
         // Validate credentials against identity store
         // Convert token::AuthCredentials to identity::Credentials
-        let identity_credentials = crate::security::identity::Credentials {
+        let identity_credentials = IdentityCredentials {
             username: credentials.username.clone(),
             password: credentials.password.clone(),
         };
@@ -128,7 +129,7 @@ impl AuthManager for AuthManagerImpl {
         })
     }
     
-    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, _context: Option<&Context>) -> Result<()> {
+    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, __context: Option<&Context>) -> Result<()> {
         // Create permission string from resource and action
         let permission = format!("{}:{}", action.action, resource.id);
         
@@ -155,9 +156,9 @@ impl AuthManager for AuthManagerImpl {
         Ok(())
     }
     
-    async fn validate_token(&self, token_str: &str) -> Result<Token> {
-        // This is just a placeholder implementation
-        // In a real system, this would use a TokenManager to validate
+    async fn validate_token(&self, _token_str: &str) -> Result<Token> {
+        // Call the token manager to validate the token - this is supposed to be a stub
+        // in the actual implementation, DefaultAuthManager handles this with the real implementation
         Err(SecurityError::Unsupported("Token validation not implemented in AuthManagerImpl".to_string()).into())
     }
 }
@@ -191,8 +192,8 @@ impl AuthManager for DefaultAuthManager {
         self.inner.authenticate(credentials).await
     }
     
-    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, context: Option<&Context>) -> Result<()> {
-        self.inner.authorize(token, resource, action, context).await
+    async fn authorize(&self, token: &Token, resource: &Resource, action: &Action, _context: Option<&Context>) -> Result<()> {
+        self.inner.authorize(token, resource, action, _context).await
     }
     
     async fn authorize_permissions(&self, token: &Token, permissions: &[String]) -> Result<()> {
@@ -206,7 +207,7 @@ impl AuthManager for DefaultAuthManager {
 
 #[async_trait]
 impl TypedSecurityManager for DefaultAuthManager {
-    async fn authorize<R, A>(&self, token: &Token, resource: &R, action: &A, context: Option<&Context>) -> Result<()>
+    async fn authorize<R, A>(&self, token: &Token, resource: &R, action: &A, _context: Option<&Context>) -> Result<()>
     where
         R: ResourceTrait + Send + Sync,
         A: ActionTrait + Send + Sync 
@@ -225,8 +226,8 @@ impl SecurityManager for DefaultAuthManager {
         self.inner.authenticate(credentials).await
     }
     
-    async fn authorize_concrete(&self, token: &Token, resource: &Resource, action: &Action, context: Option<&Context>) -> Result<()> {
-        self.inner.authorize(token, resource, action, context).await
+    async fn authorize_concrete(&self, token: &Token, resource: &Resource, action: &Action, _context: Option<&Context>) -> Result<()> {
+        self.inner.authorize(token, resource, action, _context).await
     }
     
     async fn validate_token(&self, token_str: &str) -> Result<Token> {

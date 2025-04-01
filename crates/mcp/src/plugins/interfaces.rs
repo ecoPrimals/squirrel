@@ -8,7 +8,6 @@ use std::any::Any;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
-use uuid::Uuid;
 
 use super::versioning::VersionRequirement;
 

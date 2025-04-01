@@ -38,6 +38,19 @@ pub enum StateOperation {
     Sync,
 }
 
+impl StateOperation {
+    /// Returns a string representation of the operation
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Create => "create",
+            Self::Update => "update",
+            Self::Delete => "delete",
+            Self::Sync => "sync",
+        }
+    }
+}
+
 /// Manages state changes and synchronization
 #[derive(Debug)]
 pub struct StateSyncManager {

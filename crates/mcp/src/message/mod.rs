@@ -4,21 +4,12 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use std::fmt;
 use crate::error::Result as MCPResult;
-use crate::protocol::types::{MCPMessage, MessageType as ProtocolMessageType, ProtocolVersion};
+use crate::protocol::types::{MCPMessage, ProtocolVersion};
 use crate::security::types::SecurityMetadata;
-use crate::types::MessageMetadata;
 use serde_json::Value;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use crate::protocol::types::MessageId;
-use serde_json::json;
-use tracing::{debug, error, info, warn};
 use crate::error::MCPError;
 use std::str::FromStr;
-use base64::engine::general_purpose;
-use crate::types::MCPResponse;
-use crate::types::ResponseStatus;
-use crate::error::ProtocolError;
 
 /// `MessageType` enum defines the different types of messages that can be sent in the MCP protocol
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -531,14 +522,15 @@ impl MessageBuilder {
 /// # Examples
 ///
 /// ```
-/// use mcp::message::MessageBuilder;
+/// use squirrel_mcp::message::MessageBuilder;
+/// use serde_json::json;
 /// 
 /// let message = MessageBuilder::new()
 ///     .with_message_type("command")
-///     .with_content("Hello world")
+///     .with_content(json!("Hello world"))
 ///     .with_source("client-1")
 ///     .with_destination("server-1")
-///     .with_priority("high")
+///     .with_priority_str("high")
 ///     .with_metadata("version", "1.0")
 ///     .build();
 /// ```

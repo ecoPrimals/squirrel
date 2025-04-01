@@ -6,14 +6,9 @@ use crate::error::MCPResult;
 use crate::protocol::types::MCPMessage;
 use crate::types::MCPResponse;
 use crate::error::MCPError; // Import MCPError
-use std::collections::HashMap;
-use std::sync::Arc;
 use crate::security::{
     AuthCredentials, 
-    Token, 
-    Resource, 
-    Action,
-    UserId
+    Token
 };
 use std::net::IpAddr;
 use chrono::{DateTime, Utc};

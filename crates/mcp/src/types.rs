@@ -41,12 +41,15 @@
 //! Creating a basic MCP message:
 //!
 //! ```
-//! use mcp::types::{MCPMessage, MessageId, MessageType};
+//! use squirrel_mcp::protocol::types::{MCPMessage, MessageId, MessageType};
+//! use squirrel_mcp::protocol::types::ProtocolVersion;
+//! use squirrel_mcp::security::types::SecurityMetadata;
 //! use serde_json::json;
+//! use chrono::Utc;
 //!
 //! let message = MCPMessage {
 //!     id: MessageId("msg123".to_string()),
-//!     message_type: MessageType::Command,
+//!     type_: MessageType::Command,
 //!     payload: json!({
 //!         "command": "execute",
 //!         "parameters": {
@@ -54,13 +57,18 @@
 //!             "args": ["path/to/file"]
 //!         }
 //!     }),
+//!     metadata: Some(json!({})),
+//!     security: SecurityMetadata::default(),
+//!     timestamp: Utc::now(),
+//!     version: ProtocolVersion::new(1, 0),
+//!     trace_id: Some("trace-123".to_string()),
 //! };
 //! ```
 //!
 //! Processing a response:
 //!
 //! ```
-//! use mcp::types::{MCPResponse, ResponseStatus};
+//! use squirrel_mcp::types::{MCPResponse, ResponseStatus};
 //! use serde_json::json;
 //!
 //! // Assuming we received a response from the system
@@ -85,10 +93,7 @@
 use serde::{Deserialize, Serialize};
 use uuid;
 use serde_json;
-use chrono;
 use crate::protocol::types::MessageId;
-use crate::error::MCPError;
-use chrono::{DateTime, Utc};
 
 /// Compression format for efficient data transfer.
 ///
@@ -168,7 +173,8 @@ pub enum ResponseStatus {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::{CommandRequestMessage, MessageId};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::types::CommandRequestMessage;
 ///
 /// let request = CommandRequestMessage {
 ///     id: MessageId("cmd123".to_string()),
@@ -194,7 +200,8 @@ pub struct CommandRequestMessage {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::{CommandResponseMessage, MessageId};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::types::CommandResponseMessage;
 ///
 /// let response = CommandResponseMessage {
 ///     id: MessageId("resp123".to_string()),
@@ -222,7 +229,8 @@ pub struct CommandResponseMessage {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::{EventMessage, MessageId};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::types::EventMessage;
 ///
 /// let event = EventMessage {
 ///     id: MessageId("evt123".to_string()),
@@ -251,7 +259,8 @@ pub struct EventMessage {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::{HandshakeMessage, MessageId, ProtocolVersion};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::types::{HandshakeMessage, ProtocolVersion};
 ///
 /// let handshake = HandshakeMessage {
 ///     id: MessageId("hs123".to_string()),
@@ -277,13 +286,14 @@ pub struct HandshakeMessage {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::{MCPResponse, ResponseStatus, MessageMetadata};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::types::{MCPResponse, ResponseStatus, MessageMetadata};
 ///
 /// let response = MCPResponse {
 ///     protocol_version: "1.0".to_string(),
-///     message_id: "req123".to_string(),
+///     message_id: MessageId("req123".to_string()),
 ///     status: ResponseStatus::Success,
-///     payload: serde_json::to_vec(&serde_json::json!({"result": "ok"})).unwrap(),
+///     payload: vec![serde_json::json!({"result": "ok"})],
 ///     error_message: None,
 ///     metadata: MessageMetadata::default(),
 /// };
@@ -327,7 +337,7 @@ fn default_message_id() -> MessageId {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::MCPCommand;
+/// use squirrel_mcp::types::MCPCommand;
 ///
 /// let command = MCPCommand {
 ///     command: "execute_tool".to_string(),
@@ -360,7 +370,7 @@ pub struct MCPCommand {
 /// # Examples
 ///
 /// ```
-/// use mcp::types::ProtocolVersion;
+/// use squirrel_mcp::types::ProtocolVersion;
 ///
 /// let v1_0 = ProtocolVersion::new(1, 0);
 /// let v1_1 = ProtocolVersion::new(1, 1);

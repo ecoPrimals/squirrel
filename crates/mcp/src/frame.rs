@@ -15,21 +15,26 @@
 //! ```rust,no_run
 //! use squirrel_mcp::frame::{Frame, FrameEncoder, FrameDecoder};
 //! use bytes::{BytesMut, Buf};
+//! use tokio_util::codec::{Decoder, Encoder};
 //!
 //! // Create a frame for a message
 //! let message_bytes = b"Hello, World!".to_vec();
-//! let frame = Frame::new(message_bytes);
+//! let frame = Frame::from_vec(message_bytes.clone());
 //!
 //! // Encode the frame
 //! let mut encoder = FrameEncoder::new();
 //! let mut buffer = BytesMut::new();
-//! encoder.encode(frame, &mut buffer).unwrap();
+//! encoder.encode(frame.clone(), &mut buffer).unwrap();
 //!
 //! // Later, decode the frame from the buffer
 //! let mut decoder = FrameDecoder::new();
 //! let decoded_frame = decoder.decode(&mut buffer).unwrap().unwrap();
 //! 
-//! assert_eq!(decoded_frame.payload(), b"Hello, World!");
+//! // Compare payload content with original bytes
+//! assert_eq!(decoded_frame.payload().len(), message_bytes.len());
+//! for (i, b) in message_bytes.iter().enumerate() {
+//!     assert_eq!(decoded_frame.payload()[i], *b);
+//! }
 //! ```
 //!
 //! ## Frame Structure

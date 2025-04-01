@@ -238,7 +238,7 @@ impl LocalErrorContext {
 ///
 /// Defines the different levels of severity that can be assigned to errors,
 /// helping prioritize handling and reporting.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ErrorSeverity {
     /// Low severity - minimal impact, typically handled automatically
     Low,

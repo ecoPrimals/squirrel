@@ -99,6 +99,7 @@ pub trait RepositoryProvider: Send + Sync {
 }
 
 /// HTTP-based repository provider
+#[allow(dead_code)]
 pub struct HttpRepositoryProvider {
     /// Base URL of the repository
     base_url: String,
@@ -109,6 +110,7 @@ pub struct HttpRepositoryProvider {
 }
 
 /// Repository manager for handling multiple plugin repositories
+#[allow(dead_code)]
 pub struct RepositoryManager {
     /// API version this manager supports
     api_version: String,
@@ -131,6 +133,11 @@ impl HttpRepositoryProvider {
             base_url: base_url.into(),
             client: reqwest::Client::new(),
         })
+    }
+    
+    /// Get the base URL of the repository
+    pub fn base_url(&self) -> &str {
+        &self.base_url
     }
 }
 
@@ -193,6 +200,11 @@ impl RepositoryManager {
             repositories: RwLock::new(HashMap::new()),
             info_cache: RwLock::new(HashMap::new()),
         }
+    }
+    
+    /// Get the API version supported by this manager
+    pub fn api_version(&self) -> &str {
+        &self.api_version
     }
     
     /// Add a repository

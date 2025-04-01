@@ -100,7 +100,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// * `Ok(true)` if the user has the permission
     /// * `Ok(false)` if the user does not have the permission
     /// * `Err` if an error occurred during the check
-    async fn has_permission(&self, user_id: &str, permission: &str, context: Option<&Context>) -> Result<bool>;
+    async fn has_permission(&self, user_id: &str, _permission: &str, context: Option<&Context>) -> Result<bool>;
     
     /// Assign a role to a user
     ///
@@ -111,7 +111,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// * `Ok(())` if the role was assigned successfully
     /// * `Err` if an error occurred during assignment
-    async fn assign_role(&self, user_id: &str, role_id: &str) -> Result<()>;
+    async fn assign_role(&self, user_id: &str, _role_id: &str) -> Result<()>;
     
     /// Revoke a role from a user
     ///
@@ -122,7 +122,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// * `Ok(())` if the role was revoked successfully
     /// * `Err` if an error occurred during revocation
-    async fn revoke_role(&self, user_id: &str, role_id: &str) -> Result<()>;
+    async fn revoke_role(&self, user_id: &str, _role_id: &str) -> Result<()>;
     
     /// Get all roles assigned to a user
     ///
@@ -144,7 +144,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// * `Ok(true)` if the user has the role
     /// * `Ok(false)` if the user does not have the role
     /// * `Err` if an error occurred during the check
-    async fn has_role(&self, user_id: &str, role_id: &str) -> Result<bool>;
+    async fn has_role(&self, user_id: &str, _role_id: &str) -> Result<bool>;
     
     /// Get detailed information about a role
     ///
@@ -155,7 +155,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// * `Ok(Some(RoleDetailsResponse))` with the role details if found
     /// * `Ok(None)` if the role does not exist
     /// * `Err` if an error occurred during retrieval
-    async fn get_role_details(&self, role_id: &str) -> Result<Option<RoleDetailsResponse>> {
+    async fn get_role_details(&self, _role_id: &str) -> Result<Option<RoleDetailsResponse>> {
         // Default implementation returns None
         Ok(None)
     }
@@ -168,7 +168,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// * `Ok(Vec<String>)` with the list of permission IDs assigned to the role
     /// * `Err` if an error occurred during retrieval
-    async fn get_permissions_for_role(&self, role_id: &str) -> Result<Vec<String>> {
+    async fn get_permissions_for_role(&self, _role_id: &str) -> Result<Vec<String>> {
         // Default implementation returns an empty list
         Ok(Vec::new())
     }
@@ -183,7 +183,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// * `Ok(())` if the role was created successfully
     /// * `Err` if an error occurred during creation
-    async fn create_role(&self, role_id: &str, name: &str, description: &str) -> Result<()> {
+    async fn create_role(&self, _role_id: &str, _name: &str, _description: &str) -> Result<()> {
         // Default implementation returns an error
         Err(crate::error::SecurityError::Unsupported("Role creation not supported by this RBAC manager".to_string()).into())
     }
@@ -197,7 +197,7 @@ pub trait RBACManager: Send + Sync + std::fmt::Debug {
     /// # Returns
     /// * `Ok(())` if the permission was added successfully
     /// * `Err` if an error occurred during addition
-    async fn add_permission_to_role(&self, role_id: &str, permission: &str) -> Result<()> {
+    async fn add_permission_to_role(&self, _role_id: &str, _permission: &str) -> Result<()> {
         // Default implementation returns an error
         Err(crate::error::SecurityError::Unsupported("Adding permissions not supported by this RBAC manager".to_string()).into())
     }

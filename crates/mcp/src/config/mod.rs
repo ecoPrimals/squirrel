@@ -2,7 +2,7 @@
 //! Configuration structures for MCP components.
 
 use serde::{Deserialize, Serialize};
-use crate::security::types::EncryptionFormat; // Assuming EncryptionFormat is needed
+ // Assuming EncryptionFormat is needed
 
 /// Configuration for security-related functionality
 #[derive(Debug, Clone, Serialize, Deserialize)]

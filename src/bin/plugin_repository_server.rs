@@ -24,9 +24,9 @@ use uuid::Uuid;
 
 use squirrel_plugins::dynamic::{PluginMetadata, PluginDependency};
 use squirrel_plugins::{RepositoryInfo, PluginPackageInfo};
-use squirrel_mcp::plugins::interfaces::{PluginMetadata as MCPPluginMetadata, PluginCapability};
-use squirrel_mcp::plugins::repository::{PluginRepository, LocalPluginRepository, PluginPackage};
-use squirrel_mcp::error::{Result, PluginError};
+// Remove problematic imports - these modules don't exist
+// use squirrel_mcp::plugins::interfaces::{PluginMetadata as MCPPluginMetadata, PluginCapability};
+// use squirrel_mcp::plugins::repository::{PluginRepository, LocalPluginRepository, PluginPackage};
 
 /// Command-line arguments
 #[derive(Parser)]
@@ -238,7 +238,7 @@ async fn list_plugins(
 async fn get_plugin_info(
     state: axum::extract::State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
-) -> Result<Json<PluginPackageInfo>, StatusCode> {
+) -> std::result::Result<Json<PluginPackageInfo>, StatusCode> {
     // Parse plugin ID
     let plugin_id = Uuid::parse_str(&id)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
@@ -264,7 +264,7 @@ async fn search_plugins(
 async fn download_plugin(
     state: axum::extract::State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
-) -> Result<(StatusCode, String), StatusCode> {
+) -> std::result::Result<(StatusCode, String), StatusCode> {
     // Parse plugin ID
     let plugin_id = Uuid::parse_str(&id)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
@@ -274,8 +274,9 @@ async fn download_plugin(
     let plugin = repository.get_plugin(plugin_id)
         .ok_or(StatusCode::NOT_FOUND)?;
     
-    // Return a mock plugin file
-    Ok((StatusCode::OK, format!("Mock plugin data for {}", plugin.metadata.name)))
+    // In a real server, we would return the actual plugin binary
+    // For this demo, we'll just return a simple response
+    Ok((StatusCode::OK, format!("Download: {}", plugin.metadata.name)))
 }
 
 #[tokio::main]
@@ -328,9 +329,13 @@ async fn main() {
     let app = Router::new()
         .route("/info.json", get(get_repository_info))
         .route("/plugins.json", get(list_plugins))
-        .route("/plugins/:id.json", get(get_plugin_info))
+        .route("/plugins/:id.json", get(|state, path| async move {
+            get_plugin_info(state, path).await
+        }))
         .route("/search", get(search_plugins))
-        .route("/download/:id", get(download_plugin))
+        .route("/download/:id", get(|state, path| async move {
+            download_plugin(state, path).await
+        }))
         .nest_service("/static", ServeDir::new(&cli.plugin_dir))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);

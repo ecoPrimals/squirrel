@@ -6,7 +6,6 @@
 use anyhow::{Result, anyhow};
 use semver::{Version, VersionReq};
 use serde::{Serialize, Deserialize};
-use serde_json::Value;
 use std::fmt;
 use std::str::FromStr;
 

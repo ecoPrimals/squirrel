@@ -5,10 +5,7 @@ use tokio::sync::RwLock;
 use serde_json::{json};
 use async_trait::async_trait;
 use tracing::{info, error, warn, instrument, debug};
-use chrono::Utc;
 use std::time::Duration;
-use std::fmt;
-use std::any::Any;
 
 // Import from error module
 use crate::error::{Result as MCPResult, SecurityError, MCPError};
@@ -29,14 +26,12 @@ use crate::types::{MCPResponse, ResponseStatus, MessageMetadata, ProtocolState};
 use crate::integration::types::{CoreState, StateUpdate};
 
 // Import context manager for Context
-use crate::context_manager::Context;
 
 // Import from protocol module
 use crate::protocol::{MCPProtocol, ValidationResult, RoutingResult, ProtocolResult};
 use crate::protocol::types::{MCPMessage, MessageType, MessageId, ProtocolVersion};
 
 // Import helpers
-use super::helpers::{create_error_response, create_success_response};
 
 /// Simple metrics collection for operational monitoring
 #[derive(Clone, Debug)]
@@ -185,7 +180,7 @@ impl CoreMCPAdapter {
                 id: format!("command:{}", operation_name),
                 attributes: None,
             };
-            let action = Action::Execute();
+            let action = Action::execute();
             
             // Use the concrete authorization via the SecurityManager trait
             match self.auth_manager.authorize_concrete(token, &resource, &action, None).await {

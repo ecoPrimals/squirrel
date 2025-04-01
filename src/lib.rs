@@ -12,11 +12,12 @@ pub use squirrel_mcp;
 // Add direct re-exports from MCP
 pub use squirrel_mcp::{
     security::{
-        types::{Action, Permission, PermissionContext, PermissionScope, Role},
+        types::Action,
+        rbac::permission_validation::{Permission, PermissionContext, PermissionScope, Role},
         SecurityManager, SecurityManagerImpl,
-        Session
     },
-    types::{EncryptionFormat, SecurityLevel},
+    session::Session,
+    EncryptionFormat, SecurityLevel,
     error::{MCPError, Result},
     context_manager::Context,
     plugins::interfaces::{Plugin, PluginMetadata, PluginStatus, McpPlugin, PluginManagerInterface},
@@ -37,10 +38,12 @@ pub use adapter::{MCPAdapter, MCPInterface};
 pub mod prelude {
     // Core types and interfaces from MCP
     pub use squirrel_mcp::context_manager::{Context, ContextManager};
-    pub use squirrel_mcp::types::{MessageType, ProtocolState, SecurityLevel};
+    pub use squirrel_mcp::message::MessageType;
+    pub use squirrel_mcp::security::types::SecurityLevel;
+    pub use squirrel_mcp::types::ProtocolState;
     pub use squirrel_mcp::protocol::{MCPProtocolBase, MCPProtocol};
     pub use squirrel_mcp::protocol::adapter::MCPProtocolAdapter;
-
+    
     // Security features
     pub use squirrel_mcp::security::SecurityManager;
     
@@ -63,7 +66,8 @@ pub mod prelude {
         InheritanceType,
         ValidationAuditRecord
     };
-    pub use squirrel_mcp::security::{Action, Permission, PermissionContext, PermissionScope, Role};
+    pub use squirrel_mcp::security::types::Action;
+    pub use squirrel_mcp::security::rbac::permission_validation::{Permission, PermissionContext, PermissionScope, Role};
 
     // Plugin integration
     pub use squirrel_mcp::plugins::{ToolPluginAdapter, ToolPluginFactory, PluginDiscoveryManager, PluginProxyExecutor};

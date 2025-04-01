@@ -19,9 +19,13 @@
 //! Creating and using a protocol adapter:
 //!
 //! ```
-//! use mcp::protocol::{create_protocol_adapter, MCPProtocol};
-//! use mcp::types::{MCPMessage, MessageId, MessageType};
+//! use squirrel_mcp::protocol::{create_protocol_adapter, MCPProtocol};
+//! use squirrel_mcp::protocol::types::MessageId;
+//! use squirrel_mcp::protocol::types::MCPMessage;
+//! use squirrel_mcp::protocol::types::MessageType;
+//! use squirrel_mcp::protocol::types::ProtocolVersion;
 //! use serde_json::json;
+//! use chrono::Utc;
 //!
 //! async fn example() {
 //!     // Create a protocol adapter
@@ -35,6 +39,11 @@
 //!         id: MessageId("msg123".to_string()),
 //!         type_: MessageType::Command,
 //!         payload: json!({"command": "status"}),
+//!         metadata: Some(json!({})),
+//!         security: Default::default(),
+//!         timestamp: Utc::now(),
+//!         version: ProtocolVersion::new(1, 0),
+//!         trace_id: Some("trace-123".to_string()),
 //!     };
 //!     
 //!     // Handle the message
@@ -42,54 +51,22 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, ProtocolError, Result};
+use crate::error::{MCPError, Result};
+use crate::error::protocol_err::ProtocolError;
 use crate::protocol::{
     MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, 
     RoutingResult, ValidationResult, RoutingDecision, CommandHandler
 };
 use crate::protocol::types::{
     MCPMessage,
-    MessageType,
-    ProtocolVersion,
-    CommandResponse
+    MessageType
 };
-use crate::types::{
-    MCPResponse, 
-    ResponseStatus, 
-    MessageMetadata, 
-    ProtocolState
-};
+use crate::types::ProtocolState;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-use std::sync::{Arc as StdArc, Mutex as StdMutex}; // Using standard Mutex for state, renamed Arc to avoid duplication
-use tokio::sync::Mutex as TokioMutex; // Using Tokio Mutex for async operations if needed
-use crate::protocol::CommandHandler as ProtocolCommandHandler; 
-use crate::protocol::types::{MCPMessage as ProtocolMCPMessage, MessageType as ProtocolMessageType, ProtocolVersion as ProtocolTypesProtocolVersion};
-use crate::types::{MCPResponse as TypesMCPResponse, ResponseStatus as TypesResponseStatus, MessageMetadata as TypesMessageMetadata, ProtocolState as TypesProtocolState, ProtocolVersion as TypesProtocolVersion}; // Remove CommandResponse here
-use crate::message_router::MessageHandler;
-use crate::transport::Transport;
-
-/// Errors specific to MCP protocol adapter operations.
-///
-/// These errors are specific to the protocol adapter and complement
-/// the more general protocol errors defined in the error module.
-#[derive(Debug, Error)]
-pub enum ProtocolAdapterError {
-    /// Protocol is not initialized.
-    ///
-    /// This error occurs when trying to use the protocol before initialization.
-    #[error("Protocol not initialized")]
-    NotInitialized,
-
-    /// Protocol is already initialized.
-    ///
-    /// This error occurs when trying to initialize an already initialized protocol.
-    #[error("Protocol already initialized")]
-    AlreadyInitialized,
-}
 
 /// Protocol adapter that provides a thread-safe interface for working with the MCP protocol.
 ///
@@ -101,8 +78,10 @@ pub enum ProtocolAdapterError {
 /// # Examples
 ///
 /// ```
-/// use mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
-/// use mcp::types::{MCPMessage, MessageId, MessageType};
+/// use squirrel_mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
+/// use squirrel_mcp::protocol::types::MessageId;
+/// use squirrel_mcp::protocol::types::MCPMessage;
+/// use squirrel_mcp::protocol::types::MessageType;
 /// use serde_json::json;
 /// use std::sync::Arc;
 ///
@@ -138,7 +117,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// let adapter = MCPProtocolAdapter::new();
     /// ```
@@ -165,7 +144,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::{MCPProtocolAdapter, MCPProtocolBase, ProtocolConfig};
+    /// use squirrel_mcp::protocol::{MCPProtocolAdapter, MCPProtocolBase, ProtocolConfig};
     ///
     /// let protocol = MCPProtocolBase::new_default();
     /// let adapter = MCPProtocolAdapter::with_protocol(protocol);
@@ -194,7 +173,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -233,7 +212,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
+    /// use squirrel_mcp::protocol::{MCPProtocolAdapter, ProtocolConfig};
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -268,7 +247,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -315,9 +294,13 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
-    /// use mcp::types::{MCPMessage, MessageId, MessageType};
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::types::MessageId;
+    /// use squirrel_mcp::protocol::types::MCPMessage;
+    /// use squirrel_mcp::protocol::types::MessageType;
+    /// use squirrel_mcp::protocol::types::ProtocolVersion;
     /// use serde_json::json;
+    /// use chrono::Utc;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -327,6 +310,11 @@ impl MCPProtocolAdapter {
     ///         id: MessageId("msg123".to_string()),
     ///         type_: MessageType::Command,
     ///         payload: json!({"command": "status"}),
+    ///         metadata: json!({}).into(),
+    ///         security: Default::default(),
+    ///         timestamp: Utc::now(),
+    ///         version: ProtocolVersion::new(1, 0),
+    ///         trace_id: Some(uuid::Uuid::new_v4().to_string()),
     ///     };
     ///     
     ///     let response = adapter.handle_message(message).await;
@@ -380,9 +368,12 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::{MCPProtocolAdapter, CommandHandler};
-    /// use mcp::types::{MCPMessage, MessageType, MCPResponse, ResponseStatus};
-    /// use mcp::error::Result;
+    /// use squirrel_mcp::protocol::{MCPProtocolAdapter, CommandHandler};
+    /// use squirrel_mcp::protocol::types::MessageId;
+    /// use squirrel_mcp::protocol::types::MCPMessage;
+    /// use squirrel_mcp::protocol::types::MessageType;
+    /// use squirrel_mcp::types::{MCPResponse, ResponseStatus};
+    /// use squirrel_mcp::error::Result;
     /// use async_trait::async_trait;
     /// use std::sync::Arc;
     ///
@@ -395,7 +386,7 @@ impl MCPProtocolAdapter {
     ///         // Handle status command
     ///         Ok(MCPResponse {
     ///             protocol_version: "1.0".to_string(),
-    ///             message_id: message.id.0.clone(),
+    ///             message_id: message.id.clone(),
     ///             status: ResponseStatus::Success,
     ///             payload: vec![],
     ///             error_message: None,
@@ -449,8 +440,10 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
-    /// use mcp::types::MessageType;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::types::MessageId;
+    /// use squirrel_mcp::protocol::types::MCPMessage;
+    /// use squirrel_mcp::protocol::types::MessageType;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -482,7 +475,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -520,7 +513,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     /// use serde_json::json;
     ///
     /// async fn example() {
@@ -560,7 +553,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// async fn example() {
     ///     let adapter = MCPProtocolAdapter::new();
@@ -591,7 +584,7 @@ impl MCPProtocolAdapter {
     /// # Examples
     ///
     /// ```
-    /// use mcp::protocol::MCPProtocolAdapter;
+    /// use squirrel_mcp::protocol::MCPProtocolAdapter;
     ///
     /// let adapter = MCPProtocolAdapter::new();
     /// let version = adapter.get_version();
@@ -690,7 +683,7 @@ impl MCPProtocol for MCPProtocolAdapter {
         }
     }
 
-    async fn route_message(&self, msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
+    async fn route_message(&self, _msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
         let protocol_guard = self.inner.read().await;
 
         if let Some(ref _protocol) = *protocol_guard {
@@ -737,7 +730,14 @@ impl MCPProtocol for MCPProtocolAdapter {
 mod tests {
     #![allow(unused_imports)]
     use super::*;
-    use crate::types::{MCPResponse, MessageId, MessageMetadata, MessageType, ResponseStatus};
+    use crate::protocol::types::MessageId;
+    use crate::types::MCPResponse;
+    use crate::protocol::MessageType;
+    use crate::types::ResponseStatus;
+    use crate::types::MessageMetadata;
+    use chrono::Utc;
+    use crate::protocol::types::ProtocolVersion;
+    use crate::security::types::SecurityMetadata;
     use serde_json::json;
 
     /// Test handler implementation
@@ -750,10 +750,10 @@ mod tests {
             // Simple test implementation
             Ok(MCPResponse {
                 protocol_version: "1.0".to_string(),
-                message_id: message.id.0.clone(),
+                message_id: message.id.clone(),
                 status: ResponseStatus::Success,
                 metadata: MessageMetadata::default(),
-                payload: serde_json::to_vec(&json!({"response": "success"})).unwrap(),
+                payload: vec![json!({"response": "success"})],
                 error_message: None,
             })
         }
@@ -806,14 +806,18 @@ mod tests {
         // Create a new adapter without initializing
         let adapter = MCPProtocolAdapter::new();
 
-        // Create a test message
+        // Trying to handle a message should fail
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             type_: MessageType::Command,
             payload: json!({"command": "test"}),
+            metadata: Some(json!({})),
+            security: SecurityMetadata::default(),
+            timestamp: Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
         };
 
-        // Trying to handle a message should fail
         let err = adapter.handle_message(message).await.unwrap_err();
         assert!(err.to_string().contains("not initialized"));
 
@@ -839,11 +843,16 @@ mod tests {
             .await
             .unwrap();
 
-        // Create a test message
+        // Create a test message for the registered handler
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             type_: MessageType::Command,
             payload: json!({"command": "test"}),
+            metadata: Some(json!({})),
+            security: SecurityMetadata::default(),
+            timestamp: Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
         };
 
         // Handle the message
@@ -851,7 +860,7 @@ mod tests {
 
         // Verify response
         assert_eq!(response.status, crate::types::ResponseStatus::Success);
-        assert_eq!(response.message_id, "test-1");
+        assert_eq!(response.message_id.0, "test-1");
     }
 
     #[tokio::test]
@@ -928,10 +937,19 @@ mod tests {
         assert!(adapter_clone.is_initialized().await);
 
         // Both should have the handler
+        use crate::security::types::SecurityMetadata;
+        use chrono::Utc;
+        use crate::protocol::types::ProtocolVersion;
+        
         let message = MCPMessage {
             id: MessageId("test-1".to_string()),
             type_: MessageType::Command,
             payload: json!({"command": "test"}),
+            metadata: Some(json!({})),
+            security: SecurityMetadata::default(),
+            timestamp: Utc::now(),
+            version: ProtocolVersion::default(),
+            trace_id: None,
         };
 
         let response1 = adapter.handle_message(message.clone()).await.unwrap();

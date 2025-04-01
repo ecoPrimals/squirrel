@@ -36,17 +36,11 @@
 // more compatible with Arc wrapping for thread-safe sharing.
 
 use async_trait::async_trait;
-use crate::message::Message;
 use crate::protocol::MCPMessage;
-use crate::security::types::EncryptionFormat;
-use crate::types::CompressionFormat;
-use std::net::SocketAddr;
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use crate::error::{Result, MCPError};
 use std::fmt::Debug;
-use uuid;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use crate::transport::types::TransportMetadata;
 
 /// MCP Frame implementation for message framing over byte streams
 ///
@@ -103,38 +97,54 @@ pub mod memory;
 ///
 /// ```rust,no_run
 /// use squirrel_mcp::transport::{Transport, tcp::TcpTransport, tcp::TcpTransportConfig};
+/// use squirrel_mcp::protocol::types::{MCPMessage, MessageId, MessageType, ProtocolVersion};
+/// use squirrel_mcp::security::types::SecurityMetadata;
+/// use serde_json::json;
 /// use std::sync::Arc;
+/// use chrono::Utc;
 ///
-/// async fn example() -> Result<(), Box<dyn std::error::Error>> {
-///     // Create a TCP transport with a specific configuration
-///     let config = TcpTransportConfig::default()
-///         .with_remote_address("127.0.0.1:9000")
-///         .with_connection_timeout(5000);
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create a TCP transport with a specific configuration
+/// let config = TcpTransportConfig::default()
+///     .with_remote_address("127.0.0.1:9000")
+///     .with_connection_timeout(5000);
 ///
-///     let mut transport = TcpTransport::new(config);
+/// let mut transport = TcpTransport::new(config);
 ///
-///     // Connect to the remote endpoint
-///     transport.connect().await?;
+/// // Connect to the remote endpoint
+/// transport.connect().await?;
 ///
-///     // Wrap in Arc for safe sharing between threads
-///     let transport = Arc::new(transport);
+/// // Wrap in Arc for safe sharing between threads
+/// let transport = Arc::new(transport);
 ///
-///     // Now the transport can be cloned and shared between threads
-///     let transport_clone = Arc::clone(&transport);
+/// // Now the transport can be cloned and shared between threads
+/// let transport_clone = Arc::clone(&transport);
 ///
-///     // Spawn a task to listen for messages
-///     tokio::spawn(async move {
-///         while let Ok(message) = transport_clone.receive_message().await {
-///             println!("Received message: {:?}", message);
-///         }
-///     });
+/// // Spawn a task to listen for messages
+/// tokio::spawn(async move {
+///     while let Ok(message) = transport_clone.receive_message().await {
+///         println!("Received message: {:?}", message);
+///     }
+/// });
 ///
-///     // Use the original transport to send messages
-///     let message = squirrel_mcp::types::MCPMessage::new_ping();
-///     transport.send_message(message).await?;
+/// // Create a simple ping message
+/// let message = MCPMessage {
+///     id: MessageId("msg123".to_string()),
+///     type_: MessageType::Command,
+///     payload: json!({"command": "ping"}),
+///     metadata: Some(json!({})),
+///     security: SecurityMetadata::default(),
+///     timestamp: Utc::now(),
+///     version: ProtocolVersion::new(1, 0),
+///     trace_id: Some("trace-123".to_string()),
+/// };
 ///
-///     Ok(())
-/// }
+/// // Use the original transport to send messages
+/// transport.send_message(message).await?;
+///
+/// # Ok(())
+/// # }
 /// ```
 #[async_trait]
 pub trait Transport: Send + Sync + Debug {
@@ -249,6 +259,12 @@ pub trait Transport: Send + Sync + Debug {
 
 pub mod types;
 
+#[derive(Clone)]
+pub struct MockTransport {
+    pub connected: Arc<AtomicBool>,
+    pub metadata: TransportMetadata,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,11 +272,9 @@ mod tests {
     use std::sync::Arc;
     use chrono::Utc;
     use crate::transport::types::TransportMetadata;
-
-    pub struct MockTransport {
-        pub connected: Arc<AtomicBool>,
-        pub metadata: TransportMetadata,
-    }
+    use std::collections::HashMap;
+    use async_trait::async_trait;
+    use crate::error::TransportError;
 
     impl MockTransport {
         pub fn new() -> Self {
@@ -282,19 +296,11 @@ mod tests {
         }
     }
 
-    impl Clone for MockTransport {
-        fn clone(&self) -> Self {
-            Self {
-                connected: Arc::clone(&self.connected),
-                metadata: self.metadata.clone(),
-            }
-        }
-    }
-
+    #[async_trait]
     impl Transport for MockTransport {
         async fn send_message(&self, _message: MCPMessage) -> crate::error::Result<()> {
             if !self.is_connected().await {
-                return Err(TransportError::NotConnected.into());
+                return Err(TransportError::connection_closed("Transport not connected").into());
             }
             // Just simulate success in the mock
             Ok(())
@@ -302,19 +308,18 @@ mod tests {
 
         async fn receive_message(&self) -> crate::error::Result<MCPMessage> {
             if !self.is_connected().await {
-                return Err(TransportError::NotConnected.into());
+                return Err(TransportError::connection_closed("Transport not connected").into());
             }
             // Return a simple test message
             Ok(MCPMessage::new(
                 crate::protocol::types::MessageType::Response,
-                "mock-response",
                 serde_json::json!({"status": "success"}),
             ))
         }
 
         async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
             if !self.is_connected().await {
-                return Err(TransportError::NotConnected.into());
+                return Err(TransportError::connection_closed("Transport not connected").into());
             }
             // Just simulate success in the mock
             Ok(())
@@ -339,6 +344,15 @@ mod tests {
         }
     }
 
+    impl std::fmt::Debug for MockTransport {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("MockTransport")
+                .field("connected", &self.connected.load(Ordering::SeqCst))
+                .field("metadata", &self.metadata)
+                .finish()
+        }
+    }
+
     #[tokio::test]
     async fn test_mock_transport() {
         let mut transport = MockTransport::new();
@@ -348,7 +362,7 @@ mod tests {
         assert!(transport.is_connected().await);
         
         let msg = transport.receive_message().await.unwrap();
-        assert_eq!(msg.message_type(), &crate::protocol::types::MessageType::Response);
+        assert_eq!(msg.type_, crate::protocol::types::MessageType::Response);
         
         transport.disconnect().await.unwrap();
         assert!(!transport.is_connected().await);

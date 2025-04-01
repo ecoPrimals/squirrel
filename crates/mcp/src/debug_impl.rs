@@ -72,7 +72,7 @@ pub mod debug_progress {
 /// Tests to ensure that types for which Debug is implemented exist
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     
     #[test]
     fn test_tool_manager_builder_debug() {

@@ -17,7 +17,7 @@
 //! Using the Result type:
 //!
 //! ```
-//! use mcp::error::{MCPError, Result};
+//! use squirrel_mcp::error::{MCPError, Result};
 //!
 //! fn perform_operation() -> Result<String> {
 //!     // Operation that could fail
@@ -79,12 +79,7 @@ pub use plugin::PluginError;
 pub use types::{ErrorContext};
 pub use transport::TransportError;
 
-use crate::message::{Message, MessageType};
-use std::convert::TryFrom;
-use thiserror::Error;
-use std::fmt::{self, Debug, Display};
-use std::io;
-use squirrel_core::error::SquirrelError;
+use std::fmt::{Debug};
 
 /// Result type for MCP operations that can return an error.
 ///
@@ -94,7 +89,7 @@ use squirrel_core::error::SquirrelError;
 /// # Examples
 ///
 /// ```
-/// use mcp::error::{MCPError, Result};
+/// use squirrel_mcp::error::{MCPError, Result};
 ///
 /// fn read_data() -> Result<Vec<u8>> {
 ///     // Code that might fail
@@ -162,5 +157,19 @@ impl std::fmt::Display for FailedOperation {
             write!(f, ": {}", details)?;
         }
         Ok(())
+    }
+}
+
+// Add implementation for RecoveryError
+impl From<crate::resilience::recovery::RecoveryError> for MCPError {
+    fn from(err: crate::resilience::recovery::RecoveryError) -> Self {
+        Self::General(format!("Recovery error: {}", err))
+    }
+}
+
+impl MCPError {
+    /// Create an error from a string message
+    pub fn from_string(message: String) -> Self {
+        MCPError::General(message)
     }
 }

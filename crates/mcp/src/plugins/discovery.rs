@@ -6,20 +6,9 @@
 use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::info;
-use tracing::warn;
 
 use crate::tool::{ToolManager, ToolContext, ToolExecutionResult, ToolExecutor, ExecutionStatus, ToolError};
 // Use local interfaces instead of squirrel-plugins
-
-use crate::plugins::interfaces::{Plugin, PluginMetadata, PluginManagerInterface};
-use crate::plugins::loader::PluginLoader;
-use crate::plugins::registry::PluginRegistry;
-use crate::error::{Result, PluginError};
-use std::path::{Path, PathBuf};
-use tokio::sync::{Mutex, RwLock};
-use std::collections::HashMap;
-use std::{fs, io};
-use crate::plugins::types::PluginSource;
 
 /// Executor for plugin proxy
 #[derive(Debug)]
@@ -118,15 +107,14 @@ impl PluginDiscoveryManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use uuid::Uuid;
-    use crate::plugins::interfaces::Plugin;
-    use crate::plugins::integration::PluginManagerInterface;
+    use crate::plugins::interfaces::{Plugin, PluginStatus, PluginManagerInterface};
+    
     
     #[tokio::test]
     async fn test_plugin_proxy_executor() {
         // This is a basic test of the structure only since we can't easily mock
         // the full plugin manager functionality now
-        let plugin_id = Uuid::new_v4();
+        let plugin_id = "test-plugin-id";
         
         // Create a mock plugin manager
         #[derive(Debug)]
@@ -134,16 +122,19 @@ mod tests {
         
         #[async_trait]
         impl PluginManagerInterface for MockPluginManager {
-            async fn register_plugin(&self, _plugin: Arc<dyn Plugin>) -> anyhow::Result<Uuid> {
-                // Return a fixed ID for testing
-                Ok(Uuid::new_v4())
+            async fn register_plugin(&self, _plugin: Arc<dyn Plugin>) -> anyhow::Result<()> {
+                Ok(())
             }
             
-            async fn get_plugin(&self, _id: &Uuid) -> Option<Arc<dyn Plugin>> {
-                None
+            async fn get_plugin_by_id(&self, _plugin_id: String) -> anyhow::Result<Option<Arc<dyn Plugin>>> {
+                Ok(None)
             }
             
-            async fn unregister_plugin(&self, _id: &Uuid) -> anyhow::Result<()> {
+            async fn execute_mcp_plugin(&self, _plugin_id: String, _message: serde_json::Value) -> anyhow::Result<serde_json::Value> {
+                Ok(serde_json::json!({"result": "mock result"}))
+            }
+            
+            async fn update_plugin_status(&self, _plugin_id: String, _status: PluginStatus) -> anyhow::Result<()> {
                 Ok(())
             }
         }

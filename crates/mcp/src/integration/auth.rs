@@ -5,13 +5,11 @@ use crate::security::{
     Resource,
     Action,
     Token,
-    manager::{SecurityManagerImpl, SecurityManager},
-    SecurityContext,
-    UserId
+    manager::{SecurityManagerImpl, SecurityManager}
 };
 use crate::security::token::AuthCredentials;
-use crate::error::{Result, SecurityError};
-use tracing::{info, warn, error};
+use crate::error::Result;
+use tracing::info;
 
 /// Authentication and authorization manager for the integration layer.
 ///

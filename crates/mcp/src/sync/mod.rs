@@ -511,12 +511,20 @@ impl MCPSync {
     /// # Arguments
     /// * `context` - The context being modified
     /// * `operation`
-    // TODO: Add the full implementation for record_context_change here
-    // This likely involves interacting with self.state_manager and self.monitor
     pub async fn record_context_change(&self, context: &Context, operation: StateOperation) -> Result<()> {
         self.ensure_initialized().await?;
-        // Placeholder - Add actual logic
-        tracing::info!(context_id = %context.id, ?operation, "Placeholder: Recording context change.");
+        
+        // Clone operation to avoid ownership issues
+        let op_clone = operation.clone();
+        
+        // Record the change in the state manager
+        self.state_manager.record_change(context, op_clone).await?;
+        
+        // Log the change in the monitor
+        self.monitor.record_message(&format!("context_change_{}_{}", operation.as_str(), context.id)).await;
+        
+        tracing::info!(context_id = %context.id, ?operation, "Recording context change");
+        
         Ok(())
     }
 

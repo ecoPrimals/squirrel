@@ -2,7 +2,6 @@
 //! Common security-related types used across the MCP crate.
 
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::any::Any;
 use crate::security::traits::{ResourceTrait, ActionTrait};
@@ -78,35 +77,35 @@ impl Action {
     }
     
     /// Execute action
-    pub fn Execute() -> Self {
+    pub fn execute() -> Self {
         Self {
             action: "execute".to_string()
         }
     }
     
     /// Read action
-    pub fn Read() -> Self {
+    pub fn read() -> Self {
         Self {
             action: "read".to_string()
         }
     }
     
     /// Write action
-    pub fn Write() -> Self {
+    pub fn write() -> Self {
         Self {
             action: "write".to_string()
         }
     }
     
     /// Delete action
-    pub fn Delete() -> Self {
+    pub fn delete() -> Self {
         Self {
             action: "delete".to_string()
         }
     }
     
     /// Admin action with highest privileges
-    pub fn Admin() -> Self {
+    pub fn admin() -> Self {
         Self {
             action: "admin".to_string()
         }
@@ -143,7 +142,7 @@ pub struct RoleId(pub String);
 // --- Encryption Types ---
 
 /// Enum representing supported encryption formats.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EncryptionFormat {
     AesGcm, // AES-GCM (commonly used authenticated encryption)
     Aes256Gcm, // AES-256-GCM (same as above but more explicit about key size)
@@ -153,12 +152,12 @@ pub enum EncryptionFormat {
 
 impl Default for EncryptionFormat {
     fn default() -> Self {
-        EncryptionFormat::None // Default to no encryption
+        Self::None
     }
 }
 
 /// Contains information about encryption applied to data.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct EncryptionInfo {
     pub format: EncryptionFormat,
     pub key_id: Option<String>,
@@ -183,7 +182,7 @@ impl Default for SecurityLevel {
 }
 
 /// Holds security-related metadata for a message or operation.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct SecurityMetadata {
     pub security_level: SecurityLevel,
     pub encryption_info: Option<EncryptionInfo>,

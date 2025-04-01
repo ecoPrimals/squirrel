@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use crate::error::context::ErrorSeverity; // Import ErrorSeverity
-    use crate::types::MessageType; // Import MessageType
+    use crate::protocol::MessageType; // Updated import path for MessageType
     use crate::error::{MCPError, ProtocolError, ConnectionError, ErrorContext};
 
     #[test]

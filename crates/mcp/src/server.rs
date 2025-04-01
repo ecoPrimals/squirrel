@@ -5,32 +5,39 @@
 //!
 //! # Examples
 //!
-//! ```
-//! use mcp::server::{MCPServer, ServerConfig};
-//! use mcp::message::Message;
-//! use mcp::error::Result;
+//! ```no_run
+//! use squirrel_mcp::server::{MCPServer, ServerConfig, CommandHandler};
+//! use squirrel_mcp::message::{Message, MessageType};
+//! use squirrel_mcp::error::Result;
 //! use async_trait::async_trait;
-//! use serde_json::json;
+//! use std::future::Future;
+//! use std::pin::Pin;
+//! use std::sync::Arc;
 //!
 //! // Define a command handler
+//! #[derive(Debug, Clone)]
 //! struct StatusCommandHandler;
 //!
-//! #[async_trait]
 //! impl CommandHandler for StatusCommandHandler {
-//!     async fn handle_command(&self, command: &Message) -> Result<Message> {
-//!         // Process the status command
-//!         Ok(Message::builder()
-//!             .with_message_type("response")
-//!             .with_payload(json!({
-//!                 "status": "online",
-//!                 "version": "1.0.0",
-//!                 "uptime": 3600
-//!             }))
-//!             .build())
+//!     fn handle_command<'a>(
+//!         &'a self, 
+//!         command: &'a Message
+//!     ) -> Pin<Box<dyn Future<Output = Result<Option<Message>>> + Send + 'a>> {
+//!         Box::pin(async move {
+//!             // Process the status command
+//!             let response = Message::new(
+//!                 MessageType::Response,
+//!                 "Status: online".to_string(),
+//!                 command.destination.clone(),
+//!                 command.source.clone()
+//!             );
+//!             
+//!             Ok(Some(response))
+//!         })
 //!     }
 //!
 //!     fn supported_commands(&self) -> Vec<String> {
-//!         vec!["get_status".to_string()]
+//!         vec!["status".to_string()]
 //!     }
 //!
 //!     fn clone_box(&self) -> Box<dyn CommandHandler> {
@@ -67,7 +74,6 @@ use crate::message_router::{MessageRouter, HandlerPriority, MessageRouterError};
 use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject as WireDomainObject};
 use crate::session::Session;
 use crate::transport::Transport;
-use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
 
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -78,12 +84,9 @@ use tokio::net::TcpListener;
 use tokio::sync::{RwLock, watch, Mutex};
 use tokio::time::timeout;
 use tokio::task::JoinHandle;
-use futures::pin_mut;
 use futures::future;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use std::pin::Pin;
-use chrono::Utc;
 
 /// MCP Server configuration
 #[derive(Debug, Clone)]
@@ -684,11 +687,11 @@ impl MCPServer {
     /// Start the listener task to accept client connections
     async fn start_listener_task(&self, listener: TcpListener) -> Result<()> {
         info!("Starting MCP server listener task on {}", listener.local_addr()?);
-        let clients = self.clients.clone();
-        let wire_format_adapter = self.wire_format_adapter.clone();
-        let message_router = self.message_router.clone();
+        let _clients = self.clients.clone();
+        let _wire_format_adapter = self.wire_format_adapter.clone();
+        let _message_router = self.message_router.clone();
         let mut shutdown_rx = self.shutdown_signal.1.clone();
-        let connection_handlers = self.connection_handlers.clone();
+        let _connection_handlers = self.connection_handlers.clone();
         let state = self.state.clone();
 
         tokio::spawn(async move {
@@ -697,11 +700,11 @@ impl MCPServer {
                     // Accept new connections
                     result = listener.accept() => {
                         match result {
-                            Ok((stream, addr)) => {
+                            Ok((_stream, addr)) => {
                                 // TODO: Replace this placeholder with robust client handling
                                 warn!(client_addr = %addr, "Placeholder: Accepted new client connection. Full handling needed.");
                                 // let client_id = Uuid::new_v4().to_string();
-                                // let transport = Arc::new(TcpTransport::new_with_stream(stream, addr, TcpTransportConfig::default()));
+                                // let transport = Arc::new(TcpTransport::new_with_stream(_stream, addr, TcpTransportConfig::default()));
                                 // let session = Arc::new(Session::new(&client_id, addr)); // Create a session
                                 // let client = ClientConnection {
                                 //     client_id: client_id.clone(),

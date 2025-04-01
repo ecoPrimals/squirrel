@@ -9,11 +9,9 @@ use crate::protocol::{
     MessageId, RoutingDecision,
 };
 use crate::protocol::types::{MCPMessage, MessageType, ProtocolVersion};
-use crate::types::{MCPResponse, MessageMetadata, ResponseStatus, ProtocolState};
+use crate::types::{MCPResponse, ProtocolState};
 use crate::types::ProtocolState as CoreProtocolState;
 use crate::security::types::SecurityMetadata;
-use crate::integration::types::SecurityContext;
-use crate::error::SecurityError;
 use tracing::warn;
 
 /// Protocol adapter state
@@ -85,7 +83,7 @@ impl MCPProtocolImpl {
 
     /// Gets the current protocol state
     #[must_use]
-    pub const fn get_state(&self) -> &Value {
+    pub fn get_state(&self) -> &Value {
         self.base.get_state()
     }
 
@@ -96,7 +94,7 @@ impl MCPProtocolImpl {
 
     /// Gets the protocol configuration
     #[must_use]
-    pub const fn get_config(&self) -> &ProtocolConfig {
+    pub fn get_config(&self) -> &ProtocolConfig {
         self.base.get_config()
     }
 

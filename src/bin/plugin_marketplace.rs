@@ -5,17 +5,12 @@
 // marketplace API.
 
 use clap::{Parser, Subcommand};
-use serde_json;
-use std::env;
 use std::path::PathBuf;
-use std::process;
 use std::sync::Arc;
 use tokio;
-use tracing::{info, error, Level};
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 use uuid::Uuid;
-use squirrel_mcp::plugins::marketplace::{MarketplaceManager, RepositoryConfig};
-use squirrel_mcp::error::Result;
 
 // Import directly from squirrel_plugins
 use squirrel_plugins::RepositoryManager;
@@ -109,18 +104,18 @@ struct App {
 
 impl App {
     /// Create a new CLI application
-    async fn new(download_dir: PathBuf, api_version: &str) -> Result<Self, String> {
+    async fn new(download_dir: PathBuf, api_version: &str) -> std::result::Result<Self, String> {
         // Create repository manager
         let manager = create_repository_manager(api_version, download_dir)
-            .map_err(|e| format!("Failed to create repository manager: {}", e))?;
+            .map_err(|e| format!("Failed to create repository manager: {}", e));
         
         Ok(Self {
-            manager,
+            manager: manager?,
         })
     }
     
     /// Run the CLI application
-    async fn run(&self, command: Commands) -> Result<(), String> {
+    async fn run(&self, command: Commands) -> std::result::Result<(), String> {
         match command {
             Commands::AddRepo { id, url } => {
                 self.add_repository(&id, &url).await?;
@@ -155,13 +150,13 @@ impl App {
     }
     
     /// Add a repository
-    async fn add_repository(&self, id: &str, url: &str) -> Result<(), String> {
+    async fn add_repository(&self, id: &str, url: &str) -> std::result::Result<(), String> {
         info!("Adding repository {} at {}", id, url);
         
-        let provider = Arc::new(HttpRepositoryProvider::new(url)
-            .map_err(|e| format!("Failed to create repository provider: {}", e))?);
+        let provider = HttpRepositoryProvider::new(url)
+            .map_err(|e| format!("Failed to create repository provider: {}", e))?;
         
-        self.manager.add_repository(id, provider)
+        self.manager.add_repository(id, Arc::new(provider))
             .await
             .map_err(|e| format!("Failed to add repository: {}", e))?;
         
@@ -170,7 +165,7 @@ impl App {
     }
     
     /// Remove a repository
-    async fn remove_repository(&self, id: &str) -> Result<(), String> {
+    async fn remove_repository(&self, id: &str) -> std::result::Result<(), String> {
         info!("Removing repository {}", id);
         
         self.manager.remove_repository(id)
@@ -182,7 +177,7 @@ impl App {
     }
     
     /// List repositories
-    async fn list_repositories(&self) -> Result<(), String> {
+    async fn list_repositories(&self) -> std::result::Result<(), String> {
         info!("Listing repositories");
         
         let repositories = self.manager.get_repositories().await;
@@ -208,7 +203,7 @@ impl App {
     }
     
     /// List plugins from all repositories
-    async fn list_plugins(&self) -> Result<(), String> {
+    async fn list_plugins(&self) -> std::result::Result<(), String> {
         info!("Listing plugins");
         
         let plugins = self.manager.list_plugins().await;
@@ -238,7 +233,7 @@ impl App {
     }
     
     /// Search plugins
-    async fn search_plugins(&self, query: &str) -> Result<(), String> {
+    async fn search_plugins(&self, query: &str) -> std::result::Result<(), String> {
         info!("Searching plugins for: {}", query);
         
         let results = self.manager.search_plugins(query).await;
@@ -268,22 +263,22 @@ impl App {
     }
     
     /// Download a plugin
-    async fn download_plugin(&self, repo_id: &str, plugin_id_str: &str) -> Result<(), String> {
+    async fn download_plugin(&self, repo_id: &str, plugin_id_str: &str) -> std::result::Result<(), String> {
         info!("Downloading plugin {} from repository {}", plugin_id_str, repo_id);
         
         let plugin_id = Uuid::parse_str(plugin_id_str)
             .map_err(|e| format!("Invalid plugin ID: {}", e))?;
         
-        let plugin_path = self.manager.download_plugin(repo_id, &plugin_id)
+        self.manager.download_plugin(repo_id, &plugin_id)
             .await
             .map_err(|e| format!("Failed to download plugin: {}", e))?;
         
-        println!("Plugin downloaded successfully to: {}", plugin_path.display());
+        println!("Plugin downloaded successfully");
         Ok(())
     }
     
     /// Get plugin information
-    async fn get_plugin_info(&self, repo_id: &str, plugin_id_str: &str) -> Result<(), String> {
+    async fn get_plugin_info(&self, repo_id: &str, plugin_id_str: &str) -> std::result::Result<(), String> {
         info!("Getting plugin info for {} from repository {}", plugin_id_str, repo_id);
         
         let plugin_id = Uuid::parse_str(plugin_id_str)
@@ -377,41 +372,33 @@ impl App {
 }
 
 #[tokio::main]
-async fn main() {
-    // Initialize logging
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Failed to set default subscriber");
-    
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Parse command-line arguments
     let cli = Cli::parse();
     
-    // Set log level
-    if cli.verbose {
-        let subscriber = FmtSubscriber::builder()
-            .with_max_level(Level::DEBUG)
-            .finish();
-        
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("Failed to set default subscriber");
-    }
-    
-    // Create and run app
-    let app = match App::new(cli.download_dir, &cli.api_version).await {
-        Ok(app) => app,
-        Err(e) => {
-            error!("Failed to create app: {}", e);
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
+    // Configure logging
+    let log_level = if cli.verbose {
+        Level::DEBUG
+    } else {
+        Level::INFO
     };
     
-    // Run command
-    if let Err(e) = app.run(cli.command).await {
-        error!("Command failed: {}", e);
-        eprintln!("Error: {}", e);
-        process::exit(1);
-    }
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .finish();
+    
+    tracing::subscriber::set_global_default(subscriber)
+        .map_err(|e| format!("Failed to set global default subscriber: {}", e))?;
+    
+    info!("Plugin Marketplace CLI starting up");
+    
+    // Create application instance
+    let app = App::new(cli.download_dir, &cli.api_version)
+        .await
+        .map_err(|e| format!("Failed to create application: {}", e))?;
+    
+    // Run the application
+    app.run(cli.command)
+        .await
+        .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, e)) as Box<dyn std::error::Error>)
 } 

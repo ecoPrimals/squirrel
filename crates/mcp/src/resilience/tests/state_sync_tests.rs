@@ -1,9 +1,7 @@
-use std::sync::Arc;
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
 
 use crate::resilience::state_sync::{StateSynchronizer, StateSyncConfig, StateType};
-use super::TestError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TestState {
@@ -36,7 +34,7 @@ async fn test_state_sync_basic() {
     assert!(result.is_ok());
     
     // Check metrics
-    let metrics = syncer.get_metrics();
+    let metrics = syncer.get_metrics().expect("Failed to get metrics");
     assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
     assert!(metrics.failed_syncs.is_empty());
     assert!(metrics.total_bytes_synced > 0);
@@ -72,7 +70,7 @@ async fn test_state_sync_size_limit() {
     assert!(result.is_err());
     
     // Check metrics
-    let metrics = syncer.get_metrics();
+    let metrics = syncer.get_metrics().expect("Failed to get metrics");
     assert_eq!(*metrics.failed_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
     assert!(metrics.successful_syncs.is_empty());
 }
@@ -81,13 +79,28 @@ async fn test_state_sync_size_limit() {
 async fn test_state_sync_multiple_operations() {
     let syncer = StateSynchronizer::default();
     
-    // Sync configuration state
+    // Configuration state
     let config_state = TestState {
         id: "config-123".to_string(),
-        count: 1,
-        data: vec!["config1".to_string()],
+        count: 42,
+        data: vec!["config-item1".to_string()],
     };
     
+    // Runtime state
+    let runtime_state = TestState {
+        id: "runtime-456".to_string(),
+        count: 100,
+        data: vec!["runtime-item1".to_string(), "runtime-item2".to_string()],
+    };
+    
+    // Recovery state
+    let recovery_state = TestState {
+        id: "recovery-789".to_string(),
+        count: 200,
+        data: vec!["recovery-item1".to_string(), "recovery-item2".to_string(), "recovery-item3".to_string()],
+    };
+    
+    // Synchronize configuration state
     let result1 = syncer.sync_state(
         StateType::Configuration,
         "config",
@@ -96,13 +109,7 @@ async fn test_state_sync_multiple_operations() {
     ).await;
     assert!(result1.is_ok());
     
-    // Sync runtime state
-    let runtime_state = TestState {
-        id: "runtime-123".to_string(),
-        count: 2,
-        data: vec!["runtime1".to_string(), "runtime2".to_string()],
-    };
-    
+    // Synchronize runtime state
     let result2 = syncer.sync_state(
         StateType::Runtime,
         "runtime",
@@ -111,13 +118,7 @@ async fn test_state_sync_multiple_operations() {
     ).await;
     assert!(result2.is_ok());
     
-    // Sync recovery state
-    let recovery_state = TestState {
-        id: "recovery-123".to_string(),
-        count: 3,
-        data: vec!["recovery1".to_string()],
-    };
-    
+    // Synchronize recovery state
     let result3 = syncer.sync_state(
         StateType::Recovery,
         "recovery",
@@ -127,7 +128,7 @@ async fn test_state_sync_multiple_operations() {
     assert!(result3.is_ok());
     
     // Check metrics
-    let metrics = syncer.get_metrics();
+    let metrics = syncer.get_metrics().expect("Failed to get metrics");
     assert_eq!(*metrics.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 1);
     assert_eq!(*metrics.successful_syncs.get(&StateType::Runtime).unwrap_or(&0), 1);
     assert_eq!(*metrics.successful_syncs.get(&StateType::Recovery).unwrap_or(&0), 1);
@@ -180,15 +181,15 @@ async fn test_state_sync_reset_metrics() {
     }
     
     // Check metrics before reset
-    let metrics_before = syncer.get_metrics();
+    let metrics_before = syncer.get_metrics().expect("Failed to get metrics before reset");
     assert_eq!(*metrics_before.successful_syncs.get(&StateType::Configuration).unwrap_or(&0), 3);
     assert!(metrics_before.total_bytes_synced > 0);
     
     // Reset metrics
-    syncer.reset_metrics();
+    syncer.reset_metrics().expect("Failed to reset metrics");
     
     // Check metrics after reset
-    let metrics_after = syncer.get_metrics();
+    let metrics_after = syncer.get_metrics().expect("Failed to get metrics after reset");
     assert!(metrics_after.successful_syncs.is_empty());
     assert_eq!(metrics_after.total_bytes_synced, 0);
 }

@@ -12,8 +12,7 @@ use squirrel_mcp::tool::{
     AdvancedBackoffStrategy, AdvancedRecoveryAction, Capability, CleanupMethod, ComprehensiveCleanupHook,
     CompositeLifecycleHook, EnhancedRecoveryHook, EnhancedRecoveryStrategy, Parameter, ParameterType,
     ResourceType, StateTransitionValidator, StateValidationHook, ToolBuilder, ToolError,
-    ToolExecutor, ToolLifecycleHook, ToolManager, ToolManagerBuilder, ToolManagerRecoveryExt,
-    ToolState,
+    ToolExecutor, ToolManager, ToolManagerBuilder, ToolState,
 };
 
 // Create a simple tool executor that can simulate errors
@@ -144,7 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Tool manager created with enhanced lifecycle components");
 
     // Create a test tool
-    let tool = ToolBuilder::new()
+    let tool_result = ToolBuilder::new()
         .id("example-tool")
         .name("Example Tool")
         .description("A tool for demonstrating lifecycle management")
@@ -162,6 +161,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .security_level(5)
         .build();
 
+    // Unwrap the Result to get the Tool
+    let tool = tool_result?;
+    
     info!("Registering tool: {}", tool.name);
 
     // Register the tool with a normal executor
@@ -248,93 +250,200 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("Transition validation failed as expected: {}", err);
         }
     }
-    
-    // Get valid next states
-    let valid_states = validator.get_valid_next_states(&ToolState::Started).await;
-    info!("Valid next states from Started: {:?}", valid_states);
 
-    // Demo recovery by registering a failing tool
-    info!("\nDemonstrating enhanced recovery:");
-    
-    // Create a failing tool
-    let failing_tool = ToolBuilder::new()
-        .id("failing-tool")
-        .name("Failing Tool")
-        .description("A tool that fails to demonstrate recovery")
-        .capability(Capability {
-            name: "failing-capability".to_string(),
-            description: "A capability that fails".to_string(),
-            parameters: vec![],
-            return_type: None,
-        })
-        .security_level(5)
-        .build();
-    
-    // Register with failing executor
-    let failing_executor = ExampleToolExecutor {
-        tool_id: failing_tool.id.clone(),
-        capabilities: vec!["failing-capability".to_string()],
-        should_fail: true,
-    };
-    
-    tool_manager.register_tool(failing_tool.clone(), failing_executor).await?;
-    info!("Failing tool registered");
-    
-    // Activate and start
-    tool_manager.activate_tool(&failing_tool.id).await?;
-    tool_manager.start_tool(&failing_tool.id).await?;
-    
-    // Try to execute - should fail
-    match tool_manager
-        .execute_tool(&failing_tool.id, "failing-capability", serde_json::json!({}), None)
+    // Try a valid transition
+    match validator
+        .validate_transition(
+            &tool.id,
+            &ToolState::Started,
+            &ToolState::Stopped,
+            Some("Demo valid transition".to_string()),
+        )
         .await
     {
         Ok(_) => {
-            info!("Failing tool execution succeeded (unexpected)");
+            info!("Transition validation succeeded as expected");
         }
         Err(err) => {
-            info!("Failing tool execution failed as expected: {}", err);
-            
-            // Perform recovery
-            info!("Initiating enhanced recovery");
-            match tool_manager.perform_enhanced_recovery(&failing_tool.id, &err, &recovery_hook).await {
-                Ok(success) => {
-                    info!("Recovery completed with success status: {}", success);
-                }
-                Err(recovery_err) => {
-                    info!("Recovery failed: {}", recovery_err);
-                }
-            }
+            info!("Transition validation failed: {}", err);
+        }
+    }
+
+    // Stop the tool
+    tool_manager.stop_tool(&tool.id).await?;
+    info!("Tool stopped");
+
+    // Test the tool recovery flow with a failing executor
+    info!("\nTesting recovery flows...");
+    
+    // Create a new tool with a failing executor
+    let failing_tool_result = ToolBuilder::new()
+        .id("failing-tool")
+        .name("Failing Tool")
+        .description("A tool that fails for recovery testing")
+        .capability(Capability {
+            name: "fail-capability".to_string(),
+            description: "A capability that always fails".to_string(),
+            parameters: vec![],
+            return_type: None,
+        })
+        .security_level(1)
+        .build();
+        
+    // Unwrap the Result to get the Tool
+    let failing_tool = failing_tool_result?;
+
+    let failing_executor = ExampleToolExecutor {
+        tool_id: failing_tool.id.clone(),
+        capabilities: vec!["fail-capability".to_string()],
+        should_fail: true,  // This will cause execution to fail
+    };
+
+    // Register with enhanced recovery hook
+    let tool_manager_with_recovery = ToolManagerBuilder::new()
+        .lifecycle_hook(recovery_hook)
+        .build();
+
+    tool_manager_with_recovery.register_tool(failing_tool.clone(), failing_executor).await?;
+    tool_manager_with_recovery.activate_tool(&failing_tool.id).await?;
+    tool_manager_with_recovery.start_tool(&failing_tool.id).await?;
+
+    info!("Registered and started failing tool. Testing execution with recovery...");
+
+    // Execute the failing tool - this should trigger recovery
+    match tool_manager_with_recovery
+        .execute_tool(
+            &failing_tool.id,
+            "fail-capability",
+            serde_json::json!({}),
+            None,
+        )
+        .await
+    {
+        Ok(result) => {
+            info!("Tool execution somehow succeeded despite failure: {:?}", result);
+        }
+        Err(err) => {
+            info!("Tool execution failed as expected (after recovery attempts): {}", err);
+        }
+    }
+
+    // Test the cleanup flow
+    info!("\nTesting comprehensive cleanup...");
+    
+    // Create a tool with registered resources
+    let cleanup_tool_result = ToolBuilder::new()
+        .id("cleanup-test-tool")
+        .name("Cleanup Test Tool")
+        .description("A tool for testing comprehensive cleanup")
+        .capability(Capability {
+            name: "test-capability".to_string(),
+            description: "Test capability".to_string(),
+            parameters: vec![],
+            return_type: None,
+        })
+        .security_level(1)
+        .build();
+        
+    // Unwrap the Result to get the Tool
+    let cleanup_tool = cleanup_tool_result?;
+
+    let tool_manager_with_cleanup = ToolManagerBuilder::new()
+        .lifecycle_hook(ComprehensiveCleanupHook::new())
+        .build();
+
+    // Register a simple executor
+    let basic_executor = ExampleToolExecutor {
+        tool_id: cleanup_tool.id.clone(),
+        capabilities: vec!["test-capability".to_string()],
+        should_fail: false,
+    };
+
+    // Register tool and resources
+    tool_manager_with_cleanup.register_tool(cleanup_tool.clone(), basic_executor).await?;
+    
+    // Create our own cleanup hook since ToolManager doesn't expose its hooks
+    let cleanup_hook = ComprehensiveCleanupHook::new();
+    
+    // Register various resources
+    cleanup_hook
+        .register_resource(
+            &cleanup_tool.id,
+            ResourceType::Memory,
+            "test-memory",
+            2048 * 1024,  // 2MB
+            HashMap::new(),
+        )
+        .await;
+        
+    cleanup_hook
+        .register_resource(
+            &cleanup_tool.id,
+            ResourceType::File,
+            "test-file-1",
+            4096,
+            HashMap::new(),
+        )
+        .await;
+        
+    cleanup_hook
+        .register_resource(
+            &cleanup_tool.id,
+            ResourceType::Network,
+            "test-connection",
+            0,
+            HashMap::new(),
+        )
+        .await;
+    
+    info!("Registered cleanup test tool with various resources");
+    
+    // Test listing resources
+    let resources = cleanup_hook.get_active_resources(&cleanup_tool.id).await;
+    info!("Registered resources: {:?}", resources);
+    
+    // Test cleanup with different methods
+    info!("Testing cleanup with normal method...");
+    let result = cleanup_hook
+        .cleanup_tool_resources(&cleanup_tool.id, CleanupMethod::Normal)
+        .await;
+    info!("Normal cleanup result: {:?}", result);
+    
+    // Register more resources
+    cleanup_hook
+        .register_resource(
+            &cleanup_tool.id,
+            ResourceType::File,
+            "temp-file",
+            1024,
+            HashMap::new(),
+        )
+        .await;
+    
+    info!("Testing cleanup with forced method...");
+    let result = cleanup_hook
+        .cleanup_tool_resources(&cleanup_tool.id, CleanupMethod::Forced)
+        .await;
+    info!("Forced cleanup result: {:?}", result);
+    
+    // Verify all resources are cleaned up
+    let remaining = cleanup_hook.get_active_resources(&cleanup_tool.id).await;
+    info!("Remaining resources after cleanup: {:?}", remaining);
+    
+    // Test the uninstall flow with a clean workflow
+    info!("\nTesting complete tool uninstall workflow...");
+    
+    // The final cleanup should handle removing all resources and deregistering the tool
+    match tool_manager_with_cleanup.unregister_tool(&cleanup_tool.id).await {
+        Ok(_) => {
+            info!("Tool unregistered successfully");
+        }
+        Err(err) => {
+            info!("Tool unregistration failed: {}", err);
         }
     }
     
-    // Demonstrate cleanup
-    info!("\nDemonstrating comprehensive cleanup:");
-    
-    // Stop the tools
-    tool_manager.stop_tool(&tool.id).await?;
-    tool_manager.stop_tool(&failing_tool.id).await?;
-    
-    // Check for resource leaks
-    let leaks = comprehensive_hook.check_for_leaks(&tool.id).await;
-    info!("Detected resource leaks: {:?}", leaks);
-    
-    // Perform cleanup
-    comprehensive_hook
-        .cleanup_tool_resources(&tool.id, CleanupMethod::Normal)
-        .await?;
-    info!("Cleanup completed");
-    
-    // Verify all resources are cleaned up
-    let active_resources = comprehensive_hook.get_active_resources(&tool.id).await;
-    info!("Active resources after cleanup: {}", active_resources.len());
-    
-    // Unregister the tools
-    tool_manager.unregister_tool(&tool.id).await?;
-    tool_manager.unregister_tool(&failing_tool.id).await?;
-    info!("Tools unregistered");
-    
-    info!("Example completed successfully");
+    info!("Enhanced tool lifecycle example completed successfully");
     
     Ok(())
 } 

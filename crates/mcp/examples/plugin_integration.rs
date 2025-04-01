@@ -12,7 +12,6 @@ use uuid::Uuid;
 use squirrel_mcp::tool::{Tool, ToolManager};
 use squirrel_mcp::tool::executor::BasicToolExecutor;
 use squirrel_mcp::tool::lifecycle::BasicLifecycleHook;
-use squirrel_mcp::plugins::interfaces::Plugin;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,7 +37,7 @@ async fn main() -> Result<()> {
         .description("A sample tool for demonstration")
         .capability(create_sample_capability())
         .security_level(1)
-        .build();
+        .build()?;
 
     // 3. Create an executor for the tool
     let mut executor = BasicToolExecutor::new("sample-tool");

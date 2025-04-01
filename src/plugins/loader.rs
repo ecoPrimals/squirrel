@@ -133,8 +133,14 @@ impl PluginLoader {
     ///
     /// An optional Arc<dyn Plugin> containing the commands plugin adapter
     async fn create_commands_plugin_adapter(&self) -> Result<Option<Arc<dyn Plugin>>> {
-        // Use conditional compilation to only include this code if the commands feature is enabled
-        #[cfg(feature = "commands")]
+        // TODO: Currently cannot access squirrel_commands::factory as it's private
+        // Return None for now until the commands module is properly exposed
+        debug!("Commands plugin adapter not implemented, returning None");
+        Ok(None)
+
+        /* Commented out due to private module access issues
+        // Use conditional compilation to only include this code if the cli feature is enabled
+        #[cfg(feature = "cli")]
         {
             use squirrel_commands::adapter::plugins::create_commands_plugin_adapter;
             use squirrel_commands::factory::create_command_registry;
@@ -147,12 +153,13 @@ impl PluginLoader {
             return Ok(Some(adapter));
         }
 
-        // If the commands feature is not enabled, return None
-        #[cfg(not(feature = "commands"))]
+        // If the cli feature is not enabled, return None
+        #[cfg(not(feature = "cli"))]
         {
             debug!("Commands feature not enabled, skipping CommandsPluginAdapter");
             return Ok(None);
         }
+        */
     }
 
     /// Load plugins from a directory

@@ -1,16 +1,13 @@
-use squirrel_mcp::integration::CoreMCPAdapter;
-use squirrel_mcp::protocol::{MCPProtocol, MCPMessage, MessageType};
-use squirrel_mcp::types::{CoreState, StateUpdate};
-use squirrel_mcp::error::MCPResult;
-
-// ... existing code ...
-
-    let mcp_protocol = squirrel_mcp::protocol::InMemoryMCPProtocol::new();
-
-// ... existing code ...
-
-    let auth_manager = Arc::new(squirrel_mcp::security::SimpleAuthManager::new());
-    let metrics = Arc::new(squirrel_mcp::metrics::MetricsCollector::new());
-    let logger = squirrel_mcp::logging::Logger::new();
-
-// ... existing code ... 
+fn main() {
+    println!("Setting up core integration example");
+    
+    // Create protocol adapter
+    let protocol_adapter = squirrel_mcp::protocol::create_protocol_adapter();
+    println!("Created protocol adapter");
+    
+    // Create a logger with a component name
+    let logger = squirrel_mcp::logging::Logger::new("core-integration-example");
+    println!("Created logger");
+    
+    println!("Core integration example setup complete");
+} 

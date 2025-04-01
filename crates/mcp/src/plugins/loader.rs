@@ -1,11 +1,6 @@
-use crate::plugins::interfaces::{Plugin, McpPlugin, PluginMetadata, PluginCapability, PluginStatus};
-use crate::plugins::registry::PluginRegistry;
+use crate::plugins::interfaces::Plugin;
 use crate::error::{Result, PluginError};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
-use libloading::{Library, Symbol};
-use tracing::{debug, info, warn, error};
+use std::path::Path;
 use crate::plugins::types::PluginId;
 use async_trait::async_trait;
 
