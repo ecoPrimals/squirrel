@@ -1,6 +1,207 @@
 # Integration Specifications
 
-This directory contains specifications for integrating various components of the Squirrel system.
+This directory contains specifications for the integration between various components of the Squirrel system. These specifications define the interaction patterns, data exchange formats, and APIs used for component integration.
+
+## Integration Status
+
+| Integration | Status | Last Updated | Priority |
+|-------------|--------|--------------|----------|
+| Core-MCP | In Progress | 2024-03-31 | High |
+| MCP-Monitoring | Implemented | 2024-04-01 | High |
+| Core-Monitoring | Implemented | 2024-04-01 | High |
+| Dashboard-Monitoring | Implemented | 2024-04-01 | High |
+| UI-MCP | Planned | 2024-03-31 | Medium |
+| Plugin-MCP | Planned | 2024-03-31 | Medium |
+| Context-Management | Planned | 2024-03-31 | Medium |
+| Security | Planned | 2024-03-31 | Low |
+| Testing | Planned | 2024-03-31 | Low |
+| Tool-Management | Planned | 2024-03-31 | Low |
+
+## Integration Components
+
+### Implemented Integrations
+
+#### MCP-Monitoring Integration
+
+The integration between the MCP (Machine Context Protocol) and Monitoring systems provides bidirectional communication between these components:
+
+- MCP components report health status to the monitoring system
+- Monitoring system sends alerts to MCP for recovery actions
+- Metrics flow from MCP to monitoring for visualization
+- Recovery requests flow from monitoring to MCP
+
+This integration establishes the foundation for system resilience and observability.
+
+#### Core-Monitoring Integration
+
+The integration between Core components and the Monitoring system enables:
+
+- Core components to expose health status to monitoring
+- Metrics collection from core components
+- Alert generation based on core component status
+- Standardized metrics collection for all core components
+
+This integration ensures all core components are observable through the monitoring system.
+
+#### Dashboard-Monitoring Integration
+
+The integration between the Dashboard and Monitoring systems enables visualization of system metrics, health status, and alerts:
+
+- Monitoring data is transformed into dashboard-compatible formats
+- Real-time updates keep dashboard displays current
+- Alerts are properly formatted for dashboard visualization
+- A complete observability pipeline from data collection to visualization
+
+This integration completes a critical piece of the observability pipeline, connecting the monitoring system's data collection capabilities with the dashboard's visualization capabilities, allowing system operators to effectively monitor and respond to system events.
+
+### Planned Integrations
+
+#### Core-MCP Integration
+
+This integration will define how Core components interact with the MCP system, focusing on:
+
+- Event-based communication between core and MCP
+- State synchronization mechanisms
+- Command dispatching from MCP to core components
+- Resource sharing between core and MCP
+
+#### UI-MCP Integration
+
+This integration will define how UI components interact with the MCP system, focusing on:
+
+- UI state management via MCP
+- Event propagation from MCP to UI
+- Command issuance from UI to MCP
+- Real-time updates of UI based on MCP state
+
+#### Plugin-MCP Integration
+
+This integration will define how plugins interact with the MCP system, focusing on:
+
+- Plugin registration with MCP
+- Capability discovery and exposure
+- Command handling by plugins
+- Event propagation from plugins to MCP
+
+## Integration Patterns
+
+The following design patterns are used consistently across integration specifications:
+
+### Adapter Pattern
+
+The adapter pattern is used to convert between different component interfaces, ensuring loose coupling between components. This pattern is particularly important for integrating components with different data models or APIs.
+
+```mermaid
+---
+title: Adapter Pattern
+---
+graph LR
+    A[Component A] -->|Native API| B[Adapter]
+    B -->|Transformed API| C[Component B]
+```
+
+### Observer Pattern
+
+The observer pattern is used for event-based communication between components, allowing components to subscribe to events from other components without tight coupling.
+
+```mermaid
+---
+title: Observer Pattern
+---
+graph LR
+    A[Publisher] -->|Events| B[Event Bus]
+    B -->|Notify| C[Subscriber 1]
+    B -->|Notify| D[Subscriber 2]
+    B -->|Notify| E[Subscriber 3]
+```
+
+### Command Pattern
+
+The command pattern is used for encapsulating requests as objects, allowing for parameterization of clients with queuing, logging, and undoable operations.
+
+```mermaid
+---
+title: Command Pattern
+---
+graph LR
+    A[Client] -->|creates| B[Command]
+    B -->|executes| C[Receiver]
+```
+
+### Mediator Pattern
+
+The mediator pattern is used to reduce coupling between components by having them communicate indirectly through a mediator object.
+
+```mermaid
+---
+title: Mediator Pattern
+---
+graph TD
+    M[Mediator] <-->|Communicates| C1[Component 1]
+    M <-->|Communicates| C2[Component 2]
+    M <-->|Communicates| C3[Component 3]
+    M <-->|Communicates| C4[Component 4]
+```
+
+## Directory Structure
+
+The integration specifications are organized as follows:
+
+```
+specs/integration/
+├── README.md                           # This file
+├── PATTERNS.md                         # Common integration patterns
+├── core-mcp-integration.md             # Core to MCP integration
+├── core-monitoring-integration.md      # Core to Monitoring integration
+├── mcp-monitoring-integration.md       # MCP to Monitoring integration
+├── dashboard-monitoring-integration.md # Dashboard to Monitoring integration
+├── ui-mcp-integration.md               # UI to MCP integration
+├── plugin-mcp-integration.md           # Plugin to MCP integration
+├── context-management-integration.md   # Context management integration
+├── security-integration.md             # Security integration
+├── testing-integration.md              # Testing integration
+└── tool-management-integration.md      # Tool management integration
+```
+
+## Integration Guidelines
+
+### 1. Component Boundaries
+
+Components should have well-defined boundaries with clear interfaces for integration. Avoid tight coupling between components.
+
+### 2. Consistent Patterns
+
+Use consistent design patterns across all integrations to ensure maintainability and comprehension.
+
+### 3. Error Handling
+
+Define clear error handling strategies at integration boundaries, including error propagation, recovery mechanisms, and fallback behaviors.
+
+### 4. Documentation
+
+Document all integration points thoroughly, including data formats, API contracts, and expected behaviors.
+
+### 5. Testing
+
+Implement comprehensive integration tests that verify the correct interaction between components.
+
+### 6. Performance
+
+Consider performance implications of integration choices, ensuring minimal overhead for cross-component communication.
+
+### 7. Security
+
+Define security considerations at integration boundaries, including authentication, authorization, and data validation.
+
+### 8. Versioning
+
+Define versioning strategies for APIs and data formats to ensure backward compatibility during evolution.
+
+## Implementation Status
+
+The implementation of integrations is tracked in the PROGRESS_UPDATE.md file. As integrations are implemented, their status will be updated in this README and detailed implementation notes will be added to the corresponding specification documents.
+
+<version>1.1.0</version>
 
 ## Current Focus: MCP-Monitoring Integration
 

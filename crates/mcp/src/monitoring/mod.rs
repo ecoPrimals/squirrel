@@ -11,11 +11,13 @@ use opentelemetry::{
 };
 use serde::{Deserialize, Serialize};
 /// Contains the monitoring functionality for the MCP module.
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 use crate::MCPError;
 use sysinfo::{System, SystemExt, DiskExt, CpuExt};
+use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use async_trait::async_trait;
 
 pub mod alerts;
 pub mod dashboard;
@@ -606,6 +608,77 @@ mod tests {
         );
         assert!(health4.is_healthy, "Health should be healthy after success");
         assert_eq!(health4.sync_status.consecutive_failures, 0);
+    }
+}
+
+/// Monitoring and metrics collection for MCP
+///
+/// This module provides interfaces and implementations for monitoring
+/// the status and performance of MCP components.
+
+/// Core interface for monitoring client implementations
+#[async_trait]
+pub trait MonitoringClient: Send + Sync {
+    /// Report a circuit breaker success
+    async fn report_breaker_success(&self, breaker_name: &str) -> anyhow::Result<()>;
+    
+    /// Report a circuit breaker failure
+    async fn report_breaker_failure(&self, breaker_name: &str) -> anyhow::Result<()>;
+    
+    /// Report a circuit breaker rejection
+    async fn report_breaker_rejection(&self, breaker_name: &str) -> anyhow::Result<()>;
+}
+
+/// Mock monitoring client for testing purposes
+pub struct MockMonitoringClient {
+    /// Component ID for this client
+    component_id: String,
+    
+    /// Count of events by type
+    event_counts: Mutex<HashMap<String, usize>>,
+}
+
+impl MockMonitoringClient {
+    /// Create a new mock monitoring client
+    pub fn new(component_id: &str) -> Self {
+        Self {
+            component_id: component_id.to_string(),
+            event_counts: Mutex::new(HashMap::new()),
+        }
+    }
+    
+    /// Get the count of a specific event type
+    pub fn get_event_count(&self, event_type: &str) -> usize {
+        self.event_counts
+            .lock()
+            .unwrap()
+            .get(event_type)
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
+#[async_trait]
+impl MonitoringClient for MockMonitoringClient {
+    async fn report_breaker_success(&self, breaker_name: &str) -> anyhow::Result<()> {
+        let mut counts = self.event_counts.lock().unwrap();
+        let key = format!("{}.success", breaker_name);
+        *counts.entry(key).or_insert(0) += 1;
+        Ok(())
+    }
+    
+    async fn report_breaker_failure(&self, breaker_name: &str) -> anyhow::Result<()> {
+        let mut counts = self.event_counts.lock().unwrap();
+        let key = format!("{}.failure", breaker_name);
+        *counts.entry(key).or_insert(0) += 1;
+        Ok(())
+    }
+    
+    async fn report_breaker_rejection(&self, breaker_name: &str) -> anyhow::Result<()> {
+        let mut counts = self.event_counts.lock().unwrap();
+        let key = format!("{}.rejection", breaker_name);
+        *counts.entry(key).or_insert(0) += 1;
+        Ok(())
     }
 }
 

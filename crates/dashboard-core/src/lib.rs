@@ -10,6 +10,7 @@ pub mod service;
 pub mod error;
 pub mod update;
 pub mod health;
+pub mod monitoring;
 
 // Re-export key components for external use
 pub use data::{
@@ -21,6 +22,12 @@ pub use service::{DashboardService, DefaultDashboardService};
 pub use error::{DashboardError, Result};
 pub use update::DashboardUpdate;
 pub use health::{HealthCheck, HealthStatus};
+pub use monitoring::{
+    MonitoringDataAdapter, MonitoringAdapterConfig,
+    MetricsTransformationService, MetricsTransformationConfig,
+    AlertVisualizationAdapter, AlertVisualizationConfig,
+    DashboardDataProvider, initialize_dashboard_monitoring
+};
 
 // This is a placeholder for the actual implementation
 // Once migrated, we'll replace this with the real implementation

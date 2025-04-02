@@ -6,15 +6,9 @@
 
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info};
-use std::collections::HashMap;
 use std::error::Error as StdError;
-use std::sync::atomic::Ordering;
-use tokio::sync::mpsc::{self, Sender};
-use chrono::Utc;
-use std::sync::atomic::AtomicUsize;
-use async_trait::async_trait;
 
-use crate::monitoring::alerts::{Alert, AlertSeverity, AlertState};
+use crate::monitoring::alerts::{Alert, AlertSeverity, AlertConfiguration, AlertState};
 use crate::resilience::recovery::{FailureInfo, FailureSeverity, RecoveryStrategy};
 use crate::error::{MCPError, Result};
 
@@ -122,7 +116,7 @@ mod tests {
     use crate::resilience::recovery::{RecoveryStrategy, FailureSeverity, FailureInfo, RecoveryError};
     use chrono::Utc;
     use std::collections::HashMap;
-    use crate::monitoring::alerts::{AlertSeverity, AlertAction, AlertCondition, AlertConfiguration};
+    use crate::monitoring::alerts::{AlertSeverity, AlertAction, AlertCondition};
     
     /// Mock recovery strategy for testing
     pub struct MockRecoveryStrategy {

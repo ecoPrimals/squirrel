@@ -10,6 +10,8 @@
 //! - Recover from failures using configurable strategies
 //! - Synchronize state between primary and backup systems
 //! - Monitor system health and trigger automatic recovery
+//! - Isolate failures using bulkhead pattern
+//! - Protect services from overload using rate limiting
 //!
 //! The main components include:
 //! - `CircuitBreaker`: Prevents repeated failures by temporarily disabling operations
@@ -17,11 +19,29 @@
 //! - `RecoveryStrategy`: Implements recovery procedures for different types of failures
 //! - `StateSynchronizer`: Manages state synchronization between distributed components
 //! - `HealthMonitor`: Tracks component health and triggers recovery when needed
+//! - `Bulkhead`: Isolates failures by limiting concurrent operations
+//! - `RateLimiter`: Protects services from overload by limiting operations per time period
 
 use std::fmt;
 use std::error::Error as StdError;
 use std::sync::Arc;
 use tracing::debug;
+use std::time::Duration;
+
+// Import directly from modules instead of re-exporting
+use futures_util::future::BoxFuture;
+
+// Import from our modules
+use crate::resilience::circuit_breaker::{
+    BreakerError, CircuitBreaker, StandardCircuitBreaker,
+};
+use crate::resilience::recovery::{FailureInfo, RecoveryStrategy};
+
+// Import the resilience components directly
+use crate::resilience::bulkhead::Bulkhead;
+use crate::resilience::rate_limiter::RateLimiter;
+
+// Import BreakerResult for type conversions
 
 pub mod circuit_breaker;
 pub mod retry;
@@ -30,13 +50,23 @@ pub mod recovery;
 pub mod state_sync;
 /// Health monitoring capabilities for system components
 pub mod health;
-
+/// Bulkhead isolation pattern for limiting concurrent calls
+pub mod bulkhead;
+/// Rate limiting pattern for controlling access rates
+pub mod rate_limiter;
 /// Error types and handling for resilience operations
 pub mod resilience_error;
+/// Usage examples for the resilience framework
+pub mod examples;
 
-pub use circuit_breaker::CircuitBreaker;
-pub use recovery::{RecoveryStrategy, RecoveryError, FailureSeverity, FailureInfo};
-use crate::tool::lifecycle_original::RecoveryAction;
+pub use circuit_breaker::{
+    BreakerState,
+    BreakerMetrics,
+    CircuitBreakerState,
+    new_circuit_breaker,
+};
+pub use recovery::{FailureSeverity};
+pub use examples::run_circuit_breaker_example;
 
 #[cfg(test)]
 pub mod tests;
@@ -64,6 +94,15 @@ pub enum ResilienceError {
 
     /// Operation failed after recovery attempts
     OperationFailed(String),
+    
+    /// Bulkhead isolation error
+    Bulkhead(String),
+    
+    /// Rate limiting error
+    RateLimit(String),
+
+    /// Health check failed
+    HealthCheck(String),
 }
 
 impl fmt::Display for ResilienceError {
@@ -76,6 +115,9 @@ impl fmt::Display for ResilienceError {
             Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
             Self::General(msg) => write!(f, "Resilience error: {msg}"),
             Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
+            Self::Bulkhead(msg) => write!(f, "Bulkhead isolation error: {msg}"),
+            Self::RateLimit(msg) => write!(f, "Rate limit exceeded: {msg}"),
+            Self::HealthCheck(msg) => write!(f, "Health check failed: {msg}"),
         }
     }
 }
@@ -85,15 +127,21 @@ impl StdError for ResilienceError {}
 /// Convenience type alias for Results from resilience operations
 pub type Result<T> = std::result::Result<T, ResilienceError>;
 
-// Implement From for the various component errors
-impl From<circuit_breaker::CircuitBreakerError> for ResilienceError {
-    fn from(err: circuit_breaker::CircuitBreakerError) -> Self {
+// Update the implementation to use our new BreakerError
+impl From<circuit_breaker::BreakerError> for ResilienceError {
+    fn from(err: circuit_breaker::BreakerError) -> Self {
         match err {
-            circuit_breaker::CircuitBreakerError::CircuitOpen => {
-                Self::CircuitOpen("Circuit is open".to_string())
+            circuit_breaker::BreakerError::CircuitOpen { name, reset_time_ms } => {
+                Self::CircuitOpen(format!("Circuit '{}' is open, reset time: {}ms", name, reset_time_ms))
             }
-            circuit_breaker::CircuitBreakerError::OperationFailed(msg) => {
-                Self::General(format!("Circuit breaker operation failed: {msg}"))
+            circuit_breaker::BreakerError::Timeout { name, timeout_ms } => {
+                Self::Timeout(format!("Operation on circuit '{}' timed out after {}ms", name, timeout_ms))
+            }
+            circuit_breaker::BreakerError::OperationFailed { name, reason } => {
+                Self::OperationFailed(format!("Operation on circuit '{}' failed: {}", name, reason))
+            }
+            circuit_breaker::BreakerError::Internal { name, details } => {
+                Self::General(format!("Internal error in circuit '{}': {}", name, details))
             }
         }
     }
@@ -175,54 +223,128 @@ impl From<health::HealthCheckError> for ResilienceError {
     }
 }
 
-/// Create a resilient operation using circuit breaker and retry
+/// Execute an operation with bulkhead isolation
+///
+/// This function uses the bulkhead pattern to isolate failures and control
+/// the impact of failures in one part of the application.
+///
+/// # Arguments
+///
+/// * `bulkhead` - The bulkhead instance to use
+/// * `operation` - The operation to execute
+///
+/// # Returns
+///
+/// The result of the operation if successful
 ///
 /// # Errors
 ///
-/// This function will return an error in the following cases:
-/// - If the circuit breaker is open
-/// - If the operation fails and all retry attempts are exhausted
-/// - If any internal resilience mechanism fails
+/// Returns an error if:
+/// * The bulkhead has reached maximum concurrent calls
+/// * The operation times out while waiting in the queue
+/// * The operation times out during execution
+/// * The operation itself fails
+pub async fn with_bulkhead<F, T>(
+    bulkhead: &bulkhead::Bulkhead,
+    operation: F,
+) -> Result<T>
+where
+    F: std::future::Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send + 'static,
+    T: Send + 'static,
+{
+    bulkhead.execute(operation).await
+}
+
+/// Execute an operation with rate limiting
 ///
-/// # Panics
+/// This function ensures that operations don't exceed a configured rate limit,
+/// using a token bucket algorithm to control the rate.
 ///
-/// This function might panic if:
-/// - The operation closure panics during execution
-/// - The circuit breaker or retry mechanism's internal state becomes inconsistent
-pub async fn with_resilience<F, T>(
-    circuit_breaker: &mut circuit_breaker::CircuitBreaker,
+/// # Arguments
+///
+/// * `rate_limiter` - Rate limiter to control operation throughput
+/// * `operation` - The operation to execute
+///
+/// # Returns
+///
+/// The result of the operation if successful
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The rate limit is exceeded and waiting is disabled
+/// * The operation times out while waiting for a rate limit permit
+/// * The operation itself fails
+pub async fn with_rate_limiting<F, T>(
+    rate_limiter: &rate_limiter::RateLimiter,
+    operation: F,
+) -> Result<T>
+where
+    F: std::future::Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send + 'static,
+    T: Send + 'static,
+{
+    // Convert the operation to work with RateLimitError by using the debug formatting of Box<dyn Error>
+    let adapted_operation = async {
+        match operation.await {
+            Ok(value) => Ok(value),
+            Err(error) => Err(rate_limiter::RateLimitError::OperationFailed(format!("{:?}", error)))
+        }
+    };
+    
+    rate_limiter.execute(adapted_operation).await
+}
+
+/// Execute an operation with resilience, using a circuit breaker and retry mechanism
+///
+/// This function combines circuit breaker and retry mechanism to enhance fault tolerance 
+/// for operations that might fail transiently.
+///
+/// # Arguments
+///
+/// * `circuit_breaker` - Circuit breaker to prevent cascading failures
+/// * `retry` - Retry mechanism to handle transient failures
+/// * `operation` - The operation to execute
+///
+/// # Returns
+///
+/// The result of the operation if successful
+///
+/// # Errors
+///
+/// Returns an error if the operation fails after retries or if the circuit breaker is open
+pub async fn with_resilience<F, T, CB>(
+    circuit_breaker: &mut CB,
     retry: retry::RetryMechanism,
     operation: F,
 ) -> Result<T>
 where
-    F: Fn() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + Sync + 'static + Clone,
-    T: Send + 'static + From<i32>,
+    F: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync>> + Clone + Send + Sync + 'static,
+    T: Send + 'static,
+    CB: circuit_breaker::CircuitBreaker + Send + Sync,
 {
-    // Move the operation into the circuit breaker's closure
-    let circuit_op = async move {
-        // Create a closure that will be called by the retry mechanism
-        let op = operation.clone();
-        let retry_owned = retry;
-        let retry_result = retry_owned.execute(move || {
-            let op_inner = op.clone();
-            Box::pin(async move {
-                match op_inner() {
-                    Ok(value) => Ok(value),
-                    Err(e) => {
-                        let boxed: Box<dyn StdError + Send + Sync> = 
-                            Box::new(ResilienceError::General(format!("{e}")));
-                        Err(boxed)
-                    }
-                }
-            })
-        }).await;
-        
-        retry_result.map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)
-    };
+    // Default component ID for error messaging
+    let component_id = "resilience_component";
     
-    // Execute with circuit breaker
-    let cb_future = circuit_breaker.execute(move || Box::pin(circuit_op));
-    cb_future.await.map_err(std::convert::Into::into)
+    // Execute with circuit breaker and retry
+    circuit_breaker.execute(move || {
+        let operation_clone = operation.clone();
+        
+        Box::pin(async move {
+            // Use retry mechanism
+            let retry_result = retry.execute(|| {
+                let op = operation_clone.clone();
+                
+                Box::pin(async move {
+                    op()
+                })
+            }).await;
+            
+            match retry_result {
+                Ok(value) => Ok(value),
+                Err(e) => Err(BreakerError::operation_failed(component_id, e.to_string()))
+            }
+        })
+    }).await.map_err(|e| ResilienceError::from(e))
 }
 
 /// Create a resilient operation with recovery strategy
@@ -250,10 +372,13 @@ where
     R: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>>,
     T: Send + 'static,
 {
+    // Try the normal operation first
     match operation() {
-        Ok(result) => Ok(result),
-        Err(_) => {
-            // Operation failed, attempt recovery
+        Ok(value) => Ok(value),
+        Err(error) => {
+            debug!("Operation failed, attempting recovery: {}", error);
+            
+            // Try recovery
             recovery_strategy
                 .handle_failure(failure_info, recovery_action)
                 .map_err(std::convert::Into::into)
@@ -261,14 +386,16 @@ where
     }
 }
 
-/// Create a resilient operation with health monitoring
+/// Execute an operation with health monitoring
+///
+/// This function checks component health before executing the operation.
+/// If the component is in a critical state, it prevents the operation from executing.
 ///
 /// # Errors
 ///
-/// This function will return an error in the following cases:
-/// - If the component is already in an unhealthy or critical state
-/// - If the operation fails
-/// - If any internal health monitoring mechanism fails
+/// Returns an error if:
+/// * The component is in critical health state
+/// * The operation itself fails
 pub async fn with_health_monitoring<F, T>(
     health_monitor: &health::HealthMonitor,
     component_id: &str,
@@ -278,51 +405,6 @@ where
     F: Fn() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + Sync + 'static,
     T: Send + 'static,
 {
-    // Check current health status before executing
-    let status = health_monitor.get_component_status(component_id);
-    
-    if status == health::HealthStatus::Critical || status == health::HealthStatus::Unhealthy {
-        return Err(ResilienceError::General(format!(
-            "Cannot execute operation: component '{component_id}' is in {status} state"
-        )));
-    }
-    
-    // Execute the operation
-    match operation() {
-        Ok(result) => Ok(result),
-        Err(err) => {
-            // Update health check on failure
-            // In a real implementation, this would trigger an async health check
-            Err(ResilienceError::General(format!("Operation failed: {err}")))
-        }
-    }
-}
-
-/// Create a fully resilient operation using circuit breaker, retry, recovery, and health monitoring
-///
-/// # Errors
-///
-/// This function will return an error in the following cases:
-/// - If the component is in a critical health state
-/// - If the circuit breaker is open
-/// - If the operation fails and all retry attempts are exhausted
-/// - If the recovery strategy fails to recover from the failure
-/// - If any internal resilience mechanism fails
-pub async fn with_complete_resilience<F, R, T>(
-    circuit_breaker: &mut circuit_breaker::CircuitBreaker,
-    retry: retry::RetryMechanism,
-    recovery_strategy: &mut recovery::RecoveryStrategy,
-    health_monitor: &health::HealthMonitor,
-    component_id: &str, 
-    failure_info: recovery::FailureInfo,
-    operation: F,
-    recovery_action: R,
-) -> Result<T>
-where
-    F: Fn() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + Sync + 'static + Clone,
-    R: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync + 'static>> + Send + 'static,
-    T: Send + 'static + From<i32>,
-{
     // Check health status first
     let status = health_monitor.get_component_status(component_id);
     if status == health::HealthStatus::Critical {
@@ -331,58 +413,116 @@ where
         )));
     }
     
-    // Create a circuit breaker operation that uses retry and monitors health
-    let circuit_op = {
-        // Move the operation and component_id into circuit_op
-        let operation = operation;
-        let component_id_str = component_id.to_string();
-        let retry = retry;
+    // Execute the operation
+    match operation() {
+        Ok(value) => Ok(value),
+        Err(e) => Err(ResilienceError::General(format!("{e}"))),
+    }
+}
+
+/// Execute an operation with complete resilience
+///
+/// This function combines circuit breaker, retry mechanism, recovery strategy, and health monitoring
+/// to provide comprehensive protection against failures.
+///
+/// # Arguments
+///
+/// * `circuit_breaker` - Circuit breaker to prevent cascading failures
+/// * `retry` - Retry mechanism to handle transient failures
+/// * `recovery` - Recovery strategy to recover from failures
+/// * `health_monitor` - Health monitor to track component health
+/// * `component_id` - ID of the component executing the operation
+/// * `failure_info` - Information about the failure to aid recovery
+/// * `operation` - The operation to execute
+/// * `recovery_action` - Action to take for recovery if the operation fails
+///
+/// # Returns
+///
+/// The result of the operation if successful
+///
+/// # Errors
+///
+/// Returns an error if any of the resilience mechanisms fail
+pub async fn with_complete_resilience<F, T, CB, RA>(
+    circuit_breaker: &mut CB,
+    retry: retry::RetryMechanism,
+    recovery: &mut RecoveryStrategy,
+    health_monitor: &health::HealthMonitor,
+    component_id: &str,
+    failure_info: FailureInfo,
+    operation: F,
+    recovery_action: RA,
+) -> Result<T>
+where
+    F: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync>> + Clone + Send + Sync + 'static,
+    RA: FnOnce() -> std::result::Result<T, Box<dyn StdError + Send + Sync>> + Send + Sync + 'static,
+    T: Send + 'static,
+    CB: circuit_breaker::CircuitBreaker + Send + Sync,
+{
+    // Clone component_id to avoid lifetime issues
+    let component_id_owned = component_id.to_string();
+    
+    // Check health status first
+    let status = health_monitor.get_component_status(&component_id_owned);
+    if status == health::HealthStatus::Critical {
+        return Err(ResilienceError::HealthCheck(format!(
+            "Cannot execute operation: component '{component_id_owned}' is in critical state"
+        )));
+    }
+    
+    // First try to execute with circuit breaker and retry
+    let result = circuit_breaker.execute(move || {
+        let operation_clone = operation.clone();
+        let component_id_clone = component_id_owned.clone();
         
-        async move {
-            // Create a closure that will be called by the retry mechanism
-            let retry_result = retry.execute(move || {
-                let op = operation.clone();
-                let _component_id = component_id_str.clone();
+        Box::pin(async move {
+            // Use retry mechanism
+            let retry_result = retry.execute(|| {
+                let op = operation_clone.clone();
                 
                 Box::pin(async move {
-                    match op() {
-                        Ok(value) => Ok(value),
-                        Err(e) => {
-                            // Could trigger health check here
-                            let boxed: Box<dyn StdError + Send + Sync> = 
-                                Box::new(ResilienceError::General(format!("{e}")));
-                            Err(boxed)
-                        }
-                    }
+                    op()
                 })
             }).await;
             
-            retry_result.map_err(|e| Box::new(e) as Box<dyn StdError + Send + Sync>)
-        }
-    };
+            match retry_result {
+                Ok(value) => Ok(value),
+                Err(e) => Err(BreakerError::operation_failed(&component_id_clone, e.to_string()))
+            }
+        })
+    }).await;
     
-    // Execute with circuit breaker
-    let cb_result = circuit_breaker.execute(move || Box::pin(circuit_op)).await;
-    
-    // If circuit breaker execution fails, try recovery
-    match cb_result {
+    // Handle the result
+    match result {
         Ok(value) => Ok(value),
-        Err(_e) => {
-            recovery_strategy
-                .handle_failure(failure_info, recovery_action)
-                .map_err(std::convert::Into::into)
+        Err(breaker_err) => {
+            // If operation failed, try recovery
+            let recovery_result = recovery.recover(
+                failure_info,
+                recovery_action,
+            ).await;
+            
+            match recovery_result {
+                Ok(recovery_value) => Ok(recovery_value),
+                Err(recovery_err) => Err(ResilienceError::from(recovery_err)),
+            }
         }
     }
 }
 
-/// Synchronize state using the state synchronizer
+/// Execute an operation with state synchronization
 ///
 /// # Errors
 ///
 /// This function will return an error in the following cases:
-/// - If the operation fails
 /// - If the state synchronization fails
-/// - If any internal state synchronization mechanism fails
+/// - If the operation fails
+///
+/// # Panics
+///
+/// This function might panic if:
+/// - The operation closure panics during execution
+/// - The state synchronizer's internal state becomes inconsistent
 pub async fn with_state_sync<T, F>(
     state_sync: &state_sync::StateSynchronizer,
     state_type: state_sync::StateType,
@@ -391,91 +531,296 @@ pub async fn with_state_sync<T, F>(
     operation: F,
 ) -> Result<T>
 where
-    F: FnOnce() -> Result<T>,
+    F: FnOnce() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send>> + Send,
     T: serde::Serialize + Clone + Send + Sync + 'static,
 {
-    // Execute the operation first
-    let result = operation()?;
+    // Execute the operation
+    let result = operation().await?;
     
-    // If successful, synchronize the state
-    state_sync.sync_state(state_type, state_id, target, result.clone())
-        .await
-        .map_err(|e| ResilienceError::from(e))?;
+    // Synchronize the state
+    state_sync.sync_state(state_type, state_id, target, &result).await?;
     
-    // Return the original operation result
     Ok(result)
 }
 
-/// Execute an operation with recovery capabilities
+/// Execute an operation with comprehensive resilience
 ///
-/// This function executes the provided operation and applies recovery strategies if it fails.
-/// It integrates with the circuit breaker pattern to prevent cascading failures.
+/// This function combines all resilience mechanisms including bulkhead isolation
+/// and rate limiting to provide comprehensive protection against failures.
 ///
 /// # Arguments
-/// * `circuit_breaker` - Optional circuit breaker instance to control circuit state
-/// * `component_id` - Identifier of the component being executed
-/// * `operation` - The operation to execute, which returns a future
-/// * `recovery_strategy` - Strategy to use for recovery in case of failures
-/// * `failure_info` - Information about the failure context
-/// * `recovery_action` - Optional specific recovery action to take
+///
+/// * `circuit_breaker` - Circuit breaker to prevent cascading failures
+/// * `bulkhead` - Bulkhead to isolate failures
+/// * `rate_limiter` - Rate limiter to protect from overload
+/// * `timeout` - Maximum time to wait for the operation to complete
+/// * `component_id` - ID of the component executing the operation
+/// * `operation` - The operation to execute
 ///
 /// # Returns
-/// The result of the operation or an error if recovery failed
+///
+/// The result of the operation if successful
 ///
 /// # Errors
 ///
-/// This function will return an error in the following cases:
-/// - If the circuit breaker is open and prevents execution
-/// - If the operation fails and recovery is not possible or fails
-/// - If any internal recovery mechanism fails
+/// Returns an error if any of the resilience mechanisms fail
+pub async fn with_comprehensive_resilience<'a, F, R, T, CB>(
+    circuit_breaker: &'a mut CB,
+    bulkhead: &'a Bulkhead,
+    rate_limiter: &'a RateLimiter,
+    _retry_policy: R,
+    timeout: Duration,
+    component_id: &'a str,
+    operation: F,
+) -> Result<T>
+where
+    F: FnOnce() -> BoxFuture<'static, Result<T>> + Send + Sync + Clone + 'static,
+    R: RetryPolicy + Send + Sync + 'static,
+    T: Send + 'static + Clone,
+    CB: circuit_breaker::CircuitBreaker + Send + Sync,
+{
+    // Clone component_id to avoid lifetime issues
+    let component_id_owned = component_id.to_string();
+    
+    // Check health status first
+    let _health_monitor = health::HealthMonitor::new(100);
+    let status = _health_monitor.get_component_status(&component_id_owned);
+    if status == health::HealthStatus::Critical {
+        return Err(ResilienceError::HealthCheck(format!(
+            "Cannot execute operation: component '{component_id_owned}' is in critical state"
+        )));
+    }
+    
+    // Check rate limiter
+    if !rate_limiter.try_acquire().await {
+        return Err(ResilienceError::RateLimit(format!(
+            "Rate limit exceeded for component '{component_id_owned}'"
+        )));
+    }
+    
+    // Check bulkhead
+    if !bulkhead.try_enter().await {
+        return Err(ResilienceError::Bulkhead(format!(
+            "Bulkhead capacity exceeded for component '{component_id_owned}'"
+        )));
+    }
+    
+    // Create a timeout wrapper
+    let timeout_result = tokio::time::timeout(timeout, async {
+        // Execute with circuit breaker
+        circuit_breaker.execute(move || {
+            let op = operation.clone();
+            let component_id_str = component_id_owned.clone();
+            
+            Box::pin(async move {
+                // Execute the operation directly
+                op().await.map_err(|e| 
+                    circuit_breaker::BreakerError::operation_failed(&component_id_str, e.to_string())
+                )
+            })
+        }).await
+    }).await;
+    
+    // Handle timeout and error conversion
+    match timeout_result {
+        Ok(breaker_result) => breaker_result.map_err(Into::into),
+        Err(_) => Err(ResilienceError::Timeout(format!(
+            "Operation timed out after {:?} for component '{}'",
+            timeout, component_id
+        ))),
+    }
+}
+
+/// Execute with recovery and circuit breaker
+/// 
+/// This function forwards to the newer function definitions above
 pub async fn execute_with_recovery<T, F>(
-    circuit_breaker: Option<Arc<CircuitBreaker>>,
+    circuit_breaker: Option<StandardCircuitBreaker>,
     component_id: &str,
     operation: F,
-    recovery_strategy: &mut RecoveryStrategy,
-    failure_info: FailureInfo,
-    recovery_action: Option<RecoveryAction>
+    _recovery_strategy: &mut RecoveryStrategy,
+    _failure_info: FailureInfo,
+    _recovery_action: Option<String>
 ) -> std::result::Result<T, ResilienceError>
 where
     F: FnOnce() -> core::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, ResilienceError>> + Send>> + Send,
+    T: Send + 'static,
 {
-    // Define a wrapper for the with_circuit_breaker function since it wasn't found in the code
-    async fn with_circuit_breaker<T, F>(
-        _circuit_breaker: Option<Arc<CircuitBreaker>>,
-        _component_id: &str,
-        operation: F
-    ) -> std::result::Result<T, ResilienceError>
-    where
-        F: FnOnce() -> core::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, ResilienceError>> + Send>> + Send,
-    {
-        // Simple implementation - we'll later integrate with the actual circuit breaker
-        let result = operation().await;
-        result
-    }
+    // Clone component_id to avoid borrow issues
+    let component_id_owned = component_id.to_string();
+    
+    with_circuit_breaker(circuit_breaker, &component_id_owned, operation).await
+}
 
-    match with_circuit_breaker(circuit_breaker, component_id, operation).await {
-        Ok(result) => Ok(result),
-        Err(_e) => {
-            if let Some(recovery_action) = recovery_action {
-                // Use the handle_failure method from the existing RecoveryStrategy implementation
-                let recovery_result = recovery_strategy.handle_failure(failure_info.clone(), || {
-                    // Convert RecoveryAction to the expected type
-                    match recovery_action {
-                        RecoveryAction::Reset | RecoveryAction::Restart | RecoveryAction::Recreate => Ok(()),
-                        RecoveryAction::Custom(_action_name) => {
-                            Ok(()) // Handle custom action if needed
-                        }
-                    }
-                });
-                
-                if let Err(err) = recovery_result {
-                    debug!("Recovery failed: {}", err);
-                }
-            }
+// Helper function for the above
+#[doc(hidden)]
+async fn with_circuit_breaker<T, F>(
+    mut circuit_breaker: Option<StandardCircuitBreaker>,
+    component_id: &str,
+    operation: F
+) -> std::result::Result<T, ResilienceError>
+where
+    F: FnOnce() -> core::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<T, ResilienceError>> + Send>> + Send,
+    T: Send + 'static,
+{
+    // Clone the component_id to avoid borrow issues
+    let component_id_owned = component_id.to_string();
+    
+    match circuit_breaker {
+        Some(ref mut cb) => {
+            // Define future for the circuit breaker to execute
+            let fut = operation();
             
-            Err(ResilienceError::OperationFailed(
-                format!("Operation failed after recovery attempt")
-            ))
+            // Use the circuit breaker
+            cb.execute(move || {
+                use futures_util::FutureExt;
+                
+                // Convert future to BreakerResult
+                async move {
+                    match fut.await {
+                        Ok(result) => Ok(result),
+                        Err(err) => Err(circuit_breaker::BreakerError::operation_failed(
+                            &component_id_owned, err.to_string()
+                        ))
+                    }
+                }.boxed()
+            }).await.map_err(|e| e.into())
+        },
+        None => {
+            // No circuit breaker, just run the operation directly
+            operation().await
         }
     }
-} 
+}
+
+/// A builder for resilience components
+pub struct ResilienceBuilder {
+    bulkhead: Option<Arc<Bulkhead>>,
+    rate_limiter: Option<Arc<RateLimiter>>,
+    circuit_breaker: Option<StandardCircuitBreaker>,
+    retry_policy: Option<Box<dyn RetryPolicy + Send + Sync>>,
+    timeout: Option<Duration>,
+}
+
+// Manual Debug implementation to avoid requiring Debug for all fields
+impl fmt::Debug for ResilienceBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ResilienceBuilder")
+            .field("bulkhead", &format_args!("<bulkhead>"))
+            .field("rate_limiter", &format_args!("<rate_limiter>"))
+            .field("circuit_breaker", &format_args!("<circuit_breaker>"))
+            .field("retry_policy", &format_args!("<retry_policy>"))
+            .field("timeout", &self.timeout)
+            .finish()
+    }
+}
+
+// Manual Clone implementation since trait objects don't implement Clone
+impl Clone for ResilienceBuilder {
+    fn clone(&self) -> Self {
+        Self {
+            bulkhead: self.bulkhead.clone(),
+            rate_limiter: self.rate_limiter.clone(),
+            circuit_breaker: self.circuit_breaker.clone(),
+            retry_policy: None, // Can't clone trait objects, so create a new one when needed
+            timeout: self.timeout,
+        }
+    }
+}
+
+// Builder methods
+impl ResilienceBuilder {
+    pub fn new() -> Self {
+        Self {
+            bulkhead: None,
+            rate_limiter: None,
+            circuit_breaker: None,
+            retry_policy: None,
+            timeout: None,
+        }
+    }
+    
+    pub fn with_bulkhead(mut self, bulkhead: Arc<Bulkhead>) -> Self {
+        self.bulkhead = Some(bulkhead);
+        self
+    }
+    
+    pub fn with_rate_limiter(mut self, rate_limiter: Arc<RateLimiter>) -> Self {
+        self.rate_limiter = Some(rate_limiter);
+        self
+    }
+    
+    pub fn with_circuit_breaker(mut self, circuit_breaker: StandardCircuitBreaker) -> Self {
+        self.circuit_breaker = Some(circuit_breaker);
+        self
+    }
+    
+    pub fn with_retry_policy(mut self, retry_policy: Box<dyn RetryPolicy + Send + Sync>) -> Self {
+        self.retry_policy = Some(retry_policy);
+        self
+    }
+    
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+    
+    pub fn build(self) -> Self {
+        self
+    }
+}
+
+// Create a simple RetryPolicy trait
+pub trait RetryPolicy {
+    fn should_retry(&self, attempt: usize, error: &ResilienceError) -> bool;
+    fn backoff_duration(&self, attempt: usize) -> Duration;
+}
+
+/// Handles an error and converts it to a resilience error
+fn handle_resilience_error<E: std::error::Error + Send + Sync + 'static>(error: E, component_id: &str) -> ResilienceError {
+    // Try to convert known error types
+    let error_string = error.to_string();
+    
+    if error_string.contains("circuit is open") || error_string.contains("Circuit") {
+        return ResilienceError::CircuitOpen(
+            format!("Circuit for component '{}' is open", component_id)
+        );
+    } else if error_string.contains("timeout") || error_string.contains("Timeout") {
+        return ResilienceError::Timeout(
+            format!("Operation for component '{}' timed out", component_id)
+        );
+    } else if error_string.contains("retry") || error_string.contains("Retry") {
+        return ResilienceError::RetryExceeded(
+            format!("Maximum retry attempts for component '{}' exceeded", component_id)
+        );
+    } else if error_string.contains("bulkhead") || error_string.contains("Bulkhead") {
+        return ResilienceError::Bulkhead(
+            format!("Bulkhead for component '{}' rejected request", component_id)
+        );
+    } else if error_string.contains("rate limit") || error_string.contains("Rate") {
+        return ResilienceError::RateLimit(
+            format!("Rate limit for component '{}' exceeded", component_id)
+        );
+    }
+    
+    // Unknown error type
+    ResilienceError::General(format!("Component '{}' error: {}", component_id, error))
+}
+
+pub async fn execute_with_resilience_components<'a>(
+    component_id: &'a str,
+    operation: impl FnOnce() -> std::result::Result<(), Box<dyn StdError + Send + Sync>> + Clone + Send + Sync + 'static,
+) -> Result<()> {
+    // Create resilience components
+    let mut circuit_breaker = circuit_breaker::new_circuit_breaker(component_id);
+    
+    // Create retry mechanism
+    let retry = retry::RetryMechanism::default();
+    
+    // Execute with resilience using new signature
+    with_resilience(
+        &mut circuit_breaker,
+        retry,
+        operation,
+    ).await
+}

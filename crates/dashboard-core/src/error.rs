@@ -51,4 +51,8 @@ pub enum DashboardError {
     /// JSON error
     #[error("JSON error: {0}")]
     Json(String),
+    
+    /// External system error
+    #[error("External system error: {0}")]
+    External(String),
 } 

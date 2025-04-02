@@ -65,7 +65,6 @@ use crate::types::ProtocolState;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::sync::RwLock;
 
 /// Protocol adapter that provides a thread-safe interface for working with the MCP protocol.
