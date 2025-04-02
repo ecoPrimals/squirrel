@@ -23,7 +23,23 @@ The implementation of the MCP-Monitoring integration has been completed. The fol
 
 4. **Concrete Implementation**: The adapters have been implemented with concrete code rather than using trait objects, providing type safety and better performance.
 
-5. **Working Example**: A comprehensive example (`monitoring_integration.rs`) demonstrating the full integration flow has been implemented and tested.
+5. **Working Example**: A comprehensive example (`resilience_monitoring_integration.rs`) demonstrating the full integration flow has been implemented and tested successfully.
+
+### Latest Implementation Progress
+
+As of the most recent update, the `resilience_monitoring_integration` example has been fully implemented and tested. This example demonstrates:
+
+1. **Complete Integration Flow**: Shows the bidirectional flow between the MCP resilience framework and the monitoring system.
+
+2. **Health Status Simulation**: Simulates different health states (healthy, degraded, unhealthy) for components to demonstrate the resilience monitoring in action.
+
+3. **Metrics Collection**: Effectively collects and displays metrics from health checks, showing how metric values change with component health.
+
+4. **Alert Generation**: Properly generates alerts based on health status changes, with appropriate severity levels and messaging.
+
+5. **Recovery Process**: Demonstrates the full lifecycle of detection, alerting, and recovery when components fail.
+
+The example has been successfully built and run, with all components functioning as expected. This confirms that the integration architecture is sound and the implementation meets all requirements.
 
 ### Implementation Details
 
@@ -63,7 +79,9 @@ While the core integration is complete, the following enhancements are planned:
 
 4. **Documentation Expansion**: Additional examples and usage patterns for different deployment scenarios.
 
-The implementation is now ready for production use, with all required functionality and appropriate error handling. See the `examples/monitoring_integration.rs` file for a complete working example of the integration.
+5. **Cross-Crate Integration**: Implementation of additional integrations between other crates in the system.
+
+The implementation is now ready for production use, with all required functionality and appropriate error handling. See the `examples/integration/resilience_monitoring_integration.rs` file for a complete working example of the integration.
 
 ## Integration Architecture
 

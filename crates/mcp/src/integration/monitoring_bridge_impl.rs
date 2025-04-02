@@ -12,7 +12,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::error::{MCPError, Result};
 use crate::monitoring::{
-    metrics::{Metric, MetricType, MetricValue, MetricsCollector},
+    metrics::MetricsCollector,
     alerts::{Alert, AlertManager, AlertSeverity, AlertConfiguration, AlertCondition, AlertAction},
 };
 use crate::resilience::health::{
@@ -355,7 +355,7 @@ impl MonitoringAdapter for HealthMonitoringBridge {
         }
         
         let mut metrics = Vec::new();
-        let mut alerts = Vec::<Alert>::new();
+        let alerts = Vec::<Alert>::new();
         
         // Process each health check result
         for result in results {

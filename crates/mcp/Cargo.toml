@@ -146,3 +146,11 @@ path = "examples/monitoring_integration.rs"
 [[example]]
 name = "monitoring_api_test"
 path = "examples/monitoring_api_test.rs"
+
+[[example]]
+name = "resilience_monitoring_integration"
+path = "examples/integration/resilience_monitoring_integration.rs"
+
+[[example]]
+name = "resilience_integration"
+path = "examples/resilience_integration.rs"

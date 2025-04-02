@@ -339,6 +339,75 @@ impl RecoveryStrategy {
         // ... existing code ...
         unimplemented!()
     }
+
+    /// Attempt to recover from a failure asynchronously
+    ///
+    /// Executes the provided recovery action based on the failure information and
+    /// recovery configuration. The recovery action is only executed if the maximum
+    /// number of attempts for the given severity level has not been exceeded.
+    ///
+    /// # Arguments
+    ///
+    /// * `failure` - Information about the failure
+    /// * `recovery_action` - The action to take to recover from the failure
+    ///
+    /// # Returns
+    ///
+    /// The result of the recovery action if successful
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RecoveryError` if:
+    /// * The maximum number of recovery attempts for the given severity has been exceeded
+    /// * Recovery for critical failures is disabled in the configuration
+    /// * The recovery action itself fails
+    pub async fn recover<F, R>(&mut self, failure: FailureInfo, recovery_action: F) -> std::result::Result<R, RecoveryError>
+    where
+        F: FnOnce() -> std::result::Result<R, Box<dyn StdError + Send + Sync>>,
+    {
+        self.metrics.last_recovery_time = Some(Instant::now());
+        
+        // Increment the recovery count for this severity
+        let severity_index = match failure.severity {
+            FailureSeverity::Minor => 0,
+            FailureSeverity::Moderate => 1,
+            FailureSeverity::Severe => 2,
+            FailureSeverity::Critical => 3,
+        };
+        self.metrics.recoveries_by_severity[severity_index] += 1;
+        
+        // Check if we've exceeded the maximum number of recovery attempts
+        let max_attempts = self.max_attempts_for_severity(failure.severity);
+        if failure.recovery_attempts >= max_attempts {
+            self.metrics.failed_recoveries += 1;
+            return Err(RecoveryError::MaxAttemptsExceeded {
+                severity: failure.severity,
+                attempts: failure.recovery_attempts,
+                max_attempts,
+            });
+        }
+        
+        // Don't attempt recovery for critical failures unless configured to do so
+        if failure.severity == FailureSeverity::Critical && !self.config.recover_critical {
+            self.metrics.failed_recoveries += 1;
+            return Err(RecoveryError::CriticalFailureNoRecovery);
+        }
+        
+        // Execute the recovery action
+        match recovery_action() {
+            Ok(result) => {
+                self.metrics.successful_recoveries += 1;
+                Ok(result)
+            },
+            Err(error) => {
+                self.metrics.failed_recoveries += 1;
+                Err(RecoveryError::RecoveryActionFailed {
+                    message: error.to_string(),
+                    source: Some(error),
+                })
+            },
+        }
+    }
 }
 
 #[cfg(test)]

@@ -19,6 +19,8 @@ All core design patterns have been fully documented (100% complete) with the fol
 | Web API Implementation | 100% | 50% | 40% |
 | Adapter Implementation | 100% | 80% | 70% |
 | CLI Command Execution | 100% | 90% | 75% |
+| Circuit Breaker | 100% | 50% | 30% |
+| Metrics Collection | 100% | 50% | 30% |
 
 ## Available Patterns
 
@@ -35,6 +37,8 @@ All core design patterns have been fully documented (100% complete) with the fol
 | [Web API Implementation](./web-api-implementation.md) | HTTP API design | RESTful principles, versioning, authentication, rate limiting |
 | [Adapter Implementation](./adapter-implementation-guide.md) | Interface standardization | Adapters, bridges, facades, compatibility layers |
 | [CLI Command Execution](./cli-command-execution.md) | Command implementation | Command structure, registration, execution context, error handling |
+| [Circuit Breaker](./circuit-breaker-implementation.md) | Fault tolerance | Failure detection, self-healing, resilience, state transition |
+| [Metrics Collection](./metrics-collection-implementation.md) | Observability | Metrics gathering, monitoring integration, performance tracking |
 
 ## When to Use These Patterns
 
@@ -61,16 +65,20 @@ These patterns should be applied consistently across the codebase to ensure:
 - 🔄 Adapter Implementation (80% implemented)
 - 🔄 Real-time Monitoring (60% implemented)
 - 🔄 Plugin Sandboxing (60% implemented)
+- 🔄 Circuit Breaker (50% implemented)
+- 🔄 Metrics Collection (50% implemented)
 
 ### Patterns Requiring Focus
 - 🔄 Web API Implementation (50% implemented)
 
 ## Next Steps
-1. Complete Plugin Sandboxing implementation
-2. Enhance Real-time Monitoring across all crates
-3. Standardize Web API Implementation
-4. Improve test coverage for all patterns
-5. Integrate Plugin Sandboxing with Plugin Resource Monitoring
+1. Complete Circuit Breaker implementation
+2. Enhance Metrics Collection implementation across all services
+3. Complete Plugin Sandboxing implementation
+4. Enhance Real-time Monitoring across all crates
+5. Standardize Web API Implementation
+6. Improve test coverage for all patterns
+7. Integrate Plugin Sandboxing with Plugin Resource Monitoring
 
 ## Pattern Documentation Structure
 
@@ -100,8 +108,9 @@ Patterns are maintained by the architecture team. Changes to existing patterns s
 
 ## Version History
 
-- **v1.2.0** (2024-04-20) - Added CLI Command Execution pattern
+- **v1.4.0** (2024-09-26) - Added Circuit Breaker and Metrics Collection patterns
 - **v1.3.0** (2024-05-10) - Added Plugin Sandboxing pattern and updated implementation status
-- **v1.2.0** (2024-04-20) - Added Plugin Resource Monitoring pattern and updated implementation status
+- **v1.2.1** (2024-04-20) - Added Plugin Resource Monitoring pattern and updated implementation status
+- **v1.2.0** (2024-04-20) - Added CLI Command Execution pattern
 - **v1.1.0** (2024-03-22) - Added implementation status and progress information
 - **v1.0.0** (2024-03-22) - Initial release with five core patterns 

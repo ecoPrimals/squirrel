@@ -1,7 +1,12 @@
+//! Error types and handling for resilience operations
+//!
+//! This module defines the various error types used in the resilience framework
+//! and their handling mechanisms.
+
 use std::error::Error as StdError;
 use std::fmt;
 
-/// Errors that can occur during resilience operations
+/// Error type for resilience operations
 #[derive(Debug)]
 pub enum ResilienceError {
     /// Circuit breaker prevented an operation from executing
@@ -24,18 +29,34 @@ pub enum ResilienceError {
 
     /// Operation failed after recovery attempts
     OperationFailed(String),
+    
+    /// Bulkhead isolation error
+    Bulkhead(String),
+    
+    /// Rate limiting error
+    RateLimit(String),
+    
+    /// Circuit breaker error
+    CircuitBreaker(String),
+    
+    /// Health check failed
+    HealthCheck(String),
 }
 
 impl fmt::Display for ResilienceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::CircuitOpen(msg) => write!(f, "Circuit breaker open: {msg}"),
-            Self::RetryExceeded(msg) => write!(f, "Maximum retry attempts exceeded: {msg}"),
-            Self::RecoveryFailed(msg) => write!(f, "Recovery strategy failed: {msg}"),
+            Self::CircuitOpen(msg) => write!(f, "Circuit open: {msg}"),
+            Self::RetryExceeded(msg) => write!(f, "Retry exceeded: {msg}"),
+            Self::RecoveryFailed(msg) => write!(f, "Recovery failed: {msg}"),
             Self::SyncFailed(msg) => write!(f, "State synchronization failed: {msg}"),
-            Self::Timeout(msg) => write!(f, "Operation timed out: {msg}"),
+            Self::Timeout(msg) => write!(f, "Timeout: {msg}"),
             Self::General(msg) => write!(f, "Resilience error: {msg}"),
             Self::OperationFailed(msg) => write!(f, "Operation failed: {msg}"),
+            Self::Bulkhead(msg) => write!(f, "Bulkhead isolation error: {msg}"),
+            Self::RateLimit(msg) => write!(f, "Rate limit exceeded: {msg}"),
+            Self::CircuitBreaker(msg) => write!(f, "Circuit breaker error: {msg}"),
+            Self::HealthCheck(msg) => write!(f, "Health check failed: {msg}"),
         }
     }
 }
@@ -45,14 +66,28 @@ impl StdError for ResilienceError {}
 /// Convenience type alias for Results from resilience operations
 pub type Result<T> = std::result::Result<T, ResilienceError>;
 
-impl From<crate::resilience::circuit_breaker::CircuitBreakerError> for ResilienceError {
-    fn from(err: crate::resilience::circuit_breaker::CircuitBreakerError) -> Self {
+impl From<crate::resilience::circuit_breaker::BreakerError> for ResilienceError {
+    fn from(err: crate::resilience::circuit_breaker::BreakerError) -> Self {
         match err {
-            crate::resilience::circuit_breaker::CircuitBreakerError::CircuitOpen => {
-                Self::CircuitOpen("Circuit is open, failing fast".to_string())
+            crate::resilience::circuit_breaker::BreakerError::CircuitOpen { name, reset_time_ms } => {
+                Self::CircuitBreaker(
+                    format!("Circuit '{}' is open, requests rejected for {}ms", name, reset_time_ms)
+                )
             }
-            crate::resilience::circuit_breaker::CircuitBreakerError::OperationFailed(msg) => {
-                Self::General(format!("Operation failed: {msg}"))
+            crate::resilience::circuit_breaker::BreakerError::Timeout { name, timeout_ms } => {
+                Self::Timeout(
+                    format!("Circuit breaker '{}' timeout after {}ms", name, timeout_ms)
+                )
+            }
+            crate::resilience::circuit_breaker::BreakerError::OperationFailed { name, reason } => {
+                Self::OperationFailed(
+                    format!("Circuit breaker '{}' operation failed: {}", name, reason)
+                )
+            }
+            crate::resilience::circuit_breaker::BreakerError::Internal { name, details } => {
+                Self::General(
+                    format!("Circuit breaker '{}' internal error: {}", name, details)
+                )
             }
         }
     }
