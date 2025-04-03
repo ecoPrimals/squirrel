@@ -35,7 +35,7 @@ use tokio::sync::RwLock;
 /// providing a stable API for consumers regardless of the underlying implementation.
 /// Implementations of this trait handle the details of MCP communication, configuration,
 /// and message passing.
-pub trait MCPInterface {
+pub trait MCPInterface: Send + Sync {
     /// Initialize the MCP system.
     ///
     /// This method sets up the MCP system and prepares it for use.
