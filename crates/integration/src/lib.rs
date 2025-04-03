@@ -26,7 +26,9 @@ pub use context_mcp::{
     ContextEnhancementType, ContextEnhancementOptions, ContextAiEnhancementOptions,
     apply_ai_enhancement,
     // Sync types
-    SyncOptions, SyncResult, SyncStatus
+    SyncOptions, SyncResult, SyncStatus,
+    // V2 trait with improved thread safety
+    types::ContextManagerV2, types::ContextManagerCallbacks, types::ContextManagerWrapper,
 };
 
 // Re-export from the ai_agent module
