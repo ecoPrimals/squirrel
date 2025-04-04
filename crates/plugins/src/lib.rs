@@ -68,6 +68,14 @@ pub use plugins::marketplace::{
 // Export dynamic plugin types
 pub use plugins::dynamic;
 
+// Export plugin trait
+pub mod plugin;
+pub use plugin::{Plugin, PluginMetadata, PluginStatus, WebPluginExt, WebEndpoint};
+
+// Export plugin V2 trait with improved thread safety
+pub mod plugin_v2;
+pub use plugin_v2::{PluginV2, PluginCallbacks, WebPluginExtV2, PluginWrapper, adapt_plugin_v2};
+
 /// The current version of the plugin system.
 /// 
 /// This version is used for compatibility checking between plugins and the system.
@@ -86,3 +94,11 @@ pub use galaxy::GalaxyPlugin;
 
 /// The author information for the plugin system.
 pub const PLUGIN_SYSTEM_AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
+
+// Re-export
+pub use plugin::Plugin;
+pub use plugin_v2::PluginV2;
+pub use manager::{PluginManager, DefaultPluginManager, PluginRegistry, PluginManagerTrait};
+pub use plugin::PluginMetadata;
+pub use plugin_v2::PluginCallbacks;
+pub use error::PluginError;
