@@ -35,6 +35,9 @@ pub use context_mcp::{
 pub use ai_agent::{
     AIAgentConfig, AIAgentAdapter,
     create_ai_agent_adapter, create_ai_agent_adapter_with_config,
+    create_ai_agent_adapter_with_client_v2,
+    // V2 trait with improved thread safety
+    types::AIClientV2, types::AIClientCallbacks, types::AIClientWrapper,
 };
 
 // Re-export from the mcp_ai_tools module
