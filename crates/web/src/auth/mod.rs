@@ -176,6 +176,11 @@ impl AuthService {
             Ok(format!("mock_refresh_token_{}", user_id))
         }
 
+        #[cfg(not(any(feature = "mock-db", feature = "db")))]
+        {
+            Err(AuthError::Internal("No database feature enabled".to_string()))
+        }
+
         #[cfg(feature = "db")]
         {
             let now = Utc::now();
@@ -230,6 +235,11 @@ impl AuthService {
             } else {
                 Err(AuthError::InvalidToken)
             }
+        }
+
+        #[cfg(not(any(feature = "mock-db", feature = "db")))]
+        {
+            Err(AuthError::Internal("No database feature enabled".to_string()))
         }
 
         #[cfg(feature = "db")]
@@ -330,6 +340,11 @@ impl AuthService {
             }
         }
 
+        #[cfg(not(any(feature = "mock-db", feature = "db")))]
+        {
+            Err(AuthError::Internal("No database feature enabled".to_string()))
+        }
+
         #[cfg(feature = "db")]
         {
             // Get user from database
@@ -377,16 +392,21 @@ impl AuthService {
                     updated_at: Utc::now(),
                 };
                 
-                // Generate JWT token
-                let token = self.generate_token(user.id, Role::User).await?;
+                // Generate access token
+                let access_token = self.generate_token(user.id, Role::User).await?;
                 
                 // Generate refresh token
                 let refresh_token = self.generate_refresh_token(user.id).await?;
-
-                Ok((user, token, refresh_token))
+                
+                Ok((user, access_token, refresh_token))
             } else {
                 Err(AuthError::InvalidCredentials)
             }
+        }
+
+        #[cfg(not(any(feature = "mock-db", feature = "db")))]
+        {
+            Err(AuthError::Internal("No database feature enabled".to_string()))
         }
 
         #[cfg(feature = "db")]
@@ -434,29 +454,32 @@ impl AuthService {
     pub async fn register(&self, req: RegisterRequest) -> Result<User, AuthError> {
         #[cfg(feature = "mock-db")]
         {
-            // In mock mode, we just check if the username is one we want to reject
-            if req.username == "existinguser" {
-                return Err(AuthError::UserAlreadyExists);
+            // In mock mode, create a mock user
+            if req.username == "testuser" {
+                return Err(AuthError::UsernameExists);
             }
-
-            // Create a mock user
-            let user_id = Uuid::new_v4();
             
-            // Return user
-            Ok(User {
-                id: user_id,
+            let user = User {
+                id: Uuid::new_v4(),
                 username: req.username,
                 #[cfg(feature = "db")]
-                email: "".to_string(),
+                email: req.email.unwrap_or_default(),
                 #[cfg(feature = "db")]
-                password_hash: "".to_string(),
+                password_hash: "mock_hash".to_string(),
                 #[cfg(feature = "db")]
                 role: Role::User,
                 #[cfg(feature = "db")]
                 created_at: Utc::now(),
                 #[cfg(feature = "db")]
                 updated_at: Utc::now(),
-            })
+            };
+            
+            Ok(user)
+        }
+
+        #[cfg(not(any(feature = "mock-db", feature = "db")))]
+        {
+            Err(AuthError::Internal("No database feature enabled".to_string()))
         }
 
         #[cfg(feature = "db")]

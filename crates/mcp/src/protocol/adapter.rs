@@ -51,8 +51,8 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, Result};
-use crate::error::protocol_err::ProtocolError;
+use crate::error::Result;
+use crate::error::{MCPError, ProtocolError};
 use crate::protocol::{
     MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, 
     RoutingResult, ValidationResult, RoutingDecision, CommandHandler
@@ -329,18 +329,22 @@ impl MCPProtocolAdapter {
                 return protocol.handle_protocol_message(&msg).await;
             }
 
-            if !msg.payload.is_object() {
-                return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
-                    "Empty or invalid payload".to_string(),
-                )));
+            let payload = msg.payload.as_object();
+            match payload {
+                None => {
+                    return Err(MCPError::Protocol(
+                        ProtocolError::InvalidPayload("Empty or invalid payload".to_string())
+                    ).into());
+                }
+                Some(payload) => {
+                    // Validate and route the message
+                    protocol.validate_message(&msg)?;
+
+                    protocol.handle_protocol_message(&msg).await
+                }
             }
-
-            // Validate and route the message
-            protocol.validate_message(&msg)?;
-
-            protocol.handle_protocol_message(&msg).await
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -414,7 +418,7 @@ impl MCPProtocolAdapter {
         if let Some(protocol) = &mut *inner {
             protocol.register_handler(message_type, handler)
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -458,7 +462,7 @@ impl MCPProtocolAdapter {
         if let Some(protocol) = &mut *inner {
             protocol.unregister_handler(message_type)
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -534,9 +538,7 @@ impl MCPProtocolAdapter {
             protocol.set_state(state);
             Ok(())
         } else {
-            Err(MCPError::Protocol(ProtocolError::InvalidState(
-                "Protocol not initialized".to_string(),
-            )))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -657,18 +659,22 @@ impl MCPProtocol for MCPProtocolAdapter {
                 return protocol.handle_protocol_message(&msg).await;
             }
 
-            if !msg.payload.is_object() {
-                return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
-                    "Empty or invalid payload".to_string(),
-                )));
+            let payload = msg.payload.as_object();
+            match payload {
+                None => {
+                    return Err(MCPError::Protocol(
+                        ProtocolError::InvalidPayload("Empty or invalid payload".to_string())
+                    ).into());
+                }
+                Some(payload) => {
+                    // Validate and route the message
+                    protocol.validate_message(&msg)?;
+
+                    protocol.handle_protocol_message(&msg).await
+                }
             }
-
-            // Validate and route the message
-            protocol.validate_message(&msg)?;
-
-            protocol.handle_protocol_message(&msg).await
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -678,7 +684,7 @@ impl MCPProtocol for MCPProtocolAdapter {
         if let Some(protocol) = &*protocol_guard {
             protocol.validate_message(msg)
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -691,7 +697,7 @@ impl MCPProtocol for MCPProtocolAdapter {
             // In the future, this would delegate to protocol's handlers
             Ok(RoutingDecision::NoRouteFound)
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -702,7 +708,7 @@ impl MCPProtocol for MCPProtocolAdapter {
             protocol.set_protocol_state(new_state);
             Ok(())
         } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
@@ -712,9 +718,7 @@ impl MCPProtocol for MCPProtocolAdapter {
             // Here we need to convert from the internal state to the ProtocolState
             Ok(ProtocolState::Ready)
         } else {
-            Err(MCPError::Protocol(ProtocolError::InvalidState(
-                "Protocol not initialized".to_string(),
-            )))
+            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 

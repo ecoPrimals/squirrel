@@ -4,18 +4,19 @@
 
 use squirrel_mcp::MCPInterface;
 use squirrel_mcp::MCPError;
-use crate::mcp_ai_tools::config::{McpAiToolsConfig, ProviderSettings};
+use crate::mcp_ai_tools::config::McpAiToolsConfig;
 use crate::mcp_ai_tools::types::{AiMessageType, AiToolInvocation, AiToolResponse, AiToolResponseStatus};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 use tracing::{debug, error, info};
 use uuid::Uuid;
+use std::fmt;
 
 /// MCP-AI Tools adapter errors
 #[derive(Debug, Error)]
@@ -49,6 +50,10 @@ pub enum McpAiToolsAdapterError {
     /// MCP adapter error
     #[error("MCP adapter error: {0}")]
     McpAdapter(#[from] MCPError),
+    
+    /// MCP generic error
+    #[error("MCP error: {0}")]
+    MCPError(String),
     
     /// JSON serialization error
     #[error("JSON error: {0}")]
@@ -137,16 +142,25 @@ pub trait ToolHandler: Send + Sync + std::fmt::Debug {
 }
 
 /// Callbacks available to tools for adapter interaction
-#[derive(Clone)]
 pub struct ToolCallbacks {
     /// Add a message to a conversation
-    pub add_message: Box<dyn Fn(&str, &str, AiMessageType) -> Result<String, McpAiToolsAdapterError> + Send + Sync>,
+    pub add_message: Option<Box<dyn Fn(&str, &str, AiMessageType) -> Result<String, McpAiToolsAdapterError> + Send + Sync>>,
     
     /// Get conversation history
-    pub get_conversation: Box<dyn Fn(&str) -> Result<Vec<ConversationMessage>, McpAiToolsAdapterError> + Send + Sync>,
+    pub get_conversation: Option<Box<dyn Fn(&str) -> Result<Vec<ConversationMessage>, McpAiToolsAdapterError> + Send + Sync>>,
     
     /// Send a message to MCP
-    pub send_mcp_message: Box<dyn Fn(&str) -> Result<String, McpAiToolsAdapterError> + Send + Sync>,
+    pub send_mcp_message: Option<Box<dyn Fn(&str) -> Result<String, McpAiToolsAdapterError> + Send + Sync>>,
+}
+
+impl Default for ToolCallbacks {
+    fn default() -> Self {
+        Self {
+            add_message: None,
+            get_conversation: None,
+            send_mcp_message: None,
+        }
+    }
 }
 
 /// Tool handler trait version 2 with improved thread safety
@@ -224,23 +238,26 @@ impl McpAiToolsAdapter {
     where
         H: ToolHandlerV2 + 'static,
     {
-        // Create callbacks
-        let self_clone = self.clone();
+        // Create callbacks with separate clones for each closure
+        let add_message_clone = self.clone();
+        let get_conversation_clone = self.clone();
+        let send_mcp_message_clone = self.clone();
+        
         let callbacks = ToolCallbacks {
-            add_message: Box::new(move |conversation_id, content, message_type| {
-                self_clone.add_message(conversation_id, content, message_type)
-            }),
+            add_message: Some(Box::new(move |conversation_id, content, message_type| {
+                add_message_clone.add_message(conversation_id, content, message_type)
+            })),
             
-            get_conversation: Box::new(move |conversation_id| {
-                self_clone.get_conversation(conversation_id)
-            }),
+            get_conversation: Some(Box::new(move |conversation_id| {
+                get_conversation_clone.get_conversation(conversation_id)
+            })),
             
-            send_mcp_message: Box::new(move |message| {
-                match self_clone.mcp_adapter.send_message(message) {
+            send_mcp_message: Some(Box::new(move |message| {
+                match send_mcp_message_clone.mcp_adapter.send_message(message) {
                     Ok(response) => Ok(response),
                     Err(err) => Err(McpAiToolsAdapterError::MCPError(format!("{:?}", err))),
                 }
-            }),
+            })),
         };
         
         // Register callbacks with handler
@@ -418,8 +435,6 @@ impl McpAiToolsAdapter {
         }
         
         // Send request to provider API
-        // This is a placeholder implementation that would need to be replaced
-        // with actual API calls to the provider
         let response = self.call_provider_api(
             &provider,
             &model,
@@ -498,15 +513,130 @@ impl McpAiToolsAdapter {
         messages: serde_json::Value,
         options: HashMap<String, serde_json::Value>,
     ) -> Result<String, McpAiToolsAdapterError> {
-        // This is a placeholder implementation
-        // In a real implementation, this would make HTTP requests to the provider's API
         info!("Calling {provider} API with model {model}");
         debug!("Messages: {messages}");
         debug!("Options: {options:?}");
         
-        // This would be replaced with actual API calls
-        // For now, we'll just return a mock response
-        Ok(format!("This is a response from {provider} using {model}"))
+        match provider {
+            "openai" => {
+                // Get API key from options
+                let api_key = match options.get("api_key") {
+                    Some(key) => key.as_str().ok_or_else(|| {
+                        McpAiToolsAdapterError::Provider {
+                            provider: provider.to_string(),
+                            message: "API key must be a string".to_string(),
+                        }
+                    })?.to_string(),
+                    None => return Err(McpAiToolsAdapterError::Provider {
+                        provider: provider.to_string(),
+                        message: "API key not provided".to_string(),
+                    }),
+                };
+                
+                // Create OpenAI client
+                let client = squirrel_ai_tools::openai::OpenAIClient::new(api_key);
+                
+                // Extract messages from the format
+                let messages_array = match messages.get("messages") {
+                    Some(msgs) => msgs.as_array().ok_or_else(|| {
+                        McpAiToolsAdapterError::Provider {
+                            provider: provider.to_string(),
+                            message: "Messages must be an array".to_string(),
+                        }
+                    })?.clone(),
+                    None => return Err(McpAiToolsAdapterError::Provider {
+                        provider: provider.to_string(),
+                        message: "Messages not found in request".to_string(),
+                    }),
+                };
+                
+                // Prepare request parameters
+                let mut chat_params = squirrel_ai_tools::common::ModelParameters::default();
+                
+                // Add options to parameters
+                if let Some(temp) = options.get("temperature") {
+                    if let Some(temp) = temp.as_f64() {
+                        chat_params.temperature = Some(temp as f32);
+                    }
+                }
+                
+                if let Some(max_tokens) = options.get("max_tokens") {
+                    if let Some(max_tokens) = max_tokens.as_u64() {
+                        chat_params.max_tokens = Some(max_tokens as u32);
+                    }
+                }
+                
+                // Create unique test prompt to ensure we get different responses each time
+                let timestamp = chrono::Utc::now().to_rfc3339();
+                let unique_id = uuid::Uuid::new_v4().to_string();
+                
+                // Add a system message requesting a unique response
+                let system_message = squirrel_ai_tools::common::ChatMessage::system(
+                    format!("Please include 'Unique response ID: {unique_id} - {timestamp}' somewhere in your response for verification purposes. Keep your response brief and respond naturally to the user's query.")
+                );
+                
+                // Convert messages to ChatMessage objects
+                let mut final_messages = Vec::new();
+                let mut has_system = false;
+                
+                for msg in messages_array {
+                    if let (Some(role), Some(content)) = (msg.get("role").and_then(|r| r.as_str()), msg.get("content").and_then(|c| c.as_str())) {
+                        let chat_message = match role {
+                            "user" => squirrel_ai_tools::common::ChatMessage::user(content),
+                            "assistant" => squirrel_ai_tools::common::ChatMessage::assistant(content),
+                            "system" => {
+                                has_system = true;
+                                squirrel_ai_tools::common::ChatMessage::system(content)
+                            },
+                            "tool" => {
+                                if let Some(tool_id) = msg.get("tool_call_id").and_then(|t| t.as_str()) {
+                                    squirrel_ai_tools::common::ChatMessage::tool(content, tool_id)
+                                } else {
+                                    // Default to user message if tool call ID is missing
+                                    squirrel_ai_tools::common::ChatMessage::user(content)
+                                }
+                            },
+                            _ => squirrel_ai_tools::common::ChatMessage::user(content),
+                        };
+                        final_messages.push(chat_message);
+                    }
+                }
+                
+                if !has_system {
+                    final_messages.insert(0, system_message);
+                }
+                
+                // Create request
+                let request = squirrel_ai_tools::common::ChatRequest {
+                    model: Some(model.to_string()),
+                    messages: final_messages,
+                    parameters: Some(chat_params),
+                    tools: None,
+                };
+                
+                // Make API call
+                use squirrel_ai_tools::common::AIClient;
+                let response = match client.chat(request).await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(McpAiToolsAdapterError::Provider {
+                        provider: provider.to_string(),
+                        message: format!("OpenAI API error: {}", e),
+                    }),
+                };
+                
+                // Return response content
+                if let Some(message) = response.choices.first() {
+                    Ok(message.content.clone().unwrap_or_default())
+                } else {
+                    Err(McpAiToolsAdapterError::Provider {
+                        provider: provider.to_string(),
+                        message: "No response content received".to_string(),
+                    })
+                }
+            },
+            // For other providers, we'll continue using mock responses for now
+            _ => Ok(format!("Mock response from {provider} using {model} (This is a placeholder)"))
+        }
     }
 }
 
@@ -559,5 +689,16 @@ impl ToolHandler for ToolHandlerWrapper {
     ) -> Result<AiToolResponse, McpAiToolsAdapterError> {
         // Delegate to inner handler without passing adapter
         self.inner.handle(invocation).await
+    }
+}
+
+// Manual implementation of Debug for McpAiToolsAdapter
+impl fmt::Debug for McpAiToolsAdapter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("McpAiToolsAdapter")
+            .field("config", &self.config)
+            .field("history_count", &self.history.lock().unwrap().len())
+            .field("tools_count", &self.tools.lock().unwrap().len())
+            .finish_non_exhaustive()
     }
 } 

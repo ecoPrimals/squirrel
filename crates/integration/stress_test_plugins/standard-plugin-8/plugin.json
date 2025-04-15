@@ -1,0 +1,14 @@
+{
+  "author": "Testing Framework",
+  "capabilities": [
+    "standard"
+  ],
+  "description": "Mock plugin standard-plugin-8",
+  "id": "6464d8d9-5530-4688-a397-da8ec7fe8df4",
+  "name": "standard-plugin-8",
+  "resources": {
+    "cpu": 2,
+    "memory": 5
+  },
+  "version": "1.0.0"
+}

@@ -70,12 +70,12 @@ impl TestCommand for SimpleTestCommand {
 }
 
 impl Command for SimpleTestCommand {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> &'static str {
+        Box::leak(self.name.clone().into_boxed_str())
     }
     
-    fn description(&self) -> &str {
-        &self.description
+    fn description(&self) -> &'static str {
+        Box::leak(self.description.clone().into_boxed_str())
     }
     
     fn parser(&self) -> ClapCommand {

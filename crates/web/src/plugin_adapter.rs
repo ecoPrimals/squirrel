@@ -10,7 +10,6 @@ use axum::{
     routing::{get, post},
     extract::State,
     Json,
-    http::Method,
 };
 use serde_json::{json, Value};
 use tracing::{debug, error, info};
@@ -20,16 +19,12 @@ use crate::plugins_legacy as legacy;
 use crate::plugins_legacy::{
     WebEndpoint as LegacyWebEndpoint,
     HttpMethod as LegacyHttpMethod,
-    WebComponent as LegacyWebComponent,
-    PluginInfo as LegacyPluginInfo,
-    EndpointInfo as LegacyEndpointInfo,
-    ComponentInfo as LegacyComponentInfo,
 };
 
 // New imports for the unified plugin system
 use crate::plugins::{
     WebPluginRegistry, 
-    model::{WebRequest, WebResponse, HttpMethod},
+    model::{WebRequest, HttpMethod},
     example::ExamplePlugin,
     adapter::LegacyWebPluginAdapter,
 };
@@ -78,19 +73,19 @@ where
     
     // Create state-specific handlers that match the router's state type
     let state_clone = state.clone();
-    let list_plugins_handler = move || async move {
+    let _list_plugins_handler = move || async move {
         let inner_state = state_clone.clone();
         list_plugins(State(inner_state)).await
     };
     
     let state_clone = state.clone();
-    let list_endpoints_handler = move || async move {
+    let _list_endpoints_handler = move || async move {
         let inner_state = state_clone.clone();
         list_endpoints(State(inner_state)).await
     };
     
     let state_clone = state.clone();
-    let list_components_handler = move || async move {
+    let _list_components_handler = move || async move {
         let inner_state = state_clone.clone();
         list_components(State(inner_state)).await
     };
@@ -156,7 +151,6 @@ where
         // Add routes for components
         let state_clone = state.clone();
         router = router.route("/api/plugins/components/:id/markup", post(move |
-            state: State<S>,
             axum::extract::Path(component_id): axum::extract::Path<String>,
             axum::extract::Json(props): axum::extract::Json<Value>,
         | async move {

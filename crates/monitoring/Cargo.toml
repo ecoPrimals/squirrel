@@ -39,8 +39,8 @@ tungstenite = { version = "0.20.1" }
 axum = "0.6.20"
 tower = "0.4"
 
-# Plugin system dependency (optional)
-squirrel-plugins = { path = "../plugins", optional = true }
+# Plugin system dependency (optional) - only for integration testing 
+squirrel-plugins = { path = "../plugins", optional = true, default-features = false }
 
 # Shared squirrel dependencies
 squirrel-core = { path = "../core" }
@@ -49,7 +49,8 @@ log = { version = "0.4.26", default-features = false }
 
 [features]
 default = ["analytics", "websocket"]
-use_plugins = ["squirrel-plugins"]
+# Changed to make explicitly clear this is for testing only
+plugins_testing = ["dep:squirrel-plugins"]
 analytics = []
 # WebSocket implementation is now a separate feature
 # Enable by default since it's required for monitoring-dashboard integration

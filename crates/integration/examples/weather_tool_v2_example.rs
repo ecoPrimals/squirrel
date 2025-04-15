@@ -1,9 +1,12 @@
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
-use squirrel_integration::{
-    AiMessageType, AiToolInvocation, AiToolResponse, McpAiToolsAdapter,
-    McpAiToolsConfig, McpAiToolsAdapterError, ToolHandlerV2, ToolCallbacks,
+use squirrel_integration::mcp_ai_tools::{
+    adapter::{ToolCallbacks, ToolHandlerV2},
+    types::{AiMessageType, AiToolInvocation, AiToolResponse},
+    error::McpAiToolsAdapterError,
+    config::McpAiToolsConfig,
+    adapter::McpAiToolsAdapter,
 };
 use squirrel_mcp::{adapter::create_default_mcp_adapter, MCPInterface};
 use std::time::Duration;
@@ -20,6 +23,7 @@ struct WeatherData {
 /// Weather tool handler using the new pattern
 #[derive(Debug, Default)]
 struct WeatherToolHandlerV2 {
+    // Use Option<Box<...>> since this is how ToolCallbacks stores it
     add_message: Option<Box<dyn Fn(&str, &str, AiMessageType) -> Result<String, McpAiToolsAdapterError> + Send + Sync>>,
 }
 
@@ -34,9 +38,10 @@ impl ToolHandlerV2 for WeatherToolHandlerV2 {
         let location = arguments
             .get("location")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| McpAiToolsAdapterError::InvalidArguments(
-                "Missing location parameter".to_string()
-            ))?;
+            .ok_or_else(|| McpAiToolsAdapterError::ToolInvocation {
+                tool: invocation.name.clone(),
+                message: "Missing location parameter".to_string(),
+            })?;
         
         // Simulate weather API call
         let weather_data = simulate_weather_api_call(location).await?;
@@ -61,7 +66,7 @@ impl ToolHandlerV2 for WeatherToolHandlerV2 {
     
     fn register_callbacks(&mut self, callbacks: ToolCallbacks) {
         // Store only the callbacks we need
-        self.add_message = Some(callbacks.add_message);
+        self.add_message = callbacks.add_message;
     }
 }
 

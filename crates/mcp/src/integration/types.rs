@@ -2,7 +2,7 @@
 
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
-use crate::error::MCPResult;
+use crate::error::Result as MCPResult;
 use crate::protocol::types::MCPMessage;
 use crate::types::MCPResponse;
 use crate::error::MCPError; // Import MCPError

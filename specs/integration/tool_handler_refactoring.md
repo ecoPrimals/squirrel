@@ -33,63 +33,58 @@ We've identified a pattern of passing `Arc<T>` directly to async trait methods t
    - Monitoring services
    - Context management
 
-## Solution Design
+## Implementation Progress
 
-### Approach 1: Context-Passing Design Pattern
+### ✅ Phase 1: Initial Implementation - Complete
 
-Replace direct adapter passing with context objects that contain only necessary data:
+We have successfully implemented the V2 pattern in two critical areas:
 
-```rust
-#[async_trait]
-pub trait ToolHandler: Send + Sync + std::fmt::Debug {
-    async fn handle(
-        &self,
-        invocation: AiToolInvocation,
-        context: &ToolContext,
-    ) -> Result<AiToolResponse, McpAiToolsAdapterError>;
-}
+1. **ToolHandlerV2 trait**:
+   - Created the new trait without adapter parameter
+   - Added `ToolCallbacks` structure for adapter interaction
+   - Added registration methods to `McpAiToolsAdapter`
+   - Created adapter wrapper for backward compatibility
+   - Updated tests to demonstrate functionality
+   
+2. **ContextManagerV2 trait**:
+   - Created new trait without direct adapter dependencies
+   - Added `ContextManagerCallbacks` structure for adapter interaction
+   - Created adapter wrapper for backward compatibility
+   - Added examples and tests to verify thread safety and functionality
 
-pub struct ToolContext {
-    conversation_id: String,
-    // Only include explicitly Send + Sync fields needed by tools
-}
-```
+Both implementations demonstrate the pattern's success in providing:
+- Explicit Send + Sync bounds
+- Callback-based architecture to avoid direct adapter dependencies
+- Backward compatibility with existing code
+- Thread safety in async contexts
 
-### Approach 2: Initialization-Based Design Pattern
+### 🔄 Phase 2: Next Steps - In Progress
 
-Separate adapter interaction from tool execution:
+1. **Additional Patterns to Refactor**:
+   - **AIClientV2 trait**: Update the AI client interface with callback approach
+   - **PluginV2 trait**: Apply the pattern to plugin system for thread safety
 
-```rust
-#[async_trait]
-pub trait ToolHandler: Send + Sync + std::fmt::Debug {
-    /// Initialize the handler with necessary context
-    fn initialize(&mut self, config: ToolHandlerConfig);
-    
-    /// Handle a tool invocation without adapter dependency
-    async fn handle(
-        &self,
-        invocation: AiToolInvocation,
-    ) -> Result<AiToolResponse, McpAiToolsAdapterError>;
-}
+2. **Documentation and Tools**:
+   - Create concise migration guides for each trait
+   - Develop a static analysis tool to detect similar patterns
 
-pub struct ToolHandlerConfig {
-    // Configuration data from adapter
-}
-```
+3. **Testing**:
+   - Add concurrency stress tests to verify thread safety
+   - Ensure backward compatibility is maintained
 
-### Approach 3: Explicit Send + Sync Bounds (Recommended)
+## Solution Design (Implemented)
 
-Apply explicit Send + Sync bounds to all trait objects and enforce consistency:
+We have successfully implemented Approach 3 from the original plan:
 
 ```rust
-// Ensure MCPInterface requires Send + Sync
+// Ensure interface traits require Send + Sync
 pub trait MCPInterface: Send + Sync {
     // methods...
 }
 
-// Remove adapter parameter from handle method
+// Remove adapter parameter from handle method and use callbacks
 #[async_trait]
-pub trait ToolHandler: Send + Sync + std::fmt::Debug {
+pub trait ToolHandlerV2: Send + Sync + std::fmt::Debug {
     async fn handle(
         &self,
         invocation: AiToolInvocation,
@@ -108,97 +103,22 @@ pub struct ToolCallbacks {
 }
 ```
 
-## Implementation Plan
+The same pattern has been successfully applied to the `ContextManagerV2` trait.
 
-### Phase 1: Refactor ToolHandler Trait
-1. Add explicit `Send + Sync` bounds to `MCPInterface` trait
-2. Create a new `ToolHandlerV2` trait without adapter parameter
-3. Create `ToolCallbacks` structure for optional adapter interactions
-4. Update `McpAiToolsAdapter` to support both handler versions (backward compatibility)
-5. Add comprehensive tests for new trait pattern
+## Revised Timeline
 
-### Phase 2: Migrate Existing ToolHandlers
-1. Create new implementations using the updated pattern
-2. Update tests to use the new implementations
-3. Deprecate old handler implementations with warning comments
-
-### Phase 3: Identify and Fix Similar Patterns
-1. Refactor all traits with similar patterns:
-   - `GalaxyPlugin::initialize` (found in galaxy/src/plugin/mod.rs)
-   - Various monitoring plugin implementations
-   - Context adapter patterns
-
-### Phase 4: Add Static Analysis
-1. Create a clippy lint rule to detect similar pattern usage
-2. Add compilation warning for direct `Arc<dyn Trait>` passing in async methods
-
-## Testing Strategy
-
-1. **Unit Tests**: Verify each migrated tool handler functions correctly
-2. **Integration Tests**: Ensure adapters work with old and new handler styles
-3. **Concurrency Tests**: Confirm handlers work reliably in highly concurrent scenarios
-4. **Memory Tests**: Verify no memory leaks or reference cycles exist
-
-## Timeline
-
-1. **Phase 1**: 1 week
-2. **Phase 2**: 2 weeks
-3. **Phase 3**: 2-3 weeks (depending on scope)
-4. **Phase 4**: 1 week
-
-## Migration Guide
-
-For teams migrating tool handlers:
-
-```rust
-// Old implementation
-struct MyOldTool;
-
-#[async_trait]
-impl ToolHandler for MyOldTool {
-    async fn handle(
-        &self,
-        invocation: AiToolInvocation,
-        adapter: Arc<McpAiToolsAdapter>,
-    ) -> Result<AiToolResponse, McpAiToolsAdapterError> {
-        // Implementation using adapter directly
-    }
-}
-
-// New implementation
-struct MyNewTool {
-    // Store needed callbacks
-    add_message: Option<Box<dyn Fn(&str, &str, AiMessageType) -> Result<String, McpAiToolsAdapterError> + Send + Sync>>,
-}
-
-#[async_trait]
-impl ToolHandlerV2 for MyNewTool {
-    async fn handle(
-        &self,
-        invocation: AiToolInvocation,
-    ) -> Result<AiToolResponse, McpAiToolsAdapterError> {
-        // Implementation using stored callbacks
-        if let Some(add_message) = &self.add_message {
-            add_message("conversation_id", "content", AiMessageType::System)?;
-        }
-        
-        // Process invocation
-        Ok(AiToolResponse::success("command_id", serde_json::json!({})))
-    }
-    
-    fn register_callbacks(&mut self, callbacks: ToolCallbacks) {
-        self.add_message = Some(callbacks.add_message);
-    }
-}
-```
-
-## Risk Assessment
-
-1. **Breaking Changes**: Moderate impact - backwards compatibility layer mitigates most issues
-2. **Performance Impact**: Minimal - callback approach may be slightly faster than passing the entire adapter
-3. **Development Complexity**: Low to moderate - pattern is simpler and more aligned with Rust best practices
-4. **Testing Complexity**: Moderate - need to ensure both old and new patterns work during transition
+1. **Phase 1**: ✅ Completed - ToolHandlerV2 and ContextManagerV2 implemented
+2. **Phase 2**: 🔄 In progress - Additional traits (AIClientV2, PluginV2)
+3. **Phase 3**: 📅 Planned - Documentation and migration guides
+4. **Phase 4**: 📅 Planned - Static analysis tools
 
 ## Conclusion
 
-This refactoring addresses a fundamental Send/Sync issue in our async trait design patterns while maintaining backward compatibility. By adopting the callback-based approach (Approach 3), we achieve a more idiomatic Rust design that properly enforces thread-safety requirements and resolves the current testing difficulties. 
+The implementation of the callback-based pattern for `ToolHandlerV2` and `ContextManagerV2` demonstrates the effectiveness of this approach. Key benefits observed:
+
+1. **Thread Safety**: The new traits properly enforce thread safety requirements.
+2. **Testability**: Implementations are much easier to test, especially in async contexts.
+3. **Backward Compatibility**: The approach maintains compatibility with existing code.
+4. **Design Quality**: The pattern promotes better separation of concerns and follows Rust best practices.
+
+We should continue applying this pattern to other areas of the codebase with similar concerns. 

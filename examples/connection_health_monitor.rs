@@ -1,10 +1,8 @@
 use std::io;
-use std::sync::Arc;
 use std::time::Duration;
 use std::collections::VecDeque;
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use rand::Rng;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect, Alignment},

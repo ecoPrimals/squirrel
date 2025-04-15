@@ -30,7 +30,7 @@ uuid = { version = "1.6.1", features = ["v4", "serde"] }
 
 [dependencies.squirrel-plugins]
 path = "../crates/plugins"
-features = ["all"]
+features = ["standard", "mcp-with-impl"]
 
 [dependencies.squirrel-interfaces]
 path = "../crates/interfaces"

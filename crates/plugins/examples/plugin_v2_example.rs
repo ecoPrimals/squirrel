@@ -1,112 +1,68 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
-use anyhow::Result;
 use serde_json::Value;
-use std::any::Any;
-use std::sync::Arc;
-use std::sync::Mutex;
-use uuid::Uuid;
+use anyhow::Result;
 
 use squirrel_plugins::{
-    PluginV2, PluginCallbacks, PluginMetadata, Plugin, WebEndpoint,
-    PluginManager, DefaultPluginManager, adapt_plugin_v2, PluginRegistry,
+    PluginCallbacks, PluginMetadata, PluginV2, WebEndpoint, WebPluginExtV2,
+    adapt_plugin_v2, Plugin,
 };
 
 /// A simple example plugin implementing PluginV2
-#[derive(Debug)]
 struct ExamplePluginV2 {
     metadata: PluginMetadata,
-    state: Mutex<ExamplePluginState>,
-    callbacks: Mutex<PluginCallbacks>,
+    state: Arc<Mutex<HashMap<String, String>>>,
+    callbacks: Option<PluginCallbacks>,
 }
 
-/// Internal state for the example plugin
-#[derive(Debug, Default)]
-struct ExamplePluginState {
-    initialized: bool,
-    counter: usize,
-    config: Value,
+impl std::fmt::Debug for ExamplePluginV2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExamplePluginV2")
+            .field("metadata", &self.metadata)
+            .field("state", &self.state)
+            .field("callbacks", &"<callbacks>")
+            .finish()
+    }
 }
 
 impl ExamplePluginV2 {
     /// Create a new example plugin
-    fn new(name: &str, version: &str) -> Self {
-        let metadata = PluginMetadata::new(name, version, "Example V2 Plugin", "Example Author")
-            .with_capability("example")
-            .with_capability("v2-pattern");
-            
+    fn new() -> Self {
         Self {
-            metadata,
-            state: Mutex::new(ExamplePluginState::default()),
-            callbacks: Mutex::new(PluginCallbacks::default()),
+            metadata: PluginMetadata::new(
+                "Example Plugin V2",
+                "0.1.0",
+                "Example plugin demonstrating the PluginV2 trait",
+                "Squirrel Team",
+            ).with_capability("example"),
+            state: Arc::new(Mutex::new(HashMap::new())),
+            callbacks: None,
         }
     }
     
     /// Log a message using the callback if available
-    fn log(&self, level: &str, message: &str) -> Result<()> {
-        let callbacks = self.callbacks.lock().unwrap();
-        if let Some(log) = &callbacks.log {
-            log(level, message)
-        } else {
-            println!("[{}] {}", level, message);
-            Ok(())
-        }
-    }
-    
-    /// Increment counter and return the new value
-    fn increment_counter(&self) -> usize {
-        let mut state = self.state.lock().unwrap();
-        state.counter += 1;
-        state.counter
-    }
-    
-    /// Get current counter value
-    fn get_counter(&self) -> usize {
-        let state = self.state.lock().unwrap();
-        state.counter
-    }
-    
-    /// Save plugin state
-    async fn save_state(&self) -> Result<()> {
-        let callbacks = self.callbacks.lock().unwrap();
-        let state = self.state.lock().unwrap();
-        
-        if let Some(persist) = &callbacks.persist_state {
-            let state_value = serde_json::json!({
-                "counter": state.counter,
-                "config": state.config,
-            });
-            
-            persist(self.metadata.id, "state", state_value)?;
-            self.log("info", &format!("State saved, counter: {}", state.counter))?;
-        } else {
-            self.log("warn", "No persist_state callback available")?;
-        }
-        
-        Ok(())
-    }
-    
-    /// Load plugin state
-    async fn load_state(&self) -> Result<()> {
-        let callbacks = self.callbacks.lock().unwrap();
-        
-        if let Some(load) = &callbacks.load_state {
-            let state_value = load(self.metadata.id, "state")?;
-            
-            let mut plugin_state = self.state.lock().unwrap();
-            if let Some(counter) = state_value.get("counter").and_then(|v| v.as_u64()) {
-                plugin_state.counter = counter as usize;
+    fn log(&self, level: &str, message: &str) {
+        if let Some(callbacks) = &self.callbacks {
+            if let Some(log_fn) = &callbacks.log {
+                log_fn(level, &format!("[ExamplePluginV2] {}", message)).ok();
+            } else {
+                println!("[ExamplePluginV2] [{level}] {message}");
             }
-            
-            if let Some(config) = state_value.get("config") {
-                plugin_state.config = config.clone();
-            }
-            
-            self.log("info", &format!("State loaded, counter: {}", plugin_state.counter))?;
         } else {
-            self.log("warn", "No load_state callback available")?;
+            println!("[ExamplePluginV2] [{level}] {message}");
         }
-        
-        Ok(())
+    }
+    
+    /// Get current state
+    fn get_state(&self, key: &str) -> Option<String> {
+        self.state.lock().unwrap().get(key).cloned()
+    }
+    
+    /// Set state
+    fn set_state(&self, key: &str, value: &str) {
+        self.state.lock().unwrap().insert(key.to_string(), value.to_string());
     }
 }
 
@@ -117,159 +73,132 @@ impl PluginV2 for ExamplePluginV2 {
     }
     
     async fn initialize(&self) -> Result<()> {
-        self.log("info", &format!("Initializing plugin: {}", self.metadata.name))?;
-        
-        // Load state if available
-        let _ = self.load_state().await;
-        
-        // Set initialized flag
-        let mut state = self.state.lock().unwrap();
-        state.initialized = true;
-        
-        self.log("info", &format!("Plugin initialized: {}", self.metadata.name))?;
+        self.log("info", "Initializing example plugin v2");
+        self.set_state("startup_time", &chrono::Utc::now().to_rfc3339());
         Ok(())
     }
     
     async fn shutdown(&self) -> Result<()> {
-        self.log("info", &format!("Shutting down plugin: {}", self.metadata.name))?;
-        
-        // Save state
-        let _ = self.save_state().await;
-        
-        // Clear initialized flag
-        let mut state = self.state.lock().unwrap();
-        state.initialized = false;
-        
-        self.log("info", &format!("Plugin shutdown: {}", self.metadata.name))?;
+        self.log("info", "Shutting down example plugin v2");
         Ok(())
     }
     
-    fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn std::any::Any {
         self
     }
     
     fn register_callbacks(&mut self, callbacks: PluginCallbacks) {
-        let mut cb = self.callbacks.lock().unwrap();
-        *cb = callbacks;
+        self.callbacks = Some(callbacks);
     }
 }
 
-/// A plugin manager that supports registering PluginV2 implementations
-struct PluginManagerV2 {
-    inner: DefaultPluginManager,
-}
-
-impl PluginManagerV2 {
-    fn new() -> Self {
-        Self {
-            inner: DefaultPluginManager::default(),
-        }
+#[async_trait]
+impl WebPluginExtV2 for ExamplePluginV2 {
+    fn get_endpoints(&self) -> Vec<WebEndpoint> {
+        vec![
+            WebEndpoint {
+                method: "GET".to_string(),
+                path: "/example/v2/status".to_string(),
+                permissions: vec![],
+            },
+            WebEndpoint {
+                method: "GET".to_string(),
+                path: "/example/v2/state".to_string(),
+                permissions: vec![],
+            },
+        ]
     }
     
-    /// Register a V2 plugin with the manager
-    async fn register_plugin_v2<T: PluginV2 + 'static>(&self, mut plugin: T) -> Result<Arc<dyn Plugin>> {
-        // Create callbacks
-        let inner_clone = self.inner.clone();
+    async fn handle_web_endpoint(&self, endpoint: &WebEndpoint, _data: Option<Value>) -> Result<Value> {
+        match endpoint.path.as_str() {
+            "/example/v2/status" => {
+                self.log("info", "Handling status request");
+                Ok(serde_json::json!({ "status": "initialized" }))
+            },
+            "/example/v2/state" => {
+                self.log("info", "Handling state request");
+                Ok(serde_json::to_value(&*self.state.lock().unwrap())?)
+            },
+            _ => {
+                self.log("error", &format!("Unknown path: {}", endpoint.path));
+                Err(anyhow::anyhow!("Unknown path: {}", endpoint.path))
+            }
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    // Create a tokio runtime
+    let rt = tokio::runtime::Runtime::new()?;
+    
+    rt.block_on(async {
+        println!("Plugin V2 Example");
+        
+        // Create a plugin
+        let mut example_plugin = ExamplePluginV2::new();
+        
+        // Set up callbacks
         let callbacks = PluginCallbacks {
-            log: Some(Box::new(move |level, message| {
+            log: Some(Box::new(|level, message| {
                 println!("[{}] {}", level, message);
                 Ok(())
-            })),
-            get_plugin: Some(Box::new(move |id| {
-                tokio::runtime::Handle::current().block_on(inner_clone.get_plugin(id))
-            })),
-            get_plugin_by_name: Some(Box::new(move |name| {
-                let inner = inner_clone.clone();
-                tokio::runtime::Handle::current().block_on(inner.get_plugin_by_name(name))
-            })),
-            list_plugins: Some(Box::new(move || {
-                let inner = inner_clone.clone();
-                tokio::runtime::Handle::current().block_on(inner.list_plugins())
-            })),
-            persist_state: Some(Box::new(move |id, key, value| {
-                println!("Persisting state for plugin {}: {} = {}", id, key, value);
-                Ok(())
-            })),
-            load_state: Some(Box::new(move |id, key| {
-                println!("Loading state for plugin {}: {}", id, key);
-                // Return empty state for demo purposes
-                Ok(serde_json::json!({
-                    "counter": 42,
-                    "config": { "demo": true }
-                }))
             })),
             ..Default::default()
         };
         
-        // Register callbacks with the plugin
-        plugin.register_callbacks(callbacks);
+        example_plugin.register_callbacks(callbacks);
         
-        // Adapt and register
-        let adapted_plugin = adapt_plugin_v2(plugin);
-        self.inner.register_plugin(adapted_plugin.clone()).await?;
+        // Initialize the plugin
+        example_plugin.initialize().await?;
         
-        Ok(adapted_plugin)
-    }
-    
-    /// Initialize a plugin
-    async fn initialize_plugin(&self, id: Uuid) -> Result<()> {
-        self.inner.initialize_plugin(id).await
-    }
-    
-    /// Shutdown a plugin
-    async fn shutdown_plugin(&self, id: Uuid) -> Result<()> {
-        self.inner.shutdown_plugin(id).await
-    }
-    
-    /// Get a plugin by ID
-    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
-        self.inner.get_plugin(id).await
-    }
-    
-    /// List all plugins
-    async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
-        self.inner.list_plugins().await
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create plugin manager
-    let manager = PluginManagerV2::new();
-    
-    // Create and register a V2 plugin
-    let plugin = ExamplePluginV2::new("example-v2-plugin", "1.0.0");
-    let registered_plugin = manager.register_plugin_v2(plugin).await?;
-    
-    println!("Registered plugin: {}", registered_plugin.metadata().name);
-    
-    // Initialize plugin
-    let id = registered_plugin.metadata().id;
-    manager.initialize_plugin(id).await?;
-    
-    // Get plugin and test type conversion
-    let plugin = manager.get_plugin(id).await?;
-    
-    // Type demonstration: How to downcast to the original type if needed
-    // Note: This is for demonstration purposes - in real code, you should
-    // avoid downcasting when possible and use callbacks for communication
-    if let Some(original) = plugin.as_any().downcast_ref::<ExamplePluginV2>() {
-        // Can now use original methods
-        let counter = original.increment_counter();
-        println!("Incremented counter: {}", counter);
+        // Print metadata
+        println!(
+            "Plugin: {} ({})",
+            example_plugin.metadata().name,
+            example_plugin.metadata().id
+        );
         
-        let counter = original.increment_counter();
-        println!("Incremented counter again: {}", counter);
+        // Test web endpoints
+        println!("Web endpoints:");
+        for endpoint in example_plugin.get_endpoints() {
+            println!("  {} {}", endpoint.method, endpoint.path);
+            
+            // Test the endpoint
+            let response = example_plugin.handle_web_endpoint(&endpoint, None).await?;
+            println!("  Response: {}", response);
+        }
         
-        let final_counter = original.get_counter();
-        println!("Final counter value: {}", final_counter);
-    } else {
-        println!("Failed to downcast plugin");
-    }
-    
-    // Shutdown plugin
-    manager.shutdown_plugin(id).await?;
-    
-    println!("Plugin example completed successfully");
-    Ok(())
+        // Demonstrate adapting a V2 plugin to a V1 plugin
+        let mut example_plugin_v2 = ExamplePluginV2::new();
+        
+        // Set up callbacks before adaptation
+        let callbacks = PluginCallbacks {
+            log: Some(Box::new(|level, message| {
+                println!("[{}] {}", level, message);
+                Ok(())
+            })),
+            ..Default::default()
+        };
+        
+        example_plugin_v2.register_callbacks(callbacks);
+        
+        let adapted_plugin = adapt_plugin_v2(example_plugin_v2);
+        
+        println!(
+            "Adapted plugin: {} ({})",
+            adapted_plugin.metadata().name,
+            adapted_plugin.metadata().id
+        );
+        
+        // Initialize the adapted plugin
+        adapted_plugin.initialize().await?;
+        
+        // Shutdown the adapted plugin
+        adapted_plugin.shutdown().await?;
+        
+        // Shutdown our original plugin
+        example_plugin.shutdown().await?;
+        
+        Ok(())
+    })
 } 

@@ -12,12 +12,15 @@ default = ["core"]
 core = []
 # All features disabled by default
 web = []
-mcp = ["dep:squirrel-mcp"]
+# Base MCP-related functionality without direct dependency
+mcp-interfaces = []
+# Full MCP integration with direct dependency - NOT included in any meta-feature
+mcp-with-impl = ["mcp-interfaces", "dep:squirrel-mcp"]
 marketplace = ["dep:reqwest", "dep:url", "tokio/sync"]
 repository-server = ["dep:axum", "dep:tower", "dep:tower-http", "marketplace"]
-# cli feature removed
-all = ["core", "web", "mcp", "marketplace", "repository-server"]
-# No app in the "all" feature to avoid circular dependency
+# Provide a standard feature set that doesn't create circular dependencies
+standard = ["core", "web", "mcp-interfaces", "marketplace", "repository-server"]
+# Completely removed 'all' feature to avoid confusion
 
 # Use proper lints inheritance 
 [lints]
@@ -66,3 +69,7 @@ tower-http = { workspace = true, optional = true }
 tokio-test = { workspace = true }
 mockall = { workspace = true }
 test-case = { workspace = true }
+
+[[example]]
+name = "plugin_v2_example"
+path = "examples/plugin_v2_example.rs"

@@ -4,7 +4,8 @@
 //! domain objects used in the MCP protocol. These implementations enable translation
 //! between domain objects and wire format messages.
 
-use crate::error::{ProtocolError, MCPError};
+use crate::error::MCPError;
+use crate::error::protocol_err::ProtocolError;
 use crate::protocol::adapter_wire::{DomainObject, WireFormatError, WireMessage, WireProtocolVersion, WireFormat};
 use crate::protocol::serialization_utils::extract_string;
 use crate::protocol::types::{MCPMessage, MessageType, ProtocolVersion};
@@ -76,13 +77,17 @@ impl DomainObject for Message {
             WireFormat::Json => {
                 // Parse the JSON data
                 let json: Value = serde_json::from_slice(&message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                    })?;
                 
                 match version {
                     crate::protocol::adapter_wire::WireProtocolVersion::V1_0 | crate::protocol::adapter_wire::WireProtocolVersion::Latest => {
                         // Current version format - direct deserialization
                         serde_json::from_value(json)
-                            .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
+                            .map_err(|e| -> crate::error::MCPError {
+                                MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                            })
                     },
                     crate::protocol::adapter_wire::WireProtocolVersion::V0_9 => {
                         // Legacy format (v0.9) - need to adapt to current model
@@ -105,7 +110,7 @@ impl DomainObject for Message {
                                 _ => return Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                     "msg_type".to_string(), 
                                     format!("Unknown message type: {}", msg_type_str)
-                                ))),
+                                )).into()),
                             };
                             
                             // Extract optional fields
@@ -118,9 +123,11 @@ impl DomainObject for Message {
                                 .and_then(|v| v.as_str())
                                 .map(|s| base64::engine::general_purpose::STANDARD.decode(s))
                                 .transpose()
-                                .map_err(|e| MCPError::from(WireFormatError::Deserialization(
-                                    format!("Invalid base64 in binary field: {e}")
-                                )))?;
+                                .map_err(|e| -> crate::error::MCPError {
+                                    MCPError::from(WireFormatError::Deserialization(
+                                        format!("Invalid base64 in binary field: {e}")
+                                    ))
+                                })?;
                             
                             // Extract timestamp or use current time
                             let timestamp = obj.get("timestamp")
@@ -171,7 +178,7 @@ impl DomainObject for Message {
                             Err(MCPError::from(WireFormatError::InvalidFieldValue(
                                 "root".to_string(), 
                                 "Expected JSON object".to_string()
-                            )))
+                            )).into())
                         }
                     }
                 }
@@ -180,10 +187,14 @@ impl DomainObject for Message {
                 // For now, treat binary and CBOR as JSON
                 // In a full implementation, these would have separate decoders
                 let json: Value = serde_json::from_slice(&message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                    })?;
                 
                 serde_json::from_value(json)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                    })
             }
         }
     }
@@ -197,7 +208,7 @@ impl DomainObject for Message {
 impl DomainObject for MCPMessage {
     async fn to_wire_message(&self, version: WireProtocolVersion) -> crate::error::Result<WireMessage> {
         let data = serde_json::to_vec(self)
-            .map_err(|e| ProtocolError::StateSerialization(format!("Failed to serialize MCPMessage to JSON bytes: {}", e)))?;
+            .map_err(|e| ProtocolError::SerializationError(format!("Failed to serialize MCPMessage to JSON bytes: {}", e)))?;
         Ok(WireMessage::new(version, data, WireFormat::Json))
     }
 
@@ -206,9 +217,9 @@ impl DomainObject for MCPMessage {
         Self: Sized,
     {
         if message.format != WireFormat::Json {
-            return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
-                "Only JSON wire format supported currently".to_string(),
-            )));
+            return Err(MCPError::Protocol(
+                ProtocolError::InvalidFormat("Only JSON wire format supported currently".to_string())
+            ).into());
         }
 
         // Deserialize using the helper struct which is now in another module
@@ -221,10 +232,7 @@ impl DomainObject for MCPMessage {
 
         // Convert the helper into the final MCPMessage using its TryFrom impl (also moved)
         MCPMessage::try_from(helper).map_err(|e: ProtocolError| {
-            MCPError::Protocol(ProtocolError::ValidationFailed(format!(
-                "Conversion from MCPMessageDefinitionHelper failed: {}",
-                e
-            )))
+            MCPError::Protocol(e).into()
         })
     }
 }

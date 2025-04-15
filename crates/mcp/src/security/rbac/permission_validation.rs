@@ -303,9 +303,9 @@ impl PermissionValidator {
     pub(super) fn add_rule(&mut self, rule: ValidationRule) -> Result<()> {
         // Compile resource pattern regex
         let regex = Regex::new(&rule.resource_pattern)
-            .map_err(|e| MCPError::Security(SecurityError::RBACError(
-                format!("Invalid resource pattern regex: {e}")
-            )))?;
+            .map_err(|e| MCPError::Security(
+                format!("Invalid resource pattern regex: {e}").into()
+            ))?;
         
         self.resource_patterns.insert(rule.id.clone(), regex);
         

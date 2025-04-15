@@ -1,6 +1,6 @@
 use crate::context_manager::Context;
-use crate::error::Result;
-use crate::sync::StateChange;
+use crate::error::{MCPError, Result};
+use crate::sync::state::StateChange;
 use crate::types::{AccountId};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -17,7 +17,6 @@ use std::time::SystemTime;
 use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 use crate::security::{AuthToken, SessionToken, UserId, RoleId};
-use crate::error::MCPError;
 use tracing::warn;
 
 /// Protocol version as a string (e.g., "1.0")
@@ -599,6 +598,9 @@ mod tests_persistence_impl {
             data: serde_json::json!({}),
             timestamp: Utc::now(),
             version: 1,
+            name: Some("test".to_string()),
+            metadata: Some(serde_json::json!({})),
+            parent_id: None,
         };
 
         // Save change
@@ -909,7 +911,7 @@ impl Persistence for FilePersistence {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(MCPError::PersistenceDetail(format!(
                 "Failed to read file '{}': {}", path.display(), e
-            ))),
+            )).into()),
         }
     }
 
@@ -920,7 +922,7 @@ impl Persistence for FilePersistence {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(MCPError::PersistenceDetail(format!(
                 "Failed to delete file '{}': {}", path.display(), e
-            ))),
+            )).into()),
         }
     }
 

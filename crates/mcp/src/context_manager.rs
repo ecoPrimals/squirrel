@@ -1,4 +1,4 @@
-use crate::error::ContextError;
+use crate::error::context_err::ContextError;
 use crate::error::{MCPError, Result};
 use crate::monitoring::MCPMonitor;
 use crate::persistence::{MCPPersistence, PersistenceConfig};
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, warn, debug};
 use uuid::Uuid;
 
 /// Context representation in the MCP system
@@ -61,6 +61,8 @@ pub struct ContextConfig {
     pub timeout_ms: Option<u64>,
     /// Days after which old data is cleaned up
     pub cleanup_older_than_days: Option<i64>,
+    /// Central server URL
+    pub sync_server_url: Option<String>,
 }
 
 impl Default for ContextConfig {
@@ -70,6 +72,7 @@ impl Default for ContextConfig {
             max_retries: Some(3),
             timeout_ms: Some(5000),
             cleanup_older_than_days: Some(30),
+            sync_server_url: None,
         }
     }
 }
@@ -88,7 +91,7 @@ pub struct ContextManager {
     /// Map of context types to validation rules
     validations: Arc<RwLock<HashMap<String, ContextValidation>>>,
     /// Synchronization engine for distributed context operations
-    sync: Arc<MCPSync>,
+    sync: Option<Arc<MCPSync>>,
 }
 
 impl ContextManager {
@@ -100,35 +103,16 @@ impl ContextManager {
     #[instrument]
     pub async fn new() -> Self {
         let sync_config = SyncConfig::default();
-
-        // Create and initialize persistence before wrapping in Arc
-        let mut persistence = MCPPersistence::new(PersistenceConfig::default());
-        // Initialize persistence
-        if let Err(e) = persistence.init() {
-            tracing::warn!("Failed to initialize persistence: {}", e);
-        }
-
-        // Wrap in Arc after initialization
-        let persistence = Arc::new(persistence);
-        let monitor = Arc::new(MCPMonitor::default());
+        let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
+        let monitor = Arc::new(MCPMonitor::new().await.unwrap_or_default());
         let state_manager = Arc::new(StateSyncManager::new());
-
-        // Create sync and initialize it
-        let mut sync_instance = MCPSync::new(sync_config, persistence, monitor, state_manager);
-
-        // Initialize the sync engine
-        if let Err(e) = sync_instance.init().await {
-            tracing::warn!("Failed to initialize sync engine: {}", e);
-        }
-
-        // Convert to Arc after initialization
-        let sync = Arc::new(sync_instance);
+        let sync = Arc::new(MCPSync::new(sync_config, persistence, monitor, state_manager));
 
         Self {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync,
+            sync: Some(sync),
         }
     }
 
@@ -145,7 +129,7 @@ impl ContextManager {
     #[instrument(skip(self, context))]
     pub async fn create_context(&self, context: Context) -> Result<Uuid> {
         // Validate context data
-        self.validate_context(&context).await?;
+        self.validate_context(&context).await.map_err(|e| e)?;
 
         let context_id = context.id;
 
@@ -165,6 +149,8 @@ impl ContextManager {
         // Record change for sync
         if let Err(e) = self
             .sync
+            .as_ref()
+            .unwrap()
             .record_context_change(&context, StateOperation::Create)
             .await
         {
@@ -187,7 +173,7 @@ impl ContextManager {
         contexts
             .get(&id)
             .cloned()
-            .ok_or(MCPError::Context(ContextError::NotFound(id)))
+            .ok_or_else(|| MCPError::Context(ContextError::NotFound(id)))
     }
 
     /// Updates an existing context with new data and metadata
@@ -207,7 +193,7 @@ impl ContextManager {
 
         let context = contexts
             .get_mut(&id)
-            .ok_or(MCPError::Context(ContextError::NotFound(id)))?;
+            .ok_or_else(|| MCPError::Context(ContextError::NotFound(id)))?;
 
         // Update context fields
         context.data = data;
@@ -222,6 +208,8 @@ impl ContextManager {
         // Record change for sync
         if let Err(e) = self
             .sync
+            .as_ref()
+            .unwrap()
             .record_context_change(&updated_context, StateOperation::Update)
             .await
         {
@@ -242,13 +230,13 @@ impl ContextManager {
     #[instrument(skip(self))]
     pub async fn delete_context(&self, id: Uuid) -> Result<()> {
         // Get context for sync before removing
-        let context = self.get_context(id).await?;
+        let context = self.get_context(id).await.map_err(|e| e)?;
 
         // Remove from storage
         let mut contexts = self.contexts.write().await;
         contexts
             .remove(&id)
-            .ok_or(MCPError::Context(ContextError::NotFound(id)))?;
+            .ok_or_else(|| MCPError::Context(ContextError::NotFound(id)))?;
 
         // Remove from hierarchy
         let mut hierarchy = self.hierarchy.write().await;
@@ -264,6 +252,8 @@ impl ContextManager {
         // Record change for sync
         if let Err(e) = self
             .sync
+            .as_ref()
+            .unwrap()
             .record_context_change(&context, StateOperation::Delete)
             .await
         {
@@ -289,9 +279,9 @@ impl ContextManager {
         // Validate schema
         if validation.schema.is_null() || is_none_or_matches(validation.schema.as_object(), serde_json::Map::is_empty)
         {
-            return Err(MCPError::Context(ContextError::ValidationError(
-                "Invalid validation schema".into(),
-            )));
+            return Err(MCPError::Context(
+                ContextError::from("Invalid validation schema")
+            ));
         }
 
         let mut validations = self.validations.write().await;
@@ -310,9 +300,9 @@ impl ContextManager {
         // Check expiration
         if let Some(expires_at) = context.expires_at {
             if expires_at < Utc::now() {
-                return Err(MCPError::Context(ContextError::ValidationError(
-                    "Context has expired".into(),
-                )));
+                return Err(MCPError::Context(
+                    ContextError::from("Context has expired")
+                ));
             }
         }
 
@@ -336,7 +326,7 @@ impl ContextManager {
 
             // Apply each validation rule
             for rule in &validation.rules {
-                self.apply_validation_rule(context, rule).await?;
+                self.apply_validation_rule(context, rule).await.map_err(|e| e)?;
             }
         }
 
@@ -351,28 +341,27 @@ impl ContextManager {
     async fn apply_validation_rule(&self, context: &Context, rule: &str) -> Result<()> {
         // Basic validation for all contexts
         if context.data.is_null() {
-            return Err(MCPError::Context(ContextError::ValidationError(
-                "Context data cannot be empty".into(),
-            )));
+            return Err(MCPError::Context(
+                ContextError::from("Context data cannot be empty")
+            ));
         }
 
         // Required fields validation
         if rule.starts_with("required:") {
             let field_name = rule.strip_prefix("required:").unwrap_or("");
             if !field_name.is_empty() && context.data.get(field_name).is_none() {
-                return Err(MCPError::Context(ContextError::ValidationError(format!(
-                    "Required field '{field_name}' is missing"
-                ))));
+                return Err(MCPError::Context(ContextError::ValidationError(
+                    format!("Required field '{field_name}' is missing")
+                )));
             }
             return Ok(());
         }
 
         // Check if the rule function exists and apply it
         if !rule_validator(rule, context) {
-            return Err(MCPError::Context(ContextError::ValidationError(format!(
-                "Rule '{}' failed for context '{}'",
-                rule, context.name
-            ))));
+            return Err(MCPError::Context(ContextError::ValidationError(
+                format!("Rule '{}' failed for context '{}'", rule, context.name)
+            )));
         }
 
         Ok(())
@@ -385,19 +374,19 @@ impl ContextManager {
     /// Returns `ContextError::NotFound` if the parent context does not exist.
     #[instrument(skip(self))]
     pub async fn get_child_contexts(&self, parent_id: Uuid) -> Result<Vec<Context>> {
-        // Verify parent exists
-        self.get_context(parent_id).await?;
+        // Check if parent exists
+        self.get_context(parent_id).await.map_err(|e| e)?;
 
         let hierarchy = self.hierarchy.read().await;
-        let contexts = self.contexts.read().await;
+        let children = hierarchy.get(&parent_id).cloned().unwrap_or_default();
 
-        let child_ids = hierarchy.get(&parent_id).cloned().unwrap_or_default();
-        let children = child_ids
-            .into_iter()
-            .filter_map(|id| contexts.get(&id).cloned())
+        let contexts = self.contexts.read().await;
+        let result: Vec<Context> = children
+            .iter()
+            .filter_map(|id| contexts.get(id).cloned())
             .collect();
 
-        Ok(children)
+        Ok(result)
     }
 
     /// Synchronizes context data with remote instances
@@ -407,9 +396,13 @@ impl ContextManager {
     /// Returns `ContextError::SyncError` if synchronization fails.
     #[instrument(skip(self))]
     pub async fn sync(&self) -> Result<()> {
-        if let Err(e) = self.sync.as_ref().sync().await {
-            error!("Context synchronization failed: {}", e);
-            return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
+        if let Some(sync) = &self.sync {
+            if let Err(e) = sync.synchronize().await {
+                error!("Context synchronization failed: {}", e);
+                return Err(MCPError::Context(ContextError::SyncError(e.to_string())));
+            }
+        } else {
+            debug!("Sync is disabled, skipping synchronization");
         }
         Ok(())
     }
@@ -421,11 +414,16 @@ impl ContextManager {
     /// Returns `ContextError::SyncError` if subscription fails.
     #[instrument(skip(self))]
     pub async fn subscribe_changes(&self) -> Result<tokio::sync::broadcast::Receiver<StateChange>> {
-        self.sync.subscribe_to_state_changes().await.map_err(|e| {
-            MCPError::Context(ContextError::SyncError(format!(
-                "Failed to subscribe to changes: {e}"
-            )))
-        })
+        Ok(self.sync
+            .as_ref()
+            .unwrap()
+            .subscribe_to_state_changes()
+            .await
+            .map_err(|e| {
+                MCPError::Context(
+                    ContextError::SyncError(format!("Failed to subscribe to changes: {e}"))
+                )
+            })?)
     }
 
     pub async fn create_with_persistence_and_sync(
@@ -436,6 +434,7 @@ impl ContextManager {
         let sync = if let Some(s) = sync { s } else {
             // Create default sync instance
             let sync_config = SyncConfig {
+                central_server_url: config.sync_server_url.clone().unwrap_or_else(|| "http://[::1]:50051".to_string()),
                 sync_interval: config.sync_interval.unwrap_or(60),
                 max_retries: config.max_retries.unwrap_or(3),
                 timeout_ms: config.timeout_ms.unwrap_or(5000),
@@ -453,50 +452,42 @@ impl ContextManager {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync,
+            sync: Some(sync),
         })
     }
 
-    async fn sync_with_network(&self) {
-        // Directly use self.sync since it's not an Option
-        info!("Starting network synchronization...");
-        if let Err(e) = self.sync.sync().await { // Call sync directly on self.sync (which is Arc<MCPSync>)
-            error!("Synchronization failed: {}", e);
+    /// Synchronize the context manager state with remote instances
+    ///
+    /// This initiates a synchronization cycle with the central sync server,
+    /// sending local changes and applying remote changes.
+    ///
+    /// # Errors
+    /// Returns an error if synchronization fails for any reason
+    pub async fn synchronize(&self) -> Result<()> {
+        if let Some(sync) = &self.sync {
+            if let Err(e) = sync.synchronize().await {
+                error!("Failed to synchronize state: {}", e);
+                return Err(MCPError::Sync(e.to_string()));
+            }
+        } else {
+            debug!("Sync is disabled, skipping synchronization");
         }
+        
+        Ok(())
     }
 
-    async fn start_sync_task(&self) {
-        // Directly use self.sync since it's not an Option
-        let receiver = match self.sync.subscribe_to_state_changes().await {
-            Ok(rx) => rx,
-            Err(e) => {
-                error!("Failed to subscribe to sync changes: {}", e);
-                return;
+    /// Update sync state when a context is updated
+    async fn update_sync_state(&self, context: &Context, operation: StateOperation) -> Result<()> {
+        if let Some(sync) = &self.sync {
+            if let Err(e) = sync.record_context_change(context, operation).await {
+                error!("Failed to update sync state: {}", e);
+                return Err(MCPError::Sync(e.to_string()));
             }
-        };
-        info!("Sync task started, listening for changes...");
-        // Placeholder loop - needs implementation to consume receiver
-        let mut receiver = receiver; // Make mutable to call recv()
-        tokio::spawn(async move {
-            loop {
-                match receiver.recv().await {
-                    Ok(change) => {
-                        info!("Received state change via sync subscription: {:?}", change);
-                        // TODO: Process the change if needed by ContextManager itself
-                    }
-                    Err(e) => {
-                        error!("Error receiving sync change: {:?}", e);
-                        // Handle specific errors like Lagged or Closed
-                        if matches!(e, tokio::sync::broadcast::error::RecvError::Closed) {
-                            warn!("Sync broadcast channel closed. Exiting listener task.");
-                            break;
-                        }
-                        // Add a small delay before retrying on other errors?
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                    }
-                }
-            }
-        });
+        } else {
+            debug!("Sync is disabled, skipping sync state update");
+        }
+        
+        Ok(())
     }
 }
 
@@ -544,11 +535,19 @@ impl Default for ContextManager {
     /// This function panics if it fails to create a Tokio runtime or
     /// if the `ContextManager` initialization in the async block fails.
     fn default() -> Self {
-        match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt.block_on(async { Self::new().await }),
-            Err(e) => {
-                panic!("Failed to create Tokio runtime for ContextManager: {e}");
-            }
+        let sync_config = SyncConfig::default();
+        let persistence = Arc::new(MCPPersistence::new(PersistenceConfig::default()));
+        
+        // Create a default monitor without async
+        let monitor = Arc::new(MCPMonitor::default());
+        let state_manager = Arc::new(StateSyncManager::new());
+        let sync = Arc::new(MCPSync::new(sync_config, persistence, monitor, state_manager));
+        
+        Self {
+            contexts: Arc::new(RwLock::new(HashMap::new())),
+            hierarchy: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
+            sync: Some(sync),
         }
     }
 }
@@ -591,7 +590,7 @@ mod tests {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync,
+            sync: Some(sync),
         };
 
         let context = Context {
@@ -641,7 +640,7 @@ mod tests {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync,
+            sync: Some(sync),
         };
 
         let parent_id = Uuid::new_v4();
@@ -689,7 +688,7 @@ mod tests {
             contexts: Arc::new(RwLock::new(HashMap::new())),
             hierarchy: Arc::new(RwLock::new(HashMap::new())),
             validations: Arc::new(RwLock::new(HashMap::new())),
-            sync,
+            sync: Some(sync),
         };
 
         // Register validation

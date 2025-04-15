@@ -4,7 +4,7 @@
 /// persistence, authentication, and session lifecycle operations.
 pub mod manager;
 
-use crate::error::{Result, MCPError};
+use crate::error::Result;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, Instant};
@@ -519,8 +519,10 @@ impl SessionManager {
             Ok(session) => Ok(session),
             Err(e) => {
                 // Check if this is a session timeout error
-                if let MCPError::Session(SessionError::Timeout(_)) = &e {
+                if let Some(err_string) = e.to_string().to_lowercase().find("expired") {
                     if self.config.auto_cleanup {
+                        // Instead of trying to access mcp_err.as_ref() 
+                        // Just log and handle the expired session
                         self.sessions.write().await.remove(session_token);
                         
                         // For auto cleanup, just remove the token

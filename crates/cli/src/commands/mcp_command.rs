@@ -7,6 +7,7 @@ use log::{debug, info};
 use serde_json::Value;
 use commands::{Command, CommandResult};
 use crate::commands::error::CommandError;
+use std::sync::Arc;
 
 /// MCP command implementation
 #[derive(Debug, Clone)]
@@ -24,6 +25,14 @@ impl McpCommand {
     /// Create a new MCP command
     pub fn new() -> Self {
         Self {}
+    }
+    
+    /// Register the command with the registry
+    pub fn register(registry: &mut commands::CommandRegistry) -> Result<(), crate::commands::error::CommandError> {
+        registry.register(
+            "mcp", 
+            Arc::new(Self::new())
+        ).map_err(|e| crate::commands::error::CommandError::RegistrationError(e.to_string()))
     }
     
     /// Parse a string into a serde_json::Value

@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info};
 use std::error::Error as StdError;
 
-use crate::monitoring::alerts::{Alert, AlertSeverity, AlertConfiguration, AlertState};
+use crate::monitoring::alerts::{Alert, AlertSeverity};
 use crate::resilience::recovery::{FailureInfo, FailureSeverity, RecoveryStrategy};
 use crate::error::{MCPError, Result};
 
@@ -82,7 +82,7 @@ impl AlertToRecoveryAdapter {
             Err(e) => {
                 let err_msg = format!("Failed to acquire lock on recovery strategy: {}", e);
                 error!("{}", err_msg);
-                return Err(MCPError::InvalidState(err_msg));
+                return Err(MCPError::InvalidState(err_msg).into());
             }
         };
         
@@ -103,7 +103,7 @@ impl AlertToRecoveryAdapter {
             Err(e) => {
                 let err_msg = format!("Recovery failed: {}", e);
                 error!("{}", err_msg);
-                Err(MCPError::InvalidState(err_msg))
+                Err(MCPError::InvalidState(err_msg).into())
             }
         }
     }
@@ -116,7 +116,7 @@ mod tests {
     use crate::resilience::recovery::{RecoveryStrategy, FailureSeverity, FailureInfo, RecoveryError};
     use chrono::Utc;
     use std::collections::HashMap;
-    use crate::monitoring::alerts::{AlertSeverity, AlertAction, AlertCondition};
+    use crate::monitoring::alerts::{AlertSeverity, AlertAction, AlertCondition, AlertConfiguration, AlertState};
     
     /// Mock recovery strategy for testing
     pub struct MockRecoveryStrategy {

@@ -12,7 +12,7 @@
 use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::protocol::MCPMessage;
-use crate::error::TransportError;
+use crate::error::{MCPError, TransportError};
 use serde_json;
 use tokio_util::codec::{Decoder, Encoder};
 
@@ -125,18 +125,16 @@ impl Encoder<Frame> for FrameEncoder {
                 "Frame too large: {} bytes (max is {} bytes)",
                 frame_len, MAX_FRAME_SIZE
             );
-            return Err(TransportError::InvalidFrame(error_msg).into());
+            return Err(MCPError::Transport(TransportError::FramingError(error_msg)));
         }
         
         // Write frame length header
         let header = u32::try_from(frame_len)
-            .map_err(|_| {
-                let error_msg = format!(
+            .map_err(|e| {
+                MCPError::Transport(TransportError::FramingError(format!(
                     "Frame size exceeds maximum representable u32 value: {} bytes",
                     frame_len
-                );
-                let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
-                transport_err
+                )))
             })?
             .to_be_bytes();
         
@@ -188,9 +186,9 @@ impl Decoder for FrameDecoder {
         
         // Check if the frame length is valid
         if frame_len > MAX_FRAME_SIZE {
-            return Err(TransportError::InvalidFrame(format!(
-                "Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)"
-            )).into());
+            return Err(MCPError::Transport(TransportError::FramingError(
+                format!("Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)").into()
+            )));
         }
         
         // Check if we have the complete frame data
@@ -273,18 +271,18 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
             if self.read_to_buffer().await? == 0 {
                 // EOF, incomplete frame
                 if !self.buffer.is_empty() {
-                    return Err(TransportError::InvalidFrame(
-                        format!("Incomplete frame at end of stream: received {} bytes", self.buffer.len())
-                    ).into());
+                    return Err(MCPError::Transport(
+                        format!("Incomplete frame at end of stream: received {} bytes", self.buffer.len()).into()
+                    ));
                 }
                 return Ok(None);
             }
             
             // Still not enough for header?
             if self.buffer.len() < HEADER_SIZE {
-                return Err(TransportError::InvalidFrame(
-                    format!("Incomplete frame header: only {} bytes available", self.buffer.len())
-                ).into());
+                return Err(MCPError::Transport(
+                    format!("Incomplete frame header: only {} bytes available", self.buffer.len()).into()
+                ));
             }
         }
         
@@ -311,9 +309,9 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
         
         // Check if the frame is too large
         if frame_len > MAX_FRAME_SIZE {
-            return Err(TransportError::InvalidFrame(format!(
-                "Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)"
-            )).into());
+            return Err(MCPError::Transport(TransportError::FramingError(
+                format!("Frame too large: {frame_len} bytes (max is {MAX_FRAME_SIZE} bytes)").into()
+            )));
         }
         
         // Check if we have the complete frame
@@ -347,8 +345,7 @@ impl<R: AsyncRead + Unpin> FrameReader<R> {
         // Read into the buffer
         let bytes_read = self.reader.read_buf(&mut self.buffer).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::ReadError(e.to_string()))
             })?;
         
         Ok(bytes_read)
@@ -407,40 +404,34 @@ impl<W: AsyncWrite + Unpin> FrameWriter<W> {
                 "Frame too large: {} bytes (max is {} bytes)",
                 frame.len(), MAX_FRAME_SIZE
             );
-            let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
-            return Err(transport_err);
+            return Err(MCPError::Transport(TransportError::FramingError(error_msg)));
         }
         
         // Write frame length header
         let header = u32::try_from(frame.len())
-            .map_err(|_| {
-                let error_msg = format!(
+            .map_err(|e| {
+                MCPError::Transport(TransportError::FramingError(format!(
                     "Frame size exceeds maximum representable u32 value: {} bytes",
                     frame.len()
-                );
-                let transport_err: crate::error::MCPError = TransportError::InvalidFrame(error_msg).into();
-                transport_err
+                )))
             })?
             .to_be_bytes();
             
         self.writer.write_all(&header).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::WriteError(e.to_string()))
             })?;
         
         // Write frame payload
         self.writer.write_all(&frame.payload).await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::WriteError(e.to_string()))
             })?;
         
         // Flush the writer
         self.writer.flush().await
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::IoError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::WriteError(e.to_string()))
             })?;
         
         Ok(())
@@ -489,8 +480,7 @@ impl MessageCodec {
         // Serialize the message to JSON
         let json = serde_json::to_vec(message)
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::SerializationError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::FramingError(e.to_string()))
             })?;
         
         // Create a frame
@@ -521,8 +511,7 @@ impl MessageCodec {
         // Deserialize the message from JSON
         let message = serde_json::from_slice(&frame.payload)
             .map_err(|e| {
-                let transport_err: crate::error::MCPError = TransportError::SerializationError(e.to_string()).into();
-                transport_err
+                MCPError::Transport(TransportError::FramingError(e.to_string()))
             })?;
         
         Ok(message)
@@ -531,7 +520,7 @@ impl MessageCodec {
 
 impl Decoder for MessageCodec {
     type Item = MCPMessage;
-    type Error = TransportError;
+    type Error = MCPError;
 
     fn decode(&mut self, src: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
         // Check if we have enough data to read the length
@@ -546,8 +535,8 @@ impl Decoder for MessageCodec {
 
         // Check for potentially malicious large frame size early
         if length > MAX_FRAME_SIZE {
-             return Err(TransportError::InvalidFrame(
-                format!("Frame size too large: {} > {}", length, MAX_FRAME_SIZE)
+             return Err(MCPError::Transport(
+                format!("Frame size too large: {} > {}", length, MAX_FRAME_SIZE).into()
             ));
         }
 
@@ -567,7 +556,7 @@ impl Decoder for MessageCodec {
         // Deserialize the message from the payload (assuming JSON)
         serde_json::from_slice::<MCPMessage>(&data)
             .map(Some)
-            .map_err(|e| TransportError::SerializationError(e.to_string()))
+            .map_err(|e| MCPError::Transport(TransportError::FramingError(e.to_string())))
     }
 
     fn decode_eof(&mut self, buf: &mut BytesMut) -> std::result::Result<Option<Self::Item>, Self::Error> {
@@ -578,7 +567,7 @@ impl Decoder for MessageCodec {
                     Ok(None)
                 } else {
                     // Data remains but not enough for a full frame, indicates an error
-                    Err(TransportError::InvalidFrame("Bytes remaining on stream at EOF".into()))
+                    Err(MCPError::Transport(TransportError::FramingError("Bytes remaining on stream at EOF".into())))
                 }
             }
         }
@@ -586,20 +575,20 @@ impl Decoder for MessageCodec {
 }
 
 impl Encoder<MCPMessage> for MessageCodec {
-    type Error = TransportError;
+    type Error = MCPError;
 
     fn encode(&mut self, item: MCPMessage, dst: &mut BytesMut) -> std::result::Result<(), Self::Error> {
         // Serialize the message (assuming JSON for now)
         let encoded = serde_json::to_vec(&item)
-            .map_err(|e| TransportError::SerializationError(e.to_string()))?;
+            .map_err(|e| MCPError::Transport(TransportError::FramingError(e.to_string())))?;
 
         let len = encoded.len();
 
         // Check if frame size exceeds limit before encoding
         if len > MAX_FRAME_SIZE {
-            return Err(TransportError::InvalidFrame(
-                format!("Message too large to encode: {} > {}", len, MAX_FRAME_SIZE)
-            ));
+            return Err(MCPError::Transport(TransportError::FramingError(
+                format!("Message too large to encode: {} > {}", len, MAX_FRAME_SIZE).into()
+            )));
         }
 
         // Write the length prefix (u32)

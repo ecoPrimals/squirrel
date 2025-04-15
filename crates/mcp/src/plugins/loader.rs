@@ -1,5 +1,6 @@
 use crate::plugins::interfaces::Plugin;
-use crate::error::{Result, PluginError};
+use crate::error::{Result};
+use crate::error::plugin::PluginError;
 use std::path::Path;
 use crate::plugins::types::PluginId;
 use async_trait::async_trait;

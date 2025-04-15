@@ -167,9 +167,9 @@ impl MessageRouter {
         
         // Check if handler supports any message types
         if message_types.is_empty() {
-            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ConfigurationError(
-                "Handler does not support any message types".to_string()
-            )));
+            return Err(crate::error::MCPError::MessageRouter(
+                MessageRouterError::ConfigurationError("Handler does not support any message types".to_string())
+            ).into());
         }
 
         // Acquire the lock once and modify
@@ -329,9 +329,9 @@ impl MessageRouter {
         }
         
         // If we're here, no handler actually handled the message
-        Err(crate::error::MCPError::MessageRouter(MessageRouterError::NoHandlerFound(
-            message_type_str
-        )))
+        Err(crate::error::MCPError::MessageRouter(
+            MessageRouterError::NoHandlerFound(format!("No handler found for message type: {}", message_type_str))
+        ).into())
     }
 
     /// Validate the message structure before routing
@@ -344,9 +344,9 @@ impl MessageRouter {
     async fn validate_message(&self, message: &Message) -> crate::error::Result<()> {
         // Check if ID is empty
         if message.id.is_empty() {
-            return Err(crate::error::MCPError::MessageRouter(MessageRouterError::ValidationFailed(
-                "Message ID cannot be empty".to_string(),
-            )));
+            return Err(crate::error::MCPError::MessageRouter(
+                MessageRouterError::ValidationFailed("Message ID cannot be empty".to_string())
+            ).into());
         }
         
         // More validations could be added here

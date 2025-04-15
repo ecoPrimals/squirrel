@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
     
     // Initialize
     println!("\nInitializing plugin...");
-    plugin.initialize().await.map_err(|e| MCPError::from_string(e.to_string()))?;
+    plugin.initialize().await.map_err(|e| MCPError::from(e.to_string()))?;
     
     // Update some resource states using our helper methods
     println!("\nUpdating resource states:");
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
     
     // Shutdown
     println!("\nShutting down plugin...");
-    plugin.shutdown().await.map_err(|e| MCPError::from_string(e.to_string()))?;
+    plugin.shutdown().await.map_err(|e| MCPError::from(e.to_string()))?;
     
     println!("\nResource state plugin example completed!");
     Ok(())

@@ -37,6 +37,7 @@ fn create_test_context() -> Context {
 /// Creates a default sync config for testing
 fn create_test_config() -> SyncConfig {
     SyncConfig {
+        central_server_url: "http://[::1]:50051".to_string(),
         sync_interval: 1,
         max_retries: 3,
         timeout_ms: 1000,

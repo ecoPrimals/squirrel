@@ -3,7 +3,6 @@
 //! This module provides an example implementation of a WebPlugin 
 //! to demonstrate how to build plugins for the Squirrel Web application.
 
-use std::collections::HashMap;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{json, Value};

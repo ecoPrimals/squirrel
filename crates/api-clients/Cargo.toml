@@ -1,0 +1,56 @@
+[package]
+name = "squirrel-api-clients"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+description = "API client integrations for the Squirrel system"
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.0", features = ["rt", "macros"] }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures = "0.3"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+url = "2.3"
+base64 = "0.21"
+nonzero_ext = "0.3"
+
+# Authentication
+oauth2 = "4.4"
+secrecy = "0.8"
+jsonwebtoken = "9.0"
+
+# Utilities
+tracing = "0.1"
+metrics = "0.21"
+bytes = "1.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Rate limiting
+governor = "0.6"
+
+# Squirrel crates
+squirrel-interfaces = { path = "../interfaces" }
+squirrel-core = { path = "../core" }
+
+# Additional dependencies
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockito = "1.2"
+wiremock = "0.5"
+test-context = "0.1"
+tracing-test = "0.2"
+
+[features]
+default = ["github"]
+github = []
+gitlab = []
+bitbucket = [] 

@@ -6,7 +6,6 @@
 // This module will contain state management functionality and utilities. 
 
 use std::sync::Arc;
-use sqlx::Pool;
 use crate::db::SqlitePool as DbPool;
 use crate::websocket::ConnectionManager as WebSocketManager;
 use crate::auth::AuthService;

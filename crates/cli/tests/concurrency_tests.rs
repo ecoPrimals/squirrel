@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 // Importing the necessary types from the CLI crate
 use squirrel_cli::command_adapter::{CommandAdapterTrait, RegistryAdapter};
 use commands::CommandRegistry;
-use squirrel_cli::commands::test_command::{TestCommand, SimpleTestCommand};
+use squirrel_cli::commands::test_command::SimpleTestCommand;
 
 /// Creates a test command with the given name, description, and result
 fn create_test_command(name: &str, description: &str, _result: &str) -> Arc<SimpleTestCommand> {
@@ -25,9 +25,8 @@ async fn create_test_registry() -> Arc<Mutex<CommandRegistry>> {
                 &format!("Test result {}", i),
             );
             
-            // Register the command
-            let name = command.name().to_string();
-            reg.register(&name, command).unwrap();
+            // Register the command with explicit name string
+            reg.register(&format!("test{}", i), command.clone()).unwrap();
         }
     }
     
@@ -87,8 +86,8 @@ async fn test_concurrent_registry_modifications() {
                 &format!("Concurrent result {}", i),
             );
             
-            // Register the command
-            reg.register(&cmd_name, command).unwrap();
+            // Register the command with explicit command name
+            reg.register(&cmd_name, command.clone()).unwrap();
             Ok::<_, String>(())
         }));
     }

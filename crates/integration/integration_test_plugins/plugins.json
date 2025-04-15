@@ -1,0 +1,75 @@
+{
+  "generated": "2025-04-02T18:25:01.088934928-04:00",
+  "plugins": [
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "standard"
+      ],
+      "description": "Mock plugin standard-plugin-0",
+      "id": "f987ce33-493d-43ad-a242-4944747918da",
+      "name": "standard-plugin-0",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "standard"
+      ],
+      "description": "Mock plugin standard-plugin-1",
+      "id": "9beb93b4-e2c4-4510-b94d-296d9a47a232",
+      "name": "standard-plugin-1",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "standard"
+      ],
+      "description": "Mock plugin standard-plugin-2",
+      "id": "f9116f78-7409-4870-9a96-91d419f05d62",
+      "name": "standard-plugin-2",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "memory-intensive"
+      ],
+      "description": "Mock plugin high-memory-plugin",
+      "id": "584218eb-16be-481e-8407-e3087cd90159",
+      "name": "high-memory-plugin",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "cpu-intensive"
+      ],
+      "description": "Mock plugin high-cpu-plugin",
+      "id": "4e435b4f-c964-48d2-8bd6-8c34d217ecd6",
+      "name": "high-cpu-plugin",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "balanced"
+      ],
+      "description": "Mock plugin balanced-plugin",
+      "id": "9fd38715-ce29-4514-b810-0ec2b9784b2d",
+      "name": "balanced-plugin",
+      "version": "1.0.0"
+    },
+    {
+      "author": "Testing Framework",
+      "capabilities": [
+        "unstable"
+      ],
+      "description": "Mock plugin failing-plugin",
+      "id": "38c9ddbc-66f3-45f4-a089-09825d184781",
+      "name": "failing-plugin",
+      "version": "1.0.0"
+    }
+  ]
+}

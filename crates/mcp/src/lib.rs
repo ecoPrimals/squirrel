@@ -73,6 +73,9 @@
 
 #![allow(dead_code)] // Temporarily allow dead code during migration
 
+// Include generated protobuf code
+pub mod generated;
+
 /// MCP context manager for maintaining state across interactions.
 ///
 /// The context manager provides mechanisms to create, retrieve, update,
@@ -147,6 +150,13 @@ pub mod persistence;
 /// This module provides utilities for safe concurrent access to shared
 /// resources within the MCP system.
 pub mod sync;
+
+/// Task management system for coordinating AI agent work.
+///
+/// This module provides a comprehensive system for creating, assigning,
+/// tracking, and completing tasks across different AI agents and components.
+/// It enables complex workflows with task dependencies and progress tracking.
+pub mod task;
 
 /// Common types used throughout the MCP system.
 ///
@@ -298,6 +308,18 @@ pub mod message;
 /// Message router and handler functionality
 pub mod message_router;
 
+/// Chat history integration for MCP
+/// 
+/// This module provides functionality for storing, synchronizing, and
+/// managing chat history through the Machine Context Protocol.
+/// 
+/// Key features:
+/// * Chat message representation with serialization support
+/// * Chat history synchronization between components
+/// * Context-aware history retrieval
+/// * Real-time chat updates
+pub mod chat_history;
+
 /// Frame handling for the MCP protocol.
 ///
 /// Example of using Frame for the MCP protocol:
@@ -314,6 +336,9 @@ pub mod message_router;
 /// let payload = frame.payload();
 /// assert_eq!(payload.len(), b"Hello, MCP!".len());
 /// ```
+///
+/// Internal implementation details
+#[doc(hidden)]
 pub mod frame;
 
 /// Client API for the MCP protocol
@@ -496,3 +521,6 @@ pub use crate::config::McpConfig as CoreAdapterConfig;
 
 // Only export core types once - these were previously duplicated
 pub use types::{MCPResponse, ResponseStatus}; // Re-export core types
+
+/// Observability framework for monitoring, tracing, and logging
+pub mod observability;

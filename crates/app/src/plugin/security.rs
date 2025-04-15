@@ -4,12 +4,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 use crate::error::Result;
-use super::resource_monitor::{ResourceMonitor, ResourceLimits as ResourceMonitorLimits, ResourceUsage as ResourceMonitorUsage};
+use super::resource_monitor::{ResourceMonitor, ResourceUsage as ResourceMonitorUsage};
 use super::sandbox::{PluginSandbox, BasicPluginSandbox};
 
 /// Plugin permission level

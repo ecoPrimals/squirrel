@@ -8,14 +8,12 @@ pub mod adapter;
 pub mod example;
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::plugins::example::ExamplePlugin;
 
@@ -337,7 +335,7 @@ impl WebPluginRegistry {
         let mut result = Vec::new();
         
         for (plugin_id, plugin_endpoints) in endpoints.iter() {
-            for (path, endpoint) in plugin_endpoints {
+            for (_path, endpoint) in plugin_endpoints {
                 result.push((plugin_id.clone(), endpoint.clone()));
             }
         }

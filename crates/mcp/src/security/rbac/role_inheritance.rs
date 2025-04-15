@@ -9,7 +9,7 @@ use tokio::sync::RwLock;
 use chrono::{DateTime, Utc, Timelike};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{MCPError, Result, SecurityError};
+use crate::error::{MCPError, Result};
 use super::unified::PermissionDefinition;
 
 /// Represents a role in the RBAC system
@@ -150,9 +150,9 @@ impl InheritanceGraph {
         
         // Check for cycles
         if self.would_create_cycle(parent_id, child_id) {
-            return Err(MCPError::Security(SecurityError::RBACError(
-                format!("Adding inheritance from {parent_id} to {child_id} would create a cycle")
-            )));
+            return Err(MCPError::Security(
+                format!("Adding inheritance from {parent_id} to {child_id} would create a cycle").into()
+            ).into());
         }
         
         // Add parent-child relationship

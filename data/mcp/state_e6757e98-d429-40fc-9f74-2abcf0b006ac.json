@@ -1,0 +1,273 @@
+{
+  "contexts": [],
+  "changes": [
+    {
+      "id": "8b4ddd44-7950-4a90-9fe1-055f21b6d67d",
+      "context_id": "12ae1780-a978-4ed0-a04a-034a658333f2",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.980829994Z",
+        "data": {
+          "key1": "value1",
+          "list": [
+            1,
+            2,
+            3
+          ]
+        },
+        "expires_at": null,
+        "id": "12ae1780-a978-4ed0-a04a-034a658333f2",
+        "metadata": {
+          "source": "pytest"
+        },
+        "name": "my_test_context",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.980830179Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.980840937Z",
+      "version": 1
+    },
+    {
+      "id": "304bada8-6a92-4351-a48f-0542c39199c1",
+      "context_id": "12ae1780-a978-4ed0-a04a-034a658333f2",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.980829994Z",
+        "data": {
+          "key1": "value1",
+          "list": [
+            1,
+            2,
+            3
+          ]
+        },
+        "expires_at": null,
+        "id": "12ae1780-a978-4ed0-a04a-034a658333f2",
+        "metadata": {
+          "source": "pytest"
+        },
+        "name": "my_test_context",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.980830179Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.981183661Z",
+      "version": 2
+    },
+    {
+      "id": "84846fc2-9ef7-40db-bb71-a08e1e150ca0",
+      "context_id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.982724635Z",
+        "data": {
+          "a": 1
+        },
+        "expires_at": null,
+        "id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+        "metadata": null,
+        "name": "updatable_context",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.982724831Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.982731122Z",
+      "version": 3
+    },
+    {
+      "id": "3dbaeec1-1a4c-43a5-a75a-eb3a85d4238e",
+      "context_id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+      "operation": "Update",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.982724635Z",
+        "data": {
+          "a": 2,
+          "b": "new"
+        },
+        "expires_at": null,
+        "id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+        "metadata": {
+          "updated_by": "test"
+        },
+        "name": "updatable_context",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.982843419Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.982851897Z",
+      "version": 4
+    },
+    {
+      "id": "a7dd4ac5-e8d1-402f-ac69-c8e69d824abe",
+      "context_id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.982724635Z",
+        "data": {
+          "a": 2,
+          "b": "new"
+        },
+        "expires_at": null,
+        "id": "42f01b6e-f767-42ac-b59e-0b9b7d4a98ca",
+        "metadata": {
+          "updated_by": "test"
+        },
+        "name": "updatable_context",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.982843419Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.983048647Z",
+      "version": 5
+    },
+    {
+      "id": "40ca2a63-aaa2-4d63-b86b-eefef5b32dc5",
+      "context_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984415011Z",
+        "data": {
+          "info": "I am parent"
+        },
+        "expires_at": null,
+        "id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "metadata": null,
+        "name": "parent_ctx",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.984415113Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.984421926Z",
+      "version": 6
+    },
+    {
+      "id": "3f14204e-5f53-457f-9a4b-1ae8ca0bd8bf",
+      "context_id": "439a6ac6-1e78-4f81-99c2-273505961222",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984575603Z",
+        "data": {
+          "parent": "51aa1c1b-126b-49ca-8c95-2147bf46839d"
+        },
+        "expires_at": null,
+        "id": "439a6ac6-1e78-4f81-99c2-273505961222",
+        "metadata": null,
+        "name": "child1",
+        "parent_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "updated_at": "2025-04-11T20:39:46.984575725Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.984584007Z",
+      "version": 7
+    },
+    {
+      "id": "9d8b4f63-665d-44f9-a1a9-03a9d73849a2",
+      "context_id": "ff1e2c7e-2d83-4ed4-b1df-57ae9032d1f4",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984729895Z",
+        "data": {
+          "extra": 1,
+          "parent": "51aa1c1b-126b-49ca-8c95-2147bf46839d"
+        },
+        "expires_at": null,
+        "id": "ff1e2c7e-2d83-4ed4-b1df-57ae9032d1f4",
+        "metadata": null,
+        "name": "child2",
+        "parent_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "updated_at": "2025-04-11T20:39:46.984730047Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.984735514Z",
+      "version": 8
+    },
+    {
+      "id": "a7f1ded9-c98a-445d-aac6-2321f5122365",
+      "context_id": "01578af7-a384-4742-a195-e68fe54d52e8",
+      "operation": "Create",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984828620Z",
+        "data": {},
+        "expires_at": null,
+        "id": "01578af7-a384-4742-a195-e68fe54d52e8",
+        "metadata": null,
+        "name": "unrelated",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.984828726Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.984833626Z",
+      "version": 9
+    },
+    {
+      "id": "fbe337df-7bc2-4ca2-b99f-28bed3482ec6",
+      "context_id": "439a6ac6-1e78-4f81-99c2-273505961222",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984575603Z",
+        "data": {
+          "parent": "51aa1c1b-126b-49ca-8c95-2147bf46839d"
+        },
+        "expires_at": null,
+        "id": "439a6ac6-1e78-4f81-99c2-273505961222",
+        "metadata": null,
+        "name": "child1",
+        "parent_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "updated_at": "2025-04-11T20:39:46.984575725Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.985457445Z",
+      "version": 10
+    },
+    {
+      "id": "84bdafe8-accf-42c4-bba1-f333a22885be",
+      "context_id": "ff1e2c7e-2d83-4ed4-b1df-57ae9032d1f4",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984729895Z",
+        "data": {
+          "extra": 1,
+          "parent": "51aa1c1b-126b-49ca-8c95-2147bf46839d"
+        },
+        "expires_at": null,
+        "id": "ff1e2c7e-2d83-4ed4-b1df-57ae9032d1f4",
+        "metadata": null,
+        "name": "child2",
+        "parent_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "updated_at": "2025-04-11T20:39:46.984730047Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.985558314Z",
+      "version": 11
+    },
+    {
+      "id": "72326244-cf64-4adf-8a31-768f262828ed",
+      "context_id": "01578af7-a384-4742-a195-e68fe54d52e8",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984828620Z",
+        "data": {},
+        "expires_at": null,
+        "id": "01578af7-a384-4742-a195-e68fe54d52e8",
+        "metadata": null,
+        "name": "unrelated",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.984828726Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.985649216Z",
+      "version": 12
+    },
+    {
+      "id": "52ce0195-7e35-4182-84dc-e1e1a4ae45b4",
+      "context_id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+      "operation": "Delete",
+      "data": {
+        "created_at": "2025-04-11T20:39:46.984415011Z",
+        "data": {
+          "info": "I am parent"
+        },
+        "expires_at": null,
+        "id": "51aa1c1b-126b-49ca-8c95-2147bf46839d",
+        "metadata": null,
+        "name": "parent_ctx",
+        "parent_id": null,
+        "updated_at": "2025-04-11T20:39:46.984415113Z"
+      },
+      "timestamp": "2025-04-11T20:39:46.985738057Z",
+      "version": 13
+    }
+  ],
+  "last_version": 1,
+  "last_sync": "2025-04-11T20:39:46.987512835Z",
+  "id": "e6757e98-d429-40fc-9f74-2abcf0b006ac"
+}

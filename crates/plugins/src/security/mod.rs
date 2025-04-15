@@ -373,6 +373,20 @@ pub struct SecurityManagerAdapter {
 }
 
 #[cfg(feature = "mcp")]
+impl std::fmt::Debug for SecurityManagerAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecurityManagerAdapter")
+            .field("inner", &"<Arc<dyn MCPSecurityManager>>")
+            .field("permissions", &self.permissions)
+            .field("sandbox_configs", &self.sandbox_configs)
+            .field("resource_usage", &self.resource_usage)
+            .field("resource_monitor", &self.resource_monitor)
+            .field("signature_verifier", &self.signature_verifier)
+            .finish()
+    }
+}
+
+#[cfg(feature = "mcp")]
 impl SecurityManagerAdapter {
     /// Create a new security manager adapter with the provided MCP security manager
     pub fn new(mcp_security_manager: Arc<dyn MCPSecurityManager>) -> Self {
@@ -404,7 +418,7 @@ impl SecurityManagerAdapter {
         
         // Import the SecurityManagerImpl type just for this function
         #[cfg(feature = "mcp")]
-        use squirrel_mcp::security::SecurityManagerImpl;
+        use squirrel_mcp::security::manager::SecurityManagerImpl;
         
         // Create the MCP security manager with these components
         let inner = Arc::new(SecurityManagerImpl::new(
@@ -1176,8 +1190,8 @@ impl SecurityManager for DefaultSecurityManager {
     }
 }
 
-/// Create a security manager adapter with the provided MCP security manager
+/// Create a security manager adapter with an MCP security manager
 #[cfg(feature = "mcp")]
-pub fn with_mcp_security_manager(mcp_security_manager: Arc<dyn SecurityManager>) -> SecurityManagerAdapter {
+pub fn with_mcp_security_manager(mcp_security_manager: Arc<dyn MCPSecurityManager>) -> SecurityManagerAdapter {
     SecurityManagerAdapter::new(mcp_security_manager)
 } 

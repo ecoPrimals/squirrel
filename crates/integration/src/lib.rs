@@ -1,56 +1,24 @@
-//! Squirrel Integration Library
+//! # Integration Framework
+//! 
+//! This crate provides integration between Squirrel and various external services.
 //!
-//! This crate provides integration between various Squirrel components.
+//! It handles API integrations, data synchronization, and protocol adapters
+//! for communicating with external systems.
 
 #![warn(missing_docs)]
 #![warn(clippy::missing_docs_in_private_items)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 
-pub mod error;
-pub mod types;
-
-// Context-MCP integration
-pub mod context_mcp;
-
-// AI agent integration
+// Main modules
 pub mod ai_agent;
-
-// MCP AI tools integration
+pub mod context_mcp;
 pub mod mcp_ai_tools;
+pub mod error;
 
-// Re-export from the context_mcp module
-pub use context_mcp::{
-    ContextMcpAdapter, ContextMcpAdapterConfig, ContextMcpError, 
-    find_contexts_by_tags, CircuitBreaker,
-    // Enhancement types
-    ContextEnhancementType, ContextEnhancementOptions, ContextAiEnhancementOptions,
-    apply_ai_enhancement,
-    // Sync types
-    SyncOptions, SyncResult, SyncStatus,
-    // V2 trait with improved thread safety
-    types::ContextManagerV2, types::ContextManagerCallbacks, types::ContextManagerWrapper,
-};
-
-// Re-export from the ai_agent module
-pub use ai_agent::{
-    AIAgentConfig, AIAgentAdapter,
-    create_ai_agent_adapter, create_ai_agent_adapter_with_config,
-    create_ai_agent_adapter_with_client_v2,
-    // V2 trait with improved thread safety
-    types::AIClientV2, types::AIClientCallbacks, types::AIClientWrapper,
-};
-
-// Re-export from the mcp_ai_tools module
-pub use mcp_ai_tools::{
-    McpAiToolsAdapter,
-    McpAiToolsConfig,
-    adapter::ToolHandler,
-    adapter::ToolHandlerV2,
-    adapter::ToolCallbacks,
-    McpAiToolsAdapterError,
-    create_mcp_ai_tools_adapter, create_mcp_ai_tools_adapter_with_config,
-    AiMessageType, AiToolInvocation, AiToolResponse, AiToolResponseStatus,
-};
+// Re-export key types for the V2 traits
+pub use ai_agent::types::{AIClientV2, AIClientCallbacks, AIClientWrapper};
+pub use context_mcp::types::{ContextManagerV2, ContextManagerCallbacks, ContextManagerWrapper, ContextManager, SquirrelContext};
+pub use mcp_ai_tools::adapter::ToolHandler;
 
 // Skip these tests for now
 #[cfg(test)]

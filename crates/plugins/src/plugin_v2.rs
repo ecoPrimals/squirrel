@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::plugin::{Plugin, WebEndpoint, PluginMetadata};
 
 /// Callbacks for PluginV2
-#[derive(Clone)]
+#[derive(Default)]
 pub struct PluginCallbacks {
     /// Log a message
     pub log: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
@@ -120,10 +120,18 @@ mod tests {
     use super::*;
     
     // A simple example implementation of the PluginV2 trait
-    #[derive(Debug)]
     struct ExamplePluginV2 {
         metadata: PluginMetadata,
         log: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
+    }
+    
+    impl std::fmt::Debug for ExamplePluginV2 {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("ExamplePluginV2")
+                .field("metadata", &self.metadata)
+                .field("log", &if self.log.is_some() { "Some(log_fn)" } else { "None" })
+                .finish()
+        }
     }
     
     impl ExamplePluginV2 {
@@ -192,22 +200,5 @@ mod tests {
         // Test methods
         assert!(plugin.initialize().await.is_ok());
         assert!(plugin.shutdown().await.is_ok());
-    }
-}
-
-/// Default implementation for PluginCallbacks
-impl Default for PluginCallbacks {
-    fn default() -> Self {
-        Self {
-            log: None,
-            get_plugin: None,
-            get_plugin_by_name: None,
-            list_plugins: None,
-            get_config: None,
-            set_config: None,
-            persist_state: None,
-            load_state: None,
-            check_permission: None,
-        }
     }
 } 

@@ -1,4 +1,133 @@
-# Integration Specifications
+# Squirrel System Integrations
+
+This directory contains documentation and implementation details for integrations between various subsystems of the Squirrel project. These integrations demonstrate how different components communicate and work together to form a cohesive system.
+
+## Overview
+
+System integrations in Squirrel follow a consistent pattern, typically using adapters to bridge between different subsystems. This approach allows each subsystem to maintain its own internal structure and concerns while providing clear integration points.
+
+## Key Integration Patterns
+
+1. **Adapter Pattern**: Used extensively to convert between subsystem interfaces
+2. **Observer Pattern**: For event-based communication between components
+3. **Facade Pattern**: To simplify complex subsystem interactions
+4. **Command Pattern**: For encapsulating requests between subsystems
+
+## Completed Integrations
+
+All planned integrations for the current development phase have been implemented:
+
+### Core Integrations
+- **MCP-Monitoring Integration**: Bidirectional communication between MCP core and monitoring
+- **Core-Monitoring Integration**: Connecting core components to monitoring
+- **Dashboard-Monitoring Integration**: Connecting dashboard UI to monitoring data
+
+### Framework Integrations
+- **Resilience Framework Integration**: Patterns for fault tolerance across components
+- **CLI-Monitoring Integration**: Command-line interface for monitoring system
+- **External Tracing Integration**: Connection to external observability platforms
+
+## Implementation Status
+
+Current status of all integrations can be found in the [PROGRESS_UPDATE.md](./PROGRESS_UPDATE.md) file.
+
+## Design Documents
+
+Each integration has a corresponding design document that outlines:
+- Purpose and scope
+- Component interaction diagrams
+- Interface definitions
+- Data flow
+- Error handling
+- Configuration options
+
+## Testing
+
+Integration tests are available for each implemented integration:
+
+```bash
+# Run all integration tests
+cargo test -p squirrel-mcp -- integration
+
+# Run specific integration tests
+cargo test -p squirrel-cli -- commands::tests::monitoring_command_test
+cargo test -p squirrel-mcp -- observability::tests::external_tracing_test
+```
+
+A verification script is available to check integration implementations and run tests:
+
+```bash
+# Run verification script
+./scripts/verify_integration.sh
+```
+
+## Example Usage
+
+### CLI-Monitoring Integration
+
+The CLI monitoring integration provides commands for interacting with the monitoring system:
+
+```bash
+# View health status of all components
+squirrel monitoring health
+
+# Filter health by component ID
+squirrel monitoring health --component core-component-1
+
+# View metrics with JSON output
+squirrel monitoring metrics --format json
+
+# View only critical alerts
+squirrel monitoring alerts --severity critical
+```
+
+### External Tracing Integration
+
+The External Tracing integration can be configured to export spans to OpenTelemetry, Jaeger, or Zipkin:
+
+```rust
+// Create a configuration for OpenTelemetry export
+let config = ExternalTracingConfig {
+    endpoint_url: "http://localhost:4317".to_string(),
+    service_name: "squirrel-service".to_string(),
+    environment: "production".to_string(),
+    ..Default::default()
+};
+
+// Create an OpenTelemetry exporter
+let exporter = Arc::new(OpenTelemetryExporter::new(config));
+
+// Initialize the external tracer
+let tracer = ExternalTracer::with_exporter(exporter);
+
+// Start a span
+let span_id = tracer.start_span("operation_name", Some("component_id"), None);
+
+// Add events or attributes to the span
+tracer.add_span_event(span_id, SpanEvent { /* ... */ });
+
+// End the span
+tracer.end_span(span_id, SpanStatus::Ok);
+
+// Export spans to the OpenTelemetry collector
+tracer.export_spans().await?;
+```
+
+## Contribution Guidelines
+
+When implementing or modifying integrations:
+
+1. Follow the established patterns for consistency
+2. Add comprehensive tests for new integrations
+3. Update the progress document with your changes
+4. Include example usage in the integration documentation
+5. Ensure error handling is consistent across integration points
+
+## Future Integrations
+
+See the [PROGRESS_UPDATE.md](./PROGRESS_UPDATE.md) file for upcoming integration work.
+
+## Integration Specifications
 
 This directory contains specifications for the integration between various components of the Squirrel system. These specifications define the interaction patterns, data exchange formats, and APIs used for component integration.
 

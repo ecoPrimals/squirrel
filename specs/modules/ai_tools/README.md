@@ -73,16 +73,43 @@ pub struct ModelCapabilities {
 ### OpenAI Integration
 ```rust
 pub struct OpenAIClient {
+    api_key: Secret<String>,
     client: Client,
-    config: OpenAIConfig,
-    metrics: Arc<Metrics>,
+    base_url: String,
 }
 
-impl OpenAIClient {
-    pub async fn new(config: OpenAIConfig) -> Result<Self>;
-    pub async fn process_code(&self, code: &str) -> Result<CodeAnalysis>;
-    pub async fn generate_suggestions(&self, context: &Context) -> Result<Vec<Suggestion>>;
+#[async_trait::async_trait]
+impl AIClient for OpenAIClient {
+    fn provider_name(&self) -> &str;
+    fn default_model(&self) -> &str;
+    async fn list_models(&self) -> Result<Vec<String>>;
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse>;
+    async fn chat_stream(&self, request: ChatRequest) -> Result<ChatResponseStream>;
 }
+
+// Model Support
+pub trait OpenAIModel {
+    fn id(&self) -> &str;
+    fn name(&self) -> &str;
+    fn context_window(&self) -> usize;
+    fn cost_per_1k_input_tokens(&self) -> f64;
+    fn cost_per_1k_output_tokens(&self) -> f64;
+}
+
+// Available Models
+- GPT-4 (8K context)
+- GPT-4 Turbo (128K context)
+- GPT-4 Vision (128K context)
+- GPT-3.5 Turbo (4K context)
+- GPT-3.5 Turbo 16K (16K context)
+
+// Features
+- Streaming support
+- Tool/function calling
+- JSON mode
+- Error handling with proper context
+- Rate limiting support
+- Automatic retries
 ```
 
 ### Resource Management

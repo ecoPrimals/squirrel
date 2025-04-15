@@ -5,7 +5,6 @@ use clap::Parser;
 use std::path::PathBuf;
 use tracing::{info, error};
 use squirrel_interfaces::plugins::PluginRegistry;
-use crate::plugins::PluginManager;
 // Fix imports for TUI
 #[cfg(feature = "tui")]
 use dashboard_core::config::DashboardConfig;

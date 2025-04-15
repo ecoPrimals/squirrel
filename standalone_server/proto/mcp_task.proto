@@ -1,0 +1,219 @@
+syntax = "proto3";
+
+package mcp.task;
+
+import "google/protobuf/timestamp.proto";
+
+// Service definition for task management
+service TaskService {
+  // Registers a task with the system
+  rpc CreateTask (CreateTaskRequest) returns (CreateTaskResponse);
+  
+  // Updates the status of a task
+  rpc UpdateTask (UpdateTaskRequest) returns (UpdateTaskResponse);
+  
+  // Gets a task by ID
+  rpc GetTask (GetTaskRequest) returns (GetTaskResponse);
+  
+  // Lists tasks matching filter criteria
+  rpc ListTasks (ListTasksRequest) returns (ListTasksResponse);
+  
+  // Assigns a task to an agent
+  rpc AssignTask (AssignTaskRequest) returns (AssignTaskResponse);
+  
+  // Reports progress on a task
+  rpc ReportProgress (ReportProgressRequest) returns (ReportProgressResponse);
+  
+  // Completes a task with results
+  rpc CompleteTask (CompleteTaskRequest) returns (CompleteTaskResponse);
+  
+  // Cancels a task
+  rpc CancelTask (CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+// Task status enumeration
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  CREATED = 1;          // Task created but not assigned
+  ASSIGNED = 2;         // Task assigned to an agent
+  RUNNING = 3;          // Task is currently being processed
+  COMPLETED = 4;        // Task completed successfully
+  FAILED = 5;           // Task failed to complete
+  CANCELLED = 6;        // Task was cancelled
+  PENDING = 7;          // Task is waiting for prerequisites
+}
+
+// Task priority enumeration
+enum TaskPriority {
+  TASK_PRIORITY_UNSPECIFIED = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+  CRITICAL = 4;
+}
+
+// Agent type enumeration
+enum AgentType {
+  AGENT_TYPE_UNSPECIFIED = 0;
+  LOCAL_PYTHON = 1;     // Local Python process
+  REMOTE_API = 2;       // Remote API service
+  UI = 3;               // UI component
+  SYSTEM = 4;           // System agent
+  CUSTOM = 5;           // Custom agent type
+}
+
+// Task definition
+message Task {
+  string id = 1;                        // Unique task identifier
+  string name = 2;                      // Human-readable name
+  string description = 3;               // Task description
+  TaskStatus status = 4;                // Current status
+  TaskPriority priority = 5;            // Task priority
+  
+  // Timestamps
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+  
+  // Agent information
+  string agent_id = 10;                 // ID of assigned agent
+  AgentType agent_type = 11;            // Type of assigned agent
+  
+  // Task data
+  bytes input_data = 12;                // Input data for the task (JSON)
+  bytes output_data = 13;               // Output data from the task (JSON)
+  bytes metadata = 14;                  // Metadata about the task (JSON)
+  
+  // Error information
+  string error_message = 15;            // Error message if failed
+  
+  // Dependencies
+  repeated string prerequisite_task_ids = 16;  // Tasks that must complete before this one
+  repeated string dependent_task_ids = 17;     // Tasks that depend on this one
+  
+  // Progress tracking
+  int32 progress_percent = 18;          // 0-100 percent complete
+  string progress_message = 19;         // Human-readable progress message
+  
+  // Context association
+  string context_id = 20;               // Associated context ID
+}
+
+// Create task request
+message CreateTaskRequest {
+  string name = 1;
+  string description = 2;
+  TaskPriority priority = 3;
+  bytes input_data = 4;                 // JSON data
+  bytes metadata = 5;                   // JSON metadata
+  repeated string prerequisite_task_ids = 6;
+  string context_id = 7;                // Associated context ID
+  string agent_id = 8;                  // Optional pre-assignment
+  AgentType agent_type = 9;             // Optional agent type
+}
+
+// Create task response
+message CreateTaskResponse {
+  string task_id = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+// Update task request
+message UpdateTaskRequest {
+  string task_id = 1;
+  string name = 2;
+  string description = 3;
+  TaskPriority priority = 4;
+  bytes input_data = 5;
+  bytes metadata = 6;
+}
+
+// Update task response
+message UpdateTaskResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// Get task request
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+// Get task response
+message GetTaskResponse {
+  Task task = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+// List tasks request
+message ListTasksRequest {
+  TaskStatus status = 1;                // Filter by status
+  string agent_id = 2;                  // Filter by agent ID
+  AgentType agent_type = 3;             // Filter by agent type
+  string context_id = 4;                // Filter by context ID
+  int32 limit = 5;                      // Max results to return
+  int32 offset = 6;                     // Pagination offset
+}
+
+// List tasks response
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int32 total_count = 2;
+  bool success = 3;
+  string error_message = 4;
+}
+
+// Assign task request
+message AssignTaskRequest {
+  string task_id = 1;
+  string agent_id = 2;
+  AgentType agent_type = 3;
+}
+
+// Assign task response
+message AssignTaskResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// Report progress request
+message ReportProgressRequest {
+  string task_id = 1;
+  int32 progress_percent = 2;
+  string progress_message = 3;
+  bytes interim_results = 4;            // Optional interim results (JSON)
+}
+
+// Report progress response
+message ReportProgressResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// Complete task request
+message CompleteTaskRequest {
+  string task_id = 1;
+  bytes output_data = 2;                // Output data (JSON)
+  bytes metadata = 3;                   // Updated metadata (JSON)
+}
+
+// Complete task response
+message CompleteTaskResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// Cancel task request
+message CancelTaskRequest {
+  string task_id = 1;
+  string reason = 2;
+}
+
+// Cancel task response
+message CancelTaskResponse {
+  bool success = 1;
+  string error_message = 2;
+} 

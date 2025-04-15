@@ -7,10 +7,14 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use crate::handlers::commands::service::LocalCommandService;
 
 use crate::{
     api::{
-        commands::models::{CommandStatus, CreateCommandRequest, CreateCommandResponse},
+        commands::{
+            models::{CommandStatus, CreateCommandRequest, CreateCommandResponse},
+            service::CommandService,
+        },
         ApiResponse,
         api_success,
     },
@@ -62,16 +66,10 @@ async fn create_command(
 ) -> Result<Json<ApiResponse<CreateCommandResponse>>, AppError> {
     let command_service = state.get_command_service();
     
-    // Map the legacy-style request to the new API style
-    let request = crate::api::commands::models::CreateCommandRequest {
-        command: payload.command,
-        parameters: payload.parameters,
-    };
-    
-    // Call the execute_command method from the real service
-    let response = command_service.execute_command(request, &user.sub).await
-        .map_err(|e| AppError::Internal(format!("Command execution failed: {}", e)))?;
-    
+    let response = command_service
+        .execute_command(payload, &user.sub)
+        .await?;
+
     Ok(api_success(response))
 }
 
@@ -138,12 +136,15 @@ async fn get_command_status(
 
 /// Cancel command execution
 async fn cancel_command(
-    State(_state): State<Arc<AppState>>,
-    Extension(_user): Extension<AuthClaims>,
-    Path(_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+    Extension(user): Extension<AuthClaims>,
+    Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    // Note: The real CommandService doesn't have a cancel_command method yet
-    // For now, we'll just return success
+    let command_service = state.get_command_service();
+
+    // Call the cancel_command method from the API service
+    command_service.cancel_command(&id, &user.sub).await?;
+
     Ok(api_success(()))
 }
 

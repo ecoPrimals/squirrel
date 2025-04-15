@@ -142,7 +142,7 @@ impl WireProtocolVersion {
             "1.0" => Ok(Self::V1_0),
             "0.9" => Ok(Self::V0_9),
             "latest" => Ok(Self::Latest),
-            _ => Err(MCPError::from(WireFormatError::UnsupportedVersion(version.to_string()))),
+            _ => Err(MCPError::from(WireFormatError::UnsupportedVersion(version.to_string())).into()),
         }
     }
 }
@@ -218,7 +218,9 @@ impl WireMessage {
     /// Create a wire message from a JSON value
     pub fn from_json(version: WireProtocolVersion, value: Value) -> crate::error::Result<Self> {
         let data = serde_json::to_vec(&value)
-            .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::from(WireFormatError::Serialization(e.to_string()))
+            })?;
 
         Ok(Self::new(version, data, WireFormat::Json))
     }
@@ -328,7 +330,9 @@ impl WireFormatAdapter {
                 
                 if !message.metadata.is_empty() {
                     let metadata = serde_json::to_value(&message.metadata)
-                        .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
+                        .map_err(|e| -> crate::error::MCPError {
+                            MCPError::from(WireFormatError::Serialization(e.to_string()))
+                        })?;
                     json_obj.insert("metadata".to_string(), metadata);
                 }
                 
@@ -347,7 +351,9 @@ impl WireFormatAdapter {
                 
                 // Serialize to bytes
                 let data = serde_json::to_vec(&transformed)
-                    .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Serialization(e.to_string()))
+                    })?;
                 
                 Ok(WireMessage::new(version, data, WireFormat::Json))
             },
@@ -364,7 +370,9 @@ impl WireFormatAdapter {
                 
                 let json = serde_json::Value::Object(json_obj);
                 let data = serde_json::to_vec(&json)
-                    .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Serialization(e.to_string()))
+                    })?;
                 
                 Ok(WireMessage::new(self.config.default_version, data, WireFormat::Binary))
             },
@@ -379,7 +387,9 @@ impl WireFormatAdapter {
                 
                 let json = serde_json::Value::Object(json_obj);
                 let data = serde_json::to_vec(&json)
-                    .map_err(|e| MCPError::from(WireFormatError::Serialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Serialization(e.to_string()))
+                    })?;
                 
                 Ok(WireMessage::new(self.config.default_version, data, WireFormat::Cbor))
             },
@@ -395,7 +405,9 @@ impl WireFormatAdapter {
             WireFormat::Json => {
                 // Parse the JSON data
                 let json: Value = serde_json::from_slice(&wire_message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                    })?;
                 
                 // Apply version-specific transformations to convert to latest format
                 let transformed = self.apply_version_transform(json, source_version, WireProtocolVersion::Latest).await?;
@@ -463,13 +475,15 @@ impl WireFormatAdapter {
                     Err(MCPError::from(WireFormatError::InvalidFieldValue(
                         "root".to_string(),
                         "Expected JSON object".to_string(),
-                    )))
+                    )).into())
                 }
             },
             WireFormat::Binary | WireFormat::Cbor => {
                 // Simplified implementation for now
                 let json: Value = serde_json::from_slice(&wire_message.data)
-                    .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+                    .map_err(|e| -> crate::error::MCPError {
+                        MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                    })?;
                 
                 if let Some(obj) = json.as_object() {
                     let id = Self::extract_string_or_default(obj, "id", || Uuid::new_v4().to_string());
@@ -499,7 +513,7 @@ impl WireFormatAdapter {
                     Err(MCPError::from(WireFormatError::InvalidFieldValue(
                         "root".to_string(),
                         "Expected JSON object".to_string(),
-                    )))
+                    )).into())
                 }
             },
         }
@@ -524,7 +538,7 @@ impl WireFormatAdapter {
         
         if let Some(version_map) = mappings.get(&from_key) {
             if let Some(mapper) = version_map.get(&to_key) {
-                return mapper(data).map_err(|e| MCPError::from(e));
+                return Ok(mapper(data).map_err(|e| MCPError::from(e))?);
             }
         }
         
@@ -546,11 +560,13 @@ impl WireFormatAdapter {
         // In a full implementation, we would validate against a proper schema
         if message.format == WireFormat::Json {
             let json: Value = serde_json::from_slice(&message.data)
-                .map_err(|e| MCPError::from(WireFormatError::Deserialization(e.to_string())))?;
+                .map_err(|e| -> crate::error::MCPError {
+                    MCPError::from(WireFormatError::Deserialization(e.to_string()))
+                })?;
             
             // Simple validation: check that it's an object with required fields
             if !json.is_object() {
-                return Err(MCPError::from(WireFormatError::InvalidFieldValue("root".to_string(), "not an object".to_string())));
+                return Err(MCPError::from(WireFormatError::InvalidFieldValue("root".to_string(), "not an object".to_string())).into());
             }
             
             let obj = json.as_object().unwrap();
@@ -562,18 +578,18 @@ impl WireFormatAdapter {
                     match message_type {
                         "command" => {
                             if !obj.contains_key("id") {
-                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
+                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())).into());
                             }
                             if !obj.contains_key("payload") {
-                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
+                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())).into());
                             }
                         },
                         "event" => {
                             if !obj.contains_key("id") {
-                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())));
+                                return Err(MCPError::from(WireFormatError::MissingField("id".to_string())).into());
                             }
                             if !obj.contains_key("payload") {
-                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())));
+                                return Err(MCPError::from(WireFormatError::MissingField("payload".to_string())).into());
                             }
                         },
                         // Add validation for other message types
@@ -581,7 +597,7 @@ impl WireFormatAdapter {
                     }
                 }
             } else {
-                return Err(MCPError::from(WireFormatError::MissingField("message_type".to_string())));
+                return Err(MCPError::from(WireFormatError::MissingField("message_type".to_string())).into());
             }
         } else {
             // For other formats, we'd implement appropriate validation

@@ -10,7 +10,7 @@ name = "web_server"
 path = "src/bin/web_server.rs"
 
 [dependencies]
-axum = { version = "0.6", features = ["headers", "macros", "ws"] }
+axum = { version = "0.6", features = ["headers", "macros", "ws", "tokio"] }
 tokio = { version = "1", features = ["full"] }
 tower = { workspace = true }
 tower-http = { version = "0.4", features = ["cors", "fs"] }
@@ -35,6 +35,9 @@ http = "0.2"
 libloading = { version = "0.8", optional = true }
 # Add lazy_static for the plugin type registry
 lazy_static = "1.4"
+# Add tonic and prost dependencies for gRPC support
+tonic = { version = "0.12", features = ["tls", "transport"] }
+prost = "0.13.1"
 
 # Squirrel dependencies
 squirrel-core = { path = "../core" }
@@ -64,6 +67,7 @@ api-docs = ["utoipa", "utoipa-swagger-ui"]
 monitoring = ["squirrel-monitoring"]
 
 [dev-dependencies]
+reqwest = "0.11"
 tokio-test = "0.4"
 axum-test = "17.2.0"
 http-body = "0.4.5"

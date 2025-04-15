@@ -132,4 +132,16 @@ pub enum SecurityError {
     /// Error that occurs when permission is already assigned to a role
     #[error("Permission already exists in role: {0}")]
     PermissionExists(String),
+}
+
+impl From<String> for SecurityError {
+    fn from(msg: String) -> Self {
+        SecurityError::ValidationError(msg)
+    }
+}
+
+impl From<&str> for SecurityError {
+    fn from(msg: &str) -> Self {
+        SecurityError::ValidationError(msg.to_string())
+    }
 } 

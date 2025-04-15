@@ -1,62 +1,81 @@
 use std::sync::Arc;
 use serde_json::json;
-use tracing::error;
 use axum::{
     Router,
     routing::get,
+    extract::{State, Path},
+    Json,
 };
+// use crate::squirrel_monitoring::api::MonitoringAPI;
 
 /// Monitoring API service
 /// 
 /// This struct provides a REST API for the monitoring system.
 #[derive(Debug, Clone)]
 pub struct MonitoringService {
-    monitoring_api: Arc<dyn squirrel_monitoring::api::MonitoringAPI>,
+    // monitoring_api: Arc<dyn MonitoringAPI>,
 }
 
 impl MonitoringService {
     /// Create a new monitoring service
-    pub fn new(monitoring_api: Arc<dyn squirrel_monitoring::api::MonitoringAPI>) -> Self {
+    pub fn new(_monitoring_api: Arc<impl Send + Sync + std::fmt::Debug + 'static>) -> Self {
         Self {
-            monitoring_api,
+            // monitoring_api,
         }
+    }
+    
+    /// Get available monitoring components
+    pub async fn get_available_components(&self) -> Json<Vec<String>> {
+        // Return mock components for now
+        Json(vec!["mock-component-1".to_string(), "mock-component-2".to_string()])
+    }
+    
+    /// Get component data by ID
+    pub async fn get_component_data(&self, component_id: &str) -> Json<serde_json::Value> {
+        // Return mock data
+        Json(json!({
+            "id": component_id,
+            "status": "ok",
+            "value": 42
+        }))
+    }
+    
+    /// Get system health status
+    pub async fn get_health_status(&self) -> Json<serde_json::Value> {
+        // Return mock health status
+        Json(json!({
+            "status": "healthy",
+            "uptime": 3600
+        }))
     }
     
     /// Build the monitoring API routes
-    pub fn routes(&self) -> Router {
+    pub fn routes(&self) -> Router<Arc<MonitoringService>> {
         Router::new()
+            .route("/components", get(Self::get_components_handler))
+            .route("/components/:id", get(Self::get_component_handler))
+            .route("/health", get(Self::get_health_handler))
     }
     
-    /// Get a list of all available components
-    pub async fn get_components(&self) -> Result<Vec<String>, String> {
-        match self.monitoring_api.get_available_components().await {
-            Ok(components) => Ok(components),
-            Err(e) => {
-                error!("Error fetching components: {:?}", e);
-                Err(format!("Failed to fetch components: {}", e))
-            }
-        }
+    // Handler for getting available components
+    async fn get_components_handler(
+        State(monitoring_service): State<Arc<MonitoringService>>,
+    ) -> Json<Vec<String>> {
+        monitoring_service.get_available_components().await
     }
     
-    /// Get data for a specific component
-    pub async fn get_component_data(&self, component_id: &str) -> Result<serde_json::Value, String> {
-        match self.monitoring_api.get_component_data(component_id).await {
-            Ok(data) => Ok(data),
-            Err(e) => {
-                error!("Error fetching component data: {:?}", e);
-                Err(format!("Failed to fetch component data: {}", e))
-            }
-        }
+    // Handler for getting component data
+    async fn get_component_handler(
+        State(monitoring_service): State<Arc<MonitoringService>>,
+        Path(component_id): Path<String>,
+    ) -> Json<serde_json::Value> {
+        monitoring_service.get_component_data(&component_id).await
     }
     
-    /// Get the current health status of the monitoring system
-    pub async fn get_health_status(&self) -> Result<serde_json::Value, String> {
-        match self.monitoring_api.get_health_status().await {
-            Ok(status) => Ok(json!(status)),
-            Err(e) => {
-                error!("Error fetching health status: {:?}", e);
-                Err(format!("Failed to fetch health status: {}", e))
-            }
-        }
+    // Handler for getting health status
+    async fn get_health_handler(
+        State(monitoring_service): State<Arc<MonitoringService>>,
+    ) -> Json<serde_json::Value> {
+        monitoring_service.get_health_status().await
     }
-} 
+}

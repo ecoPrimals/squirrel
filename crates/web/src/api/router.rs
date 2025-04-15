@@ -38,6 +38,7 @@ fn commands_router() -> Router<Arc<AppState>> {
         .route("/available", get(list_available_commands)) // List available commands
         .route("/:id", get(get_command_status))      // Get command status
         .route("/:id", delete(cancel_command))       // Cancel command
+        .route("/:id/cancel", post(cancel_command))  // Cancel command (alternative endpoint)
 }
 
 /// Plugins API router
@@ -65,7 +66,7 @@ async fn get_monitoring_components(
 ) -> impl IntoResponse {
     match state.monitoring_service.as_ref() {
         Some(service) => {
-            let router = service.routes();
+            let _router = service.routes();
             // Forward to the service's handler
             (StatusCode::OK, Json(serde_json::json!({
                 "components": ["cpu", "memory", "disk", "network"],
@@ -87,7 +88,7 @@ async fn get_monitoring_component_data(
     axum::extract::Path(component_id): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match state.monitoring_service.as_ref() {
-        Some(service) => {
+        Some(_service) => {
             // Return mock data for now
             (StatusCode::OK, Json(serde_json::json!({
                 "component_id": component_id,
@@ -112,7 +113,7 @@ async fn get_monitoring_health(
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     match state.monitoring_service.as_ref() {
-        Some(service) => {
+        Some(_service) => {
             // Return health status
             (StatusCode::OK, Json(serde_json::json!({
                 "status": "healthy",

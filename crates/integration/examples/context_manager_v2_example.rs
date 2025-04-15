@@ -1,15 +1,16 @@
 use async_trait::async_trait;
 use anyhow::Result;
 use serde_json::json;
-use squirrel_integration::{
-    ContextMcpAdapter, ContextMcpAdapterConfig, ContextManagerV2,
-    ContextManagerCallbacks, types::SquirrelContext,
+use squirrel_integration::context_mcp::{
+    ContextMcpAdapter,
+    types::{ContextManagerV2, ContextManagerCallbacks, SquirrelContext, ContextMcpAdapterConfig}
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::fmt;
 
 /// Example implementation of ContextManagerV2 for improved thread safety
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct SimpleContextManagerV2 {
     /// In-memory storage for contexts
     contexts: Arc<Mutex<HashMap<String, SquirrelContext>>>,
@@ -19,6 +20,17 @@ struct SimpleContextManagerV2 {
     
     /// Log event callback
     log_event: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
+}
+
+// Implement Debug manually to avoid the Debug implementation issue with function pointers
+impl fmt::Debug for SimpleContextManagerV2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SimpleContextManagerV2")
+            .field("contexts", &self.contexts)
+            .field("mcp_service", &format_args!("<function>"))
+            .field("log_event", &format_args!("<function>"))
+            .finish()
+    }
 }
 
 #[async_trait]
@@ -137,7 +149,7 @@ async fn main() -> Result<()> {
     
     // Create a new context
     let context_id = "example-context";
-    adapter.create_context(
+    adapter.context_manager().create_context(
         context_id,
         "Example Context",
         json!({
@@ -151,11 +163,11 @@ async fn main() -> Result<()> {
     ).await?;
     
     // Get the context
-    let context = adapter.get_context(context_id).await?;
+    let context = adapter.context_manager().with_context(context_id).await?;
     println!("Context: {:#?}", context);
     
     // Update the context
-    adapter.update_context(
+    adapter.context_manager().update_context(
         context_id,
         json!({
             "description": "This is an updated example context",
@@ -166,15 +178,15 @@ async fn main() -> Result<()> {
     ).await?;
     
     // Get the updated context
-    let updated_context = adapter.get_context(context_id).await?;
+    let updated_context = adapter.context_manager().with_context(context_id).await?;
     println!("Updated Context: {:#?}", updated_context);
     
     // List all contexts
-    let contexts = adapter.list_contexts().await?;
+    let contexts = adapter.context_manager().list_contexts().await?;
     println!("All Contexts: {:#?}", contexts);
     
     // Delete the context
-    adapter.delete_context(context_id).await?;
+    adapter.context_manager().delete_context(context_id).await?;
     println!("Context deleted successfully");
     
     Ok(())

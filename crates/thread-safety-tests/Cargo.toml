@@ -1,0 +1,9 @@
+[package]
+name = "thread-safety-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+squirrel-integration = { path = "../integration" }
+tokio = { version = "1.28", features = ["full"] }

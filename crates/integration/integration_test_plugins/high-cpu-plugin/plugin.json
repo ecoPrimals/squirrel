@@ -1,0 +1,14 @@
+{
+  "author": "Testing Framework",
+  "capabilities": [
+    "cpu-intensive"
+  ],
+  "description": "Mock plugin high-cpu-plugin",
+  "id": "4e435b4f-c964-48d2-8bd6-8c34d217ecd6",
+  "name": "high-cpu-plugin",
+  "resources": {
+    "cpu": 60,
+    "memory": 10
+  },
+  "version": "1.0.0"
+}

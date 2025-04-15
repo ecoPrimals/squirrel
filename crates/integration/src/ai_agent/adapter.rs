@@ -20,10 +20,11 @@ use squirrel_mcp::protocol::types::{MCPMessage, MessageType};
 use super::config::AIAgentConfig;
 use super::types::{
     AgentCapabilities, AgentContext, AgentRequest, AgentResponse,
-    Content, Prompt, GenerationOptions, AnalysisOptions, CircuitBreakerConfig,
+    Content, GenerationOptions, AnalysisOptions, CircuitBreakerConfig,
     CircuitBreakerState, UsageStatistics, ContentFormat, Usage, OperationType
 };
 use super::error::AIAgentError;
+use crate::AIClientV2;
 
 /// Circuit breaker for resilience
 #[derive(Debug)]
@@ -46,7 +47,7 @@ impl CircuitBreaker {
         Self {
             state: CircuitBreakerState::Closed,
             config,
-                failure_count: 0,
+            failure_count: 0,
             last_failure_time: std::time::Instant::now(),
             half_open_calls: 0,
         }
@@ -69,7 +70,8 @@ impl CircuitBreaker {
         self.failure_count += 1;
         self.last_failure_time = std::time::Instant::now();
         
-        if self.state == CircuitBreakerState::HalfOpen || self.failure_count >= self.config.failure_threshold {
+        // Check if we should open the circuit
+        if self.state == CircuitBreakerState::Closed && self.failure_count as f64 >= self.config.failure_threshold {
             self.state = CircuitBreakerState::Open;
         }
     }
@@ -187,12 +189,11 @@ struct ResourceUsage {
 impl AIAgentAdapter {
     /// Create a new AI Agent adapter with the given configuration
     pub fn new(config: AIAgentConfig) -> Self {
-        let cb_config = CircuitBreakerConfig {
-            failure_threshold: config.circuit_breaker.failure_threshold,
+        let circuit_breaker = CircuitBreaker::new(CircuitBreakerConfig {
+            failure_threshold: config.circuit_breaker.failure_threshold as f64,
             reset_timeout: config.circuit_breaker.reset_timeout,
             half_open_max_calls: config.circuit_breaker.half_open_max_calls,
-            ..Default::default()
-        };
+        });
         
         let cache_size = config.cache_size.unwrap_or(100);
         let cache_size = std::num::NonZeroUsize::new(cache_size).unwrap_or(std::num::NonZeroUsize::new(1).unwrap());
@@ -201,7 +202,7 @@ impl AIAgentAdapter {
             config,
             client: None,
             mcp: None,
-            circuit_breaker: Arc::new(RwLock::new(CircuitBreaker::new(cb_config))),
+            circuit_breaker: Arc::new(RwLock::new(circuit_breaker)),
             initialized: false,
             resource_usage: Arc::new(Mutex::new(ResourceUsage::default())),
             response_cache: Arc::new(Mutex::new(lru::LruCache::new(cache_size))),
@@ -307,9 +308,9 @@ impl AIAgentAdapter {
                     
                     // Add parameters from options
                     let model_params = ModelParameters {
-                        temperature: Some(request.options.temperature),
+                        temperature: Some(request.options.temperature.unwrap_or(0.7)),
                         max_tokens: request.options.max_tokens,
-                        top_p: Some(request.options.top_p),
+                        top_p: Some(request.options.top_p.unwrap_or(1.0)),
                         ..Default::default()
                     };
                     chat_request = chat_request.with_parameters(model_params);
@@ -332,24 +333,18 @@ impl AIAgentAdapter {
                             id: uuid::Uuid::new_v4(),
                             request_id: request.id,
                             text: message.content.clone().unwrap_or_default(),
-            format: ContentFormat::Text,
-            usage: Some(UsageStatistics {
-                                prompt_tokens: response.usage.as_ref().map(|u| u.prompt_tokens).unwrap_or(0),
-                                completion_tokens: response.usage.as_ref().map(|u| u.completion_tokens).unwrap_or(0),
-                                total_tokens: response.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0),
-                                processing_time_ms: elapsed,
-                cached: false,
-            }),
-            metadata: HashMap::new(),
-                            raw_output: Some(message.content.clone().unwrap_or_default()),
-                            content: message.content.clone().unwrap_or_default(),
-                            usage_info: response.usage.as_ref().map(|u| Usage {
-                                prompt_tokens: u.prompt_tokens,
-                                completion_tokens: u.completion_tokens,
-                                total_tokens: u.total_tokens,
-                                processing_time_ms: Some(elapsed),
-                            }),
-                            raw_response: Some(serde_json::to_value(&response).unwrap_or_default()),
+                            completion_time: elapsed,
+                            format: ContentFormat::PlainText,
+                            usage: Usage {
+                                tokens: UsageStatistics {
+                                    prompt_tokens: Some(response.usage.as_ref().map(|u| u.prompt_tokens).unwrap_or(0)),
+                                    completion_tokens: Some(response.usage.as_ref().map(|u| u.completion_tokens).unwrap_or(0)),
+                                    total_tokens: Some(response.usage.as_ref().map(|u| u.total_tokens).unwrap_or(0)),
+                                },
+                                requests: 1,
+                                billable_duration_ms: Some(elapsed),
+                            },
+                            metadata: HashMap::new(),
                         }
                     } else {
                         return Err(AIAgentError::ServiceError("No response from AI service".to_string()));
@@ -393,19 +388,20 @@ impl AIAgentAdapter {
     
     /// Analyze content using the AI agent
     pub async fn analyze_content(&self, content: Content, options: Option<AnalysisOptions>) -> std::result::Result<AgentResponse, AIAgentError> {
-        let system_message = options.as_ref()
-            .and_then(|o| o.system_message.clone())
-            .unwrap_or_else(|| "You are an analysis assistant. Analyze the following content:".to_string());
+        let system_message = "You are an analysis assistant. Analyze the following content:".to_string();
             
         let mut gen_options = GenerationOptions::default();
         if let Some(opts) = &options {
-            gen_options.max_tokens = opts.max_tokens;
-            // Use default temperature as AnalysisOptions doesn't have a temperature field
+            if let Some(model) = &opts.model {
+                gen_options.model = Some(model.clone());
+            }
+            gen_options.temperature = opts.temperature;
+            // AnalysisOptions doesn't have max_tokens field, use default
         }
         
         let request = AgentRequest {
             id: uuid::Uuid::new_v4(),
-            prompt: content.content.clone(),
+            prompt: content.data.clone(),
             system_message: Some(system_message),
             options: gen_options,
             context: None,

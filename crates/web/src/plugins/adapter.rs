@@ -7,12 +7,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
-use tracing::{debug, error, info};
+use tracing::error;
 
 use crate::plugins_legacy as legacy;
 use crate::plugins::{Plugin, PluginMetadata, PluginStatus, WebPlugin};
 use crate::plugins::model::{WebRequest, WebResponse, WebEndpoint, WebComponent, ComponentType, HttpMethod};
-use crate::plugin_adapter::{convert_http_method, convert_legacy_endpoint};
+use crate::plugin_adapter::convert_http_method;
 
 /// Adapter for using legacy plugins with the modern registry
 pub struct LegacyWebPluginAdapter {

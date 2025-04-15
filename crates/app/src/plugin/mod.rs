@@ -7,9 +7,8 @@ use std::any::Any;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
-use tokio::time;
 use uuid::Uuid;
 
 /// Plugin type definitions and traits

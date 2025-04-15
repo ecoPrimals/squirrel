@@ -43,6 +43,9 @@ async fn test_state_operation_recording() {
         data: context.data.clone(),
         timestamp: Utc::now(),
         version: 1,
+        name: Some(context.name.clone()),
+        metadata: context.metadata.clone(),
+        parent_id: context.parent_id,
     };
 
     state_manager
@@ -71,6 +74,9 @@ async fn test_state_operation_recording() {
         data: serde_json::json!({"updated": true}),
         timestamp: Utc::now(),
         version: 2,
+        name: Some(context.name.clone()),
+        metadata: context.metadata.clone(),
+        parent_id: context.parent_id,
     };
 
     state_manager
@@ -128,6 +134,9 @@ async fn test_state_change_subscription() {
         data: context.data.clone(),
         timestamp: Utc::now(),
         version: 1,
+        name: Some(context.name.clone()),
+        metadata: context.metadata.clone(),
+        parent_id: context.parent_id,
     };
 
     state_manager
@@ -182,6 +191,9 @@ async fn test_state_missing_subscriber() {
         data: context.data.clone(),
         timestamp: Utc::now(),
         version: 1,
+        name: Some(context.name.clone()),
+        metadata: context.metadata.clone(),
+        parent_id: context.parent_id,
     };
 
     state_manager

@@ -42,9 +42,9 @@ impl Registry {
         let mut entries = self.entries.write().await;
         
         if entries.contains_key(&entry.id) {
-            return Err(MCPError::Protocol(ProtocolError::HandlerAlreadyExists(
-                format!("Handler already exists with id: {}", entry.id)
-            )));
+            return Err(MCPError::Protocol(
+                ProtocolError::HandlerAlreadyExists(format!("Handler already exists with id: {}", entry.id))
+            ).into());
         }
         
         entries.insert(entry.id.clone(), entry);
@@ -62,9 +62,9 @@ impl Registry {
         
         entries.get(id)
             .cloned()
-            .ok_or_else(|| MCPError::Protocol(ProtocolError::HandlerNotFound(
-                format!("No entry found with id: {id}")
-            )))
+            .ok_or_else(|| MCPError::Protocol(
+                ProtocolError::HandlerNotFound(format!("No entry found with id: {id}"))
+            ).into())
     }
     
     /// Checks if an entry exists
@@ -86,9 +86,9 @@ impl Registry {
         let mut entries = self.entries.write().await;
         
         if !entries.contains_key(&entry.id) {
-            return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(
-                format!("No entry found with id: {}", entry.id)
-            )));
+            return Err(MCPError::Protocol(
+                ProtocolError::HandlerNotFound(format!("No entry found with id: {}", entry.id))
+            ).into());
         }
         
         entries.insert(entry.id.clone(), entry);
@@ -105,9 +105,9 @@ impl Registry {
         let mut entries = self.entries.write().await;
         
         if !entries.contains_key(id) {
-            return Err(MCPError::Protocol(ProtocolError::HandlerNotFound(
-                format!("No entry found with id: {id}")
-            )));
+            return Err(MCPError::Protocol(
+                ProtocolError::HandlerNotFound(format!("No entry found with id: {id}"))
+            ).into());
         }
         
         entries.remove(id);

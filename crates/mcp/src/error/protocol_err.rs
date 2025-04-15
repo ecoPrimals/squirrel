@@ -1,4 +1,5 @@
 use thiserror::Error;
+use crate::protocol::adapter_wire::WireFormatError;
 
 /// Errors related to the MCP protocol
 ///
@@ -101,4 +102,30 @@ pub enum ProtocolError {
     /// Error reported by the remote peer
     #[error("Remote protocol error: {0}")]
     RemoteError(String),
+    
+    /// Error when serializing data
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    /// Error when deserializing data
+    #[error("Deserialization error: {0}")]
+    DeserializationError(String),
+}
+
+impl From<String> for ProtocolError {
+    fn from(msg: String) -> Self {
+        ProtocolError::InvalidFormat(msg)
+    }
+}
+
+impl From<&str> for ProtocolError {
+    fn from(msg: &str) -> Self {
+        ProtocolError::InvalidFormat(msg.to_string())
+    }
+}
+
+impl From<WireFormatError> for ProtocolError {
+    fn from(error: WireFormatError) -> Self {
+        ProtocolError::Wire(error.to_string())
+    }
 } 

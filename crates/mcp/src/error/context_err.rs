@@ -27,4 +27,22 @@ pub enum ContextError {
     /// between components or systems.
     #[error("Context sync error: {0}")]
     SyncError(String),
+
+    /// General context error with a message
+    ///
+    /// This is used for errors that don't fit into the other categories.
+    #[error("Context error: {0}")]
+    General(String),
+}
+
+impl From<String> for ContextError {
+    fn from(message: String) -> Self {
+        ContextError::General(message)
+    }
+}
+
+impl From<&str> for ContextError {
+    fn from(message: &str) -> Self {
+        ContextError::General(message.to_string())
+    }
 } 

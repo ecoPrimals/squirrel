@@ -7,7 +7,7 @@ use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use regex::Regex;
 use tokio::time;
-use tracing::{error, warn};
+use tracing::error;
 use std::path::Path;
 
 use crate::error::{Result, CoreError};

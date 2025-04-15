@@ -229,7 +229,7 @@ impl CoreMCPAdapter {
             },
             _ => {
                 warn!(operation = %operation, "Unknown core operation requested");
-                return Err(MCPError::UnsupportedOperation(operation.to_string()));
+                return Err(MCPError::UnsupportedOperation(operation.to_string()).into());
             }
         };
         
@@ -279,7 +279,7 @@ impl CoreMCPAdapter {
             Ok(result) => Ok(self.create_success_response(result, Some(msg.id.clone()))),
             Err(e) => {
                 error!(error = %e, "Failed to execute operation: {}", operation);
-                Ok(self.create_error_response(e, Some(msg.id.clone())))
+                Ok(self.create_error_response(e.into(), Some(msg.id.clone())))
             }
         }
     }
@@ -294,7 +294,7 @@ impl CoreMCPAdapter {
             Ok(state) => Ok(self.create_success_response(state, Some(msg.id.clone()))),
             Err(e) => {
                 error!(error = %e, "Failed to serialize core state");
-                Ok(self.create_error_response(MCPError::InternalError(e.to_string()), Some(msg.id.clone())))
+                Ok(self.create_error_response(MCPError::InternalError(e.to_string()).into(), Some(msg.id.clone())))
             }
         }
     }
@@ -364,7 +364,7 @@ impl crate::integration::types::MessageHandler for CoreMCPAdapter {
             _ => {
                 warn!("Unsupported message type: {:?}", message.type_);
                 Ok(self.create_error_response(
-                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)),
+                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)).into(),
                     Some(message.id.clone())
                 ))
             }
@@ -377,7 +377,12 @@ impl crate::integration::types::MessageHandler for CoreMCPAdapter {
 impl MCPProtocol for CoreMCPAdapter {
     async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
         // Delegate to the message handler implementation
-        crate::integration::types::MessageHandler::handle_message(self, msg).await
+        let result = crate::integration::types::MessageHandler::handle_message(self, msg).await;
+        // Convert MCPResult<MCPResponse> to ProtocolResult
+        match result {
+            Ok(response) => Ok(response),
+            Err(err) => Err(err.into()),
+        }
     }
     
     async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {

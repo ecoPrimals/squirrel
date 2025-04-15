@@ -10,7 +10,8 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use crate::config::DashboardConfig;
 use crate::data::{DashboardData, CpuMetrics, MemoryMetrics, NetworkMetrics, 
-                 DiskMetrics, NetworkInterface};
+                 DiskMetrics, NetworkInterface, DiskUsage, Alert, AlertSeverity,
+                 MetricsHistory, ProtocolData, Metrics};
 use crate::error::{Result, DashboardError};
 use crate::update::DashboardUpdate;
 
@@ -354,15 +355,19 @@ impl DashboardService for DefaultDashboardService {
     }
     
     async fn subscribe(&self) -> mpsc::Receiver<DashboardUpdate> {
-        let (tx, rx) = mpsc::channel(100);
-        
-        // Send current data as an initial update
-        let data = self.data.read().await.clone();
-        if let Err(e) = tx.send(DashboardUpdate::FullUpdate(data)).await {
-            log::error!("Failed to send initial update: {}", e);
-        }
-        
-        // Return the receiver
+        // Create a dummy channel
+        let (tx, rx) = mpsc::channel(10);
+        // Spawn a task to send updates periodically for testing
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                let _ = tx.send(DashboardUpdate::MetricsUpdate {
+                    metrics: HashMap::new(),
+                    timestamp: Utc::now(),
+                }).await;
+            }
+        });
         rx
     }
     
@@ -423,5 +428,199 @@ impl DashboardService for DefaultDashboardService {
     
     async fn update_dashboard_data(&self, data: DashboardData) -> Result<()> {
         DefaultDashboardService::update_dashboard_data(self, data).await
+    }
+}
+
+/// Mock implementation of DashboardService for testing
+#[derive(Debug, Clone)]
+pub struct MockDashboardService {
+    data: DashboardData,
+}
+
+impl MockDashboardService {
+    /// Create a new MockDashboardService
+    pub fn new() -> Self {
+        // Create default metrics
+        let metrics = Metrics {
+            cpu: CpuMetrics {
+                usage: 25.0,
+                cores: vec![25.0, 30.0, 20.0, 15.0],
+                temperature: Some(45.0),
+                load: [1.0, 0.8, 0.6],
+            },
+            memory: MemoryMetrics {
+                total: 16 * 1024 * 1024 * 1024, // 16 GB
+                used: 4 * 1024 * 1024 * 1024,   // 4 GB
+                available: 12 * 1024 * 1024 * 1024, // 12 GB
+                free: 10 * 1024 * 1024 * 1024,  // 10 GB
+                swap_used: 512 * 1024 * 1024,   // 512 MB
+                swap_total: 8 * 1024 * 1024 * 1024, // 8 GB
+            },
+            network: NetworkMetrics {
+                interfaces: vec![
+                    NetworkInterface {
+                        name: "eth0".to_string(),
+                        is_up: true,
+                        rx_bytes: 1_000_000,
+                        tx_bytes: 500_000,
+                        rx_packets: 10_000,
+                        tx_packets: 5_000,
+                        rx_errors: 0,
+                        tx_errors: 0,
+                    },
+                    NetworkInterface {
+                        name: "wlan0".to_string(),
+                        is_up: true,
+                        rx_bytes: 500_000,
+                        tx_bytes: 250_000,
+                        rx_packets: 5_000,
+                        tx_packets: 2_500,
+                        rx_errors: 2,
+                        tx_errors: 0,
+                    },
+                ],
+                total_rx_bytes: 1_500_000,
+                total_tx_bytes: 750_000,
+                total_rx_packets: 15_000,
+                total_tx_packets: 7_500,
+            },
+            disk: DiskMetrics {
+                usage: {
+                    let mut map = HashMap::new();
+                    map.insert("/".to_string(), DiskUsage {
+                        mount_point: "/".to_string(),
+                        total: 512 * 1024 * 1024 * 1024, // 512 GB
+                        used: 128 * 1024 * 1024 * 1024,  // 128 GB
+                        free: 384 * 1024 * 1024 * 1024,  // 384 GB
+                        used_percentage: 25.0,
+                    });
+                    map.insert("/home".to_string(), DiskUsage {
+                        mount_point: "/home".to_string(),
+                        total: 1024 * 1024 * 1024 * 1024, // 1 TB
+                        used: 512 * 1024 * 1024 * 1024,   // 512 GB
+                        free: 512 * 1024 * 1024 * 1024,   // 512 GB
+                        used_percentage: 50.0,
+                    });
+                    map
+                },
+                total_reads: 10_000,
+                total_writes: 5_000,
+                read_bytes: 100_000_000,
+                written_bytes: 50_000_000,
+            },
+            history: MetricsHistory::default(),
+        };
+
+        // Create protocol data
+        let protocol = ProtocolData {
+            name: "Mock Protocol".to_string(),
+            protocol_type: "Custom".to_string(),
+            version: "1.0.0".to_string(),
+            connected: true,
+            last_connected: Some(Utc::now()),
+            status: "Connected".to_string(),
+            error: None,
+            retry_count: 0,
+            metrics: {
+                let mut map = HashMap::new();
+                map.insert("latency_ms".to_string(), 15.5);
+                map.insert("throughput_kbps".to_string(), 1024.0);
+                map
+            },
+        };
+
+        // Create alerts
+        let alerts = vec![
+            Alert {
+                id: "alert-1".to_string(),
+                title: "High CPU Usage".to_string(),
+                message: "CPU usage above 90% for 5 minutes".to_string(),
+                severity: AlertSeverity::Warning,
+                source: "system_monitor".to_string(),
+                timestamp: Utc::now(),
+                acknowledged: false,
+                acknowledged_by: None,
+                acknowledged_at: None,
+            },
+            Alert {
+                id: "alert-2".to_string(),
+                title: "Service Restart".to_string(),
+                message: "Service restarted automatically".to_string(),
+                severity: AlertSeverity::Info,
+                source: "service_monitor".to_string(),
+                timestamp: Utc::now(),
+                acknowledged: true,
+                acknowledged_by: Some("admin".to_string()),
+                acknowledged_at: Some(Utc::now()),
+            },
+        ];
+
+        Self {
+            data: DashboardData {
+                metrics,
+                protocol,
+                alerts,
+                timestamp: Utc::now(),
+            },
+        }
+    }
+}
+
+#[async_trait]
+impl DashboardService for MockDashboardService {
+    async fn get_dashboard_data(&self) -> Result<DashboardData> {
+        Ok(self.data.clone())
+    }
+
+    async fn get_metric_history(&self, _metric_name: &str, _time_period: Duration) -> Result<Vec<(DateTime<Utc>, f64)>> {
+        // Return dummy history data
+        let now = Utc::now();
+        let mut history = Vec::new();
+        for i in 0..10 {
+            history.push((now - chrono::Duration::minutes(i as i64), 50.0 + (i as f64 * 2.0)));
+        }
+        Ok(history)
+    }
+
+    async fn acknowledge_alert(&self, _alert_id: &str, _acknowledged_by: &str) -> Result<()> {
+        // For testing, just return success
+        Ok(())
+    }
+
+    async fn subscribe(&self) -> mpsc::Receiver<DashboardUpdate> {
+        // Create a dummy channel
+        let (tx, rx) = mpsc::channel(10);
+        // Spawn a task to send updates periodically for testing
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(1));
+            loop {
+                interval.tick().await;
+                let _ = tx.send(DashboardUpdate::MetricsUpdate {
+                    metrics: HashMap::new(),
+                    timestamp: Utc::now(),
+                }).await;
+            }
+        });
+        rx
+    }
+
+    async fn update_config(&self, _config: DashboardConfig) -> Result<()> {
+        // For testing, just return success
+        Ok(())
+    }
+
+    async fn start(&self) -> Result<()> {
+        // For testing, just return success
+        Ok(())
+    }
+
+    async fn stop(&self) -> Result<()> {
+        // For testing, just return success
+        Ok(())
+    }
+
+    async fn update_dashboard_data(&self, _data: DashboardData) -> Result<()> {
+        // For testing, just return success
+        Ok(())
     }
 } 

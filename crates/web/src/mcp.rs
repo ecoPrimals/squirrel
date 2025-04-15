@@ -674,8 +674,23 @@ impl MockMcpClient {
 impl McpClient for MockMcpClient {
     async fn send_message(&self, message: &str) -> Result<String, McpError> {
         tracing::info!("Mock MCP client sending message: {}", message);
-        // In a real implementation, this would send to the MCP server
-        Ok(format!("Acknowledged: {}", message))
+        
+        // Parse the incoming message to determine its type
+        if let Ok(msg_json) = serde_json::from_str::<serde_json::Value>(message) {
+            // Check if this is a subscription message
+            if let Some(msg_type) = msg_json.get("type").and_then(|t| t.as_str()) {
+                if msg_type == "subscribe" {
+                    // Return a proper subscription response
+                    return Ok(r#"{"success":true,"subscription_id":"mock-subscription-123"}"#.to_string());
+                } else if msg_type == "unsubscribe" {
+                    // Return a proper unsubscription response
+                    return Ok(r#"{"success":true}"#.to_string());
+                }
+            }
+        }
+        
+        // Default response for other message types
+        Ok(r#"{"success":true,"data":null}"#.to_string())
     }
     
     async fn get_status(&self) -> Result<ConnectionStatus, McpError> {
@@ -687,9 +702,7 @@ impl McpClient for MockMcpClient {
 #[async_trait]
 impl McpCommandClient for MockMcpClient {
     async fn send_message(&self, message: &str) -> Result<String, McpError> {
-        tracing::info!("Mock MCP client sending message: {}", message);
-        // In a real implementation, this would send to the MCP server
-        Ok(format!("Acknowledged: {}", message))
+        <Self as McpClient>::send_message(self, message).await
     }
     
     async fn execute_command(
@@ -870,7 +883,7 @@ impl McpEventBridge {
             
             // Create event handler
             let tx_clone = tx.clone();
-            let event_handler = move |event: serde_json::Value| {
+            let _event_handler = move |event: serde_json::Value| {
                 let tx = tx_clone.clone();
                 async move {
                     if let Err(e) = tx.send(event).await {

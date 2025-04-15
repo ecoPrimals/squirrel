@@ -444,59 +444,23 @@ impl MCPClient {
     /// - The client is already in the process of disconnecting
     /// - The transport fails to disconnect cleanly
     pub async fn disconnect(&self) -> Result<()> {
-        // Check if already disconnected or disconnecting
-        {
-            let state = self.state.read().await;
-            match *state {
-                ClientState::Disconnected => return Ok(()),
-                ClientState::Disconnecting => return Err(MCPError::General("Already disconnecting".to_string())),
-                _ => {}
+        info!("Disconnecting client");
+        
+        // Attempt to disconnect from transport
+        let disconnect_result = if let Some(t) = &*self.transport.read().await {
+            match t.disconnect().await {
+                Ok(_) => Ok(()),
+                Err(e) => Err(MCPError::Transport(format!("Disconnect failed: {e}").into()).into())
             }
-        }
-        
-        // Update state to disconnecting
-        {
-            let mut state = self.state.write().await;
-            *state = ClientState::Disconnecting;
-        }
-        
-        // Cancel reader task if running
-        {
-            let mut task_guard = self.reader_task.lock().await;
-            if let Some(task) = task_guard.take() {
-                task.abort();
-            }
-        }
-        
-        // Disconnect transport
-        let mut disconnect_result = Ok(());
-        {
-            let transport_guard = self.transport.read().await;
-            if let Some(transport) = &*transport_guard {
-                disconnect_result = transport.disconnect().await.map_err(|e| {
-                    MCPError::Transport(crate::error::transport::TransportError::ConnectionClosed(format!("Disconnect failed: {e}")).into())
-                });
-            }
-        }
-        
-        // Clear session
-        {
-            let mut session = self.session.write().await;
-            *session = None;
-        }
-        
-        // Clear pending requests
-        {
-            let mut _pending_requests = self.pending_requests.write().await;
-            _pending_requests.clear();
-        }
-        
-        // Update state to disconnected
-        {
-            let mut state = self.state.write().await;
-            *state = ClientState::Disconnected;
-        }
-        
+        } else {
+            Ok(())
+        };
+
+        // Update state to Disconnected regardless of success/failure
+        let mut state = self.state.write().await;
+        *state = ClientState::Disconnected;
+
+        // Return the result
         disconnect_result
     }
     
@@ -536,7 +500,7 @@ impl MCPClient {
         if transport_guard.is_none() {
             return Err(MCPError::Client(ClientError::NotConnected(
                 "Client is not connected".to_string(),
-            )));
+            )).into());
         }
 
         // Clone the transport to avoid holding the guard during the send operation
@@ -546,7 +510,7 @@ impl MCPClient {
                 // This should never happen as we already checked above, but we handle it for safety
                 return Err(MCPError::Client(ClientError::NotConnected(
                     "Transport unexpectedly disconnected".to_string(),
-                )));
+                )).into());
             }
         };
         
@@ -577,13 +541,13 @@ impl MCPClient {
         ).await {
             Ok(res) => match res {
                 Ok(msg_result) => msg_result,
-                Err(_) => Err(MCPError::Client(ClientError::ResponseChannelClosed(
-                    format!("Response channel closed for command {}", command.id),
-                ))),
+                Err(_) => Err(MCPError::Client(ClientError::Timeout(
+                    format!("Timeout waiting for response to command {}", command.id),
+                )).into()),
             },
             Err(_) => Err(MCPError::Client(ClientError::Timeout(
                 format!("Timeout waiting for response to command {}", command.id),
-            ))),
+            )).into()),
         }
     }
     
@@ -604,9 +568,11 @@ impl MCPClient {
         // Convert content to JSON
         let content_value = content.into();
         let content_str = serde_json::to_string(&content_value)
-            .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to serialize command content: {e}")
-            )))?;
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::Client(ClientError::SerializationError(
+                    format!("Failed to serialize command content: {e}")
+                ))
+            })?;
         
         // Create a message with the command
         let mut message = Message::request(
@@ -649,7 +615,7 @@ impl MCPClient {
         if transport_guard.is_none() {
             return Err(MCPError::Client(ClientError::NotConnected(
                 "Client is not connected".to_string(),
-            )));
+            )).into());
         }
 
         // Clone the transport to avoid holding the guard during the send operation
@@ -659,7 +625,7 @@ impl MCPClient {
                 // This should never happen as we already checked above, but we handle it for safety
                 return Err(MCPError::Client(ClientError::NotConnected(
                     "Transport unexpectedly disconnected".to_string(),
-                )));
+                )).into());
             }
         };
         
@@ -691,9 +657,11 @@ impl MCPClient {
         // Convert content to JSON
         let content_value = content.into();
         let content_str = serde_json::to_string(&content_value)
-            .map_err(|e| MCPError::Client(ClientError::SerializationError(
-                format!("Failed to serialize event content: {e}")
-            )))?;
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::Client(ClientError::SerializationError(
+                    format!("Failed to serialize event content: {e}")
+                ))
+            })?;
         
         // Create a message with the event
         let mut message = Message::notification(
@@ -752,7 +720,7 @@ impl MCPClient {
         if transport_guard.is_none() {
             return Err(MCPError::Client(ClientError::NotConnected(
                 "Client is not connected".to_string(),
-            )));
+            )).into());
         }
         
         // Clone the transport to avoid holding the guard
@@ -762,7 +730,7 @@ impl MCPClient {
                 // This should never happen as we already checked above, but handle for safety
                 return Err(MCPError::Client(ClientError::NotConnected(
                     "Transport unexpectedly disconnected".to_string(),
-                )));
+                )).into());
             }
         };
         
@@ -816,7 +784,7 @@ impl MCPClient {
                         // Update last error state using the cloned Arc
                         {
                             let mut error_guard = last_error.write().await;
-                            *error_guard = Some(e.clone()); // Clone error
+                            *error_guard = Some(e.clone().into()); // Clone error
                         }
                         // If receive fails, update state using the cloned Arc and break loop
                         {
@@ -858,12 +826,12 @@ impl MCPClient {
                     
                     if let Some(tx) = sender {
                         let error = MCPError::from_message(&message);
-                        let _ = tx.send(Err(error.clone()));
+                        let _ = tx.send(Err(error.clone().into()));
                         
                         // Store as last error
                         {
                             let mut last_error = self.last_error.write().await;
-                            *last_error = Some(MCPError::Remote(message.content.clone()));
+                            *last_error = Some(MCPError::General(message.content.clone()));
                         }
                         
                         return Ok(());
@@ -1050,12 +1018,12 @@ async fn process_message_internal(
                 
                 if let Some(tx) = sender {
                     let error = MCPError::from_message(&message);
-                    let _ = tx.send(Err(error.clone()));
+                    let _ = tx.send(Err(error.clone().into()));
                     
                     // Store as last error
                     {
                         let mut last_error = last_error.write().await;
-                        *last_error = Some(MCPError::Remote(message.content.clone()));
+                        *last_error = Some(MCPError::General(message.content.clone()));
                     }
                     
                     return Ok(());

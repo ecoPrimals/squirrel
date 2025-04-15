@@ -6,18 +6,20 @@ members = [
     "crates/mcp",
     "crates/core",
     "test_plugin_fix",
-    "crates/galaxy",
     "crates/rule-system",
     "crates/ui-web",
     "crates/dashboard-core",
     "crates/ui-terminal",
-    "crates/adapter-tests", 
     "adapter-pattern-tests", 
     "adapter-pattern-examples",
     "crates/commands",
     "test_crate",
-    "fuzz_old",
     "fuzz",
+    "crates/integration",
+    "crates/thread-safety-tests",
+    "crates/mcp-pyo3-bindings",
+    "crates/cli",
+    "crates/app",
 ]
 
 [workspace.package]
@@ -137,6 +139,9 @@ squirrel-interfaces = { path = "crates/interfaces" }
 squirrel-context = { path = "crates/context" }
 squirrel-mcp = { path = "crates/mcp" }
 squirrel-plugins = { path = "crates/plugins", features = ["marketplace"] }
+squirrel-integration = { path = "crates/integration" }
+squirrel-ai-tools = { path = "crates/ai-tools" }
+secrecy = "0.8"
 
 # Monitoring and logging
 metrics = "0.21"
@@ -202,6 +207,10 @@ path = "examples/simple_journal.rs"
 [[example]]
 name = "connection_health_monitor"
 path = "examples/connection_health_monitor.rs"
+
+[[example]]
+name = "retry_example"
+path = "crates/mcp/examples/retry_example.rs"
 
 [workspace.metadata]
 rust-version = "1.70.0"

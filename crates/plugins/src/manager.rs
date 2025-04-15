@@ -23,13 +23,17 @@ use squirrel_mcp::security::manager::SecurityManagerImpl;
 #[cfg(feature = "mcp")]
 use squirrel_mcp::security::crypto::DefaultCryptoProvider;
 #[cfg(feature = "mcp")]
-use squirrel_mcp::security::auth::DefaultTokenManager;
+use squirrel_mcp::security::token::DefaultTokenManager;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::storage::InMemoryKeyStorage;
 #[cfg(feature = "mcp")]
 use squirrel_mcp::security::identity::DefaultIdentityManager;
 #[cfg(feature = "mcp")]
 use squirrel_mcp::security::rbac::BasicRBACManager;
 #[cfg(feature = "mcp")]
 use squirrel_mcp::security::audit::DefaultAuditService;
+#[cfg(feature = "mcp")]
+use squirrel_mcp::security::SecurityManager as MCPSecurityManager;
 // Removing unused imports from signature
 // use crate::security::signature::{SignatureVerifier, PluginSignature};
 
@@ -128,7 +132,7 @@ impl PluginManager {
                 identity_manager,
                 rbac_manager,
                 audit_service,
-            )) as Arc<dyn SecurityManager>;
+            )) as Arc<dyn squirrel_mcp::security::SecurityManager>;
             
             Arc::new(SecurityManagerAdapter::new(mcp_security_manager))
         };
@@ -455,8 +459,12 @@ impl DefaultPluginManager {
             #[cfg(feature = "mcp")]
             let security_adapter = {
                 // Create all the necessary components for SecurityManagerImpl
+                let key_storage = Arc::new(InMemoryKeyStorage::new());
                 let crypto_provider = Arc::new(DefaultCryptoProvider::new());
-                let token_manager = Arc::new(DefaultTokenManager::new());
+                let token_manager = Arc::new(DefaultTokenManager::new(
+                    key_storage.clone(),
+                    crypto_provider.clone(),
+                ));
                 let identity_manager = Arc::new(DefaultIdentityManager::new());
                 let rbac_manager = Arc::new(BasicRBACManager::new());
                 let audit_service = Arc::new(DefaultAuditService::new());

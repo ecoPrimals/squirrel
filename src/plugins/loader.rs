@@ -9,7 +9,6 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 use async_trait::async_trait;
 use std::fmt;
 

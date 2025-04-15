@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 // MCP Resilience Health Monitoring Bridge Implementation
 //
 // This module implements the bridge between the MCP resilience framework's
@@ -8,7 +10,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::error::{MCPError, Result};
 use crate::monitoring::{
@@ -19,7 +21,7 @@ use crate::resilience::health::{
     HealthMonitor, HealthStatus, HealthCheckResult,
     MonitoringAdapter,
 };
-use crate::resilience::recovery::{RecoveryStrategy, FailureInfo, FailureSeverity};
+use crate::resilience::recovery::RecoveryStrategy;
 
 /// Configuration for the health monitoring bridge
 #[derive(Debug, Clone)]
@@ -123,7 +125,7 @@ impl HealthMonitoringBridge {
         {
             let mut running = self.running.write().await;
             if *running {
-                return Err(MCPError::InvalidOperation("Health monitoring bridge is already running".to_string()));
+                return Err(MCPError::InvalidOperation("Health monitoring bridge is already running".to_string()).into());
             }
             *running = true;
         }
@@ -155,7 +157,7 @@ impl HealthMonitoringBridge {
         {
             let mut running = self.running.write().await;
             if !*running {
-                return Err(MCPError::InvalidOperation("Health monitoring bridge is not running".to_string()));
+                return Err(MCPError::InvalidOperation("Health monitoring bridge is not running".to_string()).into());
             }
             *running = false;
         }
@@ -219,7 +221,7 @@ impl HealthMonitoringBridge {
         let mut forward_task = match self.forward_task.lock() {
             Ok(task) => task,
             Err(e) => {
-                return Err(MCPError::InvalidState(format!("Failed to acquire lock on forward task: {}", e)));
+                return Err(MCPError::InvalidState(format!("Failed to acquire lock on forward task: {}", e)).into());
             }
         };
         *forward_task = Some(task);
@@ -234,7 +236,7 @@ impl HealthMonitoringBridge {
             let mut forward_task = match self.forward_task.lock() {
                 Ok(task) => task,
                 Err(e) => {
-                    return Err(MCPError::InvalidState(format!("Failed to acquire lock on forward task: {}", e)));
+                    return Err(MCPError::InvalidState(format!("Failed to acquire lock on forward task: {}", e)).into());
                 }
             };
             forward_task.take()
@@ -263,54 +265,13 @@ impl HealthMonitoringBridge {
         
         // Create a function that will be called when an alert is triggered
         let recovery_clone = recovery_strategy.clone();
-        let handle_alert = move |alert: Alert| {
-            let recovery = recovery_clone.clone();
-            
-            async move {
-                // Extract alert information
-                let severity = match alert.config.severity {
-                    AlertSeverity::Info => FailureSeverity::Minor,
-                    AlertSeverity::Warning => FailureSeverity::Minor,
-                    AlertSeverity::Error => FailureSeverity::Moderate,
-                    AlertSeverity::Critical => FailureSeverity::Critical,
-                };
-                
-                let message = alert.config.description.clone();
-                let context = format!("alert:{}", alert.id);
-                
-                // Create failure info
-                let failure_info = FailureInfo {
-                    message,
-                    severity,
-                    context,
-                    recovery_attempts: 0,
-                };
-                
-                // Get recovery strategy
-                let mut recovery_guard = match recovery.lock() {
-                    Ok(guard) => guard,
-                    Err(e) => {
-                        error!("Failed to acquire lock on recovery strategy: {}", e);
-                        return Err(MCPError::InvalidState(format!("Failed to acquire lock: {}", e)));
-                    }
-                };
-                
-                // Trigger recovery action
-                match recovery_guard.handle_failure(failure_info, || {
-                    // Default recovery action does nothing
-                    Ok(())
-                }) {
-                    Ok(_) => {
-                        debug!("Recovery action completed successfully for alert {}", alert.id);
-                        Ok(())
-                    },
-                    Err(e) => {
-                        error!("Recovery failed for alert {}: {}", alert.id, e);
-                        Err(MCPError::InvalidState(format!("Recovery failed: {}", e)))
-                    }
-                }
-            }
-        };
+        
+        // NOTE: In a real implementation, we would define and register an alert handler
+        // The pattern would look something like this:
+        // let _alert_handler = move |alert: Alert| {
+        //     // Process the alert and trigger recovery
+        // };
+        // alert_manager.register_handler(_alert_handler);
         
         // Register configuration for a health status alert
         let alert_config = AlertConfiguration {

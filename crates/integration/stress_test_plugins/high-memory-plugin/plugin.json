@@ -1,0 +1,14 @@
+{
+  "author": "Testing Framework",
+  "capabilities": [
+    "memory-intensive"
+  ],
+  "description": "Mock plugin high-memory-plugin",
+  "id": "9278d29e-e5b0-4e58-95ac-9f5f7509028a",
+  "name": "high-memory-plugin",
+  "resources": {
+    "cpu": 5,
+    "memory": 100
+  },
+  "version": "1.0.0"
+}

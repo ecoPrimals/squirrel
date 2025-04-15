@@ -42,6 +42,7 @@ squirrel-interfaces = { path = "../interfaces" }
 commands = { package = "squirrel-commands", path = "../commands" }
 timeout = "0.1.0"
 regex.workspace = true
+libc = "0.2.172"
 
 [dev-dependencies]
 tokio-test = "0.4"

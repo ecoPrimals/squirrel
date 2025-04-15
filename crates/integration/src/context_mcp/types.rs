@@ -217,13 +217,30 @@ pub trait ContextManagerV2: Send + Sync + std::fmt::Debug {
 }
 
 /// Callbacks for ContextManagerV2
-#[derive(Clone)]
 pub struct ContextManagerCallbacks {
     /// Callback for accessing MCP service
     pub mcp_service: Option<Box<dyn Fn(&str) -> anyhow::Result<String> + Send + Sync>>,
     
     /// Callback for logging
     pub log_event: Option<Box<dyn Fn(&str, &str) -> anyhow::Result<()> + Send + Sync>>,
+}
+
+impl std::fmt::Debug for ContextManagerCallbacks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContextManagerCallbacks")
+            .field("mcp_service", &self.mcp_service.as_ref().map(|_| "Function"))
+            .field("log_event", &self.log_event.as_ref().map(|_| "Function"))
+            .finish()
+    }
+}
+
+impl Default for ContextManagerCallbacks {
+    fn default() -> Self {
+        Self {
+            mcp_service: None,
+            log_event: None,
+        }
+    }
 }
 
 // Helper struct to adapt ContextManagerV2 to ContextManager for backward compatibility
@@ -238,7 +255,10 @@ impl<T: ContextManagerV2> ContextManagerWrapper<T> {
     }
 }
 
-#[async_trait::async_trait]
+/// Trait alias to make it clear which ContextManager trait we're referring to
+pub type ContextManagerTrait = dyn ContextManager + Send + Sync;
+
+#[async_trait]
 impl<T: ContextManagerV2 + 'static> ContextManager for ContextManagerWrapper<T> {
     async fn create_context(
         &self,

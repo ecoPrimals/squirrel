@@ -1,0 +1,266 @@
+use crate::app::{App, ActiveTab};
+use dashboard_core::service::DashboardService;
+use ratatui::{
+    backend::Backend,
+    layout::{Constraint, Direction, Layout, Rect, Alignment},
+    style::{Color, Style, Stylize},
+    text::Text,
+    widgets::{Block, BorderType, Borders, Paragraph},
+    Frame,
+};
+use log::debug;
+use crate::widgets::alerts::render_alerts_widget;
+use crate::widgets::health::render_health_checks;
+use crate::widgets::network::render_network_widget;
+use crate::widgets::system::render_system_widgets;
+use crate::widgets::protocol::render_protocol_widget;
+
+/// Renders the current state of the application for the dashboard.
+pub fn render<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &mut App<S>, f: &mut Frame) {
+    let size = f.size();
+
+    // If help is being shown, just render the help screen over everything
+    if app.state.show_help {
+        draw_help(f, size);
+        return;
+    }
+
+    // Create layout for the whole screen
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),  // Header
+            Constraint::Min(3),     // Content
+            Constraint::Length(3),  // Footer
+        ])
+        .split(size);
+
+    // Draw header
+    draw_header(app, f, chunks[0]);
+
+    // Use a horizontal layout for tab buttons
+    let tab_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .margin(0)
+        .constraints([
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+        ])
+        .split(chunks[1]);
+
+    // Draw tab indicators
+    draw_tabs(app, f, tab_chunks);
+
+    // The tabs can be drawn over each other or in separate regions 
+    let content_area = chunks[1]; // Same area as the tabs
+    
+    // Draw active tab content
+    match app.state.active_tab {
+        ActiveTab::Overview => {
+            draw_overview(app, f, content_area);
+        },
+        ActiveTab::System => {
+            draw_system_tab(app, f, content_area);
+        },
+        ActiveTab::Network => {
+            draw_network_tab(app, f, content_area);
+        },
+        ActiveTab::Protocol => {
+            draw_protocol_tab(app, f, content_area);
+        },
+        ActiveTab::Alerts => {
+            draw_alerts_tab(app, f, content_area);
+        },
+    }
+
+    // Draw footer
+    draw_footer(app, f, chunks[2]);
+}
+
+// Helper functions for drawing specific parts of the UI
+
+/// Draw the header area of the dashboard
+fn draw_header<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let title = Paragraph::new(Text::styled(
+        "Squirrel Dashboard",
+        Style::default().fg(Color::Green).bold()
+    ))
+    .alignment(Alignment::Center)
+    .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded));
+    
+    f.render_widget(title, area);
+}
+
+/// Draw the navigation tabs
+fn draw_tabs<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, tab_chunks: &[Rect]) {
+    let tabs = [
+        ActiveTab::Overview,
+        ActiveTab::System,
+        ActiveTab::Network, 
+        ActiveTab::Protocol,
+        ActiveTab::Alerts,
+    ];
+    
+    for (i, &tab) in tabs.iter().enumerate() {
+        let (text, style) = if tab == app.state.active_tab {
+            (
+                format!(" {} ", tab), // Add padding
+                Style::default().fg(Color::Yellow).bold()
+            )
+        } else {
+            (
+                format!(" {} ", tab), // Add padding
+                Style::default().fg(Color::Gray)
+            )
+        };
+        
+        let tab_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(if tab == app.state.active_tab {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default()
+            });
+        
+        let tab_text = Paragraph::new(text)
+            .style(style)
+            .alignment(Alignment::Center)
+            .block(tab_block);
+        
+        f.render_widget(tab_text, tab_chunks[i]);
+    }
+}
+
+/// Draw the Overview tab content
+fn draw_overview<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let inner_area = inner_area_below_tabs(area);
+    
+    // Split the area into sections
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(40),  // Health status
+            Constraint::Percentage(60),  // System stats
+        ])
+        .margin(1)
+        .split(inner_area);
+    
+    // Draw health status
+    render_health_checks(f, chunks[0], app.get_health_checks().as_slice());
+    
+    // Draw system stats in a grid layout
+    let system_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(50),  // Left column
+            Constraint::Percentage(50),  // Right column
+        ])
+        .split(chunks[1]);
+    
+    if let Some(metrics) = &app.state.metrics {
+        render_system_widgets(f, app, system_chunks[0]);
+        render_network_widget(f, app, system_chunks[1]);
+    }
+}
+
+/// Draw the System tab content
+fn draw_system_tab<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let inner_area = inner_area_below_tabs(area);
+    render_system_widgets(f, app, inner_area);
+}
+
+/// Draw the Network tab content
+fn draw_network_tab<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let inner_area = inner_area_below_tabs(area);
+    render_network_widget(f, app, inner_area);
+}
+
+/// Draw the Protocol tab content
+fn draw_protocol_tab<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let inner_area = inner_area_below_tabs(area);
+    render_protocol_widget(f, app, inner_area);
+}
+
+/// Draw the Alerts tab content
+fn draw_alerts_tab<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let inner_area = inner_area_below_tabs(area);
+    render_alerts_widget(f, app, inner_area);
+}
+
+/// Draw the footer area
+fn draw_footer<B: Backend, S: DashboardService + Send + Sync + ?Sized>(app: &App<S>, f: &mut Frame, area: Rect) {
+    let footer_text = "Press '?' for help";
+    let footer = Paragraph::new(footer_text)
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL));
+    
+    f.render_widget(footer, area);
+}
+
+/// Draw help overlay
+fn draw_help<B: Backend>(f: &mut Frame, area: Rect) {
+    let help_area = centered_rect(80, 70, area);
+    
+    let help_text = vec![
+        "Squirrel Dashboard Controls:",
+        "",
+        "Tab Navigation:",
+        "  → / ←     : Navigate between tabs",
+        "  1-5       : Jump directly to a tab",
+        "",
+        "General:",
+        "  q, Ctrl+C : Quit",
+        "  ?         : Toggle help",
+        "  r         : Refresh data",
+        "",
+        "Press any key to close help",
+    ].join("\n");
+    
+    let help_block = Block::default()
+        .title("Help")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Thick)
+        .border_style(Style::default().fg(Color::Yellow));
+    
+    let help_paragraph = Paragraph::new(help_text)
+        .block(help_block)
+        .style(Style::default().fg(Color::White))
+        .alignment(Alignment::Left);
+    
+    f.render_widget(help_paragraph, help_area);
+}
+
+/// Helper function to create a centered rect using up certain percentage of the available rect
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
+}
+
+/// Creates a rectangle that excludes the tab navigation area
+fn inner_area_below_tabs(area: Rect) -> Rect {
+    Rect {
+        x: area.x,
+        y: area.y + 3, // Assuming tab navigation takes 3 vertical rows
+        width: area.width,
+        height: area.height - 3,
+    }
+} 

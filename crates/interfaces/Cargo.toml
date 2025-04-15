@@ -23,6 +23,9 @@ uuid = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
+# Time types for tracing
+chrono = { workspace = true }
+
 # Remove dependency on core to break circular dependency
 # squirrel-core = { path = "../core" }
 

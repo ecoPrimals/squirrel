@@ -21,14 +21,19 @@ use serde_json::Value;
 ///
 /// Returns a protocol error if the key is not found or the value is not a string
 pub fn extract_string(obj: &Map<String, Value>, key: &str) -> Result<String> {
-    obj.get(key)
+    let mcperror = obj.get(key)
         .ok_or_else(|| MCPError::from(WireFormatError::MissingField(key.to_string())))
         .and_then(|v| {
             v.as_str()
-                .map(String::from)
                 .ok_or_else(|| MCPError::from(WireFormatError::InvalidFieldType(
-                    key.to_string(),
+                    key.to_string(), 
                     "string".to_string()
                 )))
-        })
+        });
+    
+    // Convert from MCPError to Error
+    match mcperror {
+        Ok(val) => Ok(val.to_string()),
+        Err(err) => Err(err.into())
+    }
 } 

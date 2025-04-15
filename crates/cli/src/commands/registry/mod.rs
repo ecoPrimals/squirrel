@@ -3,10 +3,11 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+use ::commands::Command;
 
 /// Command registry for CLI commands
 pub struct CommandRegistry {
-    commands: Arc<Mutex<HashMap<String, Box<dyn super::Command>>>>,
+    commands: Arc<Mutex<HashMap<String, Box<dyn Command>>>>,
 }
 
 impl fmt::Debug for CommandRegistry {
@@ -32,14 +33,14 @@ impl CommandRegistry {
     }
 
     /// Register a command
-    pub fn register(&mut self, command: Box<dyn super::Command>) {
+    pub fn register(&mut self, command: Box<dyn Command>) {
         let name = command.name().to_owned();
         let mut commands = self.commands.lock().unwrap();
         commands.insert(name, command);
     }
 
     /// Get a command by name
-    pub fn get(&self, name: &str) -> Option<Box<dyn super::Command>> {
+    pub fn get(&self, name: &str) -> Option<Box<dyn Command>> {
         let commands = self.commands.lock().unwrap();
         commands.get(name).map(|cmd| cmd.clone_box())
     }

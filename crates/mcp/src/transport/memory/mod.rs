@@ -4,7 +4,7 @@ use tokio::sync::{mpsc::{self, Sender, Receiver}, RwLock, Mutex as TokioMutex};
 use uuid::Uuid;
 use std::collections::VecDeque;
 use rand;
-use crate::error::{TransportError, MCPError, Result};
+use crate::error::{MCPError, Result, TransportError};
 use crate::protocol::types::MCPMessage;
 use crate::transport::Transport;
 use crate::transport::types::TransportMetadata;
@@ -346,7 +346,7 @@ impl Transport for MemoryTransport {
         
         let peer_sender = self.peer_sender.clone();
         peer_sender.send(message).await.map_err(|e| {
-            MCPError::Transport(TransportError::SendError(format!("Failed to send message: {}", e)))
+            MCPError::Transport(format!("Failed to send message: {}", e).into())
         })?;
         Ok(())
     }
@@ -354,7 +354,7 @@ impl Transport for MemoryTransport {
     async fn receive_message(&self) -> Result<MCPMessage> {
         // Check if connected
         if !self.is_connected().await {
-            return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string())));
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string())).into());
         }
 
         // Acquire the Tokio Mutex lock asynchronously
@@ -378,12 +378,12 @@ impl Transport for MemoryTransport {
                 // Channel closed
                 let state = self.state.read().await;
                 error!("MemoryTransport [{}]: Incoming channel closed. State: {:?}", self.connection_id, *state);
-                Err(MCPError::Transport(TransportError::ConnectionClosed("Channel closed".to_string())))
+                Err(MCPError::Transport(TransportError::ConnectionClosed("Channel closed".to_string())).into())
             }
             Err(_) => {
                 // Timeout occurred
                 error!("MemoryTransport [{}]: Receive operation timed out after 5 seconds", self.connection_id);
-                Err(MCPError::Transport(TransportError::Timeout("Receive operation timed out".to_string())))
+                Err(MCPError::Transport(TransportError::Timeout("Receive operation timed out".to_string())).into())
             }
         }
     }
@@ -402,9 +402,7 @@ impl Transport for MemoryTransport {
         
         // Only allow connecting from Disconnected state
         if state != MemoryState::Disconnected {
-            return Err(MCPError::Transport(TransportError::ConnectionFailed(
-                format!("Cannot connect from state: {state:?}")
-            ).into()));
+            return Err(MCPError::Transport(format!("Cannot connect from state: {state:?}").into()));
         }
         
         // Update state
@@ -422,9 +420,7 @@ impl Transport for MemoryTransport {
             // Update state directly without creating a temporary variable
             *self.state.write().await = MemoryState::Failed("Simulated random failure".to_string());
             
-            return Err(MCPError::Transport(TransportError::ConnectionFailed(
-                "Simulated random connection failure".to_string()
-            ).into()));
+            return Err(MCPError::Transport(TransportError::ConnectionFailed("Simulated random connection failure".to_string())).into());
         }
         
         // Update state to connected
@@ -469,7 +465,7 @@ impl Transport for MemoryTransport {
         // Sending raw bytes doesn't make sense for memory transport?
         // Or should we try to deserialize to MCPMessage first?
         error!("send_raw is not supported for MemoryTransport");
-        Err(TransportError::UnsupportedOperation("send_raw not supported".to_string()).into())
+        Err(MCPError::UnsupportedOperation("send_raw not supported".to_string()).into())
     }
 }
 

@@ -86,11 +86,14 @@ impl std::str::FromStr for MessageType {
 pub struct MessageId(pub String);
 
 impl MessageId {
-    /// Creates a new message ID using a randomly generated UUID.
-    ///
-    /// ... (doc comment) ...
+    /// Create a new random message ID.
     #[must_use] pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
+    }
+    
+    /// Check if the message ID is empty.
+    #[must_use] pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
     
     /// Creates a new message ID with a custom prefix and a randomly generated UUID.

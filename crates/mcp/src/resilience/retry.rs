@@ -248,64 +248,242 @@ impl RetryMechanism {
     
     /// Calculate the delay for the next retry based on the backoff strategy
     #[must_use] pub fn calculate_delay(&self, attempt: u32) -> Duration {
-        let base_ms = self.config.base_delay.as_millis() as u64;
-        
-        // Calculate delay based on strategy
-        let delay_ms = match self.config.backoff_strategy {
-            BackoffStrategy::Constant => base_ms,
-            
-            BackoffStrategy::Linear => {
-                base_ms * u64::from(attempt)
-            },
-            
+        let base_delay = match self.config.backoff_strategy {
+            BackoffStrategy::Constant => self.config.base_delay,
+            BackoffStrategy::Linear => self.config.base_delay.mul_f32(attempt as f32),
             BackoffStrategy::Exponential => {
-                // Use saturating_mul to prevent overflow
-                let factor = 2u64.saturating_pow(attempt - 1);
-                base_ms.saturating_mul(factor)
-            },
-            
+                // 2^attempt scaling for exponential backoff
+                let scale = 2u32.pow(attempt - 1) as f32;
+                self.config.base_delay.mul_f32(scale)
+            }
             BackoffStrategy::Fibonacci => {
-                if attempt <= 1 {
-                    base_ms
-                } else if attempt == 2 {
-                    base_ms
-                } else {
-                    let mut prev = base_ms;
-                    let mut curr = base_ms;
-                    
-                    for _ in 2..attempt {
-                        let next = prev.saturating_add(curr);
-                        prev = curr;
-                        curr = next;
-                    }
-                    
-                    curr
+                // Calculate Fibonacci number (simplified approach)
+                let mut a = 1;
+                let mut b = 1;
+                for _ in 0..attempt {
+                    let temp = a;
+                    a = b;
+                    b = temp + b;
                 }
-            },
+                self.config.base_delay.mul_f32(a as f32)
+            }
         };
         
         // Apply jitter if configured
-        let final_delay = if self.config.use_jitter {
-            // Add random jitter between 0% and 25%
-            let jitter_factor = thread_rng().gen_range(0.0..0.25);
-            let jitter = (delay_ms as f64 * jitter_factor) as u64;
-            delay_ms.saturating_add(jitter)
+        let mut final_delay = if self.config.use_jitter {
+            self.apply_jitter(base_delay)
         } else {
-            delay_ms
+            base_delay
         };
         
-        // Cap at max delay
-        let max_ms = self.config.max_delay.as_millis() as u64;
+        // Ensure we don't exceed max delay
+        if final_delay > self.config.max_delay {
+            final_delay = self.config.max_delay;
+        }
         
-        Duration::from_millis(final_delay.min(max_ms))
+        final_delay
+    }
+    
+    /// Apply jitter to avoid retry storms when many instances retry simultaneously
+    fn apply_jitter(&self, delay: Duration) -> Duration {
+        let mut rng = thread_rng();
+        
+        // Apply full jitter: random value between 0.1 and calculated delay
+        // This helps prevent retry storm synchronization and ensures we never return zero delay
+        let jitter_factor = rng.gen_range(0.1..1.0);
+        let jitter_millis = (delay.as_millis() as f64 * jitter_factor) as u64;
+        
+        Duration::from_millis(jitter_millis)
+    }
+    
+    /// Execute with a predicate that determines if an error should be retried
+    ///
+    /// Similar to `execute`, but allows specifying a predicate to decide which
+    /// errors should be retried. This is useful for only retrying specific error types.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The operation to execute, provided as a mutable closure that 
+    ///   returns a future
+    /// * `should_retry` - Predicate that returns true if the error should be retried
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation if successful within the allowed attempts
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RetryError` if:
+    /// * The maximum number of retry attempts is exceeded (`RetryError::MaxAttemptsExceeded`)
+    /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
+    /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
+    pub async fn execute_with_predicate<F, T, P>(&self, mut operation: F, should_retry: P) -> std::result::Result<T, RetryError>
+    where
+        F: FnMut() -> Pin<Box<dyn Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send>>,
+        P: Fn(&Box<dyn StdError + Send + Sync>) -> bool + Send + Sync + 'static,
+        T: Send + 'static,
+    {
+        let mut attempts = 0;
+        let mut last_error = None;
+        let mut retries = 0;
+        
+        while attempts < self.config.max_attempts {
+            let future = operation();
+            match future.await {
+                Ok(value) => {
+                    self.success_count.fetch_add(1, Ordering::Relaxed);
+                    
+                    // Update max retries metrics if needed
+                    let current_max = self.max_retries_performed.load(Ordering::Relaxed) as usize;
+                    if retries > current_max {
+                        self.max_retries_performed.store(retries as u32, Ordering::Relaxed);
+                    }
+                    
+                    return Ok(value);
+                }
+                Err(err) => {
+                    attempts += 1;
+                    
+                    // Check if we should retry this error using the predicate
+                    if attempts < self.config.max_attempts && should_retry(&err) {
+                        retries += 1;
+                        self.retry_count.fetch_add(1, Ordering::Relaxed);
+                        
+                        let delay = self.calculate_delay(attempts as u32);
+                        tokio::time::sleep(delay).await;
+                    } else if attempts < self.config.max_attempts {
+                        // Error doesn't match retry criteria, exit early
+                        self.failure_count.fetch_add(1, Ordering::Relaxed);
+                        return Err(RetryError::MaxAttemptsExceeded { 
+                            attempts, 
+                            error: err
+                        });
+                    }
+                    
+                    last_error = Some(err);
+                }
+            }
+        }
+        
+        self.failure_count.fetch_add(1, Ordering::Relaxed);
+        
+        Err(RetryError::MaxAttemptsExceeded { 
+            attempts: self.config.max_attempts, 
+            error: last_error.unwrap_or_else(|| Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Unknown error during retry operation"
+            )))
+        })
+    }
+    
+    /// Execute an operation with timeout for each retry attempt
+    ///
+    /// Executes the provided operation with a timeout for each retry attempt.
+    /// The operation is retried according to the configured policy, and each attempt
+    /// is limited by the specified timeout.
+    ///
+    /// # Arguments
+    ///
+    /// * `operation` - The operation to execute, provided as a mutable closure that 
+    ///   returns a future
+    /// * `timeout` - Maximum duration to wait for each attempt
+    ///
+    /// # Returns
+    ///
+    /// The result of the operation if successful within the allowed attempts and timeout
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RetryError` if:
+    /// * The maximum number of retry attempts is exceeded (`RetryError::MaxAttemptsExceeded`)
+    /// * Any attempt times out (`RetryError::Cancelled` with timeout message)
+    /// * The retry operation is cancelled for any reason (`RetryError::Cancelled`)
+    /// * An internal error occurs in the retry mechanism (`RetryError::Internal`)
+    pub async fn execute_with_timeout<F, T>(&self, mut operation: F, timeout: Duration) -> std::result::Result<T, RetryError>
+    where
+        F: FnMut() -> Pin<Box<dyn Future<Output = std::result::Result<T, Box<dyn StdError + Send + Sync>>> + Send>>,
+        T: Send + 'static,
+    {
+        let mut attempts = 0;
+        let mut last_error = None;
+        let mut retries = 0;
+        
+        while attempts < self.config.max_attempts {
+            // Create a timeout future for the operation
+            let future = operation();
+            let timeout_future = tokio::time::timeout(timeout, future);
+            
+            match timeout_future.await {
+                Ok(result) => match result {
+                    Ok(value) => {
+                        self.success_count.fetch_add(1, Ordering::Relaxed);
+                        
+                        // Update max retries metrics if needed
+                        let current_max = self.max_retries_performed.load(Ordering::Relaxed) as usize;
+                        if retries > current_max {
+                            self.max_retries_performed.store(retries as u32, Ordering::Relaxed);
+                        }
+                        
+                        return Ok(value);
+                    }
+                    Err(err) => {
+                        attempts += 1;
+                        
+                        if attempts < self.config.max_attempts {
+                            retries += 1;
+                            self.retry_count.fetch_add(1, Ordering::Relaxed);
+                            
+                            let delay = self.calculate_delay(attempts as u32);
+                            tokio::time::sleep(delay).await;
+                        }
+                        
+                        last_error = Some(err);
+                    }
+                },
+                Err(_) => {
+                    // Timeout occurred
+                    attempts += 1;
+                    
+                    if attempts < self.config.max_attempts {
+                        retries += 1;
+                        self.retry_count.fetch_add(1, Ordering::Relaxed);
+                        
+                        let delay = self.calculate_delay(attempts as u32);
+                        tokio::time::sleep(delay).await;
+                    }
+                    
+                    // Create a timeout error
+                    let timeout_error = Box::new(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        format!("Operation timed out after {}ms", timeout.as_millis())
+                    ));
+                    
+                    last_error = Some(timeout_error);
+                }
+            }
+        }
+        
+        self.failure_count.fetch_add(1, Ordering::Relaxed);
+        
+        Err(RetryError::MaxAttemptsExceeded { 
+            attempts: self.config.max_attempts, 
+            error: last_error.unwrap_or_else(|| Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Unknown error during retry operation"
+            )))
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::future::Future;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    use std::time::Duration;
+    use std::collections::HashSet;
     
-
     #[tokio::test]
     async fn test_retry_success_first_attempt() {
         let retry = RetryMechanism::default();
@@ -461,5 +639,141 @@ mod tests {
         assert_eq!(metrics.failure_count, 0);
         assert_eq!(metrics.retry_count, 0);
         assert_eq!(metrics.max_retries_performed, 0);
+    }
+    
+    #[tokio::test]
+    async fn test_predicate_retry() {
+        let retry = RetryMechanism::new(RetryConfig {
+            max_attempts: 5,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(100),
+            use_jitter: false,
+            backoff_strategy: BackoffStrategy::Constant,
+        });
+        
+        let counter = Arc::new(AtomicU32::new(0));
+        let counter_clone = counter.clone();
+        
+        // Test predicate that only retries I/O errors
+        let result = retry.execute_with_predicate(
+            move || {
+                let count = counter_clone.fetch_add(1, Ordering::SeqCst);
+                let future: Pin<Box<dyn Future<Output = std::result::Result<(), Box<dyn StdError + Send + Sync>>> + Send>> = 
+                    if count < 2 {
+                        // Return an I/O error for the first two attempts
+                        Box::pin(async {
+                            Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::ConnectionReset,
+                                "Connection reset"
+                            )) as Box<dyn StdError + Send + Sync>)
+                        })
+                    } else if count < 3 {
+                        // Return a permission error which shouldn't be retried
+                        Box::pin(async {
+                            Err(Box::new(std::io::Error::new(
+                                std::io::ErrorKind::PermissionDenied,
+                                "Permission denied"
+                            )) as Box<dyn StdError + Send + Sync>)
+                        })
+                    } else {
+                        Box::pin(async { Ok(()) })
+                    };
+                future
+            },
+            |err| {
+                // Only retry connection errors, not permission errors
+                if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
+                    io_err.kind() == std::io::ErrorKind::ConnectionReset
+                } else {
+                    false
+                }
+            }
+        ).await;
+        
+        // Should fail because the third attempt is a permission error
+        // which doesn't match our retry predicate
+        assert!(result.is_err());
+        
+        // Should have made 3 attempts (original + 2 retries)
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+    }
+    
+    #[tokio::test]
+    async fn test_execute_with_timeout() {
+        let retry = RetryMechanism::new(RetryConfig {
+            max_attempts: 3,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(100),
+            use_jitter: false,
+            backoff_strategy: BackoffStrategy::Constant,
+        });
+        
+        let counter = Arc::new(AtomicU32::new(0));
+        let counter_clone = counter.clone();
+        
+        // Test with timeout
+        let result = retry.execute_with_timeout(
+            move || {
+                let count = counter_clone.fetch_add(1, Ordering::SeqCst);
+                let future: Pin<Box<dyn Future<Output = std::result::Result<(), Box<dyn StdError + Send + Sync>>> + Send>> = 
+                    if count < 2 {
+                        // Simulate an operation that takes too long
+                        Box::pin(async {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                            Ok(())
+                        })
+                    } else {
+                        // Third attempt succeeds quickly
+                        Box::pin(async { Ok(()) })
+                    };
+                future
+            },
+            Duration::from_millis(10)
+        ).await;
+        
+        // Should succeed eventually
+        assert!(result.is_ok());
+        
+        // Should have made 3 attempts (original + 2 retries)
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+    }
+    
+    #[tokio::test]
+    async fn test_exponential_backoff_with_jitter() {
+        let retry = RetryMechanism::new(RetryConfig {
+            max_attempts: 5,
+            base_delay: Duration::from_millis(10),
+            max_delay: Duration::from_millis(1000),
+            use_jitter: true,
+            backoff_strategy: BackoffStrategy::Exponential,
+        });
+        
+        // Calculate delays for multiple attempts and check they follow exponential pattern with jitter
+        let mut last_max = Duration::from_millis(0);
+        
+        for attempt in 1..=5 {
+            let mut delays = Vec::new();
+            
+            // Sample several delays to check jitter
+            for _ in 0..10 {
+                delays.push(retry.calculate_delay(attempt));
+            }
+            
+            // With jitter, delays should all be different
+            let unique_delays = delays.iter().collect::<std::collections::HashSet<_>>().len();
+            assert!(unique_delays > 1, "Jitter should produce different delays");
+            
+            // Max delay should increase exponentially
+            let max_delay = *delays.iter().max().unwrap();
+            if attempt > 1 {
+                // Each max should be approximately double the previous max (exponential)
+                assert!(max_delay > last_max);
+            }
+            
+            last_max = max_delay;
+            
+            // Check it respects the max_delay
+            assert!(max_delay <= retry.config.max_delay);
+        }
     }
 } 

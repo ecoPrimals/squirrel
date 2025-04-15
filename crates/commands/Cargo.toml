@@ -37,10 +37,8 @@ log = "0.4"
 
 # Internal dependencies
 squirrel-core = { path = "../core" }
-# Add interfaces dependency to break circular dependencies
+# Use interfaces for plugin-related traits to break circular dependencies
 squirrel-interfaces = { path = "../interfaces" }
-# Use minimal features to break circular dependencies
-squirrel-plugins = { path = "../plugins", default-features = false }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -59,4 +57,7 @@ path = "../../examples/observability_example.rs"
 
 [[example]]
 name = "phase1_demo"
-path = "../../examples/phase1_demo.rs" 
+path = "../../examples/phase1_demo.rs"
+
+[features]
+default = [] 

@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use squirrel_core::error::SquirrelError as CoreError;
 use uuid;
+use tonic;
 
 // Import the moved error types
 use crate::error::connection::ConnectionError;
@@ -186,6 +187,27 @@ pub enum MCPError {
     
     /// Internal system error
     InternalError(String),
+    
+    /// Error related to synchronization
+    Sync(String),
+    
+    /// Already exists errors
+    AlreadyExists(String),
+    
+    /// Invalid request errors
+    InvalidRequest(String),
+    
+    /// Database errors
+    Database(String),
+    
+    /// Operation failed errors
+    OperationFailed(String),
+    
+    /// IO errors
+    Io(String),
+    
+    /// JSON errors
+    Json(String),
 }
 
 /// Errors related to Authentication and Authorization
@@ -330,6 +352,13 @@ impl MCPError {
             Self::InvalidOperation(_) => "MCP-040",
             Self::InternalError(_) => "MCP-041",
             Self::Plugin(_) => "MCP-032",
+            Self::Sync(_) => "MCP-042",
+            Self::AlreadyExists(_) => "MCP-043",
+            Self::InvalidRequest(_) => "MCP-044",
+            Self::Database(_) => "MCP-045",
+            Self::OperationFailed(_) => "MCP-046",
+            Self::Io(_) => "MCP-047",
+            Self::Json(_) => "MCP-048",
         }
     }
 
@@ -382,6 +411,13 @@ impl MCPError {
             MCPError::InvalidState(_) => "INVALID_STATE",
             MCPError::InvalidOperation(_) => "INVALID_OPERATION",
             Self::InternalError(_) => "INTERNAL_ERROR",
+            Self::Sync(_) => "SYNC",
+            Self::AlreadyExists(_) => "ALREADY_EXISTS",
+            Self::InvalidRequest(_) => "INVALID_REQUEST",
+            Self::Database(_) => "DATABASE",
+            Self::OperationFailed(_) => "OPERATION_FAILED",
+            Self::Io(_) => "IO",
+            Self::Json(_) => "JSON",
         }
     }
 }
@@ -615,6 +651,13 @@ impl From<MCPError> for CoreError {
             MCPError::InvalidOperation(e) => Self::MCP(format!("Invalid operation: {e}")),
             MCPError::InternalError(e) => Self::MCP(format!("Internal error: {e}")),
             MCPError::UnsupportedOperation(e) => Self::MCP(format!("Unsupported operation: {e}")),
+            MCPError::Sync(e) => Self::MCP(format!("Sync error: {e}")),
+            MCPError::AlreadyExists(e) => Self::MCP(format!("Already exists: {e}")),
+            MCPError::InvalidRequest(e) => Self::MCP(format!("Invalid request: {e}")),
+            MCPError::Database(e) => Self::MCP(format!("Database error: {e}")),
+            MCPError::OperationFailed(e) => Self::MCP(format!("Operation failed: {e}")),
+            MCPError::Io(e) => Self::MCP(format!("IO error: {e}")),
+            MCPError::Json(e) => Self::MCP(format!("JSON error: {e}")),
         }
     }
 }
@@ -690,7 +733,33 @@ impl From<crate::error::plugin::PluginError> for MCPError {
     }
 }
 
+// Implement From<String> for MCPError to handle cases where String is converted to MCPError
+impl From<String> for MCPError {
+    fn from(msg: String) -> Self {
+        MCPError::General(msg)
+    }
+}
+
+// Implement From<&str> for MCPError for convenience
+impl From<&str> for MCPError {
+    fn from(msg: &str) -> Self {
+        MCPError::General(msg.to_string())
+    }
+}
+
 pub type Result<T, E = MCPError> = std::result::Result<T, E>;
+
+/// Error type alias for backward compatibility
+/// 
+/// This type alias is provided for backward compatibility with code
+/// that refers to `crate::error::Error` instead of `MCPError`.
+pub type Error = MCPError;
+
+/// Result type alias for backward compatibility
+///
+/// This type alias is provided for backward compatibility with code
+/// that refers to `crate::error::MCPResult` instead of `Result`.
+pub type MCPResult<T> = Result<T, MCPError>;
 
 // Comment out the From<MCPError> for DomainError implementation until DomainError is defined
 /*
@@ -804,6 +873,32 @@ impl std::fmt::Display for MCPError {
             Self::InvalidState(e) => write!(f, "Invalid state: {}", e),
             Self::InvalidOperation(e) => write!(f, "Invalid operation: {}", e),
             Self::InternalError(e) => write!(f, "Internal error: {}", e),
+            Self::Sync(e) => write!(f, "Sync error: {}", e),
+            Self::AlreadyExists(e) => write!(f, "Already exists: {}", e),
+            Self::InvalidRequest(e) => write!(f, "Invalid request: {}", e),
+            Self::Database(e) => write!(f, "Database error: {}", e),
+            Self::OperationFailed(e) => write!(f, "Operation failed: {}", e),
+            Self::Io(e) => write!(f, "IO error: {}", e),
+            Self::Json(e) => write!(f, "JSON error: {}", e),
+        }
+    }
+}
+
+// Implement From<tonic::Status> for MCPError to handle gRPC errors
+impl From<tonic::Status> for MCPError {
+    fn from(status: tonic::Status) -> Self {
+        match status.code() {
+            tonic::Code::NotFound => MCPError::NotFound(status.message().to_string()),
+            tonic::Code::InvalidArgument => MCPError::InvalidArgument(status.message().to_string()),
+            tonic::Code::PermissionDenied => MCPError::Security(SecurityError::AuthorizationFailed(status.message().to_string())),
+            tonic::Code::Unauthenticated => MCPError::Security(SecurityError::AuthenticationFailed(status.message().to_string())),
+            tonic::Code::ResourceExhausted => MCPError::General(format!("Resource exhausted: {}", status.message())),
+            tonic::Code::DeadlineExceeded => MCPError::Timeout(status.message().to_string()),
+            tonic::Code::AlreadyExists => MCPError::AlreadyExists(status.message().to_string()),
+            tonic::Code::FailedPrecondition => MCPError::InvalidArgument(status.message().to_string()),
+            tonic::Code::Unavailable => MCPError::Network(format!("Service unavailable: {}", status.message())),
+            tonic::Code::Internal => MCPError::InternalError(status.message().to_string()),
+            _ => MCPError::General(status.message().to_string()),
         }
     }
 }

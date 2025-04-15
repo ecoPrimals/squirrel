@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
-use std::sync::Arc;
 use async_trait::async_trait;
 use squirrel_ai_tools::common::{ChatRequest, ChatResponse, ChatResponseStream};
 
@@ -279,8 +278,8 @@ pub struct AdapterStatus {
     
     /// Is the adapter operational
     pub operational: bool,
-    
-    /// Circuit breaker state
+
+/// Circuit breaker state
     pub circuit_breaker_state: CircuitBreakerState,
     
     /// Provider status
@@ -301,6 +300,16 @@ pub enum CircuitBreakerState {
     
     /// Circuit breaker is half-open (testing if service is back)
     HalfOpen,
+}
+
+impl std::fmt::Display for CircuitBreakerState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CircuitBreakerState::Closed => write!(f, "Closed"),
+            CircuitBreakerState::Open => write!(f, "Open"),
+            CircuitBreakerState::HalfOpen => write!(f, "HalfOpen"),
+        }
+    }
 }
 
 /// Circuit breaker configuration
@@ -343,6 +352,12 @@ pub enum OperationType {
     
     /// Summarize content
     Summarize,
+}
+
+impl Default for OperationType {
+    fn default() -> Self {
+        Self::Generate
+    }
 }
 
 impl std::fmt::Display for OperationType {
@@ -436,7 +451,6 @@ pub trait AIClientV2: Send + Sync + std::fmt::Debug + 'static {
 }
 
 /// Callbacks for AIClientV2
-#[derive(Clone)]
 pub struct AIClientCallbacks {
     /// Callback for accessing MCP service
     pub mcp_service: Option<Box<dyn Fn(&str) -> anyhow::Result<String> + Send + Sync>>,
@@ -449,6 +463,17 @@ pub struct AIClientCallbacks {
     
     /// Callback for rate limiting
     pub check_rate_limit: Option<Box<dyn Fn() -> anyhow::Result<bool> + Send + Sync>>,
+}
+
+impl Default for AIClientCallbacks {
+    fn default() -> Self {
+        Self {
+            mcp_service: None,
+            log_event: None,
+            track_usage: None,
+            check_rate_limit: None,
+        }
+    }
 }
 
 // Helper struct to adapt AIClientV2 to AIClient for backward compatibility

@@ -35,9 +35,9 @@ use std::io::Write;
 use std::fs::{self, File};
 use std::process::Command;
 use uuid::Uuid;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, warn};
 
-use crate::error::{Result, SquirrelError};
+use crate::error::Result;
 use crate::plugin::security::{SecurityContext, PermissionLevel};
 use crate::plugin::sandbox::SandboxError;
 

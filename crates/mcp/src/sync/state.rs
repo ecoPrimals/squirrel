@@ -17,12 +17,19 @@ pub struct StateChange {
     pub context_id: Uuid,
     /// Type of operation performed on the context
     pub operation: StateOperation,
-    /// Data associated with the change
+    /// Data associated with the change (potentially the full context for Create/Update)
     pub data: serde_json::Value,
-    /// When the change occurred
+    /// Timestamp when the change occurred
     pub timestamp: DateTime<Utc>,
     /// Version number assigned to this change
     pub version: u64,
+    
+    /// Optional name (relevant for Create/Update)
+    pub name: Option<String>,
+    /// Optional metadata (relevant for Create/Update)
+    pub metadata: Option<serde_json::Value>,
+    /// Optional parent ID (relevant for Create/Update)
+    pub parent_id: Option<Uuid>,
 }
 
 /// Types of operations that can be performed on contexts
@@ -110,14 +117,19 @@ impl StateSyncManager {
             *version // Return the current version value
         }; // version lock is dropped here
 
-        // Create the change object
+        // Create the change object, populating new fields
         let change = StateChange {
             id: Uuid::new_v4(),
             context_id: context.id,
             operation,
-            data: serde_json::to_value(context)?,
+            // For Create/Update, store the full data/metadata.
+            // For Delete, data/metadata might be less critical but store for consistency?
+            data: context.data.clone(), // Clone the actual data
             timestamp: Utc::now(),
             version: current_version,
+            name: Some(context.name.clone()), // Clone the name
+            metadata: context.metadata.clone(), // Clone optional metadata
+            parent_id: context.parent_id, // Copy optional parent_id
         };
 
         // Add to changes collection in a scoped block
@@ -206,6 +218,29 @@ impl StateSyncManager {
     /// Returns an error if the version cannot be retrieved
     pub async fn get_current_version(&self) -> Result<u64> {
         Ok(*self.current_version.read().await)
+    }
+
+    /// Gets all changes
+    ///
+    /// # Errors
+    /// Returns an error if the changes cannot be retrieved
+    pub async fn get_all_changes(&self) -> Result<Vec<StateChange>> {
+        let changes = self.changes.read().await;
+        let result = changes.iter().cloned().collect();
+        Ok(result)
+    }
+    
+    /// Clears changes up to a specific version
+    ///
+    /// # Arguments
+    /// * `version` - The version number up to which to clear changes
+    ///
+    /// # Errors
+    /// Returns an error if the changes cannot be cleared
+    pub async fn clear_changes_up_to(&self, version: u64) -> Result<()> {
+        let mut changes = self.changes.write().await;
+        changes.retain(|change| change.version > version);
+        Ok(())
     }
 
     /// Cleans up old changes before a specific time

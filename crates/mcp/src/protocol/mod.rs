@@ -489,10 +489,10 @@ impl MCPProtocolBase {
             .handlers
             .get(&message.type_.to_string())
             .ok_or_else(|| {
-                MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
+                MCPError::Protocol(format!(
                     "No handler for {}",
                     message.type_
-                )))
+                ).into())
             })?;
             
         handler.handle(message).await
@@ -501,10 +501,10 @@ impl MCPProtocolBase {
     /// Validates a message according to protocol rules
     pub fn validate_message(&self, message: &MCPMessage) -> ValidationResult {
         // Basic validation: ensure message has the right format
-        if message.id.0.is_empty() {
-            return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
-                "Message ID is missing".to_string(),
-            )));
+        if message.id.is_empty() {
+            return Err(MCPError::Protocol(
+                ProtocolError::InvalidFormat("Message ID is missing".to_string()).into()
+            ));
         }
         
         Ok(())
@@ -516,10 +516,10 @@ impl MCPProtocolBase {
             .handlers
             .get(&message.type_.to_string())
             .ok_or_else(|| {
-                MCPError::Protocol(ProtocolError::HandlerNotFound(format!(
+                MCPError::Protocol(format!(
                     "No handler for {}",
                     message.type_
-                )))
+                ).into())
             })?;
             
         handler.handle(message).await

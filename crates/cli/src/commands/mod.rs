@@ -17,6 +17,7 @@ pub mod run_command;
 pub mod mcp;
 pub mod adapter;
 pub mod error;
+pub mod monitoring_command;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_command;
 
@@ -29,6 +30,7 @@ pub use secrets_command::SecretsCommand;
 pub use executor::ExecutionContext;
 pub use mcp_command::McpCommand;
 pub use run_command::RunCommand;
+pub use error::CommandError;
 
 use clap::{Command as ClapCommand, Arg, ArgAction};
 use std::sync::Arc;
@@ -37,7 +39,8 @@ use std::cell::RefCell;
 use crate::commands::adapter::error::AdapterResult;
 use tokio::sync::Mutex;
 
-use commands::{Command, CommandRegistry};
+use ::commands::Command;
+use ::commands::CommandRegistry;
 
 // Thread-local storage for execution context
 thread_local! {
@@ -45,20 +48,31 @@ thread_local! {
 }
 
 /// Register commands in the registry
-pub fn register_commands(registry: &mut CommandRegistry) {
+pub fn register_commands(registry: &mut ::commands::CommandRegistry) -> Result<(), CommandError> {
     debug!("Registering commands");
     
     // Register built-in commands
-    registry.register("help", Arc::new(HelpCommand::new())).unwrap();
-    registry.register("version", Arc::new(VersionCommand::new())).unwrap();
-    registry.register("status", Arc::new(StatusCommand::new())).unwrap();
-    registry.register("config", Arc::new(ConfigCommand::new())).unwrap();
-    registry.register("plugin", Arc::new(PluginCommand::new())).unwrap();
-    registry.register("secrets", Arc::new(SecretsCommand::new())).unwrap();
-    registry.register("mcp", Arc::new(McpCommand::new())).unwrap();
-    registry.register("run", Arc::new(RunCommand::new())).unwrap();
+    registry.register("help", Arc::new(HelpCommand::new()))?;
+    registry.register("version", Arc::new(VersionCommand::new()))?;
+    registry.register("config", Arc::new(ConfigCommand::new()))?;
+    registry.register("status", Arc::new(StatusCommand::new()))?;
+    registry.register("run", Arc::new(RunCommand::new()))?;
+    
+    // Use the cfg attribute for test_command
+    #[cfg(any(test, feature = "testing"))]
+    registry.register("test", Arc::new(test_command::SimpleTestCommand::new("test".to_string(), "Test command".to_string())))?;
+    
+    registry.register("secrets", Arc::new(SecretsCommand::new()))?;
+    registry.register("mcp", Arc::new(McpCommand::new()))?;
+    
+    // Use the MonitoringCommand's register method which handles registration correctly
+    monitoring_command::MonitoringCommand::register(registry)?;
+    
+    registry.register("plugin", Arc::new(PluginCommand::new()))?;
     
     debug!("Commands registered successfully");
+    
+    Ok(())
 }
 
 /// Create a new command registry with all commands registered
@@ -66,7 +80,7 @@ pub fn create_command_registry() -> AdapterResult<Arc<Mutex<CommandRegistry>>> {
     debug!("Creating command registry");
     
     let mut registry = CommandRegistry::new();
-    register_commands(&mut registry);
+    register_commands(&mut registry)?;
     
     let registry = Arc::new(Mutex::new(registry));
     debug!("Command registry created successfully");

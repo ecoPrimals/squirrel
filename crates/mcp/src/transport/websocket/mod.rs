@@ -4,7 +4,7 @@
 // for Machine Context Protocol (MCP) communication. It supports
 // bidirectional message passing over WebSocket connections.
 
-use crate::error::{Result, TransportError, MCPError};
+use crate::error::{Result, MCPError, TransportError};
 use crate::transport::types::TransportMetadata;
 use crate::transport::{Transport};
 use crate::protocol::MCPMessage;
@@ -356,18 +356,18 @@ impl WebSocketTransport {
                         Ok(mcp_message) => {
                             if sender.send(SocketCommand::Send(mcp_message)).await.is_err() {
                                 error!("WebSocket: Failed to send command to writer task");
-                                return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
+                                return Err(MCPError::Transport(TransportError::ConnectionClosed("Writer task channel closed".to_string())).into());
                             }
                         }
                         Err(e) => {
                             error!("WebSocket: Failed to deserialize text message for sending: {}", e);
-                            return Err(MCPError::Serialization(e.to_string()));
+                            return Err(MCPError::Serialization(e.to_string()).into());
                         }
                     }
                 }
                 Message::Binary(_bytes) => {
                      error!("WebSocket: send_internal cannot directly send raw binary via MCPMessage command.");
-                     return Err(MCPError::UnsupportedOperation("Raw binary send via send_internal needs rework".to_string()));
+                     return Err(MCPError::Transport(TransportError::ProtocolError("Raw binary send via send_internal needs rework".to_string())).into());
                 }
                 _ => {
                     debug!("WebSocket: send_internal ignoring non-data message type");
@@ -375,7 +375,7 @@ impl WebSocketTransport {
             }
             Ok(())
         } else {
-            Err(TransportError::connection_closed("WebSocket sender unavailable".to_string()).into())
+            Err(MCPError::Transport(TransportError::ConnectionFailed("WebSocket sender unavailable".to_string())).into())
         }
     }
 
@@ -400,17 +400,14 @@ impl Transport for WebSocketTransport {
     ///
     /// Result indicating success or error
     async fn send_message(&self, message: MCPMessage) -> Result<()> {
-        if !self.is_connected_impl().await {
-            return Err(TransportError::connection_closed("Cannot send message, not connected").into());
+        if !self.is_connected().await {
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Cannot send message, not connected".to_string())).into());
         }
-        if let Some(sender) = &self.ws_sender {
-             if sender.send(SocketCommand::Send(message)).await.is_err() {
-                 error!("WebSocket: Failed to send command to writer task");
-                 return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
-             }
-             Ok(())
-        } else {
-             Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
+
+        // Send the message to the write task through the channel
+        match self.ws_sender.as_ref().unwrap().send(SocketCommand::Send(message)).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(MCPError::Transport(TransportError::SendError(e.to_string())).into())
         }
     }
     
@@ -422,8 +419,8 @@ impl Transport for WebSocketTransport {
     ///
     /// Result containing the received message or an error
     async fn receive_message(&self) -> Result<MCPMessage> {
-        if !self.is_connected_impl().await {
-            return Err(TransportError::connection_closed("Cannot receive message, not connected").into());
+        if !self.is_connected().await {
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Cannot receive message, not connected".to_string())).into());
         }
         trace!("Attempting to receive message from reader channel...");
         let mut reader_guard = self.reader_rx.lock().await;
@@ -438,12 +435,12 @@ impl Transport for WebSocketTransport {
                 None => {
                     error!("Reader channel (reader_rx) is closed. Cannot receive message.");
                     *self.connection_state.lock().await = WebSocketState::Disconnected;
-                    Err(TransportError::connection_closed("Reader channel closed").into())
+                    Err(MCPError::Transport(TransportError::ConnectionClosed("Reader channel closed".to_string())).into())
                 }
             }
         } else {
             error!("Reader channel (reader_rx) is None. Cannot receive message.");
-            Err(TransportError::ConnectionClosed("Reader channel unavailable".to_string()).into())
+            Err(MCPError::Transport(TransportError::ConnectionClosed("Reader channel unavailable".to_string())).into())
         }
     }
     
@@ -473,10 +470,8 @@ impl Transport for WebSocketTransport {
             Err(e) => {
                 error!("Failed to connect to {}: {}", self.config.url, e);
                 *self.connection_state.lock().await = WebSocketState::Failed(e.to_string());
-                return Err(TransportError::connection_failed(format!(
-                    "Failed to connect to {}: {}", 
-                    self.config.url, e
-                )).into());
+                return Err(MCPError::Transport(TransportError::ConnectionError(format!("Failed to connect to {}: {}", 
+                    self.config.url, e))).into());
             }
         };
         info!("WebSocket connection established. Response: {:?}", response.status());
@@ -608,20 +603,20 @@ impl Transport for WebSocketTransport {
     /// Send raw bytes over the WebSocket transport
     /// Sends raw bytes as a WebSocket Binary message.
     async fn send_raw(&self, bytes: &[u8]) -> crate::error::Result<()> {
-        if !self.is_connected_impl().await {
-            return Err(TransportError::connection_closed("Cannot send raw bytes, not connected").into());
+        if !self.is_connected().await {
+            return Err(MCPError::Transport(TransportError::ConnectionClosed("Cannot send raw bytes, not connected".to_string())).into());
         }
         
         if let Some(sender) = &self.ws_sender {
             let cmd = SocketCommand::SendRaw(bytes.to_vec());
             if sender.send(cmd).await.is_err() {
                 error!("WebSocket: Failed to send raw bytes command to writer task");
-                return Err(TransportError::SendError("Writer task channel closed".to_string()).into());
+                return Err(MCPError::Transport(TransportError::SendError("Writer task channel closed".to_string())).into());
             }
             Ok(())
         } else {
             error!("WebSocket: No sender available for raw bytes");
-            Err(TransportError::ConnectionClosed("WebSocket sender unavailable".to_string()).into())
+            Err(MCPError::Transport(TransportError::ConnectionFailed("WebSocket sender unavailable".to_string())).into())
         }
     }
 }

@@ -98,49 +98,61 @@ impl CommandService for CommandServiceImpl {
         request: CreateCommandRequest, 
         user_id: &str
     ) -> Result<CreateCommandResponse, CommandServiceError> {
-        // Validate command exists
-        let _command_def = self.repository
-            .get_command_definition(&request.command)
-            .await?
-            .ok_or_else(|| CommandServiceError::CommandNotFound(request.command.clone()))?;
-            
-        // TODO: Validate parameters against schema
-        
-        // Create command execution record
-        let command_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
-        
-        let execution = CommandExecution {
-            id: command_id.clone(),
-            command_name: request.command.clone(),
-            user_id: user_id.to_string(),
-            parameters: request.parameters.clone(),
-            status: CommandStatus::Queued,
-            progress: 0.0,
-            result: None,
-            error: None,
-            started_at: None,
-            completed_at: None,
-            created_at: now,
-            updated_at: now,
-        };
-        
-        // Save to repository
-        self.repository.create_command_execution(execution).await?;
-        
-        // Execute command via MCP
-        let _mcp_command_id = self.mcp_client
-            .execute_command(&request.command, &request.parameters)
-            .await
-            .map_err(|e| CommandServiceError::McpError(e.to_string()))?;
-        
-        // Return response
-        Ok(CreateCommandResponse {
-            id: command_id.clone(),
-            command: request.command,
-            status: CommandStatus::Queued,
-            status_url: format!("/api/commands/{}", command_id),
-        })
+        // Try to execute command via MCP first
+        match self.mcp_client.execute_command(&request.command, &request.parameters).await {
+            Ok(task_id) => {
+                // MCP execution successful, create the local record.
+                let now = Utc::now();
+                let execution = CommandExecution {
+                    id: task_id.clone(), // Use the task_id from MCP
+                    command_name: request.command.clone(),
+                    user_id: user_id.to_string(), // Ensure correct user_id is stored
+                    parameters: request.parameters.clone(),
+                    status: CommandStatus::Queued, // Assume Queued, MCP/Task system updates later
+                    progress: 0.0,
+                    result: None,
+                    error: None,
+                    started_at: None, // Will be set by task system
+                    completed_at: None, // Will be set by task system
+                    created_at: now,
+                    updated_at: now,
+                };
+                
+                // Save to repository
+                // We might consider fetching/upserting the definition here too if needed
+                self.repository.create_command_execution(execution).await?;
+                
+                // Return response using the task_id from MCP
+                Ok(CreateCommandResponse {
+                    id: task_id.clone(),
+                    command: request.command,
+                    status: CommandStatus::Queued,
+                    status_url: format!("/api/commands/{}", task_id),
+                })
+            }
+            Err(mcp_err) => {
+                // MCP execution failed. Check if the command definition exists locally 
+                // to determine if it's truly "Not Found" vs. another MCP error.
+                match self.repository.get_command_definition(&request.command).await {
+                    Ok(Some(_)) => {
+                        // Definition exists, but MCP execution failed. Return MCP error.
+                        tracing::error!("Command '{}' definition found but MCP execution failed: {}", request.command, mcp_err);
+                        Err(CommandServiceError::McpError(mcp_err.to_string()))
+                    }
+                    Ok(None) => {
+                        // Definition not found locally, and MCP failed.
+                        // This implies the command doesn't exist anywhere.
+                        tracing::warn!("Command '{}' not found locally and MCP execution failed: {}", request.command, mcp_err);
+                        Err(CommandServiceError::CommandNotFound(request.command.clone()))
+                    }
+                    Err(repo_err) => {
+                        // Repository error while checking definition after MCP failure.
+                        tracing::error!("Repository error checking command '{}' after MCP failure: {}", request.command, repo_err);
+                        Err(CommandServiceError::RepositoryError(repo_err))
+                    }
+                }
+            }
+        }
     }
     
     async fn get_available_commands(&self) -> Result<Vec<AvailableCommand>, CommandServiceError> {
@@ -190,6 +202,23 @@ impl CommandService for CommandServiceImpl {
                 return Err(CommandServiceError::Unauthorized(
                     "You do not have access to this command execution".to_string()
                 ));
+            }
+            
+            // If the command is already cancelled locally, respect that status
+            // and don't try to get updated status from MCP
+            if execution.status == CommandStatus::Cancelled {
+                return Ok(CommandStatusResponse {
+                    id: execution.id.clone(),
+                    command: execution.command_name.clone(),
+                    status: CommandStatus::Cancelled,
+                    progress: execution.progress,
+                    result: execution.result.clone(),
+                    error: execution.error.clone(),
+                    started_at: execution.started_at,
+                    completed_at: execution.completed_at,
+                    created_at: execution.created_at,
+                    updated_at: execution.updated_at,
+                });
             }
         }
         

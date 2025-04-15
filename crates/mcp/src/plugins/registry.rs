@@ -5,7 +5,8 @@ use async_trait::async_trait;
 
 use crate::plugins::interfaces::{PluginMetadata};
 use crate::plugins::types::PluginId;
-use crate::error::{Result, PluginError};
+use crate::error::{Result};
+use crate::error::plugin::PluginError;
 
 /// A registry for managing plugins
 #[async_trait]

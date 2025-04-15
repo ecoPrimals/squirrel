@@ -539,7 +539,7 @@ impl Transport for TcpTransport {
         let msg_sender = self.message_sender.lock().await;
         match msg_sender.send(message).await {
             Ok(()) => Ok(()),
-            Err(e) => Err(TransportError::protocol_error(format!("Failed to send message: {e}")).into())
+            Err(e) => Err(TransportError::ProtocolError(format!("Failed to send message: {e}")).into())
         }
     }
     
@@ -572,7 +572,7 @@ impl Transport for TcpTransport {
         } else {
             // No receiver available
             drop(frame_receiver_guard);
-            Err(TransportError::protocol_error("No receiver available").into())
+            Err(TransportError::ProtocolError("No receiver available".to_string()).into())
         }
     }
     
@@ -591,44 +591,45 @@ impl Transport for TcpTransport {
                 {
                     *self.state.write().await = TcpTransportState::Failed(e.to_string());
                     
-                    return Err(MCPError::Transport(TransportError::connection_failed(format!(
-                        "Failed to connect to {}: {}", 
-                        self.config.remote_address, e
-                    )).into()));
+                    return Err(MCPError::Transport(
+                        format!("Failed to connect to {}: {}", 
+                                self.config.remote_address, e).into()
+                    ).into());
                 }
             }
         };
         
         // Configure the stream
-        stream.set_nodelay(true).map_err(|e| {
-            MCPError::Transport(TransportError::connection_failed(format!("Failed to set nodelay: {e}")).into())
-        })?;
+        stream.set_nodelay(true).map_err(|e| MCPError::Transport(
+            format!("Failed to set nodelay: {e}").into()
+        ))?;
         
         if let Some(interval) = self.config.keep_alive_interval {
             // We need to use socket2 to set keepalive on TcpStream
             // First get the std TcpStream, then create socket2::Socket from it
-            let socket = socket2::Socket::from(stream.into_std().map_err(|e| {
-                MCPError::Transport(TransportError::connection_failed(format!("Failed to get std socket: {e}")).into())
-            })?);
+            let std_stream = stream.into_std().map_err(|e| MCPError::Transport(
+                format!("Failed to get std socket: {e}").into()
+            ))?;
+            let socket = socket2::Socket::from(std_stream);
             
             // Set keep-alive
-            socket.set_keepalive(true).map_err(|e| {
-                MCPError::Transport(TransportError::connection_failed(format!("Failed to set keepalive: {e}")).into())
-            })?;
+            socket.set_keepalive(true).map_err(|e| MCPError::Transport(
+                format!("Failed to set keepalive: {e}").into()
+            ))?;
             
             // Set keep-alive parameters if available on this platform
             #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-            socket.set_tcp_keepalive(&socket2::TcpKeepalive::new().with_time(std::time::Duration::from_secs(interval))).map_err(|e| {
-                MCPError::Transport(TransportError::connection_failed(format!("Failed to set keepalive parameters: {e}")).into())
-            })?;
+            socket.set_tcp_keepalive(&socket2::TcpKeepalive::new().with_time(std::time::Duration::from_secs(interval))).map_err(|e| MCPError::Transport(
+                format!("Failed to set keepalive parameters: {e}").into()
+            ))?;
             
             // Convert Socket to std::net::TcpStream explicitly
             let std_stream: std::net::TcpStream = socket.into();
             
             // Convert back to Tokio's TcpStream
-            let socket = TcpStream::from_std(std_stream).map_err(|e| {
-                MCPError::Transport(TransportError::connection_failed(format!("Failed to convert std socket to tokio socket: {e}")).into())
-            })?;
+            let socket = TcpStream::from_std(std_stream).map_err(|e| MCPError::Transport(
+                format!("Failed to convert std socket to tokio socket: {e}").into()
+            ))?;
             
             // Create a new channel for message sending
             let (msg_tx, msg_rx) = mpsc::channel(100);
@@ -723,10 +724,12 @@ impl Transport for TcpTransport {
             Ok(stream) => stream,
             Err(e) => {
                 error!("Failed to connect for raw bytes send: {}", e);
-                return Err(TransportError::ConnectionFailed(format!(
-                    "Failed to connect to {} for raw send: {}", 
-                    self.config.remote_address, e
-                )).into());
+                return Err(TransportError::ConnectionFailed(
+                    format!(
+                        "Failed to connect to {} for raw send: {}", 
+                        self.config.remote_address, e
+                    )
+                ).into());
             }
         };
         

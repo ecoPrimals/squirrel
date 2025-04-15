@@ -8,21 +8,25 @@ use std::sync::Arc;
 use async_trait::async_trait;
 #[cfg(feature = "db")]
 use sqlx::{Executor, Row, SqlitePool, sqlite::SqliteRow};
+use tracing::{error, info};
 
 use crate::api::error::AppError;
 use crate::api::commands::{
     CommandDefinition,
     CommandExecution,
     CommandStatus,
+    CommandSummary,
 };
 use crate::mcp::{McpCommandClient, McpClient, McpError, ConnectionStatus};
-use crate::state::AppState;
 // Import the CommandService trait from the new API for proper access to methods
 use crate::api::commands::service::CommandService as NewCommandService;
+use crate::api::commands::repository::CommandRepository;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 /// Command service trait
 #[async_trait]
-pub trait CommandService: Send + Sync + 'static {
+pub trait LocalCommandService: Send + Sync + 'static {
     /// Create and execute a new command
     async fn create_command(
         &self,
@@ -82,44 +86,25 @@ impl DbCommandService {
 
 #[cfg(feature = "db")]
 #[async_trait]
-impl CommandService for DbCommandService {
+impl LocalCommandService for DbCommandService {
     async fn create_command(
         &self,
         user_id: &str,
         command: &str,
         parameters: &serde_json::Value,
     ) -> Result<String, AppError> {
-        let command_id = Uuid::new_v4().to_string();
-        let now = Utc::now();
+        // Execute command via MCP - this now returns the task_id
+        let task_id = self.mcp_client.execute_command(command, parameters).await
+            .map_err(AppError::from)?;
+
+        // Here, instead of creating a new CommandExecution locally,
+        // we would ideally rely on the task system. For now, we return the task_id.
+        // The caller (HTTP handler) will use this ID to construct the status URL.
+        // In a real implementation, we might query the task manager via MCP 
+        // immediately after creation to get the initial state if needed, 
+        // or simply return the task_id for polling.
         
-        // Execute command via MCP
-        let mcp_command_id = match self.mcp_client.execute_command(command, parameters).await {
-            Ok(id) => id,
-            Err(err) => return Err(AppError::from(err)),
-        };
-        
-        // Store command in database
-        sqlx::query!(
-            r#"
-            INSERT INTO command_executions (
-                id, command_name, user_id, parameters, 
-                status, progress, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-            command_id,
-            command,
-            user_id,
-            parameters.to_string(),
-            CommandStatus::Running.as_str(),
-            0.0,
-            now,
-            now
-        )
-        .execute(&self.db)
-        .await
-        .map_err(|e| AppError::Database(format!("Failed to store command execution: {}", e)))?;
-        
-        Ok(command_id)
+        Ok(task_id) // Return the task_id received from the gRPC call
     }
     
     async fn get_available_commands(
@@ -422,30 +407,24 @@ impl MockCommandService {
 }
 
 #[async_trait]
-impl CommandService for MockCommandService {
+impl LocalCommandService for MockCommandService {
     async fn create_command(
         &self,
         user_id: &str,
         command: &str,
         parameters: &serde_json::Value,
     ) -> Result<String, AppError> {
-        let real_service = crate::api::commands::CommandServiceImpl::new(
-            Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_command_client(),
-            self.ws_manager.clone()
-        );
-        
-        let request = crate::api::commands::CreateCommandRequest {
-            command: command.to_string(),
-            parameters: parameters.clone(),
-        };
-        
-        // Use the trait to access the method
-        let command_service: &dyn NewCommandService = &real_service;
-        match command_service.execute_command(request, user_id).await {
-            Ok(response) => Ok(response.id),
-            Err(e) => Err(AppError::Internal(format!("Failed to create command: {}", e))),
-        }
+        // Execute command via MCP - This now returns a Task ID
+        let task_id = self.mcp_client.execute_command(command, parameters).await
+            .map_err(|e| {
+                error!("Failed to execute command via MCP: {}", e);
+                AppError::from(e)
+            })?;
+
+        info!(task_id, command, user_id, "Command execution initiated via MCP");
+
+        // Return the task_id received from the gRPC call
+        Ok(task_id)
     }
     
     async fn get_available_commands(
@@ -455,7 +434,10 @@ impl CommandService for MockCommandService {
         limit: u32,
     ) -> Result<(Vec<CommandDefinition>, u64, u32), AppError> {
         let real_service = crate::api::commands::CommandServiceImpl::new(
+            #[cfg(feature = "mock-db")]
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
+            #[cfg(not(feature = "mock-db"))]
+            Arc::new(DefaultCommandRepository::new()),
             self.get_mcp_command_client(),
             self.ws_manager.clone()
         );
@@ -496,7 +478,10 @@ impl CommandService for MockCommandService {
         command_id: &str,
     ) -> Result<CommandExecution, AppError> {
         let real_service = crate::api::commands::CommandServiceImpl::new(
+            #[cfg(feature = "mock-db")]
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
+            #[cfg(not(feature = "mock-db"))]
+            Arc::new(DefaultCommandRepository::new()),
             self.get_mcp_command_client(),
             self.ws_manager.clone()
         );
@@ -534,7 +519,10 @@ impl CommandService for MockCommandService {
         command: Option<&str>,
     ) -> Result<(Vec<CommandExecution>, u64, u32), AppError> {
         let real_service = crate::api::commands::CommandServiceImpl::new(
+            #[cfg(feature = "mock-db")]
             Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
+            #[cfg(not(feature = "mock-db"))]
+            Arc::new(DefaultCommandRepository::new()),
             self.get_mcp_command_client(),
             self.ws_manager.clone()
         );
@@ -593,12 +581,6 @@ impl CommandService for MockCommandService {
         _user_id: &str,
         _command_id: &str,
     ) -> Result<(), AppError> {
-        let real_service = crate::api::commands::CommandServiceImpl::new(
-            Arc::new(crate::api::commands::repository::MockCommandRepository::new()),
-            self.get_mcp_command_client(),
-            self.ws_manager.clone()
-        );
-        
         // No direct equivalent in new API yet, just return success
         Ok(())
     }
@@ -645,4 +627,105 @@ impl From<McpError> for AppError {
         }
     }
 }
-*/ 
+*/
+
+// Define a default command repository implementation for use when no feature is enabled
+#[cfg(not(feature = "mock-db"))]
+struct DefaultCommandRepository {
+    command_definitions: RwLock<HashMap<String, CommandDefinition>>,
+    command_executions: RwLock<HashMap<String, CommandExecution>>,
+}
+
+#[cfg(not(feature = "mock-db"))]
+impl DefaultCommandRepository {
+    fn new() -> Self {
+        Self {
+            command_definitions: RwLock::new(HashMap::new()),
+            command_executions: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
+#[cfg(not(feature = "mock-db"))]
+#[async_trait::async_trait]
+impl CommandRepository for DefaultCommandRepository {
+    async fn create_command_definition(&self, command: CommandDefinition) -> anyhow::Result<()> {
+        let mut definitions = self.command_definitions.write().await;
+        definitions.insert(command.name.clone(), command);
+        Ok(())
+    }
+    
+    async fn get_command_definition(&self, name: &str) -> anyhow::Result<Option<CommandDefinition>> {
+        let definitions = self.command_definitions.read().await;
+        Ok(definitions.get(name).cloned())
+    }
+    
+    async fn list_command_definitions(&self) -> anyhow::Result<Vec<CommandDefinition>> {
+        let definitions = self.command_definitions.read().await;
+        Ok(definitions.values().cloned().collect())
+    }
+    
+    async fn upsert_command_definition(&self, command: CommandDefinition) -> anyhow::Result<()> {
+        let mut definitions = self.command_definitions.write().await;
+        definitions.insert(command.name.clone(), command);
+        Ok(())
+    }
+    
+    async fn create_command_execution(&self, execution: CommandExecution) -> anyhow::Result<()> {
+        let mut executions = self.command_executions.write().await;
+        executions.insert(execution.id.clone(), execution);
+        Ok(())
+    }
+    
+    async fn get_command_execution(&self, id: &str) -> anyhow::Result<Option<CommandExecution>> {
+        let executions = self.command_executions.read().await;
+        Ok(executions.get(id).cloned())
+    }
+    
+    async fn update_command_execution(&self, execution: CommandExecution) -> anyhow::Result<()> {
+        let mut executions = self.command_executions.write().await;
+        executions.insert(execution.id.clone(), execution);
+        Ok(())
+    }
+    
+    async fn list_command_executions(&self, user_id: &str, limit: i64, offset: i64) -> anyhow::Result<Vec<CommandSummary>> {
+        let executions = self.command_executions.read().await;
+        
+        let mut filtered: Vec<_> = executions.values()
+            .filter(|e| e.user_id == user_id)
+            .cloned()
+            .collect();
+        
+        // Sort by created_at descending
+        filtered.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        
+        // Apply offset and limit
+        let start = offset as usize;
+        let end = (offset + limit) as usize;
+        
+        let paginated = filtered.into_iter()
+            .skip(start)
+            .take(end - start)
+            .map(|e| CommandSummary {
+                id: e.id,
+                command: e.command_name,
+                status: e.status,
+                progress: e.progress,
+                created_at: e.created_at,
+                started_at: None,
+                completed_at: None,
+            })
+            .collect();
+        
+        Ok(paginated)
+    }
+    
+    async fn count_command_executions(&self, user_id: &str) -> anyhow::Result<i64> {
+        let executions = self.command_executions.read().await;
+        let count = executions.values()
+            .filter(|e| e.user_id == user_id)
+            .count();
+        
+        Ok(count as i64)
+    }
+} 

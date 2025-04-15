@@ -7,28 +7,26 @@ description = "Machine Context Protocol (MCP) implementation for Squirrel"
 license.workspace = true
 
 [features]
-default = []  # Removed legacy-transport entirely
-full = []     # Updated full features list
-di-tests = []
+default = ["tcp", "stdio", "websocket"]
+full = ["tcp", "stdio", "websocket", "metrics", "gzip", "lz4", "zstd", "rustls-tls-native-roots", "dashboard"]
 metrics = []
-tcp = []     # TCP transport implementation
-websocket = []
+dashboard = []  # Dashboard visualization support
+tcp = []
 stdio = []
-memory = []
-# Compression features
-zstd = ["dep:zstd"]
+websocket = []
 gzip = ["dep:flate2"]
 lz4 = ["dep:lz4"]
-# Removed plugins integration feature to break circular dependency
-
-# TLS Features
-native-tls = []
-rustls-tls-native-roots = []
-rustls-tls-webpki-roots = []
+zstd = ["dep:zstd"]
+native-tls = ["tokio-tungstenite/native-tls", "reqwest/native-tls"]
+rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots", "reqwest/rustls-tls"]
+rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots", "reqwest/rustls-tls"]
+di-tests = []  # Dependency injection test helpers
+# Use interfaces-based approach to avoid circular dependencies
+command-registry = ["dep:squirrel-commands"]  # Feature to enable command registry functionality
 
 [dependencies]
 # Core dependencies
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
 async-std = "1.12.0"  # Add async_std for task::block_on
@@ -69,24 +67,55 @@ libloading = "0.8"  # Added for dynamic loading of plugin libraries
 jsonwebtoken = "8.3.0"  # Added for JWT token management
 once_cell = "1.19.0"
 
+# Command registry related dependencies
+squirrel-commands = { path = "../commands", optional = true }
+
 # Shared squirrel dependencies
 squirrel-interfaces = { path = "../interfaces" }
 squirrel-core = { path = "../core", features = ["core"] }
 squirrel-context = { path = "../context" }
+# dashboard-core dependency removed since we're using a mock
+
+# gRPC and Protobuf (Re-enabled)
+tonic = { version = "0.12", features = ["tls", "transport", "server", "codegen", "prost"] }
+prost = "0.13.1"
+prost-types = "0.13.1"
 
 # Remove the plugins dependency from regular dependencies
 # squirrel-plugins = { path = "../plugins", features = ["core"], optional = true }
+
+# Add structopt for command-line argument parsing
+structopt = "0.3.25"
+
+# Add hyper and tower as dependencies
+hyper = { version = "0.14", features = ["full"] }
+tower = "0.4"
+
+tokio-stream = { version = "0.1", features = ["sync"] }
+
+clap = { version = "4.4", features = ["derive"] }
+
+# Add async-stream dependency
+async-stream = "0.3"
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 mockall = { workspace = true }
+reqwest = { version = "0.11", features = ["json"] }
 # Move plugins to dev-dependencies only for tests
 squirrel-plugins = { path = "../plugins", features = ["core"] }
+# Add CLI as a dev-dependency for tests
+squirrel-cli = { path = "../cli", features = ["commands"] }
 
 # Additional dev-dependencies for examples
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full", "macros", "rt-multi-thread"] }
+
+# Build dependency for tonic/prost (Re-enabled, but build.rs is disabled)
+[build-dependencies]
+tonic-build = { version = "0.12.0", features = ["prost"] }
+prost-build = "0.13.1"
 
 [lints]
 workspace = true
@@ -154,3 +183,36 @@ path = "examples/integration/resilience_monitoring_integration.rs"
 [[example]]
 name = "resilience_integration"
 path = "examples/resilience_integration.rs"
+
+[[example]]
+name = "retry_example"
+path = "examples/retry_example.rs"
+
+# Define the new binary target
+[[bin]]
+name = "sync_server_stub"
+path = "src/bin/sync_server_stub.rs"
+
+[[bin]]
+name = "sync_server"
+path = "src/bin/sync_server.rs"
+
+[[bin]]
+name = "sync_test_cli"
+path = "src/bin/sync_test_cli.rs"
+
+[[bin]]
+name = "task_server"
+path = "src/bin/task_server.rs"
+
+[[bin]]
+name = "task_server_minimal"
+path = "src/bin/task_server_minimal.rs"
+
+[[example]]
+name = "task_client_minimal"
+path = "examples/task_client_minimal.rs"
+
+[[bin]]
+name = "watch_task_test"
+path = "src/bin/watch_task_test.rs"

@@ -10,8 +10,7 @@ use crate::protocol::adapter_wire::{WireProtocolVersion};
 use crate::transport::Transport;
 use crate::transport::types::TransportMetadata;
 use crate::security::types::{EncryptionFormat, SecurityMetadata};
-use crate::error::{MCPError, Result};
-use crate::error::transport::TransportError;
+use crate::error::{MCPError, Result, TransportError};
 use crate::types::CompressionFormat;
 use serde_json;
 use std::str::FromStr;
@@ -19,6 +18,8 @@ use tracing::{error, info, warn};
 use tokio::sync::Mutex as TokioMutex;
 use chrono::Utc;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use futures_util::TryFutureExt;
 
 /// Configuration for the stdio transport
 #[derive(Debug, Clone)]
@@ -94,6 +95,9 @@ pub struct StdioTransport {
     
     /// Transport metadata
     metadata: TransportMetadata,
+
+    /// Last message sent timestamp
+    last_message_sent: AtomicU64,
 }
 
 impl StdioTransport {
@@ -124,6 +128,7 @@ impl StdioTransport {
             message_tx,
             connection_id,
             metadata: transport_metadata,
+            last_message_sent: AtomicU64::new(0),
         }
     }
     
@@ -297,18 +302,14 @@ impl StdioTransport {
     async fn process_line(&self, line: String, msg_tx: &mpsc::Sender<MCPMessage>) -> Result<()> {
         let parts: Vec<&str> = line.splitn(2, ':').collect();
         if parts.len() != 2 {
-            return Err(MCPError::Transport(TransportError::ProtocolError(
-                "Invalid message format".to_string(),
-            )));
+            return Err(MCPError::Transport(TransportError::ProtocolError("Invalid message format".to_string())).into());
         }
         let header = parts[0];
         let payload_str = parts[1];
 
         let header_parts: Vec<&str> = header.split(',').collect();
         if header_parts.len() < 3 {
-            return Err(MCPError::Transport(TransportError::ProtocolError(
-                "Invalid header format".to_string(),
-            )));
+            return Err(MCPError::Transport(TransportError::ProtocolError("Invalid header format".to_string())).into());
         }
 
         let message_id = MessageId(header_parts[0].to_string());
@@ -316,9 +317,9 @@ impl StdioTransport {
         let version_str = header_parts[2];
 
         let message_type = MessageType::from_str(message_type_str)
-            .map_err(|_| MCPError::Transport(TransportError::ProtocolError(
-                format!("Invalid message type: {message_type_str}")
-            )))?;
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::Transport(format!("Invalid message type: {}", message_type_str).into())
+            })?;
 
         // Correctly handle ProtocolVersion parsing and conversion
         let version = match WireProtocolVersion::from_str(version_str) {
@@ -332,7 +333,7 @@ impl StdioTransport {
         };
 
         let payload = serde_json::from_str(payload_str)
-            .map_err(|e| MCPError::Deserialization(e.to_string()))?;
+            .map_err(|e| MCPError::Serialization(e.to_string()))?;
 
         let mcp_message = MCPMessage {
             id: message_id,
@@ -347,11 +348,13 @@ impl StdioTransport {
         };
 
         // Send the parsed message via the channel
-        msg_tx.send(mcp_message).await
-            .map_err(|e| MCPError::Transport(TransportError::SendError(
-                format!("Failed to send parsed message to internal channel: {}", e)
-            )))?;
+        msg_tx.send(mcp_message)
+            .await
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::Transport(format!("Failed to send parsed message to internal channel: {}", e).into())
+            })?;
 
+        self.last_message_sent.store(Utc::now().timestamp_millis().try_into().unwrap(), Ordering::SeqCst);
         Ok(())
     }
 }
@@ -362,8 +365,11 @@ impl Transport for StdioTransport {
         // Use the command_sender to send messages
         self.command_sender.send(message)
             .await
-            .map_err(|e| MCPError::Transport(TransportError::ConnectionClosed(format!("Failed to send message: {e}")).into()))?;
+            .map_err(|e| -> crate::error::MCPError {
+                MCPError::Transport(format!("Failed to send message: {}", e).into())
+            })?;
         
+        self.last_message_sent.store(Utc::now().timestamp_millis().try_into().unwrap(), Ordering::SeqCst);
         Ok(())
     }
     
@@ -372,7 +378,7 @@ impl Transport for StdioTransport {
         
         // Check connection state before waiting
         if !self.is_connected().await {
-             return Err(MCPError::Transport(TransportError::ConnectionClosed("Not connected".to_string())));
+             return Err(MCPError::Transport(TransportError::ConnectionError("Not connected".to_string())).into());
         }
 
         loop {
@@ -381,7 +387,7 @@ impl Transport for StdioTransport {
                  // Sender dropped, connection likely closed
                  let state = self.state.read().await;
                  error!("StdioTransport: Message watch channel closed. State: {:?}", *state);
-                 return Err(MCPError::Transport(TransportError::ConnectionClosed("Watch channel closed".to_string())));
+                 return Err(MCPError::Transport(TransportError::ConnectionError("Watch channel closed".to_string())).into());
             }
 
             // Get the current value
@@ -392,7 +398,7 @@ impl Transport for StdioTransport {
             }
             // If none, check connection state again before sleeping
              if !self.is_connected().await {
-                 return Err(MCPError::Transport(TransportError::ConnectionClosed("Disconnected while waiting for message".to_string())));
+                 return Err(MCPError::Transport(TransportError::ConnectionError("Disconnected while waiting for message".to_string())).into());
             }
 
             // Small sleep to prevent busy-waiting if changed() fires but value is still None (shouldn't happen often)
@@ -421,11 +427,7 @@ impl Transport for StdioTransport {
             } else {
                  warn!("StdioTransport: State changed during connection sequence: {:?}. Not setting to Connected.", *state);
                  // Properly wrapped error
-                 return Err(MCPError::Transport(
-                    TransportError::connection_failed(
-                        format!("Connection failed during startup. Final state: {:?}", *state)
-                    )
-                 ));
+                 return Err(MCPError::Transport(format!("Connection failed during startup. Final state: {:?}", *state).into()).into());
             }
         }
         
@@ -469,7 +471,7 @@ impl Transport for StdioTransport {
     // Update send_raw to return UnsupportedOperation
     async fn send_raw(&self, _bytes: &[u8]) -> crate::error::Result<()> {
         error!("send_raw is not supported for StdioTransport");
-        Err(MCPError::Transport(TransportError::UnsupportedOperation("send_raw not supported for StdioTransport".to_string())))
+        Err(MCPError::UnsupportedOperation("send_raw not supported for StdioTransport".to_string()).into())
     }
 }
 
@@ -502,6 +504,7 @@ impl Default for StdioTransport {
             message_tx,
             connection_id: Uuid::new_v4().to_string(),
             metadata,
+            last_message_sent: AtomicU64::new(0),
         }
     }
 }

@@ -55,6 +55,22 @@ pub enum TransportError {
     /// Error reported by the remote peer
     #[error("Remote transport error: {0}")]
     RemoteError(String),
+
+    /// Error when a connection error occurs
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
+
+    /// Error when reading from a transport fails
+    #[error("Read error: {0}")]
+    ReadError(String),
+
+    /// Error when writing to a transport fails
+    #[error("Write error: {0}")]
+    WriteError(String),
+
+    /// Error when framing messages fails
+    #[error("Framing error: {0}")]
+    FramingError(String),
 }
 
 impl TransportError {
@@ -86,6 +102,21 @@ impl TransportError {
     /// Creates a new `TransportError::Timeout` with the given message
     pub fn timeout<S: Into<String>>(msg: S) -> Self {
         Self::Timeout(msg.into())
+    }
+
+    /// Creates a new `TransportError::ReadError` with the given message
+    pub fn read_error<S: Into<String>>(msg: S) -> Self {
+        Self::ReadError(msg.into())
+    }
+
+    /// Creates a new `TransportError::WriteError` with the given message
+    pub fn write_error<S: Into<String>>(msg: S) -> Self {
+        Self::WriteError(msg.into())
+    }
+
+    /// Creates a new `TransportError::FramingError` with the given message
+    pub fn framing_error<S: Into<String>>(msg: S) -> Self {
+        Self::FramingError(msg.into())
     }
 }
 
@@ -129,16 +160,15 @@ impl From<MCPError> for TransportError {
     }
 }
 
-// Implement conversion from String to TransportError for convenience
+/// Implement From<String> for TransportError to simplify error handling
 impl From<String> for TransportError {
-    fn from(err: String) -> Self {
-        Self::ProtocolError(err)
+    fn from(msg: String) -> Self {
+        TransportError::ConnectionError(msg)
     }
 }
 
-// Implement conversion from &str to TransportError for convenience
 impl From<&str> for TransportError {
-    fn from(err: &str) -> Self {
-        Self::ProtocolError(err.to_string())
+    fn from(msg: &str) -> Self {
+        TransportError::ConnectionError(msg.to_string())
     }
 } 

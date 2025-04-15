@@ -66,11 +66,9 @@
 //! }
 //! ```
 
-use crate::error::{MCPError, Result};
-use crate::error::ProtocolError;
-use crate::error::transport::TransportError;
+use crate::error::{MCPError, Result, ProtocolError};
 use crate::message::{Message, MessageBuilder};
-use crate::message_router::{MessageRouter, HandlerPriority, MessageRouterError};
+use crate::message_router::{MessageRouter, HandlerPriority};
 use crate::protocol::adapter_wire::{WireFormatAdapter, WireFormatConfig, DomainObject as WireDomainObject};
 use crate::session::Session;
 use crate::transport::Transport;
@@ -317,9 +315,9 @@ impl MCPServer {
         let current_state = *state_guard;
         if current_state == ServerState::Running {
             drop(state_guard); // Release the lock before returning
-            return Err(MCPError::Protocol(ProtocolError::InvalidState(
-                "Server already running".to_string()
-            )));
+            return Err(MCPError::Protocol(
+                ProtocolError::InvalidState("Server already running".to_string())
+            ));
         }
         drop(state_guard);
         
@@ -332,16 +330,24 @@ impl MCPServer {
         
         // Bind to the configured address
         let bind_addr = self.config.bind_address.parse::<SocketAddr>()
-            .map_err(|e| MCPError::Transport(TransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
+            .map_err(|e| {
+                let transport_error: crate::error::transport::TransportError = format!("Failed to bind to {}: {}", self.config.bind_address, e).into();
+                let mcp_error = MCPError::Transport(transport_error);
+                mcp_error
+            })?;
         
         let listener = TcpListener::bind(bind_addr).await
-            .map_err(|e| MCPError::Transport(TransportError::ConnectionFailed(format!("Failed to bind to {}: {}", self.config.bind_address, e))))?;
+            .map_err(|e| {
+                let transport_error: crate::error::transport::TransportError = format!("Failed to bind to {}: {}", self.config.bind_address, e).into();
+                let mcp_error = MCPError::Transport(transport_error);
+                mcp_error
+            })?;
         
         // Start the listener task
         if let Err(e) = self.start_listener_task(listener).await {
             // Failed to start listener task
             *self.state.write().await = ServerState::Failed;
-            *self.last_error.write().await = Some(e.clone());
+            *self.last_error.write().await = Some(e.clone().into());
             return Err(e);
         }
         
@@ -375,15 +381,15 @@ impl MCPServer {
             
             if current_state == ServerState::Stopped {
                 drop(state_guard); // Release the lock before returning
-                return Err(MCPError::Protocol(ProtocolError::InvalidState(
-                    "Server already stopped".to_string()
-                )));
+                return Err(MCPError::Protocol(
+                    ProtocolError::InvalidState("Server already stopped".to_string())
+                ));
             }
             if current_state == ServerState::Stopping {
                 drop(state_guard); // Release the lock before returning
-                return Err(MCPError::Protocol(ProtocolError::InvalidState(
-                    "Server is already in the process of stopping".to_string()
-                )));
+                return Err(MCPError::Protocol(
+                    ProtocolError::InvalidState("Server is already in the process of stopping".to_string())
+                ));
             }
             drop(state_guard); // Release the lock after checking, before the next section
         }
@@ -492,20 +498,16 @@ impl MCPServer {
                             },
                             Err(e) => {
                                 // Handle transport errors
-                                match e {
-                                    MCPError::Transport(TransportError::ConnectionClosed(msg)) => {
-                                        info!("Client disconnected: {}", msg);
-                                        break; // Break out of the loop
-                                    },
-                                    MCPError::Transport(TransportError::Timeout(msg)) => {
-                                        warn!("Timeout receiving message: {}", msg);
-                                        continue 'outer_loop; // Continue to the next iteration of the outer loop
-                                    },
-                                    _ => {
-                                        // Other errors are critical
-                                        error!("Error receiving message: {}", e);
-                                        break; // Break out of the loop for any other errors
-                                    }
+                                let error_msg = format!("{}", e);
+                                if error_msg.contains("connection closed") {
+                                    warn!("Client connection already closed: {}", client_id_clone);
+                                    break;
+                                } else if error_msg.contains("timeout") {
+                                    warn!("Timeout during client disconnect: {}", client_id_clone);
+                                    break;
+                                } else {
+                                    error!("Error disconnecting client {}: {}", client_id_clone, e);
+                                    break;
                                 }
                             }
                         }
@@ -680,7 +682,7 @@ impl MCPServer {
                     Err(e) => Err(e)
                 }
             },
-            None => Err(MCPError::General(format!("No handler found for command type: {command_type}")))
+            None => Err(MCPError::General(format!("No handler found for command type: {command_type}")).into())
         }
     }
     
@@ -868,9 +870,20 @@ impl CommandHandler for RouterCommandHandler {
                     }))
                 })
                 .or_else(|err| {
-                    // Handle errors based on type
-                    if let MCPError::MessageRouter(MessageRouterError::NoHandlerFound(msg_type)) = &err {
+                    // Try to convert err to MCPError if necessary
+                    let err_str = err.to_string();
+                    
+                    // Check if the error message indicates a "no handler found" error
+                    if err_str.contains("No handler found for message type") {
+                        // Extract the message type from the error string if possible
+                        let msg_type = err_str
+                            .split("No handler found for message type")
+                            .nth(1)
+                            .map(|s| s.trim_start_matches(':').trim())
+                            .unwrap_or("unknown");
+                            
                         eprintln!("No handler found for message type: {msg_type}");
+                        
                         // Create a default success response when no handler found
                         Ok(Some(MessageBuilder::new()
                             .with_message_type("response")

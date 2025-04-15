@@ -47,6 +47,7 @@ async fn refresh_stub() -> impl IntoResponse {
     "Refresh token endpoint"
 }
 
+/* // Commenting out unused auth_routes function that uses stubs
 /// Authentication routes
 pub fn auth_routes() -> Router {
     Router::new()
@@ -55,6 +56,7 @@ pub fn auth_routes() -> Router {
         .route("/refresh", post(refresh_stub))
         .route("/profile", get(get_profile_stub))
 }
+*/
 
 /// Register a new user
 #[cfg(feature = "db")]

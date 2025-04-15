@@ -3,7 +3,6 @@
 
 use crate::context_manager::Context;
 use crate::error::Result;
-use crate::sync::StateOperation;
 use chrono::{DateTime, Utc};
 use opentelemetry::{
     metrics::{Counter, Histogram, Meter, MeterProvider, Unit},
@@ -18,6 +17,7 @@ use sysinfo::{System, SystemExt, DiskExt, CpuExt};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use async_trait::async_trait;
+use crate::sync::state::StateOperation;
 
 pub mod alerts;
 pub mod dashboard;
@@ -490,6 +490,26 @@ impl MCPMonitor {
             health.persistence_status.last_write_success = Utc::now();
         }
     }
+
+    /// Record a successful sync operation
+    pub async fn record_sync_success(
+        &self,
+        local_changes: usize,
+        remote_changes: usize,
+        duration_ms: u64,
+    ) {
+        // Log the successful sync
+        info!(
+            "Sync successful: {} local changes, {} remote changes, took {} ms",
+            local_changes, remote_changes, duration_ms
+        );
+    }
+
+    /// Record a failed sync operation
+    pub async fn record_sync_failure(&self, error: String) {
+        // Log the failed sync
+        error!("Sync failed: {}", error);
+    }
 }
 
 impl Clone for MCPMonitor {
@@ -780,12 +800,12 @@ impl MonitoringSystem {
         // Stop metrics collector (No explicit stop needed)
 
         // Stop alert manager
-        self.alert_manager.stop().await?;
+        self.alert_manager.stop().await.map_err(|e| MCPError::Monitoring(e.to_string()))?;
 
         // Stop dashboard if enabled
         if self.dashboard_enabled {
             if let Some(dashboard) = &self.dashboard_server {
-                dashboard.stop().await?;
+                dashboard.stop().await.map_err(|e| MCPError::Monitoring(e.to_string()))?;
             }
         }
 

@@ -162,4 +162,74 @@ The custom dashboard demonstration provides various command-line options:
 - `--simulate-issues`: Enable simulation of connection issues
 - `--pattern <TYPE>`: Set CPU simulation pattern (sine, spike, random)
 
-For more details on the Terminal UI capabilities, see the [ui-terminal README](crates/ui-terminal/README.md). 
+For more details on the Terminal UI capabilities, see the [ui-terminal README](crates/ui-terminal/README.md).
+
+# OpenTelemetry, Jaeger, and Zipkin Setup
+
+This repository contains a Docker Compose configuration for setting up OpenTelemetry Collector with Jaeger and Zipkin for distributed tracing.
+
+## Components
+
+- **OpenTelemetry Collector**: Central collector that receives, processes, and exports telemetry data
+- **Jaeger**: End-to-end distributed tracing system
+- **Zipkin**: Distributed tracing system
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose installed on your system
+
+### Running the Services
+
+1. Start all services using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+2. Verify that the services are running:
+
+```bash
+docker-compose ps
+```
+
+### Accessing the UIs
+
+- **Jaeger UI**: http://localhost:16686
+- **Zipkin UI**: http://localhost:9411
+
+## Sending Traces
+
+The OpenTelemetry Collector is configured to receive traces via:
+
+- OTLP gRPC: `localhost:4317`
+- OTLP HTTP: `localhost:4318`
+
+For Rust applications, you can use the following configurations:
+
+```rust
+// Configure OpenTelemetry with OTLP exporter
+let tracer = opentelemetry_otlp::new_pipeline()
+    .tracing()
+    .with_exporter(opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint("http://localhost:4317"))
+    .install_batch(opentelemetry::runtime::Tokio)
+    .expect("Failed to create tracer");
+```
+
+## Stopping the Services
+
+To stop all services:
+
+```bash
+docker-compose down
+```
+
+## Configuration
+
+- The OpenTelemetry Collector configuration is defined in `otel-collector-config.yaml`
+- The services configuration is defined in `docker-compose.yml`
+
+You can modify these files to adjust the configuration according to your needs. 

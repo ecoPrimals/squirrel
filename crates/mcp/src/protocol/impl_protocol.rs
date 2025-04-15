@@ -3,7 +3,8 @@ use serde_json::Value;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::error::{MCPError, ProtocolError, Result};
+use crate::error::MCPError;
+use crate::error::protocol_err::ProtocolError;
 use crate::protocol::{
     CommandHandler, MCPProtocol, MCPProtocolBase, ProtocolConfig, ProtocolResult, RoutingResult,
     MessageId, RoutingDecision,
@@ -105,7 +106,7 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - No handler is registered for the message type
     /// - The handler encounters an error while processing the message
-    pub async fn handle_message_internal(&self, msg: &MCPMessage) -> Result<MCPResponse> {
+    pub async fn handle_message_internal(&self, msg: &MCPMessage) -> Result<MCPResponse, crate::error::Error> {
         // We don't have direct access to get_handler, so we'll call handle_message_with_handler directly
         self.base.handle_message_with_handler(msg).await
     }
@@ -115,13 +116,9 @@ impl MCPProtocolImpl {
     /// # Errors
     ///
     /// Returns an error if the state cannot be deserialized from the internal representation.
-    pub fn get_internal_state(&self) -> Result<State> {
+    pub fn get_internal_state(&self) -> Result<State, crate::error::Error> {
         let state_value = self.base.get_state();
-        let state = serde_json::from_value::<State>(state_value.clone()).map_err(|e| {
-            MCPError::Protocol(ProtocolError::InvalidState(format!(
-                "Failed to deserialize state: {e}"
-            )))
-        })?;
+        let state = serde_json::from_value::<State>(state_value.clone())?;
         Ok(state)
     }
 
@@ -143,11 +140,9 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - The protocol is already initialized
     /// - The state cannot be serialized to the internal representation
-    pub fn initialize(&mut self) -> Result<()> {
+    pub fn initialize(&mut self) -> Result<(), crate::error::Error> {
         if self.is_initialized() {
-            return Err(MCPError::Protocol(
-                ProtocolError::ProtocolAlreadyInitialized,
-            ));
+            return Err(MCPError::Protocol(ProtocolError::ProtocolAlreadyInitialized).into());
         }
 
         let state = State {
@@ -155,11 +150,7 @@ impl MCPProtocolImpl {
             config: self.base.get_config().clone(),
         };
 
-        let state_value = serde_json::to_value(state).map_err(|e| {
-            MCPError::Protocol(ProtocolError::StateSerialization(format!(
-                "Failed to serialize state: {e}"
-            )))
-        })?;
+        let state_value = serde_json::to_value(state)?;
 
         self.base.set_state(state_value);
         Ok(())
@@ -172,11 +163,9 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - The protocol is already initialized
     /// - The state cannot be serialized to the internal representation
-    pub fn initialize_with_config(&mut self, config: ProtocolConfig) -> Result<()> {
+    pub fn initialize_with_config(&mut self, config: ProtocolConfig) -> Result<(), crate::error::Error> {
         if self.is_initialized() {
-            return Err(MCPError::Protocol(
-                ProtocolError::ProtocolAlreadyInitialized,
-            ));
+            return Err(MCPError::Protocol(ProtocolError::ProtocolAlreadyInitialized).into());
         }
 
         let state = State {
@@ -184,11 +173,7 @@ impl MCPProtocolImpl {
             config: config.clone(),
         };
 
-        let state_value = serde_json::to_value(state).map_err(|e| {
-            MCPError::Protocol(ProtocolError::StateSerialization(format!(
-                "Failed to serialize state: {e}"
-            )))
-        })?;
+        let state_value = serde_json::to_value(state)?;
 
         self.base.set_state(state_value);
         self.base.set_config(config);
@@ -206,7 +191,7 @@ impl MCPProtocolImpl {
         &mut self,
         message_type: &MessageType,
         handler: Arc<dyn CommandHandler>,
-    ) -> Result<()> {
+    ) -> Result<(), crate::error::Error> {
         // Create a wrapper that converts Arc<dyn CommandHandler> to a compatible Box<dyn CommandHandler>
         #[derive(Debug)]
         struct CommandHandlerWrapper {
@@ -216,14 +201,15 @@ impl MCPProtocolImpl {
 
         #[async_trait::async_trait]
         impl CommandHandler for CommandHandlerWrapper {
-            async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse> {
+            async fn handle(&self, message: &MCPMessage) -> Result<MCPResponse, crate::error::Error> {
                 // Call the inner handler and return the response directly
                 self.inner.handle(message).await
             }
         }
 
         let wrapper = Box::new(CommandHandlerWrapper { inner: handler });
-        self.base.register_handler(*message_type, wrapper)
+        self.base.register_handler(*message_type, wrapper)?;
+        Ok(())
     }
 
     /// Unregisters a handler for the specified message type
@@ -233,8 +219,9 @@ impl MCPProtocolImpl {
     /// Returns an error if:
     /// - No handler is registered for the message type
     /// - The handler unregistration fails for any reason
-    pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<()> {
-        self.base.unregister_handler(message_type)
+    pub fn unregister_handler(&mut self, message_type: &MessageType) -> Result<(), crate::error::Error> {
+        self.base.unregister_handler(message_type)?;
+        Ok(())
     }
 
     /// Create a basic MCP message with essential fields.
@@ -259,19 +246,17 @@ impl MCPProtocol for MCPProtocolImpl {
         match self.get_internal_state() {
             Ok(state) => {
                 if !state.initialized {
-                    return Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized));
+                    return Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into());
                 }
             }
             Err(e) => {
-                return Err(MCPError::Protocol(ProtocolError::InvalidState(format!(
-                    "Failed to get internal state: {e}"
-                ))))
+                return Err(MCPError::Protocol(ProtocolError::InvalidState(format!("Failed to get internal state: {e}"))).into());
             }
         }
 
         // Only accept messages if the protocol is in the Ready state
         if self.base.get_protocol_state() != ProtocolState::Ready {
-            return Err(MCPError::Protocol(ProtocolError::ProtocolNotReady));
+            return Err(MCPError::Protocol(ProtocolError::ProtocolNotReady).into());
         }
 
         // Handle the message based on its type
@@ -287,7 +272,7 @@ impl MCPProtocol for MCPProtocolImpl {
     /// - The message payload is invalid
     /// - The message size exceeds the maximum allowed
     /// - The message timestamp is invalid
-    async fn validate_message(&self, message: &MCPMessage) -> Result<()> {
+    async fn validate_message(&self, message: &MCPMessage) -> Result<(), crate::error::Error> {
         // Basic validation already performed in the base protocol
         self.base.validate_message(message)?;
 
@@ -296,29 +281,19 @@ impl MCPProtocol for MCPProtocolImpl {
         // 1. Message format validation
         if false {
             // The Unknown message type check was removed as this variant doesn't exist
-            return Err(MCPError::Protocol(ProtocolError::InvalidFormat(
-                "Unknown message type".to_string(),
-            )));
+            return Err(MCPError::Protocol(ProtocolError::InvalidFormat("Unknown message type".to_string())).into());
         }
 
         // 2. Payload validation
         if !message.payload.is_object() && !message.payload.is_null() {
-            return Err(MCPError::Protocol(ProtocolError::InvalidPayload(
-                "Payload must be an object or null".to_string(),
-            )));
+            return Err(MCPError::Protocol(ProtocolError::InvalidFormat("Payload must be an object or null".to_string())).into());
         }
 
         // 3. Size validation
-        let payload_size = serde_json::to_string(&message.payload)
-            .map(|s| s.len())
-            .unwrap_or(0);
+        let payload_size = serde_json::to_string(&message.payload)?.len();
 
         if payload_size > self.base.get_config().max_message_size {
-            return Err(MCPError::Protocol(ProtocolError::MessageTooLarge(format!(
-                "Message payload size ({} bytes) exceeds maximum allowed size ({} bytes)",
-                payload_size,
-                self.base.get_config().max_message_size
-            ))));
+            return Err(MCPError::Protocol(ProtocolError::MessageTooLarge(format!("Message payload size ({} bytes) exceeds maximum allowed size ({} bytes)", payload_size, self.base.get_config().max_message_size))).into());
         }
 
         // 4. Metadata validation if present
@@ -335,7 +310,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 if timestamp > now + 5 {
                     return Err(MCPError::Protocol(ProtocolError::InvalidTimestamp(
                         format!("Message timestamp ({}) is in the future", timestamp)
-                    )));
+                    )).into());
                 }
 
                 // Check if message is too old (configurable timeout)
@@ -343,7 +318,7 @@ impl MCPProtocol for MCPProtocolImpl {
                 if now > timestamp + timeout {
                     return Err(MCPError::Protocol(ProtocolError::MessageTimeout(
                         format!("Message is too old (timestamp: {}, now: {})", timestamp, now)
-                    )));
+                    )).into());
                 }
             }
         }
@@ -448,16 +423,13 @@ impl MCPProtocol for MCPProtocolImpl {
             }
             _ => {
                 // Unhandled message types should be rejected
-                Err(MCPError::Protocol(ProtocolError::InvalidFormat(format!(
-                    "Unhandled message type: {:?}",
-                    msg.type_
-                ))))
+                Err(MCPError::Protocol(ProtocolError::HandlerNotFound("Unhandled message type".to_string())).into())
             }
         }
     }
 
     /// Sets the protocol state.
-    async fn set_state(&self, _state: CoreProtocolState) -> Result<()> {
+    async fn set_state(&self, _state: CoreProtocolState) -> Result<(), crate::error::Error> {
         // This adapter might not directly manage state in the way the trait expects.
         // The state might be implicitly managed by the base protocol or transport.
         // Or, it might need to interact with the `base` field's state.
@@ -465,7 +437,7 @@ impl MCPProtocol for MCPProtocolImpl {
     }
 
     /// Gets the current protocol state.
-    async fn get_state(&self) -> Result<CoreProtocolState> {
+    async fn get_state(&self) -> Result<CoreProtocolState, crate::error::Error> {
         // Assuming base.get_state() returns a JSON value that needs deserialization
         // We might need a specific function in base or here to handle this conversion
         // For now, let's return the default state or an error.
@@ -482,7 +454,7 @@ impl MCPProtocol for MCPProtocolImpl {
 
 /// Create a protocol adapter with the provided protocol
 #[allow(dead_code)]
-pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase> {
+pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPProtocolBase, crate::error::Error> {
     let mut protocol = protocol;
     protocol.initialize()?;
     Ok(protocol.base)
@@ -493,7 +465,7 @@ pub(super) fn create_protocol_adapter(protocol: MCPProtocolImpl) -> Result<MCPPr
 pub(super) fn create_protocol_adapter_with_config(
     protocol: MCPProtocolImpl,
     config: ProtocolConfig,
-) -> Result<MCPProtocolBase> {
+) -> Result<MCPProtocolBase, crate::error::Error> {
     let mut protocol = protocol;
     protocol.initialize_with_config(config)?;
     Ok(protocol.base)

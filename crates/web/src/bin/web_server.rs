@@ -3,8 +3,13 @@ use squirrel_web::{
     config::Config,
     create_app, ServerConfig, auth::AuthConfig,
     CorsConfig, mcp::McpClientConfig,
-    setup_database,
 };
+
+#[cfg(any(feature = "db", feature = "mock-db"))]
+use squirrel_web::setup_database;
+
+#[cfg(not(any(feature = "db", feature = "mock-db")))]
+use squirrel_web::db::SqlitePool;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,13 +30,20 @@ async fn main() -> Result<()> {
         auth_config: AuthConfig::default(),
     };
     
-    // Connect to the database and run migrations
+    // Create a default config to pass to create_app
+    let app_config = Config::default();
+    
+    // Connect to the database and run migrations conditionally
+    #[cfg(any(feature = "db", feature = "mock-db"))]
     let db = setup_database(&server_config.database_url)
         .await
         .expect("Failed to setup database");
     
-    // Create a default config to pass to create_app
-    let app_config = Config::default();
+    // For server-only feature, create a simple in-memory pool without migrations
+    #[cfg(not(any(feature = "db", feature = "mock-db")))]
+    let db = squirrel_web::db::SqlitePool::connect("sqlite::memory:")
+        .await
+        .expect("Failed to setup in-memory database");
     
     // Pass the config parameter to create_app
     let app = create_app(db, app_config).await;

@@ -99,7 +99,7 @@ pub async fn list_user_commands(
 /// List available commands
 pub async fn list_available_commands(
     State(state): State<Arc<AppState>>,
-    claims: Claims,
+    Extension(claims): Extension<AuthClaims>,
 ) -> Result<Json<ApiResponse<Vec<AvailableCommand>>>, CommandApiError> {
     info!(user_id = %claims.sub, "Listing available commands");
     
