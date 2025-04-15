@@ -60,3 +60,15 @@ target/debug/*.pdb
 !*.txt
 !.cursor/
 !.cursor/**/*
+
+# Python virtual environments
+venv/
+env/
+.venv/
+.env/
+pyo3-test-env/
+*.pyc
+__pycache__/
+*.so
+*.dylib
+*.dll
