@@ -10,6 +10,7 @@ members = [
     "crates/ui-web",
     "crates/dashboard-core",
     "crates/ui-terminal",
+    "crates/ui-tauri-react",
     "adapter-pattern-tests", 
     "adapter-pattern-examples",
     "crates/commands",
@@ -197,6 +198,7 @@ default = ["cli", "plugins", "tui"]
 cli = ["dep:clap"]
 plugins = []
 tui = ["dep:ui-terminal", "dep:dashboard-core", "dep:tokio"]
+tauri-ui = []  # New feature for Tauri-based UI
 
 # ... existing code ... 
 
