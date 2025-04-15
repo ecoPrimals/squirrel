@@ -1,197 +1,282 @@
 ---
 title: Squirrel Web UI Strategy
-version: 1.0.0
-date: 2024-03-26
-status: planning
+version: 2.0.0
+date: 2024-04-09
+status: active
 ---
 
 # Squirrel Web UI Strategy
 
 ## Overview
 
-This document outlines the strategy for implementing and maintaining the web-based user interface for the Squirrel system. It establishes the relationship between the web UI and other UI implementations (primarily terminal UI using Ratatui), defines the architectural approach, and provides implementation guidelines.
+This document outlines the strategy for implementing and maintaining the web-based user interface for the Squirrel system using React and integrating with the unified Tauri + React architecture. The web UI serves as both a standalone browser-based interface and as the foundation for the desktop application through Tauri's WebView.
 
-## Relationship to Terminal UI
+## Relationship to Terminal UI and Desktop UI
 
-The Squirrel system will have multiple UI implementations:
+The Squirrel system implements multiple UI interfaces:
 
-1. **Terminal UI**: Primary interface for power users, implemented using Ratatui
-2. **Web UI**: Browser-based interface for remote access and broader accessibility
-3. **Desktop UI**: Future native GUI using the same core components as Terminal UI
+1. **Terminal UI**: Interface for power users, implemented using Ratatui
+2. **Web UI**: Browser-based interface using React
+3. **Desktop UI**: Tauri-based desktop application using the same React components as Web UI
 
-These implementations share core concepts but are optimized for their respective platforms. The Terminal UI and Desktop UI will share significant architecture and code through the `squirrel-ui-core` crate, while the Web UI requires different technologies but adheres to the same design principles.
+The new unified approach uses React as the foundation for both web and desktop interfaces, with Tauri handling native OS integration for the desktop experience. The Terminal UI remains a separate implementation optimized for terminal environments.
 
 ## Architectural Principles
 
-The Web UI architecture follows these principles:
+The Web UI architecture adheres to these principles:
 
-1. **Separation of Concerns**: UI logic separated from the web server/API implementation
-2. **Reusable Data Models**: Shared data models between UI implementations where possible
-3. **Progressive Enhancement**: Basic functionality without JavaScript, enhanced with client-side features
-4. **Responsive Design**: Adapts to various device sizes and capabilities
-5. **Accessibility First**: Designed with accessibility as a core requirement
+1. **Component-Based Design**: UI built from reusable React components
+2. **Type Safety**: TypeScript for strong typing and improved developer experience
+3. **Responsive Design**: Adapts to various device sizes and capabilities
+4. **Accessibility First**: Designed with accessibility as a core requirement
+5. **Performance Optimization**: Efficient rendering and data fetching
+6. **Dashboard Core Integration**: Compatible data models with the Terminal UI
 
-## Implementation Strategy
+## Integration with Unified Architecture
 
-### Phase 1: Prototype (Current)
+The Web UI serves as a core part of the unified Tauri + React architecture:
 
-The current implementation places web UI files directly in the `web` crate's `static` directory. This serves as a functional prototype but is not the target architecture.
+1. **Shared Component Library**: React components used by both web and desktop
+2. **Platform Detection**: Runtime detection of web vs. desktop environment
+3. **Feature Progressive Enhancement**: Core features in web, enhanced in desktop
+4. **Consistent Data Models**: Same data structures across all interfaces
+5. **Adaptive Rendering**: Layout adjustments based on platform
 
-**Components**:
-- Basic HTML/CSS/JS implementation
-- Direct embedding in web server
-- Static file serving from the web crate
+## Web-Specific Implementation
 
-### Phase 2: Extraction and Enhancement
+While sharing core code with the desktop application, the web UI has specific considerations:
 
-The UI will be extracted into a dedicated crate to allow proper separation of concerns.
+### Browser Compatibility
+- Support for modern browsers (Chrome, Firefox, Safari, Edge)
+- Progressive enhancement for older browsers
+- Responsive design for mobile devices
 
-**Components**:
-- Creation of `squirrel-ui-web` crate
-- Modern build system (Trunk or similar)
-- Enhanced client-side functionality
-- Comprehensive API client
+### Deployment Strategy
+- Static site generation with Vite
+- Optimized bundle sizes
+- CDN integration for assets
+- HTTPS requirement for security
 
-### Phase 3: Unified API Client
-
-Develop a consistent API client that can be used across platforms.
-
-**Components**:
-- Shared API models and interfaces
-- Consistent error handling
-- Authentication management
-- WebSocket integration
-
-### Phase 4: Integration with Core UI
-
-Establish patterns for consistency between web and terminal UIs.
-
-**Components**:
-- Consistent navigation patterns
-- Shared visual language and components
-- Common user workflows
+### API Communication
+- REST API for data fetching
+- WebSocket for real-time updates
+- Authentication and authorization
+- CORS configuration
 
 ## Technology Stack
 
-The Web UI will be implemented using:
+The Web UI uses these technologies:
 
-### Server Side
-- Rust web server (using Axum)
-- Static file serving
-- API endpoints
-- WebSocket support
+### Core Technologies
+- **React**: UI component library
+- **TypeScript**: Type-safe JavaScript
+- **Vite**: Build and development tool
+- **TailwindCSS**: Utility-first CSS
 
-### Client Side
-- HTML5, CSS3, JavaScript
-- Option A: Modern JavaScript framework (React or Svelte)
-- Option B: Rust-based WebAssembly UI (using Yew or similar)
-- Responsive design using CSS Grid/Flexbox
-- Progressive enhancement for accessibility
+### Data Management
+- **React Query**: Data fetching and caching
+- **Zustand**: State management
+- **React Hook Form**: Form handling
+- **Zod**: Schema validation
 
-## Integration with Core Features
+### UI Components
+- **Radix UI**: Accessible UI primitives
+- **React-Charts**: Data visualization
+- **Framer Motion**: Animations
+- **React-Table**: Data tables
+ 
+### Development Tools
+- **Vitest**: Testing framework
+- **Playwright**: E2E testing
+- **Storybook**: Component documentation
+- **ESLint/Prettier**: Code quality
 
-The Web UI integrates with the same components as the Terminal UI:
+## Component Architecture
 
-1. **Command System**: For executing commands
-2. **Context Management**: For context visualization
-3. **MCP Protocol**: For tool execution
-4. **Error Management**: For error handling and display
+The web UI implements these main component categories:
 
-## Development Guidelines
+### Layout Components
+- `AppShell`: Main application container
+- `Navigation`: Tab and menu system
+- `Sidebar`: Contextual information panel
+- `StatusBar`: System status display
 
-### Code Organization
+### Dashboard Components
+These align with Terminal UI widgets:
+- `HealthWidget`: System health indicators
+- `MetricsWidget`: System metrics display
+- `ChartWidget`: Time-series visualization
+- `NetworkWidget`: Network status and metrics
+- `AlertsWidget`: Alert management
+- `ProtocolWidget`: Protocol status
+- `SystemWidget`: System information
+
+### Web-Specific Components
+- `AuthenticationPanel`: Login and user management
+- `NotificationCenter`: Browser notifications
+- `ShareDialog`: URL and data sharing
+- `SettingsPanel`: User preferences 
+- `MobileNavigation`: Responsive navigation for small screens
+
+## Data Flow Architecture
+
+The web UI follows this data flow pattern:
 
 ```
-squirrel-ui-web/
-├── src/               # Rust code for UI crate
-│   ├── lib.rs         # Library entry point
-│   ├── components/    # UI component definitions
-│   ├── api/           # API client implementation
-│   └── assets/        # Static assets management
-├── web/               # Web frontend
-│   ├── index.html     # Main HTML file
-│   ├── css/           # Stylesheets
-│   ├── js/            # JavaScript files
-│   └── assets/        # Images and other assets
-├── build/             # Build scripts
-└── dist/              # Built artifacts
+┌─────────────────────┐         ┌───────────────────┐
+│                     │         │                   │
+│   React Components  │         │  API Client       │
+│                     │         │                   │
+└─────────┬───────────┘         └────────┬──────────┘
+          │                              │
+          │ Props                        │ Requests
+          ▼                              ▼
+┌─────────────────────┐         ┌───────────────────┐
+│                     │         │                   │
+│   State Management  │◄────────┤     REST API     │
+│                     │         │                   │
+└─────────────────────┘         └────────┬──────────┘
+                                         │
+                                         │ HTTP/WS
+                                         ▼
+                               ┌───────────────────┐
+                               │                   │
+                               │  Backend Server   │
+                               │                   │
+                               └────────┬──────────┘
+                                        │
+                                        │
+                                        ▼
+                               ┌───────────────────┐
+                               │                   │
+                               │ DashboardService  │
+                               │                   │
+                               └───────────────────┘
 ```
-
-### Development Workflow
-
-1. **Design**: UI components are designed with both web and terminal UI in mind
-2. **Implementation**: Components implemented for specific platform
-3. **Testing**: Automated testing for UI components
-4. **Integration**: Integrated with API endpoints
-5. **Deployment**: Built and deployed with the application
 
 ## Web UI Specific Features
 
-Some features will be web-specific:
+These features are specific to the web interface:
 
-1. **Browser Integrations**: Bookmarklets, extensions, sharing
-2. **Responsive Layouts**: Adapting to different screen sizes
-3. **Offline Support**: Progressive Web App capabilities
-4. **Collaborative Features**: Real-time collaboration through WebSockets
+1. **Browser Integration**
+   - Browser notifications
+   - History API navigation
+   - Local storage for preferences
+   - Service workers for offline support
 
-## Performance Considerations
+2. **Responsive Design**
+   - Mobile-first approach
+   - Adaptive layouts
+   - Touch interface optimization
+   - Reduced data usage options
 
-The Web UI will be optimized for:
+3. **Web-Only Components**
+   - Progressive Web App installation
+   - URL-based sharing
+   - Social media integration
+   - Print-friendly views
 
-1. **Initial Load Time**: Fast first contentful paint
-2. **Interaction Responsiveness**: Quick response to user actions
-3. **Network Efficiency**: Minimizing data transfer
-4. **Memory Usage**: Efficient DOM management
+## Performance Optimization
 
-## Accessibility Requirements
+The web UI focuses on these performance areas:
 
-The Web UI will meet WCAG 2.1 AA standards, including:
+1. **Bundle Optimization**
+   - Code splitting
+   - Tree shaking
+   - Lazy loading
+   - Dynamic imports
 
-1. **Keyboard Navigation**: All functionality accessible via keyboard
-2. **Screen Reader Support**: Proper ARIA attributes and semantic HTML
-3. **High Contrast Mode**: Support for high contrast viewing
-4. **Text Scaling**: Proper handling of text size adjustments
-5. **Reduced Motion**: Support for reduced motion preferences
+2. **Rendering Performance**
+   - React component memoization
+   - Virtualized lists for large data sets
+   - Throttled real-time updates
+   - Optimized JavaScript execution
+
+3. **Network Efficiency**
+   - Data compression
+   - Request batching
+   - API response caching
+   - Payload size optimization
+
+## Accessibility Implementation
+
+The web UI implements accessibility through:
+
+1. **Semantic HTML**
+   - Proper heading hierarchy
+   - ARIA attributes
+   - Role definitions
+   - Meaningful alt text
+
+2. **Keyboard Navigation**
+   - Focus management
+   - Keyboard shortcuts
+   - Skip navigation links
+   - Focus trapping in modals
+
+3. **Visual Accessibility**
+   - High contrast mode
+   - Text resizing support
+   - Color blind friendly palettes
+   - Reduced motion options
 
 ## Security Considerations
 
-1. **CSRF Protection**: Protection against cross-site request forgery
-2. **Content Security Policy**: Strict CSP to prevent XSS
-3. **Input Validation**: Both client and server-side validation
-4. **Authentication Management**: Secure token handling
-5. **Secure Communication**: HTTPS only, secure WebSocket connections
+The web UI addresses security through:
+
+1. **Authentication**
+   - Secure token handling
+   - Session management
+   - CSRF protection
+   - Multi-factor authentication support
+
+2. **Data Protection**
+   - Input sanitization
+   - Output encoding
+   - Content Security Policy
+   - Secure HTTP headers
+
+3. **Access Control**
+   - Role-based permissions
+   - Feature access control
+   - API request validation
+   - Security audit logging
 
 ## Testing Strategy
 
-The Web UI will be tested using:
+The testing approach includes:
 
-1. **Unit Tests**: Testing individual components
-2. **Integration Tests**: Testing components working together
-3. **E2E Tests**: Testing complete user workflows
-4. **Accessibility Tests**: Automated accessibility checks
-5. **Cross-browser Tests**: Testing across different browsers
+1. **Unit Testing**
+   - Component tests
+   - Hook tests
+   - Utility function tests
+   - State management tests
+
+2. **Integration Testing**
+   - Component interaction tests
+   - Form submission flows
+   - API integration tests
+   - State transitions
+
+3. **E2E Testing**
+   - User journey tests
+   - Cross-browser testing
+   - Mobile responsiveness testing
+   - Accessibility compliance testing
 
 ## Implementation Roadmap
 
 | Phase | Timeline | Focus | Deliverables |
 |-------|----------|-------|-------------|
-| 1: Current | Complete | Basic Functionality | Static HTML/CSS/JS UI within web crate |
-| 2: Extraction | Week 1-2 | Separation | New UI crate, build system, basic components |
-| 3: Enhancement | Week 3-5 | Improved Features | Advanced components, API client, WebSocket integration |
-| 4: Optimization | Week 6-8 | Performance & UX | Optimization, accessibility improvements, additional features |
-
-## Relationship to Desktop UI
-
-In the future, the desktop UI will:
-
-1. Share core UI components with the Terminal UI
-2. Leverage the same Rust-based architecture
-3. Use native rendering via a Rust GUI framework (likely Iced)
-4. Share API client code with both Terminal and Web UIs
+| 1: Foundation | Weeks 1-3 | Core Structure | Project setup, layout components, API client |
+| 2: Core Features | Weeks 4-6 | Essential UI | Core dashboard widgets, state management |
+| 3: Enhanced Features | Weeks 7-9 | Advanced UI | All widgets, responsive design, optimizations |
+| 4: Integration | Weeks 10-12 | Unified Experience | Web-desktop integration, advanced features |
 
 ## References
 
-- [Squirrel Terminal UI Specifications](./README.md)
-- [Implementation Roadmap](./implementation-roadmap.md)
-- [Component Architecture](./component-architecture.md)
-- [Web API Documentation](../api/README.md) 
+- [Squirrel Tauri + React Architecture](../tauri-react-architecture.md)
+- [Dashboard Integration](../dashboard_integration.md)
+- [Terminal UI Specifications](../README.md)
+- [React Documentation](https://reactjs.org/docs/getting-started.html)
+- [Accessibility Guidelines](https://www.w3.org/WAI/standards-guidelines/wcag/) 

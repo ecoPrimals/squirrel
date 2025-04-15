@@ -1,235 +1,280 @@
 ---
 title: Squirrel Desktop UI Strategy
-version: 1.0.0
-date: 2024-03-26
-status: planning
+version: 2.0.0
+date: 2024-04-09
+status: active
 ---
 
 # Squirrel Desktop UI Strategy
 
 ## Overview
 
-This document outlines the strategy for implementing and maintaining the native desktop user interface for the Squirrel system using the Iced framework. It establishes the relationship between the desktop UI and other UI implementations (terminal and web), defines the architectural approach, and provides implementation guidelines.
+This document outlines the strategy for implementing and maintaining the native desktop user interface for the Squirrel system using Tauri and React. The desktop UI leverages the shared React component library from the web UI while adding native OS integration through Tauri's capabilities.
 
 ## Relationship to Other UIs
 
-The Squirrel system will have multiple UI implementations:
+The Squirrel system implements multiple UI interfaces:
 
-1. **Terminal UI**: Primary interface for power users, implemented using Ratatui
-2. **Web UI**: Browser-based interface for remote access and broader accessibility
-3. **Desktop UI**: Native GUI for enhanced visualization and integration with host OS
+1. **Terminal UI**: Interface for power users, implemented using Ratatui
+2. **Web UI**: Browser-based interface using React
+3. **Desktop UI**: Tauri-based desktop application using the same React components as Web UI
 
-These implementations share core concepts but are optimized for their respective platforms. The Terminal UI and Desktop UI will share significant architecture and code through the `squirrel-ui-core` crate, while the Web UI requires different technologies but adheres to the same design principles.
+The unified approach uses a shared React codebase for both web and desktop, with Tauri providing native capabilities for the desktop experience. This replaces the previous approach that planned to use Iced as a separate implementation.
 
 ## Architectural Principles
 
 The Desktop UI architecture follows these principles:
 
-1. **Native Experience**: Provide an optimized experience for desktop environments
-2. **Shared Core**: Reuse logic and components from the Terminal UI where possible
-3. **State-Driven Design**: Use a centralized, reactive state management approach
-4. **OS Integration**: Integrate with native OS features (notifications, file system, etc.)
-5. **Accessibility First**: Design with accessibility as a core requirement
+1. **Shared Components**: Maximum code reuse with the Web UI
+2. **Native Experience**: Leverage Tauri for OS-level integration
+3. **Performance First**: Optimize for desktop environment performance
+4. **Offline Capability**: Full functionality without constant network
+5. **OS Integration**: Deep integration with operating system features
 
-## Implementation Strategy
+## Integration with Unified Architecture
 
-### Phase 1: Core Infrastructure
+The Desktop UI is a key part of the unified Tauri + React architecture:
 
-Establish the foundational infrastructure for the Desktop UI:
+1. **Shared React Core**: Components shared with Web UI
+2. **Tauri Backend**: Native OS integration via Rust
+3. **Feature Detection**: Runtime platform-specific enhancements
+4. **Consistent Data Model**: Same data structures as other UIs
+5. **Enhanced Capabilities**: Additional desktop-only features
 
-**Components**:
-- Core application state management
-- Iced widget wrappers for Squirrel components
-- Window management
-- Basic layout system
-- Command execution infrastructure
+## Desktop-Specific Implementation 
 
-### Phase 2: Essential Features
+The desktop UI extends the web UI with these unique aspects:
 
-Implement the essential features for daily use:
+### Native Integration
+- File system access
+- System tray presence
+- Global keyboard shortcuts
+- Native notifications
+- Auto-updates
 
-**Components**:
-- Command execution interface
-- Job management and monitoring
-- Context visualization with enhanced graphics
-- Real-time logs and events
-- System status display with visual indicators
+### Installation and Distribution
+- Platform-specific installers
+- Code signing
+- Application security
+- Update distribution
+- Installation verification
 
-### Phase 3: Advanced Features
-
-Add more sophisticated capabilities:
-
-**Components**:
-- Rich context editing with syntax highlighting
-- Visual tool execution and workflow
-- Multi-window support
-- Enhanced data visualization
-- Advanced search and filtering
-
-### Phase 4: Integration and Polish
-
-Finalize the UI with cross-cutting concerns:
-
-**Components**:
-- Performance optimization
-- Theme customization
-- Keyboard shortcut system
-- Comprehensive help system
-- Plugin integration with visual components
+### Offline Capabilities
+- Local data storage
+- Syncing mechanisms
+- Background processing
+- Resource caching
 
 ## Technology Stack
 
-The Desktop UI will be implemented using:
+The Desktop UI uses these technologies:
 
 ### Core Technologies
-- **Iced**: Pure Rust GUI framework
-- **Tokio**: Async runtime for non-blocking operations
-- **Image**: Image processing for assets
+- **Tauri**: Native application framework
+- **React**: UI component library
+- **TypeScript**: Type-safe JavaScript
+- **Vite**: Build and development tool
 
-### Libraries
-- **syntect**: For syntax highlighting
-- **notify**: For file system notifications
-- **rfd**: For native file dialogs
-- **dark-light**: For detecting system theme
-- **self_update**: For application updates
+### Desktop-Specific
+- **tauri-plugin-store**: Persistent storage
+- **tauri-plugin-autostart**: Auto-launch capability
+- **tauri-plugin-notification**: Native notifications
+- **tauri-plugin-updater**: Application updates
+- **tauri-plugin-fs**: File system operations
 
-### Shared Components
-- **squirrel-ui-core**: Shared UI components with Terminal UI
-- **squirrel-core**: Core Squirrel functionality
-- **squirrel-commands**: Command system integration
-- **squirrel-mcp**: MCP protocol implementation
-
-## Layers and Architecture
-
-The Desktop UI is structured into several key layers:
-
-1. **Application Layer** (`app.rs`):
-   - Application state management
-   - Window coordination
-   - Global event handling
-   - Configuration management
-
-2. **View Layer** (`views/`):
-   - Screen-specific views
-   - Layout implementation
-   - View-specific state
-
-3. **Widget Layer** (`widgets/`):
-   - Custom Iced widgets
-   - Reusable UI components
-   - Specialized rendering logic
-
-4. **State Layer** (`state.rs`):
-   - Centralized application state
-   - State transitions
-   - Persistent configuration
-   - Subscription management
-
-## Layout and Design
-
-The Desktop UI will follow these layout principles:
-
-1. **Responsive Design**: Adaptable layout based on window size
-2. **Consistent Navigation**: Standardized UI patterns and shortcuts
-3. **Task-Oriented Interface**: Organize UI around user tasks
-4. **Progressive Disclosure**: Show advanced options when needed
-5. **Visual Hierarchy**: Clear distinction between UI elements
+### UI Framework
+- **TailwindCSS**: Utility-first CSS
+- **Radix UI**: Accessible UI primitives
+- **Framer Motion**: Animations
+- **React-Charts**: Data visualization
 
 ## Component Architecture
 
-The Desktop UI will implement these core components:
+The desktop UI extends the web UI component architecture with desktop-specific additions:
 
-1. **CommandPanel**: Command input and execution
-2. **StatusBar**: System status and notifications
-3. **JobsView**: Job monitoring and management
-4. **ContextEditor**: Context visualization and editing with rich features
-5. **LogViewer**: Event logs and messages with filtering
-6. **ToolboxPanel**: Available tools and actions
+### Shared Components (with Web UI)
+- `AppShell`: Main application container
+- `Navigation`: Tab and menu system
+- `Dashboard Widgets`: Health, Metrics, Charts, etc.
+- `StatusBar`: System status display
 
-## Desktop-Specific Features
+### Desktop-Only Components
+- `TitleBar`: Custom window titlebar with controls
+- `SystemTray`: System tray icon and menu
+- `FileDialog`: Native file dialogs
+- `NativeMenu`: OS-native application menu
+- `AutoUpdateManager`: Update management interface
+- `OfflineStatusBar`: Connection and sync status
+- `GlobalShortcutManager`: System-wide shortcuts
 
-The Desktop UI will leverage these desktop-specific capabilities:
+## Desktop Features
 
-1. **Native Controls**: Using platform-native controls where appropriate
-2. **File System Integration**: Drag-and-drop support, file opening/saving
-3. **OS Notifications**: System notifications for background events
-4. **Multiple Windows**: Support for multiple simultaneous windows
-5. **System Tray**: Background operation with system tray integration
+The desktop application includes these unique features:
 
-## Integration with Core Features
+### System Tray
+- Background operation
+- Quick commands
+- Status indicators
+- Notifications access
+- Quick context switching
 
-The Desktop UI integrates with these Squirrel components:
+### File System Integration
+- Direct file access
+- Drag and drop support
+- File association handling
+- Custom file formats
+- Import/export capabilities
 
-1. **Command System**: For command execution and history
-2. **Context Management**: For context visualization and editing
-3. **MCP Protocol**: For tool execution and visualization
-4. **Error Management**: For error display and recovery
+### Native OS Integration
+- App launch on startup
+- System notifications
+- Native dialogs
+- Deep links
+- Custom protocols
 
-## Performance Considerations
+### Performance Optimizations
+- Persistent WebView cache
+- Background processing
+- Optimized asset loading
+- Native resource management
+- Memory usage optimization
 
-The Desktop UI will be optimized for:
+## Data Flow Architecture
 
-1. **Startup Time**: Fast application launch
-2. **Responsiveness**: Immediate feedback to user actions
-3. **Memory Efficiency**: Careful memory management for large contexts
-4. **Rendering Performance**: Efficient drawing and updates
-5. **Background Processing**: Non-blocking operations for long-running tasks
+```
+┌─────────────────────┐         ┌───────────────────┐
+│                     │         │                   │
+│   React Components  │         │  API Client       │
+│                     │         │                   │
+└─────────┬───────────┘         └────────┬──────────┘
+          │                              │
+          │ Props                        │ Requests
+          ▼                              ▼
+┌─────────────────────┐         ┌───────────────────┐
+│                     │         │                   │
+│   State Management  │◄────────┤  Tauri Commands   │
+│                     │         │                   │
+└─────────────────────┘         └────────┬──────────┘
+                                         │
+                                         │ IPC
+                                         ▼
+                               ┌───────────────────┐
+                               │                   │
+                               │  Tauri Backend    │
+                               │                   │
+                               └────────┬──────────┘
+                                        │
+                                        │ Native API
+                                        ▼
+                               ┌───────────────────┐
+                               │                   │
+                               │    Native OS      │
+                               │                   │
+                               └───────────────────┘
+```
 
-## Accessibility Requirements
+## Integration with DashboardService
 
-The Desktop UI will support these accessibility features:
+The Desktop UI interacts with DashboardService through:
 
-1. **Screen Reader Support**: Full compatibility with screen readers
-2. **Keyboard Navigation**: Complete functionality without mouse
-3. **High Contrast Themes**: Support for visually impaired users
-4. **Text Scaling**: Support for larger text sizes
-5. **Reduced Motion**: Options to reduce animation for users with vestibular disorders
+1. **Tauri Commands Layer**
+   - Exposes Rust functions as JavaScript-callable commands
+   - Handles background data fetching
+   - Provides native capabilities to React UI
 
-## OS Integration
+2. **State Management**
+   - Manages application state with Zustand
+   - Syncs between Tauri backend and React frontend
+   - Handles offline data persistence
 
-The Desktop UI will integrate with these operating system features:
+3. **Dashboard Core Integration**
+   - Directly interfaces with DashboardService in Rust
+   - Converts data to TypeScript-compatible formats
+   - Implements real-time updates via WebSocket
 
-1. **Native File Dialogs**: Using system file pickers
-2. **System Theme**: Respecting light/dark mode preferences
-3. **System Notifications**: Using native notification system
-4. **Window Management**: Integrating with OS window management
-5. **Application Updates**: Native update mechanisms
+## Platform-Specific Considerations
 
-## Testing Strategy
+### Windows
+- MSI installer package
+- Start menu integration
+- Windows notification center
+- Jump list support
+- Windows design guidelines
 
-The Desktop UI will be tested using:
+### macOS
+- DMG and App Store packages
+- macOS menu bar integration
+- Touch bar support
+- Notification center integration
+- Apple Human Interface Guidelines
 
-1. **Unit Tests**: For component logic and state management
-2. **Integration Tests**: For view functionality and composition
-3. **UI Automation**: For testing user workflows
-4. **Cross-Platform Tests**: For compatibility across different operating systems
-5. **Accessibility Tests**: For verifying accessibility compliance
+### Linux
+- AppImage and distribution packages
+- Desktop environment integration
+- D-Bus notifications
+- XDG compliance
+- Different desktop environment support
+
+## Security Considerations
+
+The desktop application implements these security measures:
+
+1. **Application Hardening**
+   - Minimal Tauri permissions
+   - Content Security Policy
+   - Process isolation
+   - Signed binaries
+
+2. **Data Protection**
+   - Encrypted local storage
+   - Secure credentials handling
+   - API token management
+   - Sensitive data handling
+
+3. **Update Security**
+   - Signed updates
+   - Integrity verification
+   - Secure update channels
+   - Update failure recovery
+
+## Cross-Platform Testing
+
+The desktop UI requires testing on:
+
+1. **Multiple Operating Systems**
+   - Windows 10/11
+   - macOS (latest 2 versions)
+   - Major Linux distributions
+
+2. **System Configurations**
+   - Various window sizes
+   - Multiple displays
+   - High DPI screens
+   - Limited resources
+
+3. **Feature Testing**
+   - Installation and updates
+   - File system operations
+   - Notifications
+   - System integration
 
 ## Implementation Roadmap
 
 | Phase | Timeline | Focus | Deliverables |
 |-------|----------|-------|-------------|
-| 1: Core | Weeks 1-3 | Basic Infrastructure | App structure, window management, basic widgets |
-| 2: Essential | Weeks 4-6 | Key Features | Command interface, context viewer, job management |
-| 3: Advanced | Weeks 7-10 | Enhanced Capabilities | Rich editing, multi-window, visualization |
-| 4: Polish | Weeks 11-12 | Refinement | Performance, OS integration, help system |
-
-## Development Guidelines
-
-1. **State Management**: Use Iced's message-based architecture
-2. **Shared Code**: Maximize reuse with Terminal UI components
-3. **Platform Specifics**: Abstract platform-specific functionality
-4. **Performance**: Use asynchronous operations for long-running tasks
-5. **Documentation**: Document key components and user interactions
+| 1: Foundation | Weeks 1-3 | Core Structure | Tauri setup, shared React components, basic layout |
+| 2: Desktop Integration | Weeks 4-6 | OS Features | System tray, file dialogs, native menus |
+| 3: Enhanced Features | Weeks 7-9 | Advanced Features | Offline support, performance optimizations |
+| 4: Packaging | Weeks 10-12 | Distribution | Installers, auto-updates, cross-platform testing |
 
 ## References
 
-- [Iced Documentation](https://github.com/iced-rs/iced)
-- [Web UI Strategy](./web-ui-strategy.md)
-- [Terminal UI Strategy](./terminal-ui-strategy.md)
-- [Component Architecture](./component-architecture.md)
-- [Squirrel Command System](../commands/README.md)
+- [Squirrel Tauri + React Architecture](../tauri-react-architecture.md)
+- [Web UI Strategy](../web/web-ui-strategy.md)
+- [Dashboard Integration](../dashboard_integration.md)
+- [Tauri Documentation](https://tauri.app/v1/guides/)
+- [React Documentation](https://reactjs.org/docs/getting-started.html)
 
 ---
 
-Last Updated: March 26, 2024 
+Last Updated: April 9, 2024 
