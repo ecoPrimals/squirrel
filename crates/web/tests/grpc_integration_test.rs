@@ -362,15 +362,15 @@ async fn test_get_command_status() {
 
         let status_response_status = status_response.status();
         let status_body_text = status_response.text().await.expect("Failed to read status body");
-        
+
         println!("Status Response Status: {}", status_response_status);
         println!("Status Response Body: {}", status_body_text);
-
+        
         // Check if the status request was successful
         if status_response_status.is_success() {
-            let status_body: serde_json::Value = serde_json::from_str(&status_body_text)
-                .expect("Failed to parse status response JSON");
-            
+        let status_body: serde_json::Value = serde_json::from_str(&status_body_text)
+            .expect("Failed to parse status response JSON");
+        
             // Verify the API response structure
             assert!(status_body["success"].as_bool().unwrap_or(false), "API success flag should be true");
             assert!(status_body["data"].is_object(), "API data field should be an object");
@@ -459,11 +459,11 @@ async fn test_execute_invalid_command() {
         // If implementation changes to validate commands immediately, this path would be taken
         assert!(status.is_client_error() || status.is_server_error(), 
                 "Expected client or server error status, got: {}", status);
-    
-        let response_body: serde_json::Value = serde_json::from_str(&body_text)
-            .expect("Failed to parse error response JSON");
-    
-        // Verify the standard API error response wrapper
+
+    let response_body: serde_json::Value = serde_json::from_str(&body_text)
+        .expect("Failed to parse error response JSON");
+
+    // Verify the standard API error response wrapper
         assert!(response_body["success"].as_bool().unwrap_or(true) == false, 
                 "API success flag should be false");
         assert!(response_body["data"].is_null(), 
@@ -504,14 +504,14 @@ async fn test_mcp_server_unavailable() {
 
     let status = response.status();
     let body_text = response.text().await.expect("Failed to read response body");
-    
+
     println!("Response Status: {}", status);
     println!("Response Body: {}", body_text);
-    
+
     // The application currently queues commands even when MCP is unavailable,
     // so we'll check that a command ID was returned instead of expecting an error
     if status.is_success() {
-        let response_body: serde_json::Value = serde_json::from_str(&body_text)
+    let response_body: serde_json::Value = serde_json::from_str(&body_text)
             .expect("Failed to parse response JSON");
         
         // Verify that we got a command ID
@@ -724,10 +724,10 @@ async fn test_list_user_commands() {
 
     // Check that the API endpoint is working
     assert!(status.is_success(), "List request failed: Status {}", status);
-    
+
     let response_body: serde_json::Value = serde_json::from_str(&body_text)
         .expect("Failed to parse list response JSON");
-        
+
     // Verify the API response structure
     assert!(response_body["success"].as_bool().unwrap_or(false), "API success flag should be true");
     
@@ -737,14 +737,14 @@ async fn test_list_user_commands() {
         println!("data field is an array - API structure is correct");
         
         // If we have commands returned, do more specific checking
-        if let Some(commands) = response_body["data"].as_array() {
+    if let Some(commands) = response_body["data"].as_array() {
             if !commands.is_empty() {
                 // At least some commands were returned, check if any of our created ones are there 
                 let returned_ids: Vec<String> = commands
                     .iter()
                     .map(|cmd| cmd["id"].as_str().unwrap_or_default().to_string())
-                    .collect();
-                    
+            .collect();
+
                 // Check for any overlap between created and returned commands
                 let any_match = created_command_ids.iter().any(|id| returned_ids.contains(id));
                 if any_match {

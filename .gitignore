@@ -18,6 +18,14 @@ target/debug/build/
 target/debug/deps/
 target/debug/*.d
 target/debug/*.exe
+# Tauri build outputs
+target/release/bundle/
+*.deb
+*.rpm
+*.AppImage
+*.dmg
+*.exe
+*.msi
 # Large binary files
 swagger-ui.zip
 *.zip

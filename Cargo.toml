@@ -11,6 +11,7 @@ members = [
     "crates/dashboard-core",
     "crates/ui-terminal",
     "crates/ui-tauri-react",
+    "crates/ui-tauri-react/src-tauri",
     "adapter-pattern-tests", 
     "adapter-pattern-examples",
     "crates/commands",

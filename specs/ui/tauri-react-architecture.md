@@ -270,4 +270,197 @@ The Tauri + React UI will adhere to these accessibility standards:
 - [Squirrel Terminal UI Specifications](./README.md)
 - [Dashboard Integration](./dashboard_integration.md)
 - [Tauri Documentation](https://tauri.app/v1/guides/)
-- [React Documentation](https://reactjs.org/docs/getting-started.html) 
+- [React Documentation](https://reactjs.org/docs/getting-started.html)
+
+# Tauri + React Architecture
+
+**Version**: 1.0.0  
+**Date**: 2024-07-20  
+**Status**: Draft
+
+## Overview
+
+This document describes the architecture of the Squirrel UI implementation using Tauri and React. This architecture provides a desktop application experience while leveraging web technologies for the user interface.
+
+## Technology Stack
+
+- **Frontend**: React 18, TypeScript, TailwindCSS
+- **Backend Bridge**: Tauri 2.0
+- **Rust Backend**: dashboard-core, interfaces crates
+- **Build Tools**: Vite, npm
+
+## Architecture Components
+
+### Directory Structure
+
+```
+ui-tauri-react/
+├── src/                 # React frontend code
+│   ├── components/      # UI components
+│   ├── hooks/           # Custom React hooks
+│   ├── pages/           # Page components
+│   ├── services/        # Frontend services
+│   ├── store/           # State management
+│   ├── types/           # TypeScript types
+│   ├── utils/           # Utility functions
+│   ├── App.tsx          # Main application component
+│   └── main.tsx         # Application entry point
+│
+├── src-tauri/           # Tauri backend code
+│   ├── src/             # Rust source code
+│   │   └── main.rs      # Main application entry point
+│   ├── Cargo.toml       # Rust dependencies
+│   └── tauri.conf.json  # Tauri configuration
+│
+├── public/              # Static assets
+├── package.json         # Frontend dependencies
+└── vite.config.ts       # Build configuration
+```
+
+### Frontend Architecture
+
+#### Component Hierarchy
+
+```
+App
+├── AppLayout
+│   ├── Sidebar
+│   │   ├── NavigationMenu
+│   │   └── QuickActions
+│   ├── Header
+│   │   ├── SearchBar
+│   │   └── UserMenu
+│   └── Content
+│       └── [Page Components]
+└── Providers
+    ├── ThemeProvider
+    ├── NotificationProvider
+    └── AuthProvider
+```
+
+#### State Management
+
+1. **Local Component State**: For UI-specific, non-shared state
+2. **Context API**: For theme, notifications, and authentication
+3. **Custom Hooks**: For encapsulating complex state logic and API calls
+
+#### Communication with Backend
+
+1. **Tauri Commands**: Exposed as async functions via `@tauri-apps/api`
+2. **Events**: Real-time updates via Tauri's event system
+3. **Custom Hooks**: API abstraction layer for frontend components
+
+### Backend Architecture (Tauri)
+
+#### Command Structure
+
+Commands are defined in `main.rs` using Tauri's command macro:
+
+```rust
+#[tauri::command]
+async fn get_dashboard_data(state: State<'_, AppState>) -> Result<DashboardData, String> {
+    let dashboard_service = state.dashboard_service.lock().await;
+    dashboard_service.get_dashboard_data()
+        .await
+        .map_err(|e| e.to_string())
+}
+```
+
+#### State Management
+
+Application state is managed using Tauri's state management system:
+
+```rust
+#[derive(Default)]
+struct AppState {
+    dashboard_service: Mutex<Arc<DefaultDashboardService>>,
+}
+
+fn main() {
+    tauri::Builder::default()
+        .manage(AppState {
+            dashboard_service: Mutex::new(Arc::new(DefaultDashboardService::new())),
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_dashboard_data,
+            get_metric_history,
+            acknowledge_alert,
+            update_config,
+            trigger_data_refresh,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+```
+
+#### Event System
+
+Events are emitted to the frontend using Tauri's event system:
+
+```rust
+async fn subscribe_to_dashboard_updates(window: Window, service: Arc<DefaultDashboardService>) {
+    let mut receiver = service.subscribe().await;
+    
+    while let Some(update) = receiver.recv().await {
+        let _ = window.emit("dashboard-update", update);
+    }
+}
+```
+
+## Data Flow
+
+### Request Flow
+
+1. User interacts with a React component
+2. Component calls a custom hook (e.g., `useDashboardData`)
+3. Hook invokes a Tauri command (e.g., `get_dashboard_data`)
+4. Command is received by the Rust backend
+5. Backend processes the request using the DashboardService
+6. Result is returned to the frontend
+7. Component updates with the new data
+
+### Event Flow
+
+1. Backend service emits an event (e.g., new dashboard data)
+2. Tauri event system delivers the event to the frontend
+3. Event listener in a custom hook processes the event
+4. Hook updates local state
+5. Component re-renders with the new data
+
+## Security Considerations
+
+1. **Input Validation**: All user inputs are validated both client-side and server-side
+2. **Secure Storage**: Sensitive data is stored using Tauri's secure storage APIs
+3. **Privilege Management**: Commands are designed with least privilege principles
+4. **CSP Policies**: Content Security Policies restrict resource loading
+
+## Performance Considerations
+
+1. **Lazy Loading**: Components and routes are loaded on demand
+2. **Memoization**: React's useMemo and useCallback are used to prevent unnecessary re-renders
+3. **Bundle Optimization**: Code splitting and tree shaking to reduce bundle size
+4. **Native Communication**: Heavy processing is performed in Rust for optimal performance
+
+## Testing Strategy
+
+1. **Unit Tests**: Individual components and hooks are tested in isolation
+2. **Integration Tests**: Communication between frontend and backend is tested
+3. **End-to-End Tests**: Complete user flows are tested using Playwright
+4. **Performance Tests**: Application performance is benchmarked regularly
+
+## Deployment
+
+The application is packaged using Tauri's build system, which produces native installers for:
+
+1. Windows (.msi, .exe)
+2. macOS (.dmg, .app)
+3. Linux (.deb, .AppImage)
+
+## References
+
+- [Implementation Progress](./IMPLEMENTATION_PROGRESS_TAURI_REACT.md)
+- [Unified UI Integration](./unified-ui-integration.md)
+
+---
+
+Last Updated: 2024-07-20 

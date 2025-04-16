@@ -130,7 +130,7 @@ pub fn create_interpreter_with_env(_py: Python<'_>, python_path: Option<String>,
     }
     
     // Create and return your interpreter object
-    Python::with_gil(|py| {
+        Python::with_gil(|py| {
         // Just return None as a placeholder
         // In reality, you would create and return your interpreter object
         Ok(py.None())
@@ -195,7 +195,7 @@ fn mcp_pyo3_bindings(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     task::task(py, m)?;
     
     Ok(())
-}
+} 
 
 /// Python-facing wrapper for get_python_version_info
 #[pyfunction]
