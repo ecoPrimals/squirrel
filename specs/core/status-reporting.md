@@ -1,7 +1,7 @@
 ---
 title: Status Reporting Specification
-version: 1.0.0
-date: 2024-05-15
+version: 1.1.0
+date: 2024-09-30
 status: active
 priority: medium
 ---

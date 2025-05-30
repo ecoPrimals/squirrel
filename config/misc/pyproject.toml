@@ -1,0 +1,21 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mcp-core-bindings"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+# Optional: Specify the path to the binding crate if Cargo.toml is not in the root
+manifest-path = "crates/mcp-pyo3-bindings/Cargo.toml"
+# Specify the Python module name using module-name
+module-name = "mcp_core_bindings"
+# Optional: Rename the final wheel module if desired (must match #[pymodule] name)
+# module-name = "mcp_core_bindings" 

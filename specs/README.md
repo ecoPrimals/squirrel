@@ -1,118 +1,63 @@
----
-description: Guide for using the Squirrel specification documentation
-version: 1.0.0
-last_updated: 2024-03-22
-status: active
----
-
 # Squirrel Specifications
 
-## Overview
-
-This directory contains the specifications for the Squirrel project. After our recent refactoring effort, we're in the process of updating and aligning these specifications with the current codebase structure and future development plans.
+This directory contains specifications, design documents, and architectural plans for the Squirrel project.
 
 ## Directory Structure
 
-- `specs/SPECS.md`: Main specifications overview document
-- `specs/SPECS_REVIEW.md`: Tracking document for the specifications review process
-- `specs/app/`: Application specifications
-- `specs/commands/`: Command system specifications
-- `specs/context/`: Context management specifications
-- `specs/galaxy/`: Galaxy MCP integration specifications
-- `specs/integration/`: Integration specifications
-- `specs/mcp/`: MCP protocol specifications
-- `specs/modules/`: Module-specific specifications
-  - `specs/modules/ai_tools/`: AI integration specifications
-  - `specs/modules/api_client/`: API client specifications
-  - `specs/modules/bio_informatics/`: Bioinformatics integration specifications
-- `specs/monitoring/`: Monitoring system specifications
-- `specs/plugins/`: Plugin system specifications (post-MVP)
-- `specs/MVP/`: Core MVP requirements
-- `specs/teams/`: Team organization documentation
-- `specs/patterns/`: Standard design patterns documentation
-- `specs/archived/`: Archived specifications
+The specifications are organized to match the crate structure of the project:
 
-## How to Use This Documentation
+- **core/** - Core component specifications
+  - **context/** - Context management specifications
+  - **mcp/** - Machine Context Protocol specifications
+  - **plugins/** - Plugin system specifications
+  - **interfaces/** - Interface specifications
+  - **patterns/** - Design pattern specifications
 
-### For New Team Members
+- **integration/** - Integration component specifications
+  - **api-clients/** - API client specifications
+  - **context-adapter/** - Context adapter specifications
+  - **web/** - Web integration specifications
+  - **mcp-pyo3-bindings/** - Python bindings specifications
 
-1. Start with `SPECS.md` for a high-level overview
-2. Review `specs/teams/WORKTEAMS.md` to understand team organization
-3. Review `specs/teams/AGENTS.md` to understand agent roles
-4. Read the specifications for your specific area of focus
+- **services/** - Service component specifications
+  - **app/** - Application service specifications
+  - **commands/** - Command service specifications
+  - **dashboard-core/** - Dashboard core specifications
+  - **monitoring/** - Monitoring service specifications
 
-### For Implementation Work
+- **tools/** - Tool specifications
+  - **ai-tools/** - AI tools specifications
+  - **cli/** - CLI tool specifications
+  - **rule-system/** - Rule system specifications
 
-1. Identify the relevant crate for your task
-2. Review the corresponding specifications in the matching `specs/` directory
-3. Check the `SPECS_REVIEW.md` document for update status
-4. Follow the patterns documented in `specs/patterns/`
+- **ui/** - UI component specifications
+  - **core/** - Core UI specifications
+  - **implementation/** - UI implementation specifications
+  - **testing/** - UI testing specifications
 
-### For Architecture Changes
+- **archived/** - Historical and archived specifications
 
-1. Review the current specifications in the relevant directory
-2. Create or update specification documents
-3. Update the `SPECS_REVIEW.md` tracking document
-4. Coordinate with affected teams
+## Key Documents
 
-## Specifications Status
+- [SPECS.md](SPECS.md) - Template and guidelines for writing specifications
+- [SPECS_REVIEW.md](SPECS_REVIEW.md) - Process for reviewing specifications
+- [TESTING.md](TESTING.md) - Testing guidelines and requirements
+- [SECURITY.md](SECURITY.md) - Security requirements and best practices
+- [MCP_INTEGRATION.md](MCP_INTEGRATION.md) - Machine Context Protocol integration guide
+- [TEAM_RESPONSIBILITIES.md](TEAM_RESPONSIBILITIES.md) - Team ownership and responsibilities for specs
 
-We're currently reviewing all specifications to ensure they align with our refactored codebase. See `SPECS_REVIEW.md` for:
+## Team Ownership
 
-- Current review status of each specs directory
-- Mapping of specs directories to crates
-- Gaps and action items
+Each specification belongs to a specific team who is responsible for maintaining and updating it. For details on team responsibilities and collaboration areas, see [TEAM_RESPONSIBILITIES.md](TEAM_RESPONSIBILITIES.md).
 
-## Standard Patterns
+## Adding New Specifications
 
-All new code should follow the standard patterns documented in `specs/patterns/`:
+When adding a new specification:
 
-- Dependency Injection Pattern (`specs/patterns/dependency-injection.md`)
-- Error Handling Pattern
-- Async Programming Pattern
-- Testing Pattern
-- Command Pattern
-- Adapter Pattern
+1. Place it in the appropriate directory based on the component it relates to
+2. Follow the specification template in `SPECS.md`
+3. Update any related specifications as needed
+4. Add a reference to the specification in the relevant component README
+5. Ensure the appropriate team is aware of their ownership
 
-## Contributing to Specifications
-
-When updating specifications:
-
-1. Follow the Markdown Documentation Standards in our coding guidelines
-2. Include proper frontmatter with description, version, and status
-3. Keep language clear and concise
-4. Include examples where appropriate
-5. Document interfaces, not implementations
-6. Focus on the "what" and "why", not just the "how"
-7. Update version history when making changes
-
-## Integration with Crates
-
-Each specification directory generally corresponds to one or more crates:
-
-| Specs Directory | Corresponding Crates |
-|-----------------|----------------------|
-| specs/app/ | crates/app/, crates/core/ |
-| specs/commands/ | crates/commands/ |
-| specs/context/ | crates/context/, crates/context-adapter/ |
-| specs/galaxy/ | crates/galaxy-mcp/ |
-| specs/integration/ | (Spans multiple crates) |
-| specs/mcp/ | crates/mcp/ |
-| specs/modules/ai_tools/ | crates/ai_tools/ |
-| specs/modules/api_client/ | crates/api_client/ |
-| specs/modules/bio_informatics/ | crates/bio_informatics/ |
-| specs/monitoring/ | crates/monitoring/ |
-| specs/plugins/ | (Post-MVP, no crate yet) |
-| specs/MVP/ | (Spans multiple crates) |
-
-## Specification Review Status
-
-See `SPECS_REVIEW.md` for detailed tracking of the specification review process.
-
-## Questions and Feedback
-
-If you have questions about specifications or want to provide feedback:
-
-1. For team-specific questions: Contact your team lead
-2. For cross-team issues: Use the TEAMCHAT.md format
-3. For specification improvement suggestions: Update the relevant section in `SPECS_REVIEW.md` 
+For more details on the specification process, see `SPECS.md`.

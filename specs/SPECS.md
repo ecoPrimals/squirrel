@@ -1,164 +1,146 @@
 ---
 description: Architecture and Dependency Specifications for Squirrel MCP
-version: 1.4.0
-last_updated: 2024-09-15
+version: 1.6.0
+last_updated: 2024-12-19
+owner: Core Team
 ---
 
-# Squirrel MCP Architecture Specifications
+# Squirrel Architecture Specifications
+
+## Table of Contents
+1. [Core Dependencies](#core-dependencies)
+2. [Workspace Organization](#workspace-organization)
+3. [Component Status](#component-status)
+4. [Performance Targets](#performance-targets)
+5. [Current Focus](#current-focus)
+6. [Version History](#version-history)
+7. [Development Process](#development-process)
 
 ## Core Dependencies
 
-### Async Runtime
-- **Standard**: `tokio = { version = "1.36", features = ["full"] }`
-- **Required Features**:
-  - Multi-threading
-  - Async I/O
-  - Time utilities
-  - Test utilities
+### Runtime & Async
+- **Tokio**: `tokio = { version = "1.36", features = ["full"] }`
+  - Multi-threading, Async I/O, Time utilities, Test utilities
 
 ### Serialization
-- **Standard**: 
-  - `serde = { version = "1.0", features = ["derive"] }`
-  - `serde_json = "1.0"`
+- **Serde**: `serde = { version = "1.0", features = ["derive"] }`
+- **JSON**: `serde_json = "1.0"`
 
 ### Error Handling
-- **Standard**:
-  - `thiserror = "1.0"`
-  - `anyhow = "1.0"`
+- **Structured Errors**: `thiserror = "1.0"`
+- **Error Handling**: `anyhow = "1.0"`
 
-### Logging
-- **Standard**:
-  - `tracing = "0.1"`
-  - `tracing-subscriber = { version = "0.3", features = ["env-filter"] }`
+### Observability
+- **Tracing**: `tracing = "0.1"`
+- **Logging**: `tracing-subscriber = { version = "0.3", features = ["env-filter"] }`
 
 ## Workspace Organization
 
 ### Directory Structure
 ```
 squirrel/
-├── Cargo.toml           # Workspace manifest
-├── specs/               # Detailed specifications
-│   ├── app/             # Application Core specs
-│   ├── commands/        # Command System specs
-│   ├── context/         # Context Management specs
-│   ├── core/            # Core system specs
-│   ├── integration/     # Integration specs
-│   ├── mcp/             # MCP protocol specs
-│   ├── monitoring/      # Monitoring system specs
-│   ├── MVP/             # MVP requirements
-│   ├── patterns/        # Cross-cutting design patterns
-│   ├── plugins/         # Plugin system specs
-│   ├── teams/           # Team organization specs
-│   └── validation/      # Validation system specs
-└── crates/
-    ├── app/             # Application Core implementation
-    ├── cli/             # Command Line Interface implementation
-    ├── commands/        # Command System implementation
-    ├── common/          # Common utilities and shared code
-    ├── context/         # Context Management implementation
-    ├── integration/     # Integration System implementation
-    ├── mcp/             # MCP Protocol implementation
-    ├── monitoring/      # Monitoring System implementation
-    ├── plugins/         # Plugin System implementation
-    ├── validation/      # Validation System implementation
-    └── web/             # Web Interface implementation
+├── code/                   # All source code
+│   ├── crates/            # Rust crates organized by purpose
+│   │   ├── core/          # Core functionality
+│   │   │   ├── context/       # Context management
+│   │   │   ├── mcp/           # Machine Context Protocol
+│   │   │   ├── plugins/       # Plugin system
+│   │   │   ├── interfaces/    # Shared interfaces
+│   │   │   └── core/          # Core utilities
+│   │   ├── integration/   # Integration components
+│   │   │   ├── api-clients/       # API client implementations
+│   │   │   ├── context-adapter/   # Context adapter systems
+│   │   │   ├── web/               # Web integration
+│   │   │   └── mcp-pyo3-bindings/ # Python bindings
+│   │   ├── services/      # Service implementations
+│   │   │   ├── app/               # Application services
+│   │   │   ├── commands/          # Command system
+│   │   │   ├── dashboard-core/    # Dashboard core services
+│   │   │   ├── monitoring/        # Monitoring services
+│   │   │   └── nestgate-orchestrator/ # Central execution engine
+│   │   ├── tools/         # Development tools
+│   │   │   ├── ai-tools/          # AI integration tools
+│   │   │   ├── cli/               # Command-line tools
+│   │   │   └── rule-system/       # Rule system tools
+│   │   └── ui/            # User interface components
+│   │       ├── ui-tauri-react/    # Tauri React UI
+│   │       └── ui-terminal/       # Terminal UI
+│   └── src/               # Frontend source code
+└── specs/                 # Specifications and design documents
+    ├── core/              # Core specifications
+    ├── integration/       # Integration specifications
+    ├── services/          # Service specifications
+    ├── tools/             # Tool specifications
+    ├── ui/                # UI specifications
+    └── archived/          # Archived specifications
 ```
 
-## Current State
+## Component Status
 
-### Core Components
-- **Core Module** (`crates/app/src/core/`)
-  - Configuration management using `sled`
-  - Version tracking
-  - Thread-safe state management with `Arc<RwLock<>>`
+### 🏗️ Core Components
 
-- **MCP Module** (`crates/mcp/src/`)
-  - Machine Context Protocol implementation
-  - Configuration management
-  - Async-ready with Tokio
+#### Core/Context (95% Complete)
+- **Purpose**: State tracking, file system context handling, editor integration
+- **Key Features**:
+  - State tracking (100%)
+  - File system context handling (100%)
+  - Real-time sync (95%)
+  - Recovery features (90%)
 
-- **Command System** (`crates/commands/src/`)
-  - Command registration and execution
-  - Command validation framework
-  - Help system foundation
-
-- **Context Management** (`crates/context/src/`)
-  - State tracking and persistence
-  - File system context handling
-  - Editor state integration
-
-- **Error Handling** (`crates/common/src/error.rs`, `crates/app/src/error.rs`)
-  - Hierarchical error types
-  - Custom error definitions
-  - Proper error propagation
-
-### Dependencies
-- Core: tokio, sled, serde
-- Async Support: futures, async-trait
-- Error Handling: thiserror, anyhow
-- Serialization: serde, serde_json
-- Utilities: uuid, chrono
-
-## Implementation Status
-
-### Core Components
-- Command System: 95% Complete
-  - Command registration and execution
-  - Command validation framework
-  - Help system foundation
-  - Output formatting system
-  - Core commands implementation
-  - Performance optimization completed
-
-- Context Management: 95% Complete
-  - State tracking
-  - File system context handling
-  - Real-time sync
-  - Recovery features in progress
-
-- Error Recovery System: 90% Complete
-  - Error handling
-  - Recovery strategies foundation
-  - Snapshot management
-  - Advanced recovery implementation finalized
-
-- MCP Protocol: 98% Complete
+#### Core/MCP (98% Complete)
+- **Purpose**: Machine Context Protocol implementation
+- **Key Features**:
   - Message handling (100%)
-  - Tool lifecycle foundation (95%)
-  - Security foundation (95%)
-  - Client implementation (100%)
-  - Server implementation (100%)
+  - Client/Server implementation (100%)
   - Protocol validation (100%)
   - Resource management (100%)
   - UI integration (95%)
-  - See [specs/mcp/IMPLEMENTATION_NOTES.md](specs/mcp/IMPLEMENTATION_NOTES.md) for details
+  - Tool lifecycle foundation (95%)
+  - Security foundation (95%)
+- **Documentation**: [core/mcp/PROGRESS.md](core/mcp/PROGRESS.md)
 
-- Web Interface: 70% Complete
-  - Core architecture (90%)
-  - API endpoints implementation (80%)
-  - Authentication & security (60%)
-  - Database integration (100%)
-  - WebSocket implementation (100%)
-  - Command execution API (100%)
-  - MCP integration (50%)
-  - API documentation (20%)
-  - Plugin system (0%)
-  - See [specs/web/Implementation.md](specs/web/Implementation.md) for details
+#### Core/Plugins (95% Complete)
+- **Purpose**: Plugin system architecture with cross-platform sandboxing
+- **Key Features**:
+  - Plugin architecture (100%)
+  - Security model (100%)
+  - Cross-platform sandboxing (95%)
+  - Resource monitoring (95%)
+  - Plugin loading (90%)
+  - Command registration (85%)
+  - Lifecycle management (80%)
+  - Discovery system (70%)
+  - Dependency resolution (60%)
+- **Documentation**: [core/plugins/IMPLEMENTATION_COMPLETE.md](core/plugins/IMPLEMENTATION_COMPLETE.md)
 
-- Galaxy MCP Adapter: 75% Complete
-  - Error handling system (85%)
-  - Configuration system (75%)
-  - API client for Galaxy (80%)
-  - Security features (40%)
-  - Data models for Galaxy resources (100%)
-  - Adapter core implementation (85%)
-  - Tool discovery and execution (80%)
-  - MCP integration (70%)
-  - Examples and documentation (60%)
-  - Testing infrastructure (30%)
-  - See [specs/galaxy/IMPLEMENTATION_STATUS.md](specs/galaxy/IMPLEMENTATION_STATUS.md) for details
+#### Core/Interfaces (100% Complete)
+- **Purpose**: Shared interfaces and cross-component communication
+- **Key Features**:
+  - Common interfaces (100%)
+  - Cross-component communication (100%)
+  - Documentation (100%)
 
-- Monitoring System: 100% Complete
+### 🚀 Service Components
+
+#### Services/Nestgate-Orchestrator (95% Complete)
+- **Purpose**: Central execution engine for MCP brain separation
+- **Architecture**: MCP acts as pure "brain" (observer, thinker, planner) while orchestrator handles all execution
+- **Key Features**:
+  - Service lifecycle management (100%)
+  - Port allocation and management (100%)
+  - Health monitoring framework (100%)
+  - gRPC service interface (100%)
+  - Configuration management (100%)
+  - Job coordination system (95%)
+  - Resource requirements management (95%)
+  - Integration tests (90%)
+  - MCP brain integration (90%)
+  - Error handling and recovery (90%)
+  - Performance monitoring (85%)
+
+#### Services/Monitoring (100% Complete)
+- **Purpose**: Comprehensive monitoring and alerting system
+- **Key Features**:
   - Metrics collection (100%)
   - Health monitoring (100%)
   - Alerting system (100%)
@@ -167,129 +149,202 @@ squirrel/
   - Analytics integration (100%)
   - Storage subsystem (100%)
   - Plugin architecture (100%)
-  - Examples and documentation (100%)
   - Testing infrastructure (100%)
-  - See [specs/monitoring/SPEC.md](specs/monitoring/SPEC.md) for details
+- **Documentation**: [services/monitoring/SPEC.md](services/monitoring/SPEC.md)
 
-- UI Components: 90% Complete
-  - Core Terminal UI (100%)
-  - Dashboard components (95%)
+#### Services/App (95% Complete)
+- **Purpose**: Application services and state management
+- **Key Features**:
+  - Configuration management (100%)
+  - Error handling (100%)
+  - Command integration (95%)
+  - Context integration (95%)
+  - Tests (90%)
   - MCP integration (90%)
-  - Performance optimization (80%)
-  - Event handling (100%)
-  - Protocol visualization (95%)
-  - User customization (70%)
-  - Testing infrastructure (90%)
-  - Documentation (80%)
-  - See [specs/ui/IMPLEMENTATION_PROGRESS.md](specs/ui/IMPLEMENTATION_PROGRESS.md) for details
 
-- Plugin System: 95% Complete
-  - Plugin architecture defined (100%)
-  - Plugin loading mechanism (90%)
-  - Plugin command registration (85%)
-  - Plugin lifecycle management (80%)
-  - Plugin dependency resolution (60%)
-  - Plugin discovery (70%)
-  - Plugin security model (100%)
-  - Cross-platform sandboxing (95%)
-  - Resource monitoring (95%)
-  - Testing infrastructure (95%)
+#### Services/Commands (95% Complete)
+- **Purpose**: Command registration, execution, and validation
+- **Key Features**:
+  - Command registration and execution (100%)
+  - Command validation framework (100%)
+  - Help system foundation (100%)
+  - Output formatting system (100%)
+  - Core commands implementation (95%)
+  - Performance optimization (90%)
+
+#### Services/Dashboard-Core (90% Complete)
+- **Purpose**: Dashboard data models and widget framework
+- **Key Features**:
+  - Dashboard data models (100%)
+  - Dashboard state management (95%)
+  - Real-time updates (90%)
+  - Widget framework (85%)
+  - Filtering system (80%)
+
+### 🔗 Integration Components
+
+#### Integration/Web (85% Complete)
+- **Purpose**: Web API endpoints and WebSocket implementation
+- **Key Features**:
+  - Core architecture (98%)
+  - Database integration (100%)
+  - WebSocket implementation (100%)
+  - Command execution API (100%)
+  - Build system (100%)
+  - Axum 0.7 compatibility (100%)
+  - Test infrastructure (95%)
+  - API endpoints (90%)
+  - Authentication & security (60%)
+  - MCP integration (50%)
+  - API documentation (20%)
+- **Documentation**: [integration/web/Implementation.md](integration/web/Implementation.md)
+
+#### Integration/API-Clients (85% Complete)
+- **Purpose**: External API integration with authentication and rate limiting
+- **Key Features**:
+  - GitHub API integration (95%)
+  - Authentication management (90%)
+  - Error handling (90%)
+  - Rate limiting (80%)
+  - Caching (70%)
+
+#### Integration/Context-Adapter (80% Complete)
+- **Purpose**: Cross-platform context adaptation and synchronization
+- **Key Features**:
+  - Context adaptation framework (95%)
+  - Error handling (90%)
+  - Cross-platform adaptation (75%)
+  - Synchronization (70%)
+
+#### Integration/MCP-PyO3-Bindings (75% Complete)
+- **Purpose**: Python bindings for ML model integration
+- **Key Features**:
+  - Core bindings (90%)
+  - Python environment management (80%)
+  - Error handling (80%)
+  - ML model integration (70%)
+  - Documentation (60%)
+
+### 🛠️ Tools Components
+
+#### Tools/CLI (90% Complete)
+- **Purpose**: Command-line framework and utilities
+- **Key Features**:
+  - Command-line framework (100%)
+  - Command registration (95%)
+  - Argument parsing (95%)
+  - Output formatting (90%)
+  - Error handling (90%)
   - Documentation (70%)
-  - See [specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md](specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md)
-  - See [specs/app/IMPLEMENTATION_PROGRESS.md](specs/app/IMPLEMENTATION_PROGRESS.md) for latest updates
 
-### Recently Completed Components
+#### Tools/Rule-System (80% Complete)
+- **Purpose**: Rule definition, execution, and management
+- **Key Features**:
+  - Rule definition framework (90%)
+  - Rule execution engine (85%)
+  - Integration with context (80%)
+  - Rule management (75%)
+  - Documentation (70%)
 
-- Terminal UI MCP Integration: 90% Complete
-  - McpMetricsProvider interface (100%)
-  - RealMcpMetricsProvider implementation (95%)
-  - Cache-optimized metrics retrieval (100%)
-  - Performance tracking (90%)
-  - Protocol metrics visualization (95%)
-  - Connection management (100%)
-  - Command-line integration (100%)
-  - Event-driven updates (100%)
-  - See [specs/ui/IMPLEMENTATION_PROGRESS.md](specs/ui/IMPLEMENTATION_PROGRESS.md) for details
+#### Tools/AI-Tools (75% Complete)
+- **Purpose**: AI integration and model management
+- **Key Features**:
+  - AI integration framework (90%)
+  - MCP integration (80%)
+  - Model management (80%)
+  - Inference services (70%)
+  - Documentation (70%)
+  - Performance optimization (60%)
+  - Security (60%)
 
-- Plugin Sandbox System: 95% Complete
-  - Cross-platform implementation with platform-specific isolation mechanisms
-  - Advanced resource limits and monitoring
-  - Security context-based permissions
-  - Path access validation 
-  - Capability-based security model
-  - Comprehensive error handling and recovery
-  - Tests fixed for proper process registration with resource monitors
-  - Documentation: [specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md](specs/app/SANDBOX_IMPLEMENTATION_SUMMARY.md)
+### 🎨 UI Components
 
-- Plugin Resource Monitoring: 95% Complete
-  - Process registration and tracking
-  - Resource usage measurement 
-  - Resource limit enforcement
-  - Cross-platform implementation
-  - Integration with sandbox
-  - Documentation: [specs/app/IMPLEMENTATION_PROGRESS.md](specs/app/IMPLEMENTATION_PROGRESS.md)
+#### UI/TauriReact (90% Complete)
+- **Purpose**: React-based desktop UI with Tauri integration
+- **Key Features**:
+  - Core React components (95%)
+  - Tauri integration (95%)
+  - State management (90%)
+  - Theming (90%)
+  - MCP integration (85%)
+  - Performance (85%)
+  - Tests (80%)
+  - Accessibility (70%)
 
-### Robustness Enhancements (Newly Proposed)
+#### UI/Terminal (95% Complete)
+- **Purpose**: Terminal-based UI with TUI components
+- **Key Features**:
+  - Terminal UI framework (100%)
+  - Command display (100%)
+  - Color theming (100%)
+  - Status display (95%)
+  - Progress indicators (90%)
+  - Interactive forms (90%)
+  - Responsive layout (90%)
 
-- MCP Resilience Framework: 0% Complete
-  - Circuit breaker pattern for service calls
-  - Retry mechanisms with exponential backoff
-  - Recovery strategies for failures
-  - State synchronization
-  - Health checking system
-  - See [specs/mcp/resilience-fault-tolerance.md](specs/mcp/resilience-fault-tolerance.md) for details
+### 🎯 Recently Completed Components
 
-- MCP Observability Framework: 0% Complete
-  - Metrics collection and reporting
-  - Distributed tracing
-  - Structured logging
-  - Event processing system
-  - Alerting system
-  - Dashboard integration
-  - See [specs/mcp/observability-telemetry.md](specs/mcp/observability-telemetry.md) for details
+#### MCP Resilience Framework (100% Complete)
+- Circuit breaker pattern for service calls
+- Retry mechanisms with exponential backoff
+- Bulkhead isolation implementation
+- Rate limiting implementation
+- Recovery strategies for failures
+- State synchronization
+- Health checking system
+- Comprehensive testing with examples
+- **Documentation**: [integration/RETRY_IMPLEMENTATION.md](integration/RETRY_IMPLEMENTATION.md)
 
-- Web Interface Resilience Framework: 0% Complete
-  - Circuit breaker pattern for service calls
-  - Retry mechanisms with exponential backoff
-  - Fallback mechanisms
-  - Timeout management
-  - Health monitoring
-  - Error recovery strategies
-  - See [specs/web/Resilience.md](specs/web/Resilience.md) for details
+#### Terminal UI MCP Integration (95% Complete)
+- McpMetricsProvider interface
+- RealMcpMetricsProvider implementation
+- Cache-optimized metrics retrieval
+- Performance tracking
+- Protocol metrics visualization
+- Connection management
+- Command-line integration
+- Event-driven updates
+- **Documentation**: [ui/implementation/IMPLEMENTATION_PROGRESS.md](ui/implementation/IMPLEMENTATION_PROGRESS.md)
 
-- Web Interface Observability Framework: 0% Complete
-  - Metrics collection
-  - Structured logging
-  - Distributed tracing
-  - Health monitoring
-  - Performance profiling
-  - Real-time monitoring dashboard
-  - Alerting system
-  - See [specs/web/Observability.md](specs/web/Observability.md) for details
+### 🚧 In Progress Components
 
-### Robustness Enhancements (In Progress)
+#### MCP Observability Framework (55% Complete)
+- Metrics collection and reporting (75%)
+- Distributed tracing (60%)
+- Structured logging (60%)
+- Health checking system (65%)
+- Alerting integration (50%)
+- Dashboard integration (50%)
+- **Documentation**: [core/mcp/observability-telemetry.md](core/mcp/observability-telemetry.md)
 
-- MCP Resilience Framework: 100% Complete
-  - Circuit breaker pattern for service calls (100%)
-  - Retry mechanisms with exponential backoff (100%)
-  - Bulkhead isolation implementation (100%)
-  - Rate limiting implementation (100%)
-  - Recovery strategies for failures (100%)
-  - State synchronization (100%)
-  - Health checking system (100%)
-  - Comprehensive testing with examples (100%)
-  - See [specs/integration/RETRY_IMPLEMENTATION.md](specs/integration/RETRY_IMPLEMENTATION.md) for details
-  - See [specs/integration/PROGRESS_UPDATE.md](specs/integration/PROGRESS_UPDATE.md) for full status
+#### RBAC Enhancement for MCP (80% Complete)
+- Fine-grained permission control (90%)
+- Role inheritance improvements (85%)
+- Permission validation framework (85%)
+- RBAC integration with other components (70%)
+- **Documentation**: [core/mcp/RBAC_IMPLEMENTATION_STATUS.md](core/mcp/RBAC_IMPLEMENTATION_STATUS.md)
 
-### Performance Targets
-- Command execution: < 50ms
-- Web API response time: < 200ms
-- Memory usage: < 100MB
-- Error rate: < 1%
-- Test coverage: > 90%
+#### Web Interface MCP Integration (70% Complete)
+- Bidirectional communication (90%)
+- Real-time updates (80%)
+- Comprehensive error handling (70%)
+- Secure authentication (60%)
+- Fine-grained authorization (50%)
 
-### Current Focus
-1. MCP Observability Framework
+## Performance Targets
+
+| Metric | Target |
+|--------|--------|
+| Command execution | < 50ms |
+| Web API response time | < 200ms |
+| Memory usage | < 100MB |
+| Error rate | < 1% |
+| Test coverage | > 90% |
+
+## Current Focus
+
+### 🎯 Priority 1: Core Infrastructure
+1. **MCP Observability Framework**
    - Metrics collection and reporting
    - Distributed tracing
    - Structured logging
@@ -297,43 +352,53 @@ squirrel/
    - Alerting system
    - Dashboard integration
 
-2. RBAC Enhancement for MCP
+2. **RBAC Enhancement for MCP**
    - Fine-grained permission control
    - Role inheritance improvements
    - Permission validation framework
    - RBAC integration with other components
 
-3. Tool Lifecycle Completion
+### 🎯 Priority 2: Integration & Tools
+3. **Tool Lifecycle Completion**
    - Enhanced error recovery for tools
    - State transition validation
    - Comprehensive cleanup procedures
    - Resource tracking metrics
 
-4. Web Interface MCP Integration
+4. **Web Interface MCP Integration**
    - Bidirectional communication
    - Real-time updates
    - Secure authentication
    - Fine-grained authorization
    - Comprehensive error handling
 
-4. Plugin System Finalization
-   - Performance optimization
-   - Documentation completion
-   - Advanced Linux features
-   - Cross-platform testing improvements
+### 🎯 Priority 3: AI & Advanced Features
+5. **AI Tools Integration**
+   - Model management system
+   - AI tool framework
+   - Inference optimization
+   - Cross-platform deployment
 
 ## Version History
 
-### v1.5.0 (2024-09-20)
-- Completed MCP Resilience Framework implementation (100%)
-- Added Circuit Breaker implementation
-- Added Bulkhead isolation implementation
-- Added Rate Limiter implementation
-- Added Retry Policy with exponential backoff and jitter
-- Added comprehensive test coverage for resilience components
-- Added integration examples demonstrating resilience patterns
-- Updated documentation for resilience framework components
-- Created detailed implementation status in specs/integration/RETRY_IMPLEMENTATION.md
+### v1.6.0 (2024-12-19)
+- Added Nestgate Orchestrator to Service Components section
+- Updated orchestrator implementation status to 95% complete
+- Documented orchestrator as central execution engine for MCP brain separation
+- Added details on service lifecycle management, port allocation, and job coordination
+- Established architecture pattern where MCP acts as pure "brain" and orchestrator handles execution
+- Reorganized and cleaned up specifications structure
+- Improved readability and consistency across sections
+- Updated version information and last revision date
+
+### v1.5.0 (2024-09-25)
+- Updated directory organization to match new structure
+- Updated component status for all major components
+- Added AI Tools integration as a current focus area
+- Updated documentation paths to reflect new directory structure
+- Added details on recently completed components
+- Updated implementation percentages across all components
+- Reorganized services section to match crate structure
 
 ### v1.4.0 (2024-09-15)
 - Added Terminal UI MCP Integration to "Recently Completed Components"
@@ -365,28 +430,49 @@ squirrel/
 - Refined Current Focus areas
 - Added Version History section
 
-## Feedback
-Please provide feedback on these specifications to the architecture team. We are actively refining our approach based on implementation insights.
+## Development Process
 
-## References
+### Specification Update Process
+
+We maintain up-to-date specifications through:
+
+1. **Regular Updates**: All specifications updated before each sprint
+2. **Validation Tools**: `specs/tools/spec_validation.sh` checks for:
+   - Broken links in specifications
+   - References to non-existent code files
+   - Outdated "last_updated" dates
+   - Inconsistent implementation percentages
+3. **Update Guidelines**: See [SPEC_UPDATES_FOR_NEXT_SPRINT.md](SPEC_UPDATES_FOR_NEXT_SPRINT.md)
+4. **PR Template**: Use specification update PR template
+
+### Using the Validation Tool
+
+Check all specifications:
+```bash
+./specs/tools/spec_validation.sh
+```
+
+Check team-specific specifications:
+```bash
+./specs/spec_validation.sh core         # Core team specifications
+./specs/spec_validation.sh integration  # Integration team specifications
+./specs/spec_validation.sh services     # Services team specifications
+./specs/spec_validation.sh tools        # Tools team specifications
+./specs/spec_validation.sh ui           # UI team specifications
+```
+
+### Feedback & Contact
+
+**Feedback**: Please provide feedback on these specifications to the architecture team. We actively refine our approach based on implementation insights.
+
+**Contact**: For questions or clarifications, contact the architecture team at architecture@squirrel-labs.org.
+
+### References
 - [Rust Async Book](https://rust-lang.github.io/async-book/)
 - [Tokio Documentation](https://tokio.rs/tokio/tutorial)
 - [Effective Rust](https://www.lurklurk.org/effective-rust/)
 - [Error Handling in Rust](https://blog.burntsushi.net/rust-error-handling/)
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
 
-## Contact
-For questions or clarifications, please contact the architecture team at architecture@squirrel-mcp.org.
-
 ---
-*This document is maintained by the Squirrel MCP Architecture Team. Last revision: September 15, 2024.*
-
-- MCP Observability Framework: 35% Complete
-  - Metrics collection and reporting (50% Complete)
-  - Distributed tracing (40% Complete)
-  - Structured logging (60% Complete)
-  - Health checking system (30% Complete)
-  - Alerting integration (25% Complete)
-  - Dashboard integration (10% Complete)
-  - See [specs/mcp/observability-telemetry.md](specs/mcp/observability-telemetry.md) for details
-  - See [specs/integration/PROGRESS_UPDATE.md](specs/integration/PROGRESS_UPDATE.md) for current status 
+*This document is maintained by the Core Team. Last revision: December 19, 2024.* 

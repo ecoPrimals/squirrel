@@ -1,27 +1,77 @@
-version: '3'
+version: '3.8'
+
 services:
-  # OpenTelemetry Collector
-  otel-collector:
-    image: otel/opentelemetry-collector:latest
-    command: ["--config=/etc/otel-collector-config.yaml"]
+  squirrel-web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: squirrel-web
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - RUST_LOG=info
+      - SQUIRREL_CONFIG_PATH=/app/config/production.toml
+      - JWT_SECRET=your-secret-key-here
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-    depends_on:
-      - jaeger
-      - zipkin
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./plugins:/app/plugins
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # Jaeger
-  jaeger:
-    image: jaegertracing/all-in-one:latest
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: squirrel-prometheus
     ports:
-      - "14268:14268"  # Collector HTTP
-      - "16686:16686"  # UI
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
 
-  # Zipkin
-  zipkin:
-    image: openzipkin/zipkin:latest
+  grafana:
+    image: grafana/grafana:latest
+    container_name: squirrel-grafana
     ports:
-      - "9411:9411"   # API and UI 
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: squirrel-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  redis_data:
+
+networks:
+  default:
+    name: squirrel-network 

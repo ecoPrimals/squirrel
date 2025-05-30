@@ -1,9 +1,0 @@
-/// Resource metrics collector that monitors system and team resource usage
-#[derive(Debug)]
-pub struct ResourceMetricsService {
-    /// System information collector
-    system: Arc<RwLock<System>>,
-    /// Team resource metrics
-    metrics: Arc<RwLock<Vec<Metric>>>,
-    // ... rest of the fields
-} 
