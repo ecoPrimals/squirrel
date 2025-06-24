@@ -45,8 +45,8 @@ The monitoring system implementation is currently at **85% completion**. All cor
 
 1. **[migration-status.md](migration-status.md)** - Current status of the dashboard migration
 2. **[monitoring-dashboard-integration.md](monitoring-dashboard-integration.md)** - Integration guide with steps to complete
-3. **[PROGRESS_UPDATE_2024.md](PROGRESS_UPDATE_2024.md)** - Detailed progress report and timeline
-4. **[TESTING_PLAN.md](TESTING_PLAN.md)** - Comprehensive testing strategy and status
+3. **[progress-update-2024.md](progress-update-2024.md)** - Detailed progress report and timeline
+4. **[testing-plan.md](testing-plan.md)** - Comprehensive testing strategy and status
 
 ## Path to 100% Completion
 

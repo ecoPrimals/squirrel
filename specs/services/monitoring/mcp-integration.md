@@ -9,7 +9,7 @@ priority: high
 
 ## Overview
 
-This document outlines how the Monitoring System integrates with the Machine Context Protocol (MCP) Resilience Framework. For a comprehensive specification of the integration, please refer to the main integration document: [MCP and Monitoring System Integration](../integration/mcp-monitoring-integration.md).
+This document outlines how the Monitoring System integrates with the Machine Context Protocol (MCP) Resilience Framework. For a comprehensive specification of the integration, please refer to the main integration document: [MCP and Monitoring System Integration](../../integration/monitoring/mcp-monitoring-integration.md).
 
 ## Integration Goals
 
@@ -179,7 +179,7 @@ dashboards:
 
 ## Related Documents
 
-- [MCP and Monitoring System Integration](../integration/mcp-monitoring-integration.md) - Primary integration specification
-- [Observability Framework](../integration/observability-framework.md) - Overall observability architecture
+- [MCP and Monitoring System Integration](../../integration/monitoring/mcp-monitoring-integration.md) - Primary integration specification
+- [Observability Framework](../../integration/observability/observability-framework.md) - Overall observability architecture
 - [Monitoring Dashboard Integration](./monitoring-dashboard-integration.md) - Dashboard integration details
-- [MCP Resilience Framework](../mcp/resilience-implementation/ARCHITECTURE.md) - MCP resilience framework details 
+- [MCP Resilience Framework](../../core/mcp/resilience-implementation/ARCHITECTURE.md) - MCP resilience framework details 

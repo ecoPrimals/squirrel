@@ -115,8 +115,8 @@ We've followed a comprehensive implementation strategy:
 
 The following detailed documents are available to support this initiative:
 
-1. [Ratatui Upgrade Guide](ratatui-upgrade-guide.md) - Detailed technical guide on upgrading
-2. [Protocol Widget Upgrade Example](protocol-widget-upgrade-example.md) - Step-by-step example for a complex widget
-3. [Ratatui Implementation Strategy](ratatui-implementation-strategy.md) - Comprehensive implementation plan
-4. [Terminal UI Progress](TERMINAL_UI_PROGRESS.md) - Current implementation status
-5. [Implementation Progress](IMPLEMENTATION_PROGRESS.md) - Detailed progress report 
+1. [Ratatui Upgrade Guide](../ratatui-upgrade-guide.md) - Detailed technical guide on upgrading
+2. [Protocol Widget Upgrade Example](../protocol-widget-upgrade-example.md) - Step-by-step example for a complex widget
+3. [Ratatui Implementation Strategy](../ratatui-implementation-strategy.md) - Comprehensive implementation plan
+4. Terminal UI Progress - Current implementation status (planned)
+5. Implementation Progress - Detailed progress report (planned) 

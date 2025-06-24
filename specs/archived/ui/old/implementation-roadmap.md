@@ -300,5 +300,5 @@ The UI system will be considered ready for release when:
 - [Ratatui Documentation](https://docs.rs/ratatui)
 - [Crossterm Documentation](https://docs.rs/crossterm)
 - [Terminal UI Best Practices](https://blog.logrocket.com/rust-terminal-uis-a-comparison/)
-- [Squirrel Command System](../commands/README.md)
-- [Squirrel Context Management](../context/README.md) 
+- [Squirrel Command System](../../../services/commands/README.md)
+- [Squirrel Context Management](../../../core/context/README.md) 

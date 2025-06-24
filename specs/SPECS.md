@@ -15,6 +15,11 @@ owner: Core Team
 5. [Current Focus](#current-focus)
 6. [Version History](#version-history)
 7. [Development Process](#development-process)
+8. [UI Framework](#ui-framework)
+9. [Routing Architecture](#routing-architecture)
+10. [Authentication System](#authentication-system)
+11. [Error Handling](#error-handling)
+12. [Development Guidelines](#development-guidelines)
 
 ## Core Dependencies
 
@@ -225,62 +230,36 @@ squirrel/
   - ML model integration (70%)
   - Documentation (60%)
 
-### 🛠️ Tools Components
-
-#### Tools/CLI (90% Complete)
-- **Purpose**: Command-line framework and utilities
-- **Key Features**:
-  - Command-line framework (100%)
-  - Command registration (95%)
-  - Argument parsing (95%)
-  - Output formatting (90%)
-  - Error handling (90%)
-  - Documentation (70%)
-
-#### Tools/Rule-System (80% Complete)
-- **Purpose**: Rule definition, execution, and management
-- **Key Features**:
-  - Rule definition framework (90%)
-  - Rule execution engine (85%)
-  - Integration with context (80%)
-  - Rule management (75%)
-  - Documentation (70%)
-
-#### Tools/AI-Tools (75% Complete)
-- **Purpose**: AI integration and model management
-- **Key Features**:
-  - AI integration framework (90%)
-  - MCP integration (80%)
-  - Model management (80%)
-  - Inference services (70%)
-  - Documentation (70%)
-  - Performance optimization (60%)
-  - Security (60%)
-
 ### 🎨 UI Components
 
-#### UI/TauriReact (90% Complete)
-- **Purpose**: React-based desktop UI with Tauri integration
+#### UI/Tauri-React (90% Complete)
+- **Purpose**: Desktop application UI with Material UI framework
+- **UI Framework**: Material UI (@mui/material) v5.13+ - **OFFICIAL FRAMEWORK**
 - **Key Features**:
-  - Core React components (95%)
-  - Tauri integration (95%)
+  - Material UI design system (95%)
+  - Dark theme support (100%)
+  - Responsive layout (95%)
+  - Component architecture (90%)
   - State management (90%)
-  - Theming (90%)
-  - MCP integration (85%)
-  - Performance (85%)
-  - Tests (80%)
-  - Accessibility (70%)
+  - Routing (95%)
+  - Performance monitoring integration (85%)
+  - AI Chat integration (90%)
+  - Dashboard interface (85%)
+  - Settings management (80%)
+- **Standards**:
+  - ALL components MUST use Material UI (@mui/material)
+  - NO Ant Design (antd) components allowed
+  - Consistent theming via Material UI theme provider
+  - Icons from @mui/icons-material
 
-#### UI/Terminal (95% Complete)
-- **Purpose**: Terminal-based UI with TUI components
+#### UI/Terminal (75% Complete)
+- **Purpose**: Terminal-based interface for CLI users
 - **Key Features**:
-  - Terminal UI framework (100%)
-  - Command display (100%)
-  - Color theming (100%)
-  - Status display (95%)
-  - Progress indicators (90%)
-  - Interactive forms (90%)
-  - Responsive layout (90%)
+  - Command interface (90%)
+  - Progress indicators (80%)
+  - Interactive prompts (70%)
+  - Help system (70%)
+  - Error display (60%)
 
 ### 🎯 Recently Completed Components
 
@@ -473,6 +452,111 @@ Check team-specific specifications:
 - [Effective Rust](https://www.lurklurk.org/effective-rust/)
 - [Error Handling in Rust](https://blog.burntsushi.net/rust-error-handling/)
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+
+## UI Framework
+
+**Official Framework**: Material UI (MUI)
+- **Version**: 5.13+
+- **Rationale**: Modern, well-maintained, excellent TypeScript support, comprehensive component library
+
+### Implementation Standards
+- Use `@mui/material` for all UI components
+- Follow Material Design 3 principles
+- Maintain consistent theming across all components
+- Prefer functional components with hooks
+- Implement proper accessibility (a11y) standards
+
+### Component Standards
+```tsx
+// ✅ Correct - Material UI implementation
+import { TextField, Button, Box } from '@mui/material';
+
+const APIKeyConfig = () => {
+  return (
+    <Box sx={{ p: 3 }}>
+      <TextField 
+        label="API Key" 
+        variant="outlined" 
+        fullWidth 
+        sx={{ mb: 2 }} 
+      />
+      <Button variant="contained" color="primary">
+        Save Configuration
+      </Button>
+    </Box>
+  );
+};
+```
+
+### Migration Status
+- ✅ `APIKeyConfig` component converted to Material UI
+- ✅ Ant Design dependency removed from package.json
+- ✅ Material UI confirmed as sole UI framework
+
+## Routing Architecture
+
+**Critical Requirement**: ALL web endpoints MUST flow through the Nestgate-Orchestrator
+
+### Architectural Roles
+- **Nestgate-Orchestrator**: Task Coordinator - handles all task execution and coordination
+- **MCP**: Brain - handles planning, decision making, and intelligence
+- **Web Layer**: Interface - routes all requests through orchestrator
+
+### Routing Pattern
+```
+Web Request → Axum Router → WebOrchestratorBridge → Nestgate-Orchestrator → MCP Brain
+```
+
+### Endpoint Architecture
+#### Primary Routes (Orchestrator-based)
+All new endpoints MUST use the orchestrator routing pattern:
+```
+/api/orchestrator/execute      - General command execution
+/api/orchestrator/health       - Health checks
+/api/orchestrator/jobs         - Job management
+/api/orchestrator/jobs/:id     - Job status
+/api/orchestrator/auth/*       - Authentication
+/api/orchestrator/resources/*  - Resource management
+/api/orchestrator/services/*   - Service management
+```
+
+#### Legacy Routes (Deprecated)
+These endpoints are maintained for backward compatibility but will be phased out:
+```
+/api/auth/login               - Direct authentication (legacy)
+/api/auth/refresh             - Token refresh (legacy)
+/api/commands-legacy/*        - Direct commands (legacy)
+```
+
+### Implementation Details
+```rust
+// WebOrchestratorBridge - gRPC communication with orchestrator
+pub struct WebOrchestratorBridge {
+    client: OrchestratorServiceClient<Channel>,
+}
+
+// All web commands flow through this bridge
+impl WebOrchestratorBridge {
+    pub async fn execute_command(&self, command: WebCommand) -> Result<WebCommandResult> {
+        // Route to Nestgate-Orchestrator via gRPC
+    }
+}
+```
+
+### Testing Requirements
+- ✅ Comprehensive orchestrator routing tests implemented
+- ✅ Architectural compliance verification
+- ✅ Error handling for orchestrator unavailability
+- ✅ Command/result type validation
+
+## Authentication System
+*[Existing authentication specifications remain unchanged]*
+
+## Error Handling
+*[Existing error handling specifications remain unchanged]*
+
+## Development Guidelines
+*[Existing development guidelines remain unchanged]*
 
 ---
 *This document is maintained by the Core Team. Last revision: December 19, 2024.* 

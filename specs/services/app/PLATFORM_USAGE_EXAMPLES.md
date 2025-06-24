@@ -495,6 +495,5 @@ async fn degradation_with_recovery(sandbox: &CrossPlatformSandbox, plugin_id: Uu
 ## References
 
 - [Platform Capabilities API](PLATFORM_CAPABILITIES_API.md)
-- [Sandbox Implementation Summary](SANDBOX_IMPLEMENTATION_SUMMARY.md)
-- [Implementation Progress](IMPLEMENTATION_PROGRESS.md)
+- [Implementation Progress & Sandbox Summary](IMPLEMENTATION_PROGRESS.md)
 - [Task Tracking](TASK_TRACKING.md) 

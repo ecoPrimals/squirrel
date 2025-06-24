@@ -289,7 +289,7 @@ async fn apply_network_isolation(&self, plugin_id: Uuid) -> Result<()> {
 
 ## References
 
-- [Sandbox Implementation Summary](SANDBOX_IMPLEMENTATION_SUMMARY.md)
+- [Implementation Progress & Sandbox Summary](IMPLEMENTATION_PROGRESS.md)
 - [Implementation Progress](IMPLEMENTATION_PROGRESS.md)
-- [Cross-Platform Integration Update](IMPLEMENTATION_UPDATE_2024_08_10.md)
+- [Cross-Platform Integration Update](../../archived/app/IMPLEMENTATION_UPDATE_2024_08_10.md)
 - [Task Tracking](TASK_TRACKING.md) 

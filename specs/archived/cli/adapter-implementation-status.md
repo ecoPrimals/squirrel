@@ -13,7 +13,7 @@ This document tracks the current status of the Command Adapter Pattern implement
 
 ## Architecture Implementation
 
-The Command Adapter Pattern implementation is designed to provide a consistent interface for executing commands through different channels, such as direct CLI, MCP protocol, and plugin systems. The current implementation follows the architecture defined in the [cli-adapter-integration.md](../patterns/cli-adapter-integration.md) specification.
+The Command Adapter Pattern implementation is designed to provide a consistent interface for executing commands through different channels, such as direct CLI, MCP protocol, and plugin systems. The current implementation follows the architecture defined in the [cli-adapter-integration.md](../../core/patterns/cli-adapter-integration.md) specification.
 
 ### Components Implemented
 

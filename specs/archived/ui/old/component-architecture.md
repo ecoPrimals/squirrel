@@ -269,16 +269,6 @@ Rendering flows from the top down:
                                         ┌─────────────┐
                                         │  Containers │
                                         └─────────────┘
-                                                │
-                                                ▼
-                                        ┌─────────────┐
-                                        │   Widgets   │
-                                        └─────────────┘
-                                                │
-                                                ▼
-                                        ┌─────────────┐
-                                        │ Frame Buffer│
-                                        └─────────────┘
 ```
 
 ## State Management
@@ -409,5 +399,5 @@ Implementation will follow this priority order:
 
 - [Ratatui Widget Gallery](https://github.com/ratatui-org/ratatui/blob/main/examples/)
 - [Ratatui Layout Documentation](https://docs.rs/ratatui/latest/ratatui/layout/index.html)
-- [Squirrel Command System](../commands/README.md)
-- [Squirrel Context Management](../context/README.md) 
+- [Squirrel Command System](../../../services/commands/README.md)
+- [Squirrel Context Management](../../../core/context/README.md) 

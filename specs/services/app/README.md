@@ -76,9 +76,9 @@ The configuration system provides:
 
 ## User Documentation
 
-User-facing documentation is being developed in the `docs/app/` directory:
-- [PLUGIN_SECURITY_MODEL.md](../docs/app/PLUGIN_SECURITY_MODEL.md) - Security model explanation for users and developers
-- [CLI_PLUGIN_INTEGRATION.md](../docs/app/CLI_PLUGIN_INTEGRATION.md) - Integration status and planned features
+User-facing documentation is planned for development:
+- PLUGIN_SECURITY_MODEL.md - Security model explanation for users and developers (planned)
+- CLI_PLUGIN_INTEGRATION.md - Integration status and planned features (planned)
 
 ## Next Steps
 
@@ -117,11 +117,11 @@ User-facing documentation is being developed in the `docs/app/` directory:
 - Memory footprint: < 50MB
 
 ## Detailed Specifications
-- [Command System](command-system.md)
-- [Configuration Management](config-management.md)
-- [Error Handling](error-handling.md)
+- [Command System](../../archived/app/command-system.md)
+- [Configuration Management](../../archived/app/config-management.md)
+- [Error Handling](../../archived/app/error-handling.md)
 - [Performance](performance.md)
-- [Thread Safety](thread-safety.md)
+- [Thread Safety](../../archived/app/thread-safety.md)
 
 ## Integration Points
 1. MCP Protocol Integration

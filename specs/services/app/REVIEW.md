@@ -31,18 +31,18 @@ The current implementation status by component:
 |----------|--------|-------------|
 | [README.md](README.md) | ✅ Complete | Overview of the core system, components, and implementation status |
 | [RELATIONSHIP.md](RELATIONSHIP.md) | ✅ Complete | Detailed analysis of the app and core crates relationship |
-| [command-system.md](command-system.md) | ✅ Complete | Command system specification and implementation details |
-| [config-management.md](config-management.md) | ✅ Complete | Configuration management specification and implementation |
+| [command-system.md](../../archived/app/command-system.md) | ✅ Complete | Command system specification and implementation details |
+| [config-management.md](../../archived/app/config-management.md) | ✅ Complete | Configuration management specification and implementation |
 | [core-priorities.md](core-priorities.md) | ✅ Complete | Core system priorities and implementation roadmap |
 | [context-management.md](context-management.md) | ✅ Complete | Context management specification and implementation |
-| [error-handling.md](error-handling.md) | ✅ Complete | Error handling specification and implementation details |
-| [error-recovery.md](error-recovery.md) | ✅ Complete | Error recovery specification and implementation details |
-| [thread-safety.md](thread-safety.md) | ✅ Complete | Thread safety specifications and implementation details |
+| [error-handling.md](../../archived/app/error-handling.md) | ✅ Complete | Error handling specification and implementation |
+| [error-recovery.md](../../archived/app/error-recovery.md) | ✅ Complete | Error recovery specification and implementation details |
+| [thread-safety.md](../../archived/app/thread-safety.md) | ✅ Complete | Thread safety specifications and implementation details |
 | [performance.md](performance.md) | ✅ Complete | Performance requirements and benchmarks |
 | [VERIFICATION.md](VERIFICATION.md) | 🔄 Partial | Validation system verification but incomplete for other components |
-| [Architecture.md](Architecture.md) | ❌ Missing | Comprehensive architecture documentation |
-| [Testing.md](Testing.md) | ❌ Missing | Detailed testing strategy and requirements |
-| [Security.md](Security.md) | ❌ Missing | Security model and implementation details |
+| Architecture.md | ❌ Missing | Comprehensive architecture documentation |
+| Testing.md | ❌ Missing | Detailed testing strategy and requirements |
+| Security.md | ❌ Missing | Security model and implementation details |
 
 ## Key Findings
 

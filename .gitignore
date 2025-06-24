@@ -123,3 +123,49 @@ coverage/
 .temp/
 *.tmp
 *.temp
+
+# Git command outputs that accidentally get saved as files
+"On branch main"
+"*branch*"
+
+# MCP state files (these are runtime generated)
+code/data/mcp/state_*.json
+
+# Shell script outputs and temporary files
+*.out
+test_error_handling.sh
+
+# Frontend build artifacts
+dist/
+build/
+.next/
+.nuxt/
+.output/
+
+# Package manager lock files (keep package.json but ignore locks in some cases)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Rust analyzer and other tool caches
+.rust-analyzer/
+.cargo/
+
+# macOS
+.DS_Store?
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json

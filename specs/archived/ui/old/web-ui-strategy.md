@@ -7,7 +7,7 @@ status: archived
 
 # Squirrel Web UI Strategy (Archived)
 
-> **Note**: This document has been archived as part of the UI consolidation. The web UI functionality has been integrated into the unified Tauri + React implementation. See the main [README.md](../README.md) and [Unified UI Integration](../unified-ui-integration.md) for current documentation.
+> **Note**: This document has been archived as part of the UI consolidation. The web UI functionality has been integrated into the unified Tauri + React implementation. See the main [README.md](../README.md) and [Unified UI Integration](../../../ui/archived/ARCHIVED_unified-ui-integration.md) for current documentation.
 
 ## Overview
 

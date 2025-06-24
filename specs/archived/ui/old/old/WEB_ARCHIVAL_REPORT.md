@@ -77,10 +77,9 @@ The `ui-tauri-react` implementation now serves as the primary web and desktop in
 
 ## References
 
-- [WEB_DEPRECATION_STEPS.md](./WEB_DEPRECATION_STEPS.md): Detailed deprecation and archival steps
-- [WEB_CONSOLIDATION.md](./WEB_CONSOLIDATION.md): Consolidation strategy
-- [UI_STATUS_UPDATE.md](./UI_STATUS_UPDATE.md): Overall UI consolidation status
-- [web_archive_verification.md](../../web_archive_verification.md): Verification report
+- [WEB_DEPRECATION_STEPS.md](../../../../ui/archived/ARCHIVED_WEB_DEPRECATION_STEPS.md): Detailed deprecation and archival steps
+- WEB_CONSOLIDATION.md: Consolidation strategy (planned)
+- UI_STATUS_UPDATE.md: Overall UI consolidation status (planned)
 
 ---
 

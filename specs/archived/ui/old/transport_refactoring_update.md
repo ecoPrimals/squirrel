@@ -241,9 +241,9 @@ When integrating with the UI dashboard, we recommend:
 ## Further Resources
 
 For more detailed information, refer to:
-- [MCP Transport Analysis](../mcp/MCP_TRANSPORT_ANALYSIS.md)
-- [MCP Integration Guide](../mcp/MCP_INTEGRATION_GUIDE.md)
-- [MCP Implementation Progress](../mcp/PROGRESS.md)
+- [MCP Transport Analysis](../../../core/mcp/MCP_TRANSPORT_ANALYSIS.md)
+- [MCP Integration Guide](../../../core/mcp/MCP_INTEGRATION_GUIDE.md)
+- [MCP Implementation Progress](../../../core/mcp/PROGRESS.md)
 
 ## Technical Metadata
 - Category: MCP Transport

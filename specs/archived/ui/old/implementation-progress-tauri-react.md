@@ -68,8 +68,8 @@ This document tracks the implementation progress of the Squirrel UI using Tauri 
 
 ## References
 
-- [Tauri + React Architecture](./tauri-react-architecture.md)
-- [Unified UI Integration](./unified-ui-integration.md)
+- [Tauri + React Architecture](../../../ui/archived/ARCHIVED_tauri-react-architecture.md)
+- [Unified UI Integration](../../../ui/archived/ARCHIVED_unified-ui-integration.md)
 - [Project Repository](https://github.com/squirrel/crates/ui-tauri-react)
 
 ---

@@ -688,8 +688,6 @@ By implementing this unified integration, users will gain comprehensive visibili
 
 ## Related Documents
 
-- [MCP Integration Guide](../mcp/MCP_INTEGRATION_GUIDE.md)
-- [MCP and Monitoring System Integration](../integration/mcp-monitoring-integration.md)
-- [Terminal UI Integration with MCP](mcp_integration.md)
-- [Health Monitoring Dashboard](mcp-dashboard-integration.md)
-- [Observability Framework](../integration/observability-framework.md) 
+- [MCP Integration Guide](../../../core/mcp/MCP_INTEGRATION_GUIDE.md)
+- [MCP and Monitoring System Integration](../../../integration/monitoring/mcp-monitoring-integration.md)
+- [Terminal UI Integration with MCP](mcp_integration.md) 
