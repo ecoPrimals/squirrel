@@ -20,7 +20,7 @@ members = [
     # "code/crates/services/app",           # → Eliminated: Songbird handles services
     "code/crates/services/commands",
     # "code/crates/services/dashboard-core", # → Eliminated: Songbird provides dashboards
-    "code/crates/services/monitoring",
+    # "code/crates/services/monitoring",    # → Eliminated: Songbird provides monitoring
     
     # Tool components
     "code/crates/tools/ai-tools",
@@ -173,7 +173,7 @@ squirrel-integration = { path = "code/crates/integration" }
 # squirrel-app = { path = "code/crates/services/app" }       # → Eliminated: Songbird handles services
 squirrel-commands = { path = "code/crates/services/commands" }
 # dashboard-core = { path = "code/crates/services/dashboard-core" } # → Eliminated: Songbird provides dashboards
-squirrel-monitoring = { path = "code/crates/services/monitoring" }
+# squirrel-monitoring = { path = "code/crates/services/monitoring" } # → Eliminated: Songbird provides monitoring
 squirrel-ai-tools = { path = "code/crates/tools/ai-tools" }
 squirrel-cli = { path = "code/crates/tools/cli" }
 squirrel-rule-system = { path = "code/crates/tools/rule-system" }
