@@ -13,13 +13,13 @@ members = [
     "code/crates/integration/api-clients",
     "code/crates/integration/context-adapter",
     "code/crates/integration/mcp-pyo3-bindings",
-    "code/crates/integration/web",
+    # "code/crates/integration/web",        # → Eliminated: Songbird handles web layer
     "code/crates/integration",
     
     # Service components
-    "code/crates/services/app",
+    # "code/crates/services/app",           # → Eliminated: Songbird handles services
     "code/crates/services/commands",
-    "code/crates/services/dashboard-core",
+    # "code/crates/services/dashboard-core", # → Eliminated: Songbird provides dashboards
     "code/crates/services/monitoring",
     
     # Tool components
@@ -168,11 +168,11 @@ squirrel-core = { path = "code/crates/core/core" }
 squirrel-api-clients = { path = "code/crates/integration/api-clients" }
 squirrel-context-adapter = { path = "code/crates/integration/context-adapter" }
 mcp-pyo3-bindings = { path = "code/crates/integration/mcp-pyo3-bindings" }
-squirrel-web = { path = "code/crates/integration/web" }
+# squirrel-web = { path = "code/crates/integration/web" }    # → Eliminated: Songbird handles web
 squirrel-integration = { path = "code/crates/integration" }
-squirrel-app = { path = "code/crates/services/app" }
+# squirrel-app = { path = "code/crates/services/app" }       # → Eliminated: Songbird handles services
 squirrel-commands = { path = "code/crates/services/commands" }
-dashboard-core = { path = "code/crates/services/dashboard-core" }
+# dashboard-core = { path = "code/crates/services/dashboard-core" } # → Eliminated: Songbird provides dashboards
 squirrel-monitoring = { path = "code/crates/services/monitoring" }
 squirrel-ai-tools = { path = "code/crates/tools/ai-tools" }
 squirrel-cli = { path = "code/crates/tools/cli" }
