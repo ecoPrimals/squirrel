@@ -1,0 +1,1 @@
+let session_manager = Arc::new(SessionManager::new(SessionConfig::default())); 

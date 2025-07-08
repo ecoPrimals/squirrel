@@ -1,21 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-    # Core libraries (only existing ones)
-    "code/crates/core/interfaces",
-    "code/crates/core/context", 
-    "code/crates/core/plugins",
-    "code/crates/core/mcp",
-    "code/crates/core/core",
+    # Core libraries
+    "core/*",
     
     # Services (keeping only commands)
-    "code/crates/services/commands",
+    "services/commands",
     
-    # Integration packages (only existing ones)
-    "code/crates/integration/context-adapter",
-    "code/crates/integration/toadstool", 
-    "code/crates/integration/api-clients",
-    "code/crates/integration/ecosystem",
+    # Integration packages (keeping core MCP functionality)
+    "integration/context-adapter",
+    "integration/tauri-bridge",
+    "integration/toadstool",
+    "integration/api-clients",
+    "integration/ecosystem",
 ]
 
 [workspace.package]
@@ -136,14 +133,14 @@ pretty_assertions = "1.4"
 tempfile = "3.8"
 
 # Crate dependencies (keeping only core MCP functionality)
-squirrel-interfaces = { path = "code/crates/core/interfaces" }
-squirrel-context = { path = "code/crates/core/context" }
-squirrel-plugins = { path = "code/crates/core/plugins" }
-squirrel-mcp = { path = "code/crates/core/mcp" }
-squirrel-core = { path = "code/crates/core/core" }
-squirrel-api-clients = { path = "code/crates/integration/api-clients" }
-squirrel-context-adapter = { path = "code/crates/integration/context-adapter" }
-squirrel-commands = { path = "code/crates/services/commands" }
+squirrel-interfaces = { path = "core/interfaces" }
+squirrel-context = { path = "core/context" }
+squirrel-plugins = { path = "core/plugins" }
+squirrel-mcp = { path = "core/mcp" }
+squirrel-core = { path = "core/core" }
+squirrel-api-clients = { path = "integration/api-clients" }
+squirrel-context-adapter = { path = "integration/context-adapter" }
+squirrel-commands = { path = "services/commands" }
 
 [workspace.lints.rust]
 missing_docs = "warn"
