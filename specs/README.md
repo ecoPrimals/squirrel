@@ -1,63 +1,112 @@
-# Squirrel Specifications
+# 🐿️ Squirrel MCP Platform Specifications
 
-This directory contains specifications, design documents, and architectural plans for the Squirrel project.
+This directory contains specifications, design documents, and architectural plans for the Squirrel Machine Context Protocol (MCP) platform.
 
-## Directory Structure
+## 📁 **Directory Structure**
 
-The specifications are organized to match the crate structure of the project:
+### **🎯 Active Development**
+Current working specifications aligned with ongoing MCP development:
 
-- **core/** - Core component specifications
-  - **context/** - Context management specifications
-  - **mcp/** - Machine Context Protocol specifications
-  - **plugins/** - Plugin system specifications
-  - **interfaces/** - Interface specifications
-  - **patterns/** - Design pattern specifications
+- **[active/](active/)** - Current working specifications
+  - **[mcp-protocol/](active/mcp-protocol/)** - MCP protocol implementation specs
+  - **[ai-agents/](active/ai-agents/)** - AI agent coordination patterns
+  - **[plugins/](active/plugins/)** - Plugin system and registry
+  - **[architecture/](active/architecture/)** - System architecture documentation
+  - **[integration/](active/integration/)** - Ecosystem integration patterns
 
-- **integration/** - Integration component specifications
-  - **api-clients/** - API client specifications
-  - **context-adapter/** - Context adapter specifications
-  - **web/** - Web integration specifications
-  - **mcp-pyo3-bindings/** - Python bindings specifications
+### **🛠️ Development Standards**
+Guidelines and standards for development:
 
-- **services/** - Service component specifications
-  - **app/** - Application service specifications
-  - **commands/** - Command service specifications
-  - **dashboard-core/** - Dashboard core specifications
-  - **monitoring/** - Monitoring service specifications
+- **[development/](development/)** - Development guides and standards
+  - **[AI_DEVELOPMENT_GUIDE.md](development/AI_DEVELOPMENT_GUIDE.md)** - AI development patterns
+  - **[CODEBASE_STRUCTURE.md](development/CODEBASE_STRUCTURE.md)** - Code organization standards
+  - **[TESTING.md](development/TESTING.md)** - Testing guidelines and practices
+  - **[SECURITY.md](development/SECURITY.md)** - Security requirements and best practices
 
-- **tools/** - Tool specifications
-  - **ai-tools/** - AI tools specifications
-  - **cli/** - CLI tool specifications
-  - **rule-system/** - Rule system specifications
+### **🗂️ Supporting Directories**
+Legacy and specialized specifications:
 
-- **ui/** - UI component specifications
-  - **core/** - Core UI specifications
-  - **implementation/** - UI implementation specifications
-  - **testing/** - UI testing specifications
+- **[archived/](archived/)** - Historical and completed specifications
+- **[ecosystem-elimination-archive/](ecosystem-elimination-archive/)** - Ecosystem elimination documentation
+- **[core/](core/)** - Core component specifications (legacy structure)
+- **[integration/](integration/)** - Integration specifications (legacy structure)
+- **[tools/](tools/)** - Tool specifications (legacy structure)
+- **[services/](services/)** - Service specifications (legacy structure)
+- **[plugins/](plugins/)** - Plugin specifications (legacy structure)
+- **[federation/](federation/)** - Federation specifications
 
-- **archived/** - Historical and archived specifications
+## 🚀 **Getting Started**
 
-## Key Documents
+### **For New Contributors**
+1. **Current Work**: Check `active/` directory for current specifications
+2. **Development Standards**: Review `development/` for coding standards
+3. **Architecture**: Start with `active/architecture/` for system overview
 
-- [SPECS.md](SPECS.md) - Template and guidelines for writing specifications
-- [SPECS_REVIEW.md](SPECS_REVIEW.md) - Process for reviewing specifications
-- [TESTING.md](TESTING.md) - Testing guidelines and requirements
-- [SECURITY.md](SECURITY.md) - Security requirements and best practices
-- [MCP_INTEGRATION.md](MCP_INTEGRATION.md) - Machine Context Protocol integration guide
-- [TEAM_RESPONSIBILITIES.md](TEAM_RESPONSIBILITIES.md) - Team ownership and responsibilities for specs
+### **For Specification Authors**
+1. **New Specs**: Create in appropriate `active/` subdirectory
+2. **Updates**: Modify existing specs in `active/` directories
+3. **Archiving**: Move superseded specs to `archived/` with migration notes
 
-## Team Ownership
+## 📋 **Key Documents**
 
-Each specification belongs to a specific team who is responsible for maintaining and updating it. For details on team responsibilities and collaboration areas, see [TEAM_RESPONSIBILITIES.md](TEAM_RESPONSIBILITIES.md).
+### **Current Focus Areas**
+- **[MCP Protocol](active/mcp-protocol/)** - Core MCP implementation
+- **[AI Agent Coordination](active/ai-agents/)** - Multi-agent workflows
+- **[Plugin System](active/plugins/)** - Plugin architecture and registry
+- **[Ecosystem Integration](active/integration/)** - Cross-service communication
 
-## Adding New Specifications
+### **Development Guidelines**
+- **[AI Development Guide](development/AI_DEVELOPMENT_GUIDE.md)** - AI-specific development patterns
+- **[Testing Standards](development/TESTING.md)** - Comprehensive testing guidelines
+- **[Security Framework](development/SECURITY.md)** - Security requirements
 
-When adding a new specification:
+## 🎯 **Specification Principles**
 
-1. Place it in the appropriate directory based on the component it relates to
-2. Follow the specification template in `SPECS.md`
-3. Update any related specifications as needed
-4. Add a reference to the specification in the relevant component README
-5. Ensure the appropriate team is aware of their ownership
+### **Current Focus**
+- **MCP Protocol Excellence** - Authoritative MCP implementation
+- **AI Agent Coordination** - Multi-agent workflow management
+- **Plugin Platform** - Extensible plugin ecosystem
+- **Ecosystem Integration** - Seamless cross-service communication
 
-For more details on the specification process, see `SPECS.md`.
+### **Quality Standards**
+- **Implementation Alignment** - Specs must match current codebase
+- **Regular Updates** - Specifications updated with implementation changes
+- **Clear Documentation** - Comprehensive examples and usage patterns
+- **Testing Coverage** - All specifications include testing requirements
+
+## 📊 **Directory Health**
+
+### **Active Specifications**
+- **MCP Protocol**: Core protocol specifications and implementation guides
+- **AI Agents**: Multi-agent coordination patterns and workflows
+- **Plugins**: Plugin system architecture and registry specifications
+- **Architecture**: Current system architecture and design patterns
+- **Integration**: Cross-ecosystem communication specifications
+
+### **Archived Content**
+- **Historical Specifications**: Previous implementation approaches
+- **Completed Projects**: Documentation from completed initiatives
+- **Legacy Architecture**: Previous system designs and patterns
+
+## 🔄 **Maintenance**
+
+### **Regular Reviews**
+- **Monthly**: Review active specifications for accuracy
+- **Quarterly**: Archive superseded specifications
+- **As Needed**: Update specifications with implementation changes
+
+### **Contribution Guidelines**
+1. **Check Active**: Verify specification currency before editing
+2. **Implementation First**: Code changes should precede specification updates
+3. **Clear Migration**: Document changes when archiving specifications
+4. **Team Coordination**: Coordinate with appropriate teams for major changes
+
+## 📞 **Support**
+
+- **Questions**: Create GitHub issues for specification questions
+- **Updates**: Submit pull requests for specification improvements
+- **Architecture**: Consult with core team for architectural changes
+
+---
+
+*This directory structure supports Squirrel's focus as the authoritative MCP platform within the broader ecosystem, with clear separation between active development and historical context.*

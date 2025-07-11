@@ -11,6 +11,9 @@ members = [
     # Services (keeping only commands)
     "code/crates/services/commands",
     
+    # Tools
+    "code/crates/tools/ai-tools",
+    
     # Integration packages (only existing ones)
     "code/crates/integration/context-adapter",
     "code/crates/integration/toadstool", 
