@@ -1,3 +1,44 @@
+[package]
+name = "squirrel"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+universal-patterns = { path = "code/crates/universal-patterns" }
+tokio = { version = "1.0", features = ["full"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+thiserror = "1.0"
+url = "2.4"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+async-trait = "0.1"
+tokio-test = "0.4"
+
+[[bench]]
+name = "squirrel_performance"
+harness = false
+
+[[bench]]
+name = "songbird_orchestration"
+harness = false
+
+[[bench]]
+name = "beardog_security"
+harness = false
+
+[[bench]]
+name = "universal_patterns"
+harness = false
+
+[[bench]]
+name = "mcp_protocol"
+harness = false
+
 [workspace]
 resolver = "2"
 members = [
@@ -7,6 +48,9 @@ members = [
     "code/crates/core/plugins",
     "code/crates/core/mcp",
     "code/crates/core/core",
+    
+    # Universal patterns
+    "code/crates/universal-patterns",
     
     # Services (keeping only commands)
     "code/crates/services/commands",
@@ -147,6 +191,7 @@ squirrel-core = { path = "code/crates/core/core" }
 squirrel-api-clients = { path = "code/crates/integration/api-clients" }
 squirrel-context-adapter = { path = "code/crates/integration/context-adapter" }
 squirrel-commands = { path = "code/crates/services/commands" }
+universal-patterns = { path = "code/crates/universal-patterns" }
 
 [workspace.lints.rust]
 missing_docs = "warn"

@@ -6,6 +6,10 @@ use thiserror::Error;
 /// Main error type for MCP operations
 #[derive(Error, Debug, Clone)]
 pub enum MCPError {
+    /// General error
+    #[error("General error: {0}")]
+    General(String),
+
     /// Input validation errors
     #[error("Validation failed: {0}")]
     ValidationFailed(String),
@@ -59,6 +63,7 @@ impl MCPError {
     /// Get error code for this error type
     pub fn error_code(&self) -> &'static str {
         match self {
+            Self::General(_) => "MCP-000",
             Self::ValidationFailed(_) => "MCP-001",
             Self::OperationFailed(_) => "MCP-002",
             Self::InternalError(_) => "MCP-003",

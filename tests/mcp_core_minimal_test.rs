@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod minimal_core_tests {
-    use squirrel_mcp::error::types::{MCPError, Result};
+    use squirrel::error::types::{MCPError, Result};
 
     #[test]
     fn test_basic_error_creation() {

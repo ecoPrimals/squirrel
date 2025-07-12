@@ -2,7 +2,7 @@
 //! 
 //! Minimal tests to verify core error handling works.
 
-use squirrel_mcp::error::types::{MCPError, Result};
+use squirrel::error::types::{MCPError, Result};
 
 #[test]
 fn test_mcp_error_validation_failed() {

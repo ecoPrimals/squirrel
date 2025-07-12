@@ -6,7 +6,7 @@
 //! - Compute/storage (moved to ToadStool/NestGate) 
 //! - Complex monitoring (distributed across ecosystem)
 
-use squirrel_mcp::error::types::{MCPError, Result};
+use squirrel::error::types::{MCPError, Result};
 
 #[cfg(test)]
 mod core_functionality {
@@ -63,7 +63,7 @@ mod protocol_basics {
     fn test_mcp_core_constants() {
         // Test that core MCP constants are available
         // Note: These should be the minimal constants needed for MCP protocol
-        assert!(!squirrel_mcp::VERSION.is_empty());
+        assert!(!squirrel::VERSION.is_empty());
     }
 
     #[test]

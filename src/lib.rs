@@ -10,6 +10,10 @@
 // Core MCP modules that should remain
 pub mod error;
 pub mod protocol;
+pub mod session;
+pub mod transport;
+pub mod songbird;
+pub mod enhanced;
 
 // Version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

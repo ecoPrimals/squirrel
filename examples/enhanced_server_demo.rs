@@ -1,5 +1,5 @@
-use squirrel_mcp::enhanced::{EnhancedMCPServer, EnhancedMCPConfig};
-use squirrel_mcp::enhanced::{MCPRequest, MCPCapability, ClientInfo, UserPreferences};
+use squirrel::enhanced::{EnhancedMCPServer, EnhancedMCPConfig};
+use squirrel::enhanced::{MCPRequest, MCPCapability, ClientInfo, UserPreferences};
 use tokio;
 
 /// Demonstration of the Enhanced MCP Server capabilities
@@ -10,10 +10,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // 1. Create Enhanced MCP Configuration
     let config = EnhancedMCPConfig::default();
-    println!("✅ Configuration created: {:?}", config.server.bind_address);
+    println!("✅ Configuration created: {:?}", config.name);
     
     // 2. Initialize Enhanced Server
-    let server = EnhancedMCPServer::new(config).await?;
+    let server = EnhancedMCPServer::new(config);
     println!("✅ Enhanced MCP Server initialized");
     
     // 3. Start the server
@@ -22,15 +22,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // 4. Create a test client session
     let client_info = ClientInfo {
-        id: "demo-client-001".to_string(),
-        capabilities: vec![
-            MCPCapability {
-                name: "tool_execution".to_string(),
-                version: "1.0.0".to_string(),
-                description: Some("Can execute tools".to_string()),
-            }
-        ],
-        preferences: UserPreferences::default(),
+        name: "demo-client-001".to_string(),
+        version: "1.0.0".to_string(),
+        platform: Some("rust".to_string()),
     };
     
     let session_id = server.create_session(client_info).await?;
@@ -40,13 +34,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Initialize request
     let init_request = MCPRequest::Initialize {
+        version: "1.0.0".to_string(),
         capabilities: vec![
             MCPCapability {
                 name: "core_mcp".to_string(),
                 version: "1.0.0".to_string(),
                 description: Some("Core MCP functionality".to_string()),
             }
-        ]
+        ],
+        client_info: client_info.clone(),
     };
     
     let response = server.handle_mcp_request(&session_id, init_request).await?;

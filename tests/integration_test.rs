@@ -1,7 +1,7 @@
-use squirrel_mcp::error::{MCPError, Result};
-use squirrel_mcp::protocol::types::*;
-use squirrel_mcp::session::*;
-use squirrel_mcp::transport::types::*;
+use squirrel::error::{MCPError, Result};
+use squirrel::protocol::types::*;
+use squirrel::session::*;
+use squirrel::transport::types::*;
 
 #[tokio::test]
 async fn test_session_manager_creation() {
@@ -99,7 +99,7 @@ mod session_tests {
         // Test 12: Session manager trait exists
         // Note: This just tests that the trait is defined
         // Actual implementation would need a concrete type
-        use squirrel_mcp::session::SessionManager;
+        use squirrel::session::SessionManager;
         // We can't instantiate a trait directly, so just verify it exists
         assert!(true); // Placeholder - trait exists if this compiles
     }
@@ -136,14 +136,14 @@ mod enhanced_tests {
     #[tokio::test]
     async fn test_enhanced_platform_creation() {
         // Test 16: Enhanced platform can be imported
-        use squirrel_mcp::enhanced::*;
+        use squirrel::enhanced::*;
         assert!(true); // If enhanced module exists, this will compile
     }
     
     #[tokio::test]
     async fn test_ai_coordinator_exists() {
         // Test 17: AI coordinator exists
-        use squirrel_mcp::enhanced::coordinator::AICoordinator;
+        use squirrel::enhanced::coordinator::AICoordinator;
         assert!(true); // If AICoordinator exists, this will compile
     }
 }

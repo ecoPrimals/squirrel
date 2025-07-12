@@ -7,7 +7,7 @@
 //! - Security → BearDog
 //! - Complex monitoring → Distributed
 
-use squirrel_mcp::{MCPError, Result, VERSION};
+use squirrel::{MCPError, Result, VERSION};
 
 #[test]
 fn test_mcp_core_version() {
@@ -69,7 +69,7 @@ fn test_error_display_formatting() {
 #[tokio::test]
 async fn test_integration_module() {
     // Test 7: Basic integration module works
-    use squirrel_mcp::integration::SimpleMCPIntegration;
+    use squirrel::integration::SimpleMCPIntegration;
     
     let mut integration = SimpleMCPIntegration::new();
     assert!(!integration.is_initialized());

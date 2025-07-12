@@ -2,7 +2,7 @@
 //! 
 //! Basic tests to verify core functionality works.
 
-use squirrel_mcp::{MCPError, Result, VERSION};
+use squirrel::{MCPError, Result, VERSION};
 
 #[tokio::test]
 async fn test_mcp_core_version() {
@@ -36,7 +36,7 @@ async fn test_mcp_result_error() {
 #[tokio::test]
 async fn test_integration_module() {
     // Test 5: Integration module
-    let mut integration = squirrel_mcp::integration::SimpleMCPIntegration::new();
+    let mut integration = squirrel::integration::SimpleMCPIntegration::new();
     assert!(integration.initialize().await.is_ok());
     assert!(integration.is_initialized());
 } 
