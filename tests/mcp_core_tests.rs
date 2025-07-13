@@ -1,9 +1,9 @@
 //! MCP Core Tests
-//! 
+//!
 //! Tests for core Machine Context Protocol functionality that belongs in Squirrel.
 //! This excludes functionality moved to other projects:
 //! - Web integration (moved to Songbird)
-//! - Compute/storage (moved to ToadStool/NestGate) 
+//! - Compute/storage (moved to ToadStool/NestGate)
 //! - Complex monitoring (distributed across ecosystem)
 
 use squirrel::error::types::{MCPError, Result};
@@ -38,11 +38,23 @@ mod core_functionality {
     #[test]
     fn test_error_code_consistency() {
         // Verify error codes are consistent - important for protocol compliance
-        assert_eq!(MCPError::ValidationFailed("".to_string()).error_code(), "MCP-001");
-        assert_eq!(MCPError::OperationFailed("".to_string()).error_code(), "MCP-002");
-        assert_eq!(MCPError::InternalError("".to_string()).error_code(), "MCP-003");
+        assert_eq!(
+            MCPError::ValidationFailed("".to_string()).error_code(),
+            "MCP-001"
+        );
+        assert_eq!(
+            MCPError::OperationFailed("".to_string()).error_code(),
+            "MCP-002"
+        );
+        assert_eq!(
+            MCPError::InternalError("".to_string()).error_code(),
+            "MCP-003"
+        );
         assert_eq!(MCPError::Network("".to_string()).error_code(), "MCP-024");
-        assert_eq!(MCPError::Configuration("".to_string()).error_code(), "MCP-030");
+        assert_eq!(
+            MCPError::Configuration("".to_string()).error_code(),
+            "MCP-030"
+        );
     }
 
     #[test]
@@ -96,4 +108,4 @@ mod protocol_basics {
 // - Basic protocol message handling
 // - Core transport mechanisms (if they remain in MCP Core)
 // - Essential session management (if it remains in MCP Core)
-// - Basic tool integration (if it remains in MCP Core) 
+// - Basic tool integration (if it remains in MCP Core)

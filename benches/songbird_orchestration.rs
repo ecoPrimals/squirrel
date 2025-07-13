@@ -6,7 +6,7 @@
 //! - Cluster coordination and state management
 //! - Performance under various load conditions
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
@@ -23,7 +23,7 @@ fn setup_test_service() -> SquirrelOrchestrationService {
         .with_endpoint("http://localhost:8082")
         .build()
         .unwrap();
-    
+
     SquirrelOrchestrationService::new(config)
 }
 
@@ -31,11 +31,11 @@ fn setup_test_service() -> SquirrelOrchestrationService {
 fn bench_task_management(c: &mut Criterion) {
     let mut group = c.benchmark_group("task_management");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark task scheduling
     group.bench_function("schedule_task", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let task = TaskInfo {
                 id: Uuid::new_v4().to_string(),
@@ -49,31 +49,29 @@ fn bench_task_management(c: &mut Criterion) {
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             };
-            
+
             black_box(service.schedule_task(task).await.unwrap())
         })
     });
-    
+
     // Benchmark task status checking
     group.bench_function("check_task_status", |b| {
         let service = setup_test_service();
         let task_id = "benchmark_task_status".to_string();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(service.get_task_status(&task_id).await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(service.get_task_status(&task_id).await.unwrap()) })
     });
-    
+
     // Benchmark task cancellation
     group.bench_function("cancel_task", |b| {
         let service = setup_test_service();
         let task_id = "benchmark_task_cancel".to_string();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(service.cancel_task(&task_id).await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(service.cancel_task(&task_id).await.unwrap()) })
     });
-    
+
     group.finish();
 }
 
@@ -81,20 +79,19 @@ fn bench_task_management(c: &mut Criterion) {
 fn bench_service_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("service_discovery");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark service discovery
     group.bench_function("discover_services", |b| {
         let service = setup_test_service();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(service.discover_services().await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(service.discover_services().await.unwrap()) })
     });
-    
+
     // Benchmark service registration
     group.bench_function("register_service", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let primal_info = PrimalInfo {
                 name: "benchmark_service".to_string(),
@@ -103,11 +100,11 @@ fn bench_service_discovery(c: &mut Criterion) {
                 capabilities: vec!["benchmark".to_string()],
                 metadata: std::collections::HashMap::new(),
             };
-            
+
             black_box(service.register_service(primal_info).await.unwrap())
         })
     });
-    
+
     group.finish();
 }
 
@@ -115,26 +112,25 @@ fn bench_service_discovery(c: &mut Criterion) {
 fn bench_health_monitoring(c: &mut Criterion) {
     let mut group = c.benchmark_group("health_monitoring");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark health report generation
     group.bench_function("generate_health_report", |b| {
         let service = setup_test_service();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(service.report_health().await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(service.report_health().await.unwrap()) })
     });
-    
+
     // Benchmark health check for specific service
     group.bench_function("check_service_health", |b| {
         let service = setup_test_service();
         let service_name = "benchmark_service".to_string();
-        
+
         b.to_async(&rt).iter(|| async {
             black_box(service.check_service_health(&service_name).await.unwrap())
         })
     });
-    
+
     group.finish();
 }
 
@@ -142,20 +138,19 @@ fn bench_health_monitoring(c: &mut Criterion) {
 fn bench_cluster_coordination(c: &mut Criterion) {
     let mut group = c.benchmark_group("cluster_coordination");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark cluster status retrieval
     group.bench_function("get_cluster_status", |b| {
         let service = setup_test_service();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(service.get_cluster_status().await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(service.get_cluster_status().await.unwrap()) })
     });
-    
+
     // Benchmark state management
     group.bench_function("manage_primal_state", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let new_state = PrimalState {
                 name: "benchmark_primal".to_string(),
@@ -163,11 +158,11 @@ fn bench_cluster_coordination(c: &mut Criterion) {
                 last_heartbeat: chrono::Utc::now(),
                 metadata: std::collections::HashMap::new(),
             };
-            
+
             black_box(service.manage_primal_state(new_state).await.unwrap())
         })
     });
-    
+
     group.finish();
 }
 
@@ -175,14 +170,14 @@ fn bench_cluster_coordination(c: &mut Criterion) {
 fn bench_concurrent_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark concurrent task scheduling
     group.bench_function("concurrent_task_scheduling", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for i in 0..10 {
                 let service_clone = service.clone();
                 let task = TaskInfo {
@@ -197,60 +192,60 @@ fn bench_concurrent_operations(c: &mut Criterion) {
                     created_at: chrono::Utc::now(),
                     updated_at: chrono::Utc::now(),
                 };
-                
+
                 handles.push(tokio::spawn(async move {
                     service_clone.schedule_task(task).await
                 }));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     // Benchmark concurrent service discovery
     group.bench_function("concurrent_service_discovery", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for _ in 0..5 {
                 let service_clone = service.clone();
-                
+
                 handles.push(tokio::spawn(async move {
                     service_clone.discover_services().await
                 }));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     // Benchmark concurrent health monitoring
     group.bench_function("concurrent_health_monitoring", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for _ in 0..8 {
                 let service_clone = service.clone();
-                
-                handles.push(tokio::spawn(async move {
-                    service_clone.report_health().await
-                }));
+
+                handles.push(tokio::spawn(
+                    async move { service_clone.report_health().await },
+                ));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     group.finish();
 }
 
@@ -258,14 +253,14 @@ fn bench_concurrent_operations(c: &mut Criterion) {
 fn bench_load_testing(c: &mut Criterion) {
     let mut group = c.benchmark_group("load_testing");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark high-volume task scheduling
     group.bench_function("high_volume_task_scheduling", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for i in 0..100 {
                 let service_clone = service.clone();
                 let task = TaskInfo {
@@ -280,29 +275,29 @@ fn bench_load_testing(c: &mut Criterion) {
                     created_at: chrono::Utc::now(),
                     updated_at: chrono::Utc::now(),
                 };
-                
+
                 handles.push(tokio::spawn(async move {
                     service_clone.schedule_task(task).await
                 }));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     // Benchmark stress testing with mixed operations
     group.bench_function("mixed_operations_stress", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             // Mix of different operations
             for i in 0..50 {
                 let service_clone = service.clone();
-                
+
                 match i % 4 {
                     0 => {
                         // Schedule task
@@ -318,7 +313,7 @@ fn bench_load_testing(c: &mut Criterion) {
                             created_at: chrono::Utc::now(),
                             updated_at: chrono::Utc::now(),
                         };
-                        
+
                         handles.push(tokio::spawn(async move {
                             service_clone.schedule_task(task).await.map(|_| ())
                         }));
@@ -344,13 +339,13 @@ fn bench_load_testing(c: &mut Criterion) {
                     _ => unreachable!(),
                 }
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     group.finish();
 }
 
@@ -358,14 +353,14 @@ fn bench_load_testing(c: &mut Criterion) {
 fn bench_resource_usage(c: &mut Criterion) {
     let mut group = c.benchmark_group("resource_usage");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark memory usage with many tasks
     group.bench_function("memory_usage_many_tasks", |b| {
         let service = setup_test_service();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut tasks = Vec::new();
-            
+
             for i in 0..1000 {
                 let task = TaskInfo {
                     id: format!("memory_task_{}", i),
@@ -379,14 +374,14 @@ fn bench_resource_usage(c: &mut Criterion) {
                     created_at: chrono::Utc::now(),
                     updated_at: chrono::Utc::now(),
                 };
-                
+
                 tasks.push(task);
             }
-            
+
             black_box(tasks)
         })
     });
-    
+
     group.finish();
 }
 
@@ -401,4 +396,4 @@ criterion_group!(
     bench_resource_usage
 );
 
-criterion_main!(benches); 
+criterion_main!(benches);

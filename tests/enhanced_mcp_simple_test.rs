@@ -1,160 +1,194 @@
-//! Simple Enhanced MCP Test Suite
+//! Enhanced MCP Simple Test
 //!
-//! Basic tests for enhanced MCP functionality that work with current implementation.
+//! Comprehensive tests for biomeOS integration functionality
 
-use squirrel::enhanced::*;
+use squirrel::biomeos_integration::*;
+use squirrel::error::{PrimalError, Result};
+use std::collections::HashMap;
+use tokio_test;
 
-/// Test enhanced MCP server creation and basic functionality
+/// Test AI intelligence functionality
 #[tokio::test]
-async fn test_enhanced_mcp_server_creation() -> Result<(), Box<dyn std::error::Error>> {
-    // Test server creation with default configuration
-    let server = EnhancedMCPServer::default();
+async fn test_ai_intelligence() -> Result<()> {
+    let ai_intelligence = AiIntelligence::new();
     
-    // Verify server is properly initialized
-    assert!(server.is_initialized());
+    // Test basic functionality
+    assert_eq!(ai_intelligence.active_predictions, 0);
+    assert_eq!(ai_intelligence.automation_tasks, 0);
     
-    // Test server configuration
-    let config = server.get_config();
-    assert!(config.is_some());
+    // Test ecosystem analysis
+    let analysis_result = ai_intelligence.generate_ecosystem_report().await?;
+    assert!(analysis_result.recommendations.len() > 0);
     
     Ok(())
 }
 
-/// Test enhanced MCP server request processing
+/// Test MCP integration functionality
 #[tokio::test]
-async fn test_enhanced_mcp_request_processing() -> Result<(), Box<dyn std::error::Error>> {
-    let server = EnhancedMCPServer::default();
+async fn test_mcp_integration() -> Result<()> {
+    let mut mcp_integration = McpIntegration::new();
     
-    // Create a valid test request
-    let request = MCPRequest {
-        id: "test-request-001".to_string(),
-        method: "test.method".to_string(),
-        params: serde_json::json!({
-            "test_param": "test_value"
-        }),
-        metadata: Some(RequestMetadata {
-            timestamp: chrono::Utc::now(),
-            client_id: "test-client".to_string(),
-            session_id: Some("test-session".to_string()),
-            correlation_id: Some("test-correlation".to_string()),
-        }),
-    };
+    // Test coordination session creation
+    let session_id = mcp_integration.create_coordination_session(
+        vec!["test-primal".to_string()],
+        "test-session".to_string()
+    ).await?;
     
-    // Test request processing
-    let response = server.process_request(request).await;
-    
-    // Verify response structure
-    assert!(response.is_ok());
-    let response = response.unwrap();
-    assert_eq!(response.id, "test-request-001");
-    assert!(response.success);
-    
-    Ok(())
-}
-
-/// Test enhanced MCP server error handling
-#[tokio::test]
-async fn test_enhanced_mcp_error_handling() -> Result<(), Box<dyn std::error::Error>> {
-    let server = EnhancedMCPServer::default();
-    
-    // Test error handling for invalid request (empty ID)
-    let invalid_request = MCPRequest {
-        id: "".to_string(), // Invalid empty ID
-        method: "invalid.method".to_string(),
-        params: serde_json::json!({}),
-        metadata: None,
-    };
-    
-    let invalid_response = server.process_request(invalid_request).await;
-    assert!(invalid_response.is_err());
-    
-    // Test error handling for invalid method (empty method)
-    let invalid_method_request = MCPRequest {
-        id: "test-request".to_string(),
-        method: "".to_string(), // Invalid empty method
-        params: serde_json::json!({}),
-        metadata: None,
-    };
-    
-    let invalid_method_response = server.process_request(invalid_method_request).await;
-    assert!(invalid_method_response.is_err());
-    
-    Ok(())
-}
-
-/// Test enhanced MCP server session management
-#[tokio::test]
-async fn test_enhanced_mcp_session_management() -> Result<(), Box<dyn std::error::Error>> {
-    let server = EnhancedMCPServer::default();
-    
-    // Create test client info
-    let client_info = ClientInfo {
-        name: "test-client".to_string(),
-        version: "1.0.0".to_string(),
-        platform: Some("test-platform".to_string()),
-    };
-    
-    // Test session creation
-    let session_id = server.create_session(client_info.clone()).await?;
     assert!(!session_id.is_empty());
     
-    // Test session ID is valid UUID format
-    let _uuid = uuid::Uuid::parse_str(&session_id);
-    assert!(_uuid.is_ok());
-    
     Ok(())
 }
 
-/// Test enhanced MCP server metrics
+/// Test context state management
 #[tokio::test]
-async fn test_enhanced_mcp_server_metrics() -> Result<(), Box<dyn std::error::Error>> {
-    let server = EnhancedMCPServer::default();
+async fn test_context_state_management() -> Result<()> {
+    let mut context_state = ContextState::new();
     
-    // Test server metrics retrieval
-    let metrics = server.get_metrics().await;
+    // Test session creation
+    context_state.create_session_context(
+        "test-session-001".to_string(),
+        Some("user-123".to_string()),
+        "test_context".to_string()
+    ).await?;
     
-    // Verify metrics structure
-    assert!(metrics.total_connections >= 0);
-    assert!(metrics.active_connections >= 0);
-    assert!(metrics.total_requests >= 0);
-    assert!(metrics.successful_requests >= 0);
-    assert!(metrics.successful_requests <= metrics.total_requests);
+    // Verify session was created
+    assert_eq!(context_state.get_active_sessions(), 1);
     
     Ok(())
 }
 
-/// Test utilities for enhanced MCP operations
+/// Test ecosystem client authentication and configuration
+#[tokio::test]
+async fn test_ecosystem_client_configuration() -> Result<()> {
+    // Test authentication configuration
+    let auth_config = AuthenticationConfig {
+        auth_type: "ecosystem_jwt".to_string(),
+        client_id: Some("squirrel-test".to_string()),
+        client_secret: Some("test-secret".to_string()),
+        token: Some("test-jwt-token".to_string()),
+        trust_domain: "biome.local".to_string(),
+    };
+    
+    assert_eq!(auth_config.auth_type, "ecosystem_jwt");
+    assert!(auth_config.client_id.is_some());
+    assert_eq!(auth_config.trust_domain, "biome.local");
+    
+    // Test ecosystem client creation
+    let ecosystem_client = EcosystemClient::new();
+    assert_eq!(ecosystem_client.songbird_url, "http://localhost:8080");
+    
+    Ok(())
+}
+
+/// Test service registration structure and validation
+#[tokio::test]
+async fn test_service_registration_structure() -> Result<()> {
+    // Create service registration
+    let registration = EcosystemServiceRegistration::default();
+    
+    // Validate registration structure
+    assert_eq!(registration.primal_type, "squirrel");
+    assert_eq!(registration.service_id, "primal-squirrel-ai-default");
+    assert!(!registration.capabilities.ai_capabilities.is_empty());
+    assert!(!registration.capabilities.mcp_capabilities.is_empty());
+    assert!(!registration.capabilities.context_capabilities.is_empty());
+    
+    // Validate specific AI capabilities
+    assert!(registration.capabilities.ai_capabilities.contains(&"ecosystem_intelligence".to_string()));
+    assert!(registration.capabilities.ai_capabilities.contains(&"predictive_analytics".to_string()));
+    
+    Ok(())
+}
+
+/// Test health status reporting
+#[tokio::test]
+async fn test_health_status_reporting() -> Result<()> {
+    // Create health status with correct fields
+    let health_status = HealthStatus {
+        status: "healthy".to_string(),
+        timestamp: chrono::Utc::now(),
+        ai_engine_status: "operational".to_string(),
+        mcp_server_status: "active".to_string(),
+        context_manager_status: "running".to_string(),
+        active_sessions: 10,
+        ai_requests_processed: 150,
+        context_states_managed: 25,
+    };
+    
+    // Validate health status
+    assert_eq!(health_status.status, "healthy");
+    assert_eq!(health_status.active_sessions, 10);
+    assert_eq!(health_status.ai_requests_processed, 150);
+    assert_eq!(health_status.context_states_managed, 25);
+    assert_eq!(health_status.ai_engine_status, "operational");
+    assert_eq!(health_status.mcp_server_status, "active");
+    assert_eq!(health_status.context_manager_status, "running");
+    
+    Ok(())
+}
+
+/// Test error handling and validation
+#[tokio::test]
+async fn test_error_handling() -> Result<()> {
+    // Test different error types
+    let network_error = PrimalError::Network("Connection timeout".to_string());
+    let auth_error = PrimalError::Authentication("Invalid JWT token".to_string());
+    let internal_error = PrimalError::Internal("Configuration missing".to_string());
+    
+    // Validate error messages
+    assert!(network_error.to_string().contains("Connection timeout"));
+    assert!(auth_error.to_string().contains("Invalid JWT token"));
+    assert!(internal_error.to_string().contains("Configuration missing"));
+    
+    Ok(())
+}
+
+/// Test biomeOS integration creation
+#[tokio::test]
+async fn test_biomeos_integration_creation() -> Result<()> {
+    let integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
+    
+    assert_eq!(integration.biome_id, "test-biome");
+    assert!(integration.service_id.starts_with("primal-squirrel-ai-"));
+    assert_eq!(integration.health_status.status, "initializing");
+    assert_eq!(integration.health_status.ai_engine_status, "starting");
+    assert_eq!(integration.health_status.mcp_server_status, "starting");
+    assert_eq!(integration.health_status.context_manager_status, "starting");
+    
+    Ok(())
+}
+
+/// Test utilities for biomeOS operations
 pub mod test_utils {
     use super::*;
-    
-    /// Create a test MCP server with default configuration
-    pub fn create_test_server() -> EnhancedMCPServer {
-        EnhancedMCPServer::default()
+
+    /// Create a test biomeOS integration instance
+    pub fn create_test_integration() -> SquirrelBiomeOSIntegration {
+        SquirrelBiomeOSIntegration::new("test-biome".to_string())
     }
-    
-    /// Create test client info with default values
-    pub fn create_test_client_info() -> ClientInfo {
-        ClientInfo {
-            name: "test-client".to_string(),
-            version: "1.0.0".to_string(),
-            platform: Some("test-platform".to_string()),
+
+    /// Create test authentication configuration
+    pub fn create_test_auth_config() -> AuthenticationConfig {
+        AuthenticationConfig {
+            auth_type: "ecosystem_jwt".to_string(),
+            client_id: Some("test-client".to_string()),
+            client_secret: Some("test-secret".to_string()),
+            token: Some("test-token".to_string()),
+            trust_domain: "biome.local".to_string(),
         }
     }
-    
-    /// Create a test MCP request with valid parameters
-    pub fn create_test_request(method: &str) -> MCPRequest {
-        MCPRequest {
-            id: format!("test-request-{}", uuid::Uuid::new_v4()),
-            method: method.to_string(),
-            params: serde_json::json!({
-                "test_param": "test_value"
-            }),
-            metadata: Some(RequestMetadata {
-                timestamp: chrono::Utc::now(),
-                client_id: "test-client".to_string(),
-                session_id: Some("test-session".to_string()),
-                correlation_id: Some("test-correlation".to_string()),
-            }),
+
+    /// Create test health status
+    pub fn create_test_health_status() -> HealthStatus {
+        HealthStatus {
+            status: "healthy".to_string(),
+            timestamp: chrono::Utc::now(),
+            ai_engine_status: "operational".to_string(),
+            mcp_server_status: "active".to_string(),
+            context_manager_status: "running".to_string(),
+            active_sessions: 5,
+            ai_requests_processed: 100,
+            context_states_managed: 20,
         }
     }
-} 
+}

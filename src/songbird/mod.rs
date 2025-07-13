@@ -1,315 +1,220 @@
-//! Songbird orchestration integration
+//! Songbird integration for squirrel primal
 //!
-//! This module provides integration with the Songbird orchestration system,
-//! enabling dynamic primal management and context-aware routing.
+//! This module provides integration with the songbird orchestration system.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use async_trait::async_trait;
-use universal_patterns::traits::{
-    PrimalProvider, PrimalContext, PrimalHealth, PrimalEndpoints, PrimalRequest, PrimalResponse,
-    PrimalResult, PrimalType, PrimalCapability, PrimalDependency, DynamicPortInfo, PortType, PortStatus
-};
-use universal_patterns::config::UniversalPrimalConfig;
-use universal_patterns::registry::UniversalPrimalRegistry;
+use std::time::Duration;
 use tokio::sync::RwLock;
-use uuid::Uuid;
+use tracing::{debug, info};
 
-/// Songbird orchestration provider
-pub struct SongbirdProvider {
-    registry: Arc<UniversalPrimalRegistry>,
-    config: UniversalPrimalConfig,
-    health_status: Arc<RwLock<HealthStatus>>,
-    context: PrimalContext,
-}
+use crate::error::PrimalError;
 
-#[derive(Debug, Clone)]
-pub struct HealthStatus {
-    pub healthy: bool,
-    pub message: String,
-    pub last_check: chrono::DateTime<chrono::Utc>,
-}
-
-impl SongbirdProvider {
-    pub fn new(config: UniversalPrimalConfig) -> Self {
-        Self {
-            registry: Arc::new(UniversalPrimalRegistry::new()),
-            config,
-            health_status: Arc::new(RwLock::new(HealthStatus {
-                healthy: true,
-                message: "Songbird orchestration healthy".to_string(),
-                last_check: chrono::Utc::now(),
-            })),
-            context: PrimalContext::default(),
-        }
-    }
-
-    pub async fn test_integration(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Testing Songbird orchestration integration...");
-        
-        // Test basic functionality
-        let _test_context = PrimalContext::default();
-        let health = self.health_check().await;
-        
-        println!("Health check result: {:?}", health);
-        println!("Songbird integration test completed successfully!");
-        
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl PrimalProvider for SongbirdProvider {
-    fn primal_id(&self) -> &str {
-        "songbird"
-    }
-
-    fn instance_id(&self) -> &str {
-        "songbird-orchestrator"
-    }
-
-    fn context(&self) -> &PrimalContext {
-        &self.context
-    }
-
-    fn primal_type(&self) -> PrimalType {
-        PrimalType::Orchestration
-    }
-
-    fn capabilities(&self) -> Vec<PrimalCapability> {
-        vec![
-            PrimalCapability::ServiceDiscovery { protocols: vec!["http".to_string(), "grpc".to_string()] },
-            PrimalCapability::NetworkRouting { protocols: vec!["tcp".to_string(), "udp".to_string()] },
-            PrimalCapability::LoadBalancing { algorithms: vec!["round_robin".to_string(), "least_connections".to_string()] },
-            PrimalCapability::AutoScaling { metrics: vec!["cpu".to_string(), "memory".to_string()] },
-        ]
-    }
-
-    fn dependencies(&self) -> Vec<PrimalDependency> {
-        vec![
-            PrimalDependency::RequiresAuthentication { methods: vec!["token".to_string()] },
-            PrimalDependency::RequiresCompute { types: vec!["container".to_string()] },
-        ]
-    }
-
-    async fn health_check(&self) -> PrimalHealth {
-        let status = self.health_status.read().await;
-        if status.healthy {
-            PrimalHealth::Healthy
-        } else {
-            PrimalHealth::Unhealthy { reason: status.message.clone() }
-        }
-    }
-
-    fn endpoints(&self) -> PrimalEndpoints {
-        let base_url = std::env::var("SONGBIRD_BASE_URL")
-            .unwrap_or_else(|_| "http://localhost:8080".to_string());
-        let ws_base_url = std::env::var("SONGBIRD_WS_URL")
-            .unwrap_or_else(|_| base_url.replace("http://", "ws://").replace("https://", "wss://"));
-        
-        PrimalEndpoints {
-            primary: base_url.clone(),
-            health: format!("{}/health", base_url),
-            metrics: Some(format!("{}/metrics", base_url)),
-            admin: Some(format!("{}/admin", base_url)),
-            websocket: Some(format!("{}/ws", ws_base_url)),
-            custom: "orchestration=/orchestrate,scaling=/scale".to_string(),
-        }
-    }
-
-    async fn handle_primal_request(&self, request: PrimalRequest) -> PrimalResult<PrimalResponse> {
-        let response = PrimalResponse {
-            request_id: request.id,
-            response_type: match request.request_type {
-                universal_patterns::traits::PrimalRequestType::HealthCheck => 
-                    universal_patterns::traits::PrimalResponseType::HealthCheck,
-                _ => universal_patterns::traits::PrimalResponseType::Custom("orchestration".to_string()),
-            },
-            payload: HashMap::new(),
-            timestamp: chrono::Utc::now(),
-            success: true,
-            error_message: None,
-            metadata: None,
-        };
-        
-        Ok(response)
-    }
-
-    async fn initialize(&mut self, _config: serde_json::Value) -> PrimalResult<()> {
-        println!("Initializing Songbird orchestration provider...");
-        Ok(())
-    }
-
-    async fn shutdown(&mut self) -> PrimalResult<()> {
-        println!("Shutting down Songbird orchestration provider...");
-        Ok(())
-    }
-
-    fn can_serve_context(&self, _context: &PrimalContext) -> bool {
-        true
-    }
-
-    fn dynamic_port_info(&self) -> Option<DynamicPortInfo> {
-        Some(DynamicPortInfo {
-            assigned_port: 8080,
-            port_type: PortType::Http,
-            status: PortStatus::Active,
-            assigned_at: chrono::Utc::now(),
-            lease_duration: chrono::Duration::hours(24),
-        })
-    }
-}
-
-/// Task management for Songbird orchestration
-#[derive(Debug, Clone)]
-pub struct OrchestrationTask {
-    pub id: Uuid,
-    pub name: String,
-    pub status: TaskStatus,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TaskStatus {
-    Pending,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-impl OrchestrationTask {
-    pub fn new(name: String) -> Self {
-        let now = chrono::Utc::now();
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            status: TaskStatus::Pending,
-            created_at: now,
-            updated_at: now,
-        }
-    }
-
-    pub fn update_status(&mut self, status: TaskStatus) {
-        self.status = status;
-        self.updated_at = chrono::Utc::now();
-    }
-}
-
-/// Songbird integration layer
+/// Songbird integration for orchestration
+#[derive(Debug)]
 pub struct SongbirdIntegration {
-    provider: SongbirdProvider,
-    tasks: Arc<RwLock<HashMap<Uuid, OrchestrationTask>>>,
+    pub config: SongbirdConfig,
+    pub orchestration_state: Arc<RwLock<OrchestrationState>>,
+    pub health_status: HealthStatus,
+}
+
+/// Configuration for songbird integration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SongbirdConfig {
+    pub songbird_endpoint: String,
+    pub heartbeat_interval: Duration,
+    pub coordination_timeout: Duration,
+    pub max_retries: u32,
+}
+
+/// Orchestration state
+#[derive(Debug, Clone)]
+#[derive(Default)]
+pub struct OrchestrationState {
+    pub active_coordinations: HashMap<String, CoordinationSession>,
+    pub primal_status: HashMap<String, PrimalStatus>,
+    pub resource_allocations: HashMap<String, ResourceAllocation>,
+}
+
+/// Coordination session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoordinationSession {
+    pub session_id: String,
+    pub participants: Vec<String>,
+    pub session_type: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub last_activity: DateTime<Utc>,
+}
+
+/// Primal status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrimalStatus {
+    pub primal_id: String,
+    pub primal_type: String,
+    pub status: String,
+    pub health_score: f64,
+    pub last_seen: DateTime<Utc>,
+    pub capabilities: Vec<String>,
+}
+
+/// Resource allocation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceAllocation {
+    pub allocation_id: String,
+    pub resource_type: String,
+    pub amount: f64,
+    pub allocated_to: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Health status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthStatus {
+    pub status: String,
+    pub timestamp: DateTime<Utc>,
+    pub coordinator_status: String,
+    pub active_sessions: u32,
+    pub resource_utilization: f64,
 }
 
 impl SongbirdIntegration {
-    pub fn new(config: UniversalPrimalConfig) -> Self {
+    pub fn new() -> Self {
         Self {
-            provider: SongbirdProvider::new(config),
-            tasks: Arc::new(RwLock::new(HashMap::new())),
+            config: SongbirdConfig::default(),
+            orchestration_state: Arc::new(RwLock::new(OrchestrationState::default())),
+            health_status: HealthStatus {
+                status: "initializing".to_string(),
+                timestamp: Utc::now(),
+                coordinator_status: "starting".to_string(),
+                active_sessions: 0,
+                resource_utilization: 0.0,
+            },
         }
     }
 
-    pub async fn create_task(&self, name: String) -> Uuid {
-        let task = OrchestrationTask::new(name);
-        let id = task.id;
-        let mut tasks = self.tasks.write().await;
-        tasks.insert(id, task);
-        id
+    /// Initialize songbird integration
+    pub async fn initialize(&mut self) -> Result<(), PrimalError> {
+        info!("Initializing songbird integration");
+
+        self.health_status.status = "running".to_string();
+        self.health_status.coordinator_status = "running".to_string();
+        self.health_status.timestamp = Utc::now();
+
+        info!("Songbird integration initialized successfully");
+        Ok(())
     }
 
-    pub async fn update_task_status(&self, id: Uuid, status: TaskStatus) -> Result<(), String> {
-        let mut tasks = self.tasks.write().await;
-        if let Some(task) = tasks.get_mut(&id) {
-            task.update_status(status);
-            Ok(())
-        } else {
-            Err(format!("Task not found: {}", id))
+    /// Coordinate with songbird
+    pub async fn coordinate(
+        &self,
+        coordination_type: &str,
+        participants: Vec<String>,
+    ) -> Result<String, PrimalError> {
+        debug!(
+            "Coordinating with songbird: {} with participants: {:?}",
+            coordination_type, participants
+        );
+
+        let session_id = format!("songbird-coord-{}", uuid::Uuid::new_v4());
+        let session = CoordinationSession {
+            session_id: session_id.clone(),
+            participants,
+            session_type: coordination_type.to_string(),
+            status: "active".to_string(),
+            created_at: Utc::now(),
+            last_activity: Utc::now(),
+        };
+
+        let mut state = self.orchestration_state.write().await;
+        state
+            .active_coordinations
+            .insert(session_id.clone(), session);
+
+        Ok(session_id)
+    }
+
+    /// Update health status
+    pub async fn update_health(&mut self) -> Result<(), PrimalError> {
+        let state = self.orchestration_state.read().await;
+
+        self.health_status.timestamp = Utc::now();
+        self.health_status.active_sessions = state.active_coordinations.len() as u32;
+        self.health_status.resource_utilization = 0.5; // Placeholder calculation
+
+        Ok(())
+    }
+
+    /// Shutdown songbird integration
+    pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
+        info!("Shutting down songbird integration");
+
+        self.health_status.status = "shutdown".to_string();
+        self.health_status.timestamp = Utc::now();
+
+        let mut state = self.orchestration_state.write().await;
+        state.active_coordinations.clear();
+
+        info!("Songbird integration shut down successfully");
+        Ok(())
+    }
+}
+
+impl Default for SongbirdConfig {
+    fn default() -> Self {
+        Self {
+            songbird_endpoint: "http://localhost:8080".to_string(),
+            heartbeat_interval: Duration::from_secs(30),
+            coordination_timeout: Duration::from_secs(60),
+            max_retries: 3,
         }
     }
+}
 
-    pub async fn get_task(&self, id: Uuid) -> Option<OrchestrationTask> {
-        let tasks = self.tasks.read().await;
-        tasks.get(&id).cloned()
-    }
 
-    pub fn provider(&self) -> &SongbirdProvider {
-        &self.provider
+impl Default for SongbirdIntegration {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use universal_patterns::config::UniversalPrimalConfig;
 
     #[tokio::test]
-    async fn test_songbird_provider_creation() {
-        let config = UniversalPrimalConfig::default();
-        let provider = SongbirdProvider::new(config);
-        
-        assert_eq!(provider.primal_id(), "songbird");
-        assert_eq!(provider.instance_id(), "songbird-orchestrator");
-        
-        let health = provider.health_check().await;
-        assert!(matches!(health, PrimalHealth::Healthy));
+    async fn test_songbird_integration_initialization() {
+        let mut integration = SongbirdIntegration::new();
+        assert!(integration.initialize().await.is_ok());
+        assert_eq!(integration.health_status.status, "running");
     }
 
     #[tokio::test]
-    async fn test_songbird_integration() {
-        let config = UniversalPrimalConfig::default();
-        let integration = SongbirdIntegration::new(config);
-        
-        let task_id = integration.create_task("Test Task".to_string()).await;
-        
-        let task = integration.get_task(task_id).await.unwrap();
-        assert_eq!(task.name, "Test Task");
-        assert_eq!(task.status, TaskStatus::Pending);
-        
-        integration.update_task_status(task_id, TaskStatus::Running).await.unwrap();
-        
-        let updated_task = integration.get_task(task_id).await.unwrap();
-        assert_eq!(updated_task.status, TaskStatus::Running);
+    async fn test_coordination_session_creation() {
+        let integration = SongbirdIntegration::new();
+        let participants = vec!["squirrel".to_string(), "toadstool".to_string()];
+
+        let session_id = integration
+            .coordinate("resource_optimization", participants)
+            .await
+            .unwrap();
+        assert!(!session_id.is_empty());
+
+        let state = integration.orchestration_state.read().await;
+        assert!(state.active_coordinations.contains_key(&session_id));
     }
 
     #[tokio::test]
-    async fn test_primal_provider_interface() {
-        let config = UniversalPrimalConfig::default();
-        let provider = SongbirdProvider::new(config);
-        
-        assert_eq!(provider.primal_type(), PrimalType::Orchestration);
-        assert!(!provider.capabilities().is_empty());
-        assert!(!provider.dependencies().is_empty());
-        
-        let endpoints = provider.endpoints();
-        assert!(!endpoints.primary.is_empty());
-        assert!(!endpoints.health.is_empty());
-        
-        let port_info = provider.dynamic_port_info().unwrap();
-        assert_eq!(port_info.assigned_port, 8080);
-        assert_eq!(port_info.port_type, PortType::Http);
-        assert_eq!(port_info.status, PortStatus::Active);
-    }
+    async fn test_health_update() {
+        let mut integration = SongbirdIntegration::new();
+        let original_timestamp = integration.health_status.timestamp;
 
-    #[tokio::test]
-    async fn test_request_handling() {
-        let config = UniversalPrimalConfig::default();
-        let provider = SongbirdProvider::new(config);
-        
-        let request = PrimalRequest {
-            id: Uuid::new_v4(),
-            request_type: universal_patterns::traits::PrimalRequestType::HealthCheck,
-            payload: HashMap::new(),
-            timestamp: chrono::Utc::now(),
-            context: None,
-            priority: None,
-            security_level: None,
-        };
-        
-        let response = provider.handle_primal_request(request).await.unwrap();
-        assert!(response.success);
-        assert!(response.error_message.is_none());
+        // Wait a bit to ensure timestamp changes
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        integration.update_health().await.unwrap();
+        assert!(integration.health_status.timestamp > original_timestamp);
     }
-} 
+}

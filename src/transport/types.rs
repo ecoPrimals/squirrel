@@ -1,5 +1,5 @@
 //! Transport types for MCP
-//! 
+//!
 //! Basic transport types for MCP protocol.
 
 use chrono::{DateTime, Utc};
@@ -92,4 +92,4 @@ impl Default for FrameMetadata {
             metadata: HashMap::new(),
         }
     }
-} 
+}

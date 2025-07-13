@@ -169,3 +169,56 @@ Thumbs.db
 .vscode/tasks.json
 .vscode/launch.json
 .vscode/extensions.json
+
+# Security - API Keys and Sensitive Data
+# Environment files with secrets
+.env.secrets
+.env.*.local
+.secrets
+secrets.json
+secrets.toml
+**/secrets/**
+# API Key files
+**/api_keys.json
+**/api_keys.toml
+*.key
+*.pem
+*.p12
+*.pfx
+# Configuration files that might contain secrets
+**/config.local.*
+**/config.prod.*
+**/config.secret.*
+# Backup of original files that might contain secrets
+*.orig
+*.bak
+# Local test files that might contain API keys
+test_with_*.rs
+*_test_key*
+# Exclude any accidentally committed API keys
+sk-*
+# Certificate files
+*.crt
+*.csr
+*.der
+*.p7b
+*.p7c
+*.p7s
+*.pkcs7
+*.pfx
+*.p12
+
+# Additional AI/ML model files
+*.model
+*.weights
+*.checkpoint
+models/
+checkpoints/
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Runtime generated files
+*.pid
+*.seed
+*.cover
+*.nyc_output

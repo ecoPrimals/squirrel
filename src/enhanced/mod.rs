@@ -1,5 +1,5 @@
 //! Enhanced MCP functionality
-//! 
+//!
 //! Advanced features and capabilities for MCP protocol.
 
 pub mod coordinator;
@@ -52,79 +52,99 @@ impl EnhancedMCPServer {
             connections: HashMap::new(),
         }
     }
-    
+
     /// Create a new enhanced MCP server with default configuration
-    pub fn default() -> Self {
+    pub fn with_defaults() -> Self {
         Self::new(EnhancedMCPConfig::default())
     }
-    
+
     /// Check if server is initialized
     pub fn is_initialized(&self) -> bool {
         !self.config.name.is_empty()
     }
-    
+
     /// Get server capabilities
     pub fn get_capabilities(&self) -> Vec<MCPCapability> {
         self.config.capabilities.clone()
     }
-    
+
     /// Check if server has specific capability
     pub fn has_capability(&self, capability: &MCPCapability) -> bool {
-        self.config.capabilities.iter().any(|c| c.name == capability.name)
+        self.config
+            .capabilities
+            .iter()
+            .any(|c| c.name == capability.name)
     }
-    
+
     /// Get server configuration
     pub fn get_config(&self) -> Option<&EnhancedMCPConfig> {
         Some(&self.config)
     }
-    
+
     /// Start the server
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Enhanced MCP Server starting...");
         Ok(())
     }
-    
+
     /// Create a new session
-    pub async fn create_session(&self, _client_info: ClientInfo) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn create_session(
+        &self,
+        _client_info: ClientInfo,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let session_id = Uuid::new_v4().to_string();
         Ok(session_id)
     }
-    
+
     /// Create a new session (synchronous version for benchmarking)
-    pub fn create_session_sync(&self, _client_info: ClientInfo) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn create_session_sync(
+        &self,
+        _client_info: ClientInfo,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let session_id = Uuid::new_v4().to_string();
         Ok(session_id)
     }
-    
+
     /// Handle MCP request
-    pub async fn handle_mcp_request(&self, _session_id: &str, _request: MCPRequest) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    pub async fn handle_mcp_request(
+        &self,
+        _session_id: &str,
+        _request: MCPRequest,
+    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
         Ok(MCPResponse {
             id: Uuid::new_v4().to_string(),
             result: serde_json::Value::String("Success".to_string()),
             success: true,
         })
     }
-    
+
     /// Handle MCP request (synchronous version for benchmarking)
-    pub fn handle_mcp_request_sync(&self, _session_id: &str, _request: MCPRequest) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    pub fn handle_mcp_request_sync(
+        &self,
+        _session_id: &str,
+        _request: MCPRequest,
+    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
         Ok(MCPResponse {
             id: Uuid::new_v4().to_string(),
             result: serde_json::Value::String("Success".to_string()),
             success: true,
         })
     }
-    
+
     /// Process MCP request
-    pub async fn process_request(&self, request: MCPRequest) -> Result<MCPResponse, Box<dyn std::error::Error>> {
+    pub async fn process_request(
+        &self,
+        request: MCPRequest,
+    ) -> Result<MCPResponse, Box<dyn std::error::Error>> {
         // Validate request
         if request.id.is_empty() {
             return Err("Request ID cannot be empty".into());
         }
-        
+
         if request.method.is_empty() {
             return Err("Request method cannot be empty".into());
         }
-        
+
         // Process request
         Ok(MCPResponse {
             id: request.id,
@@ -134,7 +154,7 @@ impl EnhancedMCPServer {
             success: true,
         })
     }
-    
+
     /// Get server metrics
     pub async fn get_metrics(&self) -> ServerMetrics {
         ServerMetrics {
@@ -144,11 +164,17 @@ impl EnhancedMCPServer {
             successful_requests: 3,
         }
     }
-    
+
     /// Stop the server
     pub async fn stop(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("Enhanced MCP Server stopping...");
         Ok(())
+    }
+}
+
+impl Default for EnhancedMCPServer {
+    fn default() -> Self {
+        Self::new(EnhancedMCPConfig::default())
     }
 }
 
@@ -201,7 +227,7 @@ pub struct ClientInfo {
 }
 
 /// User preferences
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UserPreferences {
     /// Language preference
     pub language: Option<String>,
@@ -209,16 +235,6 @@ pub struct UserPreferences {
     pub theme: Option<String>,
     /// Notification preferences
     pub notifications: HashMap<String, bool>,
-}
-
-impl Default for UserPreferences {
-    fn default() -> Self {
-        Self {
-            language: None,
-            theme: None,
-            notifications: HashMap::new(),
-        }
-    }
 }
 
 /// MCP response
@@ -243,4 +259,4 @@ pub struct ServerMetrics {
     pub total_requests: usize,
     /// Successful requests
     pub successful_requests: usize,
-} 
+}

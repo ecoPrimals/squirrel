@@ -7,34 +7,31 @@
 //! - Trait implementations and type conversions
 //! - Memory usage and resource management
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
 use universal_patterns::config::ConfigBuilder;
-use universal_patterns::traits::{
-    PrimalInfo, PrimalState, TaskInfo, TaskStatus, Credentials, 
-    AuthResult, Principal, HealthReport, HealthStatus
-};
-use universal_patterns::security::BeardogIntegration;
 use universal_patterns::orchestration::MockOrchestrationProvider;
+use universal_patterns::security::BeardogIntegration;
+use universal_patterns::traits::{
+    AuthResult, Credentials, HealthReport, HealthStatus, PrimalInfo, PrimalState, Principal,
+    TaskInfo, TaskStatus,
+};
 
 /// Benchmark configuration building operations
 fn bench_configuration_building(c: &mut Criterion) {
     let mut group = c.benchmark_group("configuration_building");
-    
+
     // Benchmark basic configuration creation
     group.bench_function("create_basic_config", |b| {
         b.iter(|| {
-            let config = ConfigBuilder::new()
-                .development()
-                .build()
-                .unwrap();
+            let config = ConfigBuilder::new().development().build().unwrap();
             black_box(config)
         })
     });
-    
+
     // Benchmark squirrel configuration
     group.bench_function("create_squirrel_config", |b| {
         b.iter(|| {
@@ -46,7 +43,7 @@ fn bench_configuration_building(c: &mut Criterion) {
             black_box(config)
         })
     });
-    
+
     // Benchmark beardog configuration
     group.bench_function("create_beardog_config", |b| {
         b.iter(|| {
@@ -58,7 +55,7 @@ fn bench_configuration_building(c: &mut Criterion) {
             black_box(config)
         })
     });
-    
+
     // Benchmark songbird configuration
     group.bench_function("create_songbird_config", |b| {
         b.iter(|| {
@@ -71,7 +68,7 @@ fn bench_configuration_building(c: &mut Criterion) {
             black_box(config)
         })
     });
-    
+
     // Benchmark production configuration
     group.bench_function("create_production_config", |b| {
         b.iter(|| {
@@ -83,7 +80,7 @@ fn bench_configuration_building(c: &mut Criterion) {
             black_box(config)
         })
     });
-    
+
     group.finish();
 }
 
@@ -91,7 +88,7 @@ fn bench_configuration_building(c: &mut Criterion) {
 fn bench_security_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("security_operations");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark authentication
     group.bench_function("authenticate_user", |b| {
         let config = ConfigBuilder::new()
@@ -99,21 +96,20 @@ fn bench_security_operations(c: &mut Criterion) {
             .with_endpoint("http://localhost:8443")
             .build()
             .unwrap();
-        
+
         let security = BeardogIntegration::new(config);
-        
+
         let credentials = Credentials {
             username: "benchmark_user".to_string(),
             password: "benchmark_pass".to_string(),
             token: Some("benchmark_token".to_string()),
             metadata: std::collections::HashMap::new(),
         };
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(security.authenticate(credentials.clone()).await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(security.authenticate(credentials.clone()).await.unwrap()) })
     });
-    
+
     // Benchmark authorization
     group.bench_function("authorize_user", |b| {
         let config = ConfigBuilder::new()
@@ -121,9 +117,9 @@ fn bench_security_operations(c: &mut Criterion) {
             .with_endpoint("http://localhost:8443")
             .build()
             .unwrap();
-        
+
         let security = BeardogIntegration::new(config);
-        
+
         let principal = Principal {
             id: "benchmark_user".to_string(),
             name: "Benchmark User".to_string(),
@@ -131,12 +127,12 @@ fn bench_security_operations(c: &mut Criterion) {
             permissions: vec!["read".to_string()],
             metadata: std::collections::HashMap::new(),
         };
-        
+
         b.to_async(&rt).iter(|| async {
             black_box(security.authorize(principal.clone(), "read").await.unwrap())
         })
     });
-    
+
     // Benchmark token validation
     group.bench_function("validate_token", |b| {
         let config = ConfigBuilder::new()
@@ -144,14 +140,13 @@ fn bench_security_operations(c: &mut Criterion) {
             .with_endpoint("http://localhost:8443")
             .build()
             .unwrap();
-        
+
         let security = BeardogIntegration::new(config);
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(security.validate_token("benchmark_token").await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(security.validate_token("benchmark_token").await.unwrap()) })
     });
-    
+
     group.finish();
 }
 
@@ -159,11 +154,11 @@ fn bench_security_operations(c: &mut Criterion) {
 fn bench_orchestration_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("orchestration_operations");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark task scheduling
     group.bench_function("schedule_task", |b| {
         let provider = MockOrchestrationProvider::new();
-        
+
         b.to_async(&rt).iter(|| async {
             let task = TaskInfo {
                 id: Uuid::new_v4().to_string(),
@@ -177,36 +172,34 @@ fn bench_orchestration_operations(c: &mut Criterion) {
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
             };
-            
+
             black_box(provider.schedule_task(task).await.unwrap())
         })
     });
-    
+
     // Benchmark service discovery
     group.bench_function("discover_services", |b| {
         let provider = MockOrchestrationProvider::new();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(provider.discover_services().await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(provider.discover_services().await.unwrap()) })
     });
-    
+
     // Benchmark health reporting
     group.bench_function("report_health", |b| {
         let provider = MockOrchestrationProvider::new();
-        
-        b.to_async(&rt).iter(|| async {
-            black_box(provider.report_health().await.unwrap())
-        })
+
+        b.to_async(&rt)
+            .iter(|| async { black_box(provider.report_health().await.unwrap()) })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark trait implementations and type conversions
 fn bench_trait_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("trait_operations");
-    
+
     // Benchmark PrimalInfo creation
     group.bench_function("create_primal_info", |b| {
         b.iter(|| {
@@ -220,7 +213,7 @@ fn bench_trait_operations(c: &mut Criterion) {
             black_box(info)
         })
     });
-    
+
     // Benchmark PrimalState creation
     group.bench_function("create_primal_state", |b| {
         b.iter(|| {
@@ -233,7 +226,7 @@ fn bench_trait_operations(c: &mut Criterion) {
             black_box(state)
         })
     });
-    
+
     // Benchmark TaskInfo creation
     group.bench_function("create_task_info", |b| {
         b.iter(|| {
@@ -252,7 +245,7 @@ fn bench_trait_operations(c: &mut Criterion) {
             black_box(task)
         })
     });
-    
+
     // Benchmark HealthReport creation
     group.bench_function("create_health_report", |b| {
         b.iter(|| {
@@ -266,7 +259,7 @@ fn bench_trait_operations(c: &mut Criterion) {
             black_box(report)
         })
     });
-    
+
     group.finish();
 }
 
@@ -274,12 +267,12 @@ fn bench_trait_operations(c: &mut Criterion) {
 fn bench_concurrent_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_patterns");
     let rt = Runtime::new().unwrap();
-    
+
     // Benchmark concurrent configuration building
     group.bench_function("concurrent_config_building", |b| {
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for i in 0..10 {
                 handles.push(tokio::spawn(async move {
                     let config = ConfigBuilder::new()
@@ -290,13 +283,13 @@ fn bench_concurrent_patterns(c: &mut Criterion) {
                     black_box(config)
                 }));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap());
             }
         })
     });
-    
+
     // Benchmark concurrent security operations
     group.bench_function("concurrent_security_operations", |b| {
         let config = ConfigBuilder::new()
@@ -304,12 +297,12 @@ fn bench_concurrent_patterns(c: &mut Criterion) {
             .with_endpoint("http://localhost:8443")
             .build()
             .unwrap();
-        
+
         let security = BeardogIntegration::new(config);
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for i in 0..5 {
                 let security_clone = security.clone();
                 let credentials = Credentials {
@@ -318,28 +311,28 @@ fn bench_concurrent_patterns(c: &mut Criterion) {
                     token: Some(format!("token_{}", i)),
                     metadata: std::collections::HashMap::new(),
                 };
-                
+
                 handles.push(tokio::spawn(async move {
                     security_clone.authenticate(credentials).await
                 }));
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     // Benchmark concurrent orchestration operations
     group.bench_function("concurrent_orchestration_operations", |b| {
         let provider = MockOrchestrationProvider::new();
-        
+
         b.to_async(&rt).iter(|| async {
             let mut handles = Vec::new();
-            
+
             for i in 0..8 {
                 let provider_clone = provider.clone();
-                
+
                 if i % 2 == 0 {
                     handles.push(tokio::spawn(async move {
                         provider_clone.discover_services().await.map(|_| ())
@@ -350,36 +343,36 @@ fn bench_concurrent_patterns(c: &mut Criterion) {
                     }));
                 }
             }
-            
+
             for handle in handles {
                 black_box(handle.await.unwrap().unwrap());
             }
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark memory and resource usage
 fn bench_memory_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_operations");
-    
+
     // Benchmark large configuration creation
     group.bench_function("large_config_creation", |b| {
         b.iter(|| {
             let mut config = ConfigBuilder::new()
                 .development()
                 .with_environment("benchmark");
-            
+
             // Add many configuration options
             for i in 0..100 {
                 config = config.with_property(&format!("key_{}", i), &format!("value_{}", i));
             }
-            
+
             black_box(config.build().unwrap())
         })
     });
-    
+
     // Benchmark large metadata creation
     group.bench_function("large_metadata_creation", |b| {
         b.iter(|| {
@@ -390,7 +383,7 @@ fn bench_memory_operations(c: &mut Criterion) {
             black_box(metadata)
         })
     });
-    
+
     // Benchmark UUID generation at scale
     group.bench_function("uuid_generation_scale", |b| {
         b.iter(|| {
@@ -401,14 +394,14 @@ fn bench_memory_operations(c: &mut Criterion) {
             black_box(ids)
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark configuration validation
 fn bench_configuration_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("configuration_validation");
-    
+
     // Benchmark valid configuration
     group.bench_function("validate_valid_config", |b| {
         b.iter(|| {
@@ -421,7 +414,7 @@ fn bench_configuration_validation(c: &mut Criterion) {
             black_box(config)
         })
     });
-    
+
     // Benchmark configuration with many properties
     group.bench_function("validate_complex_config", |b| {
         b.iter(|| {
@@ -429,16 +422,16 @@ fn bench_configuration_validation(c: &mut Criterion) {
                 .production()
                 .with_endpoint("https://api.example.com")
                 .with_environment("production");
-            
+
             // Add many properties to test validation performance
             for i in 0..50 {
                 config = config.with_property(&format!("config_{}", i), &format!("value_{}", i));
             }
-            
+
             black_box(config.build().unwrap())
         })
     });
-    
+
     group.finish();
 }
 
@@ -453,4 +446,4 @@ criterion_group!(
     bench_configuration_validation
 );
 
-criterion_main!(benches); 
+criterion_main!(benches);

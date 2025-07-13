@@ -1,5 +1,5 @@
 //! Minimal MCP Core Tests
-//! 
+//!
 //! Tests for the most basic core Machine Context Protocol functionality.
 //! This is designed to compile and test only the essential parts that remain in Squirrel.
 
@@ -27,4 +27,4 @@ mod minimal_core_tests {
         let failure: Result<String> = Err(MCPError::InternalError("failure".to_string()));
         assert!(failure.is_err());
     }
-} 
+}

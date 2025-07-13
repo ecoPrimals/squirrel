@@ -1,6 +1,5 @@
 //! Error types for MCP Core
 
-use std::fmt;
 use thiserror::Error;
 
 /// Main error type for MCP operations
@@ -82,4 +81,4 @@ impl MCPError {
 }
 
 /// Result type alias for MCP operations
-pub type Result<T, E = MCPError> = std::result::Result<T, E>; 
+pub type Result<T, E = MCPError> = std::result::Result<T, E>;

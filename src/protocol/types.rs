@@ -1,89 +1,106 @@
-use std::collections::HashMap;
+//! Protocol types for squirrel MCP implementation
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use std::collections::HashMap;
 
-/// Authentication credentials for MCP operations
-#[derive(Debug, Clone)]
-pub struct AuthCredentials {
-    pub username: String,
-    pub password: String,
-    pub token: Option<String>,
-    pub metadata: HashMap<String, String>,
+/// Session identifier type
+pub type SessionId = String;
+
+/// MCP message types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MessageType {
+    Request,
+    Response,
+    Notification,
 }
 
-/// Security metadata for MCP operations
+/// MCP request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityMetadata {
-    /// Protocol version
+pub struct Request {
+    pub id: String,
+    pub method: String,
+    pub params: Option<serde_json::Value>,
+}
+
+/// MCP response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Response {
+    pub id: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<ResponseError>,
+}
+
+/// Response error
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseError {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<serde_json::Value>,
+}
+
+/// Tool definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tool {
+    pub name: String,
+    pub description: String,
+    pub input_schema: serde_json::Value,
+}
+
+/// Resource definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Resource {
+    pub uri: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub mime_type: Option<String>,
+}
+
+/// Protocol capabilities
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Capabilities {
+    pub experimental: HashMap<String, serde_json::Value>,
+    pub sampling: Option<SamplingCapabilities>,
+    pub logging: Option<LoggingCapabilities>,
+}
+
+/// Sampling capabilities
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingCapabilities {
+    pub supported: bool,
+}
+
+/// Logging capabilities
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingCapabilities {
+    pub supported: bool,
+}
+
+/// Protocol metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtocolMetadata {
     pub version: String,
-    /// Security token
-    pub token: Option<String>,
-    /// Encryption enabled
-    pub encrypted: bool,
-    /// Timestamp
-    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-impl Default for SecurityMetadata {
+impl Default for Capabilities {
     fn default() -> Self {
         Self {
-            version: "1.0".to_string(),
-            token: None,
-            encrypted: false,
-            timestamp: Utc::now(),
+            experimental: HashMap::new(),
+            sampling: Some(SamplingCapabilities { supported: true }),
+            logging: Some(LoggingCapabilities { supported: true }),
         }
     }
 }
 
-/// Message metadata for MCP operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageMetadata {
-    /// Message ID
-    pub message_id: String,
-    /// Message type
-    pub message_type: String,
-    /// Timestamp
-    pub timestamp: DateTime<Utc>,
-    /// Sender ID
-    pub sender_id: Option<String>,
-    /// Additional metadata
-    pub metadata: HashMap<String, String>,
-}
-
-impl Default for MessageMetadata {
+impl Default for ProtocolMetadata {
     fn default() -> Self {
+        let now = Utc::now();
         Self {
-            message_id: Uuid::new_v4().to_string(),
-            message_type: "generic".to_string(),
-            timestamp: Utc::now(),
-            sender_id: None,
-            metadata: HashMap::new(),
+            version: "2.0".to_string(),
+            created_at: now,
+            updated_at: now,
         }
     }
 }
-
-impl Default for AuthCredentials {
-    fn default() -> Self {
-        Self {
-            username: String::new(),
-            password: String::new(),
-            token: None,
-            metadata: HashMap::new(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_auth_credentials_default() {
-        let creds = AuthCredentials::default();
-        assert!(creds.username.is_empty());
-        assert!(creds.password.is_empty());
-        assert!(creds.token.is_none());
-        assert!(creds.metadata.is_empty());
-    }
-} 

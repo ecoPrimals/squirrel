@@ -1,5 +1,5 @@
 //! Basic MCP Core tests
-//! 
+//!
 //! Minimal tests to verify core error handling works.
 
 use squirrel::error::types::{MCPError, Result};
@@ -44,11 +44,26 @@ fn test_mcp_result_error() {
 
 #[test]
 fn test_error_code_mapping() {
-    assert_eq!(MCPError::Network("test".to_string()).error_code(), "MCP-024");
-    assert_eq!(MCPError::Configuration("test".to_string()).error_code(), "MCP-030");
-    assert_eq!(MCPError::InvalidArgument("test".to_string()).error_code(), "MCP-035");
-    assert_eq!(MCPError::NotFound("test".to_string()).error_code(), "MCP-036");
-    assert_eq!(MCPError::PermissionDenied("test".to_string()).error_code(), "MCP-037");
+    assert_eq!(
+        MCPError::Network("test".to_string()).error_code(),
+        "MCP-024"
+    );
+    assert_eq!(
+        MCPError::Configuration("test".to_string()).error_code(),
+        "MCP-030"
+    );
+    assert_eq!(
+        MCPError::InvalidArgument("test".to_string()).error_code(),
+        "MCP-035"
+    );
+    assert_eq!(
+        MCPError::NotFound("test".to_string()).error_code(),
+        "MCP-036"
+    );
+    assert_eq!(
+        MCPError::PermissionDenied("test".to_string()).error_code(),
+        "MCP-037"
+    );
 }
 
 #[test]
@@ -57,7 +72,10 @@ fn test_authentication_errors() {
     assert_eq!(MCPError::InvalidToken.error_code(), "MCP-041");
     assert_eq!(MCPError::AccountLocked.error_code(), "MCP-042");
     assert_eq!(MCPError::MissingContext.error_code(), "MCP-043");
-    assert_eq!(MCPError::ProviderError("test".to_string()).error_code(), "MCP-044");
+    assert_eq!(
+        MCPError::ProviderError("test".to_string()).error_code(),
+        "MCP-044"
+    );
 }
 
 #[test]
@@ -66,4 +84,4 @@ fn test_error_debug_format() {
     let debug_str = format!("{:?}", error);
     assert!(debug_str.contains("ValidationFailed"));
     assert!(debug_str.contains("debug test"));
-} 
+}

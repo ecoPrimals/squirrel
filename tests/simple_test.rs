@@ -1,42 +1,45 @@
-//! Simple MCP Core tests
-//! 
-//! Basic tests to verify core functionality works.
+//! Simple test for the squirrel crate
+//! This test verifies that the basic API works correctly.
 
-use squirrel::{MCPError, Result, VERSION};
+use squirrel::{PrimalError, VERSION};
+use squirrel::error::Result;
 
-#[tokio::test]
-async fn test_mcp_core_version() {
-    // Test 1: Version information
+#[test]
+fn test_version() {
+    // Test that VERSION is defined and not empty
     assert!(!VERSION.is_empty());
-    println!("MCP Core Version: {}", VERSION);
+    println!("Version: {}", VERSION);
 }
 
-#[tokio::test]
-async fn test_mcp_error_creation() {
-    // Test 2: Error handling
-    let error = MCPError::ValidationFailed("test error".to_string());
+#[test]
+fn test_basic_error_creation() {
+    // Test that we can create basic errors
+    let error = PrimalError::Internal("test error".to_string());
     assert!(error.to_string().contains("test error"));
 }
 
-#[tokio::test]
-async fn test_mcp_result_ok() {
-    // Test 3: Result type usage
-    let result: Result<String> = Ok("success".to_string());
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "success");
-}
+#[test]
+fn test_result_handling() {
+    // Test that Result<T> works correctly
+    let success: Result<String> = Ok("success".to_string());
+    assert!(success.is_ok());
+    assert_eq!(success.unwrap(), "success");
 
-#[tokio::test]
-async fn test_mcp_result_error() {
-    // Test 4: Result error handling
-    let result: Result<String> = Err(MCPError::InternalError("test".to_string()));
-    assert!(result.is_err());
+    let failure: Result<String> = Err(PrimalError::Internal("failure".to_string()));
+    assert!(failure.is_err());
 }
 
 #[tokio::test]
 async fn test_integration_module() {
-    // Test 5: Integration module
-    let mut integration = squirrel::integration::SimpleMCPIntegration::new();
-    assert!(integration.initialize().await.is_ok());
+    // Test that the integration module works
+    use squirrel::integration::SimpleMCPIntegration;
+
+    let mut integration = SimpleMCPIntegration::new();
+    assert!(!integration.is_initialized());
+
+    integration
+        .initialize()
+        .await
+        .expect("Failed to initialize");
     assert!(integration.is_initialized());
-} 
+}

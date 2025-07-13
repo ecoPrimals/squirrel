@@ -10,43 +10,45 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use uuid::Uuid;
 
+use squirrel::enhanced::{ClientInfo, EnhancedMCPConfig, EnhancedMCPServer, MCPRequest};
 use squirrel::error::types::MCPError;
 use squirrel::protocol::types::*;
 use squirrel::session::*;
 use squirrel::transport::types::*;
-use squirrel::enhanced::{EnhancedMCPServer, EnhancedMCPConfig, ClientInfo, MCPRequest};
 
 /// Benchmark error creation and handling
 fn bench_error_handling(c: &mut Criterion) {
     let mut group = c.benchmark_group("error_handling");
-    
+
     // Benchmark error creation
     group.bench_function("create_validation_error", |b| {
         b.iter(|| {
-            black_box(MCPError::ValidationFailed("Test validation error".to_string()))
+            black_box(MCPError::ValidationFailed(
+                "Test validation error".to_string(),
+            ))
         })
     });
-    
+
     group.bench_function("create_operation_error", |b| {
         b.iter(|| {
-            black_box(MCPError::OperationFailed("Test operation error".to_string()))
+            black_box(MCPError::OperationFailed(
+                "Test operation error".to_string(),
+            ))
         })
     });
-    
+
     group.bench_function("error_code_lookup", |b| {
         let error = MCPError::ValidationFailed("Test".to_string());
-        b.iter(|| {
-            black_box(error.error_code())
-        })
+        b.iter(|| black_box(error.error_code()))
     });
-    
+
     group.finish();
 }
 
 /// Benchmark protocol types operations
 fn bench_protocol_types(c: &mut Criterion) {
     let mut group = c.benchmark_group("protocol_types");
-    
+
     // Benchmark AuthCredentials creation
     group.bench_function("create_auth_credentials", |b| {
         b.iter(|| {
@@ -58,7 +60,7 @@ fn bench_protocol_types(c: &mut Criterion) {
             })
         })
     });
-    
+
     // Benchmark SecurityMetadata creation
     group.bench_function("create_security_metadata", |b| {
         b.iter(|| {
@@ -70,63 +72,53 @@ fn bench_protocol_types(c: &mut Criterion) {
             })
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark session management
 fn bench_session_management(c: &mut Criterion) {
     let mut group = c.benchmark_group("session_management");
-    
+
     // Benchmark session config creation
     group.bench_function("create_session_config", |b| {
-        b.iter(|| {
-            black_box(SessionConfig::default())
-        })
+        b.iter(|| black_box(SessionConfig::default()))
     });
-    
+
     // Benchmark session metadata creation
     group.bench_function("create_session_metadata", |b| {
-        b.iter(|| {
-            black_box(SessionMetadata::default())
-        })
+        b.iter(|| black_box(SessionMetadata::default()))
     });
-    
+
     group.finish();
 }
 
 /// Benchmark transport layer operations
 fn bench_transport_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("transport_operations");
-    
+
     // Benchmark connection metadata creation
     group.bench_function("create_connection_metadata", |b| {
-        b.iter(|| {
-            black_box(ConnectionMetadata::default())
-        })
+        b.iter(|| black_box(ConnectionMetadata::default()))
     });
-    
+
     // Benchmark transport config creation
     group.bench_function("create_transport_config", |b| {
-        b.iter(|| {
-            black_box(TransportConfig::default())
-        })
+        b.iter(|| black_box(TransportConfig::default()))
     });
-    
+
     // Benchmark frame metadata creation
     group.bench_function("create_frame_metadata", |b| {
-        b.iter(|| {
-            black_box(FrameMetadata::default())
-        })
+        b.iter(|| black_box(FrameMetadata::default()))
     });
-    
+
     group.finish();
 }
 
 /// Benchmark enhanced MCP operations
 fn bench_enhanced_mcp(c: &mut Criterion) {
     let mut group = c.benchmark_group("enhanced_mcp");
-    
+
     // Benchmark server creation
     group.bench_function("create_enhanced_server", |b| {
         b.iter(|| {
@@ -134,7 +126,7 @@ fn bench_enhanced_mcp(c: &mut Criterion) {
             black_box(EnhancedMCPServer::new(config))
         })
     });
-    
+
     // Benchmark session creation
     group.bench_function("create_session", |b| {
         let config = EnhancedMCPConfig::default();
@@ -144,80 +136,84 @@ fn bench_enhanced_mcp(c: &mut Criterion) {
             version: "1.0".to_string(),
             platform: Some("test".to_string()),
         };
-        
-        b.iter(|| {
-            black_box(server.create_session_sync(client_info.clone()).unwrap())
-        })
+
+        b.iter(|| black_box(server.create_session_sync(client_info.clone()).unwrap()))
     });
-    
+
     // Benchmark request handling
     group.bench_function("handle_mcp_request", |b| {
         let config = EnhancedMCPConfig::default();
         let server = EnhancedMCPServer::new(config);
         let request = MCPRequest::GetStatus;
-        
+
         b.iter(|| {
-            black_box(server.handle_mcp_request_sync("test_session", request.clone()).unwrap())
+            black_box(
+                server
+                    .handle_mcp_request_sync("test_session", request.clone())
+                    .unwrap(),
+            )
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark concurrent operations
 fn bench_concurrent_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_operations");
-    
+
     // Benchmark concurrent session creation (simulated)
     group.bench_function("concurrent_sessions", |b| {
         let config = EnhancedMCPConfig::default();
         let server = EnhancedMCPServer::new(config);
-        
+
         b.iter(|| {
             let mut results = Vec::new();
-            
+
             for i in 0..10 {
                 let client_info = ClientInfo {
                     name: format!("client_{}", i),
                     version: "1.0".to_string(),
                     platform: Some("benchmark".to_string()),
                 };
-                
+
                 let result = server.create_session_sync(client_info).unwrap();
                 results.push(result);
             }
-            
+
             black_box(results)
         })
     });
-    
+
     // Benchmark concurrent request handling (simulated)
     group.bench_function("concurrent_requests", |b| {
         let config = EnhancedMCPConfig::default();
         let server = EnhancedMCPServer::new(config);
-        
+
         b.iter(|| {
             let mut results = Vec::new();
-            
+
             for i in 0..20 {
                 let session_id = format!("session_{}", i);
                 let request = MCPRequest::GetStatus;
-                
-                let result = server.handle_mcp_request_sync(&session_id, request).unwrap();
+
+                let result = server
+                    .handle_mcp_request_sync(&session_id, request)
+                    .unwrap();
                 results.push(result);
             }
-            
+
             black_box(results)
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark memory operations
 fn bench_memory_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_operations");
-    
+
     // Benchmark large metadata creation
     group.bench_function("large_metadata_creation", |b| {
         b.iter(|| {
@@ -228,21 +224,17 @@ fn bench_memory_operations(c: &mut Criterion) {
             black_box(metadata)
         })
     });
-    
+
     // Benchmark UUID generation
     group.bench_function("uuid_generation", |b| {
-        b.iter(|| {
-            black_box(Uuid::new_v4().to_string())
-        })
+        b.iter(|| black_box(Uuid::new_v4().to_string()))
     });
-    
+
     // Benchmark timestamp generation
     group.bench_function("timestamp_generation", |b| {
-        b.iter(|| {
-            black_box(chrono::Utc::now())
-        })
+        b.iter(|| black_box(chrono::Utc::now()))
     });
-    
+
     group.finish();
 }
 
@@ -257,4 +249,4 @@ criterion_group!(
     bench_memory_operations
 );
 
-criterion_main!(benches); 
+criterion_main!(benches);

@@ -1,5 +1,5 @@
 //! AI Coordinator for enhanced MCP functionality
-//! 
+//!
 //! Coordination and orchestration of AI capabilities within MCP.
 
 use serde::{Deserialize, Serialize};
@@ -75,4 +75,4 @@ pub enum AIModelStatus {
     Offline,
     /// Model has error
     Error(String),
-} 
+}

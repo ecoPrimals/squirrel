@@ -1,19 +1,26 @@
-//! Tool management module for MCP
-//!
-//! This module provides the core tool management functionality for MCP.
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 
-// Core tool modules
-pub mod cleanup;
 pub mod executor;
-pub mod lifecycle;
-pub mod management;
 
-// Re-export core types and traits from management
-pub use management::types::{
-    Tool, ToolState, ToolError, ToolInfo, ToolExecutor, ToolContext, 
-    ToolExecutionResult, ExecutionStatus, ToolLifecycleHook
-};
-pub use management::{ToolManager, CoreToolManager};
+pub use executor::*;
 
-// Re-export from cleanup for compatibility
-pub use cleanup::RecoveryHook; 
+/// Tool management system
+#[derive(Debug)]
+pub struct ToolManager {
+    pub tools: RwLock<HashMap<String, String>>, // Tool name -> Tool status
+}
+
+impl ToolManager {
+    pub fn new() -> Self {
+        Self {
+            tools: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
+impl Default for ToolManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
