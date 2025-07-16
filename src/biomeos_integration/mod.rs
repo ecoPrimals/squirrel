@@ -8,10 +8,19 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{info, warn};
 
 use crate::error::PrimalError;
+use config::ConfigManager;
+use tokio::time::sleep;
+use tracing::warn;
+
+// Constants to reduce string allocations
+const PRIMAL_TYPE: &str = "squirrel";
+const API_VERSION: &str = "biomeOS/v1";
+const STATUS_INITIALIZING: &str = "initializing";
+const STATUS_STARTING: &str = "starting";
+const STATUS_RUNNING: &str = "running";
+const STATUS_SHUTTING_DOWN: &str = "shutting_down";
 
 pub mod ai_intelligence;
 pub mod context_state;
@@ -118,18 +127,18 @@ impl SquirrelBiomeOSIntegration {
         let service_id = format!("primal-squirrel-ai-{}", uuid::Uuid::new_v4());
 
         Self {
-            service_id: service_id.clone(),
+            service_id,
             biome_id,
             ai_intelligence: AiIntelligence::new(),
             mcp_integration: McpIntegration::new(),
             context_state: ContextState::new(),
             ecosystem_client: EcosystemClient::new(),
             health_status: HealthStatus {
-                status: "initializing".to_string(),
+                status: STATUS_INITIALIZING.to_string(),
                 timestamp: Utc::now(),
-                ai_engine_status: "starting".to_string(),
-                mcp_server_status: "starting".to_string(),
-                context_manager_status: "starting".to_string(),
+                ai_engine_status: STATUS_STARTING.to_string(),
+                mcp_server_status: STATUS_STARTING.to_string(),
+                context_manager_status: STATUS_STARTING.to_string(),
                 active_sessions: 0,
                 ai_requests_processed: 0,
                 context_states_managed: 0,
@@ -139,23 +148,24 @@ impl SquirrelBiomeOSIntegration {
 
     /// Register squirrel AI with biomeOS ecosystem
     pub async fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
-        info!("Registering squirrel AI with biomeOS ecosystem");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
         let registration = EcosystemServiceRegistration {
             service_id: self.service_id.clone(),
-            primal_type: "squirrel".to_string(),
+            primal_type: PRIMAL_TYPE.to_string(),
             biome_id: self.biome_id.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            api_version: "biomeOS/v1".to_string(),
+            api_version: API_VERSION.to_string(),
             registration_time: Utc::now(),
 
             endpoints: EcosystemEndpoints {
-                ai_api: "http://localhost:5000/ai".to_string(),
-                mcp_api: "http://localhost:5000/mcp".to_string(),
-                context_api: "http://localhost:5000/context".to_string(),
-                health: "http://localhost:5000/health".to_string(),
-                metrics: "http://localhost:5000/metrics".to_string(),
-                websocket: Some("ws://localhost:5000/ws".to_string()),
+                ai_api: _endpoints.ai_api,
+                mcp_api: _endpoints.mcp_api,
+                context_api: _endpoints.context_api,
+                health: _endpoints.health,
+                metrics: _endpoints.metrics,
+                websocket: _endpoints.websocket,
             },
 
             capabilities: EcosystemCapabilities {
@@ -241,41 +251,41 @@ impl SquirrelBiomeOSIntegration {
         self.health_status.status = "registered".to_string();
         self.health_status.timestamp = Utc::now();
 
-        info!("Successfully registered squirrel AI with biomeOS ecosystem");
         Ok(())
     }
 
     /// Start AI intelligence and MCP services
     pub async fn start_ecosystem_services(&mut self) -> Result<(), PrimalError> {
-        info!("Starting squirrel AI ecosystem services");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
         // Initialize AI intelligence
         self.ai_intelligence.initialize().await?;
-        self.health_status.ai_engine_status = "running".to_string();
+        self.health_status.ai_engine_status = STATUS_RUNNING.to_string();
 
         // Initialize MCP integration
         self.mcp_integration.initialize().await?;
-        self.health_status.mcp_server_status = "running".to_string();
+        self.health_status.mcp_server_status = STATUS_RUNNING.to_string();
 
         // Initialize context state management
         self.context_state.initialize().await?;
-        self.health_status.context_manager_status = "running".to_string();
+        self.health_status.context_manager_status = STATUS_RUNNING.to_string();
 
         // Start ecosystem AI services
         self.start_ecosystem_intelligence().await?;
         self.start_mcp_coordination().await?;
         self.start_context_management().await?;
 
-        self.health_status.status = "running".to_string();
+        self.health_status.status = STATUS_RUNNING.to_string();
         self.health_status.timestamp = Utc::now();
 
-        info!("All squirrel AI ecosystem services started successfully");
         Ok(())
     }
 
     /// Start ecosystem intelligence services
     async fn start_ecosystem_intelligence(&mut self) -> Result<(), PrimalError> {
-        info!("Starting ecosystem intelligence services");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
         // Start intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
@@ -284,7 +294,11 @@ impl SquirrelBiomeOSIntegration {
                 if let Err(e) = ai_intelligence.analyze_ecosystem().await {
                     warn!("Ecosystem intelligence analysis error: {}", e);
                 }
-                sleep(Duration::from_secs(60)).await; // Analyze every minute
+                let interval = std::env::var("AI_INTELLIGENCE_INTERVAL_SECS")
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(60);
+                sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -293,7 +307,8 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start MCP coordination services
     async fn start_mcp_coordination(&mut self) -> Result<(), PrimalError> {
-        info!("Starting MCP coordination services");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
@@ -302,7 +317,11 @@ impl SquirrelBiomeOSIntegration {
                 if let Err(e) = mcp_integration.coordinate_mcp_services().await {
                     warn!("MCP coordination error: {}", e);
                 }
-                sleep(Duration::from_secs(30)).await; // Coordinate every 30 seconds
+                let interval = std::env::var("MCP_COORDINATION_INTERVAL_SECS")
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(30);
+                sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -311,7 +330,8 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start context management services
     async fn start_context_management(&mut self) -> Result<(), PrimalError> {
-        info!("Starting context management services");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
         // Start context management background task
         let context_state = self.context_state.clone();
@@ -320,7 +340,11 @@ impl SquirrelBiomeOSIntegration {
                 if let Err(e) = context_state.manage_ecosystem_context().await {
                     warn!("Context management error: {}", e);
                 }
-                sleep(Duration::from_secs(45)).await; // Manage context every 45 seconds
+                let interval = std::env::var("CONTEXT_MANAGEMENT_INTERVAL_SECS")
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(45);
+                sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -370,9 +394,10 @@ impl SquirrelBiomeOSIntegration {
 
     /// Gracefully shutdown ecosystem services
     pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
-        info!("Shutting down squirrel AI ecosystem services");
+        let config_manager = ConfigManager::new();
+        let _endpoints = config_manager.get_biomeos_endpoints();
 
-        self.health_status.status = "shutting_down".to_string();
+        self.health_status.status = STATUS_SHUTTING_DOWN.to_string();
         self.health_status.timestamp = Utc::now();
 
         // Shutdown AI intelligence
@@ -392,7 +417,6 @@ impl SquirrelBiomeOSIntegration {
         self.health_status.status = "shutdown".to_string();
         self.health_status.timestamp = Utc::now();
 
-        info!("Squirrel AI ecosystem services shut down successfully");
         Ok(())
     }
 }
@@ -483,10 +507,10 @@ impl Default for EcosystemServiceRegistration {
     fn default() -> Self {
         Self {
             service_id: "primal-squirrel-ai-default".to_string(),
-            primal_type: "squirrel".to_string(),
+            primal_type: PRIMAL_TYPE.to_string(),
             biome_id: "default-biome".to_string(),
             version: "1.0.0".to_string(),
-            api_version: "biomeOS/v1".to_string(),
+            api_version: API_VERSION.to_string(),
             registration_time: Utc::now(),
             endpoints: EcosystemEndpoints::default(),
             capabilities: EcosystemCapabilities::default(),
@@ -501,12 +525,19 @@ impl Default for EcosystemServiceRegistration {
 impl Default for EcosystemEndpoints {
     fn default() -> Self {
         Self {
-            ai_api: "http://localhost:5000/ai".to_string(),
-            mcp_api: "http://localhost:5000/mcp".to_string(),
-            context_api: "http://localhost:5000/context".to_string(),
-            health: "http://localhost:5000/health".to_string(),
-            metrics: "http://localhost:5000/metrics".to_string(),
-            websocket: Some("ws://localhost:5000/ws".to_string()),
+            ai_api: std::env::var("BIOMEOS_AI_API")
+                .unwrap_or_else(|_| "http://localhost:5000/ai".to_string()),
+            mcp_api: std::env::var("BIOMEOS_MCP_API")
+                .unwrap_or_else(|_| "http://localhost:5000/mcp".to_string()),
+            context_api: std::env::var("BIOMEOS_CONTEXT_API")
+                .unwrap_or_else(|_| "http://localhost:5000/context".to_string()),
+            health: std::env::var("BIOMEOS_HEALTH_API")
+                .unwrap_or_else(|_| "http://localhost:5000/health".to_string()),
+            metrics: std::env::var("BIOMEOS_METRICS_API")
+                .unwrap_or_else(|_| "http://localhost:5000/metrics".to_string()),
+            websocket: std::env::var("BIOMEOS_WEBSOCKET_URL")
+                .ok()
+                .or_else(|| Some("ws://localhost:5000/ws".to_string())),
         }
     }
 }
@@ -573,14 +604,14 @@ mod tests {
     async fn test_squirrel_biomeos_integration_creation() {
         let integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
         assert_eq!(integration.biome_id, "test-biome");
-        assert_eq!(integration.health_status.status, "initializing");
+        assert_eq!(integration.health_status.status, STATUS_INITIALIZING);
     }
 
     #[tokio::test]
     async fn test_ecosystem_service_registration() {
         let registration = EcosystemServiceRegistration::default();
-        assert_eq!(registration.primal_type, "squirrel");
-        assert_eq!(registration.api_version, "biomeOS/v1");
+        assert_eq!(registration.primal_type, PRIMAL_TYPE);
+        assert_eq!(registration.api_version, API_VERSION);
         assert!(registration
             .capabilities
             .ai_capabilities

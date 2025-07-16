@@ -71,8 +71,7 @@ pub struct FederationIntelligence {
 }
 
 /// Ecosystem knowledge base
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EcosystemKnowledge {
     pub primal_capabilities: HashMap<String, Vec<String>>,
     pub resource_patterns: HashMap<String, ResourcePattern>,
@@ -162,8 +161,7 @@ pub struct SafetyConstraints {
 }
 
 /// Primal coordination intelligence
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PrimalCoordination {
     pub primal_health: HashMap<String, f64>,
     pub coordination_patterns: HashMap<String, CoordinationPattern>,
@@ -172,8 +170,7 @@ pub struct PrimalCoordination {
 }
 
 /// Cross-platform intelligence
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CrossPlatformIntelligence {
     pub platform_capabilities: HashMap<String, PlatformCapabilities>,
     pub compatibility_matrix: HashMap<String, Vec<String>>,
@@ -181,8 +178,7 @@ pub struct CrossPlatformIntelligence {
 }
 
 /// Sovereign data intelligence
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SovereignDataIntelligence {
     pub data_ownership_patterns: HashMap<String, OwnershipPattern>,
     pub privacy_optimization: PrivacyOptimization,
@@ -191,8 +187,7 @@ pub struct SovereignDataIntelligence {
 }
 
 /// Universal patterns recognition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UniversalPatterns {
     pub execution_patterns: HashMap<String, ExecutionPattern>,
     pub federation_patterns: HashMap<String, FederationPattern>,
@@ -391,7 +386,19 @@ pub struct Anomaly {
 }
 
 impl AiIntelligence {
-    /// Create new AI capabilities instance
+    /// Create a new AI intelligence system with all engine components
+    ///
+    /// Initializes a comprehensive AI intelligence system with:
+    /// - Intelligence engine for data analysis and pattern recognition
+    /// - Optimization engine for performance and resource optimization
+    /// - Prediction engine for forecasting and trend analysis
+    /// - Automation engine for automated task execution
+    /// - Federation intelligence for cross-primal coordination
+    /// - Zero active predictions and automation tasks initially
+    ///
+    /// # Returns
+    ///
+    /// A new AiIntelligence instance ready for ecosystem intelligence processing
     pub fn new() -> Self {
         Self {
             intelligence_engine: IntelligenceEngine::new(),
@@ -470,8 +477,8 @@ impl AiIntelligence {
         debug!("Generating ecosystem intelligence report");
 
         let ecosystem_health = self.calculate_ecosystem_health().await?;
-        let resource_utilization = self.analyze_resource_utilization().await?;
-        let performance_metrics = self.analyze_performance_metrics().await?;
+        let _resource_utilization = self.analyze_resource_utilization().await?;
+        let _performance_metrics = self.analyze_performance_metrics().await?;
         let recommendations = self.generate_recommendations().await?;
         let predictions = self.get_active_predictions_internal().await?;
         let anomalies = self.detect_anomalies().await?;
@@ -839,10 +846,6 @@ impl Default for SafetyConstraints {
         }
     }
 }
-
-
-
-
 
 impl Default for LoadBalancingStrategy {
     fn default() -> Self {

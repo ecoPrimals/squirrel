@@ -22,7 +22,10 @@ pub struct ToolExecutor {
 }
 
 impl ToolExecutor {
-    /// Create new tool executor
+    /// Create a new tool executor with an empty tool registry
+    ///
+    /// Initializes the executor with an empty HashMap for tracking available tools.
+    /// Tools can be added later using the appropriate methods.
     pub fn new() -> Self {
         Self {
             available_tools: HashMap::new(),

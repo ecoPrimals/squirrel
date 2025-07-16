@@ -3,15 +3,18 @@
 //! Tests the integration between squirrel and songbird orchestration system.
 //! This test verifies that squirrel can properly register with and coordinate through songbird.
 
+use squirrel::biomeos_integration::{HealthStatus, SquirrelBiomeOSIntegration};
 use squirrel::songbird::SongbirdIntegration;
-use squirrel::biomeos_integration::{SquirrelBiomeOSIntegration, HealthStatus};
 
 #[tokio::test]
 async fn test_songbird_integration_basic() {
     // Test basic songbird integration functionality
     let integration = SongbirdIntegration::new();
     // Just check that we can create the integration
-    assert_eq!(integration.config.songbird_endpoint, "http://localhost:8080");
+    assert_eq!(
+        integration.config.songbird_endpoint,
+        "http://localhost:8080"
+    );
     assert_eq!(integration.config.max_retries, 3);
 }
 

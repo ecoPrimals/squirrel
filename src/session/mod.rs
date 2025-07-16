@@ -21,9 +21,19 @@ pub struct SessionConfig {
 
 impl Default for SessionConfig {
     fn default() -> Self {
+        let timeout_secs = std::env::var("SESSION_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(300); // Default 5 minutes
+
+        let max_connections = std::env::var("SESSION_MAX_CONNECTIONS")
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(100);
+
         Self {
-            timeout: std::time::Duration::from_secs(300), // 5 minutes
-            max_connections: 100,
+            timeout: std::time::Duration::from_secs(timeout_secs),
+            max_connections,
             enable_logging: true,
         }
     }
@@ -63,6 +73,15 @@ pub struct SessionManagerImpl {
 }
 
 impl SessionManagerImpl {
+    /// Create a new session manager with the provided configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Configuration settings for session management including timeouts and connection limits
+    ///
+    /// # Returns
+    ///
+    /// A new SessionManagerImpl instance ready to manage sessions
     pub fn new(config: SessionConfig) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),

@@ -40,6 +40,11 @@ pub struct EnhancedRecoveryHandlerImpl {
 }
 
 impl EnhancedRecoveryHandlerImpl {
+    /// Create a new enhanced recovery handler with the specified strategy
+    ///
+    /// # Arguments
+    ///
+    /// * `strategy` - The recovery strategy to use for handling recovery operations
     pub fn new(strategy: EnhancedRecoveryStrategy) -> Self {
         Self { strategy }
     }

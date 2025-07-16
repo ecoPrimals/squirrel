@@ -4,22 +4,20 @@
 
 use squirrel::biomeos_integration::*;
 use squirrel::error::{PrimalError, Result};
-use std::collections::HashMap;
-use tokio_test;
 
 /// Test AI intelligence functionality
 #[tokio::test]
 async fn test_ai_intelligence() -> Result<()> {
     let ai_intelligence = AiIntelligence::new();
-    
+
     // Test basic functionality
     assert_eq!(ai_intelligence.active_predictions, 0);
     assert_eq!(ai_intelligence.automation_tasks, 0);
-    
+
     // Test ecosystem analysis
     let analysis_result = ai_intelligence.generate_ecosystem_report().await?;
-    assert!(analysis_result.recommendations.len() > 0);
-    
+    assert!(!analysis_result.recommendations.is_empty());
+
     Ok(())
 }
 
@@ -27,15 +25,14 @@ async fn test_ai_intelligence() -> Result<()> {
 #[tokio::test]
 async fn test_mcp_integration() -> Result<()> {
     let mut mcp_integration = McpIntegration::new();
-    
+
     // Test coordination session creation
-    let session_id = mcp_integration.create_coordination_session(
-        vec!["test-primal".to_string()],
-        "test-session".to_string()
-    ).await?;
-    
+    let session_id = mcp_integration
+        .create_coordination_session(vec!["test-primal".to_string()], "test-session".to_string())
+        .await?;
+
     assert!(!session_id.is_empty());
-    
+
     Ok(())
 }
 
@@ -43,17 +40,19 @@ async fn test_mcp_integration() -> Result<()> {
 #[tokio::test]
 async fn test_context_state_management() -> Result<()> {
     let mut context_state = ContextState::new();
-    
+
     // Test session creation
-    context_state.create_session_context(
-        "test-session-001".to_string(),
-        Some("user-123".to_string()),
-        "test_context".to_string()
-    ).await?;
-    
+    context_state
+        .create_session_context(
+            "test-session-001".to_string(),
+            Some("user-123".to_string()),
+            "test_context".to_string(),
+        )
+        .await?;
+
     // Verify session was created
     assert_eq!(context_state.get_active_sessions(), 1);
-    
+
     Ok(())
 }
 
@@ -68,15 +67,15 @@ async fn test_ecosystem_client_configuration() -> Result<()> {
         token: Some("test-jwt-token".to_string()),
         trust_domain: "biome.local".to_string(),
     };
-    
+
     assert_eq!(auth_config.auth_type, "ecosystem_jwt");
     assert!(auth_config.client_id.is_some());
     assert_eq!(auth_config.trust_domain, "biome.local");
-    
+
     // Test ecosystem client creation
     let ecosystem_client = EcosystemClient::new();
     assert_eq!(ecosystem_client.songbird_url, "http://localhost:8080");
-    
+
     Ok(())
 }
 
@@ -85,18 +84,24 @@ async fn test_ecosystem_client_configuration() -> Result<()> {
 async fn test_service_registration_structure() -> Result<()> {
     // Create service registration
     let registration = EcosystemServiceRegistration::default();
-    
+
     // Validate registration structure
     assert_eq!(registration.primal_type, "squirrel");
     assert_eq!(registration.service_id, "primal-squirrel-ai-default");
     assert!(!registration.capabilities.ai_capabilities.is_empty());
     assert!(!registration.capabilities.mcp_capabilities.is_empty());
     assert!(!registration.capabilities.context_capabilities.is_empty());
-    
+
     // Validate specific AI capabilities
-    assert!(registration.capabilities.ai_capabilities.contains(&"ecosystem_intelligence".to_string()));
-    assert!(registration.capabilities.ai_capabilities.contains(&"predictive_analytics".to_string()));
-    
+    assert!(registration
+        .capabilities
+        .ai_capabilities
+        .contains(&"ecosystem_intelligence".to_string()));
+    assert!(registration
+        .capabilities
+        .ai_capabilities
+        .contains(&"predictive_analytics".to_string()));
+
     Ok(())
 }
 
@@ -114,7 +119,7 @@ async fn test_health_status_reporting() -> Result<()> {
         ai_requests_processed: 150,
         context_states_managed: 25,
     };
-    
+
     // Validate health status
     assert_eq!(health_status.status, "healthy");
     assert_eq!(health_status.active_sessions, 10);
@@ -123,7 +128,7 @@ async fn test_health_status_reporting() -> Result<()> {
     assert_eq!(health_status.ai_engine_status, "operational");
     assert_eq!(health_status.mcp_server_status, "active");
     assert_eq!(health_status.context_manager_status, "running");
-    
+
     Ok(())
 }
 
@@ -134,12 +139,12 @@ async fn test_error_handling() -> Result<()> {
     let network_error = PrimalError::Network("Connection timeout".to_string());
     let auth_error = PrimalError::Authentication("Invalid JWT token".to_string());
     let internal_error = PrimalError::Internal("Configuration missing".to_string());
-    
+
     // Validate error messages
     assert!(network_error.to_string().contains("Connection timeout"));
     assert!(auth_error.to_string().contains("Invalid JWT token"));
     assert!(internal_error.to_string().contains("Configuration missing"));
-    
+
     Ok(())
 }
 
@@ -147,14 +152,14 @@ async fn test_error_handling() -> Result<()> {
 #[tokio::test]
 async fn test_biomeos_integration_creation() -> Result<()> {
     let integration = SquirrelBiomeOSIntegration::new("test-biome".to_string());
-    
+
     assert_eq!(integration.biome_id, "test-biome");
     assert!(integration.service_id.starts_with("primal-squirrel-ai-"));
     assert_eq!(integration.health_status.status, "initializing");
     assert_eq!(integration.health_status.ai_engine_status, "starting");
     assert_eq!(integration.health_status.mcp_server_status, "starting");
     assert_eq!(integration.health_status.context_manager_status, "starting");
-    
+
     Ok(())
 }
 

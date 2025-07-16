@@ -81,7 +81,7 @@ fn test_authentication_errors() {
 #[test]
 fn test_error_debug_format() {
     let error = MCPError::ValidationFailed("debug test".to_string());
-    let debug_str = format!("{:?}", error);
+    let debug_str = format!("{error:?}");
     assert!(debug_str.contains("ValidationFailed"));
     assert!(debug_str.contains("debug test"));
 }

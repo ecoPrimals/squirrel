@@ -64,8 +64,8 @@ impl EnhancedMCPServer {
     }
 
     /// Get server capabilities
-    pub fn get_capabilities(&self) -> Vec<MCPCapability> {
-        self.config.capabilities.clone()
+    pub fn get_capabilities(&self) -> &Vec<MCPCapability> {
+        &self.config.capabilities
     }
 
     /// Check if server has specific capability

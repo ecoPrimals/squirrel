@@ -22,7 +22,7 @@ mod minimal_core_tests {
         // Test Result type usage - core to MCP protocol
         let success: Result<String> = Ok("success".to_string());
         assert!(success.is_ok());
-        assert_eq!(success.unwrap(), "success");
+        assert_eq!(success.expect("Expected success value"), "success");
 
         let failure: Result<String> = Err(MCPError::InternalError("failure".to_string()));
         assert!(failure.is_err());

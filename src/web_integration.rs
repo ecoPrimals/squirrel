@@ -7,6 +7,10 @@ pub struct WebIntegration {
 }
 
 impl WebIntegration {
+    /// Create a new web integration with default session management
+    ///
+    /// Initializes a new web integration instance with a default session manager
+    /// configured for web-based interactions and session handling.
     pub fn new() -> Self {
         let session_manager = Arc::new(SessionManagerImpl::new(SessionConfig::default()));
         Self { session_manager }

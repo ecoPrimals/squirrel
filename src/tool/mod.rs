@@ -12,6 +12,10 @@ pub struct ToolManager {
 }
 
 impl ToolManager {
+    /// Create a new tool manager with an empty tool registry
+    ///
+    /// The manager initializes with an empty HashMap for tracking tools
+    /// and their statuses, protected by a RwLock for concurrent access.
     pub fn new() -> Self {
         Self {
             tools: RwLock::new(HashMap::new()),

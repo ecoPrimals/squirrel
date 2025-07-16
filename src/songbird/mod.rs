@@ -11,6 +11,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info};
 
 use crate::error::PrimalError;
+use config::ConfigManager;
 
 /// Songbird integration for orchestration
 #[derive(Debug)]
@@ -30,8 +31,7 @@ pub struct SongbirdConfig {
 }
 
 /// Orchestration state
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct OrchestrationState {
     pub active_coordinations: HashMap<String, CoordinationSession>,
     pub primal_status: HashMap<String, PrimalStatus>,
@@ -81,9 +81,22 @@ pub struct HealthStatus {
 }
 
 impl SongbirdIntegration {
+    /// Create a new Songbird integration for ecosystem orchestration
+    ///
+    /// Initializes the integration with default configuration and creates
+    /// the necessary state management structures for coordination and health monitoring.
     pub fn new() -> Self {
+        let config_manager = ConfigManager::new();
+        let external_services = config_manager.get_external_services_config();
+
         Self {
-            config: SongbirdConfig::default(),
+            config: SongbirdConfig {
+                songbird_endpoint: std::env::var("SONGBIRD_URL")
+                    .unwrap_or(external_services.songbird_url),
+                heartbeat_interval: Duration::from_secs(30), // Default from original
+                coordination_timeout: Duration::from_secs(60), // Default from original
+                max_retries: 3,                              // Default from original
+            },
             orchestration_state: Arc::new(RwLock::new(OrchestrationState::default())),
             health_status: HealthStatus {
                 status: "initializing".to_string(),
@@ -164,15 +177,30 @@ impl SongbirdIntegration {
 
 impl Default for SongbirdConfig {
     fn default() -> Self {
+        let heartbeat_interval_secs = std::env::var("SONGBIRD_HEARTBEAT_INTERVAL_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(30);
+
+        let coordination_timeout_secs = std::env::var("SONGBIRD_COORDINATION_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(60);
+
+        let max_retries = std::env::var("SONGBIRD_MAX_RETRIES")
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(3);
+
         Self {
-            songbird_endpoint: "http://localhost:8080".to_string(),
-            heartbeat_interval: Duration::from_secs(30),
-            coordination_timeout: Duration::from_secs(60),
-            max_retries: 3,
+            songbird_endpoint: std::env::var("SONGBIRD_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+            heartbeat_interval: Duration::from_secs(heartbeat_interval_secs),
+            coordination_timeout: Duration::from_secs(coordination_timeout_secs),
+            max_retries,
         }
     }
 }
-
 
 impl Default for SongbirdIntegration {
     fn default() -> Self {

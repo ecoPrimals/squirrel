@@ -7,14 +7,14 @@
 //! - Security → BearDog
 //! - Complex monitoring → Distributed
 
-use squirrel::{PrimalError, VERSION};
 use squirrel::error::Result;
+use squirrel::{PrimalError, VERSION};
 
 #[test]
 fn test_mcp_core_version() {
     // Test 1: Version information is available
     assert!(!VERSION.is_empty());
-    println!("MCP Core Version: {}", VERSION);
+    println!("MCP Core Version: {VERSION}");
 }
 
 #[test]
@@ -45,16 +45,22 @@ fn test_mcp_result_handling() {
 fn test_error_code_consistency() {
     // Test 4: Error codes are consistent for protocol compliance
     // Note: Using simple string checks since PrimalError doesn't have error_code method
-    assert!(PrimalError::Configuration("".to_string()).to_string().contains("Configuration"));
-    assert!(PrimalError::Protocol("".to_string()).to_string().contains("Protocol"));
-    assert!(PrimalError::Internal("".to_string()).to_string().contains("Internal"));
+    assert!(PrimalError::Configuration("".to_string())
+        .to_string()
+        .contains("Configuration"));
+    assert!(PrimalError::Protocol("".to_string())
+        .to_string()
+        .contains("Protocol"));
+    assert!(PrimalError::Internal("".to_string())
+        .to_string()
+        .contains("Internal"));
 }
 
 #[test]
 fn test_error_debug_formatting() {
     // Test 5: Error debug formatting works
     let error = PrimalError::Configuration("debug test".to_string());
-    let debug_str = format!("{:?}", error);
+    let debug_str = format!("{error:?}");
     assert!(debug_str.contains("Configuration"));
     assert!(debug_str.contains("debug test"));
 }

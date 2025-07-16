@@ -3,15 +3,20 @@
 //! This module provides client functionality for communicating with songbird
 //! for service registration and coordination within the biomeOS ecosystem.
 
+use crate::error::PrimalError;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
+use config::AppConfig;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
 use super::{EcosystemServiceRegistration, HealthStatus};
-use crate::error::PrimalError;
+
+// Constants for URL patterns to reduce allocations
+const REGISTER_ENDPOINT: &str = "/api/v1/services/register";
+const HEALTH_ENDPOINT: &str = "/api/v1/health";
 
 /// Client for biomeOS ecosystem communication via songbird
 #[derive(Debug, Clone)]
@@ -123,26 +128,28 @@ pub struct EcosystemMetrics {
 }
 
 impl EcosystemClient {
-    /// Create new ecosystem client
+    /// Create a new EcosystemClient with configuration
     pub fn new() -> Self {
+        let config = AppConfig::from_env().unwrap_or_default();
+        Self::with_config(config)
+    }
+
+    /// Create a new EcosystemClient with custom configuration
+    pub fn with_config(config: AppConfig) -> Self {
         Self {
-            songbird_url: "http://localhost:8080".to_string(), // Default songbird endpoint
+            songbird_url: config.external_services.songbird_url,
             client: reqwest::Client::new(),
-            timeout: Duration::from_secs(30),
-            retry_count: 3,
+            timeout: Duration::from_secs(config.ai_services.timeout_seconds),
+            retry_count: 3, // Could be made configurable
             authentication: AuthenticationConfig::default(),
         }
     }
 
-    /// Create ecosystem client with custom configuration
-    pub fn with_config(songbird_url: String, auth: AuthenticationConfig) -> Self {
-        Self {
-            songbird_url,
-            client: reqwest::Client::new(),
-            timeout: Duration::from_secs(30),
-            retry_count: 3,
-            authentication: auth,
-        }
+    /// Create a new EcosystemClient with explicit URL (for backward compatibility)
+    pub fn with_url(songbird_url: String) -> Self {
+        let mut config = AppConfig::from_env().unwrap_or_default();
+        config.external_services.songbird_url = songbird_url;
+        Self::with_config(config)
     }
 
     /// Register squirrel AI service with songbird
@@ -152,7 +159,7 @@ impl EcosystemClient {
     ) -> Result<RegistrationResponse, PrimalError> {
         info!("Registering squirrel AI service with songbird");
 
-        let url = format!("{}/api/v1/services/register", self.songbird_url);
+        let url = format!("{}{}", self.songbird_url, REGISTER_ENDPOINT);
 
         let response = self
             .make_request_with_auth(
@@ -259,7 +266,7 @@ impl EcosystemClient {
     ) -> Result<HealthCheckResponse, PrimalError> {
         debug!("Getting ecosystem health from songbird");
 
-        let url = format!("{}/api/v1/ecosystem/health", self.songbird_url);
+        let url = format!("{}{}", self.songbird_url, HEALTH_ENDPOINT);
 
         let response = self
             .make_request_with_auth(reqwest::Method::GET, &url, None)
@@ -512,8 +519,8 @@ impl EcosystemClient {
                     &self.authentication.client_id,
                     &self.authentication.client_secret,
                 ) {
-                    let credentials = general_purpose::STANDARD
-                        .encode(format!("{client_id}:{client_secret}"));
+                    let credentials =
+                        general_purpose::STANDARD.encode(format!("{client_id}:{client_secret}"));
                     Ok(format!("Basic {credentials}"))
                 } else {
                     Err(PrimalError::Internal(
@@ -527,6 +534,7 @@ impl EcosystemClient {
         }
     }
 
+    #[allow(dead_code)]
     async fn with_retry<F, Fut, T>(&self, operation: F) -> Result<T, PrimalError>
     where
         F: Fn(&reqwest::Client) -> Fut,
@@ -544,7 +552,7 @@ impl EcosystemClient {
                 Err(_) => {
                     warn!("Request attempt {} timed out", attempt);
                     // Create a simple timeout error without conversion
-                    let timeout_error = format!("Request timeout on attempt {attempt}");
+                    let _timeout_error = format!("Request timeout on attempt {attempt}");
                     last_error = None; // We'll handle this in the final error message
                     break; // Exit retry loop on timeout
                 }
@@ -630,16 +638,14 @@ mod tests {
 
     #[test]
     fn test_ecosystem_client_with_config() {
-        let auth = AuthenticationConfig {
-            auth_type: "basic".to_string(),
-            client_id: Some("squirrel_ai".to_string()),
-            client_secret: Some("ai_secret".to_string()),
-            ..Default::default()
-        };
+        use config::AppConfig;
 
-        let client = EcosystemClient::with_config("http://songbird:9000".to_string(), auth);
-        assert_eq!(client.songbird_url, "http://songbird:9000");
-        assert_eq!(client.authentication.auth_type, "basic");
+        let config = AppConfig::from_env().unwrap_or_default();
+        let client = EcosystemClient::with_config(config);
+
+        // Test that the client was created successfully
+        assert!(!client.songbird_url.is_empty());
+        assert_eq!(client.authentication.auth_type, "ecosystem_jwt");
     }
 
     #[tokio::test]
@@ -663,7 +669,7 @@ mod tests {
         let client = EcosystemClient::new();
 
         // Test broadcast coordination creation
-        let coordination_data = serde_json::json!({"optimization_level": "high"});
+        let _coordination_data = serde_json::json!({"optimization_level": "high"});
 
         // This would fail without a running songbird, but we can test the structure
         assert_eq!(client.songbird_url, "http://localhost:8080");

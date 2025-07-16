@@ -1,14 +1,14 @@
 //! Simple test for the squirrel crate
 //! This test verifies that the basic API works correctly.
 
-use squirrel::{PrimalError, VERSION};
 use squirrel::error::Result;
+use squirrel::{PrimalError, VERSION};
 
 #[test]
 fn test_version() {
     // Test that VERSION is defined and not empty
     assert!(!VERSION.is_empty());
-    println!("Version: {}", VERSION);
+    println!("Version: {VERSION}");
 }
 
 #[test]

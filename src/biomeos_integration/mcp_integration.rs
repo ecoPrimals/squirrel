@@ -19,6 +19,7 @@ pub struct McpIntegration {
     pub message_routing: MessageRouting,
     pub tool_orchestration: ToolOrchestration,
     pub resource_coordination: ResourceCoordination,
+    pub initialized: bool,
 }
 
 /// Active coordination session
@@ -171,7 +172,17 @@ pub struct FailoverRule {
 }
 
 impl McpIntegration {
-    /// Create new MCP integration
+    /// Create a new MCP integration instance with default configuration
+    ///
+    /// Initializes an MCP integration with:
+    /// - Empty coordination sessions HashMap
+    /// - Default active protocols (mcp_2.0, ecosystem_coordination, cross_primal_messaging)
+    /// - Empty message queue
+    /// - Default coordination plan and load balancing configuration
+    ///
+    /// # Returns
+    ///
+    /// A new McpIntegration instance ready for ecosystem coordination
     pub fn new() -> Self {
         Self {
             coordination_sessions: HashMap::new(),
@@ -183,6 +194,7 @@ impl McpIntegration {
             message_routing: MessageRouting::new(),
             tool_orchestration: ToolOrchestration::new(),
             resource_coordination: ResourceCoordination::new(),
+            initialized: false,
         }
     }
 
@@ -199,8 +211,14 @@ impl McpIntegration {
         // Initialize resource coordination
         self.resource_coordination.initialize().await?;
 
+        self.initialized = true;
         info!("MCP integration initialized successfully");
         Ok(())
+    }
+
+    /// Check if MCP integration is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.initialized
     }
 
     /// Coordinate MCP services across the ecosystem
@@ -300,6 +318,7 @@ impl McpIntegration {
         self.tool_orchestration.shutdown().await?;
         self.resource_coordination.shutdown().await?;
 
+        self.initialized = false;
         info!("MCP integration shut down successfully");
         Ok(())
     }
@@ -312,19 +331,20 @@ impl McpIntegration {
         let mut plan = Vec::new();
 
         // Create coordination steps based on request type
+        let participants = &request.participants;
         match request.coordination_type.as_str() {
             "resource_optimization" => {
                 plan.push(CoordinationStep {
                     step_id: "analyze_resources".to_string(),
                     step_type: "analysis".to_string(),
-                    participants: request.participants.clone(),
+                    participants: participants.clone(),
                     estimated_duration: std::time::Duration::from_secs(30),
                     dependencies: vec![],
                 });
                 plan.push(CoordinationStep {
                     step_id: "optimize_allocation".to_string(),
                     step_type: "optimization".to_string(),
-                    participants: request.participants.clone(),
+                    participants: participants.clone(),
                     estimated_duration: std::time::Duration::from_secs(60),
                     dependencies: vec!["analyze_resources".to_string()],
                 });
@@ -333,14 +353,14 @@ impl McpIntegration {
                 plan.push(CoordinationStep {
                     step_id: "assess_load".to_string(),
                     step_type: "assessment".to_string(),
-                    participants: request.participants.clone(),
+                    participants: participants.clone(),
                     estimated_duration: std::time::Duration::from_secs(15),
                     dependencies: vec![],
                 });
                 plan.push(CoordinationStep {
                     step_id: "rebalance_load".to_string(),
                     step_type: "rebalancing".to_string(),
-                    participants: request.participants.clone(),
+                    participants: participants.clone(),
                     estimated_duration: std::time::Duration::from_secs(45),
                     dependencies: vec!["assess_load".to_string()],
                 });
@@ -349,7 +369,7 @@ impl McpIntegration {
                 plan.push(CoordinationStep {
                     step_id: "generic_coordination".to_string(),
                     step_type: "coordination".to_string(),
-                    participants: request.participants.clone(),
+                    participants: participants.clone(),
                     estimated_duration: std::time::Duration::from_secs(60),
                     dependencies: vec![],
                 });
@@ -440,7 +460,12 @@ impl ResourceCoordination {
             load_balancing: LoadBalancingConfig {
                 strategy: "round_robin".to_string(),
                 weights: HashMap::new(),
-                health_check_interval: std::time::Duration::from_secs(30),
+                health_check_interval: std::time::Duration::from_secs(
+                    std::env::var("HEALTH_CHECK_INTERVAL_SECS")
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(30),
+                ),
                 failover_rules: Vec::new(),
             },
         }

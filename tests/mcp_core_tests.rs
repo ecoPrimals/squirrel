@@ -82,7 +82,7 @@ mod protocol_basics {
     fn test_error_debug_formatting() {
         // Test error formatting - important for debugging MCP issues
         let error = MCPError::ValidationFailed("debug test".to_string());
-        let debug_str = format!("{:?}", error);
+        let debug_str = format!("{error:?}");
         assert!(debug_str.contains("ValidationFailed"));
         assert!(debug_str.contains("debug test"));
     }

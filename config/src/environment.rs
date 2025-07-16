@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Environment configuration errors
@@ -8,10 +8,10 @@ use thiserror::Error;
 pub enum EnvironmentError {
     #[error("Missing required environment variable: {0}")]
     MissingVariable(String),
-    
+
     #[error("Invalid environment variable value: {variable} = {value}")]
     InvalidValue { variable: String, value: String },
-    
+
     #[error("Parse error for variable {variable}: {error}")]
     ParseError { variable: String, error: String },
 }
@@ -28,24 +28,27 @@ pub enum Environment {
 impl Environment {
     /// Get environment from MCP_ENV variable
     pub fn from_env() -> Self {
-        match env::var("MCP_ENV").unwrap_or_else(|_| "development".to_string()).as_str() {
+        match env::var("MCP_ENV")
+            .unwrap_or_else(|_| "development".to_string())
+            .as_str()
+        {
             "production" => Environment::Production,
             "staging" => Environment::Staging,
             "testing" => Environment::Testing,
             _ => Environment::Development,
         }
     }
-    
+
     /// Check if running in development mode
     pub fn is_development(&self) -> bool {
         matches!(self, Environment::Development)
     }
-    
+
     /// Check if running in production mode
     pub fn is_production(&self) -> bool {
         matches!(self, Environment::Production)
     }
-    
+
     /// Get configuration file suffix
     pub fn config_suffix(&self) -> &str {
         match self {
@@ -59,7 +62,7 @@ impl Environment {
 
 impl FromStr for Environment {
     type Err = EnvironmentError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "development" | "dev" => Ok(Environment::Development),
@@ -95,28 +98,27 @@ impl NetworkConfig {
                 "127.0.0.1".to_string() // Localhost for development
             }
         });
-        
+
         let port = env::var("MCP_PORT")
             .unwrap_or_else(|_| "8080".to_string())
             .parse()
             .unwrap_or(8080);
 
         // Web UI configuration with environment awareness
-        let web_ui_url = env::var("WEB_UI_URL")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://biomeos-ui:3000".to_string() // Production service name
-                } else {
-                    "http://localhost:3000".to_string() // Development fallback
-                }
-            });
-        
+        let _web_ui_url = env::var("WEB_UI_URL").unwrap_or_else(|_| {
+            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                "http://biomeos-ui:3000".to_string() // Production service name
+            } else {
+                "http://localhost:3000".to_string() // Development fallback
+            }
+        });
+
         let cors_origins = env::var("MCP_CORS_ORIGINS")
             .unwrap_or_else(|_| "http://localhost:3000".to_string())
             .split(',')
             .map(|s| s.trim().to_string())
             .collect();
-        
+
         let request_timeout_ms = env::var("MCP_REQUEST_TIMEOUT_MS")
             .unwrap_or_else(|_| "30000".to_string())
             .parse::<u64>()
@@ -124,7 +126,7 @@ impl NetworkConfig {
                 variable: "MCP_REQUEST_TIMEOUT_MS".to_string(),
                 error: e.to_string(),
             })?;
-        
+
         let max_connections = env::var("MCP_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "100".to_string())
             .parse::<u32>()
@@ -132,7 +134,7 @@ impl NetworkConfig {
                 variable: "MCP_MAX_CONNECTIONS".to_string(),
                 error: e.to_string(),
             })?;
-        
+
         Ok(NetworkConfig {
             host,
             port,
@@ -143,58 +145,59 @@ impl NetworkConfig {
     }
 }
 
-/// Database configuration from environment variables
+/// Database configuration with environment variable support
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
+    /// Database connection string (env: DATABASE_URL)
     pub connection_string: String,
+    /// Maximum number of connections (env: DATABASE_MAX_CONNECTIONS)
     pub max_connections: u32,
-    pub connection_timeout_ms: u64,
-    pub query_timeout_ms: u64,
+    /// Connection timeout in seconds (env: DATABASE_TIMEOUT)
+    pub timeout_seconds: u64,
 }
 
 impl DatabaseConfig {
     /// Load database configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {
-        // Database configuration with environment awareness
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "postgres://postgres:password@nestgate:5432/squirrel_mcp".to_string()
-                } else {
-                    "postgres://postgres:password@localhost:5432/squirrel_mcp".to_string()
+        let env = Environment::from_env();
+        Ok(env.get_database_config())
+    }
+}
+
+impl Environment {
+    /// Get database configuration with environment overrides
+    pub fn get_database_config(&self) -> DatabaseConfig {
+        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            match self {
+                Environment::Production => {
+                    // Production should always have DATABASE_URL set
+                    // This is a fallback that should never be used in production
+                    eprintln!("WARNING: DATABASE_URL not set in production environment");
+                    "postgres://user:password@db:5432/squirrel_production".to_string()
                 }
-            });
-        
+                Environment::Staging => {
+                    "postgres://user:password@db:5432/squirrel_staging".to_string()
+                }
+                Environment::Testing => "sqlite::memory:".to_string(),
+                Environment::Development => "sqlite::memory:".to_string(),
+            }
+        });
+
         let max_connections = env::var("DATABASE_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "10".to_string())
             .parse::<u32>()
-            .map_err(|e| EnvironmentError::ParseError {
-                variable: "DATABASE_MAX_CONNECTIONS".to_string(),
-                error: e.to_string(),
-            })?;
-        
-        let connection_timeout_ms = env::var("DATABASE_CONNECTION_TIMEOUT_MS")
-            .unwrap_or_else(|_| "5000".to_string())
+            .unwrap_or(10);
+
+        let timeout_seconds = env::var("DATABASE_TIMEOUT")
+            .unwrap_or_else(|_| "30".to_string())
             .parse::<u64>()
-            .map_err(|e| EnvironmentError::ParseError {
-                variable: "DATABASE_CONNECTION_TIMEOUT_MS".to_string(),
-                error: e.to_string(),
-            })?;
-        
-        let query_timeout_ms = env::var("DATABASE_QUERY_TIMEOUT_MS")
-            .unwrap_or_else(|_| "30000".to_string())
-            .parse::<u64>()
-            .map_err(|e| EnvironmentError::ParseError {
-                variable: "DATABASE_QUERY_TIMEOUT_MS".to_string(),
-                error: e.to_string(),
-            })?;
-        
-        Ok(DatabaseConfig {
-            connection_string,
+            .unwrap_or(30);
+
+        DatabaseConfig {
+            connection_string: database_url,
             max_connections,
-            connection_timeout_ms,
-            query_timeout_ms,
-        })
+            timeout_seconds,
+        }
     }
 }
 
@@ -214,19 +217,19 @@ impl AIProviderConfig {
     /// Load AI provider configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {
         let openai_api_key = env::var("OPENAI_API_KEY").ok();
-        let openai_endpoint = env::var("OPENAI_ENDPOINT")
-            .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
-        
+        let openai_endpoint =
+            env::var("OPENAI_ENDPOINT").unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+
         let anthropic_api_key = env::var("ANTHROPIC_API_KEY").ok();
         let anthropic_endpoint = env::var("ANTHROPIC_ENDPOINT")
             .unwrap_or_else(|_| "https://api.anthropic.com/v1".to_string());
-        
-        let ollama_endpoint = env::var("OLLAMA_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
-        
-        let default_model = env::var("MCP_DEFAULT_MODEL")
-            .unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
-        
+
+        let ollama_endpoint =
+            env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| "http://localhost:11434".to_string());
+
+        let default_model =
+            env::var("MCP_DEFAULT_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
+
         let request_timeout_ms = env::var("AI_REQUEST_TIMEOUT_MS")
             .unwrap_or_else(|_| "30000".to_string())
             .parse::<u64>()
@@ -234,7 +237,7 @@ impl AIProviderConfig {
                 variable: "AI_REQUEST_TIMEOUT_MS".to_string(),
                 error: e.to_string(),
             })?;
-        
+
         Ok(AIProviderConfig {
             openai_api_key,
             openai_endpoint,
@@ -261,42 +264,38 @@ impl EcosystemConfig {
     /// Load ecosystem configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {
         // Primal endpoints with service discovery
-        let nestgate_endpoint = env::var("NESTGATE_ENDPOINT")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://nestgate:8444".to_string()
-                } else {
-                    "http://localhost:8444".to_string()
-                }
-            });
-        
-        let beardog_endpoint = env::var("BEARDOG_ENDPOINT")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://beardog:8443".to_string()
-                } else {
-                    "http://localhost:8443".to_string()
-                }
-            });
-            
-        let toadstool_endpoint = env::var("TOADSTOOL_ENDPOINT")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://toadstool:8445".to_string()
-                } else {
-                    "http://localhost:8445".to_string()
-                }
-            });
-            
-        let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT")
-            .unwrap_or_else(|_| {
-                if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
-                    "http://biomeos:8446".to_string()
-                } else {
-                    "http://localhost:8446".to_string()
-                }
-            });
-        
+        let nestgate_endpoint = env::var("NESTGATE_ENDPOINT").unwrap_or_else(|_| {
+            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                "http://nestgate:8444".to_string()
+            } else {
+                "http://localhost:8444".to_string()
+            }
+        });
+
+        let beardog_endpoint = env::var("BEARDOG_ENDPOINT").unwrap_or_else(|_| {
+            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                "http://beardog:8443".to_string()
+            } else {
+                "http://localhost:8443".to_string()
+            }
+        });
+
+        let toadstool_endpoint = env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
+            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                "http://toadstool:8445".to_string()
+            } else {
+                "http://localhost:8445".to_string()
+            }
+        });
+
+        let biomeos_endpoint = env::var("BIOMEOS_ENDPOINT").unwrap_or_else(|_| {
+            if env::var("MCP_ENVIRONMENT").unwrap_or_default() == "production" {
+                "http://biomeos:8446".to_string()
+            } else {
+                "http://localhost:8446".to_string()
+            }
+        });
+
         let service_timeout_ms = env::var("ECOSYSTEM_SERVICE_TIMEOUT_MS")
             .unwrap_or_else(|_| "10000".to_string())
             .parse::<u64>()
@@ -304,7 +303,7 @@ impl EcosystemConfig {
                 variable: "ECOSYSTEM_SERVICE_TIMEOUT_MS".to_string(),
                 error: e.to_string(),
             })?;
-        
+
         Ok(EcosystemConfig {
             nestgate_endpoint,
             beardog_endpoint,
@@ -333,7 +332,7 @@ impl EnvironmentConfig {
         let database = DatabaseConfig::from_env()?;
         let ai_providers = AIProviderConfig::from_env()?;
         let ecosystem = EcosystemConfig::from_env()?;
-        
+
         Ok(EnvironmentConfig {
             environment,
             network,
@@ -342,24 +341,24 @@ impl EnvironmentConfig {
             ecosystem,
         })
     }
-    
+
     /// Load configuration with validation
     pub fn load_and_validate() -> Result<Self, EnvironmentError> {
         let config = Self::from_env()?;
         config.validate()?;
         Ok(config)
     }
-    
+
     /// Validate configuration values
     pub fn validate(&self) -> Result<(), EnvironmentError> {
         // Validate port range
-        if self.network.port == 0 || self.network.port > 65535 {
+        if self.network.port == 0 {
             return Err(EnvironmentError::InvalidValue {
                 variable: "MCP_PORT".to_string(),
                 value: self.network.port.to_string(),
             });
         }
-        
+
         // Validate timeout values
         if self.network.request_timeout_ms == 0 {
             return Err(EnvironmentError::InvalidValue {
@@ -367,7 +366,7 @@ impl EnvironmentConfig {
                 value: self.network.request_timeout_ms.to_string(),
             });
         }
-        
+
         // Validate database configuration
         if self.database.connection_string.is_empty() {
             return Err(EnvironmentError::InvalidValue {
@@ -375,7 +374,7 @@ impl EnvironmentConfig {
                 value: "empty".to_string(),
             });
         }
-        
+
         // Validate AI provider endpoints
         if self.ai_providers.openai_endpoint.is_empty() {
             return Err(EnvironmentError::InvalidValue {
@@ -383,7 +382,7 @@ impl EnvironmentConfig {
                 value: "empty".to_string(),
             });
         }
-        
+
         Ok(())
     }
 }
@@ -391,25 +390,31 @@ impl EnvironmentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_environment_from_string() {
-        assert_eq!(Environment::from_str("development").unwrap(), Environment::Development);
-        assert_eq!(Environment::from_str("production").unwrap(), Environment::Production);
+        assert_eq!(
+            Environment::from_str("development").unwrap(),
+            Environment::Development
+        );
+        assert_eq!(
+            Environment::from_str("production").unwrap(),
+            Environment::Production
+        );
         assert!(Environment::from_str("invalid").is_err());
     }
-    
+
     #[test]
     fn test_environment_config_validation() {
         let mut config = EnvironmentConfig::from_env().unwrap();
-        
+
         // Test invalid port
         config.network.port = 0;
         assert!(config.validate().is_err());
-        
+
         // Test invalid timeout
         config.network.port = 8080;
         config.network.request_timeout_ms = 0;
         assert!(config.validate().is_err());
     }
-} 
+}

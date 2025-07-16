@@ -6,25 +6,17 @@
 //! - Cluster coordination and state management
 //! - Performance under various load conditions
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 use uuid::Uuid;
 
-use squirrel::songbird::SquirrelOrchestrationService;
-use universal_patterns::config::ConfigBuilder;
+use squirrel::songbird::SongbirdIntegration;
 use universal_patterns::traits::{PrimalInfo, PrimalState, TaskInfo, TaskStatus};
 
 /// Setup test orchestration service with mock configuration
-fn setup_test_service() -> SquirrelOrchestrationService {
-    let config = ConfigBuilder::new()
-        .songbird()
-        .with_orchestration_enabled(true)
-        .with_endpoint("http://localhost:8082")
-        .build()
-        .unwrap();
-
-    SquirrelOrchestrationService::new(config)
+fn setup_test_service() -> SongbirdIntegration {
+    SongbirdIntegration::new()
 }
 
 /// Benchmark task management operations

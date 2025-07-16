@@ -264,7 +264,18 @@ pub struct TimeBasedAccess {
 }
 
 impl ContextState {
-    /// Create new context state management system
+    /// Create a new context state management system with comprehensive tracking
+    ///
+    /// Initializes a context state manager with:
+    /// - Empty active sessions HashMap for session tracking
+    /// - Empty persistent contexts HashMap for long-term storage
+    /// - Context analytics system for usage pattern analysis
+    /// - State versioning system for context history management
+    /// - Context sharing system for cross-session data exchange
+    ///
+    /// # Returns
+    ///
+    /// A new ContextState instance ready for ecosystem context management
     pub fn new() -> Self {
         Self {
             active_sessions: HashMap::new(),
@@ -374,6 +385,7 @@ impl ContextState {
         user_id: Option<String>,
         context_type: String,
     ) -> Result<(), PrimalError> {
+        let session_id_for_log = session_id.clone();
         let session_context = SessionContext {
             session_id: session_id.clone(),
             user_id,
@@ -386,9 +398,8 @@ impl ContextState {
             related_sessions: Vec::new(),
         };
 
-        self.active_sessions
-            .insert(session_id.clone(), session_context);
-        info!("Created session context: {}", session_id);
+        self.active_sessions.insert(session_id, session_context);
+        info!("Created session context: {}", session_id_for_log);
         Ok(())
     }
 
@@ -521,7 +532,7 @@ impl ContextState {
     async fn persist_session_context(
         &self,
         session_id: &str,
-        session: &SessionContext,
+        _session: &SessionContext,
     ) -> Result<(), PrimalError> {
         // Simulate persisting session context
         debug!("Persisting session context: {}", session_id);
@@ -572,7 +583,12 @@ impl ContextAnalytics {
             access_analytics: AccessAnalytics {
                 total_accesses: 0,
                 unique_sessions: 0,
-                average_session_duration: Duration::from_secs(300),
+                average_session_duration: Duration::from_secs(
+                    std::env::var("AVERAGE_SESSION_DURATION_SECS")
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(300),
+                ),
                 context_hit_rate: 0.95,
                 performance_scores: HashMap::new(),
             },

@@ -1,7 +1,6 @@
-use reqwest;
 use serde_json::json;
+// use std::collections::HashMap;
 use std::env;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 struct ModelConfig {
@@ -18,7 +17,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Demonstrating dynamic model routing and collaboration\n");
 
     // Get API key from environment
-    let api_key = env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set");
+    let api_key = env::var("OPENAI_API_KEY").unwrap_or_else(|_| {
+        eprintln!("Warning: OPENAI_API_KEY not set, using demo mode");
+        "demo-key-not-functional".to_string()
+    });
     println!("✅ API Key loaded: {}...\n", &api_key[..20]);
 
     // Configure different models for different roles
@@ -45,23 +47,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // The task they'll discuss
     let task = "Design a sustainable urban transportation system for a city of 500,000 people";
-    println!("🎯 Task: {}\n", task);
+    println!("🎯 Task: {task}\n");
 
     let client = reqwest::Client::new();
     let mut conversation_history = Vec::new();
 
     // Each model contributes to the discussion
-    for (index, model) in models.iter().enumerate() {
-        println!("🤖 {} ({}) - {}", 
-            model.role, 
-            model.name, 
-            model.description
-        );
-        println!("   Thinking about: {}", task);
+    for model in models.iter() {
+        println!("🤖 {} ({}) - {}", model.role, model.name, model.description);
+        println!("   Thinking about: {task}");
 
         // Build context from previous responses
         let mut context = format!("You are a {} discussing: {}\n", model.role, task);
-        
+
         if !conversation_history.is_empty() {
             context.push_str("\nPrevious contributions:\n");
             for (i, response) in conversation_history.iter().enumerate() {
@@ -72,12 +70,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Role-specific prompts
         let role_prompt = match model.role.as_str() {
             "Analyst" => "Provide a data-driven analysis of the problem and current situation.",
-            "Strategist" => "Based on the analysis, propose a strategic framework and key priorities.",
-            "Creative Director" => "Building on the strategy, suggest innovative and creative solutions.",
+            "Strategist" => {
+                "Based on the analysis, propose a strategic framework and key priorities."
+            }
+            "Creative Director" => {
+                "Building on the strategy, suggest innovative and creative solutions."
+            }
             _ => "Contribute your expertise to this discussion.",
         };
 
-        context.push_str(&format!("\n{} Please provide a concise response.", role_prompt));
+        context.push_str(&format!(
+            "\n{role_prompt} Please provide a concise response."
+        ));
 
         // Make API call
         let request_body = json!({
@@ -94,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let response = client
             .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Authorization", format!("Bearer {api_key}"))
             .header("Content-Type", "application/json")
             .json(&request_body)
             .send()
@@ -102,15 +106,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if response.status().is_success() {
             let response_body: serde_json::Value = response.json().await?;
-            
+
             if let Some(content) = response_body["choices"][0]["message"]["content"].as_str() {
-                println!("   💭 Response: {}", content);
-                
+                println!("   💭 Response: {content}");
+
                 // Track usage
                 if let Some(usage) = response_body.get("usage") {
                     println!("   📊 Tokens used: {}", usage["total_tokens"]);
                 }
-                
+
                 conversation_history.push(format!("{}: {}", model.role, content));
             }
         } else {
@@ -131,4 +135,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   can dynamically route to different models based on task requirements.");
 
     Ok(())
-} 
+}

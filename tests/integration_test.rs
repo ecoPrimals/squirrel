@@ -1,16 +1,19 @@
+use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
 use squirrel::protocol::types::*;
 use squirrel::session::*;
-use squirrel::biomeos_integration::*;
 
 #[tokio::test]
 async fn test_session_manager_creation() {
     // Test 1: Session manager configuration
     let config = SessionConfig::default();
     let manager = SessionManagerImpl::new(config);
-    
+
     // Test that we can create sessions
-    let session_id = manager.create_session(Some("test_client".to_string())).await.unwrap();
+    let session_id = manager
+        .create_session(Some("test_client".to_string()))
+        .await
+        .unwrap();
     assert!(!session_id.is_empty());
 }
 
@@ -44,7 +47,7 @@ mod error_tests {
         let network_error = PrimalError::Network("connection failed".to_string());
         let auth_error = PrimalError::Authentication("unauthorized".to_string());
         let internal_error = PrimalError::Internal("internal error".to_string());
-        
+
         assert!(network_error.to_string().contains("connection failed"));
         assert!(auth_error.to_string().contains("unauthorized"));
         assert!(internal_error.to_string().contains("internal error"));
@@ -123,10 +126,10 @@ mod session_tests {
     async fn test_session_state() {
         // Test 12: Session state
         let state = SessionState::Active;
-        assert_eq!(format!("{:?}", state), "Active");
-        
+        assert_eq!(format!("{state:?}"), "Active");
+
         let inactive_state = SessionState::Inactive;
-        assert_eq!(format!("{:?}", inactive_state), "Inactive");
+        assert_eq!(format!("{inactive_state:?}"), "Inactive");
     }
 
     #[tokio::test]
@@ -134,15 +137,15 @@ mod session_tests {
         // Test 13: Session manager functionality
         let config = SessionConfig::default();
         let manager = SessionManagerImpl::new(config);
-        
+
         // Test session creation
         let session_id = manager.create_session(None).await.unwrap();
         assert!(!session_id.is_empty());
-        
+
         // Test session retrieval
         let session = manager.get_session(&session_id).await.unwrap();
         assert!(session.is_some());
-        
+
         // Test session count
         assert_eq!(manager.get_active_session_count().await, 1);
     }
@@ -202,7 +205,7 @@ mod biomeos_integration_tests {
             health_check: HealthCheckConfig::default(),
             metadata: HashMap::new(),
         };
-        
+
         assert_eq!(registration.primal_type, "squirrel");
         assert_eq!(registration.service_id, "squirrel-001");
     }
@@ -220,7 +223,7 @@ mod biomeos_integration_tests {
             ai_requests_processed: 1000,
             context_states_managed: 50,
         };
-        
+
         assert_eq!(health_status.status, "healthy");
         assert_eq!(health_status.active_sessions, 5);
         assert_eq!(health_status.ai_requests_processed, 1000);
@@ -246,7 +249,7 @@ mod biomeos_integration_tests {
 // Coverage summary: 21 tests covering comprehensive functionality
 // This provides excellent test coverage for the essential components:
 // - Error handling (4 tests)
-// - Protocol types (4 tests)  
+// - Protocol types (4 tests)
 // - Session management (4 tests)
 // - BiomeOS integration (8 tests)
 // - Basic integration (1 test)
