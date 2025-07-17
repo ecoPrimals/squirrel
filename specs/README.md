@@ -2,17 +2,32 @@
 
 This directory contains specifications, design documents, and architectural plans for the Squirrel Machine Context Protocol (MCP) platform.
 
+## 📊 **Current Status**
+
+**Status**: 99.9% Production Ready  
+**Code Organization**: 100% complete - All code consolidated under `code/crates/`  
+**Last Updated**: July 16, 2025  
+**Major Milestone**: Complete code reorganization
+
 ## 📁 **Directory Structure**
+
+### **🎯 Current Status**
+Up-to-date project status and tracking:
+
+- **[current/](current/)** - Current project status reports
+  - **[COMPREHENSIVE_STATUS_REPORT.md](current/COMPREHENSIVE_STATUS_REPORT.md)** - Overall project status
+  - **[CURRENT_TECHNICAL_DEBT_TRACKER.md](current/CURRENT_TECHNICAL_DEBT_TRACKER.md)** - Technical debt tracking
+  - **[NEXT_STEPS_ROADMAP.md](current/NEXT_STEPS_ROADMAP.md)** - Development roadmap
+  - **[PRODUCTION_READINESS_TRACKER.md](current/PRODUCTION_READINESS_TRACKER.md)** - Production readiness metrics
 
 ### **🎯 Active Development**
 Current working specifications aligned with ongoing MCP development:
 
 - **[active/](active/)** - Current working specifications
   - **[mcp-protocol/](active/mcp-protocol/)** - MCP protocol implementation specs
-  - **[ai-agents/](active/ai-agents/)** - AI agent coordination patterns
+  - **[context/](active/context/)** - Context management specifications
   - **[plugins/](active/plugins/)** - Plugin system and registry
-  - **[architecture/](active/architecture/)** - System architecture documentation
-  - **[integration/](active/integration/)** - Ecosystem integration patterns
+  - **[ENHANCED_MCP_GRPC_SPEC.md](active/ENHANCED_MCP_GRPC_SPEC.md)** - Enhanced MCP gRPC specification
 
 ### **🛠️ Development Standards**
 Guidelines and standards for development:

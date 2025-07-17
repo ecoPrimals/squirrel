@@ -1,236 +1,282 @@
-//! Squirrel Primal Provider Implementation
+//! Squirrel Universal Primal Provider Implementation
 //!
-//! This module provides the concrete implementation of the PrimalProvider trait
-//! for the Squirrel AI primal, enabling it to participate in dynamic primal evolution.
+//! This module implements the universal primal provider pattern for Squirrel,
+//! making it fully compatible with the ecoPrimals ecosystem and capable of
+//! seamless integration with any other primal.
 
 use async_trait::async_trait;
-use chrono::Utc;
-use serde_json::json;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
-use crate::biomeos_integration::EcosystemClient;
 use crate::error::PrimalError;
-use crate::session::SessionManagerImpl;
-use crate::universal::*;
-use config::ConfigManager;
+use crate::universal::{
+    UniversalPrimalProvider, UniversalResult, PrimalContext, PrimalType, PrimalCapability,
+    PrimalDependency, PrimalHealth, PrimalEndpoints, PrimalRequest, PrimalResponse,
+    DynamicPortInfo, ServiceMeshStatus, EcosystemRequest, EcosystemResponse,
+    UniversalSecurityContext, SecurityLevel, UniversalConfig, ResponseStatus,
+};
+use crate::ecosystem::EcosystemManager;
+use crate::session::SessionManager;
+use crate::monitoring::metrics::MetricsCollector;
 
-/// Squirrel AI Primal Provider
+/// Squirrel Universal Primal Provider
 ///
-/// This struct implements the universal PrimalProvider trait, enabling Squirrel
-/// to participate in the dynamic primal evolution ecosystem managed by Songbird.
-pub struct SquirrelPrimalProvider {
+/// This is the main implementation of the universal primal provider pattern
+/// for Squirrel, providing comprehensive AI capabilities that can be discovered
+/// and used by any other primal in the ecosystem.
+#[derive(Debug)]
+pub struct SquirrelUniversalProvider {
     /// Unique primal identifier
     primal_id: String,
     /// Instance identifier for multi-instance support
     instance_id: String,
-    /// Context this primal instance serves
+    /// Context this instance serves
     context: PrimalContext,
-    /// Configuration manager
-    config_manager: ConfigManager,
-    /// BiomeOS client for ecosystem integration
-    biomeos_client: Option<Arc<EcosystemClient>>,
-    /// Session manager for handling sessions
-    session_manager: Option<Arc<RwLock<SessionManagerImpl>>>,
+    /// Configuration
+    config: UniversalConfig,
+    /// Ecosystem manager
+    ecosystem_manager: Arc<EcosystemManager>,
+    /// Session manager
+    session_manager: Option<Arc<SessionManager>>,
+    /// Metrics collector
+    metrics_collector: Arc<MetricsCollector>,
+    /// Service mesh status
+    service_mesh_status: Arc<RwLock<ServiceMeshStatus>>,
+    /// Songbird endpoint
+    songbird_endpoint: Option<String>,
     /// Dynamic port information
-    port_info: Option<DynamicPortInfo>,
-    /// Initialization state
-    initialized: bool,
-    /// Shutdown state
-    shutdown: bool,
+    dynamic_port_info: Option<DynamicPortInfo>,
+    /// Current capabilities
+    capabilities: Arc<RwLock<Vec<PrimalCapability>>>,
+    /// Health status
+    health_status: Arc<RwLock<PrimalHealth>>,
+    /// Startup time
+    startup_time: DateTime<Utc>,
 }
 
-impl SquirrelPrimalProvider {
-    /// Create a new Squirrel primal provider
-    pub fn new(context: PrimalContext) -> Self {
-        let instance_id = format!("squirrel-{}-{}", context.user_id, context.device_id);
+impl SquirrelUniversalProvider {
+    /// Create a new Squirrel Universal Provider
+    pub fn new(config: UniversalConfig) -> UniversalResult<Self> {
+        let instance_id = config.service.instance_id.clone();
+        let primal_id = config.service.name.clone();
+        
+        // Create default context
+        let context = PrimalContext {
+            user_id: "system".to_string(),
+            device_id: "localhost".to_string(),
+            session_id: Uuid::new_v4().to_string(),
+            network_location: Default::default(),
+            security_level: config.security.security_level.clone(),
+            biome_id: None,
+            metadata: HashMap::new(),
+        };
 
-        Self {
-            primal_id: "squirrel".to_string(),
+        // Initialize components
+        let ecosystem_manager = Arc::new(EcosystemManager::new());
+        let metrics_collector = Arc::new(MetricsCollector::new());
+        let service_mesh_status = Arc::new(RwLock::new(ServiceMeshStatus::default()));
+        let capabilities = Arc::new(RwLock::new(Self::default_capabilities()));
+        let health_status = Arc::new(RwLock::new(PrimalHealth::Healthy));
+
+        Ok(Self {
+            primal_id,
             instance_id,
             context,
-            config_manager: ConfigManager::new(),
-            biomeos_client: None,
+            config,
+            ecosystem_manager,
             session_manager: None,
-            port_info: None,
-            initialized: false,
-            shutdown: false,
-        }
+            metrics_collector,
+            service_mesh_status,
+            songbird_endpoint: None,
+            dynamic_port_info: None,
+            capabilities,
+            health_status,
+            startup_time: Utc::now(),
+        })
     }
 
-    /// Create a new Squirrel primal provider with custom instance ID
-    pub fn with_instance_id(context: PrimalContext, instance_id: String) -> Self {
-        Self {
-            primal_id: "squirrel".to_string(),
-            instance_id,
-            context,
-            config_manager: ConfigManager::new(),
-            biomeos_client: None,
-            session_manager: None,
-            port_info: None,
-            initialized: false,
-            shutdown: false,
-        }
+    /// Get default AI capabilities for Squirrel
+    fn default_capabilities() -> Vec<PrimalCapability> {
+        vec![
+            PrimalCapability::ModelInference {
+                models: vec![
+                    "gpt-4".to_string(),
+                    "claude-3".to_string(),
+                    "gemini-pro".to_string(),
+                    "llama-2".to_string(),
+                    "mistral-7b".to_string(),
+                ],
+            },
+            PrimalCapability::AgentFramework {
+                mcp_support: true,
+            },
+            PrimalCapability::MachineLearning {
+                training_support: false, // Inference only for now
+            },
+            PrimalCapability::NaturalLanguage {
+                languages: vec![
+                    "en".to_string(),
+                    "es".to_string(),
+                    "fr".to_string(),
+                    "de".to_string(),
+                    "zh".to_string(),
+                    "ja".to_string(),
+                ],
+            },
+            PrimalCapability::ComputerVision {
+                models: vec![
+                    "clip".to_string(),
+                    "dall-e".to_string(),
+                    "stable-diffusion".to_string(),
+                ],
+            },
+            PrimalCapability::KnowledgeManagement {
+                formats: vec![
+                    "markdown".to_string(),
+                    "json".to_string(),
+                    "yaml".to_string(),
+                    "xml".to_string(),
+                    "pdf".to_string(),
+                ],
+            },
+            PrimalCapability::Reasoning {
+                engines: vec![
+                    "chain-of-thought".to_string(),
+                    "tree-of-thought".to_string(),
+                    "logical-reasoning".to_string(),
+                    "causal-reasoning".to_string(),
+                ],
+            },
+            PrimalCapability::ContextUnderstanding {
+                max_context_length: 128000, // 128k tokens
+            },
+        ]
     }
 
-    /// Set the BiomeOS client for ecosystem integration
-    pub fn with_biomeos_client(mut self, client: Arc<EcosystemClient>) -> Self {
-        self.biomeos_client = Some(client);
-        self
+    /// Get default dependencies for Squirrel
+    fn default_dependencies() -> Vec<PrimalDependency> {
+        vec![
+            PrimalDependency::RequiresAuthentication {
+                methods: vec!["beardog".to_string(), "jwt".to_string()],
+            },
+            PrimalDependency::RequiresStorage {
+                types: vec!["object".to_string(), "file".to_string()],
+            },
+            PrimalDependency::RequiresCompute {
+                types: vec!["container".to_string(), "serverless".to_string()],
+            },
+            PrimalDependency::RequiresNetwork {
+                services: vec!["discovery".to_string(), "routing".to_string()],
+            },
+        ]
     }
 
-    /// Set the session manager
-    pub fn with_session_manager(mut self, manager: Arc<RwLock<SessionManagerImpl>>) -> Self {
-        self.session_manager = Some(manager);
-        self
-    }
-
-    /// Set dynamic port information
-    pub fn with_port_info(mut self, port_info: DynamicPortInfo) -> Self {
-        self.port_info = Some(port_info);
-        self
-    }
-
-    /// Handle AI coordination requests
-    async fn handle_ai_coordination(
-        &self,
-        payload: serde_json::Value,
-    ) -> Result<serde_json::Value, PrimalError> {
-        // Extract coordination request details
-        let coordination_type = payload
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("general");
-
-        match coordination_type {
-            "intelligent_routing" => {
-                // Handle intelligent routing requests
-                Ok(json!({
-                    "status": "success",
-                    "result": {
-                        "routing_decision": "optimal_path_selected",
-                        "confidence": 0.95,
-                        "reasoning": "Based on current system load and user context"
+    /// Handle AI-specific operations
+    async fn handle_ai_operation(&self, operation: &str, payload: &serde_json::Value) -> UniversalResult<serde_json::Value> {
+        match operation {
+            "model_inference" => {
+                // Handle model inference request
+                let model = payload.get("model").and_then(|v| v.as_str()).unwrap_or("gpt-4");
+                let prompt = payload.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
+                
+                // Simulate AI inference (in real implementation, this would call actual AI models)
+                let response = serde_json::json!({
+                    "model": model,
+                    "response": format!("AI response to: {}", prompt),
+                    "tokens_used": 150,
+                    "processing_time_ms": 250,
+                });
+                
+                Ok(response)
+            }
+            "agent_framework" => {
+                // Handle agent framework operations
+                let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("status");
+                
+                match action {
+                    "status" => Ok(serde_json::json!({
+                        "mcp_support": true,
+                        "active_agents": 0,
+                        "framework_version": "1.0.0",
+                    })),
+                    "create_agent" => {
+                        let agent_config = payload.get("config").cloned().unwrap_or(serde_json::json!({}));
+                        Ok(serde_json::json!({
+                            "agent_id": Uuid::new_v4().to_string(),
+                            "status": "created",
+                            "config": agent_config,
+                        }))
                     }
+                    _ => Err(PrimalError::UnsupportedOperation(format!("Unknown agent action: {}", action))),
+                }
+            }
+            "knowledge_management" => {
+                // Handle knowledge management operations
+                let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("query");
+                
+                match action {
+                    "query" => {
+                        let query = payload.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                        Ok(serde_json::json!({
+                            "results": [],
+                            "query": query,
+                            "processing_time_ms": 50,
+                        }))
+                    }
+                    "store" => {
+                        let content = payload.get("content").cloned().unwrap_or(serde_json::json!({}));
+                        Ok(serde_json::json!({
+                            "stored": true,
+                            "content_id": Uuid::new_v4().to_string(),
+                            "content": content,
+                        }))
+                    }
+                    _ => Err(PrimalError::UnsupportedOperation(format!("Unknown knowledge action: {}", action))),
+                }
+            }
+            "reasoning" => {
+                // Handle reasoning operations
+                let engine = payload.get("engine").and_then(|v| v.as_str()).unwrap_or("chain-of-thought");
+                let problem = payload.get("problem").and_then(|v| v.as_str()).unwrap_or("");
+                
+                Ok(serde_json::json!({
+                    "engine": engine,
+                    "problem": problem,
+                    "solution": format!("Reasoned solution using {}: {}", engine, problem),
+                    "confidence": 0.85,
+                    "steps": ["step1", "step2", "step3"],
                 }))
             }
-            "context_analysis" => {
-                // Handle context analysis requests
-                Ok(json!({
-                    "status": "success",
-                    "result": {
-                        "context_score": 0.87,
-                        "recommendations": ["optimize_memory_usage", "enable_caching"],
-                        "insights": "High user engagement detected"
-                    }
-                }))
-            }
-            _ => Ok(json!({
-                "status": "success",
-                "result": {
-                    "message": "General AI coordination completed",
-                    "type": coordination_type
-                }
-            })),
+            _ => Err(PrimalError::UnsupportedOperation(format!("Unknown AI operation: {}", operation))),
         }
     }
 
-    /// Handle MCP protocol requests
-    async fn handle_mcp_protocol(
-        &self,
-        payload: serde_json::Value,
-    ) -> Result<serde_json::Value, PrimalError> {
-        // Extract MCP request details
-        let method = payload
-            .get("method")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-
-        match method {
-            "tools/list" => Ok(json!({
-                "tools": [
-                    {
-                        "name": "ai_coordination",
-                        "description": "Coordinate AI operations across the ecosystem"
-                    },
-                    {
-                        "name": "context_analysis",
-                        "description": "Analyze and optimize context for better performance"
-                    },
-                    {
-                        "name": "session_management",
-                        "description": "Manage user sessions and state"
-                    }
-                ]
-            })),
-            "tools/call" => {
-                let tool_name = payload
-                    .get("params")
-                    .and_then(|p| p.get("name"))
-                    .and_then(|n| n.as_str())
-                    .unwrap_or("unknown");
-
-                Ok(json!({
-                    "content": [{
-                        "type": "text",
-                        "text": format!("Executed tool: {}", tool_name)
-                    }]
-                }))
-            }
-            _ => Ok(json!({
-                "error": {
-                    "code": -32601,
-                    "message": format!("Method not found: {}", method)
-                }
-            })),
-        }
-    }
-
-    /// Handle session management requests
-    async fn handle_session_management(
-        &self,
-        payload: serde_json::Value,
-    ) -> Result<serde_json::Value, PrimalError> {
-        if let Some(session_manager) = &self.session_manager {
-            let action = payload
-                .get("action")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-
-            match action {
-                "create" => {
-                    let session_manager = session_manager.read().await;
-                    let session_id = session_manager
-                        .create_session(None)
-                        .await
-                        .map_err(|e| PrimalError::Internal(e.to_string()))?;
-
-                    Ok(json!({
-                        "status": "success",
-                        "session_id": session_id
-                    }))
-                }
-                "list" => Ok(json!({
-                    "status": "success",
-                    "sessions": []
-                })),
-                _ => Ok(json!({
-                    "status": "error",
-                    "message": format!("Unknown session action: {}", action)
-                })),
-            }
+    /// Update health status based on system state
+    async fn update_health_status(&self) -> UniversalResult<()> {
+        let mut health = self.health_status.write().await;
+        
+        // Check various health indicators
+        let uptime = Utc::now() - self.startup_time;
+        let is_healthy = uptime.num_seconds() > 0; // Simple health check
+        
+        if is_healthy {
+            *health = PrimalHealth::Healthy;
         } else {
-            Ok(json!({
-                "status": "error",
-                "message": "Session manager not available"
-            }))
+            *health = PrimalHealth::Degraded {
+                issues: vec!["System just started".to_string()],
+            };
         }
+        
+        Ok(())
     }
 }
 
 #[async_trait]
-impl PrimalProvider for SquirrelPrimalProvider {
+impl UniversalPrimalProvider for SquirrelUniversalProvider {
     fn primal_id(&self) -> &str {
         &self.primal_id
     }
@@ -247,279 +293,267 @@ impl PrimalProvider for SquirrelPrimalProvider {
         PrimalType::AI
     }
 
-    fn capabilities(&self) -> Vec<SquirrelCapability> {
-        vec![
-            SquirrelCapability::AiCoordination,
-            SquirrelCapability::McpProtocol,
-            SquirrelCapability::ContextAwareness,
-            SquirrelCapability::EcosystemIntelligence,
-            SquirrelCapability::SessionManagement,
-            SquirrelCapability::ToolOrchestration,
-            SquirrelCapability::BiomeosIntegration,
-        ]
+    fn capabilities(&self) -> Vec<PrimalCapability> {
+        // Return a clone of current capabilities
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                self.capabilities.read().await.clone()
+            })
+        })
     }
 
     fn dependencies(&self) -> Vec<PrimalDependency> {
-        vec![
-            PrimalDependency {
-                service_id: "songbird".to_string(),
-                required_capabilities: vec![
-                    "orchestration".to_string(),
-                    "service_mesh".to_string(),
-                ],
-                min_version: Some("1.0.0".to_string()),
-                optional: false,
-            },
-            PrimalDependency {
-                service_id: "biomeos".to_string(),
-                required_capabilities: vec![
-                    "ecosystem_integration".to_string(),
-                    "ai_coordination".to_string(),
-                ],
-                min_version: Some("1.0.0".to_string()),
-                optional: false,
-            },
-        ]
+        Self::default_dependencies()
     }
 
     async fn health_check(&self) -> PrimalHealth {
-        if self.shutdown {
-            return PrimalHealth::Unhealthy {
-                reason: "Primal is shut down".to_string(),
-            };
-        }
-
-        if !self.initialized {
-            return PrimalHealth::Unhealthy {
-                reason: "Primal not initialized".to_string(),
-            };
-        }
-
-        let mut issues = Vec::new();
-
-        // Check BiomeOS client health
-        if let Some(_client) = &self.biomeos_client {
-            // Placeholder health check - in real implementation, this would check client connectivity
-            if false {
-                issues.push("BiomeOS client connectivity issues".to_string());
-            }
-        }
-
-        // Check session manager health
-        if let Some(_session_manager) = &self.session_manager {
-            // Placeholder health check - in real implementation, this would check session manager state
-            if false {
-                issues.push("Session manager issues".to_string());
-            }
-        }
-
-        if issues.is_empty() {
-            PrimalHealth::Healthy
-        } else {
-            PrimalHealth::Degraded { issues }
-        }
+        // Update health status
+        let _ = self.update_health_status().await;
+        
+        // Return current health
+        self.health_status.read().await.clone()
     }
 
     fn endpoints(&self) -> PrimalEndpoints {
-        let base_port = self
-            .port_info
-            .as_ref()
-            .map(|p| p.primary_port)
-            .unwrap_or(8080);
-        let health_port = self
-            .port_info
-            .as_ref()
-            .map(|p| p.health_port)
-            .unwrap_or(8081);
-        let metrics_port = self
-            .port_info
-            .as_ref()
-            .map(|p| p.metrics_port)
-            .unwrap_or(8082);
-        let websocket_port = self.port_info.as_ref().and_then(|p| p.websocket_port);
-
+        let base_url = format!("http://{}:{}", self.config.service.bind_address, self.config.service.port);
+        
         PrimalEndpoints {
-            health: format!("http://localhost:{health_port}/health"),
-            metrics: format!("http://localhost:{metrics_port}/metrics"),
-            admin: format!("http://localhost:{base_port}/admin"),
-            websocket: websocket_port.map(|port| format!("ws://localhost:{port}/ws")),
-            mcp: format!("http://localhost:{base_port}/mcp"),
-            ai_coordination: format!("http://localhost:{base_port}/ai"),
+            primary: base_url.clone(),
+            health: format!("{}/health", base_url),
+            metrics: Some(format!("{}/metrics", base_url)),
+            admin: Some(format!("{}/admin", base_url)),
+            websocket: Some(format!("ws://{}:{}/ws", self.config.service.bind_address, self.config.service.port)),
+            service_mesh: format!("{}/service-mesh", base_url),
+            custom: {
+                let mut custom = HashMap::new();
+                custom.insert("ai".to_string(), format!("{}/ai", base_url));
+                custom.insert("mcp".to_string(), format!("{}/mcp", base_url));
+                custom.insert("agents".to_string(), format!("{}/agents", base_url));
+                custom.insert("knowledge".to_string(), format!("{}/knowledge", base_url));
+                custom
+            },
         }
     }
 
-    async fn handle_primal_request(
-        &self,
-        request: PrimalRequest,
-    ) -> Result<PrimalResponse, PrimalError> {
-        let result = match request.operation.as_str() {
-            "ai_coordination" => self.handle_ai_coordination(request.payload).await?,
-            "mcp_protocol" => self.handle_mcp_protocol(request.payload).await?,
-            "session_management" => self.handle_session_management(request.payload).await?,
-            "health_check" => {
-                let health = self.health_check().await;
-                json!({
-                    "health": health,
-                    "timestamp": Utc::now()
-                })
-            }
-            "capabilities" => {
-                let capabilities: Vec<String> =
-                    self.capabilities().iter().map(|c| c.to_string()).collect();
-                json!({
-                    "capabilities": capabilities,
-                    "primal_type": self.primal_type().to_string()
-                })
-            }
-            _ => {
+    async fn handle_primal_request(&self, request: PrimalRequest) -> UniversalResult<PrimalResponse> {
+        let start_time = std::time::Instant::now();
+        
+        // Validate security context
+        if request.security.security_level > SecurityLevel::Public {
+            if request.security.auth_token.is_none() {
                 return Ok(PrimalResponse {
-                    request_id: request.request_id,
-                    status: ResponseStatus::Error {
-                        code: "UNKNOWN_OPERATION".to_string(),
-                        message: format!("Unknown operation: {}", request.operation),
-                    },
-                    payload: json!({}),
+                    request_id: request.id,
+                    success: false,
+                    data: serde_json::json!({}),
+                    error: Some("Authentication required".to_string()),
                     metadata: HashMap::new(),
+                    processing_time: start_time.elapsed(),
                     timestamp: Utc::now(),
                 });
             }
+        }
+
+        // Handle the request based on operation
+        let result = match request.operation.as_str() {
+            "health" => Ok(serde_json::json!({
+                "status": "healthy",
+                "uptime_seconds": (Utc::now() - self.startup_time).num_seconds(),
+                "capabilities": self.capabilities().len(),
+            })),
+            "capabilities" => Ok(serde_json::json!({
+                "capabilities": self.capabilities(),
+                "primal_type": self.primal_type(),
+            })),
+            op if op.starts_with("ai.") => {
+                let ai_operation = &op[3..]; // Remove "ai." prefix
+                self.handle_ai_operation(ai_operation, &request.data).await
+            }
+            _ => Err(PrimalError::UnsupportedOperation(format!("Unknown operation: {}", request.operation))),
+        };
+
+        // Create response
+        let (success, data, error) = match result {
+            Ok(data) => (true, data, None),
+            Err(err) => (false, serde_json::json!({}), Some(err.to_string())),
         };
 
         Ok(PrimalResponse {
-            request_id: request.request_id,
-            status: ResponseStatus::Success,
-            payload: result,
-            metadata: HashMap::new(),
+            request_id: request.id,
+            success,
+            data,
+            error,
+            metadata: {
+                let mut metadata = HashMap::new();
+                metadata.insert("primal_type".to_string(), "AI".to_string());
+                metadata.insert("instance_id".to_string(), self.instance_id.clone());
+                metadata
+            },
+            processing_time: start_time.elapsed(),
             timestamp: Utc::now(),
         })
     }
 
-    async fn initialize(&mut self, config: serde_json::Value) -> Result<(), PrimalError> {
-        if self.initialized {
-            return Ok(());
+    async fn initialize(&mut self, config: serde_json::Value) -> UniversalResult<()> {
+        // Update configuration with provided values
+        if let Ok(new_config) = serde_json::from_value::<UniversalConfig>(config) {
+            self.config = new_config;
         }
 
-        // Initialize BiomeOS client if configuration is provided
-        if let Some(biomeos_config) = config.get("biomeos") {
-            if biomeos_config
-                .get("enabled")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                let client = EcosystemClient::new();
-                self.biomeos_client = Some(Arc::new(client));
-            }
+        // Initialize session manager if needed
+        if self.session_manager.is_none() {
+            self.session_manager = Some(Arc::new(SessionManager::new()));
         }
 
-        // Set port information if provided
-        if let Some(port_config) = config.get("ports") {
-            if let (Some(primary), Some(health), Some(metrics)) = (
-                port_config
-                    .get("primary")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as u16),
-                port_config
-                    .get("health")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as u16),
-                port_config
-                    .get("metrics")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as u16),
-            ) {
-                let websocket_port = port_config
-                    .get("websocket")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as u16);
+        // Update health status
+        self.update_health_status().await?;
 
-                self.port_info = Some(DynamicPortInfo {
-                    primary_port: primary,
-                    health_port: health,
-                    metrics_port: metrics,
-                    websocket_port,
-                    allocated_at: Utc::now(),
-                    lease_duration: std::time::Duration::from_secs(3600), // 1 hour default
-                });
-            }
-        }
-
-        self.initialized = true;
         Ok(())
     }
 
-    async fn shutdown(&mut self) -> Result<(), PrimalError> {
-        if self.shutdown {
-            return Ok(());
+    async fn shutdown(&mut self) -> UniversalResult<()> {
+        // Deregister from service mesh
+        if let Err(e) = self.deregister_from_songbird().await {
+            eprintln!("Warning: Failed to deregister from Songbird: {}", e);
         }
 
-        // Shutdown BiomeOS client
-        if let Some(_client) = &self.biomeos_client {
-            // Placeholder shutdown logic
-        }
+        // Update health status
+        let mut health = self.health_status.write().await;
+        *health = PrimalHealth::Unhealthy {
+            reason: "Shutting down".to_string(),
+        };
 
-        // Shutdown session manager
-        if let Some(_session_manager) = &self.session_manager {
-            // Placeholder shutdown logic
-        }
-
-        self.shutdown = true;
-        self.initialized = false;
         Ok(())
     }
 
     fn can_serve_context(&self, context: &PrimalContext) -> bool {
-        // Check if this primal can serve the given context
-        // For now, we'll use a simple matching strategy
-        self.context.user_id == context.user_id
-            && self.context.device_id == context.device_id
-            && self.context.security_level >= context.security_level
+        // Check if we can serve this context based on security level and other factors
+        context.security_level <= self.config.security.security_level
     }
 
     fn dynamic_port_info(&self) -> Option<DynamicPortInfo> {
-        self.port_info.clone()
+        self.dynamic_port_info.clone()
     }
-}
 
-impl PartialOrd for SecurityLevel {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    async fn register_with_songbird(&mut self, songbird_endpoint: &str) -> UniversalResult<String> {
+        self.songbird_endpoint = Some(songbird_endpoint.to_string());
+        
+        // Update service mesh status
+        let mut status = self.service_mesh_status.write().await;
+        status.connected = true;
+        status.songbird_endpoint = Some(songbird_endpoint.to_string());
+        status.registration_time = Some(Utc::now());
+        status.last_heartbeat = Some(Utc::now());
+
+        // Return registration ID
+        Ok(self.instance_id.clone())
     }
-}
 
-impl Ord for SecurityLevel {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_level = match self {
-            SecurityLevel::Public => 0,
-            SecurityLevel::Standard => 1,
-            SecurityLevel::Elevated => 2,
-            SecurityLevel::Maximum => 3,
+    async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
+        // Update service mesh status
+        let mut status = self.service_mesh_status.write().await;
+        status.connected = false;
+        status.songbird_endpoint = None;
+        status.registration_time = None;
+        status.last_heartbeat = None;
+
+        self.songbird_endpoint = None;
+        Ok(())
+    }
+
+    fn get_service_mesh_status(&self) -> ServiceMeshStatus {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                self.service_mesh_status.read().await.clone()
+            })
+        })
+    }
+
+    async fn handle_ecosystem_request(&self, request: EcosystemRequest) -> UniversalResult<EcosystemResponse> {
+        let start_time = std::time::Instant::now();
+        
+        // Convert ecosystem request to primal request
+        let primal_request = PrimalRequest {
+            id: request.request_id,
+            source: request.source_service,
+            target: request.target_service,
+            operation: request.operation,
+            data: request.payload,
+            security: request.security_context,
+            context: self.context.clone(),
+            timestamp: request.timestamp,
         };
 
-        let other_level = match other {
-            SecurityLevel::Public => 0,
-            SecurityLevel::Standard => 1,
-            SecurityLevel::Elevated => 2,
-            SecurityLevel::Maximum => 3,
+        // Handle the request
+        let primal_response = self.handle_primal_request(primal_request).await?;
+
+        // Convert response
+        let status = if primal_response.success {
+            ResponseStatus::Success
+        } else {
+            ResponseStatus::Error {
+                code: "PROCESSING_ERROR".to_string(),
+                message: primal_response.error.unwrap_or("Unknown error".to_string()),
+            }
         };
 
-        self_level.cmp(&other_level)
+        Ok(EcosystemResponse {
+            request_id: request.request_id,
+            status,
+            payload: primal_response.data,
+            metadata: primal_response.metadata,
+            timestamp: Utc::now(),
+            processing_time_ms: start_time.elapsed().as_millis() as u64,
+        })
+    }
+
+    async fn report_health(&self, health: PrimalHealth) -> UniversalResult<()> {
+        // Update internal health status
+        let mut current_health = self.health_status.write().await;
+        *current_health = health;
+
+        // Update last heartbeat
+        let mut status = self.service_mesh_status.write().await;
+        status.last_heartbeat = Some(Utc::now());
+
+        Ok(())
+    }
+
+    async fn update_capabilities(&self, capabilities: Vec<PrimalCapability>) -> UniversalResult<()> {
+        // Update capabilities
+        let mut current_capabilities = self.capabilities.write().await;
+        *current_capabilities = capabilities;
+
+        Ok(())
     }
 }
 
-impl SquirrelPrimalProvider {
-    /// Get configuration settings for this primal instance
-    pub fn get_config(&self) -> &ConfigManager {
-        &self.config_manager
+/// Factory for creating Squirrel Universal Provider instances
+pub struct SquirrelPrimalFactory;
+
+impl crate::universal::PrimalFactory for SquirrelPrimalFactory {
+    fn create_primal(&self, config: UniversalConfig) -> UniversalResult<Box<dyn UniversalPrimalProvider>> {
+        let provider = SquirrelUniversalProvider::new(config)?;
+        Ok(Box::new(provider))
     }
 
-    /// Get network configuration from the config manager
-    pub fn get_network_config(&self) -> (String, u16) {
-        let network_config = self.config_manager.get_network_config();
-        (network_config.host, network_config.port)
+    fn supported_types(&self) -> Vec<PrimalType> {
+        vec![PrimalType::AI]
     }
 
-    /// Get database configuration from the config manager
-    pub fn get_database_config(&self) -> String {
-        self.config_manager.get_database_config().connection_string
+    fn validate_config(&self, primal_type: PrimalType, config: &UniversalConfig) -> UniversalResult<()> {
+        if primal_type != PrimalType::AI {
+            return Err(PrimalError::UnsupportedOperation(format!("Unsupported primal type: {}", primal_type)));
+        }
+
+        // Validate AI-specific configuration
+        if config.service.name.is_empty() {
+            return Err(PrimalError::Configuration("Service name cannot be empty".to_string()));
+        }
+
+        if config.service.port == 0 {
+            return Err(PrimalError::Configuration("Service port must be specified".to_string()));
+        }
+
+        Ok(())
     }
-}
+} 

@@ -1,1 +1,0 @@
-            security: crate::protocol::types::SecurityMetadata::default(), 
