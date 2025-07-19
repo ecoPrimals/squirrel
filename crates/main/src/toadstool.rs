@@ -3,20 +3,21 @@
 //! This module provides integration with the ToadStool compute primal for
 //! intensive AI operations, distributed computing, and resource management.
 
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-use crate::ecosystem::{EcosystemConfig, EcosystemManager};
 use crate::error::PrimalError;
-use crate::monitoring::metrics::MetricsCollector;
-use crate::session::SessionManager;
-use squirrel_mcp_config::{Config, DefaultConfigManager};
-use uuid::Uuid;
+use crate::universal::{PrimalCapability, PrimalContext, UniversalResult};
+use squirrel_mcp_config::DefaultConfigManager;
 
 /// ToadStool compute integration for intensive AI operations
 #[derive(Debug)]
@@ -396,7 +397,7 @@ impl ToadStoolIntegration {
         }
 
         // Update registration status
-        let mut state = self.compute_state.write().await;
+        let mut state = self.compute_state.write();
         state.registered = true;
 
         info!("Successfully registered with ToadStool");
@@ -432,7 +433,7 @@ impl ToadStoolIntegration {
         })?;
 
         // Update compute state with discovered nodes
-        let mut state = self.compute_state.write().await;
+        let mut state = self.compute_state.write();
         for node in nodes {
             state.compute_nodes.insert(node.node_id.clone(), node);
         }
@@ -494,7 +495,7 @@ impl ToadStoolIntegration {
             .map_err(|e| PrimalError::Internal(format!("Failed to parse job response: {}", e)))?;
 
         // Update local state
-        let mut state = self.compute_state.write().await;
+        let mut state = self.compute_state.write();
         state.active_jobs.insert(job_id.clone(), job);
 
         info!("Successfully submitted job: {}", job_id);
@@ -566,7 +567,7 @@ impl ToadStoolIntegration {
         }
 
         // Update local state
-        let mut state = self.compute_state.write().await;
+        let mut state = self.compute_state.write();
         if let Some(job) = state.active_jobs.get_mut(job_id) {
             job.status = JobStatus::Cancelled;
         }
@@ -610,7 +611,7 @@ impl ToadStoolIntegration {
 
     /// Update health status
     pub async fn update_health(&mut self) -> Result<(), PrimalError> {
-        let state = self.compute_state.read().await;
+        let state = self.compute_state.read();
 
         self.health_status.timestamp = Utc::now();
         self.health_status.active_jobs = state.active_jobs.len() as u32;
@@ -662,7 +663,7 @@ impl ToadStoolIntegration {
 
         // Cancel all active jobs
         let active_jobs: Vec<String> = {
-            let state = self.compute_state.read().await;
+            let state = self.compute_state.read();
             state.active_jobs.keys().cloned().collect()
         };
 

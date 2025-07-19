@@ -6,7 +6,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
@@ -19,7 +19,103 @@ use crate::error::Result;
 use crate::manager::ContextManager;
 use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
-use crate::ContextTracker;
+
+
+/// Learning request type for context optimization
+#[derive(Debug, Clone)]
+pub enum LearningRequestType {
+    ContextOptimization,
+    PatternAnalysis,
+    PerformanceOptimization,
+}
+
+/// Learning request for queuing optimization tasks
+#[derive(Debug, Clone)]
+pub struct LearningRequest {
+    pub context_id: String,
+    pub request_type: LearningRequestType,
+    pub priority: u8,
+    pub metadata: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// Context usage pattern analysis results
+#[derive(Debug, Clone, Default)]
+pub struct ContextUsagePattern {
+    pub frequency: f64,
+    pub efficiency: f64,
+    pub error_rate: f64,
+    pub complexity_score: f64,
+}
+
+impl ContextUsagePattern {
+    pub fn requires_learning_intervention(&self) -> bool {
+        self.efficiency < 0.7 || self.error_rate > 0.1 || self.complexity_score > 0.8
+    }
+    
+    pub fn get_priority(&self) -> u8 {
+        if self.error_rate > 0.2 { 1 } // High priority
+        else if self.efficiency < 0.5 { 2 } // Medium priority  
+        else { 3 } // Low priority
+    }
+    
+    pub fn to_metadata(&self) -> std::collections::HashMap<String, serde_json::Value> {
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("frequency".to_string(), serde_json::json!(self.frequency));
+        metadata.insert("efficiency".to_string(), serde_json::json!(self.efficiency));
+        metadata.insert("error_rate".to_string(), serde_json::json!(self.error_rate));
+        metadata.insert("complexity_score".to_string(), serde_json::json!(self.complexity_score));
+        metadata
+    }
+}
+
+/// State change pattern analysis results
+#[derive(Debug, Clone)]
+pub struct StateChangePatternAnalysis {
+    pub suggests_optimization: bool,
+    pub optimization_type: String,
+    pub confidence: f64,
+}
+
+/// Context monitoring results for tracking
+#[derive(Debug, Clone)]
+pub struct ContextMonitoringResults {
+    pub total_contexts: usize,
+    pub contexts_needing_intervention: usize,
+    pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Analyze state change patterns to identify optimization opportunities
+fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePatternAnalysis {
+    // Analyze patterns in state changes
+    let has_rapid_changes = state_changes.len() > 5; // More than 5 changes suggests high activity
+    let has_error_patterns = state_changes.iter()
+        .any(|change| change.change_type == "error" || change.change_type == "failure");
+    
+    let suggests_optimization = has_rapid_changes || has_error_patterns;
+    let optimization_type = if has_error_patterns {
+        "error_reduction".to_string()
+    } else if has_rapid_changes {
+        "state_stabilization".to_string()
+    } else {
+        "general_optimization".to_string()
+    };
+    
+    let confidence = if has_error_patterns { 0.9 } else { 0.6 };
+    
+    StateChangePatternAnalysis {
+        suggests_optimization,
+        optimization_type,
+        confidence,
+    }
+}
+
+/// State change for pattern analysis
+#[derive(Debug, Clone)]
+pub struct StateChange {
+    pub change_type: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub metadata: std::collections::HashMap<String, String>,
+}
 
 /// Learning integration configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -226,28 +322,182 @@ impl Default for IntegrationStats {
 impl LearningIntegration {
     /// Create a new learning integration layer
     pub async fn new(system_config: Arc<LearningSystemConfig>) -> Result<Self> {
-        let config = Arc::new(LearningIntegrationConfig::default());
+        // Create enhanced configuration based on system configuration
+        let integration_config = Self::build_integration_config(&system_config).await?;
+        let config = Arc::new(integration_config);
+
+        // Initialize state based on system configuration
+        let initial_state = Self::determine_initial_state(&system_config);
+        
+        // Pre-configure component managers based on system settings
+        let (context_manager, rule_manager) = Self::initialize_managers(&system_config).await?;
+        
+        // Setup visualization system if enabled in configuration
+        let visualization_system = if system_config.enable_visualization {
+            Some(Arc::new(
+                VisualizationSystem::new_with_config(system_config.clone()).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Visualization setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Visualization disabled in system configuration");
+            None
+        };
+        
+        // Configure learning engine with system-specific parameters
+        let learning_engine = if system_config.enable_learning_engine {
+            let engine_config = Self::derive_engine_config(&system_config);
+            Some(Arc::new(
+                LearningEngine::new(engine_config).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Learning engine setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Learning engine disabled in system configuration");
+            None
+        };
+        
+        // Initialize metrics collection based on configuration
+        let learning_metrics = if system_config.enable_metrics {
+            let metrics_config = Self::derive_metrics_config(&system_config);
+            Some(Arc::new(
+                LearningMetrics::new(metrics_config).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Learning metrics setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Learning metrics disabled in system configuration");
+            None
+        };
+        
+        // Configure adaptive rule system with system parameters
+        let adaptive_rule_system = if system_config.enable_adaptive_rules {
+            let rule_config = Self::derive_rule_system_config(&system_config);
+            Some(Arc::new(
+                AdaptiveRuleSystem::new(rule_config).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Adaptive rule system setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Adaptive rule system disabled in system configuration");
+            None
+        };
+        
+        // Setup reward system based on configuration
+        let reward_system = if system_config.enable_reward_system {
+            let reward_config = Self::derive_reward_config(&system_config);
+            Some(Arc::new(
+                RewardSystem::new(reward_config).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Reward system setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Reward system disabled in system configuration");
+            None
+        };
+        
+        // Configure policy network with system-derived parameters
+        let policy_network = if system_config.enable_policy_network {
+            let policy_config = system_config.policy_network_config.clone();
+            Some(Arc::new(
+                PolicyNetwork::new(policy_config).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Policy network setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Policy network disabled in system configuration");
+            None
+        };
+        
+        // Initialize context learning manager with system configuration
+        let context_learning_manager = if system_config.enable_context_manager {
+            Some(Arc::new(
+                ContextLearningManager::new(system_config.clone()).await
+                    .map_err(|e| crate::error::ContextError::InitializationFailed(format!("Context learning manager setup failed: {}", e)))?
+            ))
+        } else {
+            debug!("Context learning manager disabled in system configuration");
+            None
+        };
+        
+        info!(
+            "Learning integration initialized with configuration: learning_rate={}, exploration_rate={}, components_enabled={}",
+            system_config.learning_rate,
+            system_config.exploration_rate,
+            Self::count_enabled_components(&system_config)
+        );
 
         Ok(Self {
             config,
-            context_manager: None,
-            rule_manager: None,
-            visualization_system: None,
-            learning_engine: None,
-            context_learning_manager: None,
-            reward_system: None,
-            policy_network: None,
-            learning_metrics: None,
-            adaptive_rule_system: None,
-            state: Arc::new(RwLock::new(IntegrationState {
-                status: IntegrationStatus::Initializing,
-                last_update: Utc::now(),
-                active_integrations: Vec::new(),
-                errors: Vec::new(),
-            })),
+            context_manager,
+            rule_manager,
+            visualization_system,
+            learning_engine,
+            context_learning_manager,
+            reward_system,
+            policy_network,
+            learning_metrics,
+            adaptive_rule_system,
+            state: Arc::new(RwLock::new(initial_state)),
             stats: Arc::new(Mutex::new(IntegrationStats::default())),
             task_handles: Arc::new(Mutex::new(Vec::new())),
         })
+    }
+    
+    /// Build integration configuration from system configuration
+    async fn build_integration_config(system_config: &LearningSystemConfig) -> Result<LearningIntegrationConfig> {
+        let mut integration_config = LearningIntegrationConfig::default();
+        
+        // Apply system configuration overrides
+        integration_config.enable_context_manager = system_config.enable_context_manager;
+        integration_config.enable_rule_manager = system_config.enable_adaptive_rules;
+        integration_config.enable_visualization = system_config.enable_visualization;
+        integration_config.update_interval = system_config.learning_interval;
+        integration_config.enable_auto_triggers = system_config.enable_auto_triggers;
+        integration_config.trigger_thresholds = system_config.trigger_thresholds.clone();
+        
+        debug!("Built integration config from system configuration");
+        Ok(integration_config)
+    }
+    
+    /// Determine initial state based on system configuration
+    fn determine_initial_state(system_config: &LearningSystemConfig) -> IntegrationState {
+        let status = if system_config.auto_start {
+            IntegrationStatus::Active
+        } else {
+            IntegrationStatus::Initializing
+        };
+        
+        IntegrationState {
+            status,
+            last_update: Utc::now(),
+            active_integrations: 0,
+            errors: Vec::new(),
+        }
+    }
+    
+    /// Initialize component managers based on system configuration
+    async fn initialize_managers(system_config: &LearningSystemConfig) -> Result<(Option<Arc<ContextManager>>, Option<Arc<RuleManager>>)> {
+        let context_manager = if system_config.enable_context_manager {
+            Some(Arc::new(ContextManager::new()))
+        } else {
+            None
+        };
+        
+        let rule_manager = if system_config.enable_rule_manager {
+            Some(Arc::new(RuleManager::new()))
+        } else {
+            None
+        };
+        
+        Ok((context_manager, rule_manager))
+    }
+    
+    /// Count enabled components for logging
+    fn count_enabled_components(system_config: &LearningSystemConfig) -> usize {
+        let mut count = 0;
+        if system_config.enable_learning_engine { count += 1; }
+        if system_config.enable_context_manager { count += 1; }
+        if system_config.enable_metrics { count += 1; }
+        if system_config.enable_visualization { count += 1; }
+        if system_config.enable_adaptive_rules { count += 1; }
+        if system_config.enable_reward_system { count += 1; }
+        if system_config.enable_policy_network { count += 1; }
+        count
     }
 
     /// Initialize the integration layer
@@ -440,8 +690,82 @@ impl LearningIntegration {
     async fn monitor_context_changes(refs: &IntegrationRefs) -> Result<()> {
         // Monitor context changes and trigger learning if needed
         if let Some(context_manager) = &refs.context_manager {
-            // Check for context changes (simplified implementation)
-            debug!("Monitoring context changes");
+            debug!("Starting comprehensive context change monitoring");
+            
+            // Get active contexts and analyze patterns
+            let active_contexts = context_manager.get_active_contexts().await.unwrap_or_else(|e| {
+                warn!("Failed to get active contexts: {}", e);
+                Vec::new()
+            });
+            
+            debug!("Monitoring {} active contexts", active_contexts.len());
+            
+            // Analyze context changes for learning opportunities
+            for context in &active_contexts {
+                // Track context usage patterns
+                let usage_pattern = context_manager.analyze_context_usage(&context.id).await.unwrap_or_else(|e| {
+                    warn!("Failed to analyze usage for context {}: {}", context.id, e);
+                    ContextUsagePattern::default()
+                });
+                
+                // Check if context requires learning intervention
+                if usage_pattern.requires_learning_intervention() {
+                    info!("Context {} shows patterns requiring learning intervention", context.id);
+                    
+                    // Trigger learning for context optimization
+                    if let Some(learning_engine) = &refs.learning_engine {
+                        let learning_request = LearningRequest {
+                            context_id: context.id.clone(),
+                            request_type: LearningRequestType::ContextOptimization,
+                            priority: usage_pattern.get_priority(),
+                            metadata: usage_pattern.to_metadata(),
+                        };
+                        
+                        match learning_engine.queue_learning_request(learning_request).await {
+                            Ok(_) => {
+                                debug!("Queued learning request for context {}", context.id);
+                            }
+                            Err(e) => {
+                                warn!("Failed to queue learning request for context {}: {}", context.id, e);
+                            }
+                        }
+                    }
+                }
+                
+                // Track context transitions and state changes
+                let state_changes = context_manager.get_recent_state_changes(&context.id, 10).await.unwrap_or_else(|e| {
+                    warn!("Failed to get state changes for context {}: {}", context.id, e);
+                    Vec::new()
+                });
+                
+                if !state_changes.is_empty() {
+                    debug!("Context {} has {} recent state changes", context.id, state_changes.len());
+                    
+                    // Analyze state change patterns for learning opportunities
+                    let pattern_analysis = analyze_state_change_patterns(&state_changes);
+                    if pattern_analysis.suggests_optimization {
+                        info!("State change patterns in context {} suggest optimization opportunities", context.id);
+                    }
+                }
+            }
+            
+            // Update context manager metrics based on monitoring
+            let monitoring_results = ContextMonitoringResults {
+                total_contexts: active_contexts.len(),
+                contexts_needing_intervention: active_contexts.iter()
+                    .filter(|c| context_manager.context_needs_intervention(&c.id).unwrap_or(false))
+                    .count(),
+                monitoring_timestamp: chrono::Utc::now(),
+            };
+            
+            // Store monitoring results for trend analysis
+            context_manager.update_monitoring_results(monitoring_results).await.unwrap_or_else(|e| {
+                warn!("Failed to update monitoring results: {}", e);
+            });
+            
+            debug!("Context change monitoring completed successfully");
+        } else {
+            debug!("No context manager available for monitoring");
         }
 
         Ok(())

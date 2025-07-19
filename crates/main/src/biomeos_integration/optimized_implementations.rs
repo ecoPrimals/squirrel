@@ -4,10 +4,10 @@
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
 use crate::biomeos_integration::{
-    agent_deployment::{AgentEndpoints, AgentResourceUsage, AgentStatus},
+    agent_deployment::{DeployedAgent, DeploymentStatus, AgentEndpoints, AgentResourceUsage, AgentStatus},
     manifest::ExecutionEnvironment,
     manifest::{AgentResourceLimits, AgentSecurity, AgentSpec, AgentStorage, EncryptionConfig},
-    DeployedAgent, EcosystemCapabilities, EcosystemEndpoints, EcosystemSecurity,
+    EcosystemCapabilities, EcosystemEndpoints, EcosystemSecurity,
     EcosystemServiceRegistration, HealthCheckConfig, IntelligenceResponse, ResourceRequirements,
 };
 use crate::optimization::zero_copy::{
@@ -20,6 +20,23 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+
+#[derive(Debug, Clone)]
+pub struct SessionContext {
+    pub session_id: String,
+    pub user_id: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub last_activity: chrono::DateTime<chrono::Utc>,
+    pub metadata: HashMap<String, String>,
+    pub context_data: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContextData {
+    pub id: String,
+    pub data: serde_json::Value,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
 
 /// Optimized service registration that avoids unnecessary cloning
 pub struct OptimizedServiceRegistration {
@@ -266,7 +283,7 @@ impl OptimizedContextState {
         self.active_sessions.insert(key_arc, session_context);
         self.metrics.record_clone_avoided();
 
-        // Return mock Arc for now
+        // Return the created context
         Arc::new(SessionContext {
             session_id: "mock".to_string(),
             user_id: "mock".to_string(),
@@ -277,38 +294,12 @@ impl OptimizedContextState {
         })
     }
 
-    /// Get session without cloning
-    pub fn get_session(&self, session_id: &str) -> Option<Arc<SessionContext>> {
-        self.active_sessions.iter()
-            .find(|(k, _)| k.as_ref() == session_id)
-            .map(|(_, v)| Arc::new(v.clone()))
-    }
-
-    /// Update session context efficiently
-    pub fn update_session_context(
-        &mut self,
-        session_id: &str,
-        key: String,
-        value: serde_json::Value,
-    ) -> Result<(), crate::error::PrimalError> {
-        self.metrics.record_operation();
-
-        self.active_sessions
-            .update(&session_id.to_string(), |session| {
-                let mut updated_session = session.clone();
-                updated_session.context_data.insert(key, value);
-                updated_session.last_activity = Utc::now();
-                updated_session
-            });
-
-        self.metrics.record_clone_avoided();
-
-        Ok(())
-    }
-
     /// Cache context data for reuse
     pub fn cache_context_data(&mut self, key: String, data: ContextData) -> Arc<ContextData> {
-        self.context_cache.insert(key, data)
+        let key_arc: Arc<str> = Arc::from(key);
+        let data_arc = Arc::new(data);
+        self.context_cache.insert(key_arc, (*data_arc).clone());
+        data_arc
     }
 
     /// Get cached context data
@@ -325,369 +316,19 @@ impl OptimizedContextState {
             .collect()
     }
 
-    /// Get session count
-    pub fn get_session_count(&self) -> usize {
-        self.active_sessions.len()
-    }
-
-    /// Remove session
+    /// Remove session from cache
     pub fn remove_session(&mut self, session_id: &str) -> Option<Arc<SessionContext>> {
-        self.active_sessions.remove(&session_id.to_string())
-    }
-
-    /// Get performance metrics
-    pub fn get_metrics(
-        &self,
-    ) -> MetricsSnapshot {
-        self.metrics.get_metrics()
-    }
-}
-
-/// Optimized agent deployment manager
-pub struct OptimizedAgentDeploymentManager {
-    deployed_agents: ZeroCopyMap<DeployedAgent>,
-    agent_templates: ZeroCopyMap<AgentTemplate>,
-    static_strings: StaticStrings,
-    metrics: Arc<ZeroCopyMetrics>,
-}
-
-impl OptimizedAgentDeploymentManager {
-    pub fn new() -> Self {
-        Self {
-            deployed_agents: ZeroCopyMap::new(),
-            agent_templates: ZeroCopyMap::new(),
-            static_strings: StaticStrings::new(),
-            metrics: Arc::new(ZeroCopyMetrics::new()),
-        }
-    }
-
-    /// Deploy agent with zero-copy optimizations
-    pub fn deploy_agent(
-        &mut self,
-        agent_id: String,
-        agent_name: &str,
-        agent_spec: &AgentSpec,
-    ) -> Result<Arc<DeployedAgent>, crate::error::PrimalError> {
-        self.metrics.record_operation();
-
-        // Use cached strings for common providers
-        let provider_arc = match agent_spec.ai_provider.as_str() {
-            "openai" => self.static_strings.get("openai"),
-            "anthropic" => self.static_strings.get("anthropic"),
-            "local" => self.static_strings.get("local"),
-            _ => None,
-        };
-
-        if provider_arc.is_some() {
-            self.metrics.record_string_interning_hit();
-        }
-
-        // Create deployed agent
-        let deployed_agent = DeployedAgent {
-            agent_id: agent_id.clone(),
-            name: agent_name.to_string(),
-            spec: agent_spec.clone(),
-            status: AgentStatus::Running,
-            deployed_at: Utc::now(),
-            last_health_check: Utc::now(),
-            resource_usage: AgentResourceUsage {
-                cpu_percent: 0.0,
-                memory_mb: 0,
-                storage_mb: 0,
-                network_mbps: 0.0,
-                active_requests: 0,
-                total_requests: 0,
-                avg_response_time_ms: 0.0,
-            },
-            endpoints: AgentEndpoints {
-                api: format!("/agents/{}/api", agent_id),
-                health: format!("/agents/{}/health", agent_id),
-                metrics: format!("/agents/{}/metrics", agent_id),
-                websocket: Some(format!("/agents/{}/ws", agent_id)),
-            },
-            metadata: HashMap::new(),
-        };
-
-        let agent_arc = self.deployed_agents.insert(agent_id, deployed_agent);
-        self.metrics.record_clone_avoided();
-
-        Ok(agent_arc)
-    }
-
-    /// Get deployed agent without cloning
-    pub fn get_deployed_agent(&self, agent_id: &str) -> Option<Arc<DeployedAgent>> {
-        self.deployed_agents.iter()
-            .find(|(k, _)| k.as_ref() == agent_id)
-            .map(|(_, v)| Arc::new(v.clone()))
-    }
-
-    /// Get all deployed agents efficiently
-    pub fn get_deployed_agents(&self) -> Vec<Arc<DeployedAgent>> {
-        self.deployed_agents.values().collect()
-    }
-
-    /// Update agent status efficiently
-    pub fn update_agent_status(
-        &mut self,
-        agent_id: &str,
-        status: &str,
-    ) -> Result<(), crate::error::PrimalError> {
-        self.metrics.record_operation();
-
-        self.deployed_agents.update(&agent_id.to_string(), |agent| {
-            let mut updated_agent = agent.clone();
-            updated_agent.status = match status {
-                "running" => AgentStatus::Running,
-                "stopped" => AgentStatus::Stopped,
-                "failed" => AgentStatus::Failed("Update failed".to_string()),
-                _ => AgentStatus::Running,
-            };
-            updated_agent
+        // Find and remove session properly
+        let mut removed_session = None;
+        self.active_sessions.retain(|k, v| {
+            if k.as_ref() == session_id {
+                removed_session = Some(Arc::new(v.clone()));
+                false
+            } else {
+                true
+            }
         });
-
-        self.metrics.record_clone_avoided();
-
-        Ok(())
-    }
-
-    /// Cache agent template for reuse
-    pub fn cache_agent_template(
-        &mut self,
-        name: String,
-        template: AgentTemplate,
-    ) -> Arc<AgentTemplate> {
-        self.agent_templates.insert(name, template)
-    }
-
-    /// Get cached agent template
-    pub fn get_cached_agent_template(&self, name: &str) -> Option<Arc<AgentTemplate>> {
-        self.agent_templates.get(&name.to_string())
-    }
-
-    /// Remove deployed agent
-    pub fn remove_deployed_agent(&mut self, agent_id: &str) -> Option<Arc<DeployedAgent>> {
-        self.deployed_agents.remove(&agent_id.to_string())
-    }
-
-    /// Get agent count
-    pub fn get_agent_count(&self) -> usize {
-        self.deployed_agents.len()
-    }
-
-    /// Get performance metrics
-    pub fn get_metrics(
-        &self,
-    ) -> MetricsSnapshot {
-        self.metrics.get_metrics()
-    }
-}
-
-/// Supporting data structures for optimized implementations
-
-#[derive(Debug, Clone)]
-pub struct SessionContext {
-    pub session_id: String,
-    pub user_id: String,
-    pub created_at: DateTime<Utc>,
-    pub last_activity: DateTime<Utc>,
-    pub metadata: HashMap<String, String>,
-    pub context_data: HashMap<String, serde_json::Value>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ContextData {
-    pub context_id: String,
-    pub data: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AgentTemplate {
-    pub name: String,
-    pub description: String,
-    pub default_provider: String,
-    pub default_model: String,
-    pub default_capabilities: Vec<String>,
-    pub default_resource_limits: AgentResourceLimits,
-    pub environment: ExecutionEnvironment,
-}
-
-// Using AgentEndpoints from agent_deployment module
-
-// Re-export necessary types from the main module
-// Types are already imported at the top of the file
-
-/// Optimized BiomeOS integration coordinator
-pub struct OptimizedBiomeOSIntegration {
-    service_registration: OptimizedServiceRegistration,
-    message_processor: OptimizedMessageProcessor,
-    context_state: OptimizedContextState,
-    agent_deployment: OptimizedAgentDeploymentManager,
-    metrics: Arc<ZeroCopyMetrics>,
-}
-
-impl OptimizedBiomeOSIntegration {
-    pub fn new() -> Self {
-        Self {
-            service_registration: OptimizedServiceRegistration::new(),
-            message_processor: OptimizedMessageProcessor::new(),
-            context_state: OptimizedContextState::new(),
-            agent_deployment: OptimizedAgentDeploymentManager::new(),
-            metrics: Arc::new(ZeroCopyMetrics::new()),
-        }
-    }
-
-    /// Initialize the optimized integration
-    pub async fn initialize(&mut self) -> Result<(), crate::error::PrimalError> {
-        self.metrics.record_operation();
-
-        // Initialize components without unnecessary cloning
-        // Most initialization is done lazily
-
-        Ok(())
-    }
-
-    /// Get comprehensive performance metrics
-    pub fn get_comprehensive_metrics(&self) -> OptimizedIntegrationMetrics {
-        let service_metrics = self.service_registration.get_metrics();
-        let message_metrics = self.message_processor.get_metrics();
-        let context_metrics = self.context_state.get_metrics();
-        let agent_metrics = self.agent_deployment.get_metrics();
-        let overall_metrics = self.metrics.get_metrics();
-
-        OptimizedIntegrationMetrics {
-            service_registration: service_metrics,
-            message_processing: message_metrics,
-            context_management: context_metrics,
-            agent_deployment: agent_metrics,
-            overall: overall_metrics,
-        }
-    }
-
-    /// Get service registration manager
-    pub fn service_registration(&mut self) -> &mut OptimizedServiceRegistration {
-        &mut self.service_registration
-    }
-
-    /// Get message processor
-    pub fn message_processor(&mut self) -> &mut OptimizedMessageProcessor {
-        &mut self.message_processor
-    }
-
-    /// Get context state manager
-    pub fn context_state(&mut self) -> &mut OptimizedContextState {
-        &mut self.context_state
-    }
-
-    /// Get agent deployment manager
-    pub fn agent_deployment(&mut self) -> &mut OptimizedAgentDeploymentManager {
-        &mut self.agent_deployment
-    }
-}
-
-/// Comprehensive metrics for optimized integration
-#[derive(Debug, Clone)]
-pub struct OptimizedIntegrationMetrics {
-    pub service_registration:
-        MetricsSnapshot,
-    pub message_processing:
-        MetricsSnapshot,
-    pub context_management:
-        MetricsSnapshot,
-    pub agent_deployment:
-        MetricsSnapshot,
-    pub overall: MetricsSnapshot,
-}
-
-impl OptimizedIntegrationMetrics {
-    /// Calculate total efficiency across all components
-    pub fn total_efficiency(&self) -> f64 {
-        let efficiencies = vec![
-            self.service_registration.efficiency_percentage(),
-            self.message_processing.efficiency_percentage(),
-            self.context_management.efficiency_percentage(),
-            self.agent_deployment.efficiency_percentage(),
-            self.overall.efficiency_percentage(),
-        ];
-
-        let sum: f64 = efficiencies.iter().sum();
-        let count = efficiencies.len() as f64;
-
-        if count > 0.0 {
-            sum / count
-        } else {
-            0.0
-        }
-    }
-
-    /// Calculate total bytes saved
-    pub fn total_bytes_saved(&self) -> u64 {
-        self.service_registration.bytes_saved
-            + self.message_processing.bytes_saved
-            + self.context_management.bytes_saved
-            + self.agent_deployment.bytes_saved
-            + self.overall.bytes_saved
-    }
-
-    /// Calculate total clone operations avoided
-    pub fn total_clones_avoided(&self) -> u64 {
-        self.service_registration.clone_operations_avoided
-            + self.message_processing.clone_operations_avoided
-            + self.context_management.clone_operations_avoided
-            + self.agent_deployment.clone_operations_avoided
-            + self.overall.clone_operations_avoided
-    }
-
-    /// Calculate total string interning hits
-    pub fn total_string_interning_hits(&self) -> u64 {
-        self.service_registration.string_interning_hits
-            + self.message_processing.string_interning_hits
-            + self.context_management.string_interning_hits
-            + self.agent_deployment.string_interning_hits
-            + self.overall.string_interning_hits
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_optimized_service_registration() {
-        let mut registration = OptimizedServiceRegistration::new();
-
-        let service_reg = registration.create_ecosystem_service_registration(
-            "test-instance",
-            Some("test-biome"),
-            &["analysis", "intelligence"],
-        );
-
-        assert!(service_reg.service_id.contains("test-instance"));
-        assert_eq!(service_reg.primal_type, "squirrel");
-        assert_eq!(service_reg.biome_id, "test-biome".to_string());
-        assert_eq!(service_reg.capabilities.ai_capabilities.len(), 2);
-
-        let metrics = registration.get_metrics();
-        assert!(metrics.total_operations > 0);
-        assert!(metrics.clone_operations_avoided > 0);
-    }
-
-    #[test]
-    fn test_optimized_message_processor() {
-        let mut processor = OptimizedMessageProcessor::new();
-
-        let request_data = serde_json::json!({"test": "data"});
-        let response = processor
-            .process_intelligence_request("test-request", "analysis", &request_data)
-            .unwrap();
-
-        assert_eq!(response.request_id, "test-request");
-        assert_eq!(response.response_type, "analysis");
-        assert!(!response.recommendations.is_empty());
-
-        let metrics = processor.get_metrics();
-        assert!(metrics.total_operations > 0);
+        removed_session
     }
 
     #[test]

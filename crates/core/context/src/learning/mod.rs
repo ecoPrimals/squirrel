@@ -43,6 +43,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, Mutex, RwLock};
+use tracing::{debug, error, info, warn};
 
 use crate::error::Result;
 
@@ -213,47 +214,41 @@ pub enum LearningActionType {
     Custom(String),
 }
 
-/// Learning event
+/// Learning event with detailed context
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LearningEvent {
-    /// Event ID
-    pub id: String,
-
-    /// Event timestamp
-    pub timestamp: DateTime<Utc>,
-
-    /// Event type
-    pub event_type: LearningEventType,
-
-    /// Context ID
-    pub context_id: String,
-
-    /// Event data
-    pub data: Value,
-
-    /// Event metadata
-    pub metadata: Option<Value>,
-}
-
-/// Learning event type
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum LearningEventType {
-    /// Episode started
-    EpisodeStarted,
-    /// Action taken
-    ActionTaken,
-    /// Reward received
-    RewardReceived,
-    /// Episode ended
-    EpisodeEnded,
-    /// Policy updated
-    PolicyUpdated,
-    /// Rule adapted
-    RuleAdapted,
-    /// Performance measured
-    PerformanceMeasured,
-    /// Error occurred
-    ErrorOccurred,
+pub enum LearningEvent {
+    /// System initialization event
+    SystemInitialized {
+        timestamp: chrono::DateTime<chrono::Utc>,
+        config: Arc<LearningSystemConfig>,
+    },
+    /// Training episode started
+    TrainingStarted {
+        episode: u64,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
+    /// Reward received event
+    RewardReceived {
+        reward: f64,
+        context: String,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
+    /// Policy network updated
+    PolicyUpdated {
+        loss: f64,
+        accuracy: f64,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
+    /// Adaptive rules triggered
+    AdaptationTriggered {
+        rule_count: usize,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
+    /// Metrics updated
+    MetricsUpdated {
+        metrics: HashMap<String, f64>,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
 }
 
 /// Central learning system that coordinates all learning components
@@ -291,6 +286,9 @@ pub struct LearningSystem {
 
     /// Event broadcaster
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
+
+    /// Event processor background task handle
+    event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics
     stats: Arc<Mutex<LearningSystemStats>>,
@@ -352,9 +350,12 @@ impl LearningSystem {
     pub async fn new(config: LearningSystemConfig) -> Result<Self> {
         let config = Arc::new(config);
 
-        // Create event broadcaster
-        let (event_sender, _) = broadcast::channel(1000);
+        // Create event broadcaster with receiver for processing
+        let (event_sender, event_receiver) = broadcast::channel(1000);
         let event_broadcaster = Arc::new(event_sender);
+
+        // Start event monitoring task to process learning events
+        let event_processor = Self::start_event_processor(event_receiver).await;
 
         // Create components
         let engine = Arc::new(LearningEngine::new(config.clone()).await?);
@@ -366,6 +367,12 @@ impl LearningSystem {
         let metrics = Arc::new(LearningMetrics::new(config.clone()).await?);
         let adaptive_rules = Arc::new(AdaptiveRuleSystem::new(config.clone()).await?);
         let integration = Arc::new(LearningIntegration::new(config.clone()).await?);
+
+        // Broadcast system initialization event
+        let _ = event_broadcaster.send(LearningEvent::SystemInitialized {
+            timestamp: chrono::Utc::now(),
+            config: config.clone(),
+        });
 
         Ok(Self {
             config,
@@ -379,7 +386,67 @@ impl LearningSystem {
             integration,
             state: Arc::new(RwLock::new(LearningState::Initializing)),
             event_broadcaster,
+            event_processor_handle: Arc::new(event_processor),
             stats: Arc::new(Mutex::new(LearningSystemStats::default())),
+        })
+    }
+    
+    /// Start background event processor for learning events
+    async fn start_event_processor(
+        mut event_receiver: broadcast::Receiver<LearningEvent>
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            info!("Learning event processor started");
+            
+            while let Ok(event) = event_receiver.recv().await {
+                match &event {
+                    LearningEvent::SystemInitialized { timestamp, config } => {
+                        info!(
+                            "Learning system initialized at {} with {} experience buffer",
+                            timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
+                            config.experience_buffer_size
+                        );
+                        
+                        // Log configuration details
+                        debug!("Learning rate: {}", config.learning_rate);
+                        debug!("Discount factor: {}", config.discount_factor);
+                        debug!("Exploration rate: {}", config.exploration_rate);
+                    }
+                    
+                    LearningEvent::TrainingStarted { episode, timestamp } => {
+                        info!("Training episode {} started at {}", episode, 
+                              timestamp.format("%H:%M:%S"));
+                    }
+                    
+                    LearningEvent::RewardReceived { reward, context, timestamp } => {
+                        debug!("Reward received: {} for context {} at {}", 
+                               reward, context, timestamp.format("%H:%M:%S"));
+                    }
+                    
+                    LearningEvent::PolicyUpdated { loss, accuracy, timestamp } => {
+                        info!("Policy updated - Loss: {:.4}, Accuracy: {:.3} at {}",
+                              loss, accuracy, timestamp.format("%H:%M:%S"));
+                    }
+                    
+                    LearningEvent::AdaptationTriggered { rule_count, timestamp } => {
+                        info!("Adaptation triggered with {} rules at {}",
+                              rule_count, timestamp.format("%H:%M:%S"));
+                    }
+                    
+                    LearningEvent::MetricsUpdated { metrics, timestamp } => {
+                        debug!("Metrics updated at {}: {:?}",
+                               timestamp.format("%H:%M:%S"), metrics);
+                    }
+                }
+                
+                // Additional event processing could include:
+                // - Persistence of important events
+                // - Real-time analytics
+                // - Performance monitoring
+                // - Alert triggering for anomalies
+            }
+            
+            warn!("Learning event processor shutting down");
         })
     }
 

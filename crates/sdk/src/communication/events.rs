@@ -2,9 +2,7 @@
 //!
 //! This module provides event handling and communication between plugins.
 
-use serde_json::{json, Value};
 use std::collections::HashMap;
-use tokio::sync::{broadcast, mpsc};
 
 use crate::error::{PluginError, PluginResult};
 use crate::utils::{current_timestamp_iso, generate_listener_id, safe_lock};

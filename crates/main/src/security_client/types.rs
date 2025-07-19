@@ -1,9 +1,7 @@
-//! Security Client Types and Structures
+//! Universal Security Client Types
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::Duration;
 use uuid::Uuid;
 
 // ============================================================================
@@ -14,7 +12,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityClientConfig {
     /// Timeout for security operations
-    pub operation_timeout: Duration,
+    pub operation_timeout: std::time::Duration,
     
     /// Maximum retries for failed operations
     pub max_retries: u32,
@@ -535,7 +533,7 @@ pub struct DecisionFactor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityMetrics {
     /// Processing time
-    pub processing_time: Duration,
+    pub processing_time: std::time::Duration,
     
     /// Policy evaluations performed
     pub policy_evaluations: u32,
@@ -592,7 +590,7 @@ pub struct ThreatAnalysis {
 impl Default for SecurityClientConfig {
     fn default() -> Self {
         Self {
-            operation_timeout: Duration::from_secs(30),
+            operation_timeout: std::time::Duration::from_secs(30),
             max_retries: 3,
             preferred_capabilities: vec![
                 SecurityCapabilityPreference {

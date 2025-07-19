@@ -2,9 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-use crate::universal::PrimalCapability;
+use crate::universal::{PrimalCapability, UniversalResult};
 use crate::universal_primal_ecosystem::DiscoveredPrimal;
 
 // ============================================================================

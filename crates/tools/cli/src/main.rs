@@ -96,7 +96,7 @@ async fn main() {
         .about("Squirrel CLI - A powerful command-line tool");
 
     // Create execution context
-    let execution_context = Arc::new(ExecutionContext::new());
+    let _execution_context = Arc::new(ExecutionContext::new());
 
     // Get command-line arguments
     let args: Vec<String> = env::args().collect();

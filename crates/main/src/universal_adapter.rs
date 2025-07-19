@@ -24,8 +24,7 @@ use crate::shutdown::ShutdownManager;
 use crate::universal::SecurityLevel;
 use crate::universal_provider::UniversalSquirrelProvider;
 use ecosystem_api::{
-    error::EcosystemError,
-    traits::{EcosystemIntegration, UniversalPrimalProvider},
+    traits::UniversalPrimalProvider,
     types::*,
 };
 use serde_json::json;

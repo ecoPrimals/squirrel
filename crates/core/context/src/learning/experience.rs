@@ -13,10 +13,10 @@ use serde_json::Value;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
-use uuid::Uuid;
+use tracing::{debug, info};
 
-use super::engine::{RLAction, RLExperience, RLState};
+
+use super::engine::RLExperience;
 use crate::error::Result;
 
 /// Experience replay buffer

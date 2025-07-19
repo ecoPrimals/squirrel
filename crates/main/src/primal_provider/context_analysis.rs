@@ -1,7 +1,6 @@
 //! Context Analysis and Classification
 
 use serde_json::json;
-use std::collections::HashMap;
 
 use crate::error::PrimalError;
 use super::core::SquirrelPrimalProvider;

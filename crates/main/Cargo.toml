@@ -28,8 +28,12 @@ base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
 
-# Ecosystem API - shared types and traits
+# Ecosystem integrations - Service Mesh via Songbird
 ecosystem-api = { path = "../ecosystem-api" }
+songbird-registry = { path = "../../../songbird/crates/songbird-registry" }
+songbird-discovery = { path = "../../../songbird/crates/songbird-discovery" }
+songbird-core = { path = "../../../songbird/crates/songbird-core" }
+songbird-errors = { path = "../../../songbird/crates/songbird-errors" }
 
 # Configuration management
 squirrel-mcp-config = { path = "../config" }
@@ -39,7 +43,8 @@ squirrel-sdk = { path = "../sdk" }
 squirrel-integration = { path = "../integration" }
 
 # MCP and AI dependencies
-mcp = "0.1"
+# Using our own MCP implementation instead of external mcp crate
+squirrel-mcp = { path = "../core/mcp" }
 openai = "1.1"
 
 # Observability

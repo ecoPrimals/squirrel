@@ -1,12 +1,8 @@
-//! Storage Client Types and Structures
+//! Universal Storage Client Types
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::Duration;
 use uuid::Uuid;
-
-use crate::universal::PrimalCapability;
 
 // ============================================================================
 // CONFIGURATION TYPES
@@ -16,7 +12,7 @@ use crate::universal::PrimalCapability;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClientConfig {
     /// Timeout for storage operations
-    pub operation_timeout: Duration,
+    pub operation_timeout: std::time::Duration,
     
     /// Maximum retries for failed operations
     pub max_retries: u32,
@@ -74,7 +70,7 @@ pub enum StorageCapabilityType {
     
     /// Archive/cold storage
     Archive {
-        retrieval_time: Duration,
+        retrieval_time: std::time::Duration,
         cost_optimization: bool,
     },
 }
@@ -184,7 +180,7 @@ pub struct AIRequestContext {
     pub access_frequency: AccessFrequency,
     
     /// Data lifetime expectation
-    pub data_lifetime: Duration,
+    pub data_lifetime: std::time::Duration,
     
     /// Sharing requirements
     pub sharing_scope: SharingScope,
@@ -308,7 +304,7 @@ pub struct AccessPattern {
 impl Default for StorageClientConfig {
     fn default() -> Self {
         Self {
-            operation_timeout: Duration::from_secs(300),
+            operation_timeout: std::time::Duration::from_secs(300),
             max_retries: 3,
             preferred_capabilities: vec![
                 StorageCapabilityPreference {

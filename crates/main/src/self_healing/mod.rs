@@ -8,8 +8,8 @@
 //! - Service degradation management
 //! - Adaptive resilience patterns
 
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, RwLock};
 use tokio::time::interval;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
 use crate::error::PrimalError;
 

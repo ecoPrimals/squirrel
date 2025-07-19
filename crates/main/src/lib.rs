@@ -50,44 +50,50 @@ pub use compute_client::{UniversalComputeClient, UniversalComputeRequest, Univer
 pub use security_client::{UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse};
 pub use storage_client::{UniversalStorageClient, UniversalStorageRequest, UniversalStorageResponse};
 pub use ecosystem::{
-    initialize_ecosystem_integration, ComponentHealth, EcosystemConfig, EcosystemManager,
+    initialize_ecosystem_integration, ComponentHealth,
     EcosystemPrimalType, EcosystemRegistryEvent, EcosystemRegistryManager,
     EcosystemServiceRegistration, EcosystemStatus,
 };
 pub use error_handling::prelude::*;
 pub use monitoring::{
-    health::HealthMonitor, metrics::MetricsCollector, performance::PerformanceTracker,
+    performance::PerformanceTracker,
 };
 pub use optimization::zero_copy;
 pub use primal_provider::SquirrelPrimalProvider;
 pub use security::UniversalSecurityAdapter;
-pub use universal::*;
+// Universal types (selective re-exports to avoid conflicts)
+pub use universal::{
+    PrimalCapability, PrimalContext, PrimalDependency, PrimalHealth, 
+    PrimalRequest, PrimalResponse, PrimalType, SecurityLevel,
+    NetworkLocation, HealthStatus, PrimalEndpoints, DynamicPortInfo, ServiceMeshStatus
+};
+
 pub use universal_adapter::{
     create_default_universal_adapter, create_universal_adapter_from_env, run_universal_adapter,
     AdapterStatus, SquirrelUniversalAdapter,
 };
 pub use universal_provider::UniversalSquirrelProvider;
 
-// Ecosystem API re-exports
+// Ecosystem API re-exports (selective to avoid conflicts)
 pub use ecosystem_api::{
     error::EcosystemError,
     traits::{EcosystemIntegration, UniversalPrimalProvider as UniversalProviderTrait},
-    types::*,
+    types::{EcosystemRequest, EcosystemResponse, ResponseStatus},
 };
 
 // Convenient type aliases for common patterns
 pub type UniversalResult<T> = Result<T, EcosystemError>;
 pub type PrimalResult<T> = Result<T, PrimalError>;
 
-// Core error types
-pub use error::*;
+// Core error types (selective re-exports)
+pub use error::PrimalError;
 
-// Conditional re-exports based on feature flags
+// Conditional re-exports based on feature flags (selective)
 #[cfg(feature = "monitoring")]
-pub use monitoring::*;
+pub use monitoring::{metrics::MetricsCollector, health::HealthMonitor};
 
 #[cfg(feature = "ecosystem")]
-pub use ecosystem::*;
+pub use ecosystem::{EcosystemConfig, EcosystemManager};
 
 /// Standard exports commonly used by ecosystem consumers
 pub mod prelude {

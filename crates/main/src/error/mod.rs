@@ -46,6 +46,10 @@ pub enum PrimalError {
     #[error("Security error: {0}")]
     SecurityError(String),
 
+    /// Authentication failed error
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
+
     /// Serialization error
     #[error("Serialization error: {0}")]
     Serialization(String),

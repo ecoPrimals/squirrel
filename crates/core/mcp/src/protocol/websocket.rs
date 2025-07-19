@@ -118,13 +118,24 @@ pub struct WebSocketClient {
     response_receivers: Arc<RwLock<HashMap<String, mpsc::Sender<MCPMessage>>>>,
 }
 
-/// Server events
+/// Server events for MCP protocol coordination and intelligence
 #[derive(Debug, Clone)]
 pub enum ServerEvent {
     ConnectionEstablished(String),
     ConnectionClosed(String),
     MessageReceived(String, MCPMessage),
     Error(String, MCPError),
+    
+    // New MCP coordination events for enhanced intelligence
+    /// Serialization error occurred during message processing
+    SerializationError(String, String),
+    
+    /// Connection error occurred during communication
+    ConnectionError(String, String),
+    
+    /// Heartbeat event for connection health monitoring
+    /// (connection_id, message_count, last_message_size)
+    Heartbeat(String, u64, u64),
 }
 
 /// WebSocket connection handler
@@ -350,29 +361,68 @@ impl ConnectionHandler {
 
         // Task for handling outgoing messages
         let outgoing_task = tokio::spawn(async move {
+            // Initialize MCP coordination metrics
+            let mut last_heartbeat = std::time::Instant::now();
+            let heartbeat_interval = config.ping_interval;
+            let mut message_count = 0u64;
+            
+            info!("🐿️ Starting MCP outgoing message handler for connection {}", connection_id);
+            
             while let Some(message) = message_rx.recv().await {
                 let json_message = match serde_json::to_string(&message) {
                     Ok(json) => json,
                     Err(e) => {
                         error!("Failed to serialize message: {}", e);
+                        // Notify event system of serialization failure for MCP coordination
+                        let _ = event_sender.send(ServerEvent::SerializationError(
+                            connection_id.clone(),
+                            format!("Serialization failed: {}", e)
+                        )).await;
                         continue;
                     }
                 };
 
                 let message_len = json_message.len() as u64;
+                message_count += 1;
 
                 if let Err(e) = ws_sink.send(Message::Text(json_message)).await {
                     error!("Failed to send message: {}", e);
+                    // Notify event system of send failure for MCP coordination
+                    let _ = event_sender.send(ServerEvent::ConnectionError(
+                        connection_id.clone(),
+                        format!("Send failed: {}", e)
+                    )).await;
                     break;
                 }
 
-                // Update connection stats
+                // Update connection stats with MCP-aware tracking
                 {
                     let mut info = connection_info.write().await;
                     info.messages_sent += 1;
                     info.bytes_sent += message_len;
+                    
+                    // Add MCP coordination intelligence
+                    if message_count % 100 == 0 {
+                        debug!("🐿️ MCP coordination: {} messages sent on connection {}", message_count, connection_id);
+                    }
+                }
+                
+                // MCP-aware heartbeat and health monitoring
+                if last_heartbeat.elapsed() > heartbeat_interval {
+                    // Send heartbeat event for MCP coordination
+                    let _ = event_sender.send(ServerEvent::Heartbeat(
+                        connection_id.clone(),
+                        message_count,
+                        message_len
+                    )).await;
+                    last_heartbeat = std::time::Instant::now();
                 }
             }
+            
+            // Final MCP coordination cleanup
+            info!("🐿️ MCP outgoing handler completed for connection {} (sent {} messages)", 
+                  connection_id, message_count);
+            let _ = event_sender.send(ServerEvent::ConnectionClosed(connection_id)).await;
         });
 
         // Task for handling incoming messages
@@ -617,18 +667,60 @@ impl WebSocketClient {
         let codec = self.codec.clone();
         let response_receivers = Arc::clone(&self.response_receivers);
 
-        // Message sending task
+        // Message sending task with MCP coordination intelligence
         let message_sender_task = tokio::spawn(async move {
             let ws_sink = ws_sink_clone;
+            let mut local_message_count = 0u64;
+            let mut local_bytes_sent = 0u64;
+            let task_start_time = std::time::Instant::now();
+            
+            debug!("🐿️ Starting MCP message sender task with coordination intelligence");
+            
             while let Some(message) = message_rx.recv().await {
                 let json_message = serde_json::to_string(&message).unwrap_or_default();
-
+                let message_size = json_message.len() as u64;
+                
                 let mut sink = ws_sink.lock().await;
                 if let Err(e) = sink.send(Message::Text(json_message.clone())).await {
-                    tracing::error!("Failed to send message: {}", e);
+                    error!("Failed to send message: {}", e);
                     break;
+                } else {
+                    // Successfully sent message - update MCP coordination statistics
+                    local_message_count += 1;
+                    local_bytes_sent += message_size;
+                    
+                    // Update connection info with actual available fields
+                    {
+                        let mut info = connection_info.write().await;
+                        info.messages_sent += 1;
+                        info.bytes_sent += message_size;
+                        
+                        // MCP coordination intelligence: periodic stats reporting
+                        if local_message_count % 50 == 0 {
+                            let throughput = local_message_count as f64 / task_start_time.elapsed().as_secs_f64();
+                            debug!("🐿️ MCP coordination stats: {} messages, {} bytes, {:.2} msg/sec", 
+                                   local_message_count, local_bytes_sent, throughput);
+                        }
+                    }
+                }
+                
+                // Periodic MCP coordination health reporting
+                if local_message_count % 100 == 0 && local_message_count > 0 {
+                    let elapsed = task_start_time.elapsed();
+                    let throughput = local_message_count as f64 / elapsed.as_secs_f64();
+                    info!("🐿️ MCP coordination milestone: {} messages sent, {:.2} MB, {:.2} msg/sec over {:?}", 
+                          local_message_count, local_bytes_sent as f64 / 1_048_576.0, throughput, elapsed);
                 }
             }
+            
+            // Final MCP coordination summary
+            let final_elapsed = task_start_time.elapsed();
+            let final_throughput = if final_elapsed.as_secs_f64() > 0.0 {
+                local_message_count as f64 / final_elapsed.as_secs_f64()
+            } else { 0.0 };
+            
+            info!("🐿️ MCP message sender task completed: {} messages, {} bytes, {:.2} msg/sec", 
+                  local_message_count, local_bytes_sent, final_throughput);
         });
 
         // Message receiving task

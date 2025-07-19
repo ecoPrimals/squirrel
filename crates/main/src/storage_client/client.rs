@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use uuid::Uuid;
+use base64::{Engine as _, engine::general_purpose};
 
 use crate::error::PrimalError;
 use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
@@ -217,7 +218,7 @@ impl UniversalStorageClient {
         let success = response.success;
         let data = if success {
             response.data.get("data").and_then(|v| {
-                base64::decode(v.as_str().unwrap_or("")).ok()
+                general_purpose::STANDARD.decode(v.as_str().unwrap_or("")).ok()
             })
         } else {
             None

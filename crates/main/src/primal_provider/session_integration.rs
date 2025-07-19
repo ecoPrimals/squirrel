@@ -1,10 +1,18 @@
 //! Session Management Integration
 
 use serde_json::json;
-use uuid::Uuid;
 
 use crate::error::PrimalError;
 use super::core::SquirrelPrimalProvider;
+
+/// Simple session data structure for mock operations
+#[derive(Debug, Clone)]
+struct SessionData {
+    session_id: String,
+    user_id: String,
+    created_at: String,
+    last_accessed: chrono::DateTime<chrono::Utc>,
+}
 
 /// Session Operations functionality
 pub struct SessionOperations;
@@ -116,13 +124,13 @@ impl SquirrelPrimalProvider {
             .ok_or_else(|| PrimalError::ValidationError("Missing user_id".to_string()))?;
 
         // List sessions through session manager - mock response for now
-        let sessions: Vec<crate::session::SessionInfo> = vec![];
+        let sessions: Vec<SessionData> = vec![];
 
         let session_list: Vec<serde_json::Value> = sessions.into_iter().map(|session| {
             json!({
                 "session_id": session.session_id,
                 "user_id": session.user_id,
-                "created_at": session.created_at.to_rfc3339(),
+                "created_at": session.created_at,
                 "last_accessed": session.last_accessed.to_rfc3339(),
                 "status": "active"
             })

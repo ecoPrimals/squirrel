@@ -1,9 +1,7 @@
-//! AI Metadata and Intelligence Types for Storage Client
+//! AI-Enhanced Storage Metadata and Intelligence
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::time::Duration;
+use uuid::Uuid;
 
 // ============================================================================
 // AI METADATA TYPES

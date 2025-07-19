@@ -10,6 +10,7 @@ use reqwest::Client;
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
+use tracing::{debug, warn};
 
 use crate::common::{
     capability::{
@@ -394,13 +395,42 @@ impl AIClient for AnthropicClient {
                                 let json_str = &chunk_str[json_start + 6..];
                                 match serde_json::from_str::<AnthropicResponse>(json_str.trim()) {
                                     Ok(anthropic_response) => {
-                                        // Inline the response conversion since we can't borrow self
-                                        let text_content = anthropic_response
+                                        // Enhanced content processing with type validation and filtering
+                                        let processed_content = anthropic_response
                                             .content
                                             .into_iter()
-                                            .map(|content| content.text)
-                                            .collect::<Vec<_>>()
-                                            .join("\n");
+                                            .filter_map(|content| {
+                                                // Validate and process content based on type
+                                                match content.content_type.as_str() {
+                                                    "text" => {
+                                                        debug!("📝 Processing text content: {} chars", content.text.len());
+                                                        Some(content.text)
+                                                    }
+                                                    "image" => {
+                                                        debug!("🖼️ Skipping image content (not supported in text response)");
+                                                        None // Skip image content in text responses
+                                                    }
+                                                    "tool_use" => {
+                                                        debug!("🔧 Processing tool use content");
+                                                        // For tool use, we might want to format differently
+                                                        Some(format!("[TOOL_USE] {}", content.text))
+                                                    }
+                                                    unknown_type => {
+                                                        warn!("⚠️ Unknown Anthropic content type: '{}', including as text", unknown_type);
+                                                        Some(format!("[{}] {}", unknown_type.to_uppercase(), content.text))
+                                                    }
+                                                }
+                                            })
+                                            .collect::<Vec<_>>();
+
+                                        let text_content = if processed_content.is_empty() {
+                                            warn!("⚠️ No valid text content found in Anthropic response");
+                                            String::new()
+                                        } else {
+                                            processed_content.join("\n")
+                                        };
+
+                                        debug!("✅ Successfully processed {} content blocks into response", processed_content.len());
 
                                         let choices = vec![ChatChoiceChunk {
                                             index: 0,

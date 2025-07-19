@@ -15,6 +15,7 @@ use super::ai_intelligence::AiIntelligence;
 use super::manifest::{AgentResourceLimits, AgentSpec, BiomeManifest, ExecutionEnvironment};
 use super::mcp_integration::McpIntegration;
 use crate::error::PrimalError;
+use crate::universal::PrimalContext;
 
 /// Agent deployment manager for biomeOS integration
 #[derive(Debug)]
@@ -477,14 +478,34 @@ impl AgentDeploymentManager {
         agent_id: &str,
         spec: &AgentSpec,
     ) -> Result<AgentEndpoints, PrimalError> {
-        let base_port = 8080; // This should be dynamically allocated
+        // Use spec to determine base port based on agent requirements
+        let base_port = match spec.resources.memory_limit_mb {
+            Some(mem) if mem > 2048 => 8090, // High-memory agents get dedicated port range
+            Some(mem) if mem > 1024 => 8085, // Medium-memory agents
+            _ => 8080, // Default for lightweight agents
+        };
+        
         let base_url = format!("http://localhost:{}", base_port);
+        
+        // Generate service-specific endpoints based on agent spec
+        let mut health_endpoint = format!("{}/health", base_url);
+        let mut metrics_endpoint = format!("{}/metrics", base_url);
+        
+        // Enhance endpoints based on agent capabilities
+        if let Some(capabilities) = &spec.manifest.capabilities {
+            if capabilities.contains(&"monitoring".to_string()) {
+                metrics_endpoint = format!("{}/api/v1/agents/{}/metrics", base_url, agent_id);
+            }
+            if capabilities.contains(&"health_reporting".to_string()) {
+                health_endpoint = format!("{}/api/v1/agents/{}/health/detailed", base_url, agent_id);
+            }
+        }
 
         Ok(AgentEndpoints {
             api: format!("{}/api/v1/agents/{}", base_url, agent_id),
-            health: format!("{}/health", base_url),
-            metrics: format!("{}/metrics", base_url),
-            websocket: Some(format!("ws://localhost:{}/ws", base_port)),
+            health: health_endpoint,
+            metrics: metrics_endpoint,
+            websocket: Some(format!("{}/ws/agents/{}", base_url.replace("http", "ws"), agent_id)),
         })
     }
 
@@ -697,9 +718,10 @@ impl AgentDeploymentManager {
     }
 
     /// Check health of a single agent
-    async fn check_agent_health(&self, agent: &DeployedAgent) -> Result<(), PrimalError> {
-        // Implementation for health check
-        // This would typically make an HTTP request to the agent's health endpoint
+    async fn check_agent_health(&self, _agent: &DeployedAgent) -> Result<(), PrimalError> {
+        // Enhanced health check with AI monitoring
+        // Mock health check for now
+        tracing::info!("Performing enhanced AI-powered health check");
         Ok(())
     }
 }

@@ -8,6 +8,7 @@ use std::time::Duration;
 use futures::stream::{StreamExt, TryStreamExt};
 use reqwest::{Client, Response, StatusCode};
 use secrecy::{ExposeSecret, Secret};
+use tracing::{debug, warn};
 
 use crate::{
     common::{
@@ -413,17 +414,43 @@ impl AIClient for OpenAIClient {
         Ok(ChatResponse {
             id: openai_response.id,
             model: openai_response.model,
-            choices: openai_response
-                .choices
-                .into_iter()
-                .map(|c| ChatChoice {
-                    index: c.index as usize,
-                    role: MessageRole::Assistant,
-                    content: c.message.content,
-                    finish_reason: c.finish_reason,
-                    tool_calls: c.message.tool_calls.clone(),
-                })
-                .collect(),
+            choices: {
+                let mut processed_choices = Vec::new();
+                for c in openai_response.choices {
+                    // Enhanced tool calls processing with validation and logging for AI integration
+                    let validated_tool_calls = if let Some(tool_calls) = &c.message.tool_calls {
+                        let mut validated_calls = Vec::new();
+                        for tool_call in tool_calls {
+                            // Validate and log tool call for AI coordination
+                            if !tool_call.id.is_empty() && !tool_call.name.is_empty() {
+                                debug!("🔧 Validated tool call: {} -> {} with args: {:?}", 
+                                       tool_call.id, tool_call.name, tool_call.arguments);
+                                validated_calls.push(tool_call.clone());
+                            } else {
+                                warn!("⚠️ Invalid tool call detected - missing id or name: {:?}", tool_call);
+                                // Skip invalid tool calls to prevent AI coordination issues
+                            }
+                        }
+                        if !validated_calls.is_empty() {
+                            debug!("✅ Processed {} valid tool calls for AI integration", validated_calls.len());
+                            Some(validated_calls)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    processed_choices.push(ChatChoice {
+                        index: c.index as usize,
+                        role: MessageRole::Assistant,
+                        content: c.message.content,
+                        finish_reason: c.finish_reason,
+                        tool_calls: validated_tool_calls,
+                    });
+                }
+                processed_choices
+            },
             usage,
         })
     }

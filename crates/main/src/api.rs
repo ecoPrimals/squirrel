@@ -682,7 +682,7 @@ async fn handle_services(
 }
 
 async fn handle_songbird_register(
-    ecosystem_manager: Arc<EcosystemManager>,
+    _ecosystem_manager: Arc<EcosystemManager>,
 ) -> Result<impl Reply, warp::Rejection> {
     // Registration is now handled by the ecosystem-api integration
     let response = SongbirdRegistrationResponse {

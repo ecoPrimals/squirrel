@@ -1,7 +1,6 @@
 //! Ecosystem Integration and Service Mesh
 
 use chrono::Utc;
-use serde_json::json;
 use tracing::info;
 
 use crate::ecosystem::EcosystemServiceRegistration;
@@ -23,6 +22,21 @@ impl EcosystemIntegration {
             version: "1.0.0".to_string(),
             description: "AI coordination and context analysis primal".to_string(),
             biome_id: Some("default".to_string()),
+            tags: vec!["ai".to_string(), "coordination".to_string()],
+            security_config: crate::ecosystem::SecurityConfig {
+                auth_method: "none".to_string(),
+                tls_enabled: false,
+                mtls_required: false,
+                trust_domain: "squirrel".to_string(),
+                security_level: "basic".to_string(),
+            },
+            resource_requirements: crate::ecosystem::ResourceSpec {
+                cpu: "1.0".to_string(),
+                memory: "512".to_string(),
+                storage: "10".to_string(),
+                network: "100".to_string(),
+                gpu: Some("0".to_string()),
+            },
             endpoints: crate::ecosystem::ServiceEndpoints {
                 health: "http://0.0.0.0:8080/health".to_string(),
                 metrics: "http://0.0.0.0:8080/metrics".to_string(),
@@ -30,6 +44,7 @@ impl EcosystemIntegration {
                 mcp: "http://0.0.0.0:8080/mcp".to_string(),
                 ai_coordination: "http://0.0.0.0:8080/ai".to_string(),
                 service_mesh: "http://0.0.0.0:8080/mesh".to_string(),
+                websocket: Some("ws://0.0.0.0:8080/ws".to_string()),
             },
             capabilities: crate::ecosystem::ServiceCapabilities {
                 core: vec!["ai_coordination".to_string(), "context_analysis".to_string()],
@@ -40,11 +55,13 @@ impl EcosystemIntegration {
             health_check: crate::ecosystem::HealthCheckConfig {
                 failure_threshold: 3,
                 recovery_threshold: 2,
+                interval: std::time::Duration::from_secs(30),
+                timeout: std::time::Duration::from_secs(10),
             },
             metadata: std::collections::HashMap::new(),
             primal_provider: Some("squirrel".to_string()),
             registered_at: chrono::Utc::now(),
-            last_seen: Some(chrono::Utc::now()),
+            // Remove last_seen field as it doesn't exist in the struct
         }
     }
 }
@@ -79,8 +96,51 @@ impl SquirrelPrimalProvider {
             let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
             info!("Deregistering from Songbird: {}", service_id);
 
-            // Note: http_client field doesn't exist in current struct definition
-            // This would need to be implemented with a proper HTTP client
+            // Construct deregistration request using the endpoint
+            let deregistration_url = format!("{}/api/v1/services/{}/deregister", endpoint, service_id);
+            
+            // Create HTTP client for the deregistration call
+            match reqwest::Client::new()
+                .delete(&deregistration_url)
+                .header("Content-Type", "application/json")
+                .json(&serde_json::json!({
+                    "service_id": service_id,
+                    "primal_type": self.primal_id(),
+                    "instance_id": self.instance_id,
+                    "deregistration_reason": "graceful_shutdown",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                }))
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        info!("Successfully deregistered from Songbird endpoint: {}", endpoint);
+                    } else {
+                        warn!(
+                            "Failed to deregister from Songbird endpoint: {} (status: {})", 
+                            endpoint, 
+                            response.status()
+                        );
+                    }
+                }
+                Err(e) => {
+                    warn!("Error connecting to Songbird endpoint {}: {}", endpoint, e);
+                }
+            }
+            
+            // Also notify other ecosystem components about shutdown
+            let shutdown_notification_url = format!("{}/api/v1/ecosystem/shutdown", endpoint);
+            let _ = reqwest::Client::new()
+                .post(&shutdown_notification_url)
+                .header("Content-Type", "application/json")
+                .json(&serde_json::json!({
+                    "service_id": service_id,
+                    "shutdown_type": "graceful",
+                    "estimated_unavailable_duration": "indefinite"
+                }))
+                .send()
+                .await;
         }
 
         self.shutdown = true;

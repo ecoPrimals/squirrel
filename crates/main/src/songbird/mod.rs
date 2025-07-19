@@ -7,18 +7,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::SystemTime;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
-
-use crate::ecosystem::{EcosystemConfig, EcosystemManager};
-use crate::error::PrimalError;
-use crate::monitoring::metrics::MetricsCollector;
-use crate::session::SessionManager;
-use crate::universal::PrimalContext;
-use async_trait::async_trait;
-use ecosystem_api::traits::ServiceMeshClient;
-use squirrel_mcp_config::{Config, DefaultConfigManager};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
+
+use crate::ecosystem::EcosystemConfig;
+use crate::error::PrimalError;
+use crate::universal::{PrimalCapability, PrimalRequest, UniversalResult};
+use squirrel_mcp_config::DefaultConfigManager;
 
 /// Orchestration state for songbird coordination
 #[derive(Debug, Clone, Default)]
@@ -86,7 +83,7 @@ pub struct SongbirdCoordinator {
     /// Ecosystem configuration
     config: EcosystemConfig,
     /// Service mesh client
-    service_mesh_client: Arc<Box<dyn ServiceMeshClient + Send + Sync>>,
+    service_mesh_client: Arc<Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>>,
     /// Configuration manager
     config_manager: DefaultConfigManager,
     /// Orchestration state
@@ -112,7 +109,7 @@ impl SongbirdCoordinator {
             .map_err(|e| {
                 PrimalError::NetworkError(format!("Failed to create Songbird client: {}", e))
             })?,
-        ) as Box<dyn ServiceMeshClient + Send + Sync>);
+        ) as Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>);
         let config_manager = DefaultConfigManager::new();
         let orchestration_state = Arc::new(RwLock::new(OrchestrationState::default()));
         let health_status = HealthStatus {

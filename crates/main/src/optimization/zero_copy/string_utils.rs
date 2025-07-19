@@ -257,7 +257,7 @@ impl CowString {
     }
 
     /// Create a Cow<str> from a string slice
-    pub fn from_str(s: &str) -> Cow<str> {
+    pub fn from_str(s: &str) -> Cow<'_, str> {
         Cow::Borrowed(s)
     }
 
@@ -265,7 +265,7 @@ impl CowString {
     ///
     /// Returns the owned version only if the Cow contains borrowed data,
     /// avoiding unnecessary cloning for already-owned strings.
-    pub fn into_owned_if_needed(cow: Cow<str>) -> String {
+    pub fn into_owned_if_needed(cow: Cow<'_, str>) -> String {
         match cow {
             Cow::Borrowed(s) => s.to_owned(),
             Cow::Owned(s) => s,

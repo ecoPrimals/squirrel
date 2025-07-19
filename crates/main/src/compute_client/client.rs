@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
+use base64::{Engine as _, engine::general_purpose};
 
 use crate::error::PrimalError;
 use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
@@ -215,7 +216,7 @@ impl UniversalComputeClient {
         let results = if success {
             Some(ComputeResults {
                 output_data: response.data.get("output").and_then(|v| {
-                    base64::decode(v.as_str().unwrap_or("")).ok()
+                    general_purpose::STANDARD.decode(v.as_str().unwrap_or("")).ok()
                 }),
                 return_code: response.data.get("return_code")
                     .and_then(|v| v.as_i64())

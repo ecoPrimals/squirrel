@@ -1,7 +1,7 @@
 //! Core Squirrel Primal Provider Implementation
 
 use async_trait::async_trait;
-use chrono::Utc;
+
 use std::sync::Arc;
 use std::collections::HashMap;
 use tracing::info;
@@ -18,7 +18,7 @@ use crate::optimization::zero_copy::{
 use crate::session::SessionManagerImpl;
 use crate::universal::*;
 use crate::universal_adapter::SquirrelUniversalAdapter;
-use squirrel_mcp_config::{Config, DefaultConfigManager, EcosystemConfig};
+use squirrel_mcp_config::{DefaultConfigManager, EcosystemConfig};
 
 /// # Squirrel Primal Provider
 ///
@@ -50,23 +50,9 @@ impl SquirrelPrimalProvider {
         let instance_id = Uuid::new_v4().to_string();
         let metrics_collector = Arc::new(MetricsCollector::new());
 
-        // Create universal adapter configuration
-        let adapter_config = crate::universal_adapter::AdapterConfig {
-            primal_id: "squirrel".to_string(),
-            instance_id: instance_id.clone(),
-            registry_config: crate::ecosystem::EcosystemRegistryConfig {
-                songbird_endpoint: config
-                    .discovery
-                    .songbird_endpoint
-                    .clone()
-                    .unwrap_or_else(|| "http://localhost:8080".to_string()),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
+        // Create universal adapter (simplified configuration)
         let universal_adapter = Arc::new(
-            SquirrelUniversalAdapter::new(adapter_config)
+            SquirrelUniversalAdapter::new(crate::ecosystem::EcosystemConfig::default())
                 .map_err(|e| PrimalError::Internal(e.to_string()))?,
         );
         let ecosystem_manager = Arc::new(EcosystemManager::new(
@@ -193,14 +179,14 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
                 primal_type: PrimalType::Storage,
                 required: false,
                 capabilities: vec![], 
-                min_version: "1.0.0".to_string(),
+                min_version: Some("1.0.0".to_string()),
                 preferred_instance: None,
             },
             PrimalDependency {
                 primal_type: PrimalType::Compute,
                 required: false,
                 capabilities: vec![],
-                min_version: "1.0.0".to_string(), 
+                min_version: Some("1.0.0".to_string()), 
                 preferred_instance: None,
             },
         ]
@@ -279,6 +265,8 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
             error_message: None,
             status: ResponseStatus::Success,
             metadata: HashMap::new(),
+            error: None,
+            timestamp: chrono::Utc::now(),
         })
     }
 

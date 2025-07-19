@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::time::Duration;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::error::PrimalError;

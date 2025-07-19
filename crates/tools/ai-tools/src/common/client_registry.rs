@@ -132,8 +132,8 @@ impl AIRouterClient {
             }
         }
 
-        // Use routing strategy from config
-        let _strategy = match self.config.routing_strategy.as_str() {
+        // Use intelligent routing strategy from config - Universal Primal Architecture
+        let strategy = match self.config.routing_strategy.as_str() {
             "round_robin" => RoutingStrategy::RoundRobin,
             "random" => RoutingStrategy::Random,
             "health_based" => RoutingStrategy::LowestLatency, // Map to available variant
@@ -142,13 +142,62 @@ impl AIRouterClient {
             _ => RoutingStrategy::FirstMatch, // Default fallback
         };
 
-        // Simple fallback: return first available provider
-        if let Some(provider) = providers.values().next() {
-            Ok(provider.clone())
-        } else {
-            Err(crate::error::AIError::Provider(
-                "No providers available".to_string(),
-            ))
+        // Implement intelligent AI provider selection based on strategy
+        debug!("🐿️ Using AI routing strategy: {:?} for Universal Primal Architecture", strategy);
+        
+        match strategy {
+            RoutingStrategy::RoundRobin => {
+                info!("🔄 Using round-robin AI provider selection");
+                self.select_round_robin(&providers).await
+            }
+            RoutingStrategy::Random => {
+                info!("🎲 Using random AI provider selection");
+                self.select_random(&providers).await
+            }
+            RoutingStrategy::LowestLatency => {
+                info!("🏥 Using health-based AI provider selection");
+                self.select_health_based(&providers).await
+            }
+            RoutingStrategy::LowestCost => {
+                info!("💰 Using cost-optimized AI provider selection");
+                self.select_cost_optimized(&providers).await
+            }
+            RoutingStrategy::BestFit => {
+                info!("⚡ Using performance-based AI provider selection");
+                self.select_performance_based(&providers).await
+            }
+            RoutingStrategy::HighestPriority => {
+                info!("🏆 Using priority-based AI provider selection");
+                // Priority-based selection: prefer providers in order of capability/reliability
+                // OpenAI (most reliable) -> Anthropic (high quality) -> Ollama (cost effective)
+                let priority_order = ["openai", "anthropic", "ollama"];
+                for provider_name in &priority_order {
+                    if let Some(provider) = providers.get(*provider_name) {
+                        debug!("Selected priority provider: {}", provider_name);
+                        return Ok(Arc::clone(provider));
+                    }
+                }
+                // If none of the priority providers are available, fall back to first available
+                if let Some(provider) = providers.values().next() {
+                    warn!("No priority providers available, using fallback");
+                    Ok(provider.clone())
+                } else {
+                    Err(crate::error::AIError::Provider(
+                        "No providers available".to_string(),
+                    ))
+                }
+            }
+            RoutingStrategy::FirstMatch => {
+                info!("📍 Using first available AI provider (fallback)");
+                // Simple fallback: return first available provider
+                if let Some(provider) = providers.values().next() {
+                    Ok(provider.clone())
+                } else {
+                    Err(crate::error::AIError::Provider(
+                        "No providers available".to_string(),
+                    ))
+                }
+            }
         }
     }
 

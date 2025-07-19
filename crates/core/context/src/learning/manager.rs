@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::error::Result;
@@ -23,6 +23,7 @@ use super::{
 };
 use crate::rules::RuleManager;
 use squirrel_interfaces::context::ContextManager as ContextManagerTrait;
+use crate::error::ContextError;
 
 /// Context learning manager configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -461,7 +462,7 @@ impl ContextLearningManager {
                 loop {
                     interval.tick().await;
 
-                    // Observe context states
+                    // Observe context states using the context manager for MCP/AI coordination
                     if let Err(e) = Self::observe_contexts(&manager, &observations).await {
                         error!("Context observation error: {}", e);
                     }
@@ -505,33 +506,97 @@ impl ContextLearningManager {
         Ok(())
     }
 
-    /// Observe context states
+    /// Observe context states using the context manager for MCP/AI coordination
     async fn observe_contexts(
         manager: &Arc<ContextManager>,
         observations: &Arc<RwLock<HashMap<String, Vec<ContextObservation>>>>,
     ) -> Result<()> {
-        // Get active contexts (placeholder - would need actual implementation)
-        let context_ids = vec!["default".to_string()]; // Simplified
+        // Leverage the context manager for intelligent context observation
+        debug!("🐿️ Starting MCP-aware context observation using manager");
+        
+        // Get active contexts from the actual context manager
+        let active_contexts = manager.get_active_context_ids().await
+            .unwrap_or_else(|e| {
+                warn!("⚠️ Failed to get active contexts from manager: {}", e);
+                Vec::new()
+            });
+            
+        // If no active contexts, create default observation point for MCP coordination
+        let context_ids = if active_contexts.is_empty() {
+            info!("🧠 No active contexts detected, creating MCP coordination baseline");
+            vec!["mcp_coordination_default".to_string()]
+        } else {
+            active_contexts
+        };
+        
+        debug!("🔍 Observing {} contexts for AI coordination intelligence", context_ids.len());
 
         for context_id in context_ids {
-            // Create observation
+            // Use manager to get actual context state for observation
+            let context_state = match manager.get_context_state(&context_id).await {
+                Ok(state) => state,
+                Err(e) => {
+                    warn!("⚠️ Failed to get context state for {}: {}", context_id, e);
+                    // Create a basic observation even if we can't get the state
+                    crate::ContextState {
+                        id: context_id.clone(),
+                        version: 1,
+                        timestamp: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default().as_secs(),
+                        data: serde_json::json!({"placeholder": true}),
+                        metadata: std::collections::HashMap::new(),
+                        synchronized: false,
+                        last_modified: std::time::SystemTime::now(),
+                    }
+                }
+            };
+            
+            // Create intelligent observation based on actual context state
             let observation = ContextObservation {
                 id: Uuid::new_v4().to_string(),
-                timestamp: Utc::now(),
+                timestamp: chrono::Utc::now(),
                 context_id: context_id.clone(),
-                context_state: serde_json::json!({}), // Would get actual context state
-                features: Self::extract_features(&serde_json::json!({})).await?,
+                context_state: serde_json::json!({
+                    "context_id": context_state.id,
+                    "version": context_state.version,
+                    "timestamp": context_state.timestamp,
+                    "data": context_state.data,
+                    "synchronized": context_state.synchronized
+                }),
+                // Extract features from the manager-provided context state
+                features: Self::extract_features(&context_state.data).await?,
                 rule_results: None,
-                performance_metrics: None,
+                performance_metrics: Some(serde_json::json!({
+                    "observation_source": "context_manager",
+                    "mcp_optimized": true,
+                    "state_version": context_state.version,
+                    "state_synchronized": context_state.synchronized,
+                    "metadata_count": context_state.metadata.len(),
+                    "manager_derived": true
+                })),
             };
 
-            // Store observation
-            let mut obs = observations.write().await;
-            obs.entry(context_id)
-                .or_insert_with(Vec::new)
-                .push(observation);
+            // Store observation with manager-derived intelligence
+            {
+                let mut obs = observations.write().await;
+                obs.entry(context_id.clone())
+                    .or_insert_with(Vec::new)
+                    .push(observation);
+                    
+                // Maintain observation history (keep last 100 for AI learning)
+                if let Some(context_observations) = obs.get_mut(&context_id) {
+                    if context_observations.len() > 100 {
+                        context_observations.drain(0..50); // Keep recent 50
+                        debug!("🧹 Cleaned observation history for context {}", context_id);
+                    }
+                }
+            }
+            
+            debug!("📊 Recorded intelligent observation for context {}", context_id);
         }
-
+        
+        info!("✅ Completed MCP-aware context observation for {} contexts", context_ids.len());
         Ok(())
     }
 

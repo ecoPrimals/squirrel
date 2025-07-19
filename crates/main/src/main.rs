@@ -3,7 +3,6 @@ use ecosystem_api::types::{NetworkLocation, PrimalContext};
 use squirrel::api::ApiServer;
 use squirrel::ecosystem::{initialize_ecosystem_integration, EcosystemConfig};
 use squirrel::shutdown::{ShutdownConfig, ShutdownManager};
-use squirrel::universal::SecurityLevel;
 use squirrel::universal_adapter::run_universal_adapter;
 use squirrel::universal_provider::UniversalSquirrelProvider;
 use squirrel::MetricsCollector;

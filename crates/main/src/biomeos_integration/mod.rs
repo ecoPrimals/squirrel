@@ -23,7 +23,6 @@ const API_VERSION: &str = "biomeOS/v1";
 const STATUS_INITIALIZING: &str = "initializing";
 const STATUS_STARTING: &str = "starting";
 const STATUS_RUNNING: &str = "running";
-const STATUS_SHUTTING_DOWN: &str = "shutting_down";
 
 pub mod agent_deployment;
 pub mod ai_intelligence;
@@ -35,8 +34,8 @@ pub mod optimized_implementations;
 
 // Re-export optimized implementations
 pub use optimized_implementations::{
-    OptimizedAgentDeploymentManager, OptimizedBiomeOSIntegration, OptimizedContextState,
-    OptimizedIntegrationMetrics, OptimizedMessageProcessor, OptimizedServiceRegistration,
+    OptimizedContextState, OptimizedServiceRegistration,
+    SessionContext, ContextData,
 };
 
 pub use agent_deployment::*;
@@ -177,14 +176,13 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Create an optimized version of the BiomeOS integration
-    pub fn new_optimized() -> OptimizedBiomeOSIntegration {
-        OptimizedBiomeOSIntegration::new()
+    pub fn new_optimized() -> SquirrelBiomeOSIntegration {
+        SquirrelBiomeOSIntegration::new("optimized-squirrel".to_string())
     }
 
     /// Migrate to optimized implementation
-    pub async fn migrate_to_optimized(self) -> Result<OptimizedBiomeOSIntegration, PrimalError> {
-        let mut optimized = OptimizedBiomeOSIntegration::new();
-        optimized.initialize().await?;
+    pub async fn migrate_to_optimized(self) -> Result<SquirrelBiomeOSIntegration, PrimalError> {
+        let optimized = SquirrelBiomeOSIntegration::new("migration-squirrel".to_string());
 
         // Migration logic would go here to transfer state
         // For now, we return a fresh optimized instance
