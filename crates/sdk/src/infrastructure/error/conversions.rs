@@ -2,7 +2,7 @@
 
 use super::context::{EnhancedError, ErrorContext};
 use super::core::PluginError;
-use super::severity::{ErrorCategory, ErrorSeverity, PluginErrorClassification};
+use super::severity::PluginErrorClassification;
 use wasm_bindgen::prelude::*;
 
 impl PluginError {

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 use crate::error::{PluginError, PluginResult};
 use crate::utils::{current_timestamp_iso, generate_listener_id, safe_lock};
-use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;

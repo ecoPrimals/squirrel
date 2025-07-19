@@ -5,7 +5,7 @@
 
 use super::connection::ConnectionManager;
 use super::types::McpMessage;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Message handler for MCP protocol
 ///

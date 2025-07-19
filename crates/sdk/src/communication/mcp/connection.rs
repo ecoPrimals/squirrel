@@ -5,7 +5,7 @@
 
 use crate::config::McpClientConfig;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
@@ -114,7 +114,7 @@ impl ConnectionManager {
             onopen_callback.forget();
 
             let onerror_callback = Closure::wrap(Box::new(move |e: web_sys::ErrorEvent| {
-                error!("WebSocket error: {:?}", e);
+                debug!("WebSocket error: {:?}", e);
             })
                 as Box<dyn FnMut(web_sys::ErrorEvent)>);
             ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
@@ -226,7 +226,6 @@ impl ConnectionManager {
     pub async fn close(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(mut ws) = self.websocket.take() {
-            use futures_util::sink::SinkExt;
             ws.close(None).await?;
             debug!("WebSocket connection closed (native)");
         }
