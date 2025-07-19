@@ -137,7 +137,12 @@ pub enum ConfigError {
 
     /// Invalid configuration value
     #[error("Invalid configuration value for {key}: {value}")]
-    InvalidValue { key: String, value: String },
+    InvalidValue { 
+        /// Configuration key that contains the invalid value
+        key: String, 
+        /// Invalid value that failed validation
+        value: String 
+    },
 
     /// Configuration validation failed
     #[error("Configuration validation failed: {0}")]
