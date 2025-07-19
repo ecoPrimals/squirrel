@@ -1,0 +1,359 @@
+//! Error conversions and WASM compatibility for the Squirrel Plugin SDK
+
+use super::context::{EnhancedError, ErrorContext};
+use super::core::PluginError;
+use super::severity::{ErrorCategory, ErrorSeverity, PluginErrorClassification};
+use wasm_bindgen::prelude::*;
+
+impl PluginError {
+    /// Convert to a JsValue for WASM compatibility
+    pub fn to_js_value(&self) -> JsValue {
+        let error_obj = js_sys::Object::new();
+
+        // Set error type
+        js_sys::Reflect::set(&error_obj, &"type".into(), &self.error_type().into()).unwrap();
+
+        // Set error message
+        js_sys::Reflect::set(&error_obj, &"message".into(), &self.to_string().into()).unwrap();
+
+        // Set error code
+        js_sys::Reflect::set(&error_obj, &"code".into(), &self.error_code().into()).unwrap();
+
+        // Set error category
+        js_sys::Reflect::set(
+            &error_obj,
+            &"category".into(),
+            &self.category().as_str().into(),
+        )
+        .unwrap();
+
+        // Set error severity
+        js_sys::Reflect::set(
+            &error_obj,
+            &"severity".into(),
+            &self.severity().as_str().into(),
+        )
+        .unwrap();
+
+        // Set recoverable flag
+        js_sys::Reflect::set(
+            &error_obj,
+            &"recoverable".into(),
+            &self.is_recoverable().into(),
+        )
+        .unwrap();
+
+        error_obj.into()
+    }
+
+    /// Get a numeric error code
+    pub fn error_code(&self) -> u32 {
+        match self {
+            PluginError::UnknownCommand { .. } => 1001,
+            PluginError::MissingParameter { .. } => 1002,
+            PluginError::InvalidParameter { .. } => 1003,
+            PluginError::PermissionDenied { .. } => 1004,
+            PluginError::NetworkError { .. } => 2001,
+            PluginError::FileSystemError { .. } => 2002,
+            PluginError::McpError { .. } => 2003,
+            PluginError::InitializationError { .. } => 3001,
+            PluginError::ConfigurationError { .. } => 3002,
+            PluginError::SerializationError { .. } => 3003,
+            PluginError::TimeoutError { .. } => 4001,
+            PluginError::ResourceLimitExceeded { .. } => 4002,
+            PluginError::QuotaExceeded { .. } => 4003,
+            PluginError::PluginNotFound { .. } => 5001,
+            PluginError::PluginAlreadyExists { .. } => 5002,
+            PluginError::DependencyError { .. } => 5003,
+            PluginError::VersionIncompatible { .. } => 5004,
+            PluginError::InvalidVersion { .. } => 5005,
+            PluginError::SecurityViolation { .. } => 6001,
+            PluginError::InternalError { .. } => 9999,
+            PluginError::ExecutionError { .. } => 7001,
+            PluginError::InvalidConfiguration { .. } => 8001,
+            PluginError::JsError { .. } => 9001,
+            PluginError::Unknown { .. } => 9999,
+            PluginError::HttpError { .. } => 2010,
+            PluginError::JsonError { .. } => 3010,
+            PluginError::ValidationError { .. } => 1010,
+            PluginError::ConnectionError { .. } => 2011,
+            PluginError::AuthenticationError { .. } => 6010,
+            PluginError::AuthorizationError { .. } => 6011,
+            PluginError::RateLimitError { .. } => 4010,
+            PluginError::LifecycleError { .. } => 5010,
+            PluginError::CommandExecutionError { .. } => 7010,
+            PluginError::EventHandlingError { .. } => 7011,
+            PluginError::ContextError { .. } => 8010,
+            PluginError::StorageError { .. } => 2020,
+            PluginError::CacheError { .. } => 2021,
+            PluginError::LockError { .. } => 8020,
+            PluginError::CommunicationError { .. } => 2030,
+            PluginError::ResourceNotFound { .. } => 5020,
+            PluginError::ResourceAlreadyExists { .. } => 5021,
+            PluginError::TemporaryFailure { .. } => 4020,
+            PluginError::PermanentFailure { .. } => 4021,
+            PluginError::ExternalServiceError { .. } => 2040,
+            PluginError::NotImplemented { .. } => 9010,
+            PluginError::NotSupported { .. } => 9011,
+            PluginError::Deprecated { .. } => 9012,
+        }
+    }
+
+    /// Create an enhanced error with context
+    pub fn with_context(self, context: ErrorContext) -> EnhancedError {
+        EnhancedError {
+            recoverable: self.is_recoverable(),
+            recovery_suggestions: self.recovery_suggestions(),
+            category: self.category(),
+            severity: self.severity(),
+            error: self,
+            context,
+            source: None,
+        }
+    }
+
+    /// Create an enhanced error with source error chain
+    pub fn with_source(self, source: EnhancedError) -> EnhancedError {
+        let mut enhanced = self.with_context(ErrorContext::new("error_chaining"));
+        enhanced.source = Some(Box::new(source));
+        enhanced
+    }
+}
+
+impl From<PluginError> for JsValue {
+    fn from(error: PluginError) -> Self {
+        error.to_js_value()
+    }
+}
+
+impl From<serde_json::Error> for PluginError {
+    fn from(error: serde_json::Error) -> Self {
+        PluginError::JsonError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<serde_wasm_bindgen::Error> for PluginError {
+    fn from(error: serde_wasm_bindgen::Error) -> Self {
+        PluginError::SerializationError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<wasm_bindgen::JsValue> for PluginError {
+    fn from(js_value: wasm_bindgen::JsValue) -> Self {
+        PluginError::JsError {
+            message: format!("{:?}", js_value),
+        }
+    }
+}
+
+impl From<std::io::Error> for PluginError {
+    fn from(error: std::io::Error) -> Self {
+        PluginError::FileSystemError {
+            operation: "io_operation".to_string(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<std::num::ParseIntError> for PluginError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        PluginError::InvalidParameter {
+            name: "numeric_value".to_string(),
+            reason: format!("invalid integer: {}", error),
+        }
+    }
+}
+
+impl From<std::num::ParseFloatError> for PluginError {
+    fn from(error: std::num::ParseFloatError) -> Self {
+        PluginError::InvalidParameter {
+            name: "numeric_value".to_string(),
+            reason: format!("invalid float: {}", error),
+        }
+    }
+}
+
+impl From<std::string::FromUtf8Error> for PluginError {
+    fn from(error: std::string::FromUtf8Error) -> Self {
+        PluginError::SerializationError {
+            message: format!("invalid UTF-8: {}", error),
+        }
+    }
+}
+
+impl From<std::str::Utf8Error> for PluginError {
+    fn from(error: std::str::Utf8Error) -> Self {
+        PluginError::SerializationError {
+            message: format!("invalid UTF-8: {}", error),
+        }
+    }
+}
+
+// Optional conversions for external crates (behind feature flags)
+#[cfg(feature = "url")]
+impl From<url::ParseError> for PluginError {
+    fn from(error: url::ParseError) -> Self {
+        PluginError::InvalidParameter {
+            name: "url".to_string(),
+            reason: format!("invalid URL: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "toml")]
+impl From<toml::de::Error> for PluginError {
+    fn from(error: toml::de::Error) -> Self {
+        PluginError::ConfigurationError {
+            message: format!("TOML parse error: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "toml")]
+impl From<toml::ser::Error> for PluginError {
+    fn from(error: toml::ser::Error) -> Self {
+        PluginError::SerializationError {
+            message: format!("TOML serialize error: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "yaml")]
+impl From<yaml_rust::ScanError> for PluginError {
+    fn from(error: yaml_rust::ScanError) -> Self {
+        PluginError::ConfigurationError {
+            message: format!("YAML parse error: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "yaml")]
+impl From<yaml_rust::EmitError> for PluginError {
+    fn from(error: yaml_rust::EmitError) -> Self {
+        PluginError::SerializationError {
+            message: format!("YAML emit error: {}", error),
+        }
+    }
+}
+
+#[cfg(feature = "regex")]
+impl From<regex::Error> for PluginError {
+    fn from(error: regex::Error) -> Self {
+        PluginError::InvalidParameter {
+            name: "regex_pattern".to_string(),
+            reason: format!("invalid regex: {}", error),
+        }
+    }
+}
+
+impl From<std::time::SystemTimeError> for PluginError {
+    fn from(error: std::time::SystemTimeError) -> Self {
+        PluginError::InternalError {
+            message: format!("system time error: {}", error),
+        }
+    }
+}
+
+impl From<std::sync::mpsc::RecvError> for PluginError {
+    fn from(error: std::sync::mpsc::RecvError) -> Self {
+        PluginError::CommunicationError {
+            target: "channel".to_string(),
+            message: format!("receive error: {}", error),
+        }
+    }
+}
+
+impl<T> From<std::sync::mpsc::SendError<T>> for PluginError {
+    fn from(error: std::sync::mpsc::SendError<T>) -> Self {
+        PluginError::CommunicationError {
+            target: "channel".to_string(),
+            message: format!("send error: {}", error),
+        }
+    }
+}
+
+impl From<std::sync::mpsc::TryRecvError> for PluginError {
+    fn from(error: std::sync::mpsc::TryRecvError) -> Self {
+        match error {
+            std::sync::mpsc::TryRecvError::Empty => PluginError::TemporaryFailure {
+                operation: "channel_receive".to_string(),
+                message: "channel is empty".to_string(),
+            },
+            std::sync::mpsc::TryRecvError::Disconnected => PluginError::CommunicationError {
+                target: "channel".to_string(),
+                message: "channel disconnected".to_string(),
+            },
+        }
+    }
+}
+
+impl<T> From<std::sync::mpsc::TrySendError<T>> for PluginError {
+    fn from(error: std::sync::mpsc::TrySendError<T>) -> Self {
+        match error {
+            std::sync::mpsc::TrySendError::Full(_) => PluginError::ResourceLimitExceeded {
+                resource: "channel_buffer".to_string(),
+                limit: "channel is full".to_string(),
+            },
+            std::sync::mpsc::TrySendError::Disconnected(_) => PluginError::CommunicationError {
+                target: "channel".to_string(),
+                message: "channel disconnected".to_string(),
+            },
+        }
+    }
+}
+
+impl From<std::sync::PoisonError<std::sync::MutexGuard<'_, ()>>> for PluginError {
+    fn from(error: std::sync::PoisonError<std::sync::MutexGuard<'_, ()>>) -> Self {
+        PluginError::LockError {
+            resource: "mutex".to_string(),
+            message: format!("mutex poisoned: {}", error),
+        }
+    }
+}
+
+impl From<std::sync::PoisonError<std::sync::RwLockReadGuard<'_, ()>>> for PluginError {
+    fn from(error: std::sync::PoisonError<std::sync::RwLockReadGuard<'_, ()>>) -> Self {
+        PluginError::LockError {
+            resource: "rwlock".to_string(),
+            message: format!("rwlock poisoned: {}", error),
+        }
+    }
+}
+
+impl From<std::sync::PoisonError<std::sync::RwLockWriteGuard<'_, ()>>> for PluginError {
+    fn from(error: std::sync::PoisonError<std::sync::RwLockWriteGuard<'_, ()>>) -> Self {
+        PluginError::LockError {
+            resource: "rwlock".to_string(),
+            message: format!("rwlock poisoned: {}", error),
+        }
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for PluginError {
+    fn from(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        PluginError::InternalError {
+            message: error.to_string(),
+        }
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for PluginError {
+    fn from(error: Box<dyn std::error::Error>) -> Self {
+        PluginError::InternalError {
+            message: error.to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "anyhow")]
+impl From<anyhow::Error> for PluginError {
+    fn from(error: anyhow::Error) -> Self {
+        PluginError::InternalError {
+            message: error.to_string(),
+        }
+    }
+}

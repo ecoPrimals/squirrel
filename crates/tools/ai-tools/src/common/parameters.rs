@@ -1,0 +1,134 @@
+//! Model parameters for AI chat interfaces
+//!
+//! This module defines common parameters used to control AI model behavior.
+
+use serde::{Deserialize, Serialize};
+
+/// Model parameters for API requests
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelParameters {
+    /// Temperature for response generation
+    pub temperature: Option<f32>,
+    /// Maximum tokens in response
+    pub max_tokens: Option<u32>,
+    /// Top-p sampling parameter
+    pub top_p: Option<f32>,
+    /// Top-k sampling parameter
+    pub top_k: Option<f32>,
+    /// Frequency penalty
+    pub frequency_penalty: Option<f32>,
+    /// Presence penalty
+    pub presence_penalty: Option<f32>,
+    /// Stop sequences
+    pub stop: Option<Vec<String>>,
+    /// Whether to stream the response
+    pub stream: Option<bool>,
+    /// Tool choice preference
+    pub tool_choice: Option<ToolChoice>,
+}
+
+/// Tool choice options
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolChoice {
+    Auto,
+    None,
+    Required,
+    Specific(String),
+}
+
+impl ModelParameters {
+    /// Create new parameters with default values
+    pub fn new() -> Self {
+        Self {
+            temperature: None,
+            top_p: None,
+            top_k: None,
+            max_tokens: None,
+            stop: None,
+            frequency_penalty: None,
+            presence_penalty: None,
+            stream: Some(false),
+            tool_choice: None,
+        }
+    }
+
+    /// Set the temperature
+    pub fn with_temperature(mut self, temperature: f32) -> Self {
+        self.temperature = Some(temperature);
+        self
+    }
+
+    /// Set the top_p value
+    pub fn with_top_p(mut self, top_p: f32) -> Self {
+        self.top_p = Some(top_p);
+        self
+    }
+
+    /// Set the top_k value
+    pub fn with_top_k(mut self, top_k: f32) -> Self {
+        self.top_k = Some(top_k);
+        self
+    }
+
+    /// Set the maximum tokens
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = Some(max_tokens);
+        self
+    }
+
+    /// Add a stop sequence
+    pub fn with_stop(mut self, stop: impl Into<String>) -> Self {
+        if let Some(ref mut stops) = self.stop {
+            stops.push(stop.into());
+        } else {
+            self.stop = Some(vec![stop.into()]);
+        }
+        self
+    }
+
+    /// Add multiple stop sequences
+    pub fn with_stops(mut self, stops: Vec<String>) -> Self {
+        self.stop = Some(stops);
+        self
+    }
+
+    /// Set the frequency penalty
+    pub fn with_frequency_penalty(mut self, frequency_penalty: f32) -> Self {
+        self.frequency_penalty = Some(frequency_penalty);
+        self
+    }
+
+    /// Set the presence penalty
+    pub fn with_presence_penalty(mut self, presence_penalty: f32) -> Self {
+        self.presence_penalty = Some(presence_penalty);
+        self
+    }
+
+    /// Set streaming mode
+    pub fn with_stream(mut self, stream: bool) -> Self {
+        self.stream = Some(stream);
+        self
+    }
+
+    /// Set the tool choice
+    pub fn with_tool_choice(mut self, tool_choice: ToolChoice) -> Self {
+        self.tool_choice = Some(tool_choice);
+        self
+    }
+}
+
+impl Default for ModelParameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Response format for the model
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResponseFormat {
+    /// Standard text response
+    Text,
+    /// JSON response
+    Json,
+}

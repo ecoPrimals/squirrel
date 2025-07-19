@@ -1,0 +1,61 @@
+[package]
+name = "universal-patterns"
+version = "0.1.0"
+edition = "2021"
+description = "Universal patterns framework for ecoPrimals ecosystem"
+authors = ["ecoPrimals Team"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ecoPrimals/squirrel"
+categories = ["development-tools", "api-bindings"]
+keywords = ["patterns", "framework", "primal", "ecosystem", "configuration"]
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Configuration management
+config = "0.14"
+dirs = "5.0"
+
+# Networking and HTTP
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+url = { version = "2.5", features = ["serde"] }
+
+# Security
+ring = "0.17"
+base64 = "0.22"
+sha256 = "1.5"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Environment variables
+dotenv = "0.15"
+
+# System information
+num_cpus = "1.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.0"
+wiremock = "0.5"
+assert_matches = "1.5"
+
+[features]
+default = ["config-management", "security", "orchestration"]
+config-management = []
+security = []
+orchestration = []
+testing = []
+
+ 

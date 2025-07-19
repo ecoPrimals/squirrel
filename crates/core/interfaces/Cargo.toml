@@ -1,0 +1,32 @@
+[package]
+name = "squirrel-interfaces"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Core interfaces and traits for the Squirrel AI system"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+tokio.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+tokio-test.workspace = true
+pretty_assertions.workspace = true
+tempfile.workspace = true
+
+[features]
+default = [] 

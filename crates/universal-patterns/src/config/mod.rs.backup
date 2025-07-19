@@ -1,0 +1,1106 @@
+//! Configuration management for the universal patterns framework
+//!
+//! This module provides standardized configuration patterns that all primals
+//! should use for consistent behavior across the ecosystem.
+
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::collections::HashMap;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
+use url::Url;
+
+pub mod builder;
+pub mod loader;
+pub mod validation;
+
+pub use builder::ConfigBuilder;
+pub use loader::ConfigLoader;
+pub use validation::ConfigValidator;
+
+/// Configuration error types
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("Invalid configuration: {0}")]
+    Invalid(String),
+    #[error("Missing required field: {0}")]
+    MissingField(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+    #[error("YAML error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
+    #[error("URL parse error: {0}")]
+    UrlParse(#[from] url::ParseError),
+    #[error("Environment variable error: {0}")]
+    EnvVar(#[from] std::env::VarError),
+    #[error("Config loading error: {0}")]
+    Loading(#[from] config::ConfigError),
+}
+
+/// Core configuration structure for all primals
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrimalConfig {
+    /// Primal identification
+    pub info: PrimalInfo,
+    
+    /// Network configuration
+    pub network: NetworkConfig,
+    
+    /// Security configuration
+    pub security: SecurityConfig,
+    
+    /// Orchestration configuration
+    pub orchestration: OrchestrationConfig,
+    
+    /// Logging configuration
+    pub logging: LoggingConfig,
+    
+    /// Environment-specific settings
+    pub environment: EnvironmentConfig,
+    
+    /// Custom primal-specific configuration
+    pub custom: HashMap<String, serde_json::Value>,
+}
+
+/// Primal identification information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrimalInfo {
+    /// Primal name (e.g., "squirrel", "beardog", "songbird")
+    pub name: String,
+    
+    /// Primal version
+    pub version: String,
+    
+    /// Unique instance identifier
+    pub instance_id: Uuid,
+    
+    /// Primal type/category
+    pub primal_type: PrimalType,
+    
+    /// Human-readable description
+    pub description: String,
+    
+    /// Creation timestamp
+    pub created_at: DateTime<Utc>,
+}
+
+/// Types of primals in the ecosystem
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PrimalType {
+    /// AI coordination and MCP protocol management
+    Coordinator,
+    /// Security and authentication management
+    Security,
+    /// Orchestration and task management
+    Orchestration,
+    /// Data storage and retrieval
+    Storage,
+    /// Compute and processing
+    Compute,
+    /// Custom/Other primal types
+    Custom(String),
+}
+
+/// Network configuration for primal communication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
+    /// Primary listening address
+    pub bind_address: String,
+    
+    /// Primary listening port
+    pub port: u16,
+    
+    /// External/public address (for service discovery)
+    pub public_address: Option<String>,
+    
+    /// TLS configuration
+    pub tls: Option<TlsConfig>,
+    
+    /// Timeout settings
+    pub timeouts: TimeoutConfig,
+    
+    /// Connection limits
+    pub limits: ConnectionLimits,
+}
+
+/// TLS configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsConfig {
+    /// Certificate file path
+    pub cert_file: PathBuf,
+    
+    /// Private key file path
+    pub key_file: PathBuf,
+    
+    /// CA certificate file path (for mutual TLS)
+    pub ca_file: Option<PathBuf>,
+    
+    /// Require client certificates
+    pub require_client_cert: bool,
+}
+
+/// Timeout configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoutConfig {
+    /// Connection timeout (seconds)
+    pub connect: u64,
+    
+    /// Request timeout (seconds)
+    pub request: u64,
+    
+    /// Keep-alive timeout (seconds)
+    pub keep_alive: u64,
+    
+    /// Idle timeout (seconds)
+    pub idle: u64,
+}
+
+/// Connection limits
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionLimits {
+    /// Maximum concurrent connections
+    pub max_connections: usize,
+    
+    /// Maximum requests per connection
+    pub max_requests_per_connection: usize,
+    
+    /// Rate limiting (requests per second)
+    pub rate_limit: Option<f64>,
+}
+
+/// Security configuration for Beardog integration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    /// Beardog service endpoint
+    pub beardog_endpoint: Option<Url>,
+    
+    /// Authentication method
+    pub auth_method: AuthMethod,
+    
+    /// Token/credential storage
+    pub credential_storage: CredentialStorage,
+    
+    /// Encryption settings
+    pub encryption: EncryptionConfig,
+    
+    /// Enable audit logging
+    pub audit_logging: bool,
+    
+    /// Security fallback settings
+    pub fallback: SecurityFallback,
+}
+
+/// Security fallback configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityFallback {
+    /// Enable local fallback when Beardog unavailable
+    pub enable_local_fallback: bool,
+    
+    /// Local auth method for fallback
+    pub local_auth_method: AuthMethod,
+    
+    /// Fallback timeout (seconds)
+    pub fallback_timeout: u64,
+}
+
+/// Authentication methods
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AuthMethod {
+    /// No authentication (development only)
+    None,
+    /// Token-based authentication
+    Token { token_file: PathBuf },
+    /// Certificate-based authentication
+    Certificate { cert_file: PathBuf, key_file: PathBuf },
+    /// Beardog-managed authentication
+    Beardog { service_id: String },
+}
+
+/// Credential storage options
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CredentialStorage {
+    /// In-memory storage (not persistent)
+    Memory,
+    /// File-based storage
+    File { path: PathBuf },
+    /// Beardog-managed storage
+    Beardog,
+}
+
+/// Encryption configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptionConfig {
+    /// Enable encryption for inter-primal communication
+    pub enable_inter_primal: bool,
+    
+    /// Enable encryption for data at rest
+    pub enable_at_rest: bool,
+    
+    /// Encryption algorithm
+    pub algorithm: EncryptionAlgorithm,
+    
+    /// Key management
+    pub key_management: KeyManagement,
+}
+
+/// Supported encryption algorithms
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EncryptionAlgorithm {
+    /// AES-256-GCM
+    Aes256Gcm,
+    /// ChaCha20-Poly1305
+    ChaCha20Poly1305,
+}
+
+/// Key management options
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum KeyManagement {
+    /// File-based key storage
+    File { path: PathBuf },
+    /// Beardog-managed keys
+    Beardog,
+    /// Environment variable
+    Environment { var_name: String },
+}
+
+/// Orchestration configuration for Songbird integration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrchestrationConfig {
+    /// Songbird service endpoint
+    pub songbird_endpoint: Option<Url>,
+    
+    /// Enable orchestration
+    pub enabled: bool,
+    
+    /// Orchestration mode
+    pub mode: OrchestrationMode,
+    
+    /// Health check configuration
+    pub health_check: HealthCheckConfig,
+    
+    /// Service discovery configuration
+    pub service_discovery: ServiceDiscoveryConfig,
+}
+
+/// Orchestration modes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OrchestrationMode {
+    /// Standalone mode (no orchestration)
+    Standalone,
+    /// Managed mode (orchestrated by Songbird)
+    Managed,
+    /// Hybrid mode (partial orchestration)
+    Hybrid,
+}
+
+/// Health check configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheckConfig {
+    /// Enable health checks
+    pub enabled: bool,
+    
+    /// Health check interval (seconds)
+    pub interval: u64,
+    
+    /// Health check timeout (seconds)
+    pub timeout: u64,
+    
+    /// Health check endpoint path
+    pub endpoint: String,
+}
+
+/// Service discovery configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDiscoveryConfig {
+    /// Enable service discovery
+    pub enabled: bool,
+    
+    /// Service discovery method
+    pub method: ServiceDiscoveryMethod,
+    
+    /// Service registration TTL (seconds)
+    pub ttl: u64,
+}
+
+/// Service discovery methods
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ServiceDiscoveryMethod {
+    /// DNS-based discovery
+    Dns { domain: String },
+    /// File-based discovery
+    File { path: PathBuf },
+    /// Songbird-managed discovery
+    Songbird,
+}
+
+/// Logging configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+    /// Log level
+    pub level: LogLevel,
+    
+    /// Log format
+    pub format: LogFormat,
+    
+    /// Log output destinations
+    pub outputs: Vec<LogOutput>,
+    
+    /// Enable structured logging
+    pub structured: bool,
+    
+    /// Enable tracing
+    pub tracing: bool,
+}
+
+/// Log levels
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LogLevel {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+/// Log formats
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LogFormat {
+    /// Human-readable format
+    Human,
+    /// JSON format
+    Json,
+    /// Compact format
+    Compact,
+}
+
+/// Log output destinations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LogOutput {
+    /// Standard output
+    Stdout,
+    /// Standard error
+    Stderr,
+    /// File output
+    File { path: PathBuf },
+    /// Syslog output
+    Syslog,
+}
+
+/// Environment-specific configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentConfig {
+    /// Environment name (development, staging, production)
+    pub name: String,
+    
+    /// Environment-specific variables
+    pub variables: HashMap<String, String>,
+    
+    /// Feature flags
+    pub features: HashMap<String, bool>,
+    
+    /// Resource limits
+    pub resources: ResourceLimits,
+}
+
+/// Resource limits
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceLimits {
+    /// Maximum memory usage (MB)
+    pub max_memory_mb: Option<u64>,
+    
+    /// Maximum CPU usage (percentage)
+    pub max_cpu_percent: Option<f64>,
+    
+    /// Maximum disk usage (MB)
+    pub max_disk_mb: Option<u64>,
+    
+    /// Maximum file descriptors
+    pub max_file_descriptors: Option<u64>,
+}
+
+impl Default for PrimalConfig {
+    fn default() -> Self {
+        Self {
+            info: PrimalInfo {
+                name: "unnamed-primal".to_string(),
+                version: "0.1.0".to_string(),
+                instance_id: Uuid::new_v4(),
+                primal_type: PrimalType::Custom("unknown".to_string()),
+                description: "A primal instance".to_string(),
+                created_at: Utc::now(),
+            },
+            network: NetworkConfig {
+                bind_address: "127.0.0.1".to_string(),
+                port: 8080,
+                public_address: None,
+                tls: None,
+                timeouts: TimeoutConfig {
+                    connect: 30,
+                    request: 60,
+                    keep_alive: 300,
+                    idle: 600,
+                },
+                limits: ConnectionLimits {
+                    max_connections: 1000,
+                    max_requests_per_connection: 100,
+                    rate_limit: None,
+                },
+            },
+            security: SecurityConfig {
+                beardog_endpoint: None,
+                auth_method: AuthMethod::None,
+                credential_storage: CredentialStorage::Memory,
+                encryption: EncryptionConfig {
+                    enable_inter_primal: false,
+                    enable_at_rest: false,
+                    algorithm: EncryptionAlgorithm::Aes256Gcm,
+                    key_management: KeyManagement::Environment {
+                        var_name: "PRIMAL_ENCRYPTION_KEY".to_string(),
+                    },
+                },
+                audit_logging: false,
+                fallback: SecurityFallback {
+                    enable_local_fallback: true,
+                    local_auth_method: AuthMethod::None,
+                    fallback_timeout: 30,
+                },
+            },
+            orchestration: OrchestrationConfig {
+                songbird_endpoint: None,
+                enabled: false,
+                mode: OrchestrationMode::Standalone,
+                health_check: HealthCheckConfig {
+                    enabled: true,
+                    interval: 30,
+                    timeout: 5,
+                    endpoint: "/health".to_string(),
+                },
+                service_discovery: ServiceDiscoveryConfig {
+                    enabled: false,
+                    method: ServiceDiscoveryMethod::File {
+                        path: PathBuf::from("./services.json"),
+                    },
+                    ttl: 300,
+                },
+            },
+            logging: LoggingConfig {
+                level: LogLevel::Info,
+                format: LogFormat::Human,
+                outputs: vec![LogOutput::Stdout],
+                structured: false,
+                tracing: false,
+            },
+            environment: EnvironmentConfig {
+                name: "development".to_string(),
+                variables: HashMap::new(),
+                features: HashMap::new(),
+                resources: ResourceLimits {
+                    max_memory_mb: None,
+                    max_cpu_percent: None,
+                    max_disk_mb: None,
+                    max_file_descriptors: None,
+                },
+            },
+            custom: HashMap::new(),
+        }
+    }
+}
+
+impl PrimalConfig {
+    /// Create a new configuration builder
+    pub fn builder() -> ConfigBuilder {
+        ConfigBuilder::new()
+    }
+    
+    /// Load configuration from file
+    pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, ConfigError> {
+        ConfigLoader::from_file(path)
+    }
+    
+    /// Load configuration from environment variables
+    pub fn from_env() -> Result<Self, ConfigError> {
+        ConfigLoader::from_env()
+    }
+    
+    /// Load configuration with multiple sources
+    pub fn load() -> Result<Self, ConfigError> {
+        ConfigLoader::load()
+    }
+    
+    /// Validate the configuration
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        ConfigValidator::validate(self)
+    }
+    
+    /// Save configuration to file
+    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), ConfigError> {
+        let content = serde_yaml::to_string(self)?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+    
+    /// Get a custom configuration value
+    pub fn get_custom<T>(&self, key: &str) -> Result<Option<T>, ConfigError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        match self.custom.get(key) {
+            Some(value) => Ok(Some(serde_json::from_value(value.clone())?)),
+            None => Ok(None),
+        }
+    }
+    
+    /// Set a custom configuration value
+    pub fn set_custom<T>(&mut self, key: &str, value: T) -> Result<(), ConfigError>
+    where
+        T: serde::Serialize,
+    {
+        let json_value = serde_json::to_value(value)?;
+        self.custom.insert(key.to_string(), json_value);
+        Ok(())
+    }
+} 
+
+/// Main configuration for the universal primal system
+/// Enhanced with songbird-compatible multi-instance support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniversalPrimalConfig {
+    /// Whether to enable auto-discovery of primals
+    pub auto_discovery_enabled: bool,
+    
+    /// Individual primal instance configurations
+    pub primal_instances: HashMap<String, PrimalInstanceConfig>,
+    
+    /// Multi-instance management settings
+    pub multi_instance: MultiInstanceConfig,
+    
+    /// Instance lifecycle management
+    pub lifecycle: InstanceLifecycleConfig,
+    
+    /// Port management configuration
+    pub port_management: PortManagementConfig,
+    
+    /// Global timeout settings
+    pub timeouts: TimeoutConfig,
+    
+    /// Logging and monitoring configuration
+    pub monitoring: MonitoringConfig,
+    
+    /// Legacy configuration for backward compatibility
+    pub squirrel: Option<PrimalConfig>,
+    pub beardog: Option<PrimalConfig>,
+    pub nestgate: Option<PrimalConfig>,
+    pub toadstool: Option<PrimalConfig>,
+}
+
+/// Configuration for individual primal instances
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrimalInstanceConfig {
+    /// Base URL for the primal service
+    pub base_url: String,
+    
+    /// Instance identifier
+    pub instance_id: String,
+    
+    /// User ID this instance serves
+    pub user_id: String,
+    
+    /// Device ID this instance serves
+    pub device_id: String,
+    
+    /// Security level for this instance
+    pub security_level: String,
+    
+    /// API key for authentication
+    pub api_key: Option<String>,
+    
+    /// Custom headers for requests
+    pub headers: HashMap<String, String>,
+    
+    /// Maximum request timeout
+    pub timeout_seconds: u64,
+    
+    /// Connection pool settings
+    pub connection_pool: ConnectionPoolConfig,
+    
+    /// Health check configuration
+    pub health_check: HealthCheckConfig,
+}
+
+/// Multi-instance management configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiInstanceConfig {
+    /// Maximum number of instances per primal type
+    pub max_instances_per_type: usize,
+    
+    /// Maximum number of instances per user
+    pub max_instances_per_user: usize,
+    
+    /// Load balancing strategy
+    pub load_balancing_strategy: LoadBalancingStrategy,
+    
+    /// Instance failover configuration
+    pub failover: FailoverConfig,
+    
+    /// Instance scaling configuration
+    pub scaling: ScalingConfig,
+}
+
+/// Instance lifecycle management configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstanceLifecycleConfig {
+    /// Whether to automatically start instances
+    pub auto_start: bool,
+    
+    /// Whether to automatically stop unused instances
+    pub auto_stop: bool,
+    
+    /// Time before stopping unused instances
+    pub idle_timeout_minutes: u64,
+    
+    /// Health check configuration
+    pub health_monitoring: HealthMonitoringConfig,
+}
+
+/// Port management configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortManagementConfig {
+    /// Port range for dynamic allocation
+    pub port_range: PortRange,
+    
+    /// Port lease duration
+    pub lease_duration_minutes: u64,
+    
+    /// Port allocation strategy
+    pub allocation_strategy: PortAllocationStrategy,
+    
+    /// Reserved ports that should not be allocated
+    pub reserved_ports: Vec<u16>,
+}
+
+/// Connection pool configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionPoolConfig {
+    /// Maximum number of connections
+    pub max_connections: usize,
+    
+    /// Minimum number of connections
+    pub min_connections: usize,
+    
+    /// Connection timeout
+    pub connection_timeout_seconds: u64,
+    
+    /// Idle timeout
+    pub idle_timeout_seconds: u64,
+}
+
+// HealthCheckConfig already defined above - removing duplicate
+
+/// Load balancing strategy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LoadBalancingStrategy {
+    /// Round-robin load balancing
+    RoundRobin,
+    
+    /// Least connections load balancing
+    LeastConnections,
+    
+    /// Random load balancing
+    Random,
+    
+    /// Weighted load balancing
+    Weighted,
+    
+    /// Health-based load balancing
+    HealthBased,
+}
+
+/// Failover configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailoverConfig {
+    /// Whether to enable failover
+    pub enabled: bool,
+    
+    /// Maximum number of retries
+    pub max_retries: u32,
+    
+    /// Retry delay
+    pub retry_delay_seconds: u64,
+    
+    /// Circuit breaker configuration
+    pub circuit_breaker: CircuitBreakerConfig,
+}
+
+/// Scaling configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScalingConfig {
+    /// Whether to enable auto-scaling
+    pub auto_scaling_enabled: bool,
+    
+    /// Minimum number of instances
+    pub min_instances: usize,
+    
+    /// Maximum number of instances
+    pub max_instances: usize,
+    
+    /// CPU usage threshold for scaling up
+    pub scale_up_cpu_threshold: f64,
+    
+    /// CPU usage threshold for scaling down
+    pub scale_down_cpu_threshold: f64,
+    
+    /// Memory usage threshold for scaling up
+    pub scale_up_memory_threshold: f64,
+    
+    /// Memory usage threshold for scaling down
+    pub scale_down_memory_threshold: f64,
+}
+
+/// Port range for dynamic allocation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortRange {
+    /// Start port
+    pub start: u16,
+    
+    /// End port
+    pub end: u16,
+}
+
+/// Port allocation strategy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PortAllocationStrategy {
+    /// Sequential allocation
+    Sequential,
+    
+    /// Random allocation
+    Random,
+    
+    /// Least recently used allocation
+    LeastRecentlyUsed,
+}
+
+/// Health monitoring configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthMonitoringConfig {
+    /// Whether to enable health monitoring
+    pub enabled: bool,
+    
+    /// Health check interval
+    pub check_interval_seconds: u64,
+    
+    /// Health check timeout
+    pub check_timeout_seconds: u64,
+    
+    /// Number of consecutive failures before marking unhealthy
+    pub failure_threshold: u32,
+    
+    /// Number of consecutive successes before marking healthy
+    pub recovery_threshold: u32,
+}
+
+/// Circuit breaker configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitBreakerConfig {
+    /// Whether to enable circuit breaker
+    pub enabled: bool,
+    
+    /// Failure threshold
+    pub failure_threshold: u32,
+    
+    /// Success threshold
+    pub success_threshold: u32,
+    
+    /// Timeout duration
+    pub timeout_seconds: u64,
+}
+
+// TimeoutConfig already defined above - removing duplicate
+
+/// Monitoring configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonitoringConfig {
+    /// Whether to enable metrics collection
+    pub metrics_enabled: bool,
+    
+    /// Metrics endpoint
+    pub metrics_endpoint: String,
+    
+    /// Metrics port
+    pub metrics_port: u16,
+    
+    /// Tracing configuration
+    pub tracing: TracingConfig,
+}
+
+/// Tracing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracingConfig {
+    /// Whether to enable tracing
+    pub enabled: bool,
+    
+    /// Tracing level
+    pub level: String,
+    
+    /// Tracing format
+    pub format: String,
+    
+    /// Whether to include file and line information
+    pub include_location: bool,
+}
+
+// Default implementations for all configuration types
+
+impl Default for UniversalPrimalConfig {
+    fn default() -> Self {
+        Self {
+            auto_discovery_enabled: true,
+            primal_instances: HashMap::new(),
+            multi_instance: MultiInstanceConfig::default(),
+            lifecycle: InstanceLifecycleConfig::default(),
+            port_management: PortManagementConfig::default(),
+            timeouts: TimeoutConfig::default(),
+            monitoring: MonitoringConfig::default(),
+            squirrel: None,
+            beardog: None,
+            nestgate: None,
+            toadstool: None,
+        }
+    }
+}
+
+impl Default for MultiInstanceConfig {
+    fn default() -> Self {
+        Self {
+            max_instances_per_type: 10,
+            max_instances_per_user: 5,
+            load_balancing_strategy: LoadBalancingStrategy::RoundRobin,
+            failover: FailoverConfig::default(),
+            scaling: ScalingConfig::default(),
+        }
+    }
+}
+
+impl Default for InstanceLifecycleConfig {
+    fn default() -> Self {
+        Self {
+            auto_start: true,
+            auto_stop: true,
+            idle_timeout_minutes: 60,
+            health_monitoring: HealthMonitoringConfig::default(),
+        }
+    }
+}
+
+impl Default for PortManagementConfig {
+    fn default() -> Self {
+        Self {
+            port_range: PortRange { start: 8000, end: 9000 },
+            lease_duration_minutes: 60,
+            allocation_strategy: PortAllocationStrategy::Sequential,
+            reserved_ports: vec![22, 80, 443, 8080],
+        }
+    }
+}
+
+impl Default for ConnectionPoolConfig {
+    fn default() -> Self {
+        Self {
+            max_connections: 100,
+            min_connections: 10,
+            connection_timeout_seconds: 30,
+            idle_timeout_seconds: 300,
+        }
+    }
+}
+
+impl Default for HealthCheckConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval: 30,
+            timeout: 5,
+            endpoint: "/health".to_string(),
+        }
+    }
+}
+
+impl Default for FailoverConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_retries: 3,
+            retry_delay_seconds: 1,
+            circuit_breaker: CircuitBreakerConfig::default(),
+        }
+    }
+}
+
+impl Default for ScalingConfig {
+    fn default() -> Self {
+        Self {
+            auto_scaling_enabled: false,
+            min_instances: 1,
+            max_instances: 10,
+            scale_up_cpu_threshold: 70.0,
+            scale_down_cpu_threshold: 30.0,
+            scale_up_memory_threshold: 80.0,
+            scale_down_memory_threshold: 40.0,
+        }
+    }
+}
+
+impl Default for HealthMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            check_interval_seconds: 30,
+            check_timeout_seconds: 5,
+            failure_threshold: 3,
+            recovery_threshold: 2,
+        }
+    }
+}
+
+impl Default for CircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            failure_threshold: 5,
+            success_threshold: 2,
+            timeout_seconds: 60,
+        }
+    }
+}
+
+impl Default for TimeoutConfig {
+    fn default() -> Self {
+        Self {
+            connect: 10,
+            request: 30,
+            keep_alive: 30,
+            idle: 30,
+        }
+    }
+}
+
+impl Default for MonitoringConfig {
+    fn default() -> Self {
+        Self {
+            metrics_enabled: true,
+            metrics_endpoint: "/metrics".to_string(),
+            metrics_port: 9090,
+            tracing: TracingConfig::default(),
+        }
+    }
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            level: "info".to_string(),
+            format: "json".to_string(),
+            include_location: false,
+        }
+    }
+}
+
+// Implementation methods for configuration
+
+impl UniversalPrimalConfig {
+    /// Create configuration from environment variables
+    pub fn from_env() -> Self {
+        let mut config = Self::default();
+        
+        // Load from environment variables
+        if let Ok(auto_discovery) = std::env::var("PRIMAL_AUTO_DISCOVERY") {
+            config.auto_discovery_enabled = auto_discovery.parse().unwrap_or(true);
+        }
+        
+        if let Ok(max_instances) = std::env::var("PRIMAL_MAX_INSTANCES_PER_TYPE") {
+            config.multi_instance.max_instances_per_type = max_instances.parse().unwrap_or(10);
+        }
+        
+        if let Ok(max_user_instances) = std::env::var("PRIMAL_MAX_INSTANCES_PER_USER") {
+            config.multi_instance.max_instances_per_user = max_user_instances.parse().unwrap_or(5);
+        }
+        
+        if let Ok(port_start) = std::env::var("PRIMAL_PORT_RANGE_START") {
+            if let Ok(port_end) = std::env::var("PRIMAL_PORT_RANGE_END") {
+                config.port_management.port_range.start = port_start.parse().unwrap_or(8000);
+                config.port_management.port_range.end = port_end.parse().unwrap_or(9000);
+            }
+        }
+        
+        config
+    }
+    
+    /// Validate configuration
+    pub fn validate(&self) -> Result<(), String> {
+        // Validate port range
+        if self.port_management.port_range.start >= self.port_management.port_range.end {
+            return Err("Port range start must be less than end".to_string());
+        }
+        
+        // Validate instance limits
+        if self.multi_instance.max_instances_per_type == 0 {
+            return Err("Max instances per type must be greater than 0".to_string());
+        }
+        
+        if self.multi_instance.max_instances_per_user == 0 {
+            return Err("Max instances per user must be greater than 0".to_string());
+        }
+        
+        // Validate scaling configuration
+        if self.multi_instance.scaling.auto_scaling_enabled {
+            if self.multi_instance.scaling.min_instances >= self.multi_instance.scaling.max_instances {
+                return Err("Min instances must be less than max instances".to_string());
+            }
+        }
+        
+        Ok(())
+    }
+}
+
+impl PrimalInstanceConfig {
+    /// Create a new primal instance configuration
+    pub fn new(
+        base_url: String,
+        instance_id: String,
+        user_id: String,
+        device_id: String,
+    ) -> Self {
+        Self {
+            base_url,
+            instance_id,
+            user_id,
+            device_id,
+            security_level: "standard".to_string(),
+            api_key: None,
+            headers: HashMap::new(),
+            timeout_seconds: 30,
+            connection_pool: ConnectionPoolConfig::default(),
+            health_check: HealthCheckConfig::default(),
+        }
+    }
+    
+    /// Set API key for authentication
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key = Some(api_key);
+        self
+    }
+    
+    /// Set security level
+    pub fn with_security_level(mut self, level: String) -> Self {
+        self.security_level = level;
+        self
+    }
+    
+    /// Add custom header
+    pub fn with_header(mut self, key: String, value: String) -> Self {
+        self.headers.insert(key, value);
+        self
+    }
+} 

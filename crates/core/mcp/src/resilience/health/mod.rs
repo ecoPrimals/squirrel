@@ -1,0 +1,771 @@
+//! Health monitoring components for the MCP resilience framework.
+//! 
+//! This module provides health monitoring capabilities for MCP components,
+//! including integration with the global monitoring system.
+//!
+//! The health monitoring subsystem allows:
+//! - Tracking the health status of various components
+//! - Executing periodic health checks
+//! - Triggering recovery actions when health issues are detected
+//! - Forwarding health metrics to external monitoring systems
+//! - Subscribing to health status changes
+//!
+//! The main components in this module include:
+//! - `HealthMonitor`: Central component for managing health checks
+//! - `HealthCheck`: Trait for implementing specific component health checks
+//! - `HealthStatus`: Enum representing various health states
+//! - `HealthCheckResult`: Container for health check results
+//! - `HealthMonitoringBridge`: Bridge between MCP health monitoring and external systems
+//! - `MonitoringAdapter`: Interface for integrating with external monitoring systems
+
+pub use monitoring_bridge::MonitoringAdapter;
+mod monitoring_bridge;
+
+pub use super::recovery::{RecoveryStrategy, FailureInfo, FailureSeverity};
+
+// Import common libraries used in the health module
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant};
+use std::error::Error as StdError;
+use async_trait::async_trait;
+use thiserror::Error;
+
+// Re-export types that were previously in health.rs
+// This will be the new canonical location for these types
+// (Instead of referencing them from the parent health.rs file)
+pub use super::resilience_error::{ResilienceError, Result};
+
+// Move all the health.rs contents here
+// (Instead of re-exporting from parent health.rs)
+
+/// Health status of a component
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HealthStatus {
+    /// Component is healthy
+    Healthy,
+    /// Component is degraded but still operational
+    Degraded,
+    /// Component is in warning state
+    Warning,
+    /// Component is unhealthy and requires attention
+    Unhealthy,
+    /// Component is critical failure state
+    Critical,
+    /// Component status is unknown
+    Unknown,
+}
+
+impl fmt::Display for HealthStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Healthy => write!(f, "Healthy"),
+            Self::Degraded => write!(f, "Degraded"),
+            Self::Warning => write!(f, "Warning"),
+            Self::Unhealthy => write!(f, "Unhealthy"),
+            Self::Critical => write!(f, "Critical"),
+            Self::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
+impl HealthStatus {
+    /// Convert health status to failure severity
+    ///
+    /// Maps the health status to an appropriate failure severity level
+    /// for use with resilience mechanisms.
+    #[must_use] pub const fn to_failure_severity(&self) -> Option<FailureSeverity> {
+        match self {
+            Self::Healthy => None, // No failure for healthy status
+            Self::Warning | Self::Degraded => Some(FailureSeverity::Minor),
+            Self::Unhealthy | Self::Unknown => Some(FailureSeverity::Moderate),
+            Self::Critical => Some(FailureSeverity::Critical),
+        }
+    }
+    
+    /// Check if this status requires recovery action
+    #[must_use] pub const fn requires_recovery(&self) -> bool {
+        matches!(self, 
+            Self::Unhealthy | 
+            Self::Critical |
+            Self::Degraded)
+    }
+}
+
+/// Health check result with details
+#[derive(Debug, Clone)]
+pub struct HealthCheckResult {
+    /// Component ID being checked
+    pub component_id: String,
+    
+    /// Status of the component
+    pub status: HealthStatus,
+    
+    /// Message with additional details
+    pub message: String,
+    
+    /// Timestamp when the check was performed
+    pub timestamp: Instant,
+    
+    /// Any metrics associated with the health check
+    pub metrics: HashMap<String, f64>,
+}
+
+impl HealthCheckResult {
+    /// Create a new health check result
+    #[must_use] pub fn new(component_id: String, status: HealthStatus, message: String) -> Self {
+        Self {
+            component_id,
+            status,
+            message,
+            timestamp: Instant::now(),
+            metrics: HashMap::new(),
+        }
+    }
+    
+    /// Add a metric to the health check result
+    #[must_use] pub fn with_metric(mut self, key: &str, value: f64) -> Self {
+        self.metrics.insert(key.to_string(), value);
+        self
+    }
+    
+    /// Check if this result requires recovery
+    #[must_use] pub const fn requires_recovery(&self) -> bool {
+        self.status.requires_recovery()
+    }
+}
+
+/// Health check configuration
+#[derive(Debug, Clone)]
+pub struct HealthCheckConfig {
+    /// How often to run the health check
+    pub check_interval: Duration,
+    
+    /// Timeout for health check operations
+    pub check_timeout: Duration,
+    
+    /// Number of consecutive fails before changing status
+    pub failure_threshold: u32,
+    
+    /// Number of consecutive passes before changing status
+    pub recovery_threshold: u32,
+    
+    /// Whether to automatically trigger recovery
+    pub auto_recovery: bool,
+}
+
+impl Default for HealthCheckConfig {
+    fn default() -> Self {
+        Self {
+            check_interval: Duration::from_secs(60),
+            check_timeout: Duration::from_secs(5),
+            failure_threshold: 3,
+            recovery_threshold: 2,
+            auto_recovery: true,
+        }
+    }
+}
+
+/// Trait for implementing health checks
+#[async_trait]
+pub trait HealthCheck: std::fmt::Debug + Send + Sync {
+    /// Unique identifier for this health check
+    fn id(&self) -> &str;
+    
+    /// Perform the health check
+    async fn check(&self) -> HealthCheckResult;
+    
+    /// Get the configuration for this health check
+    fn config(&self) -> &HealthCheckConfig;
+    
+    /// Get mutable access to the configuration
+    fn config_mut(&mut self) -> &mut HealthCheckConfig;
+}
+
+/// Metrics for health monitoring
+#[derive(Debug, Default, Clone)]
+pub struct HealthMonitoringMetrics {
+    /// Total health checks performed
+    pub total_checks: u64,
+    
+    /// Health checks by status
+    pub checks_by_status: HashMap<HealthStatus, u64>,
+    
+    /// Recovery actions triggered
+    pub recovery_actions: u64,
+    
+    /// Last check time
+    pub last_check_time: Option<Instant>,
+}
+
+impl HealthMonitoringMetrics {
+    /// Reset all metrics to default values
+    pub fn reset(&mut self) {
+        self.total_checks = 0;
+        self.checks_by_status.clear();
+        self.recovery_actions = 0;
+        self.last_check_time = None;
+    }
+    
+    /// Record a health check result
+    pub fn record_check(&mut self, result: &HealthCheckResult) {
+        self.total_checks += 1;
+        *self.checks_by_status.entry(result.status).or_insert(0) += 1;
+        self.last_check_time = Some(Instant::now());
+    }
+    
+    /// Record a recovery action
+    pub fn record_recovery(&mut self) {
+        self.recovery_actions += 1;
+    }
+}
+
+/// Tracks the health status history of a component
+#[derive(Debug)]
+struct ComponentHealthTracker {
+    /// Component identifier
+    component_id: String,
+    
+    /// Current health status
+    current_status: HealthStatus,
+    
+    /// Previous health status
+    previous_status: HealthStatus,
+    
+    /// Number of consecutive checks with current status
+    consecutive_count: u32,
+    
+    /// Last check result
+    last_result: Option<HealthCheckResult>,
+    
+    /// History of check results (limited size)
+    history: Vec<HealthCheckResult>,
+    
+    /// Maximum history size
+    max_history: usize,
+}
+
+impl ComponentHealthTracker {
+    /// Create a new component health tracker
+    fn new(component_id: String, max_history: usize) -> Self {
+        Self {
+            component_id,
+            current_status: HealthStatus::Unknown,
+            previous_status: HealthStatus::Unknown,
+            consecutive_count: 0,
+            last_result: None,
+            history: Vec::with_capacity(max_history),
+            max_history,
+        }
+    }
+    
+    /// Update the health tracker with a new check result
+    fn update(&mut self, result: HealthCheckResult) {
+        // Check if status has changed
+        if result.status == self.current_status {
+            self.consecutive_count += 1;
+        } else {
+            self.previous_status = self.current_status;
+            self.current_status = result.status;
+            self.consecutive_count = 1;
+        }
+        
+        // Store the result in history
+        self.last_result = Some(result.clone());
+        self.history.push(result);
+        
+        // Trim history if it exceeds max size
+        if self.history.len() > self.max_history {
+            self.history.remove(0);
+        }
+    }
+    
+    /// Check if recovery should be triggered based on current status
+    const fn should_trigger_recovery(&self, failure_threshold: u32) -> bool {
+        match self.current_status {
+            HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Unknown => false,
+            HealthStatus::Degraded | HealthStatus::Unhealthy | HealthStatus::Critical => {
+                // Only trigger recovery if we've been in this status for at least
+                // the failure threshold count
+                self.consecutive_count >= failure_threshold
+            }
+        }
+    }
+    
+    /// Get the last health check result if available
+    const fn last_result(&self) -> Option<&HealthCheckResult> {
+        self.last_result.as_ref()
+    }
+}
+
+/// Health monitoring system for MCP components
+#[derive(Debug)]
+pub struct HealthMonitor {
+    /// Health checks to run
+    health_checks: HashMap<String, Box<dyn HealthCheck>>,
+    
+    /// Component health trackers
+    component_trackers: RwLock<HashMap<String, ComponentHealthTracker>>,
+    
+    /// Recovery strategy for unhealthy components
+    recovery: Option<Arc<Mutex<RecoveryStrategy>>>,
+    
+    /// Metrics for health monitoring
+    metrics: Arc<Mutex<HealthMonitoringMetrics>>,
+    
+    /// Max history size for component trackers
+    max_history_size: usize,
+}
+
+impl HealthMonitor {
+    /// Create a new health monitor
+    #[must_use] pub fn new(max_history_size: usize) -> Self {
+        Self {
+            health_checks: HashMap::new(),
+            component_trackers: RwLock::new(HashMap::new()),
+            recovery: None,
+            metrics: Arc::new(Mutex::new(HealthMonitoringMetrics::default())),
+            max_history_size,
+        }
+    }
+    
+    /// Create a default health monitor
+    #[must_use] pub fn default() -> Self {
+        Self::new(100) // Default to 100 history entries
+    }
+    
+    /// Add a recovery strategy to this component
+    ///
+    /// # Arguments
+    /// * `recovery` - The recovery strategy to use for this component
+    #[must_use]
+    pub fn with_recovery(mut self, recovery: Arc<Mutex<RecoveryStrategy>>) -> Self {
+        self.recovery = Some(recovery);
+        self
+    }
+    
+    /// Register a health check with the monitor
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the write lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
+    pub fn register<H: HealthCheck + 'static>(&mut self, health_check: H) -> crate::error::Result<()> {
+        let id = health_check.id().to_string();
+        self.health_checks.insert(id.clone(), Box::new(health_check));
+        
+        // Initialize a tracker for this component if it doesn't exist
+        let mut trackers = self.component_trackers.write().map_err(|e| {
+            crate::error::MCPError::General(format!("Failed to acquire write lock for component trackers: {e}"))
+        })?;
+        
+        if !trackers.contains_key(&id) {
+            trackers.insert(
+                id.clone(),
+                ComponentHealthTracker::new(id, self.max_history_size)
+            );
+        }
+        
+        drop(trackers);
+        Ok(())
+    }
+    
+    /// Unregister a health check from the monitor
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the write lock for component trackers cannot be acquired.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the component ID is invalid.
+    pub fn unregister(&mut self, id: &str) -> bool {
+        let result = self.health_checks.remove(id).is_some();
+        
+        // We keep the tracker in case we want to keep history
+        // but we could also remove it here if desired
+        
+        result
+    }
+    
+    /// Get the current health status of a component
+    pub fn get_component_status(&self, component_id: &str) -> HealthStatus {
+        self.component_trackers.read()
+            .map_or(HealthStatus::Unknown, |trackers| 
+                trackers.get(component_id)
+                    .map_or(HealthStatus::Unknown, |tracker| tracker.current_status)
+            )
+    }
+    
+    /// Get the last health check result for a component
+    pub fn get_component_result(&self, component_id: &str) -> Option<HealthCheckResult> {
+        self.component_trackers.read()
+            .map_or(None, |trackers| 
+                trackers.get(component_id)
+                    .and_then(|tracker| tracker.last_result().cloned())
+            )
+    }
+    
+    /// Get the current status of all components
+    pub fn get_all_component_status(&self) -> HashMap<String, HealthStatus> {
+        self.component_trackers.read()
+            .map_or_else(|_| HashMap::new(), |trackers| {
+                trackers.iter()
+                    .map(|(id, tracker)| (id.clone(), tracker.current_status))
+                    .collect()
+            })
+    }
+    
+    /// Update component status and trigger recovery if needed
+    pub fn update_component_status(
+        &self,
+        component_id: &str,
+        result: HealthCheckResult,
+        check: &dyn HealthCheck,
+    ) -> bool {
+        self.component_trackers.write()
+            .map_or(false, |mut trackers| {
+                trackers.get_mut(component_id)
+                    .map_or(false, |tracker| {
+                        tracker.update(result.clone());
+                        tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
+                    })
+            })
+    }
+    
+    /// Check the health of a specific component
+    ///
+    /// This method will run the health check for the specified component and
+    /// update its status in the health monitor. It will also trigger recovery
+    /// actions if the component status requires it.
+    ///
+    /// # Returns
+    /// 
+    /// Returns `Some(HealthCheckResult)` if the component was found and checked,
+    /// or `None` if no health check was registered for this component.
+    ///
+    /// # Panics
+    ///
+    /// This method might panic if:
+    /// - The health check implementation itself panics
+    /// - The lock for the component tracker is poisoned (indicates a prior panic)
+    /// - Memory allocation fails for internal data structures
+    pub async fn check_component(&self, component_id: &str) -> Option<HealthCheckResult> {
+        if let Some(check) = self.health_checks.get(component_id) {
+            // Perform the health check
+            let result = check.check().await;
+            
+            // Update the tracker
+            let should_trigger_recovery = {
+                match self.component_trackers.write() {
+                    Ok(mut trackers) => {
+                        let should_recover = if let Some(tracker) = trackers.get_mut(component_id) {
+                            tracker.update(result.clone());
+                            tracker.should_trigger_recovery(check.config().failure_threshold) && check.config().auto_recovery
+                        } else {
+                            false
+                        };
+                        should_recover
+                    },
+                    Err(_) => false
+                }
+            }; // trackers lock is dropped here
+            
+            // Trigger recovery outside the lock if needed
+            if should_trigger_recovery {
+                let _ = self.trigger_recovery(component_id, &result).await;
+            }
+            
+            // Update metrics
+            if let Ok(mut metrics) = self.metrics.lock() {
+                metrics.record_check(&result);
+            }
+            
+            Some(result)
+        } else {
+            None
+        }
+    }
+    
+    /// Run health checks for all registered components
+    ///
+    /// This method will run all registered health checks and update the status
+    /// of each component in the health monitor. It will also trigger recovery
+    /// actions for components that require it.
+    ///
+    /// # Returns
+    ///
+    /// Returns a map of component IDs to their health check results.
+    ///
+    /// # Panics
+    ///
+    /// This method might panic if:
+    /// - Any of the health check implementations panic
+    /// - The locks for component trackers are poisoned (indicates a prior panic)
+    /// - Memory allocation fails for internal data structures
+    pub async fn check_all(&self) -> HashMap<String, HealthCheckResult> {
+        let mut results = HashMap::new();
+        
+        // First collect all component IDs to avoid holding locks during iteration
+        let component_ids: Vec<String> = self.health_checks.keys()
+            .map(std::string::ToString::to_string)
+            .collect();
+        
+        // Run all health checks and collect results
+        for component_id in component_ids {
+            if let Some(result) = self.check_component(&component_id).await {
+                results.insert(component_id, result);
+            }
+        }
+        
+        results
+    }
+    
+    /// Trigger recovery action for an unhealthy component
+    async fn trigger_recovery(&self, component_id: &str, result: &HealthCheckResult) -> bool {
+        if let Some(recovery) = &self.recovery {
+            // Create failure info from health check result
+            let severity = result.status.to_failure_severity()
+                .unwrap_or(FailureSeverity::Minor);
+                
+            let failure_info = FailureInfo {
+                message: result.message.clone(),
+                severity,
+                context: component_id.to_string(),
+                recovery_attempts: 0,
+            };
+            
+            // Try to recover
+            let recovery_result = {
+                // Acquire mutex within a block to ensure it's dropped before the await
+                let mut strategy = match recovery.lock() {
+                    Ok(strategy) => strategy,
+                    Err(_) => return false,
+                };
+                
+                // Record recovery attempt in metrics
+                if let Ok(mut metrics) = self.metrics.lock() {
+                    metrics.record_recovery();
+                }
+                
+                // Execute recovery strategy - this cannot be awaited while holding locks
+                strategy.handle_failure(failure_info, || {
+                    // Simple no-op recovery action that succeeds
+                    Ok::<_, Box<dyn StdError + Send + Sync + 'static>>(())
+                })
+            };
+            
+            // Now evaluate the result
+            match recovery_result {
+                Ok(()) => true,
+                Err(_) => false,
+            }
+        } else {
+            // No recovery strategy configured
+            false
+        }
+    }
+    
+    /// Get current metrics for health monitoring
+    pub fn get_metrics(&self) -> HealthMonitoringMetrics {
+        self.metrics.lock().map(|m| m.clone()).unwrap_or_default()
+    }
+    
+    /// Reset all metrics
+    pub fn reset_metrics(&self) {
+        if let Ok(mut metrics) = self.metrics.lock() {
+            metrics.reset();
+        }
+    }
+}
+
+/// Extension trait for health checks
+pub trait HealthCheckExt: HealthCheck {
+    /// Returns a reference to this object as a generic Any trait object
+    /// 
+    /// This allows downcasting to a concrete implementation type.
+    fn as_any(&self) -> &dyn std::any::Any;
+    
+    /// Returns a mutable reference to this object as a generic Any trait object
+    /// 
+    /// This allows downcasting to a concrete implementation type for mutation.
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
+
+impl<T: HealthCheck + std::any::Any> HealthCheckExt for T {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+/// Health check related errors
+#[derive(Debug, Error)]
+pub enum HealthCheckError {
+    /// Health check timed out
+    #[error("Health check for component '{component_id}' timed out after {duration:?}")]
+    Timeout {
+        /// ID of the component being checked
+        component_id: String,
+        /// Duration after which the check timed out
+        duration: Duration,
+    },
+    
+    /// Health check failed
+    #[error("Health check for component '{component_id}' failed: {message}")]
+    CheckFailed {
+        /// ID of the component being checked
+        component_id: String,
+        /// Detailed error message
+        message: String,
+    },
+    
+    /// Component is not available for health check
+    #[error("Component '{component_id}' is unavailable for health check")]
+    ComponentUnavailable {
+        /// ID of the component being checked
+        component_id: String,
+    },
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    /// Mock health check for testing
+    #[derive(Debug)]
+    pub struct MockHealthCheck {
+        /// ID of the health check
+        pub id: String,
+        /// Configuration for the health check
+        pub config: HealthCheckConfig,
+        /// Status to return
+        pub status: Arc<std::sync::RwLock<HealthStatus>>,
+        /// Call count
+        pub call_count: Arc<AtomicU32>,
+    }
+
+    impl MockHealthCheck {
+        /// Create a new mock health check
+        pub fn new(id: &str, status: HealthStatus) -> Self {
+            Self {
+                id: id.to_string(),
+                config: HealthCheckConfig::default(),
+                status: Arc::new(std::sync::RwLock::new(status)),
+                call_count: Arc::new(AtomicU32::new(0)),
+            }
+        }
+        
+        /// Set the health status for the mock
+        pub fn set_status(&self, status: HealthStatus) {
+            let mut s = self.status.write().unwrap();
+            *s = status;
+        }
+        
+        /// Get the number of times this check has been called
+        pub fn call_count(&self) -> u32 {
+            self.call_count.load(Ordering::SeqCst)
+        }
+    }
+    
+    #[async_trait]
+    impl HealthCheck for MockHealthCheck {
+        fn id(&self) -> &str {
+            &self.id
+        }
+        
+        async fn check(&self) -> HealthCheckResult {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+            let status = *self.status.read().unwrap();
+            HealthCheckResult::new(
+                self.id.clone(),
+                status,
+                format!("Mock health check: {:?}", status)
+            )
+        }
+        
+        fn config(&self) -> &HealthCheckConfig {
+            &self.config
+        }
+        
+        fn config_mut(&mut self) -> &mut HealthCheckConfig {
+            &mut self.config
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_health_check_result() {
+        let result = HealthCheckResult::new(
+            "test-component".to_string(),
+            HealthStatus::Healthy,
+            "All systems operational".to_string()
+        )
+        .with_metric("response_time_ms", 42.5)
+        .with_metric("memory_usage_mb", 128.0);
+        
+        assert_eq!(result.component_id, "test-component");
+        assert_eq!(result.status, HealthStatus::Healthy);
+        assert_eq!(result.message, "All systems operational");
+        assert_eq!(result.metrics.get("response_time_ms"), Some(&42.5));
+        assert_eq!(result.metrics.get("memory_usage_mb"), Some(&128.0));
+        assert!(!result.requires_recovery());
+    }
+    
+    #[tokio::test]
+    async fn test_health_monitor_basic() {
+        let mut monitor = HealthMonitor::default();
+        
+        // Register a mock health check
+        let mock_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
+        monitor.register(mock_check).unwrap();
+        
+        // Check the component
+        let result = monitor.check_component("test-component").await.unwrap();
+        
+        assert_eq!(result.status, HealthStatus::Healthy);
+        assert_eq!(monitor.get_component_status("test-component"), HealthStatus::Healthy);
+        assert_eq!(monitor.get_all_component_status().get("test-component"), Some(&HealthStatus::Healthy));
+    }
+    
+    #[tokio::test]
+    async fn test_health_status_transition() {
+        let mut monitor = HealthMonitor::default();
+        
+        // Create the mock check separately so we can control it
+        let mock_check = MockHealthCheck::new("test-component", HealthStatus::Healthy);
+        
+        // Register the mock health check with auto-recovery disabled
+        monitor.register(mock_check).unwrap();
+        
+        // Initial check
+        let result = monitor.check_component("test-component").await.unwrap();
+        assert_eq!(result.status, HealthStatus::Healthy);
+        
+        // Since we can't access the check directly through the monitor, we'll 
+        // create a new monitor with a new check with different status
+        let mut monitor = HealthMonitor::default();
+        let mock_check2 = MockHealthCheck::new("test-component", HealthStatus::Unhealthy);
+        monitor.register(mock_check2).unwrap();
+        
+        // Unhealthy check
+        let result = monitor.check_component("test-component").await.unwrap();
+        assert_eq!(result.status, HealthStatus::Unhealthy);
+        
+        // Do another unhealthy check
+        let result = monitor.check_component("test-component").await.unwrap();
+        assert_eq!(result.status, HealthStatus::Unhealthy);
+        
+        // Verify metrics
+        let metrics = monitor.get_metrics();
+        assert_eq!(metrics.total_checks, 2);
+        assert_eq!(*metrics.checks_by_status.get(&HealthStatus::Unhealthy).unwrap_or(&0), 2);
+    }
+}

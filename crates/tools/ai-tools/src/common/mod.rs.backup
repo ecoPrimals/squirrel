@@ -1,0 +1,1136 @@
+//! Common types and traits for AI clients
+//!
+//! This module defines the interfaces and data structures that are shared across
+//! different AI providers.
+
+use futures::Stream;
+use std::pin::Pin;
+use crate::AiToolsConfig;
+use crate::ProviderConfiguration;
+use crate::router::RoutingStrategy;
+use crate::error::AIError;
+use std::any::Any;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use self::capability::{AICapabilities, AITask, RoutingPreferences};
+use crate::error::Error;
+#[cfg(feature = "openai")]
+use crate::openai::OpenAIClient;
+use crate::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
+use tracing::{debug, error, info, warn};
+
+pub mod capability;
+mod message;
+mod parameters;
+pub mod rate_limiter;
+pub mod registry;
+pub mod tool;
+mod usage;
+
+pub use message::*;
+pub use parameters::*;
+pub use rate_limiter::*;
+pub use tool::*;
+pub use usage::*;
+
+/// AI client trait for unified interface across providers
+#[async_trait]
+pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
+    /// Get the provider name
+    fn provider_name(&self) -> &str;
+
+    /// Get model capabilities
+    async fn get_capabilities(&self, model: &str) -> crate::Result<AICapabilities>;
+
+    /// Send a chat request
+    async fn chat(&self, request: ChatRequest) -> crate::Result<ChatResponse>;
+
+    /// Send a streaming chat request
+    async fn chat_stream(&self, request: ChatRequest) -> crate::Result<ChatResponseStream>;
+
+    /// List available models
+    async fn list_models(&self) -> crate::Result<Vec<String>>;
+
+    /// Check if the client is available
+    async fn is_available(&self) -> bool;
+
+    /// Get the default model name
+    fn default_model(&self) -> &str;
+
+    /// Get the client as Any for downcasting
+    fn as_any(&self) -> &dyn Any;
+
+    /// Get capabilities of this AI client
+    fn capabilities(&self) -> AICapabilities {
+        AICapabilities::default()
+    }
+
+    /// Check if this client can handle a specific task
+    fn can_handle_task(&self, task: &AITask) -> bool {
+        let capabilities = self.capabilities();
+
+        // Check basic task type support
+        if !capabilities.supports_task(&task.task_type) {
+            return false;
+        }
+
+        // Check model type requirements
+        if let Some(model_type) = &task.required_model_type {
+            if !capabilities.supports_model_type(model_type) {
+                return false;
+            }
+        }
+
+        // Check context size requirements
+        if let Some(required_size) = task.min_context_size {
+            if capabilities.max_context_size < required_size {
+                return false;
+            }
+        }
+
+        // Check streaming support
+        if task.requires_streaming && !capabilities.supports_streaming {
+            return false;
+        }
+
+        // Check function calling support
+        if task.requires_function_calling && !capabilities.supports_function_calling {
+            return false;
+        }
+
+        // Check tool use support
+        if task.requires_tool_use && !capabilities.supports_tool_use {
+            return false;
+        }
+
+        // Check security requirements
+        if task.security_requirements.contains_sensitive_data
+            && !self.routing_preferences().handles_sensitive_data
+        {
+            return false;
+        }
+
+        true
+    }
+
+    /// Get routing preferences for this client
+    fn routing_preferences(&self) -> RoutingPreferences {
+        RoutingPreferences::default()
+    }
+}
+
+/// Chat request structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatRequest {
+    /// Model to use (optional, will use default if not specified)
+    pub model: Option<String>,
+    /// Messages in the conversation
+    pub messages: Vec<ChatMessage>,
+    /// Additional parameters
+    pub parameters: Option<ModelParameters>,
+    /// Tools available for the model to use
+    pub tools: Option<Vec<Tool>>,
+}
+
+impl ChatRequest {
+    /// Create a new chat request
+    pub fn new() -> Self {
+        Self {
+            messages: Vec::new(),
+            model: None,
+            parameters: None,
+            tools: None,
+        }
+    }
+
+    /// Add a message to the request
+    pub fn add_message(mut self, role: MessageRole, content: impl Into<String>) -> Self {
+        self.messages.push(ChatMessage {
+            role,
+            content: Some(content.into()),
+            name: None,
+            tool_calls: None,
+            tool_call_id: None,
+        });
+        self
+    }
+
+    /// Add a system message
+    pub fn add_system(self, content: impl Into<String>) -> Self {
+        self.add_message(MessageRole::System, content)
+    }
+
+    /// Add a user message
+    pub fn add_user(self, content: impl Into<String>) -> Self {
+        self.add_message(MessageRole::User, content)
+    }
+
+    /// Add an assistant message
+    pub fn add_assistant(self, content: impl Into<String>) -> Self {
+        self.add_message(MessageRole::Assistant, content)
+    }
+
+    /// Set the model
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = Some(model.into());
+        self
+    }
+
+    /// Set the parameters
+    pub fn with_parameters(mut self, parameters: ModelParameters) -> Self {
+        self.parameters = Some(parameters);
+        self
+    }
+
+    /// Add tools
+    pub fn with_tools(mut self, tools: Vec<Tool>) -> Self {
+        self.tools = Some(tools);
+        self
+    }
+}
+
+impl Default for ChatRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Tool definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tool {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+/// Chat response structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatResponse {
+    /// Response choices
+    pub choices: Vec<ChatChoice>,
+    /// Usage information
+    pub usage: Option<UsageInfo>,
+    /// Model used
+    pub model: String,
+    /// Unique ID for the response
+    pub id: String,
+}
+
+/// A single choice in a chat response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatChoice {
+    pub index: usize,
+    pub role: MessageRole,
+    pub content: Option<String>,
+    pub finish_reason: Option<String>,
+    pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+/// Tool call made by the model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: serde_json::Value,
+}
+
+/// Response chunk for streaming
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatResponseChunk {
+    pub id: String,
+    pub model: String,
+    pub choices: Vec<ChatChoiceChunk>,
+}
+
+/// Choice chunk for streaming responses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatChoiceChunk {
+    pub index: usize,
+    pub delta: ChatMessage,
+    pub finish_reason: Option<String>,
+}
+
+/// Usage information for API calls
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageInfo {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+}
+
+/// Streaming response type
+pub type ChatResponseStream = Pin<Box<dyn Stream<Item = crate::Result<ChatResponseChunk>> + Send>>;
+
+/// Create a simple chat request
+pub fn create_chat_request(messages: Vec<ChatMessage>, model: Option<String>) -> ChatRequest {
+    ChatRequest {
+        model,
+        messages,
+        parameters: None,
+        tools: None,
+    }
+}
+
+/// Create a simple text message
+pub fn create_text_message(content: impl Into<String>) -> ChatMessage {
+    ChatMessage {
+        role: MessageRole::User,
+        content: Some(content.into()),
+        name: None,
+        tool_calls: None,
+        tool_call_id: None,
+    }
+}
+
+/// Create a provider client based on the provider name
+pub fn create_provider_client(provider: &str, _api_key: &str) -> Result<Box<dyn AIClient>> {
+    match provider {
+        #[cfg(feature = "openai")]
+        "openai" => {
+            let client = OpenAIClient::new(_api_key)?;
+            Ok(Box::new(client))
+        }
+        _ => Err(Error::Configuration(format!(
+            "Unsupported provider: {}",
+            provider
+        ))),
+    }
+}
+
+/// Real AI client that routes requests to configured providers
+#[derive(Debug)]
+pub struct AIRouterClient {
+    config: Arc<AiToolsConfig>,
+    providers: Arc<RwLock<HashMap<String, Arc<dyn AIProvider>>>>,
+    request_counter: Arc<std::sync::atomic::AtomicU64>,
+}
+
+/// AI Provider trait for different implementations
+#[async_trait::async_trait]
+pub trait AIProvider: Send + Sync + std::fmt::Debug {
+    /// Process a chat request
+    async fn process_chat(&self, request: &ChatRequest) -> crate::Result<ChatResponse>;
+
+    /// Get provider name
+    fn name(&self) -> &str;
+
+    /// Check if provider is healthy
+    async fn health_check(&self) -> bool;
+
+    /// Get provider capabilities
+    fn capabilities(&self) -> &[AICapability];
+}
+
+/// AI Provider implementations
+#[derive(Debug)]
+pub struct OpenAIProvider {
+    config: ProviderConfiguration,
+    client: reqwest::Client,
+}
+
+#[derive(Debug)]
+pub struct AnthropicProvider {
+    config: ProviderConfiguration,
+    client: reqwest::Client,
+}
+
+#[derive(Debug)]
+pub struct OllamaProvider {
+    config: ProviderConfiguration,
+    client: reqwest::Client,
+}
+
+impl AIRouterClient {
+    /// Create a new AI router client with configuration
+    pub fn new(config: AiToolsConfig) -> Self {
+        let config = Arc::new(config);
+        let providers = Arc::new(RwLock::new(HashMap::new()));
+        let request_counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
+
+        Self {
+            config,
+            providers,
+            request_counter,
+        }
+    }
+
+    /// Initialize all configured providers
+    pub async fn initialize(&self) -> crate::Result<()> {
+        let mut providers = self.providers.write().await;
+
+        for (name, provider_config) in &self.config.providers {
+            if !provider_config.enabled {
+                debug!("Skipping disabled provider: {}", name);
+                continue;
+            }
+
+            let provider: Arc<dyn AIProvider> = match provider_config.provider_type.as_str() {
+                "openai" => Arc::new(OpenAIProvider::new(provider_config.clone())?),
+                "anthropic" => Arc::new(AnthropicProvider::new(provider_config.clone())?),
+                "ollama" => Arc::new(OllamaProvider::new(provider_config.clone())?),
+                _ => {
+                    warn!("Unknown provider type: {}", provider_config.provider_type);
+                    continue;
+                }
+            };
+
+            // Perform health check
+            if provider.health_check().await {
+                info!("Successfully initialized provider: {}", name);
+                providers.insert(name.clone(), provider);
+            } else {
+                warn!(
+                    "Provider {} failed health check during initialization",
+                    name
+                );
+            }
+        }
+
+        if providers.is_empty() {
+            return Err(crate::Error::Configuration(
+                "No providers available".to_string(),
+            ));
+        }
+
+        info!("Initialized {} AI providers", providers.len());
+        Ok(())
+    }
+
+    /// Select the best provider for a request
+    async fn select_provider(&self, request: &ChatRequest) -> crate::Result<Arc<dyn AIProvider>> {
+        let providers = self.providers.read().await;
+
+        if providers.is_empty() {
+            return Err(crate::Error::Provider("No providers available".to_string()));
+        }
+
+        // Use routing strategy from config
+        match self.config.router.default_strategy {
+            RoutingStrategy::RoundRobin => {
+                let count = self
+                    .request_counter
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let provider_names: Vec<_> = providers.keys().collect();
+                let selected_name = &provider_names[count as usize % provider_names.len()];
+                providers
+                    .get(*selected_name)
+                    .cloned()
+                    .ok_or(crate::Error::Provider(format!(
+                        "Provider not found: {}",
+                        selected_name
+                    )))
+            }
+            RoutingStrategy::HighestPriority => {
+                // Get provider configurations sorted by priority
+                let mut sorted_configs: Vec<_> = self
+                    .config
+                    .providers
+                    .iter()
+                    .filter(|(name, config)| config.enabled && providers.contains_key(*name))
+                    .collect();
+                sorted_configs.sort_by(|a, b| b.1.priority.cmp(&a.1.priority));
+
+                if let Some((name, _)) = sorted_configs.first() {
+                    providers
+                        .get(*name)
+                        .cloned()
+                        .ok_or(AIError::provider(name.to_string()))
+                } else {
+                    Err(AIError::provider("No providers available"))
+                }
+            }
+            RoutingStrategy::LowestLatency => {
+                // For now, just use first available provider
+                // In a real implementation, you would track latency metrics
+                if let Some((name, provider)) = providers.iter().next() {
+                    Ok(provider.clone())
+                } else {
+                    Err(AIError::provider("No providers available"))
+                }
+            }
+            RoutingStrategy::LowestCost => {
+                // For now, just use first available provider
+                // In a real implementation, you would track cost metrics
+                if let Some((name, provider)) = providers.iter().next() {
+                    Ok(provider.clone())
+                } else {
+                    Err(AIError::provider("No providers available"))
+                }
+            }
+            RoutingStrategy::BestFit => {
+                // For now, just use first available provider
+                // In a real implementation, you would match provider capabilities to request
+                if let Some((name, provider)) = providers.iter().next() {
+                    Ok(provider.clone())
+                } else {
+                    Err(AIError::provider("No providers available"))
+                }
+            }
+            RoutingStrategy::FirstMatch => {
+                // Use first available provider
+                if let Some((name, provider)) = providers.iter().next() {
+                    Ok(provider.clone())
+                } else {
+                    Err(AIError::provider("No providers available"))
+                }
+            }
+        }
+    }
+
+    /// Process a request with retry logic
+    async fn process_with_retry(&self, request: &ChatRequest) -> crate::Result<ChatResponse> {
+        let mut last_error = None;
+        let max_attempts = self.config.router.max_routing_attempts;
+
+        for attempt in 1..=max_attempts {
+            match self.select_provider(request).await {
+                Ok(provider) => {
+                    debug!("Attempt {} using provider: {}", attempt, provider.name());
+
+                    match provider.process_chat(request).await {
+                        Ok(response) => {
+                            info!(
+                                "Successfully processed request with provider: {}",
+                                provider.name()
+                            );
+                            return Ok(response);
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Provider {} failed on attempt {}: {:?}",
+                                provider.name(),
+                                attempt,
+                                e
+                            );
+                            last_error = Some(e);
+
+                            // If this was the last attempt, don't retry
+                            if attempt >= max_attempts {
+                                break;
+                            }
+
+                            // Add delay between retries
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                1000 * attempt as u64,
+                            ))
+                            .await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to select provider on attempt {}: {:?}", attempt, e);
+                    last_error = Some(e);
+                    break;
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or(crate::Error::Provider(
+            "All retry attempts failed".to_string(),
+        )))
+    }
+}
+
+#[async_trait::async_trait]
+impl AIClient for AIRouterClient {
+fn provider_name(&self) -> &str {
+    "router"
+}
+
+fn default_model(&self) -> &str {
+    "auto"
+}
+
+async fn get_capabilities(&self, _model: &str) -> crate::Result<AICapabilities> {
+    Ok(AICapabilities::default())
+}
+
+async fn list_models(&self) -> crate::Result<Vec<String>> {
+    let providers = self.providers.read().await;
+    let mut all_models = Vec::new();
+
+    for provider in providers.values() {
+        // For now, return a basic model list
+        // In a real implementation, you'd query each provider
+        all_models.push(format!("{}-default", provider.name()));
+    }
+
+    Ok(all_models)
+}
+
+async fn chat(&self, request: ChatRequest) -> crate::Result<ChatResponse> {
+    debug!(
+        "Processing chat request with {} messages",
+        request.messages.len()
+    );
+
+    // Add timeout wrapper
+    let timeout_duration = std::time::Duration::from_millis(self.config.router.routing_timeout_ms);
+
+    match tokio::time::timeout(timeout_duration, self.process_with_retry(&request)).await {
+        Ok(result) => {
+            result.map_err(|e| crate::Error::Provider(format!("AI provider error: {:?}", e)))
+        }
+        Err(_) => {
+            error!(
+                "Request timed out after {}ms",
+                self.config.router.routing_timeout_ms
+            );
+            Err(crate::Error::Timeout(format!(
+                "Request timed out after {}ms",
+                self.config.router.routing_timeout_ms
+            )))
+        }
+    }
+}
+async fn chat_stream(&self, request: ChatRequest) -> crate::Result<ChatResponseStream> {
+    // For now, just convert regular response to a single-item stream
+    let response = self.chat(request).await?;
+
+    use futures::stream;
+    let chunk = ChatResponseChunk {
+        id: response.id.clone(),
+        model: response.model.clone(),
+        choices: response
+            .choices
+            .into_iter()
+            .map(|choice| ChatChoiceChunk {
+                index: choice.index,
+                delta: ChatMessage {
+                    role: choice.role,
+                    content: choice.content,
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
+                finish_reason: choice.finish_reason,
+            })
+            .collect(),
+    };
+
+    Ok(Box::pin(stream::iter(vec![Ok(chunk)])))
+}
+
+async fn is_available(&self) -> bool {
+    let providers = self.providers.read().await;
+    if providers.is_empty() {
+        return false;
+    }
+    for provider in providers.values() {
+        if provider.health_check().await {
+            return true;
+        }
+    }
+    false
+}
+
+fn as_any(&self) -> &dyn Any {
+    self
+}
+}
+
+
+// Provider implementations
+impl OpenAIProvider {
+    fn new(config: ProviderConfiguration) -> crate::Result<Self> {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| {
+                AIError::config(format!("Failed to create HTTP client: {}", e))
+            })?;
+
+        Ok(Self { config, client })
+    }
+}
+
+#[async_trait::async_trait]
+impl AIProvider for OpenAIProvider {
+    async fn process_chat(&self, request: &ChatRequest) -> crate::Result<ChatResponse> {
+        let api_key = self
+            .config
+            .settings
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                AIError::config("OpenAI API key not configured".to_string())
+            })?;
+
+        let endpoint = self
+            .config
+            .settings
+            .get("endpoint")
+            .and_then(|v| v.as_str())
+            .unwrap_or("https://api.openai.com/v1");
+
+        let payload = serde_json::json!({
+            "model": request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            "messages": request.messages.iter().map(|msg| {
+                serde_json::json!({
+                    "role": match msg.role {
+                        MessageRole::User => "user",
+                        MessageRole::Assistant => "assistant",
+                        MessageRole::System => "system",
+                        MessageRole::Tool => "tool",
+                    },
+                    "content": msg.content
+                })
+            }).collect::<Vec<_>>(),
+            "max_tokens": request.parameters.as_ref().and_then(|p| p.max_tokens).unwrap_or(1000),
+            "temperature": request.parameters.as_ref().and_then(|p| p.temperature).unwrap_or(0.7),
+        });
+
+        let response = self
+            .client
+            .post(&format!("{}/chat/completions", endpoint))
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| AIError::network(format!("OpenAI API request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AIError::network(format!(
+                "OpenAI API error: {}",
+                error_text
+            )));
+        }
+
+        let response_json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AIError::parse(format!("Failed to parse OpenAI response: {}", e)))?;
+
+        let content = response_json["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("No response content")
+            .to_string();
+
+        Ok(ChatResponse {
+            id: response_json["id"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string(),
+            model: request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            choices: vec![ChatChoice {
+                index: 0,
+                role: MessageRole::Assistant,
+                content: Some(content),
+                finish_reason: response_json["choices"][0]["finish_reason"]
+                    .as_str()
+                    .map(|s| s.to_string()),
+                tool_calls: None,
+            }],
+            usage: Some(UsageInfo {
+                prompt_tokens: response_json["usage"]["prompt_tokens"]
+                    .as_u64()
+                    .unwrap_or(0) as u32,
+                completion_tokens: response_json["usage"]["completion_tokens"]
+                    .as_u64()
+                    .unwrap_or(0) as u32,
+                total_tokens: response_json["usage"]["total_tokens"].as_u64().unwrap_or(0) as u32,
+            }),
+        })
+    }
+
+    fn name(&self) -> &str {
+        "openai"
+    }
+
+    async fn health_check(&self) -> bool {
+        // Simple health check - verify API key is configured
+        self.config.settings.get("api_key").is_some()
+    }
+
+    fn capabilities(&self) -> &[AICapability] {
+        &[AICapability::Chat, AICapability::Completion]
+    }
+}
+
+impl AnthropicProvider {
+    fn new(config: ProviderConfiguration) -> crate::Result<Self> {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| {
+                AIError::config(format!("Failed to create HTTP client: {}", e))
+            })?;
+
+        Ok(Self { config, client })
+    }
+}
+
+#[async_trait::async_trait]
+impl AIProvider for AnthropicProvider {
+    async fn process_chat(&self, request: &ChatRequest) -> crate::Result<ChatResponse> {
+        let api_key = self
+            .config
+            .settings
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                AIError::config("Anthropic API key not configured".to_string())
+            })?;
+
+        // Convert messages to Anthropic format
+        let mut system_message = String::new();
+        let mut messages = Vec::new();
+
+        for msg in &request.messages {
+            match msg.role {
+                MessageRole::System => {
+                    if !system_message.is_empty() {
+                        system_message.push('\n');
+                    }
+                    system_message.push_str(msg.content.as_ref().map(|s| s.as_str()).unwrap_or(""));
+                }
+                MessageRole::User => {
+                    messages.push(serde_json::json!({
+                        "role": "user",
+                        "content": msg.content
+                    }));
+                }
+                MessageRole::Assistant => {
+                    messages.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": msg.content
+                    }));
+                }
+                MessageRole::Tool => {
+                    messages.push(serde_json::json!({
+                        "role": "tool",
+                        "content": msg.content
+                    }));
+                }
+            }
+        }
+
+        let mut payload = serde_json::json!({
+            "model": request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            "messages": messages,
+            "max_tokens": request.parameters.as_ref().and_then(|p| p.max_tokens).unwrap_or(1000),
+        });
+
+        if !system_message.is_empty() {
+            payload["system"] = serde_json::Value::String(system_message);
+        }
+
+        let response = self
+            .client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", api_key)
+            .header("Content-Type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| AIError::network(format!("Anthropic API request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AIError::network(format!(
+                "Anthropic API error: {}",
+                error_text
+            )));
+        }
+
+        let response_json: serde_json::Value = response.json().await.map_err(|e| {
+            AIError::parse(format!("Failed to parse Anthropic response: {}", e))
+        })?;
+
+        let content = response_json["content"][0]["text"]
+            .as_str()
+            .unwrap_or("No response content")
+            .to_string();
+
+        Ok(ChatResponse {
+            id: response_json["id"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string(),
+            model: request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            choices: vec![ChatChoice {
+                index: 0,
+                role: MessageRole::Assistant,
+                content: Some(content),
+                finish_reason: response_json["stop_reason"].as_str().map(|s| s.to_string()),
+                tool_calls: None,
+            }],
+            usage: Some(UsageInfo {
+                prompt_tokens: response_json["usage"]["input_tokens"].as_u64().unwrap_or(0) as u32,
+                completion_tokens: response_json["usage"]["output_tokens"]
+                    .as_u64()
+                    .unwrap_or(0) as u32,
+                total_tokens: (response_json["usage"]["input_tokens"].as_u64().unwrap_or(0)
+                    + response_json["usage"]["output_tokens"]
+                        .as_u64()
+                        .unwrap_or(0)) as u32,
+            }),
+        })
+    }
+
+    fn name(&self) -> &str {
+        "anthropic"
+    }
+
+    async fn health_check(&self) -> bool {
+        self.config.settings.get("api_key").is_some()
+    }
+
+    fn capabilities(&self) -> &[AICapability] {
+        &[AICapability::Chat, AICapability::Completion]
+    }
+}
+
+impl OllamaProvider {
+    fn new(config: ProviderConfiguration) -> crate::Result<Self> {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60)) // Longer timeout for local models
+            .build()
+            .map_err(|e| {
+                AIError::config(format!("Failed to create HTTP client: {}", e))
+            })?;
+
+        Ok(Self { config, client })
+    }
+}
+
+#[async_trait::async_trait]
+impl AIProvider for OllamaProvider {
+    async fn process_chat(&self, request: &ChatRequest) -> crate::Result<ChatResponse> {
+        let endpoint = self
+            .config
+            .settings
+            .get("endpoint")
+            .and_then(|v| v.as_str())
+            .unwrap_or("http://localhost:11434");
+
+        let model = request.model.clone().unwrap_or_else(|| "unknown".to_string());
+
+        let payload = serde_json::json!({
+            "model": model,
+            "messages": request.messages.iter().map(|msg| {
+                serde_json::json!({
+                    "role": match msg.role {
+                        MessageRole::User => "user",
+                        MessageRole::Assistant => "assistant",
+                        MessageRole::System => "system",
+                        MessageRole::Tool => "tool",
+                    },
+                    "content": msg.content
+                })
+            }).collect::<Vec<_>>(),
+            "stream": false,
+        });
+
+        let response = self
+            .client
+            .post(&format!("{}/api/chat", endpoint))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| AIError::network(format!("Ollama API request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AIError::network(format!(
+                "Ollama API error: {}",
+                error_text
+            )));
+        }
+
+        let response_json: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| AIError::parse(format!("Failed to parse Ollama response: {}", e)))?;
+
+        let content = response_json["message"]["content"]
+            .as_str()
+            .unwrap_or("No response content")
+            .to_string();
+
+        Ok(ChatResponse {
+            id: format!("ollama-{}", uuid::Uuid::new_v4()),
+            model: request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            choices: vec![ChatChoice {
+                index: 0,
+                role: MessageRole::Assistant,
+                content: Some(content),
+                finish_reason: if response_json["done"].as_bool().unwrap_or(false) {
+                    Some("stop".to_string())
+                } else {
+                    None
+                },
+                tool_calls: None,
+            }],
+            usage: Some(UsageInfo {
+                prompt_tokens: response_json["prompt_eval_count"].as_u64().unwrap_or(0) as u32,
+                completion_tokens: response_json["eval_count"].as_u64().unwrap_or(0) as u32,
+                total_tokens: (response_json["prompt_eval_count"].as_u64().unwrap_or(0)
+                    + response_json["eval_count"].as_u64().unwrap_or(0))
+                    as u32,
+            }),
+        })
+    }
+
+    fn name(&self) -> &str {
+        "ollama"
+    }
+
+    async fn health_check(&self) -> bool {
+        let endpoint = self
+            .config
+            .settings
+            .get("endpoint")
+            .and_then(|v| v.as_str())
+            .unwrap_or("http://localhost:11434");
+
+        // Try to connect to Ollama
+        if let Ok(client) = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        {
+            client
+                .get(&format!("{}/api/tags", endpoint))
+                .send()
+                .await
+                .map(|r| r.status().is_success())
+                .unwrap_or(false)
+        } else {
+            false
+        }
+    }
+
+    fn capabilities(&self) -> &[AICapability] {
+        &[
+            AICapability::Chat,
+            AICapability::Completion,
+            AICapability::LocalProcessing,
+        ]
+    }
+}
+
+/// AI capabilities supported by providers
+#[derive(Debug, Clone, PartialEq)]
+pub enum AICapability {
+    Chat,
+    Completion,
+    Embedding,
+    ImageGeneration,
+    CodeGeneration,
+    LocalProcessing,
+}
+
+/// Mock AI client (kept for backward compatibility in tests)
+#[derive(Debug)]
+pub struct MockAIClient;
+
+impl MockAIClient {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait::async_trait]
+impl AIClient for MockAIClient {
+    async fn chat(&self, request: ChatRequest) -> crate::Result<ChatResponse> {
+        // Return a simple mock response
+        Ok(ChatResponse {
+            id: format!("mock-{}", uuid::Uuid::new_v4()),
+            choices: vec![ChatChoice {
+                index: 0,
+                role: MessageRole::Assistant,
+                content: Some(format!(
+                    "Mock response to: {}",
+                    request
+                        .messages
+                        .last()
+                        .and_then(|m| m.content.as_ref())
+                        .unwrap_or(&"No message".to_string())
+                )),
+                finish_reason: Some("stop".to_string()),
+                tool_calls: None,
+            }],
+            model: request.model.clone().unwrap_or_else(|| "unknown".to_string()),
+            usage: Some(UsageInfo {
+                prompt_tokens: 10,
+                completion_tokens: 20,
+                total_tokens: 30,
+            }),
+        })
+    }
+
+    async fn list_models(&self) -> crate::Result<Vec<String>> {
+        Ok(vec![
+            "mock-model".to_string(),
+            "mock-model-advanced".to_string(),
+        ])
+    }
+
+    async fn is_available(&self) -> bool {
+        true
+    }
+
+
+    fn provider_name(&self) -> &str {
+        "mock"
+    }
+
+    fn default_model(&self) -> &str {
+        "mock-model"
+    }
+
+    async fn get_capabilities(&self, _model: &str) -> crate::Result<AICapabilities> {
+        Ok(AICapabilities::default())
+    }
+
+    async fn chat_stream(&self, request: ChatRequest) -> crate::Result<ChatResponseStream> {
+        // Convert regular response to stream
+        let response = self.chat(request).await?;
+        use futures::stream;
+        let chunk = ChatResponseChunk {
+            id: response.id.clone(),
+            model: response.model.clone(),
+            choices: response.choices.into_iter().map(|choice| ChatChoiceChunk {
+                index: choice.index,
+                delta: ChatMessage {
+                    role: choice.role,
+                    content: choice.content,
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
+                finish_reason: choice.finish_reason,
+            }).collect(),
+        };
+        Ok(Box::pin(stream::iter(vec![Ok(chunk)])))
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Tool choice preference
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolChoice {
+    Auto,
+    None,
+    Required,
+    Specific(String),
+}

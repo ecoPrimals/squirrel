@@ -1,0 +1,123 @@
+//! Configuration types for the ecosystem registry manager
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Duration;
+
+/// Configuration for ecosystem registry manager
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcosystemRegistryConfig {
+    /// Songbird service mesh endpoint for service discovery
+    pub songbird_endpoint: String,
+    /// Registration retry configuration
+    pub retry_config: RetryConfig,
+    /// Health check configuration
+    pub health_config: HealthConfig,
+    /// Discovery configuration
+    pub discovery_config: DiscoveryConfig,
+    /// Security configuration
+    pub security_config: SecurityConfig,
+}
+
+/// Retry configuration for service operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryConfig {
+    pub max_retries: u32,
+    pub initial_delay: Duration,
+    pub max_delay: Duration,
+    pub backoff_multiplier: f64,
+    pub jitter: bool,
+}
+
+/// Health check configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthConfig {
+    pub check_interval: Duration,
+    pub timeout: Duration,
+    pub failure_threshold: u32,
+    pub recovery_threshold: u32,
+    pub grace_period: Duration,
+}
+
+/// Discovery configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveryConfig {
+    pub enabled: bool,
+    pub discovery_interval: Duration,
+    pub service_timeout: Duration,
+    pub auto_register: bool,
+    pub preferred_endpoints: HashMap<String, String>,
+}
+
+/// Security configuration for ecosystem communication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub tls_enabled: bool,
+    pub mtls_required: bool,
+    pub auth_token: Option<String>,
+    pub trust_domain: String,
+    pub certificate_path: Option<String>,
+    pub key_path: Option<String>,
+}
+
+// Default implementations
+impl Default for EcosystemRegistryConfig {
+    fn default() -> Self {
+        Self {
+            songbird_endpoint: "http://localhost:8000".to_string(),
+            retry_config: RetryConfig::default(),
+            health_config: HealthConfig::default(),
+            discovery_config: DiscoveryConfig::default(),
+            security_config: SecurityConfig::default(),
+        }
+    }
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            initial_delay: Duration::from_millis(500),
+            max_delay: Duration::from_secs(30),
+            backoff_multiplier: 2.0,
+            jitter: true,
+        }
+    }
+}
+
+impl Default for HealthConfig {
+    fn default() -> Self {
+        Self {
+            check_interval: Duration::from_secs(30),
+            timeout: Duration::from_secs(10),
+            failure_threshold: 3,
+            recovery_threshold: 2,
+            grace_period: Duration::from_secs(30),
+        }
+    }
+}
+
+impl Default for DiscoveryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            discovery_interval: Duration::from_secs(60),
+            service_timeout: Duration::from_secs(5),
+            auto_register: true,
+            preferred_endpoints: HashMap::new(),
+        }
+    }
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            tls_enabled: true,
+            mtls_required: false,
+            auth_token: None,
+            trust_domain: "squirrel".to_string(),
+            certificate_path: None,
+            key_path: None,
+        }
+    }
+}

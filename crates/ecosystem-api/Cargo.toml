@@ -1,0 +1,37 @@
+[package]
+name = "ecosystem-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Shared API types and traits for ecoPrimals ecosystem integration"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core async and serialization
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+
+# HTTP client for service mesh communication
+reqwest.workspace = true
+url.workspace = true
+
+# Logging and tracing
+tracing.workspace = true
+log.workspace = true
+
+# Futures for stream types
+futures = "0.3"
+
+[features]
+default = ["ecosystem-integration"]
+ecosystem-integration = []
+testing = [] 

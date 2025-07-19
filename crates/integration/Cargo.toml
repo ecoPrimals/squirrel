@@ -1,0 +1,31 @@
+[package]
+name = "squirrel-integration"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Integration adapter for Squirrel"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+futures.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+# Squirrel crates
+squirrel-core.workspace = true
+squirrel-mcp.workspace = true
+squirrel-ai-tools.workspace = true
+# Logging
+log.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tokio-test.workspace = true 

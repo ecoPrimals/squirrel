@@ -1,0 +1,77 @@
+[package]
+name = "squirrel-plugin-registry"
+version = "0.1.0"
+edition = "2021"
+description = "Plugin system for Squirrel applications"
+license = "MIT OR Apache-2.0"
+authors = ["DataScienceBioLab"]
+
+# Define features to separate core functionality from app dependencies
+[features]
+default = ["core"]
+core = []
+# All features disabled by default
+# web feature replaced by tauri-ui
+tauri-ui = []
+mcp = ["dep:squirrel-mcp"]
+marketplace = ["dep:reqwest", "dep:url", "tokio/sync"]
+repository-server = ["dep:axum", "dep:tower", "dep:tower-http", "marketplace"]
+# cli feature removed
+all = ["core", "tauri-ui", "mcp", "marketplace", "repository-server"]
+# No app in the "all" feature to avoid circular dependency
+
+# Use proper lints inheritance 
+[lints]
+workspace = true
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.35", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+lazy_static = "1.4"
+regex = "1.10"
+rand = "0.8.4"
+log = "0.4"
+ring = "0.17"
+tempfile = "3.8"
+
+# Marketplace dependencies
+reqwest = { version = "0.11", features = ["json"], optional = true }
+url = { version = "2.4", optional = true }
+sha256 = "1.1"
+urlencoding = "2.1"
+
+# Internal dependencies
+# Change dependency from core to interfaces to break circular dependency
+squirrel-interfaces = { path = "../core/interfaces" }
+# Make core dependency optional to break circular dependency  
+squirrel-core = { path = "../core/core", optional = true }
+
+# Optional dependencies for different plugin types - all made optional
+squirrel-mcp = { path = "../core/mcp", optional = true }
+
+# Web server dependencies (for repository server)
+axum = { version = "0.7", features = ["ws", "multipart"], optional = true }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.4", features = ["cors", "trace", "fs", "limit"], optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
+test-case = "3.3"
+
+# Library configuration
+[lib]
+name = "squirrel_plugin_registry"
+path = "src/lib.rs"
+
+# For CLI tools
+# Note: Binary files will be added when implemented 

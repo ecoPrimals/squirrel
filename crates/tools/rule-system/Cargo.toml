@@ -1,0 +1,43 @@
+[package]
+name = "squirrel-rule-system"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Rule System for the Squirrel Context Management System"
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+glob = "0.3"
+lru.workspace = true
+notify = "5.0"
+toml = "0.7"
+yaml-rust = "0.4"
+regex.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "sqlite"], optional = true }
+serde_yaml.workspace = true
+uuid.workspace = true
+# Internal crate dependencies
+squirrel-context.workspace = true
+squirrel-interfaces.workspace = true
+squirrel-plugins.workspace = true
+
+[dev-dependencies]
+tokio-test.workspace = true
+tempfile.workspace = true
+
+[features]
+default = []
+persistence = ["sqlx"]
+watcher = []

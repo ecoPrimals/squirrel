@@ -1,0 +1,83 @@
+[package]
+name = "squirrel"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+license = "MIT OR Apache-2.0"
+description = "Squirrel Universal AI Primal - Main coordination primal"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+tokio-util = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+uuid = { version = "1.0", features = ["v4"] }
+url = "2.4"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+dashmap = "5.5"
+parking_lot = "0.12"
+reqwest = { version = "0.11", features = ["json"] }
+warp = "0.3"
+base64 = "0.21"
+rand = "0.8"
+futures = "0.3"
+
+# Ecosystem API - shared types and traits
+ecosystem-api = { path = "../ecosystem-api" }
+
+# Configuration management
+squirrel-mcp-config = { path = "../config" }
+
+# SDK dependencies
+squirrel-sdk = { path = "../sdk" }
+squirrel-integration = { path = "../integration" }
+
+# MCP and AI dependencies
+mcp = "0.1"
+openai = "1.1"
+
+# Observability
+prometheus = { version = "0.13", optional = true }
+metrics = { version = "0.21", optional = true }
+metrics-exporter-prometheus = { version = "0.12", optional = true }
+
+# Benchmarking (optional)
+criterion = { version = "0.5", optional = true }
+pprof = { version = "0.13", optional = true }
+iai = { version = "0.1", optional = true }
+
+# Additional ecosystem dependencies
+tonic = { version = "0.10", optional = true }
+prost = { version = "0.12", optional = true }
+
+[features]
+default = ["monitoring", "ecosystem"]
+monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
+ecosystem = ["tonic", "prost"]
+benchmarking = ["criterion", "pprof", "iai"]
+
+[dev-dependencies]
+tokio-test = "0.4"
+test-context = "0.1"
+mockall = "0.11"
+tempfile = "3.8"
+pretty_assertions = "1.4"
+
+[[bin]]
+name = "squirrel"
+path = "src/main.rs"
+
+[[bench]]
+name = "ecosystem_benchmarks"
+harness = false
+required-features = ["benchmarking"]
+
+[lib]
+name = "squirrel"
+path = "src/lib.rs" 

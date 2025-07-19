@@ -1,0 +1,63 @@
+[package]
+name = "squirrel-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Command-line interface for the Squirrel platform"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Internal crates
+squirrel-commands = { path = "../../services/commands" }
+squirrel-interfaces.workspace = true
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+# Command-line parsing
+clap.workspace = true
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+toml = "0.8"
+yaml-rust = "0.4"
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+# Logging
+log.workspace = true
+fern = "0.6"
+env_logger.workspace = true
+tracing.workspace = true
+simple_logger = "4.3"
+# Utility
+directories = "5.0"
+tempfile.workspace = true
+chrono.workspace = true
+colored = "2.0"
+regex.workspace = true
+prettytable-rs = "0.10"
+lazy_static.workspace = true
+libloading.workspace = true
+url.workspace = true
+uuid.workspace = true
+# New dependencies
+# squirrel-monitoring.workspace = true  # → Eliminated: Songbird provides monitoring
+squirrel-context.workspace = true
+squirrel-core.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile.workspace = true
+portpicker = "0.1.1"
+criterion.workspace = true
+
+[features]
+default = ["commands"]
+commands = []
+testing = []

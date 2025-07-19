@@ -1,0 +1,63 @@
+[package]
+name = "squirrel-commands"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+
+
+[dependencies]
+# Workspace crates
+squirrel-interfaces.workspace = true
+squirrel-context.workspace = true
+squirrel-core.workspace = true
+# squirrel-app.workspace = true  # → Eliminated: Songbird handles service layer
+# squirrel-ai-tools.workspace = true  # → Eliminated: Moved to ToadStool
+
+# External dependencies
+async-trait.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+async-recursion.workspace = true
+futures.workspace = true
+glob.workspace = true
+tempfile.workspace = true
+sled.workspace = true
+parking_lot.workspace = true
+once_cell.workspace = true
+bytes.workspace = true
+dashmap.workspace = true
+regex.workspace = true
+sysinfo.workspace = true
+log.workspace = true
+secrecy.workspace = true
+
+# gRPC and protobuf (for ecosystem integration)
+tonic.workspace = true
+prost.workspace = true
+
+# Authentication dependencies
+argon2 = { version = "0.5", features = ["std"] }
+simple_logger = "4.2"
+
+# Remove orchestrator dependency - moved to Songbird project
+# nestgate-orchestrator = { path = "../nestgate-orchestrator" }
+
+[dev-dependencies]
+tokio-test.workspace = true
+pretty_assertions.workspace = true
+uuid.workspace = true
+clap.workspace = true
+
+[features]
+default = []
+# Feature flag for orchestrator integration removed - now handled by Songbird

@@ -1,0 +1,134 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use warp::{Filter, Reply};
+
+use crate::ecosystem::EcosystemManager;
+use crate::MetricsCollector;
+use crate::shutdown::ShutdownManager;
+
+/// HTTP API server for primal status and health endpoints
+pub struct ApiServer {
+    /// Port to bind the server to
+    port: u16,
+    /// Reference to the ecosystem manager
+    ecosystem_manager: Arc<EcosystemManager>,
+    /// Reference to metrics collector
+    metrics_collector: Arc<MetricsCollector>,
+    /// Reference to shutdown manager
+    shutdown_manager: Arc<ShutdownManager>,
+    /// Server state
+    state: Arc<RwLock<ServerState>>,
+}
+
+/// Server state tracking
+#[derive(Debug, Clone)]
+struct ServerState {
+    /// When the server was started
+    started_at: chrono::DateTime<chrono::Utc>,
+    /// Request count
+    request_count: u64,
+    /// Active connections
+    active_connections: u32,
+}
+
+impl Default for ServerState {
+    fn default() -> Self {
+        Self {
+            started_at: chrono::Utc::now(),
+            request_count: 0,
+            active_connections: 0,
+        }
+    }
+}
+
+/// Health check response
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HealthResponse {
+    /// Status string
+    pub status: String,
+    /// Timestamp
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Uptime in seconds
+    pub uptime_seconds: u64,
+    /// Additional metadata
+    pub metadata: HashMap<String, String>,
+}
+
+impl ApiServer {
+    /// Create new API server
+    pub fn new(
+        port: u16,
+        ecosystem_manager: Arc<EcosystemManager>,
+        metrics_collector: Arc<MetricsCollector>,
+        shutdown_manager: Arc<ShutdownManager>,
+    ) -> Self {
+        Self {
+            port,
+            ecosystem_manager,
+            metrics_collector,
+            shutdown_manager,
+            state: Arc::new(RwLock::new(ServerState::default())),
+        }
+    }
+
+    /// Start the API server
+    pub async fn start(&self) -> Result<()> {
+        let state = self.state.clone();
+
+        tracing::info!("Starting API server on port {}", self.port);
+
+        // Define routes
+        let health = warp::path!("health")
+            .and(warp::get())
+            .and(with_state(state.clone()))
+            .and_then(handle_health_check);
+
+        // Combine all routes
+        let routes = health
+            .with(warp::cors().allow_any_origin())
+            .with(warp::log("api"));
+
+        // Start the server
+        let port = self.port;
+        tokio::spawn(async move {
+            warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+        });
+
+        tracing::info!("API server started successfully on port {}", self.port);
+        Ok(())
+    }
+}
+
+// Helper functions for warp filters
+fn with_state(
+    state: Arc<RwLock<ServerState>>,
+) -> impl Filter<Extract = (Arc<RwLock<ServerState>>,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || state.clone())
+}
+
+// Handler functions
+async fn handle_health_check(
+    state: Arc<RwLock<ServerState>>,
+) -> Result<impl Reply, warp::Rejection> {
+    let state = state.read().await;
+    let uptime = chrono::Utc::now()
+        .signed_duration_since(state.started_at)
+        .num_seconds() as u64;
+
+    let mut metadata = HashMap::new();
+    metadata.insert("version".to_string(), env!("CARGO_PKG_VERSION").to_string());
+    metadata.insert("request_count".to_string(), state.request_count.to_string());
+    metadata.insert("active_connections".to_string(), state.active_connections.to_string());
+
+    let response = HealthResponse {
+        status: "healthy".to_string(),
+        timestamp: chrono::Utc::now(),
+        uptime_seconds: uptime,
+        metadata,
+    };
+
+    Ok(warp::reply::json(&response))
+}

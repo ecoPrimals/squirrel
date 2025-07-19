@@ -1,0 +1,436 @@
+//! Universal security client
+//!
+//! This module provides the main client interface for accessing security
+//! services with automatic fallback capabilities.
+
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::config::SecurityConfig;
+use crate::traits::{AuthResult, Credentials, Principal};
+
+use super::context::{SecurityContext, SecurityHealth};
+use super::errors::SecurityError;
+use super::providers::{BeardogSecurityProvider, LocalSecurityProvider};
+use super::traits::UniversalSecurityProvider;
+
+/// Universal security client for all primals
+///
+/// This client provides a unified interface to security services with automatic
+/// fallback capabilities. It uses Beardog as the primary provider and can fall
+/// back to a local provider if configured.
+///
+/// # Examples
+///
+/// ```no_run
+/// use universal_patterns::security::UniversalSecurityClient;
+/// use universal_patterns::config::SecurityConfig;
+/// use universal_patterns::traits::Credentials;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let config = SecurityConfig::default();
+/// let client = UniversalSecurityClient::new(config).await?;
+///
+/// let credentials = Credentials::Test {
+///     username: "user".to_string(),
+///     password: "pass".to_string(),
+/// };
+///
+/// let auth_result = client.authenticate(&credentials).await?;
+/// println!("Authenticated user: {}", auth_result.principal.name);
+/// # Ok(())
+/// # }
+/// ```
+pub struct UniversalSecurityClient {
+    /// Primary security provider (usually Beardog)
+    primary: Arc<dyn UniversalSecurityProvider>,
+    /// Fallback security provider (usually local)
+    fallback: Option<Arc<dyn UniversalSecurityProvider>>,
+    /// Security configuration
+    config: SecurityConfig,
+}
+
+impl UniversalSecurityClient {
+    /// Create a new universal security client
+    ///
+    /// This method creates a new client with the given configuration.
+    /// It sets up the primary provider (Beardog) and optionally a fallback
+    /// provider (local) based on the configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The security configuration to use
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `UniversalSecurityClient` instance or an error.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use universal_patterns::security::UniversalSecurityClient;
+    /// use universal_patterns::config::SecurityConfig;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let config = SecurityConfig::default();
+    /// let client = UniversalSecurityClient::new(config).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
+        // Create primary Beardog provider
+        let primary = Arc::new(BeardogSecurityProvider::new(config.clone()).await?);
+
+        // Create fallback provider if enabled
+        let fallback = if config.fallback.enable_local_fallback {
+            Some(Arc::new(LocalSecurityProvider::new(config.clone()).await?)
+                as Arc<dyn UniversalSecurityProvider>)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            primary,
+            fallback,
+            config,
+        })
+    }
+
+    /// Create a new universal security client with custom providers
+    ///
+    /// This method allows creating a client with custom primary and fallback
+    /// providers for testing or advanced use cases.
+    ///
+    /// # Arguments
+    ///
+    /// * `primary` - The primary security provider
+    /// * `fallback` - The optional fallback security provider
+    /// * `config` - The security configuration
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `UniversalSecurityClient` instance.
+    pub fn with_providers(
+        primary: Arc<dyn UniversalSecurityProvider>,
+        fallback: Option<Arc<dyn UniversalSecurityProvider>>,
+        config: SecurityConfig,
+    ) -> Self {
+        Self {
+            primary,
+            fallback,
+            config,
+        }
+    }
+
+    /// Get security provider with fallback
+    ///
+    /// This method returns the appropriate security provider to use.
+    /// It first checks if the primary provider is healthy, and if not,
+    /// falls back to the local provider if available.
+    ///
+    /// # Returns
+    ///
+    /// Returns the security provider to use.
+    async fn get_provider(&self) -> Arc<dyn UniversalSecurityProvider> {
+        // Check if primary is healthy (with configurable timeout)
+        let health_check_result = tokio::time::timeout(
+            std::time::Duration::from_secs(self.config.fallback.fallback_timeout),
+            self.primary.health_check(),
+        )
+        .await;
+
+        if health_check_result.is_ok() && health_check_result.unwrap().is_ok() {
+            return self.primary.clone();
+        }
+
+        // Fall back to local provider if available and enabled
+        if self.config.fallback.enable_local_fallback {
+            if let Some(fallback) = &self.fallback {
+                if (fallback.health_check().await).is_ok() {
+                    tracing::warn!("Falling back to local security provider");
+                    return fallback.clone();
+                }
+            }
+        }
+
+        // Return primary even if unhealthy (will fail gracefully)
+        self.primary.clone()
+    }
+
+    /// Check if fallback is enabled
+    ///
+    /// # Returns
+    ///
+    /// Returns true if fallback is enabled, false otherwise.
+    pub fn is_fallback_enabled(&self) -> bool {
+        self.config.fallback.enable_local_fallback
+    }
+
+    /// Get the current configuration
+    ///
+    /// # Returns
+    ///
+    /// Returns a reference to the security configuration.
+    pub fn config(&self) -> &SecurityConfig {
+        &self.config
+    }
+
+    /// Test connectivity to the primary provider
+    ///
+    /// This method tests if the primary provider is reachable and healthy.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the primary provider is healthy, an error otherwise.
+    pub async fn test_primary_connectivity(&self) -> Result<(), SecurityError> {
+        self.primary.health_check().await?;
+        Ok(())
+    }
+
+    /// Test connectivity to the fallback provider
+    ///
+    /// This method tests if the fallback provider is reachable and healthy.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the fallback provider is healthy, an error otherwise.
+    pub async fn test_fallback_connectivity(&self) -> Result<(), SecurityError> {
+        if let Some(fallback) = &self.fallback {
+            fallback.health_check().await?;
+            Ok(())
+        } else {
+            Err(SecurityError::Configuration(
+                "Fallback provider not configured".to_string(),
+            ))
+        }
+    }
+
+    /// Get health status of all providers
+    ///
+    /// This method returns the health status of both primary and fallback providers.
+    ///
+    /// # Returns
+    ///
+    /// Returns a tuple of (primary_health, fallback_health).
+    pub async fn get_providers_health(
+        &self,
+    ) -> (
+        Result<SecurityHealth, SecurityError>,
+        Option<Result<SecurityHealth, SecurityError>>,
+    ) {
+        let primary_health = self.primary.health_check().await;
+        let fallback_health = if let Some(fallback) = &self.fallback {
+            Some(fallback.health_check().await)
+        } else {
+            None
+        };
+
+        (primary_health, fallback_health)
+    }
+}
+
+#[async_trait]
+impl UniversalSecurityProvider for UniversalSecurityClient {
+    /// Authenticate credentials
+    ///
+    /// This method authenticates the provided credentials using the selected
+    /// security provider (primary or fallback).
+    async fn authenticate(&self, credentials: &Credentials) -> Result<AuthResult, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.authenticate(credentials).await
+    }
+
+    /// Authorize an action
+    ///
+    /// This method authorizes an action for a principal using the selected
+    /// security provider (primary or fallback).
+    async fn authorize(
+        &self,
+        principal: &Principal,
+        action: &str,
+        resource: &str,
+    ) -> Result<bool, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.authorize(principal, action, resource).await
+    }
+
+    /// Encrypt data
+    ///
+    /// This method encrypts data using the selected security provider
+    /// (primary or fallback).
+    async fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.encrypt(data).await
+    }
+
+    /// Decrypt data
+    ///
+    /// This method decrypts data using the selected security provider
+    /// (primary or fallback).
+    async fn decrypt(&self, encrypted_data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.decrypt(encrypted_data).await
+    }
+
+    /// Sign data
+    ///
+    /// This method signs data using the selected security provider
+    /// (primary or fallback).
+    async fn sign(&self, data: &[u8]) -> Result<Vec<u8>, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.sign(data).await
+    }
+
+    /// Verify signature
+    ///
+    /// This method verifies a signature using the selected security provider
+    /// (primary or fallback).
+    async fn verify(&self, data: &[u8], signature: &[u8]) -> Result<bool, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.verify(data, signature).await
+    }
+
+    /// Audit log operation
+    ///
+    /// This method logs an audit event using the selected security provider
+    /// (primary or fallback). Only logs if audit logging is enabled in the
+    /// configuration.
+    async fn audit_log(
+        &self,
+        operation: &str,
+        context: &SecurityContext,
+    ) -> Result<(), SecurityError> {
+        // Only perform audit logging if enabled in configuration
+        if !self.config.audit_logging {
+            return Ok(());
+        }
+
+        let provider = self.get_provider().await;
+        provider.audit_log(operation, context).await
+    }
+
+    /// Health check
+    ///
+    /// This method performs a health check using the selected security provider
+    /// (primary or fallback).
+    async fn health_check(&self) -> Result<SecurityHealth, SecurityError> {
+        let provider = self.get_provider().await;
+        provider.health_check().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{AuthMethod, FallbackConfig};
+    use crate::traits::PrincipalType;
+    use std::collections::HashMap;
+    use url::Url;
+
+    #[tokio::test]
+    async fn test_client_creation() {
+        let config = SecurityConfig {
+            auth_method: AuthMethod::Beardog {
+                service_id: "test-service".to_string(),
+            },
+            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
+            fallback: FallbackConfig {
+                enable_local_fallback: true,
+                fallback_timeout: 5,
+            },
+            audit_logging: true,
+        };
+
+        let result = UniversalSecurityClient::new(config).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_fallback_configuration() {
+        let config = SecurityConfig {
+            auth_method: AuthMethod::Beardog {
+                service_id: "test-service".to_string(),
+            },
+            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
+            fallback: FallbackConfig {
+                enable_local_fallback: true,
+                fallback_timeout: 5,
+            },
+            audit_logging: true,
+        };
+
+        let client = UniversalSecurityClient::new(config).await.unwrap();
+        assert!(client.is_fallback_enabled());
+    }
+
+    #[tokio::test]
+    async fn test_client_with_custom_providers() {
+        let config = SecurityConfig {
+            auth_method: AuthMethod::Beardog {
+                service_id: "test-service".to_string(),
+            },
+            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
+            fallback: FallbackConfig {
+                enable_local_fallback: false,
+                fallback_timeout: 5,
+            },
+            audit_logging: false,
+        };
+
+        let primary = Arc::new(LocalSecurityProvider::new(config.clone()).await.unwrap());
+        let client = UniversalSecurityClient::with_providers(primary, None, config);
+
+        assert!(!client.is_fallback_enabled());
+    }
+
+    #[tokio::test]
+    async fn test_authentication_with_fallback() {
+        let config = SecurityConfig {
+            auth_method: AuthMethod::Beardog {
+                service_id: "test-service".to_string(),
+            },
+            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
+            fallback: FallbackConfig {
+                enable_local_fallback: true,
+                fallback_timeout: 1, // Short timeout to trigger fallback
+            },
+            audit_logging: false,
+        };
+
+        let client = UniversalSecurityClient::new(config).await.unwrap();
+
+        let credentials = Credentials::Test {
+            username: "testuser".to_string(),
+            password: "testpass".to_string(),
+        };
+
+        // This should fallback to local provider due to short timeout
+        let result = client.authenticate(&credentials).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_provider_health_check() {
+        let config = SecurityConfig {
+            auth_method: AuthMethod::Beardog {
+                service_id: "test-service".to_string(),
+            },
+            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
+            fallback: FallbackConfig {
+                enable_local_fallback: true,
+                fallback_timeout: 5,
+            },
+            audit_logging: false,
+        };
+
+        let client = UniversalSecurityClient::new(config).await.unwrap();
+        let (primary_health, fallback_health) = client.get_providers_health().await;
+
+        // Primary should fail (no actual Beardog server)
+        assert!(primary_health.is_err());
+
+        // Fallback should succeed (local provider)
+        assert!(fallback_health.is_some());
+        assert!(fallback_health.unwrap().is_ok());
+    }
+}

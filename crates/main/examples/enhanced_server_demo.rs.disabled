@@ -1,0 +1,76 @@
+use squirrel::enhanced::{ClientInfo, MCPCapability, MCPRequest};
+use squirrel::protocol::types::{Request, Response};
+use squirrel::biomeos_integration::SquirrelBiomeOSIntegration;
+use std::collections::HashMap;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Enhanced Server Demo Starting...");
+
+    // Initialize the biomeOS integration
+    let mut integration = SquirrelBiomeOSIntegration::new().await?;
+    println!("BiomeOS Integration initialized");
+
+    // Create a client info example
+    let client_info = ClientInfo {
+        name: "Demo Client".to_string(),
+        version: "1.0.0".to_string(),
+        capabilities: vec![
+            MCPCapability::Tools,
+            MCPCapability::Resources,
+            MCPCapability::Logging,
+        ],
+    };
+
+    println!("Client Info: {:?}", client_info);
+
+    // Create a sample MCP request
+    let init_request = Request {
+        id: "init-001".to_string(),
+        method: "initialize".to_string(),
+        params: Some(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": { "list": true },
+                "resources": { "list": true },
+                "logging": { "level": "debug" }
+            }
+        })),
+    };
+
+    println!("MCP Request: {:?}", init_request);
+
+    // Create a sample response
+    let response = Response {
+        id: "init-001".to_string(),
+        result: Some(serde_json::json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": { "list": true },
+                "resources": { "list": true },
+                "logging": { "level": "debug" }
+            }
+        })),
+        error: None,
+    };
+
+    println!("MCP Response: {:?}", response);
+
+    // Test AI intelligence
+    let analysis_result = integration.ai_intelligence.analyze_ecosystem().await?;
+    println!("AI Analysis: {:?}", analysis_result);
+
+    // Test MCP integration
+    let session_id = integration.mcp_integration.create_coordination_session(
+        vec!["test-primal".to_string()],
+        "test-session".to_string()
+    ).await?;
+    println!("MCP Session ID: {}", session_id);
+
+    // Test health status
+    let health_status = integration.get_health_status().await?;
+    println!("Health Status: {:?}", health_status);
+
+    println!("Enhanced Server Demo Complete!");
+    Ok(())
+}
