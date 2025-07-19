@@ -469,18 +469,10 @@ impl LearningSystem {
         *self.state.write().await = LearningState::Learning;
 
         // Send initialization event
-        self.send_event(LearningEvent {
-            id: uuid::Uuid::new_v4().to_string(),
+        self.send_event(LearningEvent::SystemInitialized {
             timestamp: Utc::now(),
-            event_type: LearningEventType::EpisodeStarted,
-            context_id: "system".to_string(),
-            data: serde_json::json!({
-                "action": "system_initialized",
-                "config": (*self.config).clone()
-            }),
-            metadata: None,
-        })
-        .await?;
+            config: self.config.clone(),
+        }).await?;
 
         Ok(())
     }

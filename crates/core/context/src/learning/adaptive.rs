@@ -335,7 +335,7 @@ impl AdaptiveRuleSystem {
                     
                     // Track rule adaptation statistics
                     {
-                        let mut stats = self.stats.write().await;
+                        let mut stats = self.stats.lock().await;
                         stats.rule_adaptations += 1;
                         stats.last_adapted_rule = Some(rule_id.clone());
                     }
