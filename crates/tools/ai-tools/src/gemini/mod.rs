@@ -10,6 +10,7 @@ use reqwest::Client;
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
+use tracing::{debug, error, info, warn};
 
 use crate::common::{
     capability::{
@@ -226,7 +227,54 @@ impl GeminiClient {
     fn convert_gemini_response(&self, response: GeminiResponse, model: &str) -> ChatResponse {
         let mut choices = Vec::new();
 
-        for (index, candidate) in response.candidates.into_iter().enumerate() {
+        for (enum_index, candidate) in response.candidates.into_iter().enumerate() {
+            // Validate candidate index consistency for safety
+            let candidate_index = candidate.index.unwrap_or(enum_index as i32);
+            if candidate_index != enum_index as i32 {
+                warn!("🔍 Candidate index mismatch: expected {}, got {} - potential response ordering issue", 
+                      enum_index, candidate_index);
+            }
+
+            // Enhanced AI safety validation using safety ratings
+            let mut safety_passed = true;
+            let mut safety_warnings = Vec::new();
+            
+            if let Some(safety_ratings) = &candidate.safety_ratings {
+                debug!("🛡️ Evaluating {} safety ratings for candidate {}", safety_ratings.len(), candidate_index);
+                
+                for safety_rating in safety_ratings {
+                    match safety_rating.probability.as_str() {
+                        "HIGH" => {
+                            let warning = format!("HIGH risk detected for {}", safety_rating.category);
+                            warn!("⚠️ AI Safety Alert: {}", warning);
+                            safety_warnings.push(warning);
+                            safety_passed = false;
+                        }
+                        "MEDIUM" => {
+                            let warning = format!("MEDIUM risk detected for {}", safety_rating.category);
+                            info!("🔶 AI Safety Notice: {}", warning);
+                            safety_warnings.push(warning);
+                        }
+                        "LOW" | "NEGLIGIBLE" => {
+                            debug!("✅ AI Safety OK: {} - {}", safety_rating.category, safety_rating.probability);
+                        }
+                        unknown_level => {
+                            warn!("❓ Unknown AI safety probability level: '{}' for category '{}'", 
+                                  unknown_level, safety_rating.category);
+                        }
+                    }
+                }
+                
+                if safety_passed {
+                    debug!("🛡️ All AI safety checks passed for candidate {}", candidate_index);
+                } else {
+                    error!("🚨 AI Safety validation failed for candidate {} - {} issues detected", 
+                           candidate_index, safety_warnings.len());
+                }
+            } else {
+                debug!("ℹ️ No safety ratings provided for candidate {} - proceeding with standard processing", candidate_index);
+            }
+
             let content = candidate
                 .content
                 .parts
@@ -235,14 +283,20 @@ impl GeminiClient {
                 .collect::<Vec<_>>()
                 .join("\n");
 
+            // Enhanced content with safety context if warnings exist
+            let final_content = if !safety_warnings.is_empty() {
+                let safety_context = format!("[SAFETY_WARNINGS: {}] ", safety_warnings.join(", "));
+                Some(format!("{}{}", safety_context, content))
+            } else if content.is_empty() {
+                None
+            } else {
+                Some(content)
+            };
+
             choices.push(ChatChoice {
-                index,
+                index: candidate_index as usize,
                 role: MessageRole::Assistant,
-                content: if content.is_empty() {
-                    None
-                } else {
-                    Some(content)
-                },
+                content: final_content,
                 finish_reason: candidate.finish_reason,
                 tool_calls: None,
             });

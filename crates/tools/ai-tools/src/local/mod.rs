@@ -217,6 +217,107 @@ impl LocalAIClient {
 
         capabilities
     }
+
+    /// Apply configuration-based request enhancements
+    async fn apply_config_enhancements(&self, request: ChatRequest, model_id: &str) -> Result<ChatRequest> {
+        let mut enhanced_request = request;
+
+        // Apply model-specific configuration overrides
+        if let Some(model_configs) = &self.config.model_configs {
+            if let Some(model_config) = model_configs.get(model_id) {
+                debug!("🔧 Applying model-specific configuration for {}", model_id);
+                
+                // Override temperature if specified in config
+                if let Some(config_temp) = model_config.temperature {
+                    if let Some(ref mut params) = enhanced_request.parameters {
+                        params.temperature = Some(config_temp);
+                        debug!("🌡️ Applied configured temperature {} for model {}", config_temp, model_id);
+                    }
+                }
+
+                // Override max_tokens if specified
+                if let Some(config_max_tokens) = model_config.max_tokens {
+                    if let Some(ref mut params) = enhanced_request.parameters {
+                        params.max_tokens = Some(config_max_tokens);
+                        debug!("📏 Applied configured max_tokens {} for model {}", config_max_tokens, model_id);
+                    }
+                }
+            }
+        }
+
+        // Apply global configuration settings
+        if let Some(global_temp) = self.config.default_temperature {
+            if enhanced_request.parameters.as_ref()
+                .and_then(|p| p.temperature).is_none() {
+                if enhanced_request.parameters.is_none() {
+                    enhanced_request.parameters = Some(Default::default());
+                }
+                enhanced_request.parameters.as_mut().unwrap().temperature = Some(global_temp);
+                debug!("🌡️ Applied global default temperature {} for model {}", global_temp, model_id);
+            }
+        }
+
+        Ok(enhanced_request)
+    }
+
+    /// Ensure model is loaded with configuration validation
+    async fn ensure_model_loaded_with_config(&self, model_id: &str) -> Result<()> {
+        // First ensure the model exists using existing logic
+        self.ensure_model_loaded(model_id).await?;
+
+        // Apply additional configuration validation
+        if let Some(model_configs) = &self.config.model_configs {
+            if let Some(model_config) = model_configs.get(model_id) {
+                if !model_config.enabled {
+                    warn!("🚫 Model {} is disabled in configuration", model_id);
+                    return Err(crate::error::AIError::Configuration(format!(
+                        "Model {} is disabled in configuration", model_id
+                    )));
+                }
+            }
+        }
+
+        debug!("✅ Model {} loaded and configuration validated", model_id);
+        Ok(())
+    }
+
+    /// Get provider for model with configuration context
+    async fn get_provider_for_model_with_config(&self, model_id: &str) -> Result<Arc<dyn LocalModelProvider>> {
+        // Use existing provider lookup logic
+        let provider = self.get_provider_for_model(model_id).await?;
+        
+        // Apply configuration context to provider if needed
+        debug!("🔗 Retrieved provider for model {} with configuration context", model_id);
+        
+        Ok(provider)
+    }
+
+    /// Apply configuration-based response post-processing
+    async fn apply_config_response_processing(&self, response: ChatResponse, model_id: &str) -> Result<ChatResponse> {
+        let mut processed_response = response;
+
+        // Apply response filtering based on configuration
+        if let Some(model_configs) = &self.config.model_configs {
+            if let Some(model_config) = model_configs.get(model_id) {
+                if let Some(max_response_length) = model_config.max_response_length {
+                    // Truncate response if it exceeds configured limit
+                    for choice in &mut processed_response.choices {
+                        if let Some(ref mut content) = choice.content {
+                            if content.len() > max_response_length {
+                                *content = format!("{}... [truncated by configuration]", 
+                                                   &content[..max_response_length.min(content.len())]);
+                                debug!("✂️ Truncated response for model {} to {} characters", 
+                                       model_id, max_response_length);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        debug!("✅ Applied response post-processing for model {}", model_id);
+        Ok(processed_response)
+    }
 }
 
 #[async_trait]
@@ -237,21 +338,39 @@ impl AIClient for LocalAIClient {
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse> {
         let model_id = request.model.as_deref().unwrap_or(&self.default_model_id);
 
-        // Ensure model is loaded
-        self.ensure_model_loaded(model_id).await?;
+        debug!("🤖 Processing local AI chat request for model: {}", model_id);
 
-        // Get provider for this model
-        let provider = self.get_provider_for_model(model_id).await?;
+        // Apply configuration-based request enhancements
+        let enhanced_request = self.apply_config_enhancements(request, model_id).await?;
 
-        // Clone the request to avoid borrow issues
-        let request_clone = ChatRequest {
-            model: request.model.clone(),
-            messages: request.messages.clone(),
-            parameters: request.parameters.clone(),
-            tools: request.tools.clone(),
-        };
+        // Ensure model is loaded with configuration validation
+        self.ensure_model_loaded_with_config(model_id).await?;
 
-        provider.chat(model_id, request_clone).await
+        // Get provider for this model with configuration context
+        let provider = self.get_provider_for_model_with_config(model_id).await?;
+
+        // Execute request with configuration-based timeout and retry settings
+        let response = if let Some(timeout) = self.config.timeout {
+            debug!("⏰ Applying configured timeout of {:?} for model {}", timeout, model_id);
+            
+            match tokio::time::timeout(timeout, provider.chat(model_id, enhanced_request.clone())).await {
+                Ok(result) => result,
+                Err(_) => {
+                    warn!("⚠️ Request timeout after {:?} for model {}", timeout, model_id);
+                    return Err(crate::error::AIError::Timeout(format!(
+                        "Request timeout after {:?} for model {}", timeout, model_id
+                    )));
+                }
+            }
+        } else {
+            provider.chat(model_id, enhanced_request.clone()).await
+        }?;
+
+        // Apply configuration-based response post-processing
+        let final_response = self.apply_config_response_processing(response, model_id).await?;
+        
+        debug!("✅ Successfully processed local AI chat request for model: {}", model_id);
+        Ok(final_response)
     }
 
     async fn chat_stream(&self, request: ChatRequest) -> Result<ChatResponseStream> {

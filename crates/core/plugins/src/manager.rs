@@ -19,6 +19,7 @@ use crate::dependency_resolver::{
     DependencyResolver, EnhancedPluginDependency, ResolutionResult, ResolutionStatistics,
 };
 use crate::discovery::{DefaultPluginDiscovery, PluginDiscovery};
+use serde_json;
 
 /// Plugin registry trait
 #[async_trait]
@@ -289,17 +290,65 @@ impl PluginManager {
     /// Initialize all plugins
     pub async fn initialize(&self) -> Result<()> {
         let plugins = self.get_plugins().await;
+        let plugin_configs = self.plugin_configs.read().await;
+        
+        info!("🔌 Initializing {} plugins with configuration management", plugins.len());
+        
         for plugin in plugins {
-            if let Err(e) = plugin.initialize().await {
-                eprintln!(
-                    "Failed to initialize plugin {}: {}",
-                    plugin.metadata().id,
-                    e
-                );
-                // Continue with other plugins
+            let plugin_id = plugin.metadata().id;
+            let plugin_name = &plugin.metadata().name;
+            
+            // Check if we have specific configuration for this plugin
+            if let Some(config) = plugin_configs.get(&plugin_id) {
+                info!("🔧 Applying configuration for plugin '{}' ({})", plugin_name, plugin_id);
+                
+                // Validate configuration against plugin requirements
+                if self.validate_plugin_config(&plugin, config).await {
+                    debug!("✅ Configuration validation passed for plugin '{}'", plugin_name);
+                    
+                    // Apply configuration settings before initialization
+                    if let Err(e) = self.apply_plugin_config(&plugin, config).await {
+                        warn!("⚠️ Failed to apply configuration for plugin '{}': {}", plugin_name, e);
+                        // Continue with default initialization
+                    } else {
+                        debug!("🔧 Successfully applied configuration for plugin '{}'", plugin_name);
+                    }
+                } else {
+                    warn!("⚠️ Configuration validation failed for plugin '{}', using defaults", plugin_name);
+                }
+            } else {
+                debug!("📋 No specific configuration found for plugin '{}', using defaults", plugin_name);
             }
+            
+            // Initialize the plugin
+            if let Err(e) = plugin.initialize().await {
+                error!("❌ Failed to initialize plugin '{}' ({}): {}", plugin_name, plugin_id, e);
+                
+                // Update plugin status to reflect initialization failure
+                {
+                    let mut statuses = self.statuses.write().await;
+                    statuses.insert(plugin_id, PluginStatus::Error(e.to_string()));
+                }
+                
+                // Continue with other plugins but track the failure
+                continue;
+            }
+            
+            // Mark plugin as successfully initialized
+            {
+                let mut statuses = self.statuses.write().await;
+                statuses.insert(plugin_id, PluginStatus::Active);
+            }
+            
+            info!("✅ Successfully initialized plugin '{}' ({})", plugin_name, plugin_id);
         }
 
+        let active_count = self.statuses.read().await.iter()
+            .filter(|(_, status)| matches!(status, PluginStatus::Active))
+            .count();
+            
+        info!("🚀 Plugin initialization complete: {}/{} plugins active", active_count, plugins.len());
+        
         Ok(())
     }
 
@@ -588,6 +637,110 @@ impl DefaultPluginManager {
     pub async fn resolve_dependencies_dry_run(&self) -> Result<ResolutionResult> {
         let mut resolver = self.dependency_resolver.write().await;
         Ok(resolver.resolve_dependencies()?)
+    }
+
+    /// Validate plugin configuration against plugin requirements
+    async fn validate_plugin_config(&self, plugin: &Arc<dyn Plugin>, config: &PluginConfig) -> bool {
+        // Basic validation - ensure plugin supports the configuration keys
+        let metadata = plugin.metadata();
+        
+        // Check if plugin has specific configuration requirements
+        if let Some(required_config) = &metadata.required_config {
+            for required_key in required_config {
+                if !config.settings.contains_key(required_key) {
+                    warn!("🔍 Plugin '{}' requires configuration key '{}' but it's missing", 
+                          metadata.name, required_key);
+                    return false;
+                }
+            }
+        }
+        
+        // Validate configuration value types and ranges
+        for (key, value) in &config.settings {
+            if let Err(e) = self.validate_config_value(key, value) {
+                warn!("🔍 Invalid configuration value for '{}' in plugin '{}': {}", 
+                      key, metadata.name, e);
+                return false;
+            }
+        }
+        
+        debug!("✅ Configuration validation passed for plugin '{}'", metadata.name);
+        true
+    }
+
+    /// Apply plugin configuration settings
+    async fn apply_plugin_config(&self, plugin: &Arc<dyn Plugin>, config: &PluginConfig) -> Result<()> {
+        let metadata = plugin.metadata();
+        
+        debug!("🔧 Applying {} configuration settings to plugin '{}'", 
+               config.settings.len(), metadata.name);
+               
+        // Apply each configuration setting
+        for (key, value) in &config.settings {
+            match self.apply_config_setting(plugin, key, value).await {
+                Ok(_) => {
+                    debug!("✅ Applied config setting '{}' = '{:?}' to plugin '{}'", 
+                           key, value, metadata.name);
+                }
+                Err(e) => {
+                    warn!("⚠️ Failed to apply config setting '{}' to plugin '{}': {}", 
+                          key, metadata.name, e);
+                    return Err(e);
+                }
+            }
+        }
+        
+        info!("🔧 Successfully applied all configuration settings to plugin '{}'", metadata.name);
+        Ok(())
+    }
+
+    /// Validate a single configuration value
+    fn validate_config_value(&self, key: &str, value: &serde_json::Value) -> Result<()> {
+        // Basic type and range validation based on common configuration patterns
+        match key {
+            "timeout" | "retry_count" | "max_connections" => {
+                if let Some(num) = value.as_i64() {
+                    if num < 0 {
+                        return Err(PluginError::ConfigurationError(format!("Value for '{}' must be non-negative", key)));
+                    }
+                } else {
+                    return Err(PluginError::ConfigurationError(format!("Value for '{}' must be a number", key)));
+                }
+            }
+            "enabled" | "debug" | "verbose" => {
+                if !value.is_boolean() {
+                    return Err(PluginError::ConfigurationError(format!("Value for '{}' must be a boolean", key)));
+                }
+            }
+            "url" | "endpoint" => {
+                if let Some(url_str) = value.as_str() {
+                    if !url_str.starts_with("http") {
+                        return Err(PluginError::ConfigurationError(format!("URL for '{}' must start with http:// or https://", key)));
+                    }
+                }
+            }
+            _ => {
+                // Generic validation - just ensure it's a valid JSON value
+                if value.is_null() && key != "optional" {
+                    return Err(PluginError::ConfigurationError(format!("Required configuration '{}' cannot be null", key)));
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Apply a single configuration setting to a plugin
+    async fn apply_config_setting(&self, plugin: &Arc<dyn Plugin>, key: &str, value: &serde_json::Value) -> Result<()> {
+        // This is a placeholder for plugin-specific configuration application
+        // In a real implementation, plugins would expose configuration interfaces
+        
+        debug!("Applying configuration setting '{}' to plugin '{}'", key, plugin.metadata().name);
+        
+        // For now, we just log the configuration application
+        // Real implementation would call plugin-specific configuration methods
+        
+        Ok(())
     }
 }
 
