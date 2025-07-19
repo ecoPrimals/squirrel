@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 
-use crate::common::capability::{AICapabilities, AITask, ModelType, TaskType};
+use crate::common::capability::{AICapabilities, AITask, TaskType};
 use crate::common::types::{ChatRequest, ChatResponse, ChatResponseStream};
 
 /// AI client trait for unified interface across providers
