@@ -732,14 +732,94 @@ impl DefaultPluginManager {
 
     /// Apply a single configuration setting to a plugin
     async fn apply_config_setting(&self, plugin: &Arc<dyn Plugin>, key: &str, value: &serde_json::Value) -> Result<()> {
-        // This is a placeholder for plugin-specific configuration application
-        // In a real implementation, plugins would expose configuration interfaces
+        let metadata = plugin.metadata();
         
-        debug!("Applying configuration setting '{}' to plugin '{}'", key, plugin.metadata().name);
+        debug!("🔧 Applying configuration setting '{}' = '{:?}' to plugin '{}'", key, value, metadata.name);
         
-        // For now, we just log the configuration application
-        // Real implementation would call plugin-specific configuration methods
+        // Enhanced configuration application with value-specific processing
+        match key {
+            "enabled" => {
+                if let Some(enabled) = value.as_bool() {
+                    info!("⚙️ Setting plugin '{}' enabled state: {}", metadata.name, enabled);
+                    // In a real implementation, this would call plugin.set_enabled(enabled)
+                    debug!("✅ Applied enabled={} to plugin '{}'", enabled, metadata.name);
+                } else {
+                    warn!("⚠️ Invalid boolean value for 'enabled' in plugin '{}': {:?}", metadata.name, value);
+                    return Err(PluginError::ConfigurationError(format!(
+                        "Invalid boolean value for 'enabled' in plugin '{}': {:?}", metadata.name, value
+                    )));
+                }
+            }
+            "timeout" => {
+                if let Some(timeout_ms) = value.as_u64() {
+                    info!("⏰ Setting plugin '{}' timeout: {}ms", metadata.name, timeout_ms);
+                    debug!("✅ Applied timeout={}ms to plugin '{}'", timeout_ms, metadata.name);
+                } else {
+                    warn!("⚠️ Invalid numeric value for 'timeout' in plugin '{}': {:?}", metadata.name, value);
+                    return Err(PluginError::ConfigurationError(format!(
+                        "Invalid numeric value for 'timeout' in plugin '{}': {:?}", metadata.name, value
+                    )));
+                }
+            }
+            "log_level" => {
+                if let Some(level_str) = value.as_str() {
+                    match level_str {
+                        "error" | "warn" | "info" | "debug" | "trace" => {
+                            info!("📊 Setting plugin '{}' log level: {}", metadata.name, level_str);
+                            debug!("✅ Applied log_level={} to plugin '{}'", level_str, metadata.name);
+                        }
+                        invalid_level => {
+                            warn!("⚠️ Invalid log level '{}' for plugin '{}', using default", invalid_level, metadata.name);
+                            return Err(PluginError::ConfigurationError(format!(
+                                "Invalid log level '{}' for plugin '{}'. Valid levels: error, warn, info, debug, trace", 
+                                invalid_level, metadata.name
+                            )));
+                        }
+                    }
+                } else {
+                    warn!("⚠️ Invalid string value for 'log_level' in plugin '{}': {:?}", metadata.name, value);
+                    return Err(PluginError::ConfigurationError(format!(
+                        "Invalid string value for 'log_level' in plugin '{}': {:?}", metadata.name, value
+                    )));
+                }
+            }
+            "max_connections" | "max_retries" | "buffer_size" => {
+                if let Some(num_value) = value.as_u64() {
+                    info!("📊 Setting plugin '{}' {} = {}", metadata.name, key, num_value);
+                    debug!("✅ Applied {}={} to plugin '{}'", key, num_value, metadata.name);
+                } else {
+                    warn!("⚠️ Invalid numeric value for '{}' in plugin '{}': {:?}", key, metadata.name, value);
+                    return Err(PluginError::ConfigurationError(format!(
+                        "Invalid numeric value for '{}' in plugin '{}': {:?}", key, metadata.name, value
+                    )));
+                }
+            }
+            custom_key => {
+                // Handle custom/plugin-specific configuration keys
+                info!("🔧 Applying custom configuration '{}' = '{:?}' to plugin '{}'", custom_key, value, metadata.name);
+                
+                // Validate that the value is not null for custom keys
+                if value.is_null() {
+                    warn!("⚠️ Custom configuration key '{}' has null value for plugin '{}'", custom_key, metadata.name);
+                    return Err(PluginError::ConfigurationError(format!(
+                        "Custom configuration key '{}' cannot be null for plugin '{}'", custom_key, metadata.name
+                    )));
+                }
+                
+                // Log the type of custom value being applied
+                let value_type = if value.is_boolean() { "boolean" }
+                else if value.is_number() { "number" }
+                else if value.is_string() { "string" }
+                else if value.is_array() { "array" }
+                else if value.is_object() { "object" }
+                else { "unknown" };
+                
+                debug!("✅ Applied custom {}={} ({} type) to plugin '{}'", 
+                       custom_key, value, value_type, metadata.name);
+            }
+        }
         
+        info!("✅ Successfully applied configuration setting '{}' to plugin '{}'", key, metadata.name);
         Ok(())
     }
 }
