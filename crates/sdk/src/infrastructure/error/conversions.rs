@@ -193,63 +193,6 @@ impl From<std::str::Utf8Error> for PluginError {
     }
 }
 
-// Optional conversions for external crates (behind feature flags)
-#[cfg(feature = "url")]
-impl From<url::ParseError> for PluginError {
-    fn from(error: url::ParseError) -> Self {
-        PluginError::InvalidParameter {
-            name: "url".to_string(),
-            reason: format!("invalid URL: {}", error),
-        }
-    }
-}
-
-#[cfg(feature = "toml")]
-impl From<toml::de::Error> for PluginError {
-    fn from(error: toml::de::Error) -> Self {
-        PluginError::ConfigurationError {
-            message: format!("TOML parse error: {}", error),
-        }
-    }
-}
-
-#[cfg(feature = "toml")]
-impl From<toml::ser::Error> for PluginError {
-    fn from(error: toml::ser::Error) -> Self {
-        PluginError::SerializationError {
-            message: format!("TOML serialize error: {}", error),
-        }
-    }
-}
-
-#[cfg(feature = "yaml")]
-impl From<yaml_rust::ScanError> for PluginError {
-    fn from(error: yaml_rust::ScanError) -> Self {
-        PluginError::ConfigurationError {
-            message: format!("YAML parse error: {}", error),
-        }
-    }
-}
-
-#[cfg(feature = "yaml")]
-impl From<yaml_rust::EmitError> for PluginError {
-    fn from(error: yaml_rust::EmitError) -> Self {
-        PluginError::SerializationError {
-            message: format!("YAML emit error: {}", error),
-        }
-    }
-}
-
-#[cfg(feature = "regex")]
-impl From<regex::Error> for PluginError {
-    fn from(error: regex::Error) -> Self {
-        PluginError::InvalidParameter {
-            name: "regex_pattern".to_string(),
-            reason: format!("invalid regex: {}", error),
-        }
-    }
-}
-
 impl From<std::time::SystemTimeError> for PluginError {
     fn from(error: std::time::SystemTimeError) -> Self {
         PluginError::InternalError {
