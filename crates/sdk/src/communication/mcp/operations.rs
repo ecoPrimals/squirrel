@@ -5,7 +5,7 @@
 
 use super::types::{McpPrompt, McpResource, McpTool};
 use crate::error::{PluginError, PluginResult};
-use tracing::{debug, error, info, warn};
+use tracing::debug;
 
 /// Operation handler for MCP protocol operations
 ///

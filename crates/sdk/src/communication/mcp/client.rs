@@ -7,9 +7,8 @@
 use super::connection::ConnectionManager;
 use super::message::MessageHandler;
 use super::operations::OperationHandler;
-use super::types::{ConnectionState, McpMessage};
+use super::types::ConnectionState;
 use crate::config::McpClientConfig;
-use crate::error::{PluginError, PluginResult};
 
 use std::collections::HashMap;
 use tracing::{error, info};
