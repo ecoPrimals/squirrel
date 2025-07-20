@@ -84,6 +84,7 @@ pub mod prelude {
     pub use serde::{Deserialize, Serialize};
     pub use serde_json::{json, Value as JsonValue};
 
+    /// The version of the Squirrel SDK
     pub const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
     pub use wasm_bindgen::prelude::*;
     pub use wasm_bindgen_futures::JsFuture;

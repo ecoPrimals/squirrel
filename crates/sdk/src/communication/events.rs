@@ -279,7 +279,9 @@ pub mod event_types {
     pub const COMMAND_FAILED: &str = "command.failed";
 
     /// System events
+    /// Event type emitted when the system is ready for operation
     pub const SYSTEM_READY: &str = "system.ready";
+    /// Event type emitted when the system is shutting down
     pub const SYSTEM_SHUTDOWN: &str = "system.shutdown";
 
     /// Custom events

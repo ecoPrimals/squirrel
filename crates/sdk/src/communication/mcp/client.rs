@@ -17,24 +17,38 @@ use serde::{Deserialize, Serialize};
 /// Message categories for intelligent routing
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageCategory {
+    /// Tool invocation messages for executing tools
     ToolInvocation,
+    /// Resource access messages for retrieving resources
     ResourceAccess,
+    /// Notification messages for event broadcasting
     Notification,
+    /// Completion messages for auto-completion requests
     Completion,
+    /// State management messages for managing application state
     StateManagement,
+    /// System health messages for monitoring system status
     SystemHealth,
+    /// Generic messages that don't fit other categories
     Generic,
 }
 
 /// Processing strategies for different message types
 #[derive(Debug, Clone, PartialEq)]
 pub enum ProcessingStrategy {
+    /// Process messages synchronously with immediate response
     Synchronous,
+    /// Process messages asynchronously in the background
     Asynchronous,
+    /// Process messages with caching for improved performance
     Cached,
+    /// Process messages with streaming support for large payloads
     Streaming,
+    /// Process messages with transactional guarantees
     Transactional,
+    /// Process messages with high priority
     Priority,
+    /// Process messages with standard priority and handling
     Standard,
 }
 
