@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     response::{Json, IntoResponse},
-    routing::{get, post},
     Router,
 };
 use serde::{Deserialize, Serialize};
@@ -186,17 +185,17 @@ impl SquirrelRegistry {
 /// Create the API router
 pub fn create_api_router(state: ApiState) -> Router {
     Router::new()
-        .route("/ai/route", post(route_request))
-        .route("/ai/route/stream", post(route_request_stream))
-        .route("/ai/providers", get(list_providers))
-        .route("/ai/providers/:provider_id", get(get_provider_info))
-        .route("/squirrels", get(list_squirrels))
-        .route("/squirrels", post(register_squirrel))
-        .route("/squirrels/:squirrel_id", get(get_squirrel))
-        .route("/squirrels/:squirrel_id/route", post(route_to_squirrel))
-        .route("/squirrels/:squirrel_id/capabilities", get(get_squirrel_capabilities))
-        .route("/routing/strategies", get(list_routing_strategies))
-        .route("/routing/health", get(routing_health_check))
+        .route("/ai/route", axum::routing::post(route_request))
+        .route("/ai/route/stream", axum::routing::post(route_request_stream))
+        .route("/ai/providers", axum::routing::get(list_providers))
+        .route("/ai/providers/:provider_id", axum::routing::get(get_provider_info))
+        .route("/squirrels", axum::routing::get(list_squirrels))
+        .route("/squirrels", axum::routing::post(register_squirrel))
+        .route("/squirrels/:squirrel_id", axum::routing::get(get_squirrel))
+        .route("/squirrels/:squirrel_id/route", axum::routing::post(route_to_squirrel))
+        .route("/squirrels/:squirrel_id/capabilities", axum::routing::get(get_squirrel_capabilities))
+        .route("/routing/strategies", axum::routing::get(list_routing_strategies))
+        .route("/routing/health", axum::routing::get(routing_health_check))
         .with_state(state)
 }
 
