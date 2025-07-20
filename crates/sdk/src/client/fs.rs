@@ -248,61 +248,6 @@ impl FileSystem {
 
 // Internal implementation (not exposed to WASM)
 impl FileSystem {
-    /// Get file info from path (internal)
-    pub(crate) fn get_file_info(&self, path: &str) -> PluginResult<FileInfo> {
-        Ok(FileInfo {
-            path: path.to_string(),
-            name: path.split('/').next_back().unwrap_or(path).to_string(),
-            size: 0,
-            created: chrono::Utc::now().to_rfc3339(),
-            modified: chrono::Utc::now().to_rfc3339(),
-            is_directory: false,
-            mime_type: self
-                .guess_mime_type(path)
-                .unwrap_or("application/octet-stream".to_string()),
-            permissions: FilePermissions::ReadWrite,
-        })
-    }
-
-    /// Get directory listing from path (internal)
-    pub(crate) fn get_directory_listing(&self, path: &str) -> PluginResult<Vec<FileInfo>> {
-        Ok(vec![FileInfo {
-            path: path.to_string(),
-            name: path.split('/').next_back().unwrap_or(path).to_string(),
-            size: 0,
-            created: chrono::Utc::now().to_rfc3339(),
-            modified: chrono::Utc::now().to_rfc3339(),
-            is_directory: true,
-            mime_type: "inode/directory".to_string(),
-            permissions: FilePermissions::ReadWrite,
-        }])
-    }
-
-    fn guess_mime_type(&self, path: &str) -> Option<String> {
-        path.split('.')
-            .next_back()
-            .and_then(|ext| match ext.to_lowercase().as_str() {
-                "txt" => Some("text/plain"),
-                "html" => Some("text/html"),
-                "css" => Some("text/css"),
-                "js" => Some("application/javascript"),
-                "json" => Some("application/json"),
-                "png" => Some("image/png"),
-                "jpg" | "jpeg" => Some("image/jpeg"),
-                "gif" => Some("image/gif"),
-                "svg" => Some("image/svg+xml"),
-                "pdf" => Some("application/pdf"),
-                _ => None,
-            })
-            .map(|s| s.to_string())
-    }
-
-    fn extract_filename<'a>(&self, path: &'a str) -> &'a str {
-        path.split('/').next_back().unwrap_or(path)
-    }
-}
-
-impl FileSystem {
     /// Internal file reading with permission checks
     async fn read_file_internal(&self, path: &str, write: bool) -> PluginResult<FileContent> {
         self.check_file_permission(path, write)?;
