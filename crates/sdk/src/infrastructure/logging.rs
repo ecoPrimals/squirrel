@@ -335,7 +335,6 @@ impl Logger {
     pub fn with_context(&self, context: HashMap<String, serde_json::Value>) -> ScopedLogger {
         ScopedLogger {
             _phantom: std::marker::PhantomData,
-            context,
         }
     }
 }
@@ -343,7 +342,6 @@ impl Logger {
 /// Scoped logger for contextual logging
 pub struct ScopedLogger<'a> {
     _phantom: std::marker::PhantomData<&'a ()>,
-    context: HashMap<String, serde_json::Value>,
 }
 
 impl<'a> ScopedLogger<'a> {
@@ -351,7 +349,6 @@ impl<'a> ScopedLogger<'a> {
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
-            context: HashMap::new(),
         }
     }
 

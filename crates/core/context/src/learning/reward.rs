@@ -13,7 +13,7 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use super::{
-    engine::{RLAction, RLExperience, RLState},
+    engine::{RLAction, RLState},
     LearningSystemConfig,
 };
 use crate::error::Result;

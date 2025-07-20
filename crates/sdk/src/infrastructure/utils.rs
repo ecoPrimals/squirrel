@@ -425,7 +425,6 @@ pub mod performance {
     /// Memory-efficient string builder
     pub struct StringBuilder {
         buffer: String,
-        capacity: usize,
     }
 
     impl StringBuilder {
@@ -433,7 +432,6 @@ pub mod performance {
         pub fn with_capacity(capacity: usize) -> Self {
             Self {
                 buffer: String::with_capacity(capacity),
-                capacity,
             }
         }
 
@@ -465,11 +463,6 @@ pub mod performance {
         /// Clear the builder for reuse
         pub fn clear(&mut self) {
             self.buffer.clear();
-        }
-
-        /// Get current capacity
-        pub fn capacity(&self) -> usize {
-            self.buffer.capacity()
         }
     }
 
