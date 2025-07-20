@@ -197,7 +197,9 @@ impl PluginError {
 
 /// Common result patterns
 pub type ValidationResult<T> = std::result::Result<T, ValidationError>;
+/// Result type for network operations that may fail with plugin errors
 pub type NetworkResult<T> = std::result::Result<T, PluginError>;
+/// Result type for configuration operations that may fail with plugin errors  
 pub type ConfigResult<T> = std::result::Result<T, PluginError>;
 
 /// Error handling utilities

@@ -95,11 +95,14 @@ pub struct MessageResponse {
     pub timestamp: i64,
 }
 
-/// Client context for message metadata
+/// Client context for message metadata and session information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientContext {
+    /// Unique identifier for the client instance
     pub client_id: String,
+    /// Session identifier for the current connection
     pub session_id: String,
+    /// List of capabilities supported by the client
     pub capabilities: Vec<String>,
 }
 
