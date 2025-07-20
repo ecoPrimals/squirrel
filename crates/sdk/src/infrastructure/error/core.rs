@@ -277,60 +277,119 @@ pub enum PluginError {
 
     /// Event handling error
     #[error("Event handling error: {event_type} - {message}")]
-    EventHandlingError { event_type: String, message: String },
+    EventHandlingError { 
+        /// The type of event that failed to be handled
+        event_type: String, 
+        /// The event handling error message
+        message: String 
+    },
 
     /// Context error
     #[error("Context error: {context} - {message}")]
-    ContextError { context: String, message: String },
+    ContextError { 
+        /// The context where the error occurred
+        context: String, 
+        /// The context error message
+        message: String 
+    },
 
     /// Storage error
     #[error("Storage error: {operation} - {message}")]
-    StorageError { operation: String, message: String },
+    StorageError { 
+        /// The storage operation that failed
+        operation: String, 
+        /// The storage error message
+        message: String 
+    },
 
     /// Cache error
     #[error("Cache error: {operation} - {message}")]
-    CacheError { operation: String, message: String },
+    CacheError { 
+        /// The cache operation that failed
+        operation: String, 
+        /// The cache error message
+        message: String 
+    },
 
     /// Lock error
     #[error("Lock error: {resource} - {message}")]
-    LockError { resource: String, message: String },
+    LockError { 
+        /// The resource that could not be locked
+        resource: String, 
+        /// The lock error message
+        message: String 
+    },
 
     /// Communication error
     #[error("Communication error: {target} - {message}")]
-    CommunicationError { target: String, message: String },
+    CommunicationError { 
+        /// The communication target that failed
+        target: String, 
+        /// The communication error message
+        message: String 
+    },
 
     /// Resource not found
     #[error("Resource not found: {resource}")]
-    ResourceNotFound { resource: String },
+    ResourceNotFound { 
+        /// The resource that was not found
+        resource: String 
+    },
 
     /// Resource already exists
     #[error("Resource already exists: {resource}")]
-    ResourceAlreadyExists { resource: String },
+    ResourceAlreadyExists { 
+        /// The resource that already exists
+        resource: String 
+    },
 
     /// Temporary failure
     #[error("Temporary failure: {operation} - {message}")]
-    TemporaryFailure { operation: String, message: String },
+    TemporaryFailure { 
+        /// The operation that experienced a temporary failure
+        operation: String, 
+        /// The temporary failure error message
+        message: String 
+    },
 
     /// Permanent failure
     #[error("Permanent failure: {operation} - {message}")]
-    PermanentFailure { operation: String, message: String },
+    PermanentFailure { 
+        /// The operation that experienced a permanent failure
+        operation: String, 
+        /// The permanent failure error message
+        message: String 
+    },
 
     /// External service error
     #[error("External service error: {service} - {message}")]
-    ExternalServiceError { service: String, message: String },
+    ExternalServiceError { 
+        /// The external service that failed
+        service: String, 
+        /// The external service error message
+        message: String 
+    },
 
     /// Not implemented
     #[error("Not implemented: {feature}")]
-    NotImplemented { feature: String },
+    NotImplemented { 
+        /// The feature that is not yet implemented
+        feature: String 
+    },
 
     /// Not supported
     #[error("Not supported: {feature}")]
-    NotSupported { feature: String },
+    NotSupported { 
+        /// The feature that is not supported
+        feature: String 
+    },
 
     /// Deprecated feature
     #[error("Deprecated feature: {feature}. Please use {alternative}")]
     Deprecated {
+        /// The deprecated feature name
         feature: String,
+        /// The recommended alternative to use instead
         alternative: String,
     },
 }
