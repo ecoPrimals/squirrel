@@ -35,6 +35,8 @@ pub enum PluginStatus {
     Running,
     /// Plugin failed to start - using simple enum variant
     Failed,
+    /// Plugin encountered an error
+    Error(String),
     /// Plugin is stopping
     Stopping,
     /// Plugin is unloaded

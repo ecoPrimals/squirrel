@@ -358,7 +358,7 @@ impl ContextLearningManager {
     }
     
     /// Update learning state with rule manager integration
-    async fn update_learning_state_with_rules(&self, rule_manager: &Arc<RuleManager>) -> Result<()> {
+    async fn update_learning_state_with_rules(&self, _rule_manager: &Arc<RuleManager>) -> Result<()> {
         // Enhanced learning system coordination with rule manager
         debug!("Updating learning state with rule manager integration");
         
