@@ -8,67 +8,131 @@ use thiserror::Error;
 pub enum PluginError {
     /// Command not found
     #[error("Unknown command: {command}")]
-    UnknownCommand { command: String },
+    UnknownCommand { 
+        /// The command name that was not found
+        command: String 
+    },
 
     /// Missing required parameter
     #[error("Missing required parameter: {parameter}")]
-    MissingParameter { parameter: String },
+    MissingParameter { 
+        /// The name of the missing parameter
+        parameter: String 
+    },
 
     /// Invalid parameter value
     #[error("Invalid parameter '{name}': {reason}")]
-    InvalidParameter { name: String, reason: String },
+    InvalidParameter { 
+        /// The name of the invalid parameter
+        name: String, 
+        /// The reason why the parameter is invalid
+        reason: String 
+    },
 
     /// Permission denied for operation
     #[error("Permission denied: {operation} - {reason}")]
-    PermissionDenied { operation: String, reason: String },
+    PermissionDenied { 
+        /// The operation that was denied
+        operation: String, 
+        /// The reason for the denial
+        reason: String 
+    },
 
     /// Network operation failed
     #[error("Network error in {operation}: {message}")]
-    NetworkError { operation: String, message: String },
+    NetworkError { 
+        /// The network operation that failed
+        operation: String, 
+        /// The error message describing the failure
+        message: String 
+    },
 
     /// File system operation failed
     #[error("File system error in {operation}: {message}")]
-    FileSystemError { operation: String, message: String },
+    FileSystemError { 
+        /// The file system operation that failed
+        operation: String, 
+        /// The error message describing the failure
+        message: String 
+    },
 
     /// MCP protocol error
     #[error("MCP protocol error: {message}")]
-    McpError { message: String },
+    McpError { 
+        /// The MCP protocol error message
+        message: String 
+    },
 
     /// Plugin initialization failed
     #[error("Plugin initialization failed: {reason}")]
-    InitializationError { reason: String },
+    InitializationError { 
+        /// The reason why initialization failed
+        reason: String 
+    },
 
     /// Plugin configuration error
     #[error("Configuration error: {message}")]
-    ConfigurationError { message: String },
+    ConfigurationError { 
+        /// The configuration error message
+        message: String 
+    },
 
     /// Serialization/deserialization error
     #[error("Serialization error: {message}")]
-    SerializationError { message: String },
+    SerializationError { 
+        /// The serialization error message
+        message: String 
+    },
 
     /// Timeout error
     #[error("Operation '{operation}' timed out after {seconds} seconds")]
-    TimeoutError { operation: String, seconds: u64 },
+    TimeoutError { 
+        /// The operation that timed out
+        operation: String, 
+        /// The timeout duration in seconds
+        seconds: u64 
+    },
 
     /// Resource limit exceeded
     #[error("Resource limit exceeded: {resource} ({limit})")]
-    ResourceLimitExceeded { resource: String, limit: String },
+    ResourceLimitExceeded { 
+        /// The resource that exceeded its limit
+        resource: String, 
+        /// The limit that was exceeded
+        limit: String 
+    },
 
     /// Quota exceeded (for sandbox resource management)
     #[error("Quota exceeded: {resource} - {message}")]
-    QuotaExceeded { resource: String, message: String },
+    QuotaExceeded { 
+        /// The resource that exceeded quota
+        resource: String, 
+        /// Additional error message
+        message: String 
+    },
 
     /// Plugin not found
     #[error("Plugin not found: {plugin_id}")]
-    PluginNotFound { plugin_id: String },
+    PluginNotFound { 
+        /// The ID of the plugin that was not found
+        plugin_id: String 
+    },
 
     /// Plugin already exists
     #[error("Plugin already exists: {plugin_id}")]
-    PluginAlreadyExists { plugin_id: String },
+    PluginAlreadyExists { 
+        /// The ID of the plugin that already exists
+        plugin_id: String 
+    },
 
     /// Dependency error
     #[error("Dependency error: {dependency} - {message}")]
-    DependencyError { dependency: String, message: String },
+    DependencyError { 
+        /// The dependency that caused the error
+        dependency: String, 
+        /// The error message describing the dependency issue
+        message: String 
+    },
 
     /// Version compatibility error
     #[error("Version incompatible: required {required}, found {found}")]
