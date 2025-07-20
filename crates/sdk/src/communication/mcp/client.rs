@@ -5,8 +5,6 @@
 //! interfaces for MCP operations.
 
 use super::connection::ConnectionManager;
-use super::message::MessageHandler;
-use super::operations::OperationHandler;
 use super::types::ConnectionState;
 use crate::config::McpClientConfig;
 
