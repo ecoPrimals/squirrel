@@ -61,11 +61,11 @@ pub enum ResponseStatus {
     /// Request completed successfully
     Success,
     /// Request failed with error
-    Error { 
+    Error {
         /// Error code identifier for categorization
-        code: String, 
+        code: String,
         /// Human-readable error message description
-        message: String 
+        message: String,
     },
     /// Request timed out
     Timeout,
@@ -223,149 +223,149 @@ impl PrimalType {
 pub enum PrimalCapability {
     // Compute capabilities (ToadStool)
     /// Container runtime support
-    ContainerRuntime { 
+    ContainerRuntime {
         /// Supported container orchestration platforms (e.g., "kubernetes", "docker-compose")
-        orchestrators: Vec<String> 
+        orchestrators: Vec<String>,
     },
     /// Serverless execution support
-    ServerlessExecution { 
+    ServerlessExecution {
         /// Supported programming languages for serverless functions
-        languages: Vec<String> 
+        languages: Vec<String>,
     },
     /// GPU acceleration support
-    GpuAcceleration { 
+    GpuAcceleration {
         /// Whether CUDA acceleration is supported
-        cuda_support: bool 
+        cuda_support: bool,
     },
     /// Native execution support
-    NativeExecution { 
+    NativeExecution {
         /// Supported CPU architectures (e.g., "x86_64", "aarch64")
-        architectures: Vec<String> 
+        architectures: Vec<String>,
     },
     /// WebAssembly execution support
-    WasmExecution { 
+    WasmExecution {
         /// Whether WebAssembly System Interface (WASI) is supported
-        wasi_support: bool 
+        wasi_support: bool,
     },
 
     // Security capabilities (BearDog)
     /// Authentication methods
-    Authentication { 
+    Authentication {
         /// Supported authentication methods (e.g., "oauth2", "jwt", "ldap")
-        methods: Vec<String> 
+        methods: Vec<String>,
     },
     /// Encryption algorithms
-    Encryption { 
+    Encryption {
         /// Supported encryption algorithms (e.g., "AES-256", "RSA-2048")
-        algorithms: Vec<String> 
+        algorithms: Vec<String>,
     },
     /// Key management
-    KeyManagement { 
+    KeyManagement {
         /// Whether Hardware Security Module (HSM) is supported
-        hsm_support: bool 
+        hsm_support: bool,
     },
     /// Threat detection
-    ThreatDetection { 
+    ThreatDetection {
         /// Whether machine learning-based threat detection is enabled
-        ml_enabled: bool 
+        ml_enabled: bool,
     },
     /// Compliance frameworks
-    Compliance { 
+    Compliance {
         /// Supported compliance frameworks (e.g., "SOX", "GDPR", "HIPAA")
-        frameworks: Vec<String> 
+        frameworks: Vec<String>,
     },
 
     // Storage capabilities (NestGate)
     /// File system support
-    FileSystem { 
+    FileSystem {
         /// Whether ZFS file system is supported
-        supports_zfs: bool 
+        supports_zfs: bool,
     },
     /// Object storage
-    ObjectStorage { 
+    ObjectStorage {
         /// Supported object storage backends (e.g., "s3", "azure-blob", "gcs")
-        backends: Vec<String> 
+        backends: Vec<String>,
     },
     /// Data replication
-    DataReplication { 
+    DataReplication {
         /// Data consistency model (e.g., "eventual", "strong", "sequential")
-        consistency: String 
+        consistency: String,
     },
     /// Volume management
-    VolumeManagement { 
+    VolumeManagement {
         /// Supported volume management protocols (e.g., "nfs", "iscsi", "ceph")
-        protocols: Vec<String> 
+        protocols: Vec<String>,
     },
     /// Backup and restore
-    BackupRestore { 
+    BackupRestore {
         /// Whether incremental backup is supported
-        incremental: bool 
+        incremental: bool,
     },
 
     // Network capabilities (Songbird)
     /// Service discovery
-    ServiceDiscovery { 
+    ServiceDiscovery {
         /// Supported service discovery protocols (e.g., "dns", "consul", "etcd")
-        protocols: Vec<String> 
+        protocols: Vec<String>,
     },
     /// Network routing
-    NetworkRouting { 
+    NetworkRouting {
         /// Supported network routing protocols (e.g., "bgp", "ospf", "http")
-        protocols: Vec<String> 
+        protocols: Vec<String>,
     },
     /// Load balancing
-    LoadBalancing { 
+    LoadBalancing {
         /// Supported load balancing algorithms (e.g., "round-robin", "weighted", "least-conn")
-        algorithms: Vec<String> 
+        algorithms: Vec<String>,
     },
     /// Circuit breaking
-    CircuitBreaking { 
+    CircuitBreaking {
         /// Whether circuit breaking is enabled for fault tolerance
-        enabled: bool 
+        enabled: bool,
     },
 
     // AI capabilities (Squirrel)
     /// Model inference
-    ModelInference { 
+    ModelInference {
         /// Supported AI models (e.g., "gpt-4", "claude", "llama2")
-        models: Vec<String> 
+        models: Vec<String>,
     },
     /// Agent framework
-    AgentFramework { 
+    AgentFramework {
         /// Whether Model Context Protocol (MCP) is supported
-        mcp_support: bool 
+        mcp_support: bool,
     },
     /// Machine learning
-    MachineLearning { 
+    MachineLearning {
         /// Whether model training is supported (vs inference only)
-        training_support: bool 
+        training_support: bool,
     },
     /// Natural language processing
-    NaturalLanguage { 
+    NaturalLanguage {
         /// Supported natural languages (e.g., "en", "es", "fr", "de")
-        languages: Vec<String> 
+        languages: Vec<String>,
     },
 
     // OS capabilities (biomeOS)
     /// Orchestration
-    Orchestration { 
+    Orchestration {
         /// Supported primal components (e.g., "toadstool", "beardog", "songbird")
-        primals: Vec<String> 
+        primals: Vec<String>,
     },
     /// Manifests
-    Manifests { 
+    Manifests {
         /// Supported manifest formats (e.g., "yaml", "json", "toml")
-        formats: Vec<String> 
+        formats: Vec<String>,
     },
     /// Deployment
-    Deployment { 
+    Deployment {
         /// Supported deployment strategies (e.g., "rolling", "canary", "blue-green")
-        strategies: Vec<String> 
+        strategies: Vec<String>,
     },
     /// Monitoring
-    Monitoring { 
+    Monitoring {
         /// Supported monitoring metrics (e.g., "prometheus", "grafana", "jaeger")
-        metrics: Vec<String> 
+        metrics: Vec<String>,
     },
 }
 

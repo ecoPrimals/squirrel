@@ -2,14 +2,14 @@
 //!
 //! This module provides modular, capability-based compute integration.
 
-pub mod types;
-pub mod client;
 pub mod ai_metadata;
+pub mod client;
 pub mod providers;
+pub mod types;
 
 // Re-export main types
 pub use client::UniversalComputeClient;
 pub use types::{
-    UniversalComputeRequest, UniversalComputeResponse, ComputeClientConfig,
-    ComputeOperation, ResourceRequirements, ComputeSecurityRequirements,
-}; 
+    ComputeClientConfig, ComputeOperation, ComputeSecurityRequirements, ResourceRequirements,
+    UniversalComputeRequest, UniversalComputeResponse,
+};

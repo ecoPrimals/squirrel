@@ -15,7 +15,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
-
 use super::engine::RLExperience;
 use crate::error::Result;
 
@@ -470,10 +469,7 @@ impl ExperienceReplay {
             let weighted_choices: Vec<_> =
                 weights.iter().enumerate().map(|(i, &w)| (i, w)).collect();
 
-            if let Some((idx, _)) = weighted_choices
-                .choose_weighted(&mut rng, |item| item.1)
-                .ok()
-            {
+            if let Ok((idx, _)) = weighted_choices.choose_weighted(&mut rng, |item| item.1) {
                 sampled_experiences.push(experiences[*idx].clone());
                 sampled_indices.push(*idx);
             }

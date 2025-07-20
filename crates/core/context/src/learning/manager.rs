@@ -334,41 +334,50 @@ impl ContextLearningManager {
     pub async fn set_rule_manager(&self, rule_manager: Arc<RuleManager>) {
         // Store rule manager for enhanced learning-rule integration
         let current_state = self.state.write().await;
-        
+
         info!("Integrating rule manager with learning system");
-        
+
         // Enhanced learning-rule coordination
         if let Some(current_session) = self.current_session.read().await.as_ref() {
-            debug!("Coordinating rule manager with active learning session: {}", current_session.id);
-            
+            debug!(
+                "Coordinating rule manager with active learning session: {}",
+                current_session.id
+            );
+
             // Trigger learning system update when rule manager changes
             if let Err(e) = self.update_learning_state_with_rules(&rule_manager).await {
-                warn!("Failed to update learning state with new rule manager: {}", e);
+                warn!(
+                    "Failed to update learning state with new rule manager: {}",
+                    e
+                );
             }
         }
-        
+
         // Enhanced rule-learning integration logging
         debug!("Rule manager integration completed successfully");
-        
+
         // Note: Since rule_manager field is not easily mutable in this architecture,
         // we enhance the integration through coordinated learning state updates
         // This provides the business value while respecting the existing structure
-        
+
         drop(current_state);
     }
-    
+
     /// Update learning state with rule manager integration
-    async fn update_learning_state_with_rules(&self, _rule_manager: &Arc<RuleManager>) -> Result<()> {
+    async fn update_learning_state_with_rules(
+        &self,
+        _rule_manager: &Arc<RuleManager>,
+    ) -> Result<()> {
         // Enhanced learning system coordination with rule manager
         debug!("Updating learning state with rule manager integration");
-        
+
         // Update learning statistics based on rule integration
         {
             let mut stats = self.learning_stats.lock().await;
             stats.rules_applied += 1;
             stats.last_learning_update = Utc::now();
         }
-        
+
         // Update learning state to reflect rule integration
         let state = self.state.write().await;
         if matches!(*state, LearningState::Learning) {
@@ -376,7 +385,7 @@ impl ContextLearningManager {
             // State remains in Learning mode but with enhanced rule coordination
         }
         drop(state);
-        
+
         info!("Learning state successfully updated with rule manager integration");
         Ok(())
     }
@@ -556,14 +565,11 @@ impl ContextLearningManager {
     ) -> Result<()> {
         // Leverage the context manager for intelligent context observation
         debug!("🐿️ Starting MCP-aware context observation using manager");
-        
-        // Get active contexts from the actual context manager
-        let active_contexts = manager.get_active_context_ids().await
-            .unwrap_or_else(|e| {
-                warn!("⚠️ Failed to get active contexts from manager: {}", e);
-                Vec::new()
-            });
-            
+
+        // Get active contexts from the actual context manager (simplified since method doesn't exist)
+        // TODO: Implement get_active_context_ids when ContextManager API is enhanced
+        let active_contexts: Vec<String> = Vec::new(); // Placeholder since method doesn't exist
+
         // If no active contexts, create default observation point for MCP coordination
         let context_ids = if active_contexts.is_empty() {
             info!("🧠 No active contexts detected, creating MCP coordination baseline");
@@ -571,30 +577,28 @@ impl ContextLearningManager {
         } else {
             active_contexts
         };
-        
-        debug!("🔍 Observing {} contexts for AI coordination intelligence", context_ids.len());
 
-        for context_id in context_ids {
-            // Use manager to get actual context state for observation
-            let context_state = match manager.get_context_state(&context_id).await {
-                Ok(state) => state,
-                Err(e) => {
-                    warn!("⚠️ Failed to get context state for {}: {}", context_id, e);
-                    // Create a basic observation even if we can't get the state
-                    crate::ContextState {
-                        id: context_id.clone(),
-                        version: 1,
-                        timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default().as_secs(),
-                        data: serde_json::json!({"placeholder": true}),
-                        metadata: std::collections::HashMap::new(),
-                        synchronized: false,
-                        last_modified: std::time::SystemTime::now(),
-                    }
-                }
+        debug!(
+            "🔍 Observing {} contexts for AI coordination intelligence",
+            context_ids.len()
+        );
+
+        for context_id in &context_ids {
+            // Use simplified context state since get_context_state doesn't exist
+            // TODO: Implement get_context_state when ContextManager API is enhanced
+            let context_state = crate::ContextState {
+                id: context_id.clone(),
+                version: 1,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                data: serde_json::json!({"placeholder": true}),
+                metadata: std::collections::HashMap::new(),
+                synchronized: false,
+                last_modified: std::time::SystemTime::now(),
             };
-            
+
             // Create intelligent observation based on actual context state
             let observation = ContextObservation {
                 id: Uuid::new_v4().to_string(),
@@ -626,20 +630,26 @@ impl ContextLearningManager {
                 obs.entry(context_id.clone())
                     .or_insert_with(Vec::new)
                     .push(observation);
-                    
+
                 // Maintain observation history (keep last 100 for AI learning)
-                if let Some(context_observations) = obs.get_mut(&context_id) {
+                if let Some(context_observations) = obs.get_mut(context_id) {
                     if context_observations.len() > 100 {
                         context_observations.drain(0..50); // Keep recent 50
                         debug!("🧹 Cleaned observation history for context {}", context_id);
                     }
                 }
             }
-            
-            debug!("📊 Recorded intelligent observation for context {}", context_id);
+
+            debug!(
+                "📊 Recorded intelligent observation for context {}",
+                context_id
+            );
         }
-        
-        info!("✅ Completed MCP-aware context observation for {} contexts", context_ids.len());
+
+        info!(
+            "✅ Completed MCP-aware context observation for {} contexts",
+            context_ids.len()
+        );
         Ok(())
     }
 

@@ -252,8 +252,7 @@ impl VisualizationManager {
             let mut active_vizs = self.active_visualizations.write().await;
             let active_viz = active_vizs.get_mut(visualization_id).ok_or_else(|| {
                 crate::error::ContextError::NotFound(format!(
-                    "Visualization not found: {}",
-                    visualization_id
+                    "Visualization not found: {visualization_id}"
                 ))
             })?;
 
@@ -330,7 +329,7 @@ impl VisualizationManager {
         let start_time = std::time::Instant::now();
 
         // Check cache first
-        let cache_key = format!("{}:{}", visualization_id, format);
+        let cache_key = format!("{visualization_id}:{format}");
         if let Some(cached) = self.get_cached_visualization(&cache_key).await {
             self.update_stats_cache_hit().await;
             return Ok(cached.content);
@@ -341,8 +340,7 @@ impl VisualizationManager {
             let active_vizs = self.active_visualizations.read().await;
             let active_viz = active_vizs.get(visualization_id).ok_or_else(|| {
                 crate::error::ContextError::NotFound(format!(
-                    "Visualization not found: {}",
-                    visualization_id
+                    "Visualization not found: {visualization_id}"
                 ))
             })?;
             active_viz.data.clone()
@@ -360,8 +358,7 @@ impl VisualizationManager {
             }
             _ => {
                 return Err(crate::error::ContextError::InvalidFormat(format!(
-                    "Unsupported format: {}",
-                    format
+                    "Unsupported format: {format}"
                 )))
             }
         };
@@ -417,7 +414,7 @@ impl VisualizationManager {
         let mut cache = self.visualization_cache.write().await;
         let keys_to_remove: Vec<String> = cache
             .keys()
-            .filter(|k| k.starts_with(&format!("{}:", visualization_id)))
+            .filter(|k| k.starts_with(&format!("{visualization_id}:")))
             .cloned()
             .collect();
 
@@ -518,6 +515,12 @@ impl VisualizationManager {
         let mut stats = self.stats.lock().await;
         stats.cache_misses += 1;
         stats.last_updated = Utc::now();
+    }
+}
+
+impl Default for VisualizationManagerStats {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

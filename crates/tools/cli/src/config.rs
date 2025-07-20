@@ -3,13 +3,13 @@
 //! This module provides functionality for loading, saving, and managing
 //! CLI configuration settings.
 
-use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::{debug, error, warn};
 
 /// Configuration errors
 #[derive(Debug, Error)]

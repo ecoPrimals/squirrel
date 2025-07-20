@@ -314,7 +314,7 @@ mod tests {
     use super::super::memory::InMemoryServiceDiscovery;
     use super::super::types::ServiceEndpoint;
     use super::*;
-    use crate::error::CoreError;
+
     use std::collections::HashMap;
 
     #[tokio::test]

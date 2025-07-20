@@ -9,6 +9,12 @@ use serde_json::Value;
 #[derive(Debug)]
 pub struct JsonRenderer;
 
+impl Default for JsonRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsonRenderer {
     /// Create a new JSON renderer
     pub fn new() -> Self {
@@ -18,13 +24,19 @@ impl JsonRenderer {
     /// Render data as JSON
     pub async fn render(&self, data: &Value) -> Result<String> {
         serde_json::to_string_pretty(data)
-            .map_err(|e| crate::error::ContextError::SerializationError(e.to_string()))
+            .map_err(|e| crate::error::ContextError::Serialization(e.to_string()))
     }
 }
 
 /// Terminal renderer for visualization data
 #[derive(Debug)]
 pub struct TerminalRenderer;
+
+impl Default for TerminalRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TerminalRenderer {
     /// Create a new terminal renderer
@@ -44,6 +56,12 @@ impl TerminalRenderer {
 #[derive(Debug)]
 pub struct HtmlRenderer;
 
+impl Default for HtmlRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HtmlRenderer {
     /// Create a new HTML renderer
     pub fn new() -> Self {
@@ -60,6 +78,12 @@ impl HtmlRenderer {
 /// Markdown renderer for visualization data
 #[derive(Debug)]
 pub struct MarkdownRenderer;
+
+impl Default for MarkdownRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MarkdownRenderer {
     /// Create a new Markdown renderer
@@ -79,12 +103,12 @@ fn format_for_terminal(value: &Value, indent: usize) -> String {
     let indent_str = "  ".repeat(indent);
 
     match value {
-        Value::Null => format!("{}null", indent_str),
-        Value::Bool(b) => format!("{}{}", indent_str, b),
-        Value::Number(n) => format!("{}{}", indent_str, n),
-        Value::String(s) => format!("{}\"{}\"", indent_str, s),
+        Value::Null => format!("{indent_str}null"),
+        Value::Bool(b) => format!("{indent_str}{b}"),
+        Value::Number(n) => format!("{indent_str}{n}"),
+        Value::String(s) => format!("{indent_str}\"{s}\""),
         Value::Array(arr) => {
-            let mut result = format!("{}[\n", indent_str);
+            let mut result = format!("{indent_str}[\n");
             for (i, item) in arr.iter().enumerate() {
                 result.push_str(&format_for_terminal(item, indent + 1));
                 if i < arr.len() - 1 {
@@ -92,11 +116,11 @@ fn format_for_terminal(value: &Value, indent: usize) -> String {
                 }
                 result.push('\n');
             }
-            result.push_str(&format!("{}]", indent_str));
+            result.push_str(&format!("{indent_str}]"));
             result
         }
         Value::Object(obj) => {
-            let mut result = format!("{}{{\n", indent_str);
+            let mut result = format!("{indent_str}{{\n");
             let items: Vec<_> = obj.iter().collect();
             for (i, (key, value)) in items.iter().enumerate() {
                 result.push_str(&format!("{}\"{}\": ", "  ".repeat(indent + 1), key));
@@ -107,7 +131,7 @@ fn format_for_terminal(value: &Value, indent: usize) -> String {
                 }
                 result.push('\n');
             }
-            result.push_str(&format!("{}}}", indent_str));
+            result.push_str(&format!("{indent_str}}}"));
             result
         }
     }

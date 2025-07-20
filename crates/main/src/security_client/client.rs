@@ -1,19 +1,19 @@
 //! Universal Security Client Implementation
 
+use base64::{engine::general_purpose, Engine as _};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
-use base64::{Engine as _, engine::general_purpose};
 
 use crate::error::PrimalError;
 use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::types::*;
 use super::ai_metadata::*;
 use super::providers::*;
+use super::types::*;
 
 // ============================================================================
 // UNIVERSAL SECURITY CLIENT IMPLEMENTATION
@@ -24,16 +24,16 @@ use super::providers::*;
 pub struct UniversalSecurityClient {
     /// Ecosystem integration for service discovery
     ecosystem: Arc<UniversalPrimalEcosystem>,
-    
+
     /// Client configuration
     config: SecurityClientConfig,
-    
+
     /// Active security providers (discovered dynamically)
     providers: Arc<RwLock<HashMap<String, SecurityProvider>>>,
-    
+
     /// Request context for routing
     context: PrimalContext,
-    
+
     /// AI-first metadata for intelligent routing
     ai_metadata: AISecurityMetadata,
 }
@@ -82,16 +82,14 @@ impl UniversalSecurityClient {
             PrimalCapability::Encryption {
                 algorithms: vec!["aes-256".to_string(), "rsa-2048".to_string()],
             },
-            PrimalCapability::KeyManagement {
-                hsm_support: true,
-            },
+            PrimalCapability::KeyManagement { hsm_support: true },
         ];
 
         let mut discovered_providers = HashMap::new();
 
         for capability in security_capabilities {
             let providers = self.ecosystem.find_by_capability(&capability).await;
-            
+
             for primal in providers {
                 let provider = SecurityProvider::from_discovered_primal(&primal);
                 discovered_providers.insert(primal.instance_id.clone(), provider);
@@ -120,7 +118,10 @@ impl UniversalSecurityClient {
         &self,
         request: UniversalSecurityRequest,
     ) -> UniversalResult<UniversalSecurityResponse> {
-        debug!("Executing universal security operation: {:?}", request.operation);
+        debug!(
+            "Executing universal security operation: {:?}",
+            request.operation
+        );
 
         // Select best provider using AI-based routing
         let provider = self.select_best_provider(&request).await?;
@@ -146,7 +147,8 @@ impl UniversalSecurityClient {
         let security_response = self.process_response(response, &provider, &request).await?;
 
         // Update provider health based on operation
-        self.update_provider_health(&provider.provider_id, &security_response).await;
+        self.update_provider_health(&provider.provider_id, &security_response)
+            .await;
 
         // Log security event
         self.log_security_event(&request, &security_response).await;
@@ -161,7 +163,7 @@ impl UniversalSecurityClient {
         request: &UniversalSecurityRequest,
     ) -> UniversalResult<SecurityProvider> {
         let providers = self.providers.read().await;
-        
+
         if providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No security providers available".to_string(),
@@ -200,7 +202,10 @@ impl UniversalSecurityClient {
         let trust_match = match (&request.required_trust_level, &provider.trust_level) {
             (TrustLevel::Maximum, TrustLevel::Maximum) => 1.0,
             (TrustLevel::High, TrustLevel::High | TrustLevel::Maximum) => 1.0,
-            (TrustLevel::Standard, TrustLevel::Standard | TrustLevel::High | TrustLevel::Maximum) => 1.0,
+            (
+                TrustLevel::Standard,
+                TrustLevel::Standard | TrustLevel::High | TrustLevel::Maximum,
+            ) => 1.0,
             (TrustLevel::Minimal, _) => 1.0,
             _ => 0.5, // Penalty for insufficient trust level
         };
@@ -227,37 +232,31 @@ impl UniversalSecurityClient {
         request: &UniversalSecurityRequest,
     ) -> UniversalResult<UniversalSecurityResponse> {
         let success = response.success;
-        
+
         let decision = if success {
             SecurityDecision {
                 outcome: DecisionOutcome::Allow,
                 confidence: 0.95,
                 risk_score: 0.2,
-                factors: vec![
-                    DecisionFactor {
-                        name: "Authentication".to_string(),
-                        weight: 0.8,
-                        value: serde_json::json!(true),
-                        impact: "Positive".to_string(),
-                    },
-                ],
-                recommended_actions: vec![
-                    "Monitor user activity".to_string(),
-                ],
+                factors: vec![DecisionFactor {
+                    name: "Authentication".to_string(),
+                    weight: 0.8,
+                    value: serde_json::json!(true),
+                    impact: "Positive".to_string(),
+                }],
+                recommended_actions: vec!["Monitor user activity".to_string()],
             }
         } else {
             SecurityDecision {
                 outcome: DecisionOutcome::Deny,
                 confidence: 0.99,
                 risk_score: 0.8,
-                factors: vec![
-                    DecisionFactor {
-                        name: "Authentication Failure".to_string(),
-                        weight: 1.0,
-                        value: serde_json::json!(false),
-                        impact: "Negative".to_string(),
-                    },
-                ],
+                factors: vec![DecisionFactor {
+                    name: "Authentication Failure".to_string(),
+                    weight: 1.0,
+                    value: serde_json::json!(false),
+                    impact: "Negative".to_string(),
+                }],
                 recommended_actions: vec![
                     "Review authentication logs".to_string(),
                     "Consider account lockout".to_string(),
@@ -270,11 +269,15 @@ impl UniversalSecurityClient {
             success,
             decision,
             data: response.data.get("data").and_then(|v| {
-                general_purpose::STANDARD.decode(v.as_str().unwrap_or("")).ok()
+                general_purpose::STANDARD
+                    .decode(v.as_str().unwrap_or(""))
+                    .ok()
             }),
             provider_id: provider.provider_id.clone(),
             security_metrics: SecurityMetrics {
-                processing_time: std::time::Duration::from_millis(response.duration.num_milliseconds() as u64),
+                processing_time: std::time::Duration::from_millis(
+                    response.duration.num_milliseconds() as u64,
+                ),
                 policy_evaluations: 3,
                 events_generated: 1,
                 threat_indicators: 0,
@@ -286,34 +289,34 @@ impl UniversalSecurityClient {
                     detected_threats: vec![],
                     severity_scores: HashMap::new(),
                     attack_patterns: vec![],
-                    countermeasures: vec![
-                        "Enable multi-factor authentication".to_string(),
-                    ],
+                    countermeasures: vec!["Enable multi-factor authentication".to_string()],
                 },
                 security_recommendations: vec![
-                    "Consider implementing additional security layers".to_string(),
+                    "Consider implementing additional security layers".to_string()
                 ],
-                risk_mitigation: vec![
-                    "Enable continuous monitoring".to_string(),
-                ],
-                behavioral_insights: vec![
-                    "User behavior appears normal".to_string(),
-                ],
+                risk_mitigation: vec!["Enable continuous monitoring".to_string()],
+                behavioral_insights: vec!["User behavior appears normal".to_string()],
             },
             error: response.error_message,
         })
     }
 
     /// Update provider health based on operation results
-    async fn update_provider_health(&self, provider_id: &str, response: &UniversalSecurityResponse) {
+    async fn update_provider_health(
+        &self,
+        provider_id: &str,
+        response: &UniversalSecurityResponse,
+    ) {
         let mut providers = self.providers.write().await;
         if let Some(provider) = providers.get_mut(provider_id) {
             // Update health metrics based on operation performance
-            provider.health.response_time_ms = response.security_metrics.processing_time.as_millis() as f64;
+            provider.health.response_time_ms =
+                response.security_metrics.processing_time.as_millis() as f64;
             provider.health.last_check = chrono::Utc::now();
-            
+
             if response.success {
-                provider.health.health_score = (provider.health.health_score * 0.95 + 0.05).min(1.0);
+                provider.health.health_score =
+                    (provider.health.health_score * 0.95 + 0.05).min(1.0);
             } else {
                 provider.health.health_score = (provider.health.health_score * 0.95).max(0.1);
                 provider.health.incident_count += 1;
@@ -322,7 +325,11 @@ impl UniversalSecurityClient {
     }
 
     /// Log security event
-    async fn log_security_event(&self, request: &UniversalSecurityRequest, response: &UniversalSecurityResponse) {
+    async fn log_security_event(
+        &self,
+        request: &UniversalSecurityRequest,
+        response: &UniversalSecurityResponse,
+    ) {
         debug!(
             "Security event logged: operation={:?}, success={}, risk_score={}",
             request.operation, response.success, response.decision.risk_score
@@ -394,4 +401,4 @@ impl UniversalSecurityClient {
 
         self.execute_operation(request).await
     }
-} 
+}

@@ -1,51 +1,33 @@
-//! Core configuration system for Squirrel MCP
+//! Core configuration modules for Squirrel MCP
 //!
-//! This module provides a comprehensive configuration system supporting:
-//! - Network and database configuration
-//! - AI service provider configuration
-//! - Security and authentication settings
-//! - Observability and monitoring configuration
-//! - Ecosystem coordination settings
-//! - Environment-aware defaults and overrides
-//!
-//! # Example Usage
-//!
-//! ```
-//! use squirrel_mcp_config::core::Config;
-//!
-//! // Load configuration from environment variables
-//! let config = Config::from_env()?;
-//!
-//! // Validate configuration
-//! config.validate()?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
+//! This module provides the fundamental configuration structures and utilities
+//! used throughout the application for managing settings, defaults, and environment-specific
+//! configurations.
 
 pub mod ai;
 pub mod defaults;
 pub mod ecosystem;
 pub mod manager;
+pub mod network;
 pub mod observability;
+pub mod ports;
 pub mod security;
-pub mod types;
+pub mod types; // New port management configuration
 
-// Re-export main configuration types
-pub use types::*;
+// Re-export commonly used types
+pub use ai::AIConfig;
+pub use defaults::ConfigDefaults;
+pub use ecosystem::EcosystemConfig;
+pub use manager::{DefaultConfigManager, ConfigManager};
+pub use network::{defaults as network_defaults, DevelopmentConfig, NetworkConfig, ServiceEndpoints};
+pub use observability::ObservabilityConfig;
+pub use ports::{
+    DevelopmentPortConfig, EcosystemPortConfig, HealthCheckConfig, LoadBalancingConfig,
+    PortAllocationSettings, PortAllocationStrategy, PortConfig, PrimalsPortConfig,
+    ProductionPortConfig, ServiceProtocol, SquirrelPorts,
+};
+pub use security::SecurityConfig;
+pub use types::{AIServiceConfig, AppConfig, Config, DatabaseConfig, ExternalServiceConfig, BiomeOSEndpoints, ExtendedObservabilityConfig};
 
-// Re-export AI configuration
-pub use ai::*;
-
-// Re-export security configuration
-pub use security::*;
-
-// Re-export observability configuration
-pub use observability::*;
-
-// Re-export ecosystem configuration
-pub use ecosystem::*;
-
-// Re-export defaults
-pub use defaults::*;
-
-// Re-export manager
-pub use manager::*;
+// Network configuration alias for backward compatibility
+pub use network::NetworkConfig as NetworkEndpointConfig;

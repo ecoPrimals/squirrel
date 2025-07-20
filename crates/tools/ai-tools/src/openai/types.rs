@@ -4,7 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::common::{ChatMessage, Tool, ToolType};
+use crate::common::tool::Tool;
+use crate::common::{ChatMessage, ToolType};
 
 /// OpenAI API configuration
 #[derive(Debug, Clone)]

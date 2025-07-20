@@ -89,9 +89,9 @@ pub enum LearningAlgorithm {
     /// Actor-Critic
     ActorCritic,
     /// Proximal Policy Optimization
-    PPO,
+    Ppo,
     /// Soft Actor-Critic
-    SAC,
+    Sac,
 }
 
 /// State representation for RL
@@ -364,7 +364,7 @@ impl LearningEngine {
 
     /// Select random action for exploration
     async fn select_random_action(&self, state: &RLState) -> Result<RLAction> {
-        let action_types = vec![
+        let action_types = [
             "modify_context",
             "apply_rule",
             "create_snapshot",
@@ -410,11 +410,9 @@ impl LearningEngine {
 
         // Find action with highest Q-value for this state
         for (state_action, q_value) in q_table.iter() {
-            if state_action.starts_with(&state.id) {
-                if q_value.value > best_q_value {
-                    best_q_value = q_value.value;
-                    best_action = Some(state_action.clone());
-                }
+            if state_action.starts_with(&state.id) && q_value.value > best_q_value {
+                best_q_value = q_value.value;
+                best_action = Some(state_action.clone());
             }
         }
 
@@ -467,7 +465,7 @@ impl LearningEngine {
             }
         }
 
-        let action_types = vec![
+        let action_types = [
             "modify_context",
             "apply_rule",
             "create_snapshot",

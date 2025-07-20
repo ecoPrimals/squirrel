@@ -23,10 +23,7 @@ use crate::self_healing::SelfHealingManager;
 use crate::shutdown::ShutdownManager;
 use crate::universal::SecurityLevel;
 use crate::universal_provider::UniversalSquirrelProvider;
-use ecosystem_api::{
-    traits::UniversalPrimalProvider,
-    types::*,
-};
+use ecosystem_api::{traits::UniversalPrimalProvider, types::*};
 use serde_json::json;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -71,9 +68,9 @@ impl SquirrelUniversalAdapter {
             user_id: std::env::var("USER_ID").unwrap_or_else(|_| "default_user".to_string()),
             device_id: std::env::var("DEVICE_ID").unwrap_or_else(|_| "default_device".to_string()),
             network_location: NetworkLocation {
-                ip_address: Some(
-                    std::env::var("NETWORK_IP").unwrap_or_else(|_| "127.0.0.1".to_string()),
-                ),
+                ip_address: Some(std::env::var("NETWORK_IP").unwrap_or_else(|_| {
+                    squirrel_mcp_config::core::network_defaults::DEFAULT_HOST.to_string()
+                })),
                 region: Some(
                     std::env::var("NETWORK_REGION").unwrap_or_else(|_| "local".to_string()),
                 ),
@@ -250,9 +247,16 @@ impl SquirrelUniversalAdapter {
 
             // Wait for shutdown signal
             let shutdown_signal = async {
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("Failed to install CTRL+C signal handler");
+                match tokio::signal::ctrl_c().await {
+                    Ok(()) => {
+                        info!("Received shutdown signal");
+                    }
+                    Err(e) => {
+                        error!("Failed to install CTRL+C signal handler: {}", e);
+                        // Fall back to timeout-based shutdown
+                        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    }
+                }
             };
 
             tokio::select! {

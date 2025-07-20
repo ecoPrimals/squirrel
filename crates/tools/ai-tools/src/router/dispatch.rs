@@ -486,9 +486,11 @@ mod tests {
 
     #[test]
     fn test_config_updates() {
-        let mut config = RouterConfig::default();
-        config.routing_strategy = RoutingStrategy::FirstMatch;
-        config.allow_remote_routing = false;
+        let config = RouterConfig {
+            routing_strategy: RoutingStrategy::FirstMatch,
+            allow_remote_routing: false,
+            ..Default::default()
+        };
 
         let mut router = AIRouter::new(config);
 

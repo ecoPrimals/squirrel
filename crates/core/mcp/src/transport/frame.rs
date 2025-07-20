@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::error::{MCPError, Result};
@@ -19,21 +20,27 @@ pub const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024;
 pub const FRAME_HEADER_SIZE: usize = 4;
 
 /// Frame represents a message frame with header and payload
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Frame {
-    pub payload: Bytes,
+    #[serde(with = "serde_bytes")]
+    pub payload: Vec<u8>,
 }
 
 impl Frame {
     /// Create a new frame with the given payload
-    pub fn new(payload: Bytes) -> Self {
+    pub fn new(payload: Vec<u8>) -> Self {
         Self { payload }
     }
 
     /// Create a frame from a byte vector
     pub fn from_vec(data: Vec<u8>) -> Self {
+        Self { payload: data }
+    }
+
+    /// Create a frame from Bytes
+    pub fn from_bytes(bytes: Bytes) -> Self {
         Self {
-            payload: Bytes::from(data),
+            payload: bytes.to_vec(),
         }
     }
 
@@ -81,9 +88,7 @@ impl Frame {
             MCPError::Transport(format!("Failed to read frame payload: {e}").into())
         })?;
 
-        Ok(Self {
-            payload: Bytes::from(payload),
-        })
+        Ok(Self { payload })
     }
 }
 
@@ -126,9 +131,7 @@ impl<R: AsyncRead + Unpin> AsyncFrameReader<R> {
             MCPError::Transport(format!("Failed to read frame payload: {e}").into())
         })?;
 
-        Ok(Frame {
-            payload: Bytes::from(payload),
-        })
+        Ok(Frame { payload })
     }
 }
 
@@ -191,7 +194,7 @@ impl FrameCodec for DefaultFrameCodec {
     type Error = MCPError;
 
     fn encode(&self, frame: &Frame) -> std::result::Result<Bytes, Self::Error> {
-        Ok(frame.payload.clone())
+        Ok(Bytes::from(frame.payload.clone()))
     }
 
     fn decode(&self, data: &[u8]) -> std::result::Result<Frame, Self::Error> {
@@ -284,7 +287,7 @@ impl MessageCodec {
         let json = serde_json::to_string(message)
             .map_err(|e| MCPError::Transport(format!("Failed to serialize message: {e}").into()))?;
 
-        let frame = Frame::new(Bytes::from(json));
+        let frame = Frame::new(json.into_bytes());
         Ok(frame)
     }
 

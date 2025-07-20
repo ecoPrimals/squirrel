@@ -11,12 +11,13 @@ use secrecy::{ExposeSecret, Secret};
 use tracing::{debug, warn};
 
 use crate::{
+    common::types::ToolCall,
     common::{
         capability::{
             AICapabilities, CostTier, ModelRegistry, ModelType, RoutingPreferences, TaskType,
         },
         AIClient, ChatChoice, ChatChoiceChunk, ChatMessage, ChatRequest, ChatResponse,
-        ChatResponseChunk, ChatResponseStream, MessageRole, RateLimiter, ToolCall, UsageInfo,
+        ChatResponseChunk, ChatResponseStream, MessageRole, RateLimiter, UsageInfo,
     },
     error::Error,
     Result,
@@ -125,7 +126,26 @@ impl OpenAIClient {
                 .as_ref()
                 .and_then(|p| p.stream)
                 .unwrap_or(false),
-            tools: request.tools,
+            tools: request.tools.map(|tools| {
+                tools
+                    .into_iter()
+                    .map(|t| crate::common::tool::Tool {
+                        tool_type: crate::common::tool::ToolType::Function,
+                        function: t.function.map(|f| crate::common::tool::FunctionDefinition {
+                            name: f.name,
+                            description: f.description,
+                            parameters: serde_json::from_value(f.parameters).unwrap_or_else(|_| {
+                                crate::common::tool::ParameterSchema {
+                                    schema_type: "object".to_string(),
+                                    properties: None,
+                                    required: None,
+                                    items: None,
+                                }
+                            }),
+                        }),
+                    })
+                    .collect()
+            }),
             tool_choice: None,
             frequency_penalty: request
                 .parameters
@@ -423,16 +443,24 @@ impl AIClient for OpenAIClient {
                         for tool_call in tool_calls {
                             // Validate and log tool call for AI coordination
                             if !tool_call.id.is_empty() && !tool_call.name.is_empty() {
-                                debug!("🔧 Validated tool call: {} -> {} with args: {:?}", 
-                                       tool_call.id, tool_call.name, tool_call.arguments);
+                                debug!(
+                                    "🔧 Validated tool call: {} -> {} with args: {:?}",
+                                    tool_call.id, tool_call.name, tool_call.arguments
+                                );
                                 validated_calls.push(tool_call.clone());
                             } else {
-                                warn!("⚠️ Invalid tool call detected - missing id or name: {:?}", tool_call);
+                                warn!(
+                                    "⚠️ Invalid tool call detected - missing id or name: {:?}",
+                                    tool_call
+                                );
                                 // Skip invalid tool calls to prevent AI coordination issues
                             }
                         }
                         if !validated_calls.is_empty() {
-                            debug!("✅ Processed {} valid tool calls for AI integration", validated_calls.len());
+                            debug!(
+                                "✅ Processed {} valid tool calls for AI integration",
+                                validated_calls.len()
+                            );
                             Some(validated_calls)
                         } else {
                             None

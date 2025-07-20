@@ -383,11 +383,20 @@ impl CommandJournal {
     ) -> JournalResult<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>> {
         self.entries
             .write()
-            .or_else(|poison: std::sync::PoisonError<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>>| {
-                warn!("Journal entries lock was poisoned, recovering");
-                Ok::<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>, std::sync::PoisonError<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>>>(poison.into_inner())
+            .or_else(
+                |poison: std::sync::PoisonError<
+                    std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>,
+                >| {
+                    warn!("Journal entries lock was poisoned, recovering");
+                    Ok::<
+                        std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>,
+                        std::sync::PoisonError<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>>,
+                    >(poison.into_inner())
+                },
+            )
+            .map_err(|e: std::sync::PoisonError<_>| {
+                JournalError::CorruptedData(format!("Lock error: {}", e))
             })
-            .map_err(|e: std::sync::PoisonError<_>| JournalError::CorruptedData(format!("Lock error: {}", e)))
     }
 
     /// Handle poisoned lock by recovering safely (read)
@@ -396,11 +405,20 @@ impl CommandJournal {
     ) -> JournalResult<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>> {
         self.entries
             .read()
-            .or_else(|poison: std::sync::PoisonError<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>>| {
-                warn!("Journal entries lock was poisoned, recovering");
-                Ok::<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>, std::sync::PoisonError<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>>>(poison.into_inner())
+            .or_else(
+                |poison: std::sync::PoisonError<
+                    std::sync::RwLockReadGuard<VecDeque<JournalEntry>>,
+                >| {
+                    warn!("Journal entries lock was poisoned, recovering");
+                    Ok::<
+                        std::sync::RwLockReadGuard<VecDeque<JournalEntry>>,
+                        std::sync::PoisonError<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>>,
+                    >(poison.into_inner())
+                },
+            )
+            .map_err(|e: std::sync::PoisonError<_>| {
+                JournalError::CorruptedData(format!("Lock error: {}", e))
             })
-            .map_err(|e: std::sync::PoisonError<_>| JournalError::CorruptedData(format!("Lock error: {}", e)))
     }
 
     /// Creates a new journal entry for a command execution

@@ -12,13 +12,13 @@ use std::time::Duration;
 pub struct AIComputeMetadata {
     /// Confidence in provider selection
     pub provider_confidence: f64,
-    
+
     /// Workload predictions
     pub workload_predictions: Vec<WorkloadPrediction>,
-    
+
     /// Cost optimization suggestions
     pub cost_optimizations: Vec<String>,
-    
+
     /// Performance predictions
     pub performance_predictions: ComputePerformancePrediction,
 }
@@ -28,13 +28,13 @@ pub struct AIComputeMetadata {
 pub struct WorkloadPrediction {
     /// Workload type
     pub workload_type: String,
-    
+
     /// Confidence in prediction
     pub confidence: f64,
-    
+
     /// Resource utilization prediction
     pub resource_utilization: super::types::ResourceUtilization,
-    
+
     /// Suggested optimizations
     pub optimizations: Vec<String>,
 }
@@ -44,13 +44,13 @@ pub struct WorkloadPrediction {
 pub struct ComputePerformancePrediction {
     /// Expected execution time
     pub expected_execution_time: Duration,
-    
+
     /// Expected cost
     pub expected_cost: f64,
-    
+
     /// Expected resource efficiency
     pub resource_efficiency: f64,
-    
+
     /// Confidence in predictions
     pub confidence: f64,
 }
@@ -69,4 +69,4 @@ impl Default for AIComputeMetadata {
             },
         }
     }
-} 
+}

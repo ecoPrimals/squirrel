@@ -86,99 +86,113 @@ impl ConfigManager for DefaultConfigManager {
     fn validate_config(&self, config: &Config) -> Result<(), Self::Error> {
         // Enhanced MCP/AI-focused configuration validation
         debug!("🐿️ Validating configuration for MCP coordination");
-        
-        // Validate MCP protocol settings
-        if let Some(mcp_config) = &config.mcp {
-            if mcp_config.max_connections == 0 {
-                return Err(CoreConfigError::Validation(
-                    "MCP max_connections must be greater than 0 for AI coordination".to_string()
-                ));
-            }
-            
-            if mcp_config.message_timeout.as_millis() < 100 {
-                return Err(CoreConfigError::Validation(
-                    "MCP message_timeout too low for reliable AI coordination".to_string()
-                ));
-            }
-            
-            debug!("✅ MCP configuration validation passed");
+
+        // Validate network settings (replaces MCP protocol settings)
+        if config.network.port == 0 {
+            return Err(CoreConfigError::Validation(
+                "Network port must be greater than 0".to_string(),
+            ));
         }
-        
+
+        if config.network.host.is_empty() {
+            return Err(CoreConfigError::Validation(
+                "Network host must be specified".to_string(),
+            ));
+        }
+
+        debug!("✅ Network configuration validation passed");
+
         // Validate AI coordination settings
-        if let Some(ai_config) = &config.ai {
-            if ai_config.context_window_size == 0 {
-                return Err(CoreConfigError::Validation(
-                    "AI context_window_size must be greater than 0 for context management".to_string()
-                ));
-            }
-            
-            if ai_config.max_concurrent_requests == 0 {
-                return Err(CoreConfigError::Validation(
-                    "AI max_concurrent_requests must be greater than 0 for coordination".to_string()
-                ));
-            }
-            
-            debug!("✅ AI configuration validation passed");
+        let ai_config = &config.ai;
+        if ai_config.providers.is_empty() {
+            return Err(CoreConfigError::Validation(
+                "At least one AI provider must be configured".to_string(),
+            ));
         }
-        
+
+        if ai_config.max_retries == 0 {
+            return Err(CoreConfigError::Validation(
+                "AI max_retries must be greater than 0 for reliable coordination".to_string(),
+            ));
+        }
+
+        if ai_config.timeout.as_millis() < 1000 {
+            return Err(CoreConfigError::Validation(
+                "AI timeout too low for reliable coordination".to_string(),
+            ));
+        }
+
+        debug!("✅ AI configuration validation passed");
+
         // Validate security settings for ecosystem participation
-        if let Some(security_config) = &config.security {
-            if security_config.session_timeout.as_secs() < 60 {
-                return Err(CoreConfigError::Validation(
-                    "Security session_timeout too short for reliable MCP sessions".to_string()
-                ));
-            }
-            
-            if security_config.max_sessions == 0 {
-                return Err(CoreConfigError::Validation(
-                    "Security max_sessions must be greater than 0 for coordination".to_string()
-                ));
-            }
-            
-            debug!("✅ Security configuration validation passed");
+        let security_config = &config.security;
+        if security_config.session_timeout.as_secs() < 60 {
+            return Err(CoreConfigError::Validation(
+                "Security session_timeout too short for reliable sessions".to_string(),
+            ));
         }
-        
-        // Validate universal primal settings
-        if let Some(universal_config) = &config.universal {
-            if universal_config.service_discovery_interval.as_secs() < 10 {
-                warn!("⚠️ Service discovery interval is very short, may impact performance");
-            }
-            
-            if universal_config.capability_cache_size == 0 {
-                return Err(CoreConfigError::Validation(
-                    "Universal capability_cache_size must be greater than 0 for efficient discovery".to_string()
-                ));
-            }
-            
-            debug!("✅ Universal configuration validation passed");
+
+        if security_config.max_failed_attempts == 0 {
+            return Err(CoreConfigError::Validation(
+                "Security max_failed_attempts must be greater than 0".to_string(),
+            ));
         }
-        
+
+        if security_config.jwt_secret_key_id.is_empty() {
+            return Err(CoreConfigError::Validation(
+                "JWT secret key ID must be specified".to_string(),
+            ));
+        }
+
+        debug!("✅ Security configuration validation passed");
+
+        // Validate ecosystem primal settings
+        let ecosystem_config = &config.ecosystem;
+        if ecosystem_config.discovery.probe_interval.as_secs() < 10 {
+            warn!("⚠️ Ecosystem probe interval is very short, may impact performance");
+        }
+
+        if ecosystem_config.discovery.health_check_timeout.as_secs() == 0 {
+            return Err(CoreConfigError::Validation(
+                "Ecosystem health_check_timeout must be greater than 0 for efficient discovery"
+                    .to_string(),
+            ));
+        }
+
+        debug!("✅ Ecosystem configuration validation passed");
+
         // Validate configuration completeness for MCP coordination
         let missing_sections = self.check_required_config_sections(config);
         if !missing_sections.is_empty() {
-            return Err(CoreConfigError::Validation(
-                format!("Missing required configuration sections for MCP coordination: {:?}", missing_sections)
-            ));
+            return Err(CoreConfigError::Validation(format!(
+                "Missing required configuration sections for MCP coordination: {:?}",
+                missing_sections
+            )));
         }
-        
+
         info!("✅ Configuration validation completed successfully for MCP/AI coordination");
         Ok(())
     }
-    
+}
+
+impl DefaultConfigManager {
     /// Check for required configuration sections for MCP/AI coordination
     fn check_required_config_sections(&self, config: &Config) -> Vec<String> {
         let mut missing = Vec::new();
-        
-        if config.mcp.is_none() {
-            missing.push("mcp".to_string());
+
+        // All config sections are required (not optional) in the current structure
+        // Validate that key settings are properly configured instead
+
+        if config.network.host.is_empty() {
+            missing.push("network.host".to_string());
         }
-        if config.ai.is_none() {
-            missing.push("ai".to_string());
+        if config.ai.providers.is_empty() {
+            missing.push("ai.providers".to_string());
         }
-        if config.security.is_none() {
-            missing.push("security".to_string());
+        if config.security.jwt_secret_key_id.is_empty() {
+            missing.push("security.jwt_secret_key_id".to_string());
         }
-        
+
         missing
     }
 }

@@ -482,22 +482,23 @@ impl AgentDeploymentManager {
         let base_port = match spec.resources.memory_limit_mb {
             Some(mem) if mem > 2048 => 8090, // High-memory agents get dedicated port range
             Some(mem) if mem > 1024 => 8085, // Medium-memory agents
-            _ => 8080, // Default for lightweight agents
+            _ => 8080,                       // Default for lightweight agents
         };
-        
+
         let base_url = format!("http://localhost:{}", base_port);
-        
+
         // Generate service-specific endpoints based on agent spec
         let mut health_endpoint = format!("{}/health", base_url);
         let mut metrics_endpoint = format!("{}/metrics", base_url);
-        
+
         // Enhance endpoints based on agent capabilities
         if let Some(capabilities) = &spec.manifest.capabilities {
             if capabilities.contains(&"monitoring".to_string()) {
                 metrics_endpoint = format!("{}/api/v1/agents/{}/metrics", base_url, agent_id);
             }
             if capabilities.contains(&"health_reporting".to_string()) {
-                health_endpoint = format!("{}/api/v1/agents/{}/health/detailed", base_url, agent_id);
+                health_endpoint =
+                    format!("{}/api/v1/agents/{}/health/detailed", base_url, agent_id);
             }
         }
 
@@ -505,7 +506,11 @@ impl AgentDeploymentManager {
             api: format!("{}/api/v1/agents/{}", base_url, agent_id),
             health: health_endpoint,
             metrics: metrics_endpoint,
-            websocket: Some(format!("{}/ws/agents/{}", base_url.replace("http", "ws"), agent_id)),
+            websocket: Some(format!(
+                "{}/ws/agents/{}",
+                base_url.replace("http", "ws"),
+                agent_id
+            )),
         })
     }
 

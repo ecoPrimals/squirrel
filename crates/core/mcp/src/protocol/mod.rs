@@ -5,6 +5,9 @@
 pub mod types;
 pub mod websocket;
 
+#[cfg(test)]
+mod websocket_tests;
+
 // Re-export commonly used types
 pub use types::*;
 pub use websocket::*;

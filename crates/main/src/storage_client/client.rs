@@ -1,19 +1,19 @@
 //! Universal Storage Client Implementation
 
+use base64::{engine::general_purpose, Engine as _};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
-use base64::{Engine as _, engine::general_purpose};
 
 use crate::error::PrimalError;
 use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::types::*;
 use super::ai_metadata::*;
 use super::providers::*;
+use super::types::*;
 
 // ============================================================================
 // UNIVERSAL STORAGE CLIENT IMPLEMENTATION
@@ -27,16 +27,16 @@ use super::providers::*;
 pub struct UniversalStorageClient {
     /// Ecosystem integration for service discovery
     ecosystem: Arc<UniversalPrimalEcosystem>,
-    
+
     /// Client configuration
     config: StorageClientConfig,
-    
+
     /// Active storage providers (discovered dynamically)
     providers: Arc<RwLock<HashMap<String, StorageProvider>>>,
-    
+
     /// Request context for routing
     context: PrimalContext,
-    
+
     /// AI-first metadata for intelligent routing
     ai_metadata: AIStorageMetadata,
 }
@@ -88,7 +88,7 @@ impl UniversalStorageClient {
 
         for capability in storage_capabilities {
             let providers = self.ecosystem.find_by_capability(&capability).await;
-            
+
             for primal in providers {
                 let provider = StorageProvider::from_discovered_primal(&primal);
                 discovered_providers.insert(primal.instance_id.clone(), provider);
@@ -112,7 +112,10 @@ impl UniversalStorageClient {
         &self,
         request: UniversalStorageRequest,
     ) -> UniversalResult<UniversalStorageResponse> {
-        debug!("Executing universal storage operation: {:?}", request.operation);
+        debug!(
+            "Executing universal storage operation: {:?}",
+            request.operation
+        );
 
         // Select best provider using AI-based routing
         let provider = self.select_best_provider(&request).await?;
@@ -138,7 +141,8 @@ impl UniversalStorageClient {
         let storage_response = self.process_response(response, &provider, &request).await?;
 
         // Update provider health based on operation
-        self.update_provider_health(&provider.provider_id, &storage_response).await;
+        self.update_provider_health(&provider.provider_id, &storage_response)
+            .await;
 
         info!("Universal storage operation completed successfully");
         Ok(storage_response)
@@ -150,7 +154,7 @@ impl UniversalStorageClient {
         request: &UniversalStorageRequest,
     ) -> UniversalResult<StorageProvider> {
         let providers = self.providers.read().await;
-        
+
         if providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No storage providers available".to_string(),
@@ -187,7 +191,9 @@ impl UniversalStorageClient {
 
         // Factor in performance requirements
         if request.requirements.max_latency_ms > 0 {
-            let latency_score = if provider.health.current_latency_ms <= request.requirements.max_latency_ms as f64 {
+            let latency_score = if provider.health.current_latency_ms
+                <= request.requirements.max_latency_ms as f64
+            {
                 1.0
             } else {
                 request.requirements.max_latency_ms as f64 / provider.health.current_latency_ms
@@ -197,7 +203,9 @@ impl UniversalStorageClient {
 
         // Factor in throughput requirements
         if request.requirements.min_throughput_mbps > 0.0 {
-            let throughput_score = if provider.health.current_throughput_mbps >= request.requirements.min_throughput_mbps {
+            let throughput_score = if provider.health.current_throughput_mbps
+                >= request.requirements.min_throughput_mbps
+            {
                 1.0
             } else {
                 provider.health.current_throughput_mbps / request.requirements.min_throughput_mbps
@@ -218,7 +226,9 @@ impl UniversalStorageClient {
         let success = response.success;
         let data = if success {
             response.data.get("data").and_then(|v| {
-                general_purpose::STANDARD.decode(v.as_str().unwrap_or("")).ok()
+                general_purpose::STANDARD
+                    .decode(v.as_str().unwrap_or(""))
+                    .ok()
             })
         } else {
             None
@@ -245,7 +255,7 @@ impl UniversalStorageClient {
                 alternative_providers: vec![],
                 access_predictions: vec![],
                 cost_recommendations: vec![
-                    "Use cold storage for infrequently accessed data".to_string(),
+                    "Use cold storage for infrequently accessed data".to_string()
                 ],
             },
             error: response.error_message,
@@ -259,7 +269,7 @@ impl UniversalStorageClient {
             // Update health metrics based on operation performance
             provider.health.current_latency_ms = response.performance.latency_ms;
             provider.health.last_check = chrono::Utc::now();
-            
+
             if response.success {
                 provider.health.health_score = (provider.health.health_score * 0.9 + 0.1).min(1.0);
             } else {
@@ -356,4 +366,4 @@ impl UniversalStorageClient {
 
         self.execute_operation(request).await
     }
-} 
+}

@@ -4,16 +4,18 @@
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
 use crate::biomeos_integration::{
-    agent_deployment::{DeployedAgent, DeploymentStatus, AgentEndpoints, AgentResourceUsage, AgentStatus},
+    agent_deployment::{
+        AgentEndpoints, AgentResourceUsage, AgentStatus, DeployedAgent, DeploymentStatus,
+    },
     manifest::ExecutionEnvironment,
     manifest::{AgentResourceLimits, AgentSecurity, AgentSpec, AgentStorage, EncryptionConfig},
-    EcosystemCapabilities, EcosystemEndpoints, EcosystemSecurity,
-    EcosystemServiceRegistration, HealthCheckConfig, IntelligenceResponse, ResourceRequirements,
+    EcosystemCapabilities, EcosystemEndpoints, EcosystemSecurity, EcosystemServiceRegistration,
+    HealthCheckConfig, IntelligenceResponse, ResourceRequirements,
 };
 use crate::optimization::zero_copy::{
     collection_utils::ZeroCopyMap,
     message_utils::ZeroCopyMessage,
-    performance_monitoring::{ZeroCopyMetrics, MetricsSnapshot},
+    performance_monitoring::{MetricsSnapshot, ZeroCopyMetrics},
     string_utils::StaticStrings,
 };
 use chrono::{DateTime, Utc};
@@ -42,7 +44,7 @@ pub struct ContextData {
 pub struct OptimizedServiceRegistration {
     static_strings: StaticStrings,
     // string_builder: removed as not available,
-          // config: ZeroCopyConfig, // Removed
+    // config: ZeroCopyConfig, // Removed
     metrics: Arc<ZeroCopyMetrics>,
 }
 
@@ -51,7 +53,7 @@ impl OptimizedServiceRegistration {
         Self {
             static_strings: StaticStrings::new(),
             // string_builder: ZeroCopyStringBuilder::new(), // Removed
-                          // config: ZeroCopyConfig::new(), // Removed
+            // config: ZeroCopyConfig::new(), // Removed
             metrics: Arc::new(ZeroCopyMetrics::new()),
         }
     }
@@ -88,10 +90,7 @@ impl OptimizedServiceRegistration {
             health: format!("{}/health", base_url),
             metrics: format!("{}/metrics", base_url),
             admin: format!("{}/admin", base_url),
-            websocket: Some(format!(
-                "ws://{}/ws",
-                "localhost".to_string()
-            )),
+            websocket: Some(format!("ws://{}/ws", "localhost".to_string())),
             mcp: format!("{}/mcp", base_url),
             ai_coordination: format!("{}/ai", base_url),
             service_mesh: format!("{}/service-mesh", base_url),
@@ -159,9 +158,7 @@ impl OptimizedServiceRegistration {
     }
 
     /// Get performance metrics
-    pub fn get_metrics(
-        &self,
-    ) -> MetricsSnapshot {
+    pub fn get_metrics(&self) -> MetricsSnapshot {
         self.metrics.get_metrics()
     }
 }
@@ -226,21 +223,23 @@ impl OptimizedMessageProcessor {
         let key_arc: Arc<str> = Arc::from(key);
         self.message_cache.insert(key_arc, message);
         // Return mock Arc for now
-        Arc::new(ZeroCopyMessage::new(Arc::from("type"), Arc::from("content")))
+        Arc::new(ZeroCopyMessage::new(
+            Arc::from("type"),
+            Arc::from("content"),
+        ))
     }
 
     /// Get cached message
     pub fn get_cached_message(&self, key: &str) -> Option<Arc<ZeroCopyMessage>> {
         // Use efficient lookup without Arc allocation
-        self.message_cache.iter()
+        self.message_cache
+            .iter()
             .find(|(k, _)| k.as_ref() == key)
             .map(|(_, v)| Arc::new(v.clone()))
     }
 
     /// Get performance metrics
-    pub fn get_metrics(
-        &self,
-    ) -> MetricsSnapshot {
+    pub fn get_metrics(&self) -> MetricsSnapshot {
         self.metrics.get_metrics()
     }
 }
@@ -304,14 +303,16 @@ impl OptimizedContextState {
 
     /// Get cached context data
     pub fn get_cached_context_data(&self, key: &str) -> Option<Arc<ContextData>> {
-        self.context_cache.iter()
+        self.context_cache
+            .iter()
             .find(|(k, _)| k.as_ref() == key)
             .map(|(_, v)| Arc::new(v.clone()))
     }
 
     /// Get all active sessions efficiently
     pub fn get_active_sessions(&self) -> Vec<Arc<SessionContext>> {
-        self.active_sessions.values()
+        self.active_sessions
+            .values()
             .map(|session| Arc::new(session.clone()))
             .collect()
     }

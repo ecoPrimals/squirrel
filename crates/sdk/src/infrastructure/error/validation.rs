@@ -9,18 +9,18 @@ use thiserror::Error;
 pub enum ValidationError {
     /// Field is required but missing
     #[error("Required field '{field}' is missing")]
-    RequiredField { 
+    RequiredField {
         /// The name of the required field that is missing
-        field: String 
+        field: String,
     },
 
     /// Invalid field value
     #[error("Invalid value for field '{field}': {reason}")]
-    InvalidValue { 
+    InvalidValue {
         /// The field name that has an invalid value
-        field: String, 
+        field: String,
         /// The reason why the value is invalid
-        reason: String 
+        reason: String,
     },
 
     /// Invalid format

@@ -18,13 +18,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::plugins::plugin::{PluginMetadata, PluginStatus};
+
 pub use discovery::{DefaultPluginDiscovery, PluginDiscovery};
 pub use error::PluginError;
 pub use example_plugin::ExamplePlugin;
-use log::{debug, error, info, warn};
 pub use manager::PluginManager;
-pub use plugin::{Plugin, PluginFactory, PluginItem, PluginMetadata, PluginStatus};
-pub use security::SecurityManager;
+use tracing::{debug, error, info, warn};
+// pub use metadata::{get_plugin_info, PluginInfo, PluginMetadata}; // Module doesn't exist yet
+pub use plugin::Plugin;
+// pub use plugin_factory::{PluginFactory, PluginFactoryError, SimplePluginFactory}; // Module doesn't exist yet
+pub use security::{PluginSecurityError, SecurePluginLoader, ValidationResult}; // Export security types
 
 /// Default plugin directory relative to user's home directory
 const DEFAULT_PLUGIN_DIR: &str = ".squirrel/plugins";

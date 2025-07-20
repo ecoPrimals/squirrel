@@ -17,6 +17,9 @@ pub mod error_types;    // ✅ PHASE 3: Enhanced error handling
 pub mod config_manager; // ✅ PHASE 3: Centralized configuration management
 pub mod service_composition; // ✅ NEW: AI service composition engine
 pub mod workflow_management; // ✅ NEW: Workflow management engine
+pub mod connection_pool;     // ✅ NEW: HTTP connection pool for AI providers
+pub mod serialization;       // ✅ NEW: Zero-copy serialization system
+pub mod metrics;             // ✅ NEW: Comprehensive metrics collection system
 
 #[cfg(test)]
 pub mod tests;          // ✅ PHASE 3: Comprehensive integration tests
@@ -50,6 +53,26 @@ pub use workflow_management::{
     WorkflowManagementEngine, WorkflowManagementConfig, WorkflowDefinition, WorkflowInstance,
     WorkflowState, WorkflowStatus, WorkflowStep, WorkflowStepType, WorkflowExecutionEngine,
     WorkflowScheduler, WorkflowTemplateEngine, WorkflowMonitoring, ExecutionStrategy
+};
+
+// Import connection pool components
+pub use connection_pool::{
+    ConnectionPool, ConnectionPoolConfig, ConnectionPoolManager, ProviderConnectionConfig,
+    TlsConfig, RateLimitConfig, PooledClient, ProviderHealth, ConnectionPoolMetrics, PerformanceReport
+};
+
+// Import serialization components
+pub use serialization::{
+    ZeroCopySerializer, SerializationConfig, SerializationResult, SerializationMetadata,
+    BufferPool, BufferPoolConfig, StreamingSerializer, StreamingDeserializer, FastCodec,
+    MessageTemplateCache, CompiledTemplate, get_global_serializer, init_global_serializer
+};
+
+// Import metrics components
+pub use metrics::{
+    EnhancedMetricsManager, MetricsConfig, MetricsDashboard, DashboardConfig,
+    UnifiedMetricsCollector, MetricsAggregator, MetricsAlertManager, Alert,
+    AggregatedMetrics, PerformanceSummary, SystemHealth
 };
 
 /// Enhanced MCP Platform - Universal AI Integration System

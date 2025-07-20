@@ -12,9 +12,11 @@ use std::time::Duration;
 use tracing::{debug, info};
 
 use super::{
-    types::SecurityLevel, AuthMethod, SecurityAdapter, SecurityContext,
-    SecurityHealthStatus, SecurityProviderConfig, SecurityRequest, SecurityResponse,
-    SecuritySession,
+    config::{AuthMethod, SecurityProviderConfig},
+    health::SecurityHealthStatus,
+    session::SecuritySession,
+    traits::SecurityAdapter,
+    types::{SecurityLevel, SecurityContext, SecurityRequest, SecurityResponse},
 };
 use crate::error::PrimalError;
 
@@ -117,44 +119,54 @@ impl SecurityAdapter for UniversalSecurityAdapter {
         debug!("Authenticating with credentials");
 
         // Extract and validate credentials
-        let user_id = credentials.get("user_id")
+        let user_id = credentials
+            .get("user_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| PrimalError::ValidationError("Missing user_id in credentials".to_string()))?;
-            
-        let auth_method = credentials.get("auth_method")
+            .ok_or_else(|| {
+                PrimalError::ValidationError("Missing user_id in credentials".to_string())
+            })?;
+
+        let auth_method = credentials
+            .get("auth_method")
             .and_then(|v| v.as_str())
             .unwrap_or("password");
-            
+
         // Validate credentials based on auth method
         let is_valid = match auth_method {
             "api_key" => {
-                let api_key = credentials.get("api_key")
+                let api_key = credentials
+                    .get("api_key")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| PrimalError::ValidationError("Missing api_key".to_string()))?;
                 self.validate_api_key(api_key).await?
-            },
+            }
             "password" => {
-                let password = credentials.get("password")
+                let password = credentials
+                    .get("password")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| PrimalError::ValidationError("Missing password".to_string()))?;
                 self.validate_password(user_id, password).await?
-            },
+            }
             "oauth" => {
-                let token = credentials.get("oauth_token")
+                let token = credentials
+                    .get("oauth_token")
                     .and_then(|v| v.as_str())
-                    .ok_or_else(|| PrimalError::ValidationError("Missing oauth_token".to_string()))?;
+                    .ok_or_else(|| {
+                        PrimalError::ValidationError("Missing oauth_token".to_string())
+                    })?;
                 self.validate_oauth_token(token).await?
-            },
+            }
             _ => {
-                return Err(PrimalError::ValidationError(
-                    format!("Unsupported auth method: {}", auth_method)
-                ));
+                return Err(PrimalError::ValidationError(format!(
+                    "Unsupported auth method: {}",
+                    auth_method
+                )));
             }
         };
-        
+
         if !is_valid {
             return Err(PrimalError::AuthenticationFailed(
-                "Invalid credentials provided".to_string()
+                "Invalid credentials provided".to_string(),
             ));
         }
 
@@ -167,19 +179,26 @@ impl SecurityAdapter for UniversalSecurityAdapter {
         // Store session with additional metadata from credentials
         let session_id = session.session_id.clone();
         let mut session_data = session;
-        
+
         // Enhance session with credential metadata
         if let Some(metadata) = credentials.get("metadata").and_then(|v| v.as_object()) {
             for (key, value) in metadata {
                 if let Some(str_value) = value.as_str() {
-                    session_data.metadata.insert(key.clone(), str_value.to_string());
+                    session_data
+                        .metadata
+                        .insert(key.clone(), str_value.to_string());
                 }
             }
         }
-        
+
         // Add authentication method to session metadata
-        session_data.metadata.insert("auth_method".to_string(), auth_method.to_string());
-        session_data.metadata.insert("authenticated_at".to_string(), chrono::Utc::now().to_rfc3339());
+        session_data
+            .metadata
+            .insert("auth_method".to_string(), auth_method.to_string());
+        session_data.metadata.insert(
+            "authenticated_at".to_string(),
+            chrono::Utc::now().to_rfc3339(),
+        );
 
         // Store session
         self.active_sessions
@@ -193,58 +212,58 @@ impl SecurityAdapter for UniversalSecurityAdapter {
     /// Validate API key credentials
     async fn validate_api_key(&self, api_key: &str) -> Result<bool, PrimalError> {
         debug!("Validating API key");
-        
+
         // Enhanced API key validation
         if api_key.len() < 32 {
             return Ok(false);
         }
-        
+
         // Check if API key follows expected format (e.g., starts with 'sk-')
         if !api_key.starts_with("sk-") && !api_key.starts_with("pk-") {
             return Ok(false);
         }
-        
+
         // In production, this would check against a secure API key database
         // For now, accept well-formed keys for demonstration
         Ok(true)
     }
-    
+
     /// Validate password credentials  
     async fn validate_password(&self, user_id: &str, password: &str) -> Result<bool, PrimalError> {
         debug!("Validating password for user: {}", user_id);
-        
+
         // Basic password validation
         if password.len() < 8 {
             return Ok(false);
         }
-        
+
         // In production, this would:
         // 1. Hash the password with the user's salt
         // 2. Compare against stored hash in secure database
         // 3. Implement rate limiting and account lockout
-        
+
         // For demonstration, accept passwords with basic complexity
         let has_upper = password.chars().any(|c| c.is_uppercase());
         let has_lower = password.chars().any(|c| c.is_lowercase());
         let has_digit = password.chars().any(|c| c.is_ascii_digit());
-        
+
         Ok(has_upper && has_lower && has_digit)
     }
-    
+
     /// Validate OAuth token credentials
     async fn validate_oauth_token(&self, token: &str) -> Result<bool, PrimalError> {
         debug!("Validating OAuth token");
-        
+
         // Basic OAuth token validation
         if token.is_empty() || token.len() < 16 {
             return Ok(false);
         }
-        
+
         // In production, this would:
         // 1. Validate token with OAuth provider
         // 2. Check token expiration
         // 3. Verify token scope and permissions
-        
+
         // For demonstration, accept well-formed tokens
         Ok(token.starts_with("bearer_") || token.starts_with("oauth_"))
     }

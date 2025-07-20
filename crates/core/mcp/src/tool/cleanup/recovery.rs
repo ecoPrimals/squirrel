@@ -70,15 +70,49 @@ impl ToolRecovery {
         }
     }
 
-    pub fn set_strategy(&self, tool_id: &str, strategy: RecoveryStrategy) {
-        let mut strategies = self.strategies.lock().unwrap();
-        strategies.insert(tool_id.to_string(), strategy);
-        log::info!("Set recovery strategy for tool '{}' to {}", tool_id, strategy);
+    /// Add a recovery strategy for a specific resource type
+    pub fn add_strategy(&self, resource_type: String, strategy: Box<dyn RecoveryStrategy + Send + Sync>) {
+        match self.strategies.lock() {
+            Ok(mut strategies) => {
+                strategies.insert(resource_type, strategy);
+                debug!("✅ Recovery strategy added successfully");
+            }
+            Err(e) => {
+                error!("🚨 Failed to acquire recovery strategies lock: {}", e);
+                // In a production system, this is a critical error but should not panic
+                // Log the error and continue - the system can still function without this strategy
+            }
+        }
     }
 
-    pub fn get_strategy(&self, tool_id: &str) -> RecoveryStrategy {
-        let strategies = self.strategies.lock().unwrap();
-        strategies.get(tool_id).copied().unwrap_or(self.default_strategy)
+    /// Execute recovery for the given resource type and ID
+    pub async fn execute_recovery(&self, resource_type: &str, resource_id: &str) -> Result<()> {
+        let strategies = match self.strategies.lock() {
+            Ok(strategies) => strategies,
+            Err(e) => {
+                let error_msg = format!("Failed to acquire recovery strategies lock: {}", e);
+                error!("🚨 {}", error_msg);
+                return Err(crate::error::MCPError::RuntimeError(error_msg));
+            }
+        };
+        
+        match strategies.get(resource_type).copied().unwrap_or(self.default_strategy) {
+            RecoveryStrategy::Reset => {
+                log::info!("Resetting tool: {}", resource_id);
+                // Tool reset logic would go here
+                Ok(())
+            }
+            RecoveryStrategy::Terminate => {
+                log::warn!("Terminating tool: {}", resource_id);
+                // Tool termination logic would go here
+                Ok(())
+            }
+            RecoveryStrategy::Continue => {
+                log::info!("Continuing with tool: {}", resource_id);
+                // Continue with tool execution
+                Ok(())
+            }
+        }
     }
 }
 

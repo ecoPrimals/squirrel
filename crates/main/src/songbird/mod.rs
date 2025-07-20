@@ -109,7 +109,8 @@ impl SongbirdCoordinator {
             .map_err(|e| {
                 PrimalError::NetworkError(format!("Failed to create Songbird client: {}", e))
             })?,
-        ) as Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>);
+        )
+            as Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>);
         let config_manager = DefaultConfigManager::new();
         let orchestration_state = Arc::new(RwLock::new(OrchestrationState::default()));
         let health_status = HealthStatus {

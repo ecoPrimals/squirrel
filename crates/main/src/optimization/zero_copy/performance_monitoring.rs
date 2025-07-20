@@ -35,7 +35,8 @@ impl ZeroCopyMetrics {
 
     /// Record a clone operation that was avoided
     pub fn record_clone_avoided(&self) {
-        self.clone_operations_avoided.fetch_add(1, Ordering::Relaxed);
+        self.clone_operations_avoided
+            .fetch_add(1, Ordering::Relaxed);
     }
 
     /// Record a string interning cache hit
@@ -65,10 +66,10 @@ impl ZeroCopyMetrics {
         if total == 0 {
             return 0.0;
         }
-        
+
         let optimizations = self.clone_operations_avoided.load(Ordering::Relaxed)
             + self.string_interning_hits.load(Ordering::Relaxed);
-            
+
         optimizations as f64 / total as f64
     }
 
@@ -105,7 +106,7 @@ impl MetricsSnapshot {
         if self.total_operations == 0 {
             return 0.0;
         }
-        
+
         let optimizations = self.clone_operations_avoided + self.string_interning_hits;
         (optimizations as f64 / self.total_operations as f64) * 100.0
     }
@@ -115,7 +116,7 @@ impl MetricsSnapshot {
         if self.allocations_saved == 0 {
             return 0.0;
         }
-        
+
         self.bytes_saved as f64 / self.allocations_saved as f64
     }
 
@@ -124,7 +125,7 @@ impl MetricsSnapshot {
         if self.total_operations == 0 {
             return 0.0;
         }
-        
+
         (self.string_interning_hits as f64 / self.total_operations as f64) * 100.0
     }
-} 
+}

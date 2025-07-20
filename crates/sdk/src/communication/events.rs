@@ -171,17 +171,17 @@ impl EventBus {
     ) -> PluginResult<String> {
         let listener_id = generate_listener_id();
         let mut listeners = safe_lock(&self.listeners, "listeners")?;
-        
+
         let entry = ListenerEntry {
             id: listener_id.clone(),
             listener,
         };
-        
+
         listeners
             .entry(event_type.to_string())
             .or_default()
             .push(entry);
-            
+
         Ok(listener_id)
     }
 
@@ -205,29 +205,32 @@ impl EventBus {
     /// Unsubscribe from an event
     pub fn unsubscribe(&self, event_type: &str, listener_id: &str) -> PluginResult<()> {
         let mut listeners = safe_lock(&self.listeners, "listeners")?;
-        
+
         if let Some(event_listeners) = listeners.get_mut(event_type) {
             // Find and remove the listener with the matching ID
             let original_len = event_listeners.len();
             event_listeners.retain(|entry| entry.id != listener_id);
-            
+
             // Check if a listener was actually removed
             if event_listeners.len() == original_len {
                 return Err(PluginError::ResourceNotFound {
-                    resource: format!("Listener with ID '{}' for event type '{}'", listener_id, event_type)
+                    resource: format!(
+                        "Listener with ID '{}' for event type '{}'",
+                        listener_id, event_type
+                    ),
                 });
             }
-            
+
             // If no listeners remain for this event type, remove the entry entirely
             if event_listeners.is_empty() {
                 listeners.remove(event_type);
             }
         } else {
             return Err(PluginError::ResourceNotFound {
-                resource: format!("Event listeners for type '{}'", event_type)
+                resource: format!("Event listeners for type '{}'", event_type),
             });
         }
-        
+
         Ok(())
     }
 

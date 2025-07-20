@@ -2,38 +2,56 @@
 //!
 //! This module provides the server-side functionality for the Machine Context Protocol (MCP).
 
-use log::{debug, error, info, warn};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};
 use crate::commands::registry::CommandRegistry;
 
+/// Helper function to safely lock a mutex and convert poison errors to MCPError
+fn safe_lock<'a, T>(mutex: &'a Mutex<T>, context: &str) -> MCPResult<std::sync::MutexGuard<'a, T>> {
+    mutex.lock().map_err(|e| {
+        error!("Mutex poisoned in {}: {}", context, e);
+        MCPError::ProtocolError(format!(
+            "Internal server error in {}: mutex poisoned",
+            context
+        ))
+    })
+}
+
 /// Get default host for the MCP server (environment-aware)
 pub fn default_host() -> String {
+    use squirrel_mcp_config::core::{network_defaults, DevelopmentConfig, NetworkEndpointConfig};
+
     let is_production = std::env::var("ENVIRONMENT")
         .unwrap_or_else(|_| "development".to_string())
         .eq_ignore_ascii_case("production");
 
     if is_production {
-        std::env::var("MCP_HOST").unwrap_or_else(|_| "0.0.0.0".to_string())
+        std::env::var("MCP_HOST")
+            .unwrap_or_else(|_| network_defaults::DEFAULT_BIND_HOST.to_string())
     } else {
-        std::env::var("MCP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+        let network_config = NetworkEndpointConfig::default();
+        let dev_config = DevelopmentConfig::default();
+        std::env::var("MCP_HOST").unwrap_or_else(|_| network_config.get_effective_host(&dev_config))
     }
 }
 
 /// Get default port for the MCP server (configurable)
 pub fn default_port() -> u16 {
+    use squirrel_mcp_config::core::network_defaults;
+
     std::env::var("MCP_PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(8778)
+        .unwrap_or(network_defaults::DEFAULT_MCP_PORT)
 }
 
 /// MCP command handler function
@@ -154,7 +172,7 @@ impl MCPServer {
     ///
     /// A result indicating success or failure
     pub fn start(&self) -> MCPResult<()> {
-        let mut running = self.running.lock().unwrap();
+        let mut running = safe_lock(&self.running, "server start")?;
         if *running {
             return Err(MCPError::ProtocolError(
                 "Server already running".to_string(),
@@ -168,8 +186,11 @@ impl MCPServer {
         thread::spawn(move || {
             if let Err(e) = server.run_server() {
                 error!("MCP server error: {}", e);
-                let mut running = server.running.lock().unwrap();
-                *running = false;
+                if let Ok(mut running) = safe_lock(&server.running, "server error cleanup") {
+                    *running = false;
+                } else {
+                    error!("Failed to set running state to false after error");
+                }
             }
         });
 
@@ -227,7 +248,12 @@ impl MCPServer {
     ///
     /// `true` if the server is running, `false` otherwise
     pub fn is_running(&self) -> bool {
-        *self.running.lock().unwrap()
+        safe_lock(&self.running, "is_running check")
+            .map(|guard| *guard)
+            .unwrap_or_else(|e| {
+                warn!("Failed to check server running state: {}", e);
+                false
+            })
     }
 
     /// Send notification to all connected clients
@@ -248,7 +274,10 @@ impl MCPServer {
 
         // Get subscribers for this topic
         let subscribers = {
-            let topic_subscribers = self.topic_subscribers.lock().unwrap();
+            let topic_subscribers = safe_lock(
+                &self.topic_subscribers,
+                "broadcast_notification - get subscribers",
+            )?;
             topic_subscribers
                 .get(topic)
                 .cloned()
@@ -256,14 +285,20 @@ impl MCPServer {
         };
 
         // Send notification to each subscriber
-        let clients = self.clients.lock().unwrap();
+        let clients = safe_lock(&self.clients, "broadcast_notification - get clients")?;
 
         for client_id in subscribers {
             if let Some(stream) = clients.get(&client_id) {
-                let mut stream = stream.lock().unwrap();
-                match stream.write_all(format!("{}\n", json).as_bytes()) {
-                    Ok(_) => debug!("Notification sent to client {}", client_id),
-                    Err(e) => warn!("Failed to send notification to client {}: {}", client_id, e),
+                match safe_lock(stream, "broadcast_notification - client stream") {
+                    Ok(mut stream_guard) => {
+                        match stream_guard.write_all(format!("{}\n", json).as_bytes()) {
+                            Ok(_) => debug!("Notification sent to client {}", client_id),
+                            Err(e) => {
+                                warn!("Failed to send notification to client {}: {}", client_id, e)
+                            }
+                        }
+                    }
+                    Err(e) => warn!("Failed to lock client stream for {}: {}", client_id, e),
                 }
             }
         }
@@ -294,9 +329,9 @@ impl MCPServer {
         let json = notification.to_json()?;
 
         // Send notification to the client
-        let clients = self.clients.lock().unwrap();
+        let clients = safe_lock(&self.clients, "send_notification_to_client - get clients")?;
         if let Some(stream) = clients.get(client_id) {
-            let mut stream = stream.lock().unwrap();
+            let mut stream = safe_lock(stream, "send_notification_to_client - client stream")?;
             match stream.write_all(format!("{}\n", json).as_bytes()) {
                 Ok(_) => debug!("Notification sent to client {}", client_id),
                 Err(e) => {
@@ -326,7 +361,10 @@ impl MCPServer {
     pub fn subscribe_client(&self, client_id: &str, topic: &str) -> MCPResult<()> {
         // Add subscription to client
         {
-            let mut client_subscriptions = self.client_subscriptions.lock().unwrap();
+            let mut client_subscriptions = safe_lock(
+                &self.client_subscriptions,
+                "subscribe_client - client subscriptions",
+            )?;
             client_subscriptions
                 .entry(client_id.to_string())
                 .or_default()
@@ -335,7 +373,10 @@ impl MCPServer {
 
         // Add client to topic subscribers
         {
-            let mut topic_subscribers = self.topic_subscribers.lock().unwrap();
+            let mut topic_subscribers = safe_lock(
+                &self.topic_subscribers,
+                "subscribe_client - topic subscribers",
+            )?;
             topic_subscribers
                 .entry(topic.to_string())
                 .or_default()
@@ -359,7 +400,10 @@ impl MCPServer {
     pub fn unsubscribe_client(&self, client_id: &str, topic: &str) -> MCPResult<()> {
         // Remove subscription from client
         {
-            let mut client_subscriptions = self.client_subscriptions.lock().unwrap();
+            let mut client_subscriptions = safe_lock(
+                &self.client_subscriptions,
+                "unsubscribe_client - client subscriptions",
+            )?;
             if let Some(topics) = client_subscriptions.get_mut(client_id) {
                 topics.remove(topic);
 
@@ -372,7 +416,10 @@ impl MCPServer {
 
         // Remove client from topic subscribers
         {
-            let mut topic_subscribers = self.topic_subscribers.lock().unwrap();
+            let mut topic_subscribers = safe_lock(
+                &self.topic_subscribers,
+                "unsubscribe_client - topic subscribers",
+            )?;
             if let Some(subscribers) = topic_subscribers.get_mut(topic) {
                 subscribers.remove(client_id);
 
@@ -399,7 +446,8 @@ impl MCPServer {
     pub fn unsubscribe_client_all(&self, client_id: &str) -> MCPResult<()> {
         // Get all topics the client is subscribed to
         let topics = {
-            let client_subscriptions = self.client_subscriptions.lock().unwrap();
+            let client_subscriptions =
+                safe_lock(&self.client_subscriptions, "unsubscribe_client_all")?;
             if let Some(topics) = client_subscriptions.get(client_id) {
                 topics.clone()
             } else {
@@ -426,7 +474,7 @@ impl MCPServer {
         // Set a timeout to allow checking the running flag
         listener.set_nonblocking(true).map_err(MCPError::IoError)?;
 
-        while *self.running.lock().unwrap() {
+        while self.is_running() {
             match listener.accept() {
                 Ok((stream, addr)) => {
                     info!("New MCP client connected: {}", addr);
@@ -440,7 +488,7 @@ impl MCPServer {
 
                     // Store the client connection
                     {
-                        let mut clients = server.clients.lock().unwrap();
+                        let mut clients = safe_lock(&server.clients, "server loop - store client")?;
                         clients
                             .insert(client_id.clone(), Arc::new(Mutex::new(stream.try_clone()?)));
                     }
@@ -457,9 +505,15 @@ impl MCPServer {
                         }
 
                         // Remove the client when disconnected
-                        let mut clients = server.clients.lock().unwrap();
-                        if clients.remove(&client_id).is_some() {
-                            info!("Client {} disconnected", client_id);
+                        match safe_lock(&server.clients, "client cleanup - remove client") {
+                            Ok(mut clients) => {
+                                if clients.remove(&client_id).is_some() {
+                                    info!("Client {} disconnected", client_id);
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to remove client {}: {}", client_id, e);
+                            }
                         }
                     });
                 }
@@ -491,7 +545,7 @@ impl MCPServer {
         let mut reader = BufReader::new(stream.try_clone()?);
 
         let mut line = String::new();
-        while *self.running.lock().unwrap() {
+        while self.is_running() {
             line.clear();
 
             // Read a line from the client
@@ -700,7 +754,7 @@ impl MCPServer {
 
         // Check for custom handlers
         {
-            let handlers = self.command_handlers.lock().unwrap();
+            let handlers = safe_lock(&self.command_handlers, "handle_command - get handlers")?;
             if let Some(handler) = handlers.get(&command_name) {
                 return handler(message);
             }
@@ -766,7 +820,10 @@ impl MCPServer {
 
         // Get subscribers for this topic (excluding sender)
         let subscribers = {
-            let topic_subscribers = self.topic_subscribers.lock().unwrap();
+            let topic_subscribers = safe_lock(
+                &self.topic_subscribers,
+                "handle_notification - get subscribers",
+            )?;
             topic_subscribers
                 .get(&topic)
                 .map(|subs| {
@@ -781,16 +838,23 @@ impl MCPServer {
         // Forward the notification to all subscribers
         if !subscribers.is_empty() {
             let json = notification.to_json()?;
-            let clients = self.clients.lock().unwrap();
+            let clients = safe_lock(&self.clients, "handle_notification - get clients")?;
 
             for subscriber_id in subscribers {
                 if let Some(stream) = clients.get(&subscriber_id) {
-                    let mut stream = stream.lock().unwrap();
-                    if let Err(e) = stream.write_all(format!("{}\n", json).as_bytes()) {
-                        warn!(
-                            "Failed to forward notification to client {}: {}",
-                            subscriber_id, e
-                        );
+                    match safe_lock(stream, "handle_notification - subscriber stream") {
+                        Ok(mut stream_guard) => {
+                            if let Err(e) = stream_guard.write_all(format!("{}\n", json).as_bytes())
+                            {
+                                warn!(
+                                    "Failed to forward notification to client {}: {}",
+                                    subscriber_id, e
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to lock stream for client {}: {}", subscriber_id, e);
+                        }
                     }
                 }
             }

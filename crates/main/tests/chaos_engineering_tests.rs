@@ -4,9 +4,9 @@
 //! fault injection, recovery orchestration, and system resilience testing.
 
 use squirrel::chaos::{
-    ChaosEngineer, ExperimentConfig, FaultType, NetworkErrorType, ResourceType,
-    SuccessCriterion, MonitoringConfig, RecoveryConfig,
-    recovery::{RecoveryStrategy, ValidationStep}
+    recovery::{RecoveryStrategy, ValidationStep},
+    ChaosEngineer, ExperimentConfig, FaultType, MonitoringConfig, NetworkErrorType, RecoveryConfig,
+    ResourceType, SuccessCriterion,
 };
 use std::time::Duration;
 use tokio::test;
@@ -19,7 +19,7 @@ async fn test_basic_experiment_execution() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Basic Network Fault Test".to_string(),
-            "Test system response to network failures".to_string()
+            "Test system response to network failures".to_string(),
         )
         .with_fault(FaultType::NetworkFailure {
             rate: 0.1,
@@ -33,7 +33,10 @@ async fn test_basic_experiment_execution() {
         });
 
     let result = chaos.run_experiment(experiment).await;
-    assert!(result.is_ok(), "Basic experiment should complete successfully");
+    assert!(
+        result.is_ok(),
+        "Basic experiment should complete successfully"
+    );
 
     let experiment_result = result.unwrap();
     assert!(!experiment_result.config.id.is_empty());
@@ -48,7 +51,7 @@ async fn test_memory_pressure_fault() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Memory Pressure Test".to_string(),
-            "Test system behavior under memory pressure".to_string()
+            "Test system behavior under memory pressure".to_string(),
         )
         .with_fault(FaultType::MemoryPressure {
             allocation_mb: 50, // Allocate 50MB
@@ -64,7 +67,7 @@ async fn test_memory_pressure_fault() {
 
     let result = chaos.run_experiment(experiment).await;
     assert!(result.is_ok(), "Memory pressure experiment should complete");
-    
+
     let experiment_result = result.unwrap();
     assert!(experiment_result.summary.health_score >= 0.0);
     assert!(experiment_result.summary.health_score <= 1.0);
@@ -78,7 +81,7 @@ async fn test_cpu_starvation_fault() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "CPU Starvation Test".to_string(),
-            "Test system behavior under CPU pressure".to_string()
+            "Test system behavior under CPU pressure".to_string(),
         )
         .with_fault(FaultType::CpuStarvation {
             cpu_percentage: 50.0,
@@ -103,7 +106,7 @@ async fn test_multiple_fault_injection() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Multi-Fault Test".to_string(),
-            "Test system resilience with multiple simultaneous faults".to_string()
+            "Test system resilience with multiple simultaneous faults".to_string(),
         )
         .with_fault(FaultType::NetworkFailure {
             rate: 0.05,
@@ -128,7 +131,7 @@ async fn test_multiple_fault_injection() {
 
     let result = chaos.run_experiment(experiment).await;
     assert!(result.is_ok(), "Multi-fault experiment should complete");
-    
+
     let experiment_result = result.unwrap();
     assert_eq!(experiment_result.config.faults.len(), 3);
     assert!(experiment_result.summary.total_requests >= 0);
@@ -164,7 +167,7 @@ async fn test_recovery_orchestration() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Recovery Test".to_string(),
-            "Test automatic recovery after fault injection".to_string()
+            "Test automatic recovery after fault injection".to_string(),
         )
         .with_fault(FaultType::ResourceExhaustion {
             resource: ResourceType::Memory,
@@ -178,8 +181,11 @@ async fn test_recovery_orchestration() {
         });
 
     let result = chaos.run_experiment(experiment).await;
-    assert!(result.is_ok(), "Recovery experiment should complete successfully");
-    
+    assert!(
+        result.is_ok(),
+        "Recovery experiment should complete successfully"
+    );
+
     let experiment_result = result.unwrap();
     assert!(experiment_result.config.recovery.auto_recovery);
     assert_eq!(experiment_result.config.recovery.strategies.len(), 3);
@@ -205,13 +211,16 @@ async fn test_experiment_monitoring() {
             ("cpu_usage".to_string(), 80.0),
             ("memory_usage".to_string(), 90.0),
             ("response_time_ms".to_string(), 2000.0),
-        ].iter().cloned().collect(),
+        ]
+        .iter()
+        .cloned()
+        .collect(),
     };
 
     let experiment = ExperimentConfig::new()
         .with_name(
             "Monitoring Test".to_string(),
-            "Test comprehensive monitoring during experiments".to_string()
+            "Test comprehensive monitoring during experiments".to_string(),
         )
         .with_fault(FaultType::NetworkFailure {
             rate: 0.1,
@@ -227,7 +236,7 @@ async fn test_experiment_monitoring() {
 
     let result = chaos.run_experiment(experiment).await;
     assert!(result.is_ok(), "Monitoring experiment should complete");
-    
+
     let experiment_result = result.unwrap();
     assert_eq!(experiment_result.config.monitoring.metrics.len(), 5);
     assert!(experiment_result.config.monitoring.detailed_logging);
@@ -242,7 +251,7 @@ async fn test_success_criteria_validation() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Success Criteria Test".to_string(),
-            "Test various success criteria validation".to_string()
+            "Test various success criteria validation".to_string(),
         )
         .with_fault(FaultType::NetworkFailure {
             rate: 0.05, // Low failure rate
@@ -265,23 +274,26 @@ async fn test_success_criteria_validation() {
         });
 
     let result = chaos.run_experiment(experiment).await;
-    assert!(result.is_ok(), "Success criteria experiment should complete");
-    
+    assert!(
+        result.is_ok(),
+        "Success criteria experiment should complete"
+    );
+
     let experiment_result = result.unwrap();
     assert_eq!(experiment_result.success_criteria_met.len(), 3);
-    
+
     // Check that criteria were evaluated
     for (criterion, met) in &experiment_result.success_criteria_met {
         match criterion {
             SuccessCriterion::SystemResponsive { .. } => {
                 // System should be responsive with low failure rate
-            },
+            }
             SuccessCriterion::ErrorRate { .. } => {
                 // Error rate should be within bounds
-            },
+            }
             SuccessCriterion::MetricBounds { .. } => {
                 // CPU usage should be within reasonable bounds
-            },
+            }
             _ => {}
         }
     }
@@ -295,7 +307,7 @@ async fn test_disk_io_fault() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Disk I/O Fault Test".to_string(),
-            "Test system behavior under disk I/O failures".to_string()
+            "Test system behavior under disk I/O failures".to_string(),
         )
         .with_fault(FaultType::DiskIoFailure {
             failure_rate: 0.1,
@@ -351,7 +363,7 @@ async fn test_custom_recovery_strategy() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Custom Recovery Test".to_string(),
-            "Test custom recovery strategies and validation".to_string()
+            "Test custom recovery strategies and validation".to_string(),
         )
         .with_fault(FaultType::ServiceUnavailable {
             service_name: "critical-service".to_string(),
@@ -363,7 +375,7 @@ async fn test_custom_recovery_strategy() {
 
     let result = chaos.run_experiment(experiment).await;
     assert!(result.is_ok(), "Custom recovery experiment should complete");
-    
+
     let experiment_result = result.unwrap();
     assert_eq!(experiment_result.config.recovery.strategies.len(), 3);
     assert_eq!(experiment_result.config.recovery.validation_steps.len(), 2);
@@ -381,7 +393,7 @@ async fn test_concurrent_experiments() {
         let experiment = ExperimentConfig::new()
             .with_name(
                 format!("Concurrent Test {}", i),
-                format!("Concurrent experiment number {}", i)
+                format!("Concurrent experiment number {}", i),
             )
             .with_fault(FaultType::NetworkFailure {
                 rate: 0.05,
@@ -401,7 +413,11 @@ async fn test_concurrent_experiments() {
         assert!(result.is_ok(), "Concurrent experiment {} should succeed", i);
     }
 
-    assert_eq!(results.len(), 3, "Should have 3 concurrent experiment results");
+    assert_eq!(
+        results.len(),
+        3,
+        "Should have 3 concurrent experiment results"
+    );
 }
 
 /// Test experiment with all fault types
@@ -412,7 +428,7 @@ async fn test_comprehensive_fault_types() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "Comprehensive Fault Test".to_string(),
-            "Test system with various fault types".to_string()
+            "Test system with various fault types".to_string(),
         )
         // Network faults
         .with_fault(FaultType::NetworkFailure {
@@ -457,17 +473,29 @@ async fn test_comprehensive_fault_types() {
         });
 
     let result = chaos.run_experiment(experiment).await;
-    assert!(result.is_ok(), "Comprehensive fault experiment should complete");
-    
+    assert!(
+        result.is_ok(),
+        "Comprehensive fault experiment should complete"
+    );
+
     let experiment_result = result.unwrap();
     assert_eq!(experiment_result.config.faults.len(), 6);
-    
+
     // Verify we got some metrics and events
-    assert!(!experiment_result.metrics.is_empty(), "Should have collected metrics");
-    assert!(!experiment_result.events.is_empty(), "Should have recorded events");
-    
+    assert!(
+        !experiment_result.metrics.is_empty(),
+        "Should have collected metrics"
+    );
+    assert!(
+        !experiment_result.events.is_empty(),
+        "Should have recorded events"
+    );
+
     // Verify recommendations were generated
-    assert!(!experiment_result.recommendations.is_empty(), "Should have recommendations");
+    assert!(
+        !experiment_result.recommendations.is_empty(),
+        "Should have recommendations"
+    );
 }
 
 /// Test chaos engineering with realistic AI system scenario
@@ -479,7 +507,7 @@ async fn test_ai_system_resilience() {
     let experiment = ExperimentConfig::new()
         .with_name(
             "AI System Resilience Test".to_string(),
-            "Test AI system resilience under various failure conditions".to_string()
+            "Test AI system resilience under various failure conditions".to_string(),
         )
         .with_target("ai-inference-service".to_string())
         .with_target("context-analyzer".to_string())
@@ -504,7 +532,7 @@ async fn test_ai_system_resilience() {
         })
         .with_duration(Duration::from_secs(10))
         .with_success_criterion(SuccessCriterion::SystemResponsive {
-            max_response_time_ms: 8000, // Allow longer response times
+            max_response_time_ms: 8000,  // Allow longer response times
             success_rate_threshold: 0.7, // Lower threshold due to AI complexity
         })
         .with_success_criterion(SuccessCriterion::ErrorRate {
@@ -521,8 +549,12 @@ async fn test_ai_system_resilience() {
                 RecoveryStrategy::RestartServices,
             ],
             validation_steps: vec![
-                ValidationStep::MemoryUsage { max_usage_percent: 85.0 },
-                ValidationStep::ResponseTimeCheck { max_response_time_ms: 5000 },
+                ValidationStep::MemoryUsage {
+                    max_usage_percent: 85.0,
+                },
+                ValidationStep::ResponseTimeCheck {
+                    max_response_time_ms: 5000,
+                },
                 ValidationStep::ServiceAvailability {
                     service_names: vec![
                         "ai-inference-service".to_string(),
@@ -535,25 +567,31 @@ async fn test_ai_system_resilience() {
 
     let result = chaos.run_experiment(experiment).await;
     assert!(result.is_ok(), "AI system resilience test should complete");
-    
+
     let experiment_result = result.unwrap();
-    
+
     // Verify experiment structure
     assert_eq!(experiment_result.config.targets.len(), 3);
     assert_eq!(experiment_result.config.faults.len(), 3);
     assert!(experiment_result.config.recovery.auto_recovery);
-    
+
     // Verify we have realistic results
     assert!(experiment_result.summary.health_score >= 0.0);
     assert!(experiment_result.summary.health_score <= 1.0);
-    
+
     // Should have detailed recommendations for AI systems
     let recommendations = &experiment_result.recommendations;
-    assert!(!recommendations.is_empty(), "Should have AI-specific recommendations");
-    
-    // Check for AI-specific recommendations
-    let has_ai_recommendations = recommendations.iter().any(|rec| 
-        rec.contains("AI") || rec.contains("provider") || rec.contains("inference")
+    assert!(
+        !recommendations.is_empty(),
+        "Should have AI-specific recommendations"
     );
-    assert!(has_ai_recommendations, "Should have AI-specific recommendations");
-} 
+
+    // Check for AI-specific recommendations
+    let has_ai_recommendations = recommendations
+        .iter()
+        .any(|rec| rec.contains("AI") || rec.contains("provider") || rec.contains("inference"));
+    assert!(
+        has_ai_recommendations,
+        "Should have AI-specific recommendations"
+    );
+}

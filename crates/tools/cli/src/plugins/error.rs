@@ -18,6 +18,8 @@ pub enum PluginError {
     ValidationError(String),
     /// Command registration error
     RegisterError(String),
+    /// Security error
+    SecurityError(String),
     /// Unknown plugin error
     Unknown(String),
 }
@@ -44,6 +46,7 @@ impl fmt::Display for PluginError {
             PluginError::InitError(msg) => write!(f, "Plugin initialization error: {}", msg),
             PluginError::ValidationError(msg) => write!(f, "Plugin validation error: {}", msg),
             PluginError::RegisterError(msg) => write!(f, "Command registration error: {}", msg),
+            PluginError::SecurityError(msg) => write!(f, "Security error: {}", msg),
             PluginError::Unknown(msg) => write!(f, "Unknown plugin error: {}", msg),
         }
     }

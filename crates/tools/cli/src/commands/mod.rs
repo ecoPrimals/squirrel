@@ -3,7 +3,7 @@
 //! This module provides command handling for the CLI interface.
 
 use crate::Result;
-use log::{debug, info};
+use tracing::{debug, info};
 
 /// Register all CLI commands
 pub fn register_commands() -> Result<()> {
@@ -15,14 +15,21 @@ pub fn register_commands() -> Result<()> {
 
     // Register commands successfully
     info!("Successfully registered built-in commands from services crate");
-    debug!(
-        "Available commands: {:?}",
-        services_registry
-            .lock()
-            .unwrap()
-            .list_commands()
-            .unwrap_or_default()
-    );
+
+    // Log available commands safely
+    match services_registry.lock() {
+        Ok(registry) => match registry.list_commands() {
+            Ok(commands) => {
+                debug!("Available commands: {:?}", commands);
+            }
+            Err(e) => {
+                debug!("Failed to list commands: {}", e);
+            }
+        },
+        Err(e) => {
+            debug!("Failed to access registry to list commands: {}", e);
+        }
+    }
 
     Ok(())
 }

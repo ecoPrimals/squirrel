@@ -4,25 +4,17 @@ use std::sync::Arc;
 
 use crate::commands::registry::CommandRegistry;
 use libloading::Library;
-use log::{debug, error, info, warn};
 use squirrel_commands::Command;
 use tokio::runtime::Runtime;
+use tracing::{debug, error, info, warn};
 
+use super::security::{PluginSecurityError, SecurePluginLoader};
 use crate::plugins::error::PluginError;
 use crate::plugins::plugin::Plugin;
-use crate::plugins::plugin::PluginFactory;
+use crate::plugins::plugin::{PluginFactory, PluginItem, PluginMetadata, PluginStatus};
 use crate::plugins::state::PluginState;
-use crate::plugins::PluginItem;
-use crate::plugins::PluginMetadata;
-use crate::plugins::PluginStatus;
 
-/// Type for a plugin create function
-type PluginCreateFn = unsafe fn() -> Result<Arc<dyn Plugin>, PluginError>;
-
-/// Type for a plugin factory registration function
-type PluginFactoryRegisterFn = unsafe fn() -> Arc<dyn PluginFactory>;
-
-/// A manager for Squirrel plugins
+/// A secure manager for Squirrel plugins
 pub struct PluginManager {
     /// The installed plugins
     plugins: HashMap<String, PluginItem>,
@@ -30,9 +22,9 @@ pub struct PluginManager {
     loaded_plugins: HashMap<String, Arc<dyn Plugin>>,
     /// The plugin states
     plugin_states: HashMap<String, PluginState>,
-    /// Plugin libraries
-    libraries: HashMap<String, Library>,
-    /// Plugin factories
+    /// Secure plugin loader (replaces unsafe dynamic loading)
+    secure_loader: SecurePluginLoader,
+    /// Plugin factories (maintained for compatibility)
     plugin_factories: HashMap<String, Arc<dyn PluginFactory>>,
 }
 
@@ -43,7 +35,7 @@ impl PluginManager {
             plugins: HashMap::new(),
             loaded_plugins: HashMap::new(),
             plugin_states: HashMap::new(),
-            libraries: HashMap::new(),
+            secure_loader: SecurePluginLoader::new(),
             plugin_factories: HashMap::new(),
         }
     }
@@ -125,7 +117,7 @@ impl PluginManager {
     /// # Returns
     ///
     /// `Ok(())` if loading succeeds, or an error otherwise
-    pub fn load_plugin(&mut self, name: &str) -> Result<(), PluginError> {
+    pub async fn load_plugin(&mut self, name: &str) -> Result<(), PluginError> {
         // Check if plugin exists
         let _plugin_item = self.get_plugin(name)?;
 
@@ -144,7 +136,7 @@ impl PluginManager {
         } else {
             // Get the plugin path and load from filesystem
             let plugin_path = _plugin_item.path().to_path_buf();
-            self.load_plugin_from_path(name, &plugin_path)?
+            self.load_plugin_from_path(name, &plugin_path).await?
         };
 
         // Initialize the plugin
@@ -177,157 +169,75 @@ impl PluginManager {
         }
     }
 
-    /// Load a plugin from a path
-    ///
-    /// This method attempts to load a plugin library from a path.
-    /// If dynamic loading is not available, it falls back to the test plugin.
+    /// Securely load a plugin from a path (replaces unsafe implementation)
     ///
     /// # Arguments
     ///
-    /// * `name` - The name of the plugin
-    /// * `path` - The path to the plugin directory
+    /// * `name` - The plugin name
+    /// * `path` - The plugin directory path
     ///
     /// # Returns
     ///
     /// The loaded plugin instance or an error
-    fn load_plugin_from_path(
+    async fn load_plugin_from_path(
         &mut self,
         name: &str,
         path: &Path,
     ) -> Result<Arc<dyn Plugin>, PluginError> {
-        // Look for shared library in the plugin path
-        let lib_path = self.find_plugin_library(path, name)?;
+        // Get plugin metadata
+        let metadata = self.get_plugin_metadata(name, path)?;
 
-        // Try to load the library
-        match unsafe { Library::new(&lib_path) } {
-            Ok(lib) => {
-                // Try to get the create_plugin symbol
-                match unsafe { lib.get::<PluginCreateFn>(b"create_plugin") } {
-                    Ok(create_fn) => {
-                        // Call the create function
-                        let plugin = unsafe { create_fn() }?;
-
-                        // Store the library
-                        self.libraries.insert(name.to_string(), lib);
-
-                        Ok(plugin)
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Could not find create_plugin function in {}: {}",
-                            lib_path.display(),
-                            e
-                        );
-
-                        // Try to get the register_plugin_factory symbol
-                        match unsafe {
-                            lib.get::<PluginFactoryRegisterFn>(b"register_plugin_factory")
-                        } {
-                            Ok(register_fn) => {
-                                // Call the register function to get the factory
-                                let factory = unsafe { register_fn() };
-
-                                // Create a plugin instance from the factory
-                                let plugin = factory.create()?;
-
-                                // Store the library
-                                self.libraries.insert(name.to_string(), lib);
-
-                                Ok(plugin)
-                            }
-                            Err(e) => {
-                                warn!(
-                                    "Could not find register_plugin_factory function in {}: {}",
-                                    lib_path.display(),
-                                    e
-                                );
-
-                                // Fall back to test plugin
-                                warn!("Falling back to test plugin for {}", name);
-                                self.create_test_plugin(name.to_string(), path.to_path_buf())
-                            }
-                        }
-                    }
-                }
+        // Use secure loader instead of unsafe dynamic loading
+        match self.secure_loader.load_plugin_secure(path, &metadata).await {
+            Ok(plugin) => {
+                info!("🔒 Securely loaded plugin: {}", name);
+                Ok(plugin)
             }
-            Err(e) => {
-                warn!(
-                    "Could not load plugin library from {}: {}",
-                    lib_path.display(),
-                    e
+            Err(security_error) => {
+                error!(
+                    "🚨 Plugin security validation failed for {}: {}",
+                    name, security_error
                 );
-
-                // Fall back to test plugin
-                warn!("Falling back to test plugin for {}", name);
-                self.create_test_plugin(name.to_string(), path.to_path_buf())
+                Err(PluginError::SecurityError(format!(
+                    "Security validation failed: {}",
+                    security_error
+                )))
             }
         }
     }
 
-    /// Find the plugin library file in the plugin directory
-    ///
-    /// # Arguments
-    ///
-    /// * `plugin_dir` - The plugin directory
-    /// * `name` - The plugin name
-    ///
-    /// # Returns
-    ///
-    /// The path to the plugin library or an error
-    fn find_plugin_library(&self, plugin_dir: &Path, name: &str) -> Result<PathBuf, PluginError> {
-        // Check if plugin directory exists
-        if !plugin_dir.exists() || !plugin_dir.is_dir() {
-            return Err(PluginError::NotFound(format!(
-                "Plugin directory not found: {}",
-                plugin_dir.display()
-            )));
+    /// Get plugin metadata from plugin directory
+    fn get_plugin_metadata(&self, name: &str, path: &Path) -> Result<PluginMetadata, PluginError> {
+        // Look for plugin.toml or other metadata file
+        let metadata_file = path.join("plugin.toml");
+
+        if metadata_file.exists() {
+            // Parse metadata from TOML file
+            let metadata_content =
+                std::fs::read_to_string(&metadata_file).map_err(|e| PluginError::IoError(e))?;
+
+            // For now, create basic metadata - TODO: implement TOML parsing
+            Ok(PluginMetadata {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+                description: Some(format!("Plugin loaded from {}", path.display())),
+                author: Some("Unknown".to_string()),
+                homepage: None,
+            })
+        } else {
+            // Create basic metadata if no file exists
+            warn!(
+                "⚠️ No metadata file found for plugin {}, using defaults",
+                name
+            );
+            Ok(PluginMetadata {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+                description: Some(format!("Plugin loaded from {}", path.display())),
+                author: Some("Unknown".to_string()),
+                homepage: None,
+            })
         }
-
-        // Look for the library file with platform-specific extension
-        let lib_name = format!("lib{}", name.replace('-', "_"));
-
-        #[cfg(target_os = "linux")]
-        let extensions = vec![".so"];
-
-        #[cfg(target_os = "macos")]
-        let extensions = vec![".dylib", ".so"];
-
-        #[cfg(target_os = "windows")]
-        let extensions = vec![".dll"];
-
-        // First, look for the library file in the lib subdirectory
-        let lib_dir = plugin_dir.join("lib");
-        if lib_dir.exists() && lib_dir.is_dir() {
-            // Check each extension
-            for ext in &extensions {
-                let lib_path = lib_dir.join(format!("{}{}", lib_name, ext));
-                if lib_path.exists() {
-                    return Ok(lib_path);
-                }
-            }
-        }
-
-        // Then, look for the library file in the plugin directory
-        for ext in &extensions {
-            let lib_path = plugin_dir.join(format!("{}{}", lib_name, ext));
-            if lib_path.exists() {
-                return Ok(lib_path);
-            }
-        }
-
-        // Finally, look for a file with the plugin name and any of the extensions
-        for ext in &extensions {
-            let lib_path = plugin_dir.join(format!("{}{}", name.replace('-', "_"), ext));
-            if lib_path.exists() {
-                return Ok(lib_path);
-            }
-        }
-
-        Err(PluginError::NotFound(format!(
-            "No library file found for plugin {} in {}",
-            name,
-            plugin_dir.display()
-        )))
     }
 
     /// Register all commands from loaded plugins with the command registry
@@ -550,7 +460,7 @@ impl PluginManager {
                 }
 
                 // Remove the plugin library
-                self.libraries.remove(&name);
+                // self.libraries.remove(&name); // This line is no longer needed
             }
         }
 
@@ -825,6 +735,24 @@ impl PluginManager {
 
                 Err(e)
             }
+        }
+    }
+
+    /// Remove the plugin library reference when unloading
+    pub fn unload_plugin(&mut self, name: &str) -> Result<(), PluginError> {
+        // Remove from loaded plugins
+        if let Some(plugin) = self.loaded_plugins.remove(name) {
+            info!("🔄 Unloading plugin: {}", name);
+
+            // Update plugin state
+            self.plugin_states
+                .insert(name.to_string(), PluginState::Stopped);
+
+            // Remove from state tracking - no more library cleanup needed
+            info!("✅ Plugin {} unloaded successfully", name);
+            Ok(())
+        } else {
+            Err(PluginError::NotFound(format!("Plugin {} not loaded", name)))
         }
     }
 }

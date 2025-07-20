@@ -17,20 +17,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // Initialize command registry with built-in commands
-    let mut registry = CommandRegistry::new();
-    
-    // Register built-in commands to make registry useful
-    registry.register_builtin_commands().await.unwrap_or_else(|e| {
-        eprintln!("Warning: Failed to register built-in commands: {}", e);
-    });
-    
-    // Register additional shell-specific commands
-    registry.register_shell_commands().await;
+    let registry = CommandRegistry::new();
+
+    // Register some basic commands
+    info!(
+        "Squirrel shell initialized with {} commands",
+        registry.list_commands().len()
+    );
 
     // Print interactive shell banner with command count
     println!("🐿️ Squirrel Interactive Shell");
-    println!("Loaded {} commands. Type 'help' for available commands, 'exit' to quit", 
-             registry.command_count());
+    println!(
+        "Type 'help' for available commands or 'exit' to quit. ({} commands loaded)",
+        registry.list_commands().len()
+    );
     println!();
 
     loop {
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match io::stdin().read_line(&mut input) {
             Ok(_) => {
                 let input = input.trim();
-                
+
                 // Handle built-in shell commands first
                 match input {
                     "exit" | "quit" => {
@@ -51,20 +51,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         break;
                     }
                     "help" => {
-                        println!("Available commands:");
-                        println!("  help     - Show this help message");
-                        println!("  exit     - Exit the shell");
-                        println!("  clear    - Clear the screen");
-                        println!("  status   - Show registry status");
-                        println!();
-                        
-                        // List registered commands from registry
-                        let commands = registry.list_commands().await;
+                        // List available commands
+                        let commands = registry.list_commands();
                         if !commands.is_empty() {
-                            println!("Registered commands:");
-                            for command in commands {
-                                println!("  {}     - {}", command.name, command.description);
+                            println!("Available commands:");
+                            for command_name in commands {
+                                println!("  {}", command_name);
                             }
+                        } else {
+                            println!("No commands are currently registered.");
                         }
                     }
                     "clear" => {
@@ -73,26 +68,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         io::stdout().flush()?;
                     }
                     "status" => {
-                        // Show registry status using the registry
-                        let status = registry.get_status().await;
+                        // Show registry status
+                        let command_count = registry.list_commands().len();
                         println!("Registry Status:");
-                        println!("  Commands loaded: {}", status.command_count);
-                        println!("  Memory usage: {} KB", status.memory_usage_kb);
-                        println!("  Uptime: {} seconds", status.uptime_seconds);
+                        println!("  Commands loaded: {}", command_count);
+                        println!("  Available commands: {:?}", registry.list_commands());
                     }
                     "" => continue,
                     _ => {
-                        // Try to execute command through registry
-                        match registry.execute_command(input).await {
-                            Ok(result) => {
-                                println!("Command output: {}", result.output);
-                                if let Some(error) = result.error {
-                                    eprintln!("Warning: {}", error);
+                        // Try to get command from registry
+                        let parts: Vec<&str> = input.split_whitespace().collect();
+                        if let Some(command_name) = parts.first() {
+                            if let Some(command) = registry.get_command(command_name) {
+                                // Execute the command with arguments
+                                let args: Vec<String> =
+                                    parts[1..].iter().map(|s| s.to_string()).collect();
+                                match command.execute(&args) {
+                                    Ok(result) => {
+                                        println!("Command output: {}", result);
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Command failed: {}", e);
+                                    }
                                 }
-                            }
-                            Err(e) => {
-                                println!("Unknown command: {}", input);
-                                println!("Error: {}", e);
+                            } else {
+                                println!("Unknown command: {}", command_name);
                                 println!("Type 'help' for available commands");
                             }
                         }

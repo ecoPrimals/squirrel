@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
@@ -12,8 +12,7 @@ use crate::ecosystem::EcosystemManager;
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::optimization::zero_copy::{
-    string_utils::StaticStrings,
-    performance_monitoring::ZeroCopyMetrics,
+    performance_monitoring::ZeroCopyMetrics, string_utils::StaticStrings,
 };
 use crate::session::SessionManagerImpl;
 use crate::universal::*;
@@ -43,10 +42,7 @@ pub struct SquirrelPrimalProvider {
 
 impl SquirrelPrimalProvider {
     /// Creates a new SquirrelPrimalProvider instance
-    pub fn new(
-        config: EcosystemConfig,
-        context: PrimalContext,
-    ) -> Result<Self, PrimalError> {
+    pub fn new(config: EcosystemConfig, context: PrimalContext) -> Result<Self, PrimalError> {
         let instance_id = Uuid::new_v4().to_string();
         let metrics_collector = Arc::new(MetricsCollector::new());
 
@@ -163,9 +159,7 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
             PrimalCapability::ModelInference {
                 models: vec!["gpt-4".to_string(), "claude-3".to_string()],
             },
-            PrimalCapability::AgentFramework {
-                mcp_support: true,
-            },
+            PrimalCapability::AgentFramework { mcp_support: true },
             PrimalCapability::NaturalLanguage {
                 languages: vec!["en".to_string(), "es".to_string()],
             },
@@ -178,7 +172,7 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
             PrimalDependency {
                 primal_type: PrimalType::Storage,
                 required: false,
-                capabilities: vec![], 
+                capabilities: vec![],
                 min_version: Some("1.0.0".to_string()),
                 preferred_instance: None,
             },
@@ -186,7 +180,7 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
                 primal_type: PrimalType::Compute,
                 required: false,
                 capabilities: vec![],
-                min_version: Some("1.0.0".to_string()), 
+                min_version: Some("1.0.0".to_string()),
                 preferred_instance: None,
             },
         ]
@@ -220,27 +214,16 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         info!("Handling primal request: {}", request.operation);
 
         let response_payload = match request.operation.as_str() {
-            "ai_inference" => {
-                self.handle_ai_inference_request(request.payload).await?
-            }
+            "ai_inference" => self.handle_ai_inference_request(request.payload).await?,
             "context_analysis" => {
-                self.handle_context_analysis_request(request.payload).await?
+                self.handle_context_analysis_request(request.payload)
+                    .await?
             }
-            "session_create" => {
-                self.create_session(request.payload).await?
-            }
-            "session_get" => {
-                self.get_session(request.payload).await?
-            }
-            "session_update" => {
-                self.update_session(request.payload).await?
-            }
-            "session_delete" => {
-                self.delete_session(request.payload).await?
-            }
-            "session_list" => {
-                self.list_user_sessions(request.payload).await?
-            }
+            "session_create" => self.create_session(request.payload).await?,
+            "session_get" => self.get_session(request.payload).await?,
+            "session_update" => self.update_session(request.payload).await?,
+            "session_delete" => self.delete_session(request.payload).await?,
+            "session_list" => self.list_user_sessions(request.payload).await?,
             "health_check" => {
                 let healthy = self.perform_health_check().await?;
                 serde_json::json!({
@@ -249,9 +232,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
                 })
             }
             _ => {
-                return Err(PrimalError::OperationNotSupported(
-                    format!("Unknown operation: {}", request.operation)
-                ));
+                return Err(PrimalError::OperationNotSupported(format!(
+                    "Unknown operation: {}",
+                    request.operation
+                )));
             }
         };
 
@@ -272,13 +256,17 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
 
     /// Initialize the primal
     async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
-        self.initialize_ecosystem().await.map_err(|e| PrimalError::Internal(e.to_string()))?;
+        self.initialize_ecosystem()
+            .await
+            .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
 
     /// Shutdown the primal
     async fn shutdown(&mut self) -> UniversalResult<()> {
-        self.shutdown_ecosystem().await.map_err(|e| PrimalError::Internal(e.to_string()))?;
+        self.shutdown_ecosystem()
+            .await
+            .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
 
@@ -299,7 +287,9 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
 
     /// Deregister from Songbird service mesh
     async fn deregister_from_songbird(&mut self) -> UniversalResult<()> {
-        self.deregister_from_songbird().await.map_err(|e| PrimalError::Internal(e.to_string()))?;
+        self.deregister_from_songbird()
+            .await
+            .map_err(|e| PrimalError::Internal(e.to_string()))?;
         Ok(())
     }
 
@@ -322,7 +312,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     }
 
     /// Update system capabilities
-    async fn update_capabilities(&self, capabilities: Vec<PrimalCapability>) -> UniversalResult<()> {
+    async fn update_capabilities(
+        &self,
+        capabilities: Vec<PrimalCapability>,
+    ) -> UniversalResult<()> {
         self.update_capabilities(capabilities).await
     }
-} 
+}

@@ -57,7 +57,7 @@ async fn main() {
         .collect();
 
     for plugin_name in &plugin_names {
-        match plugin_manager_guard.load_plugin(plugin_name) {
+        match plugin_manager_guard.load_plugin(plugin_name).await {
             Ok(()) => {
                 info!("Successfully loaded plugin: {}", plugin_name);
             }

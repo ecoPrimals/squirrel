@@ -502,17 +502,17 @@ impl Default for QualityConfig {
     }
 }
 
-impl ToString for VisualizationType {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for VisualizationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VisualizationType::ContextState => "context_state".to_string(),
-            VisualizationType::RuleDependencyGraph => "rule_dependency_graph".to_string(),
-            VisualizationType::Timeline => "timeline".to_string(),
-            VisualizationType::MetricsDashboard => "metrics_dashboard".to_string(),
-            VisualizationType::StateDiff => "state_diff".to_string(),
-            VisualizationType::PerformanceHeatmap => "performance_heatmap".to_string(),
-            VisualizationType::InteractiveGraph => "interactive_graph".to_string(),
-            VisualizationType::Custom(name) => name.clone(),
+            VisualizationType::ContextState => write!(f, "context_state"),
+            VisualizationType::RuleDependencyGraph => write!(f, "rule_dependency_graph"),
+            VisualizationType::Timeline => write!(f, "timeline"),
+            VisualizationType::MetricsDashboard => write!(f, "metrics_dashboard"),
+            VisualizationType::StateDiff => write!(f, "state_diff"),
+            VisualizationType::PerformanceHeatmap => write!(f, "performance_heatmap"),
+            VisualizationType::InteractiveGraph => write!(f, "interactive_graph"),
+            VisualizationType::Custom(name) => write!(f, "{}", name),
         }
     }
 }

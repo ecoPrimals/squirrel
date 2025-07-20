@@ -46,26 +46,29 @@ pub mod self_healing;
 
 // Re-export commonly used types for convenience
 pub use biomeos_integration::SquirrelBiomeOSIntegration;
-pub use compute_client::{UniversalComputeClient, UniversalComputeRequest, UniversalComputeResponse};
-pub use security_client::{UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse};
-pub use storage_client::{UniversalStorageClient, UniversalStorageRequest, UniversalStorageResponse};
+pub use compute_client::{
+    UniversalComputeClient, UniversalComputeRequest, UniversalComputeResponse,
+};
 pub use ecosystem::{
-    initialize_ecosystem_integration, ComponentHealth,
-    EcosystemPrimalType, EcosystemRegistryEvent, EcosystemRegistryManager,
-    EcosystemServiceRegistration, EcosystemStatus,
+    initialize_ecosystem_integration, ComponentHealth, EcosystemPrimalType, EcosystemRegistryEvent,
+    EcosystemRegistryManager, EcosystemServiceRegistration, EcosystemStatus,
 };
 pub use error_handling::prelude::*;
-pub use monitoring::{
-    performance::PerformanceTracker,
-};
+pub use monitoring::performance::PerformanceTracker;
 pub use optimization::zero_copy;
 pub use primal_provider::SquirrelPrimalProvider;
 pub use security::UniversalSecurityAdapter;
+pub use security_client::{
+    UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse,
+};
+pub use storage_client::{
+    UniversalStorageClient, UniversalStorageRequest, UniversalStorageResponse,
+};
 // Universal types (selective re-exports to avoid conflicts)
 pub use universal::{
-    PrimalCapability, PrimalContext, PrimalDependency, PrimalHealth, 
-    PrimalRequest, PrimalResponse, PrimalType, SecurityLevel,
-    NetworkLocation, HealthStatus, PrimalEndpoints, DynamicPortInfo, ServiceMeshStatus
+    DynamicPortInfo, HealthStatus, NetworkLocation, PrimalCapability, PrimalContext,
+    PrimalDependency, PrimalEndpoints, PrimalHealth, PrimalRequest, PrimalResponse, PrimalType,
+    SecurityLevel, ServiceMeshStatus,
 };
 
 pub use universal_adapter::{
@@ -90,7 +93,7 @@ pub use error::PrimalError;
 
 // Conditional re-exports based on feature flags (selective)
 #[cfg(feature = "monitoring")]
-pub use monitoring::{metrics::MetricsCollector, health::HealthMonitor};
+pub use monitoring::{health::HealthMonitor, metrics::MetricsCollector};
 
 #[cfg(feature = "ecosystem")]
 pub use ecosystem::{EcosystemConfig, EcosystemManager};

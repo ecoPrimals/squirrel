@@ -238,38 +238,55 @@ impl GeminiClient {
             // Enhanced AI safety validation using safety ratings
             let mut safety_passed = true;
             let mut safety_warnings = Vec::new();
-            
+
             if let Some(safety_ratings) = &candidate.safety_ratings {
-                debug!("🛡️ Evaluating {} safety ratings for candidate {}", safety_ratings.len(), candidate_index);
-                
+                debug!(
+                    "🛡️ Evaluating {} safety ratings for candidate {}",
+                    safety_ratings.len(),
+                    candidate_index
+                );
+
                 for safety_rating in safety_ratings {
                     match safety_rating.probability.as_str() {
                         "HIGH" => {
-                            let warning = format!("HIGH risk detected for {}", safety_rating.category);
+                            let warning =
+                                format!("HIGH risk detected for {}", safety_rating.category);
                             warn!("⚠️ AI Safety Alert: {}", warning);
                             safety_warnings.push(warning);
                             safety_passed = false;
                         }
                         "MEDIUM" => {
-                            let warning = format!("MEDIUM risk detected for {}", safety_rating.category);
+                            let warning =
+                                format!("MEDIUM risk detected for {}", safety_rating.category);
                             info!("🔶 AI Safety Notice: {}", warning);
                             safety_warnings.push(warning);
                         }
                         "LOW" | "NEGLIGIBLE" => {
-                            debug!("✅ AI Safety OK: {} - {}", safety_rating.category, safety_rating.probability);
+                            debug!(
+                                "✅ AI Safety OK: {} - {}",
+                                safety_rating.category, safety_rating.probability
+                            );
                         }
                         unknown_level => {
-                            warn!("❓ Unknown AI safety probability level: '{}' for category '{}'", 
-                                  unknown_level, safety_rating.category);
+                            warn!(
+                                "❓ Unknown AI safety probability level: '{}' for category '{}'",
+                                unknown_level, safety_rating.category
+                            );
                         }
                     }
                 }
-                
+
                 if safety_passed {
-                    debug!("🛡️ All AI safety checks passed for candidate {}", candidate_index);
+                    debug!(
+                        "🛡️ All AI safety checks passed for candidate {}",
+                        candidate_index
+                    );
                 } else {
-                    error!("🚨 AI Safety validation failed for candidate {} - {} issues detected", 
-                           candidate_index, safety_warnings.len());
+                    error!(
+                        "🚨 AI Safety validation failed for candidate {} - {} issues detected",
+                        candidate_index,
+                        safety_warnings.len()
+                    );
                 }
             } else {
                 debug!("ℹ️ No safety ratings provided for candidate {} - proceeding with standard processing", candidate_index);
@@ -286,7 +303,7 @@ impl GeminiClient {
             // Enhanced content with safety context if warnings exist
             let final_content = if !safety_warnings.is_empty() {
                 let safety_context = format!("[SAFETY_WARNINGS: {}] ", safety_warnings.join(", "));
-                Some(format!("{}{}", safety_context, content))
+                Some(format!("{safety_context}{content}"))
             } else if content.is_empty() {
                 None
             } else {

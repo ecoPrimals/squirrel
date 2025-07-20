@@ -329,21 +329,26 @@ impl CommandRegistry {
         hook: Arc<dyn Fn(&str, &CommandResult<String>) + Send + Sync>,
     ) -> CommandResult<()> {
         let timer = LockTimer::new("add_post_hook");
-        
+
         match self.post_hooks.lock() {
             Ok(mut hooks) => {
                 hooks.push(hook);
                 timer.complete();
-                debug!("Registry: Added post-execution hook (total: {})", hooks.len());
+                debug!(
+                    "Registry: Added post-execution hook (total: {})",
+                    hooks.len()
+                );
                 Ok(())
             }
             Err(e) => {
                 error!("Registry: Failed to acquire post_hooks lock: {}", e);
-                Err(CommandError::Internal("Failed to add post-execution hook".to_string()))
+                Err(CommandError::Internal(
+                    "Failed to add post-execution hook".to_string(),
+                ))
             }
         }
     }
-    
+
     /// Execute all registered post-hooks for a command
     fn execute_post_hooks(&self, command_name: &str, result: &CommandResult<String>) {
         if let Ok(hooks) = self.post_hooks.lock() {
@@ -351,8 +356,14 @@ impl CommandRegistry {
                 match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     hook(command_name, result);
                 })) {
-                    Ok(_) => debug!("Registry: Executed post-hook {} for command '{}'", idx, command_name),
-                    Err(_) => warn!("Registry: Post-hook {} panicked for command '{}'", idx, command_name),
+                    Ok(_) => debug!(
+                        "Registry: Executed post-hook {} for command '{}'",
+                        idx, command_name
+                    ),
+                    Err(_) => warn!(
+                        "Registry: Post-hook {} panicked for command '{}'",
+                        idx, command_name
+                    ),
                 }
             }
         }
@@ -365,17 +376,24 @@ impl CommandRegistry {
         resource: T,
     ) -> CommandResult<()> {
         let timer = LockTimer::new("set_resource");
-        
+
         match self.resources.lock() {
             Ok(mut resources) => {
                 resources.insert(name.to_string(), Arc::new(resource));
                 timer.complete();
-                debug!("Registry: Set resource '{}' (total resources: {})", name, resources.len());
+                debug!(
+                    "Registry: Set resource '{}' (total resources: {})",
+                    name,
+                    resources.len()
+                );
                 Ok(())
             }
             Err(e) => {
                 error!("Registry: Failed to acquire resources lock: {}", e);
-                Err(CommandError::Internal(format!("Failed to set resource '{}'", name)))
+                Err(CommandError::Internal(format!(
+                    "Failed to set resource '{}'",
+                    name
+                )))
             }
         }
     }
@@ -402,13 +420,17 @@ impl CommandRegistry {
     /// Remove a resource from the registry
     pub fn remove_resource(&self, name: &str) -> CommandResult<bool> {
         let timer = LockTimer::new("remove_resource");
-        
+
         match self.resources.lock() {
             Ok(mut resources) => {
                 let removed = resources.remove(name).is_some();
                 timer.complete();
                 if removed {
-                    debug!("Registry: Removed resource '{}' (remaining: {})", name, resources.len());
+                    debug!(
+                        "Registry: Removed resource '{}' (remaining: {})",
+                        name,
+                        resources.len()
+                    );
                 } else {
                     debug!("Registry: Resource '{}' not found for removal", name);
                 }
@@ -416,7 +438,10 @@ impl CommandRegistry {
             }
             Err(e) => {
                 error!("Registry: Failed to acquire resources lock: {}", e);
-                Err(CommandError::Internal(format!("Failed to remove resource '{}'", name)))
+                Err(CommandError::Internal(format!(
+                    "Failed to remove resource '{}'",
+                    name
+                )))
             }
         }
     }

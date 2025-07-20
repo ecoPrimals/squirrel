@@ -3,9 +3,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::types::{ComplianceFramework, TrustLevel};
 use crate::universal::PrimalCapability;
 use crate::universal_primal_ecosystem::DiscoveredPrimal;
-use super::types::{TrustLevel, ComplianceFramework};
 
 // ============================================================================
 // SECURITY PROVIDER TYPES
@@ -16,19 +16,19 @@ use super::types::{TrustLevel, ComplianceFramework};
 pub struct SecurityProvider {
     /// Provider identifier
     pub provider_id: String,
-    
+
     /// Provider metadata
     pub metadata: SecurityProviderMetadata,
-    
+
     /// Available capabilities
     pub capabilities: Vec<PrimalCapability>,
-    
+
     /// Current health and performance
     pub health: SecurityProviderHealth,
-    
+
     /// AI-generated routing score
     pub routing_score: f64,
-    
+
     /// Trust level
     pub trust_level: TrustLevel,
 }
@@ -38,19 +38,19 @@ pub struct SecurityProvider {
 pub struct SecurityProviderMetadata {
     /// Provider name
     pub name: String,
-    
+
     /// Provider version
     pub version: String,
-    
+
     /// Supported standards
     pub standards: Vec<String>,
-    
+
     /// Certifications
     pub certifications: Vec<String>,
-    
+
     /// Geographic regions
     pub regions: Vec<String>,
-    
+
     /// Compliance attestations
     pub compliance: Vec<ComplianceFramework>,
 }
@@ -60,19 +60,19 @@ pub struct SecurityProviderMetadata {
 pub struct SecurityProviderHealth {
     /// Overall health score (0.0 - 1.0)
     pub health_score: f64,
-    
+
     /// Response time (ms)
     pub response_time_ms: f64,
-    
+
     /// Availability percentage
     pub availability_percent: f64,
-    
+
     /// Security incident count (last 24h)
     pub incident_count: u32,
-    
+
     /// Last security assessment
     pub last_assessment: DateTime<Utc>,
-    
+
     /// Last health check
     pub last_check: DateTime<Utc>,
 }
@@ -103,4 +103,4 @@ impl SecurityProvider {
             trust_level: TrustLevel::High,
         }
     }
-} 
+}

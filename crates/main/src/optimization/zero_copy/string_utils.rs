@@ -23,11 +23,11 @@ use std::sync::Arc;
 /// use squirrel::optimization::zero_copy::string_utils::StaticStrings;
 ///
 /// let strings = StaticStrings::new();
-/// 
+///
 /// // Efficient access to cached strings
 /// let provider = strings.get("openai").unwrap();
 /// let status = strings.get("running").unwrap();
-/// 
+///
 /// // Create new cached string
 /// let mut strings = StaticStrings::new();
 /// let custom = strings.get_or_create("custom_value");
@@ -109,7 +109,7 @@ impl StaticStrings {
     ///
     /// ```rust
     /// let strings = StaticStrings::new();
-    /// 
+    ///
     /// if let Some(cached) = strings.get("openai") {
     ///     println!("Found cached string: {}", cached);
     /// }
@@ -197,11 +197,11 @@ impl StringConcat {
     pub fn concat(parts: &[&str]) -> String {
         let total_len: usize = parts.iter().map(|s| s.len()).sum();
         let mut result = String::with_capacity(total_len);
-        
+
         for part in parts {
             result.push_str(part);
         }
-        
+
         result
     }
 
@@ -222,24 +222,24 @@ impl StringConcat {
         if parts.is_empty() {
             return String::new();
         }
-        
+
         if parts.len() == 1 {
             return parts[0].to_string();
         }
-        
+
         let content_len: usize = parts.iter().map(|s| s.len()).sum();
         let separator_len = separator.len() * (parts.len() - 1);
         let total_len = content_len + separator_len;
-        
+
         let mut result = String::with_capacity(total_len);
-        
+
         for (i, part) in parts.iter().enumerate() {
             if i > 0 {
                 result.push_str(separator);
             }
             result.push_str(part);
         }
-        
+
         result
     }
 }
@@ -271,4 +271,4 @@ impl CowString {
             Cow::Owned(s) => s,
         }
     }
-} 
+}

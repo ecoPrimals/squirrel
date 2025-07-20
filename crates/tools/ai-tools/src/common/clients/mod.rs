@@ -73,8 +73,7 @@ impl ClientFactory {
             #[cfg(test)]
             "mock" => Ok(Self::create_mock_client()),
             _ => Err(crate::error::AIError::Configuration(format!(
-                "Unknown provider: {}",
-                provider
+                "Unknown provider: {provider}"
             ))),
         }
     }

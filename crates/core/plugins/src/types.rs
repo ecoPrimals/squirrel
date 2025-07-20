@@ -3,6 +3,7 @@
 //! This module defines the various plugin types supported by the system.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::plugin::Plugin;
@@ -20,6 +21,48 @@ pub const PLUGIN_TYPE_TOOL: &str = "tool";
 /// CLI plugin type for command-line interface extensions
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
+/// Plugin configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginConfig {
+    /// Configuration settings
+    pub settings: HashMap<String, serde_json::Value>,
+    /// Plugin-specific environment variables
+    pub environment: HashMap<String, String>,
+    /// Resource limits
+    pub limits: ResourceLimits,
+}
+
+/// Resource limits for plugins
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceLimits {
+    /// Maximum memory usage in bytes
+    pub max_memory_bytes: Option<u64>,
+    /// Maximum CPU usage percentage
+    pub max_cpu_percent: Option<f64>,
+    /// Maximum execution time in seconds
+    pub max_execution_time_secs: Option<u64>,
+}
+
+impl Default for PluginConfig {
+    fn default() -> Self {
+        Self {
+            settings: HashMap::new(),
+            environment: HashMap::new(),
+            limits: ResourceLimits::default(),
+        }
+    }
+}
+
+impl Default for ResourceLimits {
+    fn default() -> Self {
+        Self {
+            max_memory_bytes: Some(100 * 1024 * 1024), // 100MB default
+            max_cpu_percent: Some(50.0),               // 50% CPU default
+            max_execution_time_secs: Some(300),        // 5 minutes default
+        }
+    }
+}
+
 /// Plugin status enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginStatus {
@@ -33,10 +76,10 @@ pub enum PluginStatus {
     Initialized,
     /// Plugin is running
     Running,
-    /// Plugin failed to start - using simple enum variant
+    /// Plugin is stopped
+    Stopped,
+    /// Plugin failed to start
     Failed,
-    /// Plugin encountered an error
-    Error(String),
     /// Plugin is stopping
     Stopping,
     /// Plugin is unloaded

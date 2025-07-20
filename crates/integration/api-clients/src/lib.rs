@@ -9,6 +9,7 @@
 //! - OpenAI API client for GPT models
 //! - Unified interface for AI model interactions
 //! - Error handling and retries
+//! - Configurable timeouts and connection settings
 
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_doc_code_examples)]
@@ -18,6 +19,7 @@ use std::result;
 use thiserror::Error;
 
 pub mod auth;
+pub mod config;
 mod error;
 pub mod github;
 pub mod http;
@@ -38,7 +40,7 @@ impl Default for Pagination {
     fn default() -> Self {
         Self {
             page: 1,
-            per_page: 30,
+            per_page: config::DEFAULT_PER_PAGE,
         }
     }
 }
@@ -111,4 +113,5 @@ mod openai;
 
 pub use anthropic::AnthropicClient;
 pub use client::AIClient;
+pub use config::{AnthropicConfig, ApiClientConfig, OpenAIConfig};
 pub use openai::OpenAIClient;

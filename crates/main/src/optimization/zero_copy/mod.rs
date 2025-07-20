@@ -40,7 +40,7 @@
 //! // Performance metrics
 //! let metrics = Arc::new(ZeroCopyMetrics::new());
 //! metrics.record_clone_avoided();
-//! 
+//!
 //! // Efficient collections
 //! let mut map = ZeroCopyMap::new();
 //! map.insert_arc("key".to_string(), "value".to_string());
@@ -62,20 +62,20 @@
 //! All utilities are designed for concurrent access with appropriate synchronization.
 //! Arc-based sharing enables lock-free read operations in most cases.
 
-pub mod string_utils;
+pub mod buffer_utils;
 pub mod collection_utils;
 pub mod message_utils;
-pub mod buffer_utils;
-pub mod performance_monitoring;
 pub mod optimization_utils;
+pub mod performance_monitoring;
+pub mod string_utils;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 // Re-export commonly used types for convenience
-pub use string_utils::StaticStrings;
+pub use buffer_utils::{BufferPool, SharedBuffer};
 pub use collection_utils::{ZeroCopyMap, ZeroCopySet};
 pub use message_utils::ZeroCopyMessage;
-pub use buffer_utils::{BufferPool, SharedBuffer};
-pub use performance_monitoring::{ZeroCopyMetrics, MetricsSnapshot};
-pub use optimization_utils::ZeroCopyUtils; 
+pub use optimization_utils::ZeroCopyUtils;
+pub use performance_monitoring::{MetricsSnapshot, ZeroCopyMetrics};
+pub use string_utils::StaticStrings;

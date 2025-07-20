@@ -3,7 +3,6 @@
 //! Provides a client for the Machine Context Protocol, enabling
 //! communication with MCP servers.
 
-use log::{debug, error, info, warn};
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -11,6 +10,7 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::mcp::protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};

@@ -34,8 +34,7 @@ pub mod optimized_implementations;
 
 // Re-export optimized implementations
 pub use optimized_implementations::{
-    OptimizedContextState, OptimizedServiceRegistration,
-    SessionContext, ContextData,
+    ContextData, OptimizedContextState, OptimizedServiceRegistration, SessionContext,
 };
 
 pub use agent_deployment::*;
@@ -203,28 +202,35 @@ impl SquirrelBiomeOSIntegration {
             api_version: API_VERSION.to_string(),
             registration_time: Utc::now(),
 
-            endpoints: EcosystemEndpoints {
-                ai_api: _endpoints
-                    .get("ai_api")
-                    .cloned()
-                    .unwrap_or("http://localhost:8080/ai".to_string()),
-                mcp_api: _endpoints
-                    .get("mcp_api")
-                    .cloned()
-                    .unwrap_or("http://localhost:8080/mcp".to_string()),
-                context_api: _endpoints
-                    .get("context_api")
-                    .cloned()
-                    .unwrap_or("http://localhost:8080/context".to_string()),
-                health: _endpoints
-                    .get("health")
-                    .cloned()
-                    .unwrap_or("http://localhost:8080/health".to_string()),
-                metrics: _endpoints
-                    .get("metrics")
-                    .cloned()
-                    .unwrap_or("http://localhost:8080/metrics".to_string()),
-                websocket: _endpoints.get("websocket").cloned(),
+            endpoints: {
+                use squirrel_mcp_config::core::{DevelopmentConfig, NetworkEndpointConfig};
+                let network_config = NetworkEndpointConfig::default();
+                let dev_config = DevelopmentConfig::default();
+                let base_url = network_config.get_http_url(&dev_config);
+
+                EcosystemEndpoints {
+                    ai_api: _endpoints
+                        .get("ai_api")
+                        .cloned()
+                        .unwrap_or_else(|| format!("{}/ai", base_url)),
+                    mcp_api: _endpoints
+                        .get("mcp_api")
+                        .cloned()
+                        .unwrap_or_else(|| format!("{}/mcp", base_url)),
+                    context_api: _endpoints
+                        .get("context_api")
+                        .cloned()
+                        .unwrap_or_else(|| format!("{}/context", base_url)),
+                    health: _endpoints
+                        .get("health")
+                        .cloned()
+                        .unwrap_or_else(|| format!("{}/health", base_url)),
+                    metrics: _endpoints
+                        .get("metrics")
+                        .cloned()
+                        .unwrap_or_else(|| format!("{}/metrics", base_url)),
+                    websocket: _endpoints.get("websocket").cloned(),
+                }
             },
 
             capabilities: EcosystemCapabilities {

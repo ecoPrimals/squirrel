@@ -9,10 +9,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 
-use super::{
-    engine::RLState,
-    PolicyNetworkConfig,
-};
+use super::{engine::RLState, PolicyNetworkConfig};
 use crate::error::Result;
 
 /// Policy network for action selection
@@ -458,7 +455,10 @@ impl PolicyNetwork {
         // Actually use network_data for comprehensive persistence
         match self.persist_network_state(path, &network_data).await {
             Ok(()) => {
-                debug!("Successfully saved network weights and metadata to {}", path);
+                debug!(
+                    "Successfully saved network weights and metadata to {}",
+                    path
+                );
                 // Update training state to track last save
                 let mut training_state = self.training_state.write().await;
                 training_state.last_update = Utc::now();
@@ -471,44 +471,56 @@ impl PolicyNetwork {
 
         // Also save a backup with timestamp for versioning
         let backup_path = format!("{}.backup.{}", path, Utc::now().timestamp());
-        let _ = self.persist_network_state(&backup_path, &network_data).await;
-        
+        let _ = self
+            .persist_network_state(&backup_path, &network_data)
+            .await;
+
         Ok(())
     }
-    
+
     /// Persist network state to file system
-    async fn persist_network_state(&self, path: &str, network_data: &serde_json::Value) -> Result<()> {
+    async fn persist_network_state(
+        &self,
+        path: &str,
+        network_data: &serde_json::Value,
+    ) -> Result<()> {
         // Create directory if it doesn't exist
         if let Some(parent) = std::path::Path::new(path).parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                crate::error::ContextError::Io(format!("Failed to create directory {}: {}", parent.display(), e))
+                crate::error::ContextError::Io(format!(
+                    "Failed to create directory {}: {}",
+                    parent.display(),
+                    e
+                ))
             })?;
         }
-        
+
         // Write network data to file
         let serialized = serde_json::to_string_pretty(network_data).map_err(|e| {
-            crate::error::ContextError::Serialization(format!("Failed to serialize network data: {}", e))
+            crate::error::ContextError::Serialization(format!(
+                "Failed to serialize network data: {e}"
+            ))
         })?;
-        
+
         std::fs::write(path, serialized).map_err(|e| {
-            crate::error::ContextError::Io(format!("Failed to write network data to {}: {}", path, e))
+            crate::error::ContextError::Io(format!("Failed to write network data to {path}: {e}"))
         })?;
-        
+
         Ok(())
     }
-    
+
     /// Get training iterations for metadata
     fn get_training_iterations(&self) -> u64 {
         // Use actual training state if available
         100 // In a real implementation, would access self.training_state
     }
-    
+
     /// Get last loss for metadata  
     fn get_last_loss(&self) -> f64 {
         // Use actual training metrics if available
         0.05 // In a real implementation, would access self.metrics
     }
-    
+
     /// Get performance metrics for metadata
     fn get_performance_metrics(&self) -> serde_json::Value {
         // In a real implementation, would query self.metrics

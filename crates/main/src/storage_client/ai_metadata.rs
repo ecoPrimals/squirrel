@@ -12,13 +12,13 @@ use uuid::Uuid;
 pub struct AIStorageMetadata {
     /// Confidence in storage provider selection
     pub provider_confidence: f64,
-    
+
     /// Predicted access patterns
     pub access_patterns: Vec<AccessPattern>,
-    
+
     /// Cost optimization suggestions
     pub cost_optimizations: Vec<String>,
-    
+
     /// Performance predictions
     pub performance_predictions: PerformancePrediction,
 }
@@ -28,10 +28,10 @@ pub struct AIStorageMetadata {
 pub struct AccessPattern {
     /// Pattern type
     pub pattern_type: String,
-    
+
     /// Confidence in prediction
     pub confidence: f64,
-    
+
     /// Suggested optimizations
     pub optimizations: Vec<String>,
 }
@@ -41,10 +41,10 @@ pub struct AccessPattern {
 pub struct PerformancePrediction {
     /// Expected latency (ms)
     pub expected_latency_ms: f64,
-    
+
     /// Expected throughput (MB/s)  
     pub expected_throughput_mbps: f64,
-    
+
     /// Confidence in predictions
     pub confidence: f64,
 }
@@ -62,4 +62,4 @@ impl Default for AIStorageMetadata {
             },
         }
     }
-} 
+}

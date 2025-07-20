@@ -329,7 +329,7 @@ impl ServiceDiscovery for InMemoryServiceDiscovery {
 mod tests {
     use super::super::types::ServiceEndpoint;
     use super::*;
-    use crate::error::CoreError;
+
     use std::time::Duration;
 
     #[tokio::test]

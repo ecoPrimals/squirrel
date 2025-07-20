@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 
-use crate::error::PrimalError;
 use super::core::SquirrelPrimalProvider;
+use crate::error::PrimalError;
 
 /// AI Inference Request structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl AIProviderSelection {
                 return Ok("ollama".to_string());
             }
         }
-        
+
         // Default provider selection based on task type
         match request.task_type.as_str() {
             "text_generation" | "chat" => {
@@ -61,7 +61,9 @@ impl SquirrelPrimalProvider {
         let provider = self.select_ai_provider(&inference_request)?;
 
         // Execute the request
-        let response = self.execute_ai_request(&provider, inference_request).await?;
+        let response = self
+            .execute_ai_request(&provider, inference_request)
+            .await?;
 
         Ok(response)
     }
@@ -70,15 +72,24 @@ impl SquirrelPrimalProvider {
     fn select_ai_provider(&self, request: &AIInferenceRequest) -> Result<String, PrimalError> {
         // Record zero-copy optimization
         self.zero_copy_metrics.record_operation();
-        
+
         // Use static strings to avoid allocations for common providers
-        let openai_str = self.static_strings.get("openai").map(|arc| (*arc).to_string())
+        let openai_str = self
+            .static_strings
+            .get("openai")
+            .map(|arc| (*arc).to_string())
             .unwrap_or_else(|| "openai".to_string());
-        let anthropic_str = self.static_strings.get("anthropic").map(|arc| (*arc).to_string())
+        let anthropic_str = self
+            .static_strings
+            .get("anthropic")
+            .map(|arc| (*arc).to_string())
             .unwrap_or_else(|| "anthropic".to_string());
-        let ollama_str = self.static_strings.get("local").map(|arc| (*arc).to_string())
+        let ollama_str = self
+            .static_strings
+            .get("local")
+            .map(|arc| (*arc).to_string())
             .unwrap_or_else(|| "ollama".to_string());
-        
+
         // Determine provider based on task type and model preferences
         if let Some(model) = &request.model {
             if model.starts_with("gpt-") || model.contains("openai") {
@@ -92,7 +103,7 @@ impl SquirrelPrimalProvider {
                 return Ok(ollama_str);
             }
         }
-        
+
         // Default provider selection based on task type
         match request.task_type.as_str() {
             "text_generation" | "chat" => {
@@ -158,12 +169,13 @@ impl SquirrelPrimalProvider {
                 })
             }
             _ => {
-                return Err(PrimalError::NetworkError(
-                    format!("Unknown AI provider: {}", provider)
-                ));
+                return Err(PrimalError::NetworkError(format!(
+                    "Unknown AI provider: {}",
+                    provider
+                )));
             }
         };
-        
+
         Ok(response)
     }
 
@@ -182,4 +194,4 @@ impl SquirrelPrimalProvider {
         }
         "No user message found".to_string()
     }
-} 
+}

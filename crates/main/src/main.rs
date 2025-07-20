@@ -82,9 +82,9 @@ async fn main() -> Result<()> {
         user_id: std::env::var("USER_ID").unwrap_or_else(|_| "default_user".to_string()),
         device_id: std::env::var("DEVICE_ID").unwrap_or_else(|_| "default_device".to_string()),
         network_location: NetworkLocation {
-            ip_address: Some(
-                std::env::var("NETWORK_IP").unwrap_or_else(|_| "127.0.0.1".to_string()),
-            ),
+            ip_address: Some(std::env::var("NETWORK_IP").unwrap_or_else(|_| {
+                squirrel_mcp_config::core::network_defaults::DEFAULT_HOST.to_string()
+            })),
             region: Some(std::env::var("NETWORK_REGION").unwrap_or_else(|_| "local".to_string())),
             zone: Some(std::env::var("NETWORK_ZONE").unwrap_or_else(|_| "default".to_string())),
             segment: Some(
@@ -152,9 +152,16 @@ async fn main() -> Result<()> {
 
     // Setup graceful shutdown
     let shutdown_signal = async {
-        signal::ctrl_c()
-            .await
-            .expect("Failed to install CTRL+C signal handler");
+        match signal::ctrl_c().await {
+            Ok(()) => {
+                info!("Received CTRL+C signal, initiating graceful shutdown");
+            }
+            Err(e) => {
+                error!("Failed to install CTRL+C signal handler: {}", e);
+                // Fall back to other shutdown methods or timeout-based shutdown
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+        }
     };
 
     info!("Squirrel primal ecosystem started successfully");

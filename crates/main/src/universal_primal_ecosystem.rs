@@ -28,9 +28,8 @@ use crate::security::{
     SecurityContext, SecurityHealthStatus, SecurityRequest, SecurityResponse, SecuritySession,
 };
 use crate::universal::{
-    PrimalCapability, PrimalContext,
-    PrimalDependency, PrimalHealth, PrimalRequest, PrimalResponse, PrimalType,
-    UniversalResult,
+    PrimalCapability, PrimalContext, PrimalDependency, PrimalHealth, PrimalRequest, PrimalResponse,
+    PrimalType, UniversalResult,
 };
 
 /// Universal Primal Ecosystem Integration
@@ -106,7 +105,10 @@ impl UniversalPrimalEcosystem {
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .expect("Failed to create HTTP client");
+            .map_err(|e| {
+                error!("Failed to create HTTP client: {}", e);
+                e
+            })?;
 
         Self {
             songbird_endpoint,
@@ -547,16 +549,16 @@ impl UniversalPrimalEcosystem {
         // Build enhanced request with all provided parameters
         let mut request_params = serde_json::Map::new();
         request_params.insert("computation".to_string(), serde_json::json!(computation));
-        
+
         // Include all provided parameters in the request
         for (key, value) in parameters.iter() {
             request_params.insert(key.clone(), value.clone());
         }
-        
+
         // Add execution context based on parameters
         let execution_context = self.build_execution_context(&parameters);
         request_params.insert("execution_context".to_string(), execution_context);
-        
+
         // Determine resource requirements based on parameters
         let resource_requirements = self.determine_resource_requirements(&parameters);
         request_params.insert("resource_requirements".to_string(), resource_requirements);
@@ -595,44 +597,63 @@ impl UniversalPrimalEcosystem {
     }
 
     /// Build execution context based on provided parameters
-    fn build_execution_context(&self, parameters: &HashMap<String, serde_json::Value>) -> serde_json::Value {
+    fn build_execution_context(
+        &self,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> serde_json::Value {
         let mut context = serde_json::Map::new();
-        
+
         // Extract timeout from parameters or use default
-        let timeout = parameters.get("timeout")
+        let timeout = parameters
+            .get("timeout")
             .and_then(|v| v.as_u64())
             .unwrap_or(30); // 30 second default
         context.insert("timeout_seconds".to_string(), serde_json::json!(timeout));
-        
+
         // Extract priority from parameters or use default
-        let priority = parameters.get("priority")
+        let priority = parameters
+            .get("priority")
             .and_then(|v| v.as_str())
             .unwrap_or("normal");
         context.insert("priority".to_string(), serde_json::json!(priority));
-        
+
         // Extract execution environment preferences
-        let environment = parameters.get("environment")
+        let environment = parameters
+            .get("environment")
             .and_then(|v| v.as_str())
             .unwrap_or("sandbox");
         context.insert("environment".to_string(), serde_json::json!(environment));
-        
+
         // Add security context based on parameters
-        let security_level = parameters.get("security_level")
+        let security_level = parameters
+            .get("security_level")
             .and_then(|v| v.as_str())
             .unwrap_or("standard");
-        context.insert("security_level".to_string(), serde_json::json!(security_level));
-        
+        context.insert(
+            "security_level".to_string(),
+            serde_json::json!(security_level),
+        );
+
         // Add session context
-        context.insert("session_id".to_string(), serde_json::json!(self.context.session_id));
-        context.insert("user_id".to_string(), serde_json::json!(self.context.user_id));
-        
+        context.insert(
+            "session_id".to_string(),
+            serde_json::json!(self.context.session_id),
+        );
+        context.insert(
+            "user_id".to_string(),
+            serde_json::json!(self.context.user_id),
+        );
+
         serde_json::Value::Object(context)
     }
-    
+
     /// Determine resource requirements based on parameters
-    fn determine_resource_requirements(&self, parameters: &HashMap<String, serde_json::Value>) -> serde_json::Value {
+    fn determine_resource_requirements(
+        &self,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> serde_json::Value {
         let mut requirements = serde_json::Map::new();
-        
+
         // Memory requirements based on data size or explicit parameter
         let memory_mb = if let Some(memory) = parameters.get("memory_mb").and_then(|v| v.as_u64()) {
             memory
@@ -643,13 +664,14 @@ impl UniversalPrimalEcosystem {
             512 // Default 512MB
         };
         requirements.insert("memory_mb".to_string(), serde_json::json!(memory_mb));
-        
+
         // CPU requirements based on computation complexity
         let cpu_cores = if let Some(cores) = parameters.get("cpu_cores").and_then(|v| v.as_u64()) {
             cores
         } else {
             // Estimate based on complexity hints
-            let complexity = parameters.get("complexity")
+            let complexity = parameters
+                .get("complexity")
                 .and_then(|v| v.as_str())
                 .unwrap_or("medium");
             match complexity {
@@ -657,23 +679,28 @@ impl UniversalPrimalEcosystem {
                 "medium" => 2,
                 "high" => 4,
                 "intensive" => 8,
-                _ => 2
+                _ => 2,
             }
         };
         requirements.insert("cpu_cores".to_string(), serde_json::json!(cpu_cores));
-        
+
         // Storage requirements
-        let storage_mb = parameters.get("storage_mb")
+        let storage_mb = parameters
+            .get("storage_mb")
             .and_then(|v| v.as_u64())
             .unwrap_or(1024); // Default 1GB
         requirements.insert("storage_mb".to_string(), serde_json::json!(storage_mb));
-        
+
         // Network requirements
-        let network_bandwidth = parameters.get("network_bandwidth")
+        let network_bandwidth = parameters
+            .get("network_bandwidth")
             .and_then(|v| v.as_str())
             .unwrap_or("standard");
-        requirements.insert("network_bandwidth".to_string(), serde_json::json!(network_bandwidth));
-        
+        requirements.insert(
+            "network_bandwidth".to_string(),
+            serde_json::json!(network_bandwidth),
+        );
+
         serde_json::Value::Object(requirements)
     }
 }

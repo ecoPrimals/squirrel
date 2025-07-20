@@ -109,8 +109,12 @@ impl ApiServer {
         metrics_collector: Arc<MetricsCollector>,
         shutdown_manager: Arc<ShutdownManager>,
     ) -> Self {
-        let host =
-            std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| "localhost".to_string());
+        let host = std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| {
+            use squirrel_mcp_config::core::{DevelopmentConfig, NetworkEndpointConfig};
+            let network_config = NetworkEndpointConfig::default();
+            let dev_config = DevelopmentConfig::default();
+            network_config.get_effective_host(&dev_config)
+        });
 
         Self {
             port,

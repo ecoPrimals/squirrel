@@ -146,7 +146,7 @@ pub enum SessionState {
 /// };
 ///
 /// let mut data = HashMap::new();
-/// data.insert("user_preferences".to_string(), 
+/// data.insert("user_preferences".to_string(),
 ///             serde_json::json!({"theme": "dark", "language": "en"}));
 ///
 /// let session = Arc::new(Session {
@@ -164,7 +164,7 @@ pub enum SessionState {
 /// ```rust
 /// use std::collections::HashMap;
 /// use std::sync::Arc;
-/// 
+///
 /// // Efficient: Arc<Session> sharing
 /// let sessions: HashMap<String, Arc<Session>> = HashMap::new();
 /// // Inefficient: Direct Session cloning
@@ -228,7 +228,7 @@ impl SessionManagerImpl {
 
     pub async fn get_session(&self, session_id: &str) -> Result<Option<Arc<Session>>, PrimalError> {
         let sessions = self.sessions.read().await;
-        Ok(sessions.get(session_id).cloned())  // Now cloning Arc instead of Session - much cheaper!
+        Ok(sessions.get(session_id).cloned()) // Now cloning Arc instead of Session - much cheaper!
     }
 
     pub async fn update_session(
@@ -242,16 +242,16 @@ impl SessionManagerImpl {
             let session = session_arc.as_ref();
             let mut updated_metadata = session.metadata.clone();
             updated_metadata.last_activity = Utc::now();
-            
+
             let mut updated_data = session.data.clone();
             updated_data.extend(data);
-            
+
             let updated_session = Arc::new(Session {
                 metadata: updated_metadata,
                 data: updated_data,
                 state: session.state.clone(),
             });
-            
+
             // Replace the session in the map
             sessions.insert(session_id.to_string(), updated_session);
         }
@@ -268,7 +268,7 @@ impl SessionManagerImpl {
                 data: session.data.clone(),
                 state: SessionState::Terminated,
             });
-            
+
             // Replace the session in the map
             sessions.insert(session_id.to_string(), terminated_session);
         }

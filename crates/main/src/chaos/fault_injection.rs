@@ -3,12 +3,15 @@
 //! Provides systematic fault injection capabilities for chaos engineering experiments.
 //! Supports network failures, resource exhaustion, service unavailability, and more.
 
-use super::{FaultType, NetworkErrorType, ResourceType, ChaosError};
+use super::{ChaosError, FaultType, NetworkErrorType, ResourceType};
 use std::collections::HashMap;
-use std::sync::{Arc, atomic::{AtomicBool, AtomicU64, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, Mutex};
-use tokio::time::{sleep, interval};
+use tokio::sync::{Mutex, RwLock};
+use tokio::time::{interval, sleep};
 use uuid::Uuid;
 
 /// Fault injection orchestrator
@@ -142,7 +145,7 @@ pub struct ServiceFaultInstance {
 }
 
 /// Memory pressure controller
-#[derive(Debug)]  
+#[derive(Debug)]
 pub struct MemoryPressureController {
     /// Active memory pressure instances
     active_faults: Arc<RwLock<HashMap<String, MemoryPressureInstance>>>,
@@ -217,59 +220,95 @@ impl FaultInjector {
         let cancel_token = Arc::new(AtomicBool::new(false));
 
         let controller_handle = match &fault_type {
-            FaultType::NetworkFailure { rate, latency_ms, error_type } => {
-                self.network_faults.inject_network_fault(
-                    &handle,
-                    error_type.clone(),
-                    *rate,
-                    *latency_ms,
-                    cancel_token.clone(),
-                ).await?
+            FaultType::NetworkFailure {
+                rate,
+                latency_ms,
+                error_type,
+            } => {
+                self.network_faults
+                    .inject_network_fault(
+                        &handle,
+                        error_type.clone(),
+                        *rate,
+                        *latency_ms,
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
-            FaultType::ResourceExhaustion { resource, level, duration } => {
-                self.resource_faults.inject_resource_fault(
-                    &handle,
-                    resource.clone(),
-                    *level,
-                    *duration,
-                    cancel_token.clone(),
-                ).await?
+            FaultType::ResourceExhaustion {
+                resource,
+                level,
+                duration,
+            } => {
+                self.resource_faults
+                    .inject_resource_fault(
+                        &handle,
+                        resource.clone(),
+                        *level,
+                        *duration,
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
-            FaultType::ServiceUnavailable { service_name, duration, error_response } => {
-                self.service_faults.inject_service_fault(
-                    &handle,
-                    service_name.clone(),
-                    *duration,
-                    error_response.clone(),
-                    cancel_token.clone(),
-                ).await?
+            FaultType::ServiceUnavailable {
+                service_name,
+                duration,
+                error_response,
+            } => {
+                self.service_faults
+                    .inject_service_fault(
+                        &handle,
+                        service_name.clone(),
+                        *duration,
+                        error_response.clone(),
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
-            FaultType::MemoryPressure { allocation_mb, duration, gradual } => {
-                self.memory_faults.inject_memory_pressure(
-                    &handle,
-                    *allocation_mb,
-                    *duration,
-                    *gradual,
-                    cancel_token.clone(),
-                ).await?
+            FaultType::MemoryPressure {
+                allocation_mb,
+                duration,
+                gradual,
+            } => {
+                self.memory_faults
+                    .inject_memory_pressure(
+                        &handle,
+                        *allocation_mb,
+                        *duration,
+                        *gradual,
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
-            FaultType::CpuStarvation { cpu_percentage, duration, threads } => {
-                self.cpu_faults.inject_cpu_starvation(
-                    &handle,
-                    *cpu_percentage,
-                    *duration,
-                    *threads,
-                    cancel_token.clone(),
-                ).await?
+            FaultType::CpuStarvation {
+                cpu_percentage,
+                duration,
+                threads,
+            } => {
+                self.cpu_faults
+                    .inject_cpu_starvation(
+                        &handle,
+                        *cpu_percentage,
+                        *duration,
+                        *threads,
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
-            FaultType::DiskIoFailure { failure_rate, latency_ms, target_paths } => {
-                self.disk_faults.inject_disk_io_fault(
-                    &handle,
-                    *failure_rate,
-                    *latency_ms,
-                    target_paths.clone(),
-                    cancel_token.clone(),
-                ).await?
+            FaultType::DiskIoFailure {
+                failure_rate,
+                latency_ms,
+                target_paths,
+            } => {
+                self.disk_faults
+                    .inject_disk_io_fault(
+                        &handle,
+                        *failure_rate,
+                        *latency_ms,
+                        target_paths.clone(),
+                        cancel_token.clone(),
+                    )
+                    .await?
             }
         };
 
@@ -303,30 +342,43 @@ impl FaultInjector {
             // Stop specific controller
             match fault.fault_type {
                 FaultType::NetworkFailure { .. } => {
-                    self.network_faults.stop_network_fault(&fault.controller_handle).await?;
+                    self.network_faults
+                        .stop_network_fault(&fault.controller_handle)
+                        .await?;
                 }
                 FaultType::ResourceExhaustion { .. } => {
-                    self.resource_faults.stop_resource_fault(&fault.controller_handle).await?;
+                    self.resource_faults
+                        .stop_resource_fault(&fault.controller_handle)
+                        .await?;
                 }
                 FaultType::ServiceUnavailable { .. } => {
-                    self.service_faults.stop_service_fault(&fault.controller_handle).await?;
+                    self.service_faults
+                        .stop_service_fault(&fault.controller_handle)
+                        .await?;
                 }
                 FaultType::MemoryPressure { .. } => {
-                    self.memory_faults.stop_memory_pressure(&fault.controller_handle).await?;
+                    self.memory_faults
+                        .stop_memory_pressure(&fault.controller_handle)
+                        .await?;
                 }
                 FaultType::CpuStarvation { .. } => {
-                    self.cpu_faults.stop_cpu_starvation(&fault.controller_handle).await?;
+                    self.cpu_faults
+                        .stop_cpu_starvation(&fault.controller_handle)
+                        .await?;
                 }
                 FaultType::DiskIoFailure { .. } => {
-                    self.disk_faults.stop_disk_io_fault(&fault.controller_handle).await?;
+                    self.disk_faults
+                        .stop_disk_io_fault(&fault.controller_handle)
+                        .await?;
                 }
             }
 
             Ok(())
         } else {
-            Err(ChaosError::FaultInjectionError(
-                format!("Fault handle not found: {}", handle)
-            ))
+            Err(ChaosError::FaultInjectionError(format!(
+                "Fault handle not found: {}",
+                handle
+            )))
         }
     }
 
@@ -337,10 +389,14 @@ impl FaultInjector {
 
         for (handle, fault) in faults.iter() {
             let duration = fault.start_time.elapsed();
-            
+
             let fault_stats = match &fault.fault_type {
                 FaultType::NetworkFailure { rate, .. } => {
-                    if let Ok(network_stats) = self.network_faults.get_statistics(&fault.controller_handle).await {
+                    if let Ok(network_stats) = self
+                        .network_faults
+                        .get_statistics(&fault.controller_handle)
+                        .await
+                    {
                         FaultStatistics {
                             fault_type: "network_failure".to_string(),
                             duration,
@@ -354,13 +410,18 @@ impl FaultInjector {
                     }
                 }
                 FaultType::MemoryPressure { allocation_mb, .. } => {
-                    if let Ok(memory_stats) = self.memory_faults.get_statistics(&fault.controller_handle).await {
+                    if let Ok(memory_stats) = self
+                        .memory_faults
+                        .get_statistics(&fault.controller_handle)
+                        .await
+                    {
                         FaultStatistics {
                             fault_type: "memory_pressure".to_string(),
                             duration,
                             operations_processed: 1,
                             operations_affected: 1,
-                            effectiveness_rate: memory_stats.current_allocation as f64 / *allocation_mb as f64,
+                            effectiveness_rate: memory_stats.current_allocation as f64
+                                / *allocation_mb as f64,
                             additional_metrics: memory_stats.additional_metrics,
                         }
                     } else {
@@ -452,7 +513,9 @@ impl NetworkFaultController {
         let interceptor = self.interceptor.clone();
         let handle_clone = handle.to_string();
         tokio::spawn(async move {
-            interceptor.start_interception(handle_clone, cancel_token).await;
+            interceptor
+                .start_interception(handle_clone, cancel_token)
+                .await;
         });
 
         Ok(handle.to_string())
@@ -464,9 +527,10 @@ impl NetworkFaultController {
             fault.cancel_token.store(true, Ordering::SeqCst);
             Ok(())
         } else {
-            Err(ChaosError::FaultInjectionError(
-                format!("Network fault not found: {}", handle)
-            ))
+            Err(ChaosError::FaultInjectionError(format!(
+                "Network fault not found: {}",
+                handle
+            )))
         }
     }
 
@@ -479,9 +543,10 @@ impl NetworkFaultController {
                 additional_metrics: HashMap::new(),
             })
         } else {
-            Err(ChaosError::FaultInjectionError(
-                format!("Network fault not found: {}", handle)
-            ))
+            Err(ChaosError::FaultInjectionError(format!(
+                "Network fault not found: {}",
+                handle
+            )))
         }
     }
 }
@@ -511,19 +576,19 @@ impl NetworkRequestInterceptor {
     /// Intercept and potentially fail a network request
     pub async fn intercept_request(&self, _url: &str) -> Result<(), NetworkFaultError> {
         let intercepts = self.intercepts.read().await;
-        
+
         for fault in intercepts.values() {
             fault.requests_processed.fetch_add(1, Ordering::SeqCst);
-            
+
             // Check if we should inject a failure
             if rand::random::<f64>() < fault.failure_rate {
                 fault.requests_failed.fetch_add(1, Ordering::SeqCst);
-                
+
                 // Inject latency if configured
                 if let Some(latency) = fault.latency_ms {
                     sleep(Duration::from_millis(latency)).await;
                 }
-                
+
                 // Return appropriate error type
                 return Err(match fault.error_type {
                     NetworkErrorType::Timeout => NetworkFaultError::Timeout,
@@ -630,18 +695,18 @@ impl MemoryPressureController {
         let mut total_allocated = 0u64;
         while total_allocated < allocation_mb && !cancel_token.load(Ordering::SeqCst) {
             let to_allocate = std::cmp::min(chunk_size_mb, allocation_mb - total_allocated);
-            
+
             // Allocate memory chunk (1MB = 1,048,576 bytes)
             let chunk = vec![0u8; (to_allocate * 1024 * 1024) as usize];
-            
+
             {
                 let mut memory = allocated_memory.lock().await;
                 memory.push(chunk);
             }
-            
+
             total_allocated += to_allocate;
             current_allocation.store(total_allocated, Ordering::SeqCst);
-            
+
             if gradual && allocation_interval > Duration::from_secs(0) {
                 sleep(allocation_interval).await;
             }
@@ -670,23 +735,27 @@ impl MemoryPressureController {
         let mut faults = self.active_faults.write().await;
         if let Some(fault) = faults.remove(handle) {
             fault.cancel_token.store(true, Ordering::SeqCst);
-            
+
             // Clean up allocated memory immediately
             {
                 let mut memory = fault.allocated_memory.lock().await;
                 memory.clear();
             }
             fault.current_allocation_mb.store(0, Ordering::SeqCst);
-            
+
             Ok(())
         } else {
-            Err(ChaosError::FaultInjectionError(
-                format!("Memory pressure fault not found: {}", handle)
-            ))
+            Err(ChaosError::FaultInjectionError(format!(
+                "Memory pressure fault not found: {}",
+                handle
+            )))
         }
     }
 
-    pub async fn get_statistics(&self, handle: &str) -> Result<MemoryPressureStatistics, ChaosError> {
+    pub async fn get_statistics(
+        &self,
+        handle: &str,
+    ) -> Result<MemoryPressureStatistics, ChaosError> {
         let faults = self.active_faults.read().await;
         if let Some(fault) = faults.get(handle) {
             Ok(MemoryPressureStatistics {
@@ -695,9 +764,10 @@ impl MemoryPressureController {
                 additional_metrics: HashMap::new(),
             })
         } else {
-            Err(ChaosError::FaultInjectionError(
-                format!("Memory pressure fault not found: {}", handle)
-            ))
+            Err(ChaosError::FaultInjectionError(format!(
+                "Memory pressure fault not found: {}",
+                handle
+            )))
         }
     }
 }
@@ -804,4 +874,4 @@ impl DiskIoFaultController {
     pub async fn stop_disk_io_fault(&self, _handle: &str) -> Result<(), ChaosError> {
         Ok(())
     }
-} 
+}

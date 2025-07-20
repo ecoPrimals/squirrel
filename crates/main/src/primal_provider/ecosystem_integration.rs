@@ -3,20 +3,26 @@
 use chrono::Utc;
 use tracing::info;
 
+use super::core::SquirrelPrimalProvider;
 use crate::ecosystem::EcosystemServiceRegistration;
 use crate::error::PrimalError;
 use crate::universal::*;
-use super::core::SquirrelPrimalProvider;
 
 /// Ecosystem Integration functionality
 pub struct EcosystemIntegration;
 
 impl EcosystemIntegration {
     /// Create service registration for Songbird
-    pub fn create_service_registration(provider: &SquirrelPrimalProvider) -> EcosystemServiceRegistration {
+    pub fn create_service_registration(
+        provider: &SquirrelPrimalProvider,
+    ) -> EcosystemServiceRegistration {
         let endpoints = provider.endpoints();
         EcosystemServiceRegistration {
-            service_id: format!("{}-{}", provider.primal_type().to_string(), provider.instance_id),
+            service_id: format!(
+                "{}-{}",
+                provider.primal_type().to_string(),
+                provider.instance_id
+            ),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),
@@ -47,7 +53,10 @@ impl EcosystemIntegration {
                 websocket: Some("ws://0.0.0.0:8080/ws".to_string()),
             },
             capabilities: crate::ecosystem::ServiceCapabilities {
-                core: vec!["ai_coordination".to_string(), "context_analysis".to_string()],
+                core: vec![
+                    "ai_coordination".to_string(),
+                    "context_analysis".to_string(),
+                ],
                 extended: vec!["session_management".to_string()],
                 integrations: vec!["mcp".to_string()],
             },
@@ -97,8 +106,9 @@ impl SquirrelPrimalProvider {
             info!("Deregistering from Songbird: {}", service_id);
 
             // Construct deregistration request using the endpoint
-            let deregistration_url = format!("{}/api/v1/services/{}/deregister", endpoint, service_id);
-            
+            let deregistration_url =
+                format!("{}/api/v1/services/{}/deregister", endpoint, service_id);
+
             // Create HTTP client for the deregistration call
             match reqwest::Client::new()
                 .delete(&deregistration_url)
@@ -115,11 +125,14 @@ impl SquirrelPrimalProvider {
             {
                 Ok(response) => {
                     if response.status().is_success() {
-                        info!("Successfully deregistered from Songbird endpoint: {}", endpoint);
+                        info!(
+                            "Successfully deregistered from Songbird endpoint: {}",
+                            endpoint
+                        );
                     } else {
                         warn!(
-                            "Failed to deregister from Songbird endpoint: {} (status: {})", 
-                            endpoint, 
+                            "Failed to deregister from Songbird endpoint: {} (status: {})",
+                            endpoint,
                             response.status()
                         );
                     }
@@ -128,7 +141,7 @@ impl SquirrelPrimalProvider {
                     warn!("Error connecting to Songbird endpoint {}: {}", endpoint, e);
                 }
             }
-            
+
             // Also notify other ecosystem components about shutdown
             let shutdown_notification_url = format!("{}/api/v1/ecosystem/shutdown", endpoint);
             let _ = reqwest::Client::new()
@@ -260,4 +273,4 @@ impl SquirrelPrimalProvider {
     pub fn create_service_registration(&self) -> EcosystemServiceRegistration {
         EcosystemIntegration::create_service_registration(self)
     }
-} 
+}

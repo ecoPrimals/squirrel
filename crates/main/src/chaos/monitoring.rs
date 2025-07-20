@@ -3,11 +3,15 @@
 //! Real-time monitoring and metrics collection during chaos engineering experiments.
 //! Provides system health tracking, performance metrics, and experiment observability.
 
-use super::{ChaosError, MonitoringConfig, MetricPoint};
+use super::{ChaosError, MetricValue};
+use crate::monitoring::MonitoringConfig;
 use std::collections::HashMap;
-use std::sync::{Arc, atomic::{AtomicBool, AtomicU64, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::{RwLock, Mutex};
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{interval, sleep};
 use uuid::Uuid;
 
@@ -32,7 +36,7 @@ pub struct MonitoringSession {
     /// Start time
     pub start_time: Instant,
     /// Collected metrics
-    pub metrics: Arc<Mutex<Vec<MetricPoint>>>,
+    pub metrics: Arc<Mutex<Vec<MetricValue>>>,
     /// Cancellation token
     pub cancel_token: Arc<AtomicBool>,
     /// Collection task handle
@@ -170,7 +174,8 @@ impl ChaosMonitor {
                 session_id_clone,
                 metrics,
                 cancel_token,
-            ).await;
+            )
+            .await;
         });
 
         let mut session = session;
@@ -186,7 +191,10 @@ impl ChaosMonitor {
     }
 
     /// Stop monitoring and return collected metrics
-    pub async fn stop_monitoring(&self, session_id: String) -> Result<Vec<MetricPoint>, ChaosError> {
+    pub async fn stop_monitoring(
+        &self,
+        session_id: String,
+    ) -> Result<Vec<MetricValue>, ChaosError> {
         let session = {
             let mut sessions = self.active_sessions.write().await;
             sessions.remove(&session_id)
@@ -205,9 +213,10 @@ impl ChaosMonitor {
             let metrics = session.metrics.lock().await;
             Ok(metrics.clone())
         } else {
-            Err(ChaosError::MonitoringError(
-                format!("Monitoring session not found: {}", session_id)
-            ))
+            Err(ChaosError::MonitoringError(format!(
+                "Monitoring session not found: {}",
+                session_id
+            )))
         }
     }
 
@@ -217,7 +226,7 @@ impl ChaosMonitor {
         alert_manager: Arc<AlertManager>,
         config: MonitoringConfig,
         session_id: String,
-        metrics: Arc<Mutex<Vec<MetricPoint>>>,
+        metrics: Arc<Mutex<Vec<MetricValue>>>,
         cancel_token: Arc<AtomicBool>,
     ) {
         let mut interval = interval(config.collection_interval);
@@ -231,8 +240,7 @@ impl ChaosMonitor {
 
             for metric_name in &config.metrics {
                 if let Ok(value) = collector.collect_metric(metric_name).await {
-                    let metric_point = MetricPoint {
-                        name: metric_name.clone(),
+                    let metric_point = MetricValue {
                         value,
                         timestamp,
                         labels: HashMap::new(),
@@ -271,15 +279,19 @@ impl ChaosMonitor {
     }
 
     /// Get real-time metrics for a monitoring session
-    pub async fn get_real_time_metrics(&self, session_id: &str) -> Result<Vec<MetricPoint>, ChaosError> {
+    pub async fn get_real_time_metrics(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<MetricValue>, ChaosError> {
         let sessions = self.active_sessions.read().await;
         if let Some(session) = sessions.get(session_id) {
             let metrics = session.metrics.lock().await;
             Ok(metrics.clone())
         } else {
-            Err(ChaosError::MonitoringError(
-                format!("Monitoring session not found: {}", session_id)
-            ))
+            Err(ChaosError::MonitoringError(format!(
+                "Monitoring session not found: {}",
+                session_id
+            )))
         }
     }
 
@@ -308,12 +320,15 @@ impl SystemMetricsCollector {
             "response_time_ms" => Ok(self.network_tracker.get_avg_response_time().await),
             "request_count" => Ok(self.request_tracker.get_total_requests().await as f64),
             "error_count" => Ok(self.request_tracker.get_failed_requests().await as f64),
-            "successful_requests" => Ok(self.request_tracker.get_successful_requests().await as f64),
+            "successful_requests" => {
+                Ok(self.request_tracker.get_successful_requests().await as f64)
+            }
             "total_requests" => Ok(self.request_tracker.get_total_requests().await as f64),
             "error_rate" => Ok(self.request_tracker.get_error_rate().await),
-            _ => Err(ChaosError::MonitoringError(
-                format!("Unknown metric: {}", metric_name)
-            ))
+            _ => Err(ChaosError::MonitoringError(format!(
+                "Unknown metric: {}",
+                metric_name
+            ))),
         }
     }
 }
@@ -331,18 +346,18 @@ impl CpuUsageTracker {
         // In a real implementation, this would query actual system metrics
         let usage = rand::random::<f64>() * 100.0;
         self.current_usage.store(usage as u64, Ordering::SeqCst);
-        
+
         // Store in history
         {
             let mut history = self.usage_history.lock().await;
             history.push((SystemTime::now(), usage));
-            
+
             // Keep only last 1000 entries
             if history.len() > 1000 {
                 history.remove(0);
             }
         }
-        
+
         usage
     }
 }
@@ -360,20 +375,20 @@ impl MemoryUsageTracker {
         // In a real implementation, this would query actual system memory
         let usage_bytes = (rand::random::<f64>() * 1024.0 * 1024.0 * 1024.0) as u64; // Random GB
         let usage_percent = (usage_bytes as f64 / (8.0 * 1024.0 * 1024.0 * 1024.0)) * 100.0; // Assume 8GB total
-        
+
         self.current_usage.store(usage_bytes, Ordering::SeqCst);
-        
+
         // Store in history
         {
             let mut history = self.usage_history.lock().await;
             history.push((SystemTime::now(), usage_bytes));
-            
+
             // Keep only last 1000 entries
             if history.len() > 1000 {
                 history.remove(0);
             }
         }
-        
+
         usage_percent
     }
 }
@@ -399,13 +414,13 @@ impl NetworkMetricsTracker {
 
     pub fn record_request(&self, response_time_ms: u64) {
         self.request_count.fetch_add(1, Ordering::SeqCst);
-        
+
         tokio::spawn({
             let response_times = self.response_times.clone();
             async move {
                 let mut times = response_times.lock().await;
                 times.push((SystemTime::now(), response_time_ms));
-                
+
                 // Keep only last 1000 entries
                 if times.len() > 1000 {
                     times.remove(0);
@@ -440,7 +455,7 @@ impl RequestMetricsTracker {
     pub async fn get_error_rate(&self) -> f64 {
         let total = self.total_requests.load(Ordering::SeqCst);
         let failed = self.failed_requests.load(Ordering::SeqCst);
-        
+
         if total == 0 {
             0.0
         } else {
@@ -450,7 +465,7 @@ impl RequestMetricsTracker {
 
     pub fn record_request(&self, success: bool, response_time_ms: u64) {
         self.total_requests.fetch_add(1, Ordering::SeqCst);
-        
+
         if success {
             self.successful_requests.fetch_add(1, Ordering::SeqCst);
         } else {
@@ -462,7 +477,7 @@ impl RequestMetricsTracker {
             async move {
                 let mut times = response_times.lock().await;
                 times.push(response_time_ms);
-                
+
                 // Keep only last 1000 entries
                 if times.len() > 1000 {
                     times.remove(0);
@@ -504,5 +519,3 @@ impl AlertManager {
         active.remove(alert_id);
     }
 }
-
- 

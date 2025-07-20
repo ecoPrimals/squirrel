@@ -12,13 +12,13 @@ use std::collections::HashMap;
 pub struct AISecurityMetadata {
     /// Confidence in provider selection
     pub provider_confidence: f64,
-    
+
     /// Threat level assessments
     pub threat_assessments: Vec<ThreatAssessment>,
-    
+
     /// Security recommendations
     pub security_recommendations: Vec<String>,
-    
+
     /// Risk analysis
     pub risk_analysis: RiskAnalysis,
 }
@@ -28,13 +28,13 @@ pub struct AISecurityMetadata {
 pub struct ThreatAssessment {
     /// Threat type
     pub threat_type: String,
-    
+
     /// Threat level (0.0 - 1.0)
     pub threat_level: f64,
-    
+
     /// Confidence in assessment
     pub confidence: f64,
-    
+
     /// Mitigation recommendations
     pub mitigations: Vec<String>,
 }
@@ -44,13 +44,13 @@ pub struct ThreatAssessment {
 pub struct RiskAnalysis {
     /// Overall risk score (0.0 - 1.0)
     pub overall_risk: f64,
-    
+
     /// Risk categories
     pub risk_categories: HashMap<String, f64>,
-    
+
     /// Risk mitigation strategies
     pub mitigation_strategies: Vec<String>,
-    
+
     /// Confidence in analysis
     pub confidence: f64,
 }
@@ -69,4 +69,4 @@ impl Default for AISecurityMetadata {
             },
         }
     }
-} 
+}

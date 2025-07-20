@@ -118,12 +118,14 @@ impl EcosystemRegistryManager {
         let mut registry_state = self.registry_state.write().await;
 
         // Register the service (using Arc to avoid expensive clones)
-        registry_state
-            .registered_services
-            .insert(registration_arc.service_id.clone(), registration_arc.clone());
+        registry_state.registered_services.insert(
+            registration_arc.service_id.clone(),
+            registration_arc.clone(),
+        );
 
         // Register with Songbird (clone the Arc contents for the call)
-        self.register_with_songbird((*registration_arc).clone()).await?;
+        self.register_with_songbird((*registration_arc).clone())
+            .await?;
 
         info!("Squirrel service registered successfully");
         Ok(())

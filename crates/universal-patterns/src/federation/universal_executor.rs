@@ -232,14 +232,7 @@ impl UniversalExecutor for DefaultUniversalExecutor {
 
     fn supports_platform(&self, platform: &Platform) -> bool {
         // This would check against registered executors
-        match platform {
-            Platform::Linux(_) => true,
-            Platform::Windows(_) => true,
-            Platform::MacOS(_) => true,
-            Platform::WebAssembly => true,
-            Platform::Container(_) => true,
-            _ => false,
-        }
+        matches!(platform, Platform::Linux(_) | Platform::Windows(_) | Platform::MacOS(_) | Platform::WebAssembly | Platform::Container(_))
     }
 
     fn supported_languages(&self, platform: &Platform) -> Vec<String> {
@@ -319,7 +312,7 @@ impl UniversalExecutor for DefaultUniversalExecutor {
         active
             .get(&execution_id)
             .cloned()
-            .ok_or_else(|| FederationError::ExecutionNotFound(execution_id))
+            .ok_or(FederationError::ExecutionNotFound(execution_id))
     }
 }
 

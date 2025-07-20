@@ -30,10 +30,11 @@ futures = "0.3"
 
 # Ecosystem integrations - Service Mesh via Songbird
 ecosystem-api = { path = "../ecosystem-api" }
-songbird-registry = { path = "../../../songbird/crates/songbird-registry" }
-songbird-discovery = { path = "../../../songbird/crates/songbird-discovery" }
-songbird-core = { path = "../../../songbird/crates/songbird-core" }
-songbird-errors = { path = "../../../songbird/crates/songbird-errors" }
+# TODO: Uncomment when songbird dependencies are available
+# songbird-registry = { path = "../../../songbird/crates/songbird-registry" }
+# songbird-discovery = { path = "../../../songbird/crates/songbird-discovery" }
+# songbird-core = { path = "../../../songbird/crates/songbird-core" }
+# songbird-errors = { path = "../../../songbird/crates/songbird-errors" }
 
 # Configuration management
 squirrel-mcp-config = { path = "../config" }

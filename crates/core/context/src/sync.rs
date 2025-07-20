@@ -720,7 +720,7 @@ impl SyncManager {
             let elapsed_secs = now
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map_err(|e| {
-                    ContextError::InvalidState(format!("Failed to get current timestamp: {}", e))
+                    ContextError::InvalidState(format!("Failed to get current timestamp: {e}"))
                 })?
                 .as_secs();
             if *last_retry == 0 || elapsed_secs - (*last_retry as u64) >= retry_delay.as_secs() {

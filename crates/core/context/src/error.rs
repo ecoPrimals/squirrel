@@ -41,29 +41,21 @@ pub enum ContextError {
     #[error("Invalid state: {0}")]
     InvalidState(String),
 
-    /// I/O error
+    /// Generic error
+    #[error("Context error: {0}")]
+    Other(String),
+
+    /// I/O error (filesystem operations)
     #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(String),
 
-    /// Validation error
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-
-    /// Visualization error
-    #[error("Visualization error: {0}")]
-    VisualizationError(String),
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(String),
 
     /// Invalid format error
     #[error("Invalid format: {0}")]
     InvalidFormat(String),
-
-    /// Serialization error
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
-
-    /// Other error
-    #[error("Error: {0}")]
-    Other(String),
 }
 
 /// Result type for context operations

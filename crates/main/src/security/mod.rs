@@ -9,28 +9,98 @@ pub mod adapter;
 /// Universal Security Adapter - capability-based security provider discovery
 pub mod universal_security_adapter;
 
+/// Security traits and interfaces
+pub mod traits;
+
 /// Security configuration
 pub mod config;
 
-/// Metrics collection
+/// Security health monitoring
+pub mod health;
+
+/// Security metrics collection
 pub mod metrics;
 
+/// Security sessions
+pub mod session;
+
+/// Security types and data structures
+pub mod types;
+
 pub use adapter::*;
-pub use universal_security_adapter::*;
 pub use config::SecurityConfig;
 pub use metrics::SecurityMetrics;
+pub use traits::SecurityAdapter;
+pub use universal_security_adapter::*;
 
 // Re-export the main types and traits for convenience
-use crate::universal::{UniversalSecurityProvider, ServiceCapability};
+use crate::universal::{ServiceCapability, UniversalSecurityProvider};
+
+// Temporary mock implementations for songbird types (until dependencies are available)
+mod songbird_mocks {
+    use std::collections::HashMap;
+    use serde_json::Value;
+    
+    #[derive(Debug, Clone)]
+    pub enum ServiceCapability {
+        Authentication { methods: Vec<String> },
+        Authorization { features: Vec<String> },
+        Security { level: String, features: Vec<String> },
+        Custom { name: String, metadata: HashMap<String, Value> },
+    }
+    
+    #[derive(Debug, Clone)]
+    pub struct ServiceInfo {
+        pub id: String,
+        pub name: String,
+        pub capabilities: Vec<ServiceCapability>,
+    }
+    
+    pub mod client {
+        use crate::error::PrimalError;
+        use super::ServiceInfo;
+        
+        #[derive(Debug)]
+        pub struct DiscoveryClient;
+        
+        impl DiscoveryClient {
+            pub async fn new() -> Result<Self, PrimalError> { Ok(Self) }
+            pub async fn discover_services(&self) -> Result<Vec<ServiceInfo>, PrimalError> {
+                Ok(vec![])
+            }
+        }
+    }
+    
+    pub mod service {
+        use crate::error::PrimalError;
+        use super::ServiceInfo;
+        
+        #[derive(Debug)]
+        pub struct ServiceRegistry;
+        
+        impl ServiceRegistry {
+            pub async fn new() -> Result<Self, PrimalError> { Ok(Self) }
+            pub async fn register_service(&self, _service: &ServiceInfo) -> Result<(), PrimalError> {
+                Ok(())
+            }
+        }
+    }
+}
+
+// Use mocks until real songbird dependencies are available
+use songbird_mocks::client as songbird_discovery_client;
+use songbird_mocks::service as songbird_registry_service;
+use songbird_mocks::ServiceCapability as SongbirdCapability;
+use songbird_mocks::ServiceInfo;
 
 /// Create universal security adapter powered by Songbird service mesh
-/// 
+///
 /// This function demonstrates the correct Universal Primal Architecture pattern:
 /// - **Leverages Songbird's proven service mesh** for registry, discovery, load balancing
 /// - **Focuses Squirrel** on MCP protocol coordination and AI intelligence
 /// - **Discovers any security provider** based on capabilities (BearDog, future primals, etc.)
 /// - **Benefits from network effects** through Songbird's broader ecosystem
-/// 
+///
 /// Architecture:
 /// - 🎵 **Songbird handles**: Service registry, discovery, communications, orchestration
 /// - 🐿️ **Squirrel handles**: MCP protocol, AI coordination, context management
@@ -39,65 +109,84 @@ pub async fn create_songbird_powered_security_provider(
     songbird_registry: std::sync::Arc<songbird_registry::service::ServiceRegistry>,
     songbird_discovery: std::sync::Arc<songbird_discovery::client::DiscoveryClient>,
     config: Option<UniversalSecurityConfig>,
-) -> Result<impl UniversalSecurityProvider<Session = crate::universal::UniversalSecuritySession, Error = crate::error::PrimalError>, crate::error::PrimalError> {
+) -> Result<
+    impl UniversalSecurityProvider<
+        Session = crate::universal::UniversalSecuritySession,
+        Error = crate::error::PrimalError,
+    >,
+    crate::error::PrimalError,
+> {
     let config = config.unwrap_or_default();
-    
+
     tracing::info!("🎵 Initializing Songbird-Powered Universal Security Provider");
-    tracing::info!("🐿️ Squirrel focusing on MCP/AI coordination while leveraging Songbird network effects");
-    tracing::info!("🔍 Will discover: BearDog (if available), future primals, custom security services");
-    
-    let adapter = UniversalSecurityAdapter::new(songbird_registry, songbird_discovery, config).await?;
-    
+    tracing::info!(
+        "🐿️ Squirrel focusing on MCP/AI coordination while leveraging Songbird network effects"
+    );
+    tracing::info!(
+        "🔍 Will discover: BearDog (if available), future primals, custom security services"
+    );
+
+    let adapter =
+        UniversalSecurityAdapter::new(songbird_registry, songbird_discovery, config).await?;
+
     tracing::info!("✅ Songbird-powered security provider ready - dynamic discovery enabled");
-    
+
     Ok(adapter)
 }
 
 /// Initialize Songbird clients for security provider integration
-/// 
+///
 /// This helper function sets up the necessary Songbird infrastructure
 /// for the universal security adapter to leverage network effects.
-pub async fn initialize_songbird_integration() -> Result<(
-    std::sync::Arc<songbird_registry::service::ServiceRegistry>,
-    std::sync::Arc<songbird_discovery::client::DiscoveryClient>
-), crate::error::PrimalError> {
-    use songbird_registry::service::ServiceRegistry;
-    use songbird_discovery::client::DiscoveryClient;
-    
+pub async fn initialize_songbird_integration() -> Result<
+    (
+        std::sync::Arc<songbird_registry_service::ServiceRegistry>,
+        std::sync::Arc<songbird_discovery_client::DiscoveryClient>,
+    ),
+    crate::error::PrimalError,
+> {
+    use songbird_discovery_client::DiscoveryClient;
+    use songbird_registry_service::ServiceRegistry;
+
     tracing::info!("🎵 Initializing Songbird service mesh integration");
-    
+
     // Initialize Songbird registry client
-    let registry = ServiceRegistry::new()
-        .await
-        .map_err(|e| crate::error::PrimalError::InitializationFailed(
-            format!("Failed to initialize Songbird registry: {}", e)
-        ))?;
-        
-    // Initialize Songbird discovery client  
-    let discovery = DiscoveryClient::new()
-        .await
-        .map_err(|e| crate::error::PrimalError::InitializationFailed(
-            format!("Failed to initialize Songbird discovery: {}", e)
-        ))?;
-    
+    let registry = ServiceRegistry::new().await.map_err(|e| {
+        crate::error::PrimalError::InitializationFailed(format!(
+            "Failed to initialize Songbird registry: {}",
+            e
+        ))
+    })?;
+
+    // Initialize Songbird discovery client
+    let discovery = DiscoveryClient::new().await.map_err(|e| {
+        crate::error::PrimalError::InitializationFailed(format!(
+            "Failed to initialize Songbird discovery: {}",
+            e
+        ))
+    })?;
+
     tracing::info!("✅ Songbird service mesh clients initialized successfully");
-    
-    Ok((std::sync::Arc::new(registry), std::sync::Arc::new(discovery)))
+
+    Ok((
+        std::sync::Arc::new(registry),
+        std::sync::Arc::new(discovery),
+    ))
 }
 
 /// Register Squirrel with Songbird service mesh
-/// 
+///
 /// This registers Squirrel as an MCP/AI coordination service in Songbird's
 /// ecosystem registry, enabling other services to discover our capabilities.
 pub async fn register_squirrel_with_songbird(
-    songbird_registry: std::sync::Arc<songbird_registry::service::ServiceRegistry>,
+    songbird_registry: std::sync::Arc<songbird_registry_service::ServiceRegistry>,
 ) -> Result<(), crate::error::PrimalError> {
-    use songbird_core::service::{ServiceInfo, ServiceCapability as SongbirdCapability};
+    // ServiceCapability as SongbirdCapability and ServiceInfo are already imported at module level
     use std::collections::HashMap;
     use uuid::Uuid;
-    
+
     tracing::info!("📝 Registering Squirrel with Songbird service mesh");
-    
+
     let squirrel_service = ServiceInfo {
         id: Uuid::new_v4().to_string(),
         name: "squirrel".to_string(),
@@ -121,17 +210,32 @@ pub async fn register_squirrel_with_songbird(
             SongbirdCapability::Custom {
                 name: "mcp_protocol".to_string(),
                 metadata: HashMap::from([
-                    ("version".to_string(), serde_json::Value::String("2024".to_string())),
+                    (
+                        "version".to_string(),
+                        serde_json::Value::String("2024".to_string()),
+                    ),
                     ("ai_enhanced".to_string(), serde_json::Value::Bool(true)),
-                    ("context_management".to_string(), serde_json::Value::Bool(true)),
+                    (
+                        "context_management".to_string(),
+                        serde_json::Value::Bool(true),
+                    ),
                 ]),
             },
             SongbirdCapability::Custom {
                 name: "ai_coordination".to_string(),
                 metadata: HashMap::from([
-                    ("intelligent_routing".to_string(), serde_json::Value::Bool(true)),
-                    ("context_awareness".to_string(), serde_json::Value::Bool(true)),
-                    ("cost_optimization".to_string(), serde_json::Value::Bool(true)),
+                    (
+                        "intelligent_routing".to_string(),
+                        serde_json::Value::Bool(true),
+                    ),
+                    (
+                        "context_awareness".to_string(),
+                        serde_json::Value::Bool(true),
+                    ),
+                    (
+                        "cost_optimization".to_string(),
+                        serde_json::Value::Bool(true),
+                    ),
                 ]),
             },
             SongbirdCapability::Custom {
@@ -143,41 +247,61 @@ pub async fn register_squirrel_with_songbird(
             },
         ],
         metadata: HashMap::from([
-            ("primal_type".to_string(), serde_json::Value::String("squirrel".to_string())),
-            ("focus".to_string(), serde_json::Value::String("mcp_ai_coordination".to_string())),
-            ("ecosystem_role".to_string(), serde_json::Value::String("protocol_coordinator".to_string())),
-            ("ai_first_score".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(0.98).unwrap())),
+            (
+                "primal_type".to_string(),
+                serde_json::Value::String("squirrel".to_string()),
+            ),
+            (
+                "focus".to_string(),
+                serde_json::Value::String("mcp_ai_coordination".to_string()),
+            ),
+            (
+                "ecosystem_role".to_string(),
+                serde_json::Value::String("protocol_coordinator".to_string()),
+            ),
+            (
+                "ai_first_score".to_string(),
+                serde_json::Value::Number(serde_json::Number::from_f64(0.98).unwrap()),
+            ),
         ]),
         health_endpoint: Some("internal://squirrel/health".to_string()),
-        tags: vec!["mcp".to_string(), "ai".to_string(), "coordination".to_string()],
+        tags: vec![
+            "mcp".to_string(),
+            "ai".to_string(),
+            "coordination".to_string(),
+        ],
     };
-    
-    songbird_registry.register_service(squirrel_service)
+
+    songbird_registry
+        .register_service(squirrel_service)
         .await
-        .map_err(|e| crate::error::PrimalError::RegistrationError(
-            format!("Failed to register Squirrel with Songbird: {}", e)
-        ))?;
-        
+        .map_err(|e| {
+            crate::error::PrimalError::RegistrationError(format!(
+                "Failed to register Squirrel with Songbird: {}",
+                e
+            ))
+        })?;
+
     tracing::info!("✅ Squirrel successfully registered with Songbird service mesh");
     tracing::info!("🌐 Now participating in ecosystem network effects");
-    
+
     Ok(())
 }
 
 /// Demonstrate how BearDog (or any security primal) would register with Songbird
-/// 
+///
 /// This shows the proper Universal Primal Architecture pattern where any service
 /// can register its capabilities with Songbird, and Squirrel will automatically
 /// discover and integrate with it based on capability matching.
 pub async fn example_beardog_songbird_registration(
-    songbird_registry: std::sync::Arc<songbird_registry::service::ServiceRegistry>,
+    songbird_registry: std::sync::Arc<songbird_registry_service::ServiceRegistry>,
 ) -> Result<(), crate::error::PrimalError> {
-    use songbird_core::service::{ServiceInfo, ServiceCapability as SongbirdCapability};
+    // ServiceCapability as SongbirdCapability and ServiceInfo are already imported at module level
     use std::collections::HashMap;
     use uuid::Uuid;
-    
+
     tracing::info!("🐕 Example: How BearDog would register with Songbird service mesh");
-    
+
     let beardog_service = ServiceInfo {
         id: Uuid::new_v4().to_string(),
         name: "beardog".to_string(),
@@ -226,26 +350,48 @@ pub async fn example_beardog_songbird_registration(
             },
         ],
         metadata: HashMap::from([
-            ("security_level".to_string(), serde_json::Value::String("enterprise".to_string())),
-            ("primal_type".to_string(), serde_json::Value::String("beardog".to_string())),
-            ("genetic_algorithms".to_string(), serde_json::Value::Bool(true)),
-            ("zero_unsafe_code".to_string(), serde_json::Value::Bool(true)),
+            (
+                "security_level".to_string(),
+                serde_json::Value::String("enterprise".to_string()),
+            ),
+            (
+                "primal_type".to_string(),
+                serde_json::Value::String("beardog".to_string()),
+            ),
+            (
+                "genetic_algorithms".to_string(),
+                serde_json::Value::Bool(true),
+            ),
+            (
+                "zero_unsafe_code".to_string(),
+                serde_json::Value::Bool(true),
+            ),
         ]),
         health_endpoint: Some("https://beardog.local:8443/health".to_string()),
-        tags: vec!["security".to_string(), "enterprise".to_string(), "genetic".to_string()],
+        tags: vec![
+            "security".to_string(),
+            "enterprise".to_string(),
+            "genetic".to_string(),
+        ],
     };
-    
+
     // In a real scenario, BearDog would do this registration itself
-    songbird_registry.register_service(beardog_service)
+    songbird_registry
+        .register_service(beardog_service)
         .await
-        .map_err(|e| crate::error::PrimalError::RegistrationError(
-            format!("Failed to register BearDog example with Songbird: {}", e)
-        ))?;
-        
+        .map_err(|e| {
+            crate::error::PrimalError::RegistrationError(format!(
+                "Failed to register BearDog example with Songbird: {}",
+                e
+            ))
+        })?;
+
     tracing::info!("✅ BearDog example registered with Songbird");
     tracing::info!("🔍 Squirrel will now automatically discover and integrate with BearDog based on capabilities");
-    tracing::info!("🎯 Perfect capability match - BearDog provides all MCP/AI security features needed");
-    
+    tracing::info!(
+        "🎯 Perfect capability match - BearDog provides all MCP/AI security features needed"
+    );
+
     Ok(())
 }
 

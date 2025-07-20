@@ -68,4 +68,4 @@ impl ZeroCopyMessage {
 
         serde_json::to_string(&json_msg)
     }
-} 
+}

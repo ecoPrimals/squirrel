@@ -3,42 +3,42 @@
 //! This module provides a new version of the Plugin trait that uses callbacks
 //! instead of direct adapter references to avoid potential Send/Sync issues.
 
-use std::any::Any;
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use serde_json::Value;
-use uuid::Uuid;
+use std::any::Any;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use crate::plugin::{Plugin, WebEndpoint, PluginMetadata};
+use crate::plugin::{Plugin, PluginMetadata, WebEndpoint};
 
 /// Callbacks for PluginV2
 #[derive(Default)]
 pub struct PluginCallbacks {
     /// Log a message
     pub log: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
-    
+
     /// Access the plugin registry
     pub get_plugin: Option<Box<dyn Fn(Uuid) -> Result<Arc<dyn Plugin>> + Send + Sync>>,
-    
+
     /// Get plugin by name
     pub get_plugin_by_name: Option<Box<dyn Fn(&str) -> Result<Arc<dyn Plugin>> + Send + Sync>>,
-    
+
     /// List all plugins
     pub list_plugins: Option<Box<dyn Fn() -> Result<Vec<Arc<dyn Plugin>>> + Send + Sync>>,
-    
+
     /// Get configuration value
     pub get_config: Option<Box<dyn Fn(&str) -> Result<Value> + Send + Sync>>,
-    
+
     /// Set configuration value
     pub set_config: Option<Box<dyn Fn(&str, Value) -> Result<()> + Send + Sync>>,
-    
+
     /// Persist plugin state
     pub persist_state: Option<Box<dyn Fn(Uuid, &str, Value) -> Result<()> + Send + Sync>>,
-    
+
     /// Load plugin state
     pub load_state: Option<Box<dyn Fn(Uuid, &str) -> Result<Value> + Send + Sync>>,
-    
+
     /// Security check
     pub check_permission: Option<Box<dyn Fn(&str, Uuid) -> Result<bool> + Send + Sync>>,
 }
@@ -51,16 +51,16 @@ pub struct PluginCallbacks {
 pub trait PluginV2: Send + Sync + std::fmt::Debug {
     /// Get the plugin metadata
     fn metadata(&self) -> &PluginMetadata;
-    
+
     /// Initialize the plugin
     async fn initialize(&self) -> Result<()>;
-    
+
     /// Shutdown the plugin
     async fn shutdown(&self) -> Result<()>;
-    
+
     /// Convert the plugin to Any
     fn as_any(&self) -> &dyn Any;
-    
+
     /// Register callbacks for plugin interaction with manager
     fn register_callbacks(&mut self, callbacks: PluginCallbacks) {
         // Default empty implementation
@@ -73,9 +73,13 @@ pub trait PluginV2: Send + Sync + std::fmt::Debug {
 pub trait WebPluginExtV2: PluginV2 {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
-    
+
     /// Handle web endpoint request
-    async fn handle_web_endpoint(&self, endpoint: &WebEndpoint, data: Option<Value>) -> Result<Value>;
+    async fn handle_web_endpoint(
+        &self,
+        endpoint: &WebEndpoint,
+        data: Option<Value>,
+    ) -> Result<Value>;
 }
 
 /// Helper struct to adapt PluginV2 to Plugin for backward compatibility
@@ -96,15 +100,15 @@ impl<T: PluginV2 + 'static> Plugin for PluginWrapper<T> {
     fn metadata(&self) -> &PluginMetadata {
         self.inner.metadata()
     }
-    
+
     async fn initialize(&self) -> Result<()> {
         self.inner.initialize().await
     }
-    
+
     async fn shutdown(&self) -> Result<()> {
         self.inner.shutdown().await
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self.inner.as_any()
     }
@@ -118,22 +122,29 @@ pub fn adapt_plugin_v2<T: PluginV2 + 'static>(plugin: T) -> Arc<dyn Plugin> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // A simple example implementation of the PluginV2 trait
     struct ExamplePluginV2 {
         metadata: PluginMetadata,
         log: Option<Box<dyn Fn(&str, &str) -> Result<()> + Send + Sync>>,
     }
-    
+
     impl std::fmt::Debug for ExamplePluginV2 {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("ExamplePluginV2")
                 .field("metadata", &self.metadata)
-                .field("log", &if self.log.is_some() { "Some(log_fn)" } else { "None" })
+                .field(
+                    "log",
+                    &if self.log.is_some() {
+                        "Some(log_fn)"
+                    } else {
+                        "None"
+                    },
+                )
                 .finish()
         }
     }
-    
+
     impl ExamplePluginV2 {
         fn new(name: &str) -> Self {
             Self {
@@ -141,44 +152,44 @@ mod tests {
                 log: None,
             }
         }
-        
+
         fn log(&self, level: &str, message: &str) {
             if let Some(log) = &self.log {
                 let _ = log(level, message);
             }
         }
     }
-    
+
     #[async_trait]
     impl PluginV2 for ExamplePluginV2 {
         fn metadata(&self) -> &PluginMetadata {
             &self.metadata
         }
-        
+
         async fn initialize(&self) -> Result<()> {
             self.log("info", "ExamplePluginV2 initialized");
             Ok(())
         }
-        
+
         async fn shutdown(&self) -> Result<()> {
             self.log("info", "ExamplePluginV2 shutdown");
             Ok(())
         }
-        
+
         fn as_any(&self) -> &dyn Any {
             self
         }
-        
+
         fn register_callbacks(&mut self, callbacks: PluginCallbacks) {
             self.log = callbacks.log;
         }
     }
-    
+
     #[tokio::test]
     async fn test_plugin_v2_adapter() {
         // Create a V2 plugin
         let mut plugin_v2 = ExamplePluginV2::new("example-plugin");
-        
+
         // Set up callbacks
         let callbacks = PluginCallbacks {
             log: Some(Box::new(|level, message| {
@@ -187,18 +198,18 @@ mod tests {
             })),
             ..Default::default()
         };
-        
+
         // Register callbacks
         plugin_v2.register_callbacks(callbacks);
-        
+
         // Adapt to Plugin trait
         let plugin: Arc<dyn Plugin> = adapt_plugin_v2(plugin_v2);
-        
+
         // Test metadata
         assert_eq!(plugin.metadata().name, "example-plugin");
-        
+
         // Test methods
         assert!(plugin.initialize().await.is_ok());
         assert!(plugin.shutdown().await.is_ok());
     }
-} 
+}

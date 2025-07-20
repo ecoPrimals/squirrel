@@ -534,10 +534,10 @@ impl McpClient {
         // Validate and process message type for intelligent routing
         let message_category = self.classify_message_type(message_type)?;
         let processing_strategy = self.determine_processing_strategy(&message_category);
-        
+
         // Enhanced payload validation and preprocessing
         let processed_payload = self.validate_and_process_payload(message_type, payload)?;
-        
+
         // Build comprehensive MCP message with metadata
         let message_id = uuid::Uuid::new_v4().to_string();
         let message = AiMcpMessage {
@@ -549,36 +549,24 @@ impl McpClient {
             client_context: self.get_client_context(),
             processing_strategy,
         };
-        
+
         // Apply message-type specific processing
         let response = match message_type {
-            "tool_call" => {
-                self.handle_tool_call_message(&message).await?
-            }
-            "resource_request" => {
-                self.handle_resource_request(&message).await?
-            }
-            "notification" => {
-                self.handle_notification_message(&message).await?
-            }
-            "completion_request" => {
-                self.handle_completion_request(&message).await?
-            }
-            "context_update" => {
-                self.handle_context_update(&message).await?
-            }
-            "health_check" => {
-                self.handle_health_check(&message).await?
-            }
+            "tool_call" => self.handle_tool_call_message(&message).await?,
+            "resource_request" => self.handle_resource_request(&message).await?,
+            "notification" => self.handle_notification_message(&message).await?,
+            "completion_request" => self.handle_completion_request(&message).await?,
+            "context_update" => self.handle_context_update(&message).await?,
+            "health_check" => self.handle_health_check(&message).await?,
             _ => {
                 // Generic message handling with extensible processing
                 self.handle_generic_message(&message).await?
             }
         };
-        
+
         // Log message processing metrics for analytics
         self.log_message_metrics(&message, &response).await;
-        
+
         // Transform response back to JsValue
         self.serialize_response_to_js(response)
     }
@@ -611,42 +599,46 @@ impl McpClient {
     }
 
     /// Validate and process payload based on message type
-    fn validate_and_process_payload(&self, message_type: &str, payload: JsValue) -> Result<ProcessedPayload, JsValue> {
+    fn validate_and_process_payload(
+        &self,
+        message_type: &str,
+        payload: JsValue,
+    ) -> Result<ProcessedPayload, JsValue> {
         // Convert JsValue to JSON string then parse for easier processing
         let json_string = js_sys::JSON::stringify(&payload)
             .map_err(|_e| JsValue::from_str("Payload stringify error"))?
             .as_string()
             .ok_or_else(|| JsValue::from_str("Failed to convert payload to string"))?;
-            
+
         let json_payload: serde_json::Value = serde_json::from_str(&json_string)
             .map_err(|e| JsValue::from_str(&format!("Payload parse error: {}", e)))?;
 
         // Message-type specific validation and processing
         let processed_payload = match message_type {
-            "tool_call" => {
-                self.validate_tool_call_payload(&json_payload)?
-            }
-            "resource_request" => {
-                self.validate_resource_request_payload(&json_payload)?
-            }
-            "completion_request" => {
-                self.validate_completion_request_payload(&json_payload)?
-            }
+            "tool_call" => self.validate_tool_call_payload(&json_payload)?,
+            "resource_request" => self.validate_resource_request_payload(&json_payload)?,
+            "completion_request" => self.validate_completion_request_payload(&json_payload)?,
             _ => {
                 // Generic validation with AI coordination hints
                 ProcessedPayload {
                     data: json_payload,
                     validation_status: "passed".to_string(),
-                    processing_hints: vec!["generic_processing".to_string(), "ai_coordination_ready".to_string()],
+                    processing_hints: vec![
+                        "generic_processing".to_string(),
+                        "ai_coordination_ready".to_string(),
+                    ],
                 }
             }
         };
 
         Ok(processed_payload)
     }
-    
+
     /// Validate tool call payload with intelligent analysis
-    fn validate_tool_call_payload(&self, payload: &serde_json::Value) -> Result<ProcessedPayload, JsValue> {
+    fn validate_tool_call_payload(
+        &self,
+        payload: &serde_json::Value,
+    ) -> Result<ProcessedPayload, JsValue> {
         // Enhanced tool call validation
         Ok(ProcessedPayload {
             data: payload.clone(),
@@ -654,19 +646,28 @@ impl McpClient {
             processing_hints: vec!["tool_execution".to_string(), "ai_assisted".to_string()],
         })
     }
-    
+
     /// Validate resource request payload with access control
-    fn validate_resource_request_payload(&self, payload: &serde_json::Value) -> Result<ProcessedPayload, JsValue> {
+    fn validate_resource_request_payload(
+        &self,
+        payload: &serde_json::Value,
+    ) -> Result<ProcessedPayload, JsValue> {
         // Enhanced resource request validation
         Ok(ProcessedPayload {
             data: payload.clone(),
             validation_status: "validated_resource_request".to_string(),
-            processing_hints: vec!["resource_access".to_string(), "security_checked".to_string()],
+            processing_hints: vec![
+                "resource_access".to_string(),
+                "security_checked".to_string(),
+            ],
         })
     }
-    
+
     /// Validate completion request payload with AI coordination
-    fn validate_completion_request_payload(&self, payload: &serde_json::Value) -> Result<ProcessedPayload, JsValue> {
+    fn validate_completion_request_payload(
+        &self,
+        payload: &serde_json::Value,
+    ) -> Result<ProcessedPayload, JsValue> {
         // Enhanced completion request validation
         Ok(ProcessedPayload {
             data: payload.clone(),
@@ -676,43 +677,67 @@ impl McpClient {
     }
 
     /// Handle resource request messages with intelligent processing
-    async fn handle_resource_request(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_resource_request(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Route resource requests to generic handler with resource-specific processing
         self.handle_generic_message(message).await
     }
 
     /// Handle notification messages with intelligent routing
-    async fn handle_notification_message(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_notification_message(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Route notifications to generic handler with notification-specific processing
         self.handle_generic_message(message).await
     }
 
     /// Handle completion request messages with AI coordination
-    async fn handle_completion_request(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_completion_request(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Route completion requests to generic handler with AI-specific processing
         self.handle_generic_message(message).await
     }
 
     /// Handle context update messages with learning integration
-    async fn handle_context_update(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_context_update(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Route context updates to generic handler with learning system integration
         self.handle_generic_message(message).await
     }
 
     /// Handle health check messages with system monitoring
-    async fn handle_health_check(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_health_check(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Route health checks to generic handler with monitoring integration
         self.handle_generic_message(message).await
     }
 
     /// Handle tool call messages with enhanced validation and processing
-    async fn handle_tool_call_message(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_tool_call_message(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         // Extract tool information from payload
-        let tool_name = message.payload.data.get("tool")
+        let tool_name = message
+            .payload
+            .data
+            .get("tool")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown_tool");
 
-        let args = message.payload.data.get("arguments")
+        let args = message
+            .payload
+            .data
+            .get("arguments")
             .cloned()
             .unwrap_or(serde_json::json!({}));
 
@@ -731,7 +756,10 @@ impl McpClient {
     }
 
     /// Handle generic messages with extensible processing
-    async fn handle_generic_message(&mut self, message: &AiMcpMessage) -> Result<MessageResponse, JsValue> {
+    async fn handle_generic_message(
+        &mut self,
+        message: &AiMcpMessage,
+    ) -> Result<MessageResponse, JsValue> {
         Ok(MessageResponse {
             success: true,
             data: serde_json::json!({
@@ -757,20 +785,22 @@ impl McpClient {
 
     /// Log message processing metrics
     async fn log_message_metrics(&self, message: &AiMcpMessage, response: &MessageResponse) {
-        web_sys::console::log_1(&format!(
-            "MCP Message Processed: {} -> {} ({}ms)", 
-            message.message_type, 
-            response.message_type,
-            response.timestamp - message.timestamp
-        ).into());
+        web_sys::console::log_1(
+            &format!(
+                "MCP Message Processed: {} -> {} ({}ms)",
+                message.message_type,
+                response.message_type,
+                response.timestamp - message.timestamp
+            )
+            .into(),
+        );
     }
 
     /// Serialize response back to JsValue
     fn serialize_response_to_js(&self, response: MessageResponse) -> Result<JsValue, JsValue> {
         let json_string = serde_json::to_string(&response)
             .map_err(|e| JsValue::from_str(&format!("Response serialization error: {}", e)))?;
-            
-        js_sys::JSON::parse(&json_string)
-            .map_err(|_e| JsValue::from_str("JSON parse error"))
+
+        js_sys::JSON::parse(&json_string).map_err(|_e| JsValue::from_str("JSON parse error"))
     }
 }

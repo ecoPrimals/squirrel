@@ -182,8 +182,7 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
                 Ok(key)
             }
             _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {}",
-                algorithm
+                "Unsupported encryption algorithm: {algorithm}"
             ))),
         }
     }
@@ -209,8 +208,7 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
                 Ok(encrypted)
             }
             _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {}",
-                algorithm
+                "Unsupported encryption algorithm: {algorithm}"
             ))),
         }
     }
@@ -236,8 +234,7 @@ impl EncryptionKeyManager for DefaultEncryptionKeyManager {
                 Ok(decrypted)
             }
             _ => Err(FederationError::UnsupportedPlatform(format!(
-                "Unsupported encryption algorithm: {}",
-                algorithm
+                "Unsupported encryption algorithm: {algorithm}"
             ))),
         }
     }

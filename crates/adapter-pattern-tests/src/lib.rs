@@ -314,7 +314,7 @@ impl McpAdapter {
         let authorized_users = self.authorized_users.read().map_err(|_| {
             CommandError::AuthenticationFailed("Internal error: user storage corrupted".to_string())
         })?;
-        
+
         if let Some(stored_password) = authorized_users.get(username) {
             if password != stored_password {
                 return Err(CommandError::AuthenticationFailed(format!(
@@ -341,21 +341,28 @@ impl McpAdapter {
             .user_roles
             .read()
             .map_err(|_| {
-                CommandError::AuthenticationFailed("Internal error: user roles storage corrupted".to_string())
+                CommandError::AuthenticationFailed(
+                    "Internal error: user roles storage corrupted".to_string(),
+                )
             })?
             .get(username)
             .cloned()
             .unwrap_or_default();
-        
-        self.active_tokens.write().map_err(|_| {
-            CommandError::AuthenticationFailed("Internal error: token storage corrupted".to_string())
-        })?.insert(
-            token.clone(),
-            AuthUser {
-                username: username.to_string(),
-                roles,
-            },
-        );
+
+        self.active_tokens
+            .write()
+            .map_err(|_| {
+                CommandError::AuthenticationFailed(
+                    "Internal error: token storage corrupted".to_string(),
+                )
+            })?
+            .insert(
+                token.clone(),
+                AuthUser {
+                    username: username.to_string(),
+                    roles,
+                },
+            );
 
         Ok(token)
     }
@@ -485,11 +492,16 @@ impl McpAdapter {
             .unwrap()
             .iter()
             .map(|entry| {
-                let timestamp = entry.timestamp
+                let timestamp = entry
+                    .timestamp
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs();
-                let user = entry.user.as_ref().map(|u| u.as_str()).unwrap_or("anonymous");
+                let user = entry
+                    .user
+                    .as_ref()
+                    .map(|u| u.as_str())
+                    .unwrap_or("anonymous");
                 let status = if entry.success { "SUCCESS" } else { "FAILED" };
                 let args = entry.args.join(" ");
                 format!(

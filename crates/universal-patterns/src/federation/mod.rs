@@ -431,7 +431,7 @@ pub struct SovereignData {
 pub type DataId = Uuid;
 
 /// Data permissions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DataPermissions {
     /// Users with read access
     pub read_users: Vec<String>,
@@ -505,17 +505,7 @@ impl Default for ConsensusStatus {
     }
 }
 
-impl Default for DataPermissions {
-    fn default() -> Self {
-        Self {
-            read_users: vec![],
-            write_users: vec![],
-            admin_users: vec![],
-            public_read: false,
-            public_write: false,
-        }
-    }
-}
+
 
 impl Default for EncryptionMetadata {
     fn default() -> Self {
@@ -537,7 +527,7 @@ impl From<FederationError> for PrimalError {
             FederationError::UnsupportedLanguage(msg) => PrimalError::NotImplemented(msg),
             FederationError::ResourceLimitExceeded(msg) => PrimalError::Resource(msg),
             FederationError::ExecutionNotFound(id) => {
-                PrimalError::NotFound(format!("execution:{}", id))
+                PrimalError::NotFound(format!("execution:{id}"))
             }
             FederationError::NotImplemented(msg) => PrimalError::NotImplemented(msg),
             FederationError::ConsensusFailure(msg) => {

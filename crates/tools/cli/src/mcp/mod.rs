@@ -4,10 +4,12 @@
 //! communication between machines or between machines and humans.
 
 mod client;
+mod config;
 mod protocol;
 mod server;
 
 pub use client::MCPClient;
+pub use config::{MCPClientConfig, MCPServerConfig};
 pub use protocol::{MCPError, MCPMessage, MCPMessageType, MCPResult};
 pub use server::MCPServer;
 
@@ -242,8 +244,8 @@ mod tests {
         println!("Starting server on port {}", port);
 
         let registry_arc = Arc::new(registry);
-        let server =
-            MCPServer::new(Some("127.0.0.1"), Some(port)).with_command_registry(registry_arc);
+        let host = squirrel_mcp_config::core::network_defaults::DEFAULT_HOST;
+        let server = MCPServer::new(Some(host), Some(port)).with_command_registry(registry_arc);
 
         // Try to start the server with a timeout
         server
@@ -260,8 +262,8 @@ mod tests {
         }
 
         // Try to connect client with timeout
-        println!("Connecting client to 127.0.0.1:{}", port);
-        let mut client = MCPClient::new("127.0.0.1".to_string(), port);
+        println!("Connecting client to {}:{}", host, port);
+        let mut client = MCPClient::new(host.to_string(), port);
 
         // Reducing connect timeout from 2 seconds to 1 second
         let connect_result = timeout(Duration::from_secs(1), async { client.connect(None) }).await;

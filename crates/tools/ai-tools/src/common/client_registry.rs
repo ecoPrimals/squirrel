@@ -143,8 +143,11 @@ impl AIRouterClient {
         };
 
         // Implement intelligent AI provider selection based on strategy
-        debug!("🐿️ Using AI routing strategy: {:?} for Universal Primal Architecture", strategy);
-        
+        debug!(
+            "🐿️ Using AI routing strategy: {:?} for Universal Primal Architecture",
+            strategy
+        );
+
         match strategy {
             RoutingStrategy::RoundRobin => {
                 info!("🔄 Using round-robin AI provider selection");
@@ -645,7 +648,7 @@ mod tests {
         assert!(registry.list().await.is_empty());
 
         // Register a mock client
-        let mock_client = Arc::new(super::super::MockAIClient::new());
+        let mock_client = Arc::new(crate::common::MockAIClient::new());
         registry
             .register("test".to_string(), mock_client.clone())
             .await;

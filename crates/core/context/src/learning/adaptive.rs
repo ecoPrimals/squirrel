@@ -324,15 +324,24 @@ impl AdaptiveRuleSystem {
         let adaptive_rules = self.adaptive_rules.read().await;
 
         for (rule_id, adaptive_rule) in adaptive_rules.iter() {
-            debug!("🧠 Evaluating adaptive rule '{}' for potential adaptation", rule_id);
-            
+            debug!(
+                "🧠 Evaluating adaptive rule '{}' for potential adaptation",
+                rule_id
+            );
+
             if self.should_adapt_rule(adaptive_rule).await? {
-                info!("⚡ Adapting rule '{}' based on performance criteria", rule_id);
-                
+                info!(
+                    "⚡ Adapting rule '{}' based on performance criteria",
+                    rule_id
+                );
+
                 if let Some(adaptation) = self.adapt_rule(adaptive_rule).await? {
-                    debug!("✅ Successfully adapted rule '{}': {:?}", rule_id, adaptation);
+                    debug!(
+                        "✅ Successfully adapted rule '{}': {:?}",
+                        rule_id, adaptation
+                    );
                     adaptations.push(adaptation);
-                    
+
                     // Track rule adaptation statistics
                     {
                         let mut stats = self.stats.lock().await;
@@ -340,10 +349,16 @@ impl AdaptiveRuleSystem {
                         stats.last_adapted_rule = Some(rule_id.clone());
                     }
                 } else {
-                    debug!("⚠️ Rule '{}' marked for adaptation but no changes generated", rule_id);
+                    debug!(
+                        "⚠️ Rule '{}' marked for adaptation but no changes generated",
+                        rule_id
+                    );
                 }
             } else {
-                trace!("📋 Rule '{}' does not require adaptation at this time", rule_id);
+                trace!(
+                    "📋 Rule '{}' does not require adaptation at this time",
+                    rule_id
+                );
             }
         }
 
@@ -505,7 +520,7 @@ impl AdaptiveRuleSystem {
             .map(|adaptation| {
                 // Calculate real improvement metric based on adaptation properties
                 let base_improvement = 0.1; // Base improvement value
-                
+
                 // Enhance improvement calculation based on adaptation type and impact
                 let type_multiplier = match &adaptation.adaptation_type {
                     AdaptationType::ParameterAdjustment => 1.0,
@@ -514,26 +529,32 @@ impl AdaptiveRuleSystem {
                     AdaptationType::ConditionModification => 1.8,
                     AdaptationType::EnablementChange => 2.0,
                 };
-                
+
                 // Factor in performance improvement if available
                 let performance_factor = if let Some(after) = &adaptation.performance_after {
                     // Calculate improvement ratio based on performance metrics
                     let before_score = adaptation.performance_before.success_rate;
                     let after_score = after.success_rate;
                     if before_score > 0.0 {
-                        (after_score / before_score).max(0.5).min(2.0) // Clamp between 0.5x and 2.0x
+                        (after_score / before_score).clamp(0.5, 2.0) // Clamp between 0.5x and 2.0x
                     } else {
                         1.0 // Default if no baseline
                     }
                 } else {
                     0.8 // Reduced factor if no after-performance data
                 };
-                
-                let calculated_improvement = base_improvement * type_multiplier * performance_factor;
-                
-                debug!("📊 Adaptation improvement: {} type={:?} perf_factor={:.2} improvement={:.3}", 
-                       adaptation.rule_id, adaptation.adaptation_type, performance_factor, calculated_improvement);
-                
+
+                let calculated_improvement =
+                    base_improvement * type_multiplier * performance_factor;
+
+                debug!(
+                    "📊 Adaptation improvement: {} type={:?} perf_factor={:.2} improvement={:.3}",
+                    adaptation.rule_id,
+                    adaptation.adaptation_type,
+                    performance_factor,
+                    calculated_improvement
+                );
+
                 calculated_improvement
             })
             .sum::<f64>()

@@ -34,7 +34,7 @@ impl SongbirdClient {
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|e| {
-                EcosystemError::Configuration(format!("Failed to create HTTP client: {}", e))
+                EcosystemError::Configuration(format!("Failed to create HTTP client: {e}"))
             })?;
 
         Ok(Self {
@@ -58,7 +58,7 @@ impl SongbirdClient {
         let mut request = self.client.request(method, &url);
 
         if let Some(ref token) = self.auth_token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
 
         request
@@ -107,8 +107,7 @@ impl SongbirdClient {
                             .await
                             .unwrap_or_else(|_| "Unknown error".to_string());
                         return Err(UniversalError::InvalidRequest(format!(
-                            "HTTP {}: {}",
-                            status, error_text
+                            "HTTP {status}: {error_text}"
                         )));
                     } else {
                         // Server error, retry
@@ -117,8 +116,7 @@ impl SongbirdClient {
                             .await
                             .unwrap_or_else(|_| "Unknown error".to_string());
                         last_error = Some(UniversalError::Network(format!(
-                            "HTTP {}: {}",
-                            status, error_text
+                            "HTTP {status}: {error_text}"
                         )));
                         continue;
                     }
@@ -155,7 +153,7 @@ impl ServiceMeshClient for SongbirdClient {
         let request_fn = || {
             self.build_request(
                 reqwest::Method::DELETE,
-                &format!("/api/v1/services/{}", service_id),
+                &format!("/api/v1/services/{service_id}"),
             )
         };
 
@@ -180,11 +178,11 @@ impl ServiceMeshClient for SongbirdClient {
             }
 
             if let Some(ref health_status) = query.health_status {
-                request = request.query(&[("health", &format!("{:?}", health_status))]);
+                request = request.query(&[("health", &format!("{health_status:?}"))]);
             }
 
             for (key, value) in &query.metadata {
-                request = request.query(&[(format!("metadata.{}", key), value)]);
+                request = request.query(&[(format!("metadata.{key}"), value)]);
             }
 
             request
@@ -198,7 +196,7 @@ impl ServiceMeshClient for SongbirdClient {
         let request_fn = || {
             self.build_request(
                 reqwest::Method::GET,
-                &format!("/api/v1/services/{}", service_id),
+                &format!("/api/v1/services/{service_id}"),
             )
         };
 
@@ -222,7 +220,7 @@ impl ServiceMeshClient for SongbirdClient {
         let request_fn = || {
             self.build_request(
                 reqwest::Method::POST,
-                &format!("/api/v1/services/{}/health", service_id),
+                &format!("/api/v1/services/{service_id}/health"),
             )
             .json(&health_report)
         };
@@ -240,7 +238,7 @@ impl ServiceMeshClient for SongbirdClient {
         let request_fn = || {
             self.build_request(
                 reqwest::Method::POST,
-                &format!("/api/v1/services/{}/heartbeat", service_id),
+                &format!("/api/v1/services/{service_id}/heartbeat"),
             )
             .json(&heartbeat_data)
         };
@@ -259,9 +257,17 @@ impl ServiceMeshClient for SongbirdClient {
 
 /// Mock service mesh client for testing
 #[cfg(feature = "testing")]
+#[derive(Clone)]
 pub struct MockServiceMeshClient {
     services: std::sync::Arc<tokio::sync::RwLock<HashMap<String, ServiceInfo>>>,
     health_reports: std::sync::Arc<tokio::sync::RwLock<HashMap<String, HealthStatus>>>,
+}
+
+#[cfg(feature = "testing")]
+impl Default for MockServiceMeshClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(feature = "testing")]
@@ -379,7 +385,7 @@ impl ServiceMeshClient for MockServiceMeshClient {
     async fn get_mesh_status(&self) -> UniversalResult<ServiceMeshStatus> {
         Ok(ServiceMeshStatus {
             connected: true,
-            songbird_endpoint: Some("mock://localhost:8080".to_string()),
+            songbird_endpoint: Some("mock://localhost:8080".to_string()), // Mock endpoint - OK to hardcode
             registration_time: Some(chrono::Utc::now()),
             last_heartbeat: Some(chrono::Utc::now()),
             metadata: HashMap::new(),

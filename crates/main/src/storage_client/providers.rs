@@ -15,16 +15,16 @@ use crate::universal_primal_ecosystem::DiscoveredPrimal;
 pub struct StorageProvider {
     /// Provider identifier
     pub provider_id: String,
-    
+
     /// Provider metadata
     pub metadata: StorageProviderMetadata,
-    
+
     /// Available capabilities
     pub capabilities: Vec<PrimalCapability>,
-    
+
     /// Current health and performance
     pub health: StorageProviderHealth,
-    
+
     /// AI-generated routing score
     pub routing_score: f64,
 }
@@ -34,16 +34,16 @@ pub struct StorageProvider {
 pub struct StorageProviderMetadata {
     /// Provider name
     pub name: String,
-    
+
     /// Provider version
     pub version: String,
-    
+
     /// Supported protocols
     pub protocols: Vec<String>,
-    
+
     /// Geographic regions
     pub regions: Vec<String>,
-    
+
     /// Compliance certifications
     pub compliance: Vec<String>,
 }
@@ -53,16 +53,16 @@ pub struct StorageProviderMetadata {
 pub struct StorageProviderHealth {
     /// Overall health score (0.0 - 1.0)
     pub health_score: f64,
-    
+
     /// Current latency (ms)
     pub current_latency_ms: f64,
-    
+
     /// Current throughput (MB/s)
     pub current_throughput_mbps: f64,
-    
+
     /// Availability percentage
     pub availability_percent: f64,
-    
+
     /// Last health check
     pub last_check: DateTime<Utc>,
 }
@@ -90,4 +90,4 @@ impl StorageProvider {
             routing_score: 0.8, // Base score, would be calculated by AI
         }
     }
-} 
+}

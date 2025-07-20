@@ -1,6 +1,6 @@
 use crate::{AuthContext, AuthError, AuthenticationService, JwtTokenManager};
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 pub struct SecurityMiddleware {
@@ -316,7 +316,7 @@ mod tests {
         let result = middleware.verify_request(&request).await;
         assert!(result.is_ok());
 
-        let auth_context = result.unwrap();
+        let auth_context = result.expect("Authentication should succeed for anonymous access");
         assert_eq!(auth_context.username, "anonymous");
     }
 

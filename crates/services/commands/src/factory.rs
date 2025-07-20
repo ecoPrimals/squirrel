@@ -143,9 +143,15 @@ impl CommandRegistryFactory for DefaultCommandRegistryFactory {
             })?;
 
             // Post-hook functionality now implemented
-            registry_guard.add_post_hook(Arc::new(|cmd_name: &str, result: &CommandResult<String>| {
-                debug!("History post-hook executed for command '{}' with result: {:?}", cmd_name, result.is_ok());
-            }))?;
+            registry_guard.add_post_hook(Arc::new(
+                |cmd_name: &str, result: &CommandResult<String>| {
+                    debug!(
+                        "History post-hook executed for command '{}' with result: {:?}",
+                        cmd_name,
+                        result.is_ok()
+                    );
+                },
+            ))?;
             debug!("Factory: History hook not added - function not implemented in CommandRegistry");
         }
 

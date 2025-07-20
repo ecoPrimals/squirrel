@@ -93,20 +93,20 @@ impl Plugin for ExamplePlugin {
 
     async fn initialize(&self) -> Result<(), PluginError> {
         // In a real plugin, we might load configuration, connect to services, etc.
-        log::info!("Example plugin initializing...");
+        tracing::info!("Example plugin initializing...");
         Ok(())
     }
 
     async fn start(&self) -> Result<(), PluginError> {
         // In a real plugin, we might start background workers, connect to services, etc.
-        log::info!("Example plugin starting...");
+        tracing::info!("Example plugin starting...");
         Ok(())
     }
 
     fn register_commands(&self, registry: &CommandRegistry) -> Result<(), PluginError> {
         for command in &self.commands {
             match registry.register(command.name(), command.clone()) {
-                Ok(_) => log::info!("Registered command: {}", command.name()),
+                Ok(_) => tracing::info!("Registered command: {}", command.name()),
                 Err(e) => {
                     return Err(PluginError::RegisterError(format!(
                         "Failed to register command {}: {}",
@@ -146,13 +146,13 @@ impl Plugin for ExamplePlugin {
 
     async fn stop(&self) -> Result<(), PluginError> {
         // In a real plugin, we might stop background workers, close connections, etc.
-        log::info!("Example plugin stopping...");
+        tracing::info!("Example plugin stopping...");
         Ok(())
     }
 
     async fn cleanup(&self) -> Result<(), PluginError> {
         // In a real plugin, we might close connections, save state, etc.
-        log::info!("Example plugin cleaning up...");
+        tracing::info!("Example plugin cleaning up...");
         Ok(())
     }
 }

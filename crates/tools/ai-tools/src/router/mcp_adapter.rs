@@ -130,10 +130,9 @@ impl MCPInterface for MCPAdapter {
                             choices: vec![ChatChoice {
                                 index: 0,
                                 role: MessageRole::Assistant,
-                                content: Some(format!(
-                                    "Error accessing mock responses for node {:?}",
-                                    node_id
-                                )),
+                                                    content: Some(format!(
+                        "Error accessing mock responses for node {node_id:?}"
+                    )),
                                 finish_reason: Some("stop".to_string()),
                                 tool_calls: None,
                             }],

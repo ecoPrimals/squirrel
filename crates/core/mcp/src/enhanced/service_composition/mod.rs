@@ -17,6 +17,9 @@ use super::events::{EventBroadcaster, MCPEvent, EventType};
 pub mod types;
 pub use types::*;
 
+#[cfg(test)]
+mod tests;
+
 /// AI Service Composition Engine
 /// 
 /// Orchestrates complex AI workflows by composing multiple AI services,
@@ -160,19 +163,57 @@ impl ServiceCompositionEngine {
         // Get composition
         let active = self.active_compositions.read().await;
         let composition = active.get(composition_id)
-            .ok_or_else(|| MCPError::InvalidArgument(format!("Composition not found: {}", composition_id)))?;
+            .ok_or_else(|| MCPError::InvalidArgument(format!("Composition not found: {}", composition_id)))?
+            .clone();
+        drop(active);
         
-        // TODO: Implement actual execution
-        warn!("Composition execution not yet implemented");
+        let start_time = std::time::Instant::now();
         
-        Ok(ExecutionResult {
-            id: Uuid::new_v4().to_string(),
-            status: ExecutionStatus::Success,
-            data: serde_json::Value::Null,
-            metadata: HashMap::new(),
-            execution_time: Duration::from_secs(0),
-            error: None,
-        })
+        // Execute composition based on its type
+        let result = match composition.composition_type {
+            CompositionType::Sequential => {
+                self.execute_sequential_composition(&composition, request).await
+            }
+            CompositionType::Parallel => {
+                self.execute_parallel_composition(&composition, request).await
+            }
+            CompositionType::Conditional => {
+                self.execute_conditional_composition(&composition, request).await
+            }
+            CompositionType::Pipeline => {
+                self.execute_pipeline_composition(&composition, request).await
+            }
+            CompositionType::Custom(_) => {
+                self.execute_custom_composition(&composition, request).await
+            }
+        };
+        
+        let execution_time = start_time.elapsed();
+        
+        match result {
+            Ok(data) => {
+                info!("Composition {} completed successfully in {:?}", composition_id, execution_time);
+                Ok(ExecutionResult {
+                    id: Uuid::new_v4().to_string(),
+                    status: ExecutionStatus::Success,
+                    data,
+                    metadata: HashMap::new(),
+                    execution_time,
+                    error: None,
+                })
+            }
+            Err(error) => {
+                error!("Composition {} failed: {}", composition_id, error);
+                Ok(ExecutionResult {
+                    id: Uuid::new_v4().to_string(),
+                    status: ExecutionStatus::Failed,
+                    data: serde_json::Value::Null,
+                    metadata: HashMap::new(),
+                    execution_time,
+                    error: Some(error.to_string()),
+                })
+            }
+        }
     }
     
     /// Get composition status
@@ -186,9 +227,32 @@ impl ServiceCompositionEngine {
     pub async fn cancel_composition(&self, composition_id: &str) -> Result<()> {
         info!("Cancelling composition: {}", composition_id);
         
-        // TODO: Implement composition cancellation
-        warn!("Composition cancellation not yet implemented");
+        // Remove from active compositions
+        {
+            let mut active = self.active_compositions.write().await;
+            if active.remove(composition_id).is_none() {
+                return Err(MCPError::InvalidArgument(format!("Composition not found: {}", composition_id)));
+            }
+        }
         
+        // Publish cancellation event
+        let event = MCPEvent {
+            id: Uuid::new_v4().to_string(),
+            event_type: EventType::ServiceCompositionCancelled,
+            source: super::events::EventSource::ServiceComposition,
+            data: serde_json::json!({
+                "composition_id": composition_id,
+                "cancelled_at": chrono::Utc::now()
+            }),
+            timestamp: chrono::Utc::now(),
+            metadata: HashMap::new(),
+        };
+        
+        if let Err(e) = self.event_broadcaster.broadcast_event(event).await {
+            warn!("Failed to broadcast composition cancellation event: {}", e);
+        }
+        
+        info!("Composition {} cancelled successfully", composition_id);
         Ok(())
     }
     
@@ -242,6 +306,170 @@ impl ServiceCompositionEngine {
         } else {
             Ok(false)
         }
+    }
+
+    /// Execute sequential composition
+    async fn execute_sequential_composition(
+        &self,
+        composition: &Composition,
+        mut request: UniversalAIRequest,
+    ) -> Result<serde_json::Value> {
+        debug!("Executing sequential composition: {}", composition.id);
+        
+        // Execute services in sequence, updating the request in place
+        for service in &composition.services {
+            debug!("Executing service: {}", service.name);
+            
+            // Update request model for this service (reuse existing request structure)
+            request.id = Uuid::new_v4().to_string();
+            request.model = service.model.clone(); // TODO: Use Arc<str> to avoid clone
+            
+            // Execute service via AI coordinator (takes ownership temporarily)
+            let response = self.ai_coordinator.execute_request(request).await?;
+            
+            // Create new request with response data for next iteration
+            request = UniversalAIRequest {
+                id: Uuid::new_v4().to_string(),
+                model: service.model.clone(), // Will be updated in next iteration
+                messages: response.messages,
+                parameters: response.parameters,
+            };
+        }
+        
+        Ok(serde_json::to_value(request.parameters)?)
+    }
+
+    /// Execute parallel composition
+    async fn execute_parallel_composition(
+        &self,
+        composition: &Composition,
+        request: UniversalAIRequest,
+    ) -> Result<serde_json::Value> {
+        debug!("Executing parallel composition: {}", composition.id);
+        
+        let mut handles = vec![];
+        
+        // Share immutable data across parallel tasks to avoid cloning
+        let shared_messages = Arc::new(request.messages);
+        let shared_parameters = Arc::new(request.parameters);
+        let ai_coordinator = &self.ai_coordinator; // Use reference instead of cloning
+        
+        // Execute all services in parallel
+        for service in &composition.services {
+            let service_request = UniversalAIRequest {
+                id: Uuid::new_v4().to_string(),
+                model: service.model.clone(), // TODO: Use Arc<str> to avoid clone
+                messages: (*shared_messages).clone(), // Dereference Arc to get Vec, then clone only once per task
+                parameters: (*shared_parameters).clone(), // Dereference Arc to get HashMap, then clone only once per task
+            };
+            
+            let handle = tokio::spawn({
+                let ai_coordinator = ai_coordinator.clone(); // Clone only the Arc pointer, not the entire coordinator
+                async move {
+                    ai_coordinator.execute_request(service_request).await
+                }
+            });
+            handles.push(handle);
+        }
+        
+        // Collect results
+        let mut results = HashMap::new();
+        for (index, handle) in handles.into_iter().enumerate() {
+            let response = handle.await.map_err(|e| MCPError::Internal(e.to_string()))??;
+            results.insert(format!("service_{}", index), serde_json::to_value(response)?);
+        }
+        
+        Ok(serde_json::to_value(results)?)
+    }
+
+    /// Execute conditional composition
+    async fn execute_conditional_composition(
+        &self,
+        composition: &Composition,
+        request: UniversalAIRequest,
+    ) -> Result<serde_json::Value> {
+        debug!("Executing conditional composition: {}", composition.id);
+        
+        // Simple condition evaluation based on request parameters
+        let condition_key = "condition";
+        let condition_value = request.parameters.get(condition_key)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        
+        // Select service based on condition
+        let selected_service = if condition_value && !composition.services.is_empty() {
+            &composition.services[0] // Use first service if condition is true
+        } else if composition.services.len() > 1 {
+            &composition.services[1] // Use second service if available
+        } else if !composition.services.is_empty() {
+            &composition.services[0] // Fall back to first service
+        } else {
+            return Err(MCPError::InvalidArgument("No services available in composition".to_string()));
+        };
+        
+        debug!("Selected service: {} based on condition: {}", selected_service.name, condition_value);
+        
+        // Execute selected service
+        let service_request = UniversalAIRequest {
+            id: Uuid::new_v4().to_string(),
+            model: selected_service.model.clone(),
+            messages: request.messages.clone(),
+            parameters: request.parameters.clone(),
+        };
+        
+        let response = self.ai_coordinator.execute_request(service_request).await?;
+        Ok(serde_json::to_value(response)?)
+    }
+
+    /// Execute pipeline composition
+    async fn execute_pipeline_composition(
+        &self,
+        composition: &Composition,
+        request: UniversalAIRequest,
+    ) -> Result<serde_json::Value> {
+        debug!("Executing pipeline composition: {}", composition.id);
+        
+        let mut current_request = request;
+        
+        // Execute services in pipeline (each service gets the output of the previous)
+        for (index, service) in composition.services.iter().enumerate() {
+            debug!("Pipeline step {}: executing service: {}", index, service.name);
+            
+            let service_request = UniversalAIRequest {
+                id: Uuid::new_v4().to_string(),
+                model: service.model.clone(),
+                messages: current_request.messages.clone(),
+                parameters: current_request.parameters.clone(),
+            };
+            
+            let response = self.ai_coordinator.execute_request(service_request).await?;
+            
+            // Update request with response for next step
+            current_request = UniversalAIRequest {
+                id: Uuid::new_v4().to_string(),
+                model: current_request.model,
+                messages: vec![super::coordinator::Message {
+                    role: "assistant".to_string(),
+                    content: response.content.clone(),
+                }],
+                parameters: response.parameters.clone(),
+            };
+        }
+        
+        Ok(serde_json::to_value(current_request.parameters)?)
+    }
+
+    /// Execute custom composition
+    async fn execute_custom_composition(
+        &self,
+        composition: &Composition,
+        request: UniversalAIRequest,
+    ) -> Result<serde_json::Value> {
+        debug!("Executing custom composition: {}", composition.id);
+        
+        // For custom compositions, we'll use a simple fallback to sequential execution
+        warn!("Custom composition types are not fully implemented, falling back to sequential execution");
+        self.execute_sequential_composition(composition, request).await
     }
 }
 

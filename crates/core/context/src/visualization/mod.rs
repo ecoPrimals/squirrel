@@ -345,7 +345,7 @@ impl VisualizationSystem {
         };
 
         if let Err(e) = self.event_broadcaster.send(event) {
-            eprintln!("Failed to emit visualization event: {}", e);
+            eprintln!("Failed to emit visualization event: {e}");
         }
     }
 }

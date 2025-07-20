@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::ToolCall;
+use crate::common::tool::ToolCall;
 
 /// Role of a message in a conversation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

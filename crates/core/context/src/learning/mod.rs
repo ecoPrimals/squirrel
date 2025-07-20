@@ -220,7 +220,7 @@ pub enum LearningEvent {
     /// System initialization event
     SystemInitialized {
         timestamp: chrono::DateTime<chrono::Utc>,
-        config: Arc<LearningSystemConfig>,
+        config: LearningSystemConfig, // Remove Arc wrapper for serialization
     },
     /// Training episode started
     TrainingStarted {
@@ -371,7 +371,7 @@ impl LearningSystem {
         // Broadcast system initialization event
         let _ = event_broadcaster.send(LearningEvent::SystemInitialized {
             timestamp: chrono::Utc::now(),
-            config: config.clone(),
+            config: (*config).clone(), // Dereference Arc to get inner LearningSystemConfig
         });
 
         Ok(Self {
@@ -390,14 +390,14 @@ impl LearningSystem {
             stats: Arc::new(Mutex::new(LearningSystemStats::default())),
         })
     }
-    
+
     /// Start background event processor for learning events
     async fn start_event_processor(
-        mut event_receiver: broadcast::Receiver<LearningEvent>
+        mut event_receiver: broadcast::Receiver<LearningEvent>,
     ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             info!("Learning event processor started");
-            
+
             while let Ok(event) = event_receiver.recv().await {
                 match &event {
                     LearningEvent::SystemInitialized { timestamp, config } => {
@@ -406,46 +406,74 @@ impl LearningSystem {
                             timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
                             config.experience_buffer_size
                         );
-                        
+
                         // Log configuration details
                         debug!("Learning rate: {}", config.learning_rate);
                         debug!("Discount factor: {}", config.discount_factor);
                         debug!("Exploration rate: {}", config.exploration_rate);
                     }
-                    
+
                     LearningEvent::TrainingStarted { episode, timestamp } => {
-                        info!("Training episode {} started at {}", episode, 
-                              timestamp.format("%H:%M:%S"));
+                        info!(
+                            "Training episode {} started at {}",
+                            episode,
+                            timestamp.format("%H:%M:%S")
+                        );
                     }
-                    
-                    LearningEvent::RewardReceived { reward, context, timestamp } => {
-                        debug!("Reward received: {} for context {} at {}", 
-                               reward, context, timestamp.format("%H:%M:%S"));
+
+                    LearningEvent::RewardReceived {
+                        reward,
+                        context,
+                        timestamp,
+                    } => {
+                        debug!(
+                            "Reward received: {} for context {} at {}",
+                            reward,
+                            context,
+                            timestamp.format("%H:%M:%S")
+                        );
                     }
-                    
-                    LearningEvent::PolicyUpdated { loss, accuracy, timestamp } => {
-                        info!("Policy updated - Loss: {:.4}, Accuracy: {:.3} at {}",
-                              loss, accuracy, timestamp.format("%H:%M:%S"));
+
+                    LearningEvent::PolicyUpdated {
+                        loss,
+                        accuracy,
+                        timestamp,
+                    } => {
+                        info!(
+                            "Policy updated - Loss: {:.4}, Accuracy: {:.3} at {}",
+                            loss,
+                            accuracy,
+                            timestamp.format("%H:%M:%S")
+                        );
                     }
-                    
-                    LearningEvent::AdaptationTriggered { rule_count, timestamp } => {
-                        info!("Adaptation triggered with {} rules at {}",
-                              rule_count, timestamp.format("%H:%M:%S"));
+
+                    LearningEvent::AdaptationTriggered {
+                        rule_count,
+                        timestamp,
+                    } => {
+                        info!(
+                            "Adaptation triggered with {} rules at {}",
+                            rule_count,
+                            timestamp.format("%H:%M:%S")
+                        );
                     }
-                    
+
                     LearningEvent::MetricsUpdated { metrics, timestamp } => {
-                        debug!("Metrics updated at {}: {:?}",
-                               timestamp.format("%H:%M:%S"), metrics);
+                        debug!(
+                            "Metrics updated at {}: {:?}",
+                            timestamp.format("%H:%M:%S"),
+                            metrics
+                        );
                     }
                 }
-                
+
                 // Additional event processing could include:
                 // - Persistence of important events
                 // - Real-time analytics
                 // - Performance monitoring
                 // - Alert triggering for anomalies
             }
-            
+
             warn!("Learning event processor shutting down");
         })
     }
@@ -470,8 +498,9 @@ impl LearningSystem {
         // Send initialization event
         self.send_event(LearningEvent::SystemInitialized {
             timestamp: Utc::now(),
-            config: self.config.clone(),
-        }).await?;
+            config: (*self.config).clone(), // Dereference Arc to get inner LearningSystemConfig
+        })
+        .await?;
 
         Ok(())
     }

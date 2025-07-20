@@ -22,12 +22,12 @@ pub struct AIResponse {
 impl AIClient {
     /// Create a new Anthropic client
     pub fn anthropic() -> Self {
-        Self::Anthropic(AnthropicClient::new())
+        Self::Anthropic(AnthropicClient::new().expect("Failed to create AnthropicClient"))
     }
 
     /// Create a new OpenAI client
     pub fn openai() -> Self {
-        Self::OpenAI(OpenAIClient::new())
+        Self::OpenAI(OpenAIClient::new().expect("Failed to create OpenAIClient"))
     }
 
     /// Send a message using the configured provider

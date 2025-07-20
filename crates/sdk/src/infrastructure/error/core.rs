@@ -8,251 +8,251 @@ use thiserror::Error;
 pub enum PluginError {
     /// Command not found
     #[error("Unknown command: {command}")]
-    UnknownCommand { 
+    UnknownCommand {
         /// The command name that was not found
-        command: String 
+        command: String,
     },
 
     /// Missing required parameter
     #[error("Missing required parameter: {parameter}")]
-    MissingParameter { 
+    MissingParameter {
         /// The name of the missing parameter
-        parameter: String 
+        parameter: String,
     },
 
     /// Invalid parameter value
     #[error("Invalid parameter '{name}': {reason}")]
-    InvalidParameter { 
+    InvalidParameter {
         /// The name of the invalid parameter
-        name: String, 
+        name: String,
         /// The reason why the parameter is invalid
-        reason: String 
+        reason: String,
     },
 
     /// Permission denied for operation
     #[error("Permission denied: {operation} - {reason}")]
-    PermissionDenied { 
+    PermissionDenied {
         /// The operation that was denied
-        operation: String, 
+        operation: String,
         /// The reason for the denial
-        reason: String 
+        reason: String,
     },
 
     /// Network operation failed
     #[error("Network error in {operation}: {message}")]
-    NetworkError { 
+    NetworkError {
         /// The network operation that failed
-        operation: String, 
+        operation: String,
         /// The error message describing the failure
-        message: String 
+        message: String,
     },
 
     /// File system operation failed
     #[error("File system error in {operation}: {message}")]
-    FileSystemError { 
+    FileSystemError {
         /// The file system operation that failed
-        operation: String, 
+        operation: String,
         /// The error message describing the failure
-        message: String 
+        message: String,
     },
 
     /// MCP protocol error
     #[error("MCP protocol error: {message}")]
-    McpError { 
+    McpError {
         /// The MCP protocol error message
-        message: String 
+        message: String,
     },
 
     /// Plugin initialization failed
     #[error("Plugin initialization failed: {reason}")]
-    InitializationError { 
+    InitializationError {
         /// The reason why initialization failed
-        reason: String 
+        reason: String,
     },
 
     /// Plugin configuration error
     #[error("Configuration error: {message}")]
-    ConfigurationError { 
+    ConfigurationError {
         /// The configuration error message
-        message: String 
+        message: String,
     },
 
     /// Serialization/deserialization error
     #[error("Serialization error: {message}")]
-    SerializationError { 
+    SerializationError {
         /// The serialization error message
-        message: String 
+        message: String,
     },
 
     /// Timeout error
     #[error("Operation '{operation}' timed out after {seconds} seconds")]
-    TimeoutError { 
+    TimeoutError {
         /// The operation that timed out
-        operation: String, 
+        operation: String,
         /// The timeout duration in seconds
-        seconds: u64 
+        seconds: u64,
     },
 
     /// Resource limit exceeded
     #[error("Resource limit exceeded: {resource} ({limit})")]
-    ResourceLimitExceeded { 
+    ResourceLimitExceeded {
         /// The resource that exceeded its limit
-        resource: String, 
+        resource: String,
         /// The limit that was exceeded
-        limit: String 
+        limit: String,
     },
 
     /// Quota exceeded (for sandbox resource management)
     #[error("Quota exceeded: {resource} - {message}")]
-    QuotaExceeded { 
+    QuotaExceeded {
         /// The resource that exceeded quota
-        resource: String, 
+        resource: String,
         /// Additional error message
-        message: String 
+        message: String,
     },
 
     /// Plugin not found
     #[error("Plugin not found: {plugin_id}")]
-    PluginNotFound { 
+    PluginNotFound {
         /// The ID of the plugin that was not found
-        plugin_id: String 
+        plugin_id: String,
     },
 
     /// Plugin already exists
     #[error("Plugin already exists: {plugin_id}")]
-    PluginAlreadyExists { 
+    PluginAlreadyExists {
         /// The ID of the plugin that already exists
-        plugin_id: String 
+        plugin_id: String,
     },
 
     /// Dependency error
     #[error("Dependency error: {dependency} - {message}")]
-    DependencyError { 
+    DependencyError {
         /// The dependency that caused the error
-        dependency: String, 
+        dependency: String,
         /// The error message describing the dependency issue
-        message: String 
+        message: String,
     },
 
     /// Version compatibility error
     #[error("Version incompatible: required {required}, found {found}")]
-    VersionIncompatible { 
+    VersionIncompatible {
         /// The required version string
-        required: String, 
+        required: String,
         /// The version string that was found instead
-        found: String 
+        found: String,
     },
 
     /// Invalid version format
     #[error("Invalid version format: {version} - {reason}")]
-    InvalidVersion { 
+    InvalidVersion {
         /// The invalid version string
-        version: String, 
+        version: String,
         /// The reason why the version format is invalid
-        reason: String 
+        reason: String,
     },
 
     /// Security violation
     #[error("Security violation: {violation}")]
-    SecurityViolation { 
+    SecurityViolation {
         /// Description of the security violation
-        violation: String 
+        violation: String,
     },
 
     /// Internal error
     #[error("Internal error: {message}")]
-    InternalError { 
+    InternalError {
         /// The internal error message
-        message: String 
+        message: String,
     },
 
     /// Execution error
     #[error("Execution error in {context}: {message}")]
-    ExecutionError { 
+    ExecutionError {
         /// The execution context where the error occurred
-        context: String, 
+        context: String,
         /// The execution error message
-        message: String 
+        message: String,
     },
 
     /// Invalid configuration
     #[error("Invalid configuration: {message}")]
-    InvalidConfiguration { 
+    InvalidConfiguration {
         /// The configuration error message
-        message: String 
+        message: String,
     },
 
     /// JavaScript error
     #[error("JavaScript error: {message}")]
-    JsError { 
+    JsError {
         /// The JavaScript error message
-        message: String 
+        message: String,
     },
 
     /// Unknown error
     #[error("Unknown error: {message}")]
-    Unknown { 
+    Unknown {
         /// The unknown error message
-        message: String 
+        message: String,
     },
 
     /// HTTP-specific errors
     #[error("HTTP error: {status} - {message}")]
-    HttpError { 
+    HttpError {
         /// The HTTP status code
-        status: u16, 
+        status: u16,
         /// The HTTP error message
-        message: String 
+        message: String,
     },
 
     /// JSON parsing error
     #[error("JSON parsing error: {message}")]
-    JsonError { 
+    JsonError {
         /// The JSON parsing error message
-        message: String 
+        message: String,
     },
 
     /// Validation error
     #[error("Validation error: {field} - {message}")]
-    ValidationError { 
+    ValidationError {
         /// The field that failed validation
-        field: String, 
+        field: String,
         /// The validation error message
-        message: String 
+        message: String,
     },
 
     /// Connection error
     #[error("Connection error: {endpoint} - {message}")]
-    ConnectionError { 
+    ConnectionError {
         /// The endpoint that failed to connect
-        endpoint: String, 
+        endpoint: String,
         /// The connection error message
-        message: String 
+        message: String,
     },
 
     /// Authentication error
     #[error("Authentication error: {message}")]
-    AuthenticationError { 
+    AuthenticationError {
         /// The authentication error message
-        message: String 
+        message: String,
     },
 
     /// Authorization error
     #[error("Authorization error: {resource} - {message}")]
-    AuthorizationError { 
+    AuthorizationError {
         /// The resource that access was denied for
-        resource: String, 
+        resource: String,
         /// The authorization error message
-        message: String 
+        message: String,
     },
 
     /// Rate limiting error
     #[error("Rate limit exceeded: {resource} - retry after {retry_after} seconds")]
-    RateLimitError { 
+    RateLimitError {
         /// The resource that was rate limited
-        resource: String, 
+        resource: String,
         /// Number of seconds to wait before retrying
-        retry_after: u64 
+        retry_after: u64,
     },
 
     /// Plugin lifecycle error
@@ -268,120 +268,120 @@ pub enum PluginError {
 
     /// Command execution error
     #[error("Command execution error: {command} - {message}")]
-    CommandExecutionError { 
+    CommandExecutionError {
         /// The command that failed to execute
-        command: String, 
+        command: String,
         /// The command execution error message
-        message: String 
+        message: String,
     },
 
     /// Event handling error
     #[error("Event handling error: {event_type} - {message}")]
-    EventHandlingError { 
+    EventHandlingError {
         /// The type of event that failed to be handled
-        event_type: String, 
+        event_type: String,
         /// The event handling error message
-        message: String 
+        message: String,
     },
 
     /// Context error
     #[error("Context error: {context} - {message}")]
-    ContextError { 
+    ContextError {
         /// The context where the error occurred
-        context: String, 
+        context: String,
         /// The context error message
-        message: String 
+        message: String,
     },
 
     /// Storage error
     #[error("Storage error: {operation} - {message}")]
-    StorageError { 
+    StorageError {
         /// The storage operation that failed
-        operation: String, 
+        operation: String,
         /// The storage error message
-        message: String 
+        message: String,
     },
 
     /// Cache error
     #[error("Cache error: {operation} - {message}")]
-    CacheError { 
+    CacheError {
         /// The cache operation that failed
-        operation: String, 
+        operation: String,
         /// The cache error message
-        message: String 
+        message: String,
     },
 
     /// Lock error
     #[error("Lock error: {resource} - {message}")]
-    LockError { 
+    LockError {
         /// The resource that could not be locked
-        resource: String, 
+        resource: String,
         /// The lock error message
-        message: String 
+        message: String,
     },
 
     /// Communication error
     #[error("Communication error: {target} - {message}")]
-    CommunicationError { 
+    CommunicationError {
         /// The communication target that failed
-        target: String, 
+        target: String,
         /// The communication error message
-        message: String 
+        message: String,
     },
 
     /// Resource not found
     #[error("Resource not found: {resource}")]
-    ResourceNotFound { 
+    ResourceNotFound {
         /// The resource that was not found
-        resource: String 
+        resource: String,
     },
 
     /// Resource already exists
     #[error("Resource already exists: {resource}")]
-    ResourceAlreadyExists { 
+    ResourceAlreadyExists {
         /// The resource that already exists
-        resource: String 
+        resource: String,
     },
 
     /// Temporary failure
     #[error("Temporary failure: {operation} - {message}")]
-    TemporaryFailure { 
+    TemporaryFailure {
         /// The operation that experienced a temporary failure
-        operation: String, 
+        operation: String,
         /// The temporary failure error message
-        message: String 
+        message: String,
     },
 
     /// Permanent failure
     #[error("Permanent failure: {operation} - {message}")]
-    PermanentFailure { 
+    PermanentFailure {
         /// The operation that experienced a permanent failure
-        operation: String, 
+        operation: String,
         /// The permanent failure error message
-        message: String 
+        message: String,
     },
 
     /// External service error
     #[error("External service error: {service} - {message}")]
-    ExternalServiceError { 
+    ExternalServiceError {
         /// The external service that failed
-        service: String, 
+        service: String,
         /// The external service error message
-        message: String 
+        message: String,
     },
 
     /// Not implemented
     #[error("Not implemented: {feature}")]
-    NotImplemented { 
+    NotImplemented {
         /// The feature that is not yet implemented
-        feature: String 
+        feature: String,
     },
 
     /// Not supported
     #[error("Not supported: {feature}")]
-    NotSupported { 
+    NotSupported {
         /// The feature that is not supported
-        feature: String 
+        feature: String,
     },
 
     /// Deprecated feature

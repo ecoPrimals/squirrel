@@ -10,11 +10,11 @@ impl ZeroCopyUtils {
     pub fn concat_strings(parts: &[&str]) -> String {
         let total_len: usize = parts.iter().map(|s| s.len()).sum();
         let mut result = String::with_capacity(total_len);
-        
+
         for part in parts {
             result.push_str(part);
         }
-        
+
         result
     }
 
@@ -46,10 +46,10 @@ impl ZeroCopyUtils {
         params: &[(Arc<str>, Arc<str>)],
     ) -> String {
         let mut url = String::with_capacity(base.len() + path.len() + params.len() * 20);
-        
+
         url.push_str(base);
         url.push_str(path);
-        
+
         if !params.is_empty() {
             url.push('?');
             for (i, (key, value)) in params.iter().enumerate() {
@@ -61,7 +61,7 @@ impl ZeroCopyUtils {
                 url.push_str(value);
             }
         }
-        
+
         url
     }
-} 
+}

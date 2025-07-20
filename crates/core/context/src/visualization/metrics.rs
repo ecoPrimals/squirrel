@@ -33,6 +33,12 @@ pub struct VisualizationMetrics {
     pub last_updated: DateTime<Utc>,
 }
 
+impl Default for VisualizationMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VisualizationMetrics {
     /// Create new metrics
     pub fn new() -> Self {

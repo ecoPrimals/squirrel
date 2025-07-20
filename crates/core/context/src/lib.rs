@@ -32,6 +32,6 @@ pub use visualization::{
 // Re-export from learning module
 pub use learning::{
     AdaptiveRuleSystem, ContextLearningManager, ExperienceReplay, LearningEngine,
-    LearningIntegration, LearningMetrics, LearningState, LearningSystem,
-    LearningSystemConfig, PolicyNetwork, RewardSystem,
+    LearningIntegration, LearningMetrics, LearningState, LearningSystem, LearningSystemConfig,
+    PolicyNetwork, RewardSystem,
 };

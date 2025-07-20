@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use url::Url;
 
-use crate::config::{AuthMethod, SecurityConfig};
+use crate::config::{AuthMethod, SecurityConfig, CredentialStorage, EncryptionConfig, EncryptionAlgorithm, KeyManagement, SecurityFallback};
 use crate::traits::{AuthResult, Credentials, Principal, PrincipalType};
 
 use super::context::{HealthStatus, SecurityContext, SecurityHealth};
@@ -826,7 +826,7 @@ impl SecurityProvider for BeardogIntegration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AuthMethod, FallbackConfig};
+    use crate::config::AuthMethod;
     use crate::traits::PrincipalType;
     use std::collections::HashMap;
 
@@ -837,8 +837,16 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Beardog,
+            encryption: EncryptionConfig {
+                enable_inter_primal: true,
+                enable_at_rest: true,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Beardog,
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: false,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -856,8 +864,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -872,8 +890,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -899,8 +927,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -920,8 +958,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -941,8 +989,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -969,8 +1027,18 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            credential_storage: CredentialStorage::Memory,
+            encryption: EncryptionConfig {
+                enable_inter_primal: false,
+                enable_at_rest: false,
+                algorithm: EncryptionAlgorithm::Aes256Gcm,
+                key_management: KeyManagement::Environment {
+                    var_name: "TEST_KEY".to_string(),
+                },
+            },
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,

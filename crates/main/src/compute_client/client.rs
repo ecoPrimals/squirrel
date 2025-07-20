@@ -1,19 +1,19 @@
 //! Universal Compute Client Implementation
 
+use base64::{engine::general_purpose, Engine as _};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
-use base64::{Engine as _, engine::general_purpose};
 
 use crate::error::PrimalError;
 use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::types::*;
 use super::ai_metadata::*;
 use super::providers::*;
+use super::types::*;
 
 // ============================================================================
 // UNIVERSAL COMPUTE CLIENT IMPLEMENTATION
@@ -24,16 +24,16 @@ use super::providers::*;
 pub struct UniversalComputeClient {
     /// Ecosystem integration for service discovery
     ecosystem: Arc<UniversalPrimalEcosystem>,
-    
+
     /// Client configuration
     config: ComputeClientConfig,
-    
+
     /// Active compute providers (discovered dynamically)
     providers: Arc<RwLock<HashMap<String, ComputeProvider>>>,
-    
+
     /// Request context for routing
     context: PrimalContext,
-    
+
     /// AI-first metadata for intelligent routing
     ai_metadata: AIComputeMetadata,
 }
@@ -79,16 +79,14 @@ impl UniversalComputeClient {
             PrimalCapability::ServerlessExecution {
                 languages: vec!["python".to_string(), "javascript".to_string()],
             },
-            PrimalCapability::GpuAcceleration {
-                cuda_support: true,
-            },
+            PrimalCapability::GpuAcceleration { cuda_support: true },
         ];
 
         let mut discovered_providers = HashMap::new();
 
         for capability in compute_capabilities {
             let providers = self.ecosystem.find_by_capability(&capability).await;
-            
+
             for primal in providers {
                 let provider = ComputeProvider::from_discovered_primal(&primal);
                 discovered_providers.insert(primal.instance_id.clone(), provider);
@@ -112,7 +110,10 @@ impl UniversalComputeClient {
         &self,
         request: UniversalComputeRequest,
     ) -> UniversalResult<UniversalComputeResponse> {
-        debug!("Executing universal compute operation: {:?}", request.operation);
+        debug!(
+            "Executing universal compute operation: {:?}",
+            request.operation
+        );
 
         // Select best provider using AI-based routing
         let provider = self.select_best_provider(&request).await?;
@@ -138,7 +139,8 @@ impl UniversalComputeClient {
         let compute_response = self.process_response(response, &provider, &request).await?;
 
         // Update provider health based on operation
-        self.update_provider_health(&provider.provider_id, &compute_response).await;
+        self.update_provider_health(&provider.provider_id, &compute_response)
+            .await;
 
         info!("Universal compute operation completed successfully");
         Ok(compute_response)
@@ -150,7 +152,7 @@ impl UniversalComputeClient {
         request: &UniversalComputeRequest,
     ) -> UniversalResult<ComputeProvider> {
         let providers = self.providers.read().await;
-        
+
         if providers.is_empty() {
             return Err(PrimalError::ResourceNotFound(
                 "No compute providers available".to_string(),
@@ -212,20 +214,28 @@ impl UniversalComputeClient {
         request: &UniversalComputeRequest,
     ) -> UniversalResult<UniversalComputeResponse> {
         let success = response.success;
-        
+
         let results = if success {
             Some(ComputeResults {
                 output_data: response.data.get("output").and_then(|v| {
-                    general_purpose::STANDARD.decode(v.as_str().unwrap_or("")).ok()
+                    general_purpose::STANDARD
+                        .decode(v.as_str().unwrap_or(""))
+                        .ok()
                 }),
-                return_code: response.data.get("return_code")
+                return_code: response
+                    .data
+                    .get("return_code")
                     .and_then(|v| v.as_i64())
                     .unwrap_or(0) as i32,
-                stdout: response.data.get("stdout")
+                stdout: response
+                    .data
+                    .get("stdout")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string(),
-                stderr: response.data.get("stderr")
+                stderr: response
+                    .data
+                    .get("stderr")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string(),
@@ -241,7 +251,9 @@ impl UniversalComputeClient {
             results,
             provider_id: provider.provider_id.clone(),
             performance: ComputePerformanceMetrics {
-                execution_time: std::time::Duration::from_millis(response.duration.num_milliseconds() as u64),
+                execution_time: std::time::Duration::from_millis(
+                    response.duration.num_milliseconds() as u64,
+                ),
                 queue_time: std::time::Duration::from_secs(0),
                 resource_utilization: request.ai_context.workload_characteristics.clone().into(),
                 cost_breakdown: CostBreakdown {
@@ -260,7 +272,7 @@ impl UniversalComputeClient {
                     "Consider using GPU acceleration for this workload".to_string(),
                 ],
                 cost_optimizations: vec![
-                    "Use spot instances for non-critical workloads".to_string(),
+                    "Use spot instances for non-critical workloads".to_string()
                 ],
                 alternative_providers: vec![],
                 workload_analysis: WorkloadAnalysis {
@@ -278,9 +290,10 @@ impl UniversalComputeClient {
     async fn update_provider_health(&self, provider_id: &str, response: &UniversalComputeResponse) {
         let mut providers = self.providers.write().await;
         if let Some(provider) = providers.get_mut(provider_id) {
-            provider.health.avg_execution_time_ms = response.performance.execution_time.as_millis() as f64;
+            provider.health.avg_execution_time_ms =
+                response.performance.execution_time.as_millis() as f64;
             provider.health.last_check = chrono::Utc::now();
-            
+
             if response.success {
                 provider.health.health_score = (provider.health.health_score * 0.9 + 0.1).min(1.0);
             } else {
@@ -368,4 +381,4 @@ impl Default for ComputeSecurityRequirements {
             network_security: NetworkSecurityLevel::Basic,
         }
     }
-} 
+}
