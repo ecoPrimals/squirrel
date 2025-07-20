@@ -42,6 +42,10 @@ pub enum PluginError {
     #[error("Plugin validation error: {0}")]
     ValidationError(String),
 
+    /// Plugin configuration error
+    #[error("Plugin configuration error: {0}")]
+    ConfigurationError(String),
+
     /// Plugin state error
     #[error("Plugin state error: {0}")]
     StateError(String),
