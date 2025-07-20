@@ -136,75 +136,144 @@ pub enum PluginError {
 
     /// Version compatibility error
     #[error("Version incompatible: required {required}, found {found}")]
-    VersionIncompatible { required: String, found: String },
+    VersionIncompatible { 
+        /// The required version string
+        required: String, 
+        /// The version string that was found instead
+        found: String 
+    },
 
     /// Invalid version format
     #[error("Invalid version format: {version} - {reason}")]
-    InvalidVersion { version: String, reason: String },
+    InvalidVersion { 
+        /// The invalid version string
+        version: String, 
+        /// The reason why the version format is invalid
+        reason: String 
+    },
 
     /// Security violation
     #[error("Security violation: {violation}")]
-    SecurityViolation { violation: String },
+    SecurityViolation { 
+        /// Description of the security violation
+        violation: String 
+    },
 
     /// Internal error
     #[error("Internal error: {message}")]
-    InternalError { message: String },
+    InternalError { 
+        /// The internal error message
+        message: String 
+    },
 
     /// Execution error
     #[error("Execution error in {context}: {message}")]
-    ExecutionError { context: String, message: String },
+    ExecutionError { 
+        /// The execution context where the error occurred
+        context: String, 
+        /// The execution error message
+        message: String 
+    },
 
     /// Invalid configuration
     #[error("Invalid configuration: {message}")]
-    InvalidConfiguration { message: String },
+    InvalidConfiguration { 
+        /// The configuration error message
+        message: String 
+    },
 
     /// JavaScript error
     #[error("JavaScript error: {message}")]
-    JsError { message: String },
+    JsError { 
+        /// The JavaScript error message
+        message: String 
+    },
 
     /// Unknown error
     #[error("Unknown error: {message}")]
-    Unknown { message: String },
+    Unknown { 
+        /// The unknown error message
+        message: String 
+    },
 
     /// HTTP-specific errors
     #[error("HTTP error: {status} - {message}")]
-    HttpError { status: u16, message: String },
+    HttpError { 
+        /// The HTTP status code
+        status: u16, 
+        /// The HTTP error message
+        message: String 
+    },
 
     /// JSON parsing error
     #[error("JSON parsing error: {message}")]
-    JsonError { message: String },
+    JsonError { 
+        /// The JSON parsing error message
+        message: String 
+    },
 
     /// Validation error
     #[error("Validation error: {field} - {message}")]
-    ValidationError { field: String, message: String },
+    ValidationError { 
+        /// The field that failed validation
+        field: String, 
+        /// The validation error message
+        message: String 
+    },
 
     /// Connection error
     #[error("Connection error: {endpoint} - {message}")]
-    ConnectionError { endpoint: String, message: String },
+    ConnectionError { 
+        /// The endpoint that failed to connect
+        endpoint: String, 
+        /// The connection error message
+        message: String 
+    },
 
     /// Authentication error
     #[error("Authentication error: {message}")]
-    AuthenticationError { message: String },
+    AuthenticationError { 
+        /// The authentication error message
+        message: String 
+    },
 
     /// Authorization error
     #[error("Authorization error: {resource} - {message}")]
-    AuthorizationError { resource: String, message: String },
+    AuthorizationError { 
+        /// The resource that access was denied for
+        resource: String, 
+        /// The authorization error message
+        message: String 
+    },
 
     /// Rate limiting error
     #[error("Rate limit exceeded: {resource} - retry after {retry_after} seconds")]
-    RateLimitError { resource: String, retry_after: u64 },
+    RateLimitError { 
+        /// The resource that was rate limited
+        resource: String, 
+        /// Number of seconds to wait before retrying
+        retry_after: u64 
+    },
 
     /// Plugin lifecycle error
     #[error("Plugin lifecycle error: {state} -> {target_state} - {message}")]
     LifecycleError {
+        /// The current plugin state
         state: String,
+        /// The target plugin state that failed to be reached
         target_state: String,
+        /// The lifecycle error message
         message: String,
     },
 
     /// Command execution error
     #[error("Command execution error: {command} - {message}")]
-    CommandExecutionError { command: String, message: String },
+    CommandExecutionError { 
+        /// The command that failed to execute
+        command: String, 
+        /// The command execution error message
+        message: String 
+    },
 
     /// Event handling error
     #[error("Event handling error: {event_type} - {message}")]
