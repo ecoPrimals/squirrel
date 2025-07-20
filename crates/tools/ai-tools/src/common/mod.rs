@@ -66,18 +66,18 @@ pub mod tool;
 pub mod usage;
 
 // Re-export main types for convenience
-pub use client::*;
-pub use clients::*;
-pub use types::*;
+pub use client::{AIClient, AIClientError, AIClientResult};
+pub use clients::{AnthropicClient, MockClient, OllamaClient, OpenAIClient};
+pub use types::{ChatRequest, ChatResponse, ChatResponseChunk, ChatChoiceChunk, ChatMessage, MessageRole, ModelInfo, TokenUsage};
 
 // Re-export existing types for backward compatibility (but avoid conflicts)
 pub use capability::{AICapabilities, AITask, RoutingPreferences};
 pub use client_registry::{AIRouterClient, ClientRegistry, ProviderStats};
 // Note: Not re-exporting message::* to avoid conflicts with types::*
-pub use parameters::*;
+pub use parameters::{ModelParameters, ParameterValue};
 pub use providers::{AICapability, AIProvider, AnthropicProvider, OllamaProvider, OpenAIProvider};
-pub use rate_limiter::*;
-pub use registry::*;
+pub use rate_limiter::{RateLimiter, RateLimiterConfig};
+pub use registry::{ModelRegistry, RegistryEntry};
 // Note: Not re-exporting tool::* and usage::* to avoid conflicts with types::*
 // Individual exports from tool module (excluding ToolCall and Tool to avoid conflicts)
 pub use tool::{FunctionCall, FunctionDefinition, ParameterSchema, PropertySchema, ToolType};
