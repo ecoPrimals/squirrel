@@ -19,7 +19,6 @@ pub struct PerformanceTestConfig {
     pub request_duration: Duration,
     pub warmup_requests: usize,
     pub measurement_duration: Duration,
-    pub timeout_duration: Duration,
 }
 
 impl Default for PerformanceTestConfig {
@@ -29,7 +28,6 @@ impl Default for PerformanceTestConfig {
             request_duration: Duration::from_millis(100),
             warmup_requests: 50,
             measurement_duration: Duration::from_secs(30),
-            timeout_duration: Duration::from_secs(60),
         }
     }
 }

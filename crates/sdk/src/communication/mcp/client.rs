@@ -193,10 +193,6 @@ pub struct McpClient {
     pub(crate) reconnect_attempts: u32,
     /// Connection manager
     pub(crate) connection: ConnectionManager,
-    /// Message handler
-    pub(crate) message_handler: MessageHandler,
-    /// Operation handler
-    pub(crate) operation_handler: OperationHandler,
     /// Pending request tracking
     pub(crate) pending_requests: HashMap<String, tokio::sync::oneshot::Sender<serde_json::Value>>,
 }
@@ -238,8 +234,6 @@ impl McpClient {
             state: ConnectionState::Disconnected,
             reconnect_attempts: 0,
             connection: ConnectionManager::new(config.clone()),
-            message_handler: MessageHandler::new(),
-            operation_handler: OperationHandler::new(),
             pending_requests: HashMap::new(),
         }
     }
@@ -276,8 +270,6 @@ impl McpClient {
             state: ConnectionState::Disconnected,
             reconnect_attempts: 0,
             connection: ConnectionManager::new(config.clone()),
-            message_handler: MessageHandler::new(),
-            operation_handler: OperationHandler::new(),
             pending_requests: HashMap::new(),
         }
     }
