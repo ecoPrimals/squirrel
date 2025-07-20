@@ -55,8 +55,11 @@ pub enum ProcessingStrategy {
 /// Processed payload with validation results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessedPayload {
+    /// The actual data payload content
     pub data: serde_json::Value,
+    /// Status of payload validation (e.g., "valid", "invalid", "pending")
     pub validation_status: String,
+    /// Hints for processing the payload effectively
     pub processing_hints: Vec<String>,
 }
 
