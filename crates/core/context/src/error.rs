@@ -29,6 +29,10 @@ pub enum ContextError {
     #[error("Context manager not initialized")]
     NotInitialized,
 
+    /// Initialization failed
+    #[error("Initialization failed: {0}")]
+    InitializationFailed(String),
+
     /// Context not found
     #[error("Context not found: {0}")]
     NotFound(String),
