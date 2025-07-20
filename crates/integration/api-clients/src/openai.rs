@@ -88,9 +88,10 @@ impl OpenAIClient {
             .send()
             .await?;
             
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(format!("OpenAI API error ({}): {}", response.status(), error_text).into());
+            return Err(format!("OpenAI API error ({}): {}", status, error_text).into());
         }
         
         // For now, return placeholder response since this requires real API integration
