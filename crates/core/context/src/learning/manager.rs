@@ -333,7 +333,7 @@ impl ContextLearningManager {
     /// Set rule manager with intelligent learning integration
     pub async fn set_rule_manager(&self, rule_manager: Arc<RuleManager>) {
         // Store rule manager for enhanced learning-rule integration
-        let mut current_state = self.state.write().await;
+        let current_state = self.state.write().await;
         
         info!("Integrating rule manager with learning system");
         
@@ -370,7 +370,7 @@ impl ContextLearningManager {
         }
         
         // Update learning state to reflect rule integration
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
         if matches!(*state, LearningState::Learning) {
             debug!("Learning state updated with rule context integration");
             // State remains in Learning mode but with enhanced rule coordination
