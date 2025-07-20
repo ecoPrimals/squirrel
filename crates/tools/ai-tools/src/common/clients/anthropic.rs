@@ -8,7 +8,9 @@ use futures::stream;
 use reqwest::Client;
 use serde_json::json;
 
-use crate::common::capability::{AICapabilities, ModelType, SecurityRequirements, TaskType};
+use crate::common::capability::{AICapabilities, ModelType, TaskType};
+#[cfg(test)]
+use crate::common::capability::SecurityRequirements;
 use crate::common::client::AIClient;
 use crate::common::types::{
     ChatChoice, ChatChoiceChunk, ChatMessage, ChatRequest, ChatResponse, ChatResponseChunk,

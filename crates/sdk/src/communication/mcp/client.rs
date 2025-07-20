@@ -66,21 +66,32 @@ pub struct ProcessedPayload {
 /// Comprehensive AI-enhanced MCP message structure for intelligent coordination
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiMcpMessage {
+    /// Unique identifier for the message
     pub id: String,
+    /// Type of the message (e.g., "request", "response", "notification")
     pub message_type: String,
+    /// Category for intelligent message routing
     pub category: MessageCategory,
+    /// Processed message payload with validation status
     pub payload: ProcessedPayload,
+    /// Unix timestamp when the message was created
     pub timestamp: i64,
+    /// Client context information for the message
     pub client_context: ClientContext,
+    /// Strategy for processing this message
     pub processing_strategy: ProcessingStrategy,
 }
 
-/// Message response structure
+/// Message response structure for MCP protocol communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageResponse {
+    /// Whether the operation was successful
     pub success: bool,
+    /// Response data payload
     pub data: serde_json::Value,
+    /// Type of the response message
     pub message_type: String,
+    /// Unix timestamp when the response was created
     pub timestamp: i64,
 }
 
