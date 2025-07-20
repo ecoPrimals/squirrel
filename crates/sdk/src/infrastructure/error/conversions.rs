@@ -291,12 +291,3 @@ impl From<Box<dyn std::error::Error>> for PluginError {
         }
     }
 }
-
-#[cfg(feature = "anyhow")]
-impl From<anyhow::Error> for PluginError {
-    fn from(error: anyhow::Error) -> Self {
-        PluginError::InternalError {
-            message: error.to_string(),
-        }
-    }
-}

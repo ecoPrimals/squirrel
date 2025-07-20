@@ -332,7 +332,7 @@ impl Logger {
     }
 
     /// Create a scoped logger with additional context
-    pub fn with_context(&self, context: HashMap<String, serde_json::Value>) -> ScopedLogger {
+    pub fn with_context(&self, _context: HashMap<String, serde_json::Value>) -> ScopedLogger {
         ScopedLogger {
             _phantom: std::marker::PhantomData,
         }
