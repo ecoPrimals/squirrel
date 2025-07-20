@@ -359,6 +359,12 @@ impl<'a> ScopedLogger<'a> {
 }
 
 /// Convenience macros for logging
+
+/// Log a trace-level message using the global logger
+/// 
+/// This macro logs trace-level messages through the global logger instance.
+/// Trace messages are the most detailed logging level and are typically used
+/// for fine-grained debugging information.
 #[macro_export]
 macro_rules! log_trace {
     ($($arg:tt)*) => {
@@ -366,6 +372,17 @@ macro_rules! log_trace {
     };
 }
 
+/// Log a debug-level message with cross-platform support
+///
+/// This macro provides cross-platform debug logging that works in both
+/// WASM (browser console) and native (tracing) environments.
+/// Debug messages are used for detailed diagnostic information.
+///
+/// # Examples
+/// ```
+/// log_debug!("Processing item: {}", item_id);
+/// log_debug!("Cache hit ratio: {:.2}%", ratio * 100.0);
+/// ```
 #[macro_export]
 macro_rules! log_debug {
     ($($arg:tt)*) => {
@@ -380,6 +397,17 @@ macro_rules! log_debug {
     };
 }
 
+/// Log an info-level message with cross-platform support
+///
+/// This macro provides cross-platform informational logging that works in both
+/// WASM (browser console) and native (tracing) environments.
+/// Info messages are used for general information about program execution.
+///
+/// # Examples
+/// ```
+/// log_info!("Service started on port {}", port);
+/// log_info!("Processing {} items", item_count);
+/// ```
 #[macro_export]
 macro_rules! log_info {
     ($($arg:tt)*) => {
@@ -394,6 +422,18 @@ macro_rules! log_info {
     };
 }
 
+/// Log a warning-level message with cross-platform support
+///
+/// This macro provides cross-platform warning logging that works in both
+/// WASM (browser console) and native (tracing) environments.
+/// Warning messages are used for potentially problematic situations that
+/// don't prevent the program from continuing.
+///
+/// # Examples
+/// ```
+/// log_warn!("Connection timeout, retrying...");
+/// log_warn!("Memory usage is high: {}MB", memory_mb);
+/// ```
 #[macro_export]
 macro_rules! log_warn {
     ($($arg:tt)*) => {
@@ -408,6 +448,18 @@ macro_rules! log_warn {
     };
 }
 
+/// Log an error-level message with cross-platform support
+///
+/// This macro provides cross-platform error logging that works in both
+/// WASM (browser console) and native (tracing) environments.
+/// Error messages are used for error conditions that require attention
+/// but allow the program to continue running.
+///
+/// # Examples
+/// ```
+/// log_error!("Failed to save file: {}", error);
+/// log_error!("Database connection failed after {} attempts", attempts);
+/// ```
 #[macro_export]
 macro_rules! log_error {
     ($($arg:tt)*) => {

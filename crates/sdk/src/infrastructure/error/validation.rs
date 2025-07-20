@@ -9,26 +9,41 @@ use thiserror::Error;
 pub enum ValidationError {
     /// Field is required but missing
     #[error("Required field '{field}' is missing")]
-    RequiredField { field: String },
+    RequiredField { 
+        /// The name of the required field that is missing
+        field: String 
+    },
 
     /// Invalid field value
     #[error("Invalid value for field '{field}': {reason}")]
-    InvalidValue { field: String, reason: String },
+    InvalidValue { 
+        /// The field name that has an invalid value
+        field: String, 
+        /// The reason why the value is invalid
+        reason: String 
+    },
 
     /// Invalid format
     #[error("Invalid format for field '{field}': expected {expected}, got {actual}")]
     InvalidFormat {
+        /// The field name that has an invalid format
         field: String,
+        /// The expected format for the field
         expected: String,
+        /// The actual format that was received
         actual: String,
     },
 
     /// Value out of range
     #[error("Value for field '{field}' out of range: {value} (expected {min}-{max})")]
     OutOfRange {
+        /// The field name that has a value out of range
         field: String,
+        /// The value that is out of range
         value: String,
+        /// The minimum allowed value
         min: String,
+        /// The maximum allowed value
         max: String,
     },
 }
