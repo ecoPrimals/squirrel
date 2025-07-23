@@ -1,0 +1,273 @@
+# Universal Security Discovery Configuration
+# 
+# This configuration demonstrates Squirrel's capability-first, name-agnostic
+# security integration following the Universal Primal Architecture Standard.
+#
+# Can discover and integrate with ANY security primal based on capabilities:
+# - BearDog (if it exposes security capabilities)
+# - Custom security primals
+# - Community security services
+# - Enterprise security solutions
+
+[universal_security]
+# Enable universal capability-based security discovery
+enable_capability_discovery = true
+
+# Enable Songbird service mesh integration for broader discovery
+enable_songbird_discovery = true
+
+# Fallback to internal security if no ecosystem services found
+enable_fallback = true
+
+# Focus on MCP protocol security requirements
+mcp_protocol_focus = true
+
+# Enable AI-enhanced security decisions
+enable_ai_security = true
+
+# Security capability requirements for Squirrel
+[security_requirements]
+# Mandatory authentication capabilities
+[[security_requirements.authentication]]
+domain = "authentication"
+capability = "user_authentication"
+minimum_level = "standard"
+weight = 1.0
+mandatory = true
+
+[security_requirements.authentication.required_parameters]
+session_management = true
+token_validation = true
+mcp_context_aware = true
+
+# Mandatory authorization capabilities
+[[security_requirements.authorization]]
+domain = "authorization"
+capability = "access_control"
+minimum_level = "basic"
+weight = 0.9
+mandatory = true
+
+[security_requirements.authorization.required_parameters]
+resource_protection = true
+role_based_access = true
+ai_request_filtering = true
+
+# Optional but preferred encryption capabilities
+[[security_requirements.encryption]]
+domain = "encryption"
+capability = "data_protection"
+minimum_level = "standard"
+weight = 0.8
+mandatory = false
+
+[security_requirements.encryption.required_parameters]
+at_rest_encryption = true
+in_transit_encryption = true
+
+# Optional compliance capabilities
+[[security_requirements.compliance]]
+domain = "compliance"
+capability = "audit_logging"
+minimum_level = "basic"
+weight = 0.7
+mandatory = false
+
+[security_requirements.compliance.required_parameters]
+mcp_audit_trail = true
+
+# Service selection preferences
+[selection_preferences]
+# Preferred security level (any service providing this or higher)
+security_level = "high"
+
+# Maximum acceptable latency (ms)
+max_latency_ms = 5000
+
+# Minimum uptime requirement (percentage)
+min_uptime_percent = 99.0
+
+# Preferred authentication methods
+preferred_auth_methods = [
+    "bearer_token",
+    "api_key", 
+    "session_based",
+    "biometric"  # If BearDog or advanced primals provide this
+]
+
+# Required compliance frameworks (empty = any)
+required_compliance = []
+
+# Discovery configuration
+[discovery]
+# How often to refresh capability information (seconds)
+refresh_interval_seconds = 300
+
+# Cache capability information locally
+cache_capabilities = true
+
+# Capability cache TTL (seconds)
+cache_ttl_seconds = 600
+
+# Health check interval for discovered services
+health_check_interval_seconds = 60
+
+# Service timeout before marking as unhealthy
+service_timeout_seconds = 30
+
+# Ecosystem service registry configuration
+[ecosystem_registry]
+# Registry type: "songbird", "custom", "mock"
+registry_type = "songbird"
+
+# Registry endpoints (for custom registries)
+endpoints = [
+    "http://localhost:8761/registry",  # Example ecosystem registry
+    "http://registry.local:8080/services"
+]
+
+# Registry authentication
+api_key = "${ECOSYSTEM_REGISTRY_API_KEY}"
+timeout_seconds = 10
+
+# Examples of services that MIGHT be discovered
+# These are just examples - actual discovery is dynamic and capability-based
+
+# Example 1: BearDog Security Manager (if available in ecosystem)
+[[example_discoverable_services]]
+name = "BearDog Security Manager"
+category = "security"
+
+[[example_discoverable_services.capabilities]]
+type = "Security"
+level = "High"
+features = [
+    "enterprise_authentication",
+    "role_based_authorization", 
+    "audit_logging",
+    "compliance_reporting",
+    "threat_detection",
+    "biometric_auth",
+    "genetic_security"
+]
+
+[[example_discoverable_services.endpoints]]
+name = "authenticate"
+url = "http://localhost:8080/api/v1/auth/authenticate"
+protocol = "HTTP"
+methods = ["POST"]
+
+# Example 2: Community Security Service
+[[example_discoverable_services]]
+name = "Community Security Provider"
+category = "security"
+
+[[example_discoverable_services.capabilities]]
+type = "Security"
+level = "Standard" 
+features = [
+    "basic_authentication",
+    "simple_authorization",
+    "session_management"
+]
+
+[[example_discoverable_services.endpoints]]
+name = "authenticate"
+url = "http://localhost:9090/auth"
+protocol = "HTTP"
+methods = ["POST"]
+
+# Example 3: Enterprise Security Solution  
+[[example_discoverable_services]]
+name = "Enterprise Security Hub"
+category = "security"
+
+[[example_discoverable_services.capabilities]]
+type = "Custom"
+name = "enterprise_security_suite"
+
+[example_discoverable_services.capabilities.metadata]
+sso_integration = true
+ldap_support = true
+saml_support = true
+oauth2_support = true
+multi_tenant = true
+
+# Fallback configuration when no ecosystem services available
+[fallback]
+# Security level for fallback mode
+security_level = "basic"
+
+# Session timeout in fallback mode (minutes)
+session_timeout_minutes = 60
+
+# Maximum concurrent sessions
+max_sessions = 1000
+
+# Local secrets storage (development/fallback only)
+[fallback.secrets_storage]
+# Storage type: "memory", "file", "encrypted_file"
+storage_type = "memory"
+
+# For file storage (not recommended for production)
+storage_path = "./data/fallback_secrets.enc"
+
+# Monitoring and alerting for discovered services
+[monitoring]
+# Enable monitoring of discovered security services
+enabled = true
+
+# Metrics collection interval (seconds)
+metrics_interval_seconds = 60
+
+# Alert when falling back to internal security
+alert_on_fallback = true
+
+# Alert thresholds
+[monitoring.thresholds]
+# Alert if discovered service response time exceeds this (ms)
+max_response_time_ms = 2000
+
+# Alert if using fallback for this duration (minutes)
+max_fallback_duration_minutes = 5
+
+# Alert if discovery error rate exceeds this percentage
+max_discovery_error_rate_percent = 10
+
+# Development settings
+[development]
+# Use mock service registry for testing
+use_mock_registry = true
+
+# Mock discovery delay (for testing timeout handling)
+mock_discovery_delay_ms = 0
+
+# Log all capability matching decisions
+log_capability_matching = true
+
+# Log discovered service details
+log_discovered_services = true
+
+# Production settings  
+[production]
+# Strict capability verification
+strict_capability_verification = true
+
+# Require minimum security level
+enforce_minimum_security_level = true
+
+# Enable service health monitoring
+enable_health_monitoring = true
+
+# Circuit breaker for unhealthy services
+[production.circuit_breaker]
+enabled = true
+failure_threshold = 3
+timeout_seconds = 30
+half_open_max_calls = 2
+
+# Load balancing for multiple discovered services
+[production.load_balancing]
+strategy = "capability_weighted"  # Weight by capability score
+fallback_strategy = "round_robin"
+health_check_required = true 

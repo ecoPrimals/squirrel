@@ -54,9 +54,9 @@ impl From<reqwest::Error> for Error {
 /// Common error type for API client operations
 #[derive(Debug, Error)]
 pub enum ApiError {
-    /// HTTP status code
+    /// HTTP response error with status code and message
     #[error("API error ({status}): {message}")]
-    ApiError {
+    HttpResponse {
         /// HTTP status code
         status: u16,
         /// Error message from the API

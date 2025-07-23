@@ -83,14 +83,17 @@ impl SecurityProvider {
         Self {
             provider_id: primal.instance_id.clone(),
             metadata: SecurityProviderMetadata {
-                name: primal.primal_id.clone(),
+                name: primal.id.clone(),
                 version: "unknown".to_string(),
                 standards: vec!["oauth2".to_string(), "openid".to_string()],
                 certifications: vec!["soc2".to_string()],
                 regions: vec!["local".to_string()],
                 compliance: vec![ComplianceFramework::Soc2],
             },
-            capabilities: primal.capabilities.clone(),
+            capabilities: vec![crate::universal::PrimalCapability::Custom {
+                name: "security".to_string(),
+                attributes: std::collections::HashMap::new(),
+            }],
             health: SecurityProviderHealth {
                 health_score: 1.0,
                 response_time_ms: 50.0,

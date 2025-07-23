@@ -23,10 +23,10 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 once_cell.workspace = true
-# Shared squirrel dependencies
-squirrel-context.workspace = true
+# Squirrel dependencies  
 squirrel-interfaces.workspace = true
-squirrel-core.workspace = true
+squirrel-context.workspace = true
+squirrel-core = { path = "../../core/core" }
 
 [dev-dependencies]
 tokio-test.workspace = true

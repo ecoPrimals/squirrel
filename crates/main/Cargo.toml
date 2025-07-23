@@ -15,8 +15,8 @@ serde_yaml = "0.9"
 uuid = { version = "1.0", features = ["v4"] }
 url = "2.4"
 chrono = { version = "0.4", features = ["serde"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0"
 thiserror = "1.0"
 async-trait = "0.1"
@@ -27,6 +27,10 @@ warp = "0.3"
 base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
+lazy_static = "1.4"
+
+# Text processing and validation (CRITICAL FIX: Missing regex dependency)
+regex = "1.10"
 
 # Ecosystem integrations - Service Mesh via Songbird
 ecosystem-api = { path = "../ecosystem-api" }
@@ -38,6 +42,14 @@ ecosystem-api = { path = "../ecosystem-api" }
 
 # Configuration management
 squirrel-mcp-config = { path = "../config" }
+
+# Authentication system (CRITICAL FIX: Missing auth dependency)
+squirrel-mcp-auth = { path = "../core/auth" }
+
+# Optional local auth crates for development
+
+# Universal patterns
+universal-patterns = { path = "../universal-patterns" }
 
 # SDK dependencies
 squirrel-sdk = { path = "../sdk" }
@@ -67,6 +79,8 @@ default = ["monitoring", "ecosystem"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
 ecosystem = ["tonic", "prost"]
 benchmarking = ["criterion", "pprof", "iai"]
+enhanced_error_handling = []
+optimizations = []
 
 [dev-dependencies]
 tokio-test = "0.4"

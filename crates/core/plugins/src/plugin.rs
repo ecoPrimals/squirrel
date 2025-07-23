@@ -125,6 +125,11 @@ impl Default for PluginStatus {
 /// Legacy Plugin trait, will be deprecated in favor of IPlugin
 #[async_trait]
 pub trait Plugin: Send + Sync {
+    /// Get the plugin ID
+    fn id(&self) -> Uuid {
+        self.metadata().id
+    }
+
     /// Get the plugin metadata
     fn metadata(&self) -> &PluginMetadata;
 
@@ -166,4 +171,3 @@ pub trait WebPluginExt: Plugin {
 }
 
 // Re-export the CommandsPlugin trait from interfaces for convenience
-pub use squirrel_interfaces::plugins::CommandsPlugin;

@@ -1,6 +1,4 @@
-use crate::universal::{
-    CircuitBreakerStatus, LoadBalancingStatus, PrimalContext, PrimalInfo, PrimalType,
-};
+use crate::universal::{CircuitBreakerStatus, LoadBalancingStatus};
 use anyhow::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -159,6 +157,7 @@ impl ApiServer {
         let state = self.state.clone();
         let ecosystem_manager = self.ecosystem_manager.clone();
         let metrics_collector = self.metrics_collector.clone();
+        let shutdown_manager = self.shutdown_manager.clone();
 
         tracing::info!(
             "Starting API server on port {} with ecosystem integration",
@@ -208,6 +207,7 @@ impl ApiServer {
 
         let metrics = warp::path!("api" / "v1" / "metrics")
             .and(warp::get())
+            .and(with_state(state.clone()))
             .and(with_metrics_collector(metrics_collector.clone()))
             .and_then(handle_metrics);
 
@@ -228,18 +228,37 @@ impl ApiServer {
             .and(with_state(state.clone()))
             .and_then(handle_songbird_heartbeat);
 
+        // Shutdown endpoint using the shutdown_manager
+        let shutdown = warp::path!("api" / "v1" / "shutdown")
+            .and(warp::post())
+            .and(with_shutdown_manager(shutdown_manager.clone()))
+            .and_then(handle_shutdown);
+
+        // Add request counting middleware
+        let request_counter = warp::any()
+            .and(with_state(state.clone()))
+            .and_then(|state: Arc<RwLock<ServerState>>| async move {
+                increment_request_count(state).await;
+                Ok::<_, warp::Rejection>(())
+            })
+            .untuple_one();
+
         // Combine all routes
-        let routes = health
-            .or(health_live)
-            .or(health_ready)
-            .or(ecosystem_status)
-            .or(service_mesh_status)
-            .or(primals_list)
-            .or(primal_status)
-            .or(metrics)
-            .or(services)
-            .or(songbird_register)
-            .or(songbird_heartbeat)
+        let routes = request_counter
+            .and(
+                health
+                    .or(health_live)
+                    .or(health_ready)
+                    .or(ecosystem_status)
+                    .or(service_mesh_status)
+                    .or(primals_list)
+                    .or(primal_status)
+                    .or(metrics)
+                    .or(services)
+                    .or(songbird_register)
+                    .or(songbird_heartbeat)
+                    .or(shutdown),
+            )
             .with(warp::cors().allow_any_origin())
             .with(warp::log("api"));
 
@@ -276,10 +295,22 @@ fn with_metrics_collector(
     warp::any().map(move || metrics_collector.clone())
 }
 
+fn with_shutdown_manager(
+    shutdown_manager: Arc<ShutdownManager>,
+) -> impl Filter<Extract = (Arc<ShutdownManager>,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || shutdown_manager.clone())
+}
+
 fn with_base_url(
     base_url: String,
 ) -> impl Filter<Extract = (String,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || base_url.clone())
+}
+
+/// Middleware to increment request count for all requests
+async fn increment_request_count(state: Arc<RwLock<ServerState>>) {
+    let mut state_guard = state.write().await;
+    state_guard.request_count += 1;
 }
 
 // Handler functions following ecosystem patterns
@@ -423,7 +454,7 @@ async fn handle_ecosystem_status(
         active_primals: ecosystem_status
             .discovered_services
             .iter()
-            .map(|s| s.service_id.clone())
+            .map(|s| s.service_id.to_string()) // Convert Arc<str> to String
             .collect(),
         service_discovery: if ecosystem_status.discovered_services.is_empty() {
             "discovering".to_string()
@@ -512,11 +543,15 @@ async fn handle_primals_list(
     // Add discovered primals
     for service in ecosystem_status.discovered_services {
         primals.push(PrimalStatusResponse {
-            name: service.service_id.clone(),
-            status: "discovered".to_string(),
+            name: service.service_id.to_string(), // Convert Arc<str> to String
+            status: "active".to_string(),
             timestamp: chrono::Utc::now(),
-            endpoints: vec![service.endpoint],
-            metadata: service.metadata,
+            endpoints: vec![service.endpoint.to_string()], // Convert Arc<str> to String
+            metadata: service
+                .metadata
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(), // Convert Arc<str> keys/values to String
         });
     }
 
@@ -543,16 +578,20 @@ async fn handle_primal_status(
             map
         }),
         _ => {
-            // Check discovered services
             if let Some(service) = ecosystem_status
                 .discovered_services
                 .iter()
-                .find(|s| s.service_id == primal_name)
+                .find(|s| s.service_id.as_ref() == primal_name)
+            // Compare Arc<str> with String
             {
                 (
-                    "discovered".to_string(),
-                    vec![service.endpoint.clone()],
-                    service.metadata.clone(),
+                    "active".to_string(),
+                    vec![service.endpoint.to_string()], // Convert Arc<str> to String
+                    service
+                        .metadata
+                        .iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect::<HashMap<String, String>>(), // Convert Arc<str> keys/values to String
                 )
             } else {
                 ("not_found".to_string(), vec![], HashMap::new())
@@ -572,8 +611,10 @@ async fn handle_primal_status(
 }
 
 async fn handle_metrics(
+    state: Arc<RwLock<ServerState>>,
     metrics_collector: Arc<MetricsCollector>,
 ) -> Result<impl Reply, warp::Rejection> {
+    let state_guard = state.read().await;
     let metrics = metrics_collector
         .get_all_metrics()
         .await
@@ -594,7 +635,10 @@ async fn handle_metrics(
                 "active_sessions".to_string(),
                 metrics.metrics.len().to_string(),
             );
-            map.insert("requests_processed".to_string(), "0".to_string());
+            map.insert(
+                "requests_processed".to_string(),
+                state_guard.request_count.to_string(),
+            );
             map.insert("errors".to_string(), "0".to_string());
             map
         },
@@ -662,11 +706,15 @@ async fn handle_services(
     // Add discovered services
     for service in ecosystem_status.discovered_services {
         services.push(ServiceInfo {
-            name: service.service_id.clone(),
+            name: service.service_id.to_string(), // Convert Arc<str> to String
             service_type: format!("{:?}", service.primal_type),
-            endpoints: vec![service.endpoint],
+            endpoints: vec![service.endpoint.to_string()], // Convert Arc<str> to String
             health: "discovered".to_string(),
-            metadata: service.metadata,
+            metadata: service
+                .metadata
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect::<HashMap<String, String>>(), // Convert Arc<str> keys/values to String
         });
     }
 
@@ -713,6 +761,22 @@ async fn handle_songbird_heartbeat(
     };
 
     Ok(warp::reply::json(&response))
+}
+
+async fn handle_shutdown(
+    shutdown_manager: Arc<ShutdownManager>,
+) -> Result<impl Reply, warp::Rejection> {
+    tracing::info!("Received shutdown signal");
+    match shutdown_manager.request_shutdown().await {
+        Ok(report) => {
+            tracing::info!("Shutdown initiated successfully, report: {:?}", report);
+            Ok(warp::reply::json(&ShutdownResponse { acknowledged: true }))
+        }
+        Err(e) => {
+            tracing::error!("Failed to initiate shutdown: {}", e);
+            Err(warp::reject::not_found()) // Use a standard rejection
+        }
+    }
 }
 
 // Additional response types for ecosystem API
@@ -804,4 +868,9 @@ pub struct SongbirdHeartbeatResponse {
     pub acknowledged: bool,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub next_heartbeat: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ShutdownResponse {
+    pub acknowledged: bool,
 }

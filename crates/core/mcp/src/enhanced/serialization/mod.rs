@@ -18,7 +18,7 @@ use tracing::{info, debug, warn, instrument};
 
 use crate::error::{Result, types::MCPError};
 use crate::protocol::types::MCPMessage;
-use crate::enhanced::coordinator::{UniversalAIRequest, UniversalAIResponse};
+use crate::enhanced::ai_types::{UniversalAIRequest, UniversalAIResponse};
 
 pub mod buffer_pool;
 pub mod streaming;
@@ -342,7 +342,7 @@ impl ZeroCopySerializer {
         Ok(message)
     }
     
-    /// Deserialize data into a UniversalAIRequest
+    /// Deserialize data into a UniversalAIRequest with Arc<str> optimization
     pub async fn deserialize_ai_request(&self, data: &Bytes) -> Result<UniversalAIRequest> {
         let start_time = Instant::now();
         
@@ -354,7 +354,7 @@ impl ZeroCopySerializer {
         Ok(request)
     }
     
-    /// Deserialize data into a UniversalAIResponse
+    /// Deserialize data into a UniversalAIResponse with Arc<str> optimization
     pub async fn deserialize_ai_response(&self, data: &Bytes) -> Result<UniversalAIResponse> {
         let start_time = Instant::now();
         

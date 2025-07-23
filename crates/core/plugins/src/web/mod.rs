@@ -243,7 +243,7 @@ pub struct PluginManagementFactory;
 impl PluginManagementFactory {
     /// Create a complete plugin management interface
     pub fn create_interface(
-        manager: std::sync::Arc<crate::manager::DefaultPluginManager>,
+        manager: std::sync::Arc<crate::DefaultPluginManager>,
         registry: std::sync::Arc<dyn crate::registry::PluginRegistry>,
     ) -> PluginManagementInterface {
         let api = PluginManagementAPI::new(manager.clone());

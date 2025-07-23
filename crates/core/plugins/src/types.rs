@@ -21,6 +21,60 @@ pub const PLUGIN_TYPE_TOOL: &str = "tool";
 /// CLI plugin type for command-line interface extensions
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
+/// Plugin type enumeration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PluginType {
+    /// Built-in plugin
+    Builtin,
+    /// Native (shared library) plugin
+    Native,
+    /// WebAssembly plugin
+    WebAssembly,
+    /// Script plugin
+    Script,
+}
+
+/// Plugin state enumeration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PluginState {
+    /// Plugin is loaded and ready
+    Loaded,
+    /// Plugin is currently loading
+    Loading,
+    /// Plugin failed to load
+    Failed,
+    /// Plugin is unloading
+    Unloading,
+    /// Plugin is unloaded
+    Unloaded,
+}
+
+/// Plugin data format enumeration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PluginDataFormat {
+    /// JSON format
+    Json,
+    /// Binary format
+    Binary,
+    /// Text format
+    Text,
+    /// Custom format
+    Custom(String),
+}
+
+/// Plugin resource usage information
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PluginResources {
+    /// Memory usage in bytes
+    pub memory_usage: u64,
+    /// CPU usage percentage
+    pub cpu_usage: f64,
+    /// Number of open file handles
+    pub file_handles: u32,
+    /// Number of network connections
+    pub network_connections: u32,
+}
+
 /// Plugin configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginConfig {

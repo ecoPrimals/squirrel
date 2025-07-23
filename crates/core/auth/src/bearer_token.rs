@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BearerToken {
@@ -45,7 +46,7 @@ impl BearerToken {
     fn generate_token() -> String {
         // Generate a secure random token
         let random_bytes: [u8; 32] = rand::random();
-        format!("smc_{}", base64::encode(random_bytes))
+        format!("smc_{}", STANDARD.encode(random_bytes))
     }
 
     pub fn is_expired(&self) -> bool {

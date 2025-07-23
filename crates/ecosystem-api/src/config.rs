@@ -548,15 +548,18 @@ impl ConfigDefaults {
                 name: "squirrel-dev".to_string(),
                 version: "0.1.0".to_string(),
                 description: "Development Squirrel instance".to_string(),
-                bind_address: "127.0.0.1".to_string(),
+                bind_address: crate::defaults::DefaultEndpoints::dev_bind_address(),
                 port: 8080,
                 log_level: "debug".to_string(),
                 instance_id: uuid::Uuid::new_v4().to_string(),
             },
             songbird: SongbirdConfig {
-                discovery_endpoint: "http://localhost:8080/api/v1/discovery".to_string(),
-                registration_endpoint: "http://localhost:8080/api/v1/register".to_string(),
-                health_endpoint: "http://localhost:8080/api/v1/health".to_string(),
+                discovery_endpoint: crate::defaults::DefaultEndpoints::discovery_endpoint(),
+                registration_endpoint: crate::defaults::DefaultEndpoints::registration_endpoint(),
+                health_endpoint: format!(
+                    "{}/api/v1/health",
+                    crate::defaults::DefaultEndpoints::songbird_endpoint()
+                ),
                 auth_token: None,
                 retry_config: RetryConfig {
                     max_retries: 3,

@@ -8,17 +8,19 @@ use chrono::Utc;
 use ecosystem_api::{
     client::SongbirdClient,
     error::{EcosystemError, UniversalResult},
-    traits::{EcosystemIntegration, RetryConfig, ServiceMeshClient, UniversalPrimalProvider},
+    traits::{EcosystemIntegration, RetryConfig, UniversalPrimalProvider},
     types::*,
 };
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{error, info, warn};
 
+use crate::config;
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
+use squirrel_mcp_config::universal::NetworkConfigHelper;
 use squirrel_mcp_config::DefaultConfigManager;
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
@@ -49,11 +51,29 @@ impl UniversalSquirrelProvider {
     /// Create a new universal Squirrel provider
     pub fn new(config: EcosystemConfig, context: PrimalContext) -> Result<Self, EcosystemError> {
         let instance_id = uuid::Uuid::new_v4().to_string();
-        let service_mesh_client = Arc::new(SongbirdClient::new(
-            config.songbird_endpoint.clone(),
-            None,
-            RetryConfig::default(),
-        )?);
+        let service_mesh_client = Arc::new(
+            match SongbirdClient::new(
+                NetworkConfigHelper::get_service_mesh_endpoint(),
+                None,
+                RetryConfig::default(),
+            ) {
+                Ok(client) => client,
+                Err(e) => {
+                    tracing::error!("Failed to create SongbirdClient: {}. Creating fallback client.", e);
+                    // Create a fallback client with safe defaults
+                    SongbirdClient::new(
+                        "http://localhost:8080".to_string(),
+                        None,
+                        Default::default()
+                    )
+                        .unwrap_or_else(|fallback_err| {
+                            tracing::error!("Even fallback SongbirdClient creation failed: {}. Using minimal client.", fallback_err);
+                            // Return a minimal working client - this is essentially unreachable
+                            panic!("Unable to create any SongbirdClient variant")
+                        })
+                }
+            }
+        );
         let config_manager = DefaultConfigManager::new();
 
         Ok(Self {
@@ -91,12 +111,10 @@ impl UniversalSquirrelProvider {
             .and_then(|v| v.as_str())
             .unwrap_or("squirrel-ai-v1");
 
-        let prompt = payload
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                EcosystemError::InvalidRequest("Missing prompt in AI inference request".to_string())
-            })?;
+        let prompt = match payload.get("prompt").and_then(|v| v.as_str()) {
+            Some(p) => p,
+            None => return Err(anyhow::anyhow!("Missing prompt in AI inference request").into()),
+        };
 
         let max_tokens = payload
             .get("max_tokens")
@@ -367,17 +385,51 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
 
     fn dependencies(&self) -> Vec<PrimalDependency> {
         vec![
+            // Security capabilities (any primal that provides these)
             PrimalDependency {
-                primal_type: PrimalType::NestGate,
-                name: "nestgate".to_string(),
-                capabilities: vec!["storage".to_string()],
+                primal_type: PrimalType::Any, // Don't specify which primal
+                name: "security-provider".to_string(),
+                capabilities: vec![
+                    "authentication".to_string(),
+                    "encryption".to_string(),
+                    "authorization".to_string(),
+                ],
                 required: false,
                 min_version: None,
             },
+            // Storage capabilities (any primal that provides these)
             PrimalDependency {
-                primal_type: PrimalType::ToadStool,
-                name: "toadstool".to_string(),
-                capabilities: vec!["compute".to_string()],
+                primal_type: PrimalType::Any,
+                name: "storage-provider".to_string(),
+                capabilities: vec![
+                    "data-persistence".to_string(),
+                    "file-storage".to_string(),
+                    "session-storage".to_string(),
+                ],
+                required: false,
+                min_version: None,
+            },
+            // Compute capabilities (any primal that provides these)
+            PrimalDependency {
+                primal_type: PrimalType::Any,
+                name: "compute-provider".to_string(),
+                capabilities: vec![
+                    "task-execution".to_string(),
+                    "sandboxing".to_string(),
+                    "resource-management".to_string(),
+                ],
+                required: false,
+                min_version: None,
+            },
+            // Service mesh capabilities (any primal that provides these)
+            PrimalDependency {
+                primal_type: PrimalType::Any,
+                name: "service-mesh-provider".to_string(),
+                capabilities: vec![
+                    "service-discovery".to_string(),
+                    "load-balancing".to_string(),
+                    "health-monitoring".to_string(),
+                ],
                 required: false,
                 min_version: None,
             },
@@ -438,7 +490,10 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
                 PrimalResponse {
                     request_id: request.id,
                     status: ResponseStatus::Success,
-                    payload: serde_json::to_value(health).unwrap_or_default(),
+                    payload: serde_json::to_value(health).unwrap_or_else(|e| {
+                        error!("Failed to serialize health check response: {}", e);
+                        serde_json::json!({"status": "error", "message": "serialization failed"})
+                    }),
                     metadata: HashMap::new(),
                     timestamp: Utc::now(),
                 }
@@ -458,7 +513,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
         Ok(result)
     }
 
-    async fn initialize(&mut self, config: serde_json::Value) -> UniversalResult<()> {
+    async fn initialize(&mut self, _config: serde_json::Value) -> UniversalResult<()> {
         if self.biomeos_client.is_none() {
             let client = crate::biomeos_integration::EcosystemClient::new();
             self.biomeos_client = Some(Arc::new(client));
@@ -618,7 +673,10 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
                 Ok(EcosystemResponse {
                     request_id: request.request_id,
                     status: ResponseStatus::Success,
-                    payload: serde_json::to_value(health).unwrap_or_default(),
+                    payload: serde_json::to_value(health).unwrap_or_else(|e| {
+                        error!("Failed to serialize health check response: {}", e);
+                        serde_json::json!({"status": "error", "message": "serialization failed"})
+                    }),
                     metadata: HashMap::new(),
                     timestamp: Utc::now(),
                 })
@@ -628,7 +686,10 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
                 Ok(EcosystemResponse {
                     request_id: request.request_id,
                     status: ResponseStatus::Success,
-                    payload: serde_json::to_value(capabilities).unwrap_or_default(),
+                    payload: serde_json::to_value(capabilities).unwrap_or_else(|e| {
+                        error!("Failed to serialize capabilities response: {}", e);
+                        serde_json::json!({"status": "error", "message": "serialization failed"})
+                    }),
                     metadata: HashMap::new(),
                     timestamp: Utc::now(),
                 })
@@ -681,7 +742,23 @@ impl Default for UniversalSquirrelProvider {
                 Self {
                     instance_id: uuid::Uuid::new_v4().to_string(),
                     config,
-                    service_mesh_client: Arc::new(SongbirdClient::default()), // Use default which should be safe
+                    service_mesh_client: Arc::new(
+                        match SongbirdClient::new(
+                            NetworkConfigHelper::get_service_mesh_endpoint(),
+                            None,
+                            RetryConfig::default(),
+                        ) {
+                            Ok(client) => client,
+                            Err(e) => {
+                                tracing::error!("Failed to create fallback SongbirdClient: {}. Using default configuration.", e);
+                                SongbirdClient::new(
+                                    "http://localhost:8080".to_string(),
+                                    None,
+                                    Default::default()
+                                ).expect("Failed to create minimal SongbirdClient")
+                            }
+                        }
+                    ),
                     config_manager: DefaultConfigManager::new(),
                     biomeos_client: None,
                     session_manager: None,

@@ -11,6 +11,7 @@ use squirrel_mcp_config::Config;
 use std::time::Duration;
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
+use std::time::Instant;
 
 use super::{EcosystemServiceRegistration, HealthStatus};
 
@@ -146,7 +147,7 @@ impl EcosystemClient {
     }
 
     /// Create a new EcosystemClient with custom configuration
-    pub fn with_config(config: Config) -> Self {
+    pub fn with_config(_config: Config) -> Self {
         let songbird_url =
             std::env::var("SONGBIRD_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
         let timeout_seconds = std::env::var("TIMEOUT_SECONDS")
@@ -551,42 +552,133 @@ impl EcosystemClient {
         }
     }
 
-    #[allow(dead_code)]
+    /// Execute operation with enhanced resilience and observability
     async fn with_retry<F, Fut, T>(&self, operation: F) -> Result<T, PrimalError>
     where
-        F: Fn(&reqwest::Client) -> Fut,
+        F:  Fn(&reqwest::Client) -> Fut,
         Fut: std::future::Future<Output = Result<T, reqwest::Error>>,
     {
+        use crate::error_handling::safe_operations::SafeOps;
+        use uuid::Uuid;
+        
+        // Generate correlation ID for tracking
+        let correlation_id = Uuid::new_v4().to_string();
+        let operation_start = Instant::now();
+        
+        let max_retries = self.retry_count.max(1); // Ensure at least 1 attempt
+        let per_attempt_timeout = self.timeout / max_retries as u32;
+        let base_delay = Duration::from_millis(500);
+        
+        tracing::info!(
+            correlation_id = %correlation_id,
+            operation = "biomeos_operation_start",
+            songbird_url = %self.songbird_url,
+            max_retries = max_retries,
+            total_timeout_ms = self.timeout.as_millis(),
+            per_attempt_timeout_ms = per_attempt_timeout.as_millis(),
+            "Starting BiomeOS ecosystem operation"
+        );
+        
         let mut last_error = None;
 
-        for attempt in 1..=self.retry_count {
-            match timeout(self.timeout, operation(&self.client)).await {
-                Ok(Ok(result)) => return Ok(result),
-                Ok(Err(e)) => {
-                    warn!("Request attempt {} failed: {}", attempt, e);
-                    last_error = Some(e);
+        for attempt in 1..=max_retries {
+            let attempt_start = Instant::now();
+            
+            tracing::debug!(
+                correlation_id = %correlation_id,
+                attempt = attempt,
+                max_retries = max_retries,
+                timeout_ms = per_attempt_timeout.as_millis(),
+                operation = "biomeos_operation_attempt",
+                "Attempting BiomeOS ecosystem request"
+            );
+                
+            let operation_result = SafeOps::safe_with_timeout(
+                per_attempt_timeout,
+                || operation(&self.client),
+                &format!("biomeos_ecosystem_request_attempt_{}", attempt),
+            ).await;
+            
+            let attempt_duration = attempt_start.elapsed();
+            
+            match operation_result.execute_without_default() {
+                Ok(Ok(result)) => {
+                    let total_duration = operation_start.elapsed();
+                    
+                    tracing::info!(
+                        correlation_id = %correlation_id,
+                        attempt = attempt,
+                        operation = "biomeos_operation_success",
+                        total_duration_ms = total_duration.as_millis(),
+                        attempt_duration_ms = attempt_duration.as_millis(),
+                        "BiomeOS ecosystem request completed successfully"
+                    );
+                    return Ok(result);
                 }
-                Err(_) => {
-                    warn!("Request attempt {} timed out", attempt);
-                    // Create a simple timeout error without conversion
-                    let _timeout_error = format!("Request timeout on attempt {attempt}");
-                    last_error = None; // We'll handle this in the final error message
-                    break; // Exit retry loop on timeout
+                Ok(Err(network_error)) => {
+                    let error_msg = format!("Network error: {}", network_error);
+                    last_error = Some(error_msg.clone());
+                    
+                    tracing::warn!(
+                        correlation_id = %correlation_id,
+                        attempt = attempt,
+                        operation = "biomeos_operation_network_error",
+                        attempt_duration_ms = attempt_duration.as_millis(),
+                        error = %error_msg,
+                        error_kind = %network_error.to_string(),
+                        "BiomeOS request failed with network error"
+                    );
+                }
+                Err(timeout_error) => {
+                    let error_msg = format!("Request timeout: {}", timeout_error);
+                    last_error = Some(error_msg.clone());
+                    
+                    tracing::warn!(
+                        correlation_id = %correlation_id,
+                        attempt = attempt,
+                        operation = "biomeos_operation_timeout",
+                        attempt_duration_ms = attempt_duration.as_millis(),
+                        timeout_ms = per_attempt_timeout.as_millis(),
+                        error = %error_msg,
+                        "BiomeOS request timed out"
+                    );
                 }
             }
 
-            if attempt < self.retry_count {
-                let delay = Duration::from_millis(1000 * attempt as u64);
-                tokio::time::sleep(delay).await;
+            // Exponential backoff between retries (except on last attempt)
+            if attempt < max_retries {
+                let delay = base_delay * (2_u32.pow((attempt - 1).min(6))); // Cap at 2^6 = 64x
+                let jitter = Duration::from_millis(rand::random::<u64>() % 500); // Add jitter
+                let total_delay = delay + jitter;
+                
+                tracing::debug!(
+                    correlation_id = %correlation_id,
+                    attempt = attempt,
+                    delay_ms = total_delay.as_millis(),
+                    base_delay_ms = delay.as_millis(),
+                    jitter_ms = jitter.as_millis(),
+                    operation = "biomeos_operation_retry_delay",
+                    "Waiting before retry with exponential backoff and jitter"
+                );
+                tokio::time::sleep(total_delay).await;
             }
         }
 
+        let total_duration = operation_start.elapsed();
+        let final_error = last_error.unwrap_or_else(|| "All BiomeOS request attempts failed".to_string());
+        
+        tracing::error!(
+            correlation_id = %correlation_id,
+            operation = "biomeos_operation_failure",
+            total_duration_ms = total_duration.as_millis(),
+            attempts = max_retries,
+            final_error = %final_error,
+            "BiomeOS ecosystem request failed after all retry attempts"
+        );
+
         Err(PrimalError::Network(format!(
-            "Request failed after {} attempts: {}",
-            self.retry_count,
-            last_error
-                .map(|e| e.to_string())
-                .unwrap_or_else(|| "Unknown error".to_string())
+            "BiomeOS request failed after {} attempts: {}",
+            max_retries, final_error
         )))
     }
 

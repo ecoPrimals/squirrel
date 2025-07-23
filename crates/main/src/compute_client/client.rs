@@ -4,14 +4,15 @@ use base64::{engine::general_purpose, Engine as _};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::error::PrimalError;
-use crate::universal::{PrimalCapability, PrimalContext, PrimalRequest, UniversalResult};
+use crate::universal::{
+    PrimalCapability, PrimalContext, PrimalRequest, PrimalResponse, UniversalResult,
+};
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::ai_metadata::*;
 use super::providers::*;
 use super::types::*;
 
@@ -19,7 +20,11 @@ use super::types::*;
 // UNIVERSAL COMPUTE CLIENT IMPLEMENTATION
 // ============================================================================
 
-/// Universal Compute Client - AI-First, Capability-Based Design
+/// Universal Compute Client that automatically discovers and routes requests to the best
+/// available compute provider (ToadStool, cloud providers, etc.).
+///
+/// This client implements capability-based discovery, meaning it finds any provider
+/// that provides the required capabilities, regardless of implementation.
 #[derive(Debug)]
 pub struct UniversalComputeClient {
     /// Ecosystem integration for service discovery
@@ -33,9 +38,7 @@ pub struct UniversalComputeClient {
 
     /// Request context for routing
     context: PrimalContext,
-
-    /// AI-first metadata for intelligent routing
-    ai_metadata: AIComputeMetadata,
+    // Removed ai_metadata - was over-engineered early implementation
 }
 
 impl UniversalComputeClient {
@@ -50,7 +53,7 @@ impl UniversalComputeClient {
             config,
             providers: Arc::new(RwLock::new(HashMap::new())),
             context,
-            ai_metadata: AIComputeMetadata::default(),
+            // Removed ai_metadata: AIComputeMetadata::default(),
         }
     }
 
@@ -85,11 +88,31 @@ impl UniversalComputeClient {
         let mut discovered_providers = HashMap::new();
 
         for capability in compute_capabilities {
-            let providers = self.ecosystem.find_by_capability(&capability).await;
-
-            for primal in providers {
-                let provider = ComputeProvider::from_discovered_primal(&primal);
-                discovered_providers.insert(primal.instance_id.clone(), provider);
+            if let Ok(providers) = self
+                .ecosystem
+                .find_by_capability(match capability {
+                    PrimalCapability::ContainerRuntime { .. } => "container-runtime",
+                    PrimalCapability::GpuAcceleration { .. } => "gpu-acceleration",
+                    PrimalCapability::ServerlessExecution { .. } => "serverless-execution",
+                    _ => "generic-capability",
+                })
+                .await
+            {
+                for primal in providers {
+                    let provider = ComputeProvider::from_discovered_primal(
+                        &universal_patterns::registry::DiscoveredPrimal {
+                            id: primal.service.service_id.clone(),
+                            instance_id: primal.service.instance_id.clone(),
+                            primal_type: universal_patterns::traits::PrimalType::Coordinator,
+                            capabilities: vec![],
+                            endpoint: primal.service.endpoint.clone(),
+                            health: universal_patterns::traits::PrimalHealth::Healthy,
+                            context: universal_patterns::traits::PrimalContext::default(),
+                            port_info: None,
+                        },
+                    );
+                    discovered_providers.insert(primal.service.instance_id.clone(), provider);
+                }
             }
         }
 
@@ -108,12 +131,17 @@ impl UniversalComputeClient {
     /// Execute universal compute operation
     pub async fn execute_operation(
         &self,
-        request: UniversalComputeRequest,
+        mut request: UniversalComputeRequest,
     ) -> UniversalResult<UniversalComputeResponse> {
         debug!(
             "Executing universal compute operation: {:?}",
             request.operation
         );
+
+        // Apply configuration-based enhancements
+        self.apply_configuration_defaults(&mut request);
+
+        // Removed AI metadata enhancement - was over-engineered early implementation
 
         // Select best provider using AI-based routing
         let provider = self.select_best_provider(&request).await?;
@@ -209,7 +237,7 @@ impl UniversalComputeClient {
     /// Process response and generate AI insights
     async fn process_response(
         &self,
-        response: crate::universal::PrimalResponse,
+        response: PrimalResponse,
         provider: &ComputeProvider,
         request: &UniversalComputeRequest,
     ) -> UniversalResult<UniversalComputeResponse> {
@@ -219,25 +247,37 @@ impl UniversalComputeClient {
             Some(ComputeResults {
                 output_data: response.data.get("output").and_then(|v| {
                     general_purpose::STANDARD
-                        .decode(v.as_str().unwrap_or(""))
+                        .decode(v.as_str().unwrap_or_else(|| {
+                            warn!("Missing or invalid base64 data in compute response");
+                            ""
+                        }))
                         .ok()
                 }),
                 return_code: response
                     .data
                     .get("return_code")
                     .and_then(|v| v.as_i64())
-                    .unwrap_or(0) as i32,
+                    .unwrap_or_else(|| {
+                        warn!("Missing return_code in compute response, defaulting to 0");
+                        0
+                    }) as i32,
                 stdout: response
                     .data
                     .get("stdout")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_else(|| {
+                        warn!("Missing stdout in compute response, using empty string");
+                        ""
+                    })
                     .to_string(),
                 stderr: response
                     .data
                     .get("stderr")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_else(|| {
+                        warn!("Missing stderr in compute response, using empty string");
+                        ""
+                    })
                     .to_string(),
                 metadata: HashMap::new(),
             })
@@ -300,6 +340,34 @@ impl UniversalComputeClient {
                 provider.health.health_score = (provider.health.health_score * 0.9).max(0.1);
             }
         }
+    }
+
+    /// Get compute client configuration
+    pub fn get_compute_config(&self) -> &ComputeClientConfig {
+        // Use config field to provide configuration access
+        &self.config
+    }
+
+    /// Apply configuration-based defaults to a request
+    pub fn apply_configuration_defaults(&self, request: &mut UniversalComputeRequest) {
+        // Apply timeout defaults from config
+        if request.resources.max_execution_time.as_secs() == 0 {
+            request.resources.max_execution_time = self.config.operation_timeout;
+        }
+
+        // Apply resource defaults from config
+        if request.resources.cpu_cores == 0 {
+            request.resources.cpu_cores = self.config.resource_requirements.cpu_cores;
+        }
+
+        if request.resources.memory_gb == 0 {
+            request.resources.memory_gb = self.config.resource_requirements.memory_gb;
+        }
+
+        // Apply security defaults from config
+        request.security = self.config.security_requirements.clone();
+
+        debug!("Applied configuration defaults to compute request");
     }
 }
 

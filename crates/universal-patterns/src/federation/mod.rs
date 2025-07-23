@@ -505,8 +505,6 @@ impl Default for ConsensusStatus {
     }
 }
 
-
-
 impl Default for EncryptionMetadata {
     fn default() -> Self {
         Self {

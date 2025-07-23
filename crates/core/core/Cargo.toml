@@ -4,44 +4,50 @@ version = "0.1.0"
 edition = "2021"
 authors = ["DataScienceBioLab"]
 license = "MIT OR Apache-2.0"
-description = "Backward compatibility layer for squirrel-context"
+description = "Core squirrel functionality"
+
+# Make this crate standalone to avoid workspace conflicts
+[workspace]
+
+[lints]
 
 [dependencies]
-# Core dependencies
-thiserror = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-
-# Async runtime
+# Core async and serialization
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
-
-# HTTP client
-reqwest = { version = "0.11", features = ["json"] }
-
-# Web framework
-axum = { version = "0.7", features = ["ws"] }
-tower = { version = "0.4" }
-tower-http = { version = "0.4", features = ["cors", "trace"] }
-
-# Time handling
-chrono = { version = "0.4", features = ["serde"] }
-
-# UUID generation
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+futures = "0.3"
 
-# Concurrency
+# HTTP and networking
+reqwest = { version = "0.11", features = ["json", "stream"] }
+url = "2.5"
+
+# Web framework (CRITICAL FIX: Missing axum dependency)
+axum = { version = "0.7", features = ["ws", "json", "tokio"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Concurrency and synchronization (CRITICAL FIX: Missing dependencies)
+dashmap = "5.5"
 parking_lot = "0.12"
-dashmap = "5.4"
 
-# Random number generation
+# Random number generation (CRITICAL FIX: Missing rand dependency) 
 rand = "0.8"
 
 # Logging and tracing
 tracing = "0.1"
+log = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Re-export from squirrel-context
-squirrel-context = { path = "../context" }
+# Ecosystem dependencies
+ecosystem-api = { path = "../../ecosystem-api" }
 squirrel-interfaces = { path = "../interfaces" }
+
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../../config" }
 

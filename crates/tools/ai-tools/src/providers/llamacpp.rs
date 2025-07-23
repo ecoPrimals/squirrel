@@ -183,7 +183,7 @@ impl LlamaCppProvider {
     pub fn new() -> Self {
         Self {
             client: Client::new(),
-            endpoint: "http://localhost:8080".to_string(),
+            endpoint: crate::config::DefaultEndpoints::llamacpp_endpoint(),
             model_name: "unknown".to_string(),
             context_size: 4096,
             stats: Arc::new(Mutex::new(ProviderStats {
@@ -619,7 +619,7 @@ impl Default for LlamaCppConfig {
     fn default() -> Self {
         Self {
             endpoint: std::env::var("LLAMACPP_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+                .unwrap_or_else(|_| crate::config::DefaultEndpoints::llamacpp_endpoint()),
             model_name: std::env::var("LLAMACPP_MODEL")
                 .unwrap_or_else(|_| "unknown".to_string()),
             context_size: 4096,

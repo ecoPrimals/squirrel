@@ -13,9 +13,9 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::error::PrimalError;
@@ -102,20 +102,48 @@ impl Default for NetworkLocation {
     }
 }
 
-/// Security level requirements (with proper ordering)
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// Security levels for universal operations
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SecurityLevel {
+    /// Public access - no authentication required  
     Public,
+    /// Basic authentication required
     Basic,
+    /// Standard security level
     Standard,
+    /// High security level  
     High,
+    /// Critical security level
     Critical,
+    /// Maximum security level
     Maximum,
+    /// Advanced authentication with MFA
+    Advanced,
+    /// Internal system access
+    Internal,
+    /// Administrative access
+    Administrative,
 }
 
 impl Default for SecurityLevel {
     fn default() -> Self {
-        Self::Standard
+        Self::Basic
+    }
+}
+
+impl std::fmt::Display for SecurityLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SecurityLevel::Public => write!(f, "public"),
+            SecurityLevel::Basic => write!(f, "basic"),
+            SecurityLevel::Standard => write!(f, "standard"),
+            SecurityLevel::High => write!(f, "high"),
+            SecurityLevel::Critical => write!(f, "critical"),
+            SecurityLevel::Maximum => write!(f, "maximum"),
+            SecurityLevel::Advanced => write!(f, "advanced"),
+            SecurityLevel::Internal => write!(f, "internal"),
+            SecurityLevel::Administrative => write!(f, "administrative"),
+        }
     }
 }
 
@@ -746,6 +774,94 @@ pub fn create_error_response(request_id: Uuid, error_message: &str) -> Ecosystem
         success: false,
         error_message: Some(error_message.to_string()),
     }
+}
+
+// ============================================================================
+// SECURITY TYPES (Re-exported for compatibility)
+// ============================================================================
+
+/// Service capability for security providers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ServiceCapability {
+    Authentication {
+        methods: Vec<String>,
+    },
+    Authorization {
+        features: Vec<String>,
+    },
+    Security {
+        level: String,
+        features: Vec<String>,
+    },
+    Encryption {
+        algorithms: Vec<String>,
+    },
+    Auditing {
+        capabilities: Vec<String>,
+    },
+    Custom {
+        name: String,
+        description: String,
+        metadata: HashMap<String, serde_json::Value>,
+    },
+}
+
+/// Service endpoint definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceEndpoint {
+    pub id: String,
+    pub name: String,
+    pub url: String,
+    pub capabilities: Vec<ServiceCapability>,
+    pub health_status: String,
+}
+
+/// Universal security provider trait
+#[async_trait]
+pub trait UniversalSecurityProvider: Send + Sync {
+    /// Associated session type
+    type Session;
+    /// Associated error type
+    type Error;
+
+    async fn authenticate(&self, credentials: Value) -> Result<Self::Session, Self::Error>;
+    async fn authorize(
+        &self,
+        session_id: &str,
+        resource: &str,
+        action: &str,
+    ) -> Result<bool, Self::Error>;
+    async fn health_check(&self) -> Result<bool, Self::Error>;
+
+    /// Get session by ID
+    async fn get_session(&self, session_id: &str) -> Result<Option<Self::Session>, Self::Error>;
+
+    /// Revoke a session
+    async fn revoke_session(&self, session_id: &str) -> Result<(), Self::Error>;
+
+    /// Get provider capabilities
+    async fn get_capabilities(&self) -> Result<Vec<ServiceCapability>, Self::Error>;
+}
+
+/// Universal security session
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniversalSecuritySession {
+    pub session_id: String,
+    pub user_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub capabilities: Vec<ServiceCapability>,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Universal service registration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UniversalServiceRegistration {
+    pub service_id: String,
+    pub service_name: String,
+    pub endpoints: Vec<ServiceEndpoint>,
+    pub capabilities: Vec<ServiceCapability>,
+    pub metadata: HashMap<String, String>,
 }
 
 // ============================================================================

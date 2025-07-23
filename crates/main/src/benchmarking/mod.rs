@@ -621,7 +621,7 @@ impl BenchmarkSuite {
     {
         let start_time = Instant::now();
         let mut successful_operations = 0u64;
-        let mut failed_operations = 0u64;
+        let mut _failed_operations = 0u64;
 
         // Warm-up phase
         debug!("Starting warm-up phase for {}", name);
@@ -645,7 +645,7 @@ impl BenchmarkSuite {
         while Instant::now() < benchmark_end && operation_count < config.operation_count {
             match operation().await {
                 Ok(_) => successful_operations += 1,
-                Err(_) => failed_operations += 1,
+                Err(_) => _failed_operations += 1,
             }
             operation_count += 1;
         }

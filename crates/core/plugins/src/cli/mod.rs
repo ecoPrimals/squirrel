@@ -1,12 +1,21 @@
-//! CLI plugin module
+//! CLI plugin integration
 //!
-//! This module provides functionality for CLI plugins.
+//! This module provides integration between plugins and CLI commands.
 
-use anyhow::Result;
 use async_trait::async_trait;
-use std::fmt::Debug;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use crate::plugin::Plugin;
+use crate::{Plugin, Result};
+
+/// CLI command type for plugin integration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CliCommand {
+    pub name: String,
+    pub description: String,
+    pub usage: String,
+    pub parameters: HashMap<String, String>,
+}
 
 /// CLI command metadata
 #[derive(Clone, Debug)]

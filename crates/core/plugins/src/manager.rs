@@ -7,7 +7,6 @@ use crate::discovery::create_placeholder_plugin;
 use crate::errors::{PluginError, Result};
 use crate::plugin::PluginMetadata;
 use crate::registry::PluginRegistry;
-use crate::state::PluginStateManager;
 use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
 use crate::{Plugin, PluginConfig};

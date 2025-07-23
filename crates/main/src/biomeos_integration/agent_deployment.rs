@@ -15,7 +15,6 @@ use super::ai_intelligence::AiIntelligence;
 use super::manifest::{AgentResourceLimits, AgentSpec, BiomeManifest, ExecutionEnvironment};
 use super::mcp_integration::McpIntegration;
 use crate::error::PrimalError;
-use crate::universal::PrimalContext;
 
 /// Agent deployment manager for biomeOS integration
 #[derive(Debug)]
@@ -492,11 +491,14 @@ impl AgentDeploymentManager {
         let mut metrics_endpoint = format!("{}/metrics", base_url);
 
         // Enhance endpoints based on agent capabilities
-        if let Some(capabilities) = &spec.manifest.capabilities {
-            if capabilities.contains(&"monitoring".to_string()) {
+        if let Some(manifest) = &spec.manifest {
+            if manifest.capabilities.contains(&"monitoring".to_string()) {
                 metrics_endpoint = format!("{}/api/v1/agents/{}/metrics", base_url, agent_id);
             }
-            if capabilities.contains(&"health_reporting".to_string()) {
+            if manifest
+                .capabilities
+                .contains(&"health_reporting".to_string())
+            {
                 health_endpoint =
                     format!("{}/api/v1/agents/{}/health/detailed", base_url, agent_id);
             }

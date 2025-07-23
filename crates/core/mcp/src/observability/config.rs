@@ -4,6 +4,7 @@
 //! for the observability system.
 
 use log::Level;
+use squirrel_mcp_config::get_service_endpoints;
 
 /// Configuration for the observability framework
 #[derive(Debug, Clone)]
@@ -124,7 +125,7 @@ impl Default for ObservabilityConfig {
             
             // Dashboard
             enable_dashboard_integration: false,
-            dashboard_url: "http://localhost:3000".to_string(),
+            dashboard_url: get_service_endpoints().ui_endpoint.clone(),
             dashboard_auth_token: None,
             dashboard_metrics_interval: 60,
             dashboard_traces_interval: 30,

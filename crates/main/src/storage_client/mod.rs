@@ -2,14 +2,11 @@
 //!
 //! This module provides modular, capability-based storage integration.
 
-pub mod ai_metadata;
 pub mod client;
 pub mod providers;
 pub mod types;
+// Removed ai_metadata - was over-engineered early implementation
 
-// Re-export main types
 pub use client::UniversalStorageClient;
-pub use types::{
-    DataClassification, PerformanceRequirements, StorageClientConfig, StorageOperation,
-    UniversalStorageRequest, UniversalStorageResponse,
-};
+pub use providers::*;
+pub use types::*;

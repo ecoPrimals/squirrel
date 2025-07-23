@@ -455,27 +455,49 @@ impl LocalModelProvider for OllamaProvider {
             )));
         }
 
-        // For now, return a simple stream with mock data
-        // In a real implementation, you would parse the streaming response
+        // Parse streaming response from Ollama
         use futures::stream;
 
-        let chunks = vec![ChatResponseChunk {
+        let model_id_owned = model_id.to_string();
+
+        // Read the full response text for now (simplified implementation)
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| Error::Http(format!("Failed to read response: {e}")))?;
+
+        // Parse the complete response
+        let ollama_response: serde_json::Value = serde_json::from_str(&response_text)
+            .map_err(|e| Error::Model(format!("JSON parse error: {e}")))?;
+
+        // Extract content and create response chunk
+        let content = if let Some(message) = ollama_response.get("message") {
+            message
+                .get("content")
+                .and_then(|c| c.as_str())
+                .unwrap_or("No content")
+                .to_string()
+        } else {
+            "No response content".to_string()
+        };
+
+        let chunk = ChatResponseChunk {
             id: format!("ollama-{}", uuid::Uuid::new_v4()),
-            model: model_id.to_string(),
+            model: model_id_owned,
             choices: vec![ChatChoiceChunk {
                 index: 0,
                 delta: ChatMessage {
                     role: MessageRole::Assistant,
-                    content: Some("Stream response from Ollama".to_string()),
+                    content: Some(content),
                     name: None,
                     tool_calls: None,
                     tool_call_id: None,
                 },
                 finish_reason: Some("stop".to_string()),
             }],
-        }];
+        };
 
-        let stream = stream::iter(chunks.into_iter().map(Ok));
+        let stream = stream::iter(vec![Ok(chunk)]);
         Ok(Box::pin(stream))
     }
 

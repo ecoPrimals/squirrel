@@ -12,14 +12,17 @@ pub mod network;
 pub mod observability;
 pub mod ports;
 pub mod security;
+pub mod service_endpoints;
 pub mod types; // New port management configuration
 
 // Re-export commonly used types
 pub use ai::AIConfig;
 pub use defaults::ConfigDefaults;
 pub use ecosystem::EcosystemConfig;
-pub use manager::{DefaultConfigManager, ConfigManager};
-pub use network::{defaults as network_defaults, DevelopmentConfig, NetworkConfig, ServiceEndpoints};
+pub use manager::{ConfigManager, DefaultConfigManager};
+pub use network::{
+    defaults as network_defaults, DevelopmentConfig, NetworkConfig, ServiceEndpoints,
+};
 pub use observability::ObservabilityConfig;
 pub use ports::{
     DevelopmentPortConfig, EcosystemPortConfig, HealthCheckConfig, LoadBalancingConfig,
@@ -27,7 +30,11 @@ pub use ports::{
     ProductionPortConfig, ServiceProtocol, SquirrelPorts,
 };
 pub use security::SecurityConfig;
-pub use types::{AIServiceConfig, AppConfig, Config, DatabaseConfig, ExternalServiceConfig, BiomeOSEndpoints, ExtendedObservabilityConfig};
+pub use service_endpoints::{get_service_endpoints, GlobalServiceEndpoints};
+pub use types::{
+    AIServiceConfig, AppConfig, BiomeOSEndpoints, Config, DatabaseConfig,
+    ExtendedObservabilityConfig, ExternalServiceConfig,
+};
 
 // Network configuration alias for backward compatibility
 pub use network::NetworkConfig as NetworkEndpointConfig;

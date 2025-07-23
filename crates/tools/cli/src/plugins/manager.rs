@@ -3,12 +3,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::commands::registry::CommandRegistry;
-use libloading::Library;
 use squirrel_commands::Command;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 
-use super::security::{PluginSecurityError, SecurePluginLoader};
+use super::security::SecurePluginLoader;
 use crate::plugins::error::PluginError;
 use crate::plugins::plugin::Plugin;
 use crate::plugins::plugin::{PluginFactory, PluginItem, PluginMetadata, PluginStatus};

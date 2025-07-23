@@ -5,8 +5,10 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
+use url::Url;
 
 use crate::config::SecurityConfig;
+use squirrel_mcp_config::get_service_endpoints;
 use crate::traits::{AuthResult, Credentials, Principal};
 
 use super::context::{SecurityContext, SecurityHealth};
@@ -78,13 +80,32 @@ impl UniversalSecurityClient {
     /// # }
     /// ```
     pub async fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
+        use super::providers::SecurityServiceConfig;
+
+        // Convert SecurityConfig to SecurityServiceConfig for providers
+        let service_config = SecurityServiceConfig {
+            service_id: "beardog-security".to_string(),
+            endpoint: config.beardog_endpoint.as_ref().map(|url| url.to_string()),
+            timeout_seconds: Some(30),
+            max_retries: Some(3),
+            auth_config: None,
+        };
+
         // Create primary Beardog provider
-        let primary = Arc::new(BeardogSecurityProvider::new(config.clone()).await?);
+        let primary_provider = BeardogSecurityProvider::new(service_config.clone()).await?;
+        let primary = Arc::new(primary_provider) as Arc<dyn UniversalSecurityProvider>;
 
         // Create fallback provider if enabled
         let fallback = if config.fallback.enable_local_fallback {
-            Some(Arc::new(LocalSecurityProvider::new(config.clone()).await?)
-                as Arc<dyn UniversalSecurityProvider>)
+            let local_service_config = SecurityServiceConfig {
+                service_id: "local-security".to_string(),
+                endpoint: None,
+                timeout_seconds: Some(30),
+                max_retries: Some(3),
+                auth_config: None,
+            };
+            let fallback_provider = LocalSecurityProvider::new(local_service_config).await?;
+            Some(Arc::new(fallback_provider) as Arc<dyn UniversalSecurityProvider>)
         } else {
             None
         };
@@ -322,7 +343,7 @@ impl UniversalSecurityProvider for UniversalSecurityClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AuthMethod, FallbackConfig};
+    use crate::config::{AuthMethod, SecurityFallback};
     use crate::traits::PrincipalType;
     use std::collections::HashMap;
     use url::Url;
@@ -333,9 +354,10 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: true,
@@ -351,9 +373,10 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: true,
@@ -369,9 +392,10 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            fallback: SecurityFallback {
                 enable_local_fallback: false,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,
@@ -389,9 +413,10 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 1, // Short timeout to trigger fallback
             },
             audit_logging: false,
@@ -415,9 +440,10 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            fallback: SecurityFallback {
                 enable_local_fallback: true,
+                local_auth_method: AuthMethod::None,
                 fallback_timeout: 5,
             },
             audit_logging: false,

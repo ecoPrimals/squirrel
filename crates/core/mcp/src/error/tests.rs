@@ -18,8 +18,7 @@ fn test_transport_error_conversions() {
     }
 
     // Test simplified to canonical conversion
-    let simplified_error =
-        crate::error::TransportError::Timeout("Connection timeout".to_string());
+    let simplified_error = crate::error::TransportError::Timeout("Connection timeout".to_string());
     let canonical_error: CanonicalTransportError = simplified_error.into();
 
     // Verify the variant matches

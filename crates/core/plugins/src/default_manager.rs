@@ -93,5 +93,128 @@ impl Default for DefaultPluginManager {
     }
 }
 
-// Implementation of PluginRegistry and PluginManagerTrait would go here
-// (This is placeholder - the actual implementation would be extracted from manager.rs)
+use crate::errors::Result;
+use crate::registry::PluginRegistry;
+use crate::traits::PluginManagerTrait;
+use async_trait::async_trait;
+
+#[async_trait]
+impl PluginRegistry for DefaultPluginManager {
+    async fn register_plugin(&self, plugin: Arc<dyn Plugin>) -> Result<()> {
+        let id = plugin.id();
+        let name = plugin.metadata().name.clone();
+
+        let mut plugins = self.plugins.write().await;
+        let mut statuses = self.statuses.write().await;
+        let mut name_to_id = self.name_to_id.write().await;
+
+        plugins.insert(id, plugin);
+        statuses.insert(id, PluginStatus::Registered);
+        name_to_id.insert(name, id);
+
+        Ok(())
+    }
+
+    async fn unregister_plugin(&self, id: Uuid) -> Result<()> {
+        let mut plugins = self.plugins.write().await;
+        let mut statuses = self.statuses.write().await;
+        let mut name_to_id = self.name_to_id.write().await;
+
+        if let Some(plugin) = plugins.remove(&id) {
+            let name = plugin.metadata().name.clone();
+            statuses.remove(&id);
+            name_to_id.remove(&name);
+        }
+
+        Ok(())
+    }
+
+    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
+        let plugins = self.plugins.read().await;
+        plugins
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id).into())
+    }
+
+    async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
+        let name_to_id = self.name_to_id.read().await;
+        let id = name_to_id
+            .get(name)
+            .ok_or_else(|| crate::errors::PluginError::PluginNotFound(name.to_string()))?;
+        PluginRegistry::get_plugin(self, *id).await
+    }
+
+    async fn list_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
+        let plugins = self.plugins.read().await;
+        Ok(plugins.values().cloned().collect())
+    }
+
+    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
+        let statuses = self.statuses.read().await;
+        statuses
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id).into())
+    }
+
+    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
+        let mut statuses = self.statuses.write().await;
+        statuses.insert(id, status);
+        Ok(())
+    }
+
+    async fn get_all_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
+        self.list_plugins().await
+    }
+}
+
+#[async_trait]
+impl PluginManagerTrait for DefaultPluginManager {
+    async fn get_plugin(&self, id: Uuid) -> Result<Arc<dyn Plugin>> {
+        PluginRegistry::get_plugin(self, id).await
+    }
+
+    async fn initialize_plugin(&self, id: Uuid) -> Result<()> {
+        let plugin = PluginManagerTrait::get_plugin(self, id).await?;
+        plugin.initialize().await?;
+        PluginRegistry::set_plugin_status(self, id, PluginStatus::Running).await?;
+        Ok(())
+    }
+
+    async fn shutdown_plugin(&self, id: Uuid) -> Result<()> {
+        let plugin = PluginManagerTrait::get_plugin(self, id).await?;
+        plugin.shutdown().await?;
+        PluginRegistry::set_plugin_status(self, id, PluginStatus::Inactive).await?;
+        Ok(())
+    }
+
+    async fn get_plugin_status(&self, id: Uuid) -> Result<PluginStatus> {
+        PluginRegistry::get_plugin_status(self, id).await
+    }
+
+    async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
+        PluginRegistry::set_plugin_status(self, id, status).await
+    }
+
+    async fn load_plugins(&self, _directory: &str) -> Result<Vec<Uuid>> {
+        // TODO: Implement plugin loading from directory
+        Ok(vec![])
+    }
+
+    async fn initialize_all_plugins(&self) -> Result<()> {
+        let plugins = self.list_plugins().await?;
+        for plugin in plugins {
+            self.initialize_plugin(plugin.id()).await?;
+        }
+        Ok(())
+    }
+
+    async fn shutdown_all_plugins(&self) -> Result<()> {
+        let plugins = self.list_plugins().await?;
+        for plugin in plugins {
+            self.shutdown_plugin(plugin.id()).await?;
+        }
+        Ok(())
+    }
+}

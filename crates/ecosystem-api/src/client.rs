@@ -562,7 +562,12 @@ impl ServiceDiscovery {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        EcosystemServiceRegistration, HealthCheckConfig, HealthStatus, MockServiceMeshClient,
+        PrimalType, ResourceSpec, SecurityConfig, SecurityLevel, ServiceCapabilities,
+        ServiceEndpoints, ServiceQuery,
+    };
+    use std::collections::HashMap;
 
     #[cfg(feature = "testing")]
     #[tokio::test]
@@ -580,9 +585,15 @@ mod tests {
                 integrations: vec![],
             },
             endpoints: ServiceEndpoints {
-                health: "http://localhost:8080/health".to_string(),
-                metrics: "http://localhost:8080/metrics".to_string(),
-                admin: "http://localhost:8080/admin".to_string(),
+                health: crate::defaults::DefaultEndpoints::health_endpoint(
+                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
+                ),
+                metrics: crate::defaults::DefaultEndpoints::metrics_endpoint(
+                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
+                ),
+                admin: crate::defaults::DefaultEndpoints::admin_endpoint(
+                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
+                ),
                 websocket: None,
             },
             resource_requirements: ResourceSpec {
@@ -610,14 +621,17 @@ mod tests {
             metadata: HashMap::new(),
         };
 
-        let service_id = client.register_service("", registration).await.unwrap();
+        let service_id = client
+            .register_service("", registration)
+            .await
+            .expect("Service registration should succeed in test");
         assert_eq!(service_id, "test-service");
 
         // Test service discovery
         let services = client
             .discover_services(ServiceQuery::default())
             .await
-            .unwrap();
+            .expect("Service discovery should succeed in test");
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].id, "test-service");
 
@@ -625,18 +639,24 @@ mod tests {
         client
             .report_health("test-service", HealthStatus::Healthy)
             .await
-            .unwrap();
+            .expect("Health reporting should succeed in test");
 
         // Test heartbeat
-        client.heartbeat("test-service").await.unwrap();
+        client
+            .heartbeat("test-service")
+            .await
+            .expect("Heartbeat should succeed in test");
 
         // Test service deregistration
-        client.deregister_service("test-service").await.unwrap();
+        client
+            .deregister_service("test-service")
+            .await
+            .expect("Service deregistration should succeed in test");
 
         let services = client
             .discover_services(ServiceQuery::default())
             .await
-            .unwrap();
+            .expect("Service discovery after deregistration should succeed in test");
         assert_eq!(services.len(), 0);
     }
 }

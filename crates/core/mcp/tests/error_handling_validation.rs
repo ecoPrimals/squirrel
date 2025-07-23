@@ -1,7 +1,6 @@
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 // Mock error types for comprehensive testing

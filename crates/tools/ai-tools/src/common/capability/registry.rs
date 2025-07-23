@@ -676,8 +676,7 @@ impl ModelCapabilities {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::io::Write;
+
     use tempfile::NamedTempFile;
 
     #[test]

@@ -2,7 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::universal::PrimalCapability;
 use crate::universal_primal_ecosystem::DiscoveredPrimal;
@@ -80,14 +79,17 @@ impl ComputeProvider {
         Self {
             provider_id: primal.instance_id.clone(),
             metadata: ComputeProviderMetadata {
-                name: primal.primal_id.clone(),
+                name: primal.id.clone(),
                 version: "unknown".to_string(),
                 architectures: vec!["x86_64".to_string()],
                 frameworks: vec!["pytorch".to_string(), "tensorflow".to_string()],
                 regions: vec!["local".to_string()],
                 compliance: Vec::new(),
             },
-            capabilities: primal.capabilities.clone(),
+            capabilities: vec![crate::universal::PrimalCapability::Custom {
+                name: "compute".to_string(),
+                attributes: std::collections::HashMap::new(),
+            }],
             health: ComputeProviderHealth {
                 health_score: 1.0,
                 cpu_load: 0.5,

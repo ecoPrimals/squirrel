@@ -16,6 +16,13 @@ pub struct SecuritySession {
     pub session_id: String,
     /// User identifier
     pub user_id: Option<String>,
+    /// User identifier (string form for compatibility)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id_string: Option<String>,
+    /// User roles
+    pub roles: Vec<String>,
+    /// Session metadata
+    pub metadata: HashMap<String, String>,
     /// Session type
     pub session_type: String,
     /// Authentication status
@@ -38,7 +45,10 @@ impl SecuritySession {
         let now = Utc::now();
         Self {
             session_id,
+            user_id_string: user_id.clone(),
             user_id,
+            roles: Vec::new(),
+            metadata: HashMap::new(),
             session_type: "standard".to_string(),
             authenticated: false,
             authorization_level: AuthorizationLevel::None,
@@ -54,7 +64,10 @@ impl SecuritySession {
         let now = Utc::now();
         Self {
             session_id,
+            user_id_string: Some(user_id.clone()),
             user_id: Some(user_id),
+            roles: vec!["user".to_string()],
+            metadata: HashMap::new(),
             session_type: "authenticated".to_string(),
             authenticated: true,
             authorization_level: AuthorizationLevel::User,

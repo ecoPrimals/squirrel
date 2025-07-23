@@ -67,9 +67,9 @@ pub struct ConsensusProposal {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ConsensusMessage {
     /// Propose a new value
-    Propose { 
+    Propose {
         /// The proposal being made
-        proposal: ConsensusProposal 
+        proposal: ConsensusProposal,
     },
     /// Vote on a proposal
     Vote {
@@ -81,18 +81,18 @@ pub enum ConsensusMessage {
         voter: Uuid,
     },
     /// Heartbeat message
-    Heartbeat { 
+    Heartbeat {
         /// ID of the current leader
-        leader: Uuid, 
+        leader: Uuid,
         /// Current consensus term
-        term: u64 
+        term: u64,
     },
     /// Request votes for leadership
-    RequestVote { 
+    RequestVote {
         /// ID of the candidate requesting votes
-        candidate: Uuid, 
+        candidate: Uuid,
         /// The term for which votes are requested
-        term: u64 
+        term: u64,
     },
     /// Vote response for leadership
     VoteResponse {

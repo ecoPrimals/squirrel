@@ -7,11 +7,7 @@ use super::websocket::*;
 use crate::protocol::types::{MCPMessage, MessageId, MessageType, ProtocolVersion};
 use crate::transport::frame::{Frame, MessageCodec};
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::net::TcpListener;
-use tokio::time::timeout;
 
 /// Helper function to create a test WebSocket configuration
 fn create_test_config() -> WebSocketConfig {

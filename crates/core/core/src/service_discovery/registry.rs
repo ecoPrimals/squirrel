@@ -420,7 +420,7 @@ mod tests {
     use super::super::memory::InMemoryServiceDiscovery;
     use super::super::types::{ServiceEndpoint, ServiceType};
     use super::*;
-    use crate::error::CoreError;
+
     use std::time::Duration;
 
     #[tokio::test]

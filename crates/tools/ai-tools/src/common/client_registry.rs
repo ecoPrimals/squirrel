@@ -637,7 +637,6 @@ impl ClientRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::MessageRole;
 
     #[tokio::test]
     async fn test_client_registry() {

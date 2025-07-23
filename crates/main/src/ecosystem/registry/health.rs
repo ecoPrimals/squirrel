@@ -7,13 +7,12 @@ use std::time::Instant;
 use chrono::Utc;
 use tokio::sync::{broadcast, RwLock};
 use tokio::time::{interval, timeout};
-use tracing::{debug, error};
+use tracing::debug;
 
 use super::config::HealthConfig;
 use super::types::{
     DiscoveredService, EcosystemRegistryEvent, HealthCheckResult, ServiceHealthStatus,
 };
-use crate::error::PrimalError;
 
 /// Health monitoring operations
 pub struct HealthMonitor;
@@ -46,7 +45,7 @@ impl HealthMonitor {
                     if old_status != service.health_status {
                         let _ =
                             event_publisher.send(EcosystemRegistryEvent::ServiceHealthChanged {
-                                service_id: service_id.clone(),
+                                service_id: service_id.clone().into(), // Convert String to Arc<str>
                                 primal_type: service.primal_type,
                                 old_status,
                                 new_status: service.health_status.clone(),
@@ -67,7 +66,7 @@ impl HealthMonitor {
 
         let result = timeout(
             health_config.timeout,
-            http_client.get(&service.health_endpoint).send(),
+            http_client.get(&*service.health_endpoint).send(), // Dereference Arc<str> to &str
         )
         .await;
 

@@ -202,6 +202,8 @@ pub enum PrimalType {
     Squirrel,
     /// biomeOS orchestration platform
     BiomeOS,
+    /// Any primal that provides the required capabilities (for capability-based discovery)
+    Any,
 }
 
 impl PrimalType {
@@ -214,6 +216,7 @@ impl PrimalType {
             PrimalType::NestGate => "nestgate",
             PrimalType::Squirrel => "squirrel",
             PrimalType::BiomeOS => "biomeos",
+            PrimalType::Any => "any", // Capability-based discovery
         }
     }
 }
@@ -369,22 +372,18 @@ pub enum PrimalCapability {
     },
 }
 
-/// Primal dependency information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Dependency on another primal's capabilities
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrimalDependency {
-    /// Dependency primal type
+    /// Type of primal (or Any for capability-based discovery)
     pub primal_type: PrimalType,
-
-    /// Dependency name
+    /// Human-readable name for the dependency
     pub name: String,
-
-    /// Required capabilities
+    /// Required capabilities (used when primal_type is Any)
     pub capabilities: Vec<String>,
-
-    /// Is this dependency required?
+    /// Whether this dependency is required for operation
     pub required: bool,
-
-    /// Minimum version required
+    /// Minimum version requirement
     pub min_version: Option<String>,
 }
 

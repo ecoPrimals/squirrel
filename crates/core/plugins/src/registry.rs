@@ -2,7 +2,7 @@
 //!
 //! This module provides the core registry functionality for plugin management.
 
-use crate::errors::{PluginError, Result};
+use crate::errors::Result;
 use crate::types::PluginStatus;
 use crate::Plugin;
 use async_trait::async_trait;
@@ -35,4 +35,9 @@ pub trait PluginRegistry: Send + Sync {
 
     /// Get all registered plugins
     async fn get_all_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>>;
+
+    /// Get all plugins (alias for get_all_plugins)
+    async fn get_plugins(&self) -> Result<Vec<Arc<dyn Plugin>>> {
+        self.get_all_plugins().await
+    }
 }

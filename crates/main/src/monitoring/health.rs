@@ -365,7 +365,7 @@ impl HealthMonitor {
     }
 
     /// Generic component health check
-    async fn check_generic_component(&self, component: &str) -> Result<(), PrimalError> {
+    async fn check_generic_component(&self, _component: &str) -> Result<(), PrimalError> {
         // Generic health check for unknown components
         tokio::time::sleep(Duration::from_millis(5)).await;
 

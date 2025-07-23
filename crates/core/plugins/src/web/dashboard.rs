@@ -13,11 +13,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::manager::{DefaultPluginManager, PluginManagerTrait, PluginRegistry};
 use crate::types::PluginStatus;
 use crate::web::{
     ComponentType, HttpMethod, HttpStatus, WebComponent, WebEndpoint, WebRequest, WebResponse,
 };
+use crate::{DefaultPluginManager, PluginManagerTrait, PluginRegistry};
 
 /// Plugin management dashboard component
 #[derive(Clone)]

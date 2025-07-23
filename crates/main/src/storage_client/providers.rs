@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::universal::{PrimalCapability, UniversalResult};
+use crate::universal::PrimalCapability;
 use crate::universal_primal_ecosystem::DiscoveredPrimal;
 
 // ============================================================================
@@ -73,13 +73,16 @@ impl StorageProvider {
         Self {
             provider_id: primal.instance_id.clone(),
             metadata: StorageProviderMetadata {
-                name: primal.primal_id.clone(),
+                name: primal.id.clone(),
                 version: "unknown".to_string(),
                 protocols: vec!["http".to_string()],
                 regions: vec!["local".to_string()],
                 compliance: Vec::new(),
             },
-            capabilities: primal.capabilities.clone(),
+            capabilities: vec![crate::universal::PrimalCapability::Custom {
+                name: "storage".to_string(),
+                attributes: std::collections::HashMap::new(),
+            }],
             health: StorageProviderHealth {
                 health_score: 1.0,
                 current_latency_ms: 50.0,

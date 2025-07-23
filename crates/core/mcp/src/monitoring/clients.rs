@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tracing::{debug, error, info, warn};
 use crate::error::Result;
+use std::time::Duration;
 
 /// Trait for monitoring clients that collect and report telemetry data
 #[async_trait]
@@ -194,11 +195,15 @@ impl MonitoringClient for MockMonitoringClient {
         debug!("MockMonitoringClient[{}]: Recording metric '{}' = {:?}", 
                self.component_id, name, value);
         
-        let mut metrics = self.metrics.lock().unwrap();
+        let mut metrics = self.metrics.lock().map_err(|e| {
+            crate::error::types::MCPError::ResourceContention(format!("Failed to acquire metrics lock: {}", e))
+        })?;
         metrics.insert(name.to_string(), value);
         
         // Count metric recordings
-        let mut counts = self.event_counts.lock().unwrap();
+        let mut counts = self.event_counts.lock().map_err(|e| {
+            crate::error::types::MCPError::ResourceContention(format!("Failed to acquire event counts lock: {}", e))
+        })?;
         *counts.entry("metric_recorded".to_string()).or_insert(0) += 1;
         
         Ok(())
@@ -276,26 +281,80 @@ impl ProductionMonitoringClient {
         &self.config
     }
 
-    /// Send a request to the monitoring service
+    /// Send a request to the monitoring service with comprehensive resilience
     async fn send_request(&self, path: &str, body: serde_json::Value) -> anyhow::Result<()> {
+        use std::time::Instant;
+        
         let url = format!("{}/{}", self.config.endpoint, path);
         
-        let mut request = self.http_client.post(&url)
-            .json(&body);
+        // Resilience configuration for monitoring requests
+        let max_retries = 3;
+        let per_attempt_timeout = Duration::from_millis(self.config.timeout_ms / max_retries as u64);
+        let base_delay = Duration::from_millis(200);
+        
+        let mut last_error = None;
+        let start_time = Instant::now();
+        
+        for attempt in 1..=max_retries {
+            tracing::debug!("Monitoring request attempt {}/{} to {} (timeout: {:?})", 
+                attempt, max_retries, url, per_attempt_timeout);
+                
+            // Create request with timeout
+            let mut request = self.http_client
+                .post(&url)
+                .json(&body)
+                .timeout(per_attempt_timeout);
 
-        if let Some(api_key) = &self.config.api_key {
-            request = request.header("Authorization", format!("Bearer {}", api_key));
+            if let Some(api_key) = &self.config.api_key {
+                request = request.header("Authorization", format!("Bearer {}", api_key));
+            }
+
+            match request.send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        tracing::debug!("Monitoring request succeeded on attempt {} in {:?}", 
+                            attempt, start_time.elapsed());
+                        return Ok(());
+                    } else {
+                        // Try to get error body for debugging
+                        let status = response.status();
+                        let error_body = match tokio::time::timeout(
+                            Duration::from_secs(2), 
+                            response.text()
+                        ).await {
+                            Ok(Ok(text)) => text,
+                            _ => "Unable to read error body".to_string(),
+                        };
+                        
+                        let error_msg = format!("HTTP {} - {}", status, error_body);
+                        last_error = Some(error_msg.clone());
+                        tracing::warn!("Monitoring request attempt {} failed with HTTP error: {}", 
+                            attempt, error_msg);
+                    }
+                }
+                Err(e) => {
+                    let error_msg = format!("Network/timeout error: {}", e);
+                    last_error = Some(error_msg.clone());
+                    tracing::warn!("Monitoring request attempt {} failed: {}", attempt, error_msg);
+                }
+            }
+            
+            // Exponential backoff between retries (except on last attempt)
+            if attempt < max_retries {
+                let delay = base_delay * (2_u32.pow((attempt - 1).min(4))); // Cap at 2^4 = 16x
+                let jitter = Duration::from_millis(rand::random::<u64>() % 100); // Small jitter
+                let total_delay = delay + jitter;
+                
+                tracing::debug!("Retrying monitoring request after {:?} delay", total_delay);
+                tokio::time::sleep(total_delay).await;
+            }
         }
-
-        let response = request.send().await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(anyhow::anyhow!("HTTP {} - {}", status, body));
-        }
-
-        Ok(())
+        
+        let final_error = last_error.unwrap_or_else(|| "All monitoring request attempts failed".to_string());
+        tracing::error!("Monitoring request to {} failed after {} attempts in {:?}: {}", 
+            url, max_retries, start_time.elapsed(), final_error);
+            
+        Err(anyhow::anyhow!("Monitoring service request failed: {}", final_error))
     }
 }
 

@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::env;
+use super::service_endpoints::get_service_endpoints;
 
 use crate::core::ai::AIConfig;
 use crate::core::ecosystem::EcosystemConfig;
@@ -58,7 +59,7 @@ impl Default for NetworkConfig {
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
             cors_origins: env::var("SQUIRREL_CORS_ORIGINS")
-                .unwrap_or_else(|_| "http://localhost:3000".to_string())
+                .unwrap_or_else(|_| get_service_endpoints().ui_endpoint.clone())
                 .split(',')
                 .map(|s| s.trim().to_string())
                 .collect(),

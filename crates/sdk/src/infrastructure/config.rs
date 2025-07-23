@@ -96,8 +96,10 @@ impl McpClientConfig {
     /// Load MCP configuration from environment variables
     pub fn from_env() -> Self {
         Self {
-            server_url: std::env::var("MCP_SERVER_URL")
-                .unwrap_or_else(|_| "ws://127.0.0.1:8080".to_string()),
+            server_url: std::env::var("MCP_SERVER_URL").unwrap_or_else(|_| {
+                std::env::var("MCP_SERVER_URL")
+                    .unwrap_or_else(|_| "ws://127.0.0.1:8080".to_string())
+            }),
             timeout_ms: std::env::var("MCP_TIMEOUT_MS")
                 .unwrap_or_else(|_| "30000".to_string())
                 .parse()
@@ -237,7 +239,9 @@ impl NetworkConfig {
     /// Load network configuration from environment variables
     pub fn from_env() -> Self {
         Self {
-            host: std::env::var("NETWORK_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
+            host: std::env::var("NETWORK_HOST").unwrap_or_else(|_| {
+                std::env::var("DEV_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string())
+            }),
             port: std::env::var("NETWORK_PORT")
                 .unwrap_or_else(|_| "8080".to_string())
                 .parse()

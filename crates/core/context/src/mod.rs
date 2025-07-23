@@ -33,7 +33,7 @@ use uuid;
 
 /// Synchronization functionality for distributed context state
 pub mod sync;
-/// Tracking functionality for monitoring context state changes
+// Tracking functionality for monitoring context state changes
 // pub mod tracker; // Temporarily commented out due to encoding issues
 
 /// A snapshot of context state at a point in time

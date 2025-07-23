@@ -128,3 +128,25 @@ impl SecurityProviderConfig {
         }
     }
 }
+
+/// Simple security configuration for BearDog coordination
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    /// BearDog endpoint
+    pub security_service_endpoint: String, // Discovered via capability matching
+    /// Enable security coordination
+    pub enabled: bool,
+    /// Timeout for security operations
+    pub timeout_seconds: u64,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            security_service_endpoint: std::env::var("SECURITY_SERVICE_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string()),
+            enabled: true,
+            timeout_seconds: 30,
+        }
+    }
+}

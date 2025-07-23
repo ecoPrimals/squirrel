@@ -1,33 +1,49 @@
 [package]
 name = "squirrel-ai-tools"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "AI tools for Squirrel platform"
+
+[lints]
+workspace = true
 
 [dependencies]
-# Core dependencies
+# Core async runtime
 tokio = { version = "1.0", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait = "0.1"
+futures = "0.3"
+bytes = "1.0"
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-async-trait = "0.1"
-futures = "0.3"
-futures-util = "0.3"
-tokio-stream = "0.1"
-tracing = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
 
-# HTTP client
+# HTTP client for AI services
 reqwest = { version = "0.11", features = ["json", "stream"] }
-bytes = "1.0"
+url = "2.5"
+
+# Logging and tracing
+tracing = "0.1"
+log = "0.4"
+
+# AI service clients
+openai = "1.1"
+anthropic-sdk = "0.1"
+
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../../config" }
 
 # Web framework for API
 axum = { version = "0.7", features = ["json"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
-
-# Error handling
-thiserror = "1.0"
-anyhow = "1.0"
 
 # Configuration
 config = "0.13"

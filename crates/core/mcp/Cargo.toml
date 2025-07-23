@@ -1,9 +1,12 @@
 [package]
 name = "squirrel-mcp"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+license = "MIT OR Apache-2.0"
+
+# Make this crate standalone to avoid workspace conflicts
+[workspace]
 
 [dependencies]
 # Core async runtime
@@ -27,6 +30,9 @@ tungstenite = { version = "0.20", optional = true }
 hyper = { version = "0.14", features = ["full"] }
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.4", features = ["full"] }
+
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../../config" }
 
 # WebSocket support
 axum = { version = "0.6", features = ["ws", "headers"], optional = true }
@@ -59,7 +65,7 @@ toml = "0.7"
 
 # Storage and persistence
 sled = { version = "0.34", optional = true }
-sqlx = { workspace = true, optional = true }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"], optional = true }
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
 # Compression

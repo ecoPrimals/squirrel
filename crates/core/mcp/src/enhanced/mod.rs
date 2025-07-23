@@ -19,6 +19,8 @@ pub mod service_composition; // ✅ NEW: AI service composition engine
 pub mod workflow_management; // ✅ NEW: Workflow management engine
 pub mod connection_pool;     // ✅ NEW: HTTP connection pool for AI providers
 pub mod serialization;       // ✅ NEW: Zero-copy serialization system
+pub mod memory_pool;         // ✅ NEW: Advanced memory pool system
+pub mod performance_init;    // ✅ NEW: Performance optimization initialization system
 pub mod metrics;             // ✅ NEW: Comprehensive metrics collection system
 
 #[cfg(test)]

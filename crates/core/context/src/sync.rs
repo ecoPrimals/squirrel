@@ -1,4 +1,4 @@
-use super::{ContextError, ContextSnapshot, ContextState};
+use crate::{error::ContextError, ContextSnapshot, ContextState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};

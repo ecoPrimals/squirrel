@@ -13,6 +13,7 @@ use crate::observability::health::component::ComponentHealth;
 use crate::observability::health::result::HealthCheckResult;
 use crate::observability::health::event::HealthStatusEvent;
 use crate::observability::health::subscription::{
+use squirrel_mcp_config::get_service_endpoints;
     HealthStatusSubscriber, HealthStatusSubscriberNonBlocking
 };
 use crate::observability::health::HealthReport;
@@ -706,8 +707,11 @@ impl HealthChecker {
             system_info: SystemInfo {
                 service_name: "mcp".to_string(),
                 version: "1.0.0".to_string(),
-                environment: "development".to_string(),
-                host: "localhost".to_string(),
+                environment: std::env::var("SQUIRREL_ENV").unwrap_or_else(|_| "development".to_string()),
+                host: get_service_endpoints().mcp_url()
+                    .ok()
+                    .and_then(|url| url.host_str().map(|h| h.to_string()))
+                    .unwrap_or_else(|| "localhost".to_string()),
             },
         })
     }

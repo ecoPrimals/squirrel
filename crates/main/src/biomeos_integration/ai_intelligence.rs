@@ -362,18 +362,23 @@ impl AiIntelligence {
     ) -> Result<IntelligenceResponse, PrimalError> {
         debug!("Processing intelligence request: {}", request.request_id);
 
+        let recommendations = vec![
+            "Monitor resource usage".to_string(),
+            "Update security policies".to_string(),
+            "Analyze ecosystem health".to_string(),
+        ];
+        let processing_time = 100; // Placeholder for actual processing time
+
         Ok(IntelligenceResponse {
-            request_id: request.request_id,
-            response_type: "analysis".to_string(),
-            recommendations: vec![
-                "Monitor resource usage".to_string(),
-                "Update security policies".to_string(),
-                "Analyze ecosystem health".to_string(),
-            ],
-            predictions: vec![],
-            optimizations: vec![],
-            confidence: 0.85,
-            metadata: HashMap::new(),
+            request_id: request.request_id.to_string(),
+            intelligence_type: "analysis".to_string(),
+            result: serde_json::json!({
+                "analysis": "completed",
+                "confidence": 0.9
+            }),
+            confidence: 0.9,
+            processing_time_ms: processing_time,
+            metadata: std::collections::HashMap::new(),
         })
     }
 

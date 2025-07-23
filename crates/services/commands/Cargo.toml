@@ -11,7 +11,7 @@ authors.workspace = true
 # Workspace crates
 squirrel-interfaces.workspace = true
 squirrel-context.workspace = true
-squirrel-core.workspace = true
+squirrel-core = { path = "../../core/core" }
 # squirrel-app.workspace = true  # → Eliminated: Songbird handles service layer
 # squirrel-ai-tools.workspace = true  # → Eliminated: Moved to ToadStool
 

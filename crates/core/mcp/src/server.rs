@@ -702,36 +702,75 @@ impl MCPServer {
                     // Accept new connections
                     result = listener.accept() => {
                         match result {
-                            Ok((_stream, addr)) => {
-                                // TODO: Replace this placeholder with robust client handling
-                                warn!(client_addr = %addr, "Placeholder: Accepted new client connection. Full handling needed.");
-                                // let client_id = Uuid::new_v4().to_string();
-                                // let transport = Arc::new(TcpTransport::new_with_stream(_stream, addr, TcpTransportConfig::default()));
-                                // let session = Arc::new(Session::new(&client_id, addr)); // Create a session
-                                // let client = ClientConnection {
-                                //     client_id: client_id.clone(),
-                                //     address: addr,
-                                //     session,
-                                //     transport: transport.clone(),
-                                //     connected_at: Utc::now(),
-                                //     metadata: HashMap::new(),
-                                // };
-                                // clients.write().await.insert(client_id.clone(), client.clone());
-                                // 
-                                // // Trigger connection handlers
-                                // let handlers = connection_handlers.read().await;
-                                // for handler in handlers.iter() {
-                                //     if let Err(e) = handler.handle_connection(client.clone()).await {
-                                //         error!(client_id = %client_id, error = %e, "Connection handler failed");
-                                //     }
-                                // }
-                                // 
-                                // // Spawn a task to handle messages from this client
-                                // let client_clone = client.clone();
-                                // let router_clone = message_router.clone();
-                                // tokio::spawn(async move {
-                                //     // ... message handling loop ...
-                                // });
+                            Ok((stream, addr)) => {
+                                info!(client_addr = %addr, "Accepted new client connection");
+                                
+                                // Generate unique client ID
+                                let client_id = Uuid::new_v4().to_string();
+                                
+                                // Create transport for the connection
+                                use crate::transport::tcp::{TcpTransport, TcpTransportConfig};
+                                let transport_config = TcpTransportConfig {
+                                    remote_address: addr,
+                                    buffer_size: 8192,
+                                    timeout: Duration::from_secs(30),
+                                };
+                                
+                                let transport = Arc::new(TcpTransport::new_with_stream(
+                                    stream, 
+                                    addr, 
+                                    transport_config
+                                ));
+                                
+                                // Create session for the client
+                                use crate::client::session::Session;
+                                let session_config = crate::client::session::SessionConfig {
+                                    timeout: Duration::from_secs(300), // 5 minutes
+                                    max_pending_requests: 100,
+                                    enable_compression: false,
+                                };
+                                let session = Arc::new(Session::new(&client_id, session_config));
+                                
+                                // Create client connection
+                                use super::types::ClientConnection;
+                                let client = ClientConnection {
+                                    client_id: client_id.clone(),
+                                    address: addr,
+                                    session: session.clone(),
+                                    transport: transport.clone(),
+                                    connected_at: Utc::now(),
+                                    metadata: HashMap::new(),
+                                };
+                                
+                                // Register client
+                                clients.write().await.insert(client_id.clone(), client.clone());
+                                
+                                // Trigger connection handlers
+                                let handlers = connection_handlers.read().await;
+                                for handler in handlers.iter() {
+                                    if let Err(e) = handler.handle_connection(client.clone()).await {
+                                        error!(client_id = %client_id, error = %e, "Connection handler failed");
+                                    }
+                                }
+                                
+                                // Spawn client message handling task
+                                let client_clone = client.clone();
+                                let clients_clone = clients.clone();
+                                let router_clone = message_router.clone();
+                                let adapter_clone = wire_format_adapter.clone();
+                                
+                                tokio::spawn(async move {
+                                    if let Err(e) = Self::handle_client_messages(
+                                        client_clone,
+                                        clients_clone,
+                                        router_clone,
+                                        adapter_clone,
+                                    ).await {
+                                        error!(client_id = %client_id, error = %e, "Client message handling failed");
+                                    }
+                                });
+                                
+                                info!(client_id = %client_id, client_addr = %addr, "Client connection established");
                             }
                             Err(e) => {
                                 error!(error = %e, "Failed to accept connection");
@@ -815,6 +854,122 @@ impl MCPServer {
     /// Get the list of supported event types
     pub async fn get_supported_event_types(&self) -> Vec<String> {
         self.message_router.get_registered_message_types().await
+    }
+    
+    /// Handle messages from a specific client
+    async fn handle_client_messages(
+        client: ClientConnection,
+        clients: Arc<RwLock<HashMap<String, ClientConnection>>>,
+        message_router: Arc<MessageRouter>,
+        wire_format_adapter: Arc<WireFormatAdapter>,
+    ) -> Result<()> {
+        use crate::transport::Transport;
+        use crate::message::{Message, MessageBuilder};
+        use serde_json::json;
+        
+        info!(client_id = %client.client_id, "Starting client message handling loop");
+        
+        loop {
+            // Receive message from client transport
+            let raw_message = match client.transport.receive_message().await {
+                Ok(message) => message,
+                Err(e) => {
+                    if e.to_string().contains("connection closed") || 
+                       e.to_string().contains("Connection reset") {
+                        info!(client_id = %client.client_id, "Client disconnected gracefully");
+                        break;
+                    } else {
+                        error!(client_id = %client.client_id, error = %e, "Error receiving message from client");
+                        break;
+                    }
+                }
+            };
+            
+            // Adapt wire format to internal message format
+            let message = match wire_format_adapter.wire_to_internal(&raw_message) {
+                Ok(msg) => msg,
+                Err(e) => {
+                    error!(client_id = %client.client_id, error = %e, "Failed to adapt wire format");
+                    continue;
+                }
+            };
+            
+            debug!(client_id = %client.client_id, message_id = %message.id, "Received message from client");
+            
+            // Route message through the message router
+            match message_router.route_message(&message).await {
+                Ok(Some(response)) => {
+                    // Convert response back to wire format and send
+                    match wire_format_adapter.internal_to_wire(&response) {
+                        Ok(wire_response) => {
+                            if let Err(e) = client.transport.send_message(&wire_response).await {
+                                error!(client_id = %client.client_id, error = %e, "Failed to send response to client");
+                                break;
+                            } else {
+                                debug!(client_id = %client.client_id, response_id = %response.id, "Sent response to client");
+                            }
+                        }
+                        Err(e) => {
+                            error!(client_id = %client.client_id, error = %e, "Failed to convert response to wire format");
+                            // Send error response
+                            let error_response = MessageBuilder::new()
+                                .with_message_type("error")
+                                .with_correlation_id(message.id.clone())
+                                .with_content(json!({
+                                    "error": "internal_error",
+                                    "message": "Failed to process response"
+                                }))
+                                .build();
+                                
+                            if let Ok(wire_error) = wire_format_adapter.internal_to_wire(&error_response) {
+                                let _ = client.transport.send_message(&wire_error).await;
+                            }
+                        }
+                    }
+                }
+                Ok(None) => {
+                    // No response from router, send acknowledgment
+                    let ack_response = MessageBuilder::new()
+                        .with_message_type("response")
+                        .with_correlation_id(message.id.clone())
+                        .with_content(json!({"status": "acknowledged"}))
+                        .build();
+                        
+                    if let Ok(wire_ack) = wire_format_adapter.internal_to_wire(&ack_response) {
+                        if let Err(e) = client.transport.send_message(&wire_ack).await {
+                            error!(client_id = %client.client_id, error = %e, "Failed to send acknowledgment to client");
+                            break;
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!(client_id = %client.client_id, error = %e, "Message routing failed");
+                    
+                    // Send error response
+                    let error_response = MessageBuilder::new()
+                        .with_message_type("error")
+                        .with_correlation_id(message.id.clone())
+                        .with_content(json!({
+                            "error": "routing_error",
+                            "message": e.to_string()
+                        }))
+                        .build();
+                        
+                    if let Ok(wire_error) = wire_format_adapter.internal_to_wire(&error_response) {
+                        let _ = client.transport.send_message(&wire_error).await;
+                    }
+                }
+            }
+        }
+        
+        // Clean up: remove client from active connections
+        {
+            let mut clients_guard = clients.write().await;
+            clients_guard.remove(&client.client_id);
+        }
+        
+        info!(client_id = %client.client_id, "Client message handling loop ended");
+        Ok(())
     }
 }
 

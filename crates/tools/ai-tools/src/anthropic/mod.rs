@@ -6,10 +6,12 @@ use std::any::Any;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::Client;
+use reqwest::{Client, Response};
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
-use tokio_stream::StreamExt;
+use serde_json::{json, Value};
+use futures::StreamExt;
+use bytes::Bytes;
 use tracing::{debug, warn};
 
 use crate::common::{
@@ -386,7 +388,7 @@ impl AIClient for AnthropicClient {
         let stream =
             response
                 .bytes_stream()
-                .map(move |chunk: std::result::Result<bytes::Bytes, _>| {
+                .map(move |chunk: std::result::Result<Bytes, _>| {
                     match chunk {
                         Ok(bytes) => {
                             // Parse SSE format

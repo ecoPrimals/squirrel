@@ -11,8 +11,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::manager::DefaultPluginManager;
 use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
+use crate::DefaultPluginManager;
 
 /// Plugin marketplace client for interacting with remote plugin repositories
 #[derive(Clone)]

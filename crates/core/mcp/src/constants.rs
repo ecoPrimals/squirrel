@@ -4,6 +4,7 @@
 //! centralized for easy maintenance and configuration.
 
 use std::time::Duration;
+use squirrel_mcp_config::get_service_endpoints;
 
 /// Network Configuration Constants
 pub mod network {
@@ -166,15 +167,24 @@ pub mod env_vars {
 pub mod url_builders {
     use super::network;
     use super::url_templates;
+    use squirrel_mcp_config::get_service_endpoints;
 
-    /// Build localhost HTTP URL
+    /// Build HTTP URL using centralized host configuration
     pub fn localhost_http(port: u16) -> String {
-        format!("http://localhost:{port}")
+        let host = get_service_endpoints().mcp_url()
+            .ok()
+            .and_then(|url| url.host_str().map(|h| h.to_string()))
+            .unwrap_or_else(|| "localhost".to_string());
+        format!("http://{host}:{port}")
     }
 
-    /// Build localhost WebSocket URL
+    /// Build WebSocket URL using centralized host configuration
     pub fn localhost_ws(port: u16) -> String {
-        format!("ws://localhost:{port}")
+        let host = get_service_endpoints().mcp_url()
+            .ok()
+            .and_then(|url| url.host_str().map(|h| h.to_string()))
+            .unwrap_or_else(|| "localhost".to_string());
+        format!("ws://{host}:{port}")
     }
 
     /// Build health check URL

@@ -421,6 +421,59 @@ impl ContextState {
         (self.active_sessions.len() + self.persistent_contexts.len()) as u32
     }
 
+    /// Search for contexts across active sessions and persistent storage
+    pub async fn search_context_data(&self, query: &str) -> Result<Vec<SearchResult>, PrimalError> {
+        self.search_contexts(query).await
+    }
+
+    /// Analyze a specific session context for insights and metrics
+    pub async fn analyze_session(&self, session_id: &str) -> Result<ContextAnalysis, PrimalError> {
+        self.analyze_session_context(session_id).await
+    }
+
+    /// Generate optimization recommendations for a session
+    pub async fn get_session_recommendations(
+        &self,
+        session_id: &str,
+    ) -> Result<Vec<String>, PrimalError> {
+        self.generate_context_recommendations(session_id).await
+    }
+
+    /// Get analytics data for all sessions
+    pub async fn get_context_analytics(
+        &self,
+    ) -> Result<HashMap<String, ContextAnalysis>, PrimalError> {
+        let mut analytics = HashMap::new();
+
+        for session_id in self.active_sessions.keys() {
+            if let Ok(analysis) = self.analyze_session_context(session_id).await {
+                analytics.insert(session_id.clone(), analysis);
+            }
+        }
+
+        Ok(analytics)
+    }
+
+    /// Search and analyze contexts with combined results
+    pub async fn search_and_analyze(
+        &self,
+        query: &str,
+    ) -> Result<Vec<(SearchResult, Option<ContextAnalysis>)>, PrimalError> {
+        let search_results = self.search_contexts(query).await?;
+        let mut combined_results = Vec::new();
+
+        for result in search_results {
+            let analysis = if result.result_type == "active_session" {
+                self.analyze_session_context(&result.result_id).await.ok()
+            } else {
+                None
+            };
+            combined_results.push((result, analysis));
+        }
+
+        Ok(combined_results)
+    }
+
     /// Shutdown context state management
     pub async fn shutdown(&mut self) -> Result<(), PrimalError> {
         info!("Shutting down context state management");
@@ -723,7 +776,7 @@ mod tests {
     #[tokio::test]
     async fn test_context_search() {
         let context_state = ContextState::new();
-        let search_results = context_state.search_contexts("test").await.unwrap();
+        let search_results = context_state.search_context_data("test").await.unwrap();
         assert!(search_results.is_empty()); // No contexts to search initially
     }
 }

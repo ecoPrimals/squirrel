@@ -1,70 +1,52 @@
 [package]
 name = "squirrel-plugins"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-description = "Plugin system for Squirrel applications"
+version = "0.1.0"
+edition = "2021"
+authors = ["DataScienceBioLab"]
+license = "MIT OR Apache-2.0"
+description = "Plugin system for squirrel"
 
-[lints]
-workspace = true
+# Make this crate standalone to avoid workspace conflicts
+[workspace]
 
 [dependencies]
 # Core dependencies
-tokio.workspace = true
-futures.workspace = true
-async-trait.workspace = true
-thiserror.workspace = true
-anyhow.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-uuid.workspace = true
-tracing.workspace = true
-chrono.workspace = true
-lazy_static.workspace = true
-regex.workspace = true
-rand.workspace = true
-log.workspace = true
-ring.workspace = true
-tempfile.workspace = true
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "1.0"
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP and networking
+reqwest = { version = "0.11", features = ["json"] }
+url = "2.5"
+
+# Logging and tracing
+tracing = "0.1"
+log = "0.4"
+
+# Version management and synchronization (CRITICAL FIX: Missing dependencies)
 semver = "1.0"
-# Marketplace dependencies
-reqwest = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
-sha256.workspace = true
-urlencoding.workspace = true
-# Internal dependencies
-# Primary dependency is now interfaces instead of core
-squirrel-interfaces.workspace = true
-# Make core dependency optional to break circular dependency
-# Optional dependencies for different plugin types - all made optional
-squirrel-mcp = { workspace = true, optional = true }
-# Web server dependencies (for repository server)
-axum = { workspace = true, optional = true }
-tower = { workspace = true, optional = true }
-tower-http = { workspace = true, optional = true }
+once_cell = "1.0"
+
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../../config" }
 
 [dev-dependencies]
-tokio-test.workspace = true
-mockall.workspace = true
-test-case.workspace = true
+tokio-test = "0.4"
+mockall = "0.11"
+test-case = "3.0"
 
 [features]
 default = ["core"]
 core = []
-# All features disabled by default
 web = []
-# Base MCP-related functionality without direct dependency
 mcp-interfaces = []
-# Full MCP integration with direct dependency - NOT included in any meta-feature
-mcp-with-impl = ["mcp-interfaces", "dep:squirrel-mcp"]
-# MCP plugin support
 mcp = ["mcp-interfaces"]
-# CLI plugin support
 cli = []
-marketplace = ["dep:reqwest", "dep:url", "tokio/sync"]
-repository-server = ["dep:axum", "dep:tower", "dep:tower-http", "marketplace"]
-# Provide a standard feature set that doesn't create circular dependencies
-standard = ["core", "web", "mcp-interfaces", "marketplace", "repository-server"]
-# Completely removed 'all' feature to avoid confusion
-# Use proper lints inheritance 
+marketplace = []
+repository-server = ["marketplace"]
+standard = ["core", "web", "mcp-interfaces", "marketplace", "repository-server"] 

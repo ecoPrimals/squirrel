@@ -37,6 +37,9 @@ pub enum AIError {
     /// Invalid response error
     InvalidResponse(String),
 
+    /// Parsing error
+    Parsing(String),
+
     /// API error
     ApiError(String),
 
@@ -87,6 +90,7 @@ impl fmt::Display for AIError {
             AIError::ParseError(msg) => write!(f, "Parse error: {msg}"),
             AIError::UnsupportedProvider(msg) => write!(f, "Unsupported provider: {msg}"),
             AIError::Generic(msg) => write!(f, "Error: {msg}"),
+            AIError::Parsing(msg) => write!(f, "Parsing error: {msg}"),
         }
     }
 }

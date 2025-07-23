@@ -60,6 +60,10 @@ pub struct MonitoringConfig {
     pub custom_metrics: HashMap<String, CustomMetricDefinition>,
     /// Alert rules
     pub alert_rules: Vec<AlertRule>,
+    /// Metrics to collect
+    pub metrics: Vec<String>,
+    /// Alert thresholds
+    pub alert_thresholds: HashMap<String, f64>,
 }
 
 /// Custom metric definition
@@ -472,6 +476,18 @@ impl Default for MonitoringConfig {
             prometheus_endpoint: "/metrics".to_string(),
             custom_metrics: HashMap::new(),
             alert_rules: Vec::new(),
+            metrics: vec![
+                "cpu_usage".to_string(),
+                "memory_usage".to_string(),
+                "response_time".to_string(),
+                "error_rate".to_string(),
+            ],
+            alert_thresholds: HashMap::from([
+                ("cpu_usage".to_string(), 80.0),
+                ("memory_usage".to_string(), 85.0),
+                ("error_rate".to_string(), 5.0),
+                ("response_time".to_string(), 1000.0),
+            ]),
         }
     }
 }

@@ -4,11 +4,20 @@
 //! including authentication, encryption, and compliance monitoring.
 
 use super::types::{AuditEvent, ComplianceCheck, Permission, TokenResponse};
-use anyhow::Result;
+use anyhow::anyhow;
+use crate::{Result, Error};
+use async_trait::async_trait;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
+use tracing::{debug, info};
+
+use super::capability_discovery::SecurityServiceDiscovery;
 use uuid::Uuid;
 
 /// BearDog authentication provider
@@ -118,7 +127,7 @@ struct SessionCreateRequest {
 impl AuthProvider {
     /// Create a new BearDog authentication provider
     pub async fn new(endpoint: &str, api_key: &str) -> Result<Self> {
-        Self::new_with_timeout(endpoint, api_key, Duration::from_secs(30)).await
+        Self::new_with_timeout(endpoint, api_key, std::time::Duration::from_secs(30)).await
     }
 
     /// Create a new BearDog authentication provider with custom timeout
@@ -130,7 +139,7 @@ impl AuthProvider {
         let client = Client::builder()
             .timeout(timeout)
             .build()
-            .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
         Ok(Self {
             client,
@@ -153,10 +162,10 @@ impl AuthProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("JWT verification request failed: {}", e))?;
+            .map_err(|e| anyhow!("JWT verification request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "JWT verification failed: {}",
                 response.status()
             ));
@@ -165,7 +174,7 @@ impl AuthProvider {
         let claims: crate::JwtClaims = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse JWT claims: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse JWT claims: {}", e))?;
 
         Ok(claims)
     }
@@ -181,10 +190,10 @@ impl AuthProvider {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Permissions request failed: {}", e))?;
+            .map_err(|e| anyhow!("Permissions request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to get permissions: {}",
                 response.status()
             ));
@@ -193,7 +202,7 @@ impl AuthProvider {
         let permissions: Vec<PermissionApi> = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse permissions: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse permissions: {}", e))?;
 
         Ok(permissions
             .into_iter()
@@ -224,10 +233,10 @@ impl AuthProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Session creation request failed: {}", e))?;
+            .map_err(|e| anyhow!("Session creation request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to create session: {}",
                 response.status()
             ));
@@ -252,10 +261,10 @@ impl AuthProvider {
             .json(&auth_request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Authentication request failed: {}", e))?;
+            .map_err(|e| anyhow!("Authentication request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Authentication failed: {}",
                 response.status()
             ));
@@ -264,20 +273,20 @@ impl AuthProvider {
         let auth_response: AuthApiResponse = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse authentication response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse authentication response: {}", e))?;
 
         let user_id = Uuid::parse_str(&auth_response.user_id)
-            .map_err(|e| anyhow::anyhow!("Invalid user ID: {}", e))?;
+            .map_err(|e| anyhow!("Invalid user ID: {}", e))?;
 
         let session_id = Uuid::parse_str(&auth_response.session_id)
-            .map_err(|e| anyhow::anyhow!("Invalid session ID: {}", e))?;
+            .map_err(|e| anyhow!("Invalid session ID: {}", e))?;
 
         let expires_at = DateTime::parse_from_rfc3339(&auth_response.expires_at)
-            .map_err(|e| anyhow::anyhow!("Invalid expires_at: {}", e))?
+            .map_err(|e| anyhow!("Invalid expires_at: {}", e))?
             .with_timezone(&Utc);
 
         let issued_at = DateTime::parse_from_rfc3339(&auth_response.issued_at)
-            .map_err(|e| anyhow::anyhow!("Invalid issued_at: {}", e))?
+            .map_err(|e| anyhow!("Invalid issued_at: {}", e))?
             .with_timezone(&Utc);
 
         let permissions = auth_response
@@ -315,10 +324,10 @@ impl AuthProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Token refresh request failed: {}", e))?;
+            .map_err(|e| anyhow!("Token refresh request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Token refresh failed: {}",
                 response.status()
             ));
@@ -327,7 +336,7 @@ impl AuthProvider {
         let token_response: TokenResponse = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse token response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse token response: {}", e))?;
 
         Ok(token_response)
     }
@@ -340,10 +349,10 @@ impl AuthProvider {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("User info request failed: {}", e))?;
+            .map_err(|e| anyhow!("User info request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to get user info: {}",
                 response.status()
             ));
@@ -352,7 +361,7 @@ impl AuthProvider {
         let user_info: UserInfo = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse user info: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse user info: {}", e))?;
 
         Ok(user_info)
     }
@@ -365,10 +374,10 @@ impl AuthProvider {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Session invalidation request failed: {}", e))?;
+            .map_err(|e| anyhow!("Session invalidation request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to invalidate session: {}",
                 response.status()
             ));
@@ -400,10 +409,10 @@ impl AuthProvider {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Permission check request failed: {}", e))?;
+            .map_err(|e| anyhow!("Permission check request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Permission check failed: {}",
                 response.status()
             ));
@@ -412,7 +421,7 @@ impl AuthProvider {
         let result: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse permission check response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse permission check response: {}", e))?;
 
         Ok(result
             .get("has_permission")
@@ -430,17 +439,22 @@ pub struct EncryptionService {
 }
 
 impl EncryptionService {
+    /// Discover encryption service endpoint via capability matching
+    async fn discover_encryption_service_endpoint() -> Result<String> {
+        let discovery = SecurityServiceDiscovery::new();
+        discovery.discover_encryption_service().await
+    }
     /// Create a new encryption service
     pub async fn new(algorithm: &str, hsm_provider: &str) -> Result<Self> {
-        let base_url = std::env::var("BEARDOG_ENCRYPTION_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8443".to_string());
+        // Discover encryption service through capability adapter - no hardcoded endpoints
+        let base_url = Self::discover_encryption_service_endpoint().await?;
 
         let api_key = std::env::var("BEARDOG_API_KEY").unwrap_or_else(|_| String::new());
 
         let client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
         // Initialize encryption service with algorithm and HSM provider
         let init_request = serde_json::json!({
@@ -455,10 +469,10 @@ impl EncryptionService {
             .json(&init_request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Encryption service initialization failed: {}", e))?;
+            .map_err(|e| anyhow!("Encryption service initialization failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to initialize encryption service: {}",
                 response.status()
             ));
@@ -474,7 +488,7 @@ impl EncryptionService {
     /// Encrypt data with context
     pub async fn encrypt_with_context(&self, data: &[u8], context: &str) -> Result<Vec<u8>> {
         let request = serde_json::json!({
-            "data": base64::encode(data),
+            "data": STANDARD.encode(data),
             "context": context
         });
 
@@ -486,30 +500,33 @@ impl EncryptionService {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Encryption request failed: {}", e))?;
+            .map_err(|e| anyhow!("Encryption request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Encryption failed: {}", response.status()));
+            return Err(anyhow!(
+                "Encryption failed: {}",
+                response.status()
+            ));
         }
 
         let result: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse encryption response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse encryption response: {}", e))?;
 
         let encrypted_data = result
             .get("encrypted_data")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing encrypted_data in response"))?;
+            .ok_or_else(|| anyhow!("Missing encrypted_data in response"))?;
 
-        base64::decode(encrypted_data)
-            .map_err(|e| anyhow::anyhow!("Failed to decode encrypted data: {}", e))
+        STANDARD.decode(encrypted_data)
+            .map_err(|e| anyhow!("Failed to decode encrypted data: {}", e))
     }
 
     /// Decrypt data with context
     pub async fn decrypt_with_context(&self, data: &[u8], context: &str) -> Result<Vec<u8>> {
         let request = serde_json::json!({
-            "data": base64::encode(data),
+            "data": STANDARD.encode(data),
             "context": context
         });
 
@@ -521,24 +538,27 @@ impl EncryptionService {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Decryption request failed: {}", e))?;
+            .map_err(|e| anyhow!("Decryption request failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Decryption failed: {}", response.status()));
+            return Err(anyhow!(
+                "Decryption failed: {}",
+                response.status()
+            ));
         }
 
         let result: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse decryption response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse decryption response: {}", e))?;
 
         let decrypted_data = result
             .get("decrypted_data")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Missing decrypted_data in response"))?;
+            .ok_or_else(|| anyhow!("Missing decrypted_data in response"))?;
 
-        base64::decode(decrypted_data)
-            .map_err(|e| anyhow::anyhow!("Failed to decode decrypted data: {}", e))
+        STANDARD.decode(decrypted_data)
+            .map_err(|e| anyhow!("Failed to decode decrypted data: {}", e))
     }
 }
 
@@ -551,17 +571,22 @@ pub struct ComplianceMonitor {
 }
 
 impl ComplianceMonitor {
+    /// Discover compliance service endpoint via capability matching
+    async fn discover_compliance_service_endpoint() -> Result<String> {
+        let discovery = SecurityServiceDiscovery::new();
+        discovery.discover_compliance_service().await
+    }
     /// Create a new compliance monitor
     pub async fn new(mode: &str, audit_enabled: bool) -> Result<Self> {
-        let base_url = std::env::var("BEARDOG_COMPLIANCE_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8443".to_string());
+        // Discover compliance service through capability adapter - no hardcoded endpoints  
+        let base_url = Self::discover_compliance_service_endpoint().await?;
 
         let api_key = std::env::var("BEARDOG_API_KEY").unwrap_or_else(|_| String::new());
 
         let client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
         // Initialize compliance monitor
         let init_request = serde_json::json!({
@@ -576,10 +601,10 @@ impl ComplianceMonitor {
             .json(&init_request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Compliance monitor initialization failed: {}", e))?;
+            .map_err(|e| anyhow!("Compliance monitor initialization failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to initialize compliance monitor: {}",
                 response.status()
             ));
@@ -612,10 +637,10 @@ impl ComplianceMonitor {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Audit event recording failed: {}", e))?;
+            .map_err(|e| anyhow!("Audit event recording failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Failed to record audit event: {}",
                 response.status()
             ));
@@ -641,10 +666,10 @@ impl ComplianceMonitor {
             .json(&request)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Compliance check failed: {}", e))?;
+            .map_err(|e| anyhow!("Compliance check failed: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
+            return Err(anyhow!(
                 "Compliance check failed: {}",
                 response.status()
             ));
@@ -653,7 +678,7 @@ impl ComplianceMonitor {
         let result: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse compliance check response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse compliance check response: {}", e))?;
 
         Ok(result
             .get("compliant")

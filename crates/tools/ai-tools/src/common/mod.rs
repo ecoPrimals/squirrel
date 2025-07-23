@@ -103,7 +103,7 @@ pub fn create_provider_client(provider: &str, api_key: &str) -> crate::Result<Bo
         }
         "ollama" => {
             let endpoint = std::env::var("OLLAMA_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string());
+                .unwrap_or_else(|_| crate::config::DefaultEndpoints::ollama_endpoint());
             let client = clients::OllamaClient::new(endpoint);
             Ok(Box::new(client))
         }

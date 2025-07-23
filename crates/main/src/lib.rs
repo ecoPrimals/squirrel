@@ -34,14 +34,17 @@ pub mod universal;
 pub mod universal_adapter;
 pub mod universal_primal_ecosystem;
 pub mod universal_provider;
+pub mod observability;
+pub mod resource_manager;
+pub mod shutdown;
+
+/// Universal adapters for capability-based primal integration
+pub mod universal_adapters;
 
 /// Benchmarking framework for performance measurement
 pub mod benchmarking;
 
 /// Graceful shutdown system
-pub mod shutdown;
-
-/// Self-healing system with circuit breakers and recovery
 pub mod self_healing;
 
 // Re-export commonly used types for convenience
@@ -57,7 +60,7 @@ pub use error_handling::prelude::*;
 pub use monitoring::performance::PerformanceTracker;
 pub use optimization::zero_copy;
 pub use primal_provider::SquirrelPrimalProvider;
-pub use security::UniversalSecurityAdapter;
+pub use security::BeardogSecurityCoordinator;
 pub use security_client::{
     UniversalSecurityClient, UniversalSecurityRequest, UniversalSecurityResponse,
 };
@@ -71,10 +74,7 @@ pub use universal::{
     SecurityLevel, ServiceMeshStatus,
 };
 
-pub use universal_adapter::{
-    create_default_universal_adapter, create_universal_adapter_from_env, run_universal_adapter,
-    AdapterStatus, SquirrelUniversalAdapter,
-};
+pub use universal_adapter::{AdapterStatus, UniversalAdapter}; // Updated exports
 pub use universal_provider::UniversalSquirrelProvider;
 
 // Ecosystem API re-exports (selective to avoid conflicts)
@@ -139,7 +139,7 @@ pub async fn initialize_squirrel_system(
         self_healing::SelfHealingManager::new(self_healing::SelfHealingConfig::default());
 
     // Initialize shutdown manager
-    let shutdown_manager = shutdown::initialize_shutdown_system().await?;
+    let shutdown_manager = shutdown::ShutdownManager::new();
 
     // Create comprehensive system
     let system = SquirrelSystem {
@@ -189,7 +189,9 @@ impl SquirrelSystem {
         let ecosystem_status = self.ecosystem_manager.get_ecosystem_status().await;
         let monitoring_status = self.monitoring_system.get_system_status().await;
         let self_healing_status = self.self_healing_system.get_health_status().await;
-        let shutdown_status = self.shutdown_manager.get_shutdown_status().await;
+        let shutdown_requested = self.shutdown_manager.is_shutdown_requested();
+        let mut status_info = serde_json::Map::new();
+        status_info["shutdown_requested"] = serde_json::json!(shutdown_requested);
 
         // Calculate health scores from available data
         let monitoring_health_score = match monitoring_status.health {
@@ -212,7 +214,7 @@ impl SquirrelSystem {
             ecosystem_status: ecosystem_status.clone(),
             monitoring_status,
             self_healing_status,
-            shutdown_status,
+            shutdown_requested: self.shutdown_manager.is_shutdown_requested(),
             overall_health: (ecosystem_status.overall_health
                 + monitoring_health_score
                 + self_healing_health_score)
@@ -241,10 +243,7 @@ pub struct SquirrelSystemStatus {
     pub ecosystem_status: ecosystem::EcosystemStatus,
     pub monitoring_status: monitoring::SystemStatus,
     pub self_healing_status: std::collections::HashMap<String, self_healing::ComponentHealth>,
-    pub shutdown_status: (
-        shutdown::ShutdownPhase,
-        Vec<shutdown::ComponentShutdownStatus>,
-    ),
+    pub shutdown_requested: bool,
     pub overall_health: f64,
 }
 

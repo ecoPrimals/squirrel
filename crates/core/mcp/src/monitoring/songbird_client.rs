@@ -13,6 +13,7 @@ use tracing::{error, info, warn, debug};
 
 use crate::error::{Result, MCPError};
 use super::{MonitoringClient, MonitoringEvent, MetricValue, AlertLevel};
+use squirrel_mcp_config::get_service_endpoints;
 
 /// Songbird monitoring client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,15 +36,8 @@ pub struct SongbirdClientConfig {
 
 impl Default for SongbirdClientConfig {
     fn default() -> Self {
-        // PRODUCTION SAFE: All environment variable parsing uses safe fallbacks
-        let endpoint = std::env::var("SONGBIRD_ENDPOINT")
-            .unwrap_or_else(|_| {
-                // Check if we're in development/testing vs production
-                match std::env::var("MCP_ENVIRONMENT") {
-                    Ok(env) if env == "production" => "http://songbird:8900".to_string(),
-                    _ => "http://localhost:8900".to_string() // Safe fallback for any environment
-                }
-            });
+        // PRODUCTION SAFE: Using centralized service endpoints configuration
+        let endpoint = get_service_endpoints().songbird_endpoint.clone();
 
         let service_name = std::env::var("MCP_SERVICE_NAME")
             .unwrap_or_else(|_| "squirrel-mcp".to_string());
@@ -484,20 +478,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_songbird_client_creation() {
-        let client = SongbirdMonitoringClient::with_defaults().unwrap();
+        let client = SongbirdMonitoringClient::with_defaults()
+            .expect("Should be able to create SongbirdMonitoringClient with defaults in test");
         assert_eq!(client.config.service_name, "squirrel-mcp");
     }
 
     #[tokio::test]
     async fn test_songbird_metrics_collection() {
-        let client = SongbirdMonitoringClient::with_defaults().unwrap();
+        let client = SongbirdMonitoringClient::with_defaults()
+            .expect("Should be able to create SongbirdMonitoringClient for metrics test");
         let metrics = client.collect_system_metrics().await;
         assert!(metrics.is_ok());
     }
 
     #[tokio::test]
     async fn test_songbird_event_recording() {
-        let client = SongbirdMonitoringClient::with_defaults().unwrap();
+        let client = SongbirdMonitoringClient::with_defaults()
+            .expect("Should be able to create SongbirdMonitoringClient for event recording test");
         
         let event = MonitoringEvent {
             timestamp: Utc::now(),

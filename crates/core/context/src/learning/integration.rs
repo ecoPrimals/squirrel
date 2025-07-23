@@ -755,7 +755,7 @@ impl LearningIntegration {
             debug!("Context monitoring placeholder - actual implementation pending");
 
             // Simple monitoring results
-            let monitoring_results = ContextMonitoringResults {
+            let _monitoring_results = ContextMonitoringResults {
                 total_contexts: 0,                // Placeholder
                 contexts_needing_intervention: 0, // Placeholder
                 monitoring_timestamp: chrono::Utc::now(),

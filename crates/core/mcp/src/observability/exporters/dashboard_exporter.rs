@@ -6,6 +6,7 @@ use chrono::Utc;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 use tokio::task::JoinHandle;
+use squirrel_mcp_config::get_service_endpoints;
 
 use crate::observability::tracing::{
     Span, SpanStatus, 
@@ -171,7 +172,7 @@ pub struct DashboardExporterConfig {
 impl Default for DashboardExporterConfig {
     fn default() -> Self {
         Self {
-            dashboard_url: "http://localhost:3000".to_string(),
+            dashboard_url: get_service_endpoints().ui_endpoint.clone(),
             max_batch_size: 100,
             export_interval_secs: 5,
             service_name: "unknown".to_string(),

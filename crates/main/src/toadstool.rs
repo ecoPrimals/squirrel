@@ -3,20 +3,17 @@
 //! This module provides integration with the ToadStool compute primal for
 //! intensive AI operations, distributed computing, and resource management.
 
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use dashmap::DashMap;
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::error::PrimalError;
-use crate::universal::{PrimalCapability, PrimalContext, UniversalResult};
+use squirrel_mcp_config::get_service_endpoints;
 use squirrel_mcp_config::DefaultConfigManager;
 
 /// ToadStool compute integration for intensive AI operations
@@ -275,7 +272,10 @@ impl ToadStoolIntegration {
                     external_services
                         .get("toadstool")
                         .cloned()
-                        .unwrap_or("http://localhost:9001".to_string())
+                        .unwrap_or_else(|| {
+                            std::env::var("TOADSTOOL_ENDPOINT")
+                                .unwrap_or_else(|_| "http://localhost:9001".to_string())
+                        })
                 }),
                 heartbeat_interval: Duration::from_secs(30),
                 compute_timeout: Duration::from_secs(3600), // 1 hour
@@ -397,59 +397,137 @@ impl ToadStoolIntegration {
         }
 
         // Update registration status
-        let mut state = self.compute_state.write();
+        let mut state = self.compute_state.write().await;
         state.registered = true;
 
         info!("Successfully registered with ToadStool");
         Ok(())
     }
 
-    /// Discover available compute nodes
+    /// Discover compute nodes with comprehensive resilience
     async fn discover_compute_nodes(&self) -> Result<(), PrimalError> {
+        use crate::error_handling::safe_operations::SafeOps;
+        use std::time::Duration;
+        
         let discovery_url = format!("{}/api/v1/compute/nodes", self.config.toadstool_endpoint);
+        
+        // Resilience configuration
+        let max_retries = 3;
+        let base_delay = Duration::from_millis(1000);
+        let per_attempt_timeout = self.config.compute_timeout / max_retries as u32;
+        
+        let mut last_error = None;
+        
+        for attempt in 1..=max_retries {
+            tracing::debug!("Compute node discovery attempt {}/{} to {}", 
+                attempt, max_retries, discovery_url);
+                
+            let discovery_result = SafeOps::safe_with_timeout(
+                per_attempt_timeout,
+                || async {
+                    let mut request = self
+                        .http_client
+                        .get(&discovery_url);
 
-        let mut request = self
-            .http_client
-            .get(&discovery_url)
-            .timeout(self.config.compute_timeout);
+                    if let Some(ref token) = self.config.auth_token {
+                        request = request.header("Authorization", format!("Bearer {}", token));
+                    }
 
-        if let Some(ref token) = self.config.auth_token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+                    request.send().await
+                },
+                &format!("compute_node_discovery_attempt_{}", attempt),
+            ).await;
+            
+            match discovery_result.execute_without_default() {
+                Ok(Ok(response)) => {
+                    if response.status().is_success() {
+                        // Parse response safely with timeout
+                        let parse_result = SafeOps::safe_with_timeout(
+                            Duration::from_secs(5),
+                            || response.json::<Vec<ComputeNode>>(),
+                            "compute_nodes_json_parsing",
+                        ).await;
+                        
+                        match parse_result.execute_without_default() {
+                            Ok(Ok(nodes)) => {
+                                // Update compute state with discovered nodes
+                                let mut state = self.compute_state.write().await;
+                                let previous_count = state.compute_nodes.len();
+                                
+                                for node in nodes {
+                                    state.compute_nodes.insert(node.node_id.clone(), node);
+                                }
+
+                                tracing::info!("Successfully discovered {} compute nodes on attempt {} (previous: {})", 
+                                    state.compute_nodes.len(), attempt, previous_count);
+                                return Ok(());
+                            }
+                            Ok(Err(parse_error)) => {
+                                let error_msg = format!("Failed to parse node discovery response: {}", parse_error);
+                                last_error = Some(error_msg.clone());
+                                tracing::warn!("Parse error on attempt {}: {}", attempt, error_msg);
+                            }
+                            Err(timeout_error) => {
+                                let error_msg = format!("JSON parsing timed out: {}", timeout_error);
+                                last_error = Some(error_msg.clone());
+                                tracing::warn!("Parse timeout on attempt {}: {}", attempt, error_msg);
+                            }
+                        }
+                    } else {
+                        let error_msg = format!("Node discovery failed with status: {}", response.status());
+                        last_error = Some(error_msg.clone());
+                        tracing::warn!("HTTP error on attempt {}: {}", attempt, error_msg);
+                    }
+                }
+                Ok(Err(network_error)) => {
+                    let error_msg = format!("Network error during discovery: {}", network_error);
+                    last_error = Some(error_msg.clone());
+                    tracing::warn!("Network error on attempt {}: {}", attempt, error_msg);
+                }
+                Err(timeout_error) => {
+                    let error_msg = format!("Discovery request timed out: {}", timeout_error);
+                    last_error = Some(error_msg.clone());
+                    tracing::warn!("Timeout on attempt {}: {}", attempt, error_msg);
+                }
+            }
+            
+            // Exponential backoff between retries (except on last attempt)
+            if attempt < max_retries {
+                let delay = base_delay * (2_u32.pow(attempt - 1));
+                tracing::debug!("Retrying compute node discovery after {:?} delay", delay);
+                tokio::time::sleep(delay).await;
+            }
         }
-
-        let response = request.send().await.map_err(|e| {
-            PrimalError::Network(format!("Failed to discover compute nodes: {}", e))
-        })?;
-
-        if !response.status().is_success() {
-            return Err(PrimalError::Network(format!(
-                "Node discovery failed: {}",
-                response.status()
-            )));
-        }
-
-        let nodes: Vec<ComputeNode> = response.json().await.map_err(|e| {
-            PrimalError::Internal(format!("Failed to parse node discovery response: {}", e))
-        })?;
-
-        // Update compute state with discovered nodes
-        let mut state = self.compute_state.write();
-        for node in nodes {
-            state.compute_nodes.insert(node.node_id.clone(), node);
-        }
-
-        info!("Discovered {} compute nodes", state.compute_nodes.len());
-        Ok(())
+        
+        let final_error = last_error.unwrap_or_else(|| "All compute node discovery attempts failed".to_string());
+        tracing::error!("Compute node discovery failed after {} attempts: {}", max_retries, final_error);
+        
+        Err(PrimalError::Network(format!("Failed to discover compute nodes: {}", final_error)))
     }
 
-    /// Submit a compute job to ToadStool
+    /// Submit a compute job to ToadStool with comprehensive observability
     pub async fn submit_job(
         &self,
         job_request: ComputeJobRequest,
     ) -> Result<ComputeJobResponse, PrimalError> {
-        debug!("Submitting compute job: {:?}", job_request.job_type);
+        use uuid::Uuid;
+        use std::time::Instant;
+        
+        // Generate correlation ID for job tracking
+        let correlation_id = Uuid::new_v4().to_string();
+        let operation_start = Instant::now();
+        let job_id = format!("squirrel-job-{}", Uuid::new_v4());
+        
+        tracing::info!(
+            correlation_id = %correlation_id,
+            job_id = %job_id,
+            job_type = ?job_request.job_type,
+            operation = "toadstool_job_submit_start", 
+            toadstool_endpoint = %self.config.toadstool_endpoint,
+            timeout_ms = self.config.compute_timeout.as_millis(),
+            "Starting compute job submission to ToadStool"
+        );
 
-        let job_id = format!("squirrel-job-{}", uuid::Uuid::new_v4());
         let job = ComputeJob {
             job_id: job_id.clone(),
             job_type: job_request.job_type,
@@ -466,6 +544,7 @@ impl ToadStoolIntegration {
         };
 
         let submit_url = format!("{}/api/v1/compute/jobs", self.config.toadstool_endpoint);
+        let request_start = Instant::now();
 
         let mut request = self
             .http_client
@@ -477,28 +556,92 @@ impl ToadStoolIntegration {
             request = request.header("Authorization", format!("Bearer {}", token));
         }
 
+        tracing::debug!(
+            correlation_id = %correlation_id,
+            job_id = %job_id,
+            submit_url = %submit_url,
+            has_auth_token = self.config.auth_token.is_some(),
+            operation = "toadstool_job_submit_request",
+            "Sending job submission request"
+        );
+
         let response = request
             .send()
             .await
-            .map_err(|e| PrimalError::Network(format!("Failed to submit job: {}", e)))?;
+            .map_err(|e| {
+                let request_duration = request_start.elapsed();
+                
+                tracing::error!(
+                    correlation_id = %correlation_id,
+                    job_id = %job_id,
+                    operation = "toadstool_job_submit_network_error",
+                    request_duration_ms = request_duration.as_millis(),
+                    error = %e,
+                    "Job submission failed with network error"
+                );
+                
+                PrimalError::Network(format!("Failed to submit job: {}", e))
+            })?;
+
+        let request_duration = request_start.elapsed();
+        let status_code = response.status().as_u16();
 
         if !response.status().is_success() {
+            tracing::error!(
+                correlation_id = %correlation_id,
+                job_id = %job_id,
+                operation = "toadstool_job_submit_http_error",
+                request_duration_ms = request_duration.as_millis(),
+                http_status = status_code,
+                "Job submission failed with HTTP error"
+            );
+            
             return Err(PrimalError::Network(format!(
                 "Job submission failed: {}",
                 response.status()
             )));
         }
 
+        let parse_start = Instant::now();
         let job_response: ComputeJobResponse = response
             .json()
             .await
-            .map_err(|e| PrimalError::Internal(format!("Failed to parse job response: {}", e)))?;
+            .map_err(|e| {
+                let parse_duration = parse_start.elapsed();
+                
+                tracing::error!(
+                    correlation_id = %correlation_id,
+                    job_id = %job_id,
+                    operation = "toadstool_job_submit_parse_error",
+                    request_duration_ms = request_duration.as_millis(),
+                    parse_duration_ms = parse_duration.as_millis(),
+                    error = %e,
+                    "Failed to parse job response"
+                );
+                
+                PrimalError::Internal(format!("Failed to parse job response: {}", e))
+            })?;
+
+        let parse_duration = parse_start.elapsed();
+        let total_duration = operation_start.elapsed();
 
         // Update local state
-        let mut state = self.compute_state.write();
+        let mut state = self.compute_state.write().await;
         state.active_jobs.insert(job_id.clone(), job);
 
-        info!("Successfully submitted job: {}", job_id);
+        tracing::info!(
+            correlation_id = %correlation_id,
+            job_id = %job_id,
+            response_job_id = %job_response.job_id,
+            operation = "toadstool_job_submit_success",
+            total_duration_ms = total_duration.as_millis(),
+            request_duration_ms = request_duration.as_millis(),
+            parse_duration_ms = parse_duration.as_millis(),
+            http_status = status_code,
+            active_jobs_count = state.active_jobs.len(),
+            "Compute job submitted successfully to ToadStool"
+        );
+
         Ok(job_response)
     }
 
@@ -567,7 +710,7 @@ impl ToadStoolIntegration {
         }
 
         // Update local state
-        let mut state = self.compute_state.write();
+        let mut state = self.compute_state.write().await;
         if let Some(job) = state.active_jobs.get_mut(job_id) {
             job.status = JobStatus::Cancelled;
         }
@@ -611,7 +754,7 @@ impl ToadStoolIntegration {
 
     /// Update health status
     pub async fn update_health(&mut self) -> Result<(), PrimalError> {
-        let state = self.compute_state.read();
+        let state = self.compute_state.read().await;
 
         self.health_status.timestamp = Utc::now();
         self.health_status.active_jobs = state.active_jobs.len() as u32;
@@ -647,8 +790,15 @@ impl ToadStoolIntegration {
     /// Get callback endpoint for job notifications
     fn get_callback_endpoint(&self) -> String {
         std::env::var("SQUIRREL_CALLBACK_ENDPOINT").unwrap_or_else(|_| {
-            let host =
-                std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| "localhost".to_string());
+            let host = std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| {
+                std::env::var("AI_SERVICE_HOST").unwrap_or_else(|_| {
+                    // Extract hostname from MCP endpoint for consistency
+                    get_service_endpoints().mcp_url()
+                        .ok()
+                        .and_then(|url| url.host_str().map(|h| h.to_string()))
+                        .unwrap_or_else(|| "localhost".to_string())
+                })
+            });
             let port = std::env::var("SQUIRREL_SERVICE_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())
@@ -663,7 +813,7 @@ impl ToadStoolIntegration {
 
         // Cancel all active jobs
         let active_jobs: Vec<String> = {
-            let state = self.compute_state.read();
+            let state = self.compute_state.read().await;
             state.active_jobs.keys().cloned().collect()
         };
 
@@ -761,7 +911,13 @@ mod tests {
             }),
             callback_url: Some({
                 let host = std::env::var("SQUIRREL_SERVICE_HOST")
-                    .unwrap_or_else(|_| "localhost".to_string());
+                    .unwrap_or_else(|_| {
+                        // Use the same host from MCP endpoint for consistency
+                        get_service_endpoints().mcp_url()
+                            .ok()
+                            .and_then(|url| url.host_str().map(|h| h.to_string()))
+                            .unwrap_or_else(|| "localhost".to_string())
+                    });
                 let port = std::env::var("SQUIRREL_SERVICE_PORT")
                     .ok()
                     .and_then(|p| p.parse().ok())
@@ -801,7 +957,12 @@ mod tests {
         // Wait a bit to ensure timestamp changes
         tokio::time::sleep(Duration::from_millis(10)).await;
 
-        integration.update_health().await.unwrap();
+        integration.update_health().await
+            .map_err(|e| {
+                tracing::warn!("Health update failed in test: {}", e);
+                e
+            })
+            .expect("Health update should succeed in test environment");
         assert!(integration.health_status.timestamp > original_timestamp);
     }
 }

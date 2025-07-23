@@ -757,4 +757,213 @@ pub enum AggregationStrategy {
     
     /// Custom aggregation
     Custom(String),
-} 
+}
+
+// Additional types for the implementations
+
+/// Message dispatcher for handling inter-agent communication
+#[derive(Debug)]
+pub struct MessageDispatcher {
+    /// Agent message channels
+    agent_channels: Arc<RwLock<HashMap<String, mpsc::Sender<AgentMessage>>>>,
+    /// Message routing table
+    routing_table: Arc<RwLock<HashMap<String, Vec<String>>>>,
+}
+
+/// Collaboration session representing an active collaboration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollaborationSession {
+    /// Session ID
+    pub id: String,
+    /// Collaboration type
+    pub collaboration_type: CollaborationType,
+    /// Participating agents
+    pub participants: Vec<String>,
+    /// Session state
+    pub state: CollaborationState,
+    /// Session data
+    pub data: serde_json::Value,
+    /// Session results
+    pub results: Vec<CollaborationResult>,
+    /// Created timestamp
+    pub created_at: DateTime<Utc>,
+    /// Started timestamp
+    pub started_at: Option<DateTime<Utc>>,
+    /// Completed timestamp
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Session configuration
+    pub config: CollaborationConfig,
+}
+
+/// Collaboration result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollaborationResult {
+    /// Result ID
+    pub id: String,
+    /// Contributing agent
+    pub agent_id: String,
+    /// Result data
+    pub data: serde_json::Value,
+    /// Result quality score
+    pub quality_score: f64,
+    /// Result timestamp
+    pub timestamp: DateTime<Utc>,
+    /// Result metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Collaboration strategy trait
+#[async_trait::async_trait]
+pub trait CollaborationStrategy: Send + Sync + std::fmt::Debug {
+    /// Execute collaboration
+    async fn execute(
+        &self,
+        session: &CollaborationSession,
+        agents: &[String],
+        data: serde_json::Value,
+    ) -> Result<Vec<CollaborationResult>, crate::error::types::MCPError>;
+    
+    /// Get strategy name
+    fn strategy_name(&self) -> &str;
+    
+    /// Validate collaboration parameters
+    fn validate(&self, participants: &[String], config: &CollaborationConfig) -> bool;
+}
+
+/// Workflow execution state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowExecution {
+    /// Execution ID
+    pub id: String,
+    /// Workflow definition ID
+    pub workflow_id: String,
+    /// Current step
+    pub current_step: usize,
+    /// Execution state
+    pub state: WorkflowExecutionState,
+    /// Step results
+    pub step_results: HashMap<String, WorkflowStepResult>,
+    /// Execution context
+    pub context: serde_json::Value,
+    /// Started timestamp
+    pub started_at: DateTime<Utc>,
+    /// Completed timestamp
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Assigned agents
+    pub assigned_agents: HashMap<String, Vec<String>>,
+    /// Execution metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Workflow execution states
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WorkflowExecutionState {
+    /// Pending execution
+    Pending,
+    /// Currently executing
+    Executing,
+    /// Waiting for dependencies
+    Waiting,
+    /// Completed successfully
+    Completed,
+    /// Failed execution
+    Failed,
+    /// Cancelled execution
+    Cancelled,
+    /// Paused execution
+    Paused,
+}
+
+/// Workflow step result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowStepResult {
+    /// Step ID
+    pub step_id: String,
+    /// Execution state
+    pub state: WorkflowStepState,
+    /// Result data
+    pub result: serde_json::Value,
+    /// Executing agents
+    pub agents: Vec<String>,
+    /// Step start time
+    pub started_at: DateTime<Utc>,
+    /// Step completion time
+    pub completed_at: Option<DateTime<Utc>>,
+    /// Error information
+    pub error: Option<String>,
+    /// Step metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Workflow step states
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum WorkflowStepState {
+    /// Pending execution
+    Pending,
+    /// Currently executing
+    Executing,
+    /// Completed successfully
+    Completed,
+    /// Failed execution
+    Failed,
+    /// Skipped
+    Skipped,
+}
+
+/// Workflow execution engine
+#[derive(Debug)]
+pub struct WorkflowExecutionEngine {
+    /// Step executors
+    step_executors: HashMap<WorkflowStepType, Box<dyn StepExecutor>>,
+    /// Dependency resolver
+    dependency_resolver: Arc<WorkflowDependencyResolver>,
+    /// Resource manager
+    resource_manager: Arc<WorkflowResourceManager>,
+}
+
+/// Step executor trait
+#[async_trait::async_trait]
+pub trait StepExecutor: Send + Sync + std::fmt::Debug {
+    /// Execute a workflow step
+    async fn execute(
+        &self,
+        step: &WorkflowStep,
+        context: &mut serde_json::Value,
+        agents: &[String],
+    ) -> Result<WorkflowStepResult, crate::error::types::MCPError>;
+    
+    /// Validate step configuration
+    fn validate(&self, step: &WorkflowStep) -> bool;
+    
+    /// Get executor name
+    fn executor_name(&self) -> &str;
+}
+
+/// Workflow dependency resolver
+#[derive(Debug)]
+pub struct WorkflowDependencyResolver {
+    /// Dependency graph
+    dependency_graph: Arc<RwLock<HashMap<String, Vec<String>>>>,
+}
+
+/// Workflow resource manager
+#[derive(Debug)]
+pub struct WorkflowResourceManager {
+    /// Available resources
+    available_resources: Arc<RwLock<HashMap<String, ResourceLimits>>>,
+    /// Allocated resources
+    allocated_resources: Arc<RwLock<HashMap<String, ResourceLimits>>>,
+}
+
+// Default implementations for new types
+
+impl Default for CollaborationConfig {
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(300), // 5 minutes
+            sync_strategy: SyncStrategy::BestEffort,
+            aggregation_strategy: AggregationStrategy::Average,
+            quality_threshold: 0.7,
+        }
+    }
+}

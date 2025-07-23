@@ -50,6 +50,22 @@ pub enum PluginError {
     #[error("Plugin state error: {0}")]
     StateError(String),
 
+    /// Plugin discovery error
+    #[error("Plugin discovery error: {0}")]
+    DiscoveryError(String),
+
+    /// Plugin loading timeout
+    #[error("Plugin loading timeout: {0}")]
+    LoadTimeout(String),
+
+    /// Plugin loading error
+    #[error("Plugin loading error: {0}")]
+    LoadError(String),
+
+    /// Invalid plugin state
+    #[error("Invalid plugin state: {0}")]
+    InvalidState(String),
+
     /// Unknown error
     #[error("Unknown plugin error: {0}")]
     Unknown(String),

@@ -58,10 +58,12 @@
 mod client;
 mod context;
 mod errors;
+mod hardening;
 mod providers;
 mod tests;
 mod traits;
 mod types;
+mod zero_copy;
 
 // Public re-exports - Core types and traits
 pub use client::UniversalSecurityClient;
@@ -71,6 +73,19 @@ pub use traits::{SecurityProvider, UniversalSecurityProvider};
 
 // Public re-exports - Provider implementations
 pub use providers::{BeardogIntegration, BeardogSecurityProvider, LocalSecurityProvider};
+
+// Public re-exports - Zero-copy types for high performance
+pub use zero_copy::{
+    CacheStats, CredentialsBuilder, PrincipalCache, PrincipalType, ZeroCopyAuthRequest,
+    ZeroCopyAuthResult, ZeroCopyAuthzRequest, ZeroCopyCredentials, ZeroCopyPrincipal,
+    ZeroCopySecurityProvider,
+};
+
+// Public re-exports - Security hardening for production
+pub use hardening::{
+    initialize_production_security, AuthRateLimitError, Environment, RiskLevel, SecurityHardening,
+    SecurityHardeningConfig, SecurityIncident, SecurityMetrics,
+};
 
 // Public re-exports - API types
 pub use types::{
@@ -147,42 +162,29 @@ pub async fn create_beardog_client(
 
 /// Create a new local security provider
 pub async fn create_local_provider() -> Result<LocalSecurityProvider, SecurityError> {
-    use crate::config::{
-        AuthMethod, CredentialStorage, EncryptionAlgorithm, EncryptionConfig, KeyManagement,
-        SecurityConfig, SecurityFallback,
-    };
-    use std::path::PathBuf;
+    use providers::SecurityServiceConfig;
 
-    let config = SecurityConfig {
-        beardog_endpoint: None,
-        auth_method: AuthMethod::None,
-        credential_storage: CredentialStorage::Memory,
-        encryption: EncryptionConfig {
-            enable_inter_primal: false,
-            enable_at_rest: false,
-            algorithm: EncryptionAlgorithm::Aes256Gcm,
-            key_management: KeyManagement::File {
-                path: PathBuf::from("keys/encryption.key"),
-            },
-        },
-        audit_logging: false,
-        fallback: SecurityFallback {
-            enable_local_fallback: true,
-            local_auth_method: AuthMethod::None,
-            fallback_timeout: 5,
-        },
+    let config = SecurityServiceConfig {
+        service_id: "local-security".to_string(),
+        endpoint: None,
+        timeout_seconds: Some(30),
+        max_retries: Some(3),
+        auth_config: None,
     };
 
-    LocalSecurityProvider::new(config).await
+    // Create the provider using the new method
+    providers::LocalSecurityProvider::new(config).await
 }
 
 /// Check if the security module is properly initialized
 pub async fn validate_initialization() -> Result<(), SecurityError> {
+    use providers::UniversalSecurityService;
+
     // Create a local provider to ensure basic functionality works
     let provider = create_local_provider().await?;
 
     // Perform a basic health check
-    let health = provider.health_check().await?;
+    let health = UniversalSecurityService::health_check(&provider).await?;
 
     if !health.is_healthy() {
         return Err(SecurityError::Configuration(

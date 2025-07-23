@@ -21,8 +21,13 @@ use crate::Result;
 pub mod config;
 pub mod native;
 pub mod ollama;
+pub mod universal_provider;
 
 pub use config::{LocalAIConfig, OllamaConfig};
+pub use universal_provider::{
+    create_universal_ai_provider, setup_development_capabilities, UniversalAIConfig,
+    UniversalAIProvider,
+};
 
 /// Local AI client that can dispatch to different local model implementations
 #[derive(Debug)]
@@ -507,7 +512,17 @@ pub async fn create_local_ai_client(config: LocalAIConfig) -> Result<Arc<LocalAI
 
     // Register native provider if enabled
     if config.enable_native {
-        if let Ok(native_provider) = native::NativeProvider::new(config.native.clone()).await {
+        if let Ok(native_provider) = native::NativeProvider::new(native::NativeConfig {
+            models_directory: config.native.models_directory.clone(),
+            max_loaded_models: config.native.max_loaded_models,
+            default_temperature: 0.7,
+            thread_count: Some(4),
+            gpu_layers: Some(0),
+            default_context_size: 2048,
+            use_gpu: config.native.use_gpu,
+        })
+        .await
+        {
             client.register_provider(Arc::new(native_provider)).await?;
         } else {
             warn!("Failed to initialize native provider, continuing without it");

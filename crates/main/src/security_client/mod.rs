@@ -2,14 +2,11 @@
 //!
 //! This module provides modular, capability-based security integration.
 
-pub mod ai_metadata;
 pub mod client;
 pub mod providers;
 pub mod types;
+// Removed ai_metadata - was over-engineered early implementation
 
-// Re-export main types
 pub use client::UniversalSecurityClient;
-pub use types::{
-    ComplianceRequirements, SecurityClientConfig, SecurityOperation, TrustLevel,
-    UniversalSecurityRequest, UniversalSecurityResponse,
-};
+pub use providers::*;
+pub use types::*;

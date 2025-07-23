@@ -82,7 +82,8 @@ fn default_output_format() -> String {
 }
 
 fn default_mcp_host() -> String {
-    std::env::var("CLI_MCP_HOST").unwrap_or_else(|_| "localhost".to_string())
+    std::env::var("CLI_MCP_HOST")
+        .unwrap_or_else(|_| crate::mcp::config::DEFAULT_DEV_HOST.to_string())
 }
 
 fn default_mcp_port() -> u16 {

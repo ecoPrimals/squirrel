@@ -69,11 +69,11 @@ impl Default for NetworkConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetworkMessage {
     /// Node discovery request
-    Discovery { 
+    Discovery {
         /// ID of the discovering node
-        node_id: Uuid, 
+        node_id: Uuid,
         /// Information about the discovering node
-        node_info: NodeInfo 
+        node_info: NodeInfo,
     },
     /// Node discovery response
     DiscoveryResponse {

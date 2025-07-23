@@ -339,8 +339,6 @@ pub struct RateLimiterMetrics {
     pub total_requests: u64,
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

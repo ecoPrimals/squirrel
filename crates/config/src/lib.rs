@@ -44,3 +44,6 @@ pub use universal::ConfigError as UniversalConfigError;
 pub use core::security::BeardogConfig;
 pub use core::security::SecurityConfig as CoreSecurityConfig;
 pub use universal::SecurityConfig as UniversalSecurityConfig;
+
+// CRITICAL FIX: Export the missing service endpoints functionality
+pub use core::service_endpoints::{get_service_endpoints, GlobalServiceEndpoints};

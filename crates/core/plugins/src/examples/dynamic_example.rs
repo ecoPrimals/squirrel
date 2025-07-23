@@ -236,12 +236,17 @@ pub fn create_dynamic_example_plugin() -> Box<dyn Plugin> {
 ///     Box::into_raw(Box::new(metadata))
 /// }
 /// 
-/// #[no_mangle]
+/// ❌ ELIMINATED: Unsafe plugin destruction replaced with safe Arc patterns
+/// 
+/// The old approach required unsafe code:
 /// pub extern "C" fn destroy_plugin(plugin: *mut dyn Plugin) {
-///     if !plugin.is_null() {
-///         unsafe {
-///             let _ = Box::from_raw(plugin);
-///         }
-///     }
+///     // Unsafe code was needed for raw pointer handling
+/// }
+///
+/// ✅ NEW SAFE APPROACH: Use Arc reference counting
+/// pub fn destroy_plugin_safe(plugin_id: String) -> bool {
+///     // Uses Arc<dyn Plugin> for safe shared ownership
+///     // No unsafe code needed - automatic memory management
+/// }
 /// }
 /// ``` 

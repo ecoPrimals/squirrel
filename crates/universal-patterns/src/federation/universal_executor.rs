@@ -232,7 +232,14 @@ impl UniversalExecutor for DefaultUniversalExecutor {
 
     fn supports_platform(&self, platform: &Platform) -> bool {
         // This would check against registered executors
-        matches!(platform, Platform::Linux(_) | Platform::Windows(_) | Platform::MacOS(_) | Platform::WebAssembly | Platform::Container(_))
+        matches!(
+            platform,
+            Platform::Linux(_)
+                | Platform::Windows(_)
+                | Platform::MacOS(_)
+                | Platform::WebAssembly
+                | Platform::Container(_)
+        )
     }
 
     fn supported_languages(&self, platform: &Platform) -> Vec<String> {

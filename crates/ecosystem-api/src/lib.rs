@@ -48,6 +48,7 @@
 
 pub mod client;
 pub mod config;
+pub mod defaults;
 pub mod error;
 pub mod traits;
 pub mod types;

@@ -5,20 +5,78 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
+use std::sync::Arc;
 use serde::{Serialize, Deserialize};
 use futures::Stream;
+use once_cell::sync::Lazy;
 
 use crate::error::types::Result;
 use crate::enhanced::providers::ProviderType;
 
-/// Universal AI request structure
+/// String interning for common AI values
+static AI_STRINGS: Lazy<HashMap<&'static str, Arc<str>>> = Lazy::new(|| {
+        let mut map = HashMap::new();
+        // Common AI models
+        map.insert("gpt-4", Arc::from("gpt-4"));
+        map.insert("gpt-3.5-turbo", Arc::from("gpt-3.5-turbo"));
+        map.insert("claude-3-opus", Arc::from("claude-3-opus"));
+        map.insert("claude-3-sonnet", Arc::from("claude-3-sonnet"));
+        map.insert("claude-3-haiku", Arc::from("claude-3-haiku"));
+        map.insert("gemini-pro", Arc::from("gemini-pro"));
+        map.insert("llama-2-70b", Arc::from("llama-2-70b"));
+        map.insert("llama-2-13b", Arc::from("llama-2-13b"));
+        map.insert("llama-2-7b", Arc::from("llama-2-7b"));
+        
+        // Common providers
+        map.insert("openai", Arc::from("openai"));
+        map.insert("anthropic", Arc::from("anthropic"));
+        map.insert("google", Arc::from("google"));
+        map.insert("ollama", Arc::from("ollama"));
+        map.insert("llamacpp", Arc::from("llamacpp"));
+        map.insert("huggingface", Arc::from("huggingface"));
+        
+        // Common roles
+        map.insert("user", Arc::from("user"));
+        map.insert("assistant", Arc::from("assistant"));
+        map.insert("system", Arc::from("system"));
+        map.insert("function", Arc::from("function"));
+        
+        // Common metadata keys
+        map.insert("temperature", Arc::from("temperature"));
+        map.insert("max_tokens", Arc::from("max_tokens"));
+        map.insert("top_p", Arc::from("top_p"));
+        map.insert("frequency_penalty", Arc::from("frequency_penalty"));
+        map.insert("presence_penalty", Arc::from("presence_penalty"));
+        map.insert("stop", Arc::from("stop"));
+        map.insert("stream", Arc::from("stream"));
+        
+        // Request type strings
+        map.insert("text_generation", Arc::from("text_generation"));
+        map.insert("chat_completion", Arc::from("chat_completion"));
+        map.insert("image_generation", Arc::from("image_generation"));
+        map.insert("embeddings", Arc::from("embeddings"));
+        map.insert("fine_tuning", Arc::from("fine_tuning"));
+        
+        map
+});
+
+/// Get Arc<str> for AI string with zero allocation for common values
+pub fn intern_ai_string(s: &str) -> Arc<str> {
+    AI_STRINGS.get(s)
+        .cloned()
+        .unwrap_or_else(|| Arc::from(s))
+}
+
+/// Universal AI request structure with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalAIRequest {
-    /// Request ID
-    pub id: String,
+    /// Request ID as Arc<str> for efficient sharing across async boundaries
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub id: Arc<str>,
     
-    /// Target model or system
-    pub model: String,
+    /// Target model or system with string interning
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub model: Arc<str>,
     
     /// Request type
     pub request_type: AIRequestType,
@@ -26,11 +84,12 @@ pub struct UniversalAIRequest {
     /// Request payload (flexible JSON)
     pub payload: serde_json::Value,
     
-    /// Messages for chat-style requests
+    /// Messages for chat-style requests with Arc<str> optimization
     pub messages: Vec<MessageContent>,
     
-    /// Additional metadata
-    pub metadata: HashMap<String, serde_json::Value>,
+    /// Additional metadata with Arc<str> keys and values
+    #[serde(serialize_with = "serialize_metadata", deserialize_with = "deserialize_metadata")]
+    pub metadata: HashMap<Arc<str>, Arc<serde_json::Value>>,
     
     /// Context and metadata
     pub context: RequestContext,
@@ -42,23 +101,63 @@ pub struct UniversalAIRequest {
     pub requirements: QualityRequirements,
 }
 
-/// Universal AI response structure
+impl UniversalAIRequest {
+    /// Create new UniversalAIRequest with string interning optimization
+    pub fn new(
+        id: &str,
+        model: &str,
+        request_type: AIRequestType,
+        payload: serde_json::Value,
+        messages: Vec<MessageContent>,
+    ) -> Self {
+        Self {
+            id: Arc::from(id),
+            model: intern_ai_string(model),
+            request_type,
+            payload,
+            messages,
+            metadata: HashMap::new(),
+            context: RequestContext::default(),
+            hints: RoutingHints::default(),
+            requirements: QualityRequirements::default(),
+        }
+    }
+
+    /// Add metadata efficiently using string interning
+    pub fn add_metadata(&mut self, key: &str, value: serde_json::Value) {
+        let key_arc = intern_ai_string(key);
+        self.metadata.insert(key_arc, Arc::new(value));
+    }
+
+    /// Get metadata efficiently without allocation
+    pub fn get_metadata(&self, key: &str) -> Option<&Arc<serde_json::Value>> {
+        self.metadata.iter()
+            .find(|(k, _)| k.as_ref() == key)
+            .map(|(_, v)| v)
+    }
+}
+
+/// Universal AI response structure with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UniversalAIResponse {
-    /// Response ID
-    pub id: String,
+    /// Response ID as Arc<str>
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub id: Arc<str>,
     
-    /// Provider name
-    pub provider: String,
+    /// Provider name with string interning
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub provider: Arc<str>,
     
-    /// Model used
-    pub model: String,
+    /// Model used with string interning
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub model: Arc<str>,
     
     /// Response type
     pub response_type: AIRequestType,
     
-    /// Response content
-    pub content: String,
+    /// Response content as Arc<str> for efficient sharing
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub content: Arc<str>,
     
     /// Cost
     pub cost: f64,
@@ -66,18 +165,106 @@ pub struct UniversalAIResponse {
     /// Duration
     pub duration: Duration,
     
-    /// Metadata
-    pub metadata: HashMap<String, serde_json::Value>,
+    /// Metadata with Arc<str> keys and values
+    #[serde(serialize_with = "serialize_metadata", deserialize_with = "deserialize_metadata")]
+    pub metadata: HashMap<Arc<str>, Arc<serde_json::Value>>,
 }
 
-/// Message content for chat-style requests
+impl UniversalAIResponse {
+    /// Create new UniversalAIResponse with string interning optimization
+    pub fn new(
+        id: &str,
+        provider: &str,
+        model: &str,
+        response_type: AIRequestType,
+        content: &str,
+        cost: f64,
+        duration: Duration,
+    ) -> Self {
+        Self {
+            id: Arc::from(id),
+            provider: intern_ai_string(provider),
+            model: intern_ai_string(model),
+            response_type,
+            content: Arc::from(content),
+            cost,
+            duration,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
+/// Message content for chat-style requests with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageContent {
-    /// Message role (user, assistant, system)
-    pub role: String,
+    /// Message role with string interning (user, assistant, system)
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub role: Arc<str>,
     
-    /// Message content
-    pub content: String,
+    /// Message content as Arc<str> for efficient sharing
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub content: Arc<str>,
+}
+
+impl MessageContent {
+    /// Create new MessageContent with string interning
+    pub fn new(role: &str, content: &str) -> Self {
+        Self {
+            role: intern_ai_string(role),
+            content: Arc::from(content),
+        }
+    }
+
+    /// Create user message
+    pub fn user(content: &str) -> Self {
+        Self::new("user", content)
+    }
+
+    /// Create assistant message
+    pub fn assistant(content: &str) -> Self {
+        Self::new("assistant", content)
+    }
+
+    /// Create system message
+    pub fn system(content: &str) -> Self {
+        Self::new("system", content)
+    }
+}
+
+// Serde helper functions for Arc<str> serialization
+fn serialize_arc_str<S>(arc_str: &Arc<str>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(arc_str)
+}
+
+fn deserialize_arc_str<'de, D>(deserializer: D) -> std::result::Result<Arc<str>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(Arc::from(s))
+}
+
+fn serialize_metadata<S>(map: &HashMap<Arc<str>, Arc<serde_json::Value>>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let json_map: HashMap<&str, &serde_json::Value> = map.iter()
+        .map(|(k, v)| (k.as_ref(), v.as_ref()))
+        .collect();
+    json_map.serialize(serializer)
+}
+
+fn deserialize_metadata<'de, D>(deserializer: D) -> std::result::Result<HashMap<Arc<str>, Arc<serde_json::Value>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let json_map = HashMap::<String, serde_json::Value>::deserialize(deserializer)?;
+    Ok(json_map.into_iter()
+        .map(|(k, v)| (intern_ai_string(&k), Arc::new(v)))
+        .collect())
 }
 
 /// AI request types
@@ -120,84 +307,167 @@ pub enum AIRequestType {
     Future(String),
 }
 
-/// Request context information
+/// Request context with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestContext {
-    pub user_id: Option<String>,
-    pub session_id: Option<String>,
-    pub metadata: HashMap<String, serde_json::Value>,
+    /// Session ID as Arc<str>
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub session_id: Arc<str>,
+    
+    /// User ID as Arc<str>
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub user_id: Arc<str>,
+    
+    /// Additional context with Arc<str> keys and values
+    #[serde(serialize_with = "serialize_metadata", deserialize_with = "deserialize_metadata")]
+    pub additional_context: HashMap<Arc<str>, Arc<serde_json::Value>>,
 }
 
-/// Routing hints for provider selection
+impl Default for RequestContext {
+    fn default() -> Self {
+        Self {
+            session_id: Arc::from("default_session"),
+            user_id: Arc::from("anonymous"),
+            additional_context: HashMap::new(),
+        }
+    }
+}
+
+/// Routing hints with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutingHints {
-    pub prefer_local: bool,
+    /// Preferred provider as Arc<str>
+    #[serde(serialize_with = "serialize_optional_arc_str", deserialize_with = "deserialize_optional_arc_str")]
+    pub preferred_provider: Option<Arc<str>>,
+    
+    /// Required capabilities with Arc<str>
+    pub required_capabilities: Vec<Arc<str>>,
+    
+    /// Cost constraints
     pub max_cost: Option<f64>,
+    
+    /// Latency requirements
     pub max_latency: Option<Duration>,
-    pub quality_requirements: Vec<String>,
+    
+    /// Priority level
+    pub priority: RequestPriority,
 }
 
-/// Quality requirements for requests
+impl Default for RoutingHints {
+    fn default() -> Self {
+        Self {
+            preferred_provider: None,
+            required_capabilities: Vec::new(),
+            max_cost: None,
+            max_latency: None,
+            priority: RequestPriority::Normal,
+        }
+    }
+}
+
+/// Quality requirements with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityRequirements {
+    /// Minimum quality score
     pub min_quality_score: Option<f64>,
-    pub require_streaming: bool,
-    pub require_tools: bool,
+    
+    /// Required output format as Arc<str>
+    #[serde(serialize_with = "serialize_optional_arc_str", deserialize_with = "deserialize_optional_arc_str")]
+    pub required_format: Option<Arc<str>>,
+    
+    /// Language requirements with Arc<str>
+    pub language_requirements: Vec<Arc<str>>,
+    
+    /// Safety requirements
+    pub safety_level: SafetyLevel,
 }
 
-/// Model information
+impl Default for QualityRequirements {
+    fn default() -> Self {
+        Self {
+            min_quality_score: None,
+            required_format: None,
+            language_requirements: Vec::new(),
+            safety_level: SafetyLevel::Standard,
+        }
+    }
+}
+
+/// Request priority levels
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelInfo {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub provider: String,
-    pub model_type: ProviderType,
-    pub capabilities: Vec<String>,
-    pub performance: Option<PerformanceMetrics>,
+pub enum RequestPriority {
+    Low,
+    Normal,
+    High,
+    Critical,
 }
 
-/// Model capabilities
+/// Safety levels for AI requests
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelCapabilities {
-    pub max_tokens: Option<usize>,
-    pub supports_streaming: bool,
-    pub supports_tools: bool,
-    pub cost_per_token: Option<f64>,
+pub enum SafetyLevel {
+    Minimal,
+    Standard,
+    High,
+    Maximum,
 }
 
-/// Performance metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PerformanceMetrics {
-    pub avg_latency: Duration,
-    pub success_rate: f64,
-    pub cost_per_request: Option<f64>,
-    pub quality_score: Option<f64>,
-}
-
-/// Cost estimate
+/// Cost estimate with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostEstimate {
     /// Estimated cost
     pub estimated_cost: f64,
     
-    /// Currency
-    pub currency: String,
+    /// Currency as Arc<str>
+    #[serde(serialize_with = "serialize_arc_str", deserialize_with = "deserialize_arc_str")]
+    pub currency: Arc<str>,
     
-    /// Cost breakdown
-    pub breakdown: HashMap<String, f64>,
+    /// Cost breakdown with Arc<str> keys
+    #[serde(serialize_with = "serialize_cost_breakdown", deserialize_with = "deserialize_cost_breakdown")]
+    pub breakdown: HashMap<Arc<str>, f64>,
 }
 
-/// AI requirements for tool execution
+impl CostEstimate {
+    /// Create new cost estimate with string interning
+    pub fn new(estimated_cost: f64, currency: &str, breakdown: HashMap<&str, f64>) -> Self {
+        Self {
+            estimated_cost,
+            currency: Arc::from(currency),
+            breakdown: breakdown.into_iter()
+                .map(|(k, v)| (intern_ai_string(k), v))
+                .collect(),
+        }
+    }
+}
+
+/// AI requirements for tool execution with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIRequirements {
-    pub min_model_size: Option<String>,
-    pub required_capabilities: Vec<String>,
+    /// Minimum model size as Arc<str>
+    #[serde(serialize_with = "serialize_optional_arc_str", deserialize_with = "deserialize_optional_arc_str")]
+    pub min_model_size: Option<Arc<str>>,
+    
+    /// Required capabilities with Arc<str>
+    pub required_capabilities: Vec<Arc<str>>,
+    
+    /// Maximum cost
     pub max_cost: Option<f64>,
+    
+    /// Maximum latency
     pub max_latency: Option<Duration>,
 }
 
-/// AI metrics
+impl Default for AIRequirements {
+    fn default() -> Self {
+        Self {
+            min_model_size: None,
+            required_capabilities: Vec::new(),
+            max_cost: None,
+            max_latency: None,
+        }
+    }
+}
+
+/// AI metrics with Arc<str> keys
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIMetrics {
     pub total_requests: u64,
@@ -208,7 +478,7 @@ pub struct AIMetrics {
     pub avg_latency: Duration,
 }
 
-/// Provider health information
+/// Provider health information with Arc<str> optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderHealth {
     pub healthy: bool,
@@ -217,8 +487,47 @@ pub struct ProviderHealth {
     pub last_check: chrono::DateTime<chrono::Utc>,
 }
 
-/// Universal AI stream type
+/// Universal AI stream type with Arc<str> optimization
 pub type UniversalAIStream = Box<dyn Stream<Item = Result<UniversalAIResponse>> + Send + Unpin>;
+
+// Additional serde helper functions
+fn serialize_optional_arc_str<S>(opt: &Option<Arc<str>>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match opt {
+        Some(arc_str) => serializer.serialize_some(arc_str.as_ref()),
+        None => serializer.serialize_none(),
+    }
+}
+
+fn deserialize_optional_arc_str<'de, D>(deserializer: D) -> std::result::Result<Option<Arc<str>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt_string = Option::<String>::deserialize(deserializer)?;
+    Ok(opt_string.map(|s| Arc::from(s)))
+}
+
+fn serialize_cost_breakdown<S>(map: &HashMap<Arc<str>, f64>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let string_map: HashMap<&str, f64> = map.iter()
+        .map(|(k, v)| (k.as_ref(), *v))
+        .collect();
+    string_map.serialize(serializer)
+}
+
+fn deserialize_cost_breakdown<'de, D>(deserializer: D) -> std::result::Result<HashMap<Arc<str>, f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let string_map = HashMap::<String, f64>::deserialize(deserializer)?;
+    Ok(string_map.into_iter()
+        .map(|(k, v)| (intern_ai_string(&k), v))
+        .collect())
+}
 
 /// Serialization helper for Duration
 pub mod duration_serde {
@@ -283,37 +592,6 @@ impl AIMetrics {
             0.0
         } else {
             self.total_cost / self.total_requests as f64
-        }
-    }
-}
-
-impl Default for RequestContext {
-    fn default() -> Self {
-        Self {
-            user_id: None,
-            session_id: None,
-            metadata: HashMap::new(),
-        }
-    }
-}
-
-impl Default for RoutingHints {
-    fn default() -> Self {
-        Self {
-            prefer_local: false,
-            max_cost: None,
-            max_latency: None,
-            quality_requirements: Vec::new(),
-        }
-    }
-}
-
-impl Default for QualityRequirements {
-    fn default() -> Self {
-        Self {
-            min_quality_score: None,
-            require_streaming: false,
-            require_tools: false,
         }
     }
 }

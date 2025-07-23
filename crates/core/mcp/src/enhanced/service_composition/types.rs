@@ -856,4 +856,301 @@ pub struct ExecutionError {
     
     /// Error timestamp
     pub timestamp: DateTime<Utc>,
-} 
+}
+
+// Service Discovery Types
+
+/// Service discovery entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDiscoveryEntry {
+    /// Service ID
+    pub service_id: String,
+    
+    /// Service name
+    pub service_name: String,
+    
+    /// Service endpoint
+    pub endpoint: String,
+    
+    /// Service port
+    pub port: u16,
+    
+    /// Service tags
+    pub tags: Vec<String>,
+    
+    /// Discovery timestamp
+    pub discovered_at: DateTime<Utc>,
+    
+    /// Last seen timestamp
+    pub last_seen: DateTime<Utc>,
+    
+    /// Metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Service discovery provider trait
+#[async_trait::async_trait]
+pub trait ServiceDiscoveryProvider: Send + Sync + std::fmt::Debug {
+    /// Discover services
+    async fn discover_services(&self) -> Result<Vec<ServiceDiscoveryEntry>, crate::error::types::MCPError>;
+    
+    /// Register a service
+    async fn register_service(&self, entry: ServiceDiscoveryEntry) -> Result<(), crate::error::types::MCPError>;
+    
+    /// Unregister a service
+    async fn unregister_service(&self, service_id: &str) -> Result<(), crate::error::types::MCPError>;
+    
+    /// Get provider name
+    fn provider_name(&self) -> &str;
+}
+
+/// Health check configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthCheckConfig {
+    /// Service ID
+    pub service_id: String,
+    
+    /// Health check endpoint
+    pub endpoint: String,
+    
+    /// Check interval
+    pub interval: Duration,
+    
+    /// Timeout for health checks
+    pub timeout: Duration,
+    
+    /// Number of failures before marking unhealthy
+    pub failure_threshold: u32,
+    
+    /// Number of successes before marking healthy
+    pub success_threshold: u32,
+}
+
+/// Service health status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ServiceHealthStatus {
+    /// Service is healthy
+    Healthy,
+    
+    /// Service is degraded but functional
+    Degraded,
+    
+    /// Service is unhealthy
+    Unhealthy,
+    
+    /// Health status unknown
+    Unknown,
+}
+
+/// Service health checker
+#[derive(Debug)]
+pub struct ServiceHealthChecker {
+    /// HTTP client for health checks
+    client: reqwest::Client,
+    
+    /// Health check timeout
+    timeout: Duration,
+}
+
+// Dependency Management Types
+
+/// Dependency graph for tracking service dependencies
+#[derive(Debug, Clone, Default)]
+pub struct DependencyGraph {
+    /// Service dependencies (service_id -> dependencies)
+    dependencies: HashMap<String, Vec<ServiceDependency>>,
+    
+    /// Reverse dependencies (service_id -> dependents)
+    dependents: HashMap<String, Vec<String>>,
+    
+    /// Service nodes in the graph
+    nodes: HashMap<String, DependencyNode>,
+}
+
+/// Dependency node representing a service in the dependency graph
+#[derive(Debug, Clone)]
+pub struct DependencyNode {
+    /// Service ID
+    pub service_id: String,
+    
+    /// Service name
+    pub service_name: String,
+    
+    /// Service version
+    pub version: String,
+    
+    /// Service status
+    pub status: DependencyNodeStatus,
+    
+    /// Node metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+/// Status of a dependency node
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DependencyNodeStatus {
+    /// Available and ready
+    Available,
+    
+    /// Temporarily unavailable
+    Unavailable,
+    
+    /// Permanently removed
+    Removed,
+    
+    /// Under maintenance
+    Maintenance,
+}
+
+/// Dependency validation result
+#[derive(Debug, Clone)]
+pub struct DependencyValidationResult {
+    /// Service ID
+    pub service_id: String,
+    
+    /// Validation status
+    pub is_valid: bool,
+    
+    /// Missing dependencies
+    pub missing_dependencies: Vec<String>,
+    
+    /// Circular dependencies detected
+    pub circular_dependencies: Vec<Vec<String>>,
+    
+    /// Validation timestamp
+    pub validated_at: DateTime<Utc>,
+    
+    /// Validation errors
+    pub errors: Vec<String>,
+}
+
+/// Dependency resolver trait
+#[async_trait::async_trait]
+pub trait DependencyResolver: Send + Sync + std::fmt::Debug {
+    /// Resolve dependencies for a service
+    async fn resolve_dependencies(
+        &self,
+        service_id: &str,
+        dependencies: &[ServiceDependency],
+    ) -> Result<Vec<ResolvedDependency>, crate::error::types::MCPError>;
+    
+    /// Check if a dependency is available
+    async fn check_dependency_availability(
+        &self,
+        dependency: &ServiceDependency,
+    ) -> Result<bool, crate::error::types::MCPError>;
+    
+    /// Get resolver name
+    fn resolver_name(&self) -> &str;
+}
+
+/// Resolved dependency
+#[derive(Debug, Clone)]
+pub struct ResolvedDependency {
+    /// Original dependency specification
+    pub dependency: ServiceDependency,
+    
+    /// Resolved service ID
+    pub resolved_service_id: String,
+    
+    /// Resolved endpoint
+    pub endpoint: Option<String>,
+    
+    /// Resolution metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+    
+    /// Resolution timestamp
+    pub resolved_at: DateTime<Utc>,
+}
+
+// Orchestration Types
+
+/// Orchestration state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrchestrationState {
+    /// Orchestration ID
+    pub orchestration_id: String,
+    
+    /// Current step
+    pub current_step: usize,
+    
+    /// Total steps
+    pub total_steps: usize,
+    
+    /// Status
+    pub status: OrchestrationStatus,
+    
+    /// Start time
+    pub start_time: DateTime<Utc>,
+    
+    /// End time
+    pub end_time: Option<DateTime<Utc>>,
+    
+    /// Context data
+    pub context: serde_json::Value,
+    
+    /// Step results
+    pub step_results: Vec<StepResult>,
+}
+
+/// Orchestration status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OrchestrationStatus {
+    /// Pending
+    Pending,
+    
+    /// Running
+    Running,
+    
+    /// Completed
+    Completed,
+    
+    /// Failed
+    Failed,
+    
+    /// Paused
+    Paused,
+    
+    /// Cancelled
+    Cancelled,
+}
+
+/// Step result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StepResult {
+    /// Step index
+    pub step_index: usize,
+    
+    /// Step name
+    pub step_name: String,
+    
+    /// Result data
+    pub result: serde_json::Value,
+    
+    /// Execution time
+    pub execution_time: Duration,
+    
+    /// Success flag
+    pub success: bool,
+    
+    /// Error message if any
+    pub error: Option<String>,
+}
+
+/// Orchestration strategy trait
+#[async_trait::async_trait]
+pub trait OrchestrationStrategy: Send + Sync + std::fmt::Debug {
+    /// Execute orchestration step
+    async fn execute_step(
+        &self,
+        step_index: usize,
+        context: &mut serde_json::Value,
+        services: &[Arc<AIService>],
+    ) -> Result<StepResult, crate::error::types::MCPError>;
+    
+    /// Get strategy name
+    fn strategy_name(&self) -> &str;
+    
+    /// Check if strategy can handle the given services
+    fn can_handle(&self, services: &[Arc<AIService>]) -> bool;
+}

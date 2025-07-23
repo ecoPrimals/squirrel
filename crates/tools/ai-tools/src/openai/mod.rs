@@ -5,13 +5,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::stream::{StreamExt, TryStreamExt};
 use reqwest::{Client, Response, StatusCode};
 use secrecy::{ExposeSecret, Secret};
 use tracing::{debug, warn};
 
 use crate::{
-    common::types::ToolCall,
     common::{
         capability::{
             AICapabilities, CostTier, ModelRegistry, ModelType, RoutingPreferences, TaskType,
@@ -185,20 +183,6 @@ impl OpenAIClient {
         Ok(headers)
     }
 
-    /// Handle an error response from the API
-    fn handle_error_response(&self, status: StatusCode, body: &str) -> Error {
-        // Try to parse the error response
-        if let Ok(error_resp) = serde_json::from_str::<OpenAIErrorResponse>(body) {
-            Error::ApiError(format!(
-                "OpenAI API error ({}): {}",
-                status.as_u16(),
-                error_resp.error.message
-            ))
-        } else {
-            Error::ApiError(format!("OpenAI API error ({}): {}", status.as_u16(), body))
-        }
-    }
-
     /// Send a request to the OpenAI API with rate limiting
     async fn send_request(&self, request: &OpenAIChatRequest) -> Result<Response> {
         // Use the rate limiter
@@ -231,18 +215,6 @@ impl OpenAIClient {
                 Ok(response)
             })
             .await
-    }
-
-    /// Handle a tool call from the AI response
-    async fn handle_tool_call(&self, call: OpenAIToolCall) -> Result<ToolCall> {
-        let arguments = serde_json::from_str(&call.function.arguments)
-            .unwrap_or(serde_json::Value::String(call.function.arguments));
-
-        Ok(ToolCall {
-            id: call.id,
-            name: call.function.name,
-            arguments,
-        })
     }
 
     /// Get capabilities for this OpenAI client based on model
@@ -298,96 +270,6 @@ impl OpenAIClient {
         }
 
         capabilities
-    }
-
-    async fn stream_chat_completion(&self, request: ChatRequest) -> Result<ChatResponseStream> {
-        let mut openai_request = self.prepare_request(request);
-        openai_request.stream = true;
-
-        let response = self.send_request(&openai_request).await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(self.handle_error_response(status, &body));
-        }
-
-        // Convert the byte stream to a string stream
-        let stream = response
-            .bytes_stream()
-            .map_err(|e| Error::Streaming(e.to_string()))
-            .map(|result| {
-                result
-                    .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
-                    .map_err(|e| Error::Streaming(e.to_string()))
-            });
-
-        // Process the stream
-        let lines = stream
-            .try_filter_map(|line| async move {
-                let mut results = Vec::new();
-                for line in line.lines() {
-                    if line.is_empty() || line == "data: [DONE]" {
-                        continue;
-                    }
-                    if let Some(data) = line.strip_prefix("data: ") {
-                        if let Ok(response) = serde_json::from_str::<OpenAIChatStreamResponse>(data)
-                        {
-                            if !response.choices.is_empty() {
-                                let delta = response.choices[0].delta.clone();
-                                results.push(Ok(ChatResponseChunk {
-                                    id: response.id,
-                                    model: response.model,
-                                    choices: vec![ChatChoiceChunk {
-                                        index: 0,
-                                        delta: ChatMessage {
-                                            role: match delta.role {
-                                                Some(OpenAIMessageRole::System) => {
-                                                    MessageRole::System
-                                                }
-                                                Some(OpenAIMessageRole::User) => MessageRole::User,
-                                                Some(OpenAIMessageRole::Assistant) => {
-                                                    MessageRole::Assistant
-                                                }
-                                                Some(OpenAIMessageRole::Tool) => MessageRole::Tool,
-                                                None => MessageRole::Assistant,
-                                            },
-                                            content: delta.content,
-                                            name: None,
-                                            tool_calls: delta.tool_calls.map(|calls| {
-                                                calls
-                                                    .into_iter()
-                                                    .map(|call| {
-                                                        let arguments = serde_json::from_str(
-                                                            &call.function.arguments,
-                                                        )
-                                                        .unwrap_or({
-                                                            serde_json::Value::String(
-                                                                call.function.arguments,
-                                                            )
-                                                        });
-                                                        ToolCall {
-                                                            id: call.id,
-                                                            name: call.function.name,
-                                                            arguments,
-                                                        }
-                                                    })
-                                                    .collect()
-                                            }),
-                                            tool_call_id: None,
-                                        },
-                                        finish_reason: response.choices[0].finish_reason.clone(),
-                                    }],
-                                }));
-                            }
-                        }
-                    }
-                }
-                Ok(Some(futures::stream::iter(results)))
-            })
-            .try_flatten();
-
-        Ok(Box::pin(lines))
     }
 }
 

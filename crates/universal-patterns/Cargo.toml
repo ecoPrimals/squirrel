@@ -1,49 +1,44 @@
 [package]
 name = "universal-patterns"
-version = "0.1.0"
-edition = "2021"
-description = "Universal patterns framework for ecoPrimals ecosystem"
-authors = ["ecoPrimals Team"]
-license = "MIT"
-readme = "README.md"
-repository = "https://github.com/ecoPrimals/squirrel"
-categories = ["development-tools", "api-bindings"]
-keywords = ["patterns", "framework", "primal", "ecosystem", "configuration"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Universal patterns for ecosystem integration"
+
+[lints]
+workspace = true
 
 [dependencies]
-# Core dependencies
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
-serde_json = "1.0"
-tokio = { version = "1.0", features = ["full"] }
-async-trait = "0.1"
-thiserror = "1.0"
-anyhow = "1.0"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Core async and serialization
+tokio.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+futures = "0.3"
+
+# HTTP and networking
+reqwest.workspace = true
+url = { version = "2.5", features = ["serde"] }
+
+# Logging and tracing
+tracing.workspace = true
+log.workspace = true
 
 # Configuration management
 config = "0.14"
+serde_yaml = "0.9"
 dirs = "5.0"
 
-# Networking and HTTP
-reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
-url = { version = "2.5", features = ["serde"] }
+# Ecosystem dependencies
+ecosystem-api = { path = "../ecosystem-api" }
 
-# Security
-ring = "0.17"
-base64 = "0.22"
-sha256 = "1.5"
-
-# Time handling
-chrono = { version = "0.4", features = ["serde"] }
-
-# Environment variables
-dotenv = "0.15"
-
-# System information
-num_cpus = "1.0"
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../config" }
 
 [dev-dependencies]
 tokio-test = "0.4"

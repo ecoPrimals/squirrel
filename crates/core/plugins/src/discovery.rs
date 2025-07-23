@@ -80,10 +80,7 @@ pub trait PluginLoader: Send + Sync {
 #[async_trait]
 pub trait PluginDiscovery: Send + Sync {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(
-        &self,
-        directory: P,
-    ) -> Result<Vec<Arc<dyn Plugin>>>;
+    async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>>;
 }
 
 /// File-based plugin discovery
@@ -103,12 +100,7 @@ impl<L: PluginLoader> FilePluginDiscovery<L> {
 #[async_trait]
 impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(
-        &self,
-        directory: P,
-    ) -> Result<Vec<Arc<dyn Plugin>>> {
-        let directory = directory.as_ref();
-
+    async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>> {
         // Ensure directory exists
         if !directory.exists() {
             let err = std::io::Error::new(
@@ -193,12 +185,7 @@ pub struct DefaultPluginDiscovery {
 #[async_trait]
 impl PluginDiscovery for DefaultPluginDiscovery {
     /// Discover plugins in a directory
-    async fn discover_plugins<P: AsRef<Path> + Send + Sync>(
-        &self,
-        directory: P,
-    ) -> Result<Vec<Arc<dyn Plugin>>> {
-        let directory = directory.as_ref();
-
+    async fn discover_plugins(&self, directory: &Path) -> Result<Vec<Arc<dyn Plugin>>> {
         if !directory.exists() {
             let err = std::io::Error::new(
                 std::io::ErrorKind::NotFound,

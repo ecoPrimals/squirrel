@@ -31,6 +31,9 @@ log.workspace = true
 # Futures for stream types
 futures = "0.3"
 
+# CRITICAL FIX: Add missing config dependency
+squirrel-mcp-config = { path = "../config" }
+
 [features]
 default = ["ecosystem-integration"]
 ecosystem-integration = []

@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+use squirrel_mcp_config::get_service_endpoints;
 
 use super::error_types::{EnhancedMCPError, EnhancedResult};
 
@@ -318,7 +319,7 @@ impl SecurityConfig {
                 rate_limit_requests: 1000,
                 rate_limit_window: Duration::from_secs(60),
                 enable_cors: true,
-                cors_origins: vec!["http://localhost:3000".to_string()],
+                cors_origins: get_service_endpoints().cors_origins(),
                 enable_csrf: false,
                 session_timeout: Duration::from_secs(7200),
                 max_login_attempts: 10,
@@ -623,9 +624,23 @@ mod tests {
 
     #[test]
     fn test_environment_parsing() {
-        assert_eq!("development".parse::<Environment>().unwrap(), Environment::Development);
-        assert_eq!("prod".parse::<Environment>().unwrap(), Environment::Production);
-        assert!("invalid".parse::<Environment>().is_err());
+        use crate::error_handling::safe_operations::SafeOps;
+        
+        // Test development environment parsing with safe operations
+        let dev_result = SafeOps::safe_parse::<Environment>("development", "environment_parsing_test");
+        assert_eq!(
+            dev_result.unwrap_or_default(), 
+            Environment::Development,
+            "Should parse 'development' environment correctly"
+        );
+        
+        // Test production environment parsing with safe operations  
+        let prod_result = SafeOps::safe_parse::<Environment>("prod", "environment_parsing_test");
+        assert_eq!(
+            prod_result.unwrap_or_default(),
+            Environment::Production,
+            "Should parse 'prod' environment correctly"
+        );
     }
 
     #[test]

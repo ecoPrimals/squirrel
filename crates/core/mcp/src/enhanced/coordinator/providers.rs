@@ -48,16 +48,83 @@ impl UniversalAIProvider for OpenAIProvider {
     }
     
     async fn process_request(&self, request: UniversalAIRequest) -> Result<UniversalAIResponse> {
-        Ok(UniversalAIResponse {
-            id: Uuid::new_v4().to_string(),
-            provider: "openai".to_string(),
-            model: request.model,
-            response_type: request.request_type,
-            content: "Mock response from OpenAI".to_string(),
-            cost: 0.001,
-            duration: Duration::from_millis(100),
-            metadata: HashMap::new(),
-        })
+        let start_time = std::time::Instant::now();
+        
+        // Check for API key
+        let api_key = std::env::var("OPENAI_API_KEY")
+            .map_err(|_| crate::error::types::MCPError::ProviderError(
+                "OPENAI_API_KEY environment variable not set".to_string()
+            ))?;
+        
+        // Build OpenAI API request
+        let client = reqwest::Client::new();
+        let mut messages = vec![];
+        
+        if let Some(system_prompt) = &request.system_prompt {
+            messages.push(serde_json::json!({
+                "role": "system",
+                "content": system_prompt
+            }));
+        }
+        
+        messages.push(serde_json::json!({
+            "role": "user", 
+            "content": request.prompt
+        }));
+        
+        let openai_request = serde_json::json!({
+            "model": request.model,
+            "messages": messages,
+            "max_tokens": request.max_tokens.unwrap_or(1000),
+            "temperature": request.temperature.unwrap_or(0.7)
+        });
+        
+        // Make API call
+        let response = client
+            .post("https://api.openai.com/v1/chat/completions")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&openai_request)
+            .send()
+            .await
+            .map_err(|e| crate::error::types::MCPError::ProviderError(
+                format!("OpenAI API request failed: {}", e)
+            ))?;
+            
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(crate::error::types::MCPError::ProviderError(
+                format!("OpenAI API error {}: {}", response.status(), error_text)
+            ));
+        }
+        
+        let openai_response: serde_json::Value = response.json().await
+            .map_err(|e| crate::error::types::MCPError::ProviderError(
+                format!("Failed to parse OpenAI response: {}", e)
+            ))?;
+        
+        // Extract content from response
+        let content = openai_response
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|choice| choice.get("message"))
+            .and_then(|msg| msg.get("content"))
+            .and_then(|content| content.as_str())
+            .unwrap_or("No response content");
+        
+        let duration = start_time.elapsed();
+        
+        // Use the modernized constructor with Arc<str> optimization
+        Ok(UniversalAIResponse::new(
+            &uuid::Uuid::new_v4().to_string(),
+            "openai",
+            &request.model.as_ref(),  // Convert Arc<str> to &str
+            request.request_type,
+            content,
+            0.001, // TODO: Calculate actual cost based on tokens
+            duration,
+        ))
     }
     
     async fn stream_request(&self, _request: UniversalAIRequest) -> Result<UniversalAIStream> {
@@ -115,14 +182,71 @@ impl UniversalAIProvider for AnthropicProvider {
     }
     
     async fn process_request(&self, request: UniversalAIRequest) -> Result<UniversalAIResponse> {
+        let start_time = std::time::Instant::now();
+        
+        // Check for API key
+        let api_key = std::env::var("ANTHROPIC_API_KEY")
+            .map_err(|_| crate::error::types::MCPError::ProviderError(
+                "ANTHROPIC_API_KEY environment variable not set".to_string()
+            ))?;
+        
+        // Build Anthropic API request
+        let client = reqwest::Client::new();
+        
+        let anthropic_request = serde_json::json!({
+            "model": request.model,
+            "max_tokens": request.max_tokens.unwrap_or(1000),
+            "messages": [{
+                "role": "user",
+                "content": request.prompt
+            }]
+        });
+        
+        // Make API call
+        let response = client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .json(&anthropic_request)
+            .send()
+            .await
+            .map_err(|e| crate::error::types::MCPError::ProviderError(
+                format!("Anthropic API request failed: {}", e)
+            ))?;
+            
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(crate::error::types::MCPError::ProviderError(
+                format!("Anthropic API error {}: {}", response.status(), error_text)
+            ));
+        }
+        
+        let anthropic_response: serde_json::Value = response.json().await
+            .map_err(|e| crate::error::types::MCPError::ProviderError(
+                format!("Failed to parse Anthropic response: {}", e)
+            ))?;
+        
+        // Extract content from response
+        let content = anthropic_response
+            .get("content")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|item| item.get("text"))
+            .and_then(|text| text.as_str())
+            .unwrap_or("No response content")
+            .to_string();
+        
+        let duration = start_time.elapsed();
+        
         Ok(UniversalAIResponse {
             id: Uuid::new_v4().to_string(),
             provider: "anthropic".to_string(),
             model: request.model,
             response_type: request.request_type,
-            content: "Mock response from Anthropic".to_string(),
-            cost: 0.002,
-            duration: Duration::from_millis(150),
+            content,
+            cost: 0.002, // TODO: Calculate actual cost based on tokens
+            duration,
             metadata: HashMap::new(),
         })
     }

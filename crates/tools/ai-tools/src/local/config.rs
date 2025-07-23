@@ -99,7 +99,7 @@ impl Default for OllamaConfig {
     fn default() -> Self {
         Self {
             base_url: std::env::var("OLLAMA_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string()),
+                .unwrap_or_else(|_| crate::config::DefaultEndpoints::ollama_endpoint()),
             timeout_seconds: 30,
             auto_discover_models: true,
             models: vec![

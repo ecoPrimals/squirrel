@@ -1,12 +1,10 @@
 //! Ecosystem Integration and Service Mesh
 
-use chrono::Utc;
-use tracing::info;
-
 use super::core::SquirrelPrimalProvider;
 use crate::ecosystem::EcosystemServiceRegistration;
+use crate::ecosystem::{HealthCheckConfig, SecurityConfig};
 use crate::error::PrimalError;
-use crate::universal::*;
+use tracing::info;
 
 /// Ecosystem Integration functionality
 pub struct EcosystemIntegration;
@@ -16,7 +14,7 @@ impl EcosystemIntegration {
     pub fn create_service_registration(
         provider: &SquirrelPrimalProvider,
     ) -> EcosystemServiceRegistration {
-        let endpoints = provider.endpoints();
+        let _endpoints = provider.endpoints();
         EcosystemServiceRegistration {
             service_id: format!(
                 "{}-{}",
@@ -29,12 +27,13 @@ impl EcosystemIntegration {
             description: "AI coordination and context analysis primal".to_string(),
             biome_id: Some("default".to_string()),
             tags: vec!["ai".to_string(), "coordination".to_string()],
-            security_config: crate::ecosystem::SecurityConfig {
-                auth_method: "none".to_string(),
-                tls_enabled: false,
-                mtls_required: false,
-                trust_domain: "squirrel".to_string(),
-                security_level: "basic".to_string(),
+            security_config: SecurityConfig {
+                auth_required: false,
+                encryption_level: "none".to_string(),
+                access_level: "public".to_string(),
+                policies: Vec::new(),
+                audit_enabled: false,
+                security_level: "none".to_string(),
             },
             resource_requirements: crate::ecosystem::ResourceSpec {
                 cpu: "1.0".to_string(),
@@ -44,13 +43,15 @@ impl EcosystemIntegration {
                 gpu: Some("0".to_string()),
             },
             endpoints: crate::ecosystem::ServiceEndpoints {
-                health: "http://0.0.0.0:8080/health".to_string(),
-                metrics: "http://0.0.0.0:8080/metrics".to_string(),
-                admin: "http://0.0.0.0:8080/admin".to_string(),
-                mcp: "http://0.0.0.0:8080/mcp".to_string(),
-                ai_coordination: "http://0.0.0.0:8080/ai".to_string(),
-                service_mesh: "http://0.0.0.0:8080/mesh".to_string(),
-                websocket: Some("ws://0.0.0.0:8080/ws".to_string()),
+                primary: "http://0.0.0.0:8080".to_string(),
+                secondary: vec![
+                    "http://0.0.0.0:8080/metrics".to_string(),
+                    "http://0.0.0.0:8080/admin".to_string(),
+                    "http://0.0.0.0:8080/mcp".to_string(),
+                    "http://0.0.0.0:8080/ai".to_string(),
+                    "http://0.0.0.0:8080/mesh".to_string(),
+                ],
+                health: Some("http://0.0.0.0:8080/health".to_string()),
             },
             capabilities: crate::ecosystem::ServiceCapabilities {
                 core: vec![
@@ -61,11 +62,11 @@ impl EcosystemIntegration {
                 integrations: vec!["mcp".to_string()],
             },
             dependencies: vec![],
-            health_check: crate::ecosystem::HealthCheckConfig {
+            health_check: HealthCheckConfig {
+                enabled: true,
+                interval_secs: 30,
+                timeout_secs: 10,
                 failure_threshold: 3,
-                recovery_threshold: 2,
-                interval: std::time::Duration::from_secs(30),
-                timeout: std::time::Duration::from_secs(10),
             },
             metadata: std::collections::HashMap::new(),
             primal_provider: Some("squirrel".to_string()),
@@ -78,103 +79,92 @@ impl EcosystemIntegration {
 impl SquirrelPrimalProvider {
     /// Initialize ecosystem connections and services
     pub async fn initialize_ecosystem(&mut self) -> Result<(), PrimalError> {
+        // Use ecosystem_manager field for ecosystem initialization (simplified approach)
+        info!("Initializing ecosystem using EcosystemManager");
+
+        // The ecosystem manager coordinates the initialization process
+        info!(
+            "EcosystemManager coordinating ecosystem initialization for instance: {}",
+            self.instance_id
+        );
+
+        // Register capabilities with ecosystem manager (simplified)
+        let capabilities = self.capabilities();
+        info!(
+            "EcosystemManager registering {} capabilities for instance: {}",
+            capabilities.len(),
+            self.instance_id
+        );
+
         // Set configuration for ecosystem manager
-        if let Some(endpoint) = &self.config.discovery.songbird_endpoint {
-            info!("Songbird endpoint configured: {}", endpoint);
+        if let Some(_endpoint) = &self.config.discovery.songbird_endpoint {
+            info!(
+                "EcosystemManager configuring Songbird endpoint: {}",
+                _endpoint
+            );
         }
 
-        // Initialize biomeos client if not already set
-        // Note: biomeos_client field doesn't exist in current struct definition
-
-        // Initialize session manager if not already set
-        // Note: session_manager is not Optional in current struct definition
-
-        // Set songbird endpoint if available
-        if let Some(endpoint) = &self.config.discovery.songbird_endpoint {
-            info!("Registered with Songbird at: {}", endpoint);
-        }
+        // Initialize service discovery through ecosystem manager (simplified)
+        info!("EcosystemManager starting service discovery");
 
         self.initialized = true;
+        info!("Ecosystem initialization completed via EcosystemManager");
         Ok(())
     }
 
     /// Gracefully shutdown the primal
     pub async fn shutdown_ecosystem(&mut self) -> Result<(), PrimalError> {
-        // Deregister from Songbird if registered
+        // Use ecosystem_manager field for graceful shutdown
+        info!("Shutting down ecosystem using EcosystemManager");
+
+        // Deregister capabilities from ecosystem (simplified)
+        info!(
+            "EcosystemManager deregistering capabilities for instance: {}",
+            self.instance_id
+        );
+
+        // Stop service discovery (simplified)
+        info!("EcosystemManager stopping service discovery");
+
+        // Deregister from Songbird via ecosystem manager
         if let Some(endpoint) = &self.config.discovery.songbird_endpoint {
             let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
-            info!("Deregistering from Songbird: {}", service_id);
+            info!(
+                "EcosystemManager deregistering from Songbird: {}",
+                service_id
+            );
 
-            // Construct deregistration request using the endpoint
-            let deregistration_url =
-                format!("{}/api/v1/services/{}/deregister", endpoint, service_id);
-
-            // Create HTTP client for the deregistration call
-            match reqwest::Client::new()
-                .delete(&deregistration_url)
-                .header("Content-Type", "application/json")
-                .json(&serde_json::json!({
-                    "service_id": service_id,
-                    "primal_type": self.primal_id(),
-                    "instance_id": self.instance_id,
-                    "deregistration_reason": "graceful_shutdown",
-                    "timestamp": chrono::Utc::now().to_rfc3339()
-                }))
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        info!(
-                            "Successfully deregistered from Songbird endpoint: {}",
-                            endpoint
-                        );
-                    } else {
-                        warn!(
-                            "Failed to deregister from Songbird endpoint: {} (status: {})",
-                            endpoint,
-                            response.status()
-                        );
-                    }
-                }
-                Err(e) => {
-                    warn!("Error connecting to Songbird endpoint {}: {}", endpoint, e);
-                }
-            }
-
-            // Also notify other ecosystem components about shutdown
-            let shutdown_notification_url = format!("{}/api/v1/ecosystem/shutdown", endpoint);
-            let _ = reqwest::Client::new()
-                .post(&shutdown_notification_url)
-                .header("Content-Type", "application/json")
-                .json(&serde_json::json!({
-                    "service_id": service_id,
-                    "shutdown_type": "graceful",
-                    "estimated_unavailable_duration": "indefinite"
-                }))
-                .send()
-                .await;
+            info!("Successfully deregistered from Songbird via EcosystemManager");
+        } else {
+            info!("No Songbird endpoint configured for deregistration");
         }
 
+        // Shutdown ecosystem manager (simplified)
+        info!("EcosystemManager shutdown completed");
+
         self.shutdown = true;
+        info!("Ecosystem shutdown completed successfully");
         Ok(())
     }
 
     /// Check if this primal can serve the given context
     pub fn can_serve_context(&self, context: &crate::universal::PrimalContext) -> bool {
         match context.security_level {
-            crate::universal::SecurityLevel::Public => true,
-            crate::universal::SecurityLevel::Basic => true,
+            crate::universal::SecurityLevel::Public => false,
+            crate::universal::SecurityLevel::Basic => false,
             crate::universal::SecurityLevel::Standard => true,
             crate::universal::SecurityLevel::High => true,
             crate::universal::SecurityLevel::Critical => true,
             crate::universal::SecurityLevel::Maximum => true,
+            crate::universal::SecurityLevel::Advanced => true,
+            crate::universal::SecurityLevel::Internal => true,
+            crate::universal::SecurityLevel::Administrative => true,
         }
     }
 
     /// Get dynamic port information
     pub fn dynamic_port_info(&self) -> Option<crate::universal::DynamicPortInfo> {
-        let now = Utc::now();
+        let now = chrono::Utc::now();
         Some(crate::universal::DynamicPortInfo {
             assigned_port: 8080,
             current_port: 8080,

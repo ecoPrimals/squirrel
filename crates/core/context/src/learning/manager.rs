@@ -560,7 +560,7 @@ impl ContextLearningManager {
 
     /// Observe context states using the context manager for MCP/AI coordination
     async fn observe_contexts(
-        manager: &Arc<ContextManager>,
+        _manager: &Arc<ContextManager>,
         observations: &Arc<RwLock<HashMap<String, Vec<ContextObservation>>>>,
     ) -> Result<()> {
         // Leverage the context manager for intelligent context observation

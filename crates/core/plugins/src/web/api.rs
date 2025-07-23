@@ -15,10 +15,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::manager::{DefaultPluginManager, PluginManagerTrait, PluginRegistry};
 use crate::types::PluginStatus;
 use crate::web::{HttpMethod, HttpStatus, WebEndpoint, WebRequest, WebResponse};
 use crate::Plugin;
+use crate::{DefaultPluginManager, PluginManagerTrait, PluginRegistry};
 
 /// Plugin management API endpoints
 #[derive(Clone)]

@@ -64,9 +64,9 @@ impl OllamaClient {
                 };
 
                 if let Some(content) = &msg.content {
-                    format!("{}: {}", role, content)
+                    format!("{role}: {content}")
                 } else {
-                    format!("{}: [no content]", role)
+                    format!("{role}: [no content]")
                 }
             })
             .collect::<Vec<_>>()

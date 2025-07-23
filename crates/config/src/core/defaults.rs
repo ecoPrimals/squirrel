@@ -4,6 +4,7 @@
 //! for various service types and configuration categories.
 
 use serde::{Deserialize, Serialize};
+use crate::get_service_endpoints;
 
 /// Configuration defaults that can be overridden by environment variables
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -126,7 +127,7 @@ impl Default for NetworkDefaults {
             vec![] // No default CORS origins in production - must be explicitly configured
         } else {
             vec![std::env::var("DEFAULT_CORS_ORIGIN")
-                .unwrap_or_else(|_| "http://localhost:3000".to_string())]
+                .unwrap_or_else(|_| get_service_endpoints().ui_endpoint.clone())]
         };
 
         Self {
@@ -165,9 +166,14 @@ impl Default for ExternalServiceDefaults {
 
         let service_host = if is_production {
             // In production, use service names for container/k8s environments
-            "songbird"
+            "songbird".to_string()
         } else {
-            "localhost"
+            // Extract host from songbird endpoint for consistency
+            get_service_endpoints()
+                .songbird_url()
+                .ok()
+                .and_then(|url| url.host_str().map(|h| h.to_string()))
+                .unwrap_or_else(|| "localhost".to_string())
         };
 
         let base_port = 8000; // Base port for service allocation
@@ -239,22 +245,19 @@ impl Default for ObservabilityDefaults {
             .eq_ignore_ascii_case("production");
 
         let observability_host = if is_production {
-            "jaeger" // Use service names in production
+            "jaeger".to_string() // Use service names in production
         } else {
-            "localhost"
+            // Extract host from metrics endpoint for consistency
+            get_service_endpoints()
+                .metrics_url()
+                .ok()
+                .and_then(|url| url.host_str().map(|h| h.to_string()))
+                .unwrap_or_else(|| "localhost".to_string())
         };
 
         Self {
-            dashboard_url: std::env::var("DASHBOARD_URL").unwrap_or_else(|_| {
-                format!(
-                    "http://{}:3000",
-                    if is_production {
-                        "dashboard"
-                    } else {
-                        "localhost"
-                    }
-                )
-            }),
+            dashboard_url: std::env::var("DASHBOARD_URL")
+                .unwrap_or_else(|_| get_service_endpoints().ui_endpoint.clone()),
             otlp_endpoint: std::env::var("OTLP_ENDPOINT")
                 .unwrap_or_else(|_| format!("http://{}:4317", observability_host)),
             jaeger_endpoint: std::env::var("JAEGER_ENDPOINT")
@@ -262,7 +265,15 @@ impl Default for ObservabilityDefaults {
             zipkin_endpoint: std::env::var("ZIPKIN_ENDPOINT").unwrap_or_else(|_| {
                 format!(
                     "http://{}:9411",
-                    if is_production { "zipkin" } else { "localhost" }
+                    if is_production {
+                        "zipkin".to_string()
+                    } else {
+                        get_service_endpoints()
+                            .metrics_url()
+                            .ok()
+                            .and_then(|url| url.host_str().map(|h| h.to_string()))
+                            .unwrap_or_else(|| "localhost".to_string())
+                    }
                 )
             }),
             metrics_port: std::env::var("METRICS_PORT")

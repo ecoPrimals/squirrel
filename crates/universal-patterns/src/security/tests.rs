@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::config::{AuthMethod, FallbackConfig};
+    use crate::config::{AuthMethod, SecurityFallback};
     use crate::traits::{Credentials, Principal, PrincipalType};
     use std::collections::HashMap;
     use url::Url;
@@ -285,7 +285,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 5,
             },
@@ -304,7 +305,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 5,
             },
@@ -323,7 +325,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 1, // Short timeout to trigger fallback
             },
@@ -350,7 +353,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 5,
             },
@@ -374,7 +378,8 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 5,
             },
@@ -430,7 +435,8 @@ mod tests {
         let config = SecurityConfig {
             auth_method: AuthMethod::None,
             beardog_endpoint: None,
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: true,
                 fallback_timeout: 5,
             },
@@ -493,7 +499,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: false,
                 fallback_timeout: 5,
             },
@@ -515,7 +522,8 @@ mod tests {
                 service_id: "test-service".to_string(),
             },
             beardog_endpoint: Some(Url::parse("http://localhost:8443").unwrap()),
-            fallback: FallbackConfig {
+            fallback: SecurityFallback {
+                local_auth_method: AuthMethod::None,
                 enable_local_fallback: false,
                 fallback_timeout: 5,
             },

@@ -3,14 +3,15 @@
 //! This module provides optimized versions of BiomeOS integration components
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
-use crate::biomeos_integration::{
-    agent_deployment::{
-        AgentEndpoints, AgentResourceUsage, AgentStatus, DeployedAgent, DeploymentStatus,
-    },
-    manifest::ExecutionEnvironment,
-    manifest::{AgentResourceLimits, AgentSecurity, AgentSpec, AgentStorage, EncryptionConfig},
-    EcosystemCapabilities, EcosystemEndpoints, EcosystemSecurity, EcosystemServiceRegistration,
-    HealthCheckConfig, IntelligenceResponse, ResourceRequirements,
+use crate::biomeos_integration::IntelligenceResponse; // Add missing import
+use crate::ecosystem::{
+    EcosystemPrimalType,
+    EcosystemServiceRegistration,
+    HealthCheckConfig,
+    ResourceRequirements, // Add missing imports
+    SecurityConfig,
+    ServiceCapabilities,
+    ServiceEndpoints, // Add ServiceEndpoints import
 };
 use crate::optimization::zero_copy::{
     collection_utils::ZeroCopyMap,
@@ -18,7 +19,7 @@ use crate::optimization::zero_copy::{
     performance_monitoring::{MetricsSnapshot, ZeroCopyMetrics},
     string_utils::StaticStrings,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -64,11 +65,13 @@ impl OptimizedServiceRegistration {
         instance_id: &str,
         biome_id: Option<&str>,
         capabilities: &[&str],
+        dependencies: Option<Vec<String>>,
+        metadata: Option<std::collections::HashMap<String, String>>,
     ) -> EcosystemServiceRegistration {
         self.metrics.record_operation();
 
         // Use cached strings for common values
-        let primal_type = self
+        let _primal_type_str = self
             .static_strings
             .get("squirrel")
             .unwrap_or_else(|| Arc::from("squirrel"));
@@ -76,7 +79,7 @@ impl OptimizedServiceRegistration {
             .static_strings
             .get("biomeOS/v1")
             .unwrap_or_else(|| Arc::from("biomeOS/v1"));
-        let status = self
+        let _status = self
             .static_strings
             .get("running")
             .unwrap_or_else(|| Arc::from("running"));
@@ -87,73 +90,59 @@ impl OptimizedServiceRegistration {
         // Build endpoints efficiently
         let base_url = "http://localhost:8080".to_string();
         let endpoints = crate::ecosystem::ServiceEndpoints {
-            health: format!("{}/health", base_url),
-            metrics: format!("{}/metrics", base_url),
-            admin: format!("{}/admin", base_url),
-            websocket: Some(format!("ws://{}/ws", "localhost".to_string())),
-            mcp: format!("{}/mcp", base_url),
-            ai_coordination: format!("{}/ai", base_url),
-            service_mesh: format!("{}/service-mesh", base_url),
+            primary: base_url.to_string(),
+            secondary: vec![
+                format!("{}/metrics", base_url),
+                format!("{}/admin", base_url),
+                format!("{}/mcp", base_url),
+                format!("{}/ai", base_url),
+                format!("{}/service-mesh", base_url),
+            ],
+            health: Some(format!("{}/health", base_url)),
         };
 
         // Build capabilities efficiently
-        let capability_list: Vec<String> =
+        let _capability_list: Vec<String> =
             capabilities.iter().map(|&cap| cap.to_string()).collect();
 
         self.metrics.record_clone_avoided();
 
         EcosystemServiceRegistration {
-            service_id,
-            primal_type: primal_type.to_string(),
-            biome_id: biome_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "default-biome".to_string()),
-            capabilities: EcosystemCapabilities {
-                ai_capabilities: vec!["inference".to_string(), "training".to_string()],
-                mcp_capabilities: vec![
-                    "session_management".to_string(),
-                    "protocol_handling".to_string(),
-                ],
-                context_capabilities: vec![
-                    "state_persistence".to_string(),
-                    "session_tracking".to_string(),
-                ],
-                integration_capabilities: vec![
-                    "biomeos_integration".to_string(),
-                    "ecosystem_coordination".to_string(),
-                ],
+            service_id: service_id.to_string(),
+            name: service_id.to_string(),
+            description: format!("BiomeOS integration for {}", service_id),
+            primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel, // Use enum directly
+            biome_id: Some(
+                biome_id
+                    .map(|id| id.to_string())
+                    .unwrap_or_else(|| "default-biome".to_string()),
+            ),
+            endpoints,
+            capabilities: ServiceCapabilities {
+                core: capabilities.iter().map(|&s| s.to_string()).collect(),
+                extended: Vec::new(),
+                integrations: Vec::new(),
             },
-            security: EcosystemSecurity {
-                authentication_method: "jwt".to_string(),
-                tls_enabled: true,
-                mtls_required: false,
-                trust_domain: "squirrel".to_string(),
-            },
+            dependencies: dependencies.unwrap_or_default(),
+            version: "1.0.0".to_string(),
             health_check: HealthCheckConfig {
-                interval: Duration::from_secs(30),
-                timeout: Duration::from_secs(10),
-                retries: 3,
-                grace_period: Duration::from_secs(30),
+                enabled: true,
+                interval_secs: 30,
+                timeout_secs: 10,
+                failure_threshold: 3,
             },
-            version: api_version.to_string(),
-            api_version: "1.0.0".to_string(),
-            registration_time: Utc::now(),
-            endpoints: EcosystemEndpoints {
-                ai_api: "http://localhost:8080/ai".to_string(),
-                mcp_api: "http://localhost:8080/mcp".to_string(),
-                context_api: "http://localhost:8080/context".to_string(),
-                health: "http://localhost:8080/health".to_string(),
-                metrics: "http://localhost:8080/metrics".to_string(),
-                websocket: Some("ws://localhost:8080/ws".to_string()),
+            metadata: metadata.unwrap_or_default(),
+            primal_provider: None,
+            registered_at: chrono::Utc::now(),
+            tags: Vec::new(),
+            security_config: SecurityConfig::default(),
+            resource_requirements: crate::ecosystem::ResourceSpec {
+                cpu: "500m".to_string(),
+                memory: "1Gi".to_string(),
+                storage: "10Gi".to_string(),
+                network: "1Gbps".to_string(),
+                gpu: None,
             },
-            resource_requirements: ResourceRequirements {
-                cpu: "2.0".to_string(),
-                memory: "512".to_string(),
-                storage: "10".to_string(),
-                network: "100".to_string(),
-                gpu: Some("0".to_string()),
-            },
-            metadata: HashMap::new(),
         }
     }
 
@@ -184,7 +173,7 @@ impl OptimizedMessageProcessor {
         &mut self,
         request_id: &str,
         request_type: &str,
-        data: &serde_json::Value,
+        _data: &serde_json::Value,
     ) -> Result<IntelligenceResponse, crate::error::PrimalError> {
         self.metrics.record_operation();
 
@@ -202,14 +191,10 @@ impl OptimizedMessageProcessor {
         // Build response efficiently
         let response = IntelligenceResponse {
             request_id: request_id.to_string(),
-            response_type: request_type.to_string(),
-            recommendations: vec![
-                "Optimize resource usage".to_string(),
-                "Monitor system health".to_string(),
-            ],
-            predictions: vec![],
-            optimizations: vec![],
+            intelligence_type: request_type.to_string(),
+            result: serde_json::json!({"recommendations": ["Optimize resource usage", "Monitor system health"]}),
             confidence: 0.85,
+            processing_time_ms: 0, // Placeholder, actual time would be measured
             metadata: HashMap::new(),
         };
 
@@ -422,4 +407,92 @@ impl OptimizedContextState {
         assert!(metrics.total_clones_avoided() >= 0);
         assert!(metrics.total_string_interning_hits() >= 0);
     }
+}
+
+pub fn register_with_ecosystem(
+    service_id: &str,
+    primal_type: EcosystemPrimalType, // Already correct type
+    base_url: &str,
+    capabilities: &[&str],
+    biome_id: Option<&str>,
+    dependencies: Option<Vec<String>>,
+    metadata: Option<std::collections::HashMap<String, String>>,
+) -> EcosystemServiceRegistration {
+    let endpoints = crate::ecosystem::ServiceEndpoints {
+        primary: base_url.to_string(),
+        secondary: vec![
+            format!("{}/metrics", base_url),
+            format!("{}/admin", base_url),
+            format!("{}/mcp", base_url),
+            format!("{}/ai", base_url),
+            format!("{}/service-mesh", base_url),
+        ],
+        health: Some(format!("{}/health", base_url)),
+    };
+
+    EcosystemServiceRegistration {
+        service_id: service_id.to_string(),
+        name: service_id.to_string(),
+        description: format!("BiomeOS integration for {}", service_id),
+        primal_type,
+        biome_id: Some(
+            biome_id
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "default-biome".to_string()),
+        ),
+        endpoints,
+        capabilities: ServiceCapabilities {
+            core: capabilities.iter().map(|&s| s.to_string()).collect(),
+            extended: Vec::new(),
+            integrations: Vec::new(),
+        },
+        dependencies: dependencies.unwrap_or_default(),
+        version: "1.0.0".to_string(),
+        health_check: HealthCheckConfig {
+            enabled: true,
+            interval_secs: 30,
+            timeout_secs: 10,
+            failure_threshold: 3,
+        },
+        metadata: metadata.unwrap_or_default(),
+        primal_provider: None,
+        registered_at: chrono::Utc::now(),
+        tags: Vec::new(),
+        security_config: SecurityConfig::default(),
+        resource_requirements: crate::ecosystem::ResourceSpec {
+            cpu: "500m".to_string(),
+            memory: "1Gi".to_string(),
+            storage: "10Gi".to_string(),
+            network: "1Gbps".to_string(),
+            gpu: None,
+        },
+    }
+}
+
+pub async fn process_intelligence_request(
+    request_id: &str,
+    intelligence_type: &str,
+    _payload: serde_json::Value, // Mark as unused
+) -> Result<IntelligenceResponse, crate::error::PrimalError> {
+    let start_time = std::time::Instant::now();
+
+    let result = match intelligence_type {
+        "pattern_recognition" => serde_json::json!({"patterns": []}),
+        "predictive_analytics" => serde_json::json!({"predictions": []}),
+        "anomaly_detection" => serde_json::json!({"anomalies": []}),
+        _ => serde_json::json!({"error": "unsupported intelligence type"}),
+    };
+
+    let processing_time = start_time.elapsed().as_millis() as u64;
+
+    let response = IntelligenceResponse {
+        request_id: request_id.to_string(),
+        intelligence_type: intelligence_type.to_string(),
+        result,
+        confidence: 0.85,
+        processing_time_ms: processing_time,
+        metadata: std::collections::HashMap::new(),
+    };
+
+    Ok(response)
 }

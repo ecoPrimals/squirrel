@@ -6,17 +6,21 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// Default timeout values in seconds
+/// Default HTTP request timeout in seconds
 pub const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
+/// Default connection timeout in seconds
 pub const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 10;
+/// Default read timeout in seconds
 pub const DEFAULT_READ_TIMEOUT_SECS: u64 = 60;
 
-/// Default pagination settings
+/// Default items per page for pagination
 pub const DEFAULT_PER_PAGE: u32 = 30;
+/// Maximum items per page allowed
 pub const DEFAULT_MAX_PER_PAGE: u32 = 100;
 
-/// Default API base URLs
+/// OpenAI API base URL
 pub const OPENAI_BASE_URL: &str = "https://api.openai.com";
+/// Anthropic API base URL
 pub const ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 
 /// Global API client configuration

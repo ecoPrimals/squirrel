@@ -664,7 +664,7 @@ impl PluginManager {
         if let Some(mut plugin) = plugins.remove(id) {
             if let Err(e) = plugin.stop() {
                 return Err(PluginError::InternalError {
-                    message: format!("Failed to stop plugin: {:?}", e),
+                    message: format!("Failed to stop plugin: {e:?}"),
                 });
             }
         }
@@ -693,7 +693,7 @@ impl PluginManager {
             let info = plugin.get_info();
             if matches!(info.state, PluginStatus::Uninitialized) {
                 return Err(PluginError::InitializationError {
-                    reason: format!("Plugin {} is not initialized", id),
+                    reason: format!("Plugin {id} is not initialized"),
                 });
             }
         }
@@ -708,7 +708,7 @@ impl PluginManager {
         for plugin in plugins.values_mut() {
             if let Err(e) = plugin.stop() {
                 return Err(PluginError::InternalError {
-                    message: format!("Failed to stop plugin: {:?}", e),
+                    message: format!("Failed to stop plugin: {e:?}"),
                 });
             }
         }

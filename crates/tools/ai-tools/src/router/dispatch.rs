@@ -457,7 +457,7 @@ impl AIRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::capability::{AITask, TaskType};
+    use crate::common::capability::TaskType;
     use crate::router::types::{RouterConfig, RoutingStrategy};
 
     #[test]

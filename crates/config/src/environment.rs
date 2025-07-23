@@ -167,21 +167,44 @@ impl DatabaseConfig {
 impl Environment {
     /// Get database configuration with environment overrides
     pub fn get_database_config(&self) -> DatabaseConfig {
-        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            match self {
-                Environment::Production => {
-                    // Production should always have DATABASE_URL set
-                    // This is a fallback that should never be used in production
-                    eprintln!("WARNING: DATABASE_URL not set in production environment");
-                    "postgres://user:password@db:5432/squirrel_production".to_string()
+        let database_url = match std::env::var("DATABASE_URL") {
+            Ok(url) => {
+                // Validate URL format for security
+                if *self == Environment::Production && url.contains("password") {
+                    eprintln!("⚠️  WARNING: Production DATABASE_URL appears to contain hardcoded password");
                 }
-                Environment::Staging => {
-                    "postgres://user:password@db:5432/squirrel_staging".to_string()
-                }
-                Environment::Testing => "sqlite::memory:".to_string(),
-                Environment::Development => "sqlite::memory:".to_string(),
+                url
             }
-        });
+            Err(_) => {
+                match self {
+                    Environment::Production => {
+                        eprintln!("🚨 FATAL SECURITY ERROR: DATABASE_URL environment variable is required in production");
+                        eprintln!(
+                            "   Production deployment blocked to prevent security vulnerability"
+                        );
+                        eprintln!("   Please set DATABASE_URL environment variable with secure credentials");
+                        std::process::exit(1);
+                    }
+                    Environment::Staging => {
+                        eprintln!("⚠️  WARNING: DATABASE_URL not set in staging, using fallback");
+                        // Use environment variable or fail
+                        match std::env::var("DATABASE_URL_STAGING") {
+                            Ok(url) => url,
+                            Err(_) => {
+                                eprintln!("🚨 ERROR: Neither DATABASE_URL nor DATABASE_URL_STAGING is set");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    Environment::Testing => "sqlite::memory:".to_string(),
+                    Environment::Development => {
+                        // Allow fallback for development
+                        std::env::var("DATABASE_URL_DEV")
+                            .unwrap_or_else(|_| "sqlite::memory:".to_string())
+                    }
+                }
+            }
+        };
 
         let max_connections = env::var("DATABASE_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "10".to_string())

@@ -190,6 +190,21 @@ impl<T> SafeResult<T> {
         }
     }
 
+    /// Execute the operation for Result types from external libraries (like reqwest)
+    /// This method doesn't require Default + Clone bounds
+    pub fn execute_without_default(self) -> Result<T, SafeError> {
+        match self.result {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                error!("Operation failed in {}: {}", self.context, error);
+                match self.recovery_strategy {
+                    RecoveryStrategy::Propagate => Err(error),
+                    _ => Err(error), // For now, always propagate when no default is available
+                }
+            }
+        }
+    }
+
     /// Get the result or use a default value
     pub fn unwrap_or_default(self) -> T
     where
@@ -582,7 +597,10 @@ impl SafeConfig {
         T::Err: std::fmt::Display,
     {
         std::env::var(key)
-            .and_then(|val| val.parse::<T>().map_err(|e| std::env::VarError::NotPresent))
+            .and_then(|val| {
+                val.parse::<T>()
+                    .map_err(|_e| std::env::VarError::NotPresent)
+            })
             .unwrap_or_else(|_| {
                 debug!(
                     "Environment variable '{}' not found or invalid in {}, using default",
@@ -617,7 +635,7 @@ pub struct SafeSession;
 
 impl SafeSession {
     /// Safely create a session ID
-    pub fn safe_session_id(context: &str) -> String {
+    pub fn safe_session_id(_context: &str) -> String {
         uuid::Uuid::new_v4().to_string()
     }
 

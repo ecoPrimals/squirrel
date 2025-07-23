@@ -4,7 +4,7 @@
 //! communication between machines or between machines and humans.
 
 mod client;
-mod config;
+pub mod config; // Changed from `mod config;` to `pub mod config;`
 mod protocol;
 mod server;
 

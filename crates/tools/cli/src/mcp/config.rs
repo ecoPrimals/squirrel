@@ -4,7 +4,7 @@
 //! and improve maintainability of the MCP implementation.
 
 use serde::{Deserialize, Serialize};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::time::Duration;
 
 /// Default MCP server configuration values

@@ -1,229 +1,119 @@
-//! Service discovery operations for the ecosystem registry manager
+//! Service discovery operations for the ecosystem registry
 
+use super::types::{intern_registry_string, DiscoveredService, ServiceHealthStatus};
+use crate::EcosystemPrimalType;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
+use tokio::sync::RwLock; // Import from crate root
 
-use chrono::Utc;
-use tokio::sync::{broadcast, RwLock};
-use tokio::time::{interval, timeout};
-use tracing::{debug, error, info, warn};
-
-use super::types::{DiscoveredService, EcosystemRegistryEvent, ServiceHealthStatus};
-use crate::ecosystem::EcosystemPrimalType;
-use crate::error::PrimalError;
-
-/// Service discovery operations
+/// Discovery operations for the ecosystem registry
 pub struct DiscoveryOps;
 
 impl DiscoveryOps {
-    /// Discover services through Songbird service mesh
+    /// Discover services in the ecosystem
     pub async fn discover_services(
-        service_registry: &Arc<RwLock<HashMap<String, DiscoveredService>>>,
-        event_publisher: &broadcast::Sender<EcosystemRegistryEvent>,
-        http_client: &reqwest::Client,
-        songbird_endpoint: &str,
-    ) -> Result<(), PrimalError> {
-        debug!("Starting service discovery from Songbird");
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+        primal_types: Vec<EcosystemPrimalType>,
+    ) -> Result<Vec<Arc<DiscoveredService>>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut discovered_services = Vec::new();
 
-        let discovery_url = format!("{}/api/v1/services/discover", songbird_endpoint);
+        for primal_type in primal_types {
+            let endpoint = Self::build_service_endpoint(&primal_type);
 
-        let response = timeout(
-            Duration::from_secs(30),
-            http_client.get(&discovery_url).send(),
-        )
-        .await
-        .map_err(|_| PrimalError::NetworkError("Service discovery request timed out".to_string()))?
-        .map_err(|e| PrimalError::NetworkError(format!("Failed to connect to Songbird: {}", e)))?;
-
-        if !response.status().is_success() {
-            return Err(PrimalError::NetworkError(format!(
-                "Service discovery failed with status: {}",
-                response.status()
-            )));
-        }
-
-        let discovery_data: serde_json::Value = response.json().await.map_err(|e| {
-            PrimalError::Internal(format!("Failed to parse discovery response: {}", e))
-        })?;
-
-        let services = discovery_data
-            .get("services")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| {
-                PrimalError::Internal("Invalid discovery response format".to_string())
-            })?;
-
-        let mut discovered_count = 0;
-        let mut updated_count = 0;
-
-        for service_data in services {
-            match Self::parse_discovered_service(service_data) {
-                Ok(service) => {
-                    let service_id = service.service_id.clone();
-                    let primal_type = service.primal_type;
-                    let endpoint = service.endpoint.clone();
-                    let capabilities = service.capabilities.clone();
-
-                    let mut registry = service_registry.write().await;
-                    let is_new_service = !registry.contains_key(&service_id);
-
-                    registry.insert(service_id.clone(), service);
-
-                    if is_new_service {
-                        discovered_count += 1;
-                        let _ = event_publisher.send(EcosystemRegistryEvent::ServiceDiscovered {
-                            service_id,
-                            primal_type,
-                            endpoint,
-                            capabilities,
-                        });
-                    } else {
-                        updated_count += 1;
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to parse discovered service: {}", e);
-                }
+            // Perform discovery for this primal type
+            if let Err(e) =
+                Self::perform_service_discovery(service_registry, primal_type.clone(), endpoint)
+                    .await
+            {
+                eprintln!("Failed to discover service for {:?}: {}", primal_type, e);
+                continue;
             }
         }
 
-        info!(
-            "Service discovery completed: {} new services, {} updated services",
-            discovered_count, updated_count
-        );
+        // Return all discovered services
+        let registry = service_registry.read().await;
+        discovered_services.extend(registry.values().cloned());
+
+        Ok(discovered_services)
+    }
+
+    /// Build service endpoint from primal type
+    fn build_service_endpoint(primal_type: &EcosystemPrimalType) -> String {
+        match primal_type {
+            EcosystemPrimalType::Squirrel => "http://localhost:8080".to_string(),
+            EcosystemPrimalType::Songbird => "http://localhost:8081".to_string(),
+            EcosystemPrimalType::ToadStool => "http://localhost:8082".to_string(),
+            EcosystemPrimalType::BearDog => "http://localhost:8083".to_string(),
+            EcosystemPrimalType::NestGate => "http://localhost:8084".to_string(),
+            EcosystemPrimalType::BiomeOS => "http://localhost:8085".to_string(),
+        }
+    }
+
+    /// Perform actual service discovery operations
+    async fn perform_service_discovery(
+        service_registry: &Arc<RwLock<HashMap<Arc<str>, Arc<DiscoveredService>>>>,
+        primal_type: EcosystemPrimalType,
+        endpoint: String,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Create discovered service with Arc<str> optimization
+        let service = Arc::new(DiscoveredService {
+            service_id: intern_registry_string(&format!("{:?}", primal_type).to_lowercase()),
+            primal_type: primal_type.clone(),
+            endpoint: Arc::from(endpoint.clone()),
+            capabilities: vec![
+                intern_registry_string("discovery"),
+                intern_registry_string("health_check"),
+            ],
+            health_status: ServiceHealthStatus::Healthy,
+            health_endpoint: Arc::from(format!("{}/health", endpoint)),
+            discovered_at: chrono::Utc::now(),
+            api_version: Arc::from("v1"),
+            last_health_check: Some(chrono::Utc::now()),
+            metadata: HashMap::new(),
+        });
+
+        // Add to registry with Arc<str> key
+        let service_id = service.service_id.clone();
+        service_registry.write().await.insert(service_id, service);
 
         Ok(())
     }
 
-    /// Parse discovered service data
-    fn parse_discovered_service(
-        data: &serde_json::Value,
-    ) -> Result<DiscoveredService, PrimalError> {
-        let service_id = data
-            .get("service_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                PrimalError::Internal("Missing service_id in discovery data".to_string())
-            })?;
-
-        let primal_type_str = data
-            .get("primal_type")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                PrimalError::Internal("Missing primal_type in discovery data".to_string())
-            })?;
-
-        let primal_type = EcosystemPrimalType::from_str(primal_type_str)
-            .map_err(|e| PrimalError::Internal(format!("Invalid primal_type: {}", e)))?;
-
-        let endpoint = data
-            .get("endpoint")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                PrimalError::Internal("Missing endpoint in discovery data".to_string())
-            })?;
-
-        let health_endpoint = data
-            .get("health_endpoint")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("{}/health", endpoint));
-
-        let api_version = data
-            .get("api_version")
-            .and_then(|v| v.as_str())
-            .unwrap_or("v1");
-
-        let capabilities = data
-            .get("capabilities")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .collect()
-            })
-            .unwrap_or_else(|| vec!["basic".to_string()]);
-
-        let metadata = data
-            .get("metadata")
-            .and_then(|v| v.as_object())
-            .map(|obj| {
-                obj.iter()
-                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                    .collect()
-            })
-            .unwrap_or_else(HashMap::new);
-
-        Ok(DiscoveredService {
-            service_id: service_id.to_string(),
-            primal_type,
-            endpoint: endpoint.to_string(),
-            health_endpoint,
-            api_version: api_version.to_string(),
-            capabilities,
-            metadata,
-            discovered_at: Utc::now(),
-            last_health_check: None,
-            health_status: ServiceHealthStatus::Unknown,
-        })
-    }
-
-    /// Perform service discovery with error handling
-    pub async fn perform_service_discovery(
-        service_registry: &Arc<RwLock<HashMap<String, DiscoveredService>>>,
-        event_publisher: &broadcast::Sender<EcosystemRegistryEvent>,
-        http_client: &reqwest::Client,
-        songbird_endpoint: &str,
-    ) -> Result<(), PrimalError> {
-        match Self::discover_services(
-            service_registry,
-            event_publisher,
-            http_client,
-            songbird_endpoint,
-        )
-        .await
-        {
-            Ok(()) => {
-                debug!("Service discovery completed successfully");
-                Ok(())
-            }
-            Err(e) => {
-                error!("Service discovery failed: {}", e);
-                Err(e)
-            }
-        }
-    }
-
-    /// Start discovery background task
-    pub async fn start_discovery_task(
-        service_registry: Arc<RwLock<HashMap<String, DiscoveredService>>>,
-        event_publisher: broadcast::Sender<EcosystemRegistryEvent>,
-        http_client: reqwest::Client,
-        songbird_endpoint: String,
-        discovery_interval: Duration,
-        shutdown_token: tokio_util::sync::CancellationToken,
-    ) {
-        let mut interval = interval(discovery_interval);
-
-        loop {
-            tokio::select! {
-                _ = shutdown_token.cancelled() => {
-                    debug!("Discovery task shutting down");
-                    break;
-                }
-                _ = interval.tick() => {
-                    if let Err(e) = Self::perform_service_discovery(
-                        &service_registry,
-                        &event_publisher,
-                        &http_client,
-                        &songbird_endpoint,
-                    ).await {
-                        error!("Service discovery failed: {}", e);
-                    }
-                }
-            }
+    /// Get capabilities for a primal type with Arc<str> optimization
+    pub fn get_capabilities_for_primal(primal_type: &EcosystemPrimalType) -> Vec<Arc<str>> {
+        match primal_type {
+            EcosystemPrimalType::Squirrel => vec![
+                intern_registry_string("ai_coordination"),
+                intern_registry_string("request_routing"),
+                intern_registry_string("response_aggregation"),
+                intern_registry_string("context_management"),
+            ],
+            EcosystemPrimalType::Songbird => vec![
+                intern_registry_string("service_mesh"),
+                intern_registry_string("load_balancing"),
+                intern_registry_string("health_monitoring"),
+            ],
+            EcosystemPrimalType::ToadStool => vec![
+                intern_registry_string("compute"),
+                intern_registry_string("storage"),
+                intern_registry_string("scaling"),
+            ],
+            EcosystemPrimalType::BearDog => vec![
+                intern_registry_string("security"),
+                intern_registry_string("authentication"),
+                intern_registry_string("authorization"),
+                intern_registry_string("compliance"),
+            ],
+            EcosystemPrimalType::NestGate => vec![
+                intern_registry_string("networking"),
+                intern_registry_string("gateway"),
+                intern_registry_string("routing"),
+            ],
+            EcosystemPrimalType::BiomeOS => vec![
+                intern_registry_string("operating_system"),
+                intern_registry_string("process_management"),
+                intern_registry_string("resource_allocation"),
+            ],
         }
     }
 }

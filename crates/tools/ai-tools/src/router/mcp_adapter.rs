@@ -33,7 +33,7 @@ pub struct MCPAdapterConfig {
 impl Default for MCPAdapterConfig {
     fn default() -> Self {
         Self {
-            endpoint: "localhost:50051".to_string(),
+            endpoint: crate::config::DefaultEndpoints::mcp_server_endpoint(),
             connection_timeout_ms: 5000,
             auth_token: None,
             verify_ssl: true,
@@ -130,9 +130,9 @@ impl MCPInterface for MCPAdapter {
                             choices: vec![ChatChoice {
                                 index: 0,
                                 role: MessageRole::Assistant,
-                                                    content: Some(format!(
-                        "Error accessing mock responses for node {node_id:?}"
-                    )),
+                                content: Some(format!(
+                                    "Error accessing mock responses for node {node_id:?}"
+                                )),
                                 finish_reason: Some("stop".to_string()),
                                 tool_calls: None,
                             }],

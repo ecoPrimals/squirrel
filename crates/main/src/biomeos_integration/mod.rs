@@ -10,9 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::Value;
-use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::warn;
 
 use crate::error::PrimalError;
 use squirrel_mcp_config::DefaultConfigManager;
@@ -37,11 +35,23 @@ pub use optimized_implementations::{
     ContextData, OptimizedContextState, OptimizedServiceRegistration, SessionContext,
 };
 
-pub use agent_deployment::*;
-pub use ai_intelligence::*;
+pub use agent_deployment::{
+    AgentDeploymentConfig, AgentDeploymentManager, AgentStatus, DeployedAgent, DeploymentStatus,
+    ResourceUtilization as AgentResourceUtilization,
+};
+pub use ai_intelligence::{
+    AiIntelligence, IntelligenceEngine, OptimizationEngine, PredictionEngine,
+    ResourceUtilization as AIResourceUtilization,
+};
 pub use context_state::*;
-pub use ecosystem_client::*;
-pub use manifest::*;
+pub use ecosystem_client::{
+    AuthenticationConfig as EcosystemAuthConfig, EcosystemClient, HealthCheckResponse,
+    PrimalStatus, RegistrationResponse,
+};
+pub use manifest::{
+    AgentManifest, AgentResourceLimits, AgentSpec, AuthenticationConfig as ManifestAuthConfig,
+    BiomeManifest, BiomeManifestParser,
+};
 pub use mcp_integration::*;
 
 /// biomeOS Ecosystem Service Registration for Squirrel AI
@@ -578,15 +588,15 @@ pub struct IntelligenceRequest {
     pub context: Option<HashMap<String, String>>,
 }
 
+/// Response from BiomeOS intelligence services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceResponse {
     pub request_id: String,
-    pub response_type: String,
-    pub recommendations: Vec<String>,
-    pub predictions: Vec<Prediction>,
-    pub optimizations: Vec<Optimization>,
+    pub intelligence_type: String,
+    pub result: serde_json::Value,
     pub confidence: f64,
-    pub metadata: HashMap<String, String>,
+    pub processing_time_ms: u64,
+    pub metadata: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

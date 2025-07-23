@@ -177,7 +177,7 @@ pub struct SecurityFallback {
 }
 
 /// Authentication methods
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum AuthMethod {
     /// No authentication (development only)
     None,

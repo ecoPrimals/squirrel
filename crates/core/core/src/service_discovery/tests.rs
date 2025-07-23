@@ -3,7 +3,6 @@
 //! This module contains comprehensive tests for all service discovery components
 //! including validation, registration, querying, and lifecycle management.
 
-use super::*;
 use crate::service_discovery::types::ServiceType;
 use std::str::FromStr;
 

@@ -1,0 +1,618 @@
+//! # Production Input Validation & Sanitization
+//! 
+//! This module provides comprehensive input validation and sanitization to prevent:
+//! - SQL injection attacks
+//! - XSS (Cross-Site Scripting) attacks
+//! - Command injection attacks
+//! - Path traversal attacks
+//! - JSON/XML injection attacks
+//! - NoSQL injection attacks
+
+use regex::Regex;
+use serde::{Serialize, Deserialize};
+use std::collections::{HashMap, HashSet};
+use tracing::{warn, error, debug};
+use uuid::Uuid;
+
+use crate::error::PrimalError;
+use crate::observability::{OperationContext, CorrelationId};
+
+/// Input validation configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InputValidationConfig {
+    /// Maximum string length for general inputs
+    pub max_string_length: usize,
+    
+    /// Maximum string length for large text fields
+    pub max_text_length: usize,
+    
+    /// Maximum array/collection size
+    pub max_array_length: usize,
+    
+    /// Maximum JSON object depth
+    pub max_json_depth: usize,
+    
+    /// Enable HTML sanitization
+    pub enable_html_sanitization: bool,
+    
+    /// Allowed HTML tags (when HTML is permitted)
+    pub allowed_html_tags: HashSet<String>,
+    
+    /// Enable SQL injection detection
+    pub enable_sql_injection_detection: bool,
+    
+    /// Enable XSS detection
+    pub enable_xss_detection: bool,
+    
+    /// Enable path traversal detection
+    pub enable_path_traversal_detection: bool,
+    
+    /// Enable command injection detection
+    pub enable_command_injection_detection: bool,
+    
+    /// Enable NoSQL injection detection
+    pub enable_nosql_injection_detection: bool,
+    
+    /// Strict mode (reject rather than sanitize suspicious input)
+    pub strict_mode: bool,
+}
+
+impl Default for InputValidationConfig {
+    fn default() -> Self {
+        let mut allowed_html_tags = HashSet::new();
+        allowed_html_tags.insert("b".to_string());
+        allowed_html_tags.insert("i".to_string());
+        allowed_html_tags.insert("em".to_string());
+        allowed_html_tags.insert("strong".to_string());
+        allowed_html_tags.insert("p".to_string());
+        allowed_html_tags.insert("br".to_string());
+        
+        Self {
+            max_string_length: 1000,
+            max_text_length: 10000,
+            max_array_length: 1000,
+            max_json_depth: 10,
+            enable_html_sanitization: true,
+            allowed_html_tags,
+            enable_sql_injection_detection: true,
+            enable_xss_detection: true,
+            enable_path_traversal_detection: true,
+            enable_command_injection_detection: true,
+            enable_nosql_injection_detection: true,
+            strict_mode: true,
+        }
+    }
+}
+
+/// Input validation result
+#[derive(Debug, Clone)]
+pub struct ValidationResult {
+    pub is_valid: bool,
+    pub sanitized_input: Option<String>,
+    pub violations: Vec<SecurityViolation>,
+    pub risk_level: RiskLevel,
+}
+
+/// Security violation detected in input
+#[derive(Debug, Clone, Serialize)]
+pub struct SecurityViolation {
+    pub violation_type: ViolationType,
+    pub description: String,
+    pub original_input: String,
+    pub suggested_action: String,
+    pub risk_level: RiskLevel,
+}
+
+/// Types of security violations
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum ViolationType {
+    SqlInjection,
+    XssAttack,
+    CommandInjection,
+    PathTraversal,
+    NoSqlInjection,
+    MaliciousScript,
+    ExcessiveLength,
+    InvalidCharacters,
+    SuspiciousPattern,
+    JsonDepthExceeded,
+}
+
+/// Risk level for input validation violations
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Input type classification for appropriate validation
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputType {
+    /// General text input
+    Text,
+    /// HTML content (requires sanitization)
+    Html,
+    /// File path
+    FilePath,
+    /// Database query parameter
+    DatabaseParam,
+    /// URL/URI
+    Url,
+    /// Email address
+    Email,
+    /// JSON data
+    Json,
+    /// Command line parameter
+    CommandParam,
+    /// Username/identifier
+    Username,
+    /// Password (special handling)
+    Password,
+}
+
+/// Production input validator with comprehensive security checks
+pub struct ProductionInputValidator {
+    config: InputValidationConfig,
+    sql_injection_patterns: Vec<Regex>,
+    xss_patterns: Vec<Regex>,
+    command_injection_patterns: Vec<Regex>,
+    path_traversal_patterns: Vec<Regex>,
+    nosql_injection_patterns: Vec<Regex>,
+    suspicious_patterns: Vec<Regex>,
+}
+
+impl ProductionInputValidator {
+    /// Create a new input validator
+    pub fn new(config: InputValidationConfig) -> Result<Self, PrimalError> {
+        let validator = Self {
+            config,
+            sql_injection_patterns: Self::compile_sql_injection_patterns()?,
+            xss_patterns: Self::compile_xss_patterns()?,
+            command_injection_patterns: Self::compile_command_injection_patterns()?,
+            path_traversal_patterns: Self::compile_path_traversal_patterns()?,
+            nosql_injection_patterns: Self::compile_nosql_injection_patterns()?,
+            suspicious_patterns: Self::compile_suspicious_patterns()?,
+        };
+        
+        Ok(validator)
+    }
+    
+    /// Validate and sanitize input based on type
+    pub fn validate_input(
+        &self,
+        input: &str,
+        input_type: InputType,
+        correlation_id: Option<CorrelationId>,
+    ) -> ValidationResult {
+        let correlation_id = correlation_id.unwrap_or_else(CorrelationId::new);
+        let mut violations = Vec::new();
+        let mut risk_level = RiskLevel::Low;
+        
+        debug!(
+            correlation_id = %correlation_id,
+            input_type = ?input_type,
+            input_length = input.len(),
+            operation = "input_validation_start",
+            "Starting input validation"
+        );
+        
+        // Check input length
+        let max_length = match input_type {
+            InputType::Text | InputType::Html => self.config.max_text_length,
+            _ => self.config.max_string_length,
+        };
+        
+        if input.len() > max_length {
+            violations.push(SecurityViolation {
+                violation_type: ViolationType::ExcessiveLength,
+                description: format!("Input length {} exceeds maximum {}", input.len(), max_length),
+                original_input: input[..100.min(input.len())].to_string() + "...",
+                suggested_action: "Truncate input or increase limits".to_string(),
+                risk_level: RiskLevel::Medium,
+            });
+            risk_level = risk_level.max(RiskLevel::Medium);
+        }
+        
+        // SQL Injection detection
+        if self.config.enable_sql_injection_detection {
+            if let Some(violation) = self.detect_sql_injection(input, &correlation_id) {
+                risk_level = risk_level.max(violation.risk_level.clone());
+                violations.push(violation);
+            }
+        }
+        
+        // XSS detection
+        if self.config.enable_xss_detection {
+            if let Some(violation) = self.detect_xss(input, &correlation_id) {
+                risk_level = risk_level.max(violation.risk_level.clone());
+                violations.push(violation);
+            }
+        }
+        
+        // Command injection detection
+        if self.config.enable_command_injection_detection {
+            if let Some(violation) = self.detect_command_injection(input, &correlation_id) {
+                risk_level = risk_level.max(violation.risk_level.clone());
+                violations.push(violation);
+            }
+        }
+        
+        // Path traversal detection
+        if self.config.enable_path_traversal_detection && input_type == InputType::FilePath {
+            if let Some(violation) = self.detect_path_traversal(input, &correlation_id) {
+                risk_level = risk_level.max(violation.risk_level.clone());
+                violations.push(violation);
+            }
+        }
+        
+        // NoSQL injection detection
+        if self.config.enable_nosql_injection_detection {
+            if let Some(violation) = self.detect_nosql_injection(input, &correlation_id) {
+                risk_level = risk_level.max(violation.risk_level.clone());
+                violations.push(violation);
+            }
+        }
+        
+        // Determine if input is valid
+        let is_valid = if self.config.strict_mode {
+            violations.is_empty() || violations.iter().all(|v| v.risk_level == RiskLevel::Low)
+        } else {
+            violations.iter().all(|v| v.risk_level != RiskLevel::Critical)
+        };
+        
+        // Sanitize input if needed
+        let sanitized_input = if !is_valid && !self.config.strict_mode {
+            Some(self.sanitize_input(input, &input_type))
+        } else if is_valid {
+            Some(input.to_string())
+        } else {
+            None
+        };
+        
+        if !violations.is_empty() {
+            warn!(
+                correlation_id = %correlation_id,
+                violation_count = violations.len(),
+                risk_level = ?risk_level,
+                input_valid = is_valid,
+                operation = "input_validation_violations",
+                "Input validation violations detected"
+            );
+        }
+        
+        ValidationResult {
+            is_valid,
+            sanitized_input,
+            violations,
+            risk_level,
+        }
+    }
+    
+    /// Detect SQL injection patterns
+    fn detect_sql_injection(&self, input: &str, correlation_id: &CorrelationId) -> Option<SecurityViolation> {
+        let input_lower = input.to_lowercase();
+        
+        for pattern in &self.sql_injection_patterns {
+            if pattern.is_match(&input_lower) {
+                error!(
+                    correlation_id = %correlation_id,
+                    pattern = pattern.as_str(),
+                    operation = "sql_injection_detected",
+                    "SQL injection pattern detected in input"
+                );
+                
+                return Some(SecurityViolation {
+                    violation_type: ViolationType::SqlInjection,
+                    description: "SQL injection pattern detected".to_string(),
+                    original_input: input.to_string(),
+                    suggested_action: "Use parameterized queries and input sanitization".to_string(),
+                    risk_level: RiskLevel::Critical,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Detect XSS attack patterns
+    fn detect_xss(&self, input: &str, correlation_id: &CorrelationId) -> Option<SecurityViolation> {
+        let input_lower = input.to_lowercase();
+        
+        for pattern in &self.xss_patterns {
+            if pattern.is_match(&input_lower) {
+                error!(
+                    correlation_id = %correlation_id,
+                    pattern = pattern.as_str(),
+                    operation = "xss_attack_detected",
+                    "XSS attack pattern detected in input"
+                );
+                
+                return Some(SecurityViolation {
+                    violation_type: ViolationType::XssAttack,
+                    description: "XSS attack pattern detected".to_string(),
+                    original_input: input.to_string(),
+                    suggested_action: "HTML encode output and validate input".to_string(),
+                    risk_level: RiskLevel::High,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Detect command injection patterns
+    fn detect_command_injection(&self, input: &str, correlation_id: &CorrelationId) -> Option<SecurityViolation> {
+        for pattern in &self.command_injection_patterns {
+            if pattern.is_match(input) {
+                error!(
+                    correlation_id = %correlation_id,
+                    pattern = pattern.as_str(),
+                    operation = "command_injection_detected",
+                    "Command injection pattern detected in input"
+                );
+                
+                return Some(SecurityViolation {
+                    violation_type: ViolationType::CommandInjection,
+                    description: "Command injection pattern detected".to_string(),
+                    original_input: input.to_string(),
+                    suggested_action: "Avoid executing user input as commands".to_string(),
+                    risk_level: RiskLevel::Critical,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Detect path traversal patterns
+    fn detect_path_traversal(&self, input: &str, correlation_id: &CorrelationId) -> Option<SecurityViolation> {
+        for pattern in &self.path_traversal_patterns {
+            if pattern.is_match(input) {
+                error!(
+                    correlation_id = %correlation_id,
+                    pattern = pattern.as_str(),
+                    operation = "path_traversal_detected",
+                    "Path traversal pattern detected in input"
+                );
+                
+                return Some(SecurityViolation {
+                    violation_type: ViolationType::PathTraversal,
+                    description: "Path traversal pattern detected".to_string(),
+                    original_input: input.to_string(),
+                    suggested_action: "Validate and sanitize file paths".to_string(),
+                    risk_level: RiskLevel::High,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Detect NoSQL injection patterns
+    fn detect_nosql_injection(&self, input: &str, correlation_id: &CorrelationId) -> Option<SecurityViolation> {
+        for pattern in &self.nosql_injection_patterns {
+            if pattern.is_match(input) {
+                error!(
+                    correlation_id = %correlation_id,
+                    pattern = pattern.as_str(),
+                    operation = "nosql_injection_detected",
+                    "NoSQL injection pattern detected in input"
+                );
+                
+                return Some(SecurityViolation {
+                    violation_type: ViolationType::NoSqlInjection,
+                    description: "NoSQL injection pattern detected".to_string(),
+                    original_input: input.to_string(),
+                    suggested_action: "Use proper NoSQL query builders and validation".to_string(),
+                    risk_level: RiskLevel::High,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Sanitize input based on type
+    fn sanitize_input(&self, input: &str, input_type: &InputType) -> String {
+        let mut sanitized = input.to_string();
+        
+        match input_type {
+            InputType::Html => {
+                if self.config.enable_html_sanitization {
+                    sanitized = self.sanitize_html(&sanitized);
+                }
+            }
+            InputType::FilePath => {
+                sanitized = self.sanitize_file_path(&sanitized);
+            }
+            InputType::Url => {
+                sanitized = self.sanitize_url(&sanitized);
+            }
+            InputType::Email => {
+                sanitized = self.sanitize_email(&sanitized);
+            }
+            _ => {
+                sanitized = self.sanitize_general_text(&sanitized);
+            }
+        }
+        
+        // Truncate if too long
+        let max_length = match input_type {
+            InputType::Text | InputType::Html => self.config.max_text_length,
+            _ => self.config.max_string_length,
+        };
+        
+        if sanitized.len() > max_length {
+            sanitized.truncate(max_length);
+        }
+        
+        sanitized
+    }
+    
+    /// Sanitize HTML content
+    fn sanitize_html(&self, input: &str) -> String {
+        let mut sanitized = input.to_string();
+        
+        // Remove script tags and their content
+        let script_regex = Regex::new(r"(?i)<script[^>]*>.*?</script>").unwrap();
+        sanitized = script_regex.replace_all(&sanitized, "").to_string();
+        
+        // Remove dangerous attributes
+        let dangerous_attrs = Regex::new(r#"(?i)\s(on\w+|javascript:|data:|vbscript:)[^>]*"#).unwrap();
+        sanitized = dangerous_attrs.replace_all(&sanitized, "").to_string();
+        
+        // Remove non-whitelisted tags (simplified - in production use a proper HTML sanitizer)
+        let tag_regex = Regex::new(r"</?([a-zA-Z0-9]+)[^>]*>").unwrap();
+        sanitized = tag_regex.replace_all(&sanitized, |caps: &regex::Captures| {
+            let tag = caps.get(1).unwrap().as_str().to_lowercase();
+            if self.config.allowed_html_tags.contains(&tag) {
+                caps.get(0).unwrap().as_str().to_string()
+            } else {
+                String::new()
+            }
+        }).to_string();
+        
+        sanitized
+    }
+    
+    /// Sanitize file path
+    fn sanitize_file_path(&self, input: &str) -> String {
+        let mut sanitized = input.replace("..", "");
+        sanitized = sanitized.replace("\\", "/");
+        
+        // Remove dangerous characters
+        let dangerous_chars = Regex::new(r#"[<>:"|?*]"#).unwrap();
+        sanitized = dangerous_chars.replace_all(&sanitized, "").to_string();
+        
+        sanitized
+    }
+    
+    /// Sanitize URL
+    fn sanitize_url(&self, input: &str) -> String {
+        let mut sanitized = input.to_string();
+        
+        // Remove javascript: and data: schemes
+        let dangerous_schemes = Regex::new(r"(?i)(javascript|data|vbscript):").unwrap();
+        sanitized = dangerous_schemes.replace_all(&sanitized, "").to_string();
+        
+        sanitized
+    }
+    
+    /// Sanitize email address
+    fn sanitize_email(&self, input: &str) -> String {
+        // Simple email sanitization - remove dangerous characters
+        let dangerous_chars = Regex::new(r#"[<>"'&]"#).unwrap();
+        dangerous_chars.replace_all(input, "").to_string()
+    }
+    
+    /// Sanitize general text
+    fn sanitize_general_text(&self, input: &str) -> String {
+        let mut sanitized = input.to_string();
+        
+        // Remove null bytes and control characters
+        sanitized = sanitized.replace('\0', "");
+        let control_chars = Regex::new(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]").unwrap();
+        sanitized = control_chars.replace_all(&sanitized, "").to_string();
+        
+        sanitized
+    }
+    
+    /// Compile SQL injection detection patterns
+    fn compile_sql_injection_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"(\b(select|insert|update|delete|drop|create|alter|exec|execute|union|script)\b)",
+            r"(--|#|/\*|\*/)",
+            r"(\bor\b.*\b1\s*=\s*1\b)",
+            r"(\bunion\b.*\bselect\b)",
+            r"(';.*--)",
+            r"(\bxp_\w+\b)",
+            r"(\bsp_\w+\b)",
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+    
+    /// Compile XSS detection patterns
+    fn compile_xss_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"<script[^>]*>",
+            r"javascript:",
+            r"on\w+\s*=",
+            r"<iframe[^>]*>",
+            r"<object[^>]*>",
+            r"<embed[^>]*>",
+            r"vbscript:",
+            r"data:.*base64",
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+    
+    /// Compile command injection detection patterns
+    fn compile_command_injection_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"[;&|`]",
+            r"\$\(",
+            r"\${",
+            r"<\(",
+            r">\(",
+            r"\|\s*\w+",
+            r"&&\s*\w+",
+            r"\|\|\s*\w+",
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+    
+    /// Compile path traversal detection patterns
+    fn compile_path_traversal_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"\.\./",
+            r"\.\.\\",
+            r"/\.\./",
+            r"\\\.\.\\"
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+    
+    /// Compile NoSQL injection detection patterns
+    fn compile_nosql_injection_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"\$where",
+            r"\$ne",
+            r"\$gt",
+            r"\$lt",
+            r"\$regex",
+            r"\$or",
+            r"\$and",
+            r"ObjectId\(",
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+    
+    /// Compile suspicious pattern detection
+    fn compile_suspicious_patterns() -> Result<Vec<Regex>, PrimalError> {
+        let patterns = vec![
+            r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", // Control characters
+            r".{1000,}", // Very long strings
+        ];
+        
+        patterns.into_iter()
+            .map(|p| Regex::new(p).map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e))))
+            .collect()
+    }
+} 

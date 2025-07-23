@@ -12,6 +12,7 @@ use tokio::fs;
 use tracing::{debug, info};
 
 use crate::error::PrimalError;
+use squirrel_mcp_config::get_service_endpoints;
 
 // ============================================================================
 // CORE MANIFEST TYPES
@@ -47,6 +48,17 @@ pub struct BiomeMetadata {
 // AGENT SPECIFICATIONS
 // ============================================================================
 
+/// Agent manifest data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentManifest {
+    pub version: String,
+    pub description: String,
+    pub author: String,
+    pub capabilities: Vec<String>, // Agent capabilities from manifest
+    pub dependencies: Vec<String>,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
 /// Agent deployment specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSpec {
@@ -56,6 +68,8 @@ pub struct AgentSpec {
     pub model: String,
     pub execution_environment: ExecutionEnvironment,
     pub resource_limits: AgentResourceLimits,
+    pub resources: AgentResourceLimits,  // Alias for compatibility
+    pub manifest: Option<AgentManifest>, // Agent manifest data
     pub security: AgentSecurity,
     pub storage: AgentStorage,
     pub environment: HashMap<String, String>,
@@ -77,6 +91,8 @@ pub enum ExecutionEnvironment {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentResourceLimits {
     pub memory_mb: u64,
+    #[serde(alias = "memory_limit")]
+    pub memory_limit_mb: Option<u64>, // Alias for compatibility, optional
     pub cpu_percent: f64,
     pub timeout_seconds: u64,
     pub max_concurrent_requests: u32,
@@ -374,11 +390,21 @@ impl BiomeManifestParser {
                 execution_environment: ExecutionEnvironment::Container,
                 resource_limits: AgentResourceLimits {
                     memory_mb: 512,
+                    memory_limit_mb: Some(512),
                     cpu_percent: 50.0,
                     timeout_seconds: 300,
                     max_concurrent_requests: 10,
                     storage_mb: 1024,
                 },
+                resources: AgentResourceLimits {
+                    memory_mb: 512,
+                    memory_limit_mb: Some(512),
+                    cpu_percent: 50.0,
+                    timeout_seconds: 300,
+                    max_concurrent_requests: 10,
+                    storage_mb: 1024,
+                },
+                manifest: None,
                 security: AgentSecurity {
                     auth_method: "bearer".to_string(),
                     permissions: vec!["read".to_string()],
@@ -450,7 +476,10 @@ impl BiomeManifestParser {
             networking: BiomeNetworking {
                 ingress: IngressConfig {
                     enabled: false,
-                    host: "localhost".to_string(),
+                    host: get_service_endpoints().ui_url()
+                        .ok()
+                        .and_then(|url| url.host_str().map(|h| h.to_string()))
+                        .unwrap_or_else(|| "localhost".to_string()),
                     tls_enabled: false,
                     annotations: std::collections::HashMap::new(),
                 },
@@ -592,6 +621,7 @@ impl Default for AgentResourceLimits {
     fn default() -> Self {
         Self {
             memory_mb: 512,
+            memory_limit_mb: Some(512),
             cpu_percent: 50.0,
             timeout_seconds: 300,
             max_concurrent_requests: 10,
@@ -749,6 +779,8 @@ mod tests {
             model: "gpt-4".to_string(),
             execution_environment: ExecutionEnvironment::Container,
             resource_limits: AgentResourceLimits::default(),
+            resources: AgentResourceLimits::default(),
+            manifest: None,
             security: AgentSecurity::default(),
             storage: AgentStorage::default(),
             environment: HashMap::new(),

@@ -6,6 +6,7 @@
 use super::types::{McpPrompt, McpResource, McpTool};
 use crate::error::{PluginError, PluginResult};
 use tracing::debug;
+use squirrel_mcp_config::get_service_endpoints;
 
 /// Operation handler for MCP protocol operations
 ///
@@ -294,7 +295,10 @@ impl OperationHandler {
                     "version": "1.0.0",
                     "debug": true,
                     "database": {
-                        "host": "localhost",
+                        "host": get_service_endpoints().nestgate_url()
+                            .ok()
+                            .and_then(|url| url.host_str().map(|h| h.to_string()))
+                            .unwrap_or_else(|| "localhost".to_string()),
                         "port": 5432,
                         "name": "squirrel_db"
                     }

@@ -92,6 +92,17 @@ pub struct AllMetrics {
     pub system_metrics: SystemMetrics,
 }
 
+/// Metric information for metadata retrieval
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricInfo {
+    pub name: String,
+    pub description: String,
+    pub labels: Vec<String>,
+    pub unit: String,
+    pub source: String,
+    pub metric_type: MetricType,
+}
+
 impl MetricsCollector {
     /// Create a new metrics collector
     pub fn new() -> Self {
@@ -183,6 +194,91 @@ impl MetricsCollector {
             component_metrics: component_metrics.clone(),
             system_metrics: system_metrics.clone(),
         })
+    }
+
+    /// Get metric definition and metadata
+    pub async fn get_metric_info(&self, metric_name: &str) -> Result<MetricInfo, PrimalError> {
+        let metrics = self.metrics.read().await;
+
+        if let Some(definition) = metrics.get(metric_name) {
+            Ok(MetricInfo {
+                name: definition.name.clone(),
+                description: definition.description.clone(),
+                labels: definition.labels.clone(),
+                unit: definition.unit.clone(),
+                source: definition.source.clone(),
+                metric_type: definition.metric_type.clone(),
+            })
+        } else {
+            Err(PrimalError::NotFoundError(format!(
+                "Metric '{}' not found",
+                metric_name
+            )))
+        }
+    }
+
+    /// List all registered metrics with their metadata
+    pub async fn list_metric_definitions(&self) -> Result<Vec<MetricInfo>, PrimalError> {
+        let metrics = self.metrics.read().await;
+
+        let mut metric_infos = Vec::new();
+        for definition in metrics.values() {
+            metric_infos.push(MetricInfo {
+                name: definition.name.clone(),
+                description: definition.description.clone(),
+                labels: definition.labels.clone(),
+                unit: definition.unit.clone(),
+                source: definition.source.clone(),
+                metric_type: definition.metric_type.clone(),
+            });
+        }
+
+        Ok(metric_infos)
+    }
+
+    /// Search metrics by source
+    pub async fn get_metrics_by_source(
+        &self,
+        source: &str,
+    ) -> Result<Vec<MetricInfo>, PrimalError> {
+        let metrics = self.metrics.read().await;
+
+        let mut filtered_metrics = Vec::new();
+        for definition in metrics.values() {
+            if definition.source == source {
+                filtered_metrics.push(MetricInfo {
+                    name: definition.name.clone(),
+                    description: definition.description.clone(),
+                    labels: definition.labels.clone(),
+                    unit: definition.unit.clone(),
+                    source: definition.source.clone(),
+                    metric_type: definition.metric_type.clone(),
+                });
+            }
+        }
+
+        Ok(filtered_metrics)
+    }
+
+    /// Get metrics by unit type (e.g., "bytes", "seconds", "count")
+    pub async fn get_metrics_by_unit(&self, unit: &str) -> Result<Vec<MetricInfo>, PrimalError> {
+        let metrics = self.metrics.read().await;
+
+        let mut filtered_metrics = Vec::new();
+        for definition in metrics.values() {
+            if definition.unit == unit {
+                filtered_metrics.push(MetricInfo {
+                    name: definition.name.clone(),
+                    description: definition.description.clone(),
+                    labels: definition.labels.clone(),
+                    unit: definition.unit.clone(),
+                    source: definition.source.clone(),
+                    metric_type: definition.metric_type.clone(),
+                });
+            }
+        }
+
+        Ok(filtered_metrics)
     }
 
     /// Collect all metrics from various sources

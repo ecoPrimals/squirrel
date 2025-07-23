@@ -508,7 +508,7 @@ impl OllamaProvider {
     fn get_endpoint(&self) -> String {
         self.config.base_url.clone().unwrap_or_else(|| {
             std::env::var("OLLAMA_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string())
+                .unwrap_or_else(|_| crate::config::DefaultEndpoints::ollama_endpoint())
         })
     }
 }
@@ -593,7 +593,6 @@ pub fn is_provider_supported(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::{ChatRequest, MessageRole};
 
     #[test]
     fn test_openai_provider_creation() {

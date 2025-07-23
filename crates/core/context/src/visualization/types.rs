@@ -512,7 +512,7 @@ impl std::fmt::Display for VisualizationType {
             VisualizationType::StateDiff => write!(f, "state_diff"),
             VisualizationType::PerformanceHeatmap => write!(f, "performance_heatmap"),
             VisualizationType::InteractiveGraph => write!(f, "interactive_graph"),
-            VisualizationType::Custom(name) => write!(f, "{}", name),
+            VisualizationType::Custom(name) => write!(f, "{name}"),
         }
     }
 }

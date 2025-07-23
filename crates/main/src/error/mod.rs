@@ -3,152 +3,94 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Main error type for the Squirrel primal
-#[derive(Error, Debug, Clone, Serialize, Deserialize)]
+/// Main error type for Squirrel Primal operations
+#[derive(Error, Debug)]
 pub enum PrimalError {
-    /// Configuration error
-    #[error("Configuration error: {0}")]
-    Configuration(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 
-    /// Configuration error (alias for backward compatibility)
-    #[error("Configuration error: {0}")]
-    ConfigError(String),
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
 
-    /// MCP protocol error
-    #[error("MCP protocol error: {0}")]
-    McpProtocol(String),
+    #[error("URL parse error: {0}")]
+    UrlParse(#[from] url::ParseError),
 
-    /// Context error
-    #[error("Context error: {0}")]
-    Context(String),
-
-    /// Network error
     #[error("Network error: {0}")]
     Network(String),
 
-    /// Network error with details
     #[error("Network error: {0}")]
     NetworkError(String),
 
-    /// Invalid context error
-    #[error("Invalid context: {0}")]
-    InvalidContext(String),
-
-    /// Shutdown error
-    #[error("Shutdown error: {0}")]
-    Shutdown(String),
-
-    /// Resource error
-    #[error("Resource error: {0}")]
-    ResourceError(String),
-
-    /// Security error
-    #[error("Security error: {0}")]
-    SecurityError(String),
-
-    /// Authentication failed error
     #[error("Authentication failed: {0}")]
-    AuthenticationFailed(String),
+    Authentication(String),
 
-    /// Serialization error
-    #[error("Serialization error: {0}")]
-    Serialization(String),
+    #[error("Configuration error: {0}")]
+    Configuration(String),
 
-    /// Serialization error with details
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
 
-    /// Registration error
-    #[error("Registration error: {0}")]
-    RegistrationError(String),
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
 
-    /// Unsupported operation error
-    #[error("Unsupported operation: {0}")]
-    UnsupportedOperation(String),
+    #[error("Parsing error: {0}")]
+    ParsingError(String),
 
-    /// Internal error
-    #[error("Internal error: {0}")]
-    InternalError(String),
+    #[error("Invalid operation: {0}")]
+    InvalidOperation(String),
 
-    /// Internal error (shorter variant)
+    #[error("Service discovery failed: {0}")]
+    ServiceDiscoveryFailed(String),
+
+    #[error("Service discovery error: {0}")]
+    ServiceDiscoveryError(String),
+
+    #[error("Registry error: {0}")]
+    Registry(String),
+
     #[error("Internal error: {0}")]
     Internal(String),
 
-    /// Operation failed error
     #[error("Operation failed: {0}")]
     OperationFailed(String),
 
-    /// Not found error
-    #[error("Not found: {0}")]
-    NotFoundError(String),
-
-    /// Generic error
-    #[error("Generic error: {0}")]
-    Generic(String),
-
-    /// General error
-    #[error("General error: {0}")]
-    General(String),
-
-    /// Validation error
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-
-    /// Operation not supported
     #[error("Operation not supported: {0}")]
     OperationNotSupported(String),
 
-    /// IO error
-    #[error("IO error: {0}")]
-    IO(String),
-
-    /// JSON error
-    #[error("JSON error: {0}")]
-    Json(String),
-
-    /// URL parse error
-    #[error("URL parse error: {0}")]
-    UrlParse(String),
-
-    /// Timeout error
-    #[error("Timeout error")]
-    Timeout,
-
-    /// Service unavailable error
-    #[error("Service unavailable")]
-    ServiceUnavailable,
-
-    /// Authentication error
-    #[error("Authentication error: {0}")]
-    Authentication(String),
-
-    /// Authorization error
-    #[error("Authorization error: {0}")]
-    Authorization(String),
-
-    /// Resource not found error
     #[error("Resource not found: {0}")]
     ResourceNotFound(String),
 
-    /// Validation error
+    #[error("Not found: {0}")]
+    NotFoundError(String),
+
+    #[error("Resource error: {0}")]
+    ResourceError(String),
+
+    #[error("General error: {0}")]
+    General(String),
+
     #[error("Validation error: {0}")]
-    Validation(String),
+    ValidationError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    #[error("Security error: {0}")]
+    SecurityError(String),
+
+    #[error("Compute error: {0}")]
+    ComputeError(String),
+
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
+    #[error("Generic error: {0}")]
+    Generic(String),
 }
 
-impl From<std::io::Error> for PrimalError {
-    fn from(error: std::io::Error) -> Self {
-        PrimalError::IO(error.to_string())
-    }
-}
-
-impl From<serde_json::Error> for PrimalError {
-    fn from(error: serde_json::Error) -> Self {
-        PrimalError::Json(error.to_string())
-    }
-}
-
-impl From<url::ParseError> for PrimalError {
-    fn from(error: url::ParseError) -> Self {
-        PrimalError::UrlParse(error.to_string())
+// Add support for Box<dyn Error> conversion for our Arc<str> modernization
+impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
+    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        PrimalError::Generic(format!("Boxed error: {}", err))
     }
 }
