@@ -62,11 +62,13 @@ pub struct RuleParser {
 
 impl RuleParser {
     /// Creates a new rule parser with the given configuration
+    #[must_use] 
     pub fn new(config: ParserConfig) -> Self {
         Self { config }
     }
 
     /// Creates a new rule parser with the default configuration
+    #[must_use] 
     pub fn default() -> Self {
         Self::new(ParserConfig::default())
     }
@@ -258,7 +260,7 @@ impl RuleParser {
 
         // Define regex for section headers
         let section_regex = Regex::new(r"^## (.+)$").map_err(|e| {
-            RuleParserError::Other(format!("Failed to compile section regex: {}", e))
+            RuleParserError::Other(format!("Failed to compile section regex: {e}"))
         })?;
 
         // Process lines
@@ -275,9 +277,7 @@ impl RuleParser {
 
                 // Start new section - safely access the capture group
                 let section_name = captures
-                    .get(1)
-                    .map(|m| m.as_str().trim().to_string())
-                    .unwrap_or_else(|| "Unknown".to_string());
+                    .get(1).map_or_else(|| "Unknown".to_string(), |m| m.as_str().trim().to_string());
                 current_section = Some((section_name, Vec::new()));
             } else if let Some((_, content)) = &mut current_section {
                 // Add line to current section
@@ -383,7 +383,7 @@ impl RuleParser {
     fn parse_conditions(&self, content: &str) -> Result<Vec<RuleCondition>, RuleParserError> {
         // For now, we'll parse conditions as YAML
         serde_yaml::from_str(content)
-            .map_err(|e| RuleParserError::YamlError(format!("Failed to parse conditions: {}", e)))
+            .map_err(|e| RuleParserError::YamlError(format!("Failed to parse conditions: {e}")))
     }
 
     /// Parse actions from section content
@@ -394,7 +394,7 @@ impl RuleParser {
     fn parse_actions(&self, content: &str) -> Result<Vec<RuleAction>, RuleParserError> {
         // For now, we'll parse actions as YAML
         serde_yaml::from_str(content)
-            .map_err(|e| RuleParserError::YamlError(format!("Failed to parse actions: {}", e)))
+            .map_err(|e| RuleParserError::YamlError(format!("Failed to parse actions: {e}")))
     }
 
     /// Validate a rule
@@ -434,7 +434,7 @@ impl RuleParser {
         Ok(())
     }
 
-    /// Extract a string field from a HashMap
+    /// Extract a string field from a `HashMap`
     ///
     /// # Errors
     ///
@@ -447,14 +447,14 @@ impl RuleParser {
         map.get(key)
             .ok_or_else(|| RuleParserError::MissingField(key.to_string()))?
             .as_str()
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| RuleParserError::InvalidFieldValue {
                 field: key.to_string(),
                 reason: "Not a string".to_string(),
             })
     }
 
-    /// Extract an integer field from a HashMap
+    /// Extract an integer field from a `HashMap`
     ///
     /// # Errors
     ///
@@ -474,7 +474,7 @@ impl RuleParser {
             })
     }
 
-    /// Extract a string array field from a HashMap
+    /// Extract a string array field from a `HashMap`
     ///
     /// # Errors
     ///

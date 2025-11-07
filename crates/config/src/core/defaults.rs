@@ -188,19 +188,19 @@ impl Default for ExternalServiceDefaults {
             beardog_url: std::env::var("BEARDOG_URL")
                 .unwrap_or_else(|_| format!("http://beardog:{}", base_port + 443)),
             biomeos_url: std::env::var("BIOMEOS_URL")
-                .unwrap_or_else(|_| format!("http://biomeos:5000")),
+                .unwrap_or_else(|_| "http://biomeos:5000".to_string()),
             biomeos_ai_api: std::env::var("BIOMEOS_AI_API")
-                .unwrap_or_else(|_| format!("http://biomeos:5000/ai")),
+                .unwrap_or_else(|_| "http://biomeos:5000/ai".to_string()),
             biomeos_mcp_api: std::env::var("BIOMEOS_MCP_API")
-                .unwrap_or_else(|_| format!("http://biomeos:5000/mcp")),
+                .unwrap_or_else(|_| "http://biomeos:5000/mcp".to_string()),
             biomeos_context_api: std::env::var("BIOMEOS_CONTEXT_API")
-                .unwrap_or_else(|_| format!("http://biomeos:5000/context")),
+                .unwrap_or_else(|_| "http://biomeos:5000/context".to_string()),
             biomeos_health_api: std::env::var("BIOMEOS_HEALTH_API")
-                .unwrap_or_else(|_| format!("http://biomeos:5000/health")),
+                .unwrap_or_else(|_| "http://biomeos:5000/health".to_string()),
             biomeos_metrics_api: std::env::var("BIOMEOS_METRICS_API")
-                .unwrap_or_else(|_| format!("http://biomeos:5000/metrics")),
+                .unwrap_or_else(|_| "http://biomeos:5000/metrics".to_string()),
             biomeos_websocket_url: std::env::var("BIOMEOS_WS_URL")
-                .unwrap_or_else(|_| format!("ws://biomeos:5000/ws")),
+                .unwrap_or_else(|_| "ws://biomeos:5000/ws".to_string()),
         }
     }
 }

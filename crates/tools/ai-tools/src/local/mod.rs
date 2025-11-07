@@ -259,7 +259,7 @@ impl LocalAIClient {
                 if enhanced_request
                     .parameters
                     .as_ref()
-                    .map_or(true, |p| p.max_tokens.is_none())
+                    .is_none_or(|p| p.max_tokens.is_none())
                 {
                     if let Some(ref mut params) = enhanced_request.parameters {
                         params.max_tokens = Some(default_max_tokens);

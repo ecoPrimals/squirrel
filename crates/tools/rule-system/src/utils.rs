@@ -13,14 +13,15 @@ use crate::parser;
 ///
 /// This function creates a template string for a new rule with the given ID,
 /// which can be written to a file.
+#[must_use] 
 pub fn create_rule_template(id: &str, name: &str, category: &str) -> String {
     format!(
         r#"---
-id: "{}"
-name: "{}"
+id: "{id}"
+name: "{name}"
 description: "Description of the rule"
 version: "1.0.0"
-category: "{}"
+category: "{category}"
 priority: 100
 patterns:
   - "context.*"
@@ -42,8 +43,7 @@ dependencies: []
 ## Notes
 
 This is a sample rule template. Add your notes here.
-"#,
-        id, name, category
+"#
     )
 }
 
@@ -54,6 +54,7 @@ This is a sample rule template. Add your notes here.
 /// # Errors
 ///
 /// Returns an error if the path is invalid or the value cannot be extracted.
+#[must_use] 
 pub fn extract_value_by_path(data: &Value, path: &str) -> Option<Value> {
     let parts: Vec<&str> = path.split('.').collect();
     let mut current = data;
@@ -143,10 +144,9 @@ fn set_value_recursive(data: &mut Value, parts: &[&str], index: usize, value: Va
                     // Last part, insert the value directly
                     obj.insert(part.to_string(), value);
                     return true;
-                } else {
-                    // Intermediate part, insert an empty object
-                    obj.insert(part.to_string(), json!({}));
                 }
+                // Intermediate part, insert an empty object
+                obj.insert(part.to_string(), json!({}));
             }
 
             // Recurse to the next part
@@ -162,6 +162,7 @@ fn set_value_recursive(data: &mut Value, parts: &[&str], index: usize, value: Va
 /// Checks if a rule matches a context
 ///
 /// This function checks if a rule should be applied to a given context based on its patterns.
+#[must_use] 
 pub fn rule_matches_context(rule: &Rule, context_id: &str) -> bool {
     rule.patterns.iter().any(|pattern| {
         // Simple glob-like pattern matching
@@ -170,6 +171,7 @@ pub fn rule_matches_context(rule: &Rule, context_id: &str) -> bool {
 }
 
 /// Format a timestamp as an RFC3339 string
+#[must_use] 
 pub fn format_timestamp(timestamp: DateTime<Utc>) -> String {
     timestamp.to_rfc3339()
 }
@@ -194,7 +196,7 @@ pub async fn create_rule_file(
     content: &str,
 ) -> RuleSystemResult<PathBuf> {
     let dir = directory.as_ref();
-    let file_path = dir.join(format!("{}.mdc", id));
+    let file_path = dir.join(format!("{id}.mdc"));
 
     tokio::fs::write(&file_path, content).await?;
 
@@ -229,6 +231,7 @@ pub fn serialize_rule_to_json(rule: &Rule) -> Result<String, serde_json::Error> 
 }
 
 /// Create a map of rule IDs to rules
+#[must_use] 
 pub fn create_rule_map(rules: &[Rule]) -> HashMap<String, Rule> {
     let mut map = HashMap::new();
 
@@ -245,6 +248,7 @@ pub fn sort_rules_by_priority(rules: &mut [Rule]) {
 }
 
 /// Filter rules by category
+#[must_use] 
 pub fn filter_rules_by_category(rules: &[Rule], category: &str) -> Vec<Rule> {
     rules
         .iter()
@@ -254,6 +258,7 @@ pub fn filter_rules_by_category(rules: &[Rule], category: &str) -> Vec<Rule> {
 }
 
 /// Filter rules by pattern
+#[must_use] 
 pub fn filter_rules_by_pattern(rules: &[Rule], pattern: &str) -> Vec<Rule> {
     rules
         .iter()
@@ -265,6 +270,7 @@ pub fn filter_rules_by_pattern(rules: &[Rule], pattern: &str) -> Vec<Rule> {
 /// Match a pattern against a string
 ///
 /// Supports simple glob patterns with * and ?.
+#[must_use] 
 pub fn match_pattern(pattern: &str, text: &str) -> bool {
     // Convert glob pattern to regex
     let regex_pattern = pattern
@@ -273,7 +279,7 @@ pub fn match_pattern(pattern: &str, text: &str) -> bool {
         .replace('?', ".");
 
     // Try to compile the regex pattern
-    match regex::Regex::new(&format!("^{}$", regex_pattern)) {
+    match regex::Regex::new(&format!("^{regex_pattern}$")) {
         Ok(regex) => regex.is_match(text),
         Err(_) => {
             // Fallback to exact matching if regex is invalid

@@ -132,7 +132,7 @@ impl AIClient for MockAIClient {
             .messages
             .iter()
             .filter(|msg| msg.role == MessageRole::User)
-            .last()
+            .next_back()
             .and_then(|msg| msg.content.as_ref())
             .map_or("default", |v| v);
 

@@ -3,7 +3,6 @@
 //! This module provides a client for interacting with OpenAI's GPT models.
 //! Authentication is handled by the BearDog security framework.
 
-use crate::config::OpenAIConfig;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 

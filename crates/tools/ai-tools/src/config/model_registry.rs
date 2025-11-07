@@ -101,6 +101,7 @@ fn default_priority() -> u8 {
 
 /// Performance characteristics of a model
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PerformanceConfig {
     /// Average tokens per second
     pub tokens_per_second: Option<f64>,
@@ -118,17 +119,6 @@ pub struct PerformanceConfig {
     pub memory_per_token: Option<f64>,
 }
 
-impl Default for PerformanceConfig {
-    fn default() -> Self {
-        Self {
-            tokens_per_second: None,
-            avg_latency_ms: None,
-            max_batch_size: None,
-            context_window_size: None,
-            memory_per_token: None,
-        }
-    }
-}
 
 /// Resource requirements configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -227,7 +217,7 @@ impl ModelRegistry {
 
         self.models
             .entry(provider_id)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .insert(model_id, capabilities);
     }
 

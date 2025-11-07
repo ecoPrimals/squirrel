@@ -63,12 +63,12 @@ impl AIClient {
             Self::Generic(client) => {
                 // This case is handled by the GenericAiClient struct
                 // For now, we'll return an error or a placeholder
-                Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Generic client not implemented")))
+                Err(Box::new(std::io::Error::other("Generic client not implemented")))
             }
             Self::Local(_) => {
                 // This case is handled by the LocalAiClient struct
                 // For now, we'll return an error or a placeholder
-                Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Local client not implemented")))
+                Err(Box::new(std::io::Error::other("Local client not implemented")))
             }
         }
     }
@@ -161,6 +161,12 @@ impl GenericAiClient {
 #[derive(Debug)]
 pub struct LocalAiClient {
     // Minimal local processing capabilities
+}
+
+impl Default for LocalAiClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LocalAiClient {

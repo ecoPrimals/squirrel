@@ -67,7 +67,7 @@ impl ClientFactory {
             "ollama" => {
                 let endpoint = config
                     .endpoint
-                    .unwrap_or_else(|| crate::config::DefaultEndpoints::ollama_endpoint());
+                    .unwrap_or_else(crate::config::DefaultEndpoints::ollama_endpoint);
                 Ok(Self::create_ollama_client(endpoint))
             }
             #[cfg(test)]

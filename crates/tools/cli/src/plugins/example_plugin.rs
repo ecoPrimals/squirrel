@@ -49,6 +49,12 @@ pub struct ExamplePlugin {
     commands: Vec<Arc<dyn Command>>,
 }
 
+impl Default for ExamplePlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExamplePlugin {
     /// Create a new instance of the example plugin
     pub fn new() -> Self {

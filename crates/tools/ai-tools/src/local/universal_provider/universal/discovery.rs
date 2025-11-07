@@ -96,7 +96,7 @@ impl CapabilityDiscoveryEngine {
 
                     capability_configs
                         .entry(capability_key)
-                        .or_insert_with(HashMap::new)
+                        .or_default()
                         .insert(property, value);
                 }
             }

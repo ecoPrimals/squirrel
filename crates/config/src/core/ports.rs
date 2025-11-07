@@ -92,6 +92,7 @@ pub struct HealthCheckConfig {
 
 /// Comprehensive port management for the ecosystem
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EcosystemPortConfig {
     /// Core squirrel service ports
     pub squirrel: SquirrelPorts,
@@ -184,17 +185,6 @@ pub struct PortAllocationSettings {
     pub songbird_integration: bool,
 }
 
-impl Default for EcosystemPortConfig {
-    fn default() -> Self {
-        Self {
-            squirrel: SquirrelPorts::default(),
-            primals: PrimalsPortConfig::default(),
-            development: DevelopmentPortConfig::default(),
-            production: ProductionPortConfig::default(),
-            allocation: PortAllocationSettings::default(),
-        }
-    }
-}
 
 impl Default for SquirrelPorts {
     fn default() -> Self {

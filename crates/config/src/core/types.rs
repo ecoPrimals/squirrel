@@ -15,6 +15,7 @@ use crate::environment::Environment;
 
 /// Main configuration structure
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Default)]
 pub struct Config {
     pub network: NetworkConfig,
     pub database: DatabaseConfig,
@@ -24,18 +25,6 @@ pub struct Config {
     pub ecosystem: EcosystemConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            network: NetworkConfig::default(),
-            database: DatabaseConfig::default(),
-            ai: AIConfig::default(),
-            security: SecurityConfig::default(),
-            observability: ObservabilityConfig::default(),
-            ecosystem: EcosystemConfig::default(),
-        }
-    }
-}
 
 /// Network configuration with environment variable support
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -28,6 +28,7 @@ pub struct RuleManager {
 
 impl RuleManager {
     /// Create a new rule manager
+    #[must_use] 
     pub fn new(
         repository: Arc<RuleRepository>,
         evaluator: Arc<RuleEvaluator>,
@@ -103,8 +104,7 @@ impl RuleManager {
             if dep_id == rule_id {
                 return Err(RuleSystemError::ManagerError(
                     RuleManagerError::DependencyError(format!(
-                        "Circular dependency detected: {}",
-                        rule_id
+                        "Circular dependency detected: {rule_id}"
                     )),
                 ));
             }
@@ -121,7 +121,7 @@ impl RuleManager {
                 }
             } else {
                 return Err(RuleSystemError::ManagerError(
-                    RuleManagerError::DependencyError(format!("Dependency not found: {}", dep_id)),
+                    RuleManagerError::DependencyError(format!("Dependency not found: {dep_id}")),
                 ));
             }
         }
@@ -224,7 +224,7 @@ impl RuleManager {
             // Check if dependency exists
             if self.repository.get_rule(dep_id).await?.is_none() {
                 return Err(RuleSystemError::ManagerError(
-                    RuleManagerError::DependencyError(format!("Dependency not found: {}", dep_id)),
+                    RuleManagerError::DependencyError(format!("Dependency not found: {dep_id}")),
                 ));
             }
 
@@ -232,8 +232,7 @@ impl RuleManager {
             if dep_id == rule_id {
                 return Err(RuleSystemError::ManagerError(
                     RuleManagerError::DependencyError(format!(
-                        "Circular dependency detected: {}",
-                        rule_id
+                        "Circular dependency detected: {rule_id}"
                     )),
                 ));
             }
@@ -243,8 +242,7 @@ impl RuleManager {
                 if dep_dependencies.contains(&rule_id.to_string()) {
                     return Err(RuleSystemError::ManagerError(
                         RuleManagerError::DependencyError(format!(
-                            "Circular dependency detected: {} -> {} -> {}",
-                            rule_id, dep_id, rule_id
+                            "Circular dependency detected: {rule_id} -> {dep_id} -> {rule_id}"
                         )),
                     ));
                 }
@@ -496,6 +494,7 @@ pub async fn create_rule_manager() -> RuleSystemResult<RuleManager> {
 }
 
 /// Create a rule manager with custom components
+#[must_use] 
 pub fn create_rule_manager_with_components(
     repository: Arc<RuleRepository>,
     evaluator: Arc<RuleEvaluator>,

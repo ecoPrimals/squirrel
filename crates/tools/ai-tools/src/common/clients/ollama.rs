@@ -128,16 +128,12 @@ impl OllamaClient {
         }];
 
         // Ollama doesn't provide detailed token usage, so we estimate
-        let usage = if let Some(eval_count) = response_json["eval_count"].as_u64() {
-            Some(UsageInfo {
+        let usage = response_json["eval_count"].as_u64().map(|eval_count| UsageInfo {
                 prompt_tokens: response_json["prompt_eval_count"].as_u64().unwrap_or(0) as u32,
                 completion_tokens: eval_count as u32,
                 total_tokens: (response_json["prompt_eval_count"].as_u64().unwrap_or(0)
                     + eval_count) as u32,
-            })
-        } else {
-            None
-        };
+            });
 
         Ok(ChatResponse {
             id: format!("ollama-{}", uuid::Uuid::new_v4()),

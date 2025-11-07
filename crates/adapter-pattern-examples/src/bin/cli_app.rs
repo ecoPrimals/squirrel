@@ -278,8 +278,8 @@ impl CliApp {
             .execute_command(command, args.clone())
             .await
         {
-            Ok(result) => return Ok(result),
-            Err(e) => return Err(e),
+            Ok(result) => Ok(result),
+            Err(e) => Err(e),
         }
     }
 

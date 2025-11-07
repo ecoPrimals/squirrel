@@ -52,6 +52,12 @@ pub mod adapter {
         pub state: String,
     }
 
+    impl Default for CommandAdapter {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl CommandAdapter {
         pub fn new() -> Self {
             Self {
@@ -73,6 +79,12 @@ pub mod adapter {
         pub struct CommandRegistryAdapter {
             /// Internal state
             pub state: String,
+        }
+
+        impl Default for CommandRegistryAdapter {
+            fn default() -> Self {
+                Self::new()
+            }
         }
 
         impl CommandRegistryAdapter {
@@ -110,6 +122,12 @@ pub mod context {
         pub state: String,
     }
 
+    impl Default for CommandContext {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl CommandContext {
         pub fn new() -> Self {
             Self {
@@ -125,6 +143,12 @@ pub mod executor {
     pub struct ExecutionContext {
         /// Context state
         pub state: String,
+    }
+
+    impl Default for ExecutionContext {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl ExecutionContext {
@@ -146,6 +170,12 @@ pub mod registry {
     pub struct CommandRegistry {
         /// Registered commands
         commands: Mutex<HashMap<String, Arc<dyn Command>>>,
+    }
+
+    impl Default for CommandRegistry {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl CommandRegistry {

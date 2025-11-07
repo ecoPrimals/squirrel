@@ -402,7 +402,7 @@ impl CommandRegistry {
     pub fn get_resource<T: std::any::Any + Send + Sync>(&self, name: &str) -> Option<Arc<T>> {
         if let Ok(resources) = self.resources.lock() {
             if let Some(resource) = resources.get(name) {
-                if let Some(typed_resource) = resource.clone().downcast::<T>().ok() {
+                if let Ok(typed_resource) = resource.clone().downcast::<T>() {
                     debug!("Registry: Retrieved resource '{}'", name);
                     return Some(typed_resource);
                 } else {

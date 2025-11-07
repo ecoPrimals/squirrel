@@ -5,10 +5,8 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
-use url::Url;
 
 use crate::config::SecurityConfig;
-use squirrel_mcp_config::get_service_endpoints;
 use crate::traits::{AuthResult, Credentials, Principal};
 
 use super::context::{SecurityContext, SecurityHealth};

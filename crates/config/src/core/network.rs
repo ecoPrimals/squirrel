@@ -111,7 +111,7 @@ impl Default for ServiceEndpoints {
             admin_endpoint: env::var("ADMIN_ENDPOINT")
                 .unwrap_or_else(|_| format!("{}/admin", base_url)),
             websocket_endpoint: Some(
-                env::var("WEBSOCKET_ENDPOINT").unwrap_or_else(|_| websocket_url),
+                env::var("WEBSOCKET_ENDPOINT").unwrap_or(websocket_url),
             ),
         }
     }

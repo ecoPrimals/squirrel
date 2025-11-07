@@ -108,6 +108,12 @@ pub struct CommandRegistry {
     commands: HashMap<String, Arc<dyn Command>>,
 }
 
+impl Default for CommandRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandRegistry {
     pub fn new() -> Self {
         Self {
@@ -151,6 +157,12 @@ pub trait CommandAdapter: Send + Sync {
 #[derive(Debug)]
 pub struct RegistryAdapter {
     commands: HashMap<String, Arc<dyn Command>>,
+}
+
+impl Default for RegistryAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RegistryAdapter {
@@ -246,6 +258,12 @@ pub struct McpAdapter {
     command_log: Arc<RwLock<Vec<CommandLogEntry>>>,         // audit log
 }
 
+impl Default for McpAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl McpAdapter {
     pub fn new() -> Self {
         let instance = Self {
@@ -271,7 +289,8 @@ impl McpAdapter {
         // Mark admin commands as requiring admin role
         {
             let mut permissions = instance.command_permissions.write().unwrap();
-            for cmd in ["admin-cmd"].iter() {
+            {
+                let cmd = &"admin-cmd";
                 permissions.insert(cmd.to_string(), vec![UserRole::Admin]);
             }
         }
@@ -296,7 +315,8 @@ impl McpAdapter {
         if is_admin {
             // Mark admin commands as requiring admin role
             let mut permissions = self.command_permissions.write().unwrap();
-            for cmd in ["admin-cmd"].iter() {
+            {
+                let cmd = &"admin-cmd";
                 permissions.insert(cmd.to_string(), vec![UserRole::Admin]);
             }
         }
@@ -498,9 +518,7 @@ impl McpAdapter {
                     .unwrap_or_default()
                     .as_secs();
                 let user = entry
-                    .user
-                    .as_ref()
-                    .map(|u| u.as_str())
+                    .user.as_deref()
                     .unwrap_or("anonymous");
                 let status = if entry.success { "SUCCESS" } else { "FAILED" };
                 let args = entry.args.join(" ");
@@ -622,6 +640,12 @@ pub struct PluginAdapter {
     adapter: Arc<RwLock<RegistryAdapter>>,
     plugin_id: String,
     version: String,
+}
+
+impl Default for PluginAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PluginAdapter {

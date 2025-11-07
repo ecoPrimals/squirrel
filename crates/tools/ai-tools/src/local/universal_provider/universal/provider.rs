@@ -400,7 +400,7 @@ pub fn setup_development_capabilities() {
     // Set up example capability announcements
     std::env::set_var(
         "CAPABILITY_TEXT_GENERATION_1_ENDPOINT",
-        &crate::config::DefaultEndpoints::ollama_endpoint(),
+        crate::config::DefaultEndpoints::ollama_endpoint(),
     );
     std::env::set_var("CAPABILITY_TEXT_GENERATION_1_FORMAT", "openai");
     std::env::set_var("CAPABILITY_TEXT_GENERATION_1_AUTH", "none");
@@ -408,7 +408,7 @@ pub fn setup_development_capabilities() {
 
     std::env::set_var(
         "CAPABILITY_CODE_GENERATION_1_ENDPOINT",
-        &crate::config::DefaultEndpoints::llamacpp_endpoint(),
+        crate::config::DefaultEndpoints::llamacpp_endpoint(),
     );
     std::env::set_var("CAPABILITY_CODE_GENERATION_1_FORMAT", "openai");
     std::env::set_var("CAPABILITY_CODE_GENERATION_1_AUTH", "none");
