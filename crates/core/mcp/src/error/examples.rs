@@ -96,7 +96,7 @@ pub mod context_propagation {
     }
 
     impl WithContext for DatabaseError {
-        fn with_context(mut self, operation: &str, component: &str) -> Self {
+        fn with_context(self, operation: &str, component: &str) -> Self {
             // In a real implementation, you'd add this context to the error
             eprintln!("Adding context: {} in {}", operation, component);
             self
@@ -221,7 +221,10 @@ mod tests {
                 operation: "test_operation".to_string(),
                 component: "test_component".to_string(),
                 severity: ErrorSeverity::High,
-                // recoverable field removed - use is_recoverable() method
+                error_code: "TEST_ERR".to_string(),
+                is_recoverable: false,
+                retry_count: 0,
+                source_location: None,
                 details: Default::default(),
                 message_type: None,
                 security_level: None,
@@ -246,7 +249,10 @@ mod tests {
                 operation: "op1".to_string(),
                 component: "comp1".to_string(),
                 severity: ErrorSeverity::Critical,
-                // recoverable field removed - use is_recoverable() method
+                error_code: "ERR1".to_string(),
+                is_recoverable: false,
+                retry_count: 0,
+                source_location: None,
                 details: Default::default(),
                 message_type: None,
                 security_level: None,
@@ -260,7 +266,10 @@ mod tests {
                 operation: "op2".to_string(),
                 component: "comp2".to_string(),
                 severity: ErrorSeverity::Low,
-                // recoverable field removed - use is_recoverable() method
+                error_code: "ERR2".to_string(),
+                is_recoverable: true,
+                retry_count: 0,
+                source_location: None,
                 details: Default::default(),
                 message_type: None,
                 security_level: None,

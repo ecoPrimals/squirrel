@@ -261,14 +261,15 @@ mod tests {
 
     #[test]
     fn test_default_implementations() {
+        #[derive(Debug)]
         struct MinimalError;
-
+        
         impl std::fmt::Display for MinimalError {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "minimal error")
             }
         }
-
+        
         impl std::error::Error for MinimalError {}
         impl ErrorContextTrait for MinimalError {}
 

@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
+use std::future::Future;
 use tokio::sync::RwLock;
 use tracing::error;
 
@@ -76,18 +76,16 @@ impl Default for HandlerPriority {
 }
 
 /// Trait for handling messages asynchronously
-#[async_trait]
 pub trait AsyncMessageHandler: Send + Sync {
     /// Handle a message and optionally return a response
-    async fn handle_message(&self, message: Message) -> MessageHandlerResult;
+    fn handle_message(&self, message: Message) -> impl Future<Output = MessageHandlerResult> + Send;
 }
 
 /// Handler trait for processing messages
-#[async_trait]
 pub trait MessageHandler: Send + Sync + std::fmt::Debug {
     /// Handle a message and optionally return a response
     /// This method needs to be async.
-    async fn handle_message(&self, message: Message) -> MessageHandlerResult;
+    fn handle_message(&self, message: Message) -> impl Future<Output = MessageHandlerResult> + Send;
 
     /// Get the message types this handler can process
     fn supported_message_types(&self) -> Vec<String>;
@@ -411,55 +409,59 @@ impl CompositeHandler {
     }
 }
 
-#[async_trait]
 impl AsyncMessageHandler for CompositeHandler {
-    async fn handle_message(&self, message: Message) -> MessageHandlerResult {
-        // Try each handler in sequence
-        for handler in &self.handlers {
-            if handler.can_handle(&message) {
-                let handle_future = handler.handle_message(message.clone());
-                match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
-                    Ok(Ok(Some(response))) => return Ok(Some(response)),
-                    Ok(Ok(None)) => continue, // Try the next handler
-                    Ok(Err(e)) => {
-                        error!("Handler error in composite: {}", e);
-                        continue;
-                    },
-                    Err(_) => {
-                        error!("Handler timed out in composite");
-                        continue; // Try the next handler
+    fn handle_message(&self, message: Message) -> impl Future<Output = MessageHandlerResult> + Send {
+        let handlers = self.handlers.clone();
+        async move {
+            // Try each handler in sequence
+            for handler in &handlers {
+                if handler.can_handle(&message) {
+                    let handle_future = handler.handle_message(message.clone());
+                    match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
+                        Ok(Ok(Some(response))) => return Ok(Some(response)),
+                        Ok(Ok(None)) => continue, // Try the next handler
+                        Ok(Err(e)) => {
+                            error!("Handler error in composite: {}", e);
+                            continue;
+                        },
+                        Err(_) => {
+                            error!("Handler timed out in composite");
+                            continue; // Try the next handler
+                        }
                     }
                 }
             }
+            
+            // No handler processed the message
+            Ok(None)
         }
-        
-        // No handler processed the message
-        Ok(None)
     }
 }
 
-#[async_trait]
 impl MessageHandler for CompositeHandler {
-    async fn handle_message(&self, message: Message) -> MessageHandlerResult {
-        // Iterate through handlers and try to handle the message
-        // This needs more sophisticated logic based on priority, configuration etc.
-        for handler in &self.handlers {
-            // Check if the handler supports the type before calling
-            if handler.supported_message_types().contains(&message.message_type.to_string()) {
-                let handle_future = handler.handle_message(message.clone());
-                match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
-                    Ok(Ok(Some(response))) => return Ok(Some(response)), // Return first response
-                    Ok(Ok(None)) => continue, // Try next handler
-                    Ok(Err(e)) => return Err(e), // Propagate error
-                    Err(_) => {
-                        error!("Handler timed out in composite");
-                        continue; // Try the next handler
+    fn handle_message(&self, message: Message) -> impl Future<Output = MessageHandlerResult> + Send {
+        let handlers = self.handlers.clone();
+        async move {
+            // Iterate through handlers and try to handle the message
+            // This needs more sophisticated logic based on priority, configuration etc.
+            for handler in &handlers {
+                // Check if the handler supports the type before calling
+                if handler.supported_message_types().contains(&message.message_type.to_string()) {
+                    let handle_future = handler.handle_message(message.clone());
+                    match tokio::time::timeout(std::time::Duration::from_secs(5), handle_future).await {
+                        Ok(Ok(Some(response))) => return Ok(Some(response)), // Return first response
+                        Ok(Ok(None)) => continue, // Try next handler
+                        Ok(Err(e)) => return Err(e), // Propagate error
+                        Err(_) => {
+                            error!("Handler timed out in composite");
+                            continue; // Try the next handler
+                        }
                     }
                 }
             }
+            // If no handler produced a response
+            Ok(None)
         }
-        // If no handler produced a response
-        Ok(None)
     }
 
     fn supported_message_types(&self) -> Vec<String> {
@@ -505,15 +507,17 @@ mod tests {
         }
     }
     
-    #[async_trait]
     impl AsyncMessageHandler for MockHandler {
-        async fn handle_message(&self, _message: Message) -> MessageHandlerResult {
-            self.call_count.fetch_add(1, Ordering::SeqCst);
-            Ok(self.response.clone())
+        fn handle_message(&self, _message: Message) -> impl Future<Output = MessageHandlerResult> + Send {
+            let call_count = self.call_count.clone();
+            let response = self.response.clone();
+            async move {
+                call_count.fetch_add(1, Ordering::SeqCst);
+                Ok(response)
+            }
         }
     }
     
-    #[async_trait]
     impl MessageHandler for MockHandler {
         fn supported_message_types(&self) -> Vec<String> {
             self.message_types.clone()
@@ -523,9 +527,13 @@ mod tests {
             self.priority
         }
         
-        async fn handle_message(&self, _message: Message) -> MessageHandlerResult {
-            self.call_count.fetch_add(1, Ordering::SeqCst);
-            Ok(self.response.clone())
+        fn handle_message(&self, _message: Message) -> impl Future<Output = MessageHandlerResult> + Send {
+            let call_count = self.call_count.clone();
+            let response = self.response.clone();
+            async move {
+                call_count.fetch_add(1, Ordering::SeqCst);
+                Ok(response)
+            }
         }
     }
     
