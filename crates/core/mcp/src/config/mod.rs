@@ -1,6 +1,17 @@
 // crates/mcp/src/config/mod.rs
 //! Configuration structures for MCP components.
 
+mod encryption;
+mod scaling;
+mod service_security;
+
+pub use encryption::EncryptionConfig;
+pub use scaling::ScalingConfig;
+pub use service_security::{
+    ServiceSecurityConfig,
+    AccessControlConfig,
+};
+
 use serde::{Deserialize, Serialize};
 use crate::protocol::domain_objects::EncryptionFormat;
  // Assuming EncryptionFormat is needed
