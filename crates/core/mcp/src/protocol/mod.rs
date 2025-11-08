@@ -13,27 +13,29 @@ pub use types::*;
 pub use websocket::*;
 
 use crate::error::Result;
-use async_trait::async_trait;
+use std::future::Future;
 
 /// Core MCP protocol trait
-#[async_trait]
 pub trait MCPProtocol: Send + Sync {
-    async fn handle_message(&self, message: MCPMessage) -> Result<MCPMessage>;
-    async fn get_version(&self) -> ProtocolVersion;
+    fn handle_message(&self, message: MCPMessage) -> impl Future<Output = Result<MCPMessage>> + Send;
+    fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send;
 }
 
 /// Simple MCP protocol implementation
 pub struct SimpleMCPProtocol;
 
-#[async_trait]
 impl MCPProtocol for SimpleMCPProtocol {
-    async fn handle_message(&self, message: MCPMessage) -> Result<MCPMessage> {
-        // Echo back the message with response type
-        Ok(MCPMessage::new(MessageType::Response, message.payload))
+    fn handle_message(&self, message: MCPMessage) -> impl Future<Output = Result<MCPMessage>> + Send {
+        async move {
+            // Echo back the message with response type
+            Ok(MCPMessage::new(MessageType::Response, message.payload))
+        }
     }
 
-    async fn get_version(&self) -> ProtocolVersion {
-        ProtocolVersion::default()
+    fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send {
+        async move {
+            ProtocolVersion::default()
+        }
     }
 }
 
