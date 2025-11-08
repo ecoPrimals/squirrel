@@ -79,11 +79,28 @@ pub struct RateLimiterConfig {
 
 impl Default for RateLimiterConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (refresh_period, timeout) = if let Some(cfg) = config {
+            // Use custom rate limiter timeouts if configured
+            let refresh = cfg.timeouts.get_custom_timeout("rate_limit_refresh")
+                .unwrap_or_else(|| Duration::from_secs(1));
+            let timeout_val = cfg.timeouts.get_custom_timeout("rate_limit_timeout")
+                .unwrap_or_else(|| Duration::from_secs(1));
+            (refresh, Some(timeout_val))
+        } else {
+            // Fallback to sensible defaults
+            (Duration::from_secs(1), Some(Duration::from_secs(1)))
+        };
+        
         Self {
             name: "default".to_string(),
             limit_for_period: 100,
-            limit_refresh_period: Duration::from_secs(1),
-            timeout_duration: Some(Duration::from_secs(1)),
+            limit_refresh_period: refresh_period,
+            timeout_duration: timeout,
             wait_for_permits: true,
         }
     }

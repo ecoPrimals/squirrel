@@ -13,6 +13,9 @@ use std::collections::HashMap;
 use chrono::Utc;
 use crate::config::MemoryTransportConfig;
 
+// Import unified config for timeout management
+use squirrel_mcp_config::unified::SquirrelUnifiedConfig;
+
 /// In-memory connection state
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum MemoryState {
@@ -64,6 +67,14 @@ impl MemoryChannel {
     
     /// Create a single memory transport with the given configuration
     #[must_use] pub fn create_transport(&self, config: MemoryTransportConfig) -> MemoryTransport {
+        // Load unified configuration for timeouts
+        use squirrel_mcp_config::unified::ConfigLoader;
+        let unified_config = Arc::new(
+            ConfigLoader::load()
+                .map(|c| c.into_config())
+                .unwrap_or_default()
+        );
+        
         // Create message channels
         let (out_tx, _out_rx) = mpsc::channel(config.buffer_size);
         let (_in_tx, in_rx) = mpsc::channel(config.buffer_size);
@@ -88,6 +99,7 @@ impl MemoryChannel {
         
         MemoryTransport {
             config: config.clone(),
+            unified_config,
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
             outgoing_channel: out_tx,
             incoming_channel: Arc::new(TokioMutex::new(in_rx)),
@@ -103,6 +115,14 @@ impl MemoryChannel {
     #[must_use] pub fn create_transport_pair(self, config_a: Option<MemoryTransportConfig>, config_b: Option<MemoryTransportConfig>) -> (MemoryTransport, MemoryTransport) {
         let config_a = config_a.unwrap_or_default();
         let config_b = config_b.unwrap_or_default();
+        
+        // Load unified configuration for timeouts (shared between both transports)
+        use squirrel_mcp_config::unified::ConfigLoader;
+        let unified_config = Arc::new(
+            ConfigLoader::load()
+                .map(|c| c.into_config())
+                .unwrap_or_default()
+        );
         
         // Create channels for A -> B communication (Use bounded)
         let (a_to_b_tx, a_to_b_rx) = mpsc::channel(config_a.buffer_size);
@@ -145,6 +165,7 @@ impl MemoryChannel {
         // Create transport A
         let transport_a = MemoryTransport {
             config: config_a.clone(),
+            unified_config: Arc::clone(&unified_config),
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
             outgoing_channel: a_to_b_tx.clone(),
             incoming_channel: Arc::new(TokioMutex::new(b_to_a_rx)),
@@ -158,6 +179,7 @@ impl MemoryChannel {
         // Create transport B
         let transport_b = MemoryTransport {
             config: config_b.clone(),
+            unified_config,
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
             outgoing_channel: b_to_a_tx.clone(),
             incoming_channel: Arc::new(TokioMutex::new(a_to_b_rx)),
@@ -253,6 +275,9 @@ pub struct MemoryTransport {
     /// Transport configuration
     config: MemoryTransportConfig,
     
+    /// Unified system configuration (for timeouts, etc.)
+    unified_config: Arc<SquirrelUnifiedConfig>,
+    
     /// Current connection state
     state: Arc<RwLock<MemoryState>>,
     
@@ -282,6 +307,20 @@ impl MemoryTransport {
     /// Creates a new memory transport layer.
     #[must_use]
     pub fn new(config: &MemoryTransportConfig) -> Self {
+        // Load unified configuration for timeouts
+        use squirrel_mcp_config::unified::ConfigLoader;
+        let unified_config = Arc::new(
+            ConfigLoader::load()
+                .map(|c| c.into_config())
+                .unwrap_or_default()
+        );
+        
+        Self::new_with_unified_config(config, unified_config)
+    }
+    
+    /// Creates a new memory transport layer with provided unified config.
+    #[must_use]
+    pub fn new_with_unified_config(config: &MemoryTransportConfig, unified_config: Arc<SquirrelUnifiedConfig>) -> Self {
         // Create communication channels (Standard channels)
         let (out_tx, _out_rx) = mpsc::channel(config.buffer_size);
         let (_incoming_tx, incoming_rx): (Sender<MCPMessage>, Receiver<MCPMessage>) = mpsc::channel(config.buffer_size);
@@ -306,6 +345,7 @@ impl MemoryTransport {
         
         Self {
             config: config.clone(),
+            unified_config,
             state: Arc::new(RwLock::new(MemoryState::Disconnected)),
             outgoing_channel: out_tx,
             incoming_channel: Arc::new(TokioMutex::new(incoming_rx)),
@@ -363,8 +403,9 @@ impl Transport for MemoryTransport {
         // Receive the message asynchronously with a timeout
         let receive_future = rx_guard.recv();
         
-        // Use a default timeout of 5 seconds to prevent indefinite hangs
-        match tokio::time::timeout(std::time::Duration::from_secs(5), receive_future).await {
+        // Use unified config timeout (environment-aware)
+        let timeout = self.unified_config.timeouts.operation_timeout();
+        match tokio::time::timeout(timeout, receive_future).await {
             Ok(Some(message)) => {
                 // Simulate latency for receiving
                 self.simulate_latency().await;

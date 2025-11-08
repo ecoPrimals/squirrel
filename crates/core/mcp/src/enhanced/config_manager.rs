@@ -2,6 +2,8 @@
 //!
 //! This module provides centralized configuration management to replace
 //! hardcoded values with environment-aware configuration.
+//! 
+//! Now integrated with the unified configuration system for all timeout values.
 
 use std::collections::HashMap;
 use std::env;
@@ -13,6 +15,10 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use squirrel_mcp_config::get_service_endpoints;
+
+// Import unified config for timeout management
+use squirrel_mcp_config::unified::{ConfigLoader, SquirrelUnifiedConfig};
+use std::sync::Arc;
 
 use super::error_types::{EnhancedMCPError, EnhancedResult};
 
@@ -72,65 +78,96 @@ pub struct NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Create network configuration for specific environment
+    /// Create network configuration for specific environment using unified config
+    /// 
+    /// Timeouts now come from the unified configuration system with environment-specific scaling:
+    /// - Development: 1x base timeouts
+    /// - Testing: 0.5x base timeouts (faster feedback)
+    /// - Staging: 2x base timeouts
+    /// - Production: 4x base timeouts (more conservative)
     pub fn for_environment(env: Environment) -> Self {
-        match env {
-            Environment::Development => Self {
-                host: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                port: 8080,
-                bind_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
-                external_url: "http://localhost:8080".to_string(),
-                max_connections: 100,
-                keep_alive: Duration::from_secs(60),
-                read_timeout: Duration::from_secs(30),
-                write_timeout: Duration::from_secs(30),
-                enable_compression: true,
-                enable_tls: false,
-                tls_cert_path: None,
-                tls_key_path: None,
-            },
-            Environment::Testing => Self {
-                host: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                port: 8081,
-                bind_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8081),
-                external_url: "http://localhost:8081".to_string(),
-                max_connections: 50,
-                keep_alive: Duration::from_secs(30),
-                read_timeout: Duration::from_secs(15),
-                write_timeout: Duration::from_secs(15),
-                enable_compression: false,
-                enable_tls: false,
-                tls_cert_path: None,
-                tls_key_path: None,
-            },
-            Environment::Staging => Self {
-                host: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-                port: 8080,
-                bind_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8080),
-                external_url: "https://staging.example.com".to_string(),
-                max_connections: 500,
-                keep_alive: Duration::from_secs(120),
-                read_timeout: Duration::from_secs(60),
-                write_timeout: Duration::from_secs(60),
-                enable_compression: true,
-                enable_tls: true,
-                tls_cert_path: Some(PathBuf::from("/etc/ssl/certs/staging.crt")),
-                tls_key_path: Some(PathBuf::from("/etc/ssl/private/staging.key")),
-            },
-            Environment::Production => Self {
-                host: IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-                port: 8443,
-                bind_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8443),
-                external_url: "https://api.example.com".to_string(),
-                max_connections: 1000,
-                keep_alive: Duration::from_secs(300),
-                read_timeout: Duration::from_secs(120),
-                write_timeout: Duration::from_secs(120),
-                enable_compression: true,
-                enable_tls: true,
-                tls_cert_path: Some(PathBuf::from("/etc/ssl/certs/production.crt")),
-                tls_key_path: Some(PathBuf::from("/etc/ssl/private/production.key")),
-            },
+        // Load unified config for base timeout values
+        let unified_config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        // Get environment-specific timeout multipliers
+        let (timeout_multiplier, (host, port, external_url, max_conn, tls, cert, key)) = match env {
+            Environment::Development => (
+                1.0,
+                (
+                    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                    8080,
+                    "http://localhost:8080".to_string(),
+                    100,
+                    false,
+                    None,
+                    None,
+                )
+            ),
+            Environment::Testing => (
+                0.5,
+                (
+                    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                    8081,
+                    "http://localhost:8081".to_string(),
+                    50,
+                    false,
+                    None,
+                    None,
+                )
+            ),
+            Environment::Staging => (
+                2.0,
+                (
+                    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                    8080,
+                    "https://staging.example.com".to_string(),
+                    500,
+                    true,
+                    Some(PathBuf::from("/etc/ssl/certs/staging.crt")),
+                    Some(PathBuf::from("/etc/ssl/private/staging.key")),
+                )
+            ),
+            Environment::Production => (
+                4.0,
+                (
+                    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                    8443,
+                    "https://api.example.com".to_string(),
+                    1000,
+                    true,
+                    Some(PathBuf::from("/etc/ssl/certs/production.crt")),
+                    Some(PathBuf::from("/etc/ssl/private/production.key")),
+                )
+            ),
+        };
+        
+        // Calculate timeouts from unified config with environment multiplier
+        let base_heartbeat = unified_config.as_ref()
+            .map(|c| c.timeouts.heartbeat_interval())
+            .unwrap_or(Duration::from_secs(30));
+        let keep_alive = Duration::from_secs((base_heartbeat.as_secs() as f64 * timeout_multiplier) as u64);
+        
+        let base_request = unified_config.as_ref()
+            .map(|c| c.timeouts.request_timeout())
+            .unwrap_or(Duration::from_secs(30));
+        let read_timeout = Duration::from_secs((base_request.as_secs() as f64 * timeout_multiplier) as u64);
+        let write_timeout = read_timeout;
+        
+        Self {
+            host,
+            port,
+            bind_address: SocketAddr::new(host, port),
+            external_url,
+            max_connections: max_conn,
+            keep_alive,
+            read_timeout,
+            write_timeout,
+            enable_compression: env != Environment::Testing,
+            enable_tls: tls,
+            tls_cert_path: cert,
+            tls_key_path: key,
         }
     }
 
@@ -205,49 +242,55 @@ pub struct DatabaseConfig {
 }
 
 impl DatabaseConfig {
-    /// Create database configuration for specific environment
+    /// Create database configuration for specific environment using unified config
+    /// 
+    /// Timeouts now come from the unified configuration system with environment-specific scaling
     pub fn for_environment(env: Environment) -> Self {
-        match env {
-            Environment::Development => Self {
-                url: "sqlite:./data/dev.db".to_string(),
-                max_connections: 5,
-                min_connections: 1,
-                connection_timeout: Duration::from_secs(30),
-                idle_timeout: Duration::from_secs(600),
-                max_lifetime: Duration::from_secs(1800),
-                enable_logging: true,
-                enable_migrations: true,
-            },
-            Environment::Testing => Self {
-                url: "sqlite::memory:".to_string(),
-                max_connections: 1,
-                min_connections: 1,
-                connection_timeout: Duration::from_secs(5),
-                idle_timeout: Duration::from_secs(30),
-                max_lifetime: Duration::from_secs(300),
-                enable_logging: false,
-                enable_migrations: true,
-            },
-            Environment::Staging => Self {
-                url: "postgres://user:pass@localhost:5432/staging".to_string(),
-                max_connections: 20,
-                min_connections: 5,
-                connection_timeout: Duration::from_secs(30),
-                idle_timeout: Duration::from_secs(300),
-                max_lifetime: Duration::from_secs(3600),
-                enable_logging: true,
-                enable_migrations: true,
-            },
-            Environment::Production => Self {
-                url: "postgres://user:pass@db.example.com:5432/production".to_string(),
-                max_connections: 50,
-                min_connections: 10,
-                connection_timeout: Duration::from_secs(30),
-                idle_timeout: Duration::from_secs(300),
-                max_lifetime: Duration::from_secs(3600),
-                enable_logging: false,
-                enable_migrations: false,
-            },
+        // Load unified config for base timeout values
+        let unified_config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        let (url, max_conn, min_conn, logging, migrations, timeout_multiplier) = match env {
+            Environment::Development => (
+                "sqlite:./data/dev.db".to_string(),
+                5, 1, true, true, 1.0
+            ),
+            Environment::Testing => (
+                "sqlite::memory:".to_string(),
+                1, 1, false, true, 0.2
+            ),
+            Environment::Staging => (
+                "postgres://user:pass@localhost:5432/staging".to_string(),
+                20, 5, true, true, 1.0
+            ),
+            Environment::Production => (
+                "postgres://user:pass@db.example.com:5432/production".to_string(),
+                50, 10, false, false, 1.0
+            ),
+        };
+        
+        // Calculate timeouts from unified config
+        let base_db_timeout = unified_config.as_ref()
+            .map(|c| c.timeouts.database_timeout())
+            .unwrap_or(Duration::from_secs(30));
+        let connection_timeout = Duration::from_secs((base_db_timeout.as_secs() as f64 * timeout_multiplier) as u64);
+        
+        let base_session = unified_config.as_ref()
+            .map(|c| c.timeouts.session_timeout())
+            .unwrap_or(Duration::from_secs(3600));
+        let idle_timeout = Duration::from_secs((base_session.as_secs() as f64 * 0.17 * timeout_multiplier) as u64); // ~10 min for dev/prod
+        let max_lifetime = Duration::from_secs((base_session.as_secs() as f64 * 0.5 * timeout_multiplier) as u64); // ~30 min for dev/prod
+        
+        Self {
+            url,
+            max_connections: max_conn,
+            min_connections: min_conn,
+            connection_timeout,
+            idle_timeout,
+            max_lifetime,
+            enable_logging: logging,
+            enable_migrations: migrations,
         }
     }
 
@@ -309,61 +352,56 @@ pub struct SecurityConfig {
 }
 
 impl SecurityConfig {
-    /// Create security configuration for specific environment
+    /// Create security configuration for specific environment using unified config
+    /// 
+    /// Timeouts now come from the unified configuration system with environment-specific scaling
     pub fn for_environment(env: Environment) -> Self {
-        match env {
-            Environment::Development => Self {
-                jwt_secret: "dev-secret-key-must-be-at-least-32-characters-long".to_string(),
-                jwt_expiration: Duration::from_secs(3600),
-                api_key_length: 32,
-                rate_limit_requests: 1000,
-                rate_limit_window: Duration::from_secs(60),
-                enable_cors: true,
-                cors_origins: get_service_endpoints().cors_origins(),
-                enable_csrf: false,
-                session_timeout: Duration::from_secs(7200),
-                max_login_attempts: 10,
-                lockout_duration: Duration::from_secs(300),
-            },
-            Environment::Testing => Self {
-                jwt_secret: "test-secret-key-must-be-at-least-32-characters-long".to_string(),
-                jwt_expiration: Duration::from_secs(300),
-                api_key_length: 16,
-                rate_limit_requests: 100,
-                rate_limit_window: Duration::from_secs(60),
-                enable_cors: true,
-                cors_origins: vec!["*".to_string()],
-                enable_csrf: false,
-                session_timeout: Duration::from_secs(600),
-                max_login_attempts: 5,
-                lockout_duration: Duration::from_secs(60),
-            },
-            Environment::Staging => Self {
-                jwt_secret: "staging-secret-key-must-be-at-least-32-characters-long".to_string(),
-                jwt_expiration: Duration::from_secs(1800),
-                api_key_length: 64,
-                rate_limit_requests: 500,
-                rate_limit_window: Duration::from_secs(60),
-                enable_cors: true,
-                cors_origins: vec!["https://staging.example.com".to_string()],
-                enable_csrf: true,
-                session_timeout: Duration::from_secs(3600),
-                max_login_attempts: 5,
-                lockout_duration: Duration::from_secs(900),
-            },
-            Environment::Production => Self {
-                jwt_secret: "production-secret-key-must-be-at-least-32-characters-long".to_string(),
-                jwt_expiration: Duration::from_secs(900),
-                api_key_length: 128,
-                rate_limit_requests: 100,
-                rate_limit_window: Duration::from_secs(60),
-                enable_cors: true,
-                cors_origins: vec!["https://api.example.com".to_string()],
-                enable_csrf: true,
-                session_timeout: Duration::from_secs(1800),
-                max_login_attempts: 3,
-                lockout_duration: Duration::from_secs(3600),
-            },
+        // Load unified config for base timeout values
+        let unified_config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        let (secret, api_len, rate_reqs, cors_origins, csrf, max_attempts, timeout_multiplier) = match env {
+            Environment::Development => (
+                "dev-secret-key-must-be-at-least-32-characters-long".to_string(),
+                32, 1000, get_service_endpoints().cors_origins(), false, 10, 1.0
+            ),
+            Environment::Testing => (
+                "test-secret-key-must-be-at-least-32-characters-long".to_string(),
+                16, 100, vec!["*".to_string()], false, 5, 0.25
+            ),
+            Environment::Staging => (
+                "staging-secret-key-must-be-at-least-32-characters-long".to_string(),
+                64, 500, vec!["https://staging.example.com".to_string()], true, 5, 0.5
+            ),
+            Environment::Production => (
+                "production-secret-key-must-be-at-least-32-characters-long".to_string(),
+                128, 100, vec!["https://api.example.com".to_string()], true, 3, 0.5
+            ),
+        };
+        
+        // Calculate timeouts from unified config
+        let base_session = unified_config.as_ref()
+            .map(|c| c.timeouts.session_timeout())
+            .unwrap_or(Duration::from_secs(3600));
+        let jwt_expiration = Duration::from_secs((base_session.as_secs() as f64 * 0.25 * timeout_multiplier) as u64); // 15 min base
+        let session_timeout = Duration::from_secs((base_session.as_secs() as f64 * 2.0 * timeout_multiplier) as u64); // 2h base
+        let lockout_duration = Duration::from_secs((base_session.as_secs() as f64 * 0.083 * timeout_multiplier) as u64); // 5 min base
+        
+        let rate_limit_window = Duration::from_secs(60); // Always 60s for rate limiting
+        
+        Self {
+            jwt_secret: secret,
+            jwt_expiration,
+            api_key_length: api_len,
+            rate_limit_requests: rate_reqs,
+            rate_limit_window,
+            enable_cors: true,
+            cors_origins,
+            enable_csrf: csrf,
+            session_timeout,
+            max_login_attempts: max_attempts,
+            lockout_duration,
         }
     }
 

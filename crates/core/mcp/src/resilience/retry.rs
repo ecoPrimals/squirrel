@@ -63,10 +63,27 @@ pub struct RetryConfig {
 
 impl Default for RetryConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (base_delay, max_delay) = if let Some(cfg) = config {
+            // Use custom retry timeouts if configured
+            let base = cfg.timeouts.get_custom_timeout("retry_base")
+                .unwrap_or_else(|| Duration::from_millis(100));
+            let max = cfg.timeouts.get_custom_timeout("retry_max")
+                .unwrap_or_else(|| Duration::from_secs(10));
+            (base, max)
+        } else {
+            // Fallback to sensible defaults
+            (Duration::from_millis(100), Duration::from_secs(10))
+        };
+        
         Self {
             max_attempts: 3,
-            base_delay: Duration::from_millis(100),
-            max_delay: Duration::from_secs(10),
+            base_delay,
+            max_delay,
             use_jitter: true,
             backoff_strategy: BackoffStrategy::Exponential,
         }

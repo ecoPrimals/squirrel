@@ -25,6 +25,9 @@ pub mod core;
 pub mod environment;
 pub mod universal;
 
+// NEW: Unified configuration system
+pub mod unified;
+
 // Re-export main configuration types with explicit names to avoid conflicts
 pub use core::{
     AIConfig, AIServiceConfig, BiomeOSEndpoints, Config, ConfigDefaults, ConfigManager,
@@ -47,3 +50,11 @@ pub use universal::SecurityConfig as UniversalSecurityConfig;
 
 // CRITICAL FIX: Export the missing service endpoints functionality
 pub use core::service_endpoints::{get_service_endpoints, GlobalServiceEndpoints};
+
+// NEW: Export unified configuration system
+pub use unified::{
+    ConfigLoader, LoadedConfig, SquirrelUnifiedConfig, TimeoutConfig,
+    AiProvidersConfig, FeatureFlags, McpConfig, MonitoringConfig,
+    NetworkConfig as UnifiedNetworkConfig, SecurityConfig as UnifiedSecurityConfig,
+    ServiceMeshConfig, SystemConfig,
+};
