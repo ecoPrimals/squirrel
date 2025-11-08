@@ -10,7 +10,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::error::PrimalError;
 use squirrel_mcp_config::get_service_endpoints;
@@ -271,7 +271,7 @@ impl ToadStoolIntegration {
                 toadstool_endpoint: std::env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
                     external_services
                         .get("toadstool")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| {
                             std::env::var("TOADSTOOL_ENDPOINT")
                                 .unwrap_or_else(|_| "http://localhost:9001".to_string())

@@ -1,17 +1,7 @@
 //! Squirrel AI Coordinator Main Entry Point
 
 use anyhow::Result;
-use ecosystem_api::types::{NetworkLocation, PrimalContext};
-use squirrel::api::ApiServer;
-use squirrel::ecosystem::{initialize_ecosystem_integration, EcosystemConfig};
-use squirrel::shutdown::ShutdownManager; // Simplified import
-use squirrel::universal_provider::UniversalSquirrelProvider;
-use squirrel::MetricsCollector;
-use squirrel::UniversalProviderTrait;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::signal;
-use tracing::{error, info, warn};
+ // Simplified import
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -16,6 +16,7 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1.0", features = ["full"] }
+once_cell = "1.19"
 
 # No build-time dependencies on other primals
 # Coordination happens at runtime via HTTP APIs

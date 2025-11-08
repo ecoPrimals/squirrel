@@ -14,7 +14,6 @@ use crate::monitoring::metrics::MetricsCollector;
 use crate::optimization::zero_copy::{
     performance_monitoring::ZeroCopyMetrics, string_utils::StaticStrings,
 };
-use crate::session::SessionManagerImpl;
 use crate::universal::*;
 use crate::universal_adapter::UniversalAdapter; // Fix import
 use squirrel_mcp_config::{DefaultConfigManager, EcosystemConfig};
@@ -116,8 +115,10 @@ impl SquirrelPrimalProvider {
         let current_config = self.config_manager.get_config();
 
         // Use the ConfigManager trait method
-        use squirrel_mcp_config::ConfigManager;
-        let is_valid = self.config_manager.validate_config(current_config).is_ok();
+        let is_valid = match &current_config {
+            Ok(cfg) => self.config_manager.validate_config(cfg).is_ok(),
+            Err(_) => false,
+        };
 
         if is_valid {
             info!("Configuration validation passed via config_manager");

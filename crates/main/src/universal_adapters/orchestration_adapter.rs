@@ -3,14 +3,13 @@
 //! Capability-based orchestration coordination that can work with Songbird or any
 //! orchestration primal that provides the required coordination capabilities.
 
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use super::registry::{ServiceInfo, ServiceRequirements};
+use super::registry::ServiceInfo;
 use super::{
-    ServiceCapability, ServiceMatcher, UniversalRequest, UniversalResponse,
+    ServiceCapability, ServiceMatcher, UniversalRequest,
     UniversalServiceRegistry,
 };
 use crate::error::PrimalError;

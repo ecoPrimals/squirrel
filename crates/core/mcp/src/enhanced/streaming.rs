@@ -15,6 +15,7 @@ use futures::stream::BoxStream;
 use chrono::{DateTime, Utc};
 
 use crate::error::Result;
+use crate::resilience::retry::{RetryConfig, BackoffStrategy};
 
 /// Universal streaming manager - handles streaming from ANY AI system
 #[derive(Debug)]
@@ -307,22 +308,6 @@ pub struct QualityConfig {
     pub priority: StreamPriority,
 }
 
-/// Retry configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    /// Maximum retry attempts
-    pub max_attempts: u32,
-    
-    /// Initial delay between retries
-    pub initial_delay: Duration,
-    
-    /// Maximum delay between retries
-    pub max_delay: Duration,
-    
-    /// Backoff multiplier
-    pub backoff_multiplier: f32,
-}
-
 /// Stream statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamStats {
@@ -556,8 +541,20 @@ pub struct BackpressureControllerConfig {
 
 impl Default for BackpressureControllerConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let monitoring_interval = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("stream_monitoring")
+                .unwrap_or_else(|| Duration::from_secs(5))
+        } else {
+            Duration::from_secs(5)
+        };
+        
         Self {
-            monitoring_interval: Duration::from_secs(5),
+            monitoring_interval,
             default_high_water_mark: 0.8,
             default_low_water_mark: 0.5,
         }
@@ -594,10 +591,25 @@ pub struct StreamMetrics {
 
 impl Default for StreamManagerConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (default_timeout, cleanup_interval) = if let Some(cfg) = config {
+            let timeout = cfg.timeouts.get_custom_timeout("stream_default")
+                .unwrap_or_else(|| Duration::from_secs(300)); // 5 minutes
+            let cleanup = cfg.timeouts.get_custom_timeout("stream_cleanup")
+                .unwrap_or_else(|| Duration::from_secs(60)); // 1 minute
+            (timeout, cleanup)
+        } else {
+            (Duration::from_secs(300), Duration::from_secs(60))
+        };
+        
         Self {
             max_concurrent_streams: 1000,
-            default_timeout: Duration::from_secs(300), // 5 minutes
-            cleanup_interval: Duration::from_secs(60), // 1 minute
+            default_timeout,
+            cleanup_interval,
             enable_metrics: true,
             default_buffer_size: 8192,
         }
@@ -606,10 +618,22 @@ impl Default for StreamManagerConfig {
 
 impl Default for StreamConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let timeout = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("stream_timeout")
+                .unwrap_or_else(|| Duration::from_secs(300))
+        } else {
+            Duration::from_secs(300)
+        };
+        
         Self {
             buffer_size: 8192,
             max_chunk_size: 65536, // 64KB
-            timeout: Duration::from_secs(300),
+            timeout,
             backpressure: BackpressureConfig::default(),
             quality: QualityConfig::default(),
             retry: RetryConfig::default(),
@@ -637,17 +661,6 @@ impl Default for QualityConfig {
             max_quality: 1.0,
             compression_enabled: false,
             priority: StreamPriority::Normal,
-        }
-    }
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_attempts: 3,
-            initial_delay: Duration::from_millis(100),
-            max_delay: Duration::from_secs(10),
-            backoff_multiplier: 2.0,
         }
     }
 }
@@ -822,7 +835,19 @@ impl StreamManager {
         let streams = self.streams.clone();
         
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            // Load unified config for environment-aware metrics interval
+            let config = squirrel_mcp_config::unified::ConfigLoader::load()
+                .ok()
+                .and_then(|loaded| loaded.try_into_config().ok());
+            
+            let interval_duration = if let Some(cfg) = config {
+                cfg.timeouts.get_custom_timeout("stream_metrics_interval")
+                    .unwrap_or_else(|| Duration::from_secs(5))
+            } else {
+                Duration::from_secs(5)
+            };
+            
+            let mut interval = tokio::time::interval(interval_duration);
             
             loop {
                 interval.tick().await;

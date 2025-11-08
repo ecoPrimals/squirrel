@@ -125,6 +125,30 @@ pub struct GarbageCollectionConfig {
 impl MemoryPoolConfig {
     /// Production-optimized configuration
     pub fn production() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (object_lifetime, string_lifetime, cache_ttl, gc_interval) = if let Some(cfg) = config {
+            let obj = cfg.timeouts.get_custom_timeout("mem_object_lifetime")
+                .unwrap_or_else(|| Duration::from_secs(300));
+            let str_life = cfg.timeouts.get_custom_timeout("mem_string_lifetime")
+                .unwrap_or_else(|| Duration::from_secs(1800));
+            let cache = cfg.timeouts.get_custom_timeout("mem_cache_ttl")
+                .unwrap_or_else(|| Duration::from_secs(600));
+            let gc = cfg.timeouts.get_custom_timeout("mem_gc_interval")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            (obj, str_life, cache, gc)
+        } else {
+            (
+                Duration::from_secs(300),   // 5 minutes
+                Duration::from_secs(1800),  // 30 minutes
+                Duration::from_secs(600),   // 10 minutes
+                Duration::from_secs(60),    // 1 minute
+            )
+        };
+        
         Self {
             buffer_pool: BufferPoolConfig {
                 small_pool_size: 100,
@@ -137,21 +161,21 @@ impl MemoryPoolConfig {
             },
             object_pool: ObjectPoolConfig {
                 max_objects_per_type: 1000,
-                object_lifetime: Duration::from_secs(300), // 5 minutes
+                object_lifetime,
                 track_reuse: true,
             },
             string_interning: StringInterningConfig {
                 max_strings: 10000,
-                string_lifetime: Duration::from_secs(1800), // 30 minutes
+                string_lifetime,
                 enable_weak_refs: true,
             },
             message_cache: MessageCacheConfig {
                 max_cached_messages: 5000,
-                cache_ttl: Duration::from_secs(600), // 10 minutes
+                cache_ttl,
                 enable_compression: true,
             },
             gc_config: GarbageCollectionConfig {
-                gc_interval: Duration::from_secs(60), // 1 minute
+                gc_interval,
                 memory_pressure_threshold: 0.8,
                 adaptive_scheduling: true,
             },
@@ -160,6 +184,30 @@ impl MemoryPoolConfig {
     
     /// Development configuration with smaller pools
     pub fn development() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (object_lifetime, string_lifetime, cache_ttl, gc_interval) = if let Some(cfg) = config {
+            let obj = cfg.timeouts.get_custom_timeout("mem_dev_object_lifetime")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            let str_life = cfg.timeouts.get_custom_timeout("mem_dev_string_lifetime")
+                .unwrap_or_else(|| Duration::from_secs(300));
+            let cache = cfg.timeouts.get_custom_timeout("mem_dev_cache_ttl")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            let gc = cfg.timeouts.get_custom_timeout("mem_dev_gc_interval")
+                .unwrap_or_else(|| Duration::from_secs(30));
+            (obj, str_life, cache, gc)
+        } else {
+            (
+                Duration::from_secs(60),    // 1 minute
+                Duration::from_secs(300),   // 5 minutes
+                Duration::from_secs(60),    // 1 minute
+                Duration::from_secs(30),    // 30 seconds
+            )
+        };
+        
         Self {
             buffer_pool: BufferPoolConfig {
                 small_pool_size: 20,
@@ -172,21 +220,21 @@ impl MemoryPoolConfig {
             },
             object_pool: ObjectPoolConfig {
                 max_objects_per_type: 100,
-                object_lifetime: Duration::from_secs(60),
+                object_lifetime,
                 track_reuse: false,
             },
             string_interning: StringInterningConfig {
                 max_strings: 1000,
-                string_lifetime: Duration::from_secs(300),
+                string_lifetime,
                 enable_weak_refs: false,
             },
             message_cache: MessageCacheConfig {
                 max_cached_messages: 100,
-                cache_ttl: Duration::from_secs(60),
+                cache_ttl,
                 enable_compression: false,
             },
             gc_config: GarbageCollectionConfig {
-                gc_interval: Duration::from_secs(30),
+                gc_interval,
                 memory_pressure_threshold: 0.9,
                 adaptive_scheduling: false,
             },

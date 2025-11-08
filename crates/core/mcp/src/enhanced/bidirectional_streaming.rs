@@ -695,12 +695,33 @@ impl BidirectionalStreamManager {
 
 impl Default for StreamingConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (stream_timeout, heartbeat_interval, cleanup_interval) = if let Some(cfg) = config {
+            let timeout = cfg.timeouts.get_custom_timeout("bidir_stream_timeout")
+                .unwrap_or_else(|| Duration::from_secs(300));
+            let heartbeat = cfg.timeouts.get_custom_timeout("bidir_heartbeat")
+                .unwrap_or_else(|| Duration::from_secs(30));
+            let cleanup = cfg.timeouts.get_custom_timeout("bidir_cleanup")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            (timeout, heartbeat, cleanup)
+        } else {
+            (
+                Duration::from_secs(300),  // 5 minutes
+                Duration::from_secs(30),   // 30 seconds
+                Duration::from_secs(60),   // 1 minute
+            )
+        };
+        
         Self {
             max_concurrent_streams: 1000,
-            stream_timeout: Duration::from_secs(300), // 5 minutes
+            stream_timeout,
             buffer_size: 1000,
-            heartbeat_interval: Duration::from_secs(30),
-            cleanup_interval: Duration::from_secs(60),
+            heartbeat_interval,
+            cleanup_interval,
             enable_compression: false,
             enable_encryption: false,
         }
@@ -737,13 +758,28 @@ impl Default for StreamingMetrics {
 
 impl Default for StreamOptions {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (batch_timeout, retry_delay) = if let Some(cfg) = config {
+            let batch = cfg.timeouts.get_custom_timeout("bidir_batch_timeout")
+                .unwrap_or_else(|| Duration::from_millis(100));
+            let retry = cfg.timeouts.get_custom_timeout("bidir_retry_delay")
+                .unwrap_or_else(|| Duration::from_millis(1000));
+            (batch, retry)
+        } else {
+            (Duration::from_millis(100), Duration::from_millis(1000))
+        };
+        
         Self {
             enable_batching: false,
             batch_size: 100,
-            batch_timeout: Duration::from_millis(100),
+            batch_timeout,
             enable_acks: false,
             retry_attempts: 3,
-            retry_delay: Duration::from_millis(1000),
+            retry_delay,
         }
     }
 }

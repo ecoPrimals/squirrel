@@ -7,11 +7,9 @@ use crate::biomeos_integration::IntelligenceResponse; // Add missing import
 use crate::ecosystem::{
     EcosystemPrimalType,
     EcosystemServiceRegistration,
-    HealthCheckConfig,
-    ResourceRequirements, // Add missing imports
+    HealthCheckConfig, // Add missing imports
     SecurityConfig,
-    ServiceCapabilities,
-    ServiceEndpoints, // Add ServiceEndpoints import
+    ServiceCapabilities, // Add ServiceEndpoints import
 };
 use crate::optimization::zero_copy::{
     collection_utils::ZeroCopyMap,
@@ -22,7 +20,6 @@ use crate::optimization::zero_copy::{
 use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct SessionContext {

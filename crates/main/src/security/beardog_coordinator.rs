@@ -4,12 +4,10 @@
 //! Replaces 1473+ lines of over-engineered universal security adapter with focused functionality.
 
 use anyhow::Result;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tracing::{debug, info, warn};
-use uuid::Uuid;
 
 use crate::error::PrimalError;
 use crate::security::types::{

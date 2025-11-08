@@ -302,26 +302,8 @@ impl ProductionError {
     }
 }
 
-/// Error severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ErrorSeverity {
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-impl ErrorSeverity {
-    /// Check if severity requires immediate attention
-    pub fn requires_immediate_attention(&self) -> bool {
-        matches!(self, ErrorSeverity::High | ErrorSeverity::Critical)
-    }
-    
-    /// Check if severity should trigger alerts
-    pub fn should_alert(&self) -> bool {
-        matches!(self, ErrorSeverity::High | ErrorSeverity::Critical)
-    }
-}
+// Re-export canonical ErrorSeverity from types module
+pub use crate::error::types::ErrorSeverity;
 
 /// Safe wrapper for potentially fallible operations
 pub struct SafeOperation<T> {

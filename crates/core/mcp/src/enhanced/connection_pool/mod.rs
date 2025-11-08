@@ -65,15 +65,43 @@ pub struct ConnectionPoolConfig {
 
 impl Default for ConnectionPoolConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (connection_timeout_ms, request_timeout_ms, idle_timeout_secs, keep_alive_secs, health_check_secs) = 
+            if let Some(cfg) = config {
+                let conn = cfg.timeouts.get_custom_timeout("pool_connection")
+                    .unwrap_or_else(|| Duration::from_millis(30000));
+                let req = cfg.timeouts.get_custom_timeout("pool_request")
+                    .unwrap_or_else(|| Duration::from_millis(60000));
+                let idle = cfg.timeouts.get_custom_timeout("pool_idle")
+                    .unwrap_or_else(|| Duration::from_secs(300));
+                let keep_alive = cfg.timeouts.get_custom_timeout("pool_keep_alive")
+                    .unwrap_or_else(|| Duration::from_secs(90));
+                let health = cfg.timeouts.get_custom_timeout("pool_health_check")
+                    .unwrap_or_else(|| Duration::from_secs(60));
+                (
+                    conn.as_millis() as u64,
+                    req.as_millis() as u64,
+                    idle.as_secs(),
+                    keep_alive.as_secs(),
+                    health.as_secs(),
+                )
+            } else {
+                (30000, 60000, 300, 90, 60)
+            };
+        
         Self {
             max_connections_per_provider: 20,
             max_idle_connections: 10,
-            connection_timeout_ms: 30000,
-            request_timeout_ms: 60000,
-            idle_timeout_seconds: 300,
-            keep_alive_timeout_seconds: 90,
+            connection_timeout_ms,
+            request_timeout_ms,
+            idle_timeout_seconds: idle_timeout_secs,
+            keep_alive_timeout_seconds: keep_alive_secs,
             max_retries: 3,
-            health_check_interval_seconds: 60,
+            health_check_interval_seconds: health_check_secs,
             enable_http2: true,
             tcp_keep_alive: true,
             user_agent: "MCP-AI-Client/1.0".to_string(),
@@ -432,9 +460,22 @@ impl ConnectionPool {
         
         // Perform simple HTTP health check (HEAD request to base URL)
         let health_check_url = format!("{}/health", provider_config.base_url.trim_end_matches('/'));
+        
+        // Load unified config for environment-aware health check timeout
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let health_timeout = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("pool_health_timeout")
+                .unwrap_or_else(|| Duration::from_secs(10))
+        } else {
+            Duration::from_secs(10)
+        };
+        
         let response_result = client.client
             .head(&health_check_url)
-            .timeout(Duration::from_secs(10))
+            .timeout(health_timeout)
             .send()
             .await;
         
@@ -543,7 +584,19 @@ impl ConnectionPool {
         {
             let pool_clone = Arc::clone(&pool);
             tokio::spawn(async move {
-                let mut interval = tokio::time::interval(Duration::from_secs(300)); // Clean up every 5 minutes
+                // Load unified config for environment-aware cleanup interval
+                let config = squirrel_mcp_config::unified::ConfigLoader::load()
+                    .ok()
+                    .and_then(|loaded| loaded.try_into_config().ok());
+                
+                let cleanup_interval = if let Some(cfg) = config {
+                    cfg.timeouts.get_custom_timeout("pool_cleanup")
+                        .unwrap_or_else(|| Duration::from_secs(300))
+                } else {
+                    Duration::from_secs(300) // Clean up every 5 minutes
+                };
+                
+                let mut interval = tokio::time::interval(cleanup_interval);
                 
                 loop {
                     interval.tick().await;

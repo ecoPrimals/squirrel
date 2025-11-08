@@ -21,14 +21,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use uuid::Uuid;
 use squirrel_mcp_config::get_service_endpoints;
 
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::primal_provider::SquirrelPrimalProvider;
-use crate::security::traits::SecurityCoordinator;
 use crate::universal::{
     LoadBalancingStatus, PrimalCapability, PrimalContext, UniversalPrimalProvider,
 };

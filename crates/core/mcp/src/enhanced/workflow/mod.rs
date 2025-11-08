@@ -629,11 +629,32 @@ impl Default for WorkflowMetrics {
 
 impl Default for WorkflowManagementConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (default_timeout, metrics_interval, cleanup_interval) = if let Some(cfg) = config {
+            let timeout = cfg.timeouts.get_custom_timeout("wfmgmt_default")
+                .unwrap_or_else(|| Duration::from_secs(3600));
+            let metrics = cfg.timeouts.get_custom_timeout("wfmgmt_metrics")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            let cleanup = cfg.timeouts.get_custom_timeout("wfmgmt_cleanup")
+                .unwrap_or_else(|| Duration::from_secs(300));
+            (timeout, metrics, cleanup)
+        } else {
+            (
+                Duration::from_secs(3600),  // 1 hour
+                Duration::from_secs(60),    // 1 minute
+                Duration::from_secs(300),   // 5 minutes
+            )
+        };
+        
         Self {
             max_concurrent_workflows: 100,
-            default_timeout: Duration::from_secs(3600), // 1 hour
-            metrics_interval: Duration::from_secs(60), // 1 minute
-            cleanup_interval: Duration::from_secs(300), // 5 minutes
+            default_timeout,
+            metrics_interval,
+            cleanup_interval,
             storage: StorageConfig::default(),
         }
     }

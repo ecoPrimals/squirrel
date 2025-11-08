@@ -13,7 +13,6 @@
 //! - **Federation-Ready**: Designed for cross-platform sovereignty
 //! - **Performance-Optimized**: Caching and connection pooling for efficient operation
 
-use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -25,8 +24,7 @@ use tracing::{debug, info, warn};
 
 use crate::error::PrimalError;
 use crate::universal::{
-    PrimalCapability, PrimalContext, PrimalDependency, PrimalHealth, PrimalRequest, PrimalResponse,
-    PrimalType, UniversalResult,
+    PrimalCapability, PrimalContext, PrimalRequest, PrimalResponse, UniversalResult,
 };
 
 // Re-export DiscoveredPrimal for backward compatibility
@@ -206,20 +204,17 @@ impl ServiceConnectionPool {
                 }
                 stats.remove(endpoint);
                 
-                tracing::info!(
-                    endpoint = %endpoint,
-                    operation = "stale_connection_cleanup",
-                    "Removed stale HTTP client and stats"
-                );
+                // Use simple string formatting to avoid span data capture
+                tracing::info!("Removed stale HTTP client: endpoint={}, operation=stale_connection_cleanup", endpoint);
             }
         }
         
         if total_cleaned > 0 {
+            let remaining = self.clients.read().await.len();
+            // Use simple string formatting to avoid span data capture
             tracing::info!(
-                cleaned_connections = total_cleaned,
-                remaining_connections = self.clients.read().await.len(),
-                operation = "connection_pool_maintenance",
-                "Completed connection pool cleanup"
+                "Connection pool cleanup complete: cleaned={}, remaining={}, operation=connection_pool_maintenance",
+                total_cleaned, remaining
             );
         }
     }

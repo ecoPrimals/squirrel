@@ -9,8 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use squirrel_mcp_config::Config;
 use std::time::Duration;
-use tokio::time::timeout;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use std::time::Instant;
 
 use super::{EcosystemServiceRegistration, HealthStatus};

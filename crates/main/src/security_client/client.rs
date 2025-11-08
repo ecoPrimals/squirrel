@@ -8,7 +8,7 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::error::PrimalError;
-use crate::security::types::{SecurityLevel, SecurityRequest}; // Import security types
+use crate::security::types::SecurityRequest; // Import security types
 use crate::universal::{
     PrimalCapability, PrimalContext, PrimalRequest, PrimalResponse, UniversalResult,
 };

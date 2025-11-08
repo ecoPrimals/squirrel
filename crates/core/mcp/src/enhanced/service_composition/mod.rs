@@ -122,7 +122,21 @@ impl ServiceCompositionEngine {
             service_discovery: Arc::new(ServiceDiscovery::new()),
             dependency_manager: Arc::new(dependency_manager),
             orchestration_engine: Arc::new(OrchestrationEngine::new(event_broadcaster.clone())),
-            health_monitor: Arc::new(ServiceHealthMonitor::new(Duration::from_secs(30))),
+            health_monitor: {
+                // Load unified config for environment-aware health monitor interval
+                let unified_config = squirrel_mcp_config::unified::ConfigLoader::load()
+                    .ok()
+                    .and_then(|loaded| loaded.try_into_config().ok());
+                
+                let interval = if let Some(cfg) = unified_config {
+                    cfg.timeouts.get_custom_timeout("svc_monitor_interval")
+                        .unwrap_or_else(|| Duration::from_secs(30))
+                } else {
+                    Duration::from_secs(30)
+                };
+                
+                Arc::new(ServiceHealthMonitor::new(interval))
+            },
             execution_engine,
             event_broadcaster,
             active_compositions: Arc::new(RwLock::new(HashMap::new())),
@@ -313,6 +327,18 @@ impl ServiceCompositionEngine {
         // Discover services using the service discovery engine
         let discovered_entries = self.service_discovery.discover_all_services().await?;
         
+        // Load unified config for environment-aware service timeout
+        let unified_config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let default_service_timeout = if let Some(cfg) = unified_config {
+            cfg.timeouts.get_custom_timeout("svc_discovered_timeout")
+                .unwrap_or_else(|| Duration::from_secs(30))
+        } else {
+            Duration::from_secs(30)
+        };
+        
         // Convert discovery entries to AI services
         let mut services = Vec::new();
         for entry in discovered_entries {
@@ -324,7 +350,7 @@ impl ServiceCompositionEngine {
                     service_type: ServiceType::Inference, // Default type
                     endpoint: format!("{}:{}", entry.endpoint, entry.port),
                     auth: None,
-                    timeout: Duration::from_secs(30),
+                    timeout: default_service_timeout,
                     retry: RetryConfig::default(),
                     resources: ResourceLimits::default(),
                     scaling: ScalingConfig::default(),

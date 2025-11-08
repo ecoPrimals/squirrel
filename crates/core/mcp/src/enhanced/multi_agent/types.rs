@@ -11,6 +11,8 @@ use uuid::Uuid;
 use tokio::sync::{RwLock, Mutex, mpsc};
 use futures::future::AbortHandle;
 
+use crate::resilience::retry::{RetryConfig, BackoffStrategy};
+
 /// Agent types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AgentType {
@@ -593,32 +595,6 @@ pub struct MultiAgentConfig {
     pub resources: ResourceLimits,
 }
 
-/// Retry configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    /// Maximum retry attempts
-    pub max_attempts: u32,
-    
-    /// Retry delay
-    pub delay: Duration,
-    
-    /// Backoff strategy
-    pub backoff_strategy: BackoffStrategy,
-}
-
-/// Backoff strategies
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BackoffStrategy {
-    /// Fixed delay
-    Fixed,
-    
-    /// Exponential backoff
-    Exponential,
-    
-    /// Linear backoff
-    Linear,
-}
-
 /// Resource limits
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceLimits {
@@ -959,8 +935,20 @@ pub struct WorkflowResourceManager {
 
 impl Default for CollaborationConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let timeout = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("collab_timeout")
+                .unwrap_or_else(|| Duration::from_secs(300))
+        } else {
+            Duration::from_secs(300) // 5 minutes
+        };
+        
         Self {
-            timeout: Duration::from_secs(300), // 5 minutes
+            timeout,
             sync_strategy: SyncStrategy::BestEffort,
             aggregation_strategy: AggregationStrategy::Average,
             quality_threshold: 0.7,

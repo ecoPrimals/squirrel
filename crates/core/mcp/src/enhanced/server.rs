@@ -100,16 +100,31 @@ pub trait PluginManagerInterface: Send + Sync {
 
 impl Default for EnhancedServerConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (request_timeout, plugin_timeout) = if let Some(cfg) = config {
+            let req = cfg.timeouts.get_custom_timeout("server_request")
+                .unwrap_or_else(|| Duration::from_secs(30));
+            let plugin = cfg.timeouts.get_custom_timeout("server_plugin")
+                .unwrap_or_else(|| Duration::from_secs(60));
+            (req, plugin)
+        } else {
+            (Duration::from_secs(30), Duration::from_secs(60))
+        };
+        
         Self {
             name: "Enhanced MCP Server".to_string(),
             port: 8080,
             max_connections: 1000,
-            request_timeout: Duration::from_secs(30),
+            request_timeout,
             enable_metrics: true,
             plugin_config: PluginConfig {
                 plugin_directory: "./plugins".to_string(),
                 max_plugins: 100,
-                plugin_timeout: Duration::from_secs(60),
+                plugin_timeout,
             },
             streaming_config: StreamingConfig::default(),
             multi_agent_config: MultiAgentConfig::default(),

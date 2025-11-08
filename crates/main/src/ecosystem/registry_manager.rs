@@ -1,15 +1,13 @@
 // # Ecosystem Registry Manager
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{broadcast, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 use super::registry::config::EcosystemRegistryConfig;
 use super::registry::discovery::DiscoveryOps;
-use super::registry::health::HealthMonitor; // Remove HealthCheckResult import
-use super::registry::types::HealthCheckResult; // Keep only this direct import
+ // Remove HealthCheckResult import
+ // Keep only this direct import
 use super::registry::types::{intern_registry_string, DiscoveredService, EcosystemRegistryEvent}; // Import HealthCheckResult directly
 use crate::error::PrimalError;
 use crate::EcosystemPrimalType; // Import from crate root // Use the existing one
@@ -230,7 +228,7 @@ impl EcosystemRegistryManager {
         &self,
         request: crate::ecosystem::PrimalApiRequest,
     ) -> Result<crate::ecosystem::PrimalApiResponse, PrimalError> {
-        use crate::error_handling::safe_operations::{SafeOps, SafeResult};
+        use crate::error_handling::safe_operations::SafeOps;
         use std::time::Duration;
         use uuid::Uuid;
         

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use squirrel_mcp::resilience::retry::{RetryConfig, BackoffStrategy};
 
 use crate::common::{ChatRequest, ChatResponse, ChatResponseStream, AIClient};
 use crate::common::capability::AICapabilities;
@@ -30,14 +31,6 @@ pub struct RateLimitConfig {
     pub requests_per_hour: Option<u32>,
     pub requests_per_day: Option<u32>,
     pub burst_limit: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    pub max_retries: u32,
-    pub initial_delay_ms: u64,
-    pub max_delay_ms: u64,
-    pub backoff_multiplier: f64,
 }
 
 /// Plugin trait for AI providers

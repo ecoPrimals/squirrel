@@ -17,11 +17,15 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
-use crate::config;
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
-use squirrel_mcp_config::universal::NetworkConfigHelper;
 use squirrel_mcp_config::DefaultConfigManager;
+
+/// Helper function to get service mesh endpoint from environment
+fn get_service_mesh_endpoint() -> String {
+    std::env::var("SERVICE_MESH_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:8500".to_string())
+}
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
 pub struct UniversalSquirrelProvider {
@@ -53,7 +57,7 @@ impl UniversalSquirrelProvider {
         let instance_id = uuid::Uuid::new_v4().to_string();
         let service_mesh_client = Arc::new(
             match SongbirdClient::new(
-                NetworkConfigHelper::get_service_mesh_endpoint(),
+                get_service_mesh_endpoint(),
                 None,
                 RetryConfig::default(),
             ) {
@@ -744,7 +748,7 @@ impl Default for UniversalSquirrelProvider {
                     config,
                     service_mesh_client: Arc::new(
                         match SongbirdClient::new(
-                            NetworkConfigHelper::get_service_mesh_endpoint(),
+                            get_service_mesh_endpoint(),
                             None,
                             RetryConfig::default(),
                         ) {

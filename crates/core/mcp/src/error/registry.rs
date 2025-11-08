@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 /// Errors that can occur during registry operations
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum RegistryError {
     /// Service not found in registry
     #[error("Service not found in registry: {0}")]

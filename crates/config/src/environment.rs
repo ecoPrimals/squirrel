@@ -211,7 +211,7 @@ impl Environment {
             .parse::<u32>()
             .unwrap_or(10);
 
-        let timeout_seconds = crate::constants::env_helpers::get_database_timeout();
+        let timeout_seconds = crate::constants::env_helpers::get_database_timeout().as_secs();
 
         DatabaseConfig {
             connection_string: database_url,
@@ -316,10 +316,10 @@ impl EcosystemConfig {
             }
         });
 
-        let service_timeout_ms = crate::constants::env_helpers::parse_timeout(
+        let service_timeout_ms = crate::constants::env_helpers::parse_timeout_duration(
             "ECOSYSTEM_SERVICE_TIMEOUT_MS",
             crate::constants::timeouts::DEFAULT_OPERATION_TIMEOUT,
-        );
+        ).as_millis() as u64;
 
         Ok(EcosystemConfig {
             nestgate_endpoint,

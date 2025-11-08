@@ -245,23 +245,8 @@ impl LocalErrorContext {
 }
 
 /// Severity levels for errors
-///
-/// Defines the different levels of severity that can be assigned to errors,
-/// helping prioritize handling and reporting.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ErrorSeverity {
-    /// Low severity - minimal impact, typically handled automatically
-    Low,
-
-    /// Medium severity - moderate impact, may require attention
-    Medium,
-
-    /// High severity - significant impact, requires attention
-    High,
-
-    /// Critical severity - severe impact, requires immediate attention
-    Critical,
-}
+// Re-export canonical ErrorSeverity from types module
+pub use crate::error::types::ErrorSeverity;
 
 /// Strategy for recovering from errors
 ///

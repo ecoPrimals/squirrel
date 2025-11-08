@@ -28,7 +28,8 @@ fn safe_lock<'a, T>(mutex: &'a Mutex<T>, context: &str) -> MCPResult<std::sync::
 
 /// Get default host for the MCP server (environment-aware)
 pub fn default_host() -> String {
-    use squirrel_mcp_config::core::{network_defaults, DevelopmentConfig, NetworkEndpointConfig};
+    const DEFAULT_BIND_HOST: &str = "0.0.0.0";
+    const DEFAULT_DEV_HOST: &str = "127.0.0.1";
 
     let is_production = std::env::var("ENVIRONMENT")
         .unwrap_or_else(|_| "development".to_string())
@@ -36,22 +37,20 @@ pub fn default_host() -> String {
 
     if is_production {
         std::env::var("MCP_HOST")
-            .unwrap_or_else(|_| network_defaults::DEFAULT_BIND_HOST.to_string())
+            .unwrap_or_else(|_| DEFAULT_BIND_HOST.to_string())
     } else {
-        let network_config = NetworkEndpointConfig::default();
-        let dev_config = DevelopmentConfig::default();
-        std::env::var("MCP_HOST").unwrap_or_else(|_| network_config.get_effective_host(&dev_config))
+        std::env::var("MCP_HOST").unwrap_or_else(|_| DEFAULT_DEV_HOST.to_string())
     }
 }
 
 /// Get default port for the MCP server (configurable)
 pub fn default_port() -> u16 {
-    use squirrel_mcp_config::core::network_defaults;
+    const DEFAULT_MCP_PORT: u16 = 8444;
 
     std::env::var("MCP_PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(network_defaults::DEFAULT_MCP_PORT)
+        .unwrap_or(DEFAULT_MCP_PORT)
 }
 
 /// MCP command handler function

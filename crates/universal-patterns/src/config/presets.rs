@@ -193,16 +193,7 @@ impl Default for HealthMonitoringConfig {
     }
 }
 
-impl Default for CircuitBreakerConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            failure_threshold: 5,
-            success_threshold: 3,
-            timeout_seconds: 60,
-        }
-    }
-}
+// CircuitBreakerConfig Default impl is now in squirrel-mcp-config
 
 impl Default for TimeoutConfig {
     fn default() -> Self {

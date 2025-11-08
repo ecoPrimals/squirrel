@@ -210,7 +210,8 @@ pub struct LearningEngine {
     metrics: Arc<Mutex<EngineMetrics>>,
 }
 
-/// Neural network placeholder
+/// Neural network placeholder (reserved for future ML integration)
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct NeuralNetwork {
     /// Network architecture

@@ -9,8 +9,35 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use rand::{Rng, thread_rng};
 use std::error::Error as StdError;
+use serde::{Deserialize, Serialize};
 
 use crate::resilience::ResilienceError;
+
+/// Serde helpers for Duration serialization
+mod duration_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::time::Duration;
+
+    pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        duration.as_secs().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let secs = u64::deserialize(deserializer)?;
+        Ok(Duration::from_secs(secs))
+    }
+}
+
+/// Default value for use_jitter field
+fn default_use_jitter() -> bool {
+    true
+}
 
 /// Struct representing a constant backoff strategy
 #[derive(Debug, Clone, Copy)]
@@ -34,7 +61,7 @@ impl ConstantBackoff {
 }
 
 /// Defines different backoff strategies for retry operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BackoffStrategy {
     /// Constant delay between retries
     Constant,
@@ -46,18 +73,28 @@ pub enum BackoffStrategy {
     Fibonacci,
 }
 
+impl Default for BackoffStrategy {
+    fn default() -> Self {
+        Self::Exponential
+    }
+}
+
 /// Configuration for the retry mechanism
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryConfig {
     /// Maximum number of retry attempts
     pub max_attempts: u32,
     /// Base delay between retries (will be used with the backoff strategy)
+    #[serde(with = "duration_serde")]
     pub base_delay: Duration,
     /// Maximum delay between retries
+    #[serde(with = "duration_serde")]
     pub max_delay: Duration,
     /// Whether to use jitter to avoid retry storms
+    #[serde(default = "default_use_jitter")]
     pub use_jitter: bool,
     /// The backoff strategy to use for calculating delays
+    #[serde(default)]
     pub backoff_strategy: BackoffStrategy,
 }
 

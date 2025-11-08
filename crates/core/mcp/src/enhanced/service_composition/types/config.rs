@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
 
+// Import canonical config types
+use crate::config::EncryptionConfig;
+
 /// Service composition configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceCompositionConfig {
@@ -148,51 +151,8 @@ pub struct AlertConfig {
     pub actions: Vec<String>,
 }
 
-/// Security configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    /// Authentication required
-    pub auth_required: bool,
-    
-    /// Authorization rules
-    pub authorization: Vec<String>,
-    
-    /// Encryption settings
-    pub encryption: EncryptionConfig,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            auth_required: false,
-            authorization: vec![],
-            encryption: EncryptionConfig::default(),
-        }
-    }
-}
-
-/// Encryption configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EncryptionConfig {
-    /// Encryption enabled
-    pub enabled: bool,
-    
-    /// Encryption algorithm
-    pub algorithm: String,
-    
-    /// Key management
-    pub key_management: String,
-}
-
-impl Default for EncryptionConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            algorithm: "AES-256-GCM".to_string(),
-            key_management: "local".to_string(),
-        }
-    }
-}
+// SecurityConfig now imported from crate::config::ServiceSecurityConfig
+pub use crate::config::ServiceSecurityConfig as SecurityConfig;
 
 /// Service composition metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]

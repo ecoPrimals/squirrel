@@ -258,7 +258,7 @@ impl Default for MCPMessage {
 impl TryFrom<Message> for MCPMessage {
     type Error = crate::error::MCPError;
 
-    fn try_from(message: Message) -> Result<Self, Self::Error> {
+    fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
         let json_str = match message {
             Message::Text(text) => text,
             Message::Binary(data) => String::from_utf8(data).map_err(|e| {

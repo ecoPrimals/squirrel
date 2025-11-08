@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Mutex};
 use tokio::task::JoinHandle;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug, Instrument};
 
 use crate::error::PrimalError;
 use crate::observability::{OperationContext, CorrelationId};
@@ -182,7 +182,7 @@ impl ResourceManager {
         let cleanup_metrics = Arc::clone(&self.cleanup_metrics);
         let interval = self.config.connection_cleanup_interval;
         
-        tokio::spawn(async move {
+        let cleanup_task = async move {
             let mut cleanup_interval = tokio::time::interval(interval);
             
             loop {
@@ -195,7 +195,7 @@ impl ResourceManager {
                 }
                 
                 let operation_start = Instant::now();
-                let mut total_cleaned = 0;
+                let total_cleaned = 0;
                 let mut successful_pools = 0;
                 let mut failed_pools = 0;
                 
@@ -205,9 +205,12 @@ impl ResourceManager {
                 {
                     let pools_guard = pools.read().await;
                     for (pool_name, pool) in pools_guard.iter() {
+                        let cleanup_future = pool.cleanup_stale_connections()
+                            .instrument(tracing::debug_span!("pool_cleanup", pool = %pool_name));
+                        
                         match tokio::time::timeout(
                             Duration::from_secs(30),
-                            pool.cleanup_stale_connections()
+                            cleanup_future
                         ).await {
                             Ok(()) => {
                                 successful_pools += 1;
@@ -257,7 +260,9 @@ impl ResourceManager {
                     "Connection cleanup cycle completed"
                 );
             }
-        })
+        };
+        
+        tokio::spawn(cleanup_task.instrument(tracing::info_span!("connection_cleanup_task")))
     }
     
     /// Start memory cleanup task
@@ -268,7 +273,7 @@ impl ResourceManager {
         let interval = self.config.memory_cleanup_interval;
         let memory_threshold = self.config.max_memory_threshold;
         
-        tokio::spawn(async move {
+        let cleanup_task = async move {
             let mut cleanup_interval = tokio::time::interval(interval);
             
             loop {
@@ -341,7 +346,9 @@ impl ResourceManager {
                     "Memory cleanup cycle completed"
                 );
             }
-        })
+        };
+        
+        tokio::spawn(cleanup_task.instrument(tracing::info_span!("memory_cleanup_task")))
     }
     
     /// Start health monitoring task
@@ -351,7 +358,7 @@ impl ResourceManager {
         let usage_stats = Arc::clone(&self.usage_stats);
         let interval = self.config.health_check_interval;
         
-        tokio::spawn(async move {
+        let monitoring_task = async move {
             let mut health_interval = tokio::time::interval(interval);
             
             loop {
@@ -418,7 +425,9 @@ impl ResourceManager {
                     "Health monitoring cycle completed"
                 );
             }
-        })
+        };
+        
+        tokio::spawn(monitoring_task.instrument(tracing::info_span!("health_monitoring_task")))
     }
     
     /// Start resource statistics collection task
@@ -427,7 +436,7 @@ impl ResourceManager {
         let background_tasks = Arc::clone(&self.background_tasks);
         let shutdown = Arc::clone(&self.shutdown_requested);
         
-        tokio::spawn(async move {
+        let stats_task = async move {
             let mut stats_interval = tokio::time::interval(Duration::from_secs(30));
             
             loop {
@@ -455,7 +464,9 @@ impl ResourceManager {
                     "Resource statistics updated"
                 );
             }
-        })
+        };
+        
+        tokio::spawn(stats_task.instrument(tracing::info_span!("resource_stats_task")))
     }
     
     /// Estimate current memory usage (simplified)

@@ -4,10 +4,7 @@
 
 use async_trait::async_trait;
 
-use super::{
-    health::SecurityHealth,
-    types::{SecurityContext, SecurityRequest, SecurityResponse},
-};
+use super::types::{SecurityContext, SecurityRequest, SecurityResponse};
 use crate::error::PrimalError;
 
 /// Simple Security Coordinator trait

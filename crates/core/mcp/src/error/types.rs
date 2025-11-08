@@ -22,13 +22,43 @@
 //! - Whether the error is recoverable
 //! - Additional details about the error
 
-use crate::error::context::ErrorSeverity;
 use crate::protocol::types::MessageType;
 // Security types handled by BearDog framework
 // use crate::security::types::SecurityLevel;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
+
+/// Error severity levels for categorizing and prioritizing errors.
+///
+/// Severity levels help determine error handling strategy, logging priority,
+/// and whether immediate attention or alerts are required.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ErrorSeverity {
+    /// Low severity - minimal impact, typically handled automatically
+    Low,
+
+    /// Medium severity - moderate impact, may require attention
+    Medium,
+
+    /// High severity - significant impact, requires attention
+    High,
+
+    /// Critical severity - severe impact, requires immediate attention
+    Critical,
+}
+
+impl ErrorSeverity {
+    /// Check if severity requires immediate attention
+    pub fn requires_immediate_attention(&self) -> bool {
+        matches!(self, ErrorSeverity::High | ErrorSeverity::Critical)
+    }
+    
+    /// Check if severity should trigger alerts
+    pub fn should_alert(&self) -> bool {
+        matches!(self, ErrorSeverity::High | ErrorSeverity::Critical)
+    }
+}
 
 // Add missing types that were moved to other projects
 /// Security level placeholder for core MCP functionality
@@ -55,14 +85,23 @@ impl std::fmt::Display for WireFormatError {
 
 impl std::error::Error for WireFormatError {}
 
-// Import the moved error types
+// Import all specialized error types
+use crate::error::alert::AlertError;
+use crate::error::client::ClientError;
+use crate::error::config::ConfigError;
 use crate::error::connection::ConnectionError;
 use crate::error::context_err::ContextError as ContextErr;
+use crate::error::handler::HandlerError;
+use crate::error::integration::IntegrationError;
+use crate::error::plugin::PluginError;
+use crate::error::port::PortErrorKind;
 use crate::error::protocol_err::ProtocolError;
+use crate::error::rbac::RBACError;
+use crate::error::registry::RegistryError;
 use crate::error::session::SessionError;
-// Keep this? MCPError doesn't use it directly yet.
-
-// Add import for ClientError
+use crate::error::task::TaskError;
+use crate::error::tool::ToolError;
+use crate::error::transport::TransportError;
 
 /// Main error type for MCP operations.
 ///
@@ -83,31 +122,81 @@ use crate::error::session::SessionError;
 ///     Ok(())
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum MCPError {
+    // === Core Layer Errors ===
+    
     /// Error originating from the MCP transport layer
-    Transport(crate::error::transport::TransportError),
+    #[error(transparent)]
+    Transport(#[from] TransportError),
 
     /// Error originating from the MCP protocol
-    Protocol(ProtocolError),
+    #[error(transparent)]
+    Protocol(#[from] ProtocolError),
 
     /// Error originating from connection management
-    Connection(ConnectionError),
+    #[error(transparent)]
+    Connection(#[from] ConnectionError),
 
+    // === Application Layer Errors ===
+    
     /// Error originating from context management
-    Context(ContextErr),
+    #[error(transparent)]
+    Context(#[from] ContextErr),
 
     /// Error originating from session management
-    Session(SessionError),
+    #[error(transparent)]
+    Session(#[from] SessionError),
 
     /// Error originating from client operations
-    Client(crate::error::client::ClientError),
+    #[error(transparent)]
+    Client(#[from] ClientError),
 
     /// Plugin-related errors
-    Plugin(crate::error::plugin::PluginError),
+    #[error(transparent)]
+    Plugin(#[from] PluginError),
 
-    /// Alert errors
-    Alert(String),
+    /// Tool execution errors
+    #[error(transparent)]
+    Tool(#[from] ToolError),
+    
+    /// Service registry errors
+    #[error(transparent)]
+    Registry(#[from] RegistryError),
+    
+    /// Task management errors
+    #[error(transparent)]
+    Task(#[from] TaskError),
+    
+    /// Request handler errors
+    #[error(transparent)]
+    Handler(#[from] HandlerError),
+
+    // === Infrastructure Layer Errors ===
+
+    /// Configuration errors
+    #[error(transparent)]
+    Config(#[from] ConfigError),
+
+    /// Integration errors
+    #[error(transparent)]
+    Integration(#[from] IntegrationError),
+    
+    /// Port allocation errors
+    #[error(transparent)]
+    Port(#[from] PortErrorKind),
+
+    // === Security Layer Errors ===
+
+    /// Role-based access control errors
+    #[error(transparent)]
+    RBAC(#[from] RBACError),
+
+    // === Monitoring Layer Errors ===
+
+    /// Alert system errors
+    #[error(transparent)]
+    Alert(#[from] AlertError),
 
     /// Resource exhausted error
     ResourceExhausted(String),
@@ -154,9 +243,6 @@ pub enum MCPError {
     /// JSON parsing error
     Json(String),
 
-    /// Tool error
-    Tool(String),
-
     /// General error
     General(String),
 
@@ -183,12 +269,6 @@ pub enum MCPError {
 
     /// Circuit breaker error
     CircuitBreaker(String),
-
-    /// Task error
-    Task(String),
-
-    /// Handler error
-    Handler(String),
 
     /// Security error
     Security(String),
@@ -392,6 +472,11 @@ impl MCPError {
             Self::Internal(_) => "MCP-057",
             Self::Authentication(_) => "MCP-058",
             Self::RateLimit(_) => "MCP-059",
+            Self::Registry(_) => "MCP-060",
+            Self::Config(_) => "MCP-061",
+            Self::Integration(_) => "MCP-062",
+            Self::Port(_) => "MCP-063",
+            Self::RBAC(_) => "MCP-064",
         }
     }
 
@@ -459,6 +544,11 @@ impl MCPError {
             Self::Internal(_) => "INTERNAL",
             Self::Authentication(_) => "AUTHENTICATION",
             Self::RateLimit(_) => "RATE_LIMIT",
+            Self::Registry(_) => "REGISTRY",
+            Self::Config(_) => "CONFIG",
+            Self::Integration(_) => "INTEGRATION",
+            Self::Port(_) => "PORT",
+            Self::RBAC(_) => "RBAC",
         }
     }
 }
@@ -650,11 +740,12 @@ impl ErrorContext {
 // CoreError implementation removed - not needed for core functionality
 
 // Add implementation to directly use TransportError in MCPError
-impl From<crate::error::transport::TransportError> for MCPError {
-    fn from(err: crate::error::transport::TransportError) -> Self {
-        Self::Transport(err)
-    }
-}
+// From<TransportError> now handled by #[from] attribute
+// impl From<crate::error::transport::TransportError> for MCPError {
+//     fn from(err: crate::error::transport::TransportError) -> Self {
+//         Self::Transport(err)
+//     }
+// }
 
 impl From<WireFormatError> for MCPError {
     fn from(err: WireFormatError) -> Self {
@@ -662,17 +753,19 @@ impl From<WireFormatError> for MCPError {
     }
 }
 
-impl From<ProtocolError> for MCPError {
-    fn from(err: ProtocolError) -> Self {
-        MCPError::Protocol(err)
-    }
-}
+// From<ProtocolError> now handled by #[from] attribute
+// impl From<ProtocolError> for MCPError {
+//     fn from(err: ProtocolError) -> Self {
+//         MCPError::Protocol(err)
+//     }
+// }
 
-impl From<SessionError> for MCPError {
-    fn from(err: SessionError) -> Self {
-        Self::Session(err)
-    }
-}
+// From<SessionError> now handled by #[from] attribute
+// impl From<SessionError> for MCPError {
+//     fn from(err: SessionError) -> Self {
+//         Self::Session(err)
+//     }
+// }
 
 // Remove duplicate imports that are causing errors
 // pub use crate::error::{
@@ -683,17 +776,19 @@ impl From<SessionError> for MCPError {
 // };
 
 // Add missing From implementations for various error types
-impl From<ConnectionError> for MCPError {
-    fn from(err: ConnectionError) -> Self {
-        Self::Connection(err)
-    }
-}
+// From<ConnectionError> now handled by #[from] attribute
+// impl From<ConnectionError> for MCPError {
+//     fn from(err: ConnectionError) -> Self {
+//         Self::Connection(err)
+//     }
+// }
 
-impl From<ContextErr> for MCPError {
-    fn from(err: ContextErr) -> Self {
-        Self::Context(err)
-    }
-}
+// From<ContextErr> now handled by #[from] attribute
+// impl From<ContextErr> for MCPError {
+//     fn from(err: ContextErr) -> Self {
+//         Self::Context(err)
+//     }
+// }
 
 // Comment out implementation that uses ClientError since it's causing issues
 // impl From<ClientError> for MCPError {
@@ -704,11 +799,12 @@ impl From<ContextErr> for MCPError {
 
 // MessageRouter implementation removed - module doesn't exist
 
-impl From<crate::error::plugin::PluginError> for MCPError {
-    fn from(err: crate::error::plugin::PluginError) -> Self {
-        Self::Plugin(err)
-    }
-}
+// From<PluginError> now handled by #[from] attribute
+// impl From<crate::error::plugin::PluginError> for MCPError {
+//     fn from(err: crate::error::plugin::PluginError) -> Self {
+//         Self::Plugin(err)
+//     }
+// }
 
 // Implement From<String> for MCPError to handle cases where String is converted to MCPError
 impl From<String> for MCPError {
@@ -731,8 +827,6 @@ impl From<&str> for MCPError {
 //     }
 // }
 
-pub type Result<T, E = MCPError> = std::result::Result<T, E>;
-
 /// Error type alias for backward compatibility
 ///
 /// This type alias is provided for backward compatibility with code
@@ -743,7 +837,7 @@ pub type Error = MCPError;
 ///
 /// This type alias is provided for backward compatibility with code
 /// that refers to `crate::error::MCPResult` instead of `Result`.
-pub type MCPResult<T> = Result<T, MCPError>;
+pub type MCPResult<T> = std::result::Result<T, MCPError>;
 
 // Comment out the From<MCPError> for DomainError implementation until DomainError is defined
 /*
@@ -797,20 +891,37 @@ impl From<MCPError> for DomainError {
 */
 
 // Add the Error trait implementation
-impl std::error::Error for MCPError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Transport(e) => Some(e),
-            Self::Protocol(e) => Some(e),
-            Self::Connection(e) => Some(e),
-            Self::Session(e) => Some(e),
-            Self::Context(e) => Some(e),
-            Self::Client(e) => Some(e),
-            Self::Alert(_e) => None,
-            _ => None,
-        }
-    }
-}
+/// Canonical Result type for MCP operations
+///
+/// This is the primary Result type used throughout the MCP system.
+/// It provides a convenient alias for Result<T, MCPError>.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::error::{Result, MCPError};
+///
+/// fn do_something() -> Result<String> {
+///     Ok("success".to_string())
+/// }
+/// ```
+pub type Result<T> = std::result::Result<T, MCPError>;
+
+// std::error::Error now handled by thiserror::Error derive
+// impl std::error::Error for MCPError {
+//     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+//         match self {
+//             Self::Transport(e) => Some(e),
+//             Self::Protocol(e) => Some(e),
+//             Self::Connection(e) => Some(e),
+//             Self::Session(e) => Some(e),
+//             Self::Context(e) => Some(e),
+//             Self::Client(e) => Some(e),
+//             Self::Alert(_e) => None,
+//             _ => None,
+//         }
+//     }
+// }
 
 // Add the Display trait implementation for MCPError
 impl std::fmt::Display for MCPError {

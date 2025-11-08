@@ -79,11 +79,11 @@ fn create_test_workflow(
                     algorithm: "AES256".to_string(),
                     key_management: "local".to_string(),
                 },
-                access_control: AccessControlConfig {
+                access_control: Some(AccessControlConfig {
                     enabled: false,
                     rules: vec![],
                     rbac: false,
-                },
+                }),
             },
             scaling: ScalingConfig {
                 auto_scaling: false,

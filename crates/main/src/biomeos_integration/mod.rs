@@ -213,33 +213,43 @@ impl SquirrelBiomeOSIntegration {
             registration_time: Utc::now(),
 
             endpoints: {
-                use squirrel_mcp_config::core::{DevelopmentConfig, NetworkEndpointConfig};
-                let network_config = NetworkEndpointConfig::default();
-                let dev_config = DevelopmentConfig::default();
-                let base_url = network_config.get_http_url(&dev_config);
+                // Use environment-aware configuration for base URL
+                let host = if std::env::var("ENVIRONMENT")
+                    .unwrap_or_else(|_| "development".to_string())
+                    .eq_ignore_ascii_case("production")
+                {
+                    "0.0.0.0"
+                } else {
+                    "127.0.0.1"
+                };
+                let port = std::env::var("SQUIRREL_PORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(8778);
+                let base_url = format!("http://{}:{}", host, port);
 
                 EcosystemEndpoints {
                     ai_api: _endpoints
                         .get("ai_api")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| format!("{}/ai", base_url)),
                     mcp_api: _endpoints
                         .get("mcp_api")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| format!("{}/mcp", base_url)),
                     context_api: _endpoints
                         .get("context_api")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| format!("{}/context", base_url)),
                     health: _endpoints
                         .get("health")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| format!("{}/health", base_url)),
                     metrics: _endpoints
                         .get("metrics")
-                        .cloned()
+                        .clone()
                         .unwrap_or_else(|| format!("{}/metrics", base_url)),
-                    websocket: _endpoints.get("websocket").cloned(),
+                    websocket: _endpoints.get("websocket").clone(),
                 }
             },
 
