@@ -3,7 +3,7 @@
 //! This module provides the MonitoringClient trait and various implementations
 //! for interfacing with monitoring systems and collecting telemetry data.
 
-use async_trait::async_trait;
+use std::future::Future;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,28 +13,27 @@ use crate::error::Result;
 use std::time::Duration;
 
 /// Trait for monitoring clients that collect and report telemetry data
-#[async_trait]
 pub trait MonitoringClient: Send + Sync {
     /// Report a circuit breaker success
-    async fn report_breaker_success(&self, breaker_name: &str) -> anyhow::Result<()>;
+    fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send;
     
     /// Report a circuit breaker failure
-    async fn report_breaker_failure(&self, breaker_name: &str) -> anyhow::Result<()>;
+    fn report_breaker_failure(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send;
     
     /// Report a circuit breaker rejection
-    async fn report_breaker_rejection(&self, breaker_name: &str) -> anyhow::Result<()>;
+    fn report_breaker_rejection(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send;
     
     /// Record a monitoring event
-    async fn record_event(&self, event: MonitoringEvent) -> Result<()>;
+    fn record_event(&self, event: MonitoringEvent) -> impl Future<Output = Result<()>> + Send;
     
     /// Record a metric value
-    async fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> Result<()>;
+    fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> impl Future<Output = Result<()>> + Send;
     
     /// Get health status
-    async fn get_health_status(&self) -> Result<bool>;
+    fn get_health_status(&self) -> impl Future<Output = Result<bool>> + Send;
     
     /// Get metrics summary
-    async fn get_metrics_summary(&self) -> Result<HashMap<String, MetricValue>>;
+    fn get_metrics_summary(&self) -> impl Future<Output = Result<HashMap<String, MetricValue>>> + Send;
 }
 
 /// Different types of metric values that can be recorded
@@ -145,89 +144,129 @@ impl MockMonitoringClient {
     }
 }
 
-#[async_trait]
 impl MonitoringClient for MockMonitoringClient {
-    async fn report_breaker_success(&self, breaker_name: &str) -> anyhow::Result<()> {
-        debug!("MockMonitoringClient[{}]: Circuit breaker success for '{}'", 
-               self.component_id, breaker_name);
+    fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let component_id = self.component_id.clone();
+        let event_counts = self.event_counts.clone();
+        let breaker_name = breaker_name.to_string();
         
-        let mut counts = self.event_counts.lock().unwrap();
-        *counts.entry(format!("breaker_success_{}", breaker_name)).or_insert(0) += 1;
-        
-        Ok(())
+        async move {
+            debug!("MockMonitoringClient[{}]: Circuit breaker success for '{}'", 
+                   component_id, breaker_name);
+            
+            let mut counts = event_counts.lock().unwrap();
+            *counts.entry(format!("breaker_success_{}", breaker_name)).or_insert(0) += 1;
+            
+            Ok(())
+        }
     }
 
-    async fn report_breaker_failure(&self, breaker_name: &str) -> anyhow::Result<()> {
-        debug!("MockMonitoringClient[{}]: Circuit breaker failure for '{}'", 
-               self.component_id, breaker_name);
+    fn report_breaker_failure(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let component_id = self.component_id.clone();
+        let event_counts = self.event_counts.clone();
+        let breaker_name = breaker_name.to_string();
         
-        let mut counts = self.event_counts.lock().unwrap();
-        *counts.entry(format!("breaker_failure_{}", breaker_name)).or_insert(0) += 1;
-        
-        Ok(())
+        async move {
+            debug!("MockMonitoringClient[{}]: Circuit breaker failure for '{}'", 
+                   component_id, breaker_name);
+            
+            let mut counts = event_counts.lock().unwrap();
+            *counts.entry(format!("breaker_failure_{}", breaker_name)).or_insert(0) += 1;
+            
+            Ok(())
+        }
     }
 
-    async fn report_breaker_rejection(&self, breaker_name: &str) -> anyhow::Result<()> {
-        debug!("MockMonitoringClient[{}]: Circuit breaker rejection for '{}'", 
-               self.component_id, breaker_name);
+    fn report_breaker_rejection(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let component_id = self.component_id.clone();
+        let event_counts = self.event_counts.clone();
+        let breaker_name = breaker_name.to_string();
         
-        let mut counts = self.event_counts.lock().unwrap();
-        *counts.entry(format!("breaker_rejection_{}", breaker_name)).or_insert(0) += 1;
-        
-        Ok(())
+        async move {
+            debug!("MockMonitoringClient[{}]: Circuit breaker rejection for '{}'", 
+                   component_id, breaker_name);
+            
+            let mut counts = event_counts.lock().unwrap();
+            *counts.entry(format!("breaker_rejection_{}", breaker_name)).or_insert(0) += 1;
+            
+            Ok(())
+        }
     }
 
-    async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
-        debug!("MockMonitoringClient[{}]: Recording event '{}' with level {:?}", 
-               self.component_id, event.event_type, event.level);
+    fn record_event(&self, event: MonitoringEvent) -> impl Future<Output = Result<()>> + Send {
+        let component_id = self.component_id.clone();
+        let event_counts = self.event_counts.clone();
         
-        let mut counts = self.event_counts.lock().unwrap();
-        *counts.entry(event.event_type.clone()).or_insert(0) += 1;
-        
-        // Also count by alert level
-        let level_key = format!("level_{:?}", event.level).to_lowercase();
-        *counts.entry(level_key).or_insert(0) += 1;
-        
-        Ok(())
+        async move {
+            debug!("MockMonitoringClient[{}]: Recording event '{}' with level {:?}", 
+                   component_id, event.event_type, event.level);
+            
+            let mut counts = event_counts.lock().unwrap();
+            *counts.entry(event.event_type.clone()).or_insert(0) += 1;
+            
+            // Also count by alert level
+            let level_key = format!("level_{:?}", event.level).to_lowercase();
+            *counts.entry(level_key).or_insert(0) += 1;
+            
+            Ok(())
+        }
     }
 
-    async fn record_metric(&self, name: &str, value: MetricValue, _tags: Option<HashMap<String, String>>) -> Result<()> {
-        debug!("MockMonitoringClient[{}]: Recording metric '{}' = {:?}", 
-               self.component_id, name, value);
+    fn record_metric(&self, name: &str, value: MetricValue, _tags: Option<HashMap<String, String>>) -> impl Future<Output = Result<()>> + Send {
+        let component_id = self.component_id.clone();
+        let metrics = self.metrics.clone();
+        let event_counts = self.event_counts.clone();
+        let name = name.to_string();
         
-        let mut metrics = self.metrics.lock().map_err(|e| {
-            crate::error::types::MCPError::ResourceContention(format!("Failed to acquire metrics lock: {}", e))
-        })?;
-        metrics.insert(name.to_string(), value);
-        
-        // Count metric recordings
-        let mut counts = self.event_counts.lock().map_err(|e| {
-            crate::error::types::MCPError::ResourceContention(format!("Failed to acquire event counts lock: {}", e))
-        })?;
-        *counts.entry("metric_recorded".to_string()).or_insert(0) += 1;
-        
-        Ok(())
+        async move {
+            debug!("MockMonitoringClient[{}]: Recording metric '{}' = {:?}", 
+                   component_id, name, value);
+            
+            let mut metrics = metrics.lock().map_err(|e| {
+                crate::error::types::MCPError::ResourceContention(format!("Failed to acquire metrics lock: {}", e))
+            })?;
+            metrics.insert(name.clone(), value);
+            
+            // Count metric recordings
+            let mut counts = event_counts.lock().map_err(|e| {
+                crate::error::types::MCPError::ResourceContention(format!("Failed to acquire event counts lock: {}", e))
+            })?;
+            *counts.entry("metric_recorded".to_string()).or_insert(0) += 1;
+            
+            Ok(())
+        }
     }
 
-    async fn get_health_status(&self) -> Result<bool> {
-        let healthy = *self.health_status.lock().unwrap();
-        debug!("MockMonitoringClient[{}]: Health status = {}", self.component_id, healthy);
-        Ok(healthy)
+    fn get_health_status(&self) -> impl Future<Output = Result<bool>> + Send {
+        let component_id = self.component_id.clone();
+        let health_status = self.health_status.clone();
+        
+        async move {
+            let healthy = *health_status.lock().unwrap();
+            debug!("MockMonitoringClient[{}]: Health status = {}", component_id, healthy);
+            Ok(healthy)
+        }
     }
 
-    async fn get_metrics_summary(&self) -> Result<HashMap<String, MetricValue>> {
-        let metrics = self.metrics.lock().unwrap().clone();
+    fn get_metrics_summary(&self) -> impl Future<Output = Result<HashMap<String, MetricValue>>> + Send {
+        let component_id = self.component_id.clone();
+        let metrics = self.metrics.clone();
+        let event_counts = self.event_counts.clone();
         
-        // Add some summary metrics
-        let mut summary = metrics;
-        let total_events = self.get_total_event_count();
-        summary.insert("total_events".to_string(), MetricValue::Integer(total_events as i64));
-        summary.insert("component_id".to_string(), MetricValue::String(self.component_id.clone()));
-        
-        debug!("MockMonitoringClient[{}]: Returning metrics summary with {} entries", 
-               self.component_id, summary.len());
-        
-        Ok(summary)
+        async move {
+            let metrics = metrics.lock().unwrap().clone();
+            
+            // Add some summary metrics
+            let mut summary = metrics;
+            let total_events: usize = event_counts.lock().unwrap().values().sum();
+            summary.insert("total_events".to_string(), MetricValue::Integer(total_events as i64));
+            summary.insert("component_id".to_string(), MetricValue::String(component_id.clone()));
+            
+            debug!("MockMonitoringClient[{}]: Returning metrics summary with {} entries", 
+                   component_id, summary.len());
+            
+            Ok(summary)
+        }
     }
 }
 
