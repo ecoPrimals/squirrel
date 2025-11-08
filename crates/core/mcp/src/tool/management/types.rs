@@ -381,10 +381,9 @@ pub struct ToolContext {
 }
 
 /// Trait for tool executors
-#[async_trait]
 pub trait ToolExecutor: fmt::Debug + Send + Sync {
     /// Executes a capability with the given context
-    async fn execute(&self, context: ToolContext) -> Result<ToolExecutionResult, ToolError>;
+    fn execute(&self, context: ToolContext) -> impl std::future::Future<Output = Result<ToolExecutionResult, ToolError>> + Send;
 
     /// Gets the tool ID this executor is associated with
     fn get_tool_id(&self) -> String;
@@ -393,27 +392,35 @@ pub trait ToolExecutor: fmt::Debug + Send + Sync {
     fn get_capabilities(&self) -> Vec<String>;
 
     /// Starts the executor
-    async fn start(&self) -> Result<(), ToolError> {
-        // Default implementation does nothing
-        Ok(())
+    fn start(&self) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Default implementation does nothing
+            Ok(())
+        }
     }
 
     /// Stops the executor
-    async fn stop(&self) -> Result<(), ToolError> {
-        // Default implementation does nothing
-        Ok(())
+    fn stop(&self) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Default implementation does nothing
+            Ok(())
+        }
     }
 
     /// Pauses the executor
-    async fn pause(&self) -> Result<(), ToolError> {
-        // Default implementation does nothing
-        Ok(())
+    fn pause(&self) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Default implementation does nothing
+            Ok(())
+        }
     }
 
     /// Resumes the executor
-    async fn resume(&self) -> Result<(), ToolError> {
-        // Default implementation does nothing
-        Ok(())
+    fn resume(&self) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Default implementation does nothing
+            Ok(())
+        }
     }
 }
 

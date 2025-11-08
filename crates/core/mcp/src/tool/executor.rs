@@ -2,7 +2,6 @@
 //!
 //! This module provides concrete executor implementations for the tool management system.
 
-use async_trait::async_trait;
 use chrono::Utc;
 use reqwest;
 use serde_json::Value as JsonValue;
@@ -67,49 +66,56 @@ impl BasicToolExecutor {
     }
 }
 
-#[async_trait]
 impl ToolExecutor for BasicToolExecutor {
-    async fn execute(&self, ctx: ToolContext) -> Result<ToolExecutionResult, ToolError> {
-        // Log execution
-        info!(
-            tool_id = self.tool_id,
-            capability = ctx.capability,
-            request_id = ctx.request_id,
-            "Executing basic tool function"
-        );
+    fn execute(&self, ctx: ToolContext) -> impl std::future::Future<Output = Result<ToolExecutionResult, ToolError>> + Send {
+        let tool_id = self.tool_id.clone();
+        let capability = ctx.capability.clone();
+        let request_id = ctx.request_id.clone();
+        let handler_result = self.handlers.get(&ctx.capability).map(|h| h(ctx.clone()));
+        
+        async move {
+            // Log execution
+            info!(
+                tool_id = tool_id,
+                capability = capability,
+                request_id = request_id,
+                "Executing basic tool function"
+            );
 
-        // Execute the function with the provided parameters
-        let result = if let Some(handler) = self.handlers.get(&ctx.capability) {
-            handler(ctx.clone())
-        } else {
-            // Return an error instead of a failure result when the capability doesn't exist
-            return Err(ToolError::CapabilityNotFound(
-                ctx.capability.clone(),
-                ctx.tool_id.clone(),
-            ));
-        };
+            // Execute the function with the provided parameters
+            let result = match handler_result {
+                Some(res) => res,
+                None => {
+                    // Return an error instead of a failure result when the capability doesn't exist
+                    return Err(ToolError::CapabilityNotFound(
+                        ctx.capability.clone(),
+                        ctx.tool_id.clone(),
+                    ));
+                }
+            };
 
-        match result {
-            Ok(output) => Ok(ToolExecutionResult {
-                tool_id: ctx.tool_id,
-                capability: ctx.capability,
-                request_id: ctx.request_id,
-                status: ExecutionStatus::Success,
-                output: Some(output),
-                error_message: None,
-                execution_time_ms: 0, // We don't track execution time here
-                timestamp: Utc::now(),
-            }),
-            Err(err) => Ok(ToolExecutionResult {
-                tool_id: ctx.tool_id,
-                capability: ctx.capability,
-                request_id: ctx.request_id,
-                status: ExecutionStatus::Failure,
-                output: None,
-                error_message: Some(err.to_string()),
-                execution_time_ms: 0, // We don't track execution time here
-                timestamp: Utc::now(),
-            }),
+            match result {
+                Ok(output) => Ok(ToolExecutionResult {
+                    tool_id: ctx.tool_id,
+                    capability: ctx.capability,
+                    request_id: ctx.request_id,
+                    status: ExecutionStatus::Success,
+                    output: Some(output),
+                    error_message: None,
+                    execution_time_ms: 0, // We don't track execution time here
+                    timestamp: Utc::now(),
+                }),
+                Err(err) => Ok(ToolExecutionResult {
+                    tool_id: ctx.tool_id,
+                    capability: ctx.capability,
+                    request_id: ctx.request_id,
+                    status: ExecutionStatus::Failure,
+                    output: None,
+                    error_message: Some(err.to_string()),
+                    execution_time_ms: 0, // We don't track execution time here
+                    timestamp: Utc::now(),
+                }),
+            }
         }
     }
 
@@ -169,75 +175,81 @@ impl RemoteToolExecutor {
     }
 }
 
-#[async_trait]
 impl ToolExecutor for RemoteToolExecutor {
-    async fn execute(&self, ctx: ToolContext) -> Result<ToolExecutionResult, ToolError> {
-        // Log execution
-        info!(
-            tool_id = self.tool_id,
-            capability = ctx.capability,
-            request_id = ctx.request_id,
-            endpoint = self.base_url,
-            "Executing remote tool function"
-        );
+    fn execute(&self, ctx: ToolContext) -> impl std::future::Future<Output = Result<ToolExecutionResult, ToolError>> + Send {
+        let tool_id = self.tool_id.clone();
+        let capability = ctx.capability.clone();
+        let request_id = ctx.request_id.clone();
+        let base_url = self.base_url.clone();
+        
+        async move {
+            // Log execution
+            info!(
+                tool_id = tool_id,
+                capability = capability,
+                request_id = request_id,
+                endpoint = base_url,
+                "Executing remote tool function"
+            );
 
-        // Prepare the request payload
-        let request_payload = serde_json::json!({
-            "tool_id": self.tool_id,
-            "capability": ctx.capability,
-            "request_id": ctx.request_id,
-            "parameters": ctx.parameters
-        });
+            // Prepare the request payload
+            let request_payload = serde_json::json!({
+                "tool_id": tool_id,
+                "capability": capability,
+                "request_id": request_id,
+                "parameters": ctx.parameters
+            });
 
-        // Execute the remote call
-        let client = reqwest::Client::new();
-        let result = match client
-            .post(&self.base_url)
-            .json(&request_payload)
-            .send()
-            .await
-        {
-            Ok(response) => {
-                if response.status().is_success() {
-                    match response.json::<JsonValue>().await {
-                        Ok(json) => Ok(json),
-                        Err(e) => Err(ToolError::ExecutionError(format!(
-                            "Failed to parse response: {e}"
-                        ))),
+            // Execute the remote call
+            let client = reqwest::Client::new();
+            let result = match client
+                .post(&base_url)
+                .json(&request_payload)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<JsonValue>().await {
+                            Ok(json) => Ok(json),
+                            Err(e) => Err(ToolError::ExecutionError(format!(
+                                "Failed to parse response: {e}"
+                            ))),
+                        }
+                    } else {
+                        Err(ToolError::ExecutionError(format!(
+                            "Remote execution failed with status: {}",
+                            response.status()
+                        )))
                     }
-                } else {
-                    Err(ToolError::ExecutionError(format!(
-                        "Remote execution failed with status: {}",
-                        response.status()
-                    )))
                 }
-            }
-            Err(e) => Err(ToolError::ExecutionError(format!(
-                "Failed to send request: {e}"
-            ))),
-        };
+                Err(e) => Err(ToolError::ExecutionError(format!(
+                    "Failed to send request: {e}"
+                ))),
+            };
 
-        match result {
-            Ok(output) => Ok(ToolExecutionResult {
-                tool_id: ctx.tool_id,
-                capability: ctx.capability,
-                request_id: ctx.request_id,
-                status: ExecutionStatus::Success,
-                output: Some(output),
-                error_message: None,
-                execution_time_ms: 0, // We don't track execution time here
-                timestamp: Utc::now(),
-            }),
-            Err(err) => Ok(ToolExecutionResult {
-                tool_id: ctx.tool_id,
-                capability: ctx.capability,
-                request_id: ctx.request_id,
-                status: ExecutionStatus::Failure,
-                output: None,
-                error_message: Some(err.to_string()),
-                execution_time_ms: 0, // We don't track execution time here
-                timestamp: Utc::now(),
-            }),
+            match result {
+                Ok(output) => Ok(ToolExecutionResult {
+                    tool_id: ctx.tool_id,
+                    capability: ctx.capability,
+                    request_id: ctx.request_id,
+                    status: ExecutionStatus::Success,
+                    output: Some(output),
+                    error_message: None,
+                    execution_time_ms: 0, // We don't track execution time here
+                    timestamp: Utc::now(),
+                }),
+                Err(err) => Ok(ToolExecutionResult {
+                    tool_id: ctx.tool_id,
+                    capability: ctx.capability,
+                    request_id: ctx.request_id,
+                    status: ExecutionStatus::Failure,
+                    output: None,
+                    error_message: Some(err.to_string()),
+                    execution_time_ms: 0, // We don't track execution time here
+                    timestamp: Utc::now(),
+                }),
+            }
         }
     }
 
