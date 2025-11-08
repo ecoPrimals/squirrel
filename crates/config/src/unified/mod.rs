@@ -28,14 +28,17 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+pub mod health_check;
 pub mod loader;
 pub mod timeouts;
 pub mod types;
 
+pub use health_check::HealthCheckConfig;
 pub use loader::{ConfigLoader, LoadedConfig};
 pub use timeouts::TimeoutConfig;
 pub use types::{
-    AiProvidersConfig, FeatureFlags, McpConfig, MonitoringConfig, NetworkConfig, 
-    SecurityConfig, ServiceMeshConfig, SquirrelUnifiedConfig, SystemConfig,
+    AiProvidersConfig, CircuitBreakerConfig, DatabaseBackend, DatabaseConfig, FeatureFlags, 
+    LoadBalancingConfig, LoadBalancingStrategy, McpConfig, MonitoringConfig, NetworkConfig, 
+    SecurityConfig, ServiceMeshConfig, ServiceRegistryType, SquirrelUnifiedConfig, SystemConfig,
 };
 

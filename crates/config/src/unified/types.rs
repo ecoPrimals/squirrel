@@ -67,6 +67,12 @@ pub struct SquirrelUnifiedConfig {
     /// Monitoring and observability
     pub monitoring: MonitoringConfig,
 
+    /// Database configuration
+    pub database: DatabaseConfig,
+
+    /// Load balancing configuration
+    pub load_balancing: LoadBalancingConfig,
+
     /// Feature flags
     pub features: FeatureFlags,
 
@@ -143,6 +149,9 @@ pub struct NetworkConfig {
 }
 
 /// Security configuration
+///
+/// Consolidated from universal and unified modules - contains both transport
+/// security (TLS/mTLS) and application security (authentication/authorization).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     /// Enable security features
@@ -161,13 +170,37 @@ pub struct SecurityConfig {
     #[serde(default)]
     pub jwt_secret: Option<String>,
 
-    /// API keys (from environment)
+    /// JWT token expiration in seconds (from universal)
+    #[serde(default = "default_token_expiration")]
+    pub token_expiration_secs: u64,
+
+    /// API keys (from environment) - supports multiple keys
     #[serde(default)]
     pub api_keys: Vec<String>,
 
     /// Allowed origins for CORS
     #[serde(default)]
     pub allowed_origins: Vec<String>,
+
+    /// Enable TLS for transport security (from universal)
+    #[serde(default)]
+    pub tls_enabled: bool,
+
+    /// TLS certificate path (from universal)
+    #[serde(default)]
+    pub tls_cert_path: Option<String>,
+
+    /// TLS private key path (from universal)
+    #[serde(default)]
+    pub tls_key_path: Option<String>,
+
+    /// CA certificate path for mTLS (from universal)
+    #[serde(default)]
+    pub ca_cert_path: Option<String>,
+
+    /// Enable mutual TLS (mTLS) (from universal)
+    #[serde(default)]
+    pub mtls_enabled: bool,
 }
 
 /// MCP protocol configuration
@@ -238,15 +271,21 @@ pub struct ProviderConfig {
 }
 
 /// Service mesh configuration
+///
+/// Consolidated from universal and unified modules - contains best features from both.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceMeshConfig {
     /// Enable service mesh
     #[serde(default = "default_true")]
     pub enabled: bool,
 
-    /// Discovery endpoints
+    /// Discovery endpoints (from unified - supports multiple endpoints)
     #[serde(default)]
     pub discovery_endpoints: Vec<String>,
+
+    /// Service registry type (from universal - rich abstraction)
+    #[serde(default = "default_registry_type")]
+    pub registry_type: ServiceRegistryType,
 
     /// Maximum services to track
     #[serde(default = "default_max_services")]
@@ -256,9 +295,64 @@ pub struct ServiceMeshConfig {
     #[serde(default = "default_health_check_interval")]
     pub health_check_interval_secs: u64,
 
-    /// Enable automatic failover
+    /// Heartbeat interval in seconds (from universal - for active health checks)
+    #[serde(default = "default_heartbeat_interval")]
+    pub heartbeat_interval_secs: u64,
+
+    /// Service expiration timeout in seconds (from universal - when to remove stale services)
+    #[serde(default = "default_service_expiration")]
+    pub service_expiration_secs: u64,
+
+    /// Enable automatic failover (from unified)
     #[serde(default = "default_true")]
     pub enable_failover: bool,
+
+    /// Enable service mesh metrics (from universal)
+    #[serde(default = "default_true")]
+    pub metrics_enabled: bool,
+
+    /// Service mesh namespace (from universal - for multi-tenancy)
+    #[serde(default)]
+    pub namespace: Option<String>,
+}
+
+/// Service registry type
+///
+/// Defines how services are discovered and tracked. Moved from universal module.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ServiceRegistryType {
+    /// In-memory registry (default for development)
+    InMemory,
+    
+    /// File-based registry
+    File { 
+        /// Path to registry file
+        path: String 
+    },
+    
+    /// Network-based registry (e.g., Consul, etcd)
+    Network { 
+        /// Registry endpoints
+        endpoints: Vec<String> 
+    },
+    
+    /// Redis-based registry
+    Redis { 
+        /// Redis connection string
+        connection_string: String 
+    },
+    /// Database-based registry
+    Database { 
+        /// Database connection string
+        connection_string: String 
+    },
+    
+    /// Custom registry with flexible configuration
+    Custom { 
+        /// Custom configuration key-value pairs
+        config: HashMap<String, String> 
+    },
 }
 
 /// Monitoring configuration
@@ -309,6 +403,190 @@ pub struct FeatureFlags {
     pub custom: HashMap<String, bool>,
 }
 
+/// Database configuration
+///
+/// Consolidated from core/ and environment.rs modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseConfig {
+    /// Database connection string (env: DATABASE_URL)
+    #[serde(default = "default_database_url")]
+    pub connection_string: String,
+
+    /// Maximum number of connections (env: DB_MAX_CONNECTIONS)
+    #[serde(default = "default_max_db_connections")]
+    pub max_connections: u32,
+
+    /// Connection timeout in seconds (env: DB_TIMEOUT)
+    #[serde(default = "default_db_timeout")]
+    pub timeout_seconds: u64,
+
+    /// Database backend type
+    #[serde(default)]
+    pub backend: DatabaseBackend,
+
+    /// Enable connection pooling
+    #[serde(default = "default_true")]
+    pub enable_pooling: bool,
+
+    /// Pool size
+    #[serde(default = "default_pool_size")]
+    pub pool_size: u32,
+}
+
+/// Database backend options
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DatabaseBackend {
+    /// NestGate distributed storage
+    #[serde(rename = "nestgate")]
+    NestGate,
+    
+    /// PostgreSQL database
+    #[serde(rename = "postgres")]
+    PostgreSQL,
+    
+    /// SQLite database
+    #[serde(rename = "sqlite")]
+    SQLite,
+    
+    /// In-memory database (for testing)
+    #[serde(rename = "memory")]
+    Memory,
+}
+
+impl Default for DatabaseBackend {
+    fn default() -> Self {
+        DatabaseBackend::SQLite
+    }
+}
+
+/// Load balancing configuration
+///
+/// Migrated from universal/ system - provides sophisticated load balancing strategies.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadBalancingConfig {
+    /// Load balancing strategy
+    #[serde(default)]
+    pub strategy: LoadBalancingStrategy,
+
+    /// Enable sticky sessions
+    #[serde(default)]
+    pub sticky_sessions: bool,
+
+    /// Session affinity timeout (seconds)
+    #[serde(default = "default_session_timeout")]
+    pub session_timeout_secs: u64,
+
+    /// Circuit breaker configuration
+    #[serde(default)]
+    pub circuit_breaker: CircuitBreakerConfig,
+
+    /// Health-based routing
+    #[serde(default = "default_true")]
+    pub health_based_routing: bool,
+
+    /// Retry failed requests
+    #[serde(default = "default_true")]
+    pub retry_failed: bool,
+
+    /// Maximum retries
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
+}
+
+/// Load balancing strategy
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LoadBalancingStrategy {
+    /// Round robin distribution
+    RoundRobin,
+    
+    /// Random selection
+    Random,
+    
+    /// Least connections first
+    LeastConnections,
+    
+    /// Weighted round robin
+    WeightedRoundRobin,
+    
+    /// Health-based selection
+    HealthBased,
+    
+    /// Response time based
+    ResponseTime,
+    
+    /// Consistent hashing
+    ConsistentHash,
+}
+
+impl Default for LoadBalancingStrategy {
+    fn default() -> Self {
+        LoadBalancingStrategy::RoundRobin
+    }
+}
+
+/// Circuit breaker configuration (already in unified/, ensuring completeness)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitBreakerConfig {
+    /// Enable circuit breaker
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Failure threshold before opening circuit
+    #[serde(default = "default_failure_threshold")]
+    pub failure_threshold: u32,
+
+    /// Success threshold to close circuit
+    #[serde(default = "default_success_threshold")]
+    pub success_threshold: u32,
+
+    /// Timeout before attempting to close circuit (seconds)
+    #[serde(default = "default_circuit_timeout")]
+    pub timeout_secs: u64,
+
+    /// Half-open state max requests
+    #[serde(default = "default_half_open_requests")]
+    pub half_open_max_requests: u32,
+}
+
+impl Default for CircuitBreakerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            failure_threshold: default_failure_threshold(),
+            success_threshold: default_success_threshold(),
+            timeout_secs: default_circuit_timeout(),
+            half_open_max_requests: default_half_open_requests(),
+        }
+    }
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            connection_string: default_database_url(),
+            max_connections: default_max_db_connections(),
+            timeout_seconds: default_db_timeout(),
+            backend: DatabaseBackend::default(),
+            enable_pooling: true,
+            pool_size: default_pool_size(),
+        }
+    }
+}
+
+impl Default for LoadBalancingConfig {
+    fn default() -> Self {
+        Self {
+            strategy: LoadBalancingStrategy::default(),
+            sticky_sessions: false,
+            session_timeout_secs: default_session_timeout(),
+            circuit_breaker: CircuitBreakerConfig::default(),
+            health_based_routing: true,
+            retry_failed: true,
+            max_retries: default_max_retries(),
+        }
+    }
+}
+
 // Default value functions
 fn default_instance_id() -> String {
     uuid::Uuid::new_v4().to_string()
@@ -316,6 +594,54 @@ fn default_instance_id() -> String {
 
 fn default_log_level() -> String {
     std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string())
+}
+
+// Database defaults
+fn default_database_url() -> String {
+    std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite::memory:".to_string())
+}
+
+fn default_max_db_connections() -> u32 {
+    std::env::var("DB_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10)
+}
+
+fn default_db_timeout() -> u64 {
+    std::env::var("DB_TIMEOUT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30)
+}
+
+fn default_pool_size() -> u32 {
+    5
+}
+
+// Load balancing defaults
+fn default_session_timeout() -> u64 {
+    3600 // 1 hour
+}
+
+fn default_max_retries() -> u32 {
+    3
+}
+
+fn default_failure_threshold() -> u32 {
+    5
+}
+
+fn default_success_threshold() -> u32 {
+    3
+}
+
+fn default_circuit_timeout() -> u64 {
+    60
+}
+
+fn default_half_open_requests() -> u32 {
+    3
 }
 
 fn default_work_dir() -> PathBuf {
@@ -391,6 +717,22 @@ fn default_health_check_interval() -> u64 {
     30
 }
 
+fn default_heartbeat_interval() -> u64 {
+    15
+}
+
+fn default_service_expiration() -> u64 {
+    90
+}
+
+fn default_registry_type() -> ServiceRegistryType {
+    ServiceRegistryType::InMemory
+}
+
+fn default_token_expiration() -> u64 {
+    3600 // 1 hour
+}
+
 fn default_metrics_endpoint() -> String {
     "/metrics".to_string()
 }
@@ -425,8 +767,14 @@ impl Default for SquirrelUnifiedConfig {
                 require_authentication: true,
                 enable_authorization: true,
                 jwt_secret: std::env::var("JWT_SECRET").ok(),
+                token_expiration_secs: default_token_expiration(),
                 api_keys: vec![],
                 allowed_origins: vec!["*".to_string()],
+                tls_enabled: false,
+                tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
+                tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
+                ca_cert_path: std::env::var("CA_CERT_PATH").ok(),
+                mtls_enabled: false,
             },
             mcp: McpConfig {
                 version: default_mcp_version(),
@@ -445,9 +793,14 @@ impl Default for SquirrelUnifiedConfig {
             service_mesh: ServiceMeshConfig {
                 enabled: true,
                 discovery_endpoints: vec![],
+                registry_type: default_registry_type(),
                 max_services: default_max_services(),
                 health_check_interval_secs: default_health_check_interval(),
+                heartbeat_interval_secs: default_heartbeat_interval(),
+                service_expiration_secs: default_service_expiration(),
                 enable_failover: true,
+                metrics_enabled: true,
+                namespace: None,
             },
             timeouts: TimeoutConfig::default(),
             monitoring: MonitoringConfig {
@@ -457,6 +810,8 @@ impl Default for SquirrelUnifiedConfig {
                 enable_prometheus: true,
                 prometheus_port: default_prometheus_port(),
             },
+            database: DatabaseConfig::default(),
+            load_balancing: LoadBalancingConfig::default(),
             features: FeatureFlags {
                 experimental: false,
                 enable_plugins: true,
