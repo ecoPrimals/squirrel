@@ -1,0 +1,202 @@
+crates/config/src/compat.rs:pub trait ConfigManager {
+crates/integration/toadstool/src/lib.rs:pub trait PluginExecutor {
+crates/integration/api-clients/src/auth.rs:pub trait Authenticator: Send + Sync {
+crates/integration/api-clients/src/http/mod.rs:pub trait HttpClient: Send + Sync + 'static {
+crates/integration/api-clients/src/http/mod.rs:pub trait HttpClientExt: HttpClient {
+crates/integration/api-clients/src/http/middleware.rs:pub trait Middleware: Send + Sync + 'static {
+crates/integration/web/src/database.rs:pub trait DatabaseClient: Send + Sync {
+crates/adapter-pattern-examples/src/lib.rs:pub trait Command: Send + Sync + Debug {
+crates/adapter-pattern-examples/src/lib.rs:pub trait CommandAdapter: Send + Sync {
+crates/core/mcp/src/tool/management/mod.rs:pub trait ToolManager: Send + Sync {
+crates/core/mcp/src/tool/management/types.rs:pub trait ToolExecutor: fmt::Debug + Send + Sync {
+crates/core/mcp/src/tool/management/types.rs:pub trait ToolLifecycleHook: fmt::Debug + Send + Sync {
+crates/core/mcp/src/tool/lifecycle_refactored/recovery.rs:pub trait CustomRecoveryHandler: fmt::Debug + Send + Sync {
+crates/core/mcp/src/tool/cleanup/resource_manager.rs:pub trait ResourceManager: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/tool/cleanup/cleanup_hook.rs:pub trait CleanupHook: Send + Sync {
+crates/core/mcp/src/tool/cleanup/enhanced_recovery.rs:pub trait EnhancedRecoveryHandler: fmt::Debug + Send + Sync {
+crates/core/mcp/src/tool/cleanup/enhanced_recovery.rs:pub trait ToolManagerRecoveryExt {
+crates/core/mcp/src/tool/cleanup/comprehensive/types.rs:pub trait ResourceOperations {
+crates/core/mcp/src/server.rs:pub trait CommandHandler: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/server.rs:pub trait ConnectionHandler: Send + Sync {
+crates/core/mcp/src/sync/server.rs:pub trait SyncService {
+crates/core/mcp/src/monitoring/clients.rs:pub trait MonitoringClient: Send + Sync {
+crates/core/mcp/src/integration/types.rs:pub trait MessageHandler: Send + Sync {
+crates/core/mcp/src/adapter.rs:pub trait MCPInterface: Send + Sync {
+crates/core/mcp/src/enhanced/service_composition/types/orchestration.rs:pub trait OrchestrationStrategy: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/service_composition/types/service.rs:pub trait ServiceHealthChecker: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/service_composition/types/service.rs:pub trait ServiceDiscoveryProvider: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/service_composition/types/dependency.rs:pub trait DependencyResolver: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/memory_pool.rs:pub trait ObjectPool: std::fmt::Debug {
+crates/core/mcp/src/enhanced/memory_pool.rs:pub trait PooledObject: std::fmt::Debug {
+crates/core/mcp/src/enhanced/server.rs:pub trait PluginManagerInterface: Send + Sync {
+crates/core/mcp/src/enhanced/transport.rs:pub trait TransportService: Send + Sync {
+crates/core/mcp/src/enhanced/multi_agent/types.rs:pub trait CollaborationStrategy: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/multi_agent/types.rs:pub trait StepExecutor: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/streaming.rs:pub trait StreamHandle: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/coordinator/tools.rs:pub trait UniversalTool: Send + Sync {
+crates/core/mcp/src/enhanced/coordinator/tools.rs:pub trait PluginManagerInterface: Send + Sync {
+crates/core/mcp/src/enhanced/coordinator/tools.rs:pub trait ToolManagerInterface: Send + Sync {
+crates/core/mcp/src/enhanced/bidirectional_streaming.rs:pub trait BidirectionalStreamingClient: Send + Sync {
+crates/core/mcp/src/enhanced/bidirectional_streaming.rs:pub trait BidirectionalStreamingServer: Send + Sync {
+crates/core/mcp/src/enhanced/session.rs:pub trait SessionStorage: Send + Sync {
+crates/core/mcp/src/enhanced/providers.rs:pub trait ProviderConfig: Send + Sync {
+crates/core/mcp/src/enhanced/providers.rs:pub trait UniversalAIProvider: Send + Sync {
+crates/core/mcp/src/enhanced/serialization/codecs.rs:pub trait FastCodec {
+crates/core/mcp/src/enhanced/metrics/collector.rs:pub trait ComponentMetricsCollector: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/metrics/exporter.rs:pub trait MetricsExporter: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/enhanced/metrics/alerts/mod.rs:pub trait AlertProcessor: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/session/mod.rs:pub trait SessionManager: Send + Sync {
+crates/core/mcp/src/chat_history.rs:pub trait ChatHistoryClient {
+crates/core/mcp/src/protocol/adapter_wire.rs:pub trait WireFormat {
+crates/core/mcp/src/protocol/adapter_wire.rs:pub trait DomainObject {
+crates/core/mcp/src/protocol/mod.rs:pub trait MCPProtocol: Send + Sync {
+crates/core/mcp/src/protocol/types.rs:pub trait MessageHandler: Send + Sync {
+crates/core/mcp/src/client/event.rs:pub trait EventHandler: Send + Sync {
+crates/core/mcp/src/port/mod.rs:pub trait ConnectionHandler: Send + Sync {
+crates/core/mcp/src/plugins/registry.rs:pub trait PluginRegistry: Send + Sync {
+crates/core/mcp/src/plugins/integration.rs:pub trait McpPluginToolId {
+crates/core/mcp/src/plugins/interfaces.rs:pub trait Plugin: Send + Sync + Debug {
+crates/core/mcp/src/plugins/interfaces.rs:pub trait McpPlugin: Plugin {
+crates/core/mcp/src/plugins/interfaces.rs:pub trait PluginManagerInterface: Send + Sync + Debug {
+crates/core/mcp/src/plugins/loader.rs:pub trait PluginLoader {
+crates/core/mcp/src/observability/tracing/external/traits.rs:pub trait SpanExporter: Send + Sync {
+crates/core/mcp/src/observability/exporters/dashboard_integration.rs:pub trait DashboardDataExporter: Send + Sync {
+crates/core/mcp/src/observability/exporters/dashboard_exporter.rs:        pub trait DashboardDataProvider {
+crates/core/mcp/src/observability/exporters/dashboard_exporter.rs:        pub trait MonitoringDataAdapter {
+crates/core/mcp/src/task/server/types.rs:pub trait SimpleCommand: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/transport/mod.rs:pub trait Transport: Send + Sync {
+crates/core/mcp/src/transport/frame.rs:pub trait FrameCodec: Send + Sync + std::fmt::Debug {
+crates/core/mcp/src/transport/frame.rs:pub trait FrameStream: Send + Sync {
+crates/core/mcp/src/error/context_trait.rs:pub trait ErrorContextTrait {
+crates/core/mcp/src/error/context_trait.rs:pub trait WithContext: Sized {
+crates/core/mcp/src/error/context_trait.rs:pub trait ResultContextExt<T, E> {
+crates/core/mcp/src/error/production.rs:pub trait IntoProductionError {
+crates/core/mcp/src/resilience/mod.rs:pub trait RetryPolicy: Send + Sync {
+crates/core/mcp/src/resilience/health/mod.rs:pub trait HealthCheck: std::fmt::Debug + Send + Sync {
+crates/core/mcp/src/resilience/health/mod.rs:pub trait HealthCheckExt: HealthCheck {
+crates/core/mcp/src/resilience/health/monitoring_bridge.rs:pub trait MonitoringAdapter: std::fmt::Debug + Send + Sync {
+crates/core/mcp/src/resilience/circuit_breaker/breaker.rs:pub trait CircuitBreaker: Send + Sync {
+crates/core/mcp/src/resilience/circuit_breaker/state.rs:pub trait CircuitBreakerState: Send + Sync {
+crates/core/mcp/src/message_router/mod.rs:pub trait AsyncMessageHandler: Send + Sync {
+crates/core/mcp/src/message_router/mod.rs:pub trait MessageHandler: Send + Sync + std::fmt::Debug {
+crates/core/interfaces/src/context.rs:pub trait ContextTransformation: Send + Sync + Debug {
+crates/core/interfaces/src/context.rs:pub trait ContextPlugin: Plugin + Send + Sync {
+crates/core/interfaces/src/context.rs:pub trait ContextAdapterPlugin: Plugin + Send + Sync + Debug {
+crates/core/interfaces/src/context.rs:pub trait ContextManager: Send + Sync {
+crates/core/interfaces/src/tracing.rs:pub trait TraceDataConsumer: Send + Sync {
+crates/core/interfaces/src/tracing.rs:pub trait TraceDataProvider: Send + Sync {
+crates/core/interfaces/src/error.rs:pub trait IntoSquirrelError {
+crates/core/interfaces/src/plugins.rs:pub trait Plugin: Send + Sync + Debug {
+crates/core/interfaces/src/plugins.rs:pub trait CommandsPlugin: Plugin {
+crates/core/interfaces/src/plugins.rs:pub trait PluginRegistry: Send + Sync {
+crates/core/interfaces/src/plugins.rs:pub trait PluginFactory: Send + Sync {
+crates/core/plugins/src/registry.rs:pub trait PluginRegistry: Send + Sync {
+crates/core/plugins/src/monitoring/mod.rs:pub trait MonitoringPlugin: Plugin {
+crates/core/plugins/src/traits.rs:pub trait PluginManagerTrait: PluginRegistry {
+crates/core/plugins/src/web/mod.rs:pub trait WebPlugin: Plugin {
+crates/core/plugins/src/web/adapter.rs:pub trait LegacyWebPluginTrait: Plugin + Send + Sync {
+crates/core/plugins/src/types.rs:pub trait CorePlugin: Plugin {
+crates/core/plugins/src/types.rs:pub trait WebPlugin: Plugin {
+crates/core/plugins/src/types.rs:pub trait McpPlugin: Plugin {
+crates/core/plugins/src/types.rs:pub trait ToolPlugin: Plugin {
+crates/core/plugins/src/types.rs:pub trait CliPlugin: Plugin {
+crates/core/plugins/src/plugins/marketplace.rs:pub trait RepositoryProvider: Send + Sync {
+crates/core/plugins/src/cli/mod.rs:pub trait CliPlugin: Plugin {
+crates/core/plugins/src/plugin_v2.rs:pub trait PluginV2: Send + Sync + std::fmt::Debug {
+crates/core/plugins/src/plugin_v2.rs:pub trait WebPluginExtV2: PluginV2 {
+crates/core/plugins/src/context/mod.rs:pub trait ContextPlugin: Plugin {
+crates/core/plugins/src/context_adapter/mod.rs:pub trait ContextAdapterPlugin: Plugin {
+crates/core/plugins/src/state.rs:pub trait PluginStateManager: Send + Sync + Debug {
+crates/core/plugins/src/performance_optimizer.rs:pub trait ZeroCopyPool: Send + Sync + std::fmt::Debug {
+crates/core/plugins/src/distribution/mod.rs:pub trait PluginDistribution: Send + Sync + Debug {
+crates/core/plugins/src/zero_copy.rs:pub trait ZeroCopyPlugin: Send + Sync + 'static {
+crates/core/plugins/src/tools/mod.rs:pub trait ToolPlugin: Plugin {
+crates/core/plugins/src/discovery.rs:pub trait PluginLoader: Send + Sync {
+crates/core/plugins/src/discovery.rs:pub trait PluginDiscovery: Send + Sync {
+crates/core/plugins/src/app/mod.rs:pub trait AppPlugin: Plugin {
+crates/core/plugins/src/plugin.rs:pub trait Plugin: Send + Sync {
+crates/core/plugins/src/plugin.rs:pub trait WebPluginExt: Plugin {
+crates/core/core/src/lib.rs:pub trait PrimalCoordinator {
+crates/core/core/src/lib.rs:pub trait McpRouter {
+crates/core/core/src/lib.rs:pub trait SwarmManager {
+crates/core/core/src/lib.rs:pub trait SongbirdLoadBalancerIntegration {
+crates/core/core/src/lib.rs:pub trait EnhancedMcpRouter: McpRouter + SongbirdLoadBalancerIntegration {
+crates/core/core/src/service_discovery/trait_.rs:pub trait ServiceDiscovery: Send + Sync {
+crates/core/core/src/monitoring.rs:pub trait MonitoringProvider: Send + Sync {
+crates/core/context/src/rules/mod.rs:pub trait ContextPlugin: Send + Sync + std::fmt::Debug {
+crates/core/context/src/rules/mod.rs:pub trait ContextAdapter: Send + Sync + std::fmt::Debug {
+crates/core/context/src/rules/plugin.rs:pub trait ConditionEvaluator: Send + Sync + Debug {
+crates/core/context/src/rules/plugin.rs:pub trait ActionExecutor: Send + Sync + Debug {
+crates/core/context/src/mod.rs:pub trait ContextSubscriber: Send + Sync + Debug {
+crates/core/context/src/learning/reward.rs:pub trait RewardCalculator: Send + Sync + std::fmt::Debug {
+crates/core/context/src/learning/experience.rs:pub trait Experience: Send + Sync {
+crates/core/context/src/state/mod.rs:pub trait StateStorage {
+crates/core/auth/src/services.rs:pub trait AuthenticationService: Send + Sync {
+crates/main/src/universal_adapters/registry.rs:pub trait UniversalServiceRegistry: Send + Sync {
+crates/main/src/universal_adapters/mod.rs:pub trait UniversalServiceProvider: Send + Sync {
+crates/main/src/optimization/zero_copy/collection_utils.rs:pub trait ZeroCopyMapExt<V> {
+crates/main/src/optimization/zero_copy/collection_utils.rs:pub trait ZeroCopySetExt {
+crates/main/src/monitoring/exporters.rs:pub trait MetricsExporter: Send + Sync {
+crates/main/src/session/mod.rs:pub trait SessionManager: Send + Sync {
+crates/main/src/security/traits.rs:pub trait SecurityCoordinator: Send + Sync {
+crates/main/src/universal.rs:pub trait UniversalPrimalProvider: Send + Sync {
+crates/main/src/universal.rs:pub trait UniversalSecurityProvider: Send + Sync {
+crates/main/src/shutdown.rs:pub trait ShutdownHandler: Send + Sync {
+crates/universal-patterns/src/federation/universal_executor.rs:pub trait UniversalExecutor: Send + Sync {
+crates/universal-patterns/src/federation/universal_executor.rs:pub trait PlatformExecutor: Send + Sync {
+crates/universal-patterns/src/federation/mod.rs:pub trait FederationNetwork: Send + Sync {
+crates/universal-patterns/src/federation/mod.rs:pub trait ConsensusManager: Send + Sync {
+crates/universal-patterns/src/federation/mod.rs:pub trait SovereignDataManager: Send + Sync {
+crates/universal-patterns/src/federation/mod.rs:pub trait CrossPlatformExecutor: Send + Sync {
+crates/universal-patterns/src/federation/federation_network.rs:pub trait NetworkConnection: Send + Sync {
+crates/universal-patterns/src/federation/sovereign_data.rs:pub trait EncryptionKeyManager: Send + Sync {
+crates/universal-patterns/src/federation/sovereign_data.rs:pub trait AccessControlManager: Send + Sync {
+crates/universal-patterns/src/security/traits.rs:pub trait SecurityProvider: Send + Sync {
+crates/universal-patterns/src/security/traits.rs:pub trait UniversalSecurityProvider: Send + Sync {
+crates/universal-patterns/src/security/providers.rs:pub trait UniversalSecurityService: Send + Sync {
+crates/universal-patterns/src/security/providers.rs:pub trait UniversalSecurityProvider: UniversalSecurityService {}
+crates/universal-patterns/src/security/zero_copy.rs:pub trait ZeroCopySecurityProvider: Send + Sync {
+crates/universal-patterns/src/orchestration/mod.rs:pub trait OrchestrationProvider: Send + Sync {
+crates/universal-patterns/src/traits/mod.rs:pub trait Primal: Send + Sync {
+crates/universal-patterns/src/traits/mod.rs:pub trait PrimalProvider: Send + Sync {
+crates/sdk/src/lib.rs:pub trait Plugin: Sized {
+crates/sdk/src/communication/commands.rs:pub trait CommandHandler: Send + Sync + std::fmt::Debug {
+crates/sdk/src/communication/events.rs:pub trait EventListener: Send + Sync + std::fmt::Debug {
+crates/sdk/src/core/plugin.rs:pub trait WasmPlugin: Send + Sync {
+crates/sdk/src/core/plugin.rs:pub trait PluginFactory {
+crates/sdk/src/infrastructure/error/context.rs:pub trait PluginErrorExt {
+crates/sdk/src/infrastructure/error/context.rs:pub trait ResultExt<T> {
+crates/sdk/src/infrastructure/error/severity.rs:pub trait PluginErrorClassification {
+crates/services/commands/src/registry.rs:pub trait Command: Send + Sync {
+crates/services/commands/src/mod.rs:pub trait Command: Send + Sync {
+crates/services/commands/src/transaction.rs:pub trait RollbackHandler: Send + Sync {
+crates/services/commands/src/history.rs:pub trait HistoryReplay {
+crates/services/commands/src/factory.rs:pub trait CommandRegistryFactory: fmt::Debug {
+crates/services/commands/src/lifecycle.rs:pub trait LifecycleHook: Send + Sync + std::fmt::Debug {
+crates/services/commands/src/hooks.rs:pub trait Hook: Send + Sync {
+crates/services/commands/src/hooks.rs:pub trait CommandProcessor: Send + Sync + Debug {
+crates/services/commands/src/journal.rs:pub trait JournalPersistence: Send + Sync {
+crates/services/commands/src/validation.rs:pub trait ValidationRule: Send + Sync + std::fmt::Debug {
+crates/ecosystem-api/src/traits.rs:pub trait UniversalPrimalProvider: Send + Sync {
+crates/ecosystem-api/src/traits.rs:pub trait EcosystemIntegration: Send + Sync {
+crates/ecosystem-api/src/traits.rs:pub trait ServiceMeshClient: Send + Sync {
+crates/ecosystem-api/src/traits.rs:pub trait AIProvider: Send + Sync {
+crates/ecosystem-api/src/traits.rs:pub trait PrimalFactory: Send + Sync {
+crates/ecosystem-api/src/traits.rs:pub trait ConfigProvider: Send + Sync {
+crates/tools/rule-system/src/directory.rs:pub trait FileWatcher: Send + Sync {
+crates/tools/rule-system/src/actions.rs:pub trait ActionPlugin: Send + Sync + std::fmt::Debug {
+crates/tools/rule-system/src/evaluator.rs:pub trait ConditionEvaluator: Send + Sync + std::fmt::Debug {
+crates/tools/ai-tools/src/providers/mod.rs:pub trait ProviderPlugin: Send + Sync + 'static {
+crates/tools/ai-tools/src/providers/mod.rs:pub trait ConfigValidator {
+crates/tools/ai-tools/src/openai/models.rs:pub trait OpenAIModel {
+crates/tools/ai-tools/src/common/client.rs:pub trait AIClient: Send + Sync + std::fmt::Debug + 'static {
+crates/tools/ai-tools/src/common/client.rs:pub trait AIClientFactory {
+crates/tools/ai-tools/src/common/client.rs:pub trait ClientConfig {
+crates/tools/ai-tools/src/common/providers.rs:pub trait AIProvider: Send + Sync + std::fmt::Debug {
+crates/tools/ai-tools/src/router/types.rs:pub trait MCPInterface: Send + Sync + 'static {
+crates/tools/ai-tools/src/router/types.rs:pub trait TryFlattenStreamExt {
+crates/tools/ai-tools/src/local/mod.rs:pub trait LocalModelProvider: Send + Sync + std::fmt::Debug {
+crates/tools/cli/src/commands/mod.rs:    pub trait CommandAdapterTrait {
+crates/tools/cli/src/plugins/discovery.rs:pub trait PluginDiscovery {
+crates/tools/cli/src/plugins/plugin.rs:pub trait Plugin: Send + Sync + 'static {
+crates/tools/cli/src/plugins/plugin.rs:pub trait PluginFactory: Send + Sync + 'static {
