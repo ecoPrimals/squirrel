@@ -4,9 +4,9 @@
 //! Complex authentication and authorization moved to BearDog.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::Arc;
 use std::time::SystemTime;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -26,19 +26,18 @@ pub struct Session {
 }
 
 /// Session management interface
-#[async_trait]
 pub trait SessionManager: Send + Sync {
     /// Create a new session
-    async fn create_session(&self, metadata: HashMap<String, String>) -> Result<Session>;
+    fn create_session(&self, metadata: HashMap<String, String>) -> impl Future<Output = Result<Session>> + Send;
     
     /// Get session by ID
-    async fn get_session(&self, id: &str) -> Result<Option<Session>>;
+    fn get_session(&self, id: &str) -> impl Future<Output = Result<Option<Session>>> + Send;
     
     /// Update session activity
-    async fn update_activity(&self, id: &str) -> Result<()>;
+    fn update_activity(&self, id: &str) -> impl Future<Output = Result<()>> + Send;
     
     /// Remove session
-    async fn remove_session(&self, id: &str) -> Result<()>;
+    fn remove_session(&self, id: &str) -> impl Future<Output = Result<()>> + Send;
 }
 
 /// Simple session manager implementation
@@ -54,38 +53,52 @@ impl CoreSessionManager {
     }
 }
 
-#[async_trait]
 impl SessionManager for CoreSessionManager {
-    async fn create_session(&self, metadata: HashMap<String, String>) -> Result<Session> {
-        let session = Session {
-            id: Uuid::new_v4().to_string(),
-            created_at: SystemTime::now(),
-            last_activity: SystemTime::now(),
-            metadata,
-        };
-        
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session.id.clone(), session.clone());
-        
-        Ok(session)
-    }
-    
-    async fn get_session(&self, id: &str) -> Result<Option<Session>> {
-        let sessions = self.sessions.read().await;
-        Ok(sessions.get(id).cloned())
-    }
-    
-    async fn update_activity(&self, id: &str) -> Result<()> {
-        let mut sessions = self.sessions.write().await;
-        if let Some(session) = sessions.get_mut(id) {
-            session.last_activity = SystemTime::now();
+    fn create_session(&self, metadata: HashMap<String, String>) -> impl Future<Output = Result<Session>> + Send {
+        let sessions = self.sessions.clone();
+        async move {
+            let session = Session {
+                id: Uuid::new_v4().to_string(),
+                created_at: SystemTime::now(),
+                last_activity: SystemTime::now(),
+                metadata,
+            };
+            
+            let mut sessions = sessions.write().await;
+            sessions.insert(session.id.clone(), session.clone());
+            
+            Ok(session)
         }
-        Ok(())
     }
     
-    async fn remove_session(&self, id: &str) -> Result<()> {
-        let mut sessions = self.sessions.write().await;
-        sessions.remove(id);
-        Ok(())
+    fn get_session(&self, id: &str) -> impl Future<Output = Result<Option<Session>>> + Send {
+        let sessions = self.sessions.clone();
+        let id = id.to_string();
+        async move {
+            let sessions = sessions.read().await;
+            Ok(sessions.get(&id).cloned())
+        }
+    }
+    
+    fn update_activity(&self, id: &str) -> impl Future<Output = Result<()>> + Send {
+        let sessions = self.sessions.clone();
+        let id = id.to_string();
+        async move {
+            let mut sessions = sessions.write().await;
+            if let Some(session) = sessions.get_mut(&id) {
+                session.last_activity = SystemTime::now();
+            }
+            Ok(())
+        }
+    }
+    
+    fn remove_session(&self, id: &str) -> impl Future<Output = Result<()>> + Send {
+        let sessions = self.sessions.clone();
+        let id = id.to_string();
+        async move {
+            let mut sessions = sessions.write().await;
+            sessions.remove(&id);
+            Ok(())
+        }
     }
 } 
