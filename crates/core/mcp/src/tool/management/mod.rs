@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use crate::error::Result;
 
@@ -23,25 +22,24 @@ pub use builder::*;
 pub use manager::*;
 
 /// Core tool management interface (simplified for MCP core)
-#[async_trait]
 pub trait ToolManager: Send + Sync {
     /// Register a new tool
-    async fn register_tool(&self, tool: types::Tool) -> Result<(), crate::tool::management::types::ToolError>;
+    fn register_tool(&self, tool: types::Tool) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send;
     
     /// Execute a tool with given parameters
-    async fn execute_tool(&self, tool_name: &str, parameters: serde_json::Value) -> Result<serde_json::Value>;
+    fn execute_tool(&self, tool_name: &str, parameters: serde_json::Value) -> impl std::future::Future<Output = Result<serde_json::Value>> + Send;
     
     /// Get basic tool information
-    async fn get_tool(&self, id: &str) -> Result<Option<ToolInfo>>;
+    fn get_tool(&self, id: &str) -> impl std::future::Future<Output = Result<Option<ToolInfo>>> + Send;
     
     /// List available tools
-    async fn list_tools(&self) -> Result<Vec<ToolInfo>>;
+    fn list_tools(&self) -> impl std::future::Future<Output = Result<Vec<ToolInfo>>> + Send;
     
     /// Unregister a tool
-    async fn unregister_tool(&self, tool_id: &str) -> Result<(), crate::tool::management::types::ToolError>;
+    fn unregister_tool(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send;
     
     /// Recover a tool
-    async fn recover_tool(&self, tool_id: &str) -> Result<(), crate::tool::management::types::ToolError>;
+    fn recover_tool(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send;
 }
 
 /// Basic tool information for MCP core
@@ -74,48 +72,65 @@ impl CoreToolManager {
     }
 }
 
-#[async_trait]
 impl ToolManager for CoreToolManager {
-    async fn register_tool(&self, tool: types::Tool) -> Result<(), crate::tool::management::types::ToolError> {
-        let tool_info = ToolInfo {
-            id: tool.id.clone(),
-            name: tool.name.clone(),
-            description: tool.description.clone(),
-            version: tool.version.clone(),
-        };
-        
-        let mut tools = self.tools.write().await;
-        if tools.contains_key(&tool.id) {
-            return Err(crate::tool::management::types::ToolError::AlreadyRegistered(tool.id));
+    fn register_tool(&self, tool: types::Tool) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send {
+        let tools = Arc::clone(&self.tools);
+        async move {
+            let tool_info = ToolInfo {
+                id: tool.id.clone(),
+                name: tool.name.clone(),
+                description: tool.description.clone(),
+                version: tool.version.clone(),
+            };
+            
+            let mut tools = tools.write().await;
+            if tools.contains_key(&tool.id) {
+                return Err(crate::tool::management::types::ToolError::AlreadyRegistered(tool.id));
+            }
+            
+            tools.insert(tool.id.clone(), tool_info);
+            Ok(())
         }
-        
-        tools.insert(tool.id.clone(), tool_info);
-        Ok(())
     }
     
-    async fn execute_tool(&self, _tool_name: &str, _parameters: serde_json::Value) -> Result<serde_json::Value> {
-        // Simplified implementation for core MCP
-        Ok(serde_json::Value::Null)
+    fn execute_tool(&self, _tool_name: &str, _parameters: serde_json::Value) -> impl std::future::Future<Output = Result<serde_json::Value>> + Send {
+        async move {
+            // Simplified implementation for core MCP
+            Ok(serde_json::Value::Null)
+        }
     }
     
-    async fn get_tool(&self, id: &str) -> Result<Option<ToolInfo>> {
-        let tools = self.tools.read().await;
-        Ok(tools.get(id).cloned())
+    fn get_tool(&self, id: &str) -> impl std::future::Future<Output = Result<Option<ToolInfo>>> + Send {
+        let tools = Arc::clone(&self.tools);
+        let id = id.to_string();
+        async move {
+            let tools = tools.read().await;
+            Ok(tools.get(&id).cloned())
+        }
     }
     
-    async fn list_tools(&self) -> Result<Vec<ToolInfo>> {
-        let tools = self.tools.read().await;
-        Ok(tools.values().cloned().collect())
+    fn list_tools(&self) -> impl std::future::Future<Output = Result<Vec<ToolInfo>>> + Send {
+        let tools = Arc::clone(&self.tools);
+        async move {
+            let tools = tools.read().await;
+            Ok(tools.values().cloned().collect())
+        }
     }
     
-    async fn unregister_tool(&self, tool_id: &str) -> Result<(), crate::tool::management::types::ToolError> {
-        let mut tools = self.tools.write().await;
-        tools.remove(tool_id);
-        Ok(())
+    fn unregister_tool(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send {
+        let tools = Arc::clone(&self.tools);
+        let tool_id = tool_id.to_string();
+        async move {
+            let mut tools = tools.write().await;
+            tools.remove(&tool_id);
+            Ok(())
+        }
     }
     
-    async fn recover_tool(&self, _tool_id: &str) -> Result<(), crate::tool::management::types::ToolError> {
-        // Simplified implementation for core MCP
-        Ok(())
+    fn recover_tool(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), crate::tool::management::types::ToolError>> + Send {
+        async move {
+            // Simplified implementation for core MCP
+            Ok(())
+        }
     }
 } 
