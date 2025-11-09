@@ -7,7 +7,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 use reqwest;
-use async_trait::async_trait;
+// Phase 4: Removed async_trait - using native async fn in traits
+use std::future::Future;
 use serde::{Serialize, Deserialize};
 use tracing::{debug, info};
 use std::collections::HashMap;
@@ -78,22 +79,21 @@ impl Default for DashboardIntegrationConfig {
 }
 
 /// Common trait for dashboard data exporters
-#[async_trait]
 pub trait DashboardDataExporter: Send + Sync {
     /// Export metrics to the dashboard
-    async fn export_metrics(&self, metrics: Vec<MetricData>) -> ObservabilityResult<()>;
+    fn export_metrics(&self, metrics: Vec<MetricData>) -> impl Future<Output = ObservabilityResult<()>> + Send;
     
     /// Export traces to the dashboard
-    async fn export_traces(&self, traces: Vec<TraceData>) -> ObservabilityResult<()>;
+    fn export_traces(&self, traces: Vec<TraceData>) -> impl Future<Output = ObservabilityResult<()>> + Send;
     
     /// Export health data to the dashboard
-    async fn export_health(&self, health: HealthData) -> ObservabilityResult<()>;
+    fn export_health(&self, health: HealthData) -> impl Future<Output = ObservabilityResult<()>> + Send;
     
     /// Export alerts to the dashboard
-    async fn export_alerts(&self, alerts: Vec<AlertData>) -> ObservabilityResult<()>;
+    fn export_alerts(&self, alerts: Vec<AlertData>) -> impl Future<Output = ObservabilityResult<()>> + Send;
     
     /// Shutdown the exporter
-    async fn shutdown(&self) -> ObservabilityResult<()>;
+    fn shutdown(&self) -> impl Future<Output = ObservabilityResult<()>> + Send;
 }
 
 /// Data structure for metric information sent to dashboard
@@ -468,22 +468,23 @@ impl DashboardCoreConsumer {
 }
 
 #[cfg(feature = "dashboard")]
-#[async_trait]
 impl TraceDataConsumer for DashboardCoreConsumer {
-    async fn consume_trace_data(&self, trace_data: squirrel_interfaces::tracing::TraceData) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // In a real implementation, this would convert the trace data
-        // to the api-server format and send it to the dashboard
-        
-        info!("Would send trace data to api-server: {} spans in trace", 
-            trace_data.spans.len());
+    fn consume_trace_data(&self, trace_data: squirrel_interfaces::tracing::TraceData) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send {
+        async move {
+            // In a real implementation, this would convert the trace data
+            // to the api-server format and send it to the dashboard
             
-        // For testing, just log the trace data
-        for span in &trace_data.spans {
-            debug!("Span: {} - {} (parent: {:?})", 
-                span.name, span.id, span.parent_id);
+            info!("Would send trace data to api-server: {} spans in trace", 
+                trace_data.spans.len());
+                
+            // For testing, just log the trace data
+            for span in &trace_data.spans {
+                debug!("Span: {} - {} (parent: {:?})", 
+                    span.name, span.id, span.parent_id);
+            }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 }
 
