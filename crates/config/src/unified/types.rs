@@ -152,6 +152,8 @@ pub struct NetworkConfig {
 ///
 /// Consolidated from universal and unified modules - contains both transport
 /// security (TLS/mTLS) and application security (authentication/authorization).
+///
+/// **Nov 9, 2025 Update**: Consolidated additional fields from MCP config and security manager.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     /// Enable security features
@@ -201,6 +203,50 @@ pub struct SecurityConfig {
     /// Enable mutual TLS (mTLS) (from universal)
     #[serde(default)]
     pub mtls_enabled: bool,
+
+    // ===== Consolidated from MCP modules (Nov 9, 2025) =====
+
+    /// Default encryption format for MCP protocol
+    ///
+    /// **Consolidated from**: `crates/core/mcp/src/config/mod.rs`
+    ///
+    /// Specifies the encryption algorithm for MCP protocol encryption.
+    /// Default: "AES256GCM"
+    #[serde(default = "default_encryption_format")]
+    pub encryption_default_format: String,
+
+    /// Enable audit logging
+    ///
+    /// **Consolidated from**: `crates/core/mcp/src/security/manager.rs`
+    ///
+    /// Controls whether security events are logged for audit purposes.
+    #[serde(default = "default_true")]
+    pub enable_audit: bool,
+
+    /// Enable encryption features
+    ///
+    /// **Consolidated from**: `crates/core/mcp/src/security/manager.rs`
+    ///
+    /// Master toggle for encryption features in the security subsystem.
+    #[serde(default = "default_true")]
+    pub enable_encryption: bool,
+
+    /// Enable RBAC (Role-Based Access Control)
+    ///
+    /// **Consolidated from**: `crates/core/mcp/src/security/manager.rs`
+    ///
+    /// Controls whether RBAC enforcement is enabled.
+    #[serde(default = "default_true")]
+    pub enable_rbac: bool,
+
+    /// Token expiry in minutes
+    ///
+    /// **Consolidated from**: `crates/core/mcp/src/security/manager.rs`
+    ///
+    /// Default expiration time for security tokens.
+    /// Default: 60 minutes
+    #[serde(default = "default_token_expiry_minutes")]
+    pub token_expiry_minutes: u64,
 }
 
 /// MCP protocol configuration
@@ -733,6 +779,15 @@ fn default_token_expiration() -> u64 {
     3600 // 1 hour
 }
 
+// Security config defaults (Nov 9, 2025 consolidation)
+fn default_encryption_format() -> String {
+    "AES256GCM".to_string()
+}
+
+fn default_token_expiry_minutes() -> u64 {
+    60 // 1 hour in minutes
+}
+
 fn default_metrics_endpoint() -> String {
     "/metrics".to_string()
 }
@@ -775,6 +830,12 @@ impl Default for SquirrelUnifiedConfig {
                 tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
                 ca_cert_path: std::env::var("CA_CERT_PATH").ok(),
                 mtls_enabled: false,
+                // Consolidated fields (Nov 9, 2025)
+                encryption_default_format: default_encryption_format(),
+                enable_audit: true,
+                enable_encryption: true,
+                enable_rbac: true,
+                token_expiry_minutes: default_token_expiry_minutes(),
             },
             mcp: McpConfig {
                 version: default_mcp_version(),
