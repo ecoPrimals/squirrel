@@ -3,7 +3,6 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde_json::{json};
-use async_trait::async_trait;
 use tracing::{info, error, warn, instrument, debug};
 use std::time::Duration;
 
@@ -341,40 +340,42 @@ impl CoreMCPAdapter {
 }
 
 // Implementation of the message handling trait
-#[async_trait]
 impl crate::integration::types::MessageHandler for CoreMCPAdapter {
-    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse> {
-        info!("CoreMCPAdapter: Handling message: {}", message.id.0);
-        
-        match message.type_ {
-            MessageType::Command => self.handle_command_message(&message).await,
-            MessageType::Sync => self.handle_sync_message(&message).await,
-            MessageType::Event => {
-                // Just acknowledge events
-                Ok(self.create_success_response(json!({ "status": "acknowledged" }), Some(message.id.clone())))
-            },
-            MessageType::Error => {
-                // Log errors but don't do much else
-                let error_details = message.payload.get("error")
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|| "Unknown error".to_string());
-                
-                warn!("Received error message: {}", error_details);
-                Ok(MCPResponse {
-                    protocol_version: message.version.version_string(),
-                    message_id: message.id.clone(),
-                    status: ResponseStatus::Error,
-                    payload: vec![json!({"error": error_details})],
-                    error_message: Some(error_details),
-                    metadata: MessageMetadata::default(),
-                })
-            },
-            _ => {
-                warn!("Unsupported message type: {:?}", message.type_);
-                Ok(self.create_error_response(
-                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)).into(),
-                    Some(message.id.clone())
-                ))
+    fn handle_message(&self, message: MCPMessage) -> impl std::future::Future<Output = MCPResult<MCPResponse>> + Send {
+        let adapter = self.clone();
+        async move {
+            info!("CoreMCPAdapter: Handling message: {}", message.id.0);
+            
+            match message.type_ {
+                MessageType::Command => adapter.handle_command_message(&message).await,
+                MessageType::Sync => adapter.handle_sync_message(&message).await,
+                MessageType::Event => {
+                    // Just acknowledge events
+                    Ok(adapter.create_success_response(json!({ "status": "acknowledged" }), Some(message.id.clone())))
+                },
+                MessageType::Error => {
+                    // Log errors but don't do much else
+                    let error_details = message.payload.get("error")
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "Unknown error".to_string());
+                    
+                    warn!("Received error message: {}", error_details);
+                    Ok(MCPResponse {
+                        protocol_version: message.version.version_string(),
+                        message_id: message.id.clone(),
+                        status: ResponseStatus::Error,
+                        payload: vec![json!({"error": error_details})],
+                        error_message: Some(error_details),
+                        metadata: MessageMetadata::default(),
+                    })
+                },
+                _ => {
+                    warn!("Unsupported message type: {:?}", message.type_);
+                    Ok(adapter.create_error_response(
+                        MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)).into(),
+                        Some(message.id.clone())
+                    ))
+                }
             }
         }
     }

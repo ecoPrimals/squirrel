@@ -104,7 +104,6 @@ pub struct SecurityContext {
 ///
 /// Defines the interface for components that need to handle MCP messages,
 /// providing a uniform way to process incoming messages and generate responses.
-#[async_trait]
 pub trait MessageHandler: Send + Sync {
     /// Handles an incoming MCP message and produces a response
     ///
@@ -115,5 +114,5 @@ pub trait MessageHandler: Send + Sync {
     /// # Returns
     ///
     /// A result containing the response message or an error
-    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse>;
+    fn handle_message(&self, message: MCPMessage) -> impl std::future::Future<Output = MCPResult<MCPResponse>> + Send;
 } 
