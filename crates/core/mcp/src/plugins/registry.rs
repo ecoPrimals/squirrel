@@ -1,7 +1,8 @@
 use crate::plugins::interfaces::Plugin;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use async_trait::async_trait;
+// Phase 4: Removed async_trait - using native async fn in traits
+use std::future::Future;
 
 use crate::plugins::interfaces::{PluginMetadata};
 use crate::plugins::types::PluginId;
@@ -9,25 +10,24 @@ use crate::error::{Result};
 use crate::error::plugin::PluginError;
 
 /// A registry for managing plugins
-#[async_trait]
 pub trait PluginRegistry: Send + Sync {
     /// Register a plugin with the registry
-    async fn register(&self, plugin: Box<dyn Plugin>) -> Result<()>;
+    fn register(&self, plugin: Box<dyn Plugin>) -> impl Future<Output = Result<()>> + Send;
     
     /// Unregister a plugin from the registry
-    async fn unregister(&self, id: &PluginId) -> Result<()>;
+    fn unregister(&self, id: &PluginId) -> impl Future<Output = Result<()>> + Send;
     
     /// Get a plugin by ID
-    async fn get(&self, id: &PluginId) -> Result<Arc<Box<dyn Plugin>>>;
+    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<Box<dyn Plugin>>>> + Send;
     
     /// Check if a plugin is registered
-    async fn is_registered(&self, id: &PluginId) -> bool;
+    fn is_registered(&self, id: &PluginId) -> impl Future<Output = bool> + Send;
     
     /// Get all registered plugins
-    async fn get_all(&self) -> Result<Vec<Arc<Box<dyn Plugin>>>>;
+    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<Box<dyn Plugin>>>>> + Send;
     
     /// Get metadata for all registered plugins
-    async fn get_all_metadata(&self) -> Result<Vec<PluginMetadata>>;
+    fn get_all_metadata(&self) -> impl Future<Output = Result<Vec<PluginMetadata>>> + Send;
 }
 
 /// Default implementation of PluginRegistry
@@ -44,73 +44,100 @@ impl DefaultPluginRegistry {
     }
 }
 
-#[async_trait]
 impl PluginRegistry for DefaultPluginRegistry {
-    async fn register(&self, plugin: Box<dyn Plugin>) -> Result<()> {
+    fn register(&self, plugin: Box<dyn Plugin>) -> impl Future<Output = Result<()>> + Send {
         let id = plugin.metadata().id.clone();
         let plugin_arc = Arc::new(plugin);
         
-        let mut plugins = self.plugins.write().map_err(|_| {
-            PluginError::InternalError("Failed to acquire write lock for plugin registry".to_string())
-        })?;
+        // Capture self reference for async block
+        let plugins_ref = &self.plugins;
         
-        if plugins.contains_key(&id) {
-            return Err(PluginError::AlreadyRegistered(id.clone()).into());
+        async move {
+            let mut plugins = plugins_ref.write().map_err(|_| {
+                PluginError::InternalError("Failed to acquire write lock for plugin registry".to_string())
+            })?;
+            
+            if plugins.contains_key(&id) {
+                return Err(PluginError::AlreadyRegistered(id.clone()).into());
+            }
+            
+            plugins.insert(id.clone(), plugin_arc);
+            Ok(())
         }
-        
-        plugins.insert(id.clone(), plugin_arc);
-        Ok(())
     }
     
-    async fn unregister(&self, id: &PluginId) -> Result<()> {
-        let mut plugins = self.plugins.write().map_err(|_| {
-            PluginError::InternalError("Failed to acquire write lock for plugin registry".to_string())
-        })?;
+    fn unregister(&self, id: &PluginId) -> impl Future<Output = Result<()>> + Send {
+        let id = id.clone();
+        let plugins_ref = &self.plugins;
         
-        if !plugins.contains_key(id) {
-            return Err(PluginError::NotFound(id.clone()).into());
+        async move {
+            let mut plugins = plugins_ref.write().map_err(|_| {
+                PluginError::InternalError("Failed to acquire write lock for plugin registry".to_string())
+            })?;
+            
+            if !plugins.contains_key(&id) {
+                return Err(PluginError::NotFound(id.clone()).into());
+            }
+            
+            plugins.remove(&id);
+            Ok(())
         }
-        
-        plugins.remove(id);
-        Ok(())
     }
     
-    async fn get(&self, id: &PluginId) -> Result<Arc<Box<dyn Plugin>>> {
-        let plugins = self.plugins.read().map_err(|_| {
-            PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
-        })?;
+    fn get(&self, id: &PluginId) -> impl Future<Output = Result<Arc<Box<dyn Plugin>>>> + Send {
+        let id = id.clone();
+        let plugins_ref = &self.plugins;
         
-        plugins.get(id)
-            .cloned()
-            .ok_or_else(|| PluginError::NotFound(id.clone()).into())
+        async move {
+            let plugins = plugins_ref.read().map_err(|_| {
+                PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
+            })?;
+            
+            plugins.get(&id)
+                .cloned()
+                .ok_or_else(|| PluginError::NotFound(id.clone()).into())
+        }
     }
     
-    async fn is_registered(&self, id: &PluginId) -> bool {
-        match self.plugins.read() {
-            Ok(plugins) => plugins.contains_key(id),
-            Err(_) => {
-                // If mutex is poisoned, assume plugin is not registered
-                false
+    fn is_registered(&self, id: &PluginId) -> impl Future<Output = bool> + Send {
+        let id = id.clone();
+        let plugins_ref = &self.plugins;
+        
+        async move {
+            match plugins_ref.read() {
+                Ok(plugins) => plugins.contains_key(&id),
+                Err(_) => {
+                    // If mutex is poisoned, assume plugin is not registered
+                    false
+                }
             }
         }
     }
     
-    async fn get_all(&self) -> Result<Vec<Arc<Box<dyn Plugin>>>> {
-        let plugins = self.plugins.read().map_err(|_| {
-            PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
-        })?;
+    fn get_all(&self) -> impl Future<Output = Result<Vec<Arc<Box<dyn Plugin>>>>> + Send {
+        let plugins_ref = &self.plugins;
         
-        Ok(plugins.values().cloned().collect())
+        async move {
+            let plugins = plugins_ref.read().map_err(|_| {
+                PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
+            })?;
+            
+            Ok(plugins.values().cloned().collect())
+        }
     }
     
-    async fn get_all_metadata(&self) -> Result<Vec<PluginMetadata>> {
-        let plugins = self.plugins.read().map_err(|_| {
-            PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
-        })?;
+    fn get_all_metadata(&self) -> impl Future<Output = Result<Vec<PluginMetadata>>> + Send {
+        let plugins_ref = &self.plugins;
         
-        Ok(plugins.values()
-            .map(|plugin| plugin.metadata().clone())
-            .collect())
+        async move {
+            let plugins = plugins_ref.read().map_err(|_| {
+                PluginError::InternalError("Failed to acquire read lock for plugin registry".to_string())
+            })?;
+            
+            Ok(plugins.values()
+                .map(|plugin| plugin.metadata().clone())
+                .collect())
+        }
     }
 }
 
