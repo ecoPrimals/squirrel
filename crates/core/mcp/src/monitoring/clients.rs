@@ -7,7 +7,7 @@ use std::future::Future;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info, warn};
 use crate::error::Result;
 use std::time::Duration;
@@ -271,6 +271,7 @@ impl MonitoringClient for MockMonitoringClient {
 }
 
 /// Production monitoring client that integrates with external monitoring systems
+#[derive(Clone)]
 pub struct ProductionMonitoringClient {
     /// Component ID for this client
     component_id: String,
@@ -279,7 +280,7 @@ pub struct ProductionMonitoringClient {
     /// HTTP client for external API calls
     http_client: reqwest::Client,
     /// Internal metrics storage
-    metrics: Mutex<HashMap<String, MetricValue>>,
+    metrics: Arc<Mutex<HashMap<String, MetricValue>>>,
 }
 
 /// Configuration for production monitoring clients
@@ -311,7 +312,7 @@ impl ProductionMonitoringClient {
             component_id: component_id.to_string(),
             config,
             http_client,
-            metrics: Mutex::new(HashMap::new()),
+            metrics: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -397,110 +398,134 @@ impl ProductionMonitoringClient {
     }
 }
 
-#[async_trait]
 impl MonitoringClient for ProductionMonitoringClient {
-    async fn report_breaker_success(&self, breaker_name: &str) -> anyhow::Result<()> {
-        let event = serde_json::json!({
-            "component_id": self.component_id,
-            "event_type": "circuit_breaker_success",
-            "breaker_name": breaker_name,
-            "timestamp": Utc::now()
-        });
+    fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = serde_json::json!({
+                "component_id": me.component_id,
+                "event_type": "circuit_breaker_success",
+                "breaker_name": breaker_name,
+                "timestamp": Utc::now()
+            });
 
-        self.send_request("events/breaker", event).await.map_err(|e| {
-            error!("Failed to report breaker success: {}", e);
-            e
-        })
-    }
-
-    async fn report_breaker_failure(&self, breaker_name: &str) -> anyhow::Result<()> {
-        let event = serde_json::json!({
-            "component_id": self.component_id,
-            "event_type": "circuit_breaker_failure",
-            "breaker_name": breaker_name,
-            "timestamp": Utc::now()
-        });
-
-        self.send_request("events/breaker", event).await.map_err(|e| {
-            error!("Failed to report breaker failure: {}", e);
-            e
-        })
-    }
-
-    async fn report_breaker_rejection(&self, breaker_name: &str) -> anyhow::Result<()> {
-        let event = serde_json::json!({
-            "component_id": self.component_id,
-            "event_type": "circuit_breaker_rejection",
-            "breaker_name": breaker_name,
-            "timestamp": Utc::now()
-        });
-
-        self.send_request("events/breaker", event).await.map_err(|e| {
-            error!("Failed to report breaker rejection: {}", e);
-            e
-        })
-    }
-
-    async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
-        let payload = serde_json::json!({
-            "component_id": self.component_id,
-            "event": event
-        });
-
-        self.send_request("events", payload).await.map_err(|e| {
-            error!("Failed to record event: {}", e);
-            crate::error::MCPError::MonitoringError(e.to_string())
-        })
-    }
-
-    async fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> Result<()> {
-        // Store locally
-        {
-            let mut metrics = self.metrics.lock().unwrap();
-            metrics.insert(name.to_string(), value.clone());
+            me.send_request("events/breaker", event).await.map_err(|e| {
+                error!("Failed to report breaker success: {}", e);
+                e
+            })
         }
-
-        // Send to external service
-        let payload = serde_json::json!({
-            "component_id": self.component_id,
-            "metric_name": name,
-            "metric_value": value,
-            "tags": tags.unwrap_or_default(),
-            "timestamp": Utc::now()
-        });
-
-        self.send_request("metrics", payload).await.map_err(|e| {
-            error!("Failed to record metric: {}", e);
-            crate::error::MCPError::MonitoringError(e.to_string())
-        })
     }
 
-    async fn get_health_status(&self) -> Result<bool> {
-        // Try to ping the monitoring service
-        match self.send_request("health", serde_json::json!({})).await {
-            Ok(_) => Ok(true),
-            Err(e) => {
-                warn!("Health check failed: {}", e);
-                Ok(false)
+    fn report_breaker_failure(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = serde_json::json!({
+                "component_id": me.component_id,
+                "event_type": "circuit_breaker_failure",
+                "breaker_name": breaker_name,
+                "timestamp": Utc::now()
+            });
+
+            me.send_request("events/breaker", event).await.map_err(|e| {
+                error!("Failed to report breaker failure: {}", e);
+                e
+            })
+        }
+    }
+
+    fn report_breaker_rejection(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = serde_json::json!({
+                "component_id": me.component_id,
+                "event_type": "circuit_breaker_rejection",
+                "breaker_name": breaker_name,
+                "timestamp": Utc::now()
+            });
+
+            me.send_request("events/breaker", event).await.map_err(|e| {
+                error!("Failed to report breaker rejection: {}", e);
+                e
+            })
+        }
+    }
+
+    fn record_event(&self, event: MonitoringEvent) -> impl Future<Output = Result<()>> + Send {
+        let me = self.clone();
+        async move {
+            let payload = serde_json::json!({
+                "component_id": me.component_id,
+                "event": event
+            });
+
+            me.send_request("events", payload).await.map_err(|e| {
+                error!("Failed to record event: {}", e);
+                crate::error::MCPError::MonitoringError(e.to_string())
+            })
+        }
+    }
+
+    fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> impl Future<Output = Result<()>> + Send {
+        let name = name.to_string();
+        let me = self.clone();
+        async move {
+            // Store locally
+            {
+                let mut metrics = me.metrics.lock().unwrap();
+                metrics.insert(name.clone(), value.clone());
             }
+
+            // Send to external service
+            let payload = serde_json::json!({
+                "component_id": me.component_id,
+                "metric_name": name,
+                "metric_value": value,
+                "tags": tags.unwrap_or_default(),
+                "timestamp": Utc::now()
+            });
+
+            me.send_request("metrics", payload).await.map_err(|e| {
+                error!("Failed to record metric: {}", e);
+                crate::error::MCPError::MonitoringError(e.to_string())
+            })
         }
     }
 
-    async fn get_metrics_summary(&self) -> Result<HashMap<String, MetricValue>> {
-        let local_metrics = self.metrics.lock().unwrap().clone();
-        
-        // Try to get remote metrics as well
-        match self.http_client.get(&format!("{}/metrics/summary", self.config.endpoint)).send().await {
-            Ok(response) if response.status().is_success() => {
-                if let Ok(remote_metrics) = response.json::<HashMap<String, MetricValue>>().await {
-                    let mut combined = local_metrics;
-                    combined.extend(remote_metrics);
-                    Ok(combined)
-                } else {
-                    Ok(local_metrics)
+    fn get_health_status(&self) -> impl Future<Output = Result<bool>> + Send {
+        let me = self.clone();
+        async move {
+            // Try to ping the monitoring service
+            match me.send_request("health", serde_json::json!({})).await {
+                Ok(_) => Ok(true),
+                Err(e) => {
+                    warn!("Health check failed: {}", e);
+                    Ok(false)
                 }
             }
-            _ => Ok(local_metrics)
+        }
+    }
+
+    fn get_metrics_summary(&self) -> impl Future<Output = Result<HashMap<String, MetricValue>>> + Send {
+        let me = self.clone();
+        async move {
+            let local_metrics = me.metrics.lock().unwrap().clone();
+            
+            // Try to get remote metrics as well
+            match me.http_client.get(&format!("{}/metrics/summary", me.config.endpoint)).send().await {
+                Ok(response) if response.status().is_success() => {
+                    if let Ok(remote_metrics) = response.json::<HashMap<String, MetricValue>>().await {
+                        let mut combined = local_metrics;
+                        combined.extend(remote_metrics);
+                        Ok(combined)
+                    } else {
+                        Ok(local_metrics)
+                    }
+                }
+                _ => Ok(local_metrics)
+            }
         }
     }
 }
