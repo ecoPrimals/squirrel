@@ -19,7 +19,6 @@ pub use state_validator::{
 // Placeholder types for compatibility
 use serde::{Deserialize, Serialize};
 use crate::tool::management::types::{Tool, ToolError, ToolLifecycleHook};
-use async_trait::async_trait;
 use std::any::Any;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,81 +98,79 @@ impl CompositeLifecycleHook {
     }
 }
 
-#[async_trait]
 impl ToolLifecycleHook for BasicLifecycleHook {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
-    async fn on_register(&self, _tool: &Tool) -> Result<(), ToolError> {
-        Ok(())
+    fn on_register(&self, _tool: &Tool) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
-    async fn on_unregister(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_unregister(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
-    async fn on_activate(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_activate(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
-    async fn on_deactivate(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_deactivate(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
-    async fn on_error(&self, _tool_id: &str, _error: &ToolError) -> Result<(), ToolError> {
-        Ok(())
+    fn on_error(&self, _tool_id: &str, _error: &ToolError) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 } 
 
-#[async_trait]
 impl ToolLifecycleHook for CompositeLifecycleHook {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
-    async fn on_register(&self, _tool: &Tool) -> Result<(), ToolError> {
-        // Execute all hooks in order
-        for _hook in &self.hooks {
+    fn on_register(&self, _tool: &Tool) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Execute all hooks in order
             // In a real implementation, we'd call hook.on_register(tool)
             // For now, just return Ok()
+            Ok(())
         }
-        Ok(())
     }
 
-    async fn on_unregister(&self, _tool_id: &str) -> Result<(), ToolError> {
-        // Execute all hooks in order
-        for _hook in &self.hooks {
+    fn on_unregister(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Execute all hooks in order
             // In a real implementation, we'd call hook.on_unregister(tool_id)
             // For now, just return Ok()
+            Ok(())
         }
-        Ok(())
     }
 
-    async fn on_activate(&self, _tool_id: &str) -> Result<(), ToolError> {
-        // Execute all hooks in order
-        for _hook in &self.hooks {
+    fn on_activate(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Execute all hooks in order
             // In a real implementation, we'd call hook.on_activate(tool_id)
             // For now, just return Ok()
+            Ok(())
         }
-        Ok(())
     }
 
-    async fn on_deactivate(&self, _tool_id: &str) -> Result<(), ToolError> {
-        // Execute all hooks in order
-        for _hook in &self.hooks {
+    fn on_deactivate(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Execute all hooks in order
             // In a real implementation, we'd call hook.on_deactivate(tool_id)
             // For now, just return Ok()
+            Ok(())
         }
-        Ok(())
     }
 
-    async fn on_error(&self, _tool_id: &str, _error: &ToolError) -> Result<(), ToolError> {
-        // Execute all hooks in order
-        for _hook in &self.hooks {
+    fn on_error(&self, _tool_id: &str, _error: &ToolError) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async {
+            // Execute all hooks in order
             // In a real implementation, we'd call hook.on_error(tool_id, error)
             // For now, just return Ok()
+            Ok(())
         }
-        Ok(())
     }
 } 

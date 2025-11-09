@@ -425,97 +425,92 @@ pub trait ToolExecutor: fmt::Debug + Send + Sync {
 }
 
 /// Trait for tool lifecycle hooks
-#[async_trait]
 pub trait ToolLifecycleHook: fmt::Debug + Send + Sync {
     /// Converts to Any for downcasting
     fn as_any(&self) -> &dyn Any;
 
     /// Called when a tool is registered
-    async fn on_register(&self, tool: &Tool) -> Result<(), ToolError>;
+    fn on_register(&self, tool: &Tool) -> impl std::future::Future<Output = Result<(), ToolError>> + Send;
 
     /// Called when a tool is unregistered
-    async fn on_unregister(&self, tool_id: &str) -> Result<(), ToolError>;
+    fn on_unregister(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send;
 
     /// Called when a tool is activated
-    async fn on_activate(&self, tool_id: &str) -> Result<(), ToolError>;
+    fn on_activate(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send;
 
     /// Called when a tool is deactivated
-    async fn on_deactivate(&self, tool_id: &str) -> Result<(), ToolError>;
+    fn on_deactivate(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send;
 
     /// Called when a tool encounters an error
-    async fn on_error(&self, tool_id: &str, error: &ToolError) -> Result<(), ToolError>;
+    fn on_error(&self, tool_id: &str, error: &ToolError) -> impl std::future::Future<Output = Result<(), ToolError>> + Send;
 
     /// Called before a tool is started
-    async fn pre_start(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn pre_start(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called after a tool is started
-    async fn post_start(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn post_start(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called before a tool is stopped
-    async fn pre_stop(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn pre_stop(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called after a tool is stopped
-    async fn post_stop(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn post_stop(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when a tool is paused
-    async fn on_pause(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_pause(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when a tool is resumed
-    async fn on_resume(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_resume(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when a tool is updated
-    async fn on_update(&self, _tool: &Tool) -> Result<(), ToolError> {
-        Ok(())
+    fn on_update(&self, _tool: &Tool) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when a tool is being cleaned up
-    async fn on_cleanup(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn on_cleanup(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when registering a tool (new name for on_register)
-    async fn register_tool(&self, tool: &Tool) -> Result<(), ToolError> {
-        self.on_register(tool).await
+    fn register_tool(&self, tool: &Tool) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        self.on_register(tool)
     }
 
     /// Called when initializing a tool after registration
-    async fn initialize_tool(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn initialize_tool(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called before executing a tool
-    async fn pre_execute(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn pre_execute(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called after executing a tool
-    async fn post_execute(
-        &self,
-        _tool_id: &str,
-        result: Result<(), ToolError>,
-    ) -> Result<(), ToolError> {
-        result
+    fn post_execute(&self, _tool_id: &str, result: Result<(), ToolError>) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async move { result }
     }
 
     /// Called when resetting a tool
-    async fn reset_tool(&self, _tool_id: &str) -> Result<(), ToolError> {
-        Ok(())
+    fn reset_tool(&self, _tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        async { Ok(()) }
     }
 
     /// Called when cleaning up a tool (new name for on_cleanup)
-    async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError> {
-        self.on_cleanup(tool_id).await
+    fn cleanup_tool(&self, tool_id: &str) -> impl std::future::Future<Output = Result<(), ToolError>> + Send {
+        self.on_cleanup(tool_id)
     }
 } 
