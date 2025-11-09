@@ -4,7 +4,8 @@
 //! different external tracing systems.
 
 use std::sync::{Arc, Mutex};
-use async_trait::async_trait;
+// Phase 4: Removed async_trait - using native async fn in traits
+use std::future::Future;
 use tokio;
 
 use crate::observability::{ObservabilityError, ObservabilityResult};
@@ -15,7 +16,7 @@ use super::traits::SpanExporter;
 use super::converters::{convert_to_otlp_format, convert_to_zipkin_format};
 
 /// OpenTelemetry exporter for OTLP protocol
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OpenTelemetryExporter {
     /// Configuration for the exporter
     config: ExternalTracingConfig,
@@ -142,50 +143,59 @@ impl OpenTelemetryExporter {
     }
 }
 
-#[async_trait]
 impl SpanExporter for OpenTelemetryExporter {
-    async fn export_spans(&self, spans: Vec<Span>) -> ObservabilityResult<()> {
-        // Add spans to buffer
-        {
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.extend(spans.clone());
-            
-            // Check if we need to flush
-            if buffer.len() >= self.config.max_buffer_size {
-                tracing::debug!("Buffer size exceeded, flushing {} spans", buffer.len());
+    fn export_spans(&self, spans: Vec<Span>) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let buffer = self.buffer.clone();
+        let config = self.config.clone();
+        let client = self.client.clone();
+        async move {
+            // Add spans to buffer
+            {
+                let mut buffer_guard = buffer.lock().unwrap();
+                buffer_guard.extend(spans.clone());
                 
-                // Take all spans from buffer
-                let spans_to_flush = std::mem::take(&mut *buffer);
-                
-                // Clone the values we need inside the tokio::spawn
-                let client = self.client.clone();
-                let config = self.config.clone();
-                
-                // Export the spans in the background
-                tokio::spawn(async move {
-                    if let Err(e) = Self::do_export_spans(&client, &config, &spans_to_flush).await {
-                        tracing::error!("Failed to export spans: {}", e);
-                    }
-                });
+                // Check if we need to flush
+                if buffer_guard.len() >= config.max_buffer_size {
+                    tracing::debug!("Buffer size exceeded, flushing {} spans", buffer_guard.len());
+                    
+                    // Take all spans from buffer
+                    let spans_to_flush = std::mem::take(&mut *buffer_guard);
+                    
+                    // Clone the values we need inside the tokio::spawn
+                    let client_clone = client.clone();
+                    let config_clone = config.clone();
+                    
+                    // Export the spans in the background
+                    tokio::spawn(async move {
+                        if let Err(e) = OpenTelemetryExporter::do_export_spans(&client_clone, &config_clone, &spans_to_flush).await {
+                            tracing::error!("Failed to export spans: {}", e);
+                        }
+                    });
+                }
             }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 
-    async fn shutdown(&self) -> ObservabilityResult<()> {
-        // Flush any remaining spans
-        let spans = {
-            let mut buffer = self.buffer.lock().unwrap();
-            std::mem::take(&mut *buffer)
-        };
-        
-        if !spans.is_empty() {
-            tracing::debug!("Flushing {} spans to OpenTelemetry during shutdown", spans.len());
-            Self::do_export_spans(&self.client, &self.config, &spans).await?;
+    fn shutdown(&self) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let buffer = self.buffer.clone();
+        let client = self.client.clone();
+        let config = self.config.clone();
+        async move {
+            // Flush any remaining spans
+            let spans = {
+                let mut buffer_guard = buffer.lock().unwrap();
+                std::mem::take(&mut *buffer_guard)
+            };
+            
+            if !spans.is_empty() {
+                tracing::debug!("Flushing {} spans to OpenTelemetry during shutdown", spans.len());
+                OpenTelemetryExporter::do_export_spans(&client, &config, &spans).await?;
+            }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 }
 
@@ -227,14 +237,19 @@ impl JaegerExporter {
     }
 }
 
-#[async_trait]
 impl SpanExporter for JaegerExporter {
-    async fn export_spans(&self, spans: Vec<Span>) -> ObservabilityResult<()> {
-        self.otlp_exporter.export_spans(spans).await
+    fn export_spans(&self, spans: Vec<Span>) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let otlp_exporter = self.otlp_exporter.clone();
+        async move {
+            otlp_exporter.export_spans(spans).await
+        }
     }
 
-    async fn shutdown(&self) -> ObservabilityResult<()> {
-        self.otlp_exporter.shutdown().await
+    fn shutdown(&self) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let otlp_exporter = self.otlp_exporter.clone();
+        async move {
+            otlp_exporter.shutdown().await
+        }
     }
 }
 
@@ -363,49 +378,58 @@ impl ZipkinExporter {
     }
 }
 
-#[async_trait]
 impl SpanExporter for ZipkinExporter {
-    async fn export_spans(&self, spans: Vec<Span>) -> ObservabilityResult<()> {
-        // Add spans to buffer
-        {
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.extend(spans.clone());
-            
-            // Check if we need to flush
-            if buffer.len() >= self.config.max_buffer_size {
-                tracing::debug!("Buffer size exceeded, flushing {} spans", buffer.len());
+    fn export_spans(&self, spans: Vec<Span>) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let buffer = self.buffer.clone();
+        let config = self.config.clone();
+        let client = self.client.clone();
+        async move {
+            // Add spans to buffer
+            {
+                let mut buffer_guard = buffer.lock().unwrap();
+                buffer_guard.extend(spans.clone());
                 
-                // Take all spans from buffer
-                let spans_to_flush = std::mem::take(&mut *buffer);
-                
-                // Clone the values we need inside the tokio::spawn
-                let client = self.client.clone();
-                let config = self.config.clone();
-                
-                // Export the spans in the background
-                tokio::spawn(async move {
-                    if let Err(e) = Self::do_export_spans(&client, &config, &spans_to_flush).await {
-                        tracing::error!("Failed to export spans: {}", e);
-                    }
-                });
+                // Check if we need to flush
+                if buffer_guard.len() >= config.max_buffer_size {
+                    tracing::debug!("Buffer size exceeded, flushing {} spans", buffer_guard.len());
+                    
+                    // Take all spans from buffer
+                    let spans_to_flush = std::mem::take(&mut *buffer_guard);
+                    
+                    // Clone the values we need inside the tokio::spawn
+                    let client_clone = client.clone();
+                    let config_clone = config.clone();
+                    
+                    // Export the spans in the background
+                    tokio::spawn(async move {
+                        if let Err(e) = ZipkinExporter::do_export_spans(&client_clone, &config_clone, &spans_to_flush).await {
+                            tracing::error!("Failed to export spans: {}", e);
+                        }
+                    });
+                }
             }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 
-    async fn shutdown(&self) -> ObservabilityResult<()> {
-        // Flush any remaining spans
-        let spans = {
-            let mut buffer = self.buffer.lock().unwrap();
-            std::mem::take(&mut *buffer)
-        };
-        
-        if !spans.is_empty() {
-            tracing::debug!("Flushing {} spans to Zipkin during shutdown", spans.len());
-            Self::do_export_spans(&self.client, &self.config, &spans).await?;
+    fn shutdown(&self) -> impl Future<Output = ObservabilityResult<()>> + Send {
+        let buffer = self.buffer.clone();
+        let client = self.client.clone();
+        let config = self.config.clone();
+        async move {
+            // Flush any remaining spans
+            let spans = {
+                let mut buffer_guard = buffer.lock().unwrap();
+                std::mem::take(&mut *buffer_guard)
+            };
+            
+            if !spans.is_empty() {
+                tracing::debug!("Flushing {} spans to Zipkin during shutdown", spans.len());
+                ZipkinExporter::do_export_spans(&client, &config, &spans).await?;
+            }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 } 
