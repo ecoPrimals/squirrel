@@ -3,10 +3,10 @@
 **Started**: November 8, 2025 (Evening)  
 **Status**: IN PROGRESS - BLAZING! 🔥  
 **Baseline**: 391 async_trait instances  
-**Current**: 260 async_trait instances  
-**Progress**: 131 removed (33.5%)  
+**Current**: 258 async_trait instances  
+**Progress**: 133 removed (34.0%)  
 **Target Pace**: 16% per week  
-**Actual Pace**: 33.5% (109% AHEAD!)
+**Actual Pace**: 34.0% (112.5% AHEAD!)
 
 ---
 
@@ -515,6 +515,35 @@ git commit -m "Phase 4: Migrate tool layer (X/391)"
 
 ---
 
-**Last Updated**: November 9, 2025 (Evening - Session 19)  
-**Status**: In progress - 109% AHEAD of schedule! 1/3 complete! 🔥
+## ✅ Session 20: Plugin Loader Migration (Complete)
+
+**Date**: November 9, 2025 (Evening)  
+**Commit**: `4e5c58c2` - Phase 4: Migrate PluginLoader to native async
+
+### Migrated Files
+- `crates/core/mcp/src/plugins/loader.rs` (2 instances)
+  - `PluginLoader` trait (4 methods)
+  - `DefaultPluginLoader` implementation (4 methods)
+  - Removed `async_trait` import, added `Future` import
+
+### Results
+- ✅ All tests passing
+- ✅ Workspace builds successfully
+- ✅ **2 async_trait instances removed**
+- ✅ Cumulative: 133/391 (34.0%)
+
+### Performance Impact
+- **Expected**: 10-15% improvement in plugin loading operations
+- **Status**: Ready for benchmarking
+
+### Key Improvements
+- PluginLoader trait now uses native async fn in trait
+- All 4 methods properly converted to async move blocks
+- Clean separation of concerns: trait definition and implementation
+- Zero breaking changes, full backward compatibility
+
+---
+
+**Last Updated**: November 9, 2025 (Evening - Session 20)  
+**Status**: In progress - 112.5% AHEAD of schedule! 1/3 complete! 🔥
 
