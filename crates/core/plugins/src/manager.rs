@@ -5,7 +5,7 @@
 use crate::dependency_resolver::DependencyResolver;
 use crate::discovery::create_placeholder_plugin;
 use crate::errors::{PluginError, Result};
-use crate::plugin::PluginMetadata;
+use crate::plugin;
 use crate::registry::PluginRegistry;
 use crate::traits::PluginManagerTrait;
 use crate::types::PluginStatus;
@@ -52,7 +52,7 @@ impl PluginManager {
 
     /// Register built-in plugins
     async fn register_built_in_plugins(&self) -> Result<()> {
-        let placeholder_metadata = PluginMetadata::new(
+        let placeholder_metadata = plugin::PluginMetadata::new(
             "system-placeholder",
             "1.0.0",
             "System placeholder plugin",

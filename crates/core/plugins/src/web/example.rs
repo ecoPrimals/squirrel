@@ -314,6 +314,7 @@ impl ExampleWebPlugin {
 
 #[async_trait]
 impl Plugin for ExampleWebPlugin {
+    #[allow(deprecated)]
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
     }

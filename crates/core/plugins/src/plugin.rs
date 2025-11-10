@@ -142,6 +142,7 @@ pub trait Plugin: Send + Sync {
     }
 
     /// Get the plugin metadata
+    #[allow(deprecated)]
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin

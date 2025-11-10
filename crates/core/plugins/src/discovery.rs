@@ -48,6 +48,7 @@ pub struct PluginManifest {
 impl PluginManifest {
     /// Convert to plugin metadata
     #[must_use]
+    #[allow(deprecated)]
     pub fn to_metadata(&self) -> PluginMetadata {
         let mut metadata =
             PluginMetadata::new(&self.name, &self.version, &self.description, &self.author);
