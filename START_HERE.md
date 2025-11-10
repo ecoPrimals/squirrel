@@ -6,12 +6,12 @@
 **Release Date**: November 10, 2025  
 **Git Tag**: v1.0.0 | **Repository**: https://github.com/ecoPrimals/squirrel
 
-> 📚 **Documentation**: Root is clean! See [ROOT_DOCS_INDEX.md](ROOT_DOCS_INDEX.md) for navigation  
-> 🎉 **Latest**: [Evening Final Session](docs/sessions/nov-10-2025-evening-final/) - **Complete analysis & polish!**  
-> 🏆 **Complete Journey**: [MISSION_COMPLETE_NOV_10_2025.md](docs/sessions/nov-10-2025/MISSION_COMPLETE_NOV_10_2025.md)  
-> 🚀 **Deploy Now**: [DEPLOYMENT_CHECKLIST_V1.0.md](docs/sessions/nov-10-2025/DEPLOYMENT_CHECKLIST_V1.0.md)  
-> ⭐ **Status**: [Comprehensive Analysis](docs/sessions/nov-10-2025-evening-final/UNIFICATION_STATUS_COMPREHENSIVE_NOV_10_2025_FINAL.md) - **World-class confirmed!**  
-> ⚡ **Quick**: [One Page Summary](docs/sessions/nov-10-2025-evening-final/TONIGHT_IN_ONE_PAGE.txt) - **TL;DR version!**
+> 📚 **Latest**: [Modernization Report](UNIFICATION_MODERNIZATION_REPORT_NOV_10_2025.md) - **Comprehensive analysis & roadmap!**  
+> 🚀 **Action Plan**: [30-Day Plan](NEXT_30_DAYS_ACTION_PLAN.md) - **Next steps defined!**  
+> ⚡ **Quick**: [Executive Summary](EXECUTIVE_SUMMARY_NOV_10.md) - **TL;DR version!**  
+> 📖 **Standards**: [ADR-008](docs/adr/ADR-008-configuration-standardization.md) - **Configuration standardization!**  
+> 🎯 **Week 1**: [COMPLETE](WEEK1_COMPLETION_SUMMARY.md) - **Documentation & standards established!**  
+> 📚 **All Docs**: [ROOT_DOCS_INDEX.md](ROOT_DOCS_INDEX.md) - **Navigation guide**
 
 ---
 
