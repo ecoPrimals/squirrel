@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 /// Errors that can occur during integration operations
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum IntegrationError {
     /// Adapter not found
     #[error("Adapter not found: {0}")]

@@ -4,9 +4,8 @@ use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
-use uuid::Uuid;
 
 use crate::ecosystem::EcosystemPrimalType;
 

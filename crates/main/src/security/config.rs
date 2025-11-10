@@ -45,19 +45,6 @@ pub enum AuthMethod {
     None,
 }
 
-/// Retry configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    /// Maximum number of retries
-    pub max_retries: u32,
-    /// Base delay between retries
-    pub base_delay: Duration,
-    /// Maximum delay between retries
-    pub max_delay: Duration,
-    /// Exponential backoff factor
-    pub backoff_factor: f64,
-}
-
 impl Default for SecurityProviderConfig {
     fn default() -> Self {
         Self {
@@ -73,6 +60,19 @@ impl Default for SecurityProviderConfig {
             ],
         }
     }
+}
+
+/// Retry configuration for security operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryConfig {
+    /// Maximum number of retry attempts
+    pub max_retries: u32,
+    /// Initial delay between retries
+    pub base_delay: Duration,
+    /// Maximum delay between retries
+    pub max_delay: Duration,
+    /// Backoff factor for exponential backoff
+    pub backoff_factor: f64,
 }
 
 impl Default for RetryConfig {

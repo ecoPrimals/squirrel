@@ -12,6 +12,9 @@ use std::time::Duration;
 // MERGE NOTE: Using MCPError from main for better error context and severity levels
 use crate::mcp::error::{MCPError, PortErrorKind, ErrorContext, ErrorSeverity};
 
+// Import unified config for timeout management
+use squirrel_mcp_config::unified::ConfigLoader;
+
 // MERGE NOTE: Keeping PortConfig from main for better configuration management
 #[derive(Debug, Clone)]
 pub struct PortConfig {
@@ -30,13 +33,18 @@ pub struct PortConfig {
 
 impl Default for PortConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout
+        let timeout = ConfigLoader::load()
+            .map(|c| c.into_config().timeouts.connection_timeout())
+            .unwrap_or(Duration::from_secs(30));
+        
         Self {
             min_port: 1024,
             max_port: 65535,
             port: 8080,
             protocol: "tcp".to_string(),
             max_connections: 10,
-            timeout: Duration::from_secs(30),
+            timeout,
             keep_alive: true,
             tls_enabled: false,
             access_control: PortAccessControl::AllowAll,

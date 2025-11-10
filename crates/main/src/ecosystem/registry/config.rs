@@ -4,6 +4,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// Retry configuration for registry operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryConfig {
+    /// Maximum number of retry attempts
+    pub max_retries: u32,
+    /// Initial delay between retries
+    pub initial_delay: Duration,
+    /// Maximum delay between retries
+    pub max_delay: Duration,
+    /// Backoff multiplier
+    pub backoff_multiplier: f64,
+    /// Whether to use jitter
+    pub jitter: bool,
+}
+
 /// Configuration for ecosystem registry manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemRegistryConfig {
@@ -17,16 +32,6 @@ pub struct EcosystemRegistryConfig {
     pub discovery_config: DiscoveryConfig,
     /// Security configuration
     pub security_config: SecurityConfig,
-}
-
-/// Retry configuration for service operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    pub max_retries: u32,
-    pub initial_delay: Duration,
-    pub max_delay: Duration,
-    pub backoff_multiplier: f64,
-    pub jitter: bool,
 }
 
 /// Health check configuration

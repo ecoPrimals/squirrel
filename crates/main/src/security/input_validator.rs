@@ -10,12 +10,11 @@
 
 use regex::Regex;
 use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use tracing::{warn, error, debug};
-use uuid::Uuid;
 
 use crate::error::PrimalError;
-use crate::observability::{OperationContext, CorrelationId};
+use crate::observability::CorrelationId;
 
 /// Input validation configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

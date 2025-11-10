@@ -23,7 +23,7 @@ pub enum MCPMessageType {
     Error,
 }
 
-/// MCP error
+/// MCP error - simplified for CLI operations
 #[derive(Debug, Error)]
 pub enum MCPError {
     /// Protocol error

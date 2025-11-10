@@ -9,8 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use squirrel_mcp_config::Config;
 use std::time::Duration;
-use tokio::time::timeout;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use std::time::Instant;
 
 use super::{EcosystemServiceRegistration, HealthStatus};
@@ -165,9 +164,19 @@ impl EcosystemClient {
 
     /// Create a new EcosystemClient with explicit URL (for backward compatibility)
     pub fn with_url(songbird_url: String) -> Self {
-        let mut config = Config::default();
-        config.ecosystem.discovery.songbird_endpoint = Some(songbird_url);
-        Self::with_config(config)
+        // Note: Config no longer has nested ecosystem field - using direct construction instead
+        let timeout = Duration::from_secs(30);
+        let retry_count = 3;
+        Self {
+            songbird_url,
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new()),
+            timeout,
+            retry_count,
+            authentication: AuthenticationConfig::default(),
+        }
     }
 
     /// Register squirrel AI service with songbird

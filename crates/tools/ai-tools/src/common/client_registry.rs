@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use universal_error::tools::AIToolsError;
 
 // Import types from capability module
 use super::capability::{AICapabilities, AITask, RoutingPreferences};
@@ -95,9 +96,9 @@ impl AIRouterClient {
         }
 
         if providers.is_empty() {
-            return Err(crate::error::AIError::Configuration(
-                "No providers configured".to_string(),
-            ));
+            return Err(AIToolsError::Configuration(
+                "No providers configured in ai-tools config. Add at least one provider (openai, anthropic, ollama).".to_string(),
+            ).into());
         }
 
         info!("AI router initialized with {} providers", providers.len());
@@ -109,9 +110,9 @@ impl AIRouterClient {
         let providers = self.providers.read().await;
 
         if providers.is_empty() {
-            return Err(crate::error::AIError::Configuration(
-                "No providers available".to_string(),
-            ));
+            return Err(AIToolsError::Configuration(
+                "No providers available for routing. Initialize providers first.".to_string(),
+            ).into());
         }
 
         // If a specific model is requested, try to find the provider that supports it
@@ -185,9 +186,9 @@ impl AIRouterClient {
                     warn!("No priority providers available, using fallback");
                     Ok(provider.clone())
                 } else {
-                    Err(crate::error::AIError::Provider(
+                    Err(AIToolsError::Provider(
                         "No providers available".to_string(),
-                    ))
+                    ).into())
                 }
             }
             RoutingStrategy::FirstMatch => {
@@ -196,9 +197,9 @@ impl AIRouterClient {
                 if let Some(provider) = providers.values().next() {
                     Ok(provider.clone())
                 } else {
-                    Err(crate::error::AIError::Provider(
+                    Err(AIToolsError::Provider(
                         "No providers available".to_string(),
-                    ))
+                    ).into())
                 }
             }
         }
@@ -228,7 +229,7 @@ impl AIRouterClient {
         let selected_name = provider_names
             .choose(&mut rand::thread_rng())
             .ok_or_else(|| {
-                crate::error::AIError::Configuration("No providers available".to_string())
+                AIToolsError::Configuration("No providers available for routing. Add providers to config.".to_string())
             })?;
 
         Ok(Arc::clone(providers.get(*selected_name).unwrap()))
@@ -252,9 +253,9 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(crate::error::AIError::Configuration(
+            Err(AIToolsError::Configuration(
                 "No providers available".to_string(),
-            ))
+            ).into())
         }
     }
 
@@ -277,9 +278,9 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(crate::error::AIError::Configuration(
+            Err(AIToolsError::Configuration(
                 "No providers available".to_string(),
-            ))
+            ).into())
         }
     }
 
@@ -302,9 +303,9 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(crate::error::AIError::Configuration(
+            Err(AIToolsError::Configuration(
                 "No providers available".to_string(),
-            ))
+            ).into())
         }
     }
 
@@ -354,7 +355,7 @@ impl AIRouterClient {
         }
 
         Err(last_error.unwrap_or_else(|| {
-            crate::error::AIError::Configuration("All retries failed".to_string())
+            AIToolsError::Provider("All provider retries exhausted. Check provider availability and configuration.".to_string()).into()
         }))
     }
 
@@ -421,7 +422,7 @@ impl AIRouterClient {
     pub async fn force_provider(&self, name: &str) -> crate::Result<Arc<dyn AIProvider>> {
         let providers = self.providers.read().await;
         providers.get(name).cloned().ok_or_else(|| {
-            crate::error::AIError::Configuration(format!("Provider '{name}' not found"))
+            AIToolsError::Configuration(format!("Provider '{}' not found in registry. Check available providers with list_providers().", name)).into()
         })
     }
 }
@@ -478,9 +479,9 @@ impl AIClient for AIRouterClient {
 
         // Validate request
         if request.messages.is_empty() {
-            return Err(crate::error::AIError::InvalidRequest(
+            return Err(AIToolsError::InvalidRequest(
                 "No messages provided".to_string(),
-            ));
+            ).into());
         }
 
         // Process with retry logic

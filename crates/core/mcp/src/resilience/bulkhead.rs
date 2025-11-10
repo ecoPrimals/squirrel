@@ -75,12 +75,29 @@ pub struct BulkheadConfig {
 
 impl Default for BulkheadConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (call_timeout, queue_timeout) = if let Some(cfg) = config {
+            // Use custom bulkhead timeouts if configured
+            let call = cfg.timeouts.get_custom_timeout("bulkhead_call")
+                .unwrap_or_else(|| Duration::from_secs(1));
+            let queue = cfg.timeouts.get_custom_timeout("bulkhead_queue")
+                .unwrap_or_else(|| Duration::from_millis(500));
+            (call, queue)
+        } else {
+            // Fallback to sensible defaults
+            (Duration::from_secs(1), Duration::from_millis(500))
+        };
+        
         Self {
             name: "default".to_string(),
             max_concurrent_calls: 10,
             max_queue_size: 20,
-            call_timeout: Duration::from_secs(1),
-            queue_timeout: Duration::from_millis(500),
+            call_timeout,
+            queue_timeout,
         }
     }
 }

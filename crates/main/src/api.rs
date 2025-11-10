@@ -108,10 +108,15 @@ impl ApiServer {
         shutdown_manager: Arc<ShutdownManager>,
     ) -> Self {
         let host = std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| {
-            use squirrel_mcp_config::core::{DevelopmentConfig, NetworkEndpointConfig};
-            let network_config = NetworkEndpointConfig::default();
-            let dev_config = DevelopmentConfig::default();
-            network_config.get_effective_host(&dev_config)
+            // Environment-aware default host
+            if std::env::var("ENVIRONMENT")
+                .unwrap_or_else(|_| "development".to_string())
+                .eq_ignore_ascii_case("production")
+            {
+                "0.0.0.0".to_string()
+            } else {
+                "127.0.0.1".to_string()
+            }
         });
 
         Self {

@@ -117,28 +117,9 @@ pub struct PrimalEndpoint {
     pub metadata: std::collections::HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum PrimalType {
-    Squirrel,
-    Songbird,
-    NestGate,
-    BearDog,
-    ToadStool,
-    BiomeOS,
-}
-
-impl fmt::Display for PrimalType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PrimalType::Squirrel => write!(f, "Squirrel"),
-            PrimalType::Songbird => write!(f, "Songbird"),
-            PrimalType::NestGate => write!(f, "NestGate"),
-            PrimalType::BearDog => write!(f, "BearDog"),
-            PrimalType::ToadStool => write!(f, "ToadStool"),
-            PrimalType::BiomeOS => write!(f, "BiomeOS"),
-        }
-    }
-}
+// Re-export canonical PrimalType from ecosystem-api for ecosystem-wide consistency
+// This ensures all primals use the same type definitions for service discovery and routing
+pub use ecosystem_api::PrimalType;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HealthStatus {

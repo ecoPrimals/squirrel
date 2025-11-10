@@ -37,19 +37,23 @@ pub fn register_commands() -> Result<()> {
 /// Command adapter module
 pub mod adapter {
     use super::*;
-    use async_trait::async_trait;
 
     /// Command adapter trait
-    #[async_trait]
     pub trait CommandAdapterTrait {
         /// Execute a command
-        async fn execute(&self, command: &str, args: &[String]) -> Result<String>;
+        fn execute(&self, command: &str, args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send;
     }
 
     /// Command adapter implementation
     pub struct CommandAdapter {
         /// Internal state
         pub state: String,
+    }
+
+    impl Default for CommandAdapter {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl CommandAdapter {
@@ -60,10 +64,9 @@ pub mod adapter {
         }
     }
 
-    #[async_trait]
     impl CommandAdapterTrait for CommandAdapter {
-        async fn execute(&self, _command: &str, _args: &[String]) -> Result<String> {
-            Ok("Command executed".to_string())
+        fn execute(&self, _command: &str, _args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send {
+            async { Ok("Command executed".to_string()) }
         }
     }
 
@@ -73,6 +76,12 @@ pub mod adapter {
         pub struct CommandRegistryAdapter {
             /// Internal state
             pub state: String,
+        }
+
+        impl Default for CommandRegistryAdapter {
+            fn default() -> Self {
+                Self::new()
+            }
         }
 
         impl CommandRegistryAdapter {
@@ -110,6 +119,12 @@ pub mod context {
         pub state: String,
     }
 
+    impl Default for CommandContext {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl CommandContext {
         pub fn new() -> Self {
             Self {
@@ -125,6 +140,12 @@ pub mod executor {
     pub struct ExecutionContext {
         /// Context state
         pub state: String,
+    }
+
+    impl Default for ExecutionContext {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl ExecutionContext {
@@ -146,6 +167,12 @@ pub mod registry {
     pub struct CommandRegistry {
         /// Registered commands
         commands: Mutex<HashMap<String, Arc<dyn Command>>>,
+    }
+
+    impl Default for CommandRegistry {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl CommandRegistry {

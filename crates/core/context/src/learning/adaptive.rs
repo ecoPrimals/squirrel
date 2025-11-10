@@ -19,7 +19,8 @@ use crate::rules::Rule;
 /// Adaptive rule system
 #[derive(Debug)]
 pub struct AdaptiveRuleSystem {
-    /// System configuration
+    /// System configuration (reserved for future use)
+    #[allow(dead_code)]
     config: Arc<LearningSystemConfig>,
 
     /// Adaptive rules

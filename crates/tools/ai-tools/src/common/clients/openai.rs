@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use futures::stream;
 use reqwest::Client;
 use serde_json::json;
+use universal_error::tools::AIToolsError;
 
 use crate::common::capability::{AICapabilities, ModelType, TaskType};
 use crate::common::client::AIClient;
@@ -157,7 +158,9 @@ impl OpenAIClient {
 
         let choices = response_json["choices"]
             .as_array()
-            .ok_or_else(|| crate::error::AIError::ParseError("No choices in response".to_string()))?
+            .ok_or_else(|| AIToolsError::InvalidResponse(
+                "OpenAI response missing 'choices' array. Response may be malformed or request invalid.".to_string()
+            ))?
             .iter()
             .enumerate()
             .map(|(index, choice)| {
@@ -226,20 +229,25 @@ impl AIClient for OpenAIClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to reach OpenAI API: {}. Check network connectivity and endpoint.", e)
+            ))?;
 
         if !response.status().is_success() {
-            return Err(crate::error::AIError::ApiError(format!(
-                "OpenAI API error: {} - {}",
-                response.status(),
-                response.text().await.unwrap_or_default()
-            )));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AIToolsError::Api(format!(
+                "OpenAI API error (status {}): {}. Verify API key at platform.openai.com.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::ParseError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse OpenAI response: {}. Response may be malformed.", e)
+            ))?;
 
         self.parse_response(response_json)
     }
@@ -253,23 +261,30 @@ impl AIClient for OpenAIClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to fetch OpenAI models: {}. Check network connectivity.", e)
+            ))?;
 
         if !response.status().is_success() {
-            return Err(crate::error::AIError::ApiError(format!(
-                "OpenAI API error: {}",
-                response.status()
-            )));
+            let status = response.status();
+            return Err(AIToolsError::Api(format!(
+                "OpenAI API error fetching models (status {}). Verify API key at platform.openai.com.",
+                status
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::ParseError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse OpenAI models response: {}. Response may be malformed.", e)
+            ))?;
 
         let models = response_json["data"]
             .as_array()
-            .ok_or_else(|| crate::error::AIError::ParseError("No models data".to_string()))?
+            .ok_or_else(|| AIToolsError::InvalidResponse(
+                "OpenAI models response missing 'data' array. API may have changed format.".to_string()
+            ))?
             .iter()
             .filter_map(|model| model["id"].as_str().map(|s| s.to_string()))
             .collect();

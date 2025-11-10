@@ -40,6 +40,9 @@ anthropic-sdk = "0.1"
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
 
+# Universal error system
+universal-error = { path = "../../universal-error" }
+
 # Web framework for API
 axum = { version = "0.7", features = ["json"] }
 tower = "0.4"

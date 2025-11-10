@@ -108,8 +108,7 @@ impl HealthReporting {
         let cpu_ok = provider.zero_copy_metrics.get_efficiency_score() > 0.7;
         let memory_ok = true; // Would check actual memory usage
         let network_ok = provider.initialized;
-        let ecosystem_ok = provider.biomeos_client.is_some()
-            || !provider.config.discovery.songbird_endpoint.is_some();
+        let ecosystem_ok = provider.biomeos_client.is_some() || !provider.config.songbird_endpoint.is_empty();
 
         cpu_ok && memory_ok && network_ok && ecosystem_ok
     }

@@ -3,7 +3,7 @@
 //! This module provides environment-driven defaults to eliminate hardcoded values.
 
 use std::env;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Default AI service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -12,40 +12,32 @@ impl DefaultEndpoints {
     /// Get Ollama endpoint from environment or default
     pub fn ollama_endpoint() -> String {
         env::var("OLLAMA_ENDPOINT").unwrap_or_else(|_| {
-            let host = get_service_endpoints().toadstool_url()
-                .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string());
+            let host = env::var("TOADSTOOL_HOST")
+                .unwrap_or_else(|_| "localhost".to_string());
             format!("http://{}:11434", host)
         })
     }
 
     /// Get LlamaCpp endpoint from environment or default
     pub fn llamacpp_endpoint() -> String {
-        env::var("LLAMACPP_ENDPOINT").unwrap_or_else(|_| {
-            get_service_endpoints().mcp_endpoint.clone()
-        })
+        env::var("LLAMACPP_ENDPOINT")
+            .unwrap_or_else(|_| "http://127.0.0.1:8444".to_string())
     }
 
     /// Get MCP server endpoint from environment or default
     pub fn mcp_server_endpoint() -> String {
         env::var("MCP_SERVER_ENDPOINT").unwrap_or_else(|_| {
-            let host = get_service_endpoints().mcp_url()
-                .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string());
+            let host = env::var("MCP_HOST")
+                .unwrap_or_else(|_| "localhost".to_string());
             format!("{}:50051", host)
         })
     }
 
     /// Get general AI service host from environment or default
     pub fn ai_service_host() -> String {
-        env::var("AI_SERVICE_HOST").unwrap_or_else(|_| {
-            get_service_endpoints().mcp_url()
-                .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string())
-        })
+        env::var("AI_SERVICE_HOST")
+            .or_else(|_| env::var("MCP_HOST"))
+            .unwrap_or_else(|_| "localhost".to_string())
     }
 
     /// Get development server host from environment or default
@@ -63,12 +55,9 @@ impl DefaultEndpoints {
 
     /// Get CLI MCP host from environment or default
     pub fn cli_mcp_host() -> String {
-        env::var("CLI_MCP_HOST").unwrap_or_else(|_| {
-            get_service_endpoints().mcp_url()
-                .ok()  
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string())
-        })
+        env::var("CLI_MCP_HOST")
+            .or_else(|_| env::var("MCP_HOST"))
+            .unwrap_or_else(|_| "localhost".to_string())
     }
 
     /// Get WebSocket server URL from environment or default
@@ -86,14 +75,14 @@ impl DefaultEndpoints {
 
     /// Get Songbird endpoint from environment or default
     pub fn songbird_endpoint() -> String {
-        get_service_endpoints().service_mesh_endpoint.clone()
+        env::var("SERVICE_MESH_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:8500".to_string())
     }
 
     /// Get ToadStool endpoint from environment or default
     pub fn toadstool_endpoint() -> String {
-        env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-            get_service_endpoints().compute_service_endpoint.clone()
-        })
+        env::var("TOADSTOOL_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:9001".to_string())
     }
 
     /// Get network host from environment or default

@@ -10,7 +10,7 @@ use crate::types::{AuthContext, AuthProvider, LoginRequest, LoginResponse, User,
 use chrono::Duration;
 use reqwest::Client;
 use serde_json::json;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -60,14 +60,13 @@ impl AuthService {
 
     /// Discover security capability through universal adapter - no hardcoded primal knowledge
     async fn discover_security_capability(client: &Client) -> AuthProvider {
-        let endpoints = get_service_endpoints();
-        
         // Try to discover ANY primal with security capabilities through universal adapter
-        let security_endpoint = &endpoints.security_service_endpoint;
+        let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:8443".to_string());
         
         debug!("Attempting security capability discovery at: {}", security_endpoint);
         
-        match Self::test_security_capability(client, security_endpoint).await {
+        match Self::test_security_capability(client, &security_endpoint).await {
             Ok(capability_info) => {
                 info!("Security capability discovered: {:?}", capability_info);
                 AuthProvider::SecurityCapability {

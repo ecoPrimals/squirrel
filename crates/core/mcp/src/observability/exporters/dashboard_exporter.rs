@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
+use std::future::Future;
 use chrono::Utc;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 use tokio::task::JoinHandle;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 use crate::observability::tracing::{
     Span, SpanStatus, 
@@ -129,14 +129,12 @@ mod dashboard_core {
             pub service_name: String,
         }
         
-        #[async_trait]
         pub trait DashboardDataProvider {
-            async fn provide_data(&self) -> Result<DashboardData, Box<dyn std::error::Error + Send + Sync>>;
+            fn provide_data(&self) -> impl Future<Output = Result<DashboardData, Box<dyn std::error::Error + Send + Sync>>> + Send;
         }
         
-        #[async_trait]
         pub trait MonitoringDataAdapter {
-            async fn send_data(&self, data: DashboardData) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+            fn send_data(&self, data: DashboardData) -> impl Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send;
         }
     }
 }
@@ -172,7 +170,8 @@ pub struct DashboardExporterConfig {
 impl Default for DashboardExporterConfig {
     fn default() -> Self {
         Self {
-            dashboard_url: get_service_endpoints().ui_endpoint.clone(),
+            dashboard_url: std::env::var("UI_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
             max_batch_size: 100,
             export_interval_secs: 5,
             service_name: "unknown".to_string(),
@@ -554,27 +553,33 @@ impl DashboardExporter {
     }
 }
 
-#[async_trait]
 impl SpanExporter for DashboardExporter {
-    async fn export_spans(&self, spans: Vec<Span>) -> Result<(), crate::observability::ObservabilityError> {
-        info!("Exporting {} spans to dashboard", spans.len());
+    fn export_spans(&self, spans: Vec<Span>) -> impl Future<Output = Result<(), crate::observability::ObservabilityError>> + Send {
+        let buffer = self.buffer.clone();
+        let max_buffer_size = self.config.max_buffer_size;
         
-        // Add to buffer
-        let mut buffer = self.buffer.lock().await;
-        buffer.extend(spans);
-        
-        // If buffer exceeds max size, remove oldest entries
-        if buffer.len() > self.config.max_buffer_size {
-            let overflow = buffer.len() - self.config.max_buffer_size;
-            buffer.drain(0..overflow);
+        async move {
+            info!("Exporting {} spans to dashboard", spans.len());
+            
+            // Add to buffer
+            let mut buffer = buffer.lock().await;
+            buffer.extend(spans);
+            
+            // If buffer exceeds max size, remove oldest entries
+            if buffer.len() > max_buffer_size {
+                let overflow = buffer.len() - max_buffer_size;
+                buffer.drain(0..overflow);
+            }
+            
+            Ok(())
         }
-        
-        Ok(())
     }
 
-    async fn shutdown(&self) -> Result<(), crate::observability::ObservabilityError> {
-        // No special shutdown needed for this exporter
-        Ok(())
+    fn shutdown(&self) -> impl Future<Output = Result<(), crate::observability::ObservabilityError>> + Send {
+        async move {
+            // No special shutdown needed for this exporter
+            Ok(())
+        }
     }
 }
 
@@ -620,17 +625,25 @@ pub fn create_dashboard_exporter(config: ExternalTracingConfig) -> Box<dyn SpanE
 }
 
 /// Implementation of TraceDataProvider for DashboardExporter
-#[async_trait]
 impl TraceDataProvider for DashboardExporter {
-    async fn get_trace_data(&self) -> Result<Vec<TraceData>, Box<dyn std::error::Error + Send + Sync>> {
-        let trace_cache = self.trace_cache.lock().await;
-        let traces = trace_cache.values().cloned().collect();
-        Ok(traces)
+    fn get_trace_data(&self) -> impl Future<Output = Result<Vec<TraceData>, Box<dyn std::error::Error + Send + Sync>>> + Send {
+        let trace_cache = self.trace_cache.clone();
+        
+        async move {
+            let trace_cache = trace_cache.lock().await;
+            let traces = trace_cache.values().cloned().collect();
+            Ok(traces)
+        }
     }
     
-    async fn get_trace_by_id(&self, trace_id: &str) -> Result<Option<TraceData>, Box<dyn std::error::Error + Send + Sync>> {
-        let trace_cache = self.trace_cache.lock().await;
-        Ok(trace_cache.get(trace_id).cloned())
+    fn get_trace_by_id(&self, trace_id: &str) -> impl Future<Output = Result<Option<TraceData>, Box<dyn std::error::Error + Send + Sync>>> + Send {
+        let trace_cache = self.trace_cache.clone();
+        let trace_id = trace_id.to_string();
+        
+        async move {
+            let trace_cache = trace_cache.lock().await;
+            Ok(trace_cache.get(&trace_id).cloned())
+        }
     }
 }
 

@@ -106,6 +106,12 @@ pub struct CommandRegistry {
     commands: HashMap<String, Arc<dyn Command>>,
 }
 
+impl Default for CommandRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CommandRegistry {
     /// Create a new command registry
     pub fn new() -> Self {
@@ -164,6 +170,12 @@ pub trait CommandAdapter: Send + Sync {
 #[derive(Debug, Clone)]
 pub struct RegistryAdapter {
     registry: Arc<Mutex<CommandRegistry>>,
+}
+
+impl Default for RegistryAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RegistryAdapter {
@@ -281,6 +293,12 @@ pub struct McpAdapter {
     command_permissions: HashMap<String, Vec<UserRole>>, // command -> required roles
     tokens: HashMap<String, String>,                 // token -> username
     command_log: Vec<CommandLogEntry>,
+}
+
+impl Default for McpAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl McpAdapter {
@@ -619,6 +637,12 @@ pub struct PluginMetadata {
 pub struct PluginAdapter {
     adapter: RegistryAdapter,
     metadata: PluginMetadata,
+}
+
+impl Default for PluginAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PluginAdapter {

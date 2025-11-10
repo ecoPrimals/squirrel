@@ -22,7 +22,7 @@
 //! # }
 //! ```
 
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 pub mod auth;
 pub mod errors;
@@ -37,11 +37,15 @@ pub use types::{AuthContext, LoginRequest, LoginResponse, Permission, User};
 
 /// Initialize the authentication system with current configuration
 pub async fn initialize() -> AuthResult<()> {
-    let endpoints = get_service_endpoints();
+    let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:8443".to_string());
+    let mcp_endpoint = std::env::var("MCP_ENDPOINT")
+        .unwrap_or_else(|_| "http://127.0.0.1:8444".to_string());
+    
     tracing::info!(
         "Initializing modern auth system with endpoints: security_service={}, mcp={}",
-        endpoints.security_service_endpoint,
-        endpoints.mcp_endpoint
+        security_endpoint,
+        mcp_endpoint
     );
     Ok(())
 }

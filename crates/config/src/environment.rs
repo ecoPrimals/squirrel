@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::str::FromStr;
 use thiserror::Error;
+use universal_constants::timeouts;
 
 /// Environment configuration errors
 #[derive(Debug, Error)]
@@ -211,7 +212,10 @@ impl Environment {
             .parse::<u32>()
             .unwrap_or(10);
 
-        let timeout_seconds = crate::constants::env_helpers::get_database_timeout();
+        let timeout_seconds = env::var("DATABASE_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or_else(|| timeouts::DEFAULT_DATABASE_TIMEOUT.as_secs());
 
         DatabaseConfig {
             connection_string: database_url,
@@ -280,6 +284,18 @@ pub struct EcosystemConfig {
     pub service_timeout_ms: u64,
 }
 
+impl Default for EcosystemConfig {
+    fn default() -> Self {
+        Self {
+            nestgate_endpoint: "http://localhost:8444".to_string(),
+            beardog_endpoint: "http://localhost:8443".to_string(),
+            toadstool_endpoint: "http://localhost:8445".to_string(),
+            songbird_endpoint: "http://localhost:8446".to_string(),
+            service_timeout_ms: 5000,
+        }
+    }
+}
+
 impl EcosystemConfig {
     /// Load ecosystem configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {
@@ -316,10 +332,10 @@ impl EcosystemConfig {
             }
         });
 
-        let service_timeout_ms = crate::constants::env_helpers::parse_timeout(
-            "ECOSYSTEM_SERVICE_TIMEOUT_MS",
-            crate::constants::timeouts::DEFAULT_OPERATION_TIMEOUT,
-        );
+        let service_timeout_ms = env::var("ECOSYSTEM_SERVICE_TIMEOUT_MS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or_else(|| timeouts::DEFAULT_OPERATION_TIMEOUT.as_millis() as u64);
 
         Ok(EcosystemConfig {
             nestgate_endpoint,

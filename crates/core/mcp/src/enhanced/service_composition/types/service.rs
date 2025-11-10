@@ -9,6 +9,10 @@ use tokio::sync::RwLock;
 
 use super::super::super::providers::UniversalAIProvider;
 use super::dependency::ServiceDependency;
+use crate::resilience::retry::{RetryConfig, BackoffStrategy};
+
+// Import canonical config types
+use crate::config::ScalingConfig;
 
 /// AI Service representation
 #[derive(Debug, Clone)]
@@ -132,33 +136,6 @@ pub enum AuthType {
     Custom(String),
 }
 
-/// Retry configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetryConfig {
-    /// Maximum retry attempts
-    pub max_attempts: u32,
-    
-    /// Retry delay
-    pub delay: Duration,
-    
-    /// Exponential backoff enabled
-    pub exponential_backoff: bool,
-    
-    /// Maximum retry delay
-    pub max_delay: Duration,
-}
-
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_attempts: 3,
-            delay: Duration::from_millis(1000),
-            exponential_backoff: true,
-            max_delay: Duration::from_secs(30),
-        }
-    }
-}
-
 /// Resource limits
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceLimits {
@@ -177,41 +154,28 @@ pub struct ResourceLimits {
 
 impl Default for ResourceLimits {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let max_execution_time = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("svc_max_execution")
+                .unwrap_or_else(|| Duration::from_secs(300))
+        } else {
+            Duration::from_secs(300) // 5 minutes
+        };
+        
         Self {
             max_memory: 1024 * 1024 * 1024, // 1GB
             max_cpu: 1.0,
-            max_execution_time: Duration::from_secs(300), // 5 minutes
+            max_execution_time,
             max_concurrent_requests: 10,
         }
     }
 }
 
-/// Scaling configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalingConfig {
-    /// Auto-scaling enabled
-    pub auto_scaling: bool,
-    
-    /// Minimum instances
-    pub min_instances: u32,
-    
-    /// Maximum instances
-    pub max_instances: u32,
-    
-    /// Scaling metrics
-    pub metrics: Vec<String>,
-}
-
-impl Default for ScalingConfig {
-    fn default() -> Self {
-        Self {
-            auto_scaling: false,
-            min_instances: 1,
-            max_instances: 5,
-            metrics: vec!["cpu_usage".to_string(), "memory_usage".to_string()],
-        }
-    }
-}
+// ScalingConfig is now imported from crate::config (includes Default impl)
 
 /// Service capability
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -392,10 +356,25 @@ pub struct HealthCheckConfig {
 
 impl Default for HealthCheckConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (interval, timeout) = if let Some(cfg) = config {
+            let i = cfg.timeouts.get_custom_timeout("svc_health_interval")
+                .unwrap_or_else(|| Duration::from_secs(30));
+            let t = cfg.timeouts.get_custom_timeout("svc_health_timeout")
+                .unwrap_or_else(|| Duration::from_secs(5));
+            (i, t)
+        } else {
+            (Duration::from_secs(30), Duration::from_secs(5))
+        };
+        
         Self {
             endpoint: "/health".to_string(),
-            interval: Duration::from_secs(30),
-            timeout: Duration::from_secs(5),
+            interval,
+            timeout,
             retries: 3,
             expected_status: 200,
             metadata: HashMap::new(),

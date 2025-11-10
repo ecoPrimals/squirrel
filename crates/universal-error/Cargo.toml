@@ -1,0 +1,27 @@
+[package]
+name = "universal-error"
+version = "0.1.0"
+edition = "2021"
+authors = ["Squirrel Team"]
+description = "Universal error system for Squirrel - extends the excellent MCP error architecture"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# For error definitions
+thiserror = "1.0"
+
+# For serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# For timestamps in error context
+chrono = "0.4"
+
+# Re-export the excellent MCP error system
+squirrel-mcp = { path = "../core/mcp" }
+
+[dev-dependencies]
+# For testing
+
+[features]
+default = []

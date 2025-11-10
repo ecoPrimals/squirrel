@@ -108,8 +108,20 @@ impl AlertSuppressionManager {
 
 impl Default for SuppressionConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let max_duration = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("alert_suppression_max")
+                .unwrap_or_else(|| Duration::from_secs(86400)) // 24 hours
+        } else {
+            Duration::from_secs(86400) // 24 hours
+        };
+        
         Self {
-            max_duration: Duration::from_hours(24),
+            max_duration,
             default_rules: Vec::new(),
             auto_suppression_enabled: true,
         }

@@ -1,5 +1,18 @@
 //! Comprehensive error handling system for the Squirrel Plugin SDK
 //!
+//! **DEPRECATED**: This error system is being replaced by `universal-error`.
+//! Please migrate to the unified error system for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use crate::infrastructure::error::*;
+//! // New:
+//! use universal_error::{Result, sdk::*};
+//! ```
+//!
+//! See: `crates/universal-error/README.md` for complete migration guide.
+//!
 //! This module provides a complete error handling framework with:
 //! - Core error types and result types
 //! - Error context and enhanced error chaining
@@ -76,20 +89,16 @@ pub use self::core::PluginResult as Result;
 /// Utility module for retry logic with exponential backoff
 pub mod retry {
     use std::fmt::Debug;
-
-    /// Configuration for retry logic
+    
+    /// Configuration for retry logic (SDK-specific, lightweight)
     #[derive(Debug, Clone)]
     pub struct RetryConfig {
-        /// Maximum number of retry attempts
         pub max_retries: u32,
-        /// Initial delay in milliseconds
         pub initial_delay: u64,
-        /// Multiplier for exponential backoff
         pub backoff_multiplier: f64,
-        /// Maximum delay in milliseconds
         pub max_delay: u64,
     }
-
+    
     impl Default for RetryConfig {
         fn default() -> Self {
             Self {

@@ -1,19 +1,21 @@
 //! Configuration system for Squirrel MCP
 //!
-//! This crate provides a comprehensive configuration system supporting:
+//! This crate provides a unified configuration system supporting:
 //! - Environment variable overrides
-//! - TOML file configuration
-//! - Universal patterns configuration
-//! - Core system configuration
-//! - Validation and error handling
+//! - TOML/JSON/YAML file configuration
+//! - Comprehensive defaults and validation
+//! - Modern service mesh and load balancing configuration
 //!
 //! # Example Usage
 //!
 //! ```
-//! use squirrel_mcp_config::Config;
+//! use squirrel_mcp_config::{SquirrelUnifiedConfig, ConfigLoader};
 //!
 //! // Load configuration from environment variables
-//! let config = Config::from_env()?;
+//! let config = ConfigLoader::load_from_env()?;
+//!
+//! // Or load from a file
+//! let config = ConfigLoader::load_from_file("config.toml")?;
 //!
 //! // Validate configuration
 //! config.validate()?;
@@ -21,29 +23,50 @@
 //! ```
 
 pub mod constants;
-pub mod core;
 pub mod environment;
-pub mod universal;
 
-// Re-export main configuration types with explicit names to avoid conflicts
-pub use core::{
-    AIConfig, AIServiceConfig, BiomeOSEndpoints, Config, ConfigDefaults, ConfigManager,
-    DatabaseConfig, DefaultConfigManager, EcosystemConfig, ExtendedObservabilityConfig,
-    ExternalServiceConfig, NetworkConfig, ObservabilityConfig,
-};
+// Unified configuration system - the single source of truth
+pub mod unified;
+
+// Re-export environment utilities (still useful)
 pub use environment::{Environment, EnvironmentConfig, EnvironmentError};
-pub use universal::{
-    FromEnv, ServiceConfig, ServiceConfigBuilder, UniversalConfigBuilder, UniversalServiceConfig,
+
+// ============================================================================
+// COMPATIBILITY LAYER REMOVED - November 9, 2025
+// ============================================================================
+// The legacy compatibility layer has been successfully removed!
+// All code now uses the unified config system directly.
+//
+// Migration complete:
+// - compat::Config → unified::SquirrelUnifiedConfig (via ConfigLoader)
+// - compat::DefaultConfigManager → unified::ConfigLoader
+// - service_endpoints::get_service_endpoints() → std::env::var() directly
+// - compat::BiomeOSEndpoints → Direct environment variables
+// - compat::ExternalServicesConfig → Direct environment variables
+//
+// Removed files:
+// - crates/config/src/compat.rs (271 LOC removed)
+// - crates/config/src/service_endpoints.rs (105 LOC removed)
+//
+// Total: 376 LOC of legacy code eliminated!
+//
+// See: docs/sessions/nov-9-2025-evening/ for migration history
+// ============================================================================
+
+// Re-export unified configuration types (primary exports)
+pub use unified::{
+    AiProvidersConfig, CircuitBreakerConfig, ConfigLoader, DatabaseBackend, DatabaseConfig,
+    FeatureFlags, HealthCheckConfig, LoadBalancingConfig, LoadBalancingStrategy, LoadedConfig,
+    McpConfig, MonitoringConfig, NetworkConfig, SecurityConfig, ServiceMeshConfig,
+    SquirrelUnifiedConfig, SystemConfig, TimeoutConfig,
 };
 
-// Re-export error types with module prefixes to avoid conflicts
-pub use core::types::CoreConfigError;
-pub use universal::ConfigError as UniversalConfigError;
+// Compatibility aliases for gradual migration (deprecated names → new types)
+#[deprecated(since = "0.2.0", note = "Use `ConfigLoader` instead")]
+pub type DefaultConfigManager = ConfigLoader;
 
-// Re-export security config types with module prefixes to avoid conflicts
-pub use core::security::BeardogConfig;
-pub use core::security::SecurityConfig as CoreSecurityConfig;
-pub use universal::SecurityConfig as UniversalSecurityConfig;
+#[deprecated(since = "0.2.0", note = "Use `SquirrelUnifiedConfig` instead")]
+pub type Config = SquirrelUnifiedConfig;
 
-// CRITICAL FIX: Export the missing service endpoints functionality
-pub use core::service_endpoints::{get_service_endpoints, GlobalServiceEndpoints};
+// Re-export EcosystemConfig from environment module for convenience
+pub use environment::EcosystemConfig;

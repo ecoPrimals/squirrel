@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+use std::future::Future;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,16 +10,15 @@ use super::resource_manager::ResourceManager;
 use super::{ResourceLimits};
 
 /// A hook for cleaning up tool resources
-#[async_trait]
 pub trait CleanupHook: Send + Sync {
     /// Clean up a tool's resources
-    async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError>;
+    fn cleanup_tool(&self, tool_id: &str) -> impl Future<Output = Result<(), ToolError>> + Send;
 
     /// Register a new tool for cleanup tracking
-    async fn register_tool(&self, tool: &Tool) -> Result<(), ToolError>;
+    fn register_tool(&self, tool: &Tool) -> impl Future<Output = Result<(), ToolError>> + Send;
 
     /// Reset a tool's resources
-    async fn reset_tool(&self, tool_id: &str) -> Result<(), ToolError>;
+    fn reset_tool(&self, tool_id: &str) -> impl Future<Output = Result<(), ToolError>> + Send;
 }
 
 /// Simple implementation of tool cleanup hook
@@ -44,85 +43,101 @@ impl BasicCleanupHook {
     }
 }
 
-#[async_trait]
 impl CleanupHook for BasicCleanupHook {
     #[instrument(skip(self))]
-    async fn register_tool(&self, tool: &Tool) -> Result<(), ToolError> {
-        let tool_id = &tool.id;
-
-        // Check if the tool is already registered
-        {
-            let registrations = self.registration_times.read().await;
-            if registrations.contains_key(tool_id) {
-                return Err(ToolError::RegistrationFailed(format!(
-                    "Tool '{tool_id}' is already registered"
-                )));
+    fn register_tool(&self, tool: &Tool) -> impl Future<Output = Result<(), ToolError>> + Send {
+        let tool_id = tool.id.clone();
+        let registration_times = self.registration_times.clone();
+        let resource_manager = self.resource_manager.clone();
+        
+        async move {
+            // Check if the tool is already registered
+            {
+                let registrations = registration_times.read().await;
+                if registrations.contains_key(&tool_id) {
+                    return Err(ToolError::RegistrationFailed(format!(
+                        "Tool '{tool_id}' is already registered"
+                    )));
+                }
             }
+
+            // Record registration time
+            {
+                let mut registrations = registration_times.write().await;
+                registrations.insert(tool_id.clone(), Utc::now());
+            }
+
+            // Initialize resources
+            resource_manager
+                .initialize_tool(
+                    &tool_id,
+                    ResourceLimits::default(),
+                    ResourceLimits::default(),
+                )
+                .await?;
+
+            info!("Registered tool {} with cleanup hook", tool_id);
+            Ok(())
         }
-
-        // Record registration time
-        {
-            let mut registrations = self.registration_times.write().await;
-            registrations.insert(tool_id.clone(), Utc::now());
-        }
-
-        // Initialize resources
-        self.resource_manager
-            .initialize_tool(
-                tool_id,
-                ResourceLimits::default(),
-                ResourceLimits::default(),
-            )
-            .await?;
-
-        info!("Registered tool {} with cleanup hook", tool_id);
-        Ok(())
     }
 
     #[instrument(skip(self))]
-    async fn cleanup_tool(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Check if tool is registered
-        {
-            let registrations = self.registration_times.read().await;
-            if !registrations.contains_key(tool_id) {
-                return Err(ToolError::ToolNotFound(tool_id.to_string()));
+    fn cleanup_tool(&self, tool_id: &str) -> impl Future<Output = Result<(), ToolError>> + Send {
+        let tool_id = tool_id.to_string();
+        let registration_times = self.registration_times.clone();
+        let cleanup_times = self.cleanup_times.clone();
+        let resource_manager = self.resource_manager.clone();
+        
+        async move {
+            // Check if tool is registered
+            {
+                let registrations = registration_times.read().await;
+                if !registrations.contains_key(&tool_id) {
+                    return Err(ToolError::ToolNotFound(tool_id.to_string()));
+                }
             }
+
+            // Clean up resources
+            resource_manager.cleanup_tool(&tool_id).await?;
+
+            // Record cleanup time
+            {
+                let mut cleanups = cleanup_times.write().await;
+                cleanups.insert(tool_id.clone(), Utc::now());
+            }
+
+            // Remove registration
+            {
+                let mut registrations = registration_times.write().await;
+                registrations.remove(&tool_id);
+            }
+
+            info!("Cleaned up resources for tool {}", tool_id);
+            Ok(())
         }
-
-        // Clean up resources
-        self.resource_manager.cleanup_tool(tool_id).await?;
-
-        // Record cleanup time
-        {
-            let mut cleanups = self.cleanup_times.write().await;
-            cleanups.insert(tool_id.to_string(), Utc::now());
-        }
-
-        // Remove registration
-        {
-            let mut registrations = self.registration_times.write().await;
-            registrations.remove(tool_id);
-        }
-
-        info!("Cleaned up resources for tool {}", tool_id);
-        Ok(())
     }
 
     #[instrument(skip(self))]
-    async fn reset_tool(&self, tool_id: &str) -> Result<(), ToolError> {
-        // Check if tool is registered
-        {
-            let registrations = self.registration_times.read().await;
-            if !registrations.contains_key(tool_id) {
-                return Err(ToolError::ToolNotFound(tool_id.to_string()));
+    fn reset_tool(&self, tool_id: &str) -> impl Future<Output = Result<(), ToolError>> + Send {
+        let tool_id = tool_id.to_string();
+        let registration_times = self.registration_times.clone();
+        let resource_manager = self.resource_manager.clone();
+        
+        async move {
+            // Check if tool is registered
+            {
+                let registrations = registration_times.read().await;
+                if !registrations.contains_key(&tool_id) {
+                    return Err(ToolError::ToolNotFound(tool_id.to_string()));
+                }
             }
+
+            // Reset resources
+            resource_manager.reset_tool(&tool_id).await?;
+
+            info!("Reset resources for tool {}", tool_id);
+            Ok(())
         }
-
-        // Reset resources
-        self.resource_manager.reset_tool(tool_id).await?;
-
-        info!("Reset resources for tool {}", tool_id);
-        Ok(())
     }
 }
 

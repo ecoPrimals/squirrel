@@ -38,6 +38,9 @@ use crate::types::CompressionFormat;
 use super::frame::{FrameReader, FrameWriter};
 use crate::transport::frame::Frame;
 
+// Import unified config for timeout management
+use squirrel_mcp_config::unified::ConfigLoader;
+
 /// Configuration for the TCP transport
 ///
 /// This struct contains all the configuration parameters for establishing
@@ -101,24 +104,41 @@ pub struct TcpTransportConfig {
 impl Default for TcpTransportConfig {
     /// Creates a default TCP transport configuration
     ///
-    /// Default values:
+    /// Default values are now loaded from unified config (environment-aware):
     /// - Remote address: 127.0.0.1:9000
     /// - Max message size: 10MB
-    /// - Connection timeout: 30 seconds
-    /// - Keep-alive interval: 60 seconds
+    /// - Connection timeout: from unified config (default 30 seconds)
+    /// - Keep-alive interval: from unified config (default 60 seconds)
     /// - No encryption or compression
-    /// - 5 reconnection attempts with 1 second delay
+    /// - 5 reconnection attempts with delay from unified config (default 1 second)
     fn default() -> Self {
+        // Load unified config for environment-aware timeouts
+        let config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        let connection_timeout = config.as_ref()
+            .map(|c| c.timeouts.connection_timeout().as_secs())
+            .unwrap_or(30);
+        
+        let keep_alive_interval = config.as_ref()
+            .map(|c| Some(c.timeouts.heartbeat_interval().as_secs()))
+            .unwrap_or(Some(60));
+        
+        let reconnect_delay_ms = config.as_ref()
+            .map(|c| c.timeouts.get_custom_timeout("tcp_reconnect").as_millis() as u64)
+            .unwrap_or(1000);
+        
         Self {
             remote_address: "127.0.0.1:9000".to_string(),
             local_bind_address: None,
             max_message_size: 10 * 1024 * 1024, // 10MB
-            connection_timeout: 30,
-            keep_alive_interval: Some(60),
+            connection_timeout,
+            keep_alive_interval,
             encryption: EncryptionFormat::None,
             compression: CompressionFormat::None,
             max_reconnect_attempts: 5,
-            reconnect_delay_ms: 1000,
+            reconnect_delay_ms,
         }
     }
 }

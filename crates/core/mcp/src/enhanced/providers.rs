@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{RwLock, Mutex};
 use tracing::{info, debug, warn, error, instrument};
@@ -56,7 +55,6 @@ pub trait ProviderConfig: Send + Sync {
     fn validate(&self) -> Result<()>;
 }
 
-#[async_trait]
 pub trait UniversalAIProvider: Send + Sync {
     /// Get provider name
     fn name(&self) -> &str;
@@ -65,30 +63,30 @@ pub trait UniversalAIProvider: Send + Sync {
     fn provider_type(&self) -> ProviderType;
     
     /// Get available models
-    async fn get_models(&self) -> Result<Vec<ModelInfo>>;
+    fn get_models(&self) -> impl std::future::Future<Output = Result<Vec<ModelInfo>>> + Send;
     
     /// List available models (alias for get_models)
-    async fn list_models(&self) -> Result<Vec<ModelInfo>> {
-        self.get_models().await
+    fn list_models(&self) -> impl std::future::Future<Output = Result<Vec<ModelInfo>>> + Send {
+        self.get_models()
     }
     
     /// Process AI request
-    async fn process_request(&self, request: super::coordinator::UniversalAIRequest) -> Result<super::coordinator::UniversalAIResponse>;
+    fn process_request(&self, request: super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::UniversalAIResponse>> + Send;
     
     /// Stream AI request
-    async fn stream_request(&self, request: super::coordinator::UniversalAIRequest) -> Result<super::coordinator::UniversalAIStream>;
+    fn stream_request(&self, request: super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::UniversalAIStream>> + Send;
     
     /// Estimate cost for request
-    async fn estimate_cost(&self, request: &super::coordinator::UniversalAIRequest) -> Result<super::coordinator::CostEstimate>;
+    fn estimate_cost(&self, request: &super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::CostEstimate>> + Send;
     
     /// Get provider capabilities
     fn get_capabilities(&self) -> Vec<String>;
     
     /// Health check
-    async fn health_check(&self) -> Result<bool>;
+    fn health_check(&self) -> impl std::future::Future<Output = Result<bool>> + Send;
     
     /// Configure provider
-    async fn configure(&mut self, config: serde_json::Value) -> Result<()>;
+    fn configure(&mut self, config: serde_json::Value) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// Mock behavior configuration for testing
@@ -214,7 +212,6 @@ impl ConfigurableProvider {
     }
 }
 
-#[async_trait]
 impl UniversalAIProvider for ConfigurableProvider {
     fn name(&self) -> &str {
         &self.name
@@ -224,55 +221,70 @@ impl UniversalAIProvider for ConfigurableProvider {
         self.provider_type.clone()
     }
     
-    async fn get_models(&self) -> Result<Vec<ModelInfo>> {
-        Ok(self.config.get_models().iter().map(|model| ModelInfo {
-            id: model.clone(),
-            name: model.clone(),
-            description: format!("Model {} from {}", model, self.name),
-            provider: self.name.clone(),
-            model_type: self.provider_type.clone(),
-            capabilities: vec!["text-generation".to_string()],
-            performance: None,
-        }).collect())
+    fn get_models(&self) -> impl std::future::Future<Output = Result<Vec<ModelInfo>>> + Send {
+        let name = self.name.clone();
+        let provider_type = self.provider_type.clone();
+        let models = self.config.get_models();
+        
+        async move {
+            Ok(models.iter().map(|model| ModelInfo {
+                id: model.clone(),
+                name: model.clone(),
+                description: format!("Model {} from {}", model, name),
+                provider: name.clone(),
+                model_type: provider_type.clone(),
+                capabilities: vec!["text-generation".to_string()],
+                performance: None,
+            }).collect())
+        }
     }
     
-    async fn process_request(&self, request: super::coordinator::UniversalAIRequest) -> Result<super::coordinator::UniversalAIResponse> {
-        // Simulate processing based on mock behavior
-        if let Some(ref behavior) = self.mock_behavior {
-            if behavior.should_fail {
-                return Err(crate::error::types::MCPError::General("Simulated failure".to_string()));
+    fn process_request(&self, request: super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::UniversalAIResponse>> + Send {
+        let name = self.name.clone();
+        let mock_behavior = self.mock_behavior.clone();
+        
+        async move {
+            // Simulate processing based on mock behavior
+            if let Some(ref behavior) = mock_behavior {
+                if behavior.should_fail {
+                    return Err(crate::error::types::MCPError::General("Simulated failure".to_string()));
+                }
+                
+                if behavior.latency_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(behavior.latency_ms)).await;
+                }
             }
             
-            if behavior.latency_ms > 0 {
-                tokio::time::sleep(Duration::from_millis(behavior.latency_ms)).await;
-            }
+            // Create mock response
+            Ok(super::coordinator::UniversalAIResponse {
+                id: request.id,
+                provider: name,
+                model: request.model,
+                response_type: request.request_type,
+                content: "Mock response".to_string(),
+                cost: 0.01, // Mock cost
+                duration: Duration::from_millis(100),
+                metadata: HashMap::new(),
+            })
         }
-        
-        // Create mock response
-        Ok(super::coordinator::UniversalAIResponse {
-            id: request.id,
-            provider: self.name.clone(),
-            model: request.model,
-            response_type: request.request_type,
-            content: "Mock response".to_string(),
-            cost: 0.01, // Mock cost
-            duration: Duration::from_millis(100),
-            metadata: HashMap::new(),
-        })
     }
     
-    async fn stream_request(&self, _request: super::coordinator::UniversalAIRequest) -> Result<super::coordinator::UniversalAIStream> {
-        // Mock streaming response
-        Err(crate::error::types::MCPError::General("Streaming not implemented".to_string()))
+    fn stream_request(&self, _request: super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::UniversalAIStream>> + Send {
+        async move {
+            // Mock streaming response
+            Err(crate::error::types::MCPError::General("Streaming not implemented".to_string()))
+        }
     }
     
-    async fn estimate_cost(&self, _request: &super::coordinator::UniversalAIRequest) -> Result<super::coordinator::CostEstimate> {
-        // Mock cost estimation
-        Ok(super::coordinator::CostEstimate {
-            estimated_cost: 0.01,
-            currency: "USD".to_string(),
-            breakdown: HashMap::new(),
-        })
+    fn estimate_cost(&self, _request: &super::coordinator::UniversalAIRequest) -> impl std::future::Future<Output = Result<super::coordinator::CostEstimate>> + Send {
+        async move {
+            // Mock cost estimation
+            Ok(super::coordinator::CostEstimate {
+                estimated_cost: 0.01,
+                currency: "USD".to_string(),
+                breakdown: HashMap::new(),
+            })
+        }
     }
     
     fn get_capabilities(&self) -> Vec<String> {
@@ -294,12 +306,16 @@ impl UniversalAIProvider for ConfigurableProvider {
         capabilities
     }
     
-    async fn health_check(&self) -> Result<bool> {
-        Ok(true)
+    fn health_check(&self) -> impl std::future::Future<Output = Result<bool>> + Send {
+        async move {
+            Ok(true)
+        }
     }
     
-    async fn configure(&mut self, _config: serde_json::Value) -> Result<()> {
-        Ok(())
+    fn configure(&mut self, _config: serde_json::Value) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
+            Ok(())
+        }
     }
 }
 

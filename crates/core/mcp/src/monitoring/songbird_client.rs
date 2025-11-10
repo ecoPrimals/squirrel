@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
+// Phase 4: Removed async_trait - using native async fn in traits
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -13,7 +13,7 @@ use tracing::{error, info, warn, debug};
 
 use crate::error::{Result, MCPError};
 use super::{MonitoringClient, MonitoringEvent, MetricValue, AlertLevel};
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Songbird monitoring client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,8 +36,9 @@ pub struct SongbirdClientConfig {
 
 impl Default for SongbirdClientConfig {
     fn default() -> Self {
-        // PRODUCTION SAFE: Using centralized service endpoints configuration
-        let endpoint = get_service_endpoints().songbird_endpoint.clone();
+        // PRODUCTION SAFE: Using environment variable for service endpoint
+        let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:8500".to_string());
 
         let service_name = std::env::var("MCP_SERVICE_NAME")
             .unwrap_or_else(|_| "squirrel-mcp".to_string());
@@ -315,87 +316,155 @@ impl Clone for SongbirdMonitoringClient {
     }
 }
 
-#[async_trait]
+use std::future::Future;
+
 impl MonitoringClient for SongbirdMonitoringClient {
-    async fn record_event(&self, event: MonitoringEvent) -> Result<()> {
-        // Add to buffer
-        self.events_buffer.write().await.push(event.clone());
-
-        // Also log locally for debugging
-        match event.level {
-            AlertLevel::Critical => error!("CRITICAL: {}", event.message),
-            AlertLevel::High => warn!("HIGH: {}", event.message),
-            AlertLevel::Medium => warn!("MEDIUM: {}", event.message),
-            AlertLevel::Low => info!("LOW: {}", event.message),
-            AlertLevel::Info => info!("INFO: {}", event.message),
+    fn report_breaker_success(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = MonitoringEvent {
+                timestamp: Utc::now(),
+                event_type: "circuit_breaker_success".to_string(),
+                message: format!("Circuit breaker '{}' success", breaker_name),
+                level: AlertLevel::Info,
+                source: me.config.service_name.clone(),
+                tags: HashMap::from([("breaker_name".to_string(), breaker_name)]),
+                metadata: HashMap::new(),
+            };
+            
+            me.record_event(event).await.map_err(|e| anyhow::anyhow!(e.to_string()))
         }
+    }
+    
+    fn report_breaker_failure(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = MonitoringEvent {
+                timestamp: Utc::now(),
+                event_type: "circuit_breaker_failure".to_string(),
+                message: format!("Circuit breaker '{}' failure", breaker_name),
+                level: AlertLevel::Medium,
+                source: me.config.service_name.clone(),
+                tags: HashMap::from([("breaker_name".to_string(), breaker_name)]),
+                metadata: HashMap::new(),
+            };
+            
+            me.record_event(event).await.map_err(|e| anyhow::anyhow!(e.to_string()))
+        }
+    }
+    
+    fn report_breaker_rejection(&self, breaker_name: &str) -> impl Future<Output = anyhow::Result<()>> + Send {
+        let breaker_name = breaker_name.to_string();
+        let me = self.clone();
+        async move {
+            let event = MonitoringEvent {
+                timestamp: Utc::now(),
+                event_type: "circuit_breaker_rejection".to_string(),
+                message: format!("Circuit breaker '{}' rejection", breaker_name),
+                level: AlertLevel::High,
+                source: me.config.service_name.clone(),
+                tags: HashMap::from([("breaker_name".to_string(), breaker_name)]),
+                metadata: HashMap::new(),
+            };
+            
+            me.record_event(event).await.map_err(|e| anyhow::anyhow!(e.to_string()))
+        }
+    }
 
-        // Flush buffer if it's getting large
-        if self.events_buffer.read().await.len() >= self.config.batch_size {
-            if let Err(e) = self.flush_buffers().await {
-                warn!("Failed to flush monitoring buffers: {}", e);
+    fn record_event(&self, event: MonitoringEvent) -> impl Future<Output = Result<()>> + Send {
+        let me = self.clone();
+        async move {
+            // Add to buffer
+            me.events_buffer.write().await.push(event.clone());
+
+            // Also log locally for debugging
+            match event.level {
+                AlertLevel::Critical => error!("CRITICAL: {}", event.message),
+                AlertLevel::High => warn!("HIGH: {}", event.message),
+                AlertLevel::Medium => warn!("MEDIUM: {}", event.message),
+                AlertLevel::Low => info!("LOW: {}", event.message),
+                AlertLevel::Info => info!("INFO: {}", event.message),
             }
-        }
 
-        Ok(())
-    }
-
-    async fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> Result<()> {
-        // Update current metrics
-        if let Some(mut metrics) = self.current_metrics.write().await.as_mut() {
-            metrics.custom_metrics.insert(name.to_string(), value);
-        }
-
-        // Create a monitoring event for the metric
-        let event = MonitoringEvent {
-            timestamp: Utc::now(),
-            event_type: "metric".to_string(),
-            message: format!("Metric '{}' recorded: {:?}", name, value),
-            level: AlertLevel::Info,
-            source: self.config.service_name.clone(),
-            tags: tags.unwrap_or_default(),
-            metadata: HashMap::new(),
-        };
-
-        self.record_event(event).await
-    }
-
-    async fn get_health_status(&self) -> Result<bool> {
-        // Check if we can reach Songbird
-        let url = format!("{}/api/v1/health", self.config.endpoint);
-        
-        match self.client.get(&url).send().await {
-            Ok(response) => Ok(response.status().is_success()),
-            Err(_) => {
-                // If Songbird is unavailable, we're still healthy locally
-                warn!("Songbird endpoint unreachable, but local monitoring continues");
-                Ok(true)
-            }
-        }
-    }
-
-    async fn get_metrics_summary(&self) -> Result<HashMap<String, MetricValue>> {
-        let metrics = self.current_metrics.read().await;
-        
-        match metrics.as_ref() {
-            Some(m) => {
-                let mut summary = HashMap::new();
-                summary.insert("cpu_usage".to_string(), MetricValue::Float(m.cpu_usage));
-                summary.insert("memory_usage".to_string(), MetricValue::Float(m.memory_usage));
-                summary.insert("active_connections".to_string(), MetricValue::Integer(m.active_connections as i64));
-                summary.insert("request_count".to_string(), MetricValue::Integer(m.request_count as i64));
-                summary.insert("error_count".to_string(), MetricValue::Integer(m.error_count as i64));
-                
-                // Add custom metrics
-                for (key, value) in &m.custom_metrics {
-                    summary.insert(key.clone(), value.clone());
+            // Flush buffer if it's getting large
+            if me.events_buffer.read().await.len() >= me.config.batch_size {
+                if let Err(e) = me.flush_buffers().await {
+                    warn!("Failed to flush monitoring buffers: {}", e);
                 }
-                
-                Ok(summary)
             }
-            None => {
-                // Return empty summary if no metrics collected yet
-                Ok(HashMap::new())
+
+            Ok(())
+        }
+    }
+
+    fn record_metric(&self, name: &str, value: MetricValue, tags: Option<HashMap<String, String>>) -> impl Future<Output = Result<()>> + Send {
+        let name = name.to_string();
+        let me = self.clone();
+        async move {
+            // Update current metrics
+            if let Some(mut metrics) = me.current_metrics.write().await.as_mut() {
+                metrics.custom_metrics.insert(name.clone(), value.clone());
+            }
+
+            // Create a monitoring event for the metric
+            let event = MonitoringEvent {
+                timestamp: Utc::now(),
+                event_type: "metric".to_string(),
+                message: format!("Metric '{}' recorded: {:?}", name, value),
+                level: AlertLevel::Info,
+                source: me.config.service_name.clone(),
+                tags: tags.unwrap_or_default(),
+                metadata: HashMap::new(),
+            };
+
+            me.record_event(event).await
+        }
+    }
+
+    fn get_health_status(&self) -> impl Future<Output = Result<bool>> + Send {
+        let me = self.clone();
+        async move {
+            // Check if we can reach Songbird
+            let url = format!("{}/api/v1/health", me.config.endpoint);
+            
+            match me.client.get(&url).send().await {
+                Ok(response) => Ok(response.status().is_success()),
+                Err(_) => {
+                    // If Songbird is unavailable, we're still healthy locally
+                    warn!("Songbird endpoint unreachable, but local monitoring continues");
+                    Ok(true)
+                }
+            }
+        }
+    }
+
+    fn get_metrics_summary(&self) -> impl Future<Output = Result<HashMap<String, MetricValue>>> + Send {
+        let me = self.clone();
+        async move {
+            let metrics = me.current_metrics.read().await;
+            
+            match metrics.as_ref() {
+                Some(m) => {
+                    let mut summary = HashMap::new();
+                    summary.insert("cpu_usage".to_string(), MetricValue::Float(m.cpu_usage));
+                    summary.insert("memory_usage".to_string(), MetricValue::Float(m.memory_usage));
+                    summary.insert("active_connections".to_string(), MetricValue::Integer(m.active_connections as i64));
+                    summary.insert("request_count".to_string(), MetricValue::Integer(m.request_count as i64));
+                    summary.insert("error_count".to_string(), MetricValue::Integer(m.error_count as i64));
+                    
+                    // Add custom metrics
+                    for (key, value) in &m.custom_metrics {
+                        summary.insert(key.clone(), value.clone());
+                    }
+                    
+                    Ok(summary)
+                }
+                None => {
+                    // Return empty summary if no metrics collected yet
+                    Ok(HashMap::new())
+                }
             }
         }
     }

@@ -2,8 +2,8 @@
 //!
 //! This module defines the core CircuitBreaker trait and its standard implementation.
 
+use std::future::Future;
 use std::sync::Arc;
-use async_trait::async_trait;
 use futures_util::future::BoxFuture as FuturesBoxFuture;
 use crate::monitoring::MonitoringClient;
 
@@ -18,25 +18,24 @@ use super::standard_state::StandardBreakerState;
 pub type BoxFuture<'a, T> = FuturesBoxFuture<'a, T>;
 
 /// Basic object-safe circuit breaker trait
-#[async_trait]
 pub trait CircuitBreaker: Send + Sync {
     /// Get the name of the circuit breaker
     fn name(&self) -> &str;
     
     /// Execute an async operation with circuit breaker protection
-    async fn execute<T, F>(&self, operation: F) -> BreakerResult<T>
+    fn execute<T, F>(&self, operation: F) -> impl Future<Output = BreakerResult<T>> + Send
     where
         T: Send + 'static,
         F: FnOnce() -> BoxFuture<'static, BreakerResult<T>> + Send + 'static;
     
     /// Get the current circuit breaker metrics
-    async fn metrics(&self) -> BreakerMetrics;
+    fn metrics(&self) -> impl Future<Output = BreakerMetrics> + Send;
     
     /// Get the circuit breaker configuration
     fn config(&self) -> &BreakerConfig;
     
     /// Get the current circuit state
-    async fn state(&self) -> BreakerState;
+    fn state(&self) -> impl Future<Output = BreakerState> + Send;
 }
 
 /// Standard implementation of a circuit breaker
@@ -70,7 +69,6 @@ impl StandardCircuitBreaker {
     }
 }
 
-#[async_trait]
 impl CircuitBreaker for StandardCircuitBreaker {
     fn name(&self) -> &str {
         &self.name
@@ -80,37 +78,46 @@ impl CircuitBreaker for StandardCircuitBreaker {
         self.state.config()
     }
     
-    async fn state(&self) -> BreakerState {
-        self.state.state().await
+    fn state(&self) -> impl Future<Output = BreakerState> + Send {
+        let state = self.state.clone();
+        async move {
+            state.state().await
+        }
     }
     
-    async fn execute<T, F>(&self, operation: F) -> BreakerResult<T>
+    fn execute<T, F>(&self, operation: F) -> impl Future<Output = BreakerResult<T>> + Send
     where
         T: Send + 'static,
         F: FnOnce() -> BoxFuture<'static, BreakerResult<T>> + Send + 'static,
     {
-        // First check if the circuit is open
-        self.state.try_request().await?;
-        
-        // Execute the operation
-        let result = operation().await;
-        
-        // Update state based on result
-        match &result {
-            Ok(_) => {
-                self.state.on_success().await;
+        let state = self.state.clone();
+        async move {
+            // First check if the circuit is open
+            state.try_request().await?;
+            
+            // Execute the operation
+            let result = operation().await;
+            
+            // Update state based on result
+            match &result {
+                Ok(_) => {
+                    state.on_success().await;
+                }
+                Err(err) => {
+                    // Box the error so it can be passed to on_error
+                    let boxed_err = Box::new(err.clone());
+                    state.on_error(boxed_err).await;
+                }
             }
-            Err(err) => {
-                // Box the error so it can be passed to on_error
-                let boxed_err = Box::new(err.clone());
-                self.state.on_error(boxed_err).await;
-            }
+            
+            result
         }
-        
-        result
     }
     
-    async fn metrics(&self) -> BreakerMetrics {
-        self.state.metrics().await
+    fn metrics(&self) -> impl Future<Output = BreakerMetrics> + Send {
+        let state = self.state.clone();
+        async move {
+            state.metrics().await
+        }
     }
 } 

@@ -198,7 +198,8 @@ pub struct ExperienceBatch {
     pub metadata: Option<Value>,
 }
 
-/// Experience priority for prioritized replay
+/// Experience priority for prioritized replay (reserved for future prioritized experience replay)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExperiencePriority {
     /// Experience ID

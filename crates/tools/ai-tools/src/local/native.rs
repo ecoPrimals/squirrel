@@ -279,7 +279,7 @@ impl NativeProvider {
             .messages
             .iter()
             .filter(|msg| msg.role == MessageRole::User)
-            .last()
+            .next_back()
             .ok_or_else(|| Error::Model("No user message found".to_string()))?;
 
         let user_content = last_message.content.as_deref().unwrap_or("Hello");

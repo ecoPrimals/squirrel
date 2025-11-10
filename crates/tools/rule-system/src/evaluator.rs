@@ -75,6 +75,7 @@ pub trait ConditionEvaluator: Send + Sync + std::fmt::Debug {
 
 impl RuleEvaluator {
     /// Create a new rule evaluator
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             evaluation_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -260,7 +261,7 @@ impl RuleEvaluator {
                     evaluator.evaluate(&plugin_condition, context_data).await
                 } else {
                     Err(RuleSystemError::EvaluatorError(RuleEvaluatorError::Other(
-                        format!("Plugin evaluator not found: {}", plugin_id),
+                        format!("Plugin evaluator not found: {plugin_id}"),
                     )))
                 }
             }
@@ -270,8 +271,7 @@ impl RuleEvaluator {
                 // In a real implementation, this would use a scripting engine
                 Err(RuleSystemError::EvaluatorError(RuleEvaluatorError::Other(
                     format!(
-                        "Script evaluation not implemented: {} ({})",
-                        script, language
+                        "Script evaluation not implemented: {script} ({language})"
                     ),
                 )))
             }
@@ -398,7 +398,7 @@ impl ConditionEvaluator for RegexEvaluator {
             if let Some(Value::String(text)) = context_value {
                 // Use regex to match
                 let regex = regex::Regex::new(pattern).map_err(|e| {
-                    RuleEvaluatorError::Other(format!("Invalid regex pattern: {}", e))
+                    RuleEvaluatorError::Other(format!("Invalid regex pattern: {e}"))
                 })?;
 
                 Ok(regex.is_match(&text))
@@ -412,7 +412,7 @@ impl ConditionEvaluator for RegexEvaluator {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "regex"
     }
 }

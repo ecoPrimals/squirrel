@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use super::ServiceDiscovery;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 use crate::error::CoreError;
 use crate::service_discovery::types::{
     HealthStatus, ServiceDefinition, ServiceQuery, ServiceStats, ServiceType,
@@ -341,11 +341,12 @@ mod tests {
             "Test Service".to_string(),
             ServiceType::AI,
             vec![ServiceEndpoint::new(
-                get_service_endpoints().mcp_endpoint.clone(),
+                std::env::var("MCP_ENDPOINT")
+                    .unwrap_or_else(|_| "http://127.0.0.1:8444".to_string()),
                 "http".to_string(),
-                get_service_endpoints().mcp_url()
+                std::env::var("MCP_PORT")
                     .ok()
-                    .and_then(|url| url.port())
+                    .and_then(|p| p.parse().ok())
                     .unwrap_or(8080),
             )],
         );

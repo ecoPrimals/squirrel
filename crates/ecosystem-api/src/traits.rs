@@ -505,19 +505,18 @@ pub struct SongbirdConfig {
     pub heartbeat_interval_secs: u64,
 }
 
-/// Retry configuration
+/// Retry configuration for resilient operations
+///
+/// Simple RetryConfig for ecosystem-api (standalone crate)
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
-    /// Maximum retries
+    /// Maximum number of retry attempts
     pub max_retries: u32,
-
-    /// Initial delay in milliseconds
+    /// Initial delay in milliseconds before first retry
     pub initial_delay_ms: u64,
-
-    /// Maximum delay in milliseconds
+    /// Maximum delay in milliseconds between retries
     pub max_delay_ms: u64,
-
-    /// Backoff multiplier
+    /// Multiplier for exponential backoff (e.g., 2.0 doubles each retry)
     pub backoff_multiplier: f64,
 }
 

@@ -1,16 +1,15 @@
 // This file contains a minimal implementation for testing monitoring integration.
 
 use std::sync::{atomic::{AtomicUsize, Ordering}, Arc, Mutex};
-use async_trait::async_trait;
+use std::future::Future;
 
 use crate::error::MCPError;
 use crate::resilience::health::HealthCheckResult;
 
 /// Monitoring adapter trait for integrating with external monitoring systems
-#[async_trait]
 pub trait MonitoringAdapter: std::fmt::Debug + Send + Sync {
     /// Forward health check results to the monitoring system
-    async fn forward_health_data(&self, component_id: &str, results: Vec<HealthCheckResult>) -> Result<(), MCPError>;
+    fn forward_health_data(&self, component_id: &str, results: Vec<HealthCheckResult>) -> impl Future<Output = Result<(), MCPError>> + Send;
 }
 
 /// Test monitoring adapter for unit tests
@@ -36,16 +35,20 @@ impl TestMonitoringAdapter {
     }
 }
 
-#[async_trait]
 impl MonitoringAdapter for TestMonitoringAdapter {
-    async fn forward_health_data(&self, _component_id: &str, results: Vec<HealthCheckResult>) -> Result<(), MCPError> {
-        // Update forward count
-        self.forward_count.fetch_add(1, Ordering::SeqCst);
+    fn forward_health_data(&self, _component_id: &str, results: Vec<HealthCheckResult>) -> impl Future<Output = Result<(), MCPError>> + Send {
+        let forward_count = Arc::clone(&self.forward_count);
+        let last_results = Arc::clone(&self.last_results);
         
-        // Store last results
-        let mut last_results = self.last_results.lock().unwrap();
-        *last_results = results;
-        
-        Ok(())
+        async move {
+            // Update forward count
+            forward_count.fetch_add(1, Ordering::SeqCst);
+            
+            // Store last results
+            let mut last_results = last_results.lock().unwrap();
+            *last_results = results;
+            
+            Ok(())
+        }
     }
 } 

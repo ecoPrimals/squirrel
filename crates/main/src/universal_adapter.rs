@@ -16,7 +16,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Result;
-use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::api::ApiServer;

@@ -2,9 +2,9 @@
 //!
 //! This module defines the state types and traits for circuit breakers.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::fmt;
-use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 
 use super::metrics::BreakerMetrics;
@@ -33,25 +33,24 @@ impl fmt::Display for BreakerState {
 }
 
 /// Interface for the circuit breaker state machine
-#[async_trait]
 pub trait CircuitBreakerState: Send + Sync {
     /// Get the current state
-    async fn state(&self) -> BreakerState;
+    fn state(&self) -> impl Future<Output = BreakerState> + Send;
     
     /// Get the configuration
     fn config(&self) -> &BreakerConfig;
     
     /// Try to make a request
-    async fn try_request(&self) -> BreakerResult<()>;
+    fn try_request(&self) -> impl Future<Output = BreakerResult<()>> + Send;
     
     /// Report a successful request
-    async fn on_success(&self);
+    fn on_success(&self) -> impl Future<Output = ()> + Send;
     
     /// Report a failed request
-    async fn on_error(&self, err: Box<dyn std::error::Error + Send + Sync>);
+    fn on_error(&self, err: Box<dyn std::error::Error + Send + Sync>) -> impl Future<Output = ()> + Send;
     
     /// Get metrics
-    async fn metrics(&self) -> BreakerMetrics;
+    fn metrics(&self) -> impl Future<Output = BreakerMetrics> + Send;
 }
 
 /// Create a boxed circuit breaker state trait object from any implementation
@@ -65,29 +64,28 @@ pub fn shared_state<S: CircuitBreakerState + 'static>(state: S) -> Arc<dyn Circu
 }
 
 // Implement CircuitBreakerState for Box<dyn CircuitBreakerState>
-#[async_trait]
 impl CircuitBreakerState for Box<dyn CircuitBreakerState + Send + Sync> {
-    async fn state(&self) -> BreakerState {
-        (**self).state().await
+    fn state(&self) -> impl Future<Output = BreakerState> + Send {
+        (**self).state()
     }
     
     fn config(&self) -> &BreakerConfig {
         (**self).config()
     }
     
-    async fn try_request(&self) -> BreakerResult<()> {
-        (**self).try_request().await
+    fn try_request(&self) -> impl Future<Output = BreakerResult<()>> + Send {
+        (**self).try_request()
     }
     
-    async fn on_success(&self) {
-        (**self).on_success().await
+    fn on_success(&self) -> impl Future<Output = ()> + Send {
+        (**self).on_success()
     }
     
-    async fn on_error(&self, err: Box<dyn std::error::Error + Send + Sync>) {
-        (**self).on_error(err).await
+    fn on_error(&self, err: Box<dyn std::error::Error + Send + Sync>) -> impl Future<Output = ()> + Send {
+        (**self).on_error(err)
     }
     
-    async fn metrics(&self) -> BreakerMetrics {
-        (**self).metrics().await
+    fn metrics(&self) -> impl Future<Output = BreakerMetrics> + Send {
+        (**self).metrics()
     }
 } 

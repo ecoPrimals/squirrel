@@ -9,7 +9,6 @@ use crate::message::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
-use async_trait::async_trait;
 
 /// Chat Message representation for MCP
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,119 +110,133 @@ impl ChatHistorySubscription {
 }
 
 /// Extension trait for MCPClient to handle chat history
-#[async_trait]
 pub trait ChatHistoryClient {
     /// Get the current chat history
-    async fn get_chat_history(&self) -> Result<Vec<ChatMessage>>;
+    fn get_chat_history(&self) -> impl std::future::Future<Output = Result<Vec<ChatMessage>>> + Send;
     
     /// Update the chat history
-    async fn update_chat_history(&self, messages: Vec<ChatMessage>) -> Result<()>;
+    fn update_chat_history(&self, messages: Vec<ChatMessage>) -> impl std::future::Future<Output = Result<()>> + Send;
     
     /// Update chat history from tuple format
-    async fn update_chat_history_from_tuples(&self, history: Vec<(String, bool, u64)>) -> Result<()>;
+    fn update_chat_history_from_tuples(&self, history: Vec<(String, bool, u64)>) -> impl std::future::Future<Output = Result<()>> + Send;
     
     /// Subscribe to chat history updates
-    async fn subscribe_to_chat_updates(&self) -> Result<ChatHistorySubscription>;
+    fn subscribe_to_chat_updates(&self) -> impl std::future::Future<Output = Result<ChatHistorySubscription>> + Send;
     
     /// Get relevant messages for a context
-    async fn get_relevant_messages(&self, context: &str, limit: usize) -> Result<Vec<ChatMessage>>;
+    fn get_relevant_messages(&self, context: &str, limit: usize) -> impl std::future::Future<Output = Result<Vec<ChatMessage>>> + Send;
     
     /// Clear chat history
-    async fn clear_chat_history(&self) -> Result<()>;
+    fn clear_chat_history(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// Implementation of ChatHistoryClient for MCPClient
-#[async_trait]
 impl ChatHistoryClient for MCPClient {
-    async fn get_chat_history(&self) -> Result<Vec<ChatMessage>> {
-        let response = self.send_command_with_content(
-            "get_chat_history",
-            serde_json::json!({})
-        ).await?;
-        
-        // Parse the string content as JSON
-        let content: Value = serde_json::from_str(&response.content)
-            .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
-        
-        let messages: Vec<ChatMessage> = serde_json::from_value(content)
-            .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse chat history: {}", e)))?;
-        
-        Ok(messages)
+    fn get_chat_history(&self) -> impl std::future::Future<Output = Result<Vec<ChatMessage>>> + Send {
+        let client = self.clone();
+        async move {
+            let response = client.send_command_with_content(
+                "get_chat_history",
+                serde_json::json!({})
+            ).await?;
+            
+            // Parse the string content as JSON
+            let content: Value = serde_json::from_str(&response.content)
+                .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
+            
+            let messages: Vec<ChatMessage> = serde_json::from_value(content)
+                .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse chat history: {}", e)))?;
+            
+            Ok(messages)
+        }
     }
     
-    async fn update_chat_history(&self, messages: Vec<ChatMessage>) -> Result<()> {
-        self.send_command_with_content(
-            "update_chat_history",
-            serde_json::json!({
-                "messages": messages,
-            })
-        ).await?;
-        
-        Ok(())
+    fn update_chat_history(&self, messages: Vec<ChatMessage>) -> impl std::future::Future<Output = Result<()>> + Send {
+        let client = self.clone();
+        async move {
+            client.send_command_with_content(
+                "update_chat_history",
+                serde_json::json!({
+                    "messages": messages,
+                })
+            ).await?;
+            
+            Ok(())
+        }
     }
     
-    async fn update_chat_history_from_tuples(&self, history: Vec<(String, bool, u64)>) -> Result<()> {
+    fn update_chat_history_from_tuples(&self, history: Vec<(String, bool, u64)>) -> impl std::future::Future<Output = Result<()>> + Send {
         let messages: Vec<ChatMessage> = history.into_iter()
             .map(ChatMessage::from_tuple)
             .collect();
         
-        self.update_chat_history(messages).await
+        self.update_chat_history(messages)
     }
     
-    async fn subscribe_to_chat_updates(&self) -> Result<ChatHistorySubscription> {
-        let response = self.send_command_with_content(
-            "subscribe_to_chat_updates",
-            serde_json::json!({})
-        ).await?;
-        
-        // Parse the string content as JSON
-        let content: Value = serde_json::from_str(&response.content)
-            .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
-        
-        let subscription_id = content.get("subscription_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .ok_or_else(|| MCPError::InvalidMessage("Missing subscription ID".to_string()))?;
-        
-        // Create a channel for updates
-        let (tx, rx) = tokio::sync::broadcast::channel(100);
-        let tx_clone = tx.clone();
-        
-        // Register an event handler for chat updates
-        self.register_event_handler(std::sync::Arc::new(ChatUpdateHandler::new(
-            subscription_id.clone(),
-            tx_clone,
-        ))).await?;
-        
-        Ok(ChatHistorySubscription::new(rx))
+    fn subscribe_to_chat_updates(&self) -> impl std::future::Future<Output = Result<ChatHistorySubscription>> + Send {
+        let client = self.clone();
+        async move {
+            let response = client.send_command_with_content(
+                "subscribe_to_chat_updates",
+                serde_json::json!({})
+            ).await?;
+            
+            // Parse the string content as JSON
+            let content: Value = serde_json::from_str(&response.content)
+                .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
+            
+            let subscription_id = content.get("subscription_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .ok_or_else(|| MCPError::InvalidMessage("Missing subscription ID".to_string()))?;
+            
+            // Create a channel for updates
+            let (tx, rx) = tokio::sync::broadcast::channel(100);
+            let tx_clone = tx.clone();
+            
+            // Register an event handler for chat updates
+            client.register_event_handler(std::sync::Arc::new(ChatUpdateHandler::new(
+                subscription_id.clone(),
+                tx_clone,
+            ))).await?;
+            
+            Ok(ChatHistorySubscription::new(rx))
+        }
     }
     
-    async fn get_relevant_messages(&self, context: &str, limit: usize) -> Result<Vec<ChatMessage>> {
-        let response = self.send_command_with_content(
-            "get_relevant_messages",
-            serde_json::json!({
-                "context": context,
-                "limit": limit,
-            })
-        ).await?;
-        
-        // Parse the string content as JSON
-        let content: Value = serde_json::from_str(&response.content)
-            .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
-        
-        let messages: Vec<ChatMessage> = serde_json::from_value(content)
-            .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse relevant messages: {}", e)))?;
-        
-        Ok(messages)
+    fn get_relevant_messages(&self, context: &str, limit: usize) -> impl std::future::Future<Output = Result<Vec<ChatMessage>>> + Send {
+        let client = self.clone();
+        let context = context.to_string();
+        async move {
+            let response = client.send_command_with_content(
+                "get_relevant_messages",
+                serde_json::json!({
+                    "context": context,
+                    "limit": limit,
+                })
+            ).await?;
+            
+            // Parse the string content as JSON
+            let content: Value = serde_json::from_str(&response.content)
+                .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse response content as JSON: {}", e)))?;
+            
+            let messages: Vec<ChatMessage> = serde_json::from_value(content)
+                .map_err(|e| MCPError::InvalidMessage(format!("Failed to parse relevant messages: {}", e)))?;
+            
+            Ok(messages)
+        }
     }
     
-    async fn clear_chat_history(&self) -> Result<()> {
-        self.send_command_with_content(
-            "clear_chat_history",
-            serde_json::json!({})
-        ).await?;
-        
-        Ok(())
+    fn clear_chat_history(&self) -> impl std::future::Future<Output = Result<()>> + Send {
+        let client = self.clone();
+        async move {
+            client.send_command_with_content(
+                "clear_chat_history",
+                serde_json::json!({})
+            ).await?;
+            
+            Ok(())
+        }
     }
 }
 

@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Notify, mpsc};
 use tracing::{info, warn, error, debug};
-use uuid::Uuid;
 
 use crate::error::PrimalError;
 use crate::observability::{OperationContext, CorrelationId};
@@ -167,7 +166,7 @@ impl ShutdownManager {
     /// Start the shutdown coordination process
     pub async fn coordinate_shutdown(&self) -> Result<(), PrimalError> {
         let correlation_id = CorrelationId::new();
-        let mut ctx = OperationContext::with_correlation_id("system_shutdown", correlation_id);
+        let ctx = OperationContext::with_correlation_id("system_shutdown", correlation_id);
         ctx.log_start();
         
         // Take ownership of the receiver

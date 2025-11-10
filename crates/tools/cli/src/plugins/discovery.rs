@@ -17,12 +17,10 @@ impl PluginDiscovery for DefaultPluginDiscovery {
 
         // Find all plugin library files in the directory
         if let Ok(entries) = std::fs::read_dir(plugin_dir) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_file() && Self::is_plugin_library(&path) {
-                        plugin_paths.push(path);
-                    }
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && Self::is_plugin_library(&path) {
+                    plugin_paths.push(path);
                 }
             }
         }

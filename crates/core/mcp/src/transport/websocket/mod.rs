@@ -397,7 +397,7 @@ impl WebSocketTransport {
     }
 
     /// Get the remote address of the WebSocket connection
-    async fn remote_addr(&self) -> Result<Option<SocketAddr>, MCPError> {
+    async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
         // Access the peer_addr field instead of trying to access a stream field
         let peer_addr = self.peer_addr.lock().await;
         Ok(*peer_addr)

@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use super::context::SecurityContext;
 use super::errors::SecurityError;
-use super::types::*;
 use crate::config::AuthMethod;
 
 /// Health status enumeration
@@ -65,8 +64,10 @@ impl Default for SecurityServiceConfig {
 
 /// Security level enumeration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SecurityLevel {
     Low,
+    #[default]
     Medium,
     High,
     Critical,
@@ -83,8 +84,10 @@ pub enum TrustLevel {
 
 /// Priority level for security requests
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum Priority {
     Low,
+    #[default]
     Normal,
     High,
     Critical,
@@ -313,7 +316,7 @@ impl UniversalSecurityRegistry {
         for capability in capabilities {
             self.capabilities_index
                 .entry(capability)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(service_id.clone());
         }
 
@@ -431,17 +434,7 @@ impl Default for TrustLevel {
     }
 }
 
-impl Default for SecurityLevel {
-    fn default() -> Self {
-        SecurityLevel::Medium
-    }
-}
 
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Normal
-    }
-}
 
 /// Example registration function for any security service
 /// This shows how a specific security service (like BearDog) would register

@@ -1,6 +1,5 @@
 //! Error handling for the Squirrel primal
 
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Main error type for Squirrel Primal operations

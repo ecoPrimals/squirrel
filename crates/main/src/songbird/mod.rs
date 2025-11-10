@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 use crate::ecosystem::EcosystemConfig;
 use crate::error::PrimalError;
-use squirrel_mcp_config::DefaultConfigManager;
 
 /// Orchestration state for songbird coordination
 #[derive(Debug, Clone, Default)]
@@ -82,8 +81,6 @@ pub struct SongbirdCoordinator {
     config: EcosystemConfig,
     /// Service mesh client
     service_mesh_client: Arc<Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>>,
-    /// Configuration manager
-    config_manager: DefaultConfigManager,
     /// Orchestration state
     orchestration_state: Arc<tokio::sync::RwLock<OrchestrationState>>,
     /// Health status
@@ -109,7 +106,6 @@ impl SongbirdCoordinator {
             })?,
         )
             as Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>);
-        let config_manager = DefaultConfigManager::new();
         let orchestration_state = Arc::new(RwLock::new(OrchestrationState::default()));
         let health_status = HealthStatus {
             status: "running".to_string(),
@@ -122,7 +118,6 @@ impl SongbirdCoordinator {
             instance_id,
             config,
             service_mesh_client,
-            config_manager,
             orchestration_state,
             health_status,
             initialized: false,
@@ -327,9 +322,7 @@ impl SongbirdCoordinator {
     /// Get orchestration configuration using config_manager
     pub fn get_orchestration_config(&self) -> serde_json::Value {
         // Use config_manager field for orchestration configuration management
-        debug!("Retrieving orchestration configuration via config manager");
-
-        let base_config = self.config_manager.get_config();
+        debug!("Retrieving orchestration configuration");
 
         serde_json::json!({
             "coordinator_instance": self.instance_id,

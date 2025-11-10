@@ -29,7 +29,6 @@ use std::fmt;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use std::error::Error as StdError;
-use async_trait::async_trait;
 use thiserror::Error;
 
 // Re-export types that were previously in health.rs
@@ -168,13 +167,12 @@ impl Default for HealthCheckConfig {
 }
 
 /// Trait for implementing health checks
-#[async_trait]
 pub trait HealthCheck: std::fmt::Debug + Send + Sync {
     /// Unique identifier for this health check
     fn id(&self) -> &str;
     
     /// Perform the health check
-    async fn check(&self) -> HealthCheckResult;
+    fn check(&self) -> impl std::future::Future<Output = HealthCheckResult> + Send;
     
     /// Get the configuration for this health check
     fn config(&self) -> &HealthCheckConfig;
@@ -676,20 +674,25 @@ pub mod tests {
         }
     }
     
-    #[async_trait]
     impl HealthCheck for MockHealthCheck {
         fn id(&self) -> &str {
             &self.id
         }
         
-        async fn check(&self) -> HealthCheckResult {
-            self.call_count.fetch_add(1, Ordering::SeqCst);
-            let status = *self.status.read().unwrap();
-            HealthCheckResult::new(
-                self.id.clone(),
-                status,
-                format!("Mock health check: {:?}", status)
-            )
+        fn check(&self) -> impl std::future::Future<Output = HealthCheckResult> + Send {
+            let call_count = Arc::clone(&self.call_count);
+            let status = Arc::clone(&self.status);
+            let id = self.id.clone();
+            
+            async move {
+                call_count.fetch_add(1, Ordering::SeqCst);
+                let status = *status.read().unwrap();
+                HealthCheckResult::new(
+                    id,
+                    status,
+                    format!("Mock health check: {:?}", status)
+                )
+            }
         }
         
         fn config(&self) -> &HealthCheckConfig {

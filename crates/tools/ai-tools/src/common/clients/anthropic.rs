@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use futures::stream;
 use reqwest::Client;
 use serde_json::json;
+use universal_error::tools::AIToolsError;
 
 #[cfg(test)]
 use crate::common::capability::SecurityRequirements;
@@ -187,20 +188,25 @@ impl AIClient for AnthropicClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to reach Anthropic API: {}. Check network connectivity and endpoint.", e)
+            ))?;
 
         if !response.status().is_success() {
-            return Err(crate::error::AIError::ApiError(format!(
-                "Anthropic API error: {} - {}",
-                response.status(),
-                response.text().await.unwrap_or_default()
-            )));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AIToolsError::Api(format!(
+                "Anthropic API error (status {}): {}. Verify API key at console.anthropic.com.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::ParseError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse Anthropic response: {}. Response may be malformed.", e)
+            ))?;
 
         self.parse_response(response_json)
     }

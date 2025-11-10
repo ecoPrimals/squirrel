@@ -35,6 +35,9 @@ once_cell = "1.0"
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
 
+# Add interfaces dependency for canonical types
+squirrel-interfaces = { path = "../interfaces" }
+
 [dev-dependencies]
 tokio-test = "0.4"
 mockall = "0.11"

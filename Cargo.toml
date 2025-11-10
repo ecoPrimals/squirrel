@@ -14,11 +14,9 @@ members = [
     "crates/core/interfaces",
     "crates/core/context",
     
-    # Integration components
-    "crates/integration/api-clients",
+    # Integration components (vendor-agnostic patterns)
     "crates/integration/context-adapter",
     "crates/integration/ecosystem",
-    "crates/integration/toadstool",
     
     # Service components
     "crates/services/commands",

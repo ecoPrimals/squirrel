@@ -164,9 +164,21 @@ pub struct WorkflowConfig {
 
 impl Default for WorkflowConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let timeout = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("workflow_timeout")
+                .unwrap_or_else(|| Duration::from_secs(3600))
+        } else {
+            Duration::from_secs(3600) // 1 hour
+        };
+        
         Self {
             execution_strategy: ExecutionStrategy::Sequential,
-            timeout: Duration::from_secs(3600), // 1 hour
+            timeout,
             retry: WorkflowRetryConfig::default(),
             error_handling: ErrorHandlingStrategy::StopOnError,
         }
@@ -213,11 +225,26 @@ pub struct WorkflowRetryConfig {
 
 impl Default for WorkflowRetryConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (delay, max_delay) = if let Some(cfg) = config {
+            let d = cfg.timeouts.get_custom_timeout("workflow_retry_delay")
+                .unwrap_or_else(|| Duration::from_secs(5));
+            let m = cfg.timeouts.get_custom_timeout("workflow_retry_max")
+                .unwrap_or_else(|| Duration::from_secs(300));
+            (d, m)
+        } else {
+            (Duration::from_secs(5), Duration::from_secs(300))
+        };
+        
         Self {
             max_attempts: 3,
-            delay: Duration::from_secs(5),
+            delay,
             exponential_backoff: true,
-            max_delay: Duration::from_secs(300),
+            max_delay,
             retryable_errors: vec![
                 "timeout".to_string(),
                 "connection_error".to_string(),
@@ -264,8 +291,20 @@ pub struct CompositionConfig {
 
 impl Default for CompositionConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let max_execution_time = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("comp_max_execution")
+                .unwrap_or_else(|| Duration::from_secs(600))
+        } else {
+            Duration::from_secs(600) // 10 minutes
+        };
+        
         Self {
-            max_execution_time: Duration::from_secs(600), // 10 minutes
+            max_execution_time,
             resources: ResourceLimits::default(),
             monitoring: MonitoringConfig::default(),
             security: SecurityConfig::default(),

@@ -56,6 +56,7 @@ pub struct RuleDirectoryManager {
 
 impl RuleDirectoryManager {
     /// Creates a new rule directory manager with the given configuration
+    #[must_use] 
     pub fn new(config: RuleDirectoryConfig) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
@@ -64,6 +65,7 @@ impl RuleDirectoryManager {
     }
 
     /// Creates a new rule directory manager with the default configuration
+    #[must_use] 
     pub fn default() -> Self {
         Self::new(RuleDirectoryConfig::default())
     }
@@ -114,8 +116,7 @@ impl RuleDirectoryManager {
         // Check if source already exists
         if sources.contains_key(&id) {
             return Err(RuleSystemError::Other(format!(
-                "Source already exists: {}",
-                id
+                "Source already exists: {id}"
             )));
         }
 
@@ -173,7 +174,7 @@ impl RuleDirectoryManager {
         // Check if source exists
         let source = sources
             .get(source_id)
-            .ok_or_else(|| RuleSystemError::Other(format!("Source not found: {}", source_id)))?;
+            .ok_or_else(|| RuleSystemError::Other(format!("Source not found: {source_id}")))?;
 
         let pattern = format!("{}/{}", source.directory.display(), source.pattern);
         let glob_pattern = if cfg!(windows) {
@@ -337,11 +338,13 @@ pub struct RuleDirectoryManagerFactory;
 
 impl RuleDirectoryManagerFactory {
     /// Creates a new rule directory manager with the default configuration
+    #[must_use] 
     pub fn create_manager() -> RuleDirectoryManager {
         RuleDirectoryManager::default()
     }
 
     /// Creates a new rule directory manager with the given configuration
+    #[must_use] 
     pub fn create_manager_with_config(config: RuleDirectoryConfig) -> RuleDirectoryManager {
         RuleDirectoryManager::new(config)
     }
@@ -355,11 +358,13 @@ impl RuleDirectoryManagerFactory {
 }
 
 /// Creates a new rule directory manager with the default configuration
+#[must_use] 
 pub fn create_rule_directory_manager() -> RuleDirectoryManager {
     RuleDirectoryManagerFactory::create_manager()
 }
 
 /// Creates a new rule directory manager with the given configuration
+#[must_use] 
 pub fn create_rule_directory_manager_with_config(
     config: RuleDirectoryConfig,
 ) -> RuleDirectoryManager {

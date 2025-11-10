@@ -17,11 +17,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
-use crate::config;
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
-use squirrel_mcp_config::universal::NetworkConfigHelper;
-use squirrel_mcp_config::DefaultConfigManager;
+
+/// Helper function to get service mesh endpoint from environment
+fn get_service_mesh_endpoint() -> String {
+    std::env::var("SERVICE_MESH_ENDPOINT")
+        .unwrap_or_else(|_| "http://localhost:8500".to_string())
+}
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
 pub struct UniversalSquirrelProvider {
@@ -31,8 +34,6 @@ pub struct UniversalSquirrelProvider {
     config: EcosystemConfig,
     /// Service mesh client
     service_mesh_client: Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>,
-    /// Configuration manager
-    config_manager: DefaultConfigManager,
     /// BiomeOS client for ecosystem integration
     biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
     /// Session manager for handling sessions
@@ -53,7 +54,7 @@ impl UniversalSquirrelProvider {
         let instance_id = uuid::Uuid::new_v4().to_string();
         let service_mesh_client = Arc::new(
             match SongbirdClient::new(
-                NetworkConfigHelper::get_service_mesh_endpoint(),
+                get_service_mesh_endpoint(),
                 None,
                 RetryConfig::default(),
             ) {
@@ -74,13 +75,11 @@ impl UniversalSquirrelProvider {
                 }
             }
         );
-        let config_manager = DefaultConfigManager::new();
 
         Ok(Self {
             instance_id,
             config,
             service_mesh_client,
-            config_manager,
             biomeos_client: None,
             session_manager: None,
             initialized: false,
@@ -744,7 +743,7 @@ impl Default for UniversalSquirrelProvider {
                     config,
                     service_mesh_client: Arc::new(
                         match SongbirdClient::new(
-                            NetworkConfigHelper::get_service_mesh_endpoint(),
+                            get_service_mesh_endpoint(),
                             None,
                             RetryConfig::default(),
                         ) {
@@ -759,7 +758,6 @@ impl Default for UniversalSquirrelProvider {
                             }
                         }
                     ),
-                    config_manager: DefaultConfigManager::new(),
                     biomeos_client: None,
                     session_manager: None,
                     initialized: false,

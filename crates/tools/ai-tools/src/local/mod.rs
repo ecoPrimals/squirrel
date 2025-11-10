@@ -259,7 +259,7 @@ impl LocalAIClient {
                 if enhanced_request
                     .parameters
                     .as_ref()
-                    .map_or(true, |p| p.max_tokens.is_none())
+                    .is_none_or(|p| p.max_tokens.is_none())
                 {
                     if let Some(ref mut params) = enhanced_request.parameters {
                         params.max_tokens = Some(default_max_tokens);
@@ -418,9 +418,9 @@ impl AIClient for LocalAIClient {
                         "⚠️ Request timeout after {} seconds for model {}",
                         timeout_secs, model_id
                     );
-                    return Err(crate::error::AIError::Timeout(format!(
-                        "Request timeout after {timeout_secs} seconds for model {model_id}"
-                    )));
+                    return Err(universal_error::tools::AIToolsError::Provider(
+                        format!("Request timeout after {} seconds for model {}", timeout_secs, model_id)
+                    ).into());
                 }
             }
         } else {

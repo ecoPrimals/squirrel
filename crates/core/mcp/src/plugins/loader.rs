@@ -3,22 +3,22 @@ use crate::error::{Result};
 use crate::error::plugin::PluginError;
 use std::path::Path;
 use crate::plugins::types::PluginId;
-use async_trait::async_trait;
+// Phase 4: Removed async_trait - using native async fn in traits
+use std::future::Future;
 
 /// Trait for loading plugins from different sources
-#[async_trait]
 pub trait PluginLoader {
     /// Load a plugin from a local file path
-    async fn load_from_file(&self, path: &Path) -> Result<Box<dyn Plugin>>;
+    fn load_from_file(&self, path: &Path) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send;
     
     /// Load a plugin from a remote URL
-    async fn load_from_url(&self, url: &str) -> Result<Box<dyn Plugin>>;
+    fn load_from_url(&self, url: &str) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send;
     
     /// Load an embedded plugin by ID
-    async fn load_embedded(&self, id: &PluginId) -> Result<Box<dyn Plugin>>;
+    fn load_embedded(&self, id: &PluginId) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send;
     
     /// Unload a plugin by ID
-    async fn unload(&self, id: &PluginId) -> Result<()>;
+    fn unload(&self, id: &PluginId) -> impl Future<Output = Result<()>> + Send;
 }
 
 /// Default implementation of PluginLoader
@@ -33,30 +33,37 @@ impl DefaultPluginLoader {
     }
 }
 
-#[async_trait]
 impl PluginLoader for DefaultPluginLoader {
-    async fn load_from_file(&self, _path: &Path) -> Result<Box<dyn Plugin>> {
-        // Implementation would load a plugin from a file
-        // This is a placeholder implementation
-        Err(PluginError::NotImplemented("Loading plugins from files not implemented".to_string()).into())
+    fn load_from_file(&self, _path: &Path) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send {
+        async move {
+            // Implementation would load a plugin from a file
+            // This is a placeholder implementation
+            Err(PluginError::NotImplemented("Loading plugins from files not implemented".to_string()).into())
+        }
     }
     
-    async fn load_from_url(&self, _url: &str) -> Result<Box<dyn Plugin>> {
-        // Implementation would load a plugin from a URL
-        // This is a placeholder implementation
-        Err(PluginError::NotImplemented("Loading plugins from URLs not implemented".to_string()).into())
+    fn load_from_url(&self, _url: &str) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send {
+        async move {
+            // Implementation would load a plugin from a URL
+            // This is a placeholder implementation
+            Err(PluginError::NotImplemented("Loading plugins from URLs not implemented".to_string()).into())
+        }
     }
     
-    async fn load_embedded(&self, _id: &PluginId) -> Result<Box<dyn Plugin>> {
-        // Implementation would load an embedded plugin
-        // This is a placeholder implementation
-        Err(PluginError::NotImplemented("Loading embedded plugins not implemented".to_string()).into())
+    fn load_embedded(&self, _id: &PluginId) -> impl Future<Output = Result<Box<dyn Plugin>>> + Send {
+        async move {
+            // Implementation would load an embedded plugin
+            // This is a placeholder implementation
+            Err(PluginError::NotImplemented("Loading embedded plugins not implemented".to_string()).into())
+        }
     }
     
-    async fn unload(&self, _id: &PluginId) -> Result<()> {
-        // Implementation would unload a plugin
-        // This is a placeholder implementation
-        Err(PluginError::NotImplemented("Unloading plugins not implemented".to_string()).into())
+    fn unload(&self, _id: &PluginId) -> impl Future<Output = Result<()>> + Send {
+        async move {
+            // Implementation would unload a plugin
+            // This is a placeholder implementation
+            Err(PluginError::NotImplemented("Unloading plugins not implemented".to_string()).into())
+        }
     }
 }
 

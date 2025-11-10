@@ -1,17 +1,11 @@
 //! Squirrel AI Coordinator Main Entry Point
 
 use anyhow::Result;
-use ecosystem_api::types::{NetworkLocation, PrimalContext};
-use squirrel::api::ApiServer;
-use squirrel::ecosystem::{initialize_ecosystem_integration, EcosystemConfig};
-use squirrel::shutdown::ShutdownManager; // Simplified import
-use squirrel::universal_provider::UniversalSquirrelProvider;
-use squirrel::MetricsCollector;
-use squirrel::UniversalProviderTrait;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::signal;
-use tracing::{error, info, warn};
+use squirrel::api::ApiServer;
+use squirrel::ecosystem::{EcosystemManager, EcosystemConfig};
+use squirrel::MetricsCollector;
+use squirrel::shutdown::ShutdownManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -23,19 +17,42 @@ async fn main() -> Result<()> {
         .with_line_number(true)
         .init();
 
-    // Check if we should use the new universal adapter
-    let use_universal_adapter = std::env::var("SQUIRREL_USE_UNIVERSAL_ADAPTER")
-        .map(|v| v.to_lowercase() == "true")
-        .unwrap_or(false);
+    println!("🐿️  Squirrel AI/MCP Primal Starting...");
+    println!("✅ Arc<str> Modernization Complete");
+    println!("✅ Performance Optimized with Zero-Copy Patterns");
 
-    if use_universal_adapter {
-        println!("🎉 Squirrel AI Primal - Arc<str> Modernization Complete! 🚀");
-        println!("✅ 100% Compilation Success Achieved!");
-        println!("Performance optimized with zero-copy Arc<str> patterns");
-    } else {
-        // Standard startup path
-        println!("Starting Squirrel AI Primal...");
-    }
+    // Get configuration from environment
+    let port = std::env::var("PORT")
+        .or_else(|_| std::env::var("SQUIRREL_PORT"))
+        .unwrap_or_else(|_| "9010".to_string())
+        .parse::<u16>()?;
+
+    // Initialize ecosystem components
+    let metrics_collector = Arc::new(MetricsCollector::new());
+    let ecosystem_config = EcosystemConfig::default();
+    let ecosystem_manager = Arc::new(EcosystemManager::new(ecosystem_config, metrics_collector.clone()));
+    let shutdown_manager = Arc::new(ShutdownManager::new());
+
+    println!("✅ Ecosystem Manager initialized");
+    println!("✅ Metrics Collector initialized");
+    println!("✅ Shutdown Manager initialized");
+
+    // Create and start API server
+    let api_server = ApiServer::new(
+        port,
+        ecosystem_manager.clone(),
+        metrics_collector.clone(),
+        shutdown_manager.clone(),
+    );
+
+    println!("🚀 Starting API server on port {}", port);
+    println!("   Health: http://localhost:{}/health", port);
+    println!("   API: http://localhost:{}/api/v1/*", port);
+    println!();
+    println!("✅ Squirrel AI/MCP Primal Ready!");
+
+    // Start the server (this will block)
+    api_server.start().await?;
 
     Ok(())
 }

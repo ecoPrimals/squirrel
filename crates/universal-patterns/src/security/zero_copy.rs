@@ -35,7 +35,7 @@ impl<'a> ZeroCopyCredentials<'a> {
         Self {
             username: Cow::Borrowed(username),
             password: Cow::Borrowed(password),
-            token: token.map(|t| Arc::from(t)),
+            token: token.map(Arc::from),
             metadata: Arc::new(metadata.clone()), // Only clone metadata if needed
         }
     }
@@ -50,7 +50,7 @@ impl<'a> ZeroCopyCredentials<'a> {
         Self {
             username: Cow::Owned(username),
             password: Cow::Owned(password),
-            token: token.map(|t| Arc::from(t)),
+            token: token.map(Arc::from),
             metadata: Arc::new(metadata),
         }
     }
@@ -336,6 +336,12 @@ pub struct CacheStats {
     pub hits: u64,
     pub misses: u64,
     pub evictions: u64,
+}
+
+impl Default for PrincipalCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PrincipalCache {

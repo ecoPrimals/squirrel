@@ -17,7 +17,7 @@ use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
 use crate::error::PrimalError;
-use crate::observability::{OperationContext, CorrelationId};
+use crate::observability::CorrelationId;
 use crate::shutdown::{ShutdownHandler, ShutdownPhase};
 
 use super::rate_limiter::{ProductionRateLimiter, RateLimitConfig, RateLimitResult, EndpointType};

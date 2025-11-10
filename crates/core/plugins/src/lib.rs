@@ -42,7 +42,9 @@ pub use performance_optimizer::{
     HotPathCacheConfig, MemoryOptimizationConfig, OptimizerMetrics, PerformanceOptimizerConfig,
     PluginPerformanceOptimizer, PredictiveLoadingConfig,
 };
-pub use plugin::{Plugin, PluginMetadata};
+pub use plugin::Plugin;
+// Re-export canonical PluginMetadata from interfaces
+pub use squirrel_interfaces::plugins::PluginMetadata;
 pub use plugin_v2::PluginV2;
 pub use registry::PluginRegistry;
 pub use state::{FileStateManager, MemoryStateManager, PluginStateManager};

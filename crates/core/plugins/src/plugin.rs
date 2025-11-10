@@ -10,7 +10,14 @@ use std::any::Any;
 use std::fmt::Debug;
 use uuid::Uuid;
 
-/// Legacy Plugin metadata, will be deprecated in favor of IPluginMetadata
+/// Legacy Plugin metadata - DEPRECATED
+/// 
+/// Use `squirrel_interfaces::plugins::PluginMetadata` instead.
+/// This will be removed in a future version.
+#[deprecated(
+    since = "2.0.0",
+    note = "Use squirrel_interfaces::plugins::PluginMetadata instead"
+)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PluginMetadata {
     /// Plugin ID
@@ -123,6 +130,10 @@ impl Default for PluginStatus {
 }
 
 /// Legacy Plugin trait, will be deprecated in favor of IPlugin
+/// 
+/// NOTE: This trait uses `async_trait` because it is used as a trait object (`dyn Plugin`)
+/// throughout the codebase. Native async traits are not compatible with trait objects.
+/// This is a legitimate use case for keeping `async_trait` - see Phase 4 migration notes.
 #[async_trait]
 pub trait Plugin: Send + Sync {
     /// Get the plugin ID
@@ -131,6 +142,7 @@ pub trait Plugin: Send + Sync {
     }
 
     /// Get the plugin metadata
+    #[allow(deprecated)]
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin

@@ -6,10 +6,9 @@ use std::any::Any;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::{Client, Response};
+use reqwest::Client;
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use futures::StreamExt;
 use bytes::Bytes;
 use tracing::{debug, error, info, warn};

@@ -3,14 +3,16 @@
 //! This module provides configuration options for MCP clients including connection settings,
 //! timeouts, authentication, and transport configuration.
 //!
-//! ## Environment Variables
+//! ## Environment Variables (Unified Config)
 //! 
+//! Timeouts now use the unified configuration system with SQUIRREL_* prefix:
+//! - `SQUIRREL_CONNECTION_TIMEOUT_SECS`: Connection timeout (default: 30)
+//! - `SQUIRREL_REQUEST_TIMEOUT_SECS`: Request timeout (default: 60)
+//! - `SQUIRREL_HEARTBEAT_INTERVAL_SECS`: Keep-alive interval (default: 30)
+//! - `SQUIRREL_CUSTOM_TIMEOUT_MCP_RECONNECT_SECS`: Reconnection delay (default: 1)
+//!
+//! Legacy MCP_* environment variables:
 //! - `MCP_SERVER_ADDRESS`: Server address (default: "127.0.0.1:8080")
-//! - `MCP_CONNECTION_TIMEOUT_MS`: Connection timeout in milliseconds (default: 5000)
-//! - `MCP_REQUEST_TIMEOUT_MS`: Request timeout in milliseconds (default: 30000)
-//! - `MCP_MAX_RECONNECT_ATTEMPTS`: Maximum reconnection attempts (default: 3)
-//! - `MCP_RECONNECT_DELAY_MS`: Delay between reconnections in milliseconds (default: 1000)
-//! - `MCP_KEEP_ALIVE_INTERVAL_MS`: Keep-alive interval in milliseconds (default: 30000)
 //! - `MCP_CLIENT_ID`: Client ID (auto-generated if not provided)
 //! - `MCP_AUTH_TOKEN`: Authentication token
 
@@ -21,6 +23,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+
+// Import unified config for timeout management
+use squirrel_mcp_config::unified::ConfigLoader;
 
 // Import configuration if available
 #[cfg(feature = "config")]
@@ -86,37 +91,46 @@ impl ClientConfig {
         Self::default()
     }
 
-    /// Create configuration from environment variables
+    /// Create configuration from environment variables using unified config
+    ///
+    /// Timeouts are now loaded from the unified configuration system:
+    /// - Connection timeout: SQUIRREL_CONNECTION_TIMEOUT_SECS
+    /// - Request timeout: SQUIRREL_REQUEST_TIMEOUT_SECS
+    /// - Keep-alive interval: SQUIRREL_HEARTBEAT_INTERVAL_SECS
+    /// - Reconnect delay: SQUIRREL_CUSTOM_TIMEOUT_MCP_RECONNECT_SECS
     pub fn from_env() -> Self {
+        // Load unified config for timeouts
+        let unified_config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        let connection_timeout = unified_config.as_ref()
+            .map(|c| c.timeouts.connection_timeout())
+            .unwrap_or(Duration::from_secs(5));
+        
+        let request_timeout = unified_config.as_ref()
+            .map(|c| c.timeouts.request_timeout())
+            .unwrap_or(Duration::from_secs(30));
+        
+        let keep_alive_interval = unified_config.as_ref()
+            .map(|c| Some(c.timeouts.heartbeat_interval()))
+            .unwrap_or(Some(Duration::from_secs(30)));
+        
+        let reconnect_delay = unified_config.as_ref()
+            .map(|c| c.timeouts.get_custom_timeout("mcp_reconnect"))
+            .unwrap_or(Duration::from_secs(1));
+        
         Self {
             server_address: std::env::var("MCP_SERVER_ADDRESS")
                 .unwrap_or_else(|_| "127.0.0.1:8080".to_string()),
-            connection_timeout: Duration::from_millis(
-                std::env::var("MCP_CONNECTION_TIMEOUT_MS")
-                    .unwrap_or_else(|_| "5000".to_string())
-                    .parse()
-                    .unwrap_or(5000),
-            ),
-            request_timeout: Duration::from_millis(
-                std::env::var("MCP_REQUEST_TIMEOUT_MS")
-                    .unwrap_or_else(|_| "30000".to_string())
-                    .parse()
-                    .unwrap_or(30000),
-            ),
+            connection_timeout,
+            request_timeout,
             max_reconnect_attempts: std::env::var("MCP_MAX_RECONNECT_ATTEMPTS")
                 .unwrap_or_else(|_| "3".to_string())
                 .parse()
                 .unwrap_or(3),
-            reconnect_delay: Duration::from_millis(
-                std::env::var("MCP_RECONNECT_DELAY_MS")
-                    .unwrap_or_else(|_| "1000".to_string())
-                    .parse()
-                    .unwrap_or(1000),
-            ),
-            keep_alive_interval: std::env::var("MCP_KEEP_ALIVE_INTERVAL_MS")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .map(Duration::from_millis),
+            reconnect_delay,
+            keep_alive_interval,
             client_id: std::env::var("MCP_CLIENT_ID").ok(),
             auth_token: std::env::var("MCP_AUTH_TOKEN").ok(),
             transport: None,
@@ -256,13 +270,34 @@ impl ClientConfig {
 
 impl Default for ClientConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeouts
+        let unified_config = ConfigLoader::load()
+            .map(|c| c.into_config())
+            .ok();
+        
+        let connection_timeout = unified_config.as_ref()
+            .map(|c| c.timeouts.connection_timeout())
+            .unwrap_or(Duration::from_secs(5));
+        
+        let request_timeout = unified_config.as_ref()
+            .map(|c| c.timeouts.request_timeout())
+            .unwrap_or(Duration::from_secs(30));
+        
+        let keep_alive_interval = unified_config.as_ref()
+            .map(|c| Some(c.timeouts.heartbeat_interval()))
+            .unwrap_or(Some(Duration::from_secs(30)));
+        
+        let reconnect_delay = unified_config.as_ref()
+            .map(|c| c.timeouts.get_custom_timeout("mcp_reconnect"))
+            .unwrap_or(Duration::from_secs(1));
+        
         Self {
             server_address: "127.0.0.1:8080".to_string(),
-            connection_timeout: Duration::from_secs(5),
-            request_timeout: Duration::from_secs(30),
+            connection_timeout,
+            request_timeout,
             max_reconnect_attempts: 3,
-            reconnect_delay: Duration::from_secs(1),
-            keep_alive_interval: Some(Duration::from_secs(30)),
+            reconnect_delay,
+            keep_alive_interval,
             client_id: None,
             auth_token: None,
             transport: None,

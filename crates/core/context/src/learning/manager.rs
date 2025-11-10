@@ -232,7 +232,8 @@ pub struct ContextLearningManager {
     /// Context manager
     context_manager: Arc<ContextManager>,
 
-    /// Rule manager
+    /// Rule manager (planned future integration)
+    #[allow(dead_code)]
     rule_manager: Option<Arc<RuleManager>>,
 
     /// Active episodes

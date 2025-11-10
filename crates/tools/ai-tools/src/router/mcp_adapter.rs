@@ -379,7 +379,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // TODO: Fix response content mismatch - expected "Mock remote response from node"
     async fn test_default_response() {
         // Create adapter
         let adapter = MCPAdapter::new(MCPAdapterConfig::default());
@@ -400,11 +399,15 @@ mod tests {
             .await
             .unwrap();
 
-        // Verify default response
-        assert!(result.chat_response.choices[0]
+        // Verify default response contains expected text
+        let content = result.chat_response.choices[0]
             .content
             .as_ref()
-            .unwrap()
-            .contains("Mock remote response from node"));
+            .unwrap();
+        
+        // Response format: "Remote response from node NodeId("test-node") via MCP"
+        assert!(content.contains("Remote response from node"));
+        assert!(content.contains("test-node"));
+        assert!(content.contains("via MCP"));
     }
 }

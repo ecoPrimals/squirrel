@@ -8,6 +8,9 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+// Import canonical config types
+use crate::config::{EncryptionConfig, ScalingConfig};
+
 /// Workflow definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowDefinition {
@@ -612,63 +615,10 @@ pub enum ErrorHandlingStrategy {
     Custom(String),
 }
 
-/// Security configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    /// Authentication required
-    pub auth_required: bool,
-    
-    /// Authorization rules
-    pub authorization: Vec<String>,
-    
-    /// Encryption settings
-    pub encryption: EncryptionConfig,
-    
-    /// Access control
-    pub access_control: AccessControlConfig,
-}
+// SecurityConfig and AccessControlConfig now imported from crate::config::ServiceSecurityConfig
+pub use crate::config::{ServiceSecurityConfig as SecurityConfig, AccessControlConfig};
 
-/// Encryption configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EncryptionConfig {
-    /// Encryption enabled
-    pub enabled: bool,
-    
-    /// Encryption algorithm
-    pub algorithm: String,
-    
-    /// Key management
-    pub key_management: String,
-}
-
-/// Access control configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccessControlConfig {
-    /// Access control enabled
-    pub enabled: bool,
-    
-    /// Access rules
-    pub rules: Vec<String>,
-    
-    /// Role-based access control
-    pub rbac: bool,
-}
-
-/// Scaling configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalingConfig {
-    /// Auto-scaling enabled
-    pub auto_scaling: bool,
-    
-    /// Minimum instances
-    pub min_instances: u32,
-    
-    /// Maximum instances
-    pub max_instances: u32,
-    
-    /// Scaling metrics
-    pub metrics: Vec<String>,
-}
+// EncryptionConfig and ScalingConfig are now imported from crate::config
 
 /// Workflow instance
 #[derive(Debug, Clone, Serialize, Deserialize)]

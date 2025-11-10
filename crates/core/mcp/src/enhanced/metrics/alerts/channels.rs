@@ -1,10 +1,22 @@
 //! Notification channels for alerts
 
-use async_trait::async_trait;
+use std::future::Future;
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use super::{NotificationRequest, NotificationResult};
+
+/// Trait for notification channels
+pub trait NotificationChannel: Send + Sync + std::fmt::Debug {
+    /// Send a notification
+    fn send_notification(&self, request: &NotificationRequest) -> impl Future<Output = Result<NotificationResult>> + Send;
+    
+    /// Get the channel type identifier
+    fn channel_type(&self) -> &str;
+    
+    /// Test the connection to the channel
+    fn test_connection(&self) -> impl Future<Output = Result<bool>> + Send;
+}
 
 /// Email notification channel
 #[derive(Debug)]
@@ -19,25 +31,29 @@ impl EmailNotificationChannel {
     }
 }
 
-#[async_trait]
-impl super::super::NotificationChannel for EmailNotificationChannel {
-    async fn send_notification(&self, request: &NotificationRequest) -> Result<NotificationResult> {
-        // Placeholder implementation
-        Ok(NotificationResult {
-            success: true,
-            channel: "email".to_string(),
-            recipients_reached: request.recipients.len(),
-            error: None,
-            delivery_time: chrono::Utc::now(),
-        })
+impl NotificationChannel for EmailNotificationChannel {
+    fn send_notification(&self, request: &NotificationRequest) -> impl Future<Output = Result<NotificationResult>> + Send {
+        let recipients_len = request.recipients.len();
+        async move {
+            // Placeholder implementation
+            Ok(NotificationResult {
+                success: true,
+                channel: "email".to_string(),
+                recipients_reached: recipients_len,
+                error: None,
+                delivery_time: chrono::Utc::now(),
+            })
+        }
     }
 
     fn channel_type(&self) -> &str {
         "email"
     }
 
-    async fn test_connection(&self) -> Result<bool> {
-        Ok(true)
+    fn test_connection(&self) -> impl Future<Output = Result<bool>> + Send {
+        async move {
+            Ok(true)
+        }
     }
 }
 
@@ -54,25 +70,29 @@ impl SlackNotificationChannel {
     }
 }
 
-#[async_trait]
-impl super::super::NotificationChannel for SlackNotificationChannel {
-    async fn send_notification(&self, request: &NotificationRequest) -> Result<NotificationResult> {
-        // Placeholder implementation
-        Ok(NotificationResult {
-            success: true,
-            channel: "slack".to_string(),
-            recipients_reached: request.recipients.len(),
-            error: None,
-            delivery_time: chrono::Utc::now(),
-        })
+impl NotificationChannel for SlackNotificationChannel {
+    fn send_notification(&self, request: &NotificationRequest) -> impl Future<Output = Result<NotificationResult>> + Send {
+        let recipients_len = request.recipients.len();
+        async move {
+            // Placeholder implementation
+            Ok(NotificationResult {
+                success: true,
+                channel: "slack".to_string(),
+                recipients_reached: recipients_len,
+                error: None,
+                delivery_time: chrono::Utc::now(),
+            })
+        }
     }
 
     fn channel_type(&self) -> &str {
         "slack"
     }
 
-    async fn test_connection(&self) -> Result<bool> {
-        Ok(true)
+    fn test_connection(&self) -> impl Future<Output = Result<bool>> + Send {
+        async move {
+            Ok(true)
+        }
     }
 }
 
@@ -89,24 +109,28 @@ impl WebhookNotificationChannel {
     }
 }
 
-#[async_trait]
-impl super::super::NotificationChannel for WebhookNotificationChannel {
-    async fn send_notification(&self, request: &NotificationRequest) -> Result<NotificationResult> {
-        // Placeholder implementation
-        Ok(NotificationResult {
-            success: true,
-            channel: "webhook".to_string(),
-            recipients_reached: request.recipients.len(),
-            error: None,
-            delivery_time: chrono::Utc::now(),
-        })
+impl NotificationChannel for WebhookNotificationChannel {
+    fn send_notification(&self, request: &NotificationRequest) -> impl Future<Output = Result<NotificationResult>> + Send {
+        let recipients_len = request.recipients.len();
+        async move {
+            // Placeholder implementation
+            Ok(NotificationResult {
+                success: true,
+                channel: "webhook".to_string(),
+                recipients_reached: recipients_len,
+                error: None,
+                delivery_time: chrono::Utc::now(),
+            })
+        }
     }
 
     fn channel_type(&self) -> &str {
         "webhook"
     }
 
-    async fn test_connection(&self) -> Result<bool> {
-        Ok(true)
+    fn test_connection(&self) -> impl Future<Output = Result<bool>> + Send {
+        async move {
+            Ok(true)
+        }
     }
 } 

@@ -10,6 +10,9 @@ use std::path::PathBuf;
 use url::Url;
 use uuid::Uuid;
 
+// Re-export canonical CircuitBreakerConfig from squirrel-config unified system
+pub use squirrel_mcp_config::CircuitBreakerConfig;
+
 /// Core configuration structure for all primals
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalConfig {
@@ -662,21 +665,7 @@ pub struct HealthMonitoringConfig {
     pub recovery_threshold: u32,
 }
 
-/// Circuit breaker configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitBreakerConfig {
-    /// Whether to enable circuit breaker
-    pub enabled: bool,
-
-    /// Failure threshold
-    pub failure_threshold: u32,
-
-    /// Success threshold
-    pub success_threshold: u32,
-
-    /// Timeout duration
-    pub timeout_seconds: u64,
-}
+// CircuitBreakerConfig is now imported from squirrel-mcp-config
 
 /// Monitoring configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

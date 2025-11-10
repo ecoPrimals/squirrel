@@ -3,7 +3,6 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde_json::{json};
-use async_trait::async_trait;
 use tracing::{info, error, warn, instrument, debug};
 use std::time::Duration;
 
@@ -341,75 +340,71 @@ impl CoreMCPAdapter {
 }
 
 // Implementation of the message handling trait
-#[async_trait]
 impl crate::integration::types::MessageHandler for CoreMCPAdapter {
-    async fn handle_message(&self, message: MCPMessage) -> MCPResult<MCPResponse> {
-        info!("CoreMCPAdapter: Handling message: {}", message.id.0);
-        
-        match message.type_ {
-            MessageType::Command => self.handle_command_message(&message).await,
-            MessageType::Sync => self.handle_sync_message(&message).await,
-            MessageType::Event => {
-                // Just acknowledge events
-                Ok(self.create_success_response(json!({ "status": "acknowledged" }), Some(message.id.clone())))
-            },
-            MessageType::Error => {
-                // Log errors but don't do much else
-                let error_details = message.payload.get("error")
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|| "Unknown error".to_string());
-                
-                warn!("Received error message: {}", error_details);
-                Ok(MCPResponse {
-                    protocol_version: message.version.version_string(),
-                    message_id: message.id.clone(),
-                    status: ResponseStatus::Error,
-                    payload: vec![json!({"error": error_details})],
-                    error_message: Some(error_details),
-                    metadata: MessageMetadata::default(),
-                })
-            },
-            _ => {
-                warn!("Unsupported message type: {:?}", message.type_);
-                Ok(self.create_error_response(
-                    MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)).into(),
-                    Some(message.id.clone())
-                ))
+    fn handle_message(&self, message: MCPMessage) -> impl std::future::Future<Output = MCPResult<MCPResponse>> + Send {
+        let adapter = self.clone();
+        async move {
+            info!("CoreMCPAdapter: Handling message: {}", message.id.0);
+            
+            match message.type_ {
+                MessageType::Command => adapter.handle_command_message(&message).await,
+                MessageType::Sync => adapter.handle_sync_message(&message).await,
+                MessageType::Event => {
+                    // Just acknowledge events
+                    Ok(adapter.create_success_response(json!({ "status": "acknowledged" }), Some(message.id.clone())))
+                },
+                MessageType::Error => {
+                    // Log errors but don't do much else
+                    let error_details = message.payload.get("error")
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "Unknown error".to_string());
+                    
+                    warn!("Received error message: {}", error_details);
+                    Ok(MCPResponse {
+                        protocol_version: message.version.version_string(),
+                        message_id: message.id.clone(),
+                        status: ResponseStatus::Error,
+                        payload: vec![json!({"error": error_details})],
+                        error_message: Some(error_details),
+                        metadata: MessageMetadata::default(),
+                    })
+                },
+                _ => {
+                    warn!("Unsupported message type: {:?}", message.type_);
+                    Ok(adapter.create_error_response(
+                        MCPError::UnsupportedOperation(format!("Unsupported message type: {:?}", message.type_)).into(),
+                        Some(message.id.clone())
+                    ))
+                }
             }
         }
     }
 }
 
 // Implement MCPProtocol for CoreMCPAdapter by delegating to the protocol handler
-#[async_trait]
+// (native async - Phase 4 migration Session 30)
 impl MCPProtocol for CoreMCPAdapter {
-    async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
-        // Delegate to the message handler implementation
-        let result = crate::integration::types::MessageHandler::handle_message(self, msg).await;
-        // Convert MCPResult<MCPResponse> to ProtocolResult
-        match result {
-            Ok(response) => Ok(response),
-            Err(err) => Err(err.into()),
+    fn handle_message(&self, msg: MCPMessage) -> impl std::future::Future<Output = ProtocolResult> + Send {
+        async move {
+            // Delegate to the message handler implementation
+            let result = crate::integration::types::MessageHandler::handle_message(self, msg).await;
+            // Convert MCPResult<MCPResponse> to ProtocolResult
+            match result {
+                Ok(response) => Ok(response),
+                Err(err) => Err(err.into()),
+            }
         }
     }
-    
-    async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {
-        self.protocol_handler.validate_message(msg).await
+
+    fn validate_message(&self, msg: &MCPMessage) -> impl std::future::Future<Output = ValidationResult> + Send {
+        async move {
+            self.protocol_handler.validate_message(msg).await
+        }
     }
-    
-    async fn route_message(&self, msg: &MCPMessage) -> RoutingResult {
-        self.protocol_handler.route_message(msg).await
-    }
-    
-    async fn set_state(&self, new_state: ProtocolState) -> MCPResult<()> {
-        self.protocol_handler.set_state(new_state).await
-    }
-    
-    async fn get_state(&self) -> MCPResult<ProtocolState> {
-        self.protocol_handler.get_state().await
-    }
-    
-    fn get_version(&self) -> String {
-        self.protocol_handler.get_version()
+
+    fn get_version(&self) -> impl std::future::Future<Output = ProtocolVersion> + Send {
+        async move {
+            ProtocolVersion::default()
+        }
     }
 } 

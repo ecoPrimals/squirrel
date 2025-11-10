@@ -1,30 +1,47 @@
 //! Configuration constants for the Squirrel system
 //!
+//! **DEPRECATED**: This module is being phased out in favor of `universal-constants` crate.
+//! Please migrate to `universal-constants` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use squirrel_mcp_config::constants::timeouts;
+//! // New:
+//! use universal_constants::timeouts;
+//! ```
+//!
 //! This module contains all hardcoded configuration values used throughout the system,
 //! centralized for easy maintenance and configuration.
 
-/// Default timeout values in seconds
+#![deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
+
+use std::time::Duration;
+
+/// Default timeout values using Duration for type safety
 pub mod timeouts {
-    /// Default database timeout
-    pub const DEFAULT_DATABASE_TIMEOUT: u64 = 30;
+    use super::Duration;
 
-    /// Default heartbeat interval
-    pub const DEFAULT_HEARTBEAT_INTERVAL: u64 = 30;
+    /// Default database timeout (30 seconds)
+    pub const DEFAULT_DATABASE_TIMEOUT: Duration = Duration::from_secs(30);
 
-    /// Default initial delay
-    pub const DEFAULT_INITIAL_DELAY: u64 = 1000;
+    /// Default heartbeat interval (30 seconds)
+    pub const DEFAULT_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 
-    /// Default retry delay
-    pub const DEFAULT_RETRY_DELAY: u64 = 5000;
+    /// Default initial delay (1000 milliseconds)
+    pub const DEFAULT_INITIAL_DELAY: Duration = Duration::from_millis(1000);
 
-    /// Default operation timeout
-    pub const DEFAULT_OPERATION_TIMEOUT: u64 = 10000;
+    /// Default retry delay (5000 milliseconds)
+    pub const DEFAULT_RETRY_DELAY: Duration = Duration::from_millis(5000);
 
-    /// Default connection timeout
-    pub const DEFAULT_CONNECTION_TIMEOUT: u64 = 30;
+    /// Default operation timeout (10000 milliseconds)
+    pub const DEFAULT_OPERATION_TIMEOUT: Duration = Duration::from_millis(10000);
 
-    /// Default request timeout
-    pub const DEFAULT_REQUEST_TIMEOUT: u64 = 60;
+    /// Default connection timeout (30 seconds)
+    pub const DEFAULT_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
+
+    /// Default request timeout (60 seconds)
+    pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 }
 
 /// Default size and limit values
@@ -73,9 +90,20 @@ pub mod env_vars {
 pub mod env_helpers {
     use super::limits;
     use super::timeouts;
+    use super::Duration;
     use std::env;
 
-    /// Parse timeout from environment variable with default fallback
+    /// Parse timeout from environment variable with default fallback (returns Duration)
+    pub fn parse_timeout_duration(env_var: &str, default: Duration) -> Duration {
+        env::var(env_var)
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .map(Duration::from_secs)
+            .unwrap_or(default)
+    }
+
+    /// Parse timeout from environment variable with default fallback (legacy u64 version)
+    #[deprecated(note = "Use parse_timeout_duration instead for type-safe Duration")]
     pub fn parse_timeout(env_var: &str, default: u64) -> u64 {
         env::var(env_var)
             .unwrap_or_else(|_| default.to_string())
@@ -99,28 +127,43 @@ pub mod env_helpers {
             .unwrap_or(default)
     }
 
-    /// Get database timeout from environment
-    pub fn get_database_timeout() -> u64 {
-        parse_timeout(
+    /// Get database timeout from environment (returns Duration)
+    pub fn get_database_timeout() -> Duration {
+        parse_timeout_duration(
             super::env_vars::DATABASE_TIMEOUT,
             timeouts::DEFAULT_DATABASE_TIMEOUT,
         )
     }
 
-    /// Get heartbeat interval from environment
-    pub fn get_heartbeat_interval() -> u64 {
-        parse_timeout(
+    /// Get database timeout as milliseconds (legacy compatibility)
+    pub fn get_database_timeout_ms() -> u64 {
+        get_database_timeout().as_millis() as u64
+    }
+
+    /// Get heartbeat interval from environment (returns Duration)
+    pub fn get_heartbeat_interval() -> Duration {
+        parse_timeout_duration(
             super::env_vars::HEARTBEAT_INTERVAL,
             timeouts::DEFAULT_HEARTBEAT_INTERVAL,
         )
     }
 
-    /// Get initial delay from environment
-    pub fn get_initial_delay() -> u64 {
-        parse_timeout(
+    /// Get heartbeat interval as milliseconds (legacy compatibility)
+    pub fn get_heartbeat_interval_ms() -> u64 {
+        get_heartbeat_interval().as_millis() as u64
+    }
+
+    /// Get initial delay from environment (returns Duration)
+    pub fn get_initial_delay() -> Duration {
+        parse_timeout_duration(
             super::env_vars::INITIAL_DELAY,
             timeouts::DEFAULT_INITIAL_DELAY,
         )
+    }
+
+    /// Get initial delay as milliseconds (legacy compatibility)
+    pub fn get_initial_delay_ms() -> u64 {
+        get_initial_delay().as_millis() as u64
     }
 
     /// Get service mesh max services from environment

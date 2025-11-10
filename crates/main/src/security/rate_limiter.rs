@@ -14,8 +14,7 @@ use tokio::sync::{RwLock, Mutex};
 use tracing::{warn, error, debug, info};
 use serde::{Serialize, Deserialize};
 
-use crate::error::PrimalError;
-use crate::observability::{OperationContext, CorrelationId};
+use crate::observability::CorrelationId;
 
 /// Rate limiting configuration for different endpoint types
 #[derive(Debug, Clone, Serialize, Deserialize)]

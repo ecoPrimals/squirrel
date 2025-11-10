@@ -1,33 +1,26 @@
 use crate::error::types::ErrorContext;
 use crate::error::types::MCPError;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 /// Error type for handler operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
 pub enum HandlerError {
     /// Handler not found
+    #[error("Handler not found: {0}")]
     NotFound(String),
+    
     /// Handler execution failed
+    #[error("Handler execution failed: {0}")]
     ExecutionFailed(String),
+    
     /// Invalid handler configuration
+    #[error("Invalid handler config: {0}")]
     InvalidConfig(String),
+    
     /// Handler timeout
+    #[error("Handler timeout: {0}")]
     Timeout(String),
 }
-
-impl fmt::Display for HandlerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            HandlerError::NotFound(msg) => write!(f, "Handler not found: {msg}"),
-            HandlerError::ExecutionFailed(msg) => write!(f, "Handler execution failed: {msg}"),
-            HandlerError::InvalidConfig(msg) => write!(f, "Invalid handler config: {msg}"),
-            HandlerError::Timeout(msg) => write!(f, "Handler timeout: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for HandlerError {}
 
 impl Default for HandlerError {
     fn default() -> Self {

@@ -385,15 +385,46 @@ impl Default for MultiAgentMetrics {
 
 impl Default for MultiAgentConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let (agent_timeout, conversation_timeout, collaboration_timeout, workflow_timeout, metrics_interval, cleanup_interval) = 
+            if let Some(cfg) = config {
+                let agent = cfg.timeouts.get_custom_timeout("agent_timeout")
+                    .unwrap_or_else(|| Duration::from_secs(300));
+                let conv = cfg.timeouts.get_custom_timeout("agent_conversation")
+                    .unwrap_or_else(|| Duration::from_secs(1800));
+                let collab = cfg.timeouts.get_custom_timeout("agent_collaboration")
+                    .unwrap_or_else(|| Duration::from_secs(3600));
+                let wf = cfg.timeouts.get_custom_timeout("agent_workflow")
+                    .unwrap_or_else(|| Duration::from_secs(7200));
+                let metrics = cfg.timeouts.get_custom_timeout("agent_metrics")
+                    .unwrap_or_else(|| Duration::from_secs(60));
+                let cleanup = cfg.timeouts.get_custom_timeout("agent_cleanup")
+                    .unwrap_or_else(|| Duration::from_secs(300));
+                (agent, conv, collab, wf, metrics, cleanup)
+            } else {
+                (
+                    Duration::from_secs(300),   // 5 minutes
+                    Duration::from_secs(1800),  // 30 minutes
+                    Duration::from_secs(3600),  // 1 hour
+                    Duration::from_secs(7200),  // 2 hours
+                    Duration::from_secs(60),    // 1 minute
+                    Duration::from_secs(300),   // 5 minutes
+                )
+            };
+        
         Self {
             max_agents: 100,
-            agent_timeout: Duration::from_secs(300), // 5 minutes
-            conversation_timeout: Duration::from_secs(1800), // 30 minutes
-            collaboration_timeout: Duration::from_secs(3600), // 1 hour
-            workflow_timeout: Duration::from_secs(7200), // 2 hours
+            agent_timeout,
+            conversation_timeout,
+            collaboration_timeout,
+            workflow_timeout,
             message_buffer_size: 1000,
-            metrics_interval: Duration::from_secs(60), // 1 minute
-            cleanup_interval: Duration::from_secs(300), // 5 minutes
+            metrics_interval,
+            cleanup_interval,
             resources: ResourceLimits::default(),
         }
     }
@@ -424,9 +455,21 @@ impl Default for AgentStatistics {
 
 impl Default for RetryConfig {
     fn default() -> Self {
+        // Load unified config for environment-aware timeout values
+        let config = squirrel_mcp_config::unified::ConfigLoader::load()
+            .ok()
+            .and_then(|loaded| loaded.try_into_config().ok());
+        
+        let delay = if let Some(cfg) = config {
+            cfg.timeouts.get_custom_timeout("agent_retry_delay")
+                .unwrap_or_else(|| Duration::from_secs(1))
+        } else {
+            Duration::from_secs(1)
+        };
+        
         Self {
             max_attempts: 3,
-            delay: Duration::from_secs(1),
+            delay,
             backoff_strategy: BackoffStrategy::Exponential,
         }
     }

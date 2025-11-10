@@ -1,0 +1,13 @@
+[package]
+name = "universal-constants"
+version = "0.1.0"
+edition = "2021"
+authors = ["Squirrel Team"]
+description = "Universal constants for the Squirrel MCP system - single source of truth"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# No external dependencies needed - pure constants!
+
+[dev-dependencies]
+# For testing

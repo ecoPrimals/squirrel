@@ -21,14 +21,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use uuid::Uuid;
-use squirrel_mcp_config::get_service_endpoints;
 
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::primal_provider::SquirrelPrimalProvider;
-use crate::security::traits::SecurityCoordinator;
 use crate::universal::{
     LoadBalancingStatus, PrimalCapability, PrimalContext, UniversalPrimalProvider,
 };
@@ -872,15 +869,14 @@ impl Default for EcosystemConfig {
         Self {
             service_id: format!("squirrel-{}", Uuid::new_v4()),
             service_name: "Squirrel AI Primal".to_string(),
-            service_host: get_service_endpoints().mcp_url()
+            service_host: std::env::var("MCP_HOST")
+                .unwrap_or_else(|_| "localhost".to_string()),
+            service_port: std::env::var("MCP_PORT")
                 .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string()),
-            service_port: get_service_endpoints().mcp_url()
-                .ok()
-                .and_then(|url| url.port())
+                .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
-            songbird_endpoint: get_service_endpoints().service_mesh_endpoint.clone(),
+            songbird_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8500".to_string()),
             biome_id: None,
             registry_config: EcosystemRegistryConfig::default(),
             resource_requirements: ResourceSpec {

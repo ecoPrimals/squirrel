@@ -77,10 +77,10 @@ impl PluginManager {
             .insert(name.clone(), PluginState::Created);
 
         // Safe: We just inserted the plugin, so it must exist
-        Ok(self
+        self
             .plugins
             .get(&name)
-            .ok_or_else(|| PluginError::plugin_not_found(&name))?)
+            .ok_or_else(|| PluginError::plugin_not_found(&name))
     }
 
     /// Remove a plugin from the manager
@@ -213,7 +213,7 @@ impl PluginManager {
         if metadata_file.exists() {
             // Parse metadata from TOML file
             let metadata_content =
-                std::fs::read_to_string(&metadata_file).map_err(|e| PluginError::IoError(e))?;
+                std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
 
             // For now, create basic metadata - TODO: implement TOML parsing
             Ok(PluginMetadata {

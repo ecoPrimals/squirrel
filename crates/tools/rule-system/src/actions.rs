@@ -82,6 +82,7 @@ pub trait ActionPlugin: Send + Sync + std::fmt::Debug {
 
 impl ActionExecutor {
     /// Create a new action executor
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             plugin_registry: Arc::new(RwLock::new(HashMap::new())),
@@ -171,27 +172,24 @@ impl ActionExecutor {
         let duration = end_time.signed_duration_since(start_time);
 
         // Update statistics
-        match &result {
-            Ok(action_result) => {
-                self.update_stats(action_result, duration, action).await;
-                self.record_execution(action, context_id, rule_id, start_time, action_result)
-                    .await;
-            }
-            Err(_) => {
-                // Create a failure result for stats
-                let failure_result = ActionResult {
-                    action_id: format!("error_{}", uuid::Uuid::new_v4()),
-                    rule_id: rule_id.to_string(),
-                    context_id: context_id.to_string(),
-                    success: false,
-                    message: "Action execution failed".to_string(),
-                    data: None,
-                    timestamp: start_time,
-                };
-                self.update_stats(&failure_result, duration, action).await;
-                self.record_execution(action, context_id, rule_id, start_time, &failure_result)
-                    .await;
-            }
+        if let Ok(action_result) = &result {
+            self.update_stats(action_result, duration, action).await;
+            self.record_execution(action, context_id, rule_id, start_time, action_result)
+                .await;
+        } else {
+            // Create a failure result for stats
+            let failure_result = ActionResult {
+                action_id: format!("error_{}", uuid::Uuid::new_v4()),
+                rule_id: rule_id.to_string(),
+                context_id: context_id.to_string(),
+                success: false,
+                message: "Action execution failed".to_string(),
+                data: None,
+                timestamp: start_time,
+            };
+            self.update_stats(&failure_result, duration, action).await;
+            self.record_execution(action, context_id, rule_id, start_time, &failure_result)
+                .await;
         }
 
         result
@@ -212,7 +210,7 @@ impl ActionExecutor {
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
             success: true,
-            message: format!("Modified context at path '{}' with value '{}'", path, value),
+            message: format!("Modified context at path '{path}' with value '{value}'"),
             data: Some(serde_json::json!({
                 "path": path,
                 "value": value
@@ -232,11 +230,11 @@ impl ActionExecutor {
         let recovery_id = uuid::Uuid::new_v4().to_string();
 
         Ok(ActionResult {
-            action_id: format!("recovery_point_{}", recovery_id),
+            action_id: format!("recovery_point_{recovery_id}"),
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
             success: true,
-            message: format!("Created recovery point: {}", description),
+            message: format!("Created recovery point: {description}"),
             data: Some(serde_json::json!({
                 "recovery_id": recovery_id,
                 "description": description
@@ -259,7 +257,7 @@ impl ActionExecutor {
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
             success: true,
-            message: format!("Executed transformation: {}", transformation_id),
+            message: format!("Executed transformation: {transformation_id}"),
             data: Some(serde_json::json!({
                 "transformation_id": transformation_id,
                 "config": config
@@ -283,7 +281,7 @@ impl ActionExecutor {
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
             success: true,
-            message: format!("Sent notification to {} channel: {}", channel, message),
+            message: format!("Sent notification to {channel} channel: {message}"),
             data: Some(serde_json::json!({
                 "channel": channel,
                 "message": message,
@@ -315,7 +313,7 @@ impl ActionExecutor {
                 rule_id: rule_id.to_string(),
                 context_id: context_id.to_string(),
                 success: false,
-                message: format!("Plugin not found: {}", plugin_id),
+                message: format!("Plugin not found: {plugin_id}"),
                 data: None,
                 timestamp: Utc::now(),
             })
@@ -338,8 +336,7 @@ impl ActionExecutor {
             context_id: context_id.to_string(),
             success: false,
             message: format!(
-                "Script execution not implemented: {} ({})",
-                script, language
+                "Script execution not implemented: {script} ({language})"
             ),
             data: Some(serde_json::json!({
                 "script": script,
@@ -499,7 +496,7 @@ impl ActionPlugin for NotificationAction {
                 rule_id: rule_id.to_string(),
                 context_id: context_id.to_string(),
                 success: true,
-                message: format!("Notification sent to {}: {}", channel, message),
+                message: format!("Notification sent to {channel}: {message}"),
                 data: data.clone(),
                 timestamp: Utc::now(),
             })
@@ -510,11 +507,11 @@ impl ActionPlugin for NotificationAction {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "notification"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Sends notifications to external systems"
     }
 }
@@ -538,7 +535,7 @@ impl ActionPlugin for ContextModificationAction {
                 rule_id: rule_id.to_string(),
                 context_id: context_id.to_string(),
                 success: true,
-                message: format!("Context modified at path: {}", path),
+                message: format!("Context modified at path: {path}"),
                 data: Some(serde_json::json!({
                     "path": path,
                     "value": value
@@ -552,11 +549,11 @@ impl ActionPlugin for ContextModificationAction {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "context_modification"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Modifies context data"
     }
 }
@@ -593,11 +590,11 @@ impl ActionPlugin for ValidationAction {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "validation"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Validates context data against schemas"
     }
 }

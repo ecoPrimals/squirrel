@@ -124,6 +124,12 @@ pub struct WebSocketManager {
     pub connections: Arc<RwLock<HashMap<String, WebSocketConnection>>>,
 }
 
+impl Default for WebSocketManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebSocketManager {
     /// Creates a new WebSocket manager instance.
     ///
@@ -177,6 +183,12 @@ impl Default for McpBridgeConfig {
 #[derive(Debug, Clone)]
 pub struct ServiceRegistry {
     pub services: Arc<RwLock<HashMap<String, ServiceInfo>>>,
+}
+
+impl Default for ServiceRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ServiceRegistry {

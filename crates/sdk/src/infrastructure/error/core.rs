@@ -1,9 +1,27 @@
 //! Core error types for the Squirrel Plugin SDK
+//!
+//! **DEPRECATED**: This error module is being replaced by the unified error system.
+//! Please migrate to `universal-error` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use crate::infrastructure::error::{PluginError, PluginResult};
+//! // New:
+//! use universal_error::{Result, sdk::SDKError};
+//! ```
+//!
+//! For detailed migration instructions, see: `crates/universal-error/README.md`
+
+#![deprecated(since = "0.2.0", note = "Use `universal-error` crate instead")]
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Main error type for plugin operations
+///
+/// **DEPRECATED**: Use `universal_error::sdk::SDKError` instead.
+#[deprecated(since = "0.2.0", note = "Use `universal_error::sdk::SDKError` instead")]
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 pub enum PluginError {
     /// Command not found

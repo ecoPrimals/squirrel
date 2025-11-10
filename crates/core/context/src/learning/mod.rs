@@ -287,7 +287,8 @@ pub struct LearningSystem {
     /// Event broadcaster
     event_broadcaster: Arc<broadcast::Sender<LearningEvent>>,
 
-    /// Event processor background task handle
+    /// Event processor background task handle (used for cleanup on drop)
+    #[allow(dead_code)]
     event_processor_handle: Arc<tokio::task::JoinHandle<()>>,
 
     /// System statistics

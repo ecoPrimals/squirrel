@@ -2,10 +2,12 @@
 //!
 //! This module provides security management functionality for the MCP system.
 //! Actual security operations are delegated to the BearDog framework.
+//!
+//! **Nov 9, 2025 Update**: SecurityConfig consolidated into unified config system.
+//! Re-exported from `squirrel-mcp-config` for consistency.
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::error::Result;
 
@@ -16,25 +18,10 @@ use super::key_storage::InMemoryKeyStorage;
 use super::rbac::BasicRBACManager;
 use super::token::DefaultTokenManager;
 
-/// Security configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    pub enable_audit: bool,
-    pub enable_encryption: bool,
-    pub enable_rbac: bool,
-    pub token_expiry_minutes: u64,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            enable_audit: true,
-            enable_encryption: true,
-            enable_rbac: true,
-            token_expiry_minutes: 60,
-        }
-    }
-}
+// Re-export SecurityConfig from unified config (Nov 9, 2025 consolidation)
+// This provides enable_audit, enable_encryption, enable_rbac, token_expiry_minutes
+// plus all other unified security configuration fields
+pub use squirrel_mcp_config::SecurityConfig;
 
 /// Security manager implementation
 /// 
