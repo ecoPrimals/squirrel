@@ -9,18 +9,18 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::AtomicU64,
     Arc,
 };
 use std::time::{Duration, Instant, SystemTime};
 
 use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 use crate::errors::{PluginError, Result};
 use crate::zero_copy::{
-    PluginEvent, ZeroCopyPlugin, ZeroCopyPluginConfig, ZeroCopyPluginEntry, ZeroCopyPluginMetadata,
+    ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginMetadata,
     ZeroCopyPluginRegistry,
 };
 

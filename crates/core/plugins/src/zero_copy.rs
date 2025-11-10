@@ -8,7 +8,6 @@
 //! cloning approach in plugin loading, state management, and metadata access.
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -17,7 +16,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 // Removed: use squirrel_mcp_config::get_service_endpoints;
 
-use crate::types::{PluginDataFormat, PluginResources, PluginState, PluginStatus, PluginType};
+use crate::types::{PluginResources, PluginStatus, PluginType};
 
 /// Zero-copy plugin metadata using Arc for expensive data
 #[derive(Debug, Clone)]
