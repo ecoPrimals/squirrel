@@ -28,12 +28,14 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+pub mod environment_utils;
 pub mod health_check;
 pub mod loader;
 pub mod timeouts;
 pub mod types;
 pub mod validation;
 
+pub use environment_utils::*;
 pub use health_check::HealthCheckConfig;
 pub use loader::{ConfigLoader, LoadedConfig};
 pub use timeouts::TimeoutConfig;
