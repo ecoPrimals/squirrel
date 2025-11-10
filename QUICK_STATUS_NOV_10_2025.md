@@ -27,6 +27,8 @@ Tests:              100% passing ✅
 
 ## 📚 Documents Created Today (61 pages)
 
+**📂 Location**: All session documents moved to `docs/sessions/nov-10-2025-evening-cleanup/`
+
 ### **Analysis Reports** (49 pages):
 1. **UNIFICATION_STATUS_REPORT_NOV_10_2025.md** (18 pages) ⭐ START HERE
    - Comprehensive status across all domains
@@ -52,6 +54,10 @@ Tests:              100% passing ✅
 6. **CLEANUP_SESSION_COMPLETE_NOV_10_2025.md** (6 pages)
    - All tasks executed successfully
    - Impact summary and metrics
+
+7. **FINAL_SESSION_SUMMARY_NOV_10_2025.md** (comprehensive)
+   - Complete session overview
+   - All details and insights
 
 ---
 
@@ -106,14 +112,17 @@ Tests:              100% passing ✅
 ```bash
 cd /home/eastgate/Development/ecoPrimals/squirrel
 
+# Quick reference (in root)
+cat QUICK_STATUS_NOV_10_2025.md | less
+
 # Main status report
-cat UNIFICATION_STATUS_REPORT_NOV_10_2025.md | less
+cat docs/sessions/nov-10-2025-evening-cleanup/UNIFICATION_STATUS_REPORT_NOV_10_2025.md | less
 
 # What we did today
-cat CLEANUP_SESSION_COMPLETE_NOV_10_2025.md | less
+cat docs/sessions/nov-10-2025-evening-cleanup/CLEANUP_SESSION_COMPLETE_NOV_10_2025.md | less
 
 # Action plan for next steps
-cat UNIFICATION_ACTION_PLAN_NOV_10_2025.md | less
+cat docs/sessions/nov-10-2025-evening-cleanup/UNIFICATION_ACTION_PLAN_NOV_10_2025.md | less
 ```
 
 ### **Check Current Status**:
