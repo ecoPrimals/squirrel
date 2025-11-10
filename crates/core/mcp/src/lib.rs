@@ -4,6 +4,7 @@
 //! including message types, transport layers, and utility functions.
 
 pub mod constants;
+pub mod enhanced; // ✅ Enhanced MCP platform features (Phase 3 complete)
 pub mod error;
 pub mod protocol;
 pub mod security;

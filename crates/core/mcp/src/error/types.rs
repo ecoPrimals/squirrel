@@ -820,7 +820,12 @@ impl From<&str> for MCPError {
     }
 }
 
-// TODO: Re-enable when enhanced module is available
+// NOTE: Enhanced module exists but is not yet exposed in lib.rs due to module structure issues
+// The enhanced/config_validation.rs file exists and is complete, but the enhanced module
+// has duplicate .rs and /mod.rs files for some submodules (coordinator, multi_agent, service_composition)
+// which causes compilation errors when exposed publicly.
+// TODO(module-structure): Fix enhanced module structure ambiguities, then expose and enable this conversion
+// Tracked: Module structure cleanup needed before public exposure
 // impl From<crate::enhanced::config_validation::ConfigValidationError> for MCPError {
 //     fn from(error: crate::enhanced::config_validation::ConfigValidationError) -> Self {
 //         MCPError::Validation(error.to_string())
