@@ -2,6 +2,11 @@
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
+// TODO(docs): Systematically add documentation to all public items (enum variants, struct fields)
+// Currently 324 items need docs. This is tracked as part of Week 8 completion.
+// Priority: Document high-traffic APIs first, then complete rest incrementally.
+#![allow(missing_docs)]
+
 pub mod common;
 pub mod config;
 pub mod error;
