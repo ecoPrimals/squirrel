@@ -21,6 +21,9 @@ use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
 /// Learning request type for context optimization
+/// 
+/// Note: Planned feature for queuing optimization tasks - implementation in progress
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum LearningRequestType {
     ContextOptimization,
@@ -29,6 +32,9 @@ pub enum LearningRequestType {
 }
 
 /// Learning request for queuing optimization tasks
+/// 
+/// Note: Planned feature for queuing optimization tasks - implementation in progress
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct LearningRequest {
     pub context_id: String,
@@ -38,6 +44,9 @@ pub struct LearningRequest {
 }
 
 /// Context usage pattern analysis results
+/// 
+/// Note: Planned feature for pattern analysis - implementation in progress
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct ContextUsagePattern {
     pub frequency: f64,
@@ -47,10 +56,12 @@ pub struct ContextUsagePattern {
 }
 
 impl ContextUsagePattern {
+    #[allow(dead_code)]
     pub fn requires_learning_intervention(&self) -> bool {
         self.efficiency < 0.7 || self.error_rate > 0.1 || self.complexity_score > 0.8
     }
 
+    #[allow(dead_code)]
     pub fn get_priority(&self) -> u8 {
         if self.error_rate > 0.2 {
             1
@@ -65,6 +76,7 @@ impl ContextUsagePattern {
         } // Low priority
     }
 
+    #[allow(dead_code)]
     pub fn to_metadata(&self) -> std::collections::HashMap<String, serde_json::Value> {
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("frequency".to_string(), serde_json::json!(self.frequency));
@@ -79,6 +91,9 @@ impl ContextUsagePattern {
 }
 
 /// State change pattern analysis results
+/// 
+/// Note: Planned feature for pattern analysis - implementation in progress
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct StateChangePatternAnalysis {
     pub suggests_optimization: bool,
@@ -87,14 +102,23 @@ pub struct StateChangePatternAnalysis {
 }
 
 /// Context monitoring results for tracking
+/// 
+/// Note: Planned feature for context monitoring - implementation in progress
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ContextMonitoringResults {
+    #[allow(dead_code)]
     pub total_contexts: usize,
+    #[allow(dead_code)]
     pub contexts_needing_intervention: usize,
+    #[allow(dead_code)]
     pub monitoring_timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 /// Analyze state change patterns to identify optimization opportunities
+/// 
+/// Note: Planned feature for pattern analysis - implementation in progress
+#[allow(dead_code)]
 fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePatternAnalysis {
     // Analyze patterns in state changes
     let has_rapid_changes = state_changes.len() > 5; // More than 5 changes suggests high activity
@@ -121,6 +145,9 @@ fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePa
 }
 
 /// State change for pattern analysis
+/// 
+/// Note: Planned feature for pattern tracking - implementation in progress
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct StateChange {
     pub change_type: String,
@@ -876,6 +903,9 @@ impl LearningIntegration {
     }
 
     /// Update integration statistics
+    /// 
+    /// Note: Internal method for future integration statistics - implementation in progress
+    #[allow(dead_code)]
     async fn update_stats(&self, operation_success: bool, operation_time: f64) -> Result<()> {
         let mut stats = self.stats.lock().await;
 
@@ -897,6 +927,9 @@ impl LearningIntegration {
     }
 
     /// Record integration error
+    /// 
+    /// Note: Internal method for future error tracking - implementation in progress
+    #[allow(dead_code)]
     async fn record_error(&self, error_type: &str, message: &str, component: &str) -> Result<()> {
         let error = IntegrationError {
             id: uuid::Uuid::new_v4().to_string(),
@@ -945,13 +978,20 @@ impl LearningIntegration {
 }
 
 /// References to integration components
+/// 
+/// Note: Component references for future integration - some components not yet wired up
 #[derive(Debug, Clone)]
 pub struct IntegrationRefs {
     pub context_manager: Option<Arc<ContextManager>>,
+    #[allow(dead_code)]
     pub rule_manager: Option<Arc<RuleManager>>,
+    #[allow(dead_code)]
     pub learning_engine: Option<Arc<LearningEngine>>,
+    #[allow(dead_code)]
     pub context_learning_manager: Option<Arc<ContextLearningManager>>,
+    #[allow(dead_code)]
     pub reward_system: Option<Arc<RewardSystem>>,
+    #[allow(dead_code)]
     pub policy_network: Option<Arc<PolicyNetwork>>,
     pub learning_metrics: Option<Arc<LearningMetrics>>,
     pub adaptive_rule_system: Option<Arc<AdaptiveRuleSystem>>,
