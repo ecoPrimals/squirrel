@@ -179,11 +179,11 @@ impl<'de> Deserialize<'de> for ProcessingStrategy {
 }
 
 #[cfg(feature = "config")]
-use squirrel_mcp_config::Config;
+use squirrel_mcp_config::unified::SquirrelUnifiedConfig;  // Migrated from deprecated Config type (ADR-008)
 
 #[cfg(feature = "config")]
-impl From<&Config> for McpClientConfig {
-    fn from(config: &Config) -> Self {
+impl From<&SquirrelUnifiedConfig> for McpClientConfig {
+    fn from(config: &SquirrelUnifiedConfig) -> Self {
         let mut mcp_config = McpClientConfig::from_env();
         mcp_config.server_url = format!("ws://{}:{}", config.network.host, config.network.port);
         mcp_config

@@ -29,7 +29,7 @@ use squirrel_mcp_config::unified::ConfigLoader;
 
 // Import configuration if available
 #[cfg(feature = "config")]
-use squirrel_mcp_config::Config;
+use squirrel_mcp_config::unified::SquirrelUnifiedConfig;  // Migrated from deprecated Config type (ADR-008)
 
 /// Client configuration for MCP connections
 ///

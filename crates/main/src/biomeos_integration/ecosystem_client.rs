@@ -7,7 +7,7 @@ use crate::error::PrimalError;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use squirrel_mcp_config::Config;
+use squirrel_mcp_config::unified::SquirrelUnifiedConfig;  // Migrated from deprecated Config type (ADR-008)
 use std::time::Duration;
 use tracing::{debug, info};
 use std::time::Instant;
@@ -756,9 +756,9 @@ mod tests {
 
     #[test]
     fn test_ecosystem_client_with_config() {
-        use squirrel_mcp_config::Config;
+        use squirrel_mcp_config::unified::SquirrelUnifiedConfig;
 
-        let config = Config::default();
+        let config = SquirrelUnifiedConfig::default();
         let client = EcosystemClient::with_config(config);
 
         // Test that the client was created successfully
