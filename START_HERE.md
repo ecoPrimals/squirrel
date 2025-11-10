@@ -6,9 +6,10 @@
 **Release Date**: November 10, 2025  
 **Git Tag**: v1.0.0 | **Repository**: https://github.com/ecoPrimals/squirrel
 
-> 📚 **Documentation**: Root is now clean! See [ROOT_DOCS_INDEX.md](ROOT_DOCS_INDEX.md) for navigation  
-> 🎉 **Tonight's Marathon**: [docs/sessions/nov-9-2025-evening/](docs/sessions/nov-9-2025-evening/) (28 documents!)  
-> 🏆 **Ultimate Victory**: [ULTIMATE_MARATHON_VICTORY_NOV_9.md](docs/sessions/nov-9-2025-evening/ULTIMATE_MARATHON_VICTORY_NOV_9.md)
+> 📚 **Documentation**: Root is clean! See [ROOT_DOCS_INDEX.md](ROOT_DOCS_INDEX.md) for navigation  
+> 🎉 **Latest Release**: [docs/sessions/nov-10-2025/](docs/sessions/nov-10-2025/) (10 comprehensive reports!)  
+> 🏆 **Complete Journey**: [MISSION_COMPLETE_NOV_10_2025.md](docs/sessions/nov-10-2025/MISSION_COMPLETE_NOV_10_2025.md)  
+> 🚀 **Deploy Now**: [DEPLOYMENT_CHECKLIST_V1.0.md](docs/sessions/nov-10-2025/DEPLOYMENT_CHECKLIST_V1.0.md)
 
 ---
 
