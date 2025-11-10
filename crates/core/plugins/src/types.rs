@@ -140,45 +140,8 @@ pub enum PluginStatus {
     Unloaded,
 }
 
-/// Plugin metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginMetadata {
-    /// Plugin ID
-    pub id: Uuid,
-    /// Plugin name
-    pub name: String,
-    /// Plugin version
-    pub version: String,
-    /// Plugin description
-    pub description: String,
-    /// Plugin author
-    pub author: String,
-    /// Plugin dependencies
-    pub dependencies: Vec<String>,
-    /// Plugin capabilities
-    pub capabilities: Vec<String>,
-}
-
-impl PluginMetadata {
-    /// Create new plugin metadata
-    pub fn new(
-        id: Uuid,
-        name: String,
-        version: String,
-        description: String,
-        author: String,
-    ) -> Self {
-        Self {
-            id,
-            name,
-            version,
-            description,
-            author,
-            dependencies: Vec::new(),
-            capabilities: Vec::new(),
-        }
-    }
-}
+// PluginMetadata removed - use squirrel_interfaces::plugins::PluginMetadata instead
+// This was duplicate/unused code. The canonical version is in squirrel-interfaces crate.
 
 /// Core plugin trait for core system extensions
 pub trait CorePlugin: Plugin {

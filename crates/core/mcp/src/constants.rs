@@ -1,10 +1,22 @@
 //! Constants for MCP configuration
 //!
+//! **DEPRECATED**: This module is being phased out in favor of `universal-constants` crate.
+//! Please migrate to `universal-constants` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use squirrel_mcp::constants::network;
+//! // New:
+//! use universal_constants::network;
+//! ```
+//!
 //! This module contains all hardcoded values used throughout the MCP system,
 //! centralized for easy maintenance and configuration.
 
+#![deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
+
 use std::time::Duration;
-use squirrel_mcp_config::get_service_endpoints;
 
 /// Network Configuration Constants
 pub mod network {
@@ -167,23 +179,18 @@ pub mod env_vars {
 pub mod url_builders {
     use super::network;
     use super::url_templates;
-    use squirrel_mcp_config::get_service_endpoints;
 
     /// Build HTTP URL using centralized host configuration
     pub fn localhost_http(port: u16) -> String {
-        let host = get_service_endpoints().mcp_url()
-            .ok()
-            .and_then(|url| url.host_str().map(|h| h.to_string()))
-            .unwrap_or_else(|| "localhost".to_string());
+        let host = std::env::var("MCP_HOST")
+            .unwrap_or_else(|_| "localhost".to_string());
         format!("http://{host}:{port}")
     }
 
     /// Build WebSocket URL using centralized host configuration
     pub fn localhost_ws(port: u16) -> String {
-        let host = get_service_endpoints().mcp_url()
-            .ok()
-            .and_then(|url| url.host_str().map(|h| h.to_string()))
-            .unwrap_or_else(|| "localhost".to_string());
+        let host = std::env::var("MCP_HOST")
+            .unwrap_or_else(|_| "localhost".to_string());
         format!("ws://{host}:{port}")
     }
 

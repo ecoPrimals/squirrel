@@ -1,6 +1,5 @@
 //! Default HTTP client implementation
 
-use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
@@ -73,65 +72,84 @@ impl DefaultHttpClient {
     }
 }
 
-#[async_trait]
 impl HttpClient for DefaultHttpClient {
-    async fn get(&self, path: &str) -> Result<RequestBuilder> {
+    fn get(&self, path: &str) -> impl std::future::Future<Output = Result<RequestBuilder>> + Send {
         let url = self.build_url(path);
-        Ok(self.client.get(url))
+        let client = self.client.clone();
+        async move { Ok(client.get(url)) }
     }
 
-    async fn post(&self, path: &str) -> Result<RequestBuilder> {
+    fn post(&self, path: &str) -> impl std::future::Future<Output = Result<RequestBuilder>> + Send {
         let url = self.build_url(path);
-        Ok(self.client.post(url))
+        let client = self.client.clone();
+        async move { Ok(client.post(url)) }
     }
 
-    async fn put(&self, path: &str) -> Result<RequestBuilder> {
+    fn put(&self, path: &str) -> impl std::future::Future<Output = Result<RequestBuilder>> + Send {
         let url = self.build_url(path);
-        Ok(self.client.put(url))
+        let client = self.client.clone();
+        async move { Ok(client.put(url)) }
     }
 
-    async fn delete(&self, path: &str) -> Result<RequestBuilder> {
+    fn delete(&self, path: &str) -> impl std::future::Future<Output = Result<RequestBuilder>> + Send {
         let url = self.build_url(path);
-        Ok(self.client.delete(url))
+        let client = self.client.clone();
+        async move { Ok(client.delete(url)) }
     }
 }
 
-#[async_trait]
 impl HttpClientExt for DefaultHttpClient {
-    async fn send_json<T: DeserializeOwned + Send + 'static>(
+    fn send_json<T: DeserializeOwned + Send + 'static>(
         &self,
         request: RequestBuilder,
-    ) -> Result<T> {
-        let response = self.send_request(request).await?.send().await?;
-        Ok(response.json().await?)
+    ) -> impl std::future::Future<Output = Result<T>> + Send {
+        let self_clone = self.clone();
+        async move {
+            let response = self_clone.send_request(request).await?.send().await?;
+            Ok(response.json().await?)
+        }
     }
 
-    async fn get_json<T: DeserializeOwned + Send + 'static>(&self, url: &str) -> Result<T> {
-        let request = self.get(url).await?;
-        self.send_json(request).await
+    fn get_json<T: DeserializeOwned + Send + 'static>(&self, url: &str) -> impl std::future::Future<Output = Result<T>> + Send {
+        let self_clone = self.clone();
+        let url = url.to_string();
+        async move {
+            let request = self_clone.get(&url).await?;
+            self_clone.send_json(request).await
+        }
     }
 
-    async fn post_json<
+    fn post_json<
         T: DeserializeOwned + Send + 'static,
         B: Serialize + Send + Sync + 'static,
     >(
         &self,
         url: &str,
         body: &B,
-    ) -> Result<T> {
-        let request = self.post(url).await?.json(body);
-        self.send_json(request).await
+    ) -> impl std::future::Future<Output = Result<T>> + Send {
+        let self_clone = self.clone();
+        let url = url.to_string();
+        let body = serde_json::to_value(body).expect("Failed to serialize body");
+        async move {
+            let request = self_clone.post(&url).await?.json(&body);
+            self_clone.send_json(request).await
+        }
     }
 
-    async fn put_json<
+    fn put_json<
         T: DeserializeOwned + Send + 'static,
         B: Serialize + Send + Sync + 'static,
     >(
         &self,
         url: &str,
         body: &B,
-    ) -> Result<T> {
-        let request = self.put(url).await?.json(body);
-        self.send_json(request).await
+    ) -> impl std::future::Future<Output = Result<T>> + Send {
+        let self_clone = self.clone();
+        let url = url.to_string();
+        let body = serde_json::to_value(body).expect("Failed to serialize body");
+        async move {
+            let request = self_clone.put(&url).await?.json(&body);
+            self_clone.send_json(request).await
+        }
     }
 }

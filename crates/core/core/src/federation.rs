@@ -9,7 +9,7 @@ use crate::{
     FederationStatus, FederationTopology, InstanceStatus, LoadBalanceResult, LoadMetrics, NodeSpec,
     Result, SquirrelConfig, SquirrelInstance, SwarmManager,
 };
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Federation service for managing distributed Squirrel MCP instances
 #[derive(Clone)]
@@ -703,13 +703,9 @@ impl FederationService {
     fn get_node_endpoint(&self) -> String {
         format!(
             "http://{}:{}",
-            std::env::var("NODE_IP").unwrap_or_else(|_| {
-                // Use MCP endpoint host for federation consistency
-                get_service_endpoints().mcp_url()
-                    .ok()
-                    .and_then(|url| url.host_str().map(|h| h.to_string()))
-                    .unwrap_or_else(|| "localhost".to_string())
-            }),
+            std::env::var("NODE_IP")
+                .or_else(|_| std::env::var("MCP_HOST"))
+                .unwrap_or_else(|_| "localhost".to_string()),
             self.config.federation_port
         )
     }
@@ -785,13 +781,9 @@ impl SwarmManager for FederationService {
         // In a real implementation, this would actually spawn a new process or container
         // For now, we simulate the instance creation
 
-        let node_ip = std::env::var("NODE_IP").unwrap_or_else(|_| {
-            // Use MCP endpoint host for federation consistency  
-            get_service_endpoints().mcp_url()
-                .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string())
-        });
+        let node_ip = std::env::var("NODE_IP")
+            .or_else(|_| std::env::var("MCP_HOST"))
+            .unwrap_or_else(|_| "localhost".to_string());
         let instance = SquirrelInstance {
             id: instance_id.clone(),
             node_id: self.config.node_id.clone(),

@@ -201,9 +201,6 @@ impl SquirrelBiomeOSIntegration {
 
     /// Register squirrel AI with biomeOS ecosystem
     pub async fn register_with_biomeos(&mut self) -> Result<(), PrimalError> {
-        let config_manager = DefaultConfigManager::new();
-        let _endpoints = config_manager.get_biomeos_endpoints();
-
         let registration = EcosystemServiceRegistration {
             service_id: self.service_id.clone(),
             primal_type: PRIMAL_TYPE.to_string(),
@@ -229,27 +226,12 @@ impl SquirrelBiomeOSIntegration {
                 let base_url = format!("http://{}:{}", host, port);
 
                 EcosystemEndpoints {
-                    ai_api: _endpoints
-                        .get("ai_api")
-                        .clone()
-                        .unwrap_or_else(|| format!("{}/ai", base_url)),
-                    mcp_api: _endpoints
-                        .get("mcp_api")
-                        .clone()
-                        .unwrap_or_else(|| format!("{}/mcp", base_url)),
-                    context_api: _endpoints
-                        .get("context_api")
-                        .clone()
-                        .unwrap_or_else(|| format!("{}/context", base_url)),
-                    health: _endpoints
-                        .get("health")
-                        .clone()
-                        .unwrap_or_else(|| format!("{}/health", base_url)),
-                    metrics: _endpoints
-                        .get("metrics")
-                        .clone()
-                        .unwrap_or_else(|| format!("{}/metrics", base_url)),
-                    websocket: _endpoints.get("websocket").clone(),
+                    ai_api: format!("{}/ai", base_url),
+                    mcp_api: format!("{}/mcp", base_url),
+                    context_api: format!("{}/context", base_url),
+                    health: format!("{}/health", base_url),
+                    metrics: format!("{}/metrics", base_url),
+                    websocket: None,
                 }
             },
 
@@ -345,9 +327,6 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start AI intelligence and MCP services
     pub async fn start_ecosystem_services(&mut self) -> Result<(), PrimalError> {
-        let config_manager = DefaultConfigManager::new();
-        let _endpoints = config_manager.get_biomeos_endpoints();
-
         // Initialize AI intelligence
         self.ai_intelligence.initialize().await?;
         self.health_status.ai_engine_status = STATUS_RUNNING.to_string();
@@ -434,9 +413,6 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start ecosystem intelligence services
     async fn start_ecosystem_intelligence(&mut self) -> Result<(), PrimalError> {
-        let config_manager = DefaultConfigManager::new();
-        let _endpoints = config_manager.get_biomeos_endpoints();
-
         // Start AI intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
         tokio::spawn(async move {
@@ -457,9 +433,6 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start MCP coordination services
     async fn start_mcp_coordination(&mut self) -> Result<(), PrimalError> {
-        let config_manager = DefaultConfigManager::new();
-        let _endpoints = config_manager.get_biomeos_endpoints();
-
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
         tokio::spawn(async move {
@@ -480,9 +453,6 @@ impl SquirrelBiomeOSIntegration {
 
     /// Start context management services
     async fn start_context_management(&mut self) -> Result<(), PrimalError> {
-        let config_manager = DefaultConfigManager::new();
-        let _endpoints = config_manager.get_biomeos_endpoints();
-
         // Start context management background task
         let context_state = self.context_state.clone();
         tokio::spawn(async move {

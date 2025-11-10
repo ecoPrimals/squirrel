@@ -3,7 +3,7 @@
 //! This module provides environment-driven defaults to eliminate hardcoded values.
 
 use std::env;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Default ecosystem service endpoints with environment override support
 pub struct DefaultEndpoints;
@@ -11,7 +11,8 @@ pub struct DefaultEndpoints;
 impl DefaultEndpoints {
     /// Get Songbird endpoint from environment or default (now using service_mesh_endpoint)
     pub fn songbird_endpoint() -> String {
-        get_service_endpoints().service_mesh_endpoint.clone()
+        env::var("SERVICE_MESH_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:8500".to_string())
     }
 
     /// Get ToadStool endpoint from environment or default
@@ -29,7 +30,7 @@ impl DefaultEndpoints {
     pub fn security_service_endpoint() -> String {
         env::var("SECURITY_SERVICE_ENDPOINT")
             .or_else(|_| env::var("SECURITY_AUTH_SERVICE_ENDPOINT"))
-            .unwrap_or_else(|_| get_service_endpoints().security_service_endpoint.clone())
+            .unwrap_or_else(|_| "http://localhost:8443".to_string())
     }
 
     /// Get development bind address from environment or default

@@ -1,10 +1,27 @@
 //! Error handling for AI tools
 //!
+//! **DEPRECATED**: This error module is being replaced by the unified error system.
+//! Please migrate to `universal-error` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use crate::error::{AIError, Result};
+//! // New:
+//! use universal_error::{Result, tools::AIToolsError};
+//! ```
+//!
+//! For detailed migration instructions, see: `crates/universal-error/README.md`
+//!
 //! This module defines the common error types that can occur when
 //! interacting with AI services.
 
 use std::fmt;
 
+/// AI Tools error type
+///
+/// **DEPRECATED**: Use `universal_error::tools::AIToolsError` instead.
+#[deprecated(since = "0.2.0", note = "Use `universal_error::tools::AIToolsError` instead")]
 #[derive(Debug)]
 pub enum AIError {
     /// Configuration error
@@ -118,6 +135,29 @@ impl From<std::io::Error> for AIError {
 impl From<tokio::time::error::Elapsed> for AIError {
     fn from(err: tokio::time::error::Elapsed) -> Self {
         AIError::Timeout(err.to_string())
+    }
+}
+
+// Bridge from new unified error system to deprecated AIError
+// This allows gradual migration while maintaining compatibility
+impl From<universal_error::tools::AIToolsError> for AIError {
+    fn from(err: universal_error::tools::AIToolsError) -> Self {
+        use universal_error::tools::AIToolsError;
+        match err {
+            AIToolsError::Provider(s) => AIError::Provider(s),
+            AIToolsError::Router(s) => AIError::Provider(s),
+            AIToolsError::Local(s) => AIError::Provider(s),
+            AIToolsError::ModelNotFound(s) => AIError::Model(s),
+            AIToolsError::RateLimitExceeded(s) => AIError::RateLimit(s),
+            AIToolsError::InvalidResponse(s) => AIError::InvalidResponse(s),
+            AIToolsError::Network(s) => AIError::NetworkError(s),
+            AIToolsError::Api(s) => AIError::ApiError(s),
+            AIToolsError::Configuration(s) => AIError::Configuration(s),
+            AIToolsError::Parse(s) => AIError::ParseError(s),
+            AIToolsError::UnsupportedProvider(s) => AIError::UnsupportedProvider(s),
+            AIToolsError::InvalidRequest(s) => AIError::InvalidRequest(s),
+            AIToolsError::Authentication(s) => AIError::Authentication(s),
+        }
     }
 }
 

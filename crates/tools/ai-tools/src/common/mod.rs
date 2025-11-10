@@ -112,9 +112,9 @@ pub fn create_provider_client(provider: &str, api_key: &str) -> crate::Result<Bo
             let client = clients::MockAIClient::new();
             Ok(Box::new(client))
         }
-        _ => Err(crate::error::AIError::Configuration(format!(
+        _ => Err(universal_error::tools::AIToolsError::Configuration(format!(
             "Unsupported provider: {provider}"
-        ))),
+        )).into()),
     }
 }
 

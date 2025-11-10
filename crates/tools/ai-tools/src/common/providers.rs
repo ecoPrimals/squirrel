@@ -7,6 +7,7 @@ use crate::ProviderConfig;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
+use universal_error::tools::AIToolsError;
 
 use super::{ChatChoice, ChatRequest, ChatResponse, MessageRole, UsageInfo};
 
@@ -56,7 +57,9 @@ impl OpenAIProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to initialize OpenAI HTTP client: {}. Check system resources and network configuration.", e)
+            ))?;
 
         Ok(Self { config, client })
     }
@@ -138,9 +141,11 @@ impl OpenAIProvider {
     fn convert_response(&self, response: serde_json::Value) -> crate::Result<ChatResponse> {
         let choices = response["choices"]
             .as_array()
-            .ok_or_else(|| crate::error::AIError::InvalidResponse("Missing choices".to_string()))?;
+            .ok_or_else(|| AIToolsError::InvalidResponse(
+                "OpenAI response missing 'choices' array. API response format may have changed or request was invalid.".to_string()
+            ))?;
 
-        let converted_choices: std::result::Result<Vec<ChatChoice>, crate::error::AIError> =
+        let converted_choices: std::result::Result<Vec<ChatChoice>, AIToolsError> =
             choices
                 .iter()
                 .map(|choice| {
@@ -198,20 +203,26 @@ impl AIProvider for OpenAIProvider {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to reach OpenAI API at https://api.openai.com: {}. Check network connectivity and API endpoint.", e)
+            ))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            error!("OpenAI API error: {}", error_text);
-            return Err(crate::error::AIError::ApiError(format!(
-                "OpenAI API error: {error_text}"
-            )));
+            error!("OpenAI API error (status {}): {}", status, error_text);
+            return Err(AIToolsError::Api(format!(
+                "OpenAI API returned error status {}: {}. Verify API key at platform.openai.com and check request format.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::InvalidResponse(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse OpenAI API response as JSON: {}. API may have returned unexpected format.", e)
+            ))?;
 
         self.convert_response(response_json)
     }
@@ -257,7 +268,9 @@ impl AnthropicProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to initialize Anthropic HTTP client: {}. Check system resources and network configuration.", e)
+            ))?;
 
         Ok(Self { config, client })
     }
@@ -314,7 +327,9 @@ impl AnthropicProvider {
     fn convert_response(&self, response: serde_json::Value) -> crate::Result<ChatResponse> {
         let content = response["content"]
             .as_array()
-            .ok_or_else(|| crate::error::AIError::InvalidResponse("Missing content".to_string()))?;
+            .ok_or_else(|| AIToolsError::InvalidResponse(
+                "Anthropic response missing 'content' array. API response format may have changed or request was invalid.".to_string()
+            ))?;
 
         let text_content = content
             .first()
@@ -366,20 +381,26 @@ impl AIProvider for AnthropicProvider {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to reach Anthropic API at https://api.anthropic.com: {}. Check network connectivity and API endpoint.", e)
+            ))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            error!("Anthropic API error: {}", error_text);
-            return Err(crate::error::AIError::ApiError(format!(
-                "Anthropic API error: {error_text}"
-            )));
+            error!("Anthropic API error (status {}): {}", status, error_text);
+            return Err(AIToolsError::Api(format!(
+                "Anthropic API returned error status {}: {}. Verify API key at console.anthropic.com and check request format.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::InvalidResponse(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse Anthropic API response as JSON: {}. API may have returned unexpected format.", e)
+            ))?;
 
         self.convert_response(response_json)
     }
@@ -422,7 +443,9 @@ impl OllamaProvider {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(120)) // Longer timeout for local models
             .build()
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Network(
+                format!("Failed to initialize Ollama HTTP client: {}. Check system resources and network configuration.", e)
+            ))?;
 
         Ok(Self { config, client })
     }
@@ -478,7 +501,9 @@ impl OllamaProvider {
     /// Convert Ollama response to internal format
     fn convert_response(&self, response: serde_json::Value) -> crate::Result<ChatResponse> {
         let content = response["message"]["content"].as_str().ok_or_else(|| {
-            crate::error::AIError::InvalidResponse("Missing message content".to_string())
+            AIToolsError::InvalidResponse(
+                "Ollama response missing 'message.content' field. Local model may have returned unexpected format.".to_string()
+            )
         })?;
 
         let choice = ChatChoice {
@@ -528,20 +553,26 @@ impl AIProvider for OllamaProvider {
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Local(
+                format!("Failed to reach Ollama at {}: {}. Ensure Ollama is running locally and endpoint is correct.", endpoint, e)
+            ))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            error!("Ollama API error: {}", error_text);
-            return Err(crate::error::AIError::ApiError(format!(
-                "Ollama API error: {error_text}"
-            )));
+            error!("Ollama API error (status {}): {}", status, error_text);
+            return Err(AIToolsError::Local(format!(
+                "Ollama returned error status {}: {}. Check model availability and request format.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::InvalidResponse(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse Ollama response as JSON: {}. Local model may have returned unexpected format.", e)
+            ))?;
 
         self.convert_response(response_json)
     }
@@ -576,7 +607,9 @@ pub fn create_provider(name: &str, config: ProviderConfig) -> crate::Result<Box<
         "openai" => Ok(Box::new(OpenAIProvider::new(config)?)),
         "anthropic" => Ok(Box::new(AnthropicProvider::new(config)?)),
         "ollama" => Ok(Box::new(OllamaProvider::new(config)?)),
-        _ => Err(crate::error::AIError::UnsupportedProvider(name.to_string())),
+        _ => Err(AIToolsError::UnsupportedProvider(
+            format!("'{}' is not supported. Available providers: openai, anthropic, ollama", name)
+        ).into()),
     }
 }
 

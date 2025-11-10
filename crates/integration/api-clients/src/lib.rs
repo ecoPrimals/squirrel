@@ -15,8 +15,6 @@
 #![warn(rustdoc::missing_doc_code_examples)]
 
 use serde::Serialize;
-use std::result;
-use thiserror::Error;
 
 pub mod auth;
 pub mod config;
@@ -24,8 +22,9 @@ mod error;
 pub mod github;
 pub mod http;
 
-/// A type alias for Results from API client operations
-pub type Result<T> = result::Result<T, Error>;
+// Re-export universal error types
+pub use universal_error::Result;
+pub use universal_error::integration::APIClientError as Error;
 
 /// Pagination parameters for API requests
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -60,46 +59,10 @@ impl Pagination {
     }
 }
 
-/// Error type for API client operations
-#[derive(Debug, Error)]
-pub enum Error {
-    /// HTTP request error
-    #[error("HTTP request error: {0}")]
-    RequestError(#[from] reqwest::Error),
-
-    /// API response error
-    #[error("API error {0}: {1}")]
-    ResponseError(u16, String),
-
-    /// Authentication error
-    #[error("Authentication error: {0}")]
-    AuthError(String),
-
-    /// Rate limit error
-    #[error("Rate limit exceeded: {0}")]
-    RateLimit(String),
-
-    /// URL parsing error
-    #[error("URL parsing error: {0}")]
-    Url(#[from] url::ParseError),
-
-    /// JSON serialization/deserialization error
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-
-    /// I/O error
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-
-    /// Other error
-    #[error("{0}")]
-    Other(String),
-}
-
 /// Re-export of key traits and structures that define the API client interface
 pub mod prelude {
     pub use crate::auth::Authenticator;
-    pub use crate::error::Error;
+    pub use crate::Error;
     pub use crate::http::HttpClient;
     pub use crate::Result;
 }

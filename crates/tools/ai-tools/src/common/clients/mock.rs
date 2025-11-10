@@ -122,9 +122,9 @@ impl AIClient for MockAIClient {
         self.simulate_latency().await;
 
         if !self.available {
-            return Err(crate::error::AIError::NetworkError(
+            return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ));
+            ).into());
         }
 
         // Extract the last user message as input
@@ -166,9 +166,9 @@ impl AIClient for MockAIClient {
         self.simulate_latency().await;
 
         if !self.available {
-            return Err(crate::error::AIError::NetworkError(
+            return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ));
+            ).into());
         }
 
         Ok(vec![
@@ -196,9 +196,9 @@ impl AIClient for MockAIClient {
         self.simulate_latency().await;
 
         if !self.available {
-            return Err(crate::error::AIError::NetworkError(
+            return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ));
+            ).into());
         }
 
         let mut capabilities = AICapabilities::default();
@@ -246,9 +246,9 @@ impl AIClient for MockAIClient {
         self.simulate_latency().await;
 
         if !self.available {
-            return Err(crate::error::AIError::NetworkError(
+            return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ));
+            ).into());
         }
 
         let response = self.chat(request).await?;

@@ -1,4 +1,17 @@
 //! Error types for Toadstool integration
+//!
+//! **DEPRECATED**: This error module is being replaced by the unified error system.
+//! Please migrate to `universal-error` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use crate::errors::{ToadstoolError, ToadstoolResult};
+//! // New:
+//! use universal_error::{Result, integration::EcosystemError};
+//! ```
+//!
+//! For detailed migration instructions, see: `crates/universal-error/README.md`
 
 use thiserror::Error;
 
@@ -6,6 +19,9 @@ use thiserror::Error;
 pub type ToadstoolResult<T> = std::result::Result<T, ToadstoolError>;
 
 /// Errors that can occur during Toadstool integration
+///
+/// **DEPRECATED**: Use `universal_error::integration::EcosystemError` instead.
+#[deprecated(since = "0.2.0", note = "Use `universal_error::integration::EcosystemError` instead")]
 #[derive(Debug, Error)]
 pub enum ToadstoolError {
     /// Connection error to Toadstool service

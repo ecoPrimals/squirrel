@@ -14,9 +14,12 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub use client::ToadstoolClient;
-pub use errors::{ToadstoolError, ToadstoolResult};
+pub use errors::ToadstoolError;
 pub use execution::ExecutionRequest;
 pub use sandbox::SandboxPolicy;
+
+// Re-export universal error Result type
+pub use universal_error::Result as ToadstoolResult;
 
 /// Configuration for Toadstool integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,24 +83,24 @@ impl Default for ResourceLimits {
 }
 
 /// Plugin execution trait that can be implemented by different compute backends
-#[async_trait]
+/// (native async - Phase 4 migration)
 pub trait PluginExecutor {
     /// Execute a plugin with the given environment
-    async fn execute_plugin(
+    fn execute_plugin(
         &self,
         plugin_id: &str,
         code: &[u8],
         environment: ExecutionEnvironment,
-    ) -> ToadstoolResult<ExecutionResult>;
+    ) -> impl std::future::Future<Output = ToadstoolResult<ExecutionResult>> + Send;
 
     /// Check execution status
-    async fn get_execution_status(&self, execution_id: &Uuid) -> ToadstoolResult<ExecutionStatus>;
+    fn get_execution_status(&self, execution_id: &Uuid) -> impl std::future::Future<Output = ToadstoolResult<ExecutionStatus>> + Send;
 
     /// Cancel execution
-    async fn cancel_execution(&self, execution_id: &Uuid) -> ToadstoolResult<()>;
+    fn cancel_execution(&self, execution_id: &Uuid) -> impl std::future::Future<Output = ToadstoolResult<()>> + Send;
 
     /// List active executions
-    async fn list_executions(&self) -> ToadstoolResult<Vec<ExecutionInfo>>;
+    fn list_executions(&self) -> impl std::future::Future<Output = ToadstoolResult<Vec<ExecutionInfo>>> + Send;
 }
 
 /// Result of plugin execution

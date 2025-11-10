@@ -12,7 +12,7 @@ use tokio::fs;
 use tracing::{debug, info};
 
 use crate::error::PrimalError;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 // ============================================================================
 // CORE MANIFEST TYPES
@@ -476,10 +476,8 @@ impl BiomeManifestParser {
             networking: BiomeNetworking {
                 ingress: IngressConfig {
                     enabled: false,
-                    host: get_service_endpoints().ui_url()
-                        .ok()
-                        .and_then(|url| url.host_str().map(|h| h.to_string()))
-                        .unwrap_or_else(|| "localhost".to_string()),
+                    host: std::env::var("UI_HOST")
+                        .unwrap_or_else(|_| "localhost".to_string()),
                     tls_enabled: false,
                     annotations: std::collections::HashMap::new(),
                 },

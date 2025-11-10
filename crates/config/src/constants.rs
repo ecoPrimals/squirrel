@@ -1,7 +1,20 @@
 //! Configuration constants for the Squirrel system
 //!
+//! **DEPRECATED**: This module is being phased out in favor of `universal-constants` crate.
+//! Please migrate to `universal-constants` for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use squirrel_mcp_config::constants::timeouts;
+//! // New:
+//! use universal_constants::timeouts;
+//! ```
+//!
 //! This module contains all hardcoded configuration values used throughout the system,
 //! centralized for easy maintenance and configuration.
+
+#![deprecated(since = "0.2.0", note = "Use `universal-constants` crate instead")]
 
 use std::time::Duration;
 

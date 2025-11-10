@@ -1,0 +1,864 @@
+warning: missing documentation for a struct
+   --> crates/ecosystem-api/src/traits.rs:510:1
+    |
+510 | pub struct RetryConfig {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: the lint level is defined here
+   --> crates/ecosystem-api/src/lib.rs:47:9
+    |
+ 47 | #![warn(missing_docs)]
+    |         ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/ecosystem-api/src/traits.rs:511:5
+    |
+511 |     pub max_retries: u32,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/ecosystem-api/src/traits.rs:512:5
+    |
+512 |     pub initial_delay_ms: u64,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/ecosystem-api/src/traits.rs:513:5
+    |
+513 |     pub max_delay_ms: u64,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/ecosystem-api/src/traits.rs:514:5
+    |
+514 |     pub backoff_multiplier: f64,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `ecosystem-api` (lib) generated 5 warnings
+   Compiling axum-extra v0.8.0
+   Compiling squirrel-core v0.1.0 (/home/eastgate/Development/ecoPrimals/squirrel/crates/core/core)
+   Compiling squirrel-mcp-auth v0.1.0 (/home/eastgate/Development/ecoPrimals/squirrel/crates/core/auth)
+   Compiling universal-patterns v0.1.0 (/home/eastgate/Development/ecoPrimals/squirrel/crates/universal-patterns)
+   Compiling tonic v0.10.2
+warning: unused import: `warn`
+  --> crates/core/auth/src/auth.rs:15:28
+   |
+15 | use tracing::{debug, info, warn};
+   |                            ^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `AuthError`
+ --> crates/core/auth/src/session.rs:6:21
+  |
+6 | use crate::errors::{AuthError, AuthResult};
+  |                     ^^^^^^^^^
+
+warning: unused imports: `DateTime` and `Utc`
+ --> crates/core/auth/src/session.rs:9:14
+  |
+9 | use chrono::{DateTime, Duration, Utc};
+  |              ^^^^^^^^            ^^^
+
+warning: unused import: `warn`
+  --> crates/core/auth/src/session.rs:13:22
+   |
+13 | use tracing::{debug, warn};
+   |                      ^^^^
+
+error[E0308]: mismatched types
+  --> crates/core/auth/src/auth.rs:69:54
+   |
+69 |         match Self::test_security_capability(client, security_endpoint).await {
+   |               ------------------------------         ^^^^^^^^^^^^^^^^^ expected `&str`, found `String`
+   |               |
+   |               arguments to this function are incorrect
+   |
+note: associated function defined here
+  --> crates/core/auth/src/auth.rs:86:14
+   |
+86 |     async fn test_security_capability(client: &Client, endpoint: &str) -> AuthResult<SecurityCapabilityInfo> {
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^                  --------------
+help: consider borrowing here
+   |
+69 |         match Self::test_security_capability(client, &security_endpoint).await {
+   |                                                      +
+
+   Compiling squirrel-mcp v0.1.0 (/home/eastgate/Development/ecoPrimals/squirrel/crates/core/mcp)
+warning: unused import: `std::fmt`
+ --> crates/core/core/src/lib.rs:5:5
+  |
+5 | use std::fmt;
+  |     ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `squirrel-mcp-auth` (lib) generated 4 warnings
+error: could not compile `squirrel-mcp-auth` (lib) due to 1 previous error; 4 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+warning: unused import: `chrono::Utc`
+ --> crates/core/mcp/src/error/examples.rs:6:5
+  |
+6 | use chrono::Utc;
+  |     ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `MCPError`
+  --> crates/core/mcp/src/error/examples.rs:10:49
+   |
+10 | use super::types::{ErrorContext, ErrorSeverity, MCPError};
+   |                                                 ^^^^^^^^
+
+warning: use of deprecated module `constants::message_sizes`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:61:32
+   |
+61 |         use crate::constants::{message_sizes, network, timeouts};
+   |                                ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated module `constants::network`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:61:47
+   |
+61 |         use crate::constants::{message_sizes, network, timeouts};
+   |                                               ^^^^^^^
+
+warning: use of deprecated module `constants::timeouts`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:61:56
+   |
+61 |         use crate::constants::{message_sizes, network, timeouts};
+   |                                                        ^^^^^^^^
+
+warning: use of deprecated constant `constants::network::DEFAULT_WEBSOCKET_PORT`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:64:56
+   |
+64 |             url: format!("ws://localhost:{}", network::DEFAULT_WEBSOCKET_PORT),
+   |                                                        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `constants::message_sizes::DEFAULT_MAX_MESSAGE_SIZE`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:65:46
+   |
+65 |             max_message_size: message_sizes::DEFAULT_MAX_MESSAGE_SIZE,
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `constants::timeouts::DEFAULT_CONNECTION_TIMEOUT`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:66:43
+   |
+66 |             connection_timeout: timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs(),
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `constants::timeouts::DEFAULT_PING_INTERVAL`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:67:43
+   |
+67 |             ping_interval: Some(timeouts::DEFAULT_PING_INTERVAL.as_secs()),
+   |                                           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated constant `constants::timeouts::DEFAULT_INITIAL_DELAY`: Use `universal-constants` crate instead
+  --> crates/core/mcp/src/transport/websocket/mod.rs:71:43
+   |
+71 |             reconnect_delay_ms: timeouts::DEFAULT_INITIAL_DELAY.as_millis() as u64,
+   |                                           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `config`
+   --> crates/core/mcp/src/protocol/websocket.rs:207:9
+    |
+207 |         config: Arc<WebSocketConfig>,
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `connection_id_out`
+   --> crates/core/mcp/src/protocol/websocket.rs:255:13
+    |
+255 |         let connection_id_out = connection_id.clone();
+    |             ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_connection_id_out`
+
+warning: unused variable: `event_sender_out`
+   --> crates/core/mcp/src/protocol/websocket.rs:256:13
+    |
+256 |         let event_sender_out = event_sender.clone();
+    |             ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_event_sender_out`
+
+warning: use of deprecated type alias `std::panic::PanicInfo`: use `PanicHookInfo` instead
+  --> crates/universal-patterns/src/security/hardening.rs:14:24
+   |
+14 | use std::panic::{self, PanicInfo};
+   |                        ^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated type alias `std::panic::PanicInfo`: use `PanicHookInfo` instead
+   --> crates/universal-patterns/src/security/hardening.rs:181:53
+    |
+181 |         panic::set_hook(Box::new(move |panic_info: &PanicInfo<'_>| {
+    |                                                     ^^^^^^^^^
+
+warning: unused variable: `response_tx`
+   --> crates/core/mcp/src/protocol/websocket.rs:516:14
+    |
+516 |         let (response_tx, mut response_rx) = mpsc::channel(1);
+    |              ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_response_tx`
+
+warning: unused variable: `incident`
+   --> crates/universal-patterns/src/security/hardening.rs:581:9
+    |
+581 |         incident: &SecurityIncident,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_incident`
+    |
+    = note: requested on the command line with `-W unused-variables`
+
+warning: associated functions `recover_connection`, `recover_state`, and `recover_protocol` are never used
+   --> crates/core/mcp/src/error/context.rs:489:14
+    |
+387 | impl ErrorHandler {
+    | ----------------- associated functions in this implementation
+...
+489 |     const fn recover_connection(_context: &LocalErrorContext) {
+    |              ^^^^^^^^^^^^^^^^^^
+...
+498 |     const fn recover_state(_context: &LocalErrorContext) {
+    |              ^^^^^^^^^^^^^
+...
+507 |     const fn recover_protocol(_context: &LocalErrorContext) {
+    |              ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `codec` is never read
+   --> crates/core/mcp/src/transport/frame.rs:209:5
+    |
+206 | pub struct FrameTransport<R, W, C = DefaultFrameCodec> {
+    |            -------------- field in this struct
+...
+209 |     codec: C,
+    |     ^^^^^
+
+warning: fields `stream` and `codec` are never read
+   --> crates/core/mcp/src/transport/frame.rs:241:5
+    |
+240 | pub struct FramedStream<T, C = DefaultFrameCodec> {
+    |            ------------ fields in this struct
+241 |     stream: T,
+    |     ^^^^^^
+242 |     codec: C,
+    |     ^^^^^
+
+warning: field `frame_codec` is never read
+   --> crates/core/mcp/src/transport/frame.rs:259:5
+    |
+257 | pub struct MessageCodec {
+    |            ------------ field in this struct
+258 |     /// Frame codec for encoding/decoding frames
+259 |     frame_codec: Arc<dyn FrameCodec<Error = MCPError> + Send + Sync>,
+    |     ^^^^^^^^^^^
+    |
+    = note: `MessageCodec` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: variants `Shutdown`, `Reconnect`, and `Ping` are never constructed
+  --> crates/core/mcp/src/transport/websocket/mod.rs:82:5
+   |
+80 | enum ControlMessage {
+   |      -------------- variants in this enum
+81 |     /// Shutdown the connection
+82 |     Shutdown,
+   |     ^^^^^^^^
+83 |     /// Reconnect to the server
+84 |     Reconnect,
+   |     ^^^^^^^^^
+85 |     /// Ping the server
+86 |     Ping,
+   |     ^^^^
+   |
+   = note: `ControlMessage` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `control_rx` and `control_tx` are never read
+   --> crates/core/mcp/src/transport/websocket/mod.rs:140:5
+    |
+126 | pub struct WebSocketTransport {
+    |            ------------------ fields in this struct
+...
+140 |     control_rx: Option<mpsc::Receiver<ControlMessage>>,
+    |     ^^^^^^^^^^
+...
+143 |     control_tx: Option<mpsc::Sender<ControlMessage>>,
+    |     ^^^^^^^^^^
+    |
+    = note: `WebSocketTransport` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `send_internal`, `handle_received_message`, and `remote_addr` are never used
+   --> crates/core/mcp/src/transport/websocket/mod.rs:355:14
+    |
+155 | impl WebSocketTransport {
+    | ----------------------- methods in this implementation
+...
+355 |     async fn send_internal(&self, ws_message: Message) -> Result<()> {
+    |              ^^^^^^^^^^^^^
+...
+394 |     async fn handle_received_message(&self, _message: Message) -> Result<Option<MCPMessage>> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+...
+400 |     async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
+    |              ^^^^^^^^^^^
+
+warning: function `handle_connection` is never used
+   --> crates/core/mcp/src/transport/websocket/mod.rs:651:10
+    |
+651 | async fn handle_connection(_peer: SocketAddr, _stream: TcpStream) -> Result<()> {
+    |          ^^^^^^^^^^^^^^^^^
+
+warning: function `process_socket` is never used
+   --> crates/core/mcp/src/transport/websocket/mod.rs:655:10
+    |
+655 | async fn process_socket(
+    |          ^^^^^^^^^^^^^^
+
+warning: `squirrel-mcp` (lib) generated 23 warnings (run `cargo fix --lib -p squirrel-mcp` to apply 2 suggestions)
+warning: struct `AgentInfo` is never constructed
+   --> crates/core/core/src/api.rs:457:8
+    |
+457 | struct AgentInfo {
+    |        ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: struct `McpTaskRequest` is never constructed
+   --> crates/core/core/src/api.rs:538:8
+    |
+538 | struct McpTaskRequest {
+    |        ^^^^^^^^^^^^^^
+
+warning: field `federation_nodes` is never read
+   --> crates/core/core/src/routing/mod.rs:101:5
+    |
+ 87 | struct RoutingState {
+    |        ------------ field in this struct
+...
+101 |     federation_nodes: RwLock<Vec<String>>,
+    |     ^^^^^^^^^^^^^^^^
+    |
+    = note: `RoutingState` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: hiding a lifetime that's elided elsewhere is confusing
+   --> crates/core/core/src/routing/balancer.rs:332:33
+    |
+332 |     pub async fn acquire_permit(&self) -> tokio::sync::SemaphorePermit {
+    |                                 ^^^^^     ---------------------------- the same lifetime is hidden here
+    |                                 |
+    |                                 the lifetime is elided here
+    |
+    = help: the same lifetime is referred to in inconsistent ways, making the signature confusing
+    = note: `#[warn(mismatched_lifetime_syntaxes)]` on by default
+help: use `'_` for type paths
+    |
+332 |     pub async fn acquire_permit(&self) -> tokio::sync::SemaphorePermit<'_> {
+    |                                                                       ++++
+
+warning: fields `sender`, `timestamp`, and `retry_count` are never read
+   --> crates/universal-patterns/src/federation/federation_network.rs:222:5
+    |
+220 | struct QueuedMessage {
+    |        ------------- fields in this struct
+221 |     message: NetworkMessage,
+222 |     sender: Uuid,
+    |     ^^^^^^
+223 |     timestamp: DateTime<Utc>,
+    |     ^^^^^^^^^
+224 |     retry_count: u32,
+    |     ^^^^^^^^^^^
+    |
+    = note: `QueuedMessage` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `keys` is never read
+   --> crates/universal-patterns/src/federation/sovereign_data.rs:151:5
+    |
+149 | pub struct DefaultEncryptionKeyManager {
+    |            --------------------------- field in this struct
+150 |     /// Key storage
+151 |     keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
+    |     ^^^^
+
+warning: fields `ip_address` and `user_agent` are never read
+   --> crates/universal-patterns/src/security/hardening.rs:122:5
+    |
+119 | struct AuthAttempt {
+    |        ----------- fields in this struct
+...
+122 |     ip_address: String,
+    |     ^^^^^^^^^^
+123 |     user_agent: Option<String>,
+    |     ^^^^^^^^^^
+    |
+    = note: `AuthAttempt` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `failed_attempts` is never read
+   --> crates/universal-patterns/src/security/hardening.rs:130:5
+    |
+128 | struct AccountLockout {
+    |        -------------- field in this struct
+129 |     locked_until: SystemTime,
+130 |     failed_attempts: u32,
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `AccountLockout` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: enum `SecurityLevel` is never used
+  --> crates/universal-patterns/src/security/providers.rs:68:10
+   |
+68 | pub enum SecurityLevel {
+   |          ^^^^^^^^^^^^^
+
+warning: enum `TrustLevel` is never used
+  --> crates/universal-patterns/src/security/providers.rs:78:10
+   |
+78 | pub enum TrustLevel {
+   |          ^^^^^^^^^^
+
+warning: enum `SecurityCapability` is never used
+   --> crates/universal-patterns/src/security/providers.rs:112:10
+    |
+112 | pub enum SecurityCapability {
+    |          ^^^^^^^^^^^^^^^^^^
+
+warning: methods `get_capabilities`, `get_service_info`, and `initialize` are never used
+   --> crates/universal-patterns/src/security/providers.rs:168:8
+    |
+166 | pub trait UniversalSecurityService: Send + Sync {
+    |           ------------------------ methods in this trait
+167 |     /// Get the capabilities this security service provides
+168 |     fn get_capabilities(&self) -> Vec<SecurityCapability>;
+    |        ^^^^^^^^^^^^^^^^
+...
+171 |     fn get_service_info(&self) -> SecurityServiceInfo;
+    |        ^^^^^^^^^^^^^^^^
+...
+183 |     async fn initialize(&mut self, config: SecurityServiceConfig) -> Result<(), SecurityError>;
+    |              ^^^^^^^^^^
+
+warning: struct `SecurityServiceInfo` is never constructed
+   --> crates/universal-patterns/src/security/providers.rs:188:12
+    |
+188 | pub struct SecurityServiceInfo {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SecurityEndpoint` is never constructed
+   --> crates/universal-patterns/src/security/providers.rs:202:12
+    |
+202 | pub struct SecurityEndpoint {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: associated function `failed` is never used
+   --> crates/universal-patterns/src/security/providers.rs:250:12
+    |
+235 | impl SecurityResponse {
+    | --------------------- associated function in this implementation
+...
+250 |     pub fn failed(request_id: String, reason: String) -> Result<Self, SecurityError> {
+    |            ^^^^^^
+
+warning: enum `ComplianceStatus` is never used
+   --> crates/universal-patterns/src/security/providers.rs:275:10
+    |
+275 | pub enum ComplianceStatus {
+    |          ^^^^^^^^^^^^^^^^
+
+warning: trait `UniversalSecurityProvider` is never used
+   --> crates/universal-patterns/src/security/providers.rs:283:11
+    |
+283 | pub trait UniversalSecurityProvider: UniversalSecurityService {}
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `UniversalSecurityRegistry` is never constructed
+   --> crates/universal-patterns/src/security/providers.rs:289:12
+    |
+289 | pub struct UniversalSecurityRegistry {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `register_service`, `find_by_capability`, `find_optimal_service`, `get_service`, and `list_services` are never used
+   --> crates/universal-patterns/src/security/providers.rs:296:12
+    |
+294 | impl UniversalSecurityRegistry {
+    | ------------------------------ associated items in this implementation
+295 |     /// Create a new security service registry
+296 |     pub fn new() -> Self {
+    |            ^^^
+...
+304 |     pub async fn register_service(
+    |                  ^^^^^^^^^^^^^^^^
+...
+327 |     pub fn find_by_capability(&self, capability: &SecurityCapability) -> Vec<String> {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+335 |     pub async fn find_optimal_service(
+    |                  ^^^^^^^^^^^^^^^^^^^^
+...
+366 |     pub fn get_service(&self, service_id: &str) -> Option<Arc<dyn UniversalSecurityService>> {
+    |            ^^^^^^^^^^^
+...
+371 |     pub fn list_services(&self) -> Vec<String> {
+    |            ^^^^^^^^^^^^^
+
+warning: function `capabilities_match` is never used
+   --> crates/universal-patterns/src/security/providers.rs:377:8
+    |
+377 | pub fn capabilities_match(required: &SecurityCapability, provided: &SecurityCapability) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `register_security_service` is never used
+   --> crates/universal-patterns/src/security/providers.rs:441:14
+    |
+441 | pub async fn register_security_service(
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `config` and `client` are never read
+   --> crates/universal-patterns/src/security/providers.rs:452:5
+    |
+451 | pub struct BeardogSecurityProvider {
+    |            ----------------------- fields in this struct
+452 |     config: SecurityServiceConfig,
+    |     ^^^^^^
+453 |     client: Option<reqwest::Client>,
+    |     ^^^^^^
+
+warning: field `config` is never read
+   --> crates/universal-patterns/src/security/providers.rs:546:5
+    |
+545 | pub struct LocalSecurityProvider {
+    |            --------------------- field in this struct
+546 |     config: SecurityServiceConfig,
+    |     ^^^^^^
+
+warning: missing documentation for an enum
+  --> crates/universal-patterns/src/security/hardening.rs:60:1
+   |
+60 | pub enum Environment {
+   | ^^^^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> crates/universal-patterns/src/lib.rs:47:9
+   |
+47 | #![warn(missing_docs)]
+   |         ^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/hardening.rs:61:5
+   |
+61 |     Development,
+   |     ^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/hardening.rs:62:5
+   |
+62 |     Testing,
+   |     ^^^^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/hardening.rs:63:5
+   |
+63 |     Staging,
+   |     ^^^^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/hardening.rs:64:5
+   |
+64 |     Production,
+   |     ^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:72:9
+   |
+72 |         message: String,
+   |         ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:73:9
+   |
+73 |         location: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:74:9
+   |
+74 |         thread: String,
+   |         ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:75:9
+   |
+75 |         timestamp: DateTime<Utc>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:79:9
+   |
+79 |         ip_address: String,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:80:9
+   |
+80 |         user_agent: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:81:9
+   |
+81 |         attempt_count: u32,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:82:9
+   |
+82 |         timestamp: DateTime<Utc>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:86:9
+   |
+86 |         username: String,
+   |         ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:87:9
+   |
+87 |         ip_address: String,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:88:9
+   |
+88 |         failed_attempts: u32,
+   |         ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:89:9
+   |
+89 |         lockout_duration: Duration,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:90:9
+   |
+90 |         timestamp: DateTime<Utc>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:94:9
+   |
+94 |         activity_type: String,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:95:9
+   |
+95 |         details: HashMap<String, String>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:96:9
+   |
+96 |         risk_level: RiskLevel,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> crates/universal-patterns/src/security/hardening.rs:97:9
+   |
+97 |         timestamp: DateTime<Utc>,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:101:9
+    |
+101 |         changed_setting: String,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:102:9
+    |
+102 |         old_value: String,
+    |         ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:103:9
+    |
+103 |         new_value: String,
+    |         ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:104:9
+    |
+104 |         changed_by: String,
+    |         ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:105:9
+    |
+105 |         timestamp: DateTime<Utc>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+   --> crates/universal-patterns/src/security/hardening.rs:110:1
+    |
+110 | pub enum RiskLevel {
+    | ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:111:5
+    |
+111 |     Low,
+    |     ^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:112:5
+    |
+112 |     Medium,
+    |     ^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:113:5
+    |
+113 |     High,
+    |     ^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:114:5
+    |
+114 |     Critical,
+    |     ^^^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:466:5
+    |
+466 |     RateLimitExceeded {
+    |     ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:467:9
+    |
+467 |         attempts: u32,
+    |         ^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:468:9
+    |
+468 |         reset_time: SystemTime,
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/hardening.rs:471:5
+    |
+471 |     AccountLocked {
+    |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:472:9
+    |
+472 |         remaining_time: Duration,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:473:9
+    |
+473 |         reason: String,
+    |         ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:601:5
+    |
+601 |     pub total_ips_tracked: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:602:5
+    |
+602 |     pub total_attempts_last_hour: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:603:5
+    |
+603 |     pub failed_attempts_last_hour: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:604:5
+    |
+604 |     pub locked_accounts_count: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:605:5
+    |
+605 |     pub rate_limiting_enabled: bool,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:606:5
+    |
+606 |     pub panic_handler_enabled: bool,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/hardening.rs:607:5
+    |
+607 |     pub security_monitoring_enabled: bool,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> crates/universal-patterns/src/security/zero_copy.rs:97:1
+   |
+97 | pub enum PrincipalType {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/zero_copy.rs:98:5
+   |
+98 |     User,
+   |     ^^^^
+
+warning: missing documentation for a variant
+  --> crates/universal-patterns/src/security/zero_copy.rs:99:5
+   |
+99 |     Service,
+   |     ^^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/zero_copy.rs:100:5
+    |
+100 |     System,
+    |     ^^^^^^
+
+warning: missing documentation for a variant
+   --> crates/universal-patterns/src/security/zero_copy.rs:101:5
+    |
+101 |     Anonymous,
+    |     ^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> crates/universal-patterns/src/security/zero_copy.rs:335:1
+    |
+335 | pub struct CacheStats {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/zero_copy.rs:336:5
+    |
+336 |     pub hits: u64,
+    |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/zero_copy.rs:337:5
+    |
+337 |     pub misses: u64,
+    |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/universal-patterns/src/security/zero_copy.rs:338:5
+    |
+338 |     pub evictions: u64,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: `squirrel-core` (lib) generated 5 warnings (run `cargo fix --lib -p squirrel-core` to apply 1 suggestion)
+warning: `universal-patterns` (lib) generated 76 warnings

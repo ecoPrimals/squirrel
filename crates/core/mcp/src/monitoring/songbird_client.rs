@@ -13,7 +13,7 @@ use tracing::{error, info, warn, debug};
 
 use crate::error::{Result, MCPError};
 use super::{MonitoringClient, MonitoringEvent, MetricValue, AlertLevel};
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Songbird monitoring client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,8 +36,9 @@ pub struct SongbirdClientConfig {
 
 impl Default for SongbirdClientConfig {
     fn default() -> Self {
-        // PRODUCTION SAFE: Using centralized service endpoints configuration
-        let endpoint = get_service_endpoints().songbird_endpoint.clone();
+        // PRODUCTION SAFE: Using environment variable for service endpoint
+        let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:8500".to_string());
 
         let service_name = std::env::var("MCP_SERVICE_NAME")
             .unwrap_or_else(|_| "squirrel-mcp".to_string());

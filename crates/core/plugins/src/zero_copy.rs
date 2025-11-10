@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 use crate::types::{PluginDataFormat, PluginResources, PluginState, PluginStatus, PluginType};
 
@@ -244,10 +244,9 @@ impl ZeroCopyPluginConfig {
                 sandboxed: true,
                 allowed_paths: vec!["/tmp".to_string()],
                 allowed_hosts: {
-                    let endpoints = get_service_endpoints();
                     vec![
-                        endpoints.mcp_url().ok().and_then(|u| u.host_str().map(|h| h.to_string())).unwrap_or_else(|| "localhost".to_string()),
-                        endpoints.beardog_url().ok().and_then(|u| u.host_str().map(|h| h.to_string())).unwrap_or_else(|| "localhost".to_string()),
+                        std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string()),
+                        std::env::var("BEARDOG_HOST").unwrap_or_else(|_| "localhost".to_string()),
                         "localhost".to_string(), // Keep localhost for development
                     ]
                 },

@@ -1,5 +1,18 @@
 //! Comprehensive error handling system for the Squirrel Plugin SDK
 //!
+//! **DEPRECATED**: This error system is being replaced by `universal-error`.
+//! Please migrate to the unified error system for all new code.
+//!
+//! Migration guide:
+//! ```ignore
+//! // Old:
+//! use crate::infrastructure::error::*;
+//! // New:
+//! use universal_error::{Result, sdk::*};
+//! ```
+//!
+//! See: `crates/universal-error/README.md` for complete migration guide.
+//!
 //! This module provides a complete error handling framework with:
 //! - Core error types and result types
 //! - Error context and enhanced error chaining

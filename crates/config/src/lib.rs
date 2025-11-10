@@ -22,10 +22,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-pub mod compat;
 pub mod constants;
 pub mod environment;
-pub mod service_endpoints;
 
 // Unified configuration system - the single source of truth
 pub mod unified;
@@ -33,11 +31,27 @@ pub mod unified;
 // Re-export environment utilities (still useful)
 pub use environment::{Environment, EnvironmentConfig, EnvironmentError};
 
-// Re-export service endpoints (legacy compatibility)
-pub use service_endpoints::{get_service_endpoints, GlobalServiceEndpoints};
-
-// Re-export compatibility layer (legacy types)
-pub use compat::{BiomeOSEndpoints, Config, ConfigManager, DefaultConfigManager, EcosystemConfig, ExternalServicesConfig};
+// ============================================================================
+// COMPATIBILITY LAYER REMOVED - November 9, 2025
+// ============================================================================
+// The legacy compatibility layer has been successfully removed!
+// All code now uses the unified config system directly.
+//
+// Migration complete:
+// - compat::Config → unified::SquirrelUnifiedConfig (via ConfigLoader)
+// - compat::DefaultConfigManager → unified::ConfigLoader
+// - service_endpoints::get_service_endpoints() → std::env::var() directly
+// - compat::BiomeOSEndpoints → Direct environment variables
+// - compat::ExternalServicesConfig → Direct environment variables
+//
+// Removed files:
+// - crates/config/src/compat.rs (271 LOC removed)
+// - crates/config/src/service_endpoints.rs (105 LOC removed)
+//
+// Total: 376 LOC of legacy code eliminated!
+//
+// See: docs/sessions/nov-9-2025-evening/ for migration history
+// ============================================================================
 
 // Re-export unified configuration types (primary exports)
 pub use unified::{

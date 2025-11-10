@@ -92,15 +92,18 @@ impl ToadstoolClient {
     }
 }
 
-#[async_trait]
 impl PluginExecutor for ToadstoolClient {
-    async fn execute_plugin(
+    fn execute_plugin(
         &self,
         plugin_id: &str,
         code: &[u8],
         environment: ExecutionEnvironment,
-    ) -> ToadstoolResult<ExecutionResult> {
+    ) -> impl std::future::Future<Output = ToadstoolResult<ExecutionResult>> + Send {
         let execution_id = Uuid::new_v4();
+        let plugin_id = plugin_id.to_string();
+        let code = code.to_vec();
+        
+        async move {
         let url = format!("{}/v1/execute", self.endpoint);
 
         debug!(
@@ -136,75 +139,96 @@ impl PluginExecutor for ToadstoolClient {
             error!("Plugin {} execution failed: {}", plugin_id, error_text);
             Err(ToadstoolError::execution(error_text))
         }
+        }
     }
 
-    async fn get_execution_status(&self, execution_id: &Uuid) -> ToadstoolResult<ExecutionStatus> {
+    fn get_execution_status(&self, execution_id: &Uuid) -> impl std::future::Future<Output = ToadstoolResult<ExecutionStatus>> + Send {
         let url = format!("{}/v1/executions/{}/status", self.endpoint, execution_id);
+        let execution_id = *execution_id;
+        let http_client = self.http_client.clone();
+        let config = self.config.clone();
+        
+        async move {
+            let response = http_client
+                .request(reqwest::Method::GET, &url)
+                .header("Authorization", format!("Bearer {}", config.auth_token.clone().unwrap_or_default()))
+                .header("Content-Type", "application/json")
+                .send()
+                .await?;
 
-        let response = self
-            .authenticated_request(reqwest::Method::GET, &url)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let status: ExecutionStatus = response.json().await?;
-            Ok(status)
-        } else if response.status() == 404 {
-            Err(ToadstoolError::execution_not_found(
-                execution_id.to_string(),
-            ))
-        } else {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(ToadstoolError::execution(error_text))
+            if response.status().is_success() {
+                let status: ExecutionStatus = response.json().await?;
+                Ok(status)
+            } else if response.status() == 404 {
+                Err(ToadstoolError::execution_not_found(
+                    execution_id.to_string(),
+                ))
+            } else {
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+                Err(ToadstoolError::execution(error_text))
+            }
         }
     }
 
-    async fn cancel_execution(&self, execution_id: &Uuid) -> ToadstoolResult<()> {
+    fn cancel_execution(&self, execution_id: &Uuid) -> impl std::future::Future<Output = ToadstoolResult<()>> + Send {
         let url = format!("{}/v1/executions/{}/cancel", self.endpoint, execution_id);
+        let execution_id = *execution_id;
+        let http_client = self.http_client.clone();
+        let config = self.config.clone();
 
-        debug!("Cancelling execution {}", execution_id);
+        async move {
+            debug!("Cancelling execution {}", execution_id);
 
-        let response = self
-            .authenticated_request(reqwest::Method::POST, &url)
-            .send()
-            .await?;
+            let response = http_client
+                .request(reqwest::Method::POST, &url)
+                .header("Authorization", format!("Bearer {}", config.auth_token.clone().unwrap_or_default()))
+                .header("Content-Type", "application/json")
+                .send()
+                .await?;
 
-        if response.status().is_success() {
-            info!("Execution {} cancelled successfully", execution_id);
-            Ok(())
-        } else if response.status() == 404 {
-            Err(ToadstoolError::execution_not_found(
-                execution_id.to_string(),
-            ))
-        } else {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(ToadstoolError::execution(error_text))
+            if response.status().is_success() {
+                info!("Execution {} cancelled successfully", execution_id);
+                Ok(())
+            } else if response.status() == 404 {
+                Err(ToadstoolError::execution_not_found(
+                    execution_id.to_string(),
+                ))
+            } else {
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+                Err(ToadstoolError::execution(error_text))
+            }
         }
     }
 
-    async fn list_executions(&self) -> ToadstoolResult<Vec<ExecutionInfo>> {
+    fn list_executions(&self) -> impl std::future::Future<Output = ToadstoolResult<Vec<ExecutionInfo>>> + Send {
         let url = format!("{}/v1/executions", self.endpoint);
+        let http_client = self.http_client.clone();
+        let config = self.config.clone();
 
-        let response = self
-            .authenticated_request(reqwest::Method::GET, &url)
-            .send()
-            .await?;
+        async move {
+            let response = http_client
+                .request(reqwest::Method::GET, &url)
+                .header("Authorization", format!("Bearer {}", config.auth_token.clone().unwrap_or_default()))
+                .header("Content-Type", "application/json")
+                .send()
+                .await?;
 
-        if response.status().is_success() {
-            let executions: Vec<ExecutionInfo> = response.json().await?;
-            Ok(executions)
-        } else {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(ToadstoolError::execution(error_text))
+            if response.status().is_success() {
+                let executions: Vec<ExecutionInfo> = response.json().await?;
+                Ok(executions)
+            } else {
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+                Err(ToadstoolError::execution(error_text))
+            }
         }
     }
 }

@@ -13,8 +13,6 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use crate::error::PrimalError;
-use squirrel_mcp_config::get_service_endpoints;
-use squirrel_mcp_config::DefaultConfigManager;
 
 /// ToadStool compute integration for intensive AI operations
 #[derive(Debug)]
@@ -263,20 +261,10 @@ pub struct ResourceUsage {
 impl ToadStoolIntegration {
     /// Create a new ToadStool integration
     pub fn new() -> Self {
-        let config_manager = DefaultConfigManager::new();
-        let external_services = config_manager.get_external_services_config();
-
         Self {
             config: ToadStoolConfig {
-                toadstool_endpoint: std::env::var("TOADSTOOL_ENDPOINT").unwrap_or_else(|_| {
-                    external_services
-                        .get("toadstool")
-                        .clone()
-                        .unwrap_or_else(|| {
-                            std::env::var("TOADSTOOL_ENDPOINT")
-                                .unwrap_or_else(|_| "http://localhost:9001".to_string())
-                        })
-                }),
+                toadstool_endpoint: std::env::var("TOADSTOOL_ENDPOINT")
+                    .unwrap_or_else(|_| "http://localhost:9001".to_string()),
                 heartbeat_interval: Duration::from_secs(30),
                 compute_timeout: Duration::from_secs(3600), // 1 hour
                 max_retries: 3,
@@ -792,11 +780,8 @@ impl ToadStoolIntegration {
         std::env::var("SQUIRREL_CALLBACK_ENDPOINT").unwrap_or_else(|_| {
             let host = std::env::var("SQUIRREL_SERVICE_HOST").unwrap_or_else(|_| {
                 std::env::var("AI_SERVICE_HOST").unwrap_or_else(|_| {
-                    // Extract hostname from MCP endpoint for consistency
-                    get_service_endpoints().mcp_url()
-                        .ok()
-                        .and_then(|url| url.host_str().map(|h| h.to_string()))
-                        .unwrap_or_else(|| "localhost".to_string())
+                    // Use default localhost
+                    "localhost".to_string()
                 })
             });
             let port = std::env::var("SQUIRREL_SERVICE_PORT")
@@ -911,13 +896,7 @@ mod tests {
             }),
             callback_url: Some({
                 let host = std::env::var("SQUIRREL_SERVICE_HOST")
-                    .unwrap_or_else(|_| {
-                        // Use the same host from MCP endpoint for consistency
-                        get_service_endpoints().mcp_url()
-                            .ok()
-                            .and_then(|url| url.host_str().map(|h| h.to_string()))
-                            .unwrap_or_else(|| "localhost".to_string())
-                    });
+                    .unwrap_or_else(|_| "localhost".to_string());
                 let port = std::env::var("SQUIRREL_SERVICE_PORT")
                     .ok()
                     .and_then(|p| p.parse().ok())

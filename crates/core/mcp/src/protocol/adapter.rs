@@ -60,7 +60,6 @@ use crate::protocol::{
     RoutingResult, ValidationResult, RoutingDecision, CommandHandler
 };
 use crate::types::ProtocolState;
-use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -645,38 +644,49 @@ pub async fn create_protocol_adapter_with_config(
     Ok(Arc::new(adapter))
 }
 
-#[async_trait]
 impl MCPProtocol for MCPProtocolAdapter {
-    async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
-        let protocol_guard = self.inner.read().await;
+    fn handle_message(&self, msg: MCPMessage) -> impl std::future::Future<Output = Result<MCPMessage>> + Send {
+        async move {
+            let protocol_guard = self.inner.read().await;
 
-        if let Some(protocol) = &*protocol_guard {
-            // Special handling for setup message
-            if msg.type_ == MessageType::Setup {
-                // Setup messages should be processed even without payload
-                return protocol.handle_protocol_message(&msg).await;
-            }
-
-            let payload = msg.payload.as_object();
-            match payload {
-                None => {
-                    return Err(MCPError::Protocol(
-                        ProtocolError::InvalidPayload("Empty or invalid payload".to_string())
-                    ).into());
+            if let Some(protocol) = &*protocol_guard {
+                // Special handling for setup message
+                if msg.type_ == MessageType::Setup {
+                    // Setup messages should be processed even without payload
+                    return protocol.handle_protocol_message(&msg).await;
                 }
-                Some(payload) => {
-                    // Validate and route the message
-                    protocol.validate_message(&msg)?;
 
-                    protocol.handle_protocol_message(&msg).await
+                let payload = msg.payload.as_object();
+                match payload {
+                    None => {
+                        return Err(MCPError::Protocol(
+                            ProtocolError::InvalidPayload("Empty or invalid payload".to_string())
+                        ).into());
+                    }
+                    Some(payload) => {
+                        // Validate and route the message
+                        protocol.validate_message(&msg)?;
+
+                        protocol.handle_protocol_message(&msg).await
+                    }
+                }
+                } else {
+                    Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
                 }
             }
-        } else {
-            Err(MCPError::Protocol(ProtocolError::ProtocolNotInitialized).into())
         }
     }
 
-    async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {
+    fn get_version(&self) -> impl std::future::Future<Output = ProtocolVersion> + Send {
+        async move {
+            ProtocolVersion::default()
+        }
+    }
+}
+
+// Compatibility methods (non-trait)
+impl MCPProtocolAdapter {
+    async fn validate_message_compat(&self, msg: &MCPMessage) -> ValidationResult {
         let protocol_guard = self.inner.read().await;
 
         if let Some(protocol) = &*protocol_guard {
@@ -686,7 +696,7 @@ impl MCPProtocol for MCPProtocolAdapter {
         }
     }
 
-    async fn route_message(&self, _msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
+    async fn route_message_compat(&self, _msg: &crate::protocol::types::MCPMessage) -> RoutingResult {
         let protocol_guard = self.inner.read().await;
 
         if let Some(ref _protocol) = *protocol_guard {

@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 // Import unified config for timeout management
 use squirrel_mcp_config::unified::{ConfigLoader, SquirrelUnifiedConfig};
@@ -364,7 +364,7 @@ impl SecurityConfig {
         let (secret, api_len, rate_reqs, cors_origins, csrf, max_attempts, timeout_multiplier) = match env {
             Environment::Development => (
                 "dev-secret-key-must-be-at-least-32-characters-long".to_string(),
-                32, 1000, get_service_endpoints().cors_origins(), false, 10, 1.0
+                32, 1000, vec!["http://localhost:3000".to_string()], false, 10, 1.0
             ),
             Environment::Testing => (
                 "test-secret-key-must-be-at-least-32-characters-long".to_string(),

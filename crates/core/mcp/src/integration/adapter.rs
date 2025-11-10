@@ -382,35 +382,29 @@ impl crate::integration::types::MessageHandler for CoreMCPAdapter {
 }
 
 // Implement MCPProtocol for CoreMCPAdapter by delegating to the protocol handler
-#[async_trait]
+// (native async - Phase 4 migration Session 30)
 impl MCPProtocol for CoreMCPAdapter {
-    async fn handle_message(&self, msg: MCPMessage) -> ProtocolResult {
-        // Delegate to the message handler implementation
-        let result = crate::integration::types::MessageHandler::handle_message(self, msg).await;
-        // Convert MCPResult<MCPResponse> to ProtocolResult
-        match result {
-            Ok(response) => Ok(response),
-            Err(err) => Err(err.into()),
+    fn handle_message(&self, msg: MCPMessage) -> impl std::future::Future<Output = ProtocolResult> + Send {
+        async move {
+            // Delegate to the message handler implementation
+            let result = crate::integration::types::MessageHandler::handle_message(self, msg).await;
+            // Convert MCPResult<MCPResponse> to ProtocolResult
+            match result {
+                Ok(response) => Ok(response),
+                Err(err) => Err(err.into()),
+            }
         }
     }
-    
-    async fn validate_message(&self, msg: &MCPMessage) -> ValidationResult {
-        self.protocol_handler.validate_message(msg).await
+
+    fn validate_message(&self, msg: &MCPMessage) -> impl std::future::Future<Output = ValidationResult> + Send {
+        async move {
+            self.protocol_handler.validate_message(msg).await
+        }
     }
-    
-    async fn route_message(&self, msg: &MCPMessage) -> RoutingResult {
-        self.protocol_handler.route_message(msg).await
-    }
-    
-    async fn set_state(&self, new_state: ProtocolState) -> MCPResult<()> {
-        self.protocol_handler.set_state(new_state).await
-    }
-    
-    async fn get_state(&self) -> MCPResult<ProtocolState> {
-        self.protocol_handler.get_state().await
-    }
-    
-    fn get_version(&self) -> String {
-        self.protocol_handler.get_version()
+
+    fn get_version(&self) -> impl std::future::Future<Output = ProtocolVersion> + Send {
+        async move {
+            ProtocolVersion::default()
+        }
     }
 } 

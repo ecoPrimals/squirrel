@@ -52,15 +52,15 @@ impl ClientFactory {
         match provider {
             "openai" => {
                 let api_key = config.api_key.ok_or_else(|| {
-                    crate::error::AIError::Configuration("OpenAI API key is required".to_string())
+                    crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration("OpenAI API key is required. Set OPENAI_API_KEY environment variable or add to config.".to_string()))
                 })?;
                 Ok(Self::create_openai_client(api_key))
             }
             "anthropic" => {
                 let api_key = config.api_key.ok_or_else(|| {
-                    crate::error::AIError::Configuration(
-                        "Anthropic API key is required".to_string(),
-                    )
+                    crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration(
+                        "Anthropic API key is required".to_string()
+                    ))
                 })?;
                 Ok(Self::create_anthropic_client(api_key))
             }
@@ -72,9 +72,9 @@ impl ClientFactory {
             }
             #[cfg(test)]
             "mock" => Ok(Self::create_mock_client()),
-            _ => Err(crate::error::AIError::Configuration(format!(
-                "Unknown provider: {provider}"
-            ))),
+            _ => Err(crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration(format!(
+                "Unknown provider: {}. Available: openai, anthropic, ollama", provider
+            )))),
         }
     }
 }

@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use futures::stream;
 use reqwest::Client;
 use serde_json::json;
+use universal_error::tools::AIToolsError;
 
 #[cfg(test)]
 use crate::common::capability::SecurityRequirements;
@@ -157,20 +158,25 @@ impl AIClient for OllamaClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Local(
+                format!("Failed to reach Ollama at {}: {}. Ensure Ollama is running locally.", self.endpoint, e)
+            ))?;
 
         if !response.status().is_success() {
-            return Err(crate::error::AIError::ApiError(format!(
-                "Ollama API error: {} - {}",
-                response.status(),
-                response.text().await.unwrap_or_default()
-            )));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AIToolsError::Local(format!(
+                "Ollama API error (status {}): {}. Check model availability.",
+                status, error_text
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::ParseError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse Ollama response: {}. Local model may have returned unexpected format.", e)
+            ))?;
 
         self.parse_response(response_json)
     }
@@ -183,23 +189,30 @@ impl AIClient for OllamaClient {
             .get(&url)
             .send()
             .await
-            .map_err(|e| crate::error::AIError::NetworkError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Local(
+                format!("Failed to fetch Ollama models at {}: {}. Ensure Ollama is running.", self.endpoint, e)
+            ))?;
 
         if !response.status().is_success() {
-            return Err(crate::error::AIError::ApiError(format!(
-                "Ollama API error: {}",
-                response.status()
-            )));
+            let status = response.status();
+            return Err(AIToolsError::Local(format!(
+                "Ollama API error fetching models (status {}). Check Ollama service.",
+                status
+            )).into());
         }
 
         let response_json: serde_json::Value = response
             .json()
             .await
-            .map_err(|e| crate::error::AIError::ParseError(e.to_string()))?;
+            .map_err(|e| AIToolsError::Parse(
+                format!("Failed to parse Ollama models response: {}. Response may be malformed.", e)
+            ))?;
 
         let models = response_json["models"]
             .as_array()
-            .ok_or_else(|| crate::error::AIError::ParseError("No models data".to_string()))?
+            .ok_or_else(|| AIToolsError::InvalidResponse(
+                "Ollama models response missing 'models' array. API format may have changed.".to_string()
+            ))?
             .iter()
             .filter_map(|model| model["name"].as_str().map(|s| s.to_string()))
             .collect();

@@ -24,6 +24,7 @@ base64 = "0.21"
 
 # Error handling
 thiserror = { workspace = true }
+universal-error = { path = "../../universal-error" }
 
 # Logging
 tracing = { workspace = true }

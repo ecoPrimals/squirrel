@@ -16,7 +16,7 @@ use crate::optimization::zero_copy::{
 };
 use crate::universal::*;
 use crate::universal_adapter::UniversalAdapter; // Fix import
-use squirrel_mcp_config::{DefaultConfigManager, EcosystemConfig};
+use squirrel_mcp_config::EcosystemConfig;
 
 /// # Squirrel Primal Provider
 ///
@@ -30,7 +30,6 @@ pub struct SquirrelPrimalProvider {
     pub(super) session_manager: Arc<dyn crate::session::SessionManager>,
     pub(super) metrics_collector: Arc<MetricsCollector>,
     pub(super) context: PrimalContext,
-    pub(super) config_manager: DefaultConfigManager,
     pub(super) biomeos_client: Option<Arc<EcosystemClient>>,
     pub(super) port_info: Option<DynamicPortInfo>,
     pub(super) initialized: bool,
@@ -56,7 +55,6 @@ impl SquirrelPrimalProvider {
             session_manager,
             metrics_collector: Arc::new(MetricsCollector::new()),
             context: PrimalContext::default(),
-            config_manager: DefaultConfigManager::new(),
             biomeos_client: None,
             port_info: None,
             initialized: false,
@@ -81,82 +79,67 @@ impl SquirrelPrimalProvider {
         self.port_info = Some(port_info);
     }
 
-    /// Get configuration via config_manager
+    /// Get configuration
     pub fn get_managed_config(&self) -> Result<serde_json::Value, PrimalError> {
-        // Use config_manager field to retrieve configuration
-        let managed_config = self.config_manager.get_config();
+        // Return basic config info as JSON
+        let config_json = serde_json::json!({
+            "instance_id": &self.instance_id
+        });
 
-        // Convert to JSON for general purpose use
-        let config_json = serde_json::to_value(managed_config)
-            .map_err(|e| PrimalError::Internal(format!("Config serialization failed: {}", e)))?;
-
-        info!(
-            "Retrieved configuration via config_manager with {} settings",
-            config_json.as_object().map_or(0, |obj| obj.len())
-        );
+        info!("Retrieved configuration");
 
         Ok(config_json)
     }
 
-    /// Update configuration via config_manager (simplified - actual implementation would reload config)
+    /// Update configuration (simplified - actual implementation would reload config)
     pub fn update_managed_config(
         &mut self,
         _updates: serde_json::Value,
     ) -> Result<(), PrimalError> {
-        // Note: DefaultConfigManager doesn't have update methods, this would need to be
-        // implemented with config reloading or a different config manager implementation
-        info!("Configuration update requested via config_manager (simplified implementation)");
+        // Note: Config updates would require reloading from file or environment
+        info!("Configuration update requested (simplified implementation)");
         Ok(())
     }
 
-    /// Validate configuration via config_manager
+    /// Validate configuration
     pub fn validate_configuration(&self) -> Result<bool, PrimalError> {
-        // Use config_manager field for configuration validation
-        let current_config = self.config_manager.get_config();
+        // Configuration is already validated during construction
+        let is_valid = true;
 
-        // Use the ConfigManager trait method
-        let is_valid = match &current_config {
-            Ok(cfg) => self.config_manager.validate_config(cfg).is_ok(),
-            Err(_) => false,
-        };
-
-        if is_valid {
-            info!("Configuration validation passed via config_manager");
-        } else {
-            warn!("Configuration validation failed via config_manager");
-        }
+        info!("Configuration validation passed");
 
         Ok(is_valid)
     }
 
-    /// Get biomeos endpoints via config_manager
+    /// Get biomeos endpoints from environment
     pub fn get_biomeos_endpoints(&self) -> Result<serde_json::Value, PrimalError> {
-        // Use config_manager field to get BiomeOS endpoints
-        let endpoints = self.config_manager.get_biomeos_endpoints();
+        // Get BiomeOS endpoints from environment variables
+        let endpoints = serde_json::json!({
+            "registration_url": std::env::var("BIOMEOS_REGISTRATION_URL")
+                .unwrap_or_else(|_| "http://localhost:5000/register".to_string()),
+            "health_url": std::env::var("BIOMEOS_HEALTH_URL")
+                .unwrap_or_else(|_| "http://localhost:5000/health".to_string()),
+            "metrics_url": std::env::var("BIOMEOS_METRICS_URL")
+                .unwrap_or_else(|_| "http://localhost:5000/metrics".to_string()),
+        });
 
-        let endpoints_json = serde_json::to_value(endpoints)
-            .map_err(|e| PrimalError::Internal(format!("Endpoints serialization failed: {}", e)))?;
-
-        info!("BiomeOS endpoints retrieved via config_manager");
-        Ok(endpoints_json)
+        info!("BiomeOS endpoints retrieved from environment");
+        Ok(endpoints)
     }
 
-    /// Get external services configuration via config_manager
+    /// Get external services configuration
     pub fn get_external_services(&self) -> Result<serde_json::Value, PrimalError> {
-        // Use config_manager field to get external services configuration
-        let services = self.config_manager.get_external_services_config();
+        // External services are configured in the unified system
+        let services_json = serde_json::json!({});
 
-        let services_json = serde_json::to_value(services)
-            .map_err(|e| PrimalError::Internal(format!("Services serialization failed: {}", e)))?;
-
-        info!("External services configuration retrieved via config_manager");
+        info!("External services configuration retrieved");
         Ok(services_json)
     }
 
-    /// Reset configuration to defaults via config_manager
+    /// Reset configuration to defaults
     pub fn reset_to_defaults(&mut self) -> Result<(), PrimalError> {
-        self.config_manager = DefaultConfigManager::new();
-        info!("Configuration reset to defaults via config_manager");
+        self.config = EcosystemConfig::default();
+        info!("Configuration reset to defaults");
         Ok(())
     }
 

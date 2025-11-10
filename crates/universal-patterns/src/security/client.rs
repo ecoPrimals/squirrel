@@ -352,7 +352,8 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            beardog_endpoint: Some(std::env::var("BEARDOG_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string())),
             fallback: SecurityFallback {
                 enable_local_fallback: true,
                 local_auth_method: AuthMethod::None,
@@ -371,7 +372,8 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            beardog_endpoint: Some(std::env::var("BEARDOG_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string())),
             fallback: SecurityFallback {
                 enable_local_fallback: true,
                 local_auth_method: AuthMethod::None,
@@ -390,7 +392,8 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            beardog_endpoint: Some(std::env::var("BEARDOG_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string())),
             fallback: SecurityFallback {
                 enable_local_fallback: false,
                 local_auth_method: AuthMethod::None,
@@ -411,7 +414,8 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            beardog_endpoint: Some(std::env::var("BEARDOG_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string())),
             fallback: SecurityFallback {
                 enable_local_fallback: true,
                 local_auth_method: AuthMethod::None,
@@ -438,7 +442,8 @@ mod tests {
             auth_method: AuthMethod::Beardog {
                 service_id: "test-service".to_string(),
             },
-            beardog_endpoint: Some(get_service_endpoints().beardog_url().unwrap()),
+            beardog_endpoint: Some(std::env::var("BEARDOG_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:8443".to_string())),
             fallback: SecurityFallback {
                 enable_local_fallback: true,
                 local_auth_method: AuthMethod::None,

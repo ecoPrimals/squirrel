@@ -37,13 +37,11 @@ pub fn register_commands() -> Result<()> {
 /// Command adapter module
 pub mod adapter {
     use super::*;
-    use async_trait::async_trait;
 
     /// Command adapter trait
-    #[async_trait]
     pub trait CommandAdapterTrait {
         /// Execute a command
-        async fn execute(&self, command: &str, args: &[String]) -> Result<String>;
+        fn execute(&self, command: &str, args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send;
     }
 
     /// Command adapter implementation
@@ -66,10 +64,9 @@ pub mod adapter {
         }
     }
 
-    #[async_trait]
     impl CommandAdapterTrait for CommandAdapter {
-        async fn execute(&self, _command: &str, _args: &[String]) -> Result<String> {
-            Ok("Command executed".to_string())
+        fn execute(&self, _command: &str, _args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send {
+            async { Ok("Command executed".to_string()) }
         }
     }
 

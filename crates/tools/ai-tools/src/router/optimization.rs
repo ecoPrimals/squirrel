@@ -611,9 +611,9 @@ mod tests {
             &self,
             _request: crate::common::ChatRequest,
         ) -> crate::error::Result<crate::common::ChatResponseStream> {
-            Err(crate::error::AIError::Provider(
+            Err(universal_error::tools::AIToolsError::Provider(
                 "Streaming not supported in mock".to_string(),
-            ))
+            ).into())
         }
     }
 }

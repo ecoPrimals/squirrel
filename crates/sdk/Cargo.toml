@@ -119,8 +119,11 @@ console_error_panic_hook = { version = "0.1", optional = true }
 reqwest = { version = "0.11", optional = true, features = ["json"] }
 squirrel-mcp-config = { path = "../config" }
 
+# Universal error system
+universal-error = { path = "../universal-error" }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
 [lib]
-crate-type = ["cdylib", "rlib"] 
+crate-type = ["cdylib", "rlib"]

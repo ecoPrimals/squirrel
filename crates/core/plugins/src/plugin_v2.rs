@@ -12,6 +12,9 @@ use uuid::Uuid;
 
 use crate::plugin::{Plugin, PluginMetadata, WebEndpoint};
 
+// Note: async_trait still needed for Plugin trait (used as dyn Plugin),
+// but PluginV2 and WebPluginExtV2 use native async (no trait objects)
+
 /// Callbacks for PluginV2
 #[derive(Default)]
 pub struct PluginCallbacks {
@@ -47,16 +50,15 @@ pub struct PluginCallbacks {
 ///
 /// This version provides explicit Send + Sync bounds and uses callbacks
 /// instead of direct adapter references to avoid potential Send/Sync issues.
-#[async_trait]
 pub trait PluginV2: Send + Sync + std::fmt::Debug {
     /// Get the plugin metadata
     fn metadata(&self) -> &PluginMetadata;
 
     /// Initialize the plugin
-    async fn initialize(&self) -> Result<()>;
+    fn initialize(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 
     /// Shutdown the plugin
-    async fn shutdown(&self) -> Result<()>;
+    fn shutdown(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 
     /// Convert the plugin to Any
     fn as_any(&self) -> &dyn Any;
@@ -69,17 +71,16 @@ pub trait PluginV2: Send + Sync + std::fmt::Debug {
 }
 
 /// Web plugin extension trait for V2 plugins
-#[async_trait]
 pub trait WebPluginExtV2: PluginV2 {
     /// Get the endpoints provided by this plugin
     fn get_endpoints(&self) -> Vec<WebEndpoint>;
 
     /// Handle web endpoint request
-    async fn handle_web_endpoint(
+    fn handle_web_endpoint(
         &self,
         endpoint: &WebEndpoint,
         data: Option<Value>,
-    ) -> Result<Value>;
+    ) -> impl std::future::Future<Output = Result<Value>> + Send;
 }
 
 /// Helper struct to adapt PluginV2 to Plugin for backward compatibility

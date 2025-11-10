@@ -6,7 +6,7 @@
 use crate::{Result, Error};
 use std::collections::HashMap;
 use tracing::{debug, info};
-use squirrel_mcp_config::get_service_endpoints;
+// Removed: use squirrel_mcp_config::get_service_endpoints;
 
 /// Security service capability types
 #[derive(Debug, Clone)]
@@ -117,13 +117,9 @@ impl SecurityServiceDiscovery {
             _ => "8443",
         };
 
-        let host = std::env::var("SECURITY_SERVICE_HOST").unwrap_or_else(|_| {
-            // Use the beardog endpoint from centralized configuration
-            get_service_endpoints().beardog_url()
-                .ok()
-                .and_then(|url| url.host_str().map(|h| h.to_string()))
-                .unwrap_or_else(|| "localhost".to_string())
-        });
+        let host = std::env::var("SECURITY_SERVICE_HOST")
+            .or_else(|_| std::env::var("BEARDOG_HOST"))
+            .unwrap_or_else(|_| "localhost".to_string());
         let port = std::env::var(&format!("SECURITY_{}_PORT", service_type.to_uppercase()))
             .unwrap_or_else(|_| default_port.to_string());
 

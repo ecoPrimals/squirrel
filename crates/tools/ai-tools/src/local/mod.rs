@@ -418,9 +418,9 @@ impl AIClient for LocalAIClient {
                         "⚠️ Request timeout after {} seconds for model {}",
                         timeout_secs, model_id
                     );
-                    return Err(crate::error::AIError::Timeout(format!(
-                        "Request timeout after {timeout_secs} seconds for model {model_id}"
-                    )));
+                    return Err(universal_error::tools::AIToolsError::Provider(
+                        format!("Request timeout after {} seconds for model {}", timeout_secs, model_id)
+                    ).into());
                 }
             }
         } else {
