@@ -60,3 +60,13 @@ pub use unified::{
     McpConfig, MonitoringConfig, NetworkConfig, SecurityConfig, ServiceMeshConfig,
     SquirrelUnifiedConfig, SystemConfig, TimeoutConfig,
 };
+
+// Compatibility aliases for gradual migration (deprecated names → new types)
+#[deprecated(since = "0.2.0", note = "Use `ConfigLoader` instead")]
+pub type DefaultConfigManager = ConfigLoader;
+
+#[deprecated(since = "0.2.0", note = "Use `SquirrelUnifiedConfig` instead")]
+pub type Config = SquirrelUnifiedConfig;
+
+// Re-export EcosystemConfig from environment module for convenience
+pub use environment::EcosystemConfig;

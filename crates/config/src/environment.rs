@@ -284,6 +284,18 @@ pub struct EcosystemConfig {
     pub service_timeout_ms: u64,
 }
 
+impl Default for EcosystemConfig {
+    fn default() -> Self {
+        Self {
+            nestgate_endpoint: "http://localhost:8444".to_string(),
+            beardog_endpoint: "http://localhost:8443".to_string(),
+            toadstool_endpoint: "http://localhost:8445".to_string(),
+            songbird_endpoint: "http://localhost:8446".to_string(),
+            service_timeout_ms: 5000,
+        }
+    }
+}
+
 impl EcosystemConfig {
     /// Load ecosystem configuration from environment variables
     pub fn from_env() -> Result<Self, EnvironmentError> {

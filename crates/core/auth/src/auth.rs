@@ -66,7 +66,7 @@ impl AuthService {
         
         debug!("Attempting security capability discovery at: {}", security_endpoint);
         
-        match Self::test_security_capability(client, security_endpoint).await {
+        match Self::test_security_capability(client, &security_endpoint).await {
             Ok(capability_info) => {
                 info!("Security capability discovered: {:?}", capability_info);
                 AuthProvider::SecurityCapability {

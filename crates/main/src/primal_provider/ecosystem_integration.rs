@@ -97,12 +97,10 @@ impl SquirrelPrimalProvider {
         );
 
         // Set configuration for ecosystem manager
-        if let Some(_endpoint) = &self.config.discovery.songbird_endpoint {
-            info!(
-                "EcosystemManager configuring Songbird endpoint: {}",
-                _endpoint
-            );
-        }
+        info!(
+            "EcosystemManager configuring Songbird endpoint: {}",
+            &self.config.songbird_endpoint
+        );
 
         // Initialize service discovery through ecosystem manager (simplified)
         info!("EcosystemManager starting service discovery");
@@ -127,17 +125,13 @@ impl SquirrelPrimalProvider {
         info!("EcosystemManager stopping service discovery");
 
         // Deregister from Songbird via ecosystem manager
-        if let Some(endpoint) = &self.config.discovery.songbird_endpoint {
-            let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
-            info!(
-                "EcosystemManager deregistering from Songbird: {}",
-                service_id
-            );
-
-            info!("Successfully deregistered from Songbird via EcosystemManager");
-        } else {
-            info!("No Songbird endpoint configured for deregistration");
-        }
+        let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
+        info!(
+            "EcosystemManager deregistering from Songbird at {}: {}",
+            &self.config.songbird_endpoint,
+            service_id
+        );
+        info!("Successfully deregistered from Songbird via EcosystemManager");
 
         // Shutdown ecosystem manager (simplified)
         info!("EcosystemManager shutdown completed");
@@ -214,7 +208,7 @@ impl SquirrelPrimalProvider {
             } else {
                 "initializing".to_string()
             },
-            songbird_endpoint: self.config.discovery.songbird_endpoint.clone(),
+            songbird_endpoint: Some(self.config.songbird_endpoint.clone()),
             registration_time: Some(chrono::Utc::now()),
             last_heartbeat: Some(chrono::Utc::now()),
             mesh_version: "1.0.0".to_string(),
