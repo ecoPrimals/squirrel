@@ -13,7 +13,7 @@ use std::time::Duration;
 use tracing::warn;
 
 use crate::error::PrimalError;
-use squirrel_mcp_config::DefaultConfigManager;
+use squirrel_mcp_config::ConfigLoader;  // Migrated from deprecated DefaultConfigManager (ADR-008)
 
 // Constants to reduce string allocations
 const PRIMAL_TYPE: &str = "squirrel";
