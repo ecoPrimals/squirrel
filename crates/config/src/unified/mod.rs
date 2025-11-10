@@ -32,6 +32,7 @@ pub mod health_check;
 pub mod loader;
 pub mod timeouts;
 pub mod types;
+pub mod validation;
 
 pub use health_check::HealthCheckConfig;
 pub use loader::{ConfigLoader, LoadedConfig};
@@ -41,4 +42,5 @@ pub use types::{
     LoadBalancingConfig, LoadBalancingStrategy, McpConfig, MonitoringConfig, NetworkConfig, 
     SecurityConfig, ServiceMeshConfig, ServiceRegistryType, SquirrelUnifiedConfig, SystemConfig,
 };
+pub use validation::{Validator, ValidationError, ValidationResult};
 

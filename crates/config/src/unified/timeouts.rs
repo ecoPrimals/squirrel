@@ -311,19 +311,30 @@ impl TimeoutConfig {
     /// - All timeouts must be > 0
     /// - Health checks should be < 30 seconds
     /// - Sessions should be < 24 hours
+    /// 
+    /// Now uses unified validation module for consistency.
     pub fn validate(&self) -> Result<(), String> {
-        if self.connection_timeout_secs == 0 {
-            return Err("Connection timeout must be > 0".to_string());
-        }
-        if self.request_timeout_secs == 0 {
-            return Err("Request timeout must be > 0".to_string());
-        }
-        if self.health_check_timeout_secs > 30 {
-            return Err("Health check timeout should be ≤ 30 seconds".to_string());
-        }
-        if self.session_timeout_secs > 86400 {
-            return Err("Session timeout should be ≤ 24 hours".to_string());
-        }
+        use super::validation::Validator;
+        
+        // Validate basic timeouts
+        Validator::validate_timeout_secs(self.connection_timeout_secs, "connection_timeout")
+            .map_err(|e| e.to_string())?;
+        Validator::validate_timeout_secs(self.request_timeout_secs, "request_timeout")
+            .map_err(|e| e.to_string())?;
+        
+        // Validate health check timeout with max
+        Validator::validate_timeout_with_max(
+            self.health_check_timeout_secs,
+            30,
+            "health_check_timeout"
+        ).map_err(|e| e.to_string())?;
+        
+        // Validate session timeout with max (24 hours)
+        Validator::validate_timeout_with_max(
+            self.session_timeout_secs,
+            86400,
+            "session_timeout"
+        ).map_err(|e| e.to_string())?;
         
         Ok(())
     }

@@ -889,7 +889,10 @@ impl SquirrelUnifiedConfig {
     /// Validate the entire configuration
     ///
     /// Performs comprehensive validation across all configuration domains.
+    /// Now uses the unified validation module for consistent error messages.
     pub fn validate(&self) -> Result<(), Vec<String>> {
+        use super::validation::Validator;
+        
         let mut errors = Vec::new();
 
         // Validate timeouts
@@ -897,12 +900,20 @@ impl SquirrelUnifiedConfig {
             errors.push(format!("Timeout validation failed: {}", e));
         }
 
-        // Validate network ports
-        if self.network.http_port == 0 {
-            errors.push("HTTP port must be > 0".to_string());
+        // Validate network ports using unified validators
+        if let Err(e) = Validator::validate_port(self.network.http_port) {
+            errors.push(format!("HTTP port: {}", e));
         }
-        if self.network.http_port == self.network.websocket_port {
-            errors.push("HTTP and WebSocket ports must be different".to_string());
+        if let Err(e) = Validator::validate_port(self.network.websocket_port) {
+            errors.push(format!("WebSocket port: {}", e));
+        }
+        if let Err(e) = Validator::validate_ports_differ(
+            self.network.http_port,
+            self.network.websocket_port,
+            "HTTP",
+            "WebSocket"
+        ) {
+            errors.push(e.to_string());
         }
 
         // Validate security
@@ -910,12 +921,27 @@ impl SquirrelUnifiedConfig {
             if self.security.jwt_secret.is_none() && self.security.api_keys.is_empty() {
                 errors.push("Authentication required but no JWT secret or API keys configured".to_string());
             }
+            
+            // Validate JWT secret length if provided
+            if let Some(ref secret) = self.security.jwt_secret {
+                if let Err(e) = Validator::validate_jwt_secret(secret) {
+                    errors.push(format!("JWT secret: {}", e));
+                }
+            }
         }
 
-        // Validate monitoring
+        // Validate monitoring ports using unified validators
         if self.monitoring.enabled && self.monitoring.enable_prometheus {
-            if self.monitoring.prometheus_port == self.network.http_port {
-                errors.push("Prometheus port conflicts with HTTP port".to_string());
+            if let Err(e) = Validator::validate_port(self.monitoring.prometheus_port) {
+                errors.push(format!("Prometheus port: {}", e));
+            }
+            if let Err(e) = Validator::validate_ports_differ(
+                self.monitoring.prometheus_port,
+                self.network.http_port,
+                "Prometheus",
+                "HTTP"
+            ) {
+                errors.push(e.to_string());
             }
         }
 
