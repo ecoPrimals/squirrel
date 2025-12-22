@@ -28,6 +28,7 @@ base64 = "0.21"
 rand = "0.8"
 futures = "0.3"
 lazy_static = "1.4"
+sysinfo = "0.30"
 
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
 regex = "1.10"
@@ -50,6 +51,7 @@ squirrel-mcp-auth = { path = "../core/auth" }
 
 # Universal patterns
 universal-patterns = { path = "../universal-patterns" }
+universal-constants = { path = "../universal-constants" }
 
 # SDK dependencies
 squirrel-sdk = { path = "../sdk" }

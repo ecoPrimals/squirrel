@@ -135,6 +135,12 @@ pub enum ThresholdDirection {
     Below,
 }
 
+impl Default for PerformanceTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PerformanceTracker {
     /// Create a new performance tracker
     pub fn new() -> Self {

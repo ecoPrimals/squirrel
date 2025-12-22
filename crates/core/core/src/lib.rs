@@ -2,8 +2,6 @@
 //!
 //! This module re-exports types from squirrel_context for backward compatibility.
 
-use std::fmt;
-
 // Core modules for Squirrel MCP ecosystem coordination
 pub mod api;
 pub mod config;

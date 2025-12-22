@@ -7,7 +7,7 @@
 //! - Security → BearDog
 //! - Complex monitoring → Distributed
 
-use squirrel::error::Result;
+type Result<T> = std::result::Result<T, squirrel::error::PrimalError>;
 use squirrel::{PrimalError, VERSION};
 
 #[test]

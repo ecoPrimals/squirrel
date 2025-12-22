@@ -154,6 +154,7 @@ pub struct WebSocketConnection {
     pub connected_at: std::time::SystemTime,
 }
 
+/// MCP-Web bridge for integrating MCP protocol with web services
 #[derive(Debug, Clone)]
 pub struct McpWebBridge {
     pub config: McpBridgeConfig,

@@ -53,7 +53,7 @@ pub struct PredictionEngine {
 }
 
 /// Automation engine for self-healing and autonomous operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AutomationEngine {
     pub automation_rules: Vec<AutomationRule>,
     pub active_automations: HashMap<String, AutomationTask>,
@@ -61,7 +61,7 @@ pub struct AutomationEngine {
 }
 
 /// Federation intelligence for coordinating with other biomes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FederationIntelligence {
     pub connected_biomes: Vec<String>,
     pub intelligence_sharing: IntelligenceSharing,
@@ -217,6 +217,12 @@ pub struct ResourceUtilization {
     pub timestamp: DateTime<Utc>,
 }
 
+impl Default for AiIntelligence {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AiIntelligence {
     /// Create a new AI intelligence instance
     pub fn new() -> Self {
@@ -362,7 +368,7 @@ impl AiIntelligence {
     ) -> Result<IntelligenceResponse, PrimalError> {
         debug!("Processing intelligence request: {}", request.request_id);
 
-        let recommendations = vec![
+        let recommendations = [
             "Monitor resource usage".to_string(),
             "Update security policies".to_string(),
             "Analyze ecosystem health".to_string(),
@@ -480,26 +486,6 @@ impl Default for PredictionEngine {
             active_predictions: HashMap::new(),
             prediction_accuracy: 0.85,
             anomaly_detection: AnomalyDetection::default(),
-        }
-    }
-}
-
-impl Default for AutomationEngine {
-    fn default() -> Self {
-        Self {
-            automation_rules: vec![],
-            active_automations: HashMap::new(),
-            automation_history: vec![],
-        }
-    }
-}
-
-impl Default for FederationIntelligence {
-    fn default() -> Self {
-        Self {
-            connected_biomes: vec![],
-            intelligence_sharing: IntelligenceSharing::default(),
-            coordination_protocols: vec![],
         }
     }
 }

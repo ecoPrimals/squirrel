@@ -676,7 +676,7 @@ impl SafeService {
         endpoint: &str,
         context: &str,
     ) -> SafeResult<bool> {
-        let result = match client.get(&format!("{}/health", endpoint)).send().await {
+        let result = match client.get(format!("{}/health", endpoint)).send().await {
             Ok(response) => Ok(response.status().is_success()),
             Err(e) => Err(SafeError::Network {
                 message: format!("Health check failed: {}", e),
@@ -695,7 +695,7 @@ impl SafeService {
         context: &str,
     ) -> SafeResult<()> {
         let result = client
-            .post(&format!("{}/register", endpoint))
+            .post(format!("{}/register", endpoint))
             .json(registration_data)
             .send()
             .await
@@ -703,9 +703,7 @@ impl SafeService {
                 if response.status().is_success() {
                     Ok(())
                 } else {
-                    Err(reqwest::Error::from(
-                        response.error_for_status().unwrap_err(),
-                    ))
+                    Err(response.error_for_status().unwrap_err())
                 }
             })
             .map_err(|e| SafeError::Network {

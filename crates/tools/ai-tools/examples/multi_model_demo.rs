@@ -52,7 +52,7 @@ impl Default for DispatcherConfig {
             max_concurrent_requests: 10,
             default_timeout_ms: 30000,
             enable_metrics: true,
-            preferred_strategy: RoutingStrategy::Performance,
+            preferred_strategy: RoutingStrategy::LowestLatency,
         }
     }
 }
@@ -93,7 +93,7 @@ impl MultiModelDispatcher {
 
         // Register Anthropic if API key is available
         if let Some(api_key) = std::env::var("ANTHROPIC_API_KEY").ok() {
-            let client = AnthropicClient::new(api_key)?;
+            let client = AnthropicClient::new(api_key);
             self.router
                 .register_provider("anthropic", Arc::new(client))?;
             info!("Registered Anthropic provider");
@@ -151,39 +151,37 @@ impl MultiModelDispatcher {
     pub async fn get_provider_metrics(&self) -> Result<HashMap<String, ProviderMetrics>> {
         let mut metrics = HashMap::new();
 
-        let providers = self.router.list_providers().await?;
-        for (provider_id, _) in providers {
-            if let Some(provider_metrics) = self.router.get_provider_metrics(&provider_id).await {
-                let available_models = match provider_id.as_str() {
-                    "openai" => {
-                        // Try to list models, but handle potential errors gracefully
-                        warn!(
-                            "Failed to list models for {}: {}",
-                            provider_id, "Mock error"
-                        );
-                        vec!["gpt-3.5-turbo".to_string(), "gpt-4".to_string()]
-                    }
-                    "anthropic" => {
-                        vec!["claude-3-haiku".to_string(), "claude-3-sonnet".to_string()]
-                    }
-                    "local" => vec!["mock-model".to_string()],
-                    _ => vec!["unknown".to_string()],
-                };
+        let provider_ids = self.router.list_providers();
+        for provider_id in provider_ids {
+            // TODO: Re-implement when get_provider_metrics is available
+            // For now, create basic metrics
+            let available_models = match provider_id.as_str() {
+                "openai" => {
+                    // Try to list models, but handle potential errors gracefully
+                    warn!(
+                        "Failed to list models for {}: {}",
+                        provider_id, "Mock error"
+                    );
+                    vec!["gpt-3.5-turbo".to_string(), "gpt-4".to_string()]
+                }
+                "anthropic" => {
+                    vec!["claude-3-haiku".to_string(), "claude-3-sonnet".to_string()]
+                }
+                "local" => vec!["mock-model".to_string()],
+                _ => vec!["unknown".to_string()],
+            };
 
-                metrics.insert(
-                    provider_id,
-                    ProviderMetrics {
-                        name: provider_id.clone(),
-                        available: true,
-                        response_time_ms: provider_metrics.avg_response_time_ms.unwrap_or(100),
-                        success_rate: provider_metrics.success_rate.unwrap_or(1.0),
-                        available_models,
-                        cost_per_1k_tokens: provider_metrics
-                            .cost_per_1k_input_tokens
-                            .unwrap_or(0.0),
-                    },
-                );
-            }
+            metrics.insert(
+                provider_id.clone(),
+                ProviderMetrics {
+                    name: provider_id,
+                    available: true,
+                    response_time_ms: 100, // Mock value - no metrics API available
+                    success_rate: 1.0,     // Mock value - no metrics API available
+                    available_models,
+                    cost_per_1k_tokens: 0.0, // Mock value - no metrics API available
+                },
+            );
         }
 
         Ok(metrics)

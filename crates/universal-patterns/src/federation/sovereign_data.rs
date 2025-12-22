@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-// Removed unused uuid::Uuid import
 
 /// Sovereign data store implementation
 pub struct DefaultSovereignDataManager {
@@ -148,6 +147,7 @@ pub trait AccessControlManager: Send + Sync {
 /// Default encryption key manager
 pub struct DefaultEncryptionKeyManager {
     /// Key storage
+    #[allow(dead_code)] // Key storage for future encryption operations
     keys: Arc<RwLock<HashMap<String, Vec<u8>>>>,
 }
 
@@ -603,6 +603,7 @@ impl Default for DefaultAccessControlManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid; // Evolution: Add missing import
 
     #[tokio::test]
     async fn test_sovereign_data_manager_creation() {
@@ -685,8 +686,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_data_size_limits() {
-        let mut config = SovereignDataConfig::default();
-        config.max_data_size = 10; // Very small limit for testing
+        let config = SovereignDataConfig {
+            max_data_size: 10, // Very small limit for testing
+            ..Default::default()
+        };
 
         let manager = DefaultSovereignDataManager::new(config);
 

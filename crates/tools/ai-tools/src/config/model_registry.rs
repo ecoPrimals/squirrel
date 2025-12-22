@@ -100,8 +100,7 @@ fn default_priority() -> u8 {
 }
 
 /// Performance characteristics of a model
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PerformanceConfig {
     /// Average tokens per second
     pub tokens_per_second: Option<f64>,
@@ -118,7 +117,6 @@ pub struct PerformanceConfig {
     /// Memory usage per token
     pub memory_per_token: Option<f64>,
 }
-
 
 /// Resource requirements configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -1,6 +1,10 @@
+//! Adapter Pattern Demo
+//!
+//! This demo showcases the adapter pattern implementations including registry,
+//! MCP (authentication), and plugin adapters.
+
 use adapter_pattern_examples::{
-    Auth, Command, CommandAdapter, McpAdapter, PluginAdapter, RegistryAdapter, TestCommand,
-    UserRole,
+    Auth, CommandAdapter, McpAdapter, PluginAdapter, RegistryAdapter, TestCommand, UserRole,
 };
 use std::sync::Arc;
 

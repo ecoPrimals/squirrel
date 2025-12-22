@@ -81,6 +81,8 @@ impl StorageProvider {
             },
             capabilities: vec![crate::universal::PrimalCapability::Custom {
                 name: "storage".to_string(),
+                description: "Storage provider capability".to_string(),
+                metadata: std::collections::HashMap::new(),
                 attributes: std::collections::HashMap::new(),
             }],
             health: StorageProviderHealth {

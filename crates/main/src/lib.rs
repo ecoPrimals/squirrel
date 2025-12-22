@@ -14,19 +14,24 @@
 pub mod api;
 pub mod beardog;
 pub mod biomeos_integration;
+pub mod capability;
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
 pub mod ecosystem;
 pub mod error;
 pub mod error_handling;
+pub mod hardware;
 pub mod monitoring;
+pub mod observability;
 pub mod optimization;
 pub mod primal_provider;
 pub mod protocol;
+pub mod resource_manager;
 pub mod security;
 pub mod security_client;
 pub mod session;
+pub mod shutdown;
 pub mod songbird;
 pub mod storage_client;
 pub mod toadstool;
@@ -34,9 +39,6 @@ pub mod universal;
 pub mod universal_adapter;
 pub mod universal_primal_ecosystem;
 pub mod universal_provider;
-pub mod observability;
-pub mod resource_manager;
-pub mod shutdown;
 
 /// Universal adapters for capability-based primal integration
 pub mod universal_adapters;

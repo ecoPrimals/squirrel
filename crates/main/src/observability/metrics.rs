@@ -87,25 +87,27 @@ impl UniversalMetricsCollector {
     /// Discover metrics endpoints from ecosystem primals
     pub async fn discover_metrics_endpoints(&self) -> Result<(), PrimalError> {
         info!("Starting metrics endpoint discovery through universal adapter");
-        
+
         // Use universal adapter pattern to discover any primal with metrics capabilities
         let discovered = self.query_universal_adapter_for_metrics().await?;
-        
+
         let mut endpoints = self.endpoints.write().await;
         endpoints.extend(discovered);
-        
+
         info!("Discovered {} metrics endpoints", endpoints.len());
         Ok(())
     }
 
     /// Query universal adapter for metrics capabilities (no hardcoded primal knowledge)
-    async fn query_universal_adapter_for_metrics(&self) -> Result<Vec<MetricsEndpoint>, PrimalError> {
+    async fn query_universal_adapter_for_metrics(
+        &self,
+    ) -> Result<Vec<MetricsEndpoint>, PrimalError> {
         debug!("Querying universal adapter for metrics capabilities");
-        
+
         // This would integrate with the universal adapter to discover any primal
         // providing metrics capabilities without knowing specific primal types
         let mut discovered = Vec::new();
-        
+
         // Generic capability discovery - works with beardog, toadstool, songbird, etc.
         // Each primal advertises its metrics capabilities through the universal adapter
         for endpoint in &self.config.custom_endpoints {
@@ -121,8 +123,11 @@ impl UniversalMetricsCollector {
             };
             discovered.push(metrics_endpoint);
         }
-        
-        info!("Universal adapter discovered {} metrics-capable primals", discovered.len());
+
+        info!(
+            "Universal adapter discovered {} metrics-capable primals",
+            discovered.len()
+        );
         Ok(discovered)
     }
 
@@ -130,31 +135,41 @@ impl UniversalMetricsCollector {
     pub async fn collect_metrics(&self) -> Result<Vec<MetricValue>, PrimalError> {
         let endpoints = self.endpoints.read().await;
         let mut all_metrics = Vec::new();
-        
+
         for endpoint in endpoints.iter() {
             match self.collect_from_endpoint(endpoint).await {
                 Ok(mut metrics) => {
                     all_metrics.append(&mut metrics);
                 }
                 Err(e) => {
-                    warn!("Failed to collect metrics from {}: {}", endpoint.endpoint, e);
+                    warn!(
+                        "Failed to collect metrics from {}: {}",
+                        endpoint.endpoint, e
+                    );
                 }
             }
         }
-        
+
         // Store metrics locally
         for metric in &all_metrics {
             self.metrics.insert(metric.name.clone(), metric.clone());
         }
-        
-        info!("Collected {} metrics from {} endpoints", all_metrics.len(), endpoints.len());
+
+        info!(
+            "Collected {} metrics from {} endpoints",
+            all_metrics.len(),
+            endpoints.len()
+        );
         Ok(all_metrics)
     }
 
     /// Collect metrics from a specific discovered endpoint
-    async fn collect_from_endpoint(&self, endpoint: &MetricsEndpoint) -> Result<Vec<MetricValue>, PrimalError> {
+    async fn collect_from_endpoint(
+        &self,
+        endpoint: &MetricsEndpoint,
+    ) -> Result<Vec<MetricValue>, PrimalError> {
         debug!("Collecting metrics from {} endpoint", endpoint.primal_type);
-        
+
         // Generic HTTP-based metrics collection that works with any primal
         let client = reqwest::Client::new();
         let response = client
@@ -166,44 +181,57 @@ impl UniversalMetricsCollector {
 
         if !response.status().is_success() {
             return Err(PrimalError::NetworkError(format!(
-                "Metrics endpoint returned status: {}", response.status()
+                "Metrics endpoint returned status: {}",
+                response.status()
             )));
         }
 
         // Parse generic metrics format (supports Prometheus, JSON, custom formats)
-        let body = response.text().await.map_err(|e| 
-            PrimalError::NetworkError(format!("Failed to read metrics response: {}", e)))?;
-        
+        let body = response.text().await.map_err(|e| {
+            PrimalError::NetworkError(format!("Failed to read metrics response: {}", e))
+        })?;
+
         self.parse_metrics_response(&body, endpoint).await
     }
 
     /// Parse metrics response in various formats (Prometheus, JSON, custom)
-    async fn parse_metrics_response(&self, body: &str, endpoint: &MetricsEndpoint) -> Result<Vec<MetricValue>, PrimalError> {
+    async fn parse_metrics_response(
+        &self,
+        body: &str,
+        endpoint: &MetricsEndpoint,
+    ) -> Result<Vec<MetricValue>, PrimalError> {
         let mut metrics = Vec::new();
-        
+
         // Try parsing as JSON first (most common for primal APIs)
         if let Ok(json_metrics) = self.parse_json_metrics(body, endpoint).await {
             metrics.extend(json_metrics);
             return Ok(metrics);
         }
-        
+
         // Try parsing as Prometheus format
         if let Ok(prom_metrics) = self.parse_prometheus_metrics(body, endpoint).await {
             metrics.extend(prom_metrics);
             return Ok(metrics);
         }
-        
-        warn!("Could not parse metrics from {} in any known format", endpoint.primal_type);
+
+        warn!(
+            "Could not parse metrics from {} in any known format",
+            endpoint.primal_type
+        );
         Ok(metrics)
     }
 
     /// Parse JSON metrics format (common for REST APIs)
-    async fn parse_json_metrics(&self, body: &str, endpoint: &MetricsEndpoint) -> Result<Vec<MetricValue>, PrimalError> {
+    async fn parse_json_metrics(
+        &self,
+        body: &str,
+        endpoint: &MetricsEndpoint,
+    ) -> Result<Vec<MetricValue>, PrimalError> {
         let json: serde_json::Value = serde_json::from_str(body)
             .map_err(|e| PrimalError::ParsingError(format!("Invalid JSON metrics: {}", e)))?;
-        
+
         let mut metrics = Vec::new();
-        
+
         // Handle various JSON metric formats generically
         if let Some(metrics_obj) = json.as_object() {
             for (name, value) in metrics_obj {
@@ -219,20 +247,24 @@ impl UniversalMetricsCollector {
                 }
             }
         }
-        
+
         Ok(metrics)
     }
 
     /// Parse Prometheus metrics format
-    async fn parse_prometheus_metrics(&self, body: &str, endpoint: &MetricsEndpoint) -> Result<Vec<MetricValue>, PrimalError> {
+    async fn parse_prometheus_metrics(
+        &self,
+        body: &str,
+        endpoint: &MetricsEndpoint,
+    ) -> Result<Vec<MetricValue>, PrimalError> {
         let mut metrics = Vec::new();
-        
+
         // Simple Prometheus format parsing
         for line in body.lines() {
             if line.starts_with('#') || line.trim().is_empty() {
                 continue;
             }
-            
+
             if let Some((name, rest)) = line.split_once(' ') {
                 if let Ok(value) = rest.trim().parse::<f64>() {
                     let metric = MetricValue {
@@ -246,25 +278,28 @@ impl UniversalMetricsCollector {
                 }
             }
         }
-        
+
         Ok(metrics)
     }
 
     /// Get current metrics snapshot
     pub async fn get_metrics_snapshot(&self) -> HashMap<String, MetricValue> {
-        self.metrics.iter().map(|entry| (entry.key().clone(), entry.value().clone())).collect()
+        self.metrics
+            .iter()
+            .map(|entry| (entry.key().clone(), entry.value().clone()))
+            .collect()
     }
 
     /// Start background metrics collection
     pub async fn start_collection(&self) -> tokio::task::JoinHandle<()> {
         let collector = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(collector.config.collection_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if let Err(e) = collector.collect_metrics().await {
                     warn!("Metrics collection failed: {}", e);
                 }
@@ -276,16 +311,16 @@ impl UniversalMetricsCollector {
 /// Initialize metrics collection with universal adapter discovery
 pub async fn initialize_metrics() -> Result<UniversalMetricsCollector, PrimalError> {
     info!("Initializing universal metrics collection system");
-    
+
     let config = MetricsConfig::default();
     let collector = UniversalMetricsCollector::new(config);
-    
+
     // Discover metrics endpoints through universal adapter
     collector.discover_metrics_endpoints().await?;
-    
+
     // Start background collection
     collector.start_collection().await;
-    
+
     info!("Universal metrics system initialized successfully");
     Ok(collector)
-} 
+}

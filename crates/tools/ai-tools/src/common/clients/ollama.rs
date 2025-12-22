@@ -129,7 +129,9 @@ impl OllamaClient {
         }];
 
         // Ollama doesn't provide detailed token usage, so we estimate
-        let usage = response_json["eval_count"].as_u64().map(|eval_count| UsageInfo {
+        let usage = response_json["eval_count"]
+            .as_u64()
+            .map(|eval_count| UsageInfo {
                 prompt_tokens: response_json["prompt_eval_count"].as_u64().unwrap_or(0) as u32,
                 completion_tokens: eval_count as u32,
                 total_tokens: (response_json["prompt_eval_count"].as_u64().unwrap_or(0)
@@ -158,9 +160,12 @@ impl AIClient for OllamaClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| AIToolsError::Local(
-                format!("Failed to reach Ollama at {}: {}. Ensure Ollama is running locally.", self.endpoint, e)
-            ))?;
+            .map_err(|e| {
+                AIToolsError::Local(format!(
+                    "Failed to reach Ollama at {}: {}. Ensure Ollama is running locally.",
+                    self.endpoint, e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -168,7 +173,8 @@ impl AIClient for OllamaClient {
             return Err(AIToolsError::Local(format!(
                 "Ollama API error (status {}): {}. Check model availability.",
                 status, error_text
-            )).into());
+            ))
+            .into());
         }
 
         let response_json: serde_json::Value = response
@@ -184,35 +190,37 @@ impl AIClient for OllamaClient {
     async fn list_models(&self) -> crate::Result<Vec<String>> {
         let url = format!("{}/api/tags", self.endpoint);
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| AIToolsError::Local(
-                format!("Failed to fetch Ollama models at {}: {}. Ensure Ollama is running.", self.endpoint, e)
-            ))?;
+        let response = self.client.get(&url).send().await.map_err(|e| {
+            AIToolsError::Local(format!(
+                "Failed to fetch Ollama models at {}: {}. Ensure Ollama is running.",
+                self.endpoint, e
+            ))
+        })?;
 
         if !response.status().is_success() {
             let status = response.status();
             return Err(AIToolsError::Local(format!(
                 "Ollama API error fetching models (status {}). Check Ollama service.",
                 status
-            )).into());
+            ))
+            .into());
         }
 
-        let response_json: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| AIToolsError::Parse(
-                format!("Failed to parse Ollama models response: {}. Response may be malformed.", e)
-            ))?;
+        let response_json: serde_json::Value = response.json().await.map_err(|e| {
+            AIToolsError::Parse(format!(
+                "Failed to parse Ollama models response: {}. Response may be malformed.",
+                e
+            ))
+        })?;
 
         let models = response_json["models"]
             .as_array()
-            .ok_or_else(|| AIToolsError::InvalidResponse(
-                "Ollama models response missing 'models' array. API format may have changed.".to_string()
-            ))?
+            .ok_or_else(|| {
+                AIToolsError::InvalidResponse(
+                    "Ollama models response missing 'models' array. API format may have changed."
+                        .to_string(),
+                )
+            })?
             .iter()
             .filter_map(|model| model["name"].as_str().map(|s| s.to_string()))
             .collect();

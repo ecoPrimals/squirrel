@@ -84,24 +84,29 @@ impl ConfigLoader {
         {
             self.config.system.data_dir = PathBuf::from("/var/lib/squirrel");
             self.config.system.plugin_dir = PathBuf::from("/usr/lib/squirrel/plugins");
-            self.sources_loaded.push("platform_defaults_linux".to_string());
+            self.sources_loaded
+                .push("platform_defaults_linux".to_string());
         }
 
         #[cfg(target_os = "macos")]
         {
             self.config.system.data_dir = PathBuf::from("/usr/local/var/squirrel");
             self.config.system.plugin_dir = PathBuf::from("/usr/local/lib/squirrel/plugins");
-            self.sources_loaded.push("platform_defaults_macos".to_string());
+            self.sources_loaded
+                .push("platform_defaults_macos".to_string());
         }
 
         #[cfg(target_os = "windows")]
         {
             use std::env;
-            let program_data = env::var("PROGRAMDATA")
-                .unwrap_or_else(|_| "C:\\ProgramData".to_string());
-            self.config.system.data_dir = PathBuf::from(format!("{}\\Squirrel\\data", program_data));
-            self.config.system.plugin_dir = PathBuf::from(format!("{}\\Squirrel\\plugins", program_data));
-            self.sources_loaded.push("platform_defaults_windows".to_string());
+            let program_data =
+                env::var("PROGRAMDATA").unwrap_or_else(|_| "C:\\ProgramData".to_string());
+            self.config.system.data_dir =
+                PathBuf::from(format!("{}\\Squirrel\\data", program_data));
+            self.config.system.plugin_dir =
+                PathBuf::from(format!("{}\\Squirrel\\plugins", program_data));
+            self.sources_loaded
+                .push("platform_defaults_windows".to_string());
         }
 
         Ok(self)
@@ -128,26 +133,26 @@ impl ConfigLoader {
     /// ```
     pub fn with_file_if_exists<P: AsRef<Path>>(mut self, path: P) -> Result<Self, ConfigError> {
         let path = path.as_ref();
-        
+
         if !path.exists() {
             return Ok(self);
         }
 
-        let contents = std::fs::read_to_string(path)
-            .map_err(|e| ConfigError::FileRead {
-                path: path.to_path_buf(),
-                error: e.to_string(),
-            })?;
+        let contents = std::fs::read_to_string(path).map_err(|e| ConfigError::FileRead {
+            path: path.to_path_buf(),
+            error: e.to_string(),
+        })?;
 
         // Determine format from extension
-        let format = path.extension()
+        let format = path
+            .extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("toml");
 
         match format {
             "toml" => {
-                let file_config: SquirrelUnifiedConfig = toml::from_str(&contents)
-                    .map_err(|e| ConfigError::ParseError {
+                let file_config: SquirrelUnifiedConfig =
+                    toml::from_str(&contents).map_err(|e| ConfigError::ParseError {
                         format: "toml".to_string(),
                         error: e.to_string(),
                     })?;
@@ -155,8 +160,8 @@ impl ConfigLoader {
                 self.sources_loaded.push(format!("file:{}", path.display()));
             }
             "json" => {
-                let file_config: SquirrelUnifiedConfig = serde_json::from_str(&contents)
-                    .map_err(|e| ConfigError::ParseError {
+                let file_config: SquirrelUnifiedConfig =
+                    serde_json::from_str(&contents).map_err(|e| ConfigError::ParseError {
                         format: "json".to_string(),
                         error: e.to_string(),
                     })?;
@@ -164,8 +169,8 @@ impl ConfigLoader {
                 self.sources_loaded.push(format!("file:{}", path.display()));
             }
             "yaml" | "yml" => {
-                let file_config: SquirrelUnifiedConfig = serde_yaml::from_str(&contents)
-                    .map_err(|e| ConfigError::ParseError {
+                let file_config: SquirrelUnifiedConfig =
+                    serde_yaml::from_str(&contents).map_err(|e| ConfigError::ParseError {
                         format: "yaml".to_string(),
                         error: e.to_string(),
                     })?;
@@ -206,10 +211,10 @@ impl ConfigLoader {
         // Environment variables are already loaded via default() functions
         // in each config struct. This method is here for explicitness and
         // future expansion.
-        
+
         // Reload timeouts from environment to ensure latest values
         self.config.timeouts = TimeoutConfig::from_env();
-        
+
         self.sources_loaded.push(format!("env:{}", prefix));
         Ok(self)
     }
@@ -220,7 +225,7 @@ impl ConfigLoader {
     fn merge_config(&mut self, other: SquirrelUnifiedConfig) {
         // For now, we do a simple overlay. In the future, we could do
         // smarter merging that only overrides non-default values.
-        
+
         // Merge system config
         if !other.system.instance_id.is_empty() {
             self.config.system.instance_id = other.system.instance_id;
@@ -328,26 +333,16 @@ impl LoadedConfig {
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("Failed to read config file {path}: {error}")]
-    FileRead {
-        path: PathBuf,
-        error: String,
-    },
+    FileRead { path: PathBuf, error: String },
 
     #[error("Failed to parse {format} config: {error}")]
-    ParseError {
-        format: String,
-        error: String,
-    },
+    ParseError { format: String, error: String },
 
     #[error("Unsupported config format: {format}")]
-    UnsupportedFormat {
-        format: String,
-    },
+    UnsupportedFormat { format: String },
 
     #[error("Configuration validation failed:\n{}", .errors.join("\n"))]
-    ValidationFailed {
-        errors: Vec<String>,
-    },
+    ValidationFailed { errors: Vec<String> },
 }
 
 #[cfg(test)]
@@ -358,7 +353,7 @@ mod tests {
     fn test_config_loader_default() {
         let loader = ConfigLoader::new();
         let config = loader.build().unwrap();
-        assert!(config.system.instance_id.len() > 0);
+        assert!(!config.system.instance_id.is_empty());
     }
 
     #[test]
@@ -387,4 +382,3 @@ mod tests {
         assert!(loaded.has_source("secure_defaults"));
     }
 }
-

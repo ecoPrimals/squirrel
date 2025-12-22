@@ -85,6 +85,12 @@ struct RegisteredService {
     last_seen: chrono::DateTime<chrono::Utc>,
 }
 
+impl Default for InMemoryServiceRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InMemoryServiceRegistry {
     pub fn new() -> Self {
         Self {

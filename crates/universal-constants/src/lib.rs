@@ -55,19 +55,19 @@
 //! ```
 
 // Module declarations
-pub mod timeouts;
+pub mod builders;
+pub mod env_vars;
 pub mod limits;
 pub mod network;
 pub mod protocol;
-pub mod env_vars;
-pub mod builders;
+pub mod timeouts;
 
 // Re-export commonly used items for convenience
-pub use timeouts::*;
+pub use env_vars::*;
 pub use limits::*;
 pub use network::*;
 pub use protocol::*;
-pub use env_vars::*;
+pub use timeouts::*;
 
 // Version information
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");

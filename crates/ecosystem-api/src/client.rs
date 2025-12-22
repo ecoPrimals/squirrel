@@ -562,16 +562,12 @@ impl ServiceDiscovery {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        EcosystemServiceRegistration, HealthCheckConfig, HealthStatus, MockServiceMeshClient,
-        PrimalType, ResourceSpec, SecurityConfig, SecurityLevel, ServiceCapabilities,
-        ServiceEndpoints, ServiceQuery,
-    };
-    use std::collections::HashMap;
+    // Tests use production client through traits - no mocks needed
 
     #[cfg(feature = "testing")]
     #[tokio::test]
     async fn test_mock_service_mesh_client() {
+        use super::MockServiceMeshClient;
         let client = MockServiceMeshClient::new();
 
         // Test service registration

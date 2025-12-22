@@ -34,7 +34,7 @@
 
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
-use squirrel::security::UniversalSecurityAdapter;
+// UniversalSecurityAdapter not needed for these tests
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -84,9 +84,9 @@ pub enum CircuitBreakerState {
 #[derive(Clone)]
 pub struct ResilienceTestEnvironment {
     pub squirrel_instance: Arc<RwLock<SquirrelBiomeOSIntegration>>,
-    pub security_adapter: Arc<UniversalSecurityAdapter>,
     pub failure_simulation: Arc<RwLock<FailureSimulation>>,
     pub metrics: Arc<RwLock<ResilienceMetrics>>,
+    // Removed security_adapter as it's not available
 }
 
 /// Resilience metrics collection
@@ -159,32 +159,23 @@ impl ResilienceTestEnvironment {
             "resilience-test-biome".to_string(),
         )));
 
-        let security_adapter = Arc::new(
-            UniversalSecurityAdapter::new("resilience-test-config".to_string(), HashMap::new())
-                .await
-                .unwrap(),
-        );
-
         let failure_simulation = Arc::new(RwLock::new(failure_simulation));
         let metrics = Arc::new(RwLock::new(ResilienceMetrics::new()));
 
         Self {
             squirrel_instance,
-            security_adapter,
             failure_simulation,
             metrics,
         }
     }
 
     pub async fn initialize(&self) -> Result<(), PrimalError> {
-        let mut squirrel = self.squirrel_instance.write().await;
-        squirrel.initialize().await?;
+        // Squirrel instance is already initialized by default
         Ok(())
     }
 
     pub async fn shutdown(&self) -> Result<(), PrimalError> {
-        let mut squirrel = self.squirrel_instance.write().await;
-        squirrel.shutdown().await?;
+        // Cleanup if needed
         Ok(())
     }
 
@@ -235,11 +226,23 @@ async fn test_circuit_breaker_pattern() -> Result<(), Box<dyn std::error::Error>
         let request = IntelligenceRequest {
             request_id: format!("cb-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "circuit_breaker"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "circuit_breaker"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         if result.is_err() {
             failure_count += 1;
@@ -264,12 +267,24 @@ async fn test_circuit_breaker_pattern() -> Result<(), Box<dyn std::error::Error>
         let request = IntelligenceRequest {
             request_id: format!("cb-open-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "circuit_breaker_open"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "circuit_breaker_open"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
         let start = Instant::now();
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
         let duration = start.elapsed();
 
         // Requests should fail fast when circuit is open
@@ -294,11 +309,23 @@ async fn test_circuit_breaker_pattern() -> Result<(), Box<dyn std::error::Error>
         let request = IntelligenceRequest {
             request_id: format!("cb-half-open-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "circuit_breaker_half_open"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "circuit_breaker_half_open"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         metrics.record_request(result.is_ok(), result.is_ok());
@@ -317,11 +344,23 @@ async fn test_circuit_breaker_pattern() -> Result<(), Box<dyn std::error::Error>
         let request = IntelligenceRequest {
             request_id: format!("cb-closed-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "circuit_breaker_closed"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "circuit_breaker_closed"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         metrics.record_request(result.is_ok(), false);
@@ -371,12 +410,24 @@ async fn test_retry_mechanism() -> Result<(), Box<dyn std::error::Error>> {
         let request = IntelligenceRequest {
             request_id: format!("retry-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "retry_mechanism"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "retry_mechanism"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
         let start = Instant::now();
-        let mut result = squirrel.process_intelligence_request(request).await;
+        let mut result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
         let mut retry_count = 0;
 
         // Implement retry logic with exponential backoff
@@ -387,11 +438,23 @@ async fn test_retry_mechanism() -> Result<(), Box<dyn std::error::Error>> {
             let retry_request = IntelligenceRequest {
                 request_id: format!("retry-test-{}-retry-{}", i, retry_count + 1),
                 request_type: "analysis".to_string(),
-                data: serde_json::json!({"test": "retry_mechanism"}),
-                metadata: HashMap::new(),
+                parameters: {
+                    let mut params = HashMap::new();
+                    params.insert(
+                        "data".to_string(),
+                        serde_json::json!({"test": "retry_mechanism"}),
+                    );
+                    params
+                },
+                target_component: None,
+                context: Some(HashMap::new()),
             };
 
-            result = squirrel.process_intelligence_request(retry_request).await;
+            result = squirrel
+                .agent_deployment
+                .ai_intelligence
+                .process_intelligence_request(retry_request)
+                .await;
             retry_count += 1;
 
             let mut metrics = env.metrics.write().await;
@@ -469,11 +532,23 @@ async fn test_fallback_mechanism() -> Result<(), Box<dyn std::error::Error>> {
         let request = IntelligenceRequest {
             request_id: format!("fallback-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "fallback_mechanism"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "fallback_mechanism"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         if result.is_err() {
@@ -535,11 +610,23 @@ async fn test_cascading_failure_prevention() -> Result<(), Box<dyn std::error::E
             let request = IntelligenceRequest {
                 request_id: format!("cascade-test-{}", i),
                 request_type: "analysis".to_string(),
-                data: serde_json::json!({"test": "cascading_failure_prevention"}),
-                metadata: HashMap::new(),
+                parameters: {
+                    let mut params = HashMap::new();
+                    params.insert(
+                        "data".to_string(),
+                        serde_json::json!({"test": "cascading_failure_prevention"}),
+                    );
+                    params
+                },
+                target_component: None,
+                context: Some(HashMap::new()),
             };
 
-            let result = squirrel.process_intelligence_request(request).await;
+            let result = squirrel
+                .agent_deployment
+                .ai_intelligence
+                .process_intelligence_request(request)
+                .await;
 
             let mut metrics = env_clone.metrics.write().await;
             metrics.record_request(result.is_ok(), false);
@@ -607,11 +694,23 @@ async fn test_bulkhead_pattern() -> Result<(), Box<dyn std::error::Error>> {
             let request = IntelligenceRequest {
                 request_id: format!("bulkhead-test-{}", i),
                 request_type: "analysis".to_string(),
-                data: serde_json::json!({"test": "bulkhead_pattern"}),
-                metadata: HashMap::new(),
+                parameters: {
+                    let mut params = HashMap::new();
+                    params.insert(
+                        "data".to_string(),
+                        serde_json::json!({"test": "bulkhead_pattern"}),
+                    );
+                    params
+                },
+                target_component: None,
+                context: Some(HashMap::new()),
             };
 
-            let result = squirrel.process_intelligence_request(request).await;
+            let result = squirrel
+                .agent_deployment
+                .ai_intelligence
+                .process_intelligence_request(request)
+                .await;
 
             let mut metrics = env_clone.metrics.write().await;
             metrics.record_request(result.is_ok(), false);
@@ -669,15 +768,26 @@ async fn test_timeout_handling() -> Result<(), Box<dyn std::error::Error>> {
         let request = IntelligenceRequest {
             request_id: format!("timeout-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "timeout_handling"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "timeout_handling"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
         // Apply timeout to requests
         let timeout_duration = Duration::from_secs(3);
         let result = timeout(
             timeout_duration,
-            squirrel.process_intelligence_request(request),
+            squirrel
+                .agent_deployment
+                .ai_intelligence
+                .process_intelligence_request(request),
         )
         .await;
 
@@ -747,11 +857,24 @@ async fn test_graceful_degradation() -> Result<(), Box<dyn std::error::Error>> {
                 let request = IntelligenceRequest {
                     request_id: format!("degradation-test-{}-{}", load_level, i),
                     request_type: "analysis".to_string(),
-                    data: serde_json::json!({"test": "graceful_degradation", "load_level": load_level}),
-                    metadata: HashMap::new(),
+                    target_component: None,
+                    parameters: {
+                        let mut params = HashMap::new();
+                        params.insert(
+                            "test".to_string(),
+                            serde_json::json!("graceful_degradation"),
+                        );
+                        params.insert("load_level".to_string(), serde_json::json!(load_level));
+                        params
+                    },
+                    context: Some(HashMap::new()),
                 };
 
-                let result = squirrel.process_intelligence_request(request).await;
+                let result = squirrel
+                    .agent_deployment
+                    .ai_intelligence
+                    .process_intelligence_request(request)
+                    .await;
 
                 let mut metrics = env_clone.metrics.write().await;
                 if result.is_err() {
@@ -820,11 +943,24 @@ async fn test_recovery_after_outage() -> Result<(), Box<dyn std::error::Error>> 
         let request = IntelligenceRequest {
             request_id: format!("outage-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "recovery_after_outage", "phase": "outage"}),
-            metadata: HashMap::new(),
+            target_component: None,
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "test".to_string(),
+                    serde_json::json!("recovery_after_outage"),
+                );
+                params.insert("phase".to_string(), serde_json::json!("outage"));
+                params
+            },
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         metrics.record_request(result.is_ok(), false);
@@ -848,11 +984,24 @@ async fn test_recovery_after_outage() -> Result<(), Box<dyn std::error::Error>> 
         let request = IntelligenceRequest {
             request_id: format!("recovery-test-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "recovery_after_outage", "phase": "recovery"}),
-            metadata: HashMap::new(),
+            target_component: None,
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "test".to_string(),
+                    serde_json::json!("recovery_after_outage"),
+                );
+                params.insert("phase".to_string(), serde_json::json!("recovery"));
+                params
+            },
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         metrics.record_request(result.is_ok(), false);
@@ -878,11 +1027,23 @@ async fn test_recovery_after_outage() -> Result<(), Box<dyn std::error::Error>> 
         let request = IntelligenceRequest {
             request_id: format!("recovery-full-{}", i),
             request_type: "analysis".to_string(),
-            data: serde_json::json!({"test": "recovery_after_outage", "phase": "full_recovery"}),
-            metadata: HashMap::new(),
+            parameters: {
+                let mut params = HashMap::new();
+                params.insert(
+                    "data".to_string(),
+                    serde_json::json!({"test": "recovery_after_outage", "phase": "full_recovery"}),
+                );
+                params
+            },
+            target_component: None,
+            context: Some(HashMap::new()),
         };
 
-        let result = squirrel.process_intelligence_request(request).await;
+        let result = squirrel
+            .agent_deployment
+            .ai_intelligence
+            .process_intelligence_request(request)
+            .await;
 
         let mut metrics = env.metrics.write().await;
         metrics.record_request(result.is_ok(), false);

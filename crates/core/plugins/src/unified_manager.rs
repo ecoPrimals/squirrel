@@ -35,10 +35,14 @@ pub struct PluginEventBus;
 #[derive(Debug)]
 pub struct PluginSecurityManager;
 
+/// Placeholder plugin implementation for testing
+#[allow(dead_code)] // Reserved for plugin testing infrastructure
 #[derive(Debug)]
 pub struct PlaceholderPlugin;
 
 impl PlaceholderPlugin {
+    /// Create a new placeholder plugin
+    #[allow(dead_code)] // Reserved for plugin testing infrastructure
     pub fn new(_name: String) -> Self {
         Self
     }

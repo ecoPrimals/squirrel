@@ -564,7 +564,7 @@ pub struct ConnectionPoolConfig {
 }
 
 /// Load balancing strategies
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LoadBalancingStrategy {
     /// Round-robin load balancing
     RoundRobin,

@@ -6,11 +6,11 @@ use std::any::Any;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use bytes::Bytes;
+use futures::StreamExt;
 use reqwest::Client;
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
-use futures::StreamExt;
-use bytes::Bytes;
 use tracing::{debug, warn};
 
 use crate::common::{

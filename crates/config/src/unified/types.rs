@@ -205,7 +205,6 @@ pub struct SecurityConfig {
     pub mtls_enabled: bool,
 
     // ===== Consolidated from MCP modules (Nov 9, 2025) =====
-
     /// Default encryption format for MCP protocol
     ///
     /// **Consolidated from**: `crates/core/mcp/src/config/mod.rs`
@@ -370,34 +369,34 @@ pub struct ServiceMeshConfig {
 pub enum ServiceRegistryType {
     /// In-memory registry (default for development)
     InMemory,
-    
+
     /// File-based registry
-    File { 
+    File {
         /// Path to registry file
-        path: String 
+        path: String,
     },
-    
+
     /// Network-based registry (e.g., Consul, etcd)
-    Network { 
+    Network {
         /// Registry endpoints
-        endpoints: Vec<String> 
+        endpoints: Vec<String>,
     },
-    
+
     /// Redis-based registry
-    Redis { 
+    Redis {
         /// Redis connection string
-        connection_string: String 
+        connection_string: String,
     },
     /// Database-based registry
-    Database { 
+    Database {
         /// Database connection string
-        connection_string: String 
+        connection_string: String,
     },
-    
+
     /// Custom registry with flexible configuration
-    Custom { 
+    Custom {
         /// Custom configuration key-value pairs
-        config: HashMap<String, String> 
+        config: HashMap<String, String>,
     },
 }
 
@@ -480,29 +479,24 @@ pub struct DatabaseConfig {
 }
 
 /// Database backend options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum DatabaseBackend {
     /// NestGate distributed storage
     #[serde(rename = "nestgate")]
     NestGate,
-    
+
     /// PostgreSQL database
     #[serde(rename = "postgres")]
     PostgreSQL,
-    
+
     /// SQLite database
     #[serde(rename = "sqlite")]
+    #[default]
     SQLite,
-    
+
     /// In-memory database (for testing)
     #[serde(rename = "memory")]
     Memory,
-}
-
-impl Default for DatabaseBackend {
-    fn default() -> Self {
-        DatabaseBackend::SQLite
-    }
 }
 
 /// Load balancing configuration
@@ -540,34 +534,29 @@ pub struct LoadBalancingConfig {
 }
 
 /// Load balancing strategy
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum LoadBalancingStrategy {
     /// Round robin distribution
+    #[default]
     RoundRobin,
-    
+
     /// Random selection
     Random,
-    
+
     /// Least connections first
     LeastConnections,
-    
+
     /// Weighted round robin
     WeightedRoundRobin,
-    
+
     /// Health-based selection
     HealthBased,
-    
+
     /// Response time based
     ResponseTime,
-    
+
     /// Consistent hashing
     ConsistentHash,
-}
-
-impl Default for LoadBalancingStrategy {
-    fn default() -> Self {
-        LoadBalancingStrategy::RoundRobin
-    }
 }
 
 /// Circuit breaker configuration (already in unified/, ensuring completeness)
@@ -892,7 +881,7 @@ impl SquirrelUnifiedConfig {
     /// Now uses the unified validation module for consistent error messages.
     pub fn validate(&self) -> Result<(), Vec<String>> {
         use super::validation::Validator;
-        
+
         let mut errors = Vec::new();
 
         // Validate timeouts
@@ -911,7 +900,7 @@ impl SquirrelUnifiedConfig {
             self.network.http_port,
             self.network.websocket_port,
             "HTTP",
-            "WebSocket"
+            "WebSocket",
         ) {
             errors.push(e.to_string());
         }
@@ -919,9 +908,11 @@ impl SquirrelUnifiedConfig {
         // Validate security
         if self.security.enabled && self.security.require_authentication {
             if self.security.jwt_secret.is_none() && self.security.api_keys.is_empty() {
-                errors.push("Authentication required but no JWT secret or API keys configured".to_string());
+                errors.push(
+                    "Authentication required but no JWT secret or API keys configured".to_string(),
+                );
             }
-            
+
             // Validate JWT secret length if provided
             if let Some(ref secret) = self.security.jwt_secret {
                 if let Err(e) = Validator::validate_jwt_secret(secret) {
@@ -939,7 +930,7 @@ impl SquirrelUnifiedConfig {
                 self.monitoring.prometheus_port,
                 self.network.http_port,
                 "Prometheus",
-                "HTTP"
+                "HTTP",
             ) {
                 errors.push(e.to_string());
             }
@@ -952,4 +943,3 @@ impl SquirrelUnifiedConfig {
         }
     }
 }
-

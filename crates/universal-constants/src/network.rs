@@ -18,6 +18,9 @@
 /// Services will bind to this address by default.
 pub const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1";
 
+/// Localhost IPv4 address
+pub const LOCALHOST_IPV4: &str = "127.0.0.1";
+
 /// Default localhost hostname
 pub const DEFAULT_LOCALHOST: &str = "localhost";
 
@@ -76,6 +79,27 @@ pub const DISCOVERY_ENDPOINT: &str = "/discovery";
 /// Registration endpoint path
 pub const REGISTRATION_ENDPOINT: &str = "/register";
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Get port from environment variable or use default
+pub fn get_port_from_env(env_var: &str, default: u16) -> u16 {
+    std::env::var(env_var)
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(default)
+}
+
+/// Construct HTTP URL from components
+pub fn http_url(host: &str, port: u16, path: &str) -> String {
+    if path.is_empty() {
+        format!("http://{}:{}", host, port)
+    } else {
+        format!("http://{}:{}{}", host, port, path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,4 +139,3 @@ mod tests {
         );
     }
 }
-

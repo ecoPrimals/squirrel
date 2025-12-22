@@ -13,7 +13,7 @@ use crate::parser;
 ///
 /// This function creates a template string for a new rule with the given ID,
 /// which can be written to a file.
-#[must_use] 
+#[must_use]
 pub fn create_rule_template(id: &str, name: &str, category: &str) -> String {
     format!(
         r#"---
@@ -54,7 +54,7 @@ This is a sample rule template. Add your notes here.
 /// # Errors
 ///
 /// Returns an error if the path is invalid or the value cannot be extracted.
-#[must_use] 
+#[must_use]
 pub fn extract_value_by_path(data: &Value, path: &str) -> Option<Value> {
     let parts: Vec<&str> = path.split('.').collect();
     let mut current = data;
@@ -162,7 +162,7 @@ fn set_value_recursive(data: &mut Value, parts: &[&str], index: usize, value: Va
 /// Checks if a rule matches a context
 ///
 /// This function checks if a rule should be applied to a given context based on its patterns.
-#[must_use] 
+#[must_use]
 pub fn rule_matches_context(rule: &Rule, context_id: &str) -> bool {
     rule.patterns.iter().any(|pattern| {
         // Simple glob-like pattern matching
@@ -171,7 +171,7 @@ pub fn rule_matches_context(rule: &Rule, context_id: &str) -> bool {
 }
 
 /// Format a timestamp as an RFC3339 string
-#[must_use] 
+#[must_use]
 pub fn format_timestamp(timestamp: DateTime<Utc>) -> String {
     timestamp.to_rfc3339()
 }
@@ -231,7 +231,7 @@ pub fn serialize_rule_to_json(rule: &Rule) -> Result<String, serde_json::Error> 
 }
 
 /// Create a map of rule IDs to rules
-#[must_use] 
+#[must_use]
 pub fn create_rule_map(rules: &[Rule]) -> HashMap<String, Rule> {
     let mut map = HashMap::new();
 
@@ -248,7 +248,7 @@ pub fn sort_rules_by_priority(rules: &mut [Rule]) {
 }
 
 /// Filter rules by category
-#[must_use] 
+#[must_use]
 pub fn filter_rules_by_category(rules: &[Rule], category: &str) -> Vec<Rule> {
     rules
         .iter()
@@ -258,7 +258,7 @@ pub fn filter_rules_by_category(rules: &[Rule], category: &str) -> Vec<Rule> {
 }
 
 /// Filter rules by pattern
-#[must_use] 
+#[must_use]
 pub fn filter_rules_by_pattern(rules: &[Rule], pattern: &str) -> Vec<Rule> {
     rules
         .iter()
@@ -270,7 +270,7 @@ pub fn filter_rules_by_pattern(rules: &[Rule], pattern: &str) -> Vec<Rule> {
 /// Match a pattern against a string
 ///
 /// Supports simple glob patterns with * and ?.
-#[must_use] 
+#[must_use]
 pub fn match_pattern(pattern: &str, text: &str) -> bool {
     // Convert glob pattern to regex
     let regex_pattern = pattern

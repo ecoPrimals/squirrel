@@ -62,13 +62,13 @@ pub struct RuleParser {
 
 impl RuleParser {
     /// Creates a new rule parser with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn new(config: ParserConfig) -> Self {
         Self { config }
     }
 
     /// Creates a new rule parser with the default configuration
-    #[must_use] 
+    #[must_use]
     pub fn default() -> Self {
         Self::new(ParserConfig::default())
     }
@@ -259,9 +259,8 @@ impl RuleParser {
         let mut current_section: Option<(String, Vec<String>)> = None;
 
         // Define regex for section headers
-        let section_regex = Regex::new(r"^## (.+)$").map_err(|e| {
-            RuleParserError::Other(format!("Failed to compile section regex: {e}"))
-        })?;
+        let section_regex = Regex::new(r"^## (.+)$")
+            .map_err(|e| RuleParserError::Other(format!("Failed to compile section regex: {e}")))?;
 
         // Process lines
         for line in body.lines() {
@@ -277,7 +276,8 @@ impl RuleParser {
 
                 // Start new section - safely access the capture group
                 let section_name = captures
-                    .get(1).map_or_else(|| "Unknown".to_string(), |m| m.as_str().trim().to_string());
+                    .get(1)
+                    .map_or_else(|| "Unknown".to_string(), |m| m.as_str().trim().to_string());
                 current_section = Some((section_name, Vec::new()));
             } else if let Some((_, content)) = &mut current_section {
                 // Add line to current section

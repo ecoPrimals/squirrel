@@ -149,4 +149,4 @@ impl From<uuid::Error> for AuthError {
     fn from(err: uuid::Error) -> Self {
         Self::internal_error(format!("UUID error: {}", err))
     }
-} 
+}

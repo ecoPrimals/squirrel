@@ -182,15 +182,13 @@ pub mod url_builders {
 
     /// Build HTTP URL using centralized host configuration
     pub fn localhost_http(port: u16) -> String {
-        let host = std::env::var("MCP_HOST")
-            .unwrap_or_else(|_| "localhost".to_string());
+        let host = std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string());
         format!("http://{host}:{port}")
     }
 
     /// Build WebSocket URL using centralized host configuration
     pub fn localhost_ws(port: u16) -> String {
-        let host = std::env::var("MCP_HOST")
-            .unwrap_or_else(|_| "localhost".to_string());
+        let host = std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string());
         format!("ws://{host}:{port}")
     }
 

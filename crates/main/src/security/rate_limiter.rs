@@ -1,18 +1,18 @@
 //! # Production Rate Limiting & DoS Protection
-//! 
+//!
 //! This module provides comprehensive rate limiting to protect against:
 //! - Denial of Service (DoS) attacks
 //! - API abuse and excessive requests
 //! - Resource exhaustion attacks
 //! - Brute force authentication attempts
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, Mutex};
-use tracing::{warn, error, debug, info};
-use serde::{Serialize, Deserialize};
+use tokio::sync::{Mutex, RwLock};
+use tracing::{debug, error, info, warn};
 
 use crate::observability::CorrelationId;
 
@@ -21,34 +21,42 @@ use crate::observability::CorrelationId;
 pub struct RateLimitConfig {
     /// Requests per minute for general API endpoints
     pub api_requests_per_minute: u32,
-    
+
     /// Requests per minute for authentication endpoints
     pub auth_requests_per_minute: u32,
-    
+
     /// Requests per minute for compute-intensive operations
     pub compute_requests_per_minute: u32,
-    
+
     /// Maximum burst capacity
     pub burst_capacity: u32,
-    
+
     /// Ban duration for repeat offenders
     pub ban_duration: Duration,
-    
+
     /// Threshold for temporary ban (violations in time window)
     pub ban_threshold: u32,
-    
+
     /// Time window for counting violations
     pub violation_window: Duration,
-    
+
     /// Enable adaptive rate limiting based on system load
     pub adaptive_limiting: bool,
-    
+
     /// Whitelist of IPs that bypass rate limiting
     pub whitelist: Vec<IpAddr>,
 }
 
 impl Default for RateLimitConfig {
     fn default() -> Self {
+        // SAFETY: These IP addresses are valid and hardcoded.
+        // If parsing fails (which is impossible for these constants),
+        // we'll use a safe default empty whitelist.
+        let whitelist = vec!["127.0.0.1".parse().ok(), "::1".parse().ok()]
+            .into_iter()
+            .flatten()
+            .collect();
+
         Self {
             api_requests_per_minute: 100,
             auth_requests_per_minute: 10,
@@ -58,10 +66,7 @@ impl Default for RateLimitConfig {
             ban_threshold: 5,
             violation_window: Duration::from_secs(60),
             adaptive_limiting: true,
-            whitelist: vec![
-                "127.0.0.1".parse().unwrap(),
-                "::1".parse().unwrap(),
-            ],
+            whitelist,
         }
     }
 }
@@ -95,11 +100,11 @@ impl RateLimitBucket {
             window_start: now,
         }
     }
-    
+
     /// Try to consume a token, returns true if allowed
     fn try_consume(&mut self, tokens_needed: f64) -> bool {
         self.refill_tokens();
-        
+
         if self.tokens >= tokens_needed {
             self.tokens -= tokens_needed;
             self.request_count += 1;
@@ -108,17 +113,17 @@ impl RateLimitBucket {
             false
         }
     }
-    
+
     /// Refill tokens based on elapsed time
     fn refill_tokens(&mut self) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_refill).as_secs_f64();
-        
+
         // Add tokens based on refill rate
         let tokens_to_add = elapsed * self.refill_rate;
         self.tokens = (self.tokens + tokens_to_add).min(self.capacity);
         self.last_refill = now;
-        
+
         // Reset request count if window expired
         if now.duration_since(self.window_start) >= Duration::from_secs(60) {
             self.request_count = 0;
@@ -223,16 +228,16 @@ pub enum EndpointType {
 pub struct ProductionRateLimiter {
     /// Configuration
     config: RateLimitConfig,
-    
+
     /// Rate limit buckets by client IP
     client_buckets: Arc<RwLock<HashMap<IpAddr, HashMap<EndpointType, RateLimitBucket>>>>,
-    
+
     /// Client information tracking
     client_info: Arc<RwLock<HashMap<IpAddr, ClientInfo>>>,
-    
+
     /// Global system metrics
     global_metrics: Arc<Mutex<GlobalRateLimitMetrics>>,
-    
+
     /// Adaptive rate limiting state
     adaptive_state: Arc<RwLock<AdaptiveRateLimitState>>,
 }
@@ -295,7 +300,7 @@ impl ProductionRateLimiter {
             adaptive_state: Arc::new(RwLock::new(AdaptiveRateLimitState::default())),
         }
     }
-    
+
     /// Check if a request should be allowed
     pub async fn check_request(
         &self,
@@ -304,7 +309,7 @@ impl ProductionRateLimiter {
         user_agent: Option<String>,
     ) -> RateLimitResult {
         let correlation_id = CorrelationId::new();
-        
+
         // Check if IP is whitelisted
         if self.config.whitelist.contains(&client_ip) {
             debug!(
@@ -321,10 +326,10 @@ impl ProductionRateLimiter {
                 client_banned: false,
             };
         }
-        
+
         // Update client info
         self.update_client_info(client_ip, user_agent.clone()).await;
-        
+
         // Check if client is banned
         if let Some(ban_result) = self.check_client_ban(client_ip).await {
             warn!(
@@ -336,20 +341,22 @@ impl ProductionRateLimiter {
             );
             return ban_result;
         }
-        
+
         // Get rate limit for endpoint type
         let base_limit = self.get_rate_limit_for_endpoint(&endpoint_type);
-        
+
         // Apply adaptive rate limiting
         let adjusted_limit = if self.config.adaptive_limiting {
             self.apply_adaptive_rate_limiting(base_limit).await
         } else {
             base_limit
         };
-        
+
         // Check rate limit
-        let allowed = self.check_rate_limit(client_ip, endpoint_type.clone(), adjusted_limit).await;
-        
+        let allowed = self
+            .check_rate_limit(client_ip, endpoint_type.clone(), adjusted_limit)
+            .await;
+
         // Update global metrics
         {
             let mut metrics = self.global_metrics.lock().await;
@@ -358,7 +365,7 @@ impl ProductionRateLimiter {
                 metrics.blocked_requests += 1;
             }
         }
-        
+
         if !allowed {
             // Record violation
             self.record_violation(
@@ -366,8 +373,9 @@ impl ProductionRateLimiter {
                 ViolationType::RateLimitExceeded,
                 ViolationSeverity::Medium,
                 format!("Rate limit exceeded for {:?} endpoint", endpoint_type),
-            ).await;
-            
+            )
+            .await;
+
             warn!(
                 correlation_id = %correlation_id,
                 client_ip = %client_ip,
@@ -376,7 +384,7 @@ impl ProductionRateLimiter {
                 operation = "rate_limit_exceeded",
                 "Request blocked - rate limit exceeded"
             );
-            
+
             RateLimitResult {
                 allowed: false,
                 reason: Some("Rate limit exceeded".to_string()),
@@ -392,7 +400,7 @@ impl ProductionRateLimiter {
                 operation = "rate_limit_allowed",
                 "Request allowed within rate limits"
             );
-            
+
             RateLimitResult {
                 allowed: true,
                 reason: None,
@@ -402,12 +410,12 @@ impl ProductionRateLimiter {
             }
         }
     }
-    
+
     /// Update client information
     async fn update_client_info(&self, client_ip: IpAddr, user_agent: Option<String>) {
         let mut clients = self.client_info.write().await;
         let now = Instant::now();
-        
+
         let client_info = clients.entry(client_ip).or_insert_with(|| ClientInfo {
             ip_address: client_ip,
             user_agent: user_agent.clone(),
@@ -418,19 +426,19 @@ impl ProductionRateLimiter {
             is_banned: false,
             ban_expires_at: None,
         });
-        
+
         client_info.last_activity = now;
         client_info.total_requests += 1;
-        
+
         if client_info.user_agent.is_none() && user_agent.is_some() {
             client_info.user_agent = user_agent;
         }
     }
-    
+
     /// Check if client is currently banned
     async fn check_client_ban(&self, client_ip: IpAddr) -> Option<RateLimitResult> {
         let clients = self.client_info.read().await;
-        
+
         if let Some(client_info) = clients.get(&client_ip) {
             if client_info.is_banned {
                 if let Some(ban_expires_at) = client_info.ban_expires_at {
@@ -450,10 +458,10 @@ impl ProductionRateLimiter {
                 }
             }
         }
-        
+
         None
     }
-    
+
     /// Get rate limit for specific endpoint type
     fn get_rate_limit_for_endpoint(&self, endpoint_type: &EndpointType) -> u32 {
         match endpoint_type {
@@ -464,16 +472,16 @@ impl ProductionRateLimiter {
             EndpointType::Admin => self.config.auth_requests_per_minute / 2, // More restrictive
         }
     }
-    
+
     /// Apply adaptive rate limiting based on system load
     async fn apply_adaptive_rate_limiting(&self, base_limit: u32) -> u32 {
         let adaptive_state = self.adaptive_state.read().await;
         let adjusted_limit = (base_limit as f64 * adaptive_state.rate_multiplier) as u32;
-        
+
         // Ensure minimum limit
         adjusted_limit.max(1)
     }
-    
+
     /// Check rate limit using token bucket algorithm
     async fn check_rate_limit(
         &self,
@@ -482,16 +490,16 @@ impl ProductionRateLimiter {
         rate_limit: u32,
     ) -> bool {
         let mut buckets = self.client_buckets.write().await;
-        
+
         let client_buckets = buckets.entry(client_ip).or_insert_with(HashMap::new);
-        
-        let bucket = client_buckets.entry(endpoint_type).or_insert_with(|| {
-            RateLimitBucket::new(self.config.burst_capacity, rate_limit)
-        });
-        
+
+        let bucket = client_buckets
+            .entry(endpoint_type)
+            .or_insert_with(|| RateLimitBucket::new(self.config.burst_capacity, rate_limit));
+
         bucket.try_consume(1.0)
     }
-    
+
     /// Record a security violation
     async fn record_violation(
         &self,
@@ -501,7 +509,7 @@ impl ProductionRateLimiter {
         details: String,
     ) {
         let mut clients = self.client_info.write().await;
-        
+
         if let Some(client_info) = clients.get_mut(&client_ip) {
             let violation = SecurityViolation {
                 timestamp: Instant::now(),
@@ -509,18 +517,20 @@ impl ProductionRateLimiter {
                 severity: severity.clone(),
                 details: details.clone(),
             };
-            
+
             client_info.violations.push(violation);
-            
+
             // Check if client should be banned
-            let recent_violations = client_info.violations.iter()
+            let recent_violations = client_info
+                .violations
+                .iter()
                 .filter(|v| v.timestamp.elapsed() < self.config.violation_window)
                 .count();
-            
+
             if recent_violations >= self.config.ban_threshold as usize {
                 client_info.is_banned = true;
                 client_info.ban_expires_at = Some(Instant::now() + self.config.ban_duration);
-                
+
                 error!(
                     client_ip = %client_ip,
                     violation_count = recent_violations,
@@ -528,7 +538,7 @@ impl ProductionRateLimiter {
                     operation = "client_banned",
                     "Client banned due to repeated violations"
                 );
-                
+
                 // Update global metrics
                 let mut metrics = self.global_metrics.lock().await;
                 metrics.banned_clients += 1;
@@ -538,7 +548,7 @@ impl ProductionRateLimiter {
             }
         }
     }
-    
+
     /// Update system metrics for adaptive rate limiting
     pub async fn update_system_metrics(
         &self,
@@ -547,15 +557,15 @@ impl ProductionRateLimiter {
         active_connections: u32,
     ) {
         let mut adaptive_state = self.adaptive_state.write().await;
-        
+
         adaptive_state.cpu_usage = cpu_usage;
         adaptive_state.memory_usage = memory_usage;
         adaptive_state.active_connections = active_connections;
         adaptive_state.last_update = Instant::now();
-        
+
         // Calculate rate multiplier based on system load
         let load_factor = (cpu_usage + memory_usage) / 2.0;
-        
+
         adaptive_state.rate_multiplier = if load_factor > 0.8 {
             0.5 // Strict limiting under high load
         } else if load_factor > 0.6 {
@@ -565,7 +575,7 @@ impl ProductionRateLimiter {
         } else {
             1.0 // Normal limiting
         };
-        
+
         debug!(
             cpu_usage = %format!("{:.1}%", cpu_usage * 100.0),
             memory_usage = %format!("{:.1}%", memory_usage * 100.0),
@@ -575,26 +585,26 @@ impl ProductionRateLimiter {
             "Updated adaptive rate limiting parameters"
         );
     }
-    
+
     /// Get rate limiting statistics
     pub async fn get_statistics(&self) -> RateLimitStatistics {
         let metrics = self.global_metrics.lock().await;
         let clients = self.client_info.read().await;
         let adaptive_state = self.adaptive_state.read().await;
-        
+
         let uptime = metrics.last_reset.elapsed();
         let requests_per_second = if uptime.as_secs() > 0 {
             metrics.total_requests as f64 / uptime.as_secs_f64()
         } else {
             0.0
         };
-        
+
         let block_rate = if metrics.total_requests > 0 {
             metrics.blocked_requests as f64 / metrics.total_requests as f64
         } else {
             0.0
         };
-        
+
         RateLimitStatistics {
             total_requests: metrics.total_requests,
             blocked_requests: metrics.blocked_requests,
@@ -609,11 +619,11 @@ impl ProductionRateLimiter {
             system_memory_usage: adaptive_state.memory_usage,
         }
     }
-    
+
     /// Cleanup expired data
     pub async fn cleanup_expired_data(&self) {
         let now = Instant::now();
-        
+
         // Cleanup expired bans and old violations
         {
             let mut clients = self.client_info.write().await;
@@ -627,18 +637,18 @@ impl ProductionRateLimiter {
                         }
                     }
                 }
-                
+
                 // Remove old violations (keep only last 24 hours)
                 client_info.violations.retain(|violation| {
                     violation.timestamp.elapsed() < Duration::from_secs(24 * 3600)
                 });
-                
+
                 // Keep client info if active in last hour or has recent violations
                 now.duration_since(client_info.last_activity) < Duration::from_secs(3600)
                     || !client_info.violations.is_empty()
             });
         }
-        
+
         // Cleanup old rate limit buckets
         {
             let mut buckets = self.client_buckets.write().await;
@@ -647,7 +657,7 @@ impl ProductionRateLimiter {
                 clients.contains_key(ip)
             });
         }
-        
+
         info!(
             operation = "rate_limiter_cleanup",
             "Completed rate limiter data cleanup"
@@ -669,4 +679,4 @@ pub struct RateLimitStatistics {
     pub adaptive_rate_multiplier: f64,
     pub system_cpu_usage: f64,
     pub system_memory_usage: f64,
-} 
+}

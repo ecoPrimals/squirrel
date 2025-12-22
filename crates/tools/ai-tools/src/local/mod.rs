@@ -418,9 +418,11 @@ impl AIClient for LocalAIClient {
                         "⚠️ Request timeout after {} seconds for model {}",
                         timeout_secs, model_id
                     );
-                    return Err(universal_error::tools::AIToolsError::Provider(
-                        format!("Request timeout after {} seconds for model {}", timeout_secs, model_id)
-                    ).into());
+                    return Err(universal_error::tools::AIToolsError::Provider(format!(
+                        "Request timeout after {} seconds for model {}",
+                        timeout_secs, model_id
+                    ))
+                    .into());
                 }
             }
         } else {

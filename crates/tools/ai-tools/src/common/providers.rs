@@ -145,30 +145,29 @@ impl OpenAIProvider {
                 "OpenAI response missing 'choices' array. API response format may have changed or request was invalid.".to_string()
             ))?;
 
-        let converted_choices: std::result::Result<Vec<ChatChoice>, AIToolsError> =
-            choices
-                .iter()
-                .map(|choice| {
-                    let message = &choice["message"];
-                    let content = message["content"].as_str().map(|s| s.to_string());
-                    let role = match message["role"].as_str() {
-                        Some("assistant") => MessageRole::Assistant,
-                        Some("user") => MessageRole::User,
-                        Some("system") => MessageRole::System,
-                        Some("function") => MessageRole::Function,
-                        Some("tool") => MessageRole::Tool,
-                        _ => MessageRole::Assistant,
-                    };
+        let converted_choices: std::result::Result<Vec<ChatChoice>, AIToolsError> = choices
+            .iter()
+            .map(|choice| {
+                let message = &choice["message"];
+                let content = message["content"].as_str().map(|s| s.to_string());
+                let role = match message["role"].as_str() {
+                    Some("assistant") => MessageRole::Assistant,
+                    Some("user") => MessageRole::User,
+                    Some("system") => MessageRole::System,
+                    Some("function") => MessageRole::Function,
+                    Some("tool") => MessageRole::Tool,
+                    _ => MessageRole::Assistant,
+                };
 
-                    Ok(ChatChoice {
-                        index: choice["index"].as_u64().unwrap_or(0) as usize,
-                        role,
-                        content,
-                        finish_reason: choice["finish_reason"].as_str().map(|s| s.to_string()),
-                        tool_calls: None, // TODO: Parse tool calls
-                    })
+                Ok(ChatChoice {
+                    index: choice["index"].as_u64().unwrap_or(0) as usize,
+                    role,
+                    content,
+                    finish_reason: choice["finish_reason"].as_str().map(|s| s.to_string()),
+                    tool_calls: None, // TODO: Parse tool calls
                 })
-                .collect();
+            })
+            .collect();
 
         let usage = response["usage"].as_object().map(|usage_obj| UsageInfo {
             prompt_tokens: usage_obj["prompt_tokens"].as_u64().unwrap_or(0) as u32,
@@ -564,7 +563,8 @@ impl AIProvider for OllamaProvider {
             return Err(AIToolsError::Local(format!(
                 "Ollama returned error status {}: {}. Check model availability and request format.",
                 status, error_text
-            )).into());
+            ))
+            .into());
         }
 
         let response_json: serde_json::Value = response
@@ -607,9 +607,11 @@ pub fn create_provider(name: &str, config: ProviderConfig) -> crate::Result<Box<
         "openai" => Ok(Box::new(OpenAIProvider::new(config)?)),
         "anthropic" => Ok(Box::new(AnthropicProvider::new(config)?)),
         "ollama" => Ok(Box::new(OllamaProvider::new(config)?)),
-        _ => Err(AIToolsError::UnsupportedProvider(
-            format!("'{}' is not supported. Available providers: openai, anthropic, ollama", name)
-        ).into()),
+        _ => Err(AIToolsError::UnsupportedProvider(format!(
+            "'{}' is not supported. Available providers: openai, anthropic, ollama",
+            name
+        ))
+        .into()),
     }
 }
 

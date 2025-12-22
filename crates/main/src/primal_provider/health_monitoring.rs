@@ -87,7 +87,11 @@ impl HealthReporting {
         details.insert("primal_type".to_string(), serde_json::json!("squirrel"));
         string_details.insert("primal_type".to_string(), "squirrel".to_string());
 
-        let instance_id = provider.context.session_id.clone();
+        let instance_id = provider
+            .context
+            .session_id
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string());
         details.insert(
             "instance_id".to_string(),
             serde_json::json!(instance_id.clone()),
@@ -96,9 +100,11 @@ impl HealthReporting {
 
         PrimalHealth {
             status: HealthStatus::Healthy, // Use HealthStatus instead of HealthState
+            healthy: true,                 // Derived from status
             score: 0.95,                   // 95% health score
             last_check: chrono::Utc::now(),
-            details: string_details,
+            message: Some("System healthy".to_string()),
+            details: Some(serde_json::to_value(string_details).unwrap_or(serde_json::json!({}))),
         }
     }
 
@@ -108,7 +114,8 @@ impl HealthReporting {
         let cpu_ok = provider.zero_copy_metrics.get_efficiency_score() > 0.7;
         let memory_ok = true; // Would check actual memory usage
         let network_ok = provider.initialized;
-        let ecosystem_ok = provider.biomeos_client.is_some() || !provider.config.songbird_endpoint.is_empty();
+        let ecosystem_ok =
+            provider.biomeos_client.is_some() || !provider.config.songbird_endpoint.is_empty();
 
         cpu_ok && memory_ok && network_ok && ecosystem_ok
     }
@@ -174,18 +181,27 @@ impl SquirrelPrimalProvider {
         let health = HealthReporting::generate_health_report(self);
 
         // Enhance health report with metrics collector data
-        let mut enhanced_details = health.details.clone();
-        enhanced_details.insert(
+        let mut enhanced_details_map = serde_json::Map::new();
+
+        // Copy existing details if present
+        if let Some(serde_json::Value::Object(map)) = health.details.clone() {
+            for (k, v) in map {
+                enhanced_details_map.insert(k, v);
+            }
+        }
+
+        // Add new metrics
+        enhanced_details_map.insert(
             "cpu_usage".to_string(),
-            system_metrics.system_metrics.cpu_usage.to_string(),
+            serde_json::json!(system_metrics.system_metrics.cpu_usage),
         );
-        enhanced_details.insert(
+        enhanced_details_map.insert(
             "memory_usage".to_string(),
-            system_metrics.system_metrics.memory_percentage.to_string(),
+            serde_json::json!(system_metrics.system_metrics.memory_percentage),
         );
-        enhanced_details.insert(
+        enhanced_details_map.insert(
             "uptime".to_string(),
-            system_metrics.system_metrics.uptime.to_string(),
+            serde_json::json!(system_metrics.system_metrics.uptime),
         );
 
         // Calculate enhanced health score based on collected metrics
@@ -193,12 +209,18 @@ impl SquirrelPrimalProvider {
         let memory_health =
             1.0 - (system_metrics.system_metrics.memory_percentage / 100.0).min(1.0);
         let error_health = 1.0 - system_metrics.system_metrics.error_rate.min(1.0);
+        let status = health.status.clone();
 
         PrimalHealth {
-            status: health.status,
-            details: enhanced_details,
-            last_check: health.last_check,
+            status,
+            healthy: matches!(health.status, HealthStatus::Healthy),
             score: (cpu_health + memory_health + error_health) / 3.0,
+            last_check: health.last_check,
+            message: Some(format!(
+                "System health: {:.1}%",
+                ((cpu_health + memory_health + error_health) / 3.0) * 100.0
+            )),
+            details: Some(serde_json::Value::Object(enhanced_details_map)),
         }
     }
 
@@ -258,15 +280,15 @@ impl SquirrelPrimalProvider {
             );
             metrics.insert(
                 "disk_usage".to_string(),
-                all_metrics.system_metrics.disk_usage as f64,
+                all_metrics.system_metrics.disk_usage,
             );
             metrics.insert(
                 "network_bytes_sent".to_string(),
-                all_metrics.system_metrics.network_bytes_sent as f64,
+                all_metrics.system_metrics.network_bytes_sent,
             );
             metrics.insert(
                 "network_bytes_received".to_string(),
-                all_metrics.system_metrics.network_bytes_received as f64,
+                all_metrics.system_metrics.network_bytes_received,
             );
             metrics.insert(
                 "active_connections".to_string(),
@@ -282,7 +304,7 @@ impl SquirrelPrimalProvider {
             );
             metrics.insert(
                 "avg_response_time".to_string(),
-                all_metrics.system_metrics.avg_response_time as f64,
+                all_metrics.system_metrics.avg_response_time,
             );
             metrics.insert(
                 "uptime".to_string(),

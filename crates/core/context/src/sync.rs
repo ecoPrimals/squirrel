@@ -61,18 +61,26 @@ pub enum SyncStatus {
 /// Sync operation result
 #[derive(Debug, Clone)]
 pub struct SyncResult {
+    /// Whether the sync operation succeeded
     pub success: bool,
+    /// Result message or error description
     pub message: String,
+    /// Timestamp of the sync operation
     pub timestamp: SystemTime,
+    /// Number of retries attempted
     pub retry_count: u32,
 }
 
 /// Network partition information
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PartitionInfo {
+    /// Timestamp when partition was detected
     pub detected_at: SystemTime,
+    /// List of peer IDs affected by partition
     pub affected_peers: Vec<String>,
+    /// Duration of the partition
     pub partition_duration: Duration,
+    /// Strategy to use for partition recovery
     pub recovery_strategy: PartitionRecoveryStrategy,
 }
 
@@ -157,21 +165,30 @@ pub enum SyncOperation {
     Conflict(ConflictInfo),
     /// Heartbeat message to maintain connection
     Heartbeat {
+        /// ID of the node sending heartbeat
         node_id: String,
+        /// Timestamp of heartbeat
         timestamp: SystemTime,
     },
     /// Request full state synchronization
-    FullSyncRequest { requesting_node: String },
+    FullSyncRequest {
+        /// ID of node requesting sync
+        requesting_node: String,
+    },
     /// Response to full sync request
     FullSyncResponse {
+        /// Context states to sync
         states: Vec<ContextState>,
+        /// Context snapshots to sync
         snapshots: Vec<ContextSnapshot>,
     },
     /// Network partition detection
     PartitionDetected(PartitionInfo),
     /// Network partition recovery
     PartitionRecovered {
+        /// Timestamp when partition was recovered
         recovered_at: SystemTime,
+        /// Peers affected by the partition
         affected_peers: Vec<String>,
     },
 }
@@ -788,10 +805,16 @@ impl Default for SyncManager {
 /// Sync statistics
 #[derive(Debug, Clone)]
 pub struct SyncStatistics {
+    /// Current sync status
     pub status: SyncStatus,
+    /// Number of pending sync operations
     pub pending_operations: usize,
+    /// Number of failed sync operations
     pub failed_operations: usize,
+    /// Number of active network partitions
     pub active_partitions: usize,
+    /// Number of connected peer nodes
     pub connected_peers: usize,
+    /// Number of state change subscribers
     pub subscribers: usize,
 }

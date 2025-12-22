@@ -22,6 +22,7 @@ use crate::error::Result;
 #[derive(Debug)]
 pub struct RewardSystem {
     /// System configuration
+    #[allow(dead_code)] // Reserved for reward system configuration
     config: Arc<LearningSystemConfig>,
 
     /// Reward calculators

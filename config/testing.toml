@@ -1,0 +1,55 @@
+# Squirrel Testing Configuration
+# Generated: November 14, 2025
+# Purpose: Test environment configuration
+
+[network]
+default_host = "127.0.0.1"
+default_port = 18080
+health_check_port = 18081
+metrics_port = 19090
+
+[service_discovery]
+registry_url = "http://localhost:18500"
+consul_address = "127.0.0.1:18500"
+etcd_endpoints = ["http://localhost:12379"]
+
+[database]
+host = "localhost"
+port = 15432
+database = "squirrel_test"
+max_connections = 5
+
+[mcp]
+server_host = "127.0.0.1"
+server_port = 13000
+websocket_port = 13001
+max_connections = 50
+
+[ai_tools]
+# Use mock endpoints for testing
+anthropic_url = "http://localhost:18001"
+openai_url = "http://localhost:18002"
+ollama_url = "http://localhost:18003"
+
+[observability]
+jaeger_endpoint = "http://localhost:14268"
+prometheus_port = 19090
+grafana_port = 13000
+
+[security]
+beardog_url = "http://localhost:18443"
+auth_timeout_secs = 10
+session_timeout_secs = 600
+
+[limits]
+max_request_size_bytes = 1048576  # 1MB for tests
+max_response_size_bytes = 5242880  # 5MB for tests
+request_timeout_secs = 5
+connection_timeout_secs = 2
+
+[features]
+enable_chaos_testing = false
+enable_experimental_features = true
+enable_telemetry = false
+enable_metrics = false
+

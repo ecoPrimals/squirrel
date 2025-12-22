@@ -12,6 +12,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct InteractiveVisualization {
     /// Configuration
+    #[allow(dead_code)] // Reserved for visualization configuration
     config: Arc<VisualizationSystemConfig>,
 }
 

@@ -11,9 +11,11 @@ use tokio::sync::broadcast;
 #[derive(Debug)]
 pub struct WebVisualizationServer {
     /// Configuration
+    #[allow(dead_code)] // Reserved for web server configuration
     config: Arc<VisualizationSystemConfig>,
 
     /// Event broadcaster
+    #[allow(dead_code)] // Reserved for event broadcasting system
     event_broadcaster: broadcast::Sender<VisualizationEvent>,
 }
 

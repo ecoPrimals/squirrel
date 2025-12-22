@@ -8,10 +8,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::ServiceInfo;
-use super::{
-    ServiceCapability, ServiceMatcher, UniversalRequest,
-    UniversalServiceRegistry,
-};
+use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Orchestration Adapter - works with any orchestration primal
@@ -51,11 +48,13 @@ impl UniversalOrchestrationAdapter {
                 Some(self.discover_orchestration_service().await?);
         }
 
-        let orchestration_service = self.preferred_orchestration_service.as_ref()
-            .ok_or_else(|| {
-                error!("No orchestration service available - adapter initialization failed");
-                PrimalError::ResourceNotFound("No orchestration service available".to_string())
-            })?;
+        let orchestration_service =
+            self.preferred_orchestration_service
+                .as_ref()
+                .ok_or_else(|| {
+                    error!("No orchestration service available - adapter initialization failed");
+                    PrimalError::ResourceNotFound("No orchestration service available".to_string())
+                })?;
 
         // Create universal orchestration request
         let request_params = HashMap::from([
@@ -165,11 +164,13 @@ impl UniversalOrchestrationAdapter {
                 Some(self.discover_orchestration_service().await?);
         }
 
-        let orchestration_service = self.preferred_orchestration_service.as_ref()
-            .ok_or_else(|| {
-                error!("No orchestration service available for load balancing");
-                PrimalError::ResourceNotFound("No orchestration service available".to_string())
-            })?;
+        let orchestration_service =
+            self.preferred_orchestration_service
+                .as_ref()
+                .ok_or_else(|| {
+                    error!("No orchestration service available for load balancing");
+                    PrimalError::ResourceNotFound("No orchestration service available".to_string())
+                })?;
 
         // Create load balancing request
         let load_balancing_result = serde_json::json!({
@@ -214,11 +215,13 @@ impl UniversalOrchestrationAdapter {
                 Some(self.discover_orchestration_service().await?);
         }
 
-        let orchestration_service = self.preferred_orchestration_service.as_ref()
-            .ok_or_else(|| {
-                error!("No orchestration service available for service mesh status");
-                PrimalError::ResourceNotFound("No orchestration service available".to_string())
-            })?;
+        let orchestration_service =
+            self.preferred_orchestration_service
+                .as_ref()
+                .ok_or_else(|| {
+                    error!("No orchestration service available for service mesh status");
+                    PrimalError::ResourceNotFound("No orchestration service available".to_string())
+                })?;
 
         // Get service mesh status (simulated for now)
         let mesh_status = serde_json::json!({

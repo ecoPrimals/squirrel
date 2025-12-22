@@ -86,7 +86,7 @@ impl Rule {
     }
 
     /// Sets the rule priority
-    #[must_use] 
+    #[must_use]
     pub fn with_priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
@@ -99,14 +99,14 @@ impl Rule {
     }
 
     /// Adds a condition to the rule
-    #[must_use] 
+    #[must_use]
     pub fn with_condition(mut self, condition: RuleCondition) -> Self {
         self.conditions.push(condition);
         self
     }
 
     /// Adds an action to the rule
-    #[must_use] 
+    #[must_use]
     pub fn with_action(mut self, action: RuleAction) -> Self {
         self.actions.push(action);
         self

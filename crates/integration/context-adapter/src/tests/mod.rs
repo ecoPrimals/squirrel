@@ -462,8 +462,8 @@ mod tests {
     impl Plugin for MockContextPlugin {
         fn metadata(&self) -> &squirrel_interfaces::plugins::PluginMetadata {
             // Create a static metadata instance
-            static METADATA: once_cell::sync::Lazy<squirrel_interfaces::plugins::PluginMetadata> =
-                once_cell::sync::Lazy::new(|| {
+            static METADATA: std::sync::LazyLock<squirrel_interfaces::plugins::PluginMetadata> =
+                std::sync::LazyLock::new(|| {
                     squirrel_interfaces::plugins::PluginMetadata::new(
                         "mock-context-plugin",
                         "1.0.0",
@@ -473,7 +473,7 @@ mod tests {
                     .with_capability("context")
                 });
 
-            &*METADATA
+            &METADATA
         }
 
         async fn initialize(&self) -> anyhow::Result<()> {
@@ -728,8 +728,8 @@ mod tests {
         let retrieved_config = adapter.get_config().await.unwrap();
         assert_eq!(retrieved_config.max_contexts, 200);
         assert_eq!(retrieved_config.ttl_seconds, 7200);
-        assert_eq!(retrieved_config.enable_auto_cleanup, false);
-        assert_eq!(retrieved_config.enable_plugins, false);
+        assert!(!retrieved_config.enable_auto_cleanup);
+        assert!(!retrieved_config.enable_plugins);
 
         // Now that plugins are disabled, transformation should fail
         let input_data = json!({

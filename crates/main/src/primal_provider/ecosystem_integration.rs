@@ -11,16 +11,24 @@ pub struct EcosystemIntegration;
 
 impl EcosystemIntegration {
     /// Create service registration for Songbird
+    ///
+    /// This dynamically constructs endpoints from environment or configuration:
+    /// - SERVER_BIND_ADDRESS (default: 0.0.0.0)
+    /// - SERVER_PORT (default: 8080)
     pub fn create_service_registration(
         provider: &SquirrelPrimalProvider,
     ) -> EcosystemServiceRegistration {
+        // Get configuration from environment or use defaults
+        let bind_address =
+            std::env::var("SERVER_BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
+
+        // Construct base URL
+        let base_url = format!("http://{}:{}", bind_address, port);
+
         let _endpoints = provider.endpoints();
         EcosystemServiceRegistration {
-            service_id: format!(
-                "{}-{}",
-                provider.primal_type().to_string(),
-                provider.instance_id
-            ),
+            service_id: format!("{}-{}", provider.primal_type(), provider.instance_id),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel,
             name: "Squirrel AI Primal".to_string(),
             version: "1.0.0".to_string(),
@@ -43,15 +51,15 @@ impl EcosystemIntegration {
                 gpu: Some("0".to_string()),
             },
             endpoints: crate::ecosystem::ServiceEndpoints {
-                primary: "http://0.0.0.0:8080".to_string(),
+                primary: base_url.clone(),
                 secondary: vec![
-                    "http://0.0.0.0:8080/metrics".to_string(),
-                    "http://0.0.0.0:8080/admin".to_string(),
-                    "http://0.0.0.0:8080/mcp".to_string(),
-                    "http://0.0.0.0:8080/ai".to_string(),
-                    "http://0.0.0.0:8080/mesh".to_string(),
+                    format!("{}/metrics", base_url),
+                    format!("{}/admin", base_url),
+                    format!("{}/mcp", base_url),
+                    format!("{}/ai", base_url),
+                    format!("{}/mesh", base_url),
                 ],
-                health: Some("http://0.0.0.0:8080/health".to_string()),
+                health: Some(format!("{}/health", base_url)),
             },
             capabilities: crate::ecosystem::ServiceCapabilities {
                 core: vec![
@@ -128,8 +136,7 @@ impl SquirrelPrimalProvider {
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
         info!(
             "EcosystemManager deregistering from Songbird at {}: {}",
-            &self.config.songbird_endpoint,
-            service_id
+            &self.config.songbird_endpoint, service_id
         );
         info!("Successfully deregistered from Songbird via EcosystemManager");
 
@@ -153,6 +160,8 @@ impl SquirrelPrimalProvider {
             crate::universal::SecurityLevel::Advanced => true,
             crate::universal::SecurityLevel::Internal => true,
             crate::universal::SecurityLevel::Administrative => true,
+            crate::universal::SecurityLevel::Enhanced => true, // Add missing variant
+            crate::universal::SecurityLevel::Custom(_) => true, // Add missing variant
         }
     }
 
@@ -160,15 +169,17 @@ impl SquirrelPrimalProvider {
     pub fn dynamic_port_info(&self) -> Option<crate::universal::DynamicPortInfo> {
         let now = chrono::Utc::now();
         Some(crate::universal::DynamicPortInfo {
+            port: 8080,
             assigned_port: 8080,
             current_port: 8080,
-            port_range: (8080, 8090),
+            port_range: Some((8080, 8090)),
             port_type: crate::universal::PortType::Http,
             status: crate::universal::PortStatus::Active,
             assigned_at: now,
             allocated_at: now,
-            lease_duration: chrono::Duration::hours(1),
+            lease_duration: Some(chrono::Duration::hours(1)),
             expires_at: Some(now + chrono::Duration::hours(1)),
+            metadata: std::collections::HashMap::new(),
         })
     }
 
@@ -250,6 +261,7 @@ impl SquirrelPrimalProvider {
             metadata: std::collections::HashMap::new(),
             success: true,
             error_message: None,
+            timestamp: chrono::Utc::now(),
         })
     }
 

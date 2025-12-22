@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use uuid::Uuid;
 
 /// Legacy Plugin metadata - DEPRECATED
-/// 
+///
 /// Use `squirrel_interfaces::plugins::PluginMetadata` instead.
 /// This will be removed in a future version.
 #[deprecated(
@@ -113,6 +113,7 @@ impl PluginStatus {
 
     /// Convert the status to a string
     #[must_use]
+    #[allow(dead_code)] // Utility method for status string conversion
     pub fn to_string(&self) -> String {
         match self {
             Self::Registered => "registered".to_string(),
@@ -130,7 +131,7 @@ impl Default for PluginStatus {
 }
 
 /// Legacy Plugin trait, will be deprecated in favor of IPlugin
-/// 
+///
 /// NOTE: This trait uses `async_trait` because it is used as a trait object (`dyn Plugin`)
 /// throughout the codebase. Native async traits are not compatible with trait objects.
 /// This is a legitimate use case for keeping `async_trait` - see Phase 4 migration notes.
@@ -169,6 +170,7 @@ pub struct WebEndpoint {
 }
 
 /// Web plugin extension trait
+#[allow(dead_code)] // Reserved for future web plugin system
 #[async_trait]
 pub trait WebPluginExt: Plugin {
     /// Get the endpoints provided by this plugin

@@ -8,15 +8,15 @@ pub enum HandlerError {
     /// Handler not found
     #[error("Handler not found: {0}")]
     NotFound(String),
-    
+
     /// Handler execution failed
     #[error("Handler execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     /// Invalid handler configuration
     #[error("Invalid handler config: {0}")]
     InvalidConfig(String),
-    
+
     /// Handler timeout
     #[error("Handler timeout: {0}")]
     Timeout(String),

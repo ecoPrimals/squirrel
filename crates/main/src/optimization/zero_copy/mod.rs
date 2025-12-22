@@ -62,6 +62,7 @@
 //! All utilities are designed for concurrent access with appropriate synchronization.
 //! Arc-based sharing enables lock-free read operations in most cases.
 
+pub mod arc_str;
 pub mod buffer_utils;
 pub mod collection_utils;
 pub mod message_utils;
@@ -73,6 +74,7 @@ pub mod string_utils;
 // mod tests;
 
 // Re-export commonly used types for convenience
+pub use arc_str::ArcStr;
 pub use buffer_utils::{BufferPool, SharedBuffer};
 pub use collection_utils::{ZeroCopyMap, ZeroCopySet};
 pub use message_utils::ZeroCopyMessage;

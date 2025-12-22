@@ -8,10 +8,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::ServiceInfo;
-use super::{
-    ServiceCapability, ServiceMatcher, UniversalRequest,
-    UniversalServiceRegistry,
-};
+use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Storage Adapter - works with any storage primal
@@ -49,11 +46,10 @@ impl UniversalStorageAdapter {
             self.preferred_storage_service = Some(self.discover_storage_service().await?);
         }
 
-        let storage_service = self.preferred_storage_service.as_ref()
-            .ok_or_else(|| {
-                error!("No storage service available - adapter initialization failed");
-                PrimalError::ResourceNotFound("No storage service available".to_string())
-            })?;
+        let storage_service = self.preferred_storage_service.as_ref().ok_or_else(|| {
+            error!("No storage service available - adapter initialization failed");
+            PrimalError::ResourceNotFound("No storage service available".to_string())
+        })?;
 
         // Create universal storage request
         let request_params = HashMap::from([

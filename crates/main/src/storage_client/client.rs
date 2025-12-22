@@ -78,10 +78,11 @@ impl UniversalStorageClient {
 
         let storage_capabilities = vec![
             PrimalCapability::ObjectStorage {
+                storage_types: vec!["s3".to_string(), "blob".to_string()],
                 backends: vec!["universal".to_string()],
             },
             PrimalCapability::FileSystem {
-                supports_zfs: false,
+                fs_types: vec!["ext4".to_string(), "xfs".to_string()],
             },
         ];
 
@@ -244,10 +245,12 @@ impl UniversalStorageClient {
     ) -> UniversalResult<UniversalStorageResponse> {
         let success = response.success;
         let data = if success {
-            response.data.get("data").and_then(|v| {
-                general_purpose::STANDARD
-                    .decode(v.as_str().unwrap_or(""))
-                    .ok()
+            response.data.as_ref().and_then(|data| {
+                data.get("data").and_then(|v| {
+                    general_purpose::STANDARD
+                        .decode(v.as_str().unwrap_or(""))
+                        .ok()
+                })
             })
         } else {
             None
@@ -260,7 +263,7 @@ impl UniversalStorageClient {
             metadata: request.metadata.clone(),
             provider_id: provider.provider_id.clone(),
             performance: PerformanceMetrics {
-                latency_ms: response.duration.num_milliseconds() as f64,
+                latency_ms: response.processing_time_ms.unwrap_or(100) as f64,
                 throughput_mbps: 100.0, // Calculate based on data size and duration
                 provider_health: provider.health.health_score,
                 estimated_cost: 0.01, // Calculate based on operation and data size
@@ -540,12 +543,14 @@ impl UniversalStorageClient {
             "cost_reduction_pct": 30.0
         });
 
+        let optimizations_count = optimization_result["optimizations_applied"]
+            .as_array()
+            .map(|arr| arr.len())
+            .unwrap_or(0);
+
         info!(
             "Storage request optimized: {} optimizations applied, 30.0% cost reduction",
-            optimization_result["optimizations_applied"]
-                .as_array()
-                .unwrap()
-                .len()
+            optimizations_count
         );
 
         Ok(optimization_result)

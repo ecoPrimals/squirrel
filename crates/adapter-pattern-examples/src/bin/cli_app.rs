@@ -1,3 +1,8 @@
+// CLI Application Example
+//!
+//! This example demonstrates a complete command-line application built using the adapter pattern,
+//! featuring authentication, role-based access control, and interactive command execution.
+
 use adapter_pattern_examples::{
     Auth, Command, CommandAdapter, CommandError, CommandResult, McpAdapter, RegistryAdapter,
     UserRole,
@@ -300,9 +305,7 @@ impl CliApp {
                 Auth::User(username, password) => {
                     // Try to authenticate
                     // We'll implement a simple check here
-                    if (username == "user" && password == "password")
-                        || (username == "admin" && password == "password")
-                    {
+                    if (username == "admin" || username == "user") && password == "password" {
                         // User is authenticated, execute the command
                         return self.registry_adapter.execute_command(command, args).await;
                     } else {

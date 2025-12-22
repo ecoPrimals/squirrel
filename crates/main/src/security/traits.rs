@@ -16,7 +16,10 @@ pub trait SecurityCoordinator: Send + Sync {
     ) -> impl std::future::Future<Output = Result<SecurityResponse, PrimalError>> + Send;
 
     /// Authenticate via BearDog
-    fn authenticate_with_beardog(&mut self, user_id: &str) -> impl std::future::Future<Output = Result<String, PrimalError>> + Send;
+    fn authenticate_with_beardog(
+        &mut self,
+        user_id: &str,
+    ) -> impl std::future::Future<Output = Result<String, PrimalError>> + Send;
 
     /// Check if request requires BearDog coordination
     fn requires_beardog_security(&self, request_type: &super::types::SecurityRequestType) -> bool;

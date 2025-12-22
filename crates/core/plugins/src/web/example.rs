@@ -31,6 +31,7 @@ pub struct ExampleWebPlugin {
 }
 
 /// Example data
+#[allow(dead_code)] // Reserved for example plugin data structures
 #[derive(Clone, Debug)]
 struct ExampleData {
     /// Example ID
@@ -41,6 +42,12 @@ struct ExampleData {
     description: String,
     /// Example status
     active: bool,
+}
+
+impl Default for ExampleWebPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ExampleWebPlugin {
@@ -204,6 +211,7 @@ impl ExampleWebPlugin {
     }
 
     /// Handle GET /api/examples/{id}/details request
+    #[allow(dead_code)] // Reserved for example plugin endpoint handlers
     async fn handle_get_example_details(&self, id: &str) -> Result<WebResponse> {
         let data = self.data.read().await;
 
@@ -230,6 +238,7 @@ impl ExampleWebPlugin {
     }
 
     /// Handle POST /api/examples/{id}/activate request
+    #[allow(dead_code)] // Reserved for example plugin endpoint handlers
     async fn handle_activate_example(&self, id: &str) -> Result<WebResponse> {
         let mut data = self.data.write().await;
 

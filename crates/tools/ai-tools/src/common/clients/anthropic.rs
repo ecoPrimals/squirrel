@@ -188,9 +188,12 @@ impl AIClient for AnthropicClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| AIToolsError::Network(
-                format!("Failed to reach Anthropic API: {}. Check network connectivity and endpoint.", e)
-            ))?;
+            .map_err(|e| {
+                AIToolsError::Network(format!(
+                    "Failed to reach Anthropic API: {}. Check network connectivity and endpoint.",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -198,15 +201,16 @@ impl AIClient for AnthropicClient {
             return Err(AIToolsError::Api(format!(
                 "Anthropic API error (status {}): {}. Verify API key at console.anthropic.com.",
                 status, error_text
-            )).into());
+            ))
+            .into());
         }
 
-        let response_json: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| AIToolsError::Parse(
-                format!("Failed to parse Anthropic response: {}. Response may be malformed.", e)
-            ))?;
+        let response_json: serde_json::Value = response.json().await.map_err(|e| {
+            AIToolsError::Parse(format!(
+                "Failed to parse Anthropic response: {}. Response may be malformed.",
+                e
+            ))
+        })?;
 
         self.parse_response(response_json)
     }

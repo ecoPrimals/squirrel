@@ -28,6 +28,7 @@ pub struct PluginManager {
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
     /// Dependency resolver for proper plugin initialization order
+    #[allow(dead_code)] // Reserved for dependency resolution system
     dependency_resolver: RwLock<DependencyResolver>,
 }
 
@@ -154,8 +155,8 @@ impl PluginRegistry for PluginManager {
 
     async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {
         let mut statuses = self.statuses.write().await;
-        if statuses.contains_key(&id) {
-            statuses.insert(id, status);
+        if let std::collections::hash_map::Entry::Occupied(mut e) = statuses.entry(id) {
+            e.insert(status);
             Ok(())
         } else {
             Err(PluginError::PluginNotFound(id.to_string()))

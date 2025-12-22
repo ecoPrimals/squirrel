@@ -93,11 +93,18 @@ pub struct ZeroCopyPrincipal {
     pub metadata: Arc<HashMap<String, String>>,
 }
 
+/// Type of security principal in the system
+///
+/// Determines authentication requirements and permission scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrincipalType {
+    /// Human user with individual account
     User,
+    /// Service account for system-to-system communication
     Service,
+    /// System-level principal with elevated privileges
     System,
+    /// Unauthenticated principal with minimal permissions
     Anonymous,
 }
 
@@ -331,10 +338,16 @@ pub struct PrincipalCache {
     stats: Arc<tokio::sync::RwLock<CacheStats>>,
 }
 
+/// Principal cache performance statistics
+///
+/// Tracks cache hit rate and eviction patterns for optimization.
 #[derive(Debug, Default)]
 pub struct CacheStats {
+    /// Number of successful cache hits
     pub hits: u64,
+    /// Number of cache misses requiring full lookup
     pub misses: u64,
+    /// Number of principals evicted from cache
     pub evictions: u64,
 }
 

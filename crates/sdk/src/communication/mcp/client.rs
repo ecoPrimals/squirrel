@@ -179,7 +179,7 @@ impl<'de> Deserialize<'de> for ProcessingStrategy {
 }
 
 #[cfg(feature = "config")]
-use squirrel_mcp_config::unified::SquirrelUnifiedConfig;  // Migrated from deprecated Config type (ADR-008)
+use squirrel_mcp_config::unified::SquirrelUnifiedConfig; // Migrated from deprecated Config type (ADR-008)
 
 #[cfg(feature = "config")]
 impl From<&SquirrelUnifiedConfig> for McpClientConfig {

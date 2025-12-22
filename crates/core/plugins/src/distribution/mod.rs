@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-use crate::plugin::PluginMetadata;
+use squirrel_interfaces::plugins::PluginMetadata;
 
 /// Plugin package metadata
 #[derive(Clone, Debug, Serialize, Deserialize)]

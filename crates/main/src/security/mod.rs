@@ -1,5 +1,5 @@
 //! # Production Security System
-//! 
+//!
 //! This module provides comprehensive enterprise-grade security including:
 //! - Authentication and authorization with BearDog integration
 //! - Rate limiting and DoS protection
@@ -22,38 +22,37 @@ pub mod types;
 
 // Re-export core types and components
 pub use beardog_coordinator::BeardogSecurityCoordinator;
-pub use config::{SecurityProviderConfig, AuthMethod, RetryConfig};
+pub use config::{AuthMethod, RetryConfig, SecurityProviderConfig};
 pub use input_validator::{
-    ProductionInputValidator, InputValidationConfig, ValidationResult, 
-    SecurityViolation, InputType, RiskLevel as InputRiskLevel
+    InputType, InputValidationConfig, ProductionInputValidator, RiskLevel as InputRiskLevel,
+    SecurityViolation, ValidationResult,
 };
 pub use monitoring::{
-    SecurityMonitoringSystem, SecurityMonitoringConfig, SecurityEvent, 
-    SecurityEventType, EventSeverity, SecurityAlert, AlertType
+    AlertType, EventSeverity, SecurityAlert, SecurityEvent, SecurityEventType,
+    SecurityMonitoringConfig, SecurityMonitoringSystem,
 };
 pub use orchestrator::{
-    SecurityOrchestrator, SecurityOrchestrationConfig, SecurityCheckRequest,
-    SecurityCheckResult, SecurityResponse, ResponseType, RiskLevel
+    ResponseType, RiskLevel, SecurityCheckRequest, SecurityCheckResult,
+    SecurityOrchestrationConfig, SecurityOrchestrator, SecurityResponse,
 };
-pub use policy::{SecurityPolicy, PolicyType, PolicyRule};
+pub use policy::{PolicyRule, PolicyType, SecurityPolicy};
 pub use rate_limiter::{
-    ProductionRateLimiter, RateLimitConfig, RateLimitResult, EndpointType,
-    RateLimitStatistics
+    EndpointType, ProductionRateLimiter, RateLimitConfig, RateLimitResult, RateLimitStatistics,
 };
 pub use session::SecuritySession;
 pub use traits::SecurityCoordinator;
 pub use types::{
-    SecurityCapability, SecurityLevel, SecurityContext, SecurityRequest,
-    SecurityRequestType, SecurityResponse as SecurityApiResponse, AuthorizationLevel
+    AuthorizationLevel, SecurityCapability, SecurityContext, SecurityLevel, SecurityRequest,
+    SecurityRequestType, SecurityResponse as SecurityApiResponse,
 };
 
 /// Convenience re-exports from core auth system
 pub use squirrel_mcp_auth::{
-    AuthContext, AuthError, LoginRequest, LoginResponse, Permission, Session, User
+    AuthContext, AuthError, LoginRequest, LoginResponse, Permission, Session, User,
 };
 
-use std::sync::Arc;
 use crate::error::PrimalError;
+use std::sync::Arc;
 
 /// Complete security system factory
 pub struct SecuritySystemBuilder {
@@ -69,31 +68,31 @@ impl SecuritySystemBuilder {
             enable_beardog_integration: false,
         }
     }
-    
+
     /// Configure the security orchestration system
     pub fn with_orchestration_config(mut self, config: SecurityOrchestrationConfig) -> Self {
         self.orchestration_config = Some(config);
         self
     }
-    
+
     /// Enable BearDog security integration
     pub fn with_beardog_integration(mut self, enable: bool) -> Self {
         self.enable_beardog_integration = enable;
         self
     }
-    
+
     /// Build the complete security system
     pub async fn build(self) -> Result<Arc<SecurityOrchestrator>, PrimalError> {
         let config = self.orchestration_config.unwrap_or_default();
-        
+
         let orchestrator = SecurityOrchestrator::new(config).await?;
-        
+
         tracing::info!(
             beardog_integration = self.enable_beardog_integration,
             operation = "security_system_built",
             "Production security system initialized successfully"
         );
-        
+
         Ok(Arc::new(orchestrator))
     }
 }
@@ -114,28 +113,28 @@ impl ProductionSecuritySystem {
     /// Create a new production security system
     pub async fn new(config: SecurityOrchestrationConfig) -> Result<Self, PrimalError> {
         let orchestrator = SecurityOrchestrator::new(config).await?;
-        
+
         Ok(Self {
             orchestrator: Arc::new(orchestrator),
             beardog_coordinator: None,
         })
     }
-    
+
     /// Get the security orchestrator
     pub fn orchestrator(&self) -> Arc<SecurityOrchestrator> {
         Arc::clone(&self.orchestrator)
     }
-    
+
     /// Get BearDog coordinator if available
     pub fn beardog_coordinator(&self) -> Option<Arc<BeardogSecurityCoordinator>> {
         self.beardog_coordinator.clone()
     }
-    
+
     /// Perform comprehensive security check
     pub async fn check_security(&self, request: SecurityCheckRequest) -> SecurityCheckResult {
         self.orchestrator.check_security(request).await
     }
-    
+
     /// Get comprehensive security statistics
     pub async fn get_security_statistics(&self) -> orchestrator::SecurityStatistics {
         self.orchestrator.get_security_statistics().await

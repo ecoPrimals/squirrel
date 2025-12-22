@@ -1,0 +1,54 @@
+# Squirrel Development Configuration
+# Generated: November 14, 2025
+# Purpose: Development environment overrides
+
+[network]
+default_host = "127.0.0.1"
+default_port = 8080
+health_check_port = 8081
+metrics_port = 9090
+
+[service_discovery]
+registry_url = "http://localhost:8500"
+consul_address = "127.0.0.1:8500"
+etcd_endpoints = ["http://localhost:2379"]
+
+[database]
+host = "localhost"
+port = 5432
+database = "squirrel_dev"
+max_connections = 10
+
+[mcp]
+server_host = "127.0.0.1"
+server_port = 3000
+websocket_port = 3001
+max_connections = 100
+
+[ai_tools]
+anthropic_url = "https://api.anthropic.com"
+openai_url = "https://api.openai.com"
+ollama_url = "http://localhost:11434"
+
+[observability]
+jaeger_endpoint = "http://localhost:14268"
+prometheus_port = 9090
+grafana_port = 3000
+
+[security]
+beardog_url = "http://localhost:8443"
+auth_timeout_secs = 60
+session_timeout_secs = 3600
+
+[limits]
+max_request_size_bytes = 10485760
+max_response_size_bytes = 52428800
+request_timeout_secs = 60
+connection_timeout_secs = 10
+
+[features]
+enable_chaos_testing = true
+enable_experimental_features = true
+enable_telemetry = true
+enable_metrics = true
+

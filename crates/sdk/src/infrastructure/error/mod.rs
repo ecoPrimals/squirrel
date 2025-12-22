@@ -89,7 +89,7 @@ pub use self::core::PluginResult as Result;
 /// Utility module for retry logic with exponential backoff
 pub mod retry {
     use std::fmt::Debug;
-    
+
     /// Configuration for retry logic (SDK-specific, lightweight)
     #[derive(Debug, Clone)]
     pub struct RetryConfig {
@@ -98,7 +98,7 @@ pub mod retry {
         pub backoff_multiplier: f64,
         pub max_delay: u64,
     }
-    
+
     impl Default for RetryConfig {
         fn default() -> Self {
             Self {

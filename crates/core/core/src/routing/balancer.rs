@@ -329,7 +329,7 @@ impl LoadBalancer {
     }
 
     /// Acquire a permit for concurrent execution
-    pub async fn acquire_permit(&self) -> tokio::sync::SemaphorePermit {
+    pub async fn acquire_permit(&'_ self) -> tokio::sync::SemaphorePermit {
         self.semaphore
             .acquire()
             .await

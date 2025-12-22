@@ -286,27 +286,26 @@ pub fn validate_required_env_vars(required_vars: &[&str]) -> Result<(), Vec<Stri
 /// ```
 pub fn validate_environment_requirements() -> Result<(), String> {
     let env = get_environment();
-    
+
     match env {
         Environment::Production => {
             // Production requires security configuration
-            let required = vec![
-                "SQUIRREL_JWT_SECRET",
-                "DATABASE_URL",
-            ];
-            
-            validate_required_env_vars(&required)
-                .map_err(|missing| {
-                    format!(
-                        "Production environment requires these variables: {}",
-                        missing.join(", ")
-                    )
-                })?;
-            
+            let required = vec!["SQUIRREL_JWT_SECRET", "DATABASE_URL"];
+
+            validate_required_env_vars(&required).map_err(|missing| {
+                format!(
+                    "Production environment requires these variables: {}",
+                    missing.join(", ")
+                )
+            })?;
+
             // Validate JWT secret length
             if let Ok(secret) = env::var("SQUIRREL_JWT_SECRET") {
                 if secret.len() < 32 {
-                    return Err("SQUIRREL_JWT_SECRET must be at least 32 characters in production".to_string());
+                    return Err(
+                        "SQUIRREL_JWT_SECRET must be at least 32 characters in production"
+                            .to_string(),
+                    );
                 }
             }
         }
@@ -319,21 +318,32 @@ pub fn validate_environment_requirements() -> Result<(), String> {
             // Development and testing are more lenient
         }
     }
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_get_environment() {
+        // Save original value
+        let original = env::var("MCP_ENV").ok();
+
         env::set_var("MCP_ENV", "development");
         assert_eq!(get_environment(), Environment::Development);
 
         env::set_var("MCP_ENV", "production");
         assert_eq!(get_environment(), Environment::Production);
+
+        // Restore original or remove
+        match original {
+            Some(val) => env::set_var("MCP_ENV", val),
+            None => env::remove_var("MCP_ENV"),
+        }
     }
 
     #[test]
@@ -356,40 +366,62 @@ mod tests {
     #[test]
     fn test_get_env_bool() {
         env::set_var("TEST_ENABLED", "true");
-        assert_eq!(get_env_bool("TEST_ENABLED", false), true);
+        assert!(get_env_bool("TEST_ENABLED", false));
 
         env::set_var("TEST_ENABLED", "1");
-        assert_eq!(get_env_bool("TEST_ENABLED", false), true);
+        assert!(get_env_bool("TEST_ENABLED", false));
 
         env::set_var("TEST_ENABLED", "false");
-        assert_eq!(get_env_bool("TEST_ENABLED", true), false);
+        assert!(!get_env_bool("TEST_ENABLED", true));
 
-        assert_eq!(get_env_bool("NONEXISTENT", true), true);
+        assert!(get_env_bool("NONEXISTENT", true));
     }
 
     #[test]
+    #[serial]
     fn test_get_env_aware_default() {
+        // Save original value
+        let original = env::var("MCP_ENV").ok();
+
         env::set_var("MCP_ENV", "development");
         assert_eq!(get_env_aware_default(1, 2, 3, 4), 1);
 
         env::set_var("MCP_ENV", "production");
         assert_eq!(get_env_aware_default(1, 2, 3, 4), 4);
+
+        // Restore original or remove
+        match original {
+            Some(val) => env::set_var("MCP_ENV", val),
+            None => env::remove_var("MCP_ENV"),
+        }
     }
 
     #[test]
+    #[serial]
     fn test_is_environment() {
+        // Use serial_test or cleanup to avoid race conditions
         env::set_var("MCP_ENV", "production");
         assert!(is_environment(Environment::Production));
         assert!(!is_environment(Environment::Development));
+
+        // Cleanup
+        env::remove_var("MCP_ENV");
     }
 
     #[test]
     fn test_validate_required_env_vars() {
-        env::set_var("REQUIRED_VAR_1", "value1");
-        env::set_var("REQUIRED_VAR_2", "value2");
+        // Use unique var names to avoid conflicts with other tests
+        let var1 = format!("REQUIRED_VAR_1_{}", std::process::id());
+        let var2 = format!("REQUIRED_VAR_2_{}", std::process::id());
 
-        assert!(validate_required_env_vars(&["REQUIRED_VAR_1", "REQUIRED_VAR_2"]).is_ok());
-        assert!(validate_required_env_vars(&["REQUIRED_VAR_1", "NONEXISTENT"]).is_err());
+        env::set_var(&var1, "value1");
+        env::set_var(&var2, "value2");
+
+        assert!(validate_required_env_vars(&[&var1, &var2]).is_ok());
+        assert!(validate_required_env_vars(&[&var1, "NONEXISTENT_VAR_UNIQUE"]).is_err());
+
+        // Cleanup
+        env::remove_var(&var1);
+        env::remove_var(&var2);
     }
 }
-

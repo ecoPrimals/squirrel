@@ -13,7 +13,7 @@ use std::time::Duration;
 use tracing::warn;
 
 use crate::error::PrimalError;
-use squirrel_mcp_config::ConfigLoader;  // Migrated from deprecated DefaultConfigManager (ADR-008)
+// Migrated from deprecated DefaultConfigManager (ADR-008)
 
 // Constants to reduce string allocations
 const PRIMAL_TYPE: &str = "squirrel";
@@ -416,15 +416,21 @@ impl SquirrelBiomeOSIntegration {
         // Start AI intelligence background task
         let ai_intelligence = self.ai_intelligence.clone();
         tokio::spawn(async move {
+            // Evolution: Use interval ticker instead of loop+sleep
+            let interval_secs = std::env::var("AI_INTELLIGENCE_INTERVAL_SECS")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(30);
+
+            let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
             loop {
+                ticker.tick().await;
+
                 if let Err(e) = ai_intelligence.provide_ecosystem_intelligence().await {
                     warn!("AI intelligence error: {}", e);
                 }
-                let interval = std::env::var("AI_INTELLIGENCE_INTERVAL_SECS")
-                    .ok()
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or(30);
-                tokio::time::sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -436,15 +442,21 @@ impl SquirrelBiomeOSIntegration {
         // Start MCP coordination background task
         let mcp_integration = self.mcp_integration.clone();
         tokio::spawn(async move {
+            // Evolution: Use interval ticker instead of loop+sleep
+            let interval_secs = std::env::var("MCP_COORDINATION_INTERVAL_SECS")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(45);
+
+            let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
             loop {
+                ticker.tick().await;
+
                 if let Err(e) = mcp_integration.coordinate_with_ecosystem().await {
                     warn!("MCP coordination error: {}", e);
                 }
-                let interval = std::env::var("MCP_COORDINATION_INTERVAL_SECS")
-                    .ok()
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or(45);
-                tokio::time::sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -456,15 +468,21 @@ impl SquirrelBiomeOSIntegration {
         // Start context management background task
         let context_state = self.context_state.clone();
         tokio::spawn(async move {
+            // Evolution: Use interval ticker instead of loop+sleep
+            let interval_secs = std::env::var("CONTEXT_MANAGEMENT_INTERVAL_SECS")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(45);
+
+            let mut ticker = tokio::time::interval(Duration::from_secs(interval_secs));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
             loop {
+                ticker.tick().await;
+
                 if let Err(e) = context_state.manage_ecosystem_context().await {
                     warn!("Context management error: {}", e);
                 }
-                let interval = std::env::var("CONTEXT_MANAGEMENT_INTERVAL_SECS")
-                    .ok()
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or(45);
-                tokio::time::sleep(Duration::from_secs(interval)).await;
             }
         });
 
@@ -665,9 +683,17 @@ impl Default for EcosystemEndpoints {
     fn default() -> Self {
         Self {
             ai_api: std::env::var("BIOMEOS_AI_API")
-                .unwrap_or_else(|_| "http://localhost:5000/ai".to_string()),
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/ai", e)))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
+                    format!("http://localhost:{}/ai", port)
+                }),
             mcp_api: std::env::var("BIOMEOS_MCP_API")
-                .unwrap_or_else(|_| "http://localhost:5000/mcp".to_string()),
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/mcp", e)))
+                .unwrap_or_else(|_| {
+                    let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
+                    format!("http://localhost:{}/mcp", port)
+                }),
             context_api: std::env::var("BIOMEOS_CONTEXT_API")
                 .unwrap_or_else(|_| "http://localhost:5000/context".to_string()),
             health: std::env::var("BIOMEOS_HEALTH_API")

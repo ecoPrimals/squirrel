@@ -113,7 +113,7 @@ impl SecuritySession {
 
     /// Extend session expiry
     pub fn extend_expiry(&mut self, duration: chrono::Duration) {
-        self.expires_at = self.expires_at + duration;
+        self.expires_at += duration;
     }
 
     /// Check if session has required authorization level

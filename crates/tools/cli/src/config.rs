@@ -560,7 +560,7 @@ mod tests {
         let config = CliConfig::default();
         assert_eq!(config.log_level, "info");
         assert_eq!(config.output_format, "text");
-        assert_eq!(config.mcp_host, "localhost");
+        assert_eq!(config.mcp_host, "127.0.0.1"); // Updated to match DEFAULT_HOST constant
         assert_eq!(config.mcp_port, 9000);
         assert!(!config.verbose);
         assert!(!config.quiet);

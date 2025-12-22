@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use crate::infrastructure::error::PluginResult;
+use crate::infrastructure::error::{PluginError, PluginResult};
 use crate::utils::{current_timestamp_iso, generate_listener_id, safe_lock};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
@@ -213,10 +213,12 @@ impl EventBus {
 
             // Check if a listener was actually removed
             if event_listeners.len() == original_len {
-                return Err(crate::infrastructure::error::PluginError::EventHandlingError {
-                    event_type: event_type.to_string(),
-                    message: format!("Listener with ID '{}' not found", listener_id),
-                });
+                return Err(
+                    crate::infrastructure::error::PluginError::EventHandlingError {
+                        event_type: event_type.to_string(),
+                        message: format!("Listener with ID '{}' not found", listener_id),
+                    },
+                );
             }
 
             // If no listeners remain for this event type, remove the entry entirely
@@ -224,10 +226,12 @@ impl EventBus {
                 listeners.remove(event_type);
             }
         } else {
-            return Err(crate::infrastructure::error::PluginError::EventHandlingError {
-                event_type: event_type.to_string(),
-                message: format!("Event listeners for type '{}' not found", event_type),
-            });
+            return Err(
+                crate::infrastructure::error::PluginError::EventHandlingError {
+                    event_type: event_type.to_string(),
+                    message: format!("Event listeners for type '{}' not found", event_type),
+                },
+            );
         }
 
         Ok(())
@@ -317,7 +321,7 @@ mod tests {
         fn handle_event(
             &self,
             event: Event,
-        ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>> {
+        ) -> Pin<Box<dyn Future<Output = Result<(), PluginError>> + Send + '_>> {
             async move {
                 let mut events = self.received_events.lock().await;
                 events.push(event);

@@ -211,7 +211,15 @@ impl SongbirdCoordinator {
                 "session_management",
                 "mcp_protocol"
             ],
-            "endpoint": format!("http://localhost:8080/ai-coordinator/{}", self.instance_id),
+            "endpoint": format!("{}/ai-coordinator/{}",
+                std::env::var("AI_COORDINATOR_ENDPOINT")
+                    .unwrap_or_else(|_| {
+                        let port = std::env::var("AI_COORDINATOR_PORT")
+                            .unwrap_or_else(|_| "8080".to_string());
+                        format!("http://localhost:{}", port)
+                    }),
+                self.instance_id
+            ),
             "metadata": {
                 "coordinator_instance": self.instance_id,
                 "ai_first_score": "85",
@@ -512,17 +520,16 @@ impl Default for SongbirdConfig {
 
         Self {
             songbird_endpoint: std::env::var("SONGBIRD_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+                .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
+                .unwrap_or_else(|_| {
+                    let port =
+                        std::env::var("SONGBIRD_PORT").unwrap_or_else(|_| "8500".to_string());
+                    format!("http://localhost:{}", port)
+                }),
             heartbeat_interval: Duration::from_secs(heartbeat_interval_secs),
             coordination_timeout: Duration::from_secs(coordination_timeout_secs),
             max_retries,
         }
-    }
-}
-
-impl Default for SongbirdCoordinator {
-    fn default() -> Self {
-        Self::new(EcosystemConfig::default()).unwrap()
     }
 }
 

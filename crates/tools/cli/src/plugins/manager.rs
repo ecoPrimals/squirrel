@@ -77,8 +77,7 @@ impl PluginManager {
             .insert(name.clone(), PluginState::Created);
 
         // Safe: We just inserted the plugin, so it must exist
-        self
-            .plugins
+        self.plugins
             .get(&name)
             .ok_or_else(|| PluginError::plugin_not_found(&name))
     }
@@ -480,6 +479,7 @@ impl PluginManager {
     }
 
     /// Create a test plugin instance for testing
+    #[allow(dead_code)] // Test helper for plugin system validation
     fn create_test_plugin(
         &self,
         name: String,

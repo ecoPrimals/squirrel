@@ -229,9 +229,12 @@ impl AIClient for OpenAIClient {
             .json(&payload)
             .send()
             .await
-            .map_err(|e| AIToolsError::Network(
-                format!("Failed to reach OpenAI API: {}. Check network connectivity and endpoint.", e)
-            ))?;
+            .map_err(|e| {
+                AIToolsError::Network(format!(
+                    "Failed to reach OpenAI API: {}. Check network connectivity and endpoint.",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -239,15 +242,16 @@ impl AIClient for OpenAIClient {
             return Err(AIToolsError::Api(format!(
                 "OpenAI API error (status {}): {}. Verify API key at platform.openai.com.",
                 status, error_text
-            )).into());
+            ))
+            .into());
         }
 
-        let response_json: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| AIToolsError::Parse(
-                format!("Failed to parse OpenAI response: {}. Response may be malformed.", e)
-            ))?;
+        let response_json: serde_json::Value = response.json().await.map_err(|e| {
+            AIToolsError::Parse(format!(
+                "Failed to parse OpenAI response: {}. Response may be malformed.",
+                e
+            ))
+        })?;
 
         self.parse_response(response_json)
     }
@@ -261,9 +265,12 @@ impl AIClient for OpenAIClient {
             .header("Authorization", self.auth_header())
             .send()
             .await
-            .map_err(|e| AIToolsError::Network(
-                format!("Failed to fetch OpenAI models: {}. Check network connectivity.", e)
-            ))?;
+            .map_err(|e| {
+                AIToolsError::Network(format!(
+                    "Failed to fetch OpenAI models: {}. Check network connectivity.",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -273,18 +280,21 @@ impl AIClient for OpenAIClient {
             )).into());
         }
 
-        let response_json: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| AIToolsError::Parse(
-                format!("Failed to parse OpenAI models response: {}. Response may be malformed.", e)
-            ))?;
+        let response_json: serde_json::Value = response.json().await.map_err(|e| {
+            AIToolsError::Parse(format!(
+                "Failed to parse OpenAI models response: {}. Response may be malformed.",
+                e
+            ))
+        })?;
 
         let models = response_json["data"]
             .as_array()
-            .ok_or_else(|| AIToolsError::InvalidResponse(
-                "OpenAI models response missing 'data' array. API may have changed format.".to_string()
-            ))?
+            .ok_or_else(|| {
+                AIToolsError::InvalidResponse(
+                    "OpenAI models response missing 'data' array. API may have changed format."
+                        .to_string(),
+                )
+            })?
             .iter()
             .filter_map(|model| model["id"].as_str().map(|s| s.to_string()))
             .collect();

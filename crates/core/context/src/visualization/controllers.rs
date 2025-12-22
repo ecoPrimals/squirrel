@@ -11,6 +11,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct ContextController {
     /// Configuration
+    #[allow(dead_code)] // Reserved for controller configuration
     config: Arc<VisualizationSystemConfig>,
 }
 

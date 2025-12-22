@@ -453,6 +453,7 @@ struct AgentsResponse {
     average_response_time: f64,
 }
 
+#[allow(dead_code)] // Reserved for agent registration system
 #[derive(Debug, Serialize, Deserialize)]
 struct AgentInfo {
     id: String,
@@ -535,6 +536,7 @@ struct ShutdownResponse {
 // Request types
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // API type for future MCP task routing
 struct McpTaskRequest {
     task_id: Option<String>,
     agent_id: String,

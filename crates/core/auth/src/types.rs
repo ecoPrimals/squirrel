@@ -3,9 +3,9 @@
 //! Supports both standalone operation and capability-based beardog integration
 //! through the universal adapter pattern.
 
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc, Duration};
 
 /// Authentication request for login operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,9 +133,7 @@ impl Permission {
 
     /// Check if this permission matches another permission
     pub fn matches(&self, other: &Permission) -> bool {
-        self.resource == other.resource
-            && self.action == other.action
-            && self.scope == other.scope
+        self.resource == other.resource && self.action == other.action && self.scope == other.scope
     }
 }
 
@@ -254,11 +252,7 @@ pub struct Session {
 
 impl Session {
     /// Create a new session
-    pub fn new(
-        user_id: Uuid,
-        duration: Duration,
-        auth_provider: AuthProvider,
-    ) -> Self {
+    pub fn new(user_id: Uuid, duration: Duration, auth_provider: AuthProvider) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
@@ -286,4 +280,3 @@ impl Session {
         self.is_active = false;
     }
 }
-

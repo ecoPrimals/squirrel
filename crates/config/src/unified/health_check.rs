@@ -48,19 +48,19 @@ use std::time::Duration;
 pub struct HealthCheckConfig {
     /// Enable health checks
     pub enabled: bool,
-    
+
     /// Interval between health checks
     pub interval: Duration,
-    
+
     /// Timeout for health check operations
     pub timeout: Duration,
-    
+
     /// Number of consecutive failures before marking unhealthy
     ///
     /// Health state transitions from healthy → unhealthy after this many
     /// consecutive check failures.
     pub failure_threshold: u32,
-    
+
     /// Number of consecutive successes before marking healthy
     ///
     /// Health state transitions from unhealthy → healthy after this many
@@ -68,7 +68,7 @@ pub struct HealthCheckConfig {
     ///
     /// Also known as `success_threshold` in some subsystems - functionally equivalent.
     pub recovery_threshold: u32,
-    
+
     /// Automatically trigger recovery actions on health failures
     ///
     /// Evolutionary feature: Used by resilience subsystem to enable automatic
@@ -77,7 +77,7 @@ pub struct HealthCheckConfig {
     /// Future: All subsystems may adopt automatic recovery capabilities.
     #[serde(default)]
     pub auto_recovery: Option<bool>,
-    
+
     /// Grace period after system startup before health checks begin
     ///
     /// Evolutionary feature: Used by monitoring subsystem to allow systems
@@ -121,7 +121,7 @@ impl HealthCheckConfig {
             grace_period: None,
         }
     }
-    
+
     /// Create config with auto-recovery enabled (for resilience)
     pub fn with_auto_recovery(
         enabled: bool,
@@ -141,7 +141,7 @@ impl HealthCheckConfig {
             grace_period: None,
         }
     }
-    
+
     /// Create config with grace period (for monitoring)
     pub fn with_grace_period(
         enabled: bool,
@@ -161,7 +161,7 @@ impl HealthCheckConfig {
             grace_period: Some(grace_period),
         }
     }
-    
+
     /// Get success threshold (alias for recovery_threshold)
     ///
     /// Some subsystems use "success_threshold" terminology - this provides
@@ -174,7 +174,7 @@ impl HealthCheckConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default() {
         let config = HealthCheckConfig::default();
@@ -182,11 +182,10 @@ mod tests {
         assert_eq!(config.interval, Duration::from_secs(30));
         assert_eq!(config.failure_threshold, 3);
     }
-    
+
     #[test]
     fn test_success_threshold_alias() {
         let config = HealthCheckConfig::default();
         assert_eq!(config.success_threshold(), config.recovery_threshold);
     }
 }
-

@@ -199,7 +199,7 @@ impl SelfHealingManager {
         let mut check_results = Vec::new();
 
         // Simulate health checks for AI coordination components
-        for (component_id, _) in &self.component_health.clone() {
+        for component_id in self.component_health.clone().keys() {
             let is_healthy = self.simulate_component_health_check(component_id).await;
 
             let (status, message) = if is_healthy {

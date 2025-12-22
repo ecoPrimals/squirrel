@@ -36,14 +36,22 @@ use std::fmt::{self, Debug};
 use std::sync::{Arc, RwLock};
 
 // Basic types
+
+/// Result type for command operations
 pub type CommandResult<T> = Result<T, CommandError>;
 
+/// Error type for command operations
 #[derive(Debug)]
 pub enum CommandError {
+    /// Command not found in registry
     NotFound(String),
+    /// Command execution failed
     ExecutionFailed(String),
+    /// Authentication failed
     AuthenticationFailed(String),
+    /// Authorization failed (insufficient permissions)
     AuthorizationFailed(String),
+    /// Other error
     Other(String),
 }
 
@@ -61,8 +69,11 @@ impl fmt::Display for CommandError {
 
 /// Command trait representing a command interface
 pub trait Command: Send + Sync + Debug {
+    /// Get the command name
     fn name(&self) -> &str;
+    /// Get the command description
     fn description(&self) -> &str;
+    /// Execute the command with given arguments
     fn execute(&self, args: Vec<String>) -> CommandResult<String>;
 }
 
@@ -75,6 +86,7 @@ pub struct TestCommand {
 }
 
 impl TestCommand {
+    /// Create a new test command
     pub fn new(name: &str, description: &str, result: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -115,17 +127,20 @@ impl Default for CommandRegistry {
 }
 
 impl CommandRegistry {
+    /// Create a new command registry
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
         }
     }
 
+    /// Register a command in the registry
     pub fn register(&mut self, name: &str, command: Arc<dyn Command>) -> CommandResult<()> {
         self.commands.insert(name.to_string(), command);
         Ok(())
     }
 
+    /// Execute a registered command
     pub fn execute(&self, name: &str, args: Vec<String>) -> CommandResult<String> {
         match self.commands.get(name) {
             Some(cmd) => cmd.execute(args),
@@ -133,6 +148,7 @@ impl CommandRegistry {
         }
     }
 
+    /// Get help text for a command
     pub fn get_help(&self, name: &str) -> CommandResult<String> {
         match self.commands.get(name) {
             Some(cmd) => Ok(format!("{}: {}", cmd.name(), cmd.description())),
@@ -140,6 +156,7 @@ impl CommandRegistry {
         }
     }
 
+    /// List all registered commands
     pub fn list_commands(&self) -> CommandResult<Vec<String>> {
         Ok(self.commands.keys().cloned().collect())
     }
@@ -148,8 +165,13 @@ impl CommandRegistry {
 /// Adapter interface for command operations
 #[async_trait]
 pub trait CommandAdapter: Send + Sync {
+    /// Execute a command with given arguments
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String>;
+
+    /// Get help information for a command
     async fn get_help(&self, command: &str) -> CommandResult<String>;
+
+    /// List all available commands
     async fn list_commands(&self) -> CommandResult<Vec<String>>;
 }
 
@@ -166,17 +188,20 @@ impl Default for RegistryAdapter {
 }
 
 impl RegistryAdapter {
+    /// Create a new registry adapter
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
         }
     }
 
+    /// Register a command in the registry
     pub fn register(&mut self, name: &str, command: Arc<dyn Command>) -> CommandResult<()> {
         self.commands.insert(name.to_string(), command);
         Ok(())
     }
 
+    /// Execute a registered command by name
     pub fn execute(&self, name: &str, args: Vec<String>) -> CommandResult<String> {
         match self.commands.get(name) {
             Some(cmd) => cmd.execute(args),
@@ -184,6 +209,7 @@ impl RegistryAdapter {
         }
     }
 
+    /// Get help information for a registered command
     pub fn get_help(&self, name: &str) -> CommandResult<String> {
         match self.commands.get(name) {
             Some(cmd) => Ok(format!("{}: {}", cmd.name(), cmd.description())),
@@ -191,6 +217,7 @@ impl RegistryAdapter {
         }
     }
 
+    /// List all registered command names
     pub fn list_commands(&self) -> CommandResult<Vec<String>> {
         Ok(self.commands.keys().cloned().collect())
     }
@@ -214,18 +241,26 @@ impl CommandAdapter for RegistryAdapter {
 /// Authentication type for MCP adapter
 #[derive(Debug, Clone)]
 pub enum Auth {
+    /// Username and password authentication
     User(String, String), // username, password
-    Token(String),        // authentication token
-    ApiKey(String),       // API key
+    /// Token-based authentication
+    Token(String), // authentication token
+    /// API key authentication
+    ApiKey(String), // API key
+    /// No authentication
     None,
 }
 
 /// User role for permission management
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserRole {
+    /// Administrator with full access
     Admin,
+    /// Power user with elevated permissions
     PowerUser,
+    /// Regular user with standard permissions
     RegularUser,
+    /// Guest user with limited access
     Guest,
 }
 
@@ -265,6 +300,7 @@ impl Default for McpAdapter {
 }
 
 impl McpAdapter {
+    /// Create a new MCP adapter with default admin user
     pub fn new() -> Self {
         let instance = Self {
             adapter: Arc::new(RwLock::new(RegistryAdapter::new())),
@@ -298,6 +334,7 @@ impl McpAdapter {
         instance
     }
 
+    /// Add a new user to the system with specified admin status
     pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) {
         let mut users = self.authorized_users.write().unwrap();
         users.insert(username.to_string(), password.to_string());
@@ -517,9 +554,7 @@ impl McpAdapter {
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_secs();
-                let user = entry
-                    .user.as_deref()
-                    .unwrap_or("anonymous");
+                let user = entry.user.as_deref().unwrap_or("anonymous");
                 let status = if entry.success { "SUCCESS" } else { "FAILED" };
                 let args = entry.args.join(" ");
                 format!(
@@ -530,6 +565,7 @@ impl McpAdapter {
             .collect()
     }
 
+    /// Register a command in the adapter
     pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         let cmd_name = command.name();
 
@@ -549,6 +585,7 @@ impl McpAdapter {
         adapter.register(cmd_name, command.clone())
     }
 
+    /// Execute a command with authentication and authorization
     pub async fn execute_with_auth(
         &self,
         command: &str,
@@ -582,6 +619,7 @@ impl McpAdapter {
         result
     }
 
+    /// Get list of commands available to the authenticated user
     pub async fn get_available_commands(&self, auth: Auth) -> CommandResult<Vec<String>> {
         let user = self.authenticate(&auth).await.ok().flatten();
         let adapter = self.adapter.read().unwrap();
@@ -649,6 +687,7 @@ impl Default for PluginAdapter {
 }
 
 impl PluginAdapter {
+    /// Create a new plugin adapter
     pub fn new() -> Self {
         Self {
             adapter: Arc::new(RwLock::new(RegistryAdapter::new())),
@@ -657,19 +696,23 @@ impl PluginAdapter {
         }
     }
 
+    /// Get the plugin identifier
     pub fn plugin_id(&self) -> &str {
         &self.plugin_id
     }
 
+    /// Get the plugin version
     pub fn version(&self) -> &str {
         &self.version
     }
 
+    /// Register a command in the plugin adapter
     pub async fn register_command(&self, command: Arc<dyn Command>) -> CommandResult<()> {
         let mut adapter = self.adapter.write().unwrap();
         adapter.register(command.name(), command.clone())
     }
 
+    /// Get list of registered commands
     pub async fn get_commands(&self) -> CommandResult<Vec<String>> {
         let adapter = self.adapter.read().unwrap();
         adapter.list_commands()
@@ -697,8 +740,13 @@ impl CommandAdapter for PluginAdapter {
 /// MockAdapter trait for testing and example purposes
 #[async_trait]
 pub trait MockAdapter: Send + Sync {
+    /// Execute a command with given arguments
     async fn execute(&self, command: &str, args: Vec<String>) -> CommandResult<String>;
+
+    /// Get help information for a command
     async fn get_help(&self, command: &str) -> CommandResult<String>;
+
+    /// List all available commands
     async fn list_commands(&self) -> CommandResult<Vec<String>>;
 }
 

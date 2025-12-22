@@ -86,7 +86,10 @@ impl SecurityHealth {
 
     /// Check if the overall security system is healthy
     pub fn is_healthy(&self) -> bool {
-        matches!(self.overall_status, HealthStatus::Healthy | HealthStatus::Warning)
+        matches!(
+            self.overall_status,
+            HealthStatus::Healthy | HealthStatus::Warning
+        )
     }
 
     /// Add a component health status
@@ -203,30 +206,41 @@ impl UniversalSecurityHealthChecker {
     async fn check_local_components(&self, health: &mut SecurityHealth) -> Result<(), PrimalError> {
         // Check authentication system
         let mut auth_health = ComponentHealth::default();
-        auth_health.metrics.insert("response_time_ms".to_string(), 5.0);
+        auth_health
+            .metrics
+            .insert("response_time_ms".to_string(), 5.0);
         health.add_component("authentication".to_string(), auth_health);
 
-        // Check authorization system  
+        // Check authorization system
         let mut authz_health = ComponentHealth::default();
-        authz_health.metrics.insert("cache_hit_rate".to_string(), 0.95);
+        authz_health
+            .metrics
+            .insert("cache_hit_rate".to_string(), 0.95);
         health.add_component("authorization".to_string(), authz_health);
 
         // Check rate limiting
         let mut rate_limit_health = ComponentHealth::default();
-        rate_limit_health.metrics.insert("blocked_requests_rate".to_string(), 0.01);
+        rate_limit_health
+            .metrics
+            .insert("blocked_requests_rate".to_string(), 0.01);
         health.add_component("rate_limiting".to_string(), rate_limit_health);
 
         Ok(())
     }
 
     /// Check discovered security endpoints through universal adapter
-    async fn check_discovered_endpoints(&self, health: &mut SecurityHealth) -> Result<(), PrimalError> {
+    async fn check_discovered_endpoints(
+        &self,
+        health: &mut SecurityHealth,
+    ) -> Result<(), PrimalError> {
         // This would use the universal adapter to discover and check
         // security capabilities from any primal in the ecosystem
-        
+
         // For now, simulate checking discovered endpoints
         let mut discovered_health = ComponentHealth::default();
-        discovered_health.metrics.insert("discovery_success_rate".to_string(), 1.0);
+        discovered_health
+            .metrics
+            .insert("discovery_success_rate".to_string(), 1.0);
         health.add_component("capability_discovery".to_string(), discovered_health);
 
         Ok(())

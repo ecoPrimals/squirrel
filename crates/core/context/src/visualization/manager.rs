@@ -75,6 +75,7 @@ pub struct ActiveVisualization {
 }
 
 /// Cached visualization
+#[allow(dead_code)] // Data structure for visualization caching system
 #[derive(Debug, Clone)]
 pub struct CachedVisualization {
     /// Visualization ID

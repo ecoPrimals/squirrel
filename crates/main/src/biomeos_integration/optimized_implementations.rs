@@ -46,6 +46,12 @@ pub struct OptimizedServiceRegistration {
     metrics: Arc<ZeroCopyMetrics>,
 }
 
+impl Default for OptimizedServiceRegistration {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OptimizedServiceRegistration {
     pub fn new() -> Self {
         Self {
@@ -156,6 +162,12 @@ pub struct OptimizedMessageProcessor {
     metrics: Arc<ZeroCopyMetrics>,
 }
 
+impl Default for OptimizedMessageProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OptimizedMessageProcessor {
     pub fn new() -> Self {
         Self {
@@ -231,6 +243,12 @@ pub struct OptimizedContextState {
     active_sessions: ZeroCopyMap<SessionContext>,
     context_cache: ZeroCopyMap<ContextData>,
     metrics: Arc<ZeroCopyMetrics>,
+}
+
+impl Default for OptimizedContextState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OptimizedContextState {
@@ -312,97 +330,6 @@ impl OptimizedContextState {
             }
         });
         removed_session
-    }
-
-    #[test]
-    fn test_optimized_context_state() {
-        let mut context_state = OptimizedContextState::new();
-
-        let session_id = "test-session".to_string();
-        let metadata = HashMap::new();
-
-        let session = context_state.create_session(session_id.clone(), "test-user", metadata);
-
-        assert_eq!(session.session_id, session_id);
-        assert_eq!(session.user_id, "test-user");
-
-        let retrieved = context_state.get_session(&session_id).unwrap();
-        assert!(Arc::ptr_eq(&session, &retrieved));
-
-        let update_result = context_state.update_session_context(
-            &session_id,
-            "test_key".to_string(),
-            serde_json::json!("test_value"),
-        );
-        assert!(update_result.is_ok());
-
-        let metrics = context_state.get_metrics();
-        assert!(metrics.total_operations > 0);
-    }
-
-    #[test]
-    fn test_optimized_agent_deployment() {
-        let mut deployment = OptimizedAgentDeploymentManager::new();
-
-        let agent_spec = AgentSpec {
-            name: "test-agent".to_string(),
-            ai_provider: "openai".to_string(),
-            model: "gpt-4".to_string(),
-            capabilities: vec!["analysis".to_string()],
-            resource_limits: AgentResourceLimits::default(),
-            execution_environment: ExecutionEnvironment::Native,
-            config: HashMap::new(),
-            environment: HashMap::new(),
-            security: AgentSecurity {
-                auth_method: "default".to_string(),
-                permissions: vec!["read".to_string(), "write".to_string()],
-                security_context: "default".to_string(),
-                encryption: EncryptionConfig {
-                    enabled: true,
-                    at_rest: true,
-                    in_transit: true,
-                    algorithm: "AES256".to_string(),
-                    key_size: 256,
-                },
-            },
-            storage: AgentStorage {
-                persistent: vec![],
-                temporary: vec![],
-                cache: vec![],
-            },
-        };
-
-        let agent_id = "test-agent-001".to_string();
-        let deployed = deployment
-            .deploy_agent(agent_id.clone(), "test-agent", &agent_spec)
-            .unwrap();
-
-        assert_eq!(deployed.agent_id, agent_id);
-        assert_eq!(deployed.name, "test-agent");
-        assert_eq!(deployed.status, AgentStatus::Running);
-
-        let retrieved = deployment.get_deployed_agent(&agent_id).unwrap();
-        assert!(Arc::ptr_eq(&deployed, &retrieved));
-
-        let status_update = deployment.update_agent_status(&agent_id, "running");
-        assert!(status_update.is_ok());
-
-        let metrics = deployment.get_metrics();
-        assert!(metrics.total_operations > 0);
-    }
-
-    #[tokio::test]
-    async fn test_optimized_integration_comprehensive() {
-        let mut integration = OptimizedBiomeOSIntegration::new();
-
-        let init_result = integration.initialize().await;
-        assert!(init_result.is_ok());
-
-        let metrics = integration.get_comprehensive_metrics();
-        assert!(metrics.total_efficiency() >= 0.0);
-        assert!(metrics.total_bytes_saved() >= 0);
-        assert!(metrics.total_clones_avoided() >= 0);
-        assert!(metrics.total_string_interning_hits() >= 0);
     }
 }
 

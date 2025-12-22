@@ -244,7 +244,7 @@ mod tests {
         println!("Starting server on port {}", port);
 
         let registry_arc = Arc::new(registry);
-        let host = squirrel_mcp_config::core::network_defaults::DEFAULT_HOST;
+        let host = "127.0.0.1"; // Use localhost as default
         let server = MCPServer::new(Some(host), Some(port)).with_command_registry(registry_arc);
 
         // Try to start the server with a timeout

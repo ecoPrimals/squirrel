@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::biomeos_integration::EcosystemClient;
@@ -422,10 +422,13 @@ impl SquirrelPrimalProvider {
     /// Get primal information
     pub fn get_primal_info(&self) -> PrimalInfo {
         PrimalInfo {
-            id: self.primal_id().to_string(),
+            primal_id: self.primal_id().to_string(),
             instance_id: self.instance_id.clone(),
             primal_type: PrimalType::AI,
             capabilities: vec![],
+            endpoints: vec![],
+            metadata: HashMap::new(),
+            id: Some(self.primal_id().to_string()),
             version: "1.0.0".to_string(),
         }
     }
@@ -463,7 +466,10 @@ impl SquirrelPrimalProvider {
             PrimalCapability::ModelInference {
                 models: vec!["gpt-4".to_string(), "claude-3".to_string()],
             },
-            PrimalCapability::AgentFramework { mcp_support: true },
+            PrimalCapability::AgentFramework {
+                frameworks: vec!["langchain".to_string(), "autogen".to_string()],
+                mcp_support: true,
+            },
             PrimalCapability::NaturalLanguage {
                 languages: vec!["en".to_string(), "es".to_string()],
             },
@@ -486,15 +492,17 @@ impl SquirrelPrimalProvider {
         let ws_url = format!("ws://{}:{}/ws", host, port);
 
         PrimalEndpoints {
-            primary: base_url.clone(),
-            health: format!("{}/health", base_url),
-            metrics: format!("{}/metrics", base_url),
-            admin: format!("{}/admin", base_url),
+            http: Some(base_url.clone()), // Added http field
+            grpc: None,                   // Added grpc field (optional)
+            primary: Some(base_url.clone()),
+            health: Some(format!("{}/health", base_url)),
+            metrics: Some(format!("{}/metrics", base_url)),
+            admin: Some(format!("{}/admin", base_url)),
             websocket: Some(ws_url),
-            mcp: format!("{}/mcp", base_url),
-            ai_coordination: format!("{}/ai", base_url),
-            service_mesh: format!("{}/mesh", base_url),
-            custom: HashMap::new(),
+            mcp: Some(format!("{}/mcp", base_url)),
+            ai_coordination: Some(format!("{}/ai", base_url)),
+            service_mesh: Some(format!("{}/mesh", base_url)),
+            custom: Vec::new(), // Changed from HashMap to Vec<(String, String)>
         }
     }
 }
@@ -531,7 +539,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
             PrimalCapability::ModelInference {
                 models: vec!["gpt-4".to_string(), "claude-3".to_string()],
             },
-            PrimalCapability::AgentFramework { mcp_support: true },
+            PrimalCapability::AgentFramework {
+                frameworks: vec!["langchain".to_string(), "autogen".to_string()],
+                mcp_support: true,
+            },
             PrimalCapability::NaturalLanguage {
                 languages: vec!["en".to_string(), "es".to_string()],
             },
@@ -542,15 +553,19 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
     fn dependencies(&self) -> Vec<PrimalDependency> {
         vec![
             PrimalDependency {
-                primal_type: PrimalType::Storage,
+                primal_type: "Storage".to_string(),
                 required: false,
+                optional: true,
+                required_capabilities: vec![],
                 capabilities: vec![],
                 min_version: Some("1.0.0".to_string()),
                 preferred_instance: None,
             },
             PrimalDependency {
-                primal_type: PrimalType::Compute,
+                primal_type: "Compute".to_string(),
                 required: false,
+                optional: true,
+                required_capabilities: vec![],
                 capabilities: vec![],
                 min_version: Some("1.0.0".to_string()),
                 preferred_instance: None,
@@ -574,15 +589,17 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
         let ws_url = format!("ws://{}:{}/ws", host, port);
 
         PrimalEndpoints {
-            primary: base_url.clone(),
-            health: format!("{}/health", base_url),
-            metrics: format!("{}/metrics", base_url),
-            admin: format!("{}/admin", base_url),
+            http: Some(base_url.clone()), // Added http field
+            grpc: None,                   // Added grpc field (optional)
+            primary: Some(base_url.clone()),
+            health: Some(format!("{}/health", base_url)),
+            metrics: Some(format!("{}/metrics", base_url)),
+            admin: Some(format!("{}/admin", base_url)),
             websocket: Some(ws_url),
-            mcp: format!("{}/mcp", base_url),
-            ai_coordination: format!("{}/ai", base_url),
-            service_mesh: format!("{}/mesh", base_url),
-            custom: HashMap::new(),
+            mcp: Some(format!("{}/mcp", base_url)),
+            ai_coordination: Some(format!("{}/ai", base_url)),
+            service_mesh: Some(format!("{}/mesh", base_url)),
+            custom: Vec::new(), // Changed from HashMap to Vec<(String, String)>
         }
     }
 
@@ -623,9 +640,10 @@ impl UniversalPrimalProvider for SquirrelPrimalProvider {
             response_id: Uuid::new_v4(),
             request_id: request.request_id,
             success: true,
-            data: serde_json::Value::Object(serde_json::Map::new()),
+            data: Some(serde_json::Value::Object(serde_json::Map::new())),
             payload: response_payload,
-            duration: chrono::Duration::milliseconds(100),
+            duration: Some("100ms".to_string()),
+            processing_time_ms: Some(100),
             error_message: None,
             status: ResponseStatus::Success,
             metadata: HashMap::new(),

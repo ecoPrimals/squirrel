@@ -28,7 +28,7 @@ pub struct RuleManager {
 
 impl RuleManager {
     /// Create a new rule manager
-    #[must_use] 
+    #[must_use]
     pub fn new(
         repository: Arc<RuleRepository>,
         evaluator: Arc<RuleEvaluator>,
@@ -494,7 +494,7 @@ pub async fn create_rule_manager() -> RuleSystemResult<RuleManager> {
 }
 
 /// Create a rule manager with custom components
-#[must_use] 
+#[must_use]
 pub fn create_rule_manager_with_components(
     repository: Arc<RuleRepository>,
     evaluator: Arc<RuleEvaluator>,

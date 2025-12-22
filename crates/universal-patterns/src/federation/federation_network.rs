@@ -219,8 +219,11 @@ type MessageHandler = Box<dyn Fn(NetworkMessage) -> FederationResult<()> + Send 
 #[derive(Debug, Clone)]
 struct QueuedMessage {
     message: NetworkMessage,
+    #[allow(dead_code)] // Reserved for message attribution and debugging
     sender: Uuid,
+    #[allow(dead_code)] // Reserved for time-based queue management
     timestamp: DateTime<Utc>,
+    #[allow(dead_code)] // Reserved for retry logic implementation
     retry_count: u32,
 }
 
@@ -391,9 +394,10 @@ impl FederationNetwork {
 
                 let conn_map = connections.read().await;
                 for (peer_id, connection) in conn_map.iter() {
-                    if let Err(_) = connection
+                    if connection
                         .send_message(*peer_id, health_check.clone())
                         .await
+                        .is_err()
                     {
                         // Mark peer as disconnected
                         let mut peer_map = peers.write().await;

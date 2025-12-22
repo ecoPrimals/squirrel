@@ -22,8 +22,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use std::path::Path;
 use std::net::IpAddr;
+use std::path::Path;
 
 /// Validation result type
 pub type ValidationResult<T> = Result<T, ValidationError>;
@@ -33,16 +33,16 @@ pub type ValidationResult<T> = Result<T, ValidationError>;
 pub enum ValidationError {
     #[error("Invalid {field}: {reason}")]
     Invalid { field: String, reason: String },
-    
+
     #[error("Missing required field: {field}")]
     Missing { field: String },
-    
+
     #[error("Value {field} must be {constraint}")]
     Constraint { field: String, constraint: String },
-    
+
     #[error("Conflict: {description}")]
     Conflict { description: String },
-    
+
     #[error("File not found: {path}")]
     FileNotFound { path: String },
 }
@@ -54,7 +54,7 @@ pub struct Validator;
 
 impl Validator {
     // ==================== PORT VALIDATION ====================
-    
+
     /// Validate a network port number
     ///
     /// Ensures the port is in the valid range (1-65535) and returns the port.
@@ -71,22 +71,30 @@ impl Validator {
         }
         Ok(port)
     }
-    
+
     /// Validate that two ports are different
     ///
     /// # Errors
     /// - Ports are the same
-    pub fn validate_ports_differ(port1: u16, port2: u16, name1: &str, name2: &str) -> ValidationResult<()> {
+    pub fn validate_ports_differ(
+        port1: u16,
+        port2: u16,
+        name1: &str,
+        name2: &str,
+    ) -> ValidationResult<()> {
         if port1 == port2 {
             return Err(ValidationError::Conflict {
-                description: format!("{} and {} ports must be different (both are {})", name1, name2, port1),
+                description: format!(
+                    "{} and {} ports must be different (both are {})",
+                    name1, name2, port1
+                ),
             });
         }
         Ok(())
     }
-    
+
     // ==================== TIMEOUT VALIDATION ====================
-    
+
     /// Validate a timeout value in seconds
     ///
     /// Ensures timeout is > 0.
@@ -102,7 +110,7 @@ impl Validator {
         }
         Ok(timeout_secs)
     }
-    
+
     /// Validate a timeout value with a maximum
     ///
     /// Ensures timeout is > 0 and <= max.
@@ -111,12 +119,12 @@ impl Validator {
     /// - Timeout is 0
     /// - Timeout exceeds max
     pub fn validate_timeout_with_max(
-        timeout_secs: u64, 
+        timeout_secs: u64,
         max_secs: u64,
         field: &str,
     ) -> ValidationResult<u64> {
         Self::validate_timeout_secs(timeout_secs, field)?;
-        
+
         if timeout_secs > max_secs {
             return Err(ValidationError::Constraint {
                 field: field.to_string(),
@@ -125,7 +133,7 @@ impl Validator {
         }
         Ok(timeout_secs)
     }
-    
+
     /// Validate that timeout A is less than timeout B
     ///
     /// # Errors
@@ -144,9 +152,9 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     // ==================== NETWORK VALIDATION ====================
-    
+
     /// Validate an IP address string
     ///
     /// # Errors
@@ -157,7 +165,7 @@ impl Validator {
             reason: format!("Invalid IP address: {}", ip),
         })
     }
-    
+
     /// Validate a hostname
     ///
     /// Checks that hostname follows RFC 1123 conventions:
@@ -175,14 +183,14 @@ impl Validator {
                 field: "hostname".to_string(),
             });
         }
-        
+
         if hostname.len() > 253 {
             return Err(ValidationError::Invalid {
                 field: "hostname".to_string(),
                 reason: "Hostname length exceeds 253 characters".to_string(),
             });
         }
-        
+
         let valid = hostname.split('.').all(|label| {
             !label.is_empty()
                 && label.len() <= 63
@@ -190,17 +198,17 @@ impl Validator {
                 && !label.starts_with('-')
                 && !label.ends_with('-')
         });
-        
+
         if !valid {
             return Err(ValidationError::Invalid {
                 field: "hostname".to_string(),
                 reason: format!("Invalid hostname format: {}", hostname),
             });
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate a URL scheme
     ///
     /// # Errors
@@ -211,7 +219,10 @@ impl Validator {
             if !allowed_schemes.contains(&scheme) {
                 return Err(ValidationError::Invalid {
                     field: "url_scheme".to_string(),
-                    reason: format!("URL scheme '{}' not allowed. Must be one of: {:?}", scheme, allowed_schemes),
+                    reason: format!(
+                        "URL scheme '{}' not allowed. Must be one of: {:?}",
+                        scheme, allowed_schemes
+                    ),
                 });
             }
         } else {
@@ -222,9 +233,9 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     // ==================== FILE VALIDATION ====================
-    
+
     /// Validate that a file exists
     ///
     /// # Errors
@@ -243,7 +254,7 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     /// Validate that a directory exists
     ///
     /// # Errors
@@ -262,7 +273,7 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     /// Validate that a path's parent directory exists
     ///
     /// Useful for validating paths where the file doesn't exist yet but should be creatable.
@@ -279,9 +290,9 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     // ==================== STRING VALIDATION ====================
-    
+
     /// Validate that a string is not empty
     ///
     /// # Errors
@@ -294,27 +305,32 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     /// Validate that a string contains only alphanumeric characters and allowed symbols
     ///
     /// # Errors
     /// - String contains invalid characters
     pub fn validate_alphanumeric_with(
-        value: &str, 
+        value: &str,
         field: &str,
         allowed: &[char],
     ) -> ValidationResult<()> {
-        let valid = value.chars().all(|c| c.is_alphanumeric() || allowed.contains(&c));
-        
+        let valid = value
+            .chars()
+            .all(|c| c.is_alphanumeric() || allowed.contains(&c));
+
         if !valid {
             return Err(ValidationError::Invalid {
                 field: field.to_string(),
-                reason: format!("Contains invalid characters. Only alphanumeric and {:?} allowed", allowed),
+                reason: format!(
+                    "Contains invalid characters. Only alphanumeric and {:?} allowed",
+                    allowed
+                ),
             });
         }
         Ok(())
     }
-    
+
     /// Validate semantic version string (major.minor.patch)
     ///
     /// # Errors
@@ -324,10 +340,13 @@ impl Validator {
         if parts.len() < 2 || parts.len() > 3 {
             return Err(ValidationError::Invalid {
                 field: "version".to_string(),
-                reason: format!("Invalid semver format: {}. Expected major.minor or major.minor.patch", version),
+                reason: format!(
+                    "Invalid semver format: {}. Expected major.minor or major.minor.patch",
+                    version
+                ),
             });
         }
-        
+
         for part in parts {
             if part.parse::<u32>().is_err() {
                 return Err(ValidationError::Invalid {
@@ -336,12 +355,12 @@ impl Validator {
                 });
             }
         }
-        
+
         Ok(())
     }
-    
+
     // ==================== NUMERIC VALIDATION ====================
-    
+
     /// Validate that a value is greater than a minimum
     ///
     /// # Errors
@@ -359,7 +378,7 @@ impl Validator {
         }
         Ok(value)
     }
-    
+
     /// Validate that a value is in a range
     ///
     /// # Errors
@@ -378,9 +397,9 @@ impl Validator {
         }
         Ok(value)
     }
-    
+
     // ==================== SECURITY VALIDATION ====================
-    
+
     /// Validate API key length (basic check)
     ///
     /// # Errors
@@ -394,7 +413,7 @@ impl Validator {
         }
         Ok(())
     }
-    
+
     /// Validate JWT secret minimum length
     ///
     /// # Errors
@@ -413,7 +432,7 @@ impl Validator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_validate_port() {
         assert!(Validator::validate_port(8080).is_ok());
@@ -421,33 +440,33 @@ mod tests {
         assert!(Validator::validate_port(65535).is_ok());
         assert!(Validator::validate_port(0).is_err());
     }
-    
+
     #[test]
     fn test_validate_ports_differ() {
         assert!(Validator::validate_ports_differ(8080, 8081, "http", "ws").is_ok());
         assert!(Validator::validate_ports_differ(8080, 8080, "http", "ws").is_err());
     }
-    
+
     #[test]
     fn test_validate_timeout_secs() {
         assert!(Validator::validate_timeout_secs(30, "timeout").is_ok());
         assert!(Validator::validate_timeout_secs(0, "timeout").is_err());
     }
-    
+
     #[test]
     fn test_validate_timeout_with_max() {
         assert!(Validator::validate_timeout_with_max(30, 60, "timeout").is_ok());
         assert!(Validator::validate_timeout_with_max(90, 60, "timeout").is_err());
         assert!(Validator::validate_timeout_with_max(0, 60, "timeout").is_err());
     }
-    
+
     #[test]
     fn test_validate_timeout_ordering() {
         assert!(Validator::validate_timeout_ordering(10, 30, "connect", "request").is_ok());
         assert!(Validator::validate_timeout_ordering(30, 10, "connect", "request").is_err());
         assert!(Validator::validate_timeout_ordering(30, 30, "connect", "request").is_err());
     }
-    
+
     #[test]
     fn test_validate_ip_address() {
         assert!(Validator::validate_ip_address("127.0.0.1").is_ok());
@@ -455,7 +474,7 @@ mod tests {
         assert!(Validator::validate_ip_address("::1").is_ok());
         assert!(Validator::validate_ip_address("invalid").is_err());
     }
-    
+
     #[test]
     fn test_validate_hostname() {
         assert!(Validator::validate_hostname("example.com").is_ok());
@@ -465,7 +484,7 @@ mod tests {
         assert!(Validator::validate_hostname("-example.com").is_err());
         assert!(Validator::validate_hostname("example-.com").is_err());
     }
-    
+
     #[test]
     fn test_validate_url_scheme() {
         assert!(Validator::validate_url_scheme("https://example.com", &["http", "https"]).is_ok());
@@ -473,20 +492,20 @@ mod tests {
         assert!(Validator::validate_url_scheme("ftp://example.com", &["http", "https"]).is_err());
         assert!(Validator::validate_url_scheme("example.com", &["http", "https"]).is_err());
     }
-    
+
     #[test]
     fn test_validate_not_empty() {
         assert!(Validator::validate_not_empty("test", "field").is_ok());
         assert!(Validator::validate_not_empty("", "field").is_err());
     }
-    
+
     #[test]
     fn test_validate_alphanumeric_with() {
         assert!(Validator::validate_alphanumeric_with("test-name", "name", &['-']).is_ok());
         assert!(Validator::validate_alphanumeric_with("test_name", "name", &['-', '_']).is_ok());
         assert!(Validator::validate_alphanumeric_with("test@name", "name", &['-']).is_err());
     }
-    
+
     #[test]
     fn test_validate_semver() {
         assert!(Validator::validate_semver("1.0.0").is_ok());
@@ -496,14 +515,14 @@ mod tests {
         assert!(Validator::validate_semver("1.0.0.0").is_err());
         assert!(Validator::validate_semver("invalid").is_err());
     }
-    
+
     #[test]
     fn test_validate_greater_than() {
         assert!(Validator::validate_greater_than(10, 0, "value").is_ok());
         assert!(Validator::validate_greater_than(0, 0, "value").is_err());
         assert!(Validator::validate_greater_than(-5, 0, "value").is_err());
     }
-    
+
     #[test]
     fn test_validate_range() {
         assert!(Validator::validate_range(50, 0, 100, "value").is_ok());
@@ -512,17 +531,16 @@ mod tests {
         assert!(Validator::validate_range(-1, 0, 100, "value").is_err());
         assert!(Validator::validate_range(101, 0, 100, "value").is_err());
     }
-    
+
     #[test]
     fn test_validate_api_key() {
         assert!(Validator::validate_api_key("sk-12345678901234567890", 10, "api_key").is_ok());
         assert!(Validator::validate_api_key("short", 10, "api_key").is_err());
     }
-    
+
     #[test]
     fn test_validate_jwt_secret() {
         assert!(Validator::validate_jwt_secret("this_is_a_very_long_secret_key_for_jwt").is_ok());
         assert!(Validator::validate_jwt_secret("short").is_err());
     }
 }
-

@@ -6,7 +6,7 @@
 //! - Compute/storage (moved to ToadStool/NestGate)
 //! - Complex monitoring (distributed across ecosystem)
 
-use squirrel::error::types::{MCPError, Result};
+use squirrel::error::PrimalError;
 
 #[cfg(test)]
 mod core_functionality {

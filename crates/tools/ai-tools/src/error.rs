@@ -21,7 +21,10 @@ use std::fmt;
 /// AI Tools error type
 ///
 /// **DEPRECATED**: Use `universal_error::tools::AIToolsError` instead.
-#[deprecated(since = "0.2.0", note = "Use `universal_error::tools::AIToolsError` instead")]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `universal_error::tools::AIToolsError` instead"
+)]
 #[derive(Debug)]
 pub enum AIError {
     /// Configuration error

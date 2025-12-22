@@ -110,6 +110,44 @@ impl EcosystemPrimalType {
         }
     }
 
+    /// Get environment variable name for this primal's endpoint
+    ///
+    /// # Example
+    /// ```
+    /// use squirrel::EcosystemPrimalType;
+    ///
+    /// let primal = EcosystemPrimalType::Songbird;
+    /// assert_eq!(primal.env_name(), "SONGBIRD");
+    ///
+    /// // Set in environment: export SONGBIRD_ENDPOINT=http://songbird:8081
+    /// ```
+    pub fn env_name(&self) -> &'static str {
+        match self {
+            EcosystemPrimalType::ToadStool => "TOADSTOOL",
+            EcosystemPrimalType::Songbird => "SONGBIRD",
+            EcosystemPrimalType::BearDog => "BEARDOG",
+            EcosystemPrimalType::NestGate => "NESTGATE",
+            EcosystemPrimalType::Squirrel => "SQUIRREL",
+            EcosystemPrimalType::BiomeOS => "BIOMEOS",
+        }
+    }
+
+    /// Get service name for service discovery
+    ///
+    /// # Example
+    /// ```
+    /// use squirrel::EcosystemPrimalType;
+    ///
+    /// let primal = EcosystemPrimalType::Songbird;
+    /// assert_eq!(primal.service_name(), "songbird");
+    ///
+    /// // Used with SERVICE_DISCOVERY_URL:
+    /// // http://consul:8500/songbird
+    /// ```
+    pub fn service_name(&self) -> &'static str {
+        self.as_str()
+    }
+
     /// Parse from string
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
@@ -341,14 +379,18 @@ impl EcosystemManager {
             user_id: "squirrel".to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             network_location: crate::universal::NetworkLocation {
-                ip_address: "127.0.0.1".to_string(), // String not Option<String>
+                region: std::env::var("DEPLOYMENT_REGION")
+                    .unwrap_or_else(|_| "default".to_string()),
+                data_center: std::env::var("DATA_CENTER").ok(),
+                availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
+                ip_address: Some("127.0.0.1".to_string()),
                 subnet: None,
                 network_id: None,
                 geo_location: None,
             },
             security_level: crate::universal::SecurityLevel::Internal,
             biome_id: Some("squirrel-ecosystem".to_string()),
-            session_id: uuid::Uuid::new_v4().to_string(), // Add missing session_id
+            session_id: Some(uuid::Uuid::new_v4().to_string()),
             metadata: std::collections::HashMap::new(),
         };
         let universal_ecosystem = UniversalPrimalEcosystem::new(primal_context);
@@ -458,9 +500,12 @@ impl EcosystemManager {
                 ],
             },
             endpoints: ServiceEndpoints {
-                primary: endpoints.health.clone(), // Clone to avoid move
-                secondary: vec![endpoints.metrics, endpoints.admin],
-                health: Some(endpoints.health), // Use the original after clone
+                primary: endpoints.health.clone().unwrap_or_default(),
+                secondary: vec![
+                    endpoints.metrics.unwrap_or_default(),
+                    endpoints.admin.unwrap_or_default(),
+                ],
+                health: endpoints.health,
             },
             dependencies: vec![], // No dependencies for a standalone primal
             tags: vec![],         // No tags for a standalone primal
@@ -502,18 +547,23 @@ impl EcosystemManager {
         primal_type: EcosystemPrimalType,
     ) -> Result<Vec<DiscoveredService>, PrimalError> {
         // Initialize Universal Primal Ecosystem with proper context
+        // Initialize Universal Primal Ecosystem with proper context
         let primal_context = PrimalContext {
             user_id: "squirrel".to_string(),
             device_id: uuid::Uuid::new_v4().to_string(),
             network_location: crate::universal::NetworkLocation {
-                ip_address: "127.0.0.1".to_string(), // String not Option<String>
+                region: std::env::var("DEPLOYMENT_REGION")
+                    .unwrap_or_else(|_| "default".to_string()),
+                data_center: std::env::var("DATA_CENTER").ok(),
+                availability_zone: std::env::var("AVAILABILITY_ZONE").ok(),
+                ip_address: Some("127.0.0.1".to_string()),
                 subnet: None,
                 network_id: None,
                 geo_location: None,
             },
             security_level: crate::universal::SecurityLevel::Internal,
             biome_id: Some("squirrel-ecosystem".to_string()),
-            session_id: uuid::Uuid::new_v4().to_string(), // Add missing session_id
+            session_id: Some(uuid::Uuid::new_v4().to_string()),
             metadata: std::collections::HashMap::new(),
         };
 
@@ -869,14 +919,17 @@ impl Default for EcosystemConfig {
         Self {
             service_id: format!("squirrel-{}", Uuid::new_v4()),
             service_name: "Squirrel AI Primal".to_string(),
-            service_host: std::env::var("MCP_HOST")
-                .unwrap_or_else(|_| "localhost".to_string()),
+            service_host: std::env::var("MCP_HOST").unwrap_or_else(|_| "localhost".to_string()),
             service_port: std::env::var("MCP_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
             songbird_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
-                .unwrap_or_else(|_| "http://localhost:8500".to_string()),
+                .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+                .unwrap_or_else(|_| {
+                    // Fallback: Try to discover via capability, or use default
+                    "http://localhost:8500".to_string()
+                }),
             biome_id: None,
             registry_config: EcosystemRegistryConfig::default(),
             resource_requirements: ResourceSpec {

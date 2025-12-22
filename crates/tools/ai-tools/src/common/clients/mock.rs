@@ -124,7 +124,8 @@ impl AIClient for MockAIClient {
         if !self.available {
             return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ).into());
+            )
+            .into());
         }
 
         // Extract the last user message as input
@@ -168,7 +169,8 @@ impl AIClient for MockAIClient {
         if !self.available {
             return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ).into());
+            )
+            .into());
         }
 
         Ok(vec![
@@ -198,7 +200,8 @@ impl AIClient for MockAIClient {
         if !self.available {
             return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ).into());
+            )
+            .into());
         }
 
         let mut capabilities = AICapabilities::default();
@@ -248,7 +251,8 @@ impl AIClient for MockAIClient {
         if !self.available {
             return Err(universal_error::tools::AIToolsError::Network(
                 "Mock client is unavailable".to_string(),
-            ).into());
+            )
+            .into());
         }
 
         let response = self.chat(request).await?;

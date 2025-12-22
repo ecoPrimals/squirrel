@@ -22,11 +22,14 @@ pub struct DefaultPluginManager {
     statuses: RwLock<HashMap<Uuid, PluginStatus>>,
     /// Plugin name to ID mapping
     name_to_id: RwLock<HashMap<String, Uuid>>,
-    /// Dependency resolver
+    /// Dependency resolver for initialization order
+    #[allow(dead_code)] // Reserved for dependency resolution system
     dependency_resolver: Arc<RwLock<DependencyResolver>>,
-    /// State manager
+    /// State manager for plugin state persistence
+    #[allow(dead_code)] // Reserved for state persistence system
     state_manager: Arc<dyn PluginStateManager>,
-    /// Discovery service
+    /// Discovery service for plugin loading
+    #[allow(dead_code)] // Reserved for plugin discovery system
     discovery: Arc<DefaultPluginDiscovery>,
     /// Performance metrics
     metrics: Arc<RwLock<PluginManagerMetrics>>,
@@ -134,7 +137,7 @@ impl PluginRegistry for DefaultPluginManager {
         plugins
             .get(&id)
             .cloned()
-            .ok_or_else(|| crate::errors::PluginError::NotFound(id).into())
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id))
     }
 
     async fn get_plugin_by_name(&self, name: &str) -> Result<Arc<dyn Plugin>> {
@@ -155,7 +158,7 @@ impl PluginRegistry for DefaultPluginManager {
         statuses
             .get(&id)
             .cloned()
-            .ok_or_else(|| crate::errors::PluginError::NotFound(id).into())
+            .ok_or_else(|| crate::errors::PluginError::NotFound(id))
     }
 
     async fn set_plugin_status(&self, id: Uuid, status: PluginStatus) -> Result<()> {

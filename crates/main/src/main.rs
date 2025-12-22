@@ -1,11 +1,11 @@
 //! Squirrel AI Coordinator Main Entry Point
 
 use anyhow::Result;
-use std::sync::Arc;
 use squirrel::api::ApiServer;
-use squirrel::ecosystem::{EcosystemManager, EcosystemConfig};
-use squirrel::MetricsCollector;
+use squirrel::ecosystem::{EcosystemConfig, EcosystemManager};
 use squirrel::shutdown::ShutdownManager;
+use squirrel::MetricsCollector;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,7 +30,10 @@ async fn main() -> Result<()> {
     // Initialize ecosystem components
     let metrics_collector = Arc::new(MetricsCollector::new());
     let ecosystem_config = EcosystemConfig::default();
-    let ecosystem_manager = Arc::new(EcosystemManager::new(ecosystem_config, metrics_collector.clone()));
+    let ecosystem_manager = Arc::new(EcosystemManager::new(
+        ecosystem_config,
+        metrics_collector.clone(),
+    ));
     let shutdown_manager = Arc::new(ShutdownManager::new());
 
     println!("✅ Ecosystem Manager initialized");

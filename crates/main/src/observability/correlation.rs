@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 use crate::error::PrimalError;
 
@@ -138,29 +138,38 @@ impl UniversalCorrelationTracker {
     /// Discover correlation endpoints through universal adapter
     pub async fn discover_correlation_endpoints(&self) -> Result<(), PrimalError> {
         info!("Discovering correlation endpoints through universal adapter");
-        
+
         // Use universal adapter to discover any primal with correlation capabilities
         let discovered = self.query_universal_adapter_for_correlation().await?;
-        
+
         let mut endpoints = self.endpoints.write().await;
         endpoints.extend(discovered);
-        
+
         info!("Discovered {} correlation endpoints", endpoints.len());
         Ok(())
     }
 
     /// Query universal adapter for correlation capabilities
-    async fn query_universal_adapter_for_correlation(&self) -> Result<Vec<CorrelationEndpoint>, PrimalError> {
+    async fn query_universal_adapter_for_correlation(
+        &self,
+    ) -> Result<Vec<CorrelationEndpoint>, PrimalError> {
         debug!("Querying universal adapter for correlation capabilities");
-        
+
         let mut discovered = Vec::new();
-        
+
         // Generic capability discovery - works with any primal providing correlation
         // This could discover beardog security correlation, toadstool compute correlation, etc.
-        
+
         let generic_endpoint = CorrelationEndpoint {
             primal_type: "discovered_primal".to_string(),
-            endpoint: "http://localhost:8080/correlation".to_string(),
+            endpoint: format!(
+                "{}/correlation",
+                std::env::var("CORRELATION_ENDPOINT").unwrap_or_else(|_| {
+                    let port =
+                        std::env::var("AI_COORDINATOR_PORT").unwrap_or_else(|_| "8080".to_string());
+                    format!("http://localhost:{}", port)
+                })
+            ),
             capabilities: vec![
                 CorrelationCapability::OperationTracking,
                 CorrelationCapability::CrossPrimalCorrelation,
@@ -169,15 +178,22 @@ impl UniversalCorrelationTracker {
             discovered_at: chrono::Utc::now(),
         };
         discovered.push(generic_endpoint);
-        
-        info!("Universal adapter discovered {} correlation-capable primals", discovered.len());
+
+        info!(
+            "Universal adapter discovered {} correlation-capable primals",
+            discovered.len()
+        );
         Ok(discovered)
     }
 
     /// Start tracking a new correlated operation
-    pub async fn start_operation(&self, operation_name: String, attributes: HashMap<String, String>) -> Result<CorrelationId, PrimalError> {
+    pub async fn start_operation(
+        &self,
+        operation_name: String,
+        attributes: HashMap<String, String>,
+    ) -> Result<CorrelationId, PrimalError> {
         let correlation_id = CorrelationId::new();
-        
+
         let operation = CorrelatedOperation {
             correlation_id,
             operation_name: operation_name.clone(),
@@ -189,94 +205,137 @@ impl UniversalCorrelationTracker {
             related_operations: Vec::new(),
             status: OperationStatus::Started,
         };
-        
+
         // Store operation locally
         {
             let mut operations = self.active_operations.write().await;
             operations.insert(correlation_id, operation.clone());
         }
-        
+
         // Propagate correlation context to discovered endpoints
         self.propagate_correlation_context(&operation).await?;
-        
-        info!("Started correlated operation: {} ({})", operation_name, correlation_id);
+
+        info!(
+            "Started correlated operation: {} ({})",
+            operation_name, correlation_id
+        );
         Ok(correlation_id)
     }
 
     /// Update operation status and propagate to discovered primals
-    pub async fn update_operation_status(&self, correlation_id: CorrelationId, status: OperationStatus) -> Result<(), PrimalError> {
+    pub async fn update_operation_status(
+        &self,
+        correlation_id: CorrelationId,
+        status: OperationStatus,
+    ) -> Result<(), PrimalError> {
         let mut operations = self.active_operations.write().await;
-        
+
         if let Some(operation) = operations.get_mut(&correlation_id) {
             operation.status = status.clone();
-            
+
             // Set end time if operation is completed or failed
             match &status {
-                OperationStatus::Completed | OperationStatus::Failed(_) | OperationStatus::Cancelled => {
+                OperationStatus::Completed
+                | OperationStatus::Failed(_)
+                | OperationStatus::Cancelled => {
                     operation.end_time = Some(chrono::Utc::now());
                 }
                 _ => {}
             }
-            
+
             // Propagate status update to discovered endpoints
-            self.propagate_status_update(correlation_id, &status).await?;
-            
-            debug!("Updated operation status: {} -> {:?}", correlation_id, status);
+            self.propagate_status_update(correlation_id, &status)
+                .await?;
+
+            debug!(
+                "Updated operation status: {} -> {:?}",
+                correlation_id, status
+            );
         } else {
-            return Err(PrimalError::InvalidOperation(format!("Operation {} not found", correlation_id)));
+            return Err(PrimalError::InvalidOperation(format!(
+                "Operation {} not found",
+                correlation_id
+            )));
         }
-        
+
         Ok(())
     }
 
     /// Add a primal to the list of involved primals for an operation
-    pub async fn add_involved_primal(&self, correlation_id: CorrelationId, primal_type: String) -> Result<(), PrimalError> {
+    pub async fn add_involved_primal(
+        &self,
+        correlation_id: CorrelationId,
+        primal_type: String,
+    ) -> Result<(), PrimalError> {
         let mut operations = self.active_operations.write().await;
-        
+
         if let Some(operation) = operations.get_mut(&correlation_id) {
             if !operation.involved_primals.contains(&primal_type) {
                 operation.involved_primals.push(primal_type.clone());
-                debug!("Added primal {} to operation {}", primal_type, correlation_id);
+                debug!(
+                    "Added primal {} to operation {}",
+                    primal_type, correlation_id
+                );
             }
         } else {
-            return Err(PrimalError::InvalidOperation(format!("Operation {} not found", correlation_id)));
+            return Err(PrimalError::InvalidOperation(format!(
+                "Operation {} not found",
+                correlation_id
+            )));
         }
-        
+
         Ok(())
     }
 
     /// Link two operations as related
-    pub async fn link_operations(&self, parent_id: CorrelationId, child_id: CorrelationId) -> Result<(), PrimalError> {
+    pub async fn link_operations(
+        &self,
+        parent_id: CorrelationId,
+        child_id: CorrelationId,
+    ) -> Result<(), PrimalError> {
         let mut operations = self.active_operations.write().await;
-        
+
         if let Some(parent_operation) = operations.get_mut(&parent_id) {
             if !parent_operation.related_operations.contains(&child_id) {
                 parent_operation.related_operations.push(child_id);
                 debug!("Linked operation {} to parent {}", child_id, parent_id);
             }
         } else {
-            return Err(PrimalError::InvalidOperation(format!("Parent operation {} not found", parent_id)));
+            return Err(PrimalError::InvalidOperation(format!(
+                "Parent operation {} not found",
+                parent_id
+            )));
         }
-        
+
         Ok(())
     }
 
     /// Propagate correlation context to all discovered endpoints
-    async fn propagate_correlation_context(&self, operation: &CorrelatedOperation) -> Result<(), PrimalError> {
+    async fn propagate_correlation_context(
+        &self,
+        operation: &CorrelatedOperation,
+    ) -> Result<(), PrimalError> {
         let endpoints = self.endpoints.read().await;
-        
+
         for endpoint in endpoints.iter() {
             if let Err(e) = self.send_correlation_context(endpoint, operation).await {
-                warn!("Failed to propagate correlation context to {}: {}", endpoint.primal_type, e);
+                warn!(
+                    "Failed to propagate correlation context to {}: {}",
+                    endpoint.primal_type, e
+                );
                 // Don't fail the entire operation if one endpoint is unreachable
             }
         }
-        
+
         Ok(())
     }
 
     /// Send correlation context to a specific discovered endpoint
-    async fn send_correlation_context(&self, endpoint: &CorrelationEndpoint, operation: &CorrelatedOperation) -> Result<(), PrimalError> {
+    async fn send_correlation_context(
+        &self,
+        endpoint: &CorrelationEndpoint,
+        operation: &CorrelatedOperation,
+    ) -> Result<(), PrimalError> {
         let correlation_payload = serde_json::json!({
             "correlation_id": operation.correlation_id,
             "operation_name": operation.operation_name,
@@ -293,33 +352,54 @@ impl UniversalCorrelationTracker {
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send correlation context: {}", e)))?;
+            .map_err(|e| {
+                PrimalError::NetworkError(format!("Failed to send correlation context: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(PrimalError::NetworkError(format!(
-                "Correlation endpoint returned error: {}", response.status()
+                "Correlation endpoint returned error: {}",
+                response.status()
             )));
         }
 
-        debug!("Successfully propagated correlation context to {}", endpoint.primal_type);
+        debug!(
+            "Successfully propagated correlation context to {}",
+            endpoint.primal_type
+        );
         Ok(())
     }
 
     /// Propagate status update to all discovered endpoints
-    async fn propagate_status_update(&self, correlation_id: CorrelationId, status: &OperationStatus) -> Result<(), PrimalError> {
+    async fn propagate_status_update(
+        &self,
+        correlation_id: CorrelationId,
+        status: &OperationStatus,
+    ) -> Result<(), PrimalError> {
         let endpoints = self.endpoints.read().await;
-        
+
         for endpoint in endpoints.iter() {
-            if let Err(e) = self.send_status_update(endpoint, correlation_id, status).await {
-                warn!("Failed to send status update to {}: {}", endpoint.primal_type, e);
+            if let Err(e) = self
+                .send_status_update(endpoint, correlation_id, status)
+                .await
+            {
+                warn!(
+                    "Failed to send status update to {}: {}",
+                    endpoint.primal_type, e
+                );
             }
         }
-        
+
         Ok(())
     }
 
     /// Send status update to a specific endpoint
-    async fn send_status_update(&self, endpoint: &CorrelationEndpoint, correlation_id: CorrelationId, status: &OperationStatus) -> Result<(), PrimalError> {
+    async fn send_status_update(
+        &self,
+        endpoint: &CorrelationEndpoint,
+        correlation_id: CorrelationId,
+        status: &OperationStatus,
+    ) -> Result<(), PrimalError> {
         let status_payload = serde_json::json!({
             "correlation_id": correlation_id,
             "status": status,
@@ -328,24 +408,32 @@ impl UniversalCorrelationTracker {
 
         let client = reqwest::Client::new();
         let url = format!("{}/status", endpoint.endpoint);
-        
+
         let response = client
             .post(&url)
             .json(&status_payload)
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to send status update: {}", e)))?;
+            .map_err(|e| {
+                PrimalError::NetworkError(format!("Failed to send status update: {}", e))
+            })?;
 
         if !response.status().is_success() {
-            debug!("Status update endpoint returned error: {}", response.status());
+            debug!(
+                "Status update endpoint returned error: {}",
+                response.status()
+            );
         }
 
         Ok(())
     }
 
     /// Get operation by correlation ID
-    pub async fn get_operation(&self, correlation_id: CorrelationId) -> Option<CorrelatedOperation> {
+    pub async fn get_operation(
+        &self,
+        correlation_id: CorrelationId,
+    ) -> Option<CorrelatedOperation> {
         let operations = self.active_operations.read().await;
         operations.get(&correlation_id).cloned()
     }
@@ -364,40 +452,47 @@ impl UniversalCorrelationTracker {
 
         let mut operations = self.active_operations.write().await;
         let before_count = operations.len();
-        
-        let cutoff_time = chrono::Utc::now() - chrono::Duration::from_std(self.config.operation_timeout).unwrap();
-        
+
+        // Convert std Duration to chrono Duration safely
+        let timeout_duration =
+            chrono::Duration::from_std(self.config.operation_timeout).map_err(|e| {
+                PrimalError::Internal(format!("Invalid operation timeout duration: {}", e))
+            })?;
+        let cutoff_time = chrono::Utc::now() - timeout_duration;
+
         operations.retain(|_, operation| {
             match &operation.status {
-                OperationStatus::Completed | OperationStatus::Failed(_) | OperationStatus::Cancelled => {
+                OperationStatus::Completed
+                | OperationStatus::Failed(_)
+                | OperationStatus::Cancelled => {
                     if let Some(end_time) = operation.end_time {
                         end_time > cutoff_time
                     } else {
                         true // Keep if no end time set
                     }
                 }
-                _ => true // Keep active operations
+                _ => true, // Keep active operations
             }
         });
-        
+
         let cleaned_count = before_count - operations.len();
         if cleaned_count > 0 {
             info!("Cleaned up {} completed operations", cleaned_count);
         }
-        
+
         Ok(cleaned_count)
     }
 
     /// Start background cleanup task
     pub async fn start_cleanup_task(&self) -> tokio::task::JoinHandle<()> {
         let tracker = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(300)); // 5 minutes
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if let Err(e) = tracker.cleanup_completed_operations().await {
                     warn!("Failed to clean up completed operations: {}", e);
                 }
@@ -409,16 +504,16 @@ impl UniversalCorrelationTracker {
 /// Initialize universal correlation tracking system
 pub async fn initialize_correlation() -> Result<UniversalCorrelationTracker, PrimalError> {
     info!("Initializing universal correlation tracking system");
-    
+
     let config = CorrelationConfig::default();
     let tracker = UniversalCorrelationTracker::new(config);
-    
+
     // Discover correlation endpoints through universal adapter
     tracker.discover_correlation_endpoints().await?;
-    
+
     // Start background cleanup task
     tracker.start_cleanup_task().await;
-    
+
     info!("Universal correlation tracking system initialized successfully");
     Ok(tracker)
-} 
+}

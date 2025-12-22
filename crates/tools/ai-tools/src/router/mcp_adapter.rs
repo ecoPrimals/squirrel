@@ -400,11 +400,8 @@ mod tests {
             .unwrap();
 
         // Verify default response contains expected text
-        let content = result.chat_response.choices[0]
-            .content
-            .as_ref()
-            .unwrap();
-        
+        let content = result.chat_response.choices[0].content.as_ref().unwrap();
+
         // Response format: "Remote response from node NodeId("test-node") via MCP"
         assert!(content.contains("Remote response from node"));
         assert!(content.contains("test-node"));

@@ -22,7 +22,8 @@ pub struct ActionExecutor {
 
 /// Action execution record
 #[derive(Debug, Clone)]
-struct ActionExecution {
+/// Action execution record
+pub struct ActionExecution {
     /// Action ID
     action_id: String,
     /// Rule ID that triggered the action
@@ -37,7 +38,8 @@ struct ActionExecution {
 
 /// Action execution statistics
 #[derive(Debug, Clone)]
-struct ActionStatistics {
+/// Action execution statistics
+pub struct ActionStatistics {
     /// Total number of actions executed
     total_actions: u64,
     /// Number of successful actions
@@ -82,7 +84,7 @@ pub trait ActionPlugin: Send + Sync + std::fmt::Debug {
 
 impl ActionExecutor {
     /// Create a new action executor
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             plugin_registry: Arc::new(RwLock::new(HashMap::new())),
@@ -335,9 +337,7 @@ impl ActionExecutor {
             rule_id: rule_id.to_string(),
             context_id: context_id.to_string(),
             success: false,
-            message: format!(
-                "Script execution not implemented: {script} ({language})"
-            ),
+            message: format!("Script execution not implemented: {script} ({language})"),
             data: Some(serde_json::json!({
                 "script": script,
                 "language": language

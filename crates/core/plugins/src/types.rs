@@ -10,14 +10,19 @@ use crate::Result;
 
 /// Plugin type identifiers
 /// Core plugin type for system extensions
+#[allow(dead_code)] // Reserved for plugin type filtering
 pub const PLUGIN_TYPE_CORE: &str = "core";
 /// Web plugin type for interface extensions
+#[allow(dead_code)] // Reserved for plugin type filtering
 pub const PLUGIN_TYPE_WEB: &str = "web";
 /// MCP (Machine Context Protocol) plugin type for protocol extensions
+#[allow(dead_code)] // Reserved for plugin type filtering
 pub const PLUGIN_TYPE_MCP: &str = "mcp";
 /// Tool plugin type for utility extensions
+#[allow(dead_code)] // Reserved for plugin type filtering
 pub const PLUGIN_TYPE_TOOL: &str = "tool";
 /// CLI plugin type for command-line interface extensions
+#[allow(dead_code)] // Reserved for plugin type filtering
 pub const PLUGIN_TYPE_CLI: &str = "cli";
 
 /// Plugin type enumeration
@@ -34,6 +39,7 @@ pub enum PluginType {
 }
 
 /// Plugin state enumeration
+#[allow(dead_code)] // Reserved for plugin state management system
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginState {
     /// Plugin is loaded and ready
@@ -49,6 +55,7 @@ pub enum PluginState {
 }
 
 /// Plugin data format enumeration
+#[allow(dead_code)] // Reserved for plugin data serialization system
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PluginDataFormat {
     /// JSON format
@@ -75,7 +82,7 @@ pub struct PluginResources {
 }
 
 /// Plugin configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PluginConfig {
     /// Configuration settings
     pub settings: HashMap<String, serde_json::Value>,
@@ -94,16 +101,6 @@ pub struct ResourceLimits {
     pub max_cpu_percent: Option<f64>,
     /// Maximum execution time in seconds
     pub max_execution_time_secs: Option<u64>,
-}
-
-impl Default for PluginConfig {
-    fn default() -> Self {
-        Self {
-            settings: HashMap::new(),
-            environment: HashMap::new(),
-            limits: ResourceLimits::default(),
-        }
-    }
 }
 
 impl Default for ResourceLimits {
@@ -143,6 +140,7 @@ pub enum PluginStatus {
 // This was duplicate/unused code. The canonical version is in squirrel-interfaces crate.
 
 /// Core plugin trait for core system extensions
+#[allow(dead_code)] // Reserved for plugin specialization system
 pub trait CorePlugin: Plugin {
     /// Get the core plugin name
     fn get_core_name(&self) -> &str;
@@ -196,6 +194,7 @@ pub trait McpPlugin: Plugin {
 }
 
 /// Tool plugin trait for tool implementations
+#[allow(dead_code)] // Reserved for plugin specialization system
 pub trait ToolPlugin: Plugin {
     /// Get the tool plugin name
     fn get_tool_name(&self) -> &str;

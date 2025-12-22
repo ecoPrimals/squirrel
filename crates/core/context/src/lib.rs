@@ -43,6 +43,7 @@ pub mod learning;
 pub mod manager;
 pub mod plugins;
 pub mod rules;
+/// Context synchronization and distribution
 pub mod sync;
 pub mod tracker;
 pub mod visualization;

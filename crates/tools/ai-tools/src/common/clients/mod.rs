@@ -58,9 +58,11 @@ impl ClientFactory {
             }
             "anthropic" => {
                 let api_key = config.api_key.ok_or_else(|| {
-                    crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration(
-                        "Anthropic API key is required".to_string()
-                    ))
+                    crate::error::AIError::from(
+                        universal_error::tools::AIToolsError::Configuration(
+                            "Anthropic API key is required".to_string(),
+                        ),
+                    )
                 })?;
                 Ok(Self::create_anthropic_client(api_key))
             }
@@ -72,9 +74,12 @@ impl ClientFactory {
             }
             #[cfg(test)]
             "mock" => Ok(Self::create_mock_client()),
-            _ => Err(crate::error::AIError::from(universal_error::tools::AIToolsError::Configuration(format!(
-                "Unknown provider: {}. Available: openai, anthropic, ollama", provider
-            )))),
+            _ => Err(crate::error::AIError::from(
+                universal_error::tools::AIToolsError::Configuration(format!(
+                    "Unknown provider: {}. Available: openai, anthropic, ollama",
+                    provider
+                )),
+            )),
         }
     }
 }

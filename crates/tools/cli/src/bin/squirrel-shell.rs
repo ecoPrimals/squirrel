@@ -2,14 +2,9 @@
 
 use squirrel_cli::commands::registry::CommandRegistry;
 use std::io::{self, Write};
-use std::time::{Duration, Instant};
-
-use std::env;
-use std::process;
-use std::sync::Arc;
 
 // Add log crate for consistent logging
-use log::{debug, error, info, warn};
+use log::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -11,8 +11,7 @@ pub struct DefaultEndpoints;
 impl DefaultEndpoints {
     /// Get Songbird endpoint from environment or default (now using service_mesh_endpoint)
     pub fn songbird_endpoint() -> String {
-        env::var("SERVICE_MESH_ENDPOINT")
-            .unwrap_or_else(|_| "http://localhost:8500".to_string())
+        env::var("SERVICE_MESH_ENDPOINT").unwrap_or_else(|_| "http://localhost:8500".to_string())
     }
 
     /// Get ToadStool endpoint from environment or default

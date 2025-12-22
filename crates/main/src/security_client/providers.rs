@@ -92,6 +92,8 @@ impl SecurityProvider {
             },
             capabilities: vec![crate::universal::PrimalCapability::Custom {
                 name: "security".to_string(),
+                description: "Security provider capability".to_string(),
+                metadata: std::collections::HashMap::new(),
                 attributes: std::collections::HashMap::new(),
             }],
             health: SecurityProviderHealth {

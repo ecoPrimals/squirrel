@@ -3,14 +3,14 @@
 //! Provides in-memory session storage with cleanup and validation.
 //! Supports both standalone and beardog-integrated sessions.
 
-use crate::errors::{AuthError, AuthResult};
-use crate::types::{AuthProvider};
+use crate::errors::AuthResult;
+use crate::types::AuthProvider;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use tracing::debug;
 use uuid::Uuid;
 
 // Re-export Session from types for convenience
@@ -33,14 +33,19 @@ impl SessionManager {
 
     /// Create a new session
     pub async fn create_session(&self, session: Session) -> AuthResult<()> {
-        debug!("Creating session {} for user {}", session.id, session.user_id);
-        
+        debug!(
+            "Creating session {} for user {}",
+            session.id, session.user_id
+        );
+
         let mut sessions = self.sessions.write().await;
         sessions.insert(session.id, session);
-        
-        // Clean up expired sessions while we have the write lock
-        self.cleanup_expired_sessions_internal(&mut sessions).await;
-        
+
+        // Clean up expired sessions while we have the write lock (best effort)
+        if let Err(e) = self.cleanup_expired_sessions_internal(&mut sessions).await {
+            tracing::warn!("Failed to cleanup expired sessions: {}", e);
+        }
+
         Ok(())
     }
 
@@ -89,13 +94,11 @@ impl SessionManager {
         let user_sessions: Vec<Session> = sessions
             .values()
             .filter(|session| {
-                session.user_id == *user_id 
-                    && session.is_active 
-                    && !session.is_expired()
+                session.user_id == *user_id && session.is_active && !session.is_expired()
             })
             .cloned()
             .collect();
-        
+
         Ok(user_sessions)
     }
 
@@ -103,15 +106,18 @@ impl SessionManager {
     pub async fn invalidate_user_sessions(&self, user_id: &Uuid) -> AuthResult<usize> {
         let mut sessions = self.sessions.write().await;
         let mut invalidated_count = 0;
-        
+
         for session in sessions.values_mut() {
             if session.user_id == *user_id && session.is_active {
                 session.invalidate();
                 invalidated_count += 1;
             }
         }
-        
-        debug!("Invalidated {} sessions for user {}", invalidated_count, user_id);
+
+        debug!(
+            "Invalidated {} sessions for user {}",
+            invalidated_count, user_id
+        );
         Ok(invalidated_count)
     }
 
@@ -127,7 +133,7 @@ impl SessionManager {
         sessions: &mut HashMap<Uuid, Session>,
     ) -> AuthResult<usize> {
         let initial_count = sessions.len();
-        
+
         sessions.retain(|_id, session| {
             let should_keep = session.is_active && !session.is_expired();
             if !should_keep {
@@ -135,39 +141,39 @@ impl SessionManager {
             }
             should_keep
         });
-        
+
         let removed_count = initial_count - sessions.len();
         if removed_count > 0 {
             debug!("Cleaned up {} expired sessions", removed_count);
         }
-        
+
         Ok(removed_count)
     }
 
     /// Get session statistics
     pub async fn get_session_stats(&self) -> AuthResult<SessionStats> {
         let sessions = self.sessions.read().await;
-        
+
         let total_sessions = sessions.len();
         let mut active_sessions = 0;
         let mut expired_sessions = 0;
         let mut security_capability_sessions = 0;
         let mut standalone_sessions = 0;
-        
+
         for session in sessions.values() {
             if session.is_active && !session.is_expired() {
                 active_sessions += 1;
             } else {
                 expired_sessions += 1;
             }
-            
+
             match &session.auth_provider {
                 AuthProvider::SecurityCapability { .. } => security_capability_sessions += 1,
                 AuthProvider::Standalone => standalone_sessions += 1,
-                AuthProvider::Development => {}, // Don't count dev sessions
+                AuthProvider::Development => {} // Don't count dev sessions
             }
         }
-        
+
         Ok(SessionStats {
             total_sessions,
             active_sessions,
@@ -229,17 +235,13 @@ mod tests {
     async fn test_session_creation_and_retrieval() {
         let manager = SessionManager::new();
         let user_id = Uuid::new_v4();
-        
-        let session = Session::new(
-            user_id,
-            Duration::hours(1),
-            AuthProvider::Standalone,
-        );
+
+        let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
-        
+
         // Create session
         manager.create_session(session).await.unwrap();
-        
+
         // Retrieve session
         let retrieved = manager.get_session(&session_id).await.unwrap();
         assert!(retrieved.is_some());
@@ -250,18 +252,14 @@ mod tests {
     async fn test_session_expiration() {
         let manager = SessionManager::new();
         let user_id = Uuid::new_v4();
-        
+
         // Create expired session
-        let mut session = Session::new(
-            user_id,
-            Duration::hours(1),
-            AuthProvider::Standalone,
-        );
+        let mut session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         session.expires_at = Utc::now() - Duration::hours(1); // Already expired
         let session_id = session.id;
-        
+
         manager.create_session(session).await.unwrap();
-        
+
         // Should return None for expired session
         let retrieved = manager.get_session(&session_id).await.unwrap();
         assert!(retrieved.is_none());
@@ -271,20 +269,16 @@ mod tests {
     async fn test_session_invalidation() {
         let manager = SessionManager::new();
         let user_id = Uuid::new_v4();
-        
-        let session = Session::new(
-            user_id,
-            Duration::hours(1),
-            AuthProvider::Standalone,
-        );
+
+        let session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         let session_id = session.id;
-        
+
         manager.create_session(session).await.unwrap();
-        
+
         // Invalidate session
         let result = manager.invalidate_session(&session_id).await.unwrap();
         assert!(result);
-        
+
         // Should return None for invalidated session
         let retrieved = manager.get_session(&session_id).await.unwrap();
         assert!(retrieved.is_none());
@@ -294,29 +288,22 @@ mod tests {
     async fn test_session_cleanup() {
         let manager = SessionManager::new();
         let user_id = Uuid::new_v4();
-        
+
         // Create expired session
-        let mut expired_session = Session::new(
-            user_id,
-            Duration::hours(1),
-            AuthProvider::Standalone,
-        );
+        let mut expired_session =
+            Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
         expired_session.expires_at = Utc::now() - Duration::hours(1);
-        
+
         // Create valid session
-        let valid_session = Session::new(
-            user_id,
-            Duration::hours(1),
-            AuthProvider::Standalone,
-        );
-        
+        let valid_session = Session::new(user_id, Duration::hours(1), AuthProvider::Standalone);
+
         manager.create_session(expired_session).await.unwrap();
         manager.create_session(valid_session).await.unwrap();
-        
+
         // Clean up expired sessions
         let removed = manager.cleanup_expired_sessions().await.unwrap();
         assert_eq!(removed, 1);
-        
+
         // Verify stats
         let stats = manager.get_session_stats().await.unwrap();
         assert_eq!(stats.active_sessions, 1);

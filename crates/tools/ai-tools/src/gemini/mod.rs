@@ -6,11 +6,11 @@ use std::any::Any;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use bytes::Bytes;
+use futures::StreamExt;
 use reqwest::Client;
 use secrecy::{ExposeSecret, Secret, SecretString};
 use serde::{Deserialize, Serialize};
-use futures::StreamExt;
-use bytes::Bytes;
 use tracing::{debug, error, info, warn};
 
 use crate::common::{
@@ -479,60 +479,59 @@ impl AIClient for GeminiClient {
             return Err(Error::Provider(format!("Gemini API error: {error_text}")));
         }
 
-        let stream =
-            response
-                .bytes_stream()
-                .map(move |chunk: std::result::Result<Bytes, _>| {
-                    match chunk {
-                        Ok(bytes) => {
-                            // Parse each chunk as a streaming response
-                            match serde_json::from_slice::<GeminiResponse>(&bytes) {
-                                Ok(gemini_response) => {
-                                    // Inline the response conversion since we can't borrow self
-                                    let mut choices = Vec::new();
+        let stream = response
+            .bytes_stream()
+            .map(move |chunk: std::result::Result<Bytes, _>| {
+                match chunk {
+                    Ok(bytes) => {
+                        // Parse each chunk as a streaming response
+                        match serde_json::from_slice::<GeminiResponse>(&bytes) {
+                            Ok(gemini_response) => {
+                                // Inline the response conversion since we can't borrow self
+                                let mut choices = Vec::new();
 
-                                    for (index, candidate) in
-                                        gemini_response.candidates.into_iter().enumerate()
-                                    {
-                                        let content = candidate
-                                            .content
-                                            .parts
-                                            .into_iter()
-                                            .map(|part| part.text)
-                                            .collect::<Vec<_>>()
-                                            .join("\n");
+                                for (index, candidate) in
+                                    gemini_response.candidates.into_iter().enumerate()
+                                {
+                                    let content = candidate
+                                        .content
+                                        .parts
+                                        .into_iter()
+                                        .map(|part| part.text)
+                                        .collect::<Vec<_>>()
+                                        .join("\n");
 
-                                        choices.push(ChatChoiceChunk {
-                                            index,
-                                            delta: ChatMessage {
-                                                role: MessageRole::Assistant,
-                                                content: if content.is_empty() {
-                                                    None
-                                                } else {
-                                                    Some(content)
-                                                },
-                                                name: None,
-                                                tool_calls: None,
-                                                tool_call_id: None,
+                                    choices.push(ChatChoiceChunk {
+                                        index,
+                                        delta: ChatMessage {
+                                            role: MessageRole::Assistant,
+                                            content: if content.is_empty() {
+                                                None
+                                            } else {
+                                                Some(content)
                                             },
-                                            finish_reason: candidate.finish_reason,
-                                        });
-                                    }
-
-                                    Ok(ChatResponseChunk {
-                                        id: format!("gemini-{}", uuid::Uuid::new_v4()),
-                                        choices,
-                                        model: model.clone(),
-                                    })
+                                            name: None,
+                                            tool_calls: None,
+                                            tool_call_id: None,
+                                        },
+                                        finish_reason: candidate.finish_reason,
+                                    });
                                 }
-                                Err(e) => Err(Error::Parse(format!(
-                                    "Failed to parse streaming chunk: {e}"
-                                ))),
+
+                                Ok(ChatResponseChunk {
+                                    id: format!("gemini-{}", uuid::Uuid::new_v4()),
+                                    choices,
+                                    model: model.clone(),
+                                })
                             }
+                            Err(e) => Err(Error::Parse(format!(
+                                "Failed to parse streaming chunk: {e}"
+                            ))),
                         }
-                        Err(e) => Err(Error::Network(format!("Stream error: {e}"))),
                     }
-                });
+                    Err(e) => Err(Error::Network(format!("Stream error: {e}"))),
+                }
+            });
 
         Ok(Box::pin(stream))
     }

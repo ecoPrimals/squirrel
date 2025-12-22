@@ -58,17 +58,22 @@ pub struct WebSocketConfig {
 
 impl Default for WebSocketConfig {
     fn default() -> Self {
-        use crate::constants::{message_sizes, network, timeouts};
+        // Using universal-constants for all configuration values
+        use universal_constants::limits::DEFAULT_MAX_MESSAGE_SIZE;
+        use universal_constants::network::DEFAULT_WEBSOCKET_PORT;
+        use universal_constants::timeouts::{
+            DEFAULT_CONNECTION_TIMEOUT, DEFAULT_INITIAL_DELAY, DEFAULT_PING_INTERVAL,
+        };
 
         Self {
-            url: format!("ws://localhost:{}", network::DEFAULT_WEBSOCKET_PORT),
-            max_message_size: message_sizes::DEFAULT_MAX_MESSAGE_SIZE,
-            connection_timeout: timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs(),
-            ping_interval: Some(timeouts::DEFAULT_PING_INTERVAL.as_secs()),
+            url: format!("ws://localhost:{}", DEFAULT_WEBSOCKET_PORT),
+            max_message_size: DEFAULT_MAX_MESSAGE_SIZE,
+            connection_timeout: DEFAULT_CONNECTION_TIMEOUT.as_secs(),
+            ping_interval: Some(DEFAULT_PING_INTERVAL.as_secs()),
             encryption: EncryptionFormat::None,
             compression: CompressionFormat::None,
             max_reconnect_attempts: 5,
-            reconnect_delay_ms: timeouts::DEFAULT_INITIAL_DELAY.as_millis() as u64,
+            reconnect_delay_ms: DEFAULT_INITIAL_DELAY.as_millis() as u64,
         }
     }
 }
@@ -79,10 +84,13 @@ impl Default for WebSocketConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ControlMessage {
     /// Shutdown the connection
+    #[allow(dead_code)] // Reserved for connection control system
     Shutdown,
     /// Reconnect to the server
+    #[allow(dead_code)] // Reserved for connection control system
     Reconnect,
     /// Ping the server
+    #[allow(dead_code)] // Reserved for connection control system
     Ping,
 }
 
@@ -137,9 +145,11 @@ pub struct WebSocketTransport {
     reader_rx: Arc<Mutex<Option<mpsc::Receiver<MCPMessage>>>>,
 
     /// Receiver for control messages
+    #[allow(dead_code)] // Reserved for connection control system
     control_rx: Option<mpsc::Receiver<ControlMessage>>,
 
     /// Sender for control messages
+    #[allow(dead_code)] // Reserved for connection control system
     control_tx: Option<mpsc::Sender<ControlMessage>>,
 
     /// Peer address
@@ -352,6 +362,7 @@ impl WebSocketTransport {
     }
 
     /// Placeholder for internal message sending logic
+    #[allow(dead_code)] // Reserved for WebSocket message sending system
     async fn send_internal(&self, ws_message: Message) -> Result<()> {
         if let Some(sender) = &self.ws_sender {
             match ws_message {
@@ -391,12 +402,15 @@ impl WebSocketTransport {
     }
 
     /// Placeholder for handling received WebSocket messages
+    /// Handle received WebSocket message
+    #[allow(dead_code)] // Reserved for WebSocket message handling system
     async fn handle_received_message(&self, _message: Message) -> Result<Option<MCPMessage>> {
         // TODO: Implement deserialization and handling of Ping/Pong/Close/Binary/Text
         Ok(None)
     }
 
     /// Get the remote address of the WebSocket connection
+    #[allow(dead_code)] // Reserved for connection address tracking
     async fn remote_addr(&self) -> std::result::Result<Option<SocketAddr>, MCPError> {
         // Access the peer_addr field instead of trying to access a stream field
         let peer_addr = self.peer_addr.lock().await;
@@ -648,10 +662,14 @@ impl Transport for WebSocketTransport {
     }
 }
 
+/// Handle incoming WebSocket connection
+#[allow(dead_code)] // Reserved for WebSocket connection handling system
 async fn handle_connection(_peer: SocketAddr, _stream: TcpStream) -> Result<()> {
     Ok(())
 }
 
+/// Process WebSocket socket messages
+#[allow(dead_code)] // Reserved for WebSocket message processing system
 async fn process_socket(
     _socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
     _msg_tx: mpsc::Sender<MCPMessage>,

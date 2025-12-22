@@ -112,7 +112,8 @@ impl AIRouterClient {
         if providers.is_empty() {
             return Err(AIToolsError::Configuration(
                 "No providers available for routing. Initialize providers first.".to_string(),
-            ).into());
+            )
+            .into());
         }
 
         // If a specific model is requested, try to find the provider that supports it
@@ -186,9 +187,7 @@ impl AIRouterClient {
                     warn!("No priority providers available, using fallback");
                     Ok(provider.clone())
                 } else {
-                    Err(AIToolsError::Provider(
-                        "No providers available".to_string(),
-                    ).into())
+                    Err(AIToolsError::Provider("No providers available".to_string()).into())
                 }
             }
             RoutingStrategy::FirstMatch => {
@@ -197,9 +196,7 @@ impl AIRouterClient {
                 if let Some(provider) = providers.values().next() {
                     Ok(provider.clone())
                 } else {
-                    Err(AIToolsError::Provider(
-                        "No providers available".to_string(),
-                    ).into())
+                    Err(AIToolsError::Provider("No providers available".to_string()).into())
                 }
             }
         }
@@ -229,7 +226,9 @@ impl AIRouterClient {
         let selected_name = provider_names
             .choose(&mut rand::thread_rng())
             .ok_or_else(|| {
-                AIToolsError::Configuration("No providers available for routing. Add providers to config.".to_string())
+                AIToolsError::Configuration(
+                    "No providers available for routing. Add providers to config.".to_string(),
+                )
             })?;
 
         Ok(Arc::clone(providers.get(*selected_name).unwrap()))
@@ -253,9 +252,7 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(AIToolsError::Configuration(
-                "No providers available".to_string(),
-            ).into())
+            Err(AIToolsError::Configuration("No providers available".to_string()).into())
         }
     }
 
@@ -278,9 +275,7 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(AIToolsError::Configuration(
-                "No providers available".to_string(),
-            ).into())
+            Err(AIToolsError::Configuration("No providers available".to_string()).into())
         }
     }
 
@@ -303,9 +298,7 @@ impl AIRouterClient {
         if let Some(provider) = providers.values().next() {
             Ok(Arc::clone(provider))
         } else {
-            Err(AIToolsError::Configuration(
-                "No providers available".to_string(),
-            ).into())
+            Err(AIToolsError::Configuration("No providers available".to_string()).into())
         }
     }
 
@@ -355,7 +348,11 @@ impl AIRouterClient {
         }
 
         Err(last_error.unwrap_or_else(|| {
-            AIToolsError::Provider("All provider retries exhausted. Check provider availability and configuration.".to_string()).into()
+            AIToolsError::Provider(
+                "All provider retries exhausted. Check provider availability and configuration."
+                    .to_string(),
+            )
+            .into()
         }))
     }
 
@@ -479,9 +476,7 @@ impl AIClient for AIRouterClient {
 
         // Validate request
         if request.messages.is_empty() {
-            return Err(AIToolsError::InvalidRequest(
-                "No messages provided".to_string(),
-            ).into());
+            return Err(AIToolsError::InvalidRequest("No messages provided".to_string()).into());
         }
 
         // Process with retry logic

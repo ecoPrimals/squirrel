@@ -119,4 +119,3 @@ mod tests {
         assert_eq!(mb_to_bytes(16), 16 * 1024 * 1024);
     }
 }
-

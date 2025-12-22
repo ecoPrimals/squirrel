@@ -1,4 +1,3 @@
-use env_logger;
 use log::{debug, info, warn, LevelFilter};
 use serde_json::json;
 use squirrel_cli::commands::registry::CommandRegistry;
@@ -109,7 +108,7 @@ async fn main() {
         && args
             .iter()
             .position(|a| a == "--output")
-            .map_or(false, |i| args.get(i + 1).map_or(false, |v| v == "json"));
+            .is_some_and(|i| args.get(i + 1).is_some_and(|v| v == "json"));
 
     // Find the first non-flag argument (command)
     let command = args

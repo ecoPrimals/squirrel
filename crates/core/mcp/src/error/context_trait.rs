@@ -27,7 +27,7 @@ use super::types::{ErrorContext, ErrorSeverity};
 /// use squirrel_mcp::error::{MCPError, ErrorContextTrait, ErrorSeverity};
 ///
 /// fn log_error(error: &dyn ErrorContextTrait) {
-///     println!("Error in {}: {}", 
+///     println!("Error in {}: {}",
 ///         error.component().unwrap_or("unknown"),
 ///         error.operation().unwrap_or("unknown operation")
 ///     );
@@ -99,27 +99,42 @@ pub trait ErrorContextTrait {
     /// This method provides a consistent format for logging errors across the system.
     fn to_log_entry(&self) -> HashMap<String, Value> {
         let mut log = HashMap::new();
-        
+
         if let Some(timestamp) = self.timestamp() {
-            log.insert("timestamp".to_string(), Value::String(timestamp.to_rfc3339()));
+            log.insert(
+                "timestamp".to_string(),
+                Value::String(timestamp.to_rfc3339()),
+            );
         }
-        
+
         if let Some(operation) = self.operation() {
-            log.insert("operation".to_string(), Value::String(operation.to_string()));
+            log.insert(
+                "operation".to_string(),
+                Value::String(operation.to_string()),
+            );
         }
-        
+
         if let Some(component) = self.component() {
-            log.insert("component".to_string(), Value::String(component.to_string()));
+            log.insert(
+                "component".to_string(),
+                Value::String(component.to_string()),
+            );
         }
-        
-        log.insert("severity".to_string(), Value::String(format!("{:?}", self.severity())));
-        log.insert("recoverable".to_string(), Value::Bool(self.is_recoverable()));
-        
+
+        log.insert(
+            "severity".to_string(),
+            Value::String(format!("{:?}", self.severity())),
+        );
+        log.insert(
+            "recoverable".to_string(),
+            Value::Bool(self.is_recoverable()),
+        );
+
         // Merge in any additional details
         for (key, value) in self.details() {
             log.insert(key, value);
         }
-        
+
         log
     }
 
@@ -139,8 +154,8 @@ pub trait ErrorContextTrait {
     /// Based on severity level and recoverability.
     #[inline]
     fn requires_immediate_attention(&self) -> bool {
-        self.severity() == ErrorSeverity::Critical || 
-        (self.severity() == ErrorSeverity::High && !self.is_recoverable())
+        self.severity() == ErrorSeverity::Critical
+            || (self.severity() == ErrorSeverity::High && !self.is_recoverable())
     }
 }
 
@@ -253,7 +268,7 @@ mod tests {
         };
 
         let log = error.to_log_entry();
-        
+
         assert!(log.contains_key("severity"));
         assert!(log.contains_key("operation"));
         assert!(log.contains_key("component"));
@@ -263,18 +278,18 @@ mod tests {
     fn test_default_implementations() {
         #[derive(Debug)]
         struct MinimalError;
-        
+
         impl std::fmt::Display for MinimalError {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "minimal error")
             }
         }
-        
+
         impl std::error::Error for MinimalError {}
         impl ErrorContextTrait for MinimalError {}
 
         let error = MinimalError;
-        
+
         // Should use default implementations
         assert_eq!(error.severity(), ErrorSeverity::Medium);
         assert!(error.is_recoverable());
@@ -282,4 +297,3 @@ mod tests {
         assert_eq!(error.component(), None);
     }
 }
-

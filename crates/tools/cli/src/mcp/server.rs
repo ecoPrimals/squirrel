@@ -36,8 +36,7 @@ pub fn default_host() -> String {
         .eq_ignore_ascii_case("production");
 
     if is_production {
-        std::env::var("MCP_HOST")
-            .unwrap_or_else(|_| DEFAULT_BIND_HOST.to_string())
+        std::env::var("MCP_HOST").unwrap_or_else(|_| DEFAULT_BIND_HOST.to_string())
     } else {
         std::env::var("MCP_HOST").unwrap_or_else(|_| DEFAULT_DEV_HOST.to_string())
     }

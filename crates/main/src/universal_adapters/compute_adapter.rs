@@ -8,10 +8,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::ServiceInfo;
-use super::{
-    ServiceCapability, ServiceMatcher, UniversalRequest,
-    UniversalServiceRegistry,
-};
+use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Compute Adapter - works with any compute primal
@@ -49,11 +46,10 @@ impl UniversalComputeAdapter {
             self.preferred_compute_service = Some(self.discover_compute_service().await?);
         }
 
-        let compute_service = self.preferred_compute_service.as_ref()
-            .ok_or_else(|| {
-                error!("No compute service available - adapter initialization failed");
-                PrimalError::ResourceNotFound("No compute service available".to_string())
-            })?;
+        let compute_service = self.preferred_compute_service.as_ref().ok_or_else(|| {
+            error!("No compute service available - adapter initialization failed");
+            PrimalError::ResourceNotFound("No compute service available".to_string())
+        })?;
 
         // Create universal compute request
         let request_params = HashMap::from([

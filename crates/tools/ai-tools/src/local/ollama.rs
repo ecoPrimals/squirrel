@@ -48,11 +48,15 @@ struct OllamaModel {
 
 #[derive(Debug, Deserialize)]
 struct OllamaModelDetails {
+    #[allow(dead_code)] // Model metadata from Ollama API
     parent_model: Option<String>,
+    #[allow(dead_code)] // Model format information
     format: String,
     family: String,
+    #[allow(dead_code)] // Model family variants
     families: Option<Vec<String>>,
     parameter_size: String,
+    #[allow(dead_code)] // Quantization level information
     quantization_level: String,
 }
 

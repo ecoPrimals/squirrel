@@ -3,11 +3,10 @@
 //! This module demonstrates how to implement and use the ErrorContextTrait
 //! for consistent error handling across the codebase.
 
-use chrono::Utc;
 use std::collections::HashMap;
 
 use super::context_trait::{ErrorContextTrait, WithContext};
-use super::types::{ErrorContext, ErrorSeverity, MCPError};
+use super::types::{ErrorContext, ErrorSeverity};
 
 /// Example: Implementing ErrorContextTrait for a custom error type
 ///
@@ -58,12 +57,12 @@ impl ErrorContextTrait for ServiceError {
 /// This demonstrates how to extract context information for structured logging.
 pub fn log_error_with_context(error: &dyn ErrorContextTrait) {
     let log_entry = error.to_log_entry();
-    
+
     eprintln!("Error occurred:");
     for (key, value) in log_entry {
         eprintln!("  {}: {}", key, value);
     }
-    
+
     if error.should_alert() {
         eprintln!("  ⚠️  Alert triggered!");
     }
@@ -182,7 +181,8 @@ impl ErrorStats {
 
         // Count by component
         if let Some(component) = error.component() {
-            *self.errors_by_component
+            *self
+                .errors_by_component
                 .entry(component.to_string())
                 .or_insert(0) += 1;
         }
@@ -197,13 +197,13 @@ impl ErrorStats {
         if self.total_errors == 0 {
             return 0.0;
         }
-        
+
         let critical = self
             .errors_by_severity
             .get(&format!("{:?}", ErrorSeverity::Critical))
             .copied()
             .unwrap_or(0);
-        
+
         (critical as f64 / self.total_errors as f64) * 100.0
     }
 }
@@ -284,4 +284,3 @@ mod tests {
         assert!(stats.get_critical_rate() > 0.0);
     }
 }
-

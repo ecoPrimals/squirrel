@@ -302,7 +302,7 @@ impl SessionManagerImpl {
 }
 
 /// Session manager trait for dependency injection
-/// 
+///
 /// NOTE: This trait uses async_trait because it is used as a trait object (Arc<dyn SessionManager>)
 /// in primal_provider/core.rs. Native async traits are not compatible with trait objects.
 #[async_trait]

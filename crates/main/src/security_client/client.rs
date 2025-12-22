@@ -87,7 +87,10 @@ impl UniversalSecurityClient {
             PrimalCapability::Encryption {
                 algorithms: vec!["aes-256".to_string(), "rsa-2048".to_string()],
             },
-            PrimalCapability::KeyManagement { hsm_support: true },
+            PrimalCapability::KeyManagement {
+                key_types: vec!["rsa".to_string(), "ecdsa".to_string(), "aes".to_string()],
+                hsm_support: true,
+            },
         ];
 
         let mut discovered_providers = HashMap::new();
@@ -292,15 +295,17 @@ impl UniversalSecurityClient {
             request_id: request.request_id,
             success,
             decision,
-            data: response.data.get("data").and_then(|v| {
-                general_purpose::STANDARD
-                    .decode(v.as_str().unwrap_or(""))
-                    .ok()
+            data: response.data.as_ref().and_then(|data| {
+                data.get("data").and_then(|v| {
+                    general_purpose::STANDARD
+                        .decode(v.as_str().unwrap_or(""))
+                        .ok()
+                })
             }),
             provider_id: provider.provider_id.clone(),
             security_metrics: SecurityMetrics {
                 processing_time: std::time::Duration::from_millis(
-                    response.duration.num_milliseconds() as u64,
+                    response.processing_time_ms.unwrap_or(100),
                 ),
                 policy_evaluations: 3,
                 events_generated: 1,

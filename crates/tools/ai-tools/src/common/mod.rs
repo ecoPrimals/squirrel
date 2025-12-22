@@ -114,7 +114,8 @@ pub fn create_provider_client(provider: &str, api_key: &str) -> crate::Result<Bo
         }
         _ => Err(universal_error::tools::AIToolsError::Configuration(format!(
             "Unsupported provider: {provider}"
-        )).into()),
+        ))
+        .into()),
     }
 }
 

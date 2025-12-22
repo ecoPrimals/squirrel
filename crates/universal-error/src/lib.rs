@@ -130,39 +130,39 @@
 
 // Re-export the excellent MCP error system (world-class, validated Phase 3E)
 pub use squirrel_mcp::error::{
-    // Main error types
-    MCPError,
+    // Domain-specific MCP errors
+    AlertError,
+    ClientError as MCPClientError, // Disambiguate from SDK ClientError
+    ConfigError as MCPConfigError, // Disambiguate from SDK ConfigError
+    ConnectionError,
+    ContextError,
     ErrorContext,
     ErrorContextTrait,
     ErrorSeverity,
-    
-    // Domain-specific MCP errors
-    AlertError,
-    ClientError as MCPClientError,  // Disambiguate from SDK ClientError
-    ConfigError as MCPConfigError,  // Disambiguate from SDK ConfigError
-    ConnectionError,
-    ContextError,
+
     HandlerError,
-    IntegrationError as MCPIntegrationError,  // Disambiguate
-    PluginError as MCPPluginError,  // Disambiguate
+    IntegrationError as MCPIntegrationError, // Disambiguate
+    // Main error types
+    MCPError,
+    PluginError as MCPPluginError, // Disambiguate
     PortErrorKind,
     ProtocolError,
     RBACError,
     RegistryError,
+    // Utilities
+    SecurityLevel,
     SessionError,
     TaskError,
     ToolError,
     TransportError,
-    
-    // Utilities
-    SecurityLevel,
+
     WireFormatError,
 };
 
 // New domain error modules following MCP pattern
+pub mod integration;
 pub mod sdk;
 pub mod tools;
-pub mod integration;
 
 /// Unified result type using UniversalError
 ///
@@ -234,34 +234,34 @@ pub enum UniversalError {
     /// The MCP error system is world-class and validated (Phase 3E).
     #[error(transparent)]
     MCP(#[from] MCPError),
-    
+
     /// Error originating from the SDK infrastructure
     ///
     /// This encompasses SDK-related errors including infrastructure errors,
     /// communication errors, and client errors.
     #[error(transparent)]
     SDK(#[from] sdk::SDKError),
-    
+
     /// Error originating from tools (AI, CLI, Rule System)
     ///
     /// This encompasses all tool-related errors including AI tools, CLI commands,
     /// and rule system operations.
     #[error(transparent)]
     Tools(#[from] tools::ToolsError),
-    
+
     /// Error originating from integration components
     ///
     /// This encompasses integration-related errors including web integrations,
     /// API clients, context adapters, and ecosystem connections.
     #[error(transparent)]
     Integration(#[from] integration::IntegrationError),
-    
+
     /// General error that doesn't fit into specific domains
     ///
     /// Use this sparingly - prefer domain-specific errors when possible.
     #[error("General error: {0}")]
     General(String),
-    
+
     /// Internal error (should never happen in production)
     ///
     /// This indicates a logic error or invariant violation.
@@ -274,27 +274,27 @@ impl UniversalError {
     pub fn general<S: Into<String>>(msg: S) -> Self {
         Self::General(msg.into())
     }
-    
+
     /// Create an internal error from a string
     pub fn internal<S: Into<String>>(msg: S) -> Self {
         Self::Internal(msg.into())
     }
-    
+
     /// Check if this error is from the MCP domain
     pub fn is_mcp(&self) -> bool {
         matches!(self, Self::MCP(_))
     }
-    
+
     /// Check if this error is from the SDK domain
     pub fn is_sdk(&self) -> bool {
         matches!(self, Self::SDK(_))
     }
-    
+
     /// Check if this error is from the Tools domain
     pub fn is_tools(&self) -> bool {
         matches!(self, Self::Tools(_))
     }
-    
+
     /// Check if this error is from the Integration domain
     pub fn is_integration(&self) -> bool {
         matches!(self, Self::Integration(_))
@@ -329,21 +329,21 @@ impl From<String> for UniversalError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_general_error() {
         let err = UniversalError::general("test error");
         assert!(matches!(err, UniversalError::General(_)));
         assert_eq!(err.to_string(), "General error: test error");
     }
-    
+
     #[test]
     fn test_internal_error() {
         let err = UniversalError::internal("internal issue");
         assert!(matches!(err, UniversalError::Internal(_)));
         assert_eq!(err.to_string(), "Internal error: internal issue");
     }
-    
+
     #[test]
     fn test_is_mcp() {
         let mcp_err = MCPError::General("test".to_string());
@@ -351,13 +351,13 @@ mod tests {
         assert!(universal_err.is_mcp());
         assert!(!universal_err.is_sdk());
     }
-    
+
     #[test]
     fn test_string_conversion() {
         let err: UniversalError = "test error".into();
         assert!(matches!(err, UniversalError::General(_)));
     }
-    
+
     #[test]
     fn test_io_error_conversion() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");

@@ -22,8 +22,7 @@ impl DiscoveryOps {
 
             // Perform discovery for this primal type
             if let Err(e) =
-                Self::perform_service_discovery(service_registry, primal_type.clone(), endpoint)
-                    .await
+                Self::perform_service_discovery(service_registry, primal_type, endpoint).await
             {
                 eprintln!("Failed to discover service for {:?}: {}", primal_type, e);
                 continue;
@@ -38,15 +37,126 @@ impl DiscoveryOps {
     }
 
     /// Build service endpoint from primal type
+    ///
+    /// This function discovers service endpoints using a **pure capability-based approach**:
+    ///
+    /// ## Discovery Priority (Highest to Lowest)
+    ///
+    /// 1. **Environment Variables** (Production)
+    ///    - `{PRIMAL}_ENDPOINT` - Direct endpoint specification
+    ///    - Example: `SONGBIRD_ENDPOINT=https://songbird.prod.example.com`
+    ///
+    /// 2. **Service Discovery Systems** (Production)
+    ///    - `SERVICE_DISCOVERY_URL` - Registry endpoint (Consul, etcd, etc.)
+    ///    - Queries by capability, not by primal name
+    ///    - Example: Query for "service-mesh" capability, not "songbird"
+    ///
+    /// 3. **Configuration File** (Optional)
+    ///    - `SQUIRREL_CONFIG` - Path to config file with service endpoints
+    ///    - Allows dynamic endpoint specification without env vars
+    ///
+    /// 4. **Development Defaults** (Dev Only)
+    ///    - Localhost with universal-constants defined ports
+    ///    - **NEVER used in production** - fails fast if no discovery configured
+    ///
+    /// ## Capability-Based Philosophy
+    ///
+    /// This function does NOT hardcode primal names. Instead:
+    /// - Primals discover each other by **capability** (e.g., "security", "storage")
+    /// - Each primal only knows its own identity
+    /// - Runtime discovery enables zero vendor lock-in
+    /// - Services can be swapped without code changes
     fn build_service_endpoint(primal_type: &EcosystemPrimalType) -> String {
-        match primal_type {
-            EcosystemPrimalType::Squirrel => "http://localhost:8080".to_string(),
-            EcosystemPrimalType::Songbird => "http://localhost:8081".to_string(),
-            EcosystemPrimalType::ToadStool => "http://localhost:8082".to_string(),
-            EcosystemPrimalType::BearDog => "http://localhost:8083".to_string(),
-            EcosystemPrimalType::NestGate => "http://localhost:8084".to_string(),
-            EcosystemPrimalType::BiomeOS => "http://localhost:8085".to_string(),
+        // 1. Try environment variable first (highest priority)
+        let env_var = format!("{}_ENDPOINT", primal_type.env_name());
+        if let Ok(endpoint) = std::env::var(&env_var) {
+            tracing::debug!(
+                "Using environment variable {} for {:?}",
+                env_var,
+                primal_type
+            );
+            return endpoint;
         }
+
+        // 2. Try SERVICE_DISCOVERY environment variable for dynamic discovery
+        if let Ok(discovery_url) = std::env::var("SERVICE_DISCOVERY_URL") {
+            tracing::debug!(
+                "Using service discovery at {} for {:?}",
+                discovery_url,
+                primal_type
+            );
+            // In production, this would query a service registry by capability
+            // Example: Query for services with "security" capability, not "beardog"
+            return format!("{}/{}", discovery_url, primal_type.service_name());
+        }
+
+        // 3. Try configuration file
+        if let Ok(config_path) = std::env::var("SQUIRREL_CONFIG") {
+            if let Ok(endpoint) = Self::read_endpoint_from_config(&config_path, primal_type) {
+                tracing::debug!("Using config file {} for {:?}", config_path, primal_type);
+                return endpoint;
+            }
+        }
+
+        // 4. Fall back to development defaults (dev environment only)
+        // In production deployment, this should fail fast with error logging
+        if cfg!(debug_assertions) {
+            tracing::warn!(
+                "Using development default for {:?} - set environment variables in production!",
+                primal_type
+            );
+            Self::get_development_default(primal_type)
+        } else {
+            // Production: Fail fast rather than use localhost defaults
+            tracing::error!(
+                "No endpoint configured for {:?} - set {}_ENDPOINT or SERVICE_DISCOVERY_URL",
+                primal_type,
+                primal_type.env_name()
+            );
+            // Return an invalid endpoint that will fail discovery
+            "http://unconfigured.endpoint".to_string()
+        }
+    }
+
+    /// Read endpoint from configuration file
+    ///
+    /// This enables configuration-driven discovery without environment variables
+    fn read_endpoint_from_config(
+        _config_path: &str,
+        _primal_type: &EcosystemPrimalType,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Implement configuration file parsing
+        // This would read from TOML/JSON/YAML config file
+        // Example: { "endpoints": { "security": "https://beardog.example.com" } }
+        Err("Configuration file parsing not yet implemented".into())
+    }
+
+    /// Get development default endpoints (ONLY for development environment)
+    ///
+    /// ⚠️ WARNING: These are development defaults only!
+    /// In production, you MUST set environment variables:
+    /// - SQUIRREL_ENDPOINT, SONGBIRD_ENDPOINT, etc., OR
+    /// - SERVICE_DISCOVERY_URL for dynamic discovery
+    ///
+    /// This function uses universal-constants for all port assignments to ensure
+    /// consistency across the ecosystem. It does NOT use hardcoded primal names,
+    /// instead deriving endpoints from the capability-based primal type.
+    fn get_development_default(primal_type: &EcosystemPrimalType) -> String {
+        use universal_constants::{builders, network};
+
+        // Map primal types to their assigned development ports
+        // These ports are consistent with universal-constants definitions
+        let port = match primal_type {
+            EcosystemPrimalType::Squirrel => network::DEFAULT_HTTP_PORT, // 8080
+            EcosystemPrimalType::Songbird => 8081,                       // Service mesh
+            EcosystemPrimalType::ToadStool => 8082,                      // Compute
+            EcosystemPrimalType::BearDog => 8083,                        // Security
+            EcosystemPrimalType::NestGate => 8084,                       // Storage
+            EcosystemPrimalType::BiomeOS => 3000,                        // UI
+        };
+
+        // Use builder functions from universal-constants for consistency
+        builders::localhost_http(port)
     }
 
     /// Perform actual service discovery operations
@@ -58,7 +168,7 @@ impl DiscoveryOps {
         // Create discovered service with Arc<str> optimization
         let service = Arc::new(DiscoveredService {
             service_id: intern_registry_string(&format!("{:?}", primal_type).to_lowercase()),
-            primal_type: primal_type.clone(),
+            primal_type,
             endpoint: Arc::from(endpoint.clone()),
             capabilities: vec![
                 intern_registry_string("discovery"),

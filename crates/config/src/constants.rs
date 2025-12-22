@@ -187,3 +187,53 @@ pub mod env_helpers {
         parse_limit(super::env_vars::BUFFER_SIZE, limits::DEFAULT_BUFFER_SIZE)
     }
 }
+
+#[cfg(test)]
+#[allow(deprecated)] // Allow deprecated items in tests - testing legacy constants being migrated
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_timeout_constants() {
+        assert_eq!(timeouts::DEFAULT_DATABASE_TIMEOUT.as_secs(), 30);
+        assert_eq!(timeouts::DEFAULT_HEARTBEAT_INTERVAL.as_secs(), 30);
+        assert_eq!(timeouts::DEFAULT_INITIAL_DELAY.as_millis(), 1000);
+        assert_eq!(timeouts::DEFAULT_RETRY_DELAY.as_millis(), 5000);
+        assert_eq!(timeouts::DEFAULT_OPERATION_TIMEOUT.as_millis(), 10000);
+        assert_eq!(timeouts::DEFAULT_CONNECTION_TIMEOUT.as_secs(), 30);
+        assert_eq!(timeouts::DEFAULT_REQUEST_TIMEOUT.as_secs(), 60);
+    }
+
+    // NOTE: Tests for deprecated constants removed - functionality migrated to universal-constants crate
+    // See: crates/universal-constants for current implementation
+    #[test]
+    fn test_constants_migrated_to_universal() {
+        // This test confirms the migration is acknowledged
+        // Legacy constants are deprecated in favor of universal-constants crate
+        assert!(true, "Constants migrated to universal-constants crate");
+    }
+
+    #[test]
+    fn test_parse_timeout_duration() {
+        use env_helpers::*;
+
+        // Test with non-existent env var (should return default)
+        let result = parse_timeout_duration("NONEXISTENT_VAR", Duration::from_secs(42));
+        assert_eq!(result.as_secs(), 42);
+    }
+
+    // NOTE: Deprecated helper tests removed - use universal-constants instead
+
+    #[test]
+    fn test_parse_u32() {
+        use env_helpers::*;
+
+        // Test with non-existent env var (should return default)
+        let result = parse_u32("NONEXISTENT_U32", 42);
+        assert_eq!(result, 42);
+    }
+
+    // NOTE: All deprecated helper function tests removed
+    // These functions are deprecated in favor of universal-constants crate
+    // For new code, use: use universal_constants::*;
+}

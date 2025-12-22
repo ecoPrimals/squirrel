@@ -1,7 +1,6 @@
 //! Error types for the plugin system
 
 use thiserror::Error;
-use uuid;
 
 /// Plugin system errors
 #[derive(Debug, Error)]

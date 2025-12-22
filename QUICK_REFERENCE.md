@@ -1,156 +1,531 @@
-# 🐿️ Squirrel Quick Reference
+# 🚀 Quick Reference Guide
+## Common Commands and Workflows
 
-**Grade**: A+ (96/100) | **Build**: ✅ PASSING | **Status**: Production-Ready
+**Last Updated**: December 21, 2025
 
 ---
 
-## 🚀 Quick Start
+## ⚡ Essential Commands
 
+### Build & Test
 ```bash
-# Check build
-cargo check --workspace
+# Quick verification
+cargo build && cargo test --lib
 
-# Run tests
-cargo test --workspace
+# Full quality check
+./QUICK_VERIFICATION.sh
 
-# Health check
-./scripts/health_check.sh
-
-# Monitor compat layer
-./scripts/monitor_compat_usage.sh
+# Comprehensive verification
+./VERIFY_QUALITY.sh
 ```
 
----
-
-## 📍 Essential Documents
-
-1. **[START_HERE.md](START_HERE.md)** - Main entry point
-2. **[README.md](README.md)** - Project overview
-3. **[ROOT_DOCS_INDEX.md](ROOT_DOCS_INDEX.md)** - Complete documentation index
-
----
-
-## 🎯 November 8, 2025 Summary
-
-### What We Found
-
-**Architecture**: **92.9% correctly designed** (world-class!)
-
-**Key Discovery**: Most "duplication" is intentional domain separation
-
-**Results**:
-- Grade improved: A (91) → A+ (96) [+5 points]
-- 5,322 LOC reduced
-- 15 warnings fixed
-- Architecture validated
-
-### Today's Key Documents
-
-- **[ALL_SESSIONS_COMPLETE_NOV_8_2025.md](ALL_SESSIONS_COMPLETE_NOV_8_2025.md)** - Complete summary
-- **[MATURE_CODEBASE_UNIFICATION_ASSESSMENT.md](MATURE_CODEBASE_UNIFICATION_ASSESSMENT.md)** - Full analysis
-- **[PHASE4_ASYNC_TRAIT_MIGRATION_PLAN.md](PHASE4_ASYNC_TRAIT_MIGRATION_PLAN.md)** - Future roadmap
-
----
-
-## 📊 Current Metrics
-
-```
-Grade:           A+ (96/100) ✅
-Build:           PASSING (0 errors) ✅
-Tech Debt:       0.0003% (exceptional) ✅
-Architecture:    92.9% correct ✅
-Warnings:        47 (pre-existing)
-LOC:             ~300,000
-```
-
----
-
-## 🎓 Key Lessons
-
-1. **Domain Separation ≠ Duplication**
-   - Same names can represent different domains
-   - Test before consolidating
-
-2. **Compat Layers Can Be Strategic**
-   - Not all shims are tech debt
-   - Squirrel's compat layer: 99.7% adoption success
-
-3. **Evolutionary > Revolutionary**
-   - Test consolidation hypotheses
-   - 92.9% of architecture was already correct
-
----
-
-## 🔧 Common Commands
-
+### Testing
 ```bash
-# Build
-cargo build --workspace
+# All library tests
+cargo test --lib
 
-# Test
-cargo test --workspace
+# Specific package
+cargo test -p universal-patterns --lib
 
-# Check
-cargo check --workspace
+# Specific test
+cargo test --lib test_name
 
-# Fix warnings
-cargo fix --workspace
+# With output
+cargo test --lib -- --nocapture
 
-# Benchmarks
+# Integration tests
+cargo test --test '*'
+```
+
+### Coverage
+```bash
+# Generate HTML coverage report
+cargo llvm-cov --lib --html
+
+# Open report
+open target/llvm-cov/html/index.html  # macOS
+xdg-open target/llvm-cov/html/index.html  # Linux
+
+# Text summary
+cargo llvm-cov --lib
+```
+
+### Code Quality
+```bash
+# Format code
+cargo fmt --all
+
+# Check format without changing
+cargo fmt --all --check
+
+# Lint with clippy
+cargo clippy --all --lib
+
+# Pedantic linting
+cargo clippy --all --lib -- -D warnings
+```
+
+### Documentation
+```bash
+# Generate and open docs
+cargo doc --open
+
+# Build docs without opening
+cargo doc --no-deps
+
+# Check doc links
+cargo doc --all --no-deps
+```
+
+---
+
+## 📊 Quality Checks
+
+### Pre-Commit Checklist
+```bash
+# 1. Format
+cargo fmt --all
+
+# 2. Build
+cargo build
+
+# 3. Test
+cargo test --lib
+
+# 4. Lint
+cargo clippy --all --lib
+
+# All green? Good to commit!
+```
+
+### Full Quality Gate
+```bash
+# Run complete verification
+./VERIFY_QUALITY.sh
+
+# Expected output:
+# ✅ Compilation: PASS
+# ✅ Tests: PASS (647/647)
+# ✅ Formatting: PASS
+# ✅ Linting: PASS (or warnings listed)
+```
+
+---
+
+## 🔍 Finding Things
+
+### Search Codebase
+```bash
+# Find by name (ripgrep)
+rg "function_name" --type rust
+
+# Find in specific directory
+rg "MyStruct" crates/universal-patterns/
+
+# Case insensitive
+rg -i "keyword"
+
+# Find TODOs
+rg "TODO|FIXME" crates/
+```
+
+### Find Files
+```bash
+# By name
+fd "config.rs"
+
+# By pattern
+fd "test.*\.rs"
+
+# In specific directory
+fd "mod.rs" crates/core/
+```
+
+### Project Stats
+```bash
+# Line counts
+tokei
+
+# Test counts
+cargo test --lib -- --list | wc -l
+
+# File counts
+find crates -name "*.rs" | wc -l
+```
+
+---
+
+## 🧪 Testing Workflows
+
+### Writing Tests
+```bash
+# 1. Add test to module
+# 2. Run to verify
+cargo test --lib test_name
+
+# 3. Check coverage
+cargo llvm-cov --lib --html
+```
+
+### Debugging Tests
+```bash
+# Run with output
+cargo test --lib test_name -- --nocapture
+
+# Run single test
+cargo test --lib --exact test_module::test_name
+
+# Show all tests
+cargo test --lib -- --list
+```
+
+### Test Coverage Campaign
+```bash
+# 1. Check current coverage
+cargo llvm-cov --lib
+
+# 2. Find untested modules
+rg "^pub " crates/ -A5 | grep -v "#\[test\]"
+
+# 3. Add tests
+
+# 4. Verify improvement
+cargo llvm-cov --lib
+```
+
+---
+
+## 📚 Documentation
+
+### Key Files
+- **[README.md](README.md)** - Project overview
+- **[START_HERE.md](START_HERE.md)** - Getting started
+- **[STATUS.md](STATUS.md)** - Current status
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - This file
+
+### Reports (Dec 21, 2025)
+- **[COMPREHENSIVE_REVIEW_DEC_21_2025.md](COMPREHENSIVE_REVIEW_DEC_21_2025.md)** - Full audit
+- **[FINAL_SESSION_REPORT_DEC_21_2025.md](FINAL_SESSION_REPORT_DEC_21_2025.md)** - Session summary
+- **[TEST_COVERAGE_PROGRESS_DEC_21_2025.md](TEST_COVERAGE_PROGRESS_DEC_21_2025.md)** - Coverage tracking
+
+### Standards
+- **[FILE_SIZE_POLICY.md](FILE_SIZE_POLICY.md)** - Code size guidelines
+- **[SOVEREIGNTY_COMPLIANCE.md](SOVEREIGNTY_COMPLIANCE.md)** - Privacy compliance
+- **[MAINTENANCE_GUIDE.md](MAINTENANCE_GUIDE.md)** - Maintenance procedures
+
+---
+
+## 🛠️ Development Workflows
+
+### New Feature
+```bash
+# 1. Create branch
+git checkout -b feature/my-feature
+
+# 2. Implement feature
+# ... edit code ...
+
+# 3. Add tests
+# ... write tests ...
+
+# 4. Verify
+cargo test --lib
+cargo clippy --all --lib
+
+# 5. Document
+# ... add docs ...
+
+# 6. Commit
+git add .
+git commit -m "feat: add my feature"
+```
+
+### Bug Fix
+```bash
+# 1. Reproduce bug with test
+# ... write failing test ...
+
+# 2. Fix bug
+# ... edit code ...
+
+# 3. Verify test passes
+cargo test --lib test_name
+
+# 4. Run all tests
+cargo test --lib
+
+# 5. Commit
+git commit -m "fix: resolve bug"
+```
+
+### Refactoring
+```bash
+# 1. Ensure tests pass first
+cargo test --lib
+
+# 2. Refactor
+# ... edit code ...
+
+# 3. Verify tests still pass
+cargo test --lib
+
+# 4. Check no behavior change
+cargo test --lib -- --nocapture
+
+# 5. Commit
+git commit -m "refactor: improve code organization"
+```
+
+---
+
+## 🎯 Common Tasks
+
+### Check Project Status
+```bash
+# Quick status
+cat STATUS.md
+
+# Detailed report
+cat FINAL_SESSION_REPORT_DEC_21_2025.md
+
+# Test coverage
+cargo llvm-cov --lib
+```
+
+### Update Dependencies
+```bash
+# Check for updates
+cargo outdated
+
+# Update Cargo.lock
+cargo update
+
+# Test after update
+cargo test --lib
+```
+
+### Clean Build
+```bash
+# Clean all build artifacts
+cargo clean
+
+# Rebuild from scratch
+cargo build --release
+
+# Verify tests
+cargo test --lib
+```
+
+---
+
+## 📈 Metrics & Analysis
+
+### Coverage Analysis
+```bash
+# Full HTML report
+cargo llvm-cov --lib --html
+open target/llvm-cov/html/index.html
+
+# By package
+cargo llvm-cov --lib --package universal-patterns
+
+# JSON output
+cargo llvm-cov --lib --json
+```
+
+### Performance Benchmarks
+```bash
+# Run all benchmarks
 cargo bench
 
-# Health check
-./scripts/health_check.sh
+# Specific benchmark
+cargo bench --bench arc_str_performance_suite
 
-# Full health check
-./scripts/health_check.sh --full
+# With output
+cargo bench -- --nocapture
+```
+
+### Code Analysis
+```bash
+# Dead code
+cargo build 2>&1 | rg "never used"
+
+# Unused dependencies
+cargo-udeps
+
+# Security audit
+cargo audit
 ```
 
 ---
 
-## 📁 Documentation Structure
+## 🔧 Troubleshooting
 
-```
-Root/
-├── START_HERE.md                    # 👈 START HERE
-├── README.md                        # Project overview
-├── ROOT_DOCS_INDEX.md              # Documentation index
-├── QUICK_REFERENCE.md              # This file
-│
-├── ALL_SESSIONS_COMPLETE_NOV_8_2025.md      # Today's summary
-├── MATURE_CODEBASE_UNIFICATION_ASSESSMENT.md # Analysis
-└── PHASE4_ASYNC_TRAIT_MIGRATION_PLAN.md     # Future plan
+### Build Issues
+```bash
+# Clean and rebuild
+cargo clean && cargo build
 
-docs/
-├── adr/                             # Architecture decisions (4 ADRs)
-├── sessions/nov-8-2025/            # Session documentation (12 files)
-└── [other docs]/                    # User guides, analysis, etc.
+# Update toolchain
+rustup update stable
+
+# Check Rust version
+rustc --version
 ```
 
+### Test Issues
+```bash
+# Run single test with output
+cargo test --lib test_name -- --nocapture
+
+# Check test isolation
+cargo test --lib -- --test-threads=1
+
+# Debug test
+RUST_LOG=debug cargo test --lib test_name
+```
+
+### Coverage Issues
+```bash
+# Reinstall llvm-cov
+cargo install cargo-llvm-cov --force
+
+# Clean coverage data
+rm -rf target/llvm-cov
+
+# Regenerate
+cargo llvm-cov --lib --html
+```
+
 ---
 
-## 🎯 Next Steps (Optional)
+## 🚀 Deployment
 
-1. Run monitoring scripts periodically
-2. Review Phase 4 plan when ready
-3. Apply evolutionary methodology to future work
+### Release Build
+```bash
+# Build release
+cargo build --release
+
+# Run release tests
+cargo test --release
+
+# Check binary size
+ls -lh target/release/
+```
+
+### Docker
+```bash
+# Build image
+docker build -t squirrel:latest .
+
+# Run container
+docker run -it squirrel:latest
+
+# Test in container
+docker-compose -f docker-compose.test.yml up
+```
 
 ---
 
-## 🐿️ Bottom Line
+## 📊 Current Status (Dec 21, 2025)
 
-**This codebase is world-class!**
+### Quality Metrics ✅
+- **Grade**: B++ (89/100)
+- **Tests**: 647/647 passing (100%)
+- **Stability**: 100% (no flaky tests)
+- **Coverage**: ~37% (target: 90%)
+- **Build**: Zero errors
+- **Linting**: Clippy passing (pedantic on some crates)
 
-- 0.0003% tech debt (43x better than world-class benchmarks)
-- 92.9% correct architecture (validated!)
-- A+ (96/100) grade
-- Production-ready
-
-**Most "duplication" is actually correct domain separation!**
+### Active Work 🔄
+- Test coverage campaign (37% → 90%)
+- Adding ~50+ tests per session
+- Systematic module improvement
 
 ---
 
-🐿️ **Squirrel: Production-Ready Universal AI Primal** ✨
+## 🎓 Learning Resources
 
-**Last Updated**: November 8, 2025
+### Rust Docs
+```bash
+# Open Rust book
+rustup doc --book
 
+# Standard library docs
+rustup doc --std
+
+# Cargo book
+rustup doc --cargo
+```
+
+### Project Docs
+```bash
+# Architecture
+cat docs/architecture/README.md
+
+# Guides
+ls docs/guides/
+
+# Specifications
+ls specs/active/
+```
+
+---
+
+## 💡 Pro Tips
+
+### Speed Up Development
+```bash
+# Use sccache for faster builds
+cargo install sccache
+export RUSTC_WRAPPER=sccache
+
+# Parallel tests (default)
+cargo test --lib
+
+# Watch mode for tests
+cargo watch -x "test --lib"
+```
+
+### Better Testing
+```bash
+# Test with nextest (faster test runner)
+cargo install cargo-nextest
+cargo nextest run --lib
+
+# Coverage with exclusions
+cargo llvm-cov --lib --ignore-filename-regex tests/
+```
+
+### Documentation
+```bash
+# Generate docs with private items
+cargo doc --document-private-items
+
+# Check doc tests only
+cargo test --doc
+```
+
+---
+
+## 🆘 Quick Help
+
+### Stuck?
+1. Check [STATUS.md](STATUS.md) for current state
+2. Review [COMPREHENSIVE_REVIEW_DEC_21_2025.md](COMPREHENSIVE_REVIEW_DEC_21_2025.md)
+3. Search docs: `rg "your question" docs/`
+4. Check examples: `ls examples/`
+
+### Need More Info?
+- Architecture: `docs/architecture/`
+- Guides: `docs/guides/`
+- API Reference: `cargo doc --open`
+- Specifications: `specs/active/`
+
+---
+
+**Last Updated**: December 21, 2025  
+**Status**: Production-Capable ✅  
+**Grade**: B++ (89/100)
+
+🐿️ **Quick Reference for Fast Development** 🦀

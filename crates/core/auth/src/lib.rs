@@ -39,9 +39,9 @@ pub use types::{AuthContext, LoginRequest, LoginResponse, Permission, User};
 pub async fn initialize() -> AuthResult<()> {
     let security_endpoint = std::env::var("SECURITY_SERVICE_ENDPOINT")
         .unwrap_or_else(|_| "http://localhost:8443".to_string());
-    let mcp_endpoint = std::env::var("MCP_ENDPOINT")
-        .unwrap_or_else(|_| "http://127.0.0.1:8444".to_string());
-    
+    let mcp_endpoint =
+        std::env::var("MCP_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8444".to_string());
+
     tracing::info!(
         "Initializing modern auth system with endpoints: security_service={}, mcp={}",
         security_endpoint,

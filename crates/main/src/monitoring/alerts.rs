@@ -54,6 +54,12 @@ pub enum AlertStatus {
     Acknowledged,
 }
 
+impl Default for AlertManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AlertManager {
     /// Create a new alert manager
     pub fn new() -> Self {

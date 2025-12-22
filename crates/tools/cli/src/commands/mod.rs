@@ -41,7 +41,11 @@ pub mod adapter {
     /// Command adapter trait
     pub trait CommandAdapterTrait {
         /// Execute a command
-        fn execute(&self, command: &str, args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send;
+        fn execute(
+            &self,
+            command: &str,
+            args: &[String],
+        ) -> impl std::future::Future<Output = Result<String>> + Send;
     }
 
     /// Command adapter implementation
@@ -65,8 +69,8 @@ pub mod adapter {
     }
 
     impl CommandAdapterTrait for CommandAdapter {
-        fn execute(&self, _command: &str, _args: &[String]) -> impl std::future::Future<Output = Result<String>> + Send {
-            async { Ok("Command executed".to_string()) }
+        async fn execute(&self, _command: &str, _args: &[String]) -> Result<String> {
+            Ok("Command executed".to_string())
         }
     }
 

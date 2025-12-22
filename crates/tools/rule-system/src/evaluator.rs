@@ -34,7 +34,8 @@ struct CachedEvaluation {
 
 /// Evaluation statistics
 #[derive(Debug, Clone)]
-struct EvaluationStatistics {
+/// Rule evaluation statistics
+pub struct EvaluationStatistics {
     /// Total number of evaluations
     total_evaluations: u64,
     /// Number of cached evaluations
@@ -44,6 +45,7 @@ struct EvaluationStatistics {
     /// Number of successful evaluations
     successful_evaluations: u64,
     /// Number of failed evaluations
+    #[allow(dead_code)] // Metric for future evaluation error reporting
     failed_evaluations: u64,
 }
 
@@ -75,7 +77,7 @@ pub trait ConditionEvaluator: Send + Sync + std::fmt::Debug {
 
 impl RuleEvaluator {
     /// Create a new rule evaluator
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             evaluation_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -270,9 +272,7 @@ impl RuleEvaluator {
                 // For now, we'll return an error for scripts
                 // In a real implementation, this would use a scripting engine
                 Err(RuleSystemError::EvaluatorError(RuleEvaluatorError::Other(
-                    format!(
-                        "Script evaluation not implemented: {script} ({language})"
-                    ),
+                    format!("Script evaluation not implemented: {script} ({language})"),
                 )))
             }
         }

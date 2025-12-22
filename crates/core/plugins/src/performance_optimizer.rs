@@ -8,10 +8,7 @@
 //! - Zero-copy plugin data structures
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{
-    atomic::AtomicU64,
-    Arc,
-};
+use std::sync::{atomic::AtomicU64, Arc};
 use std::time::{Duration, Instant, SystemTime};
 
 use tokio::sync::{Mutex, RwLock};
@@ -20,8 +17,7 @@ use uuid::Uuid;
 
 use crate::errors::{PluginError, Result};
 use crate::zero_copy::{
-    ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginMetadata,
-    ZeroCopyPluginRegistry,
+    ZeroCopyPlugin, ZeroCopyPluginEntry, ZeroCopyPluginMetadata, ZeroCopyPluginRegistry,
 };
 
 /// Global plugin performance optimizer
@@ -191,7 +187,8 @@ pub struct PluginPerformanceOptimizer {
     /// Memory optimizer
     memory_optimizer: Arc<MemoryOptimizer>,
 
-    /// Performance metrics
+    /// Performance metrics for tracking optimizer effectiveness
+    #[allow(dead_code)] // Reserved for metrics collection system
     metrics: Arc<RwLock<OptimizerMetrics>>,
 
     /// Configuration
@@ -208,12 +205,14 @@ pub struct HotPathCache {
     capability_queries: Arc<RwLock<HashMap<String, CachedCapabilityQuery>>>,
 
     /// Cached execution results
+    #[allow(dead_code)] // Reserved for execution result caching
     execution_results: Arc<RwLock<HashMap<String, CachedExecutionResult>>>,
 
     /// Cache statistics
     stats: Arc<RwLock<CacheStatistics>>,
 
-    /// Configuration
+    /// Configuration for cache behavior
+    #[allow(dead_code)] // Reserved for cache configuration system
     config: HotPathCacheConfig,
 }
 
@@ -262,11 +261,16 @@ impl Clone for CachedCapabilityQuery {
 }
 
 /// Cached execution result
+#[allow(dead_code)] // Reserved for execution result caching system
 #[derive(Debug)]
 pub struct CachedExecutionResult {
+    /// Cached result data
     pub result: Arc<String>,
+    /// When this result was cached
     pub cached_at: SystemTime,
+    /// Number of times this cache entry was accessed
     pub access_count: AtomicU64,
+    /// Original execution time (for comparison)
     pub execution_time: Duration,
 }
 
@@ -286,30 +290,42 @@ pub struct CacheStatistics {
 #[derive(Debug)]
 pub struct BatchProcessor {
     /// Pending plugin loads
+    #[allow(dead_code)] // Reserved for batch processing system
     pending_loads: Arc<Mutex<VecDeque<BatchOperation>>>,
 
     /// Batch processing task handle
+    #[allow(dead_code)] // Reserved for batch processing system
     task_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 
     /// Batch statistics
     stats: Arc<RwLock<BatchStatistics>>,
 
-    /// Configuration
+    /// Configuration for batch processing
+    #[allow(dead_code)] // Reserved for batch configuration system
     config: BatchProcessingConfig,
 }
 
 /// Batch operation types
+#[allow(dead_code)] // Reserved for batch processing system
 #[derive(Debug)]
 pub enum BatchOperation {
+    /// Load a plugin in batch
     PluginLoad {
+        /// Plugin to load
         plugin_id: Uuid,
+        /// Plugin entry data
         entry: Arc<ZeroCopyPluginEntry>,
     },
+    /// Query capabilities in batch
     CapabilityQuery {
+        /// Capability to query
         capability: String,
     },
+    /// Update metadata in batch
     MetadataUpdate {
+        /// Plugin to update
         plugin_id: Uuid,
+        /// New metadata
         metadata: Arc<ZeroCopyPluginMetadata>,
     },
 }
@@ -327,12 +343,14 @@ pub struct BatchStatistics {
 #[derive(Debug)]
 pub struct PredictiveLoader {
     /// Usage pattern analysis
+    #[allow(dead_code)] // Reserved for usage pattern analysis system
     usage_patterns: Arc<RwLock<HashMap<String, UsagePattern>>>,
 
     /// Prediction model
     prediction_model: Arc<RwLock<PredictionModel>>,
 
     /// Predictive load queue
+    #[allow(dead_code)] // Reserved for predictive loading system
     prediction_queue: Arc<Mutex<VecDeque<PredictiveLoad>>>,
 
     /// Configuration
@@ -340,11 +358,16 @@ pub struct PredictiveLoader {
 }
 
 /// Usage pattern for a plugin or operation
+#[allow(dead_code)] // Reserved for usage pattern analysis system
 #[derive(Debug, Clone)]
 pub struct UsagePattern {
+    /// Access times for pattern analysis
     pub access_times: VecDeque<SystemTime>,
+    /// Frequency of access
     pub access_frequency: f64,
-    pub peak_hours: Vec<u8>, // Hours of day (0-23)
+    /// Peak hours of usage (0-23)
+    pub peak_hours: Vec<u8>,
+    /// Correlation with other patterns
     pub correlation_patterns: HashMap<String, f64>,
 }
 
@@ -358,15 +381,21 @@ pub struct PredictionModel {
 }
 
 /// Predictive load operation
+#[allow(dead_code)] // Reserved for predictive loading system
 #[derive(Debug, Clone)]
 pub struct PredictiveLoad {
+    /// Plugin to predictively load
     pub plugin_id: Uuid,
+    /// Confidence in prediction
     pub confidence: f64,
+    /// When to load the plugin
     pub predicted_load_time: SystemTime,
+    /// Reason for this prediction
     pub reason: PredictionReason,
 }
 
 /// Reason for predictive loading
+#[allow(dead_code)] // Infrastructure for plugin predictive loading system
 #[derive(Debug, Clone)]
 pub enum PredictionReason {
     TemporalPattern,
@@ -376,6 +405,7 @@ pub enum PredictionReason {
 }
 
 /// Memory optimizer for plugin operations
+#[allow(dead_code)] // Infrastructure for plugin memory optimization system
 #[derive(Debug)]
 pub struct MemoryOptimizer {
     /// Memory usage tracking
@@ -392,6 +422,7 @@ pub struct MemoryOptimizer {
 }
 
 /// Plugin memory usage information
+#[allow(dead_code)] // Data structure for memory tracking system
 #[derive(Debug, Clone)]
 pub struct PluginMemoryInfo {
     pub allocated_bytes: u64,
@@ -401,6 +432,7 @@ pub struct PluginMemoryInfo {
 }
 
 /// Zero-copy pool trait
+#[allow(dead_code)] // Infrastructure for zero-copy object pooling system
 pub trait ZeroCopyPool: Send + Sync + std::fmt::Debug {
     fn get_object(&self) -> Box<dyn std::any::Any + Send>;
     fn return_object(&self, object: Box<dyn std::any::Any + Send>);
@@ -409,6 +441,7 @@ pub trait ZeroCopyPool: Send + Sync + std::fmt::Debug {
 }
 
 /// Lazy loading information
+#[allow(dead_code)] // Data structure for lazy loading system
 #[derive(Debug, Clone)]
 pub struct LazyLoadInfo {
     pub plugin_id: Uuid,
@@ -478,7 +511,7 @@ impl PluginPerformanceOptimizer {
         // Perform actual lookup
         let start = Instant::now();
         let result = registry.get_plugin_by_name(plugin_name).await;
-        let lookup_time = start.elapsed();
+        let _lookup_time = start.elapsed();
 
         // Cache the result
         let cached_lookup = CachedPluginLookup {
@@ -548,20 +581,20 @@ impl PluginPerformanceOptimizer {
     ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
         if plugin_entries.len() <= 1 {
             // No benefit from batching single operations
-            let mut results = Vec::new();
+            let results = Vec::new();
             for entry in plugin_entries {
                 // NOTE: Plugin loading is intentionally simplified for performance benchmarking
                 // This implementation is sufficient for testing plugin system performance characteristics
                 // Full dynamic loading will be implemented when the unified plugin system is redesigned
                 // Tracked in: specs/active/plugins/unified-plugin-system.md
                 // Status: Non-blocking for current performance testing needs
-                
+
                 // Future implementation:
                 // let plugin_result = Ok(Arc::new(crate::unified_manager::PlaceholderPlugin::new(
                 //     entry.metadata.clone(),
                 // )) as Arc<dyn ZeroCopyPlugin>);
                 // results.push(plugin_result);
-                
+
                 // Temporary stub to allow compilation
                 let _entry = entry; // Suppress unused warning
             }
@@ -748,7 +781,7 @@ impl BatchProcessor {
         &self,
         plugin_entries: Vec<Arc<ZeroCopyPluginEntry>>,
     ) -> Vec<Result<Arc<dyn ZeroCopyPlugin>>> {
-        let mut results = Vec::new();
+        let results = Vec::new();
 
         // Simulate batch loading with better efficiency
         for entry in plugin_entries {
@@ -756,13 +789,13 @@ impl BatchProcessor {
             // This implementation is sufficient for testing plugin system performance characteristics
             // Full dynamic loading will be implemented when the unified plugin system is redesigned
             // Tracked in: specs/active/plugins/unified-plugin-system.md
-            
+
             // Future implementation:
             // let plugin_result = Ok(Arc::new(crate::unified_manager::PlaceholderPlugin::new(
             //     entry.metadata.clone(),
             // )) as Arc<dyn ZeroCopyPlugin>);
             // results.push(plugin_result);
-            
+
             // Temporary stub to allow compilation
             let _entry = entry; // Suppress unused warning
         }

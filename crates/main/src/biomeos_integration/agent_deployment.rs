@@ -431,20 +431,20 @@ impl AgentDeploymentManager {
 
     /// Validate agent security
     async fn validate_agent_security(&self, spec: &AgentSpec) -> Result<(), PrimalError> {
-        if self.config.security.validate_security_context {
-            if spec.security.security_context.is_empty() {
-                return Err(PrimalError::SecurityError(
-                    "Security context must be specified".to_string(),
-                ));
-            }
+        if self.config.security.validate_security_context
+            && spec.security.security_context.is_empty()
+        {
+            return Err(PrimalError::SecurityError(
+                "Security context must be specified".to_string(),
+            ));
         }
 
-        if self.config.security.require_encryption {
-            if !spec.security.encryption.at_rest || !spec.security.encryption.in_transit {
-                return Err(PrimalError::SecurityError(
-                    "Encryption required for both at-rest and in-transit data".to_string(),
-                ));
-            }
+        if self.config.security.require_encryption
+            && (!spec.security.encryption.at_rest || !spec.security.encryption.in_transit)
+        {
+            return Err(PrimalError::SecurityError(
+                "Encryption required for both at-rest and in-transit data".to_string(),
+            ));
         }
 
         Ok(())
@@ -790,6 +790,12 @@ impl Default for AgentResourceUsage {
             total_requests: 0,
             avg_response_time_ms: 0.0,
         }
+    }
+}
+
+impl Default for DeploymentStatus {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

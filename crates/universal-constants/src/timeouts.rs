@@ -158,4 +158,3 @@ mod tests {
         assert_eq!(duration_to_secs(DEFAULT_CONNECTION_TIMEOUT), 30);
     }
 }
-

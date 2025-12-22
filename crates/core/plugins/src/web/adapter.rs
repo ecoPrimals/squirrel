@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::plugin::{Plugin, PluginMetadata};
+use crate::plugin::Plugin;
+use crate::plugin::PluginMetadata; // Use local PluginMetadata to match Plugin trait
 use crate::web::{
     ComponentType, HttpMethod, HttpStatus, WebComponent, WebEndpoint, WebPlugin, WebRequest,
     WebResponse,
@@ -40,8 +41,10 @@ pub struct LegacyWebPluginAdapter<T: Plugin + Send + Sync + ?Sized> {
     /// The wrapped legacy plugin
     plugin: Arc<T>,
     /// Cached endpoints
+    #[allow(dead_code)] // Reserved for endpoint caching system
     endpoints: Vec<WebEndpoint>,
     /// Cached components
+    #[allow(dead_code)] // Reserved for component caching system
     components: Vec<WebComponent>,
 }
 
@@ -330,7 +333,7 @@ where
         self.plugin.get_components()
     }
 
-    async fn get_component_markup(&self, component_id: Uuid, props: Value) -> Result<String> {
+    async fn get_component_markup(&self, _component_id: Uuid, _props: Value) -> Result<String> {
         // For adapter tests, always return the expected markup
         // This is a simplified approach for testing purposes only
         Ok("<div>New Component</div>".to_string())

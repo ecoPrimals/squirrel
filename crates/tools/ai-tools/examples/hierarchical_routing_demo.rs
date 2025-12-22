@@ -18,9 +18,7 @@ use squirrel_ai_tools::{
         clients::mock::MockAIClient,
         ChatMessage, ChatRequest, MessageRole, ModelParameters,
     },
-    router::{
-        AIRouter, HierarchicalRouter, RequestContext, RouterConfig, RoutingHint, RoutingStrategy,
-    },
+    router::{AIRouter, RequestContext, RouterConfig, RoutingHint, RoutingStrategy},
     Result,
 };
 

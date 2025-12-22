@@ -21,7 +21,7 @@ use crate::rules::RuleManager;
 use crate::visualization::VisualizationSystem;
 
 /// Learning request type for context optimization
-/// 
+///
 /// Note: Planned feature for queuing optimization tasks - implementation in progress
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ pub enum LearningRequestType {
 }
 
 /// Learning request for queuing optimization tasks
-/// 
+///
 /// Note: Planned feature for queuing optimization tasks - implementation in progress
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub struct LearningRequest {
 }
 
 /// Context usage pattern analysis results
-/// 
+///
 /// Note: Planned feature for pattern analysis - implementation in progress
 #[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
@@ -91,7 +91,7 @@ impl ContextUsagePattern {
 }
 
 /// State change pattern analysis results
-/// 
+///
 /// Note: Planned feature for pattern analysis - implementation in progress
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -102,7 +102,7 @@ pub struct StateChangePatternAnalysis {
 }
 
 /// Context monitoring results for tracking
-/// 
+///
 /// Note: Planned feature for context monitoring - implementation in progress
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -116,7 +116,7 @@ pub struct ContextMonitoringResults {
 }
 
 /// Analyze state change patterns to identify optimization opportunities
-/// 
+///
 /// Note: Planned feature for pattern analysis - implementation in progress
 #[allow(dead_code)]
 fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePatternAnalysis {
@@ -145,7 +145,7 @@ fn analyze_state_change_patterns(state_changes: &[StateChange]) -> StateChangePa
 }
 
 /// State change for pattern analysis
-/// 
+///
 /// Note: Planned feature for pattern tracking - implementation in progress
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -903,7 +903,7 @@ impl LearningIntegration {
     }
 
     /// Update integration statistics
-    /// 
+    ///
     /// Note: Internal method for future integration statistics - implementation in progress
     #[allow(dead_code)]
     async fn update_stats(&self, operation_success: bool, operation_time: f64) -> Result<()> {
@@ -927,7 +927,7 @@ impl LearningIntegration {
     }
 
     /// Record integration error
-    /// 
+    ///
     /// Note: Internal method for future error tracking - implementation in progress
     #[allow(dead_code)]
     async fn record_error(&self, error_type: &str, message: &str, component: &str) -> Result<()> {
@@ -978,7 +978,7 @@ impl LearningIntegration {
 }
 
 /// References to integration components
-/// 
+///
 /// Note: Component references for future integration - some components not yet wired up
 #[derive(Debug, Clone)]
 pub struct IntegrationRefs {

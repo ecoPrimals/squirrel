@@ -88,6 +88,8 @@ impl ComputeProvider {
             },
             capabilities: vec![crate::universal::PrimalCapability::Custom {
                 name: "compute".to_string(),
+                description: "Compute provider capability".to_string(),
+                metadata: std::collections::HashMap::new(),
                 attributes: std::collections::HashMap::new(),
             }],
             health: ComputeProviderHealth {

@@ -33,6 +33,7 @@ tower-http = { version = "0.4", features = ["full"] }
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
+universal-constants = { path = "../../universal-constants" }
 
 # WebSocket support
 axum = { version = "0.6", features = ["ws", "headers"], optional = true }

@@ -219,7 +219,7 @@ impl TimeoutConfig {
     /// `SQUIRREL_CUSTOM_TIMEOUT_<NAME>_SECS=<value>`
     fn load_custom_timeouts() -> HashMap<String, u64> {
         let mut custom = HashMap::new();
-        
+
         for (key, value) in std::env::vars() {
             if let Some(name) = key.strip_prefix("SQUIRREL_CUSTOM_TIMEOUT_") {
                 if let Some(name) = name.strip_suffix("_SECS") {
@@ -229,7 +229,7 @@ impl TimeoutConfig {
                 }
             }
         }
-        
+
         custom
     }
 
@@ -288,7 +288,8 @@ impl TimeoutConfig {
     /// Returns the custom timeout if configured, otherwise returns the
     /// default operation timeout.
     pub fn get_custom_timeout(&self, name: &str) -> Duration {
-        let secs = self.custom_timeouts
+        let secs = self
+            .custom_timeouts
             .get(name)
             .copied()
             .unwrap_or(self.operation_timeout_secs);
@@ -311,31 +312,29 @@ impl TimeoutConfig {
     /// - All timeouts must be > 0
     /// - Health checks should be < 30 seconds
     /// - Sessions should be < 24 hours
-    /// 
+    ///
     /// Now uses unified validation module for consistency.
     pub fn validate(&self) -> Result<(), String> {
         use super::validation::Validator;
-        
+
         // Validate basic timeouts
         Validator::validate_timeout_secs(self.connection_timeout_secs, "connection_timeout")
             .map_err(|e| e.to_string())?;
         Validator::validate_timeout_secs(self.request_timeout_secs, "request_timeout")
             .map_err(|e| e.to_string())?;
-        
+
         // Validate health check timeout with max
         Validator::validate_timeout_with_max(
             self.health_check_timeout_secs,
             30,
-            "health_check_timeout"
-        ).map_err(|e| e.to_string())?;
-        
+            "health_check_timeout",
+        )
+        .map_err(|e| e.to_string())?;
+
         // Validate session timeout with max (24 hours)
-        Validator::validate_timeout_with_max(
-            self.session_timeout_secs,
-            86400,
-            "session_timeout"
-        ).map_err(|e| e.to_string())?;
-        
+        Validator::validate_timeout_with_max(self.session_timeout_secs, 86400, "session_timeout")
+            .map_err(|e| e.to_string())?;
+
         Ok(())
     }
 }
@@ -360,16 +359,22 @@ mod tests {
     #[test]
     fn test_timeout_as_duration() {
         let config = TimeoutConfig::default();
-        assert_eq!(config.connection_timeout(), Duration::from_secs(config.connection_timeout_secs));
+        assert_eq!(
+            config.connection_timeout(),
+            Duration::from_secs(config.connection_timeout_secs)
+        );
     }
 
     #[test]
     fn test_custom_timeout() {
         let mut config = TimeoutConfig::default();
         config.set_custom_timeout("test_operation", 42);
-        
+
         assert!(config.is_custom_timeout("test_operation"));
-        assert_eq!(config.get_custom_timeout("test_operation"), Duration::from_secs(42));
+        assert_eq!(
+            config.get_custom_timeout("test_operation"),
+            Duration::from_secs(42)
+        );
     }
 
     #[test]
@@ -382,10 +387,10 @@ mod tests {
     fn test_environment_variable_loading() {
         // Set environment variable
         std::env::set_var("SQUIRREL_CONNECTION_TIMEOUT_SECS", "45");
-        
+
         let config = TimeoutConfig::from_env();
         assert_eq!(config.connection_timeout(), Duration::from_secs(45));
-        
+
         // Clean up
         std::env::remove_var("SQUIRREL_CONNECTION_TIMEOUT_SECS");
     }
@@ -394,13 +399,15 @@ mod tests {
     fn test_custom_timeout_from_env() {
         // Set custom timeout via environment
         std::env::set_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS", "99");
-        
+
         let config = TimeoutConfig::from_env();
         assert!(config.is_custom_timeout("my_operation"));
-        assert_eq!(config.get_custom_timeout("my_operation"), Duration::from_secs(99));
-        
+        assert_eq!(
+            config.get_custom_timeout("my_operation"),
+            Duration::from_secs(99)
+        );
+
         // Clean up
         std::env::remove_var("SQUIRREL_CUSTOM_TIMEOUT_MY_OPERATION_SECS");
     }
 }
-

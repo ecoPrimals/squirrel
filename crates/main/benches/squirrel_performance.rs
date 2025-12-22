@@ -11,7 +11,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use uuid::Uuid;
 
 use squirrel::enhanced::{ClientInfo, EnhancedMCPConfig, EnhancedMCPServer, MCPRequest};
-use squirrel::error::types::MCPError;
+use squirrel::error::PrimalError;
 use squirrel::protocol::types::*;
 use squirrel::session::*;
 use squirrel::transport::types::*;

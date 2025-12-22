@@ -251,7 +251,7 @@ impl WebPluginRegistry {
     pub async fn handle_request(&self, mut request: WebRequest) -> Result<WebResponse> {
         // Try to find exact matching endpoint
         match self
-            .find_plugin_for_endpoint(&request.path, request.method.clone())
+            .find_plugin_for_endpoint(&request.path, request.method)
             .await
         {
             Ok(plugin) => {
@@ -264,7 +264,7 @@ impl WebPluginRegistry {
 
         // If not found, try pattern matching
         let path_result = self
-            .find_plugin_for_path(&request.path, request.method.clone())
+            .find_plugin_for_path(&request.path, request.method)
             .await;
 
         if let Ok((plugin, params)) = path_result {

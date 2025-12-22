@@ -17,6 +17,7 @@ use crate::PluginError;
 
 /// Plugin manifest format
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Manifest structure for plugin discovery system
 pub struct PluginManifest {
     /// Plugin name
     pub name: String,
@@ -85,6 +86,7 @@ pub trait PluginDiscovery: Send + Sync {
 }
 
 /// File-based plugin discovery
+#[allow(dead_code)] // Infrastructure for file-based plugin discovery
 #[derive(Debug)]
 pub struct FilePluginDiscovery<L> {
     /// Plugin loader
@@ -93,6 +95,7 @@ pub struct FilePluginDiscovery<L> {
 
 impl<L: PluginLoader> FilePluginDiscovery<L> {
     /// Create new file-based plugin discovery
+    #[allow(dead_code)] // Constructor for FilePluginDiscovery
     pub const fn new(loader: L) -> Self {
         Self { loader }
     }
@@ -150,6 +153,7 @@ pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
 }
 
 /// A placeholder plugin implementation
+#[allow(dead_code)] // Placeholder for plugin template system
 #[derive(Debug, Clone)]
 struct PlaceholderPlugin {
     metadata: PluginMetadata,
@@ -230,6 +234,7 @@ impl DefaultPluginDiscovery {
 }
 
 /// Default plugin loader implementation
+#[allow(dead_code)] // Infrastructure for default plugin loading
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultPluginLoader;
 

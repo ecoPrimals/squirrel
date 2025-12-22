@@ -645,9 +645,13 @@ impl ExperienceReplay {
 
 /// Experience trait for type-safe experience handling
 pub trait Experience: Send + Sync {
+    /// Get the experience ID
     fn id(&self) -> &str;
+    /// Get the experience timestamp
     fn timestamp(&self) -> DateTime<Utc>;
+    /// Get the experience priority
     fn priority(&self) -> f64;
+    /// Set the experience priority
     fn set_priority(&mut self, priority: f64);
 }
 

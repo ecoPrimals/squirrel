@@ -26,6 +26,8 @@ pub mod config;
 pub mod connection;
 pub mod context;
 pub mod context_err;
+pub mod context_trait; // NEW: Standardized error context trait
+pub mod examples;
 pub mod handler;
 pub mod integration;
 pub mod plugin;
@@ -37,9 +39,7 @@ pub mod session;
 pub mod task;
 pub mod tool;
 pub mod transport;
-pub mod types;
-pub mod context_trait;  // NEW: Standardized error context trait
-pub mod examples;  // NEW: Error context trait usage examples
+pub mod types; // NEW: Error context trait usage examples
 
 // Re-export the main error types for convenient access
 pub use crate::error::alert::AlertError;

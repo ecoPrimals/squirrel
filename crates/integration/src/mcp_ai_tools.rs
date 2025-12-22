@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 
 use squirrel_ai_tools::common::capability::AICapabilities;

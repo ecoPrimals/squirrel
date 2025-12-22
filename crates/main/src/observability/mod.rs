@@ -1,5 +1,5 @@
 //! # Comprehensive Observability Framework
-//! 
+//!
 //! This module provides standardized observability utilities for the entire ecosystem,
 //! including structured logging, correlation IDs, performance metrics, and distributed tracing.
 //!
@@ -14,12 +14,12 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use uuid::Uuid;
 use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
+pub mod correlation;
 pub mod metrics;
 pub mod tracing_utils;
-pub mod correlation;
 
 /// Correlation ID for tracking requests across services
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,7 +139,10 @@ impl OperationContext {
     }
 
     /// Create with existing correlation ID
-    pub fn with_correlation_id(operation: impl Into<String>, correlation_id: CorrelationId) -> Self {
+    pub fn with_correlation_id(
+        operation: impl Into<String>,
+        correlation_id: CorrelationId,
+    ) -> Self {
         Self {
             correlation_id,
             operation: operation.into(),
@@ -230,7 +233,7 @@ impl OperationContext {
         let duration = self.elapsed();
         self.metrics.mark_success(duration);
         self.log_success();
-        
+
         OperationResult {
             correlation_id: self.correlation_id,
             operation: self.operation,
@@ -245,7 +248,7 @@ impl OperationContext {
         let error_str = error.into();
         self.metrics.mark_failure(duration, error_str.clone());
         self.log_failure(&error_str);
-        
+
         OperationResult {
             correlation_id: self.correlation_id,
             operation: self.operation,
@@ -291,7 +294,7 @@ macro_rules! observe_operation {
     ($operation:expr) => {
         $crate::observability::OperationContext::new($operation)
     };
-    
+
     ($operation:expr, $correlation_id:expr) => {
         $crate::observability::OperationContext::with_correlation_id($operation, $correlation_id)
     };
@@ -308,7 +311,7 @@ macro_rules! log_with_correlation {
             $msg $(, $($arg)*)?
         );
     };
-    
+
     (warn, $ctx:expr, $msg:expr $(, $($arg:tt)*)?) => {
         tracing::warn!(
             correlation_id = %$ctx.correlation_id,
@@ -317,7 +320,7 @@ macro_rules! log_with_correlation {
             $msg $(, $($arg)*)?
         );
     };
-    
+
     (error, $ctx:expr, $msg:expr $(, $($arg:tt)*)?) => {
         tracing::error!(
             correlation_id = %$ctx.correlation_id,
@@ -326,7 +329,7 @@ macro_rules! log_with_correlation {
             $msg $(, $($arg)*)?
         );
     };
-    
+
     (debug, $ctx:expr, $msg:expr $(, $($arg:tt)*)?) => {
         tracing::debug!(
             correlation_id = %$ctx.correlation_id,
@@ -381,4 +384,4 @@ pub mod utils {
         metadata.insert("query_type".to_string(), query_type.to_string());
         metadata
     }
-} 
+}

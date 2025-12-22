@@ -124,4 +124,3 @@ mod tests {
         assert_eq!(BIOMEOS_METRICS_URL, "BIOMEOS_METRICS_URL");
     }
 }
-

@@ -17,7 +17,10 @@ use std::future::Future;
 
 /// Core MCP protocol trait
 pub trait MCPProtocol: Send + Sync {
-    fn handle_message(&self, message: MCPMessage) -> impl Future<Output = Result<MCPMessage>> + Send;
+    fn handle_message(
+        &self,
+        message: MCPMessage,
+    ) -> impl Future<Output = Result<MCPMessage>> + Send;
     fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send;
 }
 
@@ -25,7 +28,10 @@ pub trait MCPProtocol: Send + Sync {
 pub struct SimpleMCPProtocol;
 
 impl MCPProtocol for SimpleMCPProtocol {
-    fn handle_message(&self, message: MCPMessage) -> impl Future<Output = Result<MCPMessage>> + Send {
+    fn handle_message(
+        &self,
+        message: MCPMessage,
+    ) -> impl Future<Output = Result<MCPMessage>> + Send {
         async move {
             // Echo back the message with response type
             Ok(MCPMessage::new(MessageType::Response, message.payload))
@@ -33,9 +39,7 @@ impl MCPProtocol for SimpleMCPProtocol {
     }
 
     fn get_version(&self) -> impl Future<Output = ProtocolVersion> + Send {
-        async move {
-            ProtocolVersion::default()
-        }
+        async move { ProtocolVersion::default() }
     }
 }
 

@@ -23,7 +23,7 @@ use super::context::SecurityContext;
 ///
 /// let request = AuthRequest {
 ///     service_id: "my-service".to_string(),
-///     credentials: Credentials::Test { username: "user".to_string(), password: "pass".to_string() },
+///     credentials: Credentials::Test { service_id: "test-service".to_string() },
 ///     timestamp: Utc::now(),
 /// };
 /// ```
@@ -418,8 +418,7 @@ mod tests {
     #[test]
     fn test_auth_request_creation() {
         let credentials = Credentials::Test {
-            username: "testuser".to_string(),
-            password: "testpass".to_string(),
+            service_id: "test-service".to_string(),
         };
 
         let request = AuthRequest::new("test-service".to_string(), credentials.clone());

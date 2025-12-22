@@ -1,3 +1,8 @@
+// Authentication Example
+//!
+//! This example demonstrates authentication and authorization patterns using the MCP adapter,
+//! including role-based access control and command permissions.
+
 use adapter_pattern_examples::{
     Auth, Command, CommandError, CommandResult, McpAdapter, TestCommand, UserRole,
 };

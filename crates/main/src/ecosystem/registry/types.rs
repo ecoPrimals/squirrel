@@ -144,7 +144,7 @@ impl DiscoveredService {
             api_version: intern_registry_string(api_version),
             capabilities: capabilities
                 .into_iter()
-                .map(|cap| intern_registry_string(cap))
+                .map(intern_registry_string)
                 .collect(),
             metadata: metadata
                 .into_iter()
@@ -201,7 +201,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let strings = Vec::<String>::deserialize(deserializer)?;
-    Ok(strings.into_iter().map(|s| Arc::from(s)).collect())
+    Ok(strings.into_iter().map(Arc::from).collect())
 }
 
 fn serialize_arc_str_map<S>(
@@ -243,7 +243,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let opt_string = Option::<String>::deserialize(deserializer)?;
-    Ok(opt_string.map(|s| Arc::from(s)))
+    Ok(opt_string.map(Arc::from))
 }
 
 /// Service health status
@@ -357,7 +357,7 @@ impl PrimalApiResponse {
             request_id,
             success,
             data,
-            error: error.map(|e| Arc::from(e)),
+            error: error.map(Arc::from),
             headers: headers
                 .into_iter()
                 .map(|(k, v)| (intern_registry_string(k), Arc::from(v)))

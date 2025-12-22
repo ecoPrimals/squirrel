@@ -30,7 +30,7 @@ pub struct RuleRepository {
 
 impl RuleRepository {
     /// Create a new rule repository
-    #[must_use] 
+    #[must_use]
     pub fn new(directory_manager: RuleDirectoryManager, parser: RuleParser) -> Self {
         Self {
             rules: Arc::new(RwLock::new(HashMap::new())),

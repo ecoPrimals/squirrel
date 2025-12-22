@@ -40,9 +40,8 @@ pub use health_check::HealthCheckConfig;
 pub use loader::{ConfigLoader, LoadedConfig};
 pub use timeouts::TimeoutConfig;
 pub use types::{
-    AiProvidersConfig, CircuitBreakerConfig, DatabaseBackend, DatabaseConfig, FeatureFlags, 
-    LoadBalancingConfig, LoadBalancingStrategy, McpConfig, MonitoringConfig, NetworkConfig, 
+    AiProvidersConfig, CircuitBreakerConfig, DatabaseBackend, DatabaseConfig, FeatureFlags,
+    LoadBalancingConfig, LoadBalancingStrategy, McpConfig, MonitoringConfig, NetworkConfig,
     SecurityConfig, ServiceMeshConfig, ServiceRegistryType, SquirrelUnifiedConfig, SystemConfig,
 };
-pub use validation::{Validator, ValidationError, ValidationResult};
-
+pub use validation::{ValidationError, ValidationResult, Validator};

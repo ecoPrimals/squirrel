@@ -56,7 +56,7 @@ pub struct RuleDirectoryManager {
 
 impl RuleDirectoryManager {
     /// Creates a new rule directory manager with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn new(config: RuleDirectoryConfig) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
@@ -65,7 +65,7 @@ impl RuleDirectoryManager {
     }
 
     /// Creates a new rule directory manager with the default configuration
-    #[must_use] 
+    #[must_use]
     pub fn default() -> Self {
         Self::new(RuleDirectoryConfig::default())
     }
@@ -338,33 +338,35 @@ pub struct RuleDirectoryManagerFactory;
 
 impl RuleDirectoryManagerFactory {
     /// Creates a new rule directory manager with the default configuration
-    #[must_use] 
+    #[must_use]
     pub fn create_manager() -> RuleDirectoryManager {
         RuleDirectoryManager::default()
     }
 
     /// Creates a new rule directory manager with the given configuration
-    #[must_use] 
+    #[must_use]
     pub fn create_manager_with_config(config: RuleDirectoryConfig) -> RuleDirectoryManager {
         RuleDirectoryManager::new(config)
     }
 
     /// Creates a new rule directory manager with a custom root directory
     pub fn create_manager_with_root_dir(root_dir: impl Into<PathBuf>) -> RuleDirectoryManager {
-        let mut config = RuleDirectoryConfig::default();
-        config.root_directory = root_dir.into();
+        let config = RuleDirectoryConfig {
+            root_directory: root_dir.into(),
+            ..Default::default()
+        };
         RuleDirectoryManager::new(config)
     }
 }
 
 /// Creates a new rule directory manager with the default configuration
-#[must_use] 
+#[must_use]
 pub fn create_rule_directory_manager() -> RuleDirectoryManager {
     RuleDirectoryManagerFactory::create_manager()
 }
 
 /// Creates a new rule directory manager with the given configuration
-#[must_use] 
+#[must_use]
 pub fn create_rule_directory_manager_with_config(
     config: RuleDirectoryConfig,
 ) -> RuleDirectoryManager {

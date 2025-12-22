@@ -6,8 +6,8 @@ use tracing::{error, info};
 
 use super::registry::config::EcosystemRegistryConfig;
 use super::registry::discovery::DiscoveryOps;
- // Remove HealthCheckResult import
- // Keep only this direct import
+// Remove HealthCheckResult import
+// Keep only this direct import
 use super::registry::types::{intern_registry_string, DiscoveredService, EcosystemRegistryEvent}; // Import HealthCheckResult directly
 use crate::error::PrimalError;
 use crate::EcosystemPrimalType; // Import from crate root // Use the existing one
@@ -65,7 +65,7 @@ impl EcosystemRegistryManager {
                 for service in discovered {
                     let event = EcosystemRegistryEvent::ServiceDiscovered {
                         service_id: service.service_id.clone(),
-                        primal_type: service.primal_type.clone(),
+                        primal_type: service.primal_type,
                         endpoint: service.endpoint.clone(),
                         capabilities: service.capabilities.clone(), // Include capabilities
                     };
@@ -231,11 +231,11 @@ impl EcosystemRegistryManager {
         use crate::error_handling::safe_operations::SafeOps;
         use std::time::Duration;
         use uuid::Uuid;
-        
+
         // Generate correlation ID for request tracking
         let correlation_id = Uuid::new_v4().to_string();
         let operation_start = std::time::Instant::now();
-        
+
         let service_registry = self.service_registry.read().await;
         let service = service_registry
             .values()
@@ -255,7 +255,7 @@ impl EcosystemRegistryManager {
             })?;
 
         let url = format!("{}/api/v1/{}", service.endpoint, request.operation);
-        
+
         tracing::info!(
             correlation_id = %correlation_id,
             request_id = %request.request_id,
@@ -267,19 +267,19 @@ impl EcosystemRegistryManager {
             operation = "primal_api_call_start",
             "Starting primal API call"
         );
-        
+
         // Configuration for resilient API calls
         let max_retries = 3;
         let base_delay = Duration::from_millis(1000);
         let timeout = request.timeout.min(Duration::from_secs(30)); // Cap at 30s
-        
+
         let mut last_error = None;
-        
+
         // Retry loop with exponential backoff
         for attempt in 1..=max_retries {
             let attempt_start = std::time::Instant::now();
-            let client_timeout = timeout / max_retries as u32; // Distribute timeout across attempts
-            
+            let client_timeout = timeout / max_retries; // Distribute timeout across attempts
+
             tracing::debug!(
                 correlation_id = %correlation_id,
                 request_id = %request.request_id,
@@ -290,7 +290,7 @@ impl EcosystemRegistryManager {
                 operation = "primal_api_call_attempt",
                 "Attempting primal API call"
             );
-                
+
             let api_call_result = SafeOps::safe_with_timeout(
                 client_timeout,
                 || async {
@@ -301,14 +301,15 @@ impl EcosystemRegistryManager {
                         .await
                 },
                 &format!("primal_api_call_attempt_{}", attempt),
-            ).await;
-            
+            )
+            .await;
+
             let attempt_duration = attempt_start.elapsed();
-            
+
             match api_call_result.execute_without_default() {
                 Ok(Ok(response)) => {
                     let status_code = response.status().as_u16();
-                    
+
                     if response.status().is_success() {
                         // Success path - parse response safely
                         let parse_start = std::time::Instant::now();
@@ -316,12 +317,16 @@ impl EcosystemRegistryManager {
                             Duration::from_secs(5), // JSON parsing timeout
                             || response.json::<serde_json::Value>(),
                             "json_response_parsing",
-                        ).await;
-                        
+                        )
+                        .await;
+
                         let parse_duration = parse_start.elapsed();
                         let total_duration = operation_start.elapsed();
-                        let data = response_result.execute_without_default().ok().and_then(|r| r.ok());
-                        
+                        let data = response_result
+                            .execute_without_default()
+                            .ok()
+                            .and_then(|r| r.ok());
+
                         tracing::info!(
                             correlation_id = %correlation_id,
                             request_id = %request.request_id,
@@ -334,7 +339,7 @@ impl EcosystemRegistryManager {
                             has_data = data.is_some(),
                             "Primal API call completed successfully"
                         );
-                            
+
                         return Ok(crate::ecosystem::PrimalApiResponse {
                             request_id: request.request_id,
                             success: true,
@@ -349,16 +354,22 @@ impl EcosystemRegistryManager {
                             Duration::from_secs(2),
                             || response.text(),
                             "error_response_parsing",
-                        ).await.execute_without_default()
-                            .and_then(|r| r.map_err(|e| crate::error_handling::safe_operations::SafeError::Network {
-                                message: format!("Request error: {}", e),
-                                endpoint: None
-                            }))
-                            .unwrap_or_else(|_| "Unknown HTTP error".to_string());
-                        
+                        )
+                        .await
+                        .execute_without_default()
+                        .and_then(|r| {
+                            r.map_err(|e| {
+                                crate::error_handling::safe_operations::SafeError::Network {
+                                    message: format!("Request error: {}", e),
+                                    endpoint: None,
+                                }
+                            })
+                        })
+                        .unwrap_or_else(|_| "Unknown HTTP error".to_string());
+
                         let error_msg = format!("HTTP {} - {}", status_code, error_text);
                         last_error = Some(error_msg.clone());
-                        
+
                         tracing::warn!(
                             correlation_id = %correlation_id,
                             request_id = %request.request_id,
@@ -374,7 +385,7 @@ impl EcosystemRegistryManager {
                 Ok(Err(e)) => {
                     let error_msg = format!("Network error: {}", e);
                     last_error = Some(error_msg.clone());
-                    
+
                     tracing::warn!(
                         correlation_id = %correlation_id,
                         request_id = %request.request_id,
@@ -388,7 +399,7 @@ impl EcosystemRegistryManager {
                 Err(timeout_err) => {
                     let error_msg = format!("Timeout error: {}", timeout_err);
                     last_error = Some(error_msg.clone());
-                    
+
                     tracing::warn!(
                         correlation_id = %correlation_id,
                         request_id = %request.request_id,
@@ -401,7 +412,7 @@ impl EcosystemRegistryManager {
                     );
                 }
             }
-            
+
             // Exponential backoff between retries (except on last attempt)
             if attempt < max_retries {
                 let delay = base_delay * (2_u32.pow(attempt - 1));
@@ -416,10 +427,10 @@ impl EcosystemRegistryManager {
                 tokio::time::sleep(delay).await;
             }
         }
-        
+
         let total_duration = operation_start.elapsed();
         let final_error = last_error.unwrap_or_else(|| "All retry attempts failed".to_string());
-        
+
         tracing::error!(
             correlation_id = %correlation_id,
             request_id = %request.request_id,
@@ -429,7 +440,7 @@ impl EcosystemRegistryManager {
             final_error = %final_error,
             "Primal API call failed after all retry attempts"
         );
-            
+
         // Return failed response instead of error to allow graceful handling
         Ok(crate::ecosystem::PrimalApiResponse {
             request_id: request.request_id,

@@ -18,6 +18,7 @@ use crate::DefaultPluginManager;
 #[derive(Clone)]
 pub struct PluginMarketplaceClient {
     /// Plugin manager instance
+    #[allow(dead_code)] // Reserved for marketplace plugin management
     manager: Arc<DefaultPluginManager>,
     /// Configured repositories
     repositories: Arc<RwLock<Vec<PluginRepository>>>,
@@ -631,7 +632,7 @@ impl PluginMarketplaceClient {
         let page = criteria.page.unwrap_or(1);
         let per_page = criteria.per_page.unwrap_or(20);
         let total = plugins.len();
-        let total_pages = (total + per_page - 1) / per_page;
+        let total_pages = total.div_ceil(per_page);
 
         let start = (page - 1) * per_page;
         let end = std::cmp::min(start + per_page, total);

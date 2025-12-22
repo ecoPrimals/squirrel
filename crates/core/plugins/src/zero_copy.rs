@@ -814,29 +814,43 @@ mod tests {
     #[tokio::test]
     async fn test_plugin_registration_and_retrieval() {
         use crate::error_handling::safe_operations::SafeOps;
-        
+
         let registry = Arc::new(ZeroCopyPluginRegistry::new());
         let metadata = create_test_plugin_metadata();
         let entry = Arc::new(TestPlugin::new(metadata.clone()));
 
         // Test plugin registration with safe error handling
-        registry.register_plugin(entry).await
+        registry
+            .register_plugin(entry)
+            .await
             .map_err(|e| format!("Plugin registration should succeed in test: {}", e))
             .expect("Plugin registration should succeed in test environment");
 
         // Test plugin retrieval by ID with safe error handling
-        let retrieved = registry.get_plugin(metadata.id).await
+        let retrieved = registry
+            .get_plugin(metadata.id)
+            .await
             .map_err(|e| format!("Plugin retrieval by ID should succeed: {}", e))
             .expect("Plugin retrieval by ID should succeed after successful registration");
-        
-        assert_eq!(retrieved.metadata().id, metadata.id, "Retrieved plugin should have correct ID");
+
+        assert_eq!(
+            retrieved.metadata().id,
+            metadata.id,
+            "Retrieved plugin should have correct ID"
+        );
 
         // Test plugin retrieval by name with safe error handling
-        let retrieved_by_name = registry.get_plugin_by_name("test-plugin").await
+        let retrieved_by_name = registry
+            .get_plugin_by_name("test-plugin")
+            .await
             .map_err(|e| format!("Plugin retrieval by name should succeed: {}", e))
             .expect("Plugin retrieval by name should succeed after successful registration");
-        
-        assert_eq!(retrieved_by_name.metadata().name, "test-plugin", "Retrieved plugin should have correct name");
+
+        assert_eq!(
+            retrieved_by_name.metadata().name,
+            "test-plugin",
+            "Retrieved plugin should have correct name"
+        );
     }
 
     #[test]

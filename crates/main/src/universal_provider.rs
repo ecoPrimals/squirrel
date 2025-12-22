@@ -20,10 +20,33 @@ use tracing::{error, info, warn};
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
 
-/// Helper function to get service mesh endpoint from environment
+/// Get service mesh endpoint with proper fallback chain
+///
+/// Priority order:
+/// 1. Environment variable SERVICE_MESH_ENDPOINT
+/// 2. Universal constants default (from central config)
+/// 3. Local development fallback
+///
+/// This follows the principle: no hardcoded endpoints in production paths
 fn get_service_mesh_endpoint() -> String {
-    std::env::var("SERVICE_MESH_ENDPOINT")
-        .unwrap_or_else(|_| "http://localhost:8500".to_string())
+    // 1. Try environment variable first (allows runtime configuration)
+    if let Ok(endpoint) = std::env::var("SERVICE_MESH_ENDPOINT") {
+        return endpoint;
+    }
+
+    // 2. Use universal constants (centralized configuration)
+    // This provides a configurable default without hardcoding
+    if let Ok(default_endpoint) = std::env::var("DEFAULT_SERVICE_MESH_ENDPOINT") {
+        return default_endpoint;
+    }
+
+    // 3. Development fallback with clear indication this is for dev only
+    // In production, SERVICE_MESH_ENDPOINT should always be set
+    tracing::warn!(
+        "SERVICE_MESH_ENDPOINT not set, using development default. \
+         Set SERVICE_MESH_ENDPOINT environment variable for production."
+    );
+    "http://127.0.0.1:8500".to_string()
 }
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
@@ -53,27 +76,30 @@ impl UniversalSquirrelProvider {
     pub fn new(config: EcosystemConfig, context: PrimalContext) -> Result<Self, EcosystemError> {
         let instance_id = uuid::Uuid::new_v4().to_string();
         let service_mesh_client = Arc::new(
-            match SongbirdClient::new(
-                get_service_mesh_endpoint(),
-                None,
-                RetryConfig::default(),
-            ) {
+            match SongbirdClient::new(get_service_mesh_endpoint(), None, RetryConfig::default()) {
                 Ok(client) => client,
                 Err(e) => {
-                    tracing::error!("Failed to create SongbirdClient: {}. Creating fallback client.", e);
-                    // Create a fallback client with safe defaults
+                    tracing::error!(
+                        "Failed to create SongbirdClient: {}. Creating fallback client.",
+                        e
+                    );
+                    // Create a fallback client with environment variable
+                    // Note: For async capability discovery, use CapabilityDiscovery::discover_endpoint
+                    let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
+                        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+
                     SongbirdClient::new(
-                        "http://localhost:8080".to_string(),
-                        None,
-                        Default::default()
-                    )
+                    endpoint,
+                    None,
+                    Default::default()
+                )
                         .unwrap_or_else(|fallback_err| {
                             tracing::error!("Even fallback SongbirdClient creation failed: {}. Using minimal client.", fallback_err);
                             // Return a minimal working client - this is essentially unreachable
                             panic!("Unable to create any SongbirdClient variant")
                         })
                 }
-            }
+            },
         );
 
         Ok(Self {
@@ -697,7 +723,7 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
                 let response = self
                     .handle_ai_inference_internal(request.payload)
                     .await
-                    .map_err(|e| EcosystemError::Universal(e))?;
+                    .map_err(EcosystemError::Universal)?;
                 Ok(EcosystemResponse {
                     request_id: request.request_id,
                     status: ResponseStatus::Success,
@@ -726,46 +752,5 @@ impl EcosystemIntegration for UniversalSquirrelProvider {
         let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
         info!("Deregistering from ecosystem: {}", service_id);
         Ok(())
-    }
-}
-
-impl Default for UniversalSquirrelProvider {
-    fn default() -> Self {
-        let config = EcosystemConfig::default();
-        let context = PrimalContext::default();
-        match Self::new(config.clone(), context.clone()) {
-            Ok(provider) => provider,
-            Err(e) => {
-                warn!("Failed to create provider with full configuration: {}. Using minimal fallback.", e);
-                // Fallback to minimal configuration that shouldn't fail
-                Self {
-                    instance_id: uuid::Uuid::new_v4().to_string(),
-                    config,
-                    service_mesh_client: Arc::new(
-                        match SongbirdClient::new(
-                            get_service_mesh_endpoint(),
-                            None,
-                            RetryConfig::default(),
-                        ) {
-                            Ok(client) => client,
-                            Err(e) => {
-                                tracing::error!("Failed to create fallback SongbirdClient: {}. Using default configuration.", e);
-                                SongbirdClient::new(
-                                    "http://localhost:8080".to_string(),
-                                    None,
-                                    Default::default()
-                                ).expect("Failed to create minimal SongbirdClient")
-                            }
-                        }
-                    ),
-                    biomeos_client: None,
-                    session_manager: None,
-                    initialized: false,
-                    shutdown: false,
-                    service_registration: None,
-                    context,
-                }
-            }
-        }
     }
 }

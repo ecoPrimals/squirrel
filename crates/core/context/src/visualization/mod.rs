@@ -86,6 +86,7 @@ impl Default for VisualizationSystemConfig {
 #[derive(Debug)]
 pub struct VisualizationSystem {
     /// Configuration
+    #[allow(dead_code)] // Config stored for future system reconfiguration
     config: Arc<VisualizationSystemConfig>,
 
     /// Visualization manager

@@ -107,7 +107,7 @@ pub struct AgentSecurity {
     pub encryption: EncryptionConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentStorage {
     pub persistent: Vec<StorageVolume>,
     pub temporary: Vec<StorageVolume>,
@@ -476,8 +476,7 @@ impl BiomeManifestParser {
             networking: BiomeNetworking {
                 ingress: IngressConfig {
                     enabled: false,
-                    host: std::env::var("UI_HOST")
-                        .unwrap_or_else(|_| "localhost".to_string()),
+                    host: std::env::var("UI_HOST").unwrap_or_else(|_| "localhost".to_string()),
                     tls_enabled: false,
                     annotations: std::collections::HashMap::new(),
                 },
@@ -647,16 +646,6 @@ impl Default for EncryptionConfig {
             key_size: 256,
             at_rest: true,
             in_transit: true,
-        }
-    }
-}
-
-impl Default for AgentStorage {
-    fn default() -> Self {
-        Self {
-            persistent: Vec::new(),
-            temporary: Vec::new(),
-            cache: Vec::new(),
         }
     }
 }

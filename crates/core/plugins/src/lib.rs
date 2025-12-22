@@ -44,15 +44,15 @@ pub use performance_optimizer::{
 };
 pub use plugin::Plugin;
 // Re-export canonical PluginMetadata from interfaces
-pub use squirrel_interfaces::plugins::PluginMetadata;
 pub use plugin_v2::PluginV2;
 pub use registry::PluginRegistry;
+pub use squirrel_interfaces::plugins::PluginMetadata;
 pub use state::{FileStateManager, MemoryStateManager, PluginStateManager};
 pub use traits::PluginManagerTrait;
 pub use types::{PluginConfig, PluginStatus}; // Add PluginConfig export
 pub use unified_manager::{
     ManagerMetrics, PluginEventBus, PluginSecurityManager, UnifiedManagerConfig,
-    UnifiedPluginManager, UnifiedPluginLoader,
+    UnifiedPluginLoader, UnifiedPluginManager,
 };
 pub use zero_copy::{
     PluginEvent, PluginMetadataBuilder, PluginMetrics, RegistryStats, ResourceLimits,

@@ -204,7 +204,7 @@ impl WebSocketServer {
         stream: TcpStream,
         connection_id: String,
         peer_addr: String,
-        config: Arc<WebSocketConfig>,
+        _config: Arc<WebSocketConfig>, // Reserved for future connection configuration
         connections: Arc<RwLock<HashMap<String, ConnectionInfo>>>,
         connection_senders: Arc<RwLock<HashMap<String, mpsc::Sender<MCPMessage>>>>,
         codec: Arc<MessageCodec>,
@@ -252,8 +252,8 @@ impl WebSocketServer {
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
         // Spawn task to handle outgoing messages
-        let connection_id_out = connection_id.clone();
-        let event_sender_out = event_sender.clone();
+        let _connection_id_out = connection_id.clone(); // Reserved for logging/metrics
+        let _event_sender_out = event_sender.clone(); // Reserved for connection events
         let codec_out = codec.clone();
         tokio::spawn(async move {
             while let Some(message) = msg_rx.recv().await {
@@ -512,8 +512,8 @@ impl WebSocketClient {
 
     /// Send message and wait for response
     pub async fn request(&self, message: MCPMessage) -> Result<MCPMessage> {
-        // Create response channel
-        let (response_tx, mut response_rx) = mpsc::channel(1);
+        // Create response channel (reserved for future request/response correlation)
+        let (_response_tx, mut response_rx) = mpsc::channel(1);
 
         // Send message (simplified - in real implementation would handle request/response correlation)
         let sender = self.message_sender.lock().await;

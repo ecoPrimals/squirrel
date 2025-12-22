@@ -486,6 +486,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
+    #[allow(dead_code)] // Reserved for future error recovery system
     const fn recover_connection(_context: &LocalErrorContext) {
         // Implementation would go here
     }
@@ -495,6 +496,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
+    #[allow(dead_code)] // Reserved for future error recovery system
     const fn recover_state(_context: &LocalErrorContext) {
         // Implementation would go here
     }
@@ -504,6 +506,7 @@ impl ErrorHandler {
     /// # Arguments
     ///
     /// * `_context` - The error context containing information about the error
+    #[allow(dead_code)] // Reserved for future error recovery system
     const fn recover_protocol(_context: &LocalErrorContext) {
         // Implementation would go here
     }

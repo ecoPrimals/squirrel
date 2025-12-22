@@ -3,9 +3,9 @@
 //! This module contains interfaces for distributed tracing that are used
 //! by multiple Squirrel components, including MCP and dashboard.
 
-use std::future::Future;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::future::Future;
 
 /// Status of a trace operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

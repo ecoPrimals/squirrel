@@ -380,17 +380,19 @@ impl CommandJournal {
     /// Handle poisoned lock by recovering safely (write)
     fn handle_poisoned_entries_write(
         &self,
-    ) -> JournalResult<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>> {
+    ) -> JournalResult<std::sync::RwLockWriteGuard<'_, VecDeque<JournalEntry>>> {
         self.entries
             .write()
             .or_else(
                 |poison: std::sync::PoisonError<
-                    std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>,
+                    std::sync::RwLockWriteGuard<'_, VecDeque<JournalEntry>>,
                 >| {
                     warn!("Journal entries lock was poisoned, recovering");
                     Ok::<
-                        std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>,
-                        std::sync::PoisonError<std::sync::RwLockWriteGuard<VecDeque<JournalEntry>>>,
+                        std::sync::RwLockWriteGuard<'_, VecDeque<JournalEntry>>,
+                        std::sync::PoisonError<
+                            std::sync::RwLockWriteGuard<'_, VecDeque<JournalEntry>>,
+                        >,
                     >(poison.into_inner())
                 },
             )
@@ -402,17 +404,19 @@ impl CommandJournal {
     /// Handle poisoned lock by recovering safely (read)
     fn handle_poisoned_entries_read(
         &self,
-    ) -> JournalResult<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>> {
+    ) -> JournalResult<std::sync::RwLockReadGuard<'_, VecDeque<JournalEntry>>> {
         self.entries
             .read()
             .or_else(
                 |poison: std::sync::PoisonError<
-                    std::sync::RwLockReadGuard<VecDeque<JournalEntry>>,
+                    std::sync::RwLockReadGuard<'_, VecDeque<JournalEntry>>,
                 >| {
                     warn!("Journal entries lock was poisoned, recovering");
                     Ok::<
-                        std::sync::RwLockReadGuard<VecDeque<JournalEntry>>,
-                        std::sync::PoisonError<std::sync::RwLockReadGuard<VecDeque<JournalEntry>>>,
+                        std::sync::RwLockReadGuard<'_, VecDeque<JournalEntry>>,
+                        std::sync::PoisonError<
+                            std::sync::RwLockReadGuard<'_, VecDeque<JournalEntry>>,
+                        >,
                     >(poison.into_inner())
                 },
             )

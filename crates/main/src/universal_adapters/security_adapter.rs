@@ -8,10 +8,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use super::registry::ServiceInfo;
-use super::{
-    ServiceCapability, ServiceMatcher, UniversalRequest,
-    UniversalServiceRegistry,
-};
+use super::{ServiceCapability, ServiceMatcher, UniversalRequest, UniversalServiceRegistry};
 use crate::error::PrimalError;
 
 /// Universal Security Adapter - works with any security primal
@@ -49,11 +46,10 @@ impl UniversalSecurityAdapter {
             self.preferred_security_service = Some(self.discover_security_service().await?);
         }
 
-        let security_service = self.preferred_security_service.as_ref()
-            .ok_or_else(|| {
-                error!("No security service available - adapter initialization failed");
-                PrimalError::ResourceNotFound("No security service available".to_string())
-            })?;
+        let security_service = self.preferred_security_service.as_ref().ok_or_else(|| {
+            error!("No security service available - adapter initialization failed");
+            PrimalError::ResourceNotFound("No security service available".to_string())
+        })?;
 
         // Create universal request
         let request = UniversalRequest {

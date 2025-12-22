@@ -77,12 +77,16 @@ impl UniversalComputeClient {
 
         let compute_capabilities = vec![
             PrimalCapability::ContainerRuntime {
+                container_types: vec!["docker".to_string(), "containerd".to_string()],
                 orchestrators: vec!["kubernetes".to_string(), "docker".to_string()],
             },
             PrimalCapability::ServerlessExecution {
                 languages: vec!["python".to_string(), "javascript".to_string()],
             },
-            PrimalCapability::GpuAcceleration { cuda_support: true },
+            PrimalCapability::GpuAcceleration {
+                gpu_types: vec!["nvidia".to_string(), "amd".to_string()],
+                cuda_support: true,
+            },
         ];
 
         let mut discovered_providers = HashMap::new();
@@ -245,17 +249,20 @@ impl UniversalComputeClient {
 
         let results = if success {
             Some(ComputeResults {
-                output_data: response.data.get("output").and_then(|v| {
-                    general_purpose::STANDARD
-                        .decode(v.as_str().unwrap_or_else(|| {
-                            warn!("Missing or invalid base64 data in compute response");
-                            ""
-                        }))
-                        .ok()
+                output_data: response.data.as_ref().and_then(|data| {
+                    data.get("output").and_then(|v| {
+                        general_purpose::STANDARD
+                            .decode(v.as_str().unwrap_or_else(|| {
+                                warn!("Missing or invalid base64 data in compute response");
+                                ""
+                            }))
+                            .ok()
+                    })
                 }),
                 return_code: response
                     .data
-                    .get("return_code")
+                    .as_ref()
+                    .and_then(|data| data.get("return_code"))
                     .and_then(|v| v.as_i64())
                     .unwrap_or_else(|| {
                         warn!("Missing return_code in compute response, defaulting to 0");
@@ -263,7 +270,8 @@ impl UniversalComputeClient {
                     }) as i32,
                 stdout: response
                     .data
-                    .get("stdout")
+                    .as_ref()
+                    .and_then(|data| data.get("stdout"))
                     .and_then(|v| v.as_str())
                     .unwrap_or_else(|| {
                         warn!("Missing stdout in compute response, using empty string");
@@ -272,7 +280,8 @@ impl UniversalComputeClient {
                     .to_string(),
                 stderr: response
                     .data
-                    .get("stderr")
+                    .as_ref()
+                    .and_then(|data| data.get("stderr"))
                     .and_then(|v| v.as_str())
                     .unwrap_or_else(|| {
                         warn!("Missing stderr in compute response, using empty string");
@@ -292,7 +301,7 @@ impl UniversalComputeClient {
             provider_id: provider.provider_id.clone(),
             performance: ComputePerformanceMetrics {
                 execution_time: std::time::Duration::from_millis(
-                    response.duration.num_milliseconds() as u64,
+                    response.processing_time_ms.unwrap_or(100),
                 ),
                 queue_time: std::time::Duration::from_secs(0),
                 resource_utilization: request.ai_context.workload_characteristics.clone().into(),

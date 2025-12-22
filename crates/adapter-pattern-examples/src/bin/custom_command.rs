@@ -1,3 +1,8 @@
+// Custom Command Example
+//!
+//! This example demonstrates creating custom command implementations that integrate
+//! with the adapter pattern framework.
+
 use adapter_pattern_examples::{
     Command, CommandAdapter, CommandError, CommandResult, RegistryAdapter,
 };

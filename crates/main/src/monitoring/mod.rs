@@ -18,6 +18,7 @@ use crate::error::PrimalError;
 pub mod alerts;
 pub mod exporters;
 pub mod health;
+pub mod metric_names;
 pub mod metrics;
 pub mod performance;
 
@@ -84,7 +85,7 @@ pub struct CustomMetricDefinition {
 }
 
 /// Metric type enumeration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MetricType {
     Counter,
     Gauge,

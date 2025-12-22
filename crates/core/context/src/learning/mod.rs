@@ -219,34 +219,48 @@ pub enum LearningActionType {
 pub enum LearningEvent {
     /// System initialization event
     SystemInitialized {
+        /// Timestamp when the system was initialized
         timestamp: chrono::DateTime<chrono::Utc>,
+        /// Learning system configuration at initialization
         config: LearningSystemConfig, // Remove Arc wrapper for serialization
     },
     /// Training episode started
     TrainingStarted {
+        /// Episode number
         episode: u64,
+        /// Timestamp when training started
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     /// Reward received event
     RewardReceived {
+        /// Reward value received
         reward: f64,
+        /// Context in which reward was received
         context: String,
+        /// Timestamp when reward was received
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     /// Policy network updated
     PolicyUpdated {
+        /// Training loss value
         loss: f64,
+        /// Policy accuracy after update
         accuracy: f64,
+        /// Timestamp of policy update
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     /// Adaptive rules triggered
     AdaptationTriggered {
+        /// Number of rules triggered
         rule_count: usize,
+        /// Timestamp when adaptation was triggered
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     /// Metrics updated
     MetricsUpdated {
+        /// Updated metrics map
         metrics: HashMap<String, f64>,
+        /// Timestamp of metrics update
         timestamp: chrono::DateTime<chrono::Utc>,
     },
 }
