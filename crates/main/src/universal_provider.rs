@@ -20,33 +20,37 @@ use tracing::{error, info, warn};
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
 
-/// Get service mesh endpoint with proper fallback chain
+/// Get service mesh endpoint with environment-only configuration
 ///
 /// Priority order:
-/// 1. Environment variable SERVICE_MESH_ENDPOINT
-/// 2. Universal constants default (from central config)
-/// 3. Local development fallback
+/// 1. Environment variable SERVICE_MESH_ENDPOINT (primary)
+/// 2. Environment variable DEFAULT_SERVICE_MESH_ENDPOINT (secondary)
+/// 3. Development-only fallback with explicit warning
 ///
-/// This follows the principle: no hardcoded endpoints in production paths
+/// Philosophy: Primal has self-knowledge only, discovers others at runtime
 fn get_service_mesh_endpoint() -> String {
-    // 1. Try environment variable first (allows runtime configuration)
+    // 1. Try environment variable first (runtime configuration)
     if let Ok(endpoint) = std::env::var("SERVICE_MESH_ENDPOINT") {
         return endpoint;
     }
 
-    // 2. Use universal constants (centralized configuration)
-    // This provides a configurable default without hardcoding
+    // 2. Try default from universal constants (centralized config)
     if let Ok(default_endpoint) = std::env::var("DEFAULT_SERVICE_MESH_ENDPOINT") {
         return default_endpoint;
     }
 
-    // 3. Development fallback with clear indication this is for dev only
-    // In production, SERVICE_MESH_ENDPOINT should always be set
+    // 3. Development-only fallback
+    // IMPORTANT: This should never be used in production
+    // Production deployments MUST set SERVICE_MESH_ENDPOINT
     tracing::warn!(
-        "SERVICE_MESH_ENDPOINT not set, using development default. \
-         Set SERVICE_MESH_ENDPOINT environment variable for production."
+        "⚠️ SERVICE_MESH_ENDPOINT not configured! Using development fallback.\n\
+         For production: Set SERVICE_MESH_ENDPOINT environment variable.\n\
+         This hardcoded fallback exists only for local development."
     );
-    "http://127.0.0.1:8500".to_string()
+
+    // Use environment-provided dev default if available, otherwise use localhost
+    std::env::var("DEV_SERVICE_MESH_ENDPOINT")
+        .unwrap_or_else(|_| "http://127.0.0.1:8500".to_string())
 }
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
@@ -80,24 +84,27 @@ impl UniversalSquirrelProvider {
                 Ok(client) => client,
                 Err(e) => {
                     tracing::error!(
-                        "Failed to create SongbirdClient: {}. Creating fallback client.",
+                        "Failed to create SongbirdClient: {}. Attempting fallback.",
                         e
                     );
-                    // Create a fallback client with environment variable
-                    // Note: For async capability discovery, use CapabilityDiscovery::discover_endpoint
-                    let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")
-                        .unwrap_or_else(|_| "http://localhost:8080".to_string());
+                    // Fallback: Try to get endpoint from environment again
+                    // This provides resilience without hardcoding
+                    let fallback_endpoint = get_service_mesh_endpoint();
 
-                    SongbirdClient::new(
-                    endpoint,
-                    None,
-                    Default::default()
-                )
-                        .unwrap_or_else(|fallback_err| {
-                            tracing::error!("Even fallback SongbirdClient creation failed: {}. Using minimal client.", fallback_err);
-                            // Return a minimal working client - this is essentially unreachable
-                            panic!("Unable to create any SongbirdClient variant")
-                        })
+                    tracing::info!("Retrying SongbirdClient creation with fallback endpoint");
+
+                    SongbirdClient::new(fallback_endpoint, None, Default::default()).unwrap_or_else(
+                        |fallback_err| {
+                            tracing::error!(
+                                "Critical: Unable to create SongbirdClient even with fallback: {}",
+                                fallback_err
+                            );
+                            panic!(
+                                "ServiceMeshClient initialization failed. \
+                                 Ensure SERVICE_MESH_ENDPOINT is correctly configured."
+                            )
+                        },
+                    )
                 }
             },
         );

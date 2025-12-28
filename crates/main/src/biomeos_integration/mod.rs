@@ -695,14 +695,65 @@ impl Default for EcosystemEndpoints {
                     format!("http://localhost:{}/mcp", port)
                 }),
             context_api: std::env::var("BIOMEOS_CONTEXT_API")
-                .unwrap_or_else(|_| "http://localhost:5000/context".to_string()),
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/context", e)))
+                .or_else(|_| {
+                    // Try to construct from port
+                    std::env::var("BIOMEOS_PORT")
+                        .map(|port| format!("http://localhost:{}/context", port))
+                })
+                .unwrap_or_else(|_| {
+                    tracing::warn!(
+                        "⚠️ BIOMEOS_CONTEXT_API not configured. \
+                         Set BIOMEOS_ENDPOINT or BIOMEOS_CONTEXT_API for production."
+                    );
+                    "http://localhost:5000/context".to_string()
+                }),
             health: std::env::var("BIOMEOS_HEALTH_API")
-                .unwrap_or_else(|_| "http://localhost:5000/health".to_string()),
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/health", e)))
+                .or_else(|_| {
+                    std::env::var("BIOMEOS_PORT")
+                        .map(|port| format!("http://localhost:{}/health", port))
+                })
+                .unwrap_or_else(|_| {
+                    tracing::warn!(
+                        "⚠️ BIOMEOS_HEALTH_API not configured. \
+                         Set BIOMEOS_ENDPOINT or BIOMEOS_HEALTH_API for production."
+                    );
+                    "http://localhost:5000/health".to_string()
+                }),
             metrics: std::env::var("BIOMEOS_METRICS_API")
-                .unwrap_or_else(|_| "http://localhost:5000/metrics".to_string()),
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/metrics", e)))
+                .or_else(|_| {
+                    std::env::var("BIOMEOS_PORT")
+                        .map(|port| format!("http://localhost:{}/metrics", port))
+                })
+                .unwrap_or_else(|_| {
+                    tracing::warn!(
+                        "⚠️ BIOMEOS_METRICS_API not configured. \
+                         Set BIOMEOS_ENDPOINT or BIOMEOS_METRICS_API for production."
+                    );
+                    "http://localhost:5000/metrics".to_string()
+                }),
             websocket: std::env::var("BIOMEOS_WEBSOCKET_URL")
                 .ok()
-                .or_else(|| Some("ws://localhost:5000/ws".to_string())),
+                .or_else(|| {
+                    std::env::var("BIOMEOS_ENDPOINT")
+                        .ok()
+                        .map(|e| e.replace("http://", "ws://").replace("https://", "wss://"))
+                        .map(|e| format!("{}/ws", e))
+                })
+                .or_else(|| {
+                    std::env::var("BIOMEOS_PORT")
+                        .ok()
+                        .map(|port| format!("ws://localhost:{}/ws", port))
+                })
+                .or_else(|| {
+                    tracing::warn!(
+                        "⚠️ BIOMEOS_WEBSOCKET_URL not configured. \
+                         Set BIOMEOS_WEBSOCKET_URL for production."
+                    );
+                    Some("ws://localhost:5000/ws".to_string())
+                }),
         }
     }
 }

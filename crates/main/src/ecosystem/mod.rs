@@ -926,8 +926,13 @@ impl Default for EcosystemConfig {
                 .unwrap_or(8080),
             songbird_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
                 .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
+                .or_else(|_| std::env::var("DEV_SERVICE_MESH_ENDPOINT"))
                 .unwrap_or_else(|_| {
-                    // Fallback: Try to discover via capability, or use default
+                    tracing::warn!(
+                        "⚠️ SERVICE_MESH_ENDPOINT not configured. \
+                         Set SERVICE_MESH_ENDPOINT for production discovery. \
+                         Using development default."
+                    );
                     "http://localhost:8500".to_string()
                 }),
             biome_id: None,

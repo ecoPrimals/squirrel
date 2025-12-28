@@ -2,15 +2,24 @@
 //!
 //! Comprehensive chaos testing to validate system resilience under adverse conditions.
 //!
+//! ## ⚠️ MIGRATION COMPLETE (Dec 28, 2025)
+//!
+//! The legacy monolithic `chaos_testing.rs` (3315 lines) has been:
+//! - Renamed to `chaos_testing_legacy.rs`
+//! - Infrastructure extracted to `common_complete.rs` (comprehensive)
+//! - Modular structure created for new tests
+//!
+//! **Status**: Infrastructure ready, tests being migrated incrementally.
+//!
 //! ## 📊 Test Organization
 //!
 //! This module is organized by chaos scenario type:
 //!
-//! - **[service_failure]** - Service crashes, cascading failures
-//! - **[network_partition]** - Network issues, latency, split-brain
-//! - **[resource_exhaustion]** - Memory, CPU, FD, disk pressure
-//! - **[concurrent_stress]** - Thundering herd, races, cancellation
-//! - **[common]** - Shared test utilities and helpers
+//! - **[common_complete]** - Complete test infrastructure (UPDATED)
+//! - **[service_failure]** - Service crashes, cascading failures (3 tests)
+//! - **[network_partition]** - Network issues, latency, split-brain (TODO)
+//! - **[resource_exhaustion]** - Memory, CPU, FD, disk pressure (TODO)
+//! - **[concurrent_stress]** - Thundering herd, races, cancellation (TODO)
 //!
 //! ## 🎯 Testing Philosophy
 //!
@@ -25,7 +34,7 @@
 //! ## 🚀 Running Tests
 //!
 //! ```bash
-//! # Run all chaos tests
+//! # Run modular chaos tests (new structure)
 //! cargo test --test chaos
 //!
 //! # Run specific category
@@ -34,8 +43,8 @@
 //! cargo test --test chaos resource_exhaustion
 //! cargo test --test chaos concurrent_stress
 //!
-//! # Run specific test
-//! cargo test --test chaos test_service_crash_recovery
+//! # Run legacy tests (all 15 tests, during migration)
+//! cargo test --test chaos_testing_legacy
 //! ```
 //!
 //! ## 📝 Adding New Tests
@@ -43,26 +52,30 @@
 //! When adding chaos tests:
 //!
 //! 1. Choose the appropriate module based on failure type
-//! 2. Use shared utilities from `common` module
+//! 2. Use shared utilities from `common_complete` module
 //! 3. Document the scenario, expected behavior, and recovery
 //! 4. Ensure tests are hermetic (no cross-test state)
 //! 5. Add test to appropriate CI workflow
 //!
-//! ## ⚙️ Test Infrastructure
+//! ## ⚙️ Test Infrastructure (common_complete.rs)
 //!
-//! Tests use mock services from the `common` module to simulate:
-//! - Service crashes and restarts
-//! - Network delays and failures
-//! - Resource constraints
-//! - Concurrent access patterns
+//! Comprehensive infrastructure includes:
+//! - Mock services (crash/recovery, latency, flaky)
+//! - Network simulation (partitions, DNS)
+//! - Resource simulation (memory, CPU, FD, disk)
+//! - Metrics tracking for all test categories
+//! - Helper functions for common test patterns
 //!
 //! This allows testing chaos scenarios without requiring production services.
 
-pub mod common;
+// Comprehensive common infrastructure (COMPLETE)
+pub mod common_complete;
+
+// Test modules (organized by failure category)
 pub mod service_failure;
 pub mod network_partition;
 pub mod resource_exhaustion;
 pub mod concurrent_stress;
 
 // Re-export common test utilities for convenience
-pub use common::*;
+pub use common_complete::*;

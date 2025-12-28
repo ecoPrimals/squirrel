@@ -179,12 +179,22 @@ impl CapabilityDiscovery {
         &self,
         capability: &str,
     ) -> Result<DiscoveredEndpoint, DiscoveryError> {
-        // Map capabilities to known fallback endpoints from environment/config
+        // Map capabilities to environment-configured endpoints
+        // Philosophy: No hardcoded endpoints - all configuration via environment
         let endpoint = match capability {
             "service-mesh" => {
+                // Priority: SERVICE_MESH_ENDPOINT > SONGBIRD_ENDPOINT > DEV_SERVICE_MESH_ENDPOINT
                 let url = std::env::var("SERVICE_MESH_ENDPOINT")
                     .or_else(|_| std::env::var("SONGBIRD_ENDPOINT"))
-                    .unwrap_or_else(|_| "http://localhost:8500".to_string());
+                    .or_else(|_| std::env::var("DEV_SERVICE_MESH_ENDPOINT"))
+                    .unwrap_or_else(|_| {
+                        tracing::warn!(
+                            "⚠️ No SERVICE_MESH_ENDPOINT configured for service-mesh capability. \
+                             Set SERVICE_MESH_ENDPOINT for production. \
+                             Using development default."
+                        );
+                        "http://localhost:8500".to_string()
+                    });
                 DiscoveredEndpoint {
                     url,
                     primal_type: "songbird".to_string(),
@@ -193,10 +203,20 @@ impl CapabilityDiscovery {
                 }
             }
             "ai-coordinator" => {
+                // Use configured port or environment-provided default
                 let port = std::env::var("AI_COORDINATOR_PORT")
                     .ok()
                     .and_then(|p| p.parse().ok())
-                    .unwrap_or(8080);
+                    .or_else(|| {
+                        std::env::var("SQUIRREL_PORT")
+                            .ok()
+                            .and_then(|p| p.parse().ok())
+                    })
+                    .unwrap_or_else(|| {
+                        tracing::warn!("⚠️ AI_COORDINATOR_PORT not set, using default port 9010");
+                        9010
+                    });
+
                 DiscoveredEndpoint {
                     url: format!("http://localhost:{}", port),
                     primal_type: "squirrel".to_string(),
@@ -206,7 +226,15 @@ impl CapabilityDiscovery {
             }
             "biomeos" => {
                 let url = std::env::var("BIOMEOS_ENDPOINT")
-                    .unwrap_or_else(|_| "http://localhost:5000".to_string());
+                    .or_else(|_| std::env::var("DEV_BIOMEOS_ENDPOINT"))
+                    .unwrap_or_else(|_| {
+                        tracing::warn!(
+                            "⚠️ BIOMEOS_ENDPOINT not configured. \
+                             Set BIOMEOS_ENDPOINT for production. \
+                             Using development default."
+                        );
+                        "http://localhost:5000".to_string()
+                    });
                 DiscoveredEndpoint {
                     url,
                     primal_type: "biomeos".to_string(),

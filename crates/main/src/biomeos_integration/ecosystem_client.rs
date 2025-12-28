@@ -130,8 +130,19 @@ pub struct EcosystemMetrics {
 impl EcosystemClient {
     /// Create a new EcosystemClient with configuration
     pub fn new() -> Self {
-        let songbird_url =
-            std::env::var("SONGBIRD_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
+        // Priority: SONGBIRD_URL > SERVICE_MESH_ENDPOINT > dev default
+        let songbird_url = std::env::var("SONGBIRD_URL")
+            .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
+            .or_else(|_| std::env::var("DEV_SONGBIRD_URL"))
+            .unwrap_or_else(|_| {
+                tracing::warn!(
+                    "⚠️ SONGBIRD_URL not configured. \
+                     Set SONGBIRD_URL or SERVICE_MESH_ENDPOINT for production. \
+                     Using development default."
+                );
+                "http://localhost:8080".to_string()
+            });
+
         let timeout_seconds = std::env::var("TIMEOUT_SECONDS")
             .map(|s| s.parse().unwrap_or(30))
             .unwrap_or(30);
