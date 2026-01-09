@@ -39,6 +39,7 @@ hostname = "0.4"
 
 # tarpc for high-performance RPC (Phase 2)
 tarpc = { version = "0.34", features = ["full"] }
+tokio-serde = { version = "0.9", features = ["bincode"] }
 bincode = "1.3"
 
 # Ecosystem integrations - Service Mesh via Songbird

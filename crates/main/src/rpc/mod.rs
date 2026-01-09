@@ -24,11 +24,20 @@
 
 pub mod handlers;
 pub mod server;
+pub mod tarpc_client;
+pub mod tarpc_server;
+pub mod tarpc_service;
 pub mod types;
 pub mod unix_socket;
 
 // Re-exports for convenience
 pub use server::RpcServer;
+pub use tarpc_client::connect as connect_tarpc;
+pub use tarpc_server::SquirrelRpcServer;
+pub use tarpc_service::{
+    SquirrelRpc, SquirrelRpcClient, TarpcHealthStatus, TarpcProviderInfo, TarpcQueryRequest,
+    TarpcQueryResponse,
+};
 pub use types::{
     AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
     HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, QueryAiRequest,
