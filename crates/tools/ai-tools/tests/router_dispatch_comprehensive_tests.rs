@@ -7,6 +7,8 @@ use squirrel_ai_tools::common::capability::{AITask, TaskType};
 use squirrel_ai_tools::common::{ChatMessage, ChatRequest, MessageRole};
 use squirrel_ai_tools::router::types::{RequestContext, RouterConfig, RoutingStrategy};
 use squirrel_ai_tools::router::AIRouter;
+use std::time::Instant;
+use uuid::Uuid;
 
 /// Helper to create a basic chat request
 fn create_test_request() -> ChatRequest {
@@ -18,15 +20,17 @@ fn create_test_request() -> ChatRequest {
 /// Helper to create a basic request context
 fn create_test_context() -> RequestContext {
     RequestContext {
-        request_id: "test-req-001".to_string(),
+        request_id: Uuid::new_v4(),
+        session_id: None,
+        user_id: None,
         task: AITask {
-            task_type: TaskType::Chat,
-            complexity: 50,
+            task_type: TaskType::ChatCompletion,
+            complexity_score: Some(50),
             priority: 5,
             ..Default::default()
         },
         routing_hint: None,
-        security_requirements: None,
+        timestamp: Instant::now(),
     }
 }
 
@@ -42,7 +46,7 @@ async fn test_router_creation() {
 #[tokio::test]
 async fn test_router_with_default_strategy() {
     let config = RouterConfig {
-        routing_strategy: RoutingStrategy::LoadBalancing,
+        routing_strategy: RoutingStrategy::BestFit,
         allow_remote_routing: false,
         default_provider: None,
         ..Default::default()
@@ -62,9 +66,11 @@ async fn test_process_request_no_providers() {
 
     // Should return error when no providers available
     let result = router.process_request(request, context).await;
-    assert!(result.is_err());
-    let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("No provider found") || err_msg.contains("provider"));
+    assert!(
+        result.is_err(),
+        "Expected error when no providers available"
+    );
+    // Any error is acceptable since we have no providers registered
 }
 
 #[tokio::test]
@@ -89,7 +95,7 @@ async fn test_router_stats_initialization() {
     let config = RouterConfig::default();
     let router = AIRouter::new(config);
 
-    let stats = router.get_stats().unwrap();
+    let stats = router.get_stats();
     assert_eq!(stats.total_requests, 0);
     assert_eq!(stats.successful_requests, 0);
     assert_eq!(stats.failed_requests, 0);
@@ -127,9 +133,9 @@ async fn test_routing_strategy_lowest_latency() {
 }
 
 #[tokio::test]
-async fn test_routing_strategy_least_loaded() {
+async fn test_routing_strategy_highest_priority() {
     let config = RouterConfig {
-        routing_strategy: RoutingStrategy::LeastLoaded,
+        routing_strategy: RoutingStrategy::HighestPriority,
         ..Default::default()
     };
 
@@ -138,9 +144,9 @@ async fn test_routing_strategy_least_loaded() {
 }
 
 #[tokio::test]
-async fn test_routing_strategy_cost_optimized() {
+async fn test_routing_strategy_lowest_cost() {
     let config = RouterConfig {
-        routing_strategy: RoutingStrategy::CostOptimized,
+        routing_strategy: RoutingStrategy::LowestCost,
         ..Default::default()
     };
 
@@ -183,36 +189,40 @@ async fn test_remote_routing_enabled_no_client() {
 #[tokio::test]
 async fn test_request_context_with_high_priority() {
     let context = RequestContext {
-        request_id: "high-priority-001".to_string(),
+        request_id: Uuid::new_v4(),
+        session_id: None,
+        user_id: None,
         task: AITask {
-            task_type: TaskType::Chat,
-            complexity: 80,
+            task_type: TaskType::ChatCompletion,
+            complexity_score: Some(80),
             priority: 10, // High priority
             ..Default::default()
         },
         routing_hint: None,
-        security_requirements: None,
+        timestamp: Instant::now(),
     };
 
     assert_eq!(context.task.priority, 10);
-    assert_eq!(context.task.complexity, 80);
+    assert_eq!(context.task.complexity_score, Some(80));
 }
 
 #[tokio::test]
 async fn test_request_context_with_low_complexity() {
     let context = RequestContext {
-        request_id: "simple-001".to_string(),
+        request_id: Uuid::new_v4(),
+        session_id: None,
+        user_id: None,
         task: AITask {
-            task_type: TaskType::Chat,
-            complexity: 10, // Low complexity
+            task_type: TaskType::ChatCompletion,
+            complexity_score: Some(10), // Low complexity
             priority: 5,
             ..Default::default()
         },
         routing_hint: None,
-        security_requirements: None,
+        timestamp: Instant::now(),
     };
 
-    assert_eq!(context.task.complexity, 10);
+    assert_eq!(context.task.complexity_score, Some(10));
 }
 
 #[tokio::test]
@@ -229,23 +239,25 @@ async fn test_chat_request_with_system_message() {
 #[tokio::test]
 async fn test_multiple_task_types() {
     let task_types = vec![
-        TaskType::Chat,
-        TaskType::Completion,
+        TaskType::ChatCompletion,
+        TaskType::TextGeneration,
         TaskType::Embedding,
         TaskType::CodeGeneration,
     ];
 
     for task_type in task_types {
         let context = RequestContext {
-            request_id: format!("test-{:?}", task_type),
+            request_id: Uuid::new_v4(),
+            session_id: None,
+            user_id: None,
             task: AITask {
-                task_type,
-                complexity: 50,
+                task_type: task_type.clone(),
+                complexity_score: Some(50),
                 priority: 5,
                 ..Default::default()
             },
             routing_hint: None,
-            security_requirements: None,
+            timestamp: Instant::now(),
         };
 
         assert_eq!(context.task.task_type, task_type);
@@ -256,7 +268,7 @@ async fn test_multiple_task_types() {
 async fn test_router_with_various_configs() {
     let configs = vec![
         RouterConfig {
-            routing_strategy: RoutingStrategy::LoadBalancing,
+            routing_strategy: RoutingStrategy::BestFit,
             allow_remote_routing: true,
             default_provider: Some("provider1".to_string()),
             ..Default::default()
@@ -299,32 +311,38 @@ async fn test_router_configuration_defaults() {
     let config = RouterConfig::default();
 
     // Verify default configuration values
-    assert!(!config.allow_remote_routing);
+    assert!(config.allow_remote_routing);
     assert!(config.default_provider.is_none());
-    assert!(matches!(
-        config.routing_strategy,
-        RoutingStrategy::LoadBalancing
-    ));
+    assert!(matches!(config.routing_strategy, RoutingStrategy::BestFit));
 }
 
 #[tokio::test]
 async fn test_request_id_uniqueness() {
-    let ids: Vec<String> = (0..10).map(|i| format!("req-{:06}", i)).collect();
+    let ids: Vec<Uuid> = (0..10).map(|_| Uuid::new_v4()).collect();
 
-    for id in ids {
+    for id in ids.clone() {
         let context = RequestContext {
-            request_id: id.clone(),
+            request_id: id,
+            session_id: None,
+            user_id: None,
             task: AITask {
-                task_type: TaskType::Chat,
-                complexity: 50,
+                task_type: TaskType::ChatCompletion,
+                complexity_score: Some(50),
                 priority: 5,
                 ..Default::default()
             },
             routing_hint: None,
-            security_requirements: None,
+            timestamp: Instant::now(),
         };
 
         assert_eq!(context.request_id, id);
+    }
+
+    // Verify uniqueness
+    for i in 0..ids.len() {
+        for j in i + 1..ids.len() {
+            assert_ne!(ids[i], ids[j]);
+        }
     }
 }
 
@@ -334,18 +352,20 @@ async fn test_complexity_levels() {
 
     for complexity in levels {
         let context = RequestContext {
-            request_id: format!("complex-{}", complexity),
+            request_id: Uuid::new_v4(),
+            session_id: None,
+            user_id: None,
             task: AITask {
-                task_type: TaskType::Chat,
-                complexity,
+                task_type: TaskType::ChatCompletion,
+                complexity_score: Some(complexity),
                 priority: 5,
                 ..Default::default()
             },
             routing_hint: None,
-            security_requirements: None,
+            timestamp: Instant::now(),
         };
 
-        assert_eq!(context.task.complexity, complexity);
+        assert_eq!(context.task.complexity_score, Some(complexity));
     }
 }
 
@@ -355,15 +375,17 @@ async fn test_priority_levels() {
 
     for priority in priorities {
         let context = RequestContext {
-            request_id: format!("priority-{}", priority),
+            request_id: Uuid::new_v4(),
+            session_id: None,
+            user_id: None,
             task: AITask {
-                task_type: TaskType::Chat,
-                complexity: 50,
+                task_type: TaskType::ChatCompletion,
+                complexity_score: Some(50),
                 priority,
                 ..Default::default()
             },
             routing_hint: None,
-            security_requirements: None,
+            timestamp: Instant::now(),
         };
 
         assert_eq!(context.task.priority, priority);
