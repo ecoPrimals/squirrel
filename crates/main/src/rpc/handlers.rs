@@ -4,6 +4,7 @@
 //! Handlers delegate to Squirrel's core functionality.
 
 use super::types::*;
+use crate::api::ai::AiRouter;
 use crate::error::PrimalError;
 use std::sync::Arc;
 use std::time::Instant;
@@ -11,6 +12,9 @@ use tracing::{debug, info, warn};
 
 /// RPC method handlers
 pub struct RpcHandlers {
+    /// AI router for query handling
+    ai_router: Option<Arc<AiRouter>>,
+
     /// Start time for uptime calculation
     start_time: Instant,
 
@@ -19,9 +23,19 @@ pub struct RpcHandlers {
 }
 
 impl RpcHandlers {
-    /// Create new RPC handlers
+    /// Create new RPC handlers without AI router (for testing)
     pub fn new() -> Self {
         Self {
+            ai_router: None,
+            start_time: Instant::now(),
+            request_counter: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        }
+    }
+
+    /// Create new RPC handlers with AI router (for production)
+    pub fn with_ai_router(ai_router: Arc<AiRouter>) -> Self {
+        Self {
+            ai_router: Some(ai_router),
             start_time: Instant::now(),
             request_counter: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
@@ -38,19 +52,53 @@ impl RpcHandlers {
 
         let start = Instant::now();
 
-        // TODO: Integrate with actual AI router
-        // For now, return a mock response to establish the pipeline
-        let response = QueryAiResponse {
-            response: format!(
-                "AI response to: '{}' (provider: {:?})",
-                request.prompt,
-                request.provider.as_deref().unwrap_or("auto")
-            ),
-            provider: request.provider.unwrap_or_else(|| "mock".to_string()),
-            model: request.model.unwrap_or_else(|| "mock-model-v1".to_string()),
-            tokens_used: Some(50),
-            latency_ms: start.elapsed().as_millis() as u64,
-            success: true,
+        // Check if AI router is available
+        let response = if let Some(router) = &self.ai_router {
+            // Use actual AI router
+            debug!("Using AI router for query_ai");
+
+            // Build AI request
+            use crate::api::ai::types::TextGenerationRequest;
+            let ai_request = TextGenerationRequest {
+                prompt: request.prompt.clone(),
+                system: None,
+                max_tokens: request.max_tokens.map(|v| v as u32).unwrap_or(1024),
+                temperature: request.temperature.unwrap_or(0.7),
+                model: request.model.clone(),
+                constraints: vec![],
+                params: std::collections::HashMap::new(),
+            };
+
+            // Route the request
+            match router.generate_text(ai_request, None).await {
+                Ok(ai_response) => QueryAiResponse {
+                    response: ai_response.text,
+                    provider: ai_response.provider_id,
+                    model: ai_response.model,
+                    tokens_used: ai_response.usage.map(|u| u.total_tokens as usize),
+                    latency_ms: ai_response.latency_ms,
+                    success: true,
+                },
+                Err(e) => {
+                    warn!("AI router error: {}", e);
+                    return Err(e);
+                }
+            }
+        } else {
+            // Fallback mock response (for testing or when AI is not configured)
+            debug!("AI router not available, returning mock response");
+            QueryAiResponse {
+                response: format!(
+                    "AI response to: '{}' (provider: {:?})",
+                    request.prompt,
+                    request.provider.as_deref().unwrap_or("auto")
+                ),
+                provider: request.provider.unwrap_or_else(|| "mock".to_string()),
+                model: request.model.unwrap_or_else(|| "mock-model-v1".to_string()),
+                tokens_used: Some(50),
+                latency_ms: start.elapsed().as_millis() as u64,
+                success: true,
+            }
         };
 
         debug!("✅ RPC: query_ai completed in {}ms", response.latency_ms);
@@ -147,7 +195,11 @@ impl RpcHandlers {
             status: "healthy".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             uptime_seconds: uptime,
-            active_providers: 2, // TODO: Get from actual registry
+            active_providers: if let Some(router) = &self.ai_router {
+                router.provider_count().await
+            } else {
+                0
+            },
             requests_processed: requests,
             avg_response_time_ms: Some(150.0), // TODO: Calculate from actual metrics
         };

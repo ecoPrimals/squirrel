@@ -43,7 +43,7 @@ mod provider_registration;
 mod router;
 mod selector;
 mod songbird_integration;
-mod types;
+pub mod types;
 
 pub use action_registry::ActionRegistry;
 pub use router::AiRouter;

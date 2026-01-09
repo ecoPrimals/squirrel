@@ -36,7 +36,7 @@
 //! # }
 //! ```
 
-mod ai;
+pub mod ai;
 mod ecosystem;
 mod health;
 mod management;

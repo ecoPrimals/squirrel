@@ -4,6 +4,7 @@
 //! It handles incoming requests and routes them to the appropriate handlers.
 
 use super::{handlers::RpcHandlers, types::*};
+use crate::api::ai::AiRouter;
 use crate::error::PrimalError;
 use std::path::Path;
 use std::sync::Arc;
@@ -19,6 +20,15 @@ pub struct RpcServer {
     handlers: Arc<RpcHandlers>,
 }
 
+impl Clone for RpcServer {
+    fn clone(&self) -> Self {
+        Self {
+            socket_path: self.socket_path.clone(),
+            handlers: self.handlers.clone(),
+        }
+    }
+}
+
 impl RpcServer {
     /// Create a new RPC server
     ///
@@ -31,6 +41,21 @@ impl RpcServer {
         Self {
             socket_path,
             handlers: Arc::new(RpcHandlers::new()),
+        }
+    }
+
+    /// Create a new RPC server with AI router
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - Unique identifier for this Squirrel instance
+    /// * `ai_router` - AI router instance
+    pub fn with_ai_router(node_id: &str, ai_router: Arc<AiRouter>) -> Self {
+        let socket_path = format!("/tmp/squirrel-{}.sock", node_id);
+
+        Self {
+            socket_path,
+            handlers: Arc::new(RpcHandlers::with_ai_router(ai_router)),
         }
     }
 

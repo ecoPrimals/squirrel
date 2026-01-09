@@ -201,6 +201,23 @@ impl ApiServer {
             integration.start_heartbeat_loop(30).await;
         });
 
+        // Start JSON-RPC server on Unix socket (for biomeOS integration)
+        let node_id = std::env::var("SQUIRREL_NODE_ID")
+            .or_else(|_| std::env::var("HOSTNAME"))
+            .unwrap_or_else(|_| "squirrel".to_string());
+
+        tracing::info!("🔌 Starting JSON-RPC server on Unix socket...");
+        let rpc_server = crate::rpc::RpcServer::with_ai_router(&node_id, ai_router.clone());
+        let rpc_socket_path = rpc_server.socket_path().to_string();
+        tracing::info!("✅ JSON-RPC server will listen on: {}", rpc_socket_path);
+
+        // Start RPC server in background task
+        tokio::spawn(async move {
+            if let Err(e) = rpc_server.start().await {
+                tracing::error!("❌ JSON-RPC server error: {}", e);
+            }
+        });
+
         // Create AI routes
         let ai = ai_routes(ai_router);
 

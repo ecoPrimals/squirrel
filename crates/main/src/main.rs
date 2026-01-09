@@ -119,6 +119,18 @@ async fn main() -> Result<()> {
     println!("   Health: http://localhost:{}/health", port);
     println!("   API: http://localhost:{}/api/v1/*", port);
     println!();
+
+    // Start JSON-RPC server on Unix socket (for biomeOS integration)
+    let node_id = std::env::var("SQUIRREL_NODE_ID")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "squirrel".to_string());
+
+    println!("🔌 Starting JSON-RPC server...");
+    println!("   Socket: /tmp/squirrel-{}.sock", node_id);
+
+    // The RPC server will be initialized inside api_server.start()
+    // because it needs access to the AI router
+    println!();
     println!("✅ Squirrel AI/MCP Primal Ready!");
 
     // Start the server (this will block)
