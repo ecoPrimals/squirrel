@@ -562,22 +562,8 @@ impl ServiceDiscovery {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        EcosystemServiceRegistration,
-        PrimalType,
-        ServiceCapabilities,
-        ServiceEndpoints,
-        ResourceSpec,
-        SecurityConfig,
-        SecurityLevel,
-        HealthCheckConfig,
-        ServiceQuery,
-        HealthStatus,
-    };
-    use std::collections::HashMap;
-    
     // Tests use production client through traits - no mocks needed
-    // 
+    //
     // NOTE: MockServiceMeshClient test removed per principle:
     // "Mocks isolated to testing only, production uses real implementations"
     //

@@ -306,17 +306,29 @@ mod tests {
     async fn test_cache_functionality() {
         let discovery = CapabilityDiscovery::new(DiscoveryConfig::default());
 
-        // Discover once
-        let endpoint1 = discovery.discover_capability("service-mesh").await.unwrap();
+        // Manually cache an endpoint to test cache retrieval
+        let test_endpoint = DiscoveredEndpoint {
+            url: "http://test:8080".to_string(),
+            primal_type: "test-primal".to_string(),
+            capabilities: vec!["test-capability".to_string()],
+            healthy: true,
+        };
+
+        discovery.cache_endpoint(test_endpoint.clone()).await;
 
         // Should be cached
         let cache = discovery.cache.read().await;
         assert!(!cache.is_empty());
+        assert_eq!(cache.len(), 1);
         drop(cache);
 
-        // Discover again (should use cache)
-        let endpoint2 = discovery.discover_capability("service-mesh").await.unwrap();
-        assert_eq!(endpoint1.url, endpoint2.url);
+        // Discover again (should use cache since endpoint is healthy)
+        let endpoint = discovery
+            .discover_capability("test-capability")
+            .await
+            .unwrap();
+        assert_eq!(endpoint.url, test_endpoint.url);
+        assert_eq!(endpoint.primal_type, test_endpoint.primal_type);
     }
 
     #[tokio::test]

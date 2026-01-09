@@ -15,7 +15,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
