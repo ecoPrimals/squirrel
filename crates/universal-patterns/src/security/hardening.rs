@@ -11,6 +11,7 @@
 //! provide comprehensive security monitoring for production deployments.
 
 use std::collections::HashMap;
+use std::panic::{self, PanicHookInfo};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 

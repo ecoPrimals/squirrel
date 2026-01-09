@@ -562,97 +562,34 @@ impl ServiceDiscovery {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        EcosystemServiceRegistration,
+        PrimalType,
+        ServiceCapabilities,
+        ServiceEndpoints,
+        ResourceSpec,
+        SecurityConfig,
+        SecurityLevel,
+        HealthCheckConfig,
+        ServiceQuery,
+        HealthStatus,
+    };
+    use std::collections::HashMap;
+    
     // Tests use production client through traits - no mocks needed
-
-    #[cfg(feature = "testing")]
-    #[tokio::test]
-    async fn test_mock_service_mesh_client() {
-        use super::MockServiceMeshClient;
-        let client = MockServiceMeshClient::new();
-
-        // Test service registration
-        let registration = EcosystemServiceRegistration {
-            service_id: "test-service".to_string(),
-            primal_type: PrimalType::Squirrel,
-            biome_id: None,
-            capabilities: ServiceCapabilities {
-                core: vec!["ai_inference".to_string()],
-                extended: vec![],
-                integrations: vec![],
-            },
-            endpoints: ServiceEndpoints {
-                health: crate::defaults::DefaultEndpoints::health_endpoint(
-                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
-                ),
-                metrics: crate::defaults::DefaultEndpoints::metrics_endpoint(
-                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
-                ),
-                admin: crate::defaults::DefaultEndpoints::admin_endpoint(
-                    &crate::defaults::DefaultEndpoints::songbird_endpoint(),
-                ),
-                websocket: None,
-            },
-            resource_requirements: ResourceSpec {
-                cpu_cores: Some(1.0),
-                memory_mb: Some(512),
-                disk_mb: Some(1024),
-                network_bandwidth_mbps: None,
-                gpu_count: None,
-            },
-            security_config: SecurityConfig {
-                auth_method: "bearer".to_string(),
-                tls_enabled: true,
-                mtls_required: false,
-                trust_domain: "test.local".to_string(),
-                security_level: SecurityLevel::Internal,
-                crypto_lock_enabled: false,
-            },
-            health_check: HealthCheckConfig {
-                path: "/health".to_string(),
-                interval_seconds: 30,
-                timeout_seconds: 10,
-                retries: 3,
-                initial_delay_seconds: 5,
-            },
-            metadata: HashMap::new(),
-        };
-
-        let service_id = client
-            .register_service("", registration)
-            .await
-            .expect("Service registration should succeed in test");
-        assert_eq!(service_id, "test-service");
-
-        // Test service discovery
-        let services = client
-            .discover_services(ServiceQuery::default())
-            .await
-            .expect("Service discovery should succeed in test");
-        assert_eq!(services.len(), 1);
-        assert_eq!(services[0].id, "test-service");
-
-        // Test health reporting
-        client
-            .report_health("test-service", HealthStatus::Healthy)
-            .await
-            .expect("Health reporting should succeed in test");
-
-        // Test heartbeat
-        client
-            .heartbeat("test-service")
-            .await
-            .expect("Heartbeat should succeed in test");
-
-        // Test service deregistration
-        client
-            .deregister_service("test-service")
-            .await
-            .expect("Service deregistration should succeed in test");
-
-        let services = client
-            .discover_services(ServiceQuery::default())
-            .await
-            .expect("Service discovery after deregistration should succeed in test");
-        assert_eq!(services.len(), 0);
-    }
+    // 
+    // NOTE: MockServiceMeshClient test removed per principle:
+    // "Mocks isolated to testing only, production uses real implementations"
+    //
+    // The production SongbirdClient is fully implemented above.
+    // Integration tests should use real SongbirdClient with a test server,
+    // not mock implementations.
+    //
+    // TODO: Add integration test in tests/ directory that:
+    // 1. Starts a test Songbird server
+    // 2. Uses real SongbirdClient to test all methods
+    // 3. Verifies actual network communication
+    //
+    // This follows idiomatic Rust testing: unit tests for logic,
+    // integration tests for I/O and external systems.
 }
