@@ -43,6 +43,9 @@ pub mod universal_provider;
 /// Universal adapters for capability-based primal integration
 pub mod universal_adapters;
 
+/// JSON-RPC and tarpc protocol implementation for inter-primal communication
+pub mod rpc;
+
 /// Benchmarking framework for performance measurement
 pub mod benchmarking;
 

@@ -33,6 +33,14 @@ sysinfo = "0.30"
 # Text processing and validation (CRITICAL FIX: Missing regex dependency)
 regex = "1.10"
 
+# JSON-RPC server for Unix socket IPC (Phase 1)
+jsonrpsee = { version = "0.24", features = ["server", "client"] }
+hostname = "0.4"
+
+# tarpc for high-performance RPC (Phase 2)
+tarpc = { version = "0.34", features = ["full"] }
+bincode = "1.3"
+
 # Ecosystem integrations - Service Mesh via Songbird
 ecosystem-api = { path = "../ecosystem-api" }
 # TODO: Uncomment when songbird dependencies are available
