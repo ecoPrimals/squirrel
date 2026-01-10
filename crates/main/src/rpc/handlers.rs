@@ -274,6 +274,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_list_providers() {
+        // Test without AI router - should return empty list
         let handlers = RpcHandlers::new();
 
         let request = ListProvidersRequest {
@@ -283,8 +284,9 @@ mod tests {
 
         let response = handlers.handle_list_providers(request).await.unwrap();
 
-        assert!(response.total > 0);
-        assert!(!response.providers.is_empty());
+        // Without AI router, should return empty list (graceful fallback)
+        assert_eq!(response.total, 0);
+        assert!(response.providers.is_empty());
     }
 
     #[tokio::test]
