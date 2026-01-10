@@ -123,28 +123,43 @@ impl RpcHandlers {
 
         self.increment_counter();
 
-        // Mock providers for RPC demo/testing
-        // In production, this would query the ProviderRegistry
-        let providers = vec![
-            ProviderInfo {
-                id: "openai".to_string(),
-                name: "OpenAI".to_string(),
-                models: vec!["gpt-4".to_string(), "gpt-3.5-turbo".to_string()],
-                capabilities: vec!["ai.inference".to_string(), "ai.chat".to_string()],
-                online: true,
-                avg_latency_ms: Some(250),
-                cost_tier: "high".to_string(),
-            },
-            ProviderInfo {
-                id: "ollama".to_string(),
-                name: "Ollama (Local)".to_string(),
-                models: vec!["llama2".to_string(), "mistral".to_string()],
-                capabilities: vec!["ai.inference".to_string(), "ai.local".to_string()],
-                online: true,
-                avg_latency_ms: Some(500),
-                cost_tier: "free".to_string(),
-            },
-        ];
+        // Use real AI router when available
+        let providers = if let Some(router) = &self.ai_router {
+            // Query actual providers from AI router
+            router
+                .list_providers()
+                .await
+                .into_iter()
+                .filter(|p| {
+                    // Apply capability filter if requested
+                    if let Some(ref cap) = request.capability {
+                        p.capabilities.contains(cap)
+                    } else {
+                        true
+                    }
+                })
+                .map(|p| ProviderInfo {
+                    id: p.provider_id,
+                    name: p.provider_name,
+                    models: vec![], // Note: selector::ProviderInfo doesn't track models
+                    capabilities: p.capabilities,
+                    online: p.is_available,
+                    avg_latency_ms: Some(p.avg_latency_ms),
+                    cost_tier: if p.cost_per_unit.unwrap_or(0.0) > 0.01 {
+                        "high"
+                    } else if p.cost_per_unit.unwrap_or(0.0) > 0.0 {
+                        "medium"
+                    } else {
+                        "free"
+                    }
+                    .to_string(),
+                })
+                .collect()
+        } else {
+            // Fallback: Return empty list when AI router not configured
+            debug!("AI router not available, returning empty provider list");
+            vec![]
+        };
 
         let response = ListProvidersResponse {
             total: providers.len(),
@@ -207,7 +222,9 @@ impl RpcHandlers {
                 0
             },
             requests_processed: requests,
-            avg_response_time_ms: Some(150.0), // Mock metric for demo
+            // Note: avg_response_time_ms requires metrics system integration
+            // Future enhancement: Pass Arc<PerformanceMonitor> to handlers
+            avg_response_time_ms: None,
         };
 
         debug!(
