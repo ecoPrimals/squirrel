@@ -18,10 +18,6 @@
 //!
 //! ## Usage
 //!
-
-#![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
-#![warn(clippy::all)]
-#![warn(rust_2018_idioms)]
 //! ```rust
 //! use ecosystem_api::*;
 //! use async_trait::async_trait;
@@ -45,7 +41,7 @@
 //! }
 //! ```
 
-#![deny(unsafe_code)]
+#![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
 #![warn(clippy::all)]
 #![warn(rust_2018_idioms)]
 #![warn(missing_docs)]

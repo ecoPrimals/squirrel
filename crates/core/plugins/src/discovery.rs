@@ -2,6 +2,8 @@
 //!
 //! This module provides functionality for discovering and loading plugins.
 
+#![allow(deprecated)] // Allow use of plugin::PluginMetadata during migration to squirrel_interfaces
+
 use std::any::Any;
 use std::path::Path;
 use std::sync::Arc;
@@ -148,18 +150,21 @@ impl<L: PluginLoader + Send + Sync> PluginDiscovery for FilePluginDiscovery<L> {
 }
 
 /// Create a placeholder plugin
+#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
 pub fn create_placeholder_plugin(metadata: PluginMetadata) -> Arc<dyn Plugin> {
     Arc::new(PlaceholderPlugin { metadata })
 }
 
 /// A placeholder plugin implementation
 #[allow(dead_code)] // Placeholder for plugin template system
+#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
 #[derive(Debug, Clone)]
 struct PlaceholderPlugin {
     metadata: PluginMetadata,
 }
 
 #[async_trait]
+#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
 impl Plugin for PlaceholderPlugin {
     fn metadata(&self) -> &PluginMetadata {
         &self.metadata
@@ -222,6 +227,7 @@ impl DefaultPluginDiscovery {
     }
 
     /// Load a plugin from a path
+    #[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
     pub async fn load_plugin(&self, _path: &Path) -> Result<Arc<dyn Plugin>> {
         // In a real implementation, this would load the plugin from the path
         // For now, just return a placeholder plugin
@@ -239,6 +245,7 @@ impl DefaultPluginDiscovery {
 pub struct DefaultPluginLoader;
 
 #[async_trait]
+#[allow(deprecated)] // Uses deprecated plugin::PluginMetadata during migration
 impl PluginLoader for DefaultPluginLoader {
     /// Load a plugin from a manifest
     async fn load_plugin(

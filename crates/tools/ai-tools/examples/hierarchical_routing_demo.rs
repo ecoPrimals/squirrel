@@ -25,7 +25,7 @@ use squirrel_ai_tools::{
 use serde_json::json;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Demo temporarily disabled - API updates needed");
     Ok(())
 }

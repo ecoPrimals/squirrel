@@ -191,6 +191,7 @@ pub mod env_helpers {
 #[cfg(test)]
 #[allow(deprecated)] // Allow deprecated items in tests - testing legacy constants being migrated
 mod tests {
+    #![allow(deprecated)] // Suppress deprecation warnings for entire test module
     use super::*;
 
     #[test]
