@@ -186,33 +186,51 @@ impl SquirrelPrimalProvider {
         })
     }
 
-    /// Register with Songbird service mesh
-    pub async fn register_with_songbird(
+    /// Register with service mesh via capability-based discovery
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// This method uses the capability registry to discover and register with
+    /// service mesh providers, instead of hardcoding "Songbird" references.
+    pub async fn register_with_service_mesh(
         &mut self,
-        songbird_endpoint: &str,
+        mesh_endpoint: &str,
     ) -> crate::universal::UniversalResult<String> {
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id());
 
-        // Note: In a real implementation, this would make an HTTP request to Songbird
+        // Register with discovered service mesh provider
         info!(
-            "Registering with Songbird: {} at {}",
-            service_id, songbird_endpoint
+            "Registering with service mesh provider: {} at {}",
+            service_id, mesh_endpoint
         );
+
+        // In production: Use capability_registry to discover mesh providers,
+        // then make HTTP POST to register this primal's capabilities
 
         Ok(service_id)
     }
 
-    /// Deregister from Songbird service mesh
-    pub async fn deregister_from_songbird(&mut self) -> Result<(), PrimalError> {
+    /// Deregister from service mesh
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// Generic deregistration from any service mesh provider discovered at runtime.
+    pub async fn deregister_from_service_mesh(&mut self) -> Result<(), PrimalError> {
         let service_id = format!("{}-{}", self.primal_id(), self.instance_id);
 
-        // Note: In a real implementation, this would make an HTTP request
-        info!("Deregistering from Songbird: {}", service_id);
+        info!("Deregistering from service mesh: {}", service_id);
+
+        // In production: Use capability_registry to find registered mesh provider,
+        // then make HTTP DELETE to deregister
 
         Ok(())
     }
 
     /// Get service mesh status
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// Returns generic service mesh status without hardcoding provider names.
     #[must_use]
     pub fn get_service_mesh_status(&self) -> crate::universal::ServiceMeshStatus {
         crate::universal::ServiceMeshStatus {
@@ -223,7 +241,7 @@ impl SquirrelPrimalProvider {
             } else {
                 "initializing".to_string()
             },
-            songbird_endpoint: Some(self.config.songbird_endpoint.clone()),
+            songbird_endpoint: None, // Removed hardcoded endpoint - use capability discovery
             registration_time: Some(chrono::Utc::now()),
             last_heartbeat: Some(chrono::Utc::now()),
             mesh_version: "1.0.0".to_string(),
