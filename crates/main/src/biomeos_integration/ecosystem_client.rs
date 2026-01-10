@@ -1,7 +1,23 @@
 //! # Ecosystem Client for biomeOS Integration
 //!
-//! This module provides client functionality for communicating with songbird
-//! for service registration and coordination within the biomeOS ecosystem.
+//! **DEPRECATED**: This module is being migrated to capability-based discovery.
+//! Use `crate::ecosystem::discovery_client::ServiceDiscoveryClient` instead.
+//!
+//! This module provides legacy client functionality for communicating with
+//! service mesh coordinators for service registration within the biomeOS ecosystem.
+//!
+//! ## Migration Path
+//!
+//! ```ignore
+//! // OLD (hardcoded):
+//! let client = EcosystemClient::new();
+//! client.register_service_with_songbird(registration).await?;
+//!
+//! // NEW (capability-based):
+//! let discovery = ServiceDiscoveryClient::new();
+//! let coordinator = discovery.discover_by_capability("coordination").await?;
+//! // Register with discovered coordinator
+//! ```
 
 use crate::error::PrimalError;
 use base64::{engine::general_purpose, Engine as _};
@@ -18,9 +34,17 @@ use super::{EcosystemServiceRegistration, HealthStatus};
 const REGISTER_ENDPOINT: &str = "/api/v1/services/register";
 const HEALTH_ENDPOINT: &str = "/api/v1/health";
 
-/// Client for biomeOS ecosystem communication via songbird
+/// Client for biomeOS ecosystem communication
+///
+/// **DEPRECATED**: Hardcoded to communicate with specific service mesh names.
+/// Use `ServiceDiscoveryClient` for capability-based discovery instead.
+#[deprecated(
+    since = "0.1.0",
+    note = "Use ServiceDiscoveryClient for capability-based discovery"
+)]
 #[derive(Debug, Clone)]
 pub struct EcosystemClient {
+    /// Service mesh endpoint URL (discovered or configured)
     pub songbird_url: String,
     pub client: reqwest::Client,
     pub timeout: Duration,
@@ -38,19 +62,20 @@ pub struct AuthenticationConfig {
     pub trust_domain: String,
 }
 
-/// Response from songbird service registration
+/// Response from service mesh registration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistrationResponse {
     pub success: bool,
     pub service_id: String,
     pub registration_id: String,
     pub coordination_token: String,
+    /// Service mesh endpoints (generic, not primal-specific)
     pub songbird_endpoints: Vec<String>,
     pub next_heartbeat: DateTime<Utc>,
     pub message: String,
 }
 
-/// Health check response from songbird
+/// Health check response from service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheckResponse {
     pub status: String,
@@ -60,7 +85,7 @@ pub struct HealthCheckResponse {
     pub coordination_recommendations: Vec<String>,
 }
 
-/// Status of other primals reported by songbird
+/// Status of other primals reported by service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalStatus {
     pub primal_type: String,
@@ -72,7 +97,7 @@ pub struct PrimalStatus {
     pub load_factor: f64,
 }
 
-/// AI intelligence request to other primals via songbird
+/// AI intelligence request to other primals via service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceCoordinationRequest {
     pub request_id: String,
@@ -93,7 +118,7 @@ pub struct IntelligenceCoordinationResponse {
     pub recommendations: Vec<String>,
 }
 
-/// MCP coordination request via songbird
+/// MCP coordination request via service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpCoordinationViaRequest {
     pub coordination_id: String,
@@ -103,7 +128,7 @@ pub struct McpCoordinationViaRequest {
     pub requires_response: bool,
 }
 
-/// Context sharing request via songbird
+/// Context sharing request via service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSharingRequest {
     pub sharing_id: String,
@@ -114,7 +139,7 @@ pub struct ContextSharingRequest {
     pub expiry: Option<DateTime<Utc>>,
 }
 
-/// Ecosystem metrics from songbird
+/// Ecosystem metrics from service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcosystemMetrics {
     pub timestamp: DateTime<Utc>,
@@ -131,14 +156,15 @@ impl EcosystemClient {
     /// Create a new `EcosystemClient` with configuration
     #[must_use]
     pub fn new() -> Self {
-        // Priority: SONGBIRD_URL > SERVICE_MESH_ENDPOINT > dev default
-        let songbird_url = std::env::var("SONGBIRD_URL")
-            .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
-            .or_else(|_| std::env::var("DEV_SONGBIRD_URL"))
+        // Priority: SERVICE_MESH_ENDPOINT > SONGBIRD_URL > dev default
+        // Note: SONGBIRD_URL is legacy, SERVICE_MESH_ENDPOINT is capability-agnostic
+        let songbird_url = std::env::var("SERVICE_MESH_ENDPOINT")
+            .or_else(|_| std::env::var("SONGBIRD_URL"))
+            .or_else(|_| std::env::var("DEV_SERVICE_MESH_ENDPOINT"))
             .unwrap_or_else(|_| {
                 tracing::warn!(
-                    "⚠️ SONGBIRD_URL not configured. \
-                     Set SONGBIRD_URL or SERVICE_MESH_ENDPOINT for production. \
+                    "⚠️ SERVICE_MESH_ENDPOINT not configured. \
+                     Set SERVICE_MESH_ENDPOINT for production. \
                      Using development default."
                 );
                 "http://localhost:8080".to_string()
@@ -182,12 +208,19 @@ impl EcosystemClient {
         }
     }
 
-    /// Register squirrel AI service with songbird
+    /// Register squirrel AI service with service mesh
+    ///
+    /// **LEGACY METHOD**: Maintains backward compatibility.
+    /// Use `ServiceDiscoveryClient` for capability-based registration.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use ServiceDiscoveryClient for capability-based registration"
+    )]
     pub async fn register_service_with_songbird(
         &self,
         registration: EcosystemServiceRegistration,
     ) -> Result<RegistrationResponse, PrimalError> {
-        info!("Registering squirrel AI service with songbird");
+        info!("Registering squirrel AI service with service mesh");
 
         let url = format!("{}{}", self.songbird_url, REGISTER_ENDPOINT);
 
@@ -206,7 +239,7 @@ impl EcosystemClient {
                 })?;
 
             info!(
-                "Successfully registered with songbird: {}",
+                "Successfully registered with service mesh: {}",
                 registration_response.service_id
             );
             Ok(registration_response)
@@ -221,12 +254,12 @@ impl EcosystemClient {
         }
     }
 
-    /// Deregister squirrel AI service from songbird
+    /// Deregister squirrel AI service from service mesh
     pub async fn deregister_service_from_songbird(
         &self,
         service_id: &str,
     ) -> Result<(), PrimalError> {
-        info!("Deregistering squirrel AI service from songbird");
+        info!("Deregistering squirrel AI service from service mesh");
 
         let url = format!(
             "{}/api/v1/services/{}/deregister",
@@ -238,7 +271,7 @@ impl EcosystemClient {
             .await?;
 
         if response.status().is_success() {
-            info!("Successfully deregistered from songbird");
+            info!("Successfully deregistered from service mesh");
             Ok(())
         } else {
             let error_msg = response
@@ -251,13 +284,13 @@ impl EcosystemClient {
         }
     }
 
-    /// Send heartbeat to songbird
+    /// Send heartbeat to service mesh
     pub async fn send_heartbeat_to_songbird(
         &self,
         service_id: &str,
         health_status: &HealthStatus,
     ) -> Result<HealthCheckResponse, PrimalError> {
-        debug!("Sending heartbeat to songbird");
+        debug!("Sending heartbeat to service mesh");
 
         let url = format!(
             "{}/api/v1/services/{}/heartbeat",
@@ -277,7 +310,7 @@ impl EcosystemClient {
                 PrimalError::Internal(format!("Failed to parse heartbeat response: {e}"))
             })?;
 
-            debug!("Heartbeat sent successfully to songbird");
+            debug!("Heartbeat sent successfully to service mesh");
             Ok(health_response)
         } else {
             let error_msg = response
@@ -290,11 +323,11 @@ impl EcosystemClient {
         }
     }
 
-    /// Get ecosystem health from songbird
+    /// Get ecosystem health from service mesh
     pub async fn get_ecosystem_health_from_songbird(
         &self,
     ) -> Result<HealthCheckResponse, PrimalError> {
-        debug!("Getting ecosystem health from songbird");
+        debug!("Getting ecosystem health from service mesh");
 
         let url = format!("{}{}", self.songbird_url, HEALTH_ENDPOINT);
 
@@ -319,13 +352,13 @@ impl EcosystemClient {
         }
     }
 
-    /// Send AI intelligence coordination request via songbird
+    /// Send AI intelligence coordination request via service mesh
     pub async fn coordinate_intelligence_via_songbird(
         &self,
         request: IntelligenceCoordinationRequest,
     ) -> Result<IntelligenceCoordinationResponse, PrimalError> {
         debug!(
-            "Coordinating AI intelligence via songbird to {}",
+            "Coordinating AI intelligence via service mesh to {}",
             request.target_primal
         );
 
@@ -345,7 +378,7 @@ impl EcosystemClient {
                     PrimalError::Internal(format!("Failed to parse intelligence response: {e}"))
                 })?;
 
-            debug!("AI intelligence coordination completed via songbird");
+            debug!("AI intelligence coordination completed via service mesh");
             Ok(intelligence_response)
         } else {
             let error_msg = response
@@ -358,13 +391,13 @@ impl EcosystemClient {
         }
     }
 
-    /// Send MCP coordination request via songbird
+    /// Send MCP coordination request via service mesh
     pub async fn coordinate_mcp_via_songbird(
         &self,
         request: McpCoordinationViaRequest,
     ) -> Result<(), PrimalError> {
         debug!(
-            "Coordinating MCP via songbird with primals: {:?}",
+            "Coordinating MCP via service mesh with primals: {:?}",
             request.target_primals
         );
 
@@ -379,7 +412,7 @@ impl EcosystemClient {
             .await?;
 
         if response.status().is_success() {
-            debug!("MCP coordination sent successfully via songbird");
+            debug!("MCP coordination sent successfully via service mesh");
             Ok(())
         } else {
             let error_msg = response
@@ -392,12 +425,15 @@ impl EcosystemClient {
         }
     }
 
-    /// Share context with other primals via songbird
+    /// Share context with other primals via service mesh
     pub async fn share_context_via_songbird(
         &self,
         request: ContextSharingRequest,
     ) -> Result<(), PrimalError> {
-        debug!("Sharing context via songbird to {}", request.target_primal);
+        debug!(
+            "Sharing context via service mesh to {}",
+            request.target_primal
+        );
 
         let url = format!("{}/api/v1/coordination/context/share", self.songbird_url);
 
@@ -410,7 +446,7 @@ impl EcosystemClient {
             .await?;
 
         if response.status().is_success() {
-            debug!("Context shared successfully via songbird");
+            debug!("Context shared successfully via service mesh");
             Ok(())
         } else {
             let error_msg = response
@@ -423,11 +459,11 @@ impl EcosystemClient {
         }
     }
 
-    /// Get ecosystem metrics from songbird
+    /// Get ecosystem metrics from service mesh
     pub async fn get_ecosystem_metrics_from_songbird(
         &self,
     ) -> Result<EcosystemMetrics, PrimalError> {
-        debug!("Getting ecosystem metrics from songbird");
+        debug!("Getting ecosystem metrics from service mesh");
 
         let url = format!("{}/api/v1/ecosystem/metrics", self.songbird_url);
 
@@ -452,9 +488,9 @@ impl EcosystemClient {
         }
     }
 
-    /// Get list of active primals from songbird
+    /// Get list of active primals from service mesh
     pub async fn get_active_primals_from_songbird(&self) -> Result<Vec<PrimalStatus>, PrimalError> {
-        debug!("Getting active primals list from songbird");
+        debug!("Getting active primals list from service mesh");
 
         let url = format!("{}/api/v1/ecosystem/primals", self.songbird_url);
 
@@ -479,7 +515,7 @@ impl EcosystemClient {
         }
     }
 
-    /// Request AI assistance from specific primal via songbird
+    /// Request AI assistance from specific primal via service mesh
     pub async fn request_ai_assistance(
         &self,
         target_primal: &str,
@@ -515,7 +551,7 @@ impl EcosystemClient {
         self.coordinate_mcp_via_songbird(request).await
     }
 
-    /// Share contextual insights with ecosystem via songbird
+    /// Share contextual insights with ecosystem via service mesh
     pub async fn share_contextual_insights(
         &self,
         insights: serde_json::Value,
@@ -583,12 +619,12 @@ impl EcosystemClient {
 
         tracing::info!(
             correlation_id = %correlation_id,
-            operation = "biomeos_operation_start",
+            operation = "ecosystem_operation_start",
             songbird_url = %self.songbird_url,
             max_retries = max_retries,
             total_timeout_ms = self.timeout.as_millis(),
             per_attempt_timeout_ms = per_attempt_timeout.as_millis(),
-            "Starting BiomeOS ecosystem operation"
+            "Starting ecosystem operation"
         );
 
         let mut last_error = None;
@@ -601,14 +637,14 @@ impl EcosystemClient {
                 attempt = attempt,
                 max_retries = max_retries,
                 timeout_ms = per_attempt_timeout.as_millis(),
-                operation = "biomeos_operation_attempt",
-                "Attempting BiomeOS ecosystem request"
+                operation = "ecosystem_operation_attempt",
+                "Attempting ecosystem request"
             );
 
             let operation_result = SafeOps::safe_with_timeout(
                 per_attempt_timeout,
                 || operation(&self.client),
-                &format!("biomeos_ecosystem_request_attempt_{attempt}"),
+                &format!("ecosystem_request_attempt_{attempt}"),
             )
             .await;
 
@@ -621,10 +657,10 @@ impl EcosystemClient {
                     tracing::info!(
                         correlation_id = %correlation_id,
                         attempt = attempt,
-                        operation = "biomeos_operation_success",
+                        operation = "ecosystem_operation_success",
                         total_duration_ms = total_duration.as_millis(),
                         attempt_duration_ms = attempt_duration.as_millis(),
-                        "BiomeOS ecosystem request completed successfully"
+                        "Ecosystem request completed successfully"
                     );
                     return Ok(result);
                 }
@@ -635,11 +671,11 @@ impl EcosystemClient {
                     tracing::warn!(
                         correlation_id = %correlation_id,
                         attempt = attempt,
-                        operation = "biomeos_operation_network_error",
+                        operation = "ecosystem_operation_network_error",
                         attempt_duration_ms = attempt_duration.as_millis(),
                         error = %error_msg,
                         error_kind = %network_error.to_string(),
-                        "BiomeOS request failed with network error"
+                        "Ecosystem request failed with network error"
                     );
                 }
                 Err(timeout_error) => {
@@ -649,11 +685,11 @@ impl EcosystemClient {
                     tracing::warn!(
                         correlation_id = %correlation_id,
                         attempt = attempt,
-                        operation = "biomeos_operation_timeout",
+                        operation = "ecosystem_operation_timeout",
                         attempt_duration_ms = attempt_duration.as_millis(),
                         timeout_ms = per_attempt_timeout.as_millis(),
                         error = %error_msg,
-                        "BiomeOS request timed out"
+                        "Ecosystem request timed out"
                     );
                 }
             }
@@ -670,7 +706,7 @@ impl EcosystemClient {
                     delay_ms = total_delay.as_millis(),
                     base_delay_ms = delay.as_millis(),
                     jitter_ms = jitter.as_millis(),
-                    operation = "biomeos_operation_retry_delay",
+                    operation = "ecosystem_operation_retry_delay",
                     "Waiting before retry with exponential backoff and jitter"
                 );
                 tokio::time::sleep(total_delay).await;
@@ -679,19 +715,19 @@ impl EcosystemClient {
 
         let total_duration = operation_start.elapsed();
         let final_error =
-            last_error.unwrap_or_else(|| "All BiomeOS request attempts failed".to_string());
+            last_error.unwrap_or_else(|| "All ecosystem request attempts failed".to_string());
 
         tracing::error!(
             correlation_id = %correlation_id,
-            operation = "biomeos_operation_failure",
+            operation = "ecosystem_operation_failure",
             total_duration_ms = total_duration.as_millis(),
             attempts = max_retries,
             final_error = %final_error,
-            "BiomeOS ecosystem request failed after all retry attempts"
+            "Ecosystem request failed after all retry attempts"
         );
 
         Err(PrimalError::Network(format!(
-            "BiomeOS request failed after {max_retries} attempts: {final_error}"
+            "Ecosystem request failed after {max_retries} attempts: {final_error}"
         )))
     }
 
@@ -774,14 +810,14 @@ mod tests {
     async fn test_intelligence_coordination_request_creation() {
         let request = IntelligenceCoordinationRequest {
             request_id: "test-001".to_string(),
-            target_primal: "toadstool".to_string(),
+            target_primal: "compute-primal-1".to_string(), // Generic, not hardcoded
             intelligence_type: "workload_optimization".to_string(),
             request_data: serde_json::json!({"workload_type": "compute_heavy"}),
             priority: "high".to_string(),
             timeout: Duration::from_secs(30),
         };
 
-        assert_eq!(request.target_primal, "toadstool");
+        assert_eq!(request.target_primal, "compute-primal-1");
         assert_eq!(request.intelligence_type, "workload_optimization");
         assert_eq!(request.priority, "high");
     }

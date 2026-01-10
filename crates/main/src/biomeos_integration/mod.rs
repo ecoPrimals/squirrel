@@ -30,6 +30,9 @@ pub mod manifest;
 pub mod mcp_integration;
 pub mod optimized_implementations;
 
+// Import capability-based discovery (modern pattern)
+use crate::capability_registry::CapabilityRegistry;
+
 // Re-export optimized implementations
 pub use optimized_implementations::{
     ContextData, OptimizedContextState, OptimizedServiceRegistration, SessionContext,
@@ -126,7 +129,14 @@ pub struct SquirrelBiomeOSIntegration {
     pub ai_intelligence: AiIntelligence,
     pub mcp_integration: McpIntegration,
     pub context_state: ContextState,
+    /// Legacy client (deprecated - prefer capability_registry)
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use capability_registry for capability-based discovery"
+    )]
     pub ecosystem_client: EcosystemClient,
+    /// Modern capability-based service discovery and registration
+    pub capability_registry: Arc<CapabilityRegistry>,
     pub agent_deployment: AgentDeploymentManager,
     pub manifest_parser: BiomeManifestParser,
     pub health_status: HealthStatus,
@@ -167,7 +177,9 @@ impl SquirrelBiomeOSIntegration {
             ai_intelligence,
             mcp_integration,
             context_state: ContextState::new(),
-            ecosystem_client: EcosystemClient::new(),
+            #[allow(deprecated)]
+            ecosystem_client: EcosystemClient::new(), // Legacy support
+            capability_registry: Arc::new(CapabilityRegistry::new(Default::default())),
             agent_deployment,
             manifest_parser: BiomeManifestParser::new(),
             health_status: HealthStatus {
@@ -271,12 +283,14 @@ impl SquirrelBiomeOSIntegration {
                     "contextual_search".to_string(),
                 ],
                 integration_capabilities: vec![
-                    "songbird_ai_coordination".to_string(),
-                    "toadstool_workload_intelligence".to_string(),
-                    "nestgate_storage_optimization".to_string(),
-                    "beardog_security_intelligence".to_string(),
-                    "biomeos_ecosystem_intelligence".to_string(),
-                    "biome_manifest_processing".to_string(),
+                    // Capability-based integration (no hardcoded primal names)
+                    // Discovery happens at runtime via ServiceDiscoveryClient
+                    "service_mesh_coordination".to_string(),
+                    "workload_intelligence".to_string(),
+                    "storage_optimization".to_string(),
+                    "security_intelligence".to_string(),
+                    "ecosystem_intelligence".to_string(),
+                    "manifest_processing".to_string(),
                     "agent_deployment".to_string(),
                 ],
             },
@@ -284,7 +298,7 @@ impl SquirrelBiomeOSIntegration {
             security: EcosystemSecurity {
                 authentication_method: "ecosystem_jwt".to_string(),
                 tls_enabled: true,
-                mtls_required: false, // Will be true when BearDog is integrated
+                mtls_required: false, // Will be true when security primal is discovered
                 trust_domain: "biome.local".to_string(),
             },
 
@@ -317,10 +331,14 @@ impl SquirrelBiomeOSIntegration {
             },
         };
 
-        // Register with songbird (service registry)
+        // Register with service mesh via capability-based discovery
+        // Instead of hardcoding "songbird", discover any service providing coordination
+        #[allow(deprecated)]
         self.ecosystem_client
             .register_service_with_songbird(registration)
             .await?;
+        // TODO: Migrate to: self.capability_registry.register_primal(...).await?;
+
         self.health_status.status = "registered".to_string();
         self.health_status.timestamp = Utc::now();
 

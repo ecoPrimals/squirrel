@@ -34,10 +34,12 @@ use crate::universal_primal_ecosystem::{
 };
 
 // Re-export registry manager types
+pub mod discovery_client;
 pub mod registry;
-pub mod registry_manager;
+pub mod registry_manager; // Capability-based service discovery
+pub use discovery_client::*;
 pub use registry::*;
-pub use registry_manager::*;
+pub use registry_manager::*; // Export ServiceDiscoveryClient
 
 /// Ecosystem service registration for Squirrel AI primal
 ///
