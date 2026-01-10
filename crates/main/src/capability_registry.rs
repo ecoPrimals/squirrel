@@ -9,14 +9,89 @@
 //! This module uses `Arc<str>` for frequently-cloned strings (IDs, endpoints, names)
 //! to eliminate expensive allocations during service discovery and routing.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::error::PrimalError;
-use crate::optimization::zero_copy::ArcStr;
+
+/// Serde-compatible Arc<str> wrapper
+///
+/// `Arc<str>` doesn't implement Serialize/Deserialize by default, so we
+/// provide custom implementations that serialize as strings.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArcStr(Arc<str>);
+
+impl ArcStr {
+    pub fn new(s: impl Into<Arc<str>>) -> Self {
+        Self(s.into())
+    }
+
+    pub fn as_ref(&self) -> &str {
+        &self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for ArcStr {
+    fn from(s: String) -> Self {
+        Self(s.into())
+    }
+}
+
+impl From<&str> for ArcStr {
+    fn from(s: &str) -> Self {
+        Self(s.into())
+    }
+}
+
+impl From<Arc<str>> for ArcStr {
+    fn from(s: Arc<str>) -> Self {
+        Self(s)
+    }
+}
+
+impl AsRef<str> for ArcStr {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::borrow::Borrow<str> for ArcStr {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for ArcStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &self.0)
+    }
+}
+
+impl Serialize for ArcStr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for ArcStr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self(s.into()))
+    }
+}
 
 /// A capability that a primal can provide
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -377,7 +452,7 @@ impl CapabilityRegistry {
             let mut index = self.capability_index.write().await;
             for capability in &primal.capabilities {
                 if let Some(primal_ids) = index.get_mut(capability) {
-                    primal_ids.retain(|pid| pid != id);
+                    primal_ids.retain(|pid| pid.as_ref() != id);
                     if primal_ids.is_empty() {
                         index.remove(capability);
                     }
@@ -422,11 +497,12 @@ impl CapabilityRegistry {
         for primal in primals {
             match self.check_primal_health(&primal).await {
                 Ok(is_healthy) => {
-                    self.update_health_status(&primal.id, is_healthy).await?;
+                    self.update_health_status(primal.id.as_ref(), is_healthy)
+                        .await?;
                 }
                 Err(e) => {
                     warn!("Health check error for primal '{}': {}", primal.id, e);
-                    self.update_health_status(&primal.id, false).await?;
+                    self.update_health_status(primal.id.as_ref(), false).await?;
                 }
             }
         }
@@ -440,7 +516,7 @@ impl CapabilityRegistry {
         let timeout = std::time::Duration::from_secs(self.config.health_check_timeout_secs);
 
         match client
-            .get(primal.health_endpoint.as_str())
+            .get(primal.health_endpoint.as_ref())
             .timeout(timeout)
             .send()
             .await

@@ -15,6 +15,7 @@ pub mod api;
 pub mod beardog;
 pub mod biomeos_integration;
 pub mod capability;
+pub mod capability_registry;
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
