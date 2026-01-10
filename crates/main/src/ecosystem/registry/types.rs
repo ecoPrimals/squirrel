@@ -50,6 +50,7 @@ lazy_static! {
 }
 
 /// Get Arc<str> for registry string with zero allocation for common values
+#[must_use]
 pub fn intern_registry_string(s: &str) -> Arc<str> {
     // Common registry strings for zero-allocation lookups
     match s {
@@ -126,7 +127,7 @@ pub struct DiscoveredService {
 }
 
 impl DiscoveredService {
-    /// Create new DiscoveredService with string interning optimization
+    /// Create new `DiscoveredService` with string interning optimization
     pub fn new(
         service_id: &str,
         primal_type: EcosystemPrimalType,
@@ -157,6 +158,7 @@ impl DiscoveredService {
     }
 
     /// Efficient lookup of metadata without allocation
+    #[must_use]
     pub fn get_metadata(&self, key: &str) -> Option<&Arc<str>> {
         self.metadata
             .iter()
@@ -165,6 +167,7 @@ impl DiscoveredService {
     }
 
     /// Check if service has capability without allocation
+    #[must_use]
     pub fn has_capability(&self, capability: &str) -> bool {
         self.capabilities
             .iter()
@@ -192,7 +195,7 @@ fn serialize_arc_str_vec<S>(vec: &Vec<Arc<str>>, serializer: S) -> Result<S::Ok,
 where
     S: serde::Serializer,
 {
-    let strings: Vec<&str> = vec.iter().map(|arc| arc.as_ref()).collect();
+    let strings: Vec<&str> = vec.iter().map(std::convert::AsRef::as_ref).collect();
     strings.serialize(serializer)
 }
 
@@ -284,7 +287,8 @@ pub struct PrimalApiRequest {
 }
 
 impl PrimalApiRequest {
-    /// Create new PrimalApiRequest with string interning optimization
+    /// Create new `PrimalApiRequest` with string interning optimization
+    #[must_use]
     pub fn new(
         request_id: &str,
         from_primal: EcosystemPrimalType,
@@ -309,6 +313,7 @@ impl PrimalApiRequest {
     }
 
     /// Efficient header lookup without allocation
+    #[must_use]
     pub fn get_header(&self, key: &str) -> Option<&Arc<str>> {
         self.headers
             .iter()
@@ -344,7 +349,7 @@ pub struct PrimalApiResponse {
 }
 
 impl PrimalApiResponse {
-    /// Create new PrimalApiResponse with string optimization
+    /// Create new `PrimalApiResponse` with string optimization
     pub fn new(
         request_id: Arc<str>,
         success: bool,

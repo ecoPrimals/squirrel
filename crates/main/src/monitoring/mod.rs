@@ -197,6 +197,7 @@ pub struct ComponentStatus {
 
 impl MonitoringSystem {
     /// Create a new monitoring system
+    #[must_use]
     pub fn new(config: MonitoringConfig) -> Self {
         let metrics_collector = Arc::new(metrics::MetricsCollector::new());
         let health_monitor = Arc::new(health::HealthMonitor::new());

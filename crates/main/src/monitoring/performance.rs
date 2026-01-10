@@ -143,6 +143,7 @@ impl Default for PerformanceTracker {
 
 impl PerformanceTracker {
     /// Create a new performance tracker
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
@@ -185,8 +186,7 @@ impl PerformanceTracker {
             Ok(metric.clone())
         } else {
             Err(PrimalError::NotFoundError(format!(
-                "Performance metric '{}' not found",
-                name
+                "Performance metric '{name}' not found"
             )))
         }
     }
@@ -219,7 +219,7 @@ impl PerformanceTracker {
         // Add component metrics to baseline
         for (component, metrics) in component_metrics {
             for (metric_name, value) in metrics {
-                let key = format!("{}_{}", component, metric_name);
+                let key = format!("{component}_{metric_name}");
                 baseline_values.insert(key, value);
             }
         }
@@ -278,9 +278,9 @@ impl PerformanceTracker {
             // Compare component metrics
             for (component, metrics) in current_component_metrics {
                 for (metric_name, current_value) in metrics {
-                    let baseline_key = format!("{}_{}", component, metric_name);
+                    let baseline_key = format!("{component}_{metric_name}");
                     if let Some(baseline_value) = baseline.values.get(&baseline_key) {
-                        let key = format!("{}_{}", component, metric_name);
+                        let key = format!("{component}_{metric_name}");
                         comparison.insert(key, current_value - baseline_value);
                     }
                 }
@@ -289,8 +289,7 @@ impl PerformanceTracker {
             Ok(comparison)
         } else {
             Err(PrimalError::NotFoundError(format!(
-                "Baseline '{}' not found",
-                baseline_name
+                "Baseline '{baseline_name}' not found"
             )))
         }
     }
@@ -484,7 +483,7 @@ impl PerformanceTracker {
         // Update component metrics
         for (component, comp_metrics) in component_metrics {
             for (metric_name, value) in comp_metrics {
-                let key = format!("{}_{}", component, metric_name);
+                let key = format!("{component}_{metric_name}");
                 self.update_metric(&mut metrics, &key, *value).await;
             }
         }

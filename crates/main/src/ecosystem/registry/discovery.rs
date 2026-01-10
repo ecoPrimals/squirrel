@@ -24,7 +24,7 @@ impl DiscoveryOps {
             if let Err(e) =
                 Self::perform_service_discovery(service_registry, primal_type, endpoint).await
             {
-                eprintln!("Failed to discover service for {:?}: {}", primal_type, e);
+                eprintln!("Failed to discover service for {primal_type:?}: {e}");
                 continue;
             }
         }
@@ -135,8 +135,8 @@ impl DiscoveryOps {
     ///
     /// ⚠️ WARNING: These are development defaults only!
     /// In production, you MUST set environment variables:
-    /// - SQUIRREL_ENDPOINT, SONGBIRD_ENDPOINT, etc., OR
-    /// - SERVICE_DISCOVERY_URL for dynamic discovery
+    /// - `SQUIRREL_ENDPOINT`, `SONGBIRD_ENDPOINT`, etc., OR
+    /// - `SERVICE_DISCOVERY_URL` for dynamic discovery
     ///
     /// This function uses universal-constants for all port assignments to ensure
     /// consistency across the ecosystem. It does NOT use hardcoded primal names,
@@ -167,7 +167,7 @@ impl DiscoveryOps {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Create discovered service with Arc<str> optimization
         let service = Arc::new(DiscoveredService {
-            service_id: intern_registry_string(&format!("{:?}", primal_type).to_lowercase()),
+            service_id: intern_registry_string(&format!("{primal_type:?}").to_lowercase()),
             primal_type,
             endpoint: Arc::from(endpoint.clone()),
             capabilities: vec![
@@ -175,7 +175,7 @@ impl DiscoveryOps {
                 intern_registry_string("health_check"),
             ],
             health_status: ServiceHealthStatus::Healthy,
-            health_endpoint: Arc::from(format!("{}/health", endpoint)),
+            health_endpoint: Arc::from(format!("{endpoint}/health")),
             discovered_at: chrono::Utc::now(),
             api_version: Arc::from("v1"),
             last_health_check: Some(chrono::Utc::now()),
@@ -190,6 +190,7 @@ impl DiscoveryOps {
     }
 
     /// Get capabilities for a primal type with Arc<str> optimization
+    #[must_use]
     pub fn get_capabilities_for_primal(primal_type: &EcosystemPrimalType) -> Vec<Arc<str>> {
         match primal_type {
             EcosystemPrimalType::Squirrel => vec![

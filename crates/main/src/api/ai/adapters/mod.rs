@@ -1,6 +1,6 @@
 //! AI provider adapters
 //!
-//! Adapters for different AI providers (OpenAI, HuggingFace, Ollama, etc.)
+//! Adapters for different AI providers (`OpenAI`, `HuggingFace`, Ollama, etc.)
 
 mod huggingface;
 mod ollama;
@@ -10,7 +10,9 @@ pub use huggingface::HuggingFaceAdapter;
 pub use ollama::OllamaAdapter;
 pub use openai::OpenAIAdapter;
 
-use super::types::*;
+use super::types::{
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
+};
 use crate::error::PrimalError;
 use async_trait::async_trait;
 

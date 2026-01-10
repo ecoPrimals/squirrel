@@ -288,7 +288,7 @@ impl ConstraintBuilder {
         self
     }
 
-    /// Add primal constraint (e.g., from ToadStool or NestGate)
+    /// Add primal constraint (e.g., from `ToadStool` or `NestGate`)
     pub fn with_primal_constraint(
         mut self,
         primal: String,
@@ -382,12 +382,16 @@ pub fn from_request(req: &serde_json::Value) -> ConstraintSet {
                     "require_local" => builder = builder.require_local(),
                     "prefer_local" => builder = builder.prefer_local(),
                     "max_cost" => {
-                        if let Some(cost) = constraint.get("value").and_then(|v| v.as_f64()) {
+                        if let Some(cost) =
+                            constraint.get("value").and_then(serde_json::Value::as_f64)
+                        {
                             builder = builder.max_cost(cost);
                         }
                     }
                     "max_latency" => {
-                        if let Some(ms) = constraint.get("value").and_then(|v| v.as_u64()) {
+                        if let Some(ms) =
+                            constraint.get("value").and_then(serde_json::Value::as_u64)
+                        {
                             builder = builder.max_latency(ms);
                         }
                     }

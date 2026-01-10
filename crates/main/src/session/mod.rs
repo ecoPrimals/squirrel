@@ -126,7 +126,7 @@ pub enum SessionState {
 /// # Thread Safety
 ///
 /// Session instances are designed to be wrapped in Arc<Session> for efficient
-/// sharing across threads. The internal HashMap is not synchronized, so external
+/// sharing across threads. The internal `HashMap` is not synchronized, so external
 /// synchronization is required for concurrent modifications.
 ///
 /// # Examples
@@ -193,7 +193,8 @@ impl SessionManagerImpl {
     ///
     /// # Returns
     ///
-    /// A new SessionManagerImpl instance ready to manage sessions
+    /// A new `SessionManagerImpl` instance ready to manage sessions
+    #[must_use]
     pub fn new(config: SessionConfig) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
@@ -303,8 +304,8 @@ impl SessionManagerImpl {
 
 /// Session manager trait for dependency injection
 ///
-/// NOTE: This trait uses async_trait because it is used as a trait object (Arc<dyn SessionManager>)
-/// in primal_provider/core.rs. Native async traits are not compatible with trait objects.
+/// NOTE: This trait uses `async_trait` because it is used as a trait object (Arc<dyn SessionManager>)
+/// in `primal_provider/core.rs`. Native async traits are not compatible with trait objects.
 #[async_trait]
 pub trait SessionManager: Send + Sync {
     async fn create_session(&self, client_info: Option<String>) -> Result<String, PrimalError>;

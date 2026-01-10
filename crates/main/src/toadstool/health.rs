@@ -1,12 +1,12 @@
-//! Health monitoring for ToadStool integration
+//! Health monitoring for `ToadStool` integration
 //!
 //! This module defines types for tracking the health status
-//! of the ToadStool compute cluster.
+//! of the `ToadStool` compute cluster.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Health status for ToadStool integration
+/// Health status for `ToadStool` integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
     pub status: String,

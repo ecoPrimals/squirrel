@@ -77,6 +77,7 @@ impl Default for TracingConfig {
 
 impl UniversalTracingCoordinator {
     /// Create new tracing coordinator with universal adapter discovery
+    #[must_use]
     pub fn new(config: TracingConfig) -> Self {
         Self {
             endpoints: Arc::new(tokio::sync::RwLock::new(Vec::new())),
@@ -209,9 +210,7 @@ impl UniversalTracingCoordinator {
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to send trace context: {}", e))
-            })?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to send trace context: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::NetworkError(format!(
@@ -252,8 +251,7 @@ impl UniversalTracingCoordinator {
             Ok(operation)
         } else {
             Err(PrimalError::InvalidOperation(format!(
-                "Operation {} not found",
-                operation_id
+                "Operation {operation_id} not found"
             )))
         }
     }
@@ -290,9 +288,7 @@ impl UniversalTracingCoordinator {
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await
-            .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to collect trace data: {}", e))
-            })?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to collect trace data: {e}")))?;
 
         if !response.status().is_success() {
             return Ok(Vec::new()); // Return empty if not found
@@ -301,7 +297,7 @@ impl UniversalTracingCoordinator {
         let trace_data: Vec<serde_json::Value> = response
             .json()
             .await
-            .map_err(|e| PrimalError::ParsingError(format!("Failed to parse trace data: {}", e)))?;
+            .map_err(|e| PrimalError::ParsingError(format!("Failed to parse trace data: {e}")))?;
 
         Ok(trace_data)
     }
@@ -361,7 +357,7 @@ pub async fn initialize_tracing() -> Result<UniversalTracingCoordinator, PrimalE
     let subscriber = Registry::default().with(tracing_subscriber::fmt::layer());
 
     tracing::subscriber::set_global_default(subscriber).map_err(|e| {
-        PrimalError::ConfigurationError(format!("Failed to set tracing subscriber: {}", e))
+        PrimalError::ConfigurationError(format!("Failed to set tracing subscriber: {e}"))
     })?;
 
     let config = TracingConfig::default();

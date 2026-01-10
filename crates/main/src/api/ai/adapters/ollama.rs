@@ -3,7 +3,10 @@
 //! Provides integration with Ollama for running models locally.
 
 use super::AiProviderAdapter;
-use crate::api::ai::types::*;
+use crate::api::ai::types::{
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
+    TokenUsage,
+};
 use crate::error::PrimalError;
 use async_trait::async_trait;
 use reqwest::Client;
@@ -105,10 +108,12 @@ impl OllamaAdapter {
     pub async fn list_models(&self) -> Result<Vec<String>, PrimalError> {
         let url = format!("{}/api/tags", self.base_url);
 
-        let response =
-            self.client.get(&url).send().await.map_err(|e| {
-                PrimalError::OperationFailed(format!("Ollama request failed: {}", e))
-            })?;
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| PrimalError::OperationFailed(format!("Ollama request failed: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::OperationFailed(format!(
@@ -118,7 +123,7 @@ impl OllamaAdapter {
         }
 
         let list: OllamaListResponse = response.json().await.map_err(|e| {
-            PrimalError::OperationFailed(format!("Failed to parse Ollama response: {}", e))
+            PrimalError::OperationFailed(format!("Failed to parse Ollama response: {e}"))
         })?;
 
         Ok(list.models.into_iter().map(|m| m.name).collect())
@@ -140,11 +145,11 @@ impl Default for OllamaAdapter {
 
 #[async_trait]
 impl AiProviderAdapter for OllamaAdapter {
-    fn provider_id(&self) -> &str {
+    fn provider_id(&self) -> &'static str {
         "ollama"
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "Ollama (Local)"
     }
 
@@ -205,7 +210,7 @@ impl AiProviderAdapter for OllamaAdapter {
             .json(&ollama_req)
             .send()
             .await
-            .map_err(|e| PrimalError::OperationFailed(format!("Ollama request failed: {}", e)))?;
+            .map_err(|e| PrimalError::OperationFailed(format!("Ollama request failed: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -214,13 +219,12 @@ impl AiProviderAdapter for OllamaAdapter {
                 .await
                 .unwrap_or_else(|_| "unknown error".to_string());
             return Err(PrimalError::OperationFailed(format!(
-                "Ollama returned error {}: {}",
-                status, error_text
+                "Ollama returned error {status}: {error_text}"
             )));
         }
 
         let ollama_response: OllamaGenerateResponse = response.json().await.map_err(|e| {
-            PrimalError::OperationFailed(format!("Failed to parse Ollama response: {}", e))
+            PrimalError::OperationFailed(format!("Failed to parse Ollama response: {e}"))
         })?;
 
         let latency_ms = start.elapsed().as_millis() as u64;

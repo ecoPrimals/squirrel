@@ -50,7 +50,7 @@ impl Default for ServerState {
 
 /// HTTP API server for primal status and health endpoints
 ///
-/// `ApiServer` provides a RESTful API following Songbird service mesh patterns
+/// `ApiServer` provides a `RESTful` API following Songbird service mesh patterns
 /// for ecosystem integration. It exposes endpoints for:
 ///
 /// - **Health checks**: `/health`, `/health/live`, `/health/ready`
@@ -83,6 +83,7 @@ pub struct ApiServer {
 
 impl ApiServer {
     /// Create a new API server with dynamic configuration
+    #[must_use]
     pub fn new(
         port: u16,
         ecosystem_manager: Arc<EcosystemManager>,
@@ -113,6 +114,7 @@ impl ApiServer {
     }
 
     /// Create a new API server with explicit host and port
+    #[must_use]
     pub fn new_with_host(
         host: String,
         port: u16,
@@ -131,11 +133,13 @@ impl ApiServer {
     }
 
     /// Get the server base URL
+    #[must_use]
     pub fn base_url(&self) -> String {
         format!("http://{}:{}", self.host, self.port)
     }
 
     /// Get the server websocket URL
+    #[must_use]
     pub fn websocket_url(&self) -> String {
         format!("ws://{}:{}/ws", self.host, self.port)
     }

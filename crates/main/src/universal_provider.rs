@@ -1,7 +1,7 @@
 //! Universal Squirrel Provider Implementation
 //!
-//! This module provides the implementation of the ecosystem-api UniversalPrimalProvider
-//! and EcosystemIntegration traits for the Squirrel AI primal.
+//! This module provides the implementation of the ecosystem-api `UniversalPrimalProvider`
+//! and `EcosystemIntegration` traits for the Squirrel AI primal.
 
 use async_trait::async_trait;
 use chrono::Utc;
@@ -9,7 +9,13 @@ use ecosystem_api::{
     client::SongbirdClient,
     error::{EcosystemError, UniversalResult},
     traits::{EcosystemIntegration, RetryConfig, UniversalPrimalProvider},
-    types::*,
+    types::{
+        DynamicPortInfo, EcosystemRequest, EcosystemResponse, EcosystemServiceRegistration,
+        HealthCheckConfig, HealthStatus, PrimalCapability, PrimalContext, PrimalDependency,
+        PrimalEndpoints, PrimalHealth, PrimalRequest, PrimalResponse, PrimalType, ResourceSpec,
+        ResourceUsage, ResponseStatus, SecurityConfig, SecurityLevel, ServiceCapabilities,
+        ServiceEndpoints, ServiceMeshStatus,
+    },
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -23,8 +29,8 @@ use crate::session::SessionManagerImpl;
 /// Get service mesh endpoint with environment-only configuration
 ///
 /// Priority order:
-/// 1. Environment variable SERVICE_MESH_ENDPOINT (primary)
-/// 2. Environment variable DEFAULT_SERVICE_MESH_ENDPOINT (secondary)
+/// 1. Environment variable `SERVICE_MESH_ENDPOINT` (primary)
+/// 2. Environment variable `DEFAULT_SERVICE_MESH_ENDPOINT` (secondary)
 /// 3. Development-only fallback with explicit warning
 ///
 /// Philosophy: Primal has self-knowledge only, discovers others at runtime
@@ -61,7 +67,7 @@ pub struct UniversalSquirrelProvider {
     config: EcosystemConfig,
     /// Service mesh client
     service_mesh_client: Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>,
-    /// BiomeOS client for ecosystem integration
+    /// `BiomeOS` client for ecosystem integration
     biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
     /// Session manager for handling sessions
     session_manager: Option<Arc<RwLock<SessionManagerImpl>>>,
@@ -122,7 +128,7 @@ impl UniversalSquirrelProvider {
         })
     }
 
-    /// Set BiomeOS client for ecosystem integration
+    /// Set `BiomeOS` client for ecosystem integration
     pub fn set_biomeos_client(&mut self, client: Arc<crate::biomeos_integration::EcosystemClient>) {
         self.biomeos_client = Some(client);
     }
@@ -150,12 +156,12 @@ impl UniversalSquirrelProvider {
 
         let max_tokens = payload
             .get("max_tokens")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(1000);
 
         let temperature = payload
             .get("temperature")
-            .and_then(|v| v.as_f64())
+            .and_then(serde_json::Value::as_f64)
             .unwrap_or(0.7);
 
         // Extract additional parameters
@@ -166,7 +172,7 @@ impl UniversalSquirrelProvider {
 
         let stream = payload
             .get("stream")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         // Determine request complexity for routing decisions
@@ -381,7 +387,7 @@ impl UniversalSquirrelProvider {
 
 #[async_trait]
 impl UniversalPrimalProvider for UniversalSquirrelProvider {
-    fn primal_id(&self) -> &str {
+    fn primal_id(&self) -> &'static str {
         "squirrel"
     }
 
@@ -490,15 +496,15 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
             self.config.service_host, self.config.service_port
         );
         PrimalEndpoints {
-            primary: format!("{}/api/v1", base_url),
-            health: format!("{}/health", base_url),
-            metrics: Some(format!("{}/metrics", base_url)),
-            admin: Some(format!("{}/admin", base_url)),
+            primary: format!("{base_url}/api/v1"),
+            health: format!("{base_url}/health"),
+            metrics: Some(format!("{base_url}/metrics")),
+            admin: Some(format!("{base_url}/admin")),
             websocket: Some(format!(
                 "ws://{}:{}/ws",
                 self.config.service_host, self.config.service_port
             )),
-            service_mesh: format!("{}/service-mesh", base_url),
+            service_mesh: format!("{base_url}/service-mesh"),
         }
     }
 
@@ -651,7 +657,7 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
                             request_id: request.request_id,
                             status: ResponseStatus::Error {
                                 code: "SERIALIZATION_ERROR".to_string(),
-                                message: format!("Failed to serialize health check: {}", e),
+                                message: format!("Failed to serialize health check: {e}"),
                             },
                             payload: serde_json::Value::Null,
                             metadata: std::collections::HashMap::new(),

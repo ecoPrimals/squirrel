@@ -1,6 +1,6 @@
-//! Optimized BiomeOS Integration Implementations
+//! Optimized `BiomeOS` Integration Implementations
 //!
-//! This module provides optimized versions of BiomeOS integration components
+//! This module provides optimized versions of `BiomeOS` integration components
 //! that use zero-copy patterns to reduce memory allocations and improve performance.
 
 use crate::biomeos_integration::IntelligenceResponse; // Add missing import
@@ -53,6 +53,7 @@ impl Default for OptimizedServiceRegistration {
 }
 
 impl OptimizedServiceRegistration {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             static_strings: StaticStrings::new(),
@@ -88,7 +89,7 @@ impl OptimizedServiceRegistration {
             .unwrap_or_else(|| Arc::from("running"));
 
         // Build service ID efficiently
-        let service_id = format!("squirrel-{}", instance_id);
+        let service_id = format!("squirrel-{instance_id}");
 
         // Build endpoints efficiently
         let base_url = "http://localhost:8080".to_string();
@@ -101,7 +102,7 @@ impl OptimizedServiceRegistration {
                 format!("{}/ai", base_url),
                 format!("{}/service-mesh", base_url),
             ],
-            health: Some(format!("{}/health", base_url)),
+            health: Some(format!("{base_url}/health")),
         };
 
         // Build capabilities efficiently
@@ -113,13 +114,12 @@ impl OptimizedServiceRegistration {
         EcosystemServiceRegistration {
             service_id: service_id.to_string(),
             name: service_id.to_string(),
-            description: format!("BiomeOS integration for {}", service_id),
+            description: format!("BiomeOS integration for {service_id}"),
             primal_type: crate::ecosystem::EcosystemPrimalType::Squirrel, // Use enum directly
-            biome_id: Some(
-                biome_id
-                    .map(|id| id.to_string())
-                    .unwrap_or_else(|| "default-biome".to_string()),
-            ),
+            biome_id: Some(biome_id.map_or_else(
+                || "default-biome".to_string(),
+                std::string::ToString::to_string,
+            )),
             endpoints,
             capabilities: ServiceCapabilities {
                 core: capabilities.iter().map(|&s| s.to_string()).collect(),
@@ -150,6 +150,7 @@ impl OptimizedServiceRegistration {
     }
 
     /// Get performance metrics
+    #[must_use]
     pub fn get_metrics(&self) -> MetricsSnapshot {
         self.metrics.get_metrics()
     }
@@ -169,6 +170,7 @@ impl Default for OptimizedMessageProcessor {
 }
 
 impl OptimizedMessageProcessor {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             message_cache: ZeroCopyMap::new(),
@@ -224,6 +226,7 @@ impl OptimizedMessageProcessor {
     }
 
     /// Get cached message
+    #[must_use]
     pub fn get_cached_message(&self, key: &str) -> Option<Arc<ZeroCopyMessage>> {
         // Use efficient lookup without Arc allocation
         self.message_cache
@@ -233,6 +236,7 @@ impl OptimizedMessageProcessor {
     }
 
     /// Get performance metrics
+    #[must_use]
     pub fn get_metrics(&self) -> MetricsSnapshot {
         self.metrics.get_metrics()
     }
@@ -252,6 +256,7 @@ impl Default for OptimizedContextState {
 }
 
 impl OptimizedContextState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             active_sessions: ZeroCopyMap::new(),
@@ -302,6 +307,7 @@ impl OptimizedContextState {
     }
 
     /// Get cached context data
+    #[must_use]
     pub fn get_cached_context_data(&self, key: &str) -> Option<Arc<ContextData>> {
         self.context_cache
             .iter()
@@ -310,6 +316,7 @@ impl OptimizedContextState {
     }
 
     /// Get all active sessions efficiently
+    #[must_use]
     pub fn get_active_sessions(&self) -> Vec<Arc<SessionContext>> {
         self.active_sessions
             .values()
@@ -333,6 +340,7 @@ impl OptimizedContextState {
     }
 }
 
+#[must_use]
 pub fn register_with_ecosystem(
     service_id: &str,
     primal_type: EcosystemPrimalType, // Already correct type
@@ -351,19 +359,18 @@ pub fn register_with_ecosystem(
             format!("{}/ai", base_url),
             format!("{}/service-mesh", base_url),
         ],
-        health: Some(format!("{}/health", base_url)),
+        health: Some(format!("{base_url}/health")),
     };
 
     EcosystemServiceRegistration {
         service_id: service_id.to_string(),
         name: service_id.to_string(),
-        description: format!("BiomeOS integration for {}", service_id),
+        description: format!("BiomeOS integration for {service_id}"),
         primal_type,
-        biome_id: Some(
-            biome_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "default-biome".to_string()),
-        ),
+        biome_id: Some(biome_id.map_or_else(
+            || "default-biome".to_string(),
+            std::string::ToString::to_string,
+        )),
         endpoints,
         capabilities: ServiceCapabilities {
             core: capabilities.iter().map(|&s| s.to_string()).collect(),

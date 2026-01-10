@@ -102,6 +102,7 @@ pub struct BenchmarkRunner {
 
 impl BenchmarkSuite {
     /// Create a new benchmark suite
+    #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
             suite_id: format!("{}_{}", name, Uuid::new_v4()),
@@ -644,7 +645,7 @@ impl BenchmarkSuite {
         let mut operation_count = 0u64;
         while Instant::now() < benchmark_end && operation_count < config.operation_count {
             match operation().await {
-                Ok(_) => successful_operations += 1,
+                Ok(()) => successful_operations += 1,
                 Err(_) => _failed_operations += 1,
             }
             operation_count += 1;
@@ -738,17 +739,18 @@ pub struct BenchmarkSuiteReport {
 
 impl BenchmarkSuiteReport {
     /// Generate summary statistics
+    #[must_use]
     pub fn generate_summary(&self) -> BenchmarkSummary {
         let total_ops = self.results.iter().map(|r| r.operations_count).sum();
-        let avg_ops_per_sec = if !self.results.is_empty() {
+        let avg_ops_per_sec = if self.results.is_empty() {
+            0.0
+        } else {
             self.results.iter().map(|r| r.ops_per_second).sum::<f64>() / self.results.len() as f64
-        } else {
-            0.0
         };
-        let avg_success_rate = if !self.results.is_empty() {
-            self.results.iter().map(|r| r.success_rate).sum::<f64>() / self.results.len() as f64
-        } else {
+        let avg_success_rate = if self.results.is_empty() {
             0.0
+        } else {
+            self.results.iter().map(|r| r.success_rate).sum::<f64>() / self.results.len() as f64
         };
 
         BenchmarkSummary {

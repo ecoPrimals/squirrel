@@ -84,6 +84,7 @@ pub struct SongbirdAiIntegration {
 
 impl SongbirdAiIntegration {
     /// Create new Songbird AI integration
+    #[must_use]
     pub fn new(router: Arc<AiRouter>, service_id: String, service_endpoint: String) -> Self {
         // Evolution: Use universal constants and environment-first discovery
         use universal_constants::network;
@@ -123,8 +124,7 @@ impl SongbirdAiIntegration {
                 avg_cost_usd: providers
                     .iter()
                     .filter(|p| p.capabilities.contains(&"image.generation".to_string()))
-                    .filter_map(|p| p.cost_per_unit)
-                    .next(),
+                    .find_map(|p| p.cost_per_unit),
                 avg_latency_ms: providers
                     .iter()
                     .filter(|p| p.capabilities.contains(&"image.generation".to_string()))
@@ -145,8 +145,7 @@ impl SongbirdAiIntegration {
                 avg_cost_usd: providers
                     .iter()
                     .filter(|p| p.capabilities.contains(&"text.generation".to_string()))
-                    .filter_map(|p| p.cost_per_unit)
-                    .next(),
+                    .find_map(|p| p.cost_per_unit),
                 avg_latency_ms: providers
                     .iter()
                     .filter(|p| p.capabilities.contains(&"text.generation".to_string()))
@@ -228,12 +227,11 @@ impl SongbirdAiIntegration {
         }
 
         // Evolution: Safe access with early return if not registered
-        let registration_id = match &self.registration_id {
-            Some(id) => id,
-            None => {
-                debug!("Cannot send heartbeat - not registered with Songbird");
-                return Ok(());
-            }
+        let registration_id = if let Some(id) = &self.registration_id {
+            id
+        } else {
+            debug!("Cannot send heartbeat - not registered with Songbird");
+            return Ok(());
         };
 
         let url = format!(

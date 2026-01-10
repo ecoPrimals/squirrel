@@ -12,6 +12,7 @@ pub struct BufferPool {
 
 impl BufferPool {
     /// Create a new buffer pool
+    #[must_use]
     pub fn new(buffer_size: usize, max_buffers: usize) -> Self {
         Self {
             buffers: VecDeque::new(),
@@ -39,6 +40,7 @@ impl BufferPool {
     }
 
     /// Get current pool size
+    #[must_use]
     pub fn pool_size(&self) -> usize {
         self.buffers.len()
     }
@@ -54,6 +56,7 @@ pub struct SharedBuffer {
 
 impl SharedBuffer {
     /// Create a new shared buffer
+    #[must_use]
     pub fn new(data: Vec<u8>) -> Self {
         let len = data.len();
         Self {
@@ -64,21 +67,25 @@ impl SharedBuffer {
     }
 
     /// Get buffer length
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Check if buffer is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Get slice of data
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         &self.data[self.start..self.start + self.len]
     }
 
     /// Create a slice of this buffer
+    #[must_use]
     pub fn slice(&self, start: usize, len: usize) -> Option<Self> {
         if start + len <= self.len {
             Some(Self {

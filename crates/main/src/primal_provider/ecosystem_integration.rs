@@ -13,8 +13,9 @@ impl EcosystemIntegration {
     /// Create service registration for Songbird
     ///
     /// This dynamically constructs endpoints from environment or configuration:
-    /// - SERVER_BIND_ADDRESS (default: 0.0.0.0)
-    /// - SERVER_PORT (default: 8080)
+    /// - `SERVER_BIND_ADDRESS` (default: 0.0.0.0)
+    /// - `SERVER_PORT` (default: 8080)
+    #[must_use]
     pub fn create_service_registration(
         provider: &SquirrelPrimalProvider,
     ) -> EcosystemServiceRegistration {
@@ -24,7 +25,7 @@ impl EcosystemIntegration {
         let port = std::env::var("SERVER_PORT").unwrap_or_else(|_| "8080".to_string());
 
         // Construct base URL
-        let base_url = format!("http://{}:{}", bind_address, port);
+        let base_url = format!("http://{bind_address}:{port}");
 
         let _endpoints = provider.endpoints();
         EcosystemServiceRegistration {
@@ -59,7 +60,7 @@ impl EcosystemIntegration {
                     format!("{}/ai", base_url),
                     format!("{}/mesh", base_url),
                 ],
-                health: Some(format!("{}/health", base_url)),
+                health: Some(format!("{base_url}/health")),
             },
             capabilities: crate::ecosystem::ServiceCapabilities {
                 core: vec![
@@ -149,6 +150,7 @@ impl SquirrelPrimalProvider {
     }
 
     /// Check if this primal can serve the given context
+    #[must_use]
     pub fn can_serve_context(&self, context: &crate::universal::PrimalContext) -> bool {
         match context.security_level {
             crate::universal::SecurityLevel::Public => false,
@@ -166,6 +168,7 @@ impl SquirrelPrimalProvider {
     }
 
     /// Get dynamic port information
+    #[must_use]
     pub fn dynamic_port_info(&self) -> Option<crate::universal::DynamicPortInfo> {
         let now = chrono::Utc::now();
         Some(crate::universal::DynamicPortInfo {
@@ -210,6 +213,7 @@ impl SquirrelPrimalProvider {
     }
 
     /// Get service mesh status
+    #[must_use]
     pub fn get_service_mesh_status(&self) -> crate::universal::ServiceMeshStatus {
         crate::universal::ServiceMeshStatus {
             connected: self.initialized,
@@ -266,6 +270,7 @@ impl SquirrelPrimalProvider {
     }
 
     /// Create service registration for ecosystem
+    #[must_use]
     pub fn create_service_registration(&self) -> EcosystemServiceRegistration {
         EcosystemIntegration::create_service_registration(self)
     }

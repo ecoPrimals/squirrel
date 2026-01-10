@@ -16,7 +16,7 @@ pub struct PrimalInfo {
     pub capabilities: Vec<PrimalCapability>,
     pub endpoints: Vec<String>,
     pub metadata: HashMap<String, String>,
-    /// Convenience alias for primal_id (for compatibility)
+    /// Convenience alias for `primal_id` (for compatibility)
     #[serde(skip)]
     pub id: Option<String>,
     /// Version information

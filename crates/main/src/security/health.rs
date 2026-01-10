@@ -80,11 +80,13 @@ impl Default for ComponentHealth {
 
 impl SecurityHealth {
     /// Create a new security health status
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Check if the overall security system is healthy
+    #[must_use]
     pub fn is_healthy(&self) -> bool {
         matches!(
             self.overall_status,
@@ -150,6 +152,7 @@ impl SecurityHealth {
     }
 
     /// Get health summary as a human-readable string
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "Security Health: {:?} ({} components, {} warnings)",
@@ -173,6 +176,7 @@ pub struct UniversalSecurityHealthChecker {
 
 impl UniversalSecurityHealthChecker {
     /// Create a new universal security health checker
+    #[must_use]
     pub fn new(check_interval: Duration) -> Self {
         Self {
             health_status: SecurityHealth::new(),
@@ -247,11 +251,13 @@ impl UniversalSecurityHealthChecker {
     }
 
     /// Get the current health status
+    #[must_use]
     pub fn current_health(&self) -> &SecurityHealth {
         &self.health_status
     }
 
     /// Check if health check is due
+    #[must_use]
     pub fn is_check_due(&self) -> bool {
         self.last_check.elapsed() >= self.check_interval
     }

@@ -51,7 +51,7 @@ pub struct LocalGpuCapabilities {
 
 /// Detect GPUs on THIS instance
 ///
-/// Uses NVML for NVIDIA GPUs, ROCm for AMD GPUs, and system detection for others.
+/// Uses NVML for NVIDIA GPUs, `ROCm` for AMD GPUs, and system detection for others.
 /// Supports heterogeneous hardware with multiple vendors.
 ///
 /// # Primal Self-Knowledge
@@ -220,7 +220,7 @@ fn architecture_from_compute_capability(cc: &str) -> Option<String> {
         5 => "Maxwell".to_string(),      // GTX 9 series
         3 => "Kepler".to_string(),       // K series, GTX 7 series
         2 => "Fermi".to_string(),        // Very old
-        _ => format!("Unknown (CC {})", cc),
+        _ => format!("Unknown (CC {cc})"),
     })
 }
 
@@ -373,7 +373,7 @@ async fn detect_nvidia_fallback() -> Result<Option<LocalGpuCapabilities>, Primal
             let mut total_vram = 0u32;
 
             for (index, line) in stdout.lines().enumerate() {
-                let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                let parts: Vec<&str> = line.split(',').map(str::trim).collect();
                 if parts.len() >= 3 {
                     if let (Ok(total_mb), Ok(free_mb)) =
                         (parts[1].parse::<f64>(), parts[2].parse::<f64>())
@@ -464,7 +464,7 @@ fn detect_architecture_from_name(model: &str) -> Option<String> {
     None
 }
 
-/// Detect AMD GPUs using ROCm
+/// Detect AMD GPUs using `ROCm`
 ///
 /// # Heterogeneous Hardware Support
 ///
@@ -487,7 +487,7 @@ async fn detect_amd_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalError> 
             // Parse CSV output
             for (index, line) in stdout.lines().enumerate().skip(1) {
                 // Skip header
-                let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                let parts: Vec<&str> = line.split(',').map(str::trim).collect();
                 if parts.len() >= 2 {
                     // Try to get GPU name
                     if let Ok(name_output) = tokio::process::Command::new("rocm-smi")

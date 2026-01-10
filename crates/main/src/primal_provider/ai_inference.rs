@@ -136,8 +136,7 @@ impl SquirrelPrimalProvider {
             }
             _ => {
                 return Err(PrimalError::NetworkError(format!(
-                    "Unknown AI provider: {}",
-                    provider
+                    "Unknown AI provider: {provider}"
                 )));
             }
         };

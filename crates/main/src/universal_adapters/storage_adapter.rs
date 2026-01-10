@@ -1,6 +1,6 @@
 //! Universal Storage Adapter
 //!
-//! Capability-based storage coordination that can work with NestGate or any
+//! Capability-based storage coordination that can work with `NestGate` or any
 //! storage primal that provides the required data management capabilities.
 
 use std::collections::HashMap;
@@ -170,7 +170,7 @@ impl UniversalStorageAdapter {
         response
             .get("storage_id")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| PrimalError::StorageError("Storage failed: no storage ID".to_string()))
     }
 
@@ -220,7 +220,7 @@ impl UniversalStorageAdapter {
         response
             .get("backup_id")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| PrimalError::StorageError("Backup failed: no backup ID".to_string()))
     }
 
@@ -255,6 +255,7 @@ impl UniversalStorageAdapter {
     }
 
     /// Get current storage service info
+    #[must_use]
     pub fn get_current_storage_service(&self) -> Option<&ServiceInfo> {
         self.preferred_storage_service.as_ref()
     }
@@ -323,7 +324,7 @@ impl UniversalStorageAdapter {
     }
 }
 
-/// Register NestGate (or any storage primal) with the universal registry
+/// Register `NestGate` (or any storage primal) with the universal registry
 pub async fn register_nestgate_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {

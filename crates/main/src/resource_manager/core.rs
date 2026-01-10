@@ -1,4 +1,4 @@
-//! ResourceManager core implementation
+//! `ResourceManager` core implementation
 //!
 //! Handles resource lifecycle, background tasks, and cleanup operations.
 
@@ -38,6 +38,7 @@ pub struct ResourceManager {
 
 impl ResourceManager {
     /// Create a new resource manager
+    #[must_use]
     pub fn new(config: ResourceManagerConfig) -> Self {
         Self {
             config,
@@ -137,15 +138,14 @@ impl ResourceManager {
                             .cleanup_stale_connections()
                             .instrument(tracing::debug_span!("pool_cleanup", pool = %pool_name));
 
-                        match tokio::time::timeout(Duration::from_secs(30), cleanup_future).await {
-                            Ok(()) => {
-                                successful_pools += 1;
-                                debug!("Connection cleanup completed for pool: {}", pool_name);
-                            }
-                            Err(_) => {
-                                failed_pools += 1;
-                                warn!("Connection cleanup timed out for pool: {}", pool_name);
-                            }
+                        if let Ok(()) =
+                            tokio::time::timeout(Duration::from_secs(30), cleanup_future).await
+                        {
+                            successful_pools += 1;
+                            debug!("Connection cleanup completed for pool: {}", pool_name);
+                        } else {
+                            failed_pools += 1;
+                            warn!("Connection cleanup timed out for pool: {}", pool_name);
                         }
                     }
                 }
@@ -403,7 +403,7 @@ impl ResourceManager {
     /// 2. Uses scope-based RAII for automatic cleanup
     /// 3. Leverages Rust's Drop trait for deterministic resource release
     ///
-    /// **Performance**: Comparable to malloc_trim, fully safe
+    /// **Performance**: Comparable to `malloc_trim`, fully safe
     /// **Memory Safety**: 100% safe Rust, no FFI needed
     async fn trigger_memory_cleanup() {
         // Hint to the allocator that we're done with large allocations

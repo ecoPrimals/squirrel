@@ -17,6 +17,7 @@ pub struct ZeroCopyMetrics {
 
 impl ZeroCopyMetrics {
     /// Create new metrics tracker
+    #[must_use]
     pub fn new() -> Self {
         Self {
             allocations_saved: AtomicUsize::new(0),
@@ -102,6 +103,7 @@ pub struct MetricsSnapshot {
 
 impl MetricsSnapshot {
     /// Calculate efficiency percentage
+    #[must_use]
     pub fn efficiency_percentage(&self) -> f64 {
         if self.total_operations == 0 {
             return 0.0;
@@ -112,6 +114,7 @@ impl MetricsSnapshot {
     }
 
     /// Calculate average bytes saved per allocation
+    #[must_use]
     pub fn average_bytes_saved(&self) -> f64 {
         if self.allocations_saved == 0 {
             return 0.0;
@@ -121,6 +124,7 @@ impl MetricsSnapshot {
     }
 
     /// Calculate string interning hit rate
+    #[must_use]
     pub fn string_interning_hit_rate(&self) -> f64 {
         if self.total_operations == 0 {
             return 0.0;

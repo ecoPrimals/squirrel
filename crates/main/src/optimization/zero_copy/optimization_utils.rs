@@ -7,6 +7,7 @@ pub struct ZeroCopyUtils;
 
 impl ZeroCopyUtils {
     /// Concatenate strings efficiently
+    #[must_use]
     pub fn concat_strings(parts: &[&str]) -> String {
         let total_len: usize = parts.iter().map(|s| s.len()).sum();
         let mut result = String::with_capacity(total_len);
@@ -19,6 +20,7 @@ impl ZeroCopyUtils {
     }
 
     /// Format key-value pairs efficiently
+    #[must_use]
     pub fn format_key_value_pairs(pairs: &[(Arc<str>, Arc<str>)]) -> String {
         if pairs.is_empty() {
             return String::new();
@@ -40,6 +42,7 @@ impl ZeroCopyUtils {
     }
 
     /// Build URL with parameters efficiently
+    #[must_use]
     pub fn build_url_with_params(
         base: &str,
         path: &str,

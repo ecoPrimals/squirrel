@@ -65,11 +65,11 @@ pub struct ServiceMetadata {
 /// Extensible service categories
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceCategory {
-    /// Computational services (ToadStool, custom compute)
+    /// Computational services (`ToadStool`, custom compute)
     Compute { specialties: Vec<String> },
-    /// Storage services (NestGate, custom storage)
+    /// Storage services (`NestGate`, custom storage)
     Storage { types: Vec<String> },
-    /// Security services (BearDog, custom security)
+    /// Security services (`BearDog`, custom security)
     Security { domains: Vec<String> },
     /// Orchestration services (Songbird, custom orchestration)
     Orchestration { scopes: Vec<String> },
@@ -211,6 +211,7 @@ pub struct ServiceHealth {
 
 impl UniversalResponse {
     /// Create a successful response
+    #[must_use]
     pub fn success(request_id: String, data: serde_json::Value) -> Self {
         Self {
             request_id,
@@ -223,6 +224,7 @@ impl UniversalResponse {
     }
 
     /// Create an error response
+    #[must_use]
     pub fn error(request_id: String, code: &str, message: &str) -> Self {
         Self {
             request_id,

@@ -1,7 +1,7 @@
-//! # Production Rate Limiting & DoS Protection
+//! # Production Rate Limiting & `DoS` Protection
 //!
 //! This module provides comprehensive rate limiting to protect against:
-//! - Denial of Service (DoS) attacks
+//! - Denial of Service (`DoS`) attacks
 //! - API abuse and excessive requests
 //! - Resource exhaustion attacks
 //! - Brute force authentication attempts
@@ -92,9 +92,9 @@ impl RateLimitBucket {
     fn new(capacity: u32, refill_rate: u32) -> Self {
         let now = Instant::now();
         Self {
-            tokens: capacity as f64,
-            capacity: capacity as f64,
-            refill_rate: refill_rate as f64 / 60.0, // Convert per minute to per second
+            tokens: f64::from(capacity),
+            capacity: f64::from(capacity),
+            refill_rate: f64::from(refill_rate) / 60.0, // Convert per minute to per second
             last_refill: now,
             request_count: 0,
             window_start: now,
@@ -224,7 +224,7 @@ pub enum EndpointType {
     Admin,
 }
 
-/// Production-grade rate limiter with DoS protection
+/// Production-grade rate limiter with `DoS` protection
 pub struct ProductionRateLimiter {
     /// Configuration
     config: RateLimitConfig,
@@ -288,6 +288,7 @@ impl Default for AdaptiveRateLimitState {
 
 impl ProductionRateLimiter {
     /// Create a new production rate limiter
+    #[must_use]
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
@@ -366,13 +367,29 @@ impl ProductionRateLimiter {
             }
         }
 
-        if !allowed {
+        if allowed {
+            debug!(
+                correlation_id = %correlation_id,
+                client_ip = %client_ip,
+                endpoint_type = ?endpoint_type,
+                operation = "rate_limit_allowed",
+                "Request allowed within rate limits"
+            );
+
+            RateLimitResult {
+                allowed: true,
+                reason: None,
+                retry_after: None,
+                remaining_tokens: None,
+                client_banned: false,
+            }
+        } else {
             // Record violation
             self.record_violation(
                 client_ip,
                 ViolationType::RateLimitExceeded,
                 ViolationSeverity::Medium,
-                format!("Rate limit exceeded for {:?} endpoint", endpoint_type),
+                format!("Rate limit exceeded for {endpoint_type:?} endpoint"),
             )
             .await;
 
@@ -390,22 +407,6 @@ impl ProductionRateLimiter {
                 reason: Some("Rate limit exceeded".to_string()),
                 retry_after: Some(Duration::from_secs(60)),
                 remaining_tokens: Some(0),
-                client_banned: false,
-            }
-        } else {
-            debug!(
-                correlation_id = %correlation_id,
-                client_ip = %client_ip,
-                endpoint_type = ?endpoint_type,
-                operation = "rate_limit_allowed",
-                "Request allowed within rate limits"
-            );
-
-            RateLimitResult {
-                allowed: true,
-                reason: None,
-                retry_after: None,
-                remaining_tokens: None,
                 client_banned: false,
             }
         }
@@ -452,9 +453,8 @@ impl ProductionRateLimiter {
                             remaining_tokens: None,
                             client_banned: true,
                         });
-                    } else {
-                        // Ban expired - will be cleaned up in next check
                     }
+                    // Ban expired - will be cleaned up in next check
                 }
             }
         }
@@ -476,7 +476,7 @@ impl ProductionRateLimiter {
     /// Apply adaptive rate limiting based on system load
     async fn apply_adaptive_rate_limiting(&self, base_limit: u32) -> u32 {
         let adaptive_state = self.adaptive_state.read().await;
-        let adjusted_limit = (base_limit as f64 * adaptive_state.rate_multiplier) as u32;
+        let adjusted_limit = (f64::from(base_limit) * adaptive_state.rate_multiplier) as u32;
 
         // Ensure minimum limit
         adjusted_limit.max(1)
@@ -564,7 +564,7 @@ impl ProductionRateLimiter {
         adaptive_state.last_update = Instant::now();
 
         // Calculate rate multiplier based on system load
-        let load_factor = (cpu_usage + memory_usage) / 2.0;
+        let load_factor = f64::midpoint(cpu_usage, memory_usage);
 
         adaptive_state.rate_multiplier = if load_factor > 0.8 {
             0.5 // Strict limiting under high load

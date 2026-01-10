@@ -28,6 +28,7 @@ impl Default for ServiceConnectionPool {
 
 impl ServiceConnectionPool {
     /// Creates a new service connection pool
+    #[must_use]
     pub fn new() -> Self {
         Self {
             clients: Arc::new(RwLock::new(HashMap::new())),

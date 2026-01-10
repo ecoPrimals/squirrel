@@ -13,7 +13,7 @@
 //! ## Module Organization
 //!
 //! - [`types`] - Core type definitions (Config, Stats, Metrics)
-//! - [`core`] - ResourceManager implementation
+//! - [`core`] - `ResourceManager` implementation
 //! - [`shutdown`] - Graceful shutdown handling
 //!
 //! ## Usage Example

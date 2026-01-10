@@ -37,10 +37,10 @@ regex = "1.10"
 jsonrpsee = { version = "0.24", features = ["server", "client"] }
 hostname = "0.4"
 
-# tarpc for high-performance RPC (Phase 2)
-tarpc = { version = "0.34", features = ["full"] }
-tokio-serde = { version = "0.9", features = ["bincode"] }
-bincode = "1.3"
+# tarpc for high-performance RPC (Phase 2) - Feature-gated until API compatibility resolved
+tarpc = { version = "0.34", features = ["full"], optional = true }
+tokio-serde = { version = "0.9", features = ["bincode"], optional = true }
+bincode = { version = "1.3", optional = true }
 
 # Ecosystem integrations - Service Mesh via Songbird
 ecosystem-api = { path = "../ecosystem-api" }
@@ -92,6 +92,8 @@ ecosystem = ["tonic", "prost"]
 benchmarking = ["criterion", "pprof", "iai"]
 enhanced_error_handling = []
 optimizations = []
+# Phase 2: tarpc binary RPC (60% complete, needs API research - see docs/sessions/2026-01-09-audit-and-rpc/)
+tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -1,6 +1,6 @@
 //! Universal Compute Adapter
 //!
-//! Capability-based compute coordination that can work with ToadStool or any
+//! Capability-based compute coordination that can work with `ToadStool` or any
 //! compute primal that provides the required computation capabilities.
 
 use std::collections::HashMap;
@@ -191,7 +191,7 @@ impl UniversalComputeAdapter {
         response
             .get("execution_id")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| {
                 PrimalError::ComputeError("Execution failed: no execution ID".to_string())
             })
@@ -273,6 +273,7 @@ impl UniversalComputeAdapter {
     }
 
     /// Get current compute service info
+    #[must_use]
     pub fn get_current_compute_service(&self) -> Option<&ServiceInfo> {
         self.preferred_compute_service.as_ref()
     }
@@ -366,14 +367,14 @@ impl UniversalComputeAdapter {
         response
             .get("job_id")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| {
                 PrimalError::ComputeError("Batch job submission failed: no job ID".to_string())
             })
     }
 }
 
-/// Register ToadStool (or any compute primal) with the universal registry
+/// Register `ToadStool` (or any compute primal) with the universal registry
 pub async fn register_toadstool_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {

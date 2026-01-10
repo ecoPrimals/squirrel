@@ -3,7 +3,10 @@
 //! Modern async handlers for universal AI capability endpoints.
 
 use super::router::AiRouter;
-use super::types::*;
+use super::types::{
+    AiErrorResponse, ImageGenerationRequest, ResponseMetadata, TextGenerationRequest,
+    UniversalAiRequest, UniversalAiResponse,
+};
 use std::sync::Arc;
 use warp::{http::StatusCode, reply::json, Reply};
 
@@ -17,7 +20,7 @@ pub async fn handle_generate_image(
         Err(e) => {
             let error = AiErrorResponse::new(
                 "image_generation_failed",
-                format!("Image generation failed: {}", e),
+                format!("Image generation failed: {e}"),
             )
             .retryable();
 
@@ -39,7 +42,7 @@ pub async fn handle_generate_text(
         Err(e) => {
             let error = AiErrorResponse::new(
                 "text_generation_failed",
-                format!("Text generation failed: {}", e),
+                format!("Text generation failed: {e}"),
             )
             .retryable();
 
@@ -63,8 +66,7 @@ pub async fn handle_execute_ai(
             let image_request: ImageGenerationRequest = serde_json::from_value(request.input)
                 .map_err(|e| {
                     warp::reject::custom(ApiError::BadRequest(format!(
-                        "Invalid image generation request: {}",
-                        e
+                        "Invalid image generation request: {e}"
                     )))
                 })?;
 
@@ -76,8 +78,7 @@ pub async fn handle_execute_ai(
                     // Evolution: Proper error handling instead of unwrap_or_default
                     let output = serde_json::to_value(&response).map_err(|e| {
                         warp::reject::custom(ApiError::InternalError(format!(
-                            "Failed to serialize response: {}",
-                            e
+                            "Failed to serialize response: {e}"
                         )))
                     })?;
 
@@ -101,7 +102,7 @@ pub async fn handle_execute_ai(
                 }
                 Err(e) => {
                     let error =
-                        AiErrorResponse::new("action_failed", format!("Action failed: {}", e))
+                        AiErrorResponse::new("action_failed", format!("Action failed: {e}"))
                             .retryable();
 
                     Ok(warp::reply::with_status(
@@ -116,8 +117,7 @@ pub async fn handle_execute_ai(
             let text_request: TextGenerationRequest = serde_json::from_value(request.input)
                 .map_err(|e| {
                     warp::reject::custom(ApiError::BadRequest(format!(
-                        "Invalid text generation request: {}",
-                        e
+                        "Invalid text generation request: {e}"
                     )))
                 })?;
 
@@ -129,8 +129,7 @@ pub async fn handle_execute_ai(
                     // Evolution: Proper error handling instead of unwrap_or_default
                     let output = serde_json::to_value(&response).map_err(|e| {
                         warp::reject::custom(ApiError::InternalError(format!(
-                            "Failed to serialize response: {}",
-                            e
+                            "Failed to serialize response: {e}"
                         )))
                     })?;
 
@@ -154,7 +153,7 @@ pub async fn handle_execute_ai(
                 }
                 Err(e) => {
                     let error =
-                        AiErrorResponse::new("action_failed", format!("Action failed: {}", e))
+                        AiErrorResponse::new("action_failed", format!("Action failed: {e}"))
                             .retryable();
 
                     Ok(warp::reply::with_status(

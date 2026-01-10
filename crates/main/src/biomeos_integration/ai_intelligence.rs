@@ -225,6 +225,7 @@ impl Default for AiIntelligence {
 
 impl AiIntelligence {
     /// Create a new AI intelligence instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             intelligence_engine: IntelligenceEngine::default(),

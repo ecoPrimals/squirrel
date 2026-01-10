@@ -1,6 +1,6 @@
 //! Universal Security Adapter
 //!
-//! Capability-based security coordination that can work with BearDog or any
+//! Capability-based security coordination that can work with `BearDog` or any
 //! security primal that provides the required security capabilities.
 
 use std::collections::HashMap;
@@ -118,7 +118,7 @@ impl UniversalSecurityAdapter {
         response
             .get("session_id")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .ok_or_else(|| {
                 PrimalError::SecurityError("Authentication failed: no session ID".to_string())
             })
@@ -146,7 +146,7 @@ impl UniversalSecurityAdapter {
         // Extract authorization result
         response
             .get("authorized")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
             .then_some(true)
             .ok_or_else(|| PrimalError::SecurityError("Authorization denied".to_string()))
@@ -183,6 +183,7 @@ impl UniversalSecurityAdapter {
     }
 
     /// Get current security service info (if any)
+    #[must_use]
     pub fn get_current_security_service(&self) -> Option<&ServiceInfo> {
         self.preferred_security_service.as_ref()
     }
@@ -233,7 +234,7 @@ impl UniversalSecurityAdapter {
     }
 }
 
-/// Register BearDog (or any security primal) with the universal registry
+/// Register `BearDog` (or any security primal) with the universal registry
 pub async fn register_beardog_service(
     registry: Arc<dyn UniversalServiceRegistry>,
 ) -> Result<(), PrimalError> {

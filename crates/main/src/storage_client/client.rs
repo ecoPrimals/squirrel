@@ -13,8 +13,12 @@ use crate::universal::{
 };
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::providers::*;
-use super::types::*;
+use super::providers::StorageProvider;
+use super::types::{
+    AIRequestContext, AIStorageInsights, AccessFrequency, DataClassification, PerformanceMetrics,
+    PerformanceRequirements, SharingScope, StorageClientConfig, StorageOperation,
+    UniversalStorageRequest, UniversalStorageResponse,
+};
 // Removed ai_metadata import - was over-engineered early implementation
 
 // ============================================================================
@@ -22,7 +26,7 @@ use super::types::*;
 // ============================================================================
 
 /// Universal Storage Client that automatically discovers and routes requests to the best
-/// available storage provider (NestGate, cloud storage, etc.).
+/// available storage provider (`NestGate`, cloud storage, etc.).
 ///
 /// This client implements capability-based discovery, meaning it finds any provider
 /// that provides the required capabilities, regardless of implementation.
@@ -44,6 +48,7 @@ pub struct UniversalStorageClient {
 
 impl UniversalStorageClient {
     /// Create new universal storage client
+    #[must_use]
     pub fn new(
         ecosystem: Arc<UniversalPrimalEcosystem>,
         config: StorageClientConfig,
@@ -146,7 +151,7 @@ impl UniversalStorageClient {
             &provider.provider_id,
             "storage_operation",
             serde_json::to_value(&request).map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to serialize request: {}", e))
+                PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
             })?,
             self.context.clone(),
         );
@@ -390,6 +395,7 @@ impl UniversalStorageClient {
     }
 
     /// Get storage client configuration
+    #[must_use]
     pub fn get_storage_config(&self) -> &StorageClientConfig {
         // Use config field to provide storage configuration access
         &self.config
@@ -409,7 +415,7 @@ impl UniversalStorageClient {
         Ok(())
     }
 
-    /// Apply AI-enhanced storage routing using ai_metadata
+    /// Apply AI-enhanced storage routing using `ai_metadata`
     pub fn apply_ai_storage_routing(
         &self,
         request: &mut serde_json::Value,
@@ -421,12 +427,11 @@ impl UniversalStorageClient {
         let operation = request
             .get("operation")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string);
 
         let file_size = request
             .get("file_size")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
 
         debug!("Processing operation: {}", operation);
@@ -460,7 +465,7 @@ impl UniversalStorageClient {
         Ok(())
     }
 
-    /// Get AI storage insights using ai_metadata
+    /// Get AI storage insights using `ai_metadata`
     pub fn get_ai_storage_insights(&self) -> serde_json::Value {
         // Use ai_metadata field to generate AI-powered storage insights
         debug!("Generating AI-powered storage insights");
@@ -487,7 +492,7 @@ impl UniversalStorageClient {
         })
     }
 
-    /// Optimize storage requests using config and ai_metadata
+    /// Optimize storage requests using config and `ai_metadata`
     pub fn optimize_storage_request(
         &self,
         request: &mut serde_json::Value,
@@ -499,12 +504,11 @@ impl UniversalStorageClient {
         let operation = request
             .get("operation")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "unknown".to_string());
+            .map_or_else(|| "unknown".to_string(), std::string::ToString::to_string);
 
         let file_size = request
             .get("file_size")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
 
         debug!("Processing operation: {}", operation);
@@ -545,8 +549,7 @@ impl UniversalStorageClient {
 
         let optimizations_count = optimization_result["optimizations_applied"]
             .as_array()
-            .map(|arr| arr.len())
-            .unwrap_or(0);
+            .map_or(0, std::vec::Vec::len);
 
         info!(
             "Storage request optimized: {} optimizations applied, 30.0% cost reduction",
@@ -565,7 +568,7 @@ impl UniversalStorageClient {
             .unwrap_or("unknown");
         let file_size = request
             .get("file_size")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
 
         let base_cost = match operation {
@@ -583,7 +586,7 @@ impl UniversalStorageClient {
         }
     }
 
-    /// Update AI metadata with storage patterns using ai_metadata field
+    /// Update AI metadata with storage patterns using `ai_metadata` field
     pub fn update_ai_storage_metadata(
         &mut self,
         storage_patterns: Vec<serde_json::Value>,
@@ -601,8 +604,12 @@ impl UniversalStorageClient {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
             let provider_used = pattern.get("provider_used").and_then(|v| v.as_str());
-            let throughput = pattern.get("throughput_mbps").and_then(|v| v.as_f64());
-            let latency = pattern.get("latency_ms").and_then(|v| v.as_u64());
+            let throughput = pattern
+                .get("throughput_mbps")
+                .and_then(serde_json::Value::as_f64);
+            let latency = pattern
+                .get("latency_ms")
+                .and_then(serde_json::Value::as_u64);
 
             debug!(
                 "Processing storage pattern: {} (throughput: {:?}, latency: {:?})",
@@ -621,8 +628,10 @@ impl UniversalStorageClient {
 
             // Process compression data if available
             if let (Some(compression_ratio), Some(file_size)) = (
-                pattern.get("compression_ratio").and_then(|v| v.as_f64()),
-                pattern.get("file_size").and_then(|v| v.as_u64()),
+                pattern
+                    .get("compression_ratio")
+                    .and_then(serde_json::Value::as_f64),
+                pattern.get("file_size").and_then(serde_json::Value::as_u64),
             ) {
                 let compressed_size = (file_size as f64 * compression_ratio) as u64;
                 debug!(

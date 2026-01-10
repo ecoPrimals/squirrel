@@ -124,13 +124,13 @@ impl SelfHealingManager {
             if previous_status != status {
                 match status {
                     HealthStatus::Healthy => {
-                        info!("✅ Component '{}' recovered: {}", component_id, message)
+                        info!("✅ Component '{}' recovered: {}", component_id, message);
                     }
                     HealthStatus::Degraded => {
-                        warn!("⚠️ Component '{}' degraded: {}", component_id, message)
+                        warn!("⚠️ Component '{}' degraded: {}", component_id, message);
                     }
                     HealthStatus::Failed => {
-                        warn!("❌ Component '{}' failed: {}", component_id, message)
+                        warn!("❌ Component '{}' failed: {}", component_id, message);
                     }
                     HealthStatus::Unknown => debug!(
                         "❓ Component '{}' status unknown: {}",
@@ -147,16 +147,19 @@ impl SelfHealingManager {
     }
 
     /// Get component health status
+    #[must_use]
     pub fn get_component_health(&self, component_id: &str) -> Option<&ComponentHealth> {
         self.component_health.get(component_id)
     }
 
     /// Get all component health statuses
+    #[must_use]
     pub fn get_all_component_health(&self) -> &HashMap<String, ComponentHealth> {
         &self.component_health
     }
 
     /// Check if all monitored components are healthy
+    #[must_use]
     pub fn is_system_healthy(&self) -> bool {
         self.component_health
             .values()
@@ -164,6 +167,7 @@ impl SelfHealingManager {
     }
 
     /// Get system health summary
+    #[must_use]
     pub fn get_system_health_summary(&self) -> SystemHealthSummary {
         let total_components = self.component_health.len();
         let healthy_count = self
@@ -252,6 +256,7 @@ impl SelfHealingManager {
     }
 
     /// Get health recommendations
+    #[must_use]
     pub fn get_health_recommendations(&self) -> Vec<String> {
         let mut recommendations = Vec::new();
 

@@ -79,6 +79,7 @@ pub struct SecurityProviderHealth {
 
 impl SecurityProvider {
     /// Create security provider from discovered primal
+    #[must_use]
     pub fn from_discovered_primal(primal: &DiscoveredPrimal) -> Self {
         Self {
             provider_id: primal.instance_id.clone(),

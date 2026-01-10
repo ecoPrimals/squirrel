@@ -1,7 +1,7 @@
-//! Request and response types for ToadStool communication
+//! Request and response types for `ToadStool` communication
 //!
 //! This module defines message types for interacting with the
-//! ToadStool compute primal.
+//! `ToadStool` compute primal.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

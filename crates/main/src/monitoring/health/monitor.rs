@@ -33,6 +33,7 @@ impl Default for HealthMonitor {
 
 impl HealthMonitor {
     /// Create a new health monitor
+    #[must_use]
     pub fn new() -> Self {
         Self {
             component_health: Arc::new(RwLock::new(HashMap::new())),
@@ -121,7 +122,7 @@ impl HealthMonitor {
                 }
                 Err(e) => {
                     health.state = HealthState::Critical;
-                    health.message = format!("Health check failed: {}", e);
+                    health.message = format!("Health check failed: {e}");
                     health.consecutive_failures += 1;
                     health.consecutive_successes = 0;
                     health.details.insert("error".to_string(), e.to_string());
@@ -185,9 +186,10 @@ impl HealthMonitor {
     ) -> Result<ComponentHealth, PrimalError> {
         let component_health = self.component_health.read().await;
 
-        component_health.get(component).cloned().ok_or_else(|| {
-            PrimalError::NotFoundError(format!("Component not found: {}", component))
-        })
+        component_health
+            .get(component)
+            .cloned()
+            .ok_or_else(|| PrimalError::NotFoundError(format!("Component not found: {component}")))
     }
 
     /// Create a health snapshot

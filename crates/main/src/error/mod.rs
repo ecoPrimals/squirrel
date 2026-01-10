@@ -90,6 +90,6 @@ pub enum PrimalError {
 // Add support for Box<dyn Error> conversion for our Arc<str> modernization
 impl From<Box<dyn std::error::Error + Send + Sync>> for PrimalError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        PrimalError::Generic(format!("Boxed error: {}", err))
+        PrimalError::Generic(format!("Boxed error: {err}"))
     }
 }

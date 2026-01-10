@@ -99,6 +99,7 @@ pub enum EcosystemPrimalType {
 
 impl EcosystemPrimalType {
     /// Convert to string representation
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             EcosystemPrimalType::ToadStool => "toadstool",
@@ -121,6 +122,7 @@ impl EcosystemPrimalType {
     ///
     /// // Set in environment: export SONGBIRD_ENDPOINT=http://songbird:8081
     /// ```
+    #[must_use]
     pub fn env_name(&self) -> &'static str {
         match self {
             EcosystemPrimalType::ToadStool => "TOADSTOOL",
@@ -144,6 +146,7 @@ impl EcosystemPrimalType {
     /// // Used with SERVICE_DISCOVERY_URL:
     /// // http://consul:8500/songbird
     /// ```
+    #[must_use]
     pub fn service_name(&self) -> &'static str {
         self.as_str()
     }
@@ -157,7 +160,7 @@ impl EcosystemPrimalType {
             "nestgate" => Ok(EcosystemPrimalType::NestGate),
             "squirrel" => Ok(EcosystemPrimalType::Squirrel),
             "biomeos" => Ok(EcosystemPrimalType::BiomeOS),
-            _ => Err(format!("Unknown primal type: {}", s)),
+            _ => Err(format!("Unknown primal type: {s}")),
         }
     }
 }
@@ -369,6 +372,7 @@ pub struct ComponentHealth {
 
 impl EcosystemManager {
     /// Create new ecosystem manager
+    #[must_use]
     pub fn new(config: EcosystemConfig, metrics_collector: Arc<MetricsCollector>) -> Self {
         // Initialize ecosystem registry manager
         let (registry_manager, _registry_receiver) =
@@ -606,7 +610,7 @@ impl EcosystemManager {
     ) -> Result<String, PrimalError> {
         // Convert participants to strings
         let participant_strings: Vec<String> =
-            participants.iter().map(|p| format!("{:?}", p)).collect();
+            participants.iter().map(|p| format!("{p:?}")).collect();
         let context_value = serde_json::to_value(context)
             .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
 
@@ -806,7 +810,7 @@ impl EcosystemManager {
         Ok(())
     }
 
-    /// Store data using universal storage patterns (replaces hard-coded NestGate)
+    /// Store data using universal storage patterns (replaces hard-coded `NestGate`)
     pub async fn store_data_universal(
         &self,
         key: &str,
@@ -824,7 +828,7 @@ impl EcosystemManager {
         self.universal_ecosystem.retrieve_data(key).await
     }
 
-    /// Execute computation using universal compute patterns (replaces hard-coded ToadStool)
+    /// Execute computation using universal compute patterns (replaces hard-coded `ToadStool`)
     pub async fn execute_computation_universal(
         &self,
         computation: &str,
@@ -843,7 +847,7 @@ impl EcosystemManager {
             .await
     }
 
-    /// Authenticate using BearDog security coordination
+    /// Authenticate using `BearDog` security coordination
     pub async fn authenticate_universal(
         &self,
         credentials: HashMap<String, String>,

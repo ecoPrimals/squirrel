@@ -1,7 +1,7 @@
 //! Metric name constants for zero-copy optimization
 //!
 //! These constants eliminate string allocations in hot paths by using
-//! static string references instead of String::from() or .to_string()
+//! static string references instead of `String::from()` or .`to_string()`
 
 // Re-export all constants at the module root for easy access
 pub use agent_deployment::*;
@@ -62,7 +62,7 @@ pub mod toadstool {
     pub const CPU_UTILIZATION: &str = "cpu_utilization";
 }
 
-/// NestGate storage metrics
+/// `NestGate` storage metrics
 pub mod nestgate {
     pub const STORAGE_OPERATIONS: &str = "storage_operations";
     pub const STORAGE_SIZE_GB: &str = "storage_size_gb";
@@ -70,7 +70,7 @@ pub mod nestgate {
     pub const REPLICATION_LAG: &str = "replication_lag";
 }
 
-/// BearDog security metrics
+/// `BearDog` security metrics
 pub mod beardog {
     pub const AUTHENTICATION_REQUESTS: &str = "authentication_requests";
     pub const AUTHORIZATION_CHECKS: &str = "authorization_checks";

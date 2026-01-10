@@ -102,7 +102,7 @@ impl SongbirdCoordinator {
                 ecosystem_api::traits::RetryConfig::default(),
             )
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to create Songbird client: {}", e))
+                PrimalError::NetworkError(format!("Failed to create Songbird client: {e}"))
             })?,
         )
             as Box<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>);
@@ -185,7 +185,8 @@ impl SongbirdCoordinator {
         Ok(())
     }
 
-    /// Get coordinator instance information using instance_id and config
+    /// Get coordinator instance information using `instance_id` and config
+    #[must_use]
     pub fn get_coordinator_info(&self) -> serde_json::Value {
         // Use instance_id and config fields to provide coordinator information
         serde_json::json!({
@@ -197,7 +198,7 @@ impl SongbirdCoordinator {
         })
     }
 
-    /// Register AI coordination capabilities with Songbird using service_mesh_client
+    /// Register AI coordination capabilities with Songbird using `service_mesh_client`
     pub async fn register_ai_coordination_with_songbird(&self) -> Result<String, PrimalError> {
         // Use service_mesh_client field to register Squirrel's AI capabilities with Songbird
         info!("Registering AI coordination capabilities with Songbird orchestrator");
@@ -216,7 +217,7 @@ impl SongbirdCoordinator {
                     .unwrap_or_else(|_| {
                         let port = std::env::var("AI_COORDINATOR_PORT")
                             .unwrap_or_else(|_| "8080".to_string());
-                        format!("http://localhost:{}", port)
+                        format!("http://localhost:{port}")
                     }),
                 self.instance_id
             ),
@@ -237,7 +238,7 @@ impl SongbirdCoordinator {
         Ok(service_id)
     }
 
-    /// Request orchestration from Songbird using service_mesh_client
+    /// Request orchestration from Songbird using `service_mesh_client`
     pub async fn request_orchestration(
         &self,
         orchestration_type: &str,
@@ -278,7 +279,7 @@ impl SongbirdCoordinator {
         Ok(result)
     }
 
-    /// Discover complementary services through Songbird using service_mesh_client  
+    /// Discover complementary services through Songbird using `service_mesh_client`  
     pub async fn discover_complementary_services(
         &self,
         required_capabilities: Vec<String>,
@@ -327,7 +328,7 @@ impl SongbirdCoordinator {
         Ok(services)
     }
 
-    /// Get orchestration configuration using config_manager
+    /// Get orchestration configuration using `config_manager`
     pub fn get_orchestration_config(&self) -> serde_json::Value {
         // Use config_manager field for orchestration configuration management
         debug!("Retrieving orchestration configuration");
@@ -344,7 +345,7 @@ impl SongbirdCoordinator {
         })
     }
 
-    /// Update orchestration configuration using config_manager
+    /// Update orchestration configuration using `config_manager`
     pub fn update_orchestration_config(
         &mut self,
         new_config: serde_json::Value,
@@ -358,7 +359,7 @@ impl SongbirdCoordinator {
         // Validate new configuration
         let max_concurrent = new_config
             .get("max_concurrent_orchestrations")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(10);
         if max_concurrent == 0 {
             return Err(PrimalError::Configuration(
@@ -368,7 +369,7 @@ impl SongbirdCoordinator {
 
         let discovery_interval = new_config
             .get("service_discovery_interval")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(30000);
         if discovery_interval == 0 {
             return Err(PrimalError::Configuration(
@@ -385,7 +386,7 @@ impl SongbirdCoordinator {
         Ok(())
     }
 
-    /// Get service mesh statistics using service_mesh_client
+    /// Get service mesh statistics using `service_mesh_client`
     pub async fn get_service_mesh_statistics(&self) -> Result<serde_json::Value, PrimalError> {
         // Use service_mesh_client field for service mesh monitoring
         debug!("Retrieving service mesh statistics via Songbird");
@@ -404,7 +405,7 @@ impl SongbirdCoordinator {
         Ok(ai_specific_stats)
     }
 
-    /// Coordinate AI workflow across multiple primals using service_mesh_client
+    /// Coordinate AI workflow across multiple primals using `service_mesh_client`
     pub async fn coordinate_ai_workflow(
         &self,
         workflow_definition: serde_json::Value,
@@ -417,8 +418,7 @@ impl SongbirdCoordinator {
         let steps = workflow_definition
             .get("steps")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.len())
-            .unwrap_or(0);
+            .map_or(0, std::vec::Vec::len);
 
         info!(
             "Coordinating AI workflow '{}' across {} steps",
@@ -524,7 +524,7 @@ impl Default for SongbirdConfig {
                 .unwrap_or_else(|_| {
                     let port =
                         std::env::var("SONGBIRD_PORT").unwrap_or_else(|_| "8500".to_string());
-                    format!("http://localhost:{}", port)
+                    format!("http://localhost:{port}")
                 }),
             heartbeat_interval: Duration::from_secs(heartbeat_interval_secs),
             coordination_timeout: Duration::from_secs(coordination_timeout_secs),

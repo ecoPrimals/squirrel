@@ -1,6 +1,6 @@
 //! Safe Operations Module
 //!
-//! This module provides safe alternatives to unwrap() and expect() calls
+//! This module provides safe alternatives to `unwrap()` and `expect()` calls
 //! throughout the codebase, preventing potential panics in production.
 
 use chrono::{DateTime, Utc};
@@ -139,6 +139,7 @@ impl<T> SafeResult<T> {
     }
 
     /// Create a failed result
+    #[must_use]
     pub fn failure(error: SafeError, context: String) -> Self {
         Self {
             result: Err(error),
@@ -280,7 +281,7 @@ impl SafeOps {
         let result = match tokio::time::timeout(Duration::from_secs(5), lock.read()).await {
             Ok(guard) => Ok(guard),
             Err(_) => Err(SafeError::Timeout {
-                message: format!("Failed to acquire read lock in {}", context),
+                message: format!("Failed to acquire read lock in {context}"),
                 duration: Duration::from_secs(5),
             }),
         };
@@ -296,7 +297,7 @@ impl SafeOps {
         let result = match tokio::time::timeout(Duration::from_secs(5), lock.write()).await {
             Ok(guard) => Ok(guard),
             Err(_) => Err(SafeError::Timeout {
-                message: format!("Failed to acquire write lock in {}", context),
+                message: format!("Failed to acquire write lock in {context}"),
                 duration: Duration::from_secs(5),
             }),
         };
@@ -312,7 +313,7 @@ impl SafeOps {
         let result = match tokio::time::timeout(Duration::from_secs(5), mutex.lock()).await {
             Ok(guard) => Ok(guard),
             Err(_) => Err(SafeError::Timeout {
-                message: format!("Failed to acquire mutex lock in {}", context),
+                message: format!("Failed to acquire mutex lock in {context}"),
                 duration: Duration::from_secs(5),
             }),
         };
@@ -321,13 +322,14 @@ impl SafeOps {
     }
 
     /// Safely parse a string to a type
+    #[must_use]
     pub fn safe_parse<T>(value: &str, context: &str) -> SafeResult<T>
     where
         T: std::str::FromStr,
         T::Err: std::fmt::Display,
     {
         let result = value.parse::<T>().map_err(|e| SafeError::Validation {
-            message: format!("Failed to parse '{}' in {}: {}", value, context, e),
+            message: format!("Failed to parse '{value}' in {context}: {e}"),
             field: None,
         });
 
@@ -340,7 +342,7 @@ impl SafeOps {
         T: Serialize,
     {
         let result = serde_json::to_string(value).map_err(|e| SafeError::Serialization {
-            message: format!("Failed to serialize in {}: {}", context, e),
+            message: format!("Failed to serialize in {context}: {e}"),
             data_type: std::any::type_name::<T>().to_string(),
         });
 
@@ -348,19 +350,20 @@ impl SafeOps {
     }
 
     /// Safely deserialize from JSON
+    #[must_use]
     pub fn safe_deserialize<T>(json: &str, context: &str) -> SafeResult<T>
     where
         T: for<'de> Deserialize<'de>,
     {
         let result = serde_json::from_str::<T>(json).map_err(|e| SafeError::Serialization {
-            message: format!("Failed to deserialize in {}: {}", context, e),
+            message: format!("Failed to deserialize in {context}: {e}"),
             data_type: std::any::type_name::<T>().to_string(),
         });
 
         SafeResult::new(result, context.to_string())
     }
 
-    /// Safely get a value from a HashMap
+    /// Safely get a value from a `HashMap`
     pub fn safe_get<'a, K, V>(
         map: &'a HashMap<K, V>,
         key: &'a K,
@@ -370,14 +373,14 @@ impl SafeOps {
         K: std::hash::Hash + Eq + std::fmt::Debug,
     {
         let result = map.get(key).ok_or_else(|| SafeError::ResourceUnavailable {
-            message: format!("Key '{:?}' not found in {} map", key, context),
+            message: format!("Key '{key:?}' not found in {context} map"),
             resource: context.to_string(),
         });
 
         SafeResult::new(result, context.to_string())
     }
 
-    /// Safely get a value from a HashMap with cloning
+    /// Safely get a value from a `HashMap` with cloning
     pub fn safe_get_cloned<K, V>(map: &HashMap<K, V>, key: &K, context: &str) -> SafeResult<V>
     where
         K: std::hash::Hash + Eq + std::fmt::Debug,
@@ -387,7 +390,7 @@ impl SafeOps {
             .get(key)
             .cloned()
             .ok_or_else(|| SafeError::ResourceUnavailable {
-                message: format!("Key '{:?}' not found in {} map", key, context),
+                message: format!("Key '{key:?}' not found in {context} map"),
                 resource: context.to_string(),
             });
 
@@ -397,7 +400,7 @@ impl SafeOps {
     /// Safely get the first element from a Vec
     pub fn safe_first<'a, T>(vec: &'a [T], context: &'a str) -> SafeResult<&'a T> {
         let result = vec.first().ok_or_else(|| SafeError::ResourceUnavailable {
-            message: format!("No first element in {} vector", context),
+            message: format!("No first element in {context} vector"),
             resource: context.to_string(),
         });
 
@@ -407,7 +410,7 @@ impl SafeOps {
     /// Safely get the last element from a Vec
     pub fn safe_last<'a, T>(vec: &'a [T], context: &'a str) -> SafeResult<&'a T> {
         let result = vec.last().ok_or_else(|| SafeError::ResourceUnavailable {
-            message: format!("No last element in {} vector", context),
+            message: format!("No last element in {context} vector"),
             resource: context.to_string(),
         });
 
@@ -434,7 +437,7 @@ impl SafeOps {
     /// Safely join a tokio task
     pub async fn safe_join<T>(handle: tokio::task::JoinHandle<T>, context: &str) -> SafeResult<T> {
         let result = handle.await.map_err(|e| SafeError::Internal {
-            message: format!("Task join failed in {}: {}", context, e),
+            message: format!("Task join failed in {context}: {e}"),
         });
 
         SafeResult::new(result, context.to_string())
@@ -447,7 +450,7 @@ impl SafeOps {
         context: &str,
     ) -> SafeResult<()> {
         let result = sender.send(value).await.map_err(|e| SafeError::Channel {
-            message: format!("Channel send failed in {}: {}", context, e),
+            message: format!("Channel send failed in {context}: {e}"),
             channel_type: "mpsc".to_string(),
         });
 
@@ -474,7 +477,7 @@ impl SafeOps {
             .send()
             .await
             .map_err(|e| SafeError::Network {
-                message: format!("HTTP request failed in {}: {}", context, e),
+                message: format!("HTTP request failed in {context}: {e}"),
                 endpoint: Some(url.to_string()),
             });
 
@@ -486,7 +489,7 @@ impl SafeOps {
         let result = tokio::fs::read_to_string(path)
             .await
             .map_err(|e| SafeError::Internal {
-                message: format!("File read failed in {}: {}", context, e),
+                message: format!("File read failed in {context}: {e}"),
             });
 
         SafeResult::new(result, context.to_string())
@@ -497,16 +500,17 @@ impl SafeOps {
         let result = tokio::fs::write(path, content)
             .await
             .map_err(|e| SafeError::Internal {
-                message: format!("File write failed in {}: {}", context, e),
+                message: format!("File write failed in {context}: {e}"),
             });
 
         SafeResult::new(result, context.to_string())
     }
 
     /// Safely parse a URL
+    #[must_use]
     pub fn safe_parse_url(url: &str, context: &str) -> SafeResult<url::Url> {
         let result = url::Url::parse(url).map_err(|e| SafeError::Validation {
-            message: format!("URL parsing failed in {}: {}", context, e),
+            message: format!("URL parsing failed in {context}: {e}"),
             field: Some("url".to_string()),
         });
 
@@ -526,7 +530,7 @@ impl SafeOps {
         let result = tokio::time::timeout(timeout, operation())
             .await
             .map_err(|_| SafeError::Timeout {
-                message: format!("Operation timed out in {}", context),
+                message: format!("Operation timed out in {context}"),
                 duration: timeout,
             });
 
@@ -580,6 +584,7 @@ pub struct SafeConfig;
 
 impl SafeConfig {
     /// Safely get an environment variable
+    #[must_use]
     pub fn safe_env_var(key: &str, default: &str, context: &str) -> String {
         std::env::var(key).unwrap_or_else(|_| {
             debug!(
@@ -610,7 +615,7 @@ impl SafeConfig {
             })
     }
 
-    /// Safely get a configuration value from a HashMap
+    /// Safely get a configuration value from a `HashMap`
     pub fn safe_config_get<V>(
         config: &HashMap<String, V>,
         key: &str,
@@ -635,16 +640,19 @@ pub struct SafeSession;
 
 impl SafeSession {
     /// Safely create a session ID
+    #[must_use]
     pub fn safe_session_id(_context: &str) -> String {
         uuid::Uuid::new_v4().to_string()
     }
 
     /// Safely get current timestamp
+    #[must_use]
     pub fn safe_timestamp() -> DateTime<Utc> {
         Utc::now()
     }
 
     /// Safely validate session data
+    #[must_use]
     pub fn safe_validate_session(
         session_data: &HashMap<String, String>,
         required_fields: &[&str],
@@ -654,8 +662,8 @@ impl SafeSession {
             if !session_data.contains_key(*field) {
                 return SafeResult::failure(
                     SafeError::Validation {
-                        message: format!("Required field '{}' missing in session data", field),
-                        field: Some(field.to_string()),
+                        message: format!("Required field '{field}' missing in session data"),
+                        field: Some((*field).to_string()),
                     },
                     context.to_string(),
                 );
@@ -676,10 +684,10 @@ impl SafeService {
         endpoint: &str,
         context: &str,
     ) -> SafeResult<bool> {
-        let result = match client.get(format!("{}/health", endpoint)).send().await {
+        let result = match client.get(format!("{endpoint}/health")).send().await {
             Ok(response) => Ok(response.status().is_success()),
             Err(e) => Err(SafeError::Network {
-                message: format!("Health check failed: {}", e),
+                message: format!("Health check failed: {e}"),
                 endpoint: Some(endpoint.to_string()),
             }),
         };
@@ -695,7 +703,7 @@ impl SafeService {
         context: &str,
     ) -> SafeResult<()> {
         let result = client
-            .post(format!("{}/register", endpoint))
+            .post(format!("{endpoint}/register"))
             .json(registration_data)
             .send()
             .await
@@ -707,7 +715,7 @@ impl SafeService {
                 }
             })
             .map_err(|e| SafeError::Network {
-                message: format!("Service registration failed: {}", e),
+                message: format!("Service registration failed: {e}"),
                 endpoint: Some(endpoint.to_string()),
             });
 

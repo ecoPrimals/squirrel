@@ -23,6 +23,7 @@ pub struct EcosystemRegistryManager {
 
 impl EcosystemRegistryManager {
     /// Create new registry manager
+    #[must_use]
     pub fn new(
         config: EcosystemRegistryConfig,
     ) -> (Self, broadcast::Receiver<EcosystemRegistryEvent>) {
@@ -76,8 +77,7 @@ impl EcosystemRegistryManager {
             Err(e) => {
                 error!("Discovery failed: {}", e);
                 Err(PrimalError::ServiceDiscoveryFailed(format!(
-                    "Discovery error: {}",
-                    e
+                    "Discovery error: {e}"
                 )))
             }
         }
@@ -102,7 +102,10 @@ impl EcosystemRegistryManager {
     /// Get service IDs with Arc<str> to String conversion
     pub async fn get_service_ids(&self) -> Vec<String> {
         let service_registry = self.service_registry.read().await;
-        service_registry.keys().map(|k| k.to_string()).collect() // Convert Arc<str> to String
+        service_registry
+            .keys()
+            .map(std::string::ToString::to_string)
+            .collect() // Convert Arc<str> to String
     }
 
     /// Register squirrel service with the ecosystem
@@ -152,7 +155,7 @@ impl EcosystemRegistryManager {
             .send()
             .await
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to register with Songbird: {}", e))
+                PrimalError::NetworkError(format!("Failed to register with Songbird: {e}"))
             })?;
 
         if response.status().is_success() {
@@ -164,8 +167,7 @@ impl EcosystemRegistryManager {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             Err(PrimalError::OperationFailed(format!(
-                "Songbird registration failed: {}",
-                error_text
+                "Songbird registration failed: {error_text}"
             )))
         }
     }
@@ -178,7 +180,7 @@ impl EcosystemRegistryManager {
         );
 
         let response = self.http_client.delete(&url).send().await.map_err(|e| {
-            PrimalError::NetworkError(format!("Failed to deregister from Songbird: {}", e))
+            PrimalError::NetworkError(format!("Failed to deregister from Songbird: {e}"))
         })?;
 
         if response.status().is_success() {
@@ -190,8 +192,7 @@ impl EcosystemRegistryManager {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             Err(PrimalError::OperationFailed(format!(
-                "Songbird deregistration failed: {}",
-                error_text
+                "Songbird deregistration failed: {error_text}"
             )))
         }
     }
@@ -300,7 +301,7 @@ impl EcosystemRegistryManager {
                         .send()
                         .await
                 },
-                &format!("primal_api_call_attempt_{}", attempt),
+                &format!("primal_api_call_attempt_{attempt}"),
             )
             .await;
 
@@ -325,7 +326,7 @@ impl EcosystemRegistryManager {
                         let data = response_result
                             .execute_without_default()
                             .ok()
-                            .and_then(|r| r.ok());
+                            .and_then(std::result::Result::ok);
 
                         tracing::info!(
                             correlation_id = %correlation_id,
@@ -360,14 +361,14 @@ impl EcosystemRegistryManager {
                         .and_then(|r| {
                             r.map_err(|e| {
                                 crate::error_handling::safe_operations::SafeError::Network {
-                                    message: format!("Request error: {}", e),
+                                    message: format!("Request error: {e}"),
                                     endpoint: None,
                                 }
                             })
                         })
                         .unwrap_or_else(|_| "Unknown HTTP error".to_string());
 
-                        let error_msg = format!("HTTP {} - {}", status_code, error_text);
+                        let error_msg = format!("HTTP {status_code} - {error_text}");
                         last_error = Some(error_msg.clone());
 
                         tracing::warn!(
@@ -383,7 +384,7 @@ impl EcosystemRegistryManager {
                     }
                 }
                 Ok(Err(e)) => {
-                    let error_msg = format!("Network error: {}", e);
+                    let error_msg = format!("Network error: {e}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(
@@ -397,7 +398,7 @@ impl EcosystemRegistryManager {
                     );
                 }
                 Err(timeout_err) => {
-                    let error_msg = format!("Timeout error: {}", timeout_err);
+                    let error_msg = format!("Timeout error: {timeout_err}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(

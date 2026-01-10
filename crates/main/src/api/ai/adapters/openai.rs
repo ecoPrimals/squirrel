@@ -1,9 +1,12 @@
-//! OpenAI adapter for API-based AI
+//! `OpenAI` adapter for API-based AI
 //!
-//! Provides integration with OpenAI GPT models.
+//! Provides integration with `OpenAI` GPT models.
 
 use super::{AiProviderAdapter, QualityTier};
-use crate::api::ai::types::*;
+use crate::api::ai::types::{
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
+    TokenUsage,
+};
 use crate::error::PrimalError;
 use async_trait::async_trait;
 use reqwest::Client;
@@ -11,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use tracing::{debug, info};
 
-/// OpenAI API adapter
+/// `OpenAI` API adapter
 pub struct OpenAIAdapter {
     client: Client,
     api_key: String,
@@ -54,7 +57,7 @@ struct Usage {
 }
 
 impl OpenAIAdapter {
-    /// Create a new OpenAI adapter
+    /// Create a new `OpenAI` adapter
     pub fn new() -> Result<Self, PrimalError> {
         let api_key = std::env::var("OPENAI_API_KEY")
             .map_err(|_| PrimalError::ConfigurationError("OPENAI_API_KEY not set".to_string()))?;
@@ -72,11 +75,11 @@ impl OpenAIAdapter {
 
 #[async_trait]
 impl AiProviderAdapter for OpenAIAdapter {
-    fn provider_id(&self) -> &str {
+    fn provider_id(&self) -> &'static str {
         "openai"
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "OpenAI GPT"
     }
 
@@ -134,7 +137,7 @@ impl AiProviderAdapter for OpenAIAdapter {
             .json(&openai_req)
             .send()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("OpenAI request failed: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("OpenAI request failed: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -143,13 +146,12 @@ impl AiProviderAdapter for OpenAIAdapter {
                 .await
                 .unwrap_or_else(|_| "unknown error".to_string());
             return Err(PrimalError::NetworkError(format!(
-                "OpenAI returned error {}: {}",
-                status, error_text
+                "OpenAI returned error {status}: {error_text}"
             )));
         }
 
         let openai_response: OpenAIResponse = response.json().await.map_err(|e| {
-            PrimalError::OperationFailed(format!("Failed to parse OpenAI response: {}", e))
+            PrimalError::OperationFailed(format!("Failed to parse OpenAI response: {e}"))
         })?;
 
         let latency_ms = start.elapsed().as_millis() as u64;
@@ -161,7 +163,7 @@ impl AiProviderAdapter for OpenAIAdapter {
             .unwrap_or_default();
 
         // Calculate cost (GPT-3.5-turbo pricing)
-        let cost = (openai_response.usage.total_tokens as f64 * 0.002) / 1000.0;
+        let cost = (f64::from(openai_response.usage.total_tokens) * 0.002) / 1000.0;
 
         info!(
             "OpenAI generation complete: model={}, tokens={}, latency={}ms, cost=${:.6}",

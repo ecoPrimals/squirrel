@@ -3,7 +3,11 @@
 //! This module implements the actual business logic for each JSON-RPC method.
 //! Handlers delegate to Squirrel's core functionality.
 
-use super::types::*;
+use super::types::{
+    AnnounceCapabilitiesRequest, AnnounceCapabilitiesResponse, HealthCheckRequest,
+    HealthCheckResponse, ListProvidersRequest, ListProvidersResponse, ProviderInfo, QueryAiRequest,
+    QueryAiResponse,
+};
 use crate::api::ai::AiRouter;
 use crate::error::PrimalError;
 use std::sync::Arc;
@@ -24,6 +28,7 @@ pub struct RpcHandlers {
 
 impl RpcHandlers {
     /// Create new RPC handlers without AI router (for testing)
+    #[must_use]
     pub fn new() -> Self {
         Self {
             ai_router: None,
@@ -33,6 +38,7 @@ impl RpcHandlers {
     }
 
     /// Create new RPC handlers with AI router (for production)
+    #[must_use]
     pub fn with_ai_router(ai_router: Arc<AiRouter>) -> Self {
         Self {
             ai_router: Some(ai_router),
@@ -41,7 +47,7 @@ impl RpcHandlers {
         }
     }
 
-    /// Handle query_ai method
+    /// Handle `query_ai` method
     pub async fn handle_query_ai(
         &self,
         request: QueryAiRequest,
@@ -62,7 +68,7 @@ impl RpcHandlers {
             let ai_request = TextGenerationRequest {
                 prompt: request.prompt.clone(),
                 system: None,
-                max_tokens: request.max_tokens.map(|v| v as u32).unwrap_or(1024),
+                max_tokens: request.max_tokens.map_or(1024, |v| v as u32),
                 temperature: request.temperature.unwrap_or(0.7),
                 model: request.model.clone(),
                 constraints: vec![],
@@ -105,7 +111,7 @@ impl RpcHandlers {
         Ok(response)
     }
 
-    /// Handle list_providers method
+    /// Handle `list_providers` method
     pub async fn handle_list_providers(
         &self,
         request: ListProvidersRequest,
@@ -152,7 +158,7 @@ impl RpcHandlers {
         Ok(response)
     }
 
-    /// Handle announce_capabilities method
+    /// Handle `announce_capabilities` method
     pub async fn handle_announce_capabilities(
         &self,
         request: AnnounceCapabilitiesRequest,
@@ -179,7 +185,7 @@ impl RpcHandlers {
         Ok(response)
     }
 
-    /// Handle health_check method
+    /// Handle `health_check` method
     pub async fn handle_health_check(
         &self,
         _request: HealthCheckRequest,

@@ -20,21 +20,25 @@ pub struct CorrelationId(pub Uuid);
 
 impl CorrelationId {
     /// Generate a new correlation ID
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
 
     /// Create from existing UUID
+    #[must_use]
     pub fn from_uuid(uuid: Uuid) -> Self {
         Self(uuid)
     }
 
     /// Get the underlying UUID
+    #[must_use]
     pub fn as_uuid(&self) -> Uuid {
         self.0
     }
 
     /// Convert to string representation
+    #[must_use]
     pub fn as_string(&self) -> String {
         self.0.to_string()
     }
@@ -127,6 +131,7 @@ impl Default for CorrelationConfig {
 
 impl UniversalCorrelationTracker {
     /// Create new correlation tracker with universal adapter discovery
+    #[must_use]
     pub fn new(config: CorrelationConfig) -> Self {
         Self {
             active_operations: Arc::new(RwLock::new(HashMap::new())),
@@ -167,7 +172,7 @@ impl UniversalCorrelationTracker {
                 std::env::var("CORRELATION_ENDPOINT").unwrap_or_else(|_| {
                     let port =
                         std::env::var("AI_COORDINATOR_PORT").unwrap_or_else(|_| "8080".to_string());
-                    format!("http://localhost:{}", port)
+                    format!("http://localhost:{port}")
                 })
             ),
             capabilities: vec![
@@ -253,8 +258,7 @@ impl UniversalCorrelationTracker {
             );
         } else {
             return Err(PrimalError::InvalidOperation(format!(
-                "Operation {} not found",
-                correlation_id
+                "Operation {correlation_id} not found"
             )));
         }
 
@@ -279,8 +283,7 @@ impl UniversalCorrelationTracker {
             }
         } else {
             return Err(PrimalError::InvalidOperation(format!(
-                "Operation {} not found",
-                correlation_id
+                "Operation {correlation_id} not found"
             )));
         }
 
@@ -302,8 +305,7 @@ impl UniversalCorrelationTracker {
             }
         } else {
             return Err(PrimalError::InvalidOperation(format!(
-                "Parent operation {} not found",
-                parent_id
+                "Parent operation {parent_id} not found"
             )));
         }
 
@@ -353,7 +355,7 @@ impl UniversalCorrelationTracker {
             .send()
             .await
             .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to send correlation context: {}", e))
+                PrimalError::NetworkError(format!("Failed to send correlation context: {e}"))
             })?;
 
         if !response.status().is_success() {
@@ -415,9 +417,7 @@ impl UniversalCorrelationTracker {
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to send status update: {}", e))
-            })?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to send status update: {e}")))?;
 
         if !response.status().is_success() {
             debug!(
@@ -456,7 +456,7 @@ impl UniversalCorrelationTracker {
         // Convert std Duration to chrono Duration safely
         let timeout_duration =
             chrono::Duration::from_std(self.config.operation_timeout).map_err(|e| {
-                PrimalError::Internal(format!("Invalid operation timeout duration: {}", e))
+                PrimalError::Internal(format!("Invalid operation timeout duration: {e}"))
             })?;
         let cutoff_time = chrono::Utc::now() - timeout_duration;
 

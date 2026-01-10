@@ -3,13 +3,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-/// HashMap that efficiently stores Arc<str> keys and values
+/// `HashMap` that efficiently stores Arc<str> keys and values
 pub type ZeroCopyMap<V> = HashMap<Arc<str>, V>;
 
-/// HashSet that efficiently stores Arc<str> values
+/// `HashSet` that efficiently stores Arc<str> values
 pub type ZeroCopySet = HashSet<Arc<str>>;
 
-/// Extension trait for efficient HashMap operations
+/// Extension trait for efficient `HashMap` operations
 pub trait ZeroCopyMapExt<V> {
     /// Insert with Arc<str> key conversion
     fn insert_arc(&mut self, key: String, value: V) -> Option<V>;
@@ -37,7 +37,7 @@ impl<V> ZeroCopyMapExt<V> for HashMap<Arc<str>, V> {
     }
 }
 
-/// Extension trait for efficient HashSet operations
+/// Extension trait for efficient `HashSet` operations
 pub trait ZeroCopySetExt {
     /// Insert with Arc<str> conversion
     fn insert_arc(&mut self, value: String) -> bool;

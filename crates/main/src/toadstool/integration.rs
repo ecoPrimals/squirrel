@@ -1,7 +1,7 @@
-//! ToadStool integration implementation
+//! `ToadStool` integration implementation
 //!
 //! This module provides the main integration logic for interacting
-//! with the ToadStool compute primal.
+//! with the `ToadStool` compute primal.
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -16,7 +16,7 @@ use super::messages::{ComputeJobRequest, ComputeJobResponse};
 use super::node::ComputeNode;
 use super::state::ComputeState;
 
-/// ToadStool compute integration for intensive AI operations
+/// `ToadStool` compute integration for intensive AI operations
 #[derive(Debug)]
 pub struct ToadStoolIntegration {
     pub config: ToadStoolConfig,
@@ -26,7 +26,8 @@ pub struct ToadStoolIntegration {
 }
 
 impl ToadStoolIntegration {
-    /// Create a new ToadStool integration
+    /// Create a new `ToadStool` integration
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: ToadStoolConfig::default(),
@@ -37,6 +38,7 @@ impl ToadStoolIntegration {
     }
 
     /// Create with custom configuration
+    #[must_use]
     pub fn with_config(config: ToadStoolConfig) -> Self {
         Self {
             config,
@@ -46,7 +48,7 @@ impl ToadStoolIntegration {
         }
     }
 
-    /// Initialize ToadStool integration
+    /// Initialize `ToadStool` integration
     pub async fn initialize(&mut self) -> Result<(), PrimalError> {
         info!("Initializing ToadStool integration");
 
@@ -76,7 +78,7 @@ impl ToadStoolIntegration {
         Ok(())
     }
 
-    /// Test connection to ToadStool
+    /// Test connection to `ToadStool`
     async fn test_connection(&self) -> Result<(), PrimalError> {
         let health_url = format!("{}/health", self.config.toadstool_endpoint);
 
@@ -86,7 +88,7 @@ impl ToadStoolIntegration {
             .timeout(std::time::Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| PrimalError::Network(format!("Failed to connect to ToadStool: {}", e)))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to connect to ToadStool: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::Network(format!(
@@ -98,7 +100,7 @@ impl ToadStoolIntegration {
         Ok(())
     }
 
-    /// Register as compute client with ToadStool
+    /// Register as compute client with `ToadStool`
     async fn register_compute_client(&self) -> Result<(), PrimalError> {
         let registration = serde_json::json!({
             "client_id": "squirrel-ai",
@@ -124,12 +126,13 @@ impl ToadStoolIntegration {
             .timeout(self.config.compute_timeout);
 
         if let Some(ref token) = self.config.auth_token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
 
-        let response = request.send().await.map_err(|e| {
-            PrimalError::Network(format!("Failed to register with ToadStool: {}", e))
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|e| PrimalError::Network(format!("Failed to register with ToadStool: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::Network(format!(
@@ -153,12 +156,13 @@ impl ToadStoolIntegration {
         let mut request = self.http_client.get(&discovery_url);
 
         if let Some(ref token) = self.config.auth_token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
 
-        let response = request.send().await.map_err(|e| {
-            PrimalError::Network(format!("Failed to discover compute nodes: {}", e))
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|e| PrimalError::Network(format!("Failed to discover compute nodes: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::Network(format!(
@@ -170,7 +174,7 @@ impl ToadStoolIntegration {
         let nodes: Vec<ComputeNode> = response
             .json()
             .await
-            .map_err(|e| PrimalError::Network(format!("Failed to parse compute nodes: {}", e)))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to parse compute nodes: {e}")))?;
 
         // Update compute state with discovered nodes
         let mut state = self.compute_state.write().await;
@@ -182,7 +186,7 @@ impl ToadStoolIntegration {
         Ok(())
     }
 
-    /// Submit a compute job to ToadStool
+    /// Submit a compute job to `ToadStool`
     pub async fn submit_job(
         &self,
         job_request: ComputeJobRequest,
@@ -214,13 +218,13 @@ impl ToadStoolIntegration {
             .timeout(self.config.compute_timeout);
 
         if let Some(ref token) = self.config.auth_token {
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
 
         let response = request
             .send()
             .await
-            .map_err(|e| PrimalError::Network(format!("Failed to submit job: {}", e)))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to submit job: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::Network(format!(
@@ -232,7 +236,7 @@ impl ToadStoolIntegration {
         let job_response: ComputeJobResponse = response
             .json()
             .await
-            .map_err(|e| PrimalError::Network(format!("Failed to parse job response: {}", e)))?;
+            .map_err(|e| PrimalError::Network(format!("Failed to parse job response: {e}")))?;
 
         // Add job to active jobs
         let mut state = self.compute_state.write().await;
@@ -252,6 +256,7 @@ impl ToadStoolIntegration {
     }
 
     /// Get health status
+    #[must_use]
     pub fn get_health(&self) -> &HealthStatus {
         &self.health_status
     }

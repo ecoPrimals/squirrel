@@ -61,11 +61,13 @@ pub struct UniversalPrimalEcosystem {
 
 impl UniversalPrimalEcosystem {
     /// Create new universal primal ecosystem with performance optimization
+    #[must_use]
     pub fn new(context: PrimalContext) -> Self {
         Self::with_cache_config(context, CacheConfig::default())
     }
 
     /// Create new universal primal ecosystem with custom cache configuration
+    #[must_use]
     pub fn with_cache_config(context: PrimalContext, cache_config: CacheConfig) -> Self {
         Self {
             service_mesh_endpoint: None,
@@ -129,11 +131,10 @@ impl UniversalPrimalEcosystem {
                     cached_entry.accessed();
                     debug!("Cache hit for capability discovery: {}", cache_key);
                     return Ok(cached_entry.matches.clone());
-                } else {
-                    // Remove expired entry
-                    cache.remove(&cache_key);
-                    debug!("Cache expired for capability discovery: {}", cache_key);
                 }
+                // Remove expired entry
+                cache.remove(&cache_key);
+                debug!("Cache expired for capability discovery: {}", cache_key);
             }
         }
 
@@ -302,7 +303,7 @@ impl UniversalPrimalEcosystem {
                     })?;
 
                 let data = STANDARD.decode(data_str).map_err(|e| {
-                    PrimalError::SerializationError(format!("Failed to decode data: {}", e))
+                    PrimalError::SerializationError(format!("Failed to decode data: {e}"))
                 })?;
 
                 Ok(data)
@@ -411,8 +412,7 @@ impl UniversalPrimalEcosystem {
             }
         } else {
             Err(PrimalError::OperationFailed(format!(
-                "No security capability available for operation: {}",
-                operation
+                "No security capability available for operation: {operation}"
             )))
         }
     }
@@ -517,7 +517,7 @@ impl UniversalPrimalEcosystem {
                                 return Ok(primal_response);
                             }
                             Ok(Err(parse_error)) => {
-                                let error_msg = format!("Response parsing failed: {}", parse_error);
+                                let error_msg = format!("Response parsing failed: {parse_error}");
                                 last_error = Some(error_msg.clone());
 
                                 tracing::warn!(
@@ -537,7 +537,7 @@ impl UniversalPrimalEcosystem {
                             }
                             Err(timeout_error) => {
                                 let error_msg =
-                                    format!("Response parsing timed out: {}", timeout_error);
+                                    format!("Response parsing timed out: {timeout_error}");
                                 last_error = Some(error_msg.clone());
 
                                 tracing::warn!(
@@ -578,7 +578,7 @@ impl UniversalPrimalEcosystem {
                     }
                 }
                 Ok(Err(network_error)) => {
-                    let error_msg = format!("Network error: {}", network_error);
+                    let error_msg = format!("Network error: {network_error}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(
@@ -596,7 +596,7 @@ impl UniversalPrimalEcosystem {
                         .await;
                 }
                 Err(timeout_error) => {
-                    let error_msg = format!("Request timed out: {}", timeout_error);
+                    let error_msg = format!("Request timed out: {timeout_error}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(
@@ -722,8 +722,8 @@ impl UniversalPrimalEcosystem {
                 discovered_count += 1;
 
                 let service = DiscoveredService {
-                    service_id: format!("service-{}:{}", discovery_host, port),
-                    instance_id: format!("instance-{}:{}", discovery_host, port),
+                    service_id: format!("service-{discovery_host}:{port}"),
+                    instance_id: format!("instance-{discovery_host}:{port}"),
                     endpoint: endpoint.clone(),
                     capabilities: capabilities.clone(),
                     health: ServiceHealth::Healthy,
@@ -779,7 +779,7 @@ impl UniversalPrimalEcosystem {
 
     /// Query service capabilities from an endpoint
     async fn query_service_capabilities(&self, endpoint: &str) -> UniversalResult<Vec<String>> {
-        let capabilities_url = format!("{}/api/v1/capabilities", endpoint);
+        let capabilities_url = format!("{endpoint}/api/v1/capabilities");
 
         match self
             .connection_pool

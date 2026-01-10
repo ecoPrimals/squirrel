@@ -35,7 +35,7 @@ use std::sync::Arc;
 ///
 /// # Thread Safety
 ///
-/// While the underlying HashMap requires mutable access for insertions,
+/// While the underlying `HashMap` requires mutable access for insertions,
 /// read operations are lock-free once strings are cached. For high-concurrency
 /// scenarios, consider pre-populating all needed strings during initialization.
 #[derive(Debug)]
@@ -44,13 +44,14 @@ pub struct StaticStrings {
 }
 
 impl StaticStrings {
-    /// Create a new StaticStrings cache with common ecosystem values pre-populated
+    /// Create a new `StaticStrings` cache with common ecosystem values pre-populated
     ///
     /// Pre-populated values include:
     /// - AI providers: "openai", "anthropic", "ollama", "local"
     /// - Status strings: "running", "stopped", "error", "initializing"
     /// - Operation types: "inference", "training", "analysis"
     /// - Response codes: "success", "failure", "timeout", "retry"
+    #[must_use]
     pub fn new() -> Self {
         let mut cache = HashMap::new();
 
@@ -94,7 +95,7 @@ impl StaticStrings {
 
         for value in &common_values {
             let arc_str: Arc<str> = Arc::from(*value);
-            cache.insert(value.to_string(), arc_str);
+            cache.insert((*value).to_string(), arc_str);
         }
 
         Self { cache }
@@ -103,7 +104,7 @@ impl StaticStrings {
     /// Get a cached string if it exists
     ///
     /// Returns `Some(Arc<str>)` if the string is cached, `None` otherwise.
-    /// This method is very fast for cached values as it only requires a HashMap lookup.
+    /// This method is very fast for cached values as it only requires a `HashMap` lookup.
     ///
     /// # Examples
     ///
@@ -114,6 +115,7 @@ impl StaticStrings {
     ///     println!("Found cached string: {}", cached);
     /// }
     /// ```
+    #[must_use]
     pub fn get(&self, key: &str) -> Option<Arc<str>> {
         self.cache.get(key).cloned()
     }
@@ -144,6 +146,7 @@ impl StaticStrings {
     ///
     /// Returns `true` if the string exists in the cache, `false` otherwise.
     /// This is useful for optimization decisions.
+    #[must_use]
     pub fn contains(&self, key: &str) -> bool {
         self.cache.contains_key(key)
     }
@@ -152,11 +155,13 @@ impl StaticStrings {
     ///
     /// Returns the total number of strings currently cached.
     /// Useful for monitoring and debugging.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cache.len()
     }
 
     /// Check if the cache is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
@@ -194,6 +199,7 @@ impl StringConcat {
     /// let result = StringConcat::concat(&parts);
     /// assert_eq!(result, "Hello world!");
     /// ```
+    #[must_use]
     pub fn concat(parts: &[&str]) -> String {
         let total_len: usize = parts.iter().map(|s| s.len()).sum();
         let mut result = String::with_capacity(total_len);
@@ -218,6 +224,7 @@ impl StringConcat {
     /// let result = StringConcat::concat_with_separator(&parts, ", ");
     /// assert_eq!(result, "apple, banana, cherry");
     /// ```
+    #[must_use]
     pub fn concat_with_separator(parts: &[&str], separator: &str) -> String {
         if parts.is_empty() {
             return String::new();
@@ -252,11 +259,13 @@ impl CowString {
     ///
     /// Efficiently handles different string types without unnecessary allocations.
     /// Useful for APIs that can accept both owned and borrowed strings.
+    #[must_use]
     pub fn from_string(s: String) -> Cow<'static, str> {
         Cow::Owned(s)
     }
 
     /// Create a Cow<str> from a string slice
+    #[must_use]
     pub fn from_str(s: &str) -> Cow<'_, str> {
         Cow::Borrowed(s)
     }
@@ -265,6 +274,7 @@ impl CowString {
     ///
     /// Returns the owned version only if the Cow contains borrowed data,
     /// avoiding unnecessary cloning for already-owned strings.
+    #[must_use]
     pub fn into_owned_if_needed(cow: Cow<'_, str>) -> String {
         match cow {
             Cow::Borrowed(s) => s.to_owned(),

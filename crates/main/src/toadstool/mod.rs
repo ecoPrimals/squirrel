@@ -1,11 +1,11 @@
-//! ToadStool Integration for Squirrel AI Primal
+//! `ToadStool` Integration for Squirrel AI Primal
 //!
-//! This module provides integration with the ToadStool compute primal for
+//! This module provides integration with the `ToadStool` compute primal for
 //! intensive AI operations, distributed computing, and resource management.
 //!
 //! ## Module Organization
 //!
-//! - **`config`**: Configuration for ToadStool integration
+//! - **`config`**: Configuration for `ToadStool` integration
 //! - **`state`**: Compute state management
 //! - **`job`**: Job types and specifications
 //! - **`resource`**: Resource allocation and tracking

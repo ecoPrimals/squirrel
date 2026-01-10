@@ -92,6 +92,7 @@ impl Default for InMemoryServiceRegistry {
 }
 
 impl InMemoryServiceRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             services: Arc::new(RwLock::new(HashMap::new())),
@@ -257,7 +258,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
         let mut best_score = 0.0f64;
 
         for candidate in candidates {
-            let mut score = candidate.priority as f64;
+            let mut score = f64::from(candidate.priority);
 
             // Health bonus
             if candidate.health.healthy {
@@ -300,8 +301,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
             Ok(())
         } else {
             Err(PrimalError::ServiceDiscoveryError(format!(
-                "Service not found: {}",
-                service_id
+                "Service not found: {service_id}"
             )))
         }
     }
@@ -315,8 +315,7 @@ impl UniversalServiceRegistry for InMemoryServiceRegistry {
         } else {
             warn!("⚠️ Attempted to deregister unknown service: {}", service_id);
             Err(PrimalError::ServiceDiscoveryError(format!(
-                "Service not found: {}",
-                service_id
+                "Service not found: {service_id}"
             )))
         }
     }
@@ -354,7 +353,9 @@ impl InMemoryServiceRegistry {
         required: &ServiceCapability,
         provided: &ServiceCapability,
     ) -> bool {
-        use ServiceCapability::*;
+        use ServiceCapability::{
+            ArtificialIntelligence, Computation, Coordination, Custom, DataManagement, Security,
+        };
 
         match (required, provided) {
             (

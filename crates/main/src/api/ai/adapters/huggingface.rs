@@ -1,21 +1,23 @@
-//! HuggingFace adapter for API-based AI
+//! `HuggingFace` adapter for API-based AI
 //!
-//! Provides integration with HuggingFace Inference API.
+//! Provides integration with `HuggingFace` Inference API.
 
 use super::{AiProviderAdapter, QualityTier};
-use crate::api::ai::types::*;
+use crate::api::ai::types::{
+    ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
+};
 use crate::error::PrimalError;
 use async_trait::async_trait;
 use reqwest::Client;
 
-/// HuggingFace API adapter
+/// `HuggingFace` API adapter
 pub struct HuggingFaceAdapter {
     client: Client,
     api_key: Option<String>,
 }
 
 impl HuggingFaceAdapter {
-    /// Create a new HuggingFace adapter
+    /// Create a new `HuggingFace` adapter
     pub fn new() -> Self {
         let api_key = std::env::var("HUGGINGFACE_API_KEY").ok();
 
@@ -25,7 +27,7 @@ impl HuggingFaceAdapter {
         }
     }
 
-    /// Check if HuggingFace is available
+    /// Check if `HuggingFace` is available
     pub async fn is_available(&self) -> bool {
         self.api_key.is_some()
     }
@@ -39,11 +41,11 @@ impl Default for HuggingFaceAdapter {
 
 #[async_trait]
 impl AiProviderAdapter for HuggingFaceAdapter {
-    fn provider_id(&self) -> &str {
+    fn provider_id(&self) -> &'static str {
         "huggingface"
     }
 
-    fn provider_name(&self) -> &str {
+    fn provider_name(&self) -> &'static str {
         "HuggingFace"
     }
 

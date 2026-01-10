@@ -10,6 +10,7 @@ pub struct ContextAnalysis;
 
 impl ContextAnalysis {
     /// Perform sentiment analysis on text
+    #[must_use]
     pub fn analyze_sentiment(text: &str) -> SentimentResult {
         // Simple heuristic sentiment analysis (would use ML models in production)
         let positive_words = [
@@ -58,6 +59,7 @@ impl ContextAnalysis {
     }
 
     /// Classify intent from user input
+    #[must_use]
     pub fn classify_intent(text: &str) -> IntentResult {
         let text_lower = text.to_lowercase();
 
@@ -88,11 +90,13 @@ impl ContextAnalysis {
     }
 
     /// Extract entities from text
+    #[must_use]
     pub fn extract_entities(text: &str) -> Vec<Entity> {
         extract_entities(text)
     }
 
     /// Detect topic from text
+    #[must_use]
     pub fn detect_topic(text: &str) -> TopicResult {
         let text_lower = text.to_lowercase();
 
@@ -127,10 +131,10 @@ fn extract_entities(text: &str) -> Vec<Entity> {
 
     for (i, word) in words.iter().enumerate() {
         // Email detection
-        if word.contains("@") && word.contains(".") {
+        if word.contains('@') && word.contains('.') {
             entities.push(Entity {
                 entity_type: "email".to_string(),
-                value: word.to_string(),
+                value: (*word).to_string(),
                 start: i,
                 end: i + 1,
                 confidence: 0.9,
@@ -141,7 +145,7 @@ fn extract_entities(text: &str) -> Vec<Entity> {
         if word.parse::<f64>().is_ok() {
             entities.push(Entity {
                 entity_type: "number".to_string(),
-                value: word.to_string(),
+                value: (*word).to_string(),
                 start: i,
                 end: i + 1,
                 confidence: 0.95,
@@ -161,7 +165,7 @@ fn extract_keywords(text: &str) -> Vec<String> {
     text.split_whitespace()
         .filter(|word| word.len() > 3 && !stop_words.contains(&word.to_lowercase().as_str()))
         .take(5) // Top 5 keywords
-        .map(|s| s.to_lowercase())
+        .map(str::to_lowercase)
         .collect()
 }
 
@@ -280,8 +284,7 @@ impl SquirrelPrimalProvider {
                 }))
             }
             _ => Err(PrimalError::ValidationError(format!(
-                "Unknown analysis type: {}",
-                analysis_type
+                "Unknown analysis type: {analysis_type}"
             ))),
         }
     }

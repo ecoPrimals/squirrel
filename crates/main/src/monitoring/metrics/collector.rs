@@ -56,6 +56,7 @@ impl Default for MetricsCollector {
 
 impl MetricsCollector {
     /// Create a new metrics collector
+    #[must_use]
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
@@ -129,8 +130,7 @@ impl MetricsCollector {
             Ok(())
         } else {
             Err(PrimalError::NotFoundError(format!(
-                "Metric '{}' not registered",
-                name
+                "Metric '{name}' not registered"
             )))
         }
     }
@@ -177,8 +177,7 @@ impl MetricsCollector {
             })
         } else {
             Err(PrimalError::NotFoundError(format!(
-                "Metric '{}' not found",
-                metric_name
+                "Metric '{metric_name}' not found"
             )))
         }
     }
@@ -319,56 +318,75 @@ impl MetricsCollector {
         match component {
             "ai_intelligence" => {
                 // Zero-copy: Use static constants instead of allocating strings
-                use crate::monitoring::metric_names::ai_intelligence::*;
+                use crate::monitoring::metric_names::ai_intelligence::{
+                    AVG_PROCESSING_TIME, MEMORY_USAGE, REQUESTS_PROCESSED, SUCCESS_RATE,
+                };
                 metrics.insert(REQUESTS_PROCESSED.to_string(), 42.0);
                 metrics.insert(AVG_PROCESSING_TIME.to_string(), 150.0);
                 metrics.insert(SUCCESS_RATE.to_string(), 0.95);
                 metrics.insert(MEMORY_USAGE.to_string(), 256.0);
             }
             "mcp_integration" => {
-                use crate::monitoring::metric_names::mcp_integration::*;
+                use crate::monitoring::metric_names::mcp_integration::{
+                    CONNECTION_COUNT, MESSAGES_RECEIVED, MESSAGES_SENT, PROTOCOL_ERRORS,
+                };
                 metrics.insert(MESSAGES_SENT.to_string(), 128.0);
                 metrics.insert(MESSAGES_RECEIVED.to_string(), 134.0);
                 metrics.insert(CONNECTION_COUNT.to_string(), 5.0);
                 metrics.insert(PROTOCOL_ERRORS.to_string(), 2.0);
             }
             "context_state" => {
-                use crate::monitoring::metric_names::context_state::*;
+                use crate::monitoring::metric_names::context_state::{
+                    ACTIVE_SESSIONS, CACHE_HIT_RATE, CONTEXT_SIZE, PERSISTENCE_LATENCY,
+                };
                 metrics.insert(ACTIVE_SESSIONS.to_string(), 8.0);
                 metrics.insert(CONTEXT_SIZE.to_string(), 1024.0);
                 metrics.insert(CACHE_HIT_RATE.to_string(), 0.87);
                 metrics.insert(PERSISTENCE_LATENCY.to_string(), 25.0);
             }
             "agent_deployment" => {
-                use crate::monitoring::metric_names::agent_deployment::*;
+                use crate::monitoring::metric_names::agent_deployment::{
+                    DEPLOYED_AGENTS, DEPLOYMENT_TIME, FAILED_DEPLOYMENTS, RUNNING_AGENTS,
+                };
                 metrics.insert(DEPLOYED_AGENTS.to_string(), 12.0);
                 metrics.insert(RUNNING_AGENTS.to_string(), 10.0);
                 metrics.insert(FAILED_DEPLOYMENTS.to_string(), 1.0);
                 metrics.insert(DEPLOYMENT_TIME.to_string(), 30.0);
             }
             "songbird" => {
-                use crate::monitoring::metric_names::songbird::*;
+                use crate::monitoring::metric_names::songbird::{
+                    HEALTH_CHECKS, LOAD_BALANCER_REQUESTS, ORCHESTRATIONS_ACTIVE,
+                    SERVICE_DISCOVERIES,
+                };
                 metrics.insert(ORCHESTRATIONS_ACTIVE.to_string(), 3.0);
                 metrics.insert(SERVICE_DISCOVERIES.to_string(), 15.0);
                 metrics.insert(LOAD_BALANCER_REQUESTS.to_string(), 89.0);
                 metrics.insert(HEALTH_CHECKS.to_string(), 24.0);
             }
             "toadstool" => {
-                use crate::monitoring::metric_names::toadstool::*;
+                use crate::monitoring::metric_names::toadstool::{
+                    COMPUTE_JOBS_COMPLETED, COMPUTE_JOBS_QUEUED, COMPUTE_JOBS_RUNNING,
+                    CPU_UTILIZATION,
+                };
                 metrics.insert(COMPUTE_JOBS_QUEUED.to_string(), 6.0);
                 metrics.insert(COMPUTE_JOBS_RUNNING.to_string(), 4.0);
                 metrics.insert(COMPUTE_JOBS_COMPLETED.to_string(), 45.0);
                 metrics.insert(CPU_UTILIZATION.to_string(), 0.72);
             }
             "nestgate" => {
-                use crate::monitoring::metric_names::nestgate::*;
+                use crate::monitoring::metric_names::nestgate::{
+                    BACKUP_OPERATIONS, REPLICATION_LAG, STORAGE_OPERATIONS, STORAGE_SIZE_GB,
+                };
                 metrics.insert(STORAGE_OPERATIONS.to_string(), 156.0);
                 metrics.insert(STORAGE_SIZE_GB.to_string(), 2.4);
                 metrics.insert(BACKUP_OPERATIONS.to_string(), 3.0);
                 metrics.insert(REPLICATION_LAG.to_string(), 12.0);
             }
             "beardog" => {
-                use crate::monitoring::metric_names::beardog::*;
+                use crate::monitoring::metric_names::beardog::{
+                    AUTHENTICATION_REQUESTS, AUTHORIZATION_CHECKS, SECURITY_VIOLATIONS,
+                    TOKEN_REFRESHES,
+                };
                 metrics.insert(AUTHENTICATION_REQUESTS.to_string(), 67.0);
                 metrics.insert(AUTHORIZATION_CHECKS.to_string(), 234.0);
                 metrics.insert(SECURITY_VIOLATIONS.to_string(), 0.0);
@@ -376,7 +394,7 @@ impl MetricsCollector {
             }
             _ => {
                 // Default metrics for unknown components
-                use crate::monitoring::metric_names::default::*;
+                use crate::monitoring::metric_names::default::{STATUS, UPTIME};
                 metrics.insert(STATUS.to_string(), 1.0);
                 metrics.insert(UPTIME.to_string(), 3600.0);
             }
@@ -420,7 +438,7 @@ impl MetricsCollector {
         let cpu_usage = sys.global_cpu_info().cpu_usage();
 
         debug!("Current CPU usage: {:.2}%", cpu_usage);
-        Ok(cpu_usage as f64)
+        Ok(f64::from(cpu_usage))
     }
 
     async fn get_memory_usage(&self) -> Result<u64, PrimalError> {

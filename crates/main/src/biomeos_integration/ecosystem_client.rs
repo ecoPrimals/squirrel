@@ -128,7 +128,8 @@ pub struct EcosystemMetrics {
 }
 
 impl EcosystemClient {
-    /// Create a new EcosystemClient with configuration
+    /// Create a new `EcosystemClient` with configuration
+    #[must_use]
     pub fn new() -> Self {
         // Priority: SONGBIRD_URL > SERVICE_MESH_ENDPOINT > dev default
         let songbird_url = std::env::var("SONGBIRD_URL")
@@ -156,13 +157,15 @@ impl EcosystemClient {
         }
     }
 
-    /// Create a new EcosystemClient with custom configuration (placeholder for future extensibility)
+    /// Create a new `EcosystemClient` with custom configuration (placeholder for future extensibility)
     #[allow(dead_code)]
+    #[must_use]
     pub fn with_config(_config: ()) -> Self {
         Self::new()
     }
 
-    /// Create a new EcosystemClient with explicit URL (for backward compatibility)
+    /// Create a new `EcosystemClient` with explicit URL (for backward compatibility)
+    #[must_use]
     pub fn with_url(songbird_url: String) -> Self {
         // Note: Config no longer has nested ecosystem field - using direct construction instead
         let timeout = Duration::from_secs(30);
@@ -605,7 +608,7 @@ impl EcosystemClient {
             let operation_result = SafeOps::safe_with_timeout(
                 per_attempt_timeout,
                 || operation(&self.client),
-                &format!("biomeos_ecosystem_request_attempt_{}", attempt),
+                &format!("biomeos_ecosystem_request_attempt_{attempt}"),
             )
             .await;
 
@@ -626,7 +629,7 @@ impl EcosystemClient {
                     return Ok(result);
                 }
                 Ok(Err(network_error)) => {
-                    let error_msg = format!("Network error: {}", network_error);
+                    let error_msg = format!("Network error: {network_error}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(
@@ -640,7 +643,7 @@ impl EcosystemClient {
                     );
                 }
                 Err(timeout_error) => {
-                    let error_msg = format!("Request timeout: {}", timeout_error);
+                    let error_msg = format!("Request timeout: {timeout_error}");
                     last_error = Some(error_msg.clone());
 
                     tracing::warn!(
@@ -688,8 +691,7 @@ impl EcosystemClient {
         );
 
         Err(PrimalError::Network(format!(
-            "BiomeOS request failed after {} attempts: {}",
-            max_retries, final_error
+            "BiomeOS request failed after {max_retries} attempts: {final_error}"
         )))
     }
 

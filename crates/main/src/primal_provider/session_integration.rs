@@ -34,7 +34,7 @@ impl SquirrelPrimalProvider {
             .session_manager
             .create_session(Some(user_id.to_string()))
             .await
-            .map_err(|e| PrimalError::Internal(format!("Session creation failed: {}", e)))?;
+            .map_err(|e| PrimalError::Internal(format!("Session creation failed: {e}")))?;
 
         Ok(json!({
             "session_id": session_id,
@@ -59,7 +59,7 @@ impl SquirrelPrimalProvider {
             .session_manager
             .get_session_metadata(session_id)
             .await
-            .map_err(|e| PrimalError::Internal(format!("Session retrieval failed: {}", e)))?;
+            .map_err(|e| PrimalError::Internal(format!("Session retrieval failed: {e}")))?;
 
         Ok(json!({
             "session_id": session_id,
@@ -97,7 +97,7 @@ impl SquirrelPrimalProvider {
         self.session_manager
             .update_session_data(session_id, metadata_map)
             .await
-            .map_err(|e| PrimalError::Internal(format!("Session update failed: {}", e)))?;
+            .map_err(|e| PrimalError::Internal(format!("Session update failed: {e}")))?;
 
         Ok(json!({
             "session_id": session_id,
@@ -120,7 +120,7 @@ impl SquirrelPrimalProvider {
         self.session_manager
             .create_session(Some("placeholder".to_string()))
             .await
-            .map_err(|e| PrimalError::Internal(format!("Session operation failed: {}", e)))?;
+            .map_err(|e| PrimalError::Internal(format!("Session operation failed: {e}")))?;
 
         Ok(json!({
             "session_id": session_id,

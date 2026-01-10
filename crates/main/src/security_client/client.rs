@@ -14,8 +14,14 @@ use crate::universal::{
 };
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::providers::*;
-use super::types::*;
+use super::providers::SecurityProvider;
+use super::types::{
+    AISecurityContext, AISecurityInsights, BehavioralProfile, ContextAwareness, DecisionFactor,
+    DecisionOutcome, DeviceContext, LocationContext, RiskLevel, SecurityClientConfig,
+    SecurityContext, SecurityDecision, SecurityMetrics, SecurityOperation, SecurityPayload,
+    TemporalContext, ThreatAnalysis, TrustLevel, UniversalSecurityRequest,
+    UniversalSecurityResponse,
+};
 // Removed ai_metadata import - was over-engineered early implementation
 
 // ============================================================================
@@ -23,7 +29,7 @@ use super::types::*;
 // ============================================================================
 
 /// Universal Security Client that automatically discovers and routes requests to the best
-/// available security provider (BearDog, enterprise security, etc.).
+/// available security provider (`BearDog`, enterprise security, etc.).
 ///
 /// This client implements capability-based discovery, meaning it finds any provider
 /// that provides the required capabilities, regardless of implementation.
@@ -45,6 +51,7 @@ pub struct UniversalSecurityClient {
 
 impl UniversalSecurityClient {
     /// Create new universal security client
+    #[must_use]
     pub fn new(
         ecosystem: Arc<UniversalPrimalEcosystem>,
         config: SecurityClientConfig,
@@ -159,7 +166,7 @@ impl UniversalSecurityClient {
             &provider.provider_id,
             "security_operation",
             serde_json::to_value(&request).map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to serialize request: {}", e))
+                PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
             })?,
             self.context.clone(),
         );
@@ -432,6 +439,7 @@ impl UniversalSecurityClient {
     }
 
     /// Get security client configuration
+    #[must_use]
     pub fn get_security_config(&self) -> &SecurityClientConfig {
         // Use config field to provide security configuration access
         &self.config
@@ -452,7 +460,7 @@ impl UniversalSecurityClient {
         Ok(())
     }
 
-    /// Apply AI-enhanced security routing using ai_metadata
+    /// Apply AI-enhanced security routing using `ai_metadata`
     pub fn apply_ai_security_routing(
         &self,
         request: &mut SecurityRequest,
@@ -467,7 +475,7 @@ impl UniversalSecurityClient {
         Ok(())
     }
 
-    /// Get AI security insights using ai_metadata
+    /// Get AI security insights using `ai_metadata`
     pub fn get_ai_security_insights(&self) -> serde_json::Value {
         // Use ai_metadata field to generate AI-powered security insights
         debug!("Generating AI-powered security insights");
@@ -512,7 +520,7 @@ impl UniversalSecurityClient {
         recommendations
     }
 
-    /// Update AI metadata based on security patterns using ai_metadata field
+    /// Update AI metadata based on security patterns using `ai_metadata` field
     pub fn update_ai_metadata(
         &mut self,
         security_patterns: Vec<serde_json::Value>,
@@ -529,7 +537,9 @@ impl UniversalSecurityClient {
                 .get("pattern_type")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
-            let threat_score = pattern.get("threat_score").and_then(|v| v.as_f64());
+            let threat_score = pattern
+                .get("threat_score")
+                .and_then(serde_json::Value::as_f64);
             let provider_used = pattern.get("provider_used").and_then(|v| v.as_str());
 
             debug!(
@@ -541,11 +551,11 @@ impl UniversalSecurityClient {
             if let Some(provider) = provider_used {
                 let response_time = pattern
                     .get("response_time_ms")
-                    .and_then(|v| v.as_u64())
+                    .and_then(serde_json::Value::as_u64)
                     .unwrap_or(0);
                 let success_rate = pattern
                     .get("success_rate")
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                     .unwrap_or(1.0);
 
                 debug!(

@@ -86,6 +86,7 @@ pub struct ResilienceTestResult {
 
 impl AIResilienceCoordinator {
     /// Create a new AI resilience coordinator
+    #[must_use]
     pub fn new() -> Self {
         Self {
             active_tests: Arc::new(RwLock::new(HashMap::new())),
@@ -205,7 +206,7 @@ impl AIResilienceCoordinator {
             self.results.push(result.clone());
             Ok(result)
         } else {
-            Err(format!("Resilience test '{}' not found", test_id))
+            Err(format!("Resilience test '{test_id}' not found"))
         }
     }
 
@@ -216,6 +217,7 @@ impl AIResilienceCoordinator {
     }
 
     /// Get test results history
+    #[must_use]
     pub fn get_test_results(&self) -> &[ResilienceTestResult] {
         &self.results
     }
@@ -278,6 +280,7 @@ impl AIResilienceCoordinator {
     }
 
     /// Get resilience recommendations for AI coordination
+    #[must_use]
     pub fn get_resilience_recommendations(&self) -> Vec<String> {
         vec![
             "Implement circuit breakers for external AI service calls".to_string(),
@@ -308,6 +311,7 @@ impl Default for AIResilienceCoordinator {
 }
 
 /// Create a simple AI resilience coordinator
+#[must_use]
 pub fn create_ai_resilience_coordinator() -> AIResilienceCoordinator {
     AIResilienceCoordinator::new()
 }

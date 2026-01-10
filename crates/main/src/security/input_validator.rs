@@ -6,7 +6,7 @@
 //! - Command injection attacks
 //! - Path traversal attacks
 //! - JSON/XML injection attacks
-//! - NoSQL injection attacks
+//! - `NoSQL` injection attacks
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub struct InputValidationConfig {
     /// Enable command injection detection
     pub enable_command_injection_detection: bool,
 
-    /// Enable NoSQL injection detection
+    /// Enable `NoSQL` injection detection
     pub enable_nosql_injection_detection: bool,
 
     /// Strict mode (reject rather than sanitize suspicious input)
@@ -183,38 +183,30 @@ impl ProductionInputValidator {
             suspicious_patterns: Self::compile_suspicious_patterns()?,
             // Compile sanitization regexes once at initialization
             sanitize_script_regex: Regex::new(r"(?i)<script[^>]*>.*?</script>").map_err(|e| {
-                PrimalError::Internal(format!("Failed to compile script regex: {}", e))
+                PrimalError::Internal(format!("Failed to compile script regex: {e}"))
             })?,
-            sanitize_dangerous_attrs: Regex::new(
-                r#"(?i)\s(on\w+|javascript:|data:|vbscript:)[^>]*"#,
-            )
-            .map_err(|e| {
-                PrimalError::Internal(format!("Failed to compile dangerous attrs regex: {}", e))
-            })?,
-            sanitize_tag_regex: Regex::new(r"</?([a-zA-Z0-9]+)[^>]*>").map_err(|e| {
-                PrimalError::Internal(format!("Failed to compile tag regex: {}", e))
-            })?,
+            sanitize_dangerous_attrs: Regex::new(r"(?i)\s(on\w+|javascript:|data:|vbscript:)[^>]*")
+                .map_err(|e| {
+                    PrimalError::Internal(format!("Failed to compile dangerous attrs regex: {e}"))
+                })?,
+            sanitize_tag_regex: Regex::new(r"</?([a-zA-Z0-9]+)[^>]*>")
+                .map_err(|e| PrimalError::Internal(format!("Failed to compile tag regex: {e}")))?,
             sanitize_path_dangerous_chars: Regex::new(r#"[<>:"|?*]"#).map_err(|e| {
-                PrimalError::Internal(format!(
-                    "Failed to compile path dangerous chars regex: {}",
-                    e
-                ))
+                PrimalError::Internal(format!("Failed to compile path dangerous chars regex: {e}"))
             })?,
             sanitize_url_dangerous_schemes: Regex::new(r"(?i)(javascript|data|vbscript):")
                 .map_err(|e| {
                     PrimalError::Internal(format!(
-                        "Failed to compile URL dangerous schemes regex: {}",
-                        e
+                        "Failed to compile URL dangerous schemes regex: {e}"
                     ))
                 })?,
             sanitize_email_dangerous_chars: Regex::new(r#"[<>"'&]"#).map_err(|e| {
                 PrimalError::Internal(format!(
-                    "Failed to compile email dangerous chars regex: {}",
-                    e
+                    "Failed to compile email dangerous chars regex: {e}"
                 ))
             })?,
             sanitize_control_chars: Regex::new(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]").map_err(
-                |e| PrimalError::Internal(format!("Failed to compile control chars regex: {}", e)),
+                |e| PrimalError::Internal(format!("Failed to compile control chars regex: {e}")),
             )?,
         };
 
@@ -451,7 +443,7 @@ impl ProductionInputValidator {
         None
     }
 
-    /// Detect NoSQL injection patterns
+    /// Detect `NoSQL` injection patterns
     fn detect_nosql_injection(
         &self,
         input: &str,
@@ -559,7 +551,7 @@ impl ProductionInputValidator {
     /// Sanitize file path
     fn sanitize_file_path(&self, input: &str) -> String {
         let mut sanitized = input.replace("..", "");
-        sanitized = sanitized.replace("\\", "/");
+        sanitized = sanitized.replace('\\', "/");
 
         // Remove dangerous characters
         sanitized = self
@@ -621,7 +613,7 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }
@@ -643,7 +635,7 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }
@@ -665,7 +657,7 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }
@@ -678,12 +670,12 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }
 
-    /// Compile NoSQL injection detection patterns
+    /// Compile `NoSQL` injection detection patterns
     fn compile_nosql_injection_patterns() -> Result<Vec<Regex>, PrimalError> {
         let patterns = vec![
             r"\$where",
@@ -700,7 +692,7 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }
@@ -716,7 +708,7 @@ impl ProductionInputValidator {
             .into_iter()
             .map(|p| {
                 Regex::new(p)
-                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {}", e)))
+                    .map_err(|e| PrimalError::Internal(format!("Failed to compile regex: {e}")))
             })
             .collect()
     }

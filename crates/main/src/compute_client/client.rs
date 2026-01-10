@@ -13,15 +13,21 @@ use crate::universal::{
 };
 use crate::universal_primal_ecosystem::UniversalPrimalEcosystem;
 
-use super::providers::*;
-use super::types::*;
+use super::providers::ComputeProvider;
+use super::types::{
+    AIComputeContext, AIComputeInsights, ComputeClientConfig, ComputeOperation, ComputePayload,
+    ComputePerformanceMetrics, ComputePriority, ComputeResults, ComputeSecurityRequirements,
+    CostBreakdown, CostPerformancePreference, EncryptionRequirements, IsolationLevel,
+    NetworkSecurityLevel, ResourceRequirements, ResourceUtilization, UniversalComputeRequest,
+    UniversalComputeResponse, WorkloadAnalysis, WorkloadCharacteristics,
+};
 
 // ============================================================================
 // UNIVERSAL COMPUTE CLIENT IMPLEMENTATION
 // ============================================================================
 
 /// Universal Compute Client that automatically discovers and routes requests to the best
-/// available compute provider (ToadStool, cloud providers, etc.).
+/// available compute provider (`ToadStool`, cloud providers, etc.).
 ///
 /// This client implements capability-based discovery, meaning it finds any provider
 /// that provides the required capabilities, regardless of implementation.
@@ -43,6 +49,7 @@ pub struct UniversalComputeClient {
 
 impl UniversalComputeClient {
     /// Create new universal compute client
+    #[must_use]
     pub fn new(
         ecosystem: Arc<UniversalPrimalEcosystem>,
         config: ComputeClientConfig,
@@ -156,7 +163,7 @@ impl UniversalComputeClient {
             &provider.provider_id,
             "compute_operation",
             serde_json::to_value(&request).map_err(|e| {
-                PrimalError::SerializationError(format!("Failed to serialize request: {}", e))
+                PrimalError::SerializationError(format!("Failed to serialize request: {e}"))
             })?,
             self.context.clone(),
         );
@@ -222,7 +229,7 @@ impl UniversalComputeClient {
         // Factor in resource availability
         let cpu_availability = (1.0 - provider.health.cpu_load).max(0.0);
         let memory_availability = (1.0 - provider.health.memory_usage).max(0.0);
-        score *= (cpu_availability + memory_availability) / 2.0;
+        score *= f64::midpoint(cpu_availability, memory_availability);
 
         // Factor in queue length
         if provider.health.queue_length > 0 {
@@ -263,7 +270,7 @@ impl UniversalComputeClient {
                     .data
                     .as_ref()
                     .and_then(|data| data.get("return_code"))
-                    .and_then(|v| v.as_i64())
+                    .and_then(serde_json::Value::as_i64)
                     .unwrap_or_else(|| {
                         warn!("Missing return_code in compute response, defaulting to 0");
                         0
@@ -352,6 +359,7 @@ impl UniversalComputeClient {
     }
 
     /// Get compute client configuration
+    #[must_use]
     pub fn get_compute_config(&self) -> &ComputeClientConfig {
         // Use config field to provide configuration access
         &self.config

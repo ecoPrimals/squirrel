@@ -149,6 +149,7 @@ pub struct HealthStatus {
 
 impl SquirrelBiomeOSIntegration {
     /// Create new biomeOS integration for squirrel AI
+    #[must_use]
     pub fn new(biome_id: String) -> Self {
         let service_id = format!("primal-squirrel-ai-{}", uuid::Uuid::new_v4());
 
@@ -184,7 +185,8 @@ impl SquirrelBiomeOSIntegration {
         }
     }
 
-    /// Create an optimized version of the BiomeOS integration
+    /// Create an optimized version of the `BiomeOS` integration
+    #[must_use]
     pub fn new_optimized() -> SquirrelBiomeOSIntegration {
         SquirrelBiomeOSIntegration::new("optimized-squirrel".to_string())
     }
@@ -223,14 +225,14 @@ impl SquirrelBiomeOSIntegration {
                     .ok()
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(8778);
-                let base_url = format!("http://{}:{}", host, port);
+                let base_url = format!("http://{host}:{port}");
 
                 EcosystemEndpoints {
-                    ai_api: format!("{}/ai", base_url),
-                    mcp_api: format!("{}/mcp", base_url),
-                    context_api: format!("{}/context", base_url),
-                    health: format!("{}/health", base_url),
-                    metrics: format!("{}/metrics", base_url),
+                    ai_api: format!("{base_url}/ai"),
+                    mcp_api: format!("{base_url}/mcp"),
+                    context_api: format!("{base_url}/context"),
+                    health: format!("{base_url}/health"),
+                    metrics: format!("{base_url}/metrics"),
                     websocket: None,
                 }
             },
@@ -399,6 +401,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Generate a biome.yaml manifest template
+    #[must_use]
     pub fn generate_manifest_template(&self) -> BiomeManifest {
         BiomeManifestParser::generate_template()
     }
@@ -518,6 +521,7 @@ impl SquirrelBiomeOSIntegration {
     }
 
     /// Get current health status
+    #[must_use]
     pub fn get_health_status(&self) -> &HealthStatus {
         &self.health_status
     }
@@ -532,28 +536,28 @@ impl SquirrelBiomeOSIntegration {
     pub async fn health_check(&mut self) -> Result<(), PrimalError> {
         // Check AI intelligence health
         if let Err(e) = self.ai_intelligence.health_check().await {
-            self.health_status.ai_engine_status = format!("unhealthy: {}", e);
+            self.health_status.ai_engine_status = format!("unhealthy: {e}");
         } else {
             self.health_status.ai_engine_status = STATUS_RUNNING.to_string();
         }
 
         // Check MCP integration health
         if let Err(e) = self.mcp_integration.health_check().await {
-            self.health_status.mcp_server_status = format!("unhealthy: {}", e);
+            self.health_status.mcp_server_status = format!("unhealthy: {e}");
         } else {
             self.health_status.mcp_server_status = STATUS_RUNNING.to_string();
         }
 
         // Check context state health
         if let Err(e) = self.context_state.health_check().await {
-            self.health_status.context_manager_status = format!("unhealthy: {}", e);
+            self.health_status.context_manager_status = format!("unhealthy: {e}");
         } else {
             self.health_status.context_manager_status = STATUS_RUNNING.to_string();
         }
 
         // Check agent deployment health
         if let Err(e) = self.agent_deployment.health_check().await {
-            self.health_status.agent_deployment_status = format!("unhealthy: {}", e);
+            self.health_status.agent_deployment_status = format!("unhealthy: {e}");
         } else {
             self.health_status.agent_deployment_status = STATUS_RUNNING.to_string();
         }
@@ -586,7 +590,7 @@ pub struct IntelligenceRequest {
     pub context: Option<HashMap<String, String>>,
 }
 
-/// Response from BiomeOS intelligence services
+/// Response from `BiomeOS` intelligence services
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceResponse {
     pub request_id: String,
@@ -683,23 +687,23 @@ impl Default for EcosystemEndpoints {
     fn default() -> Self {
         Self {
             ai_api: std::env::var("BIOMEOS_AI_API")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/ai", e)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/ai")))
                 .unwrap_or_else(|_| {
                     let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
-                    format!("http://localhost:{}/ai", port)
+                    format!("http://localhost:{port}/ai")
                 }),
             mcp_api: std::env::var("BIOMEOS_MCP_API")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/mcp", e)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/mcp")))
                 .unwrap_or_else(|_| {
                     let port = std::env::var("BIOMEOS_PORT").unwrap_or_else(|_| "5000".to_string());
-                    format!("http://localhost:{}/mcp", port)
+                    format!("http://localhost:{port}/mcp")
                 }),
             context_api: std::env::var("BIOMEOS_CONTEXT_API")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/context", e)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/context")))
                 .or_else(|_| {
                     // Try to construct from port
                     std::env::var("BIOMEOS_PORT")
-                        .map(|port| format!("http://localhost:{}/context", port))
+                        .map(|port| format!("http://localhost:{port}/context"))
                 })
                 .unwrap_or_else(|_| {
                     tracing::warn!(
@@ -709,10 +713,10 @@ impl Default for EcosystemEndpoints {
                     "http://localhost:5000/context".to_string()
                 }),
             health: std::env::var("BIOMEOS_HEALTH_API")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/health", e)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/health")))
                 .or_else(|_| {
                     std::env::var("BIOMEOS_PORT")
-                        .map(|port| format!("http://localhost:{}/health", port))
+                        .map(|port| format!("http://localhost:{port}/health"))
                 })
                 .unwrap_or_else(|_| {
                     tracing::warn!(
@@ -722,10 +726,10 @@ impl Default for EcosystemEndpoints {
                     "http://localhost:5000/health".to_string()
                 }),
             metrics: std::env::var("BIOMEOS_METRICS_API")
-                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{}/metrics", e)))
+                .or_else(|_| std::env::var("BIOMEOS_ENDPOINT").map(|e| format!("{e}/metrics")))
                 .or_else(|_| {
                     std::env::var("BIOMEOS_PORT")
-                        .map(|port| format!("http://localhost:{}/metrics", port))
+                        .map(|port| format!("http://localhost:{port}/metrics"))
                 })
                 .unwrap_or_else(|_| {
                     tracing::warn!(
@@ -740,12 +744,12 @@ impl Default for EcosystemEndpoints {
                     std::env::var("BIOMEOS_ENDPOINT")
                         .ok()
                         .map(|e| e.replace("http://", "ws://").replace("https://", "wss://"))
-                        .map(|e| format!("{}/ws", e))
+                        .map(|e| format!("{e}/ws"))
                 })
                 .or_else(|| {
                     std::env::var("BIOMEOS_PORT")
                         .ok()
-                        .map(|port| format!("ws://localhost:{}/ws", port))
+                        .map(|port| format!("ws://localhost:{port}/ws"))
                 })
                 .or_else(|| {
                     tracing::warn!(

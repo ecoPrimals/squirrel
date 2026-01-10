@@ -76,6 +76,7 @@ impl Default for DiscoveryConfig {
 
 impl CapabilityDiscovery {
     /// Create new capability discovery client
+    #[must_use]
     pub fn new(config: DiscoveryConfig) -> Self {
         // Try to discover service mesh via environment
         let service_mesh = std::env::var("SERVICE_MESH_ENDPOINT").ok();
@@ -149,7 +150,7 @@ impl CapabilityDiscovery {
         capability: &str,
     ) -> Result<DiscoveredEndpoint, DiscoveryError> {
         // Query service mesh for capability
-        let url = format!("{}/discover/capability/{}", mesh_endpoint, capability);
+        let url = format!("{mesh_endpoint}/discover/capability/{capability}");
 
         // TODO: Implement actual HTTP request
         // For now, return error to trigger fallback
@@ -218,7 +219,7 @@ impl CapabilityDiscovery {
                     });
 
                 DiscoveredEndpoint {
-                    url: format!("http://localhost:{}", port),
+                    url: format!("http://localhost:{port}"),
                     primal_type: "squirrel".to_string(),
                     capabilities: vec!["ai-coordinator".to_string()],
                     healthy: true,

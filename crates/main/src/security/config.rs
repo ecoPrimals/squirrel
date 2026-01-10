@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-use super::types::*;
+use super::types::{SecurityCapability, SecurityLevel};
 
 /// Security provider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,7 +36,7 @@ pub enum AuthMethod {
     ApiKey { key: String },
     /// Mutual TLS authentication
     MTLS { cert_path: String, key_path: String },
-    /// OAuth2 authentication
+    /// `OAuth2` authentication
     OAuth2 {
         client_id: String,
         client_secret: String,
@@ -86,9 +86,10 @@ impl Default for RetryConfig {
     }
 }
 
-/// BearDog security configuration
+/// `BearDog` security configuration
 impl SecurityProviderConfig {
-    /// Create configuration for BearDog security provider
+    /// Create configuration for `BearDog` security provider
+    #[must_use]
     pub fn beardog(endpoint: &str, auth_method: AuthMethod) -> Self {
         Self {
             provider_type: "beardog".to_string(),
@@ -113,6 +114,7 @@ impl SecurityProviderConfig {
     }
 
     /// Create configuration for custom security provider
+    #[must_use]
     pub fn custom(endpoint: &str, auth_method: AuthMethod) -> Self {
         Self {
             provider_type: "custom".to_string(),
@@ -129,10 +131,10 @@ impl SecurityProviderConfig {
     }
 }
 
-/// Simple security configuration for BearDog coordination
+/// Simple security configuration for `BearDog` coordination
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
-    /// BearDog endpoint
+    /// `BearDog` endpoint
     pub security_service_endpoint: String, // Discovered via capability matching
     /// Enable security coordination
     pub enabled: bool,

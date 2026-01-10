@@ -10,7 +10,7 @@ use warp::Reply;
 use crate::ecosystem::EcosystemManager;
 use crate::hardware::detect_local_gpus;
 
-/// Model information from a provider (Ollama, HuggingFace, etc.)
+/// Model information from a provider (Ollama, `HuggingFace`, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInfo {
     /// Model identifier (e.g., "llama2:7b", "mistral:7b")
@@ -152,7 +152,7 @@ pub async fn handle_compatible_models(
         warp::reject::reject()
     })?;
 
-    let local_vram_gb = local_gpu.as_ref().map(|gpu| gpu.total_vram_gb).unwrap_or(0);
+    let local_vram_gb = local_gpu.as_ref().map_or(0, |gpu| gpu.total_vram_gb);
 
     // Discover other towers through Songbird
     let discovered_services = ecosystem_manager
@@ -264,7 +264,7 @@ pub async fn handle_model_load(
         warp::reject::reject()
     })?;
 
-    let local_vram_gb = local_gpu.as_ref().map(|gpu| gpu.total_vram_gb).unwrap_or(0);
+    let local_vram_gb = local_gpu.as_ref().map_or(0, |gpu| gpu.total_vram_gb);
 
     // For Phase 2, we'll implement mock loading
     // Phase 3 will add real model loading and tensor communication
@@ -324,8 +324,7 @@ pub async fn handle_model_load(
             towers: vec![],
             vram_used_gb: 0,
             error: Some(format!(
-                "Model requires {}GB VRAM but only {}GB available. Enable split mode.",
-                model_vram, local_vram_gb
+                "Model requires {model_vram}GB VRAM but only {local_vram_gb}GB available. Enable split mode."
             )),
         };
 
@@ -422,7 +421,7 @@ fn estimate_model_layers(parameters: &str) -> u32 {
         60
     } else if parameters.contains("13") || parameters.contains("13B") {
         40
-    } else if parameters.contains("7") || parameters.contains("7B") {
+    } else if parameters.contains('7') || parameters.contains("7B") {
         32
     } else {
         32 // Default
@@ -432,7 +431,7 @@ fn estimate_model_layers(parameters: &str) -> u32 {
 /// Generate performance prediction for a splittable model
 ///
 /// NOTE: This is a simplified estimation. For actual model splitting and performance
-/// prediction, delegate to ToadStool via capability discovery.
+/// prediction, delegate to `ToadStool` via capability discovery.
 async fn generate_performance_prediction(
     model: &ModelInfo,
     local_vram_gb: u32,

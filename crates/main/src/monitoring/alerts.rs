@@ -62,6 +62,7 @@ impl Default for AlertManager {
 
 impl AlertManager {
     /// Create a new alert manager
+    #[must_use]
     pub fn new() -> Self {
         Self {
             active_alerts: Arc::new(RwLock::new(HashMap::new())),

@@ -89,7 +89,7 @@ impl std::fmt::Display for SecurityLevel {
             Self::Administrative => write!(f, "Administrative"),
             Self::Internal => write!(f, "Internal"),
             Self::Maximum => write!(f, "Maximum"),
-            Self::Custom(level) => write!(f, "Custom({})", level),
+            Self::Custom(level) => write!(f, "Custom({level})"),
         }
     }
 }
@@ -115,6 +115,7 @@ impl Default for UniversalSecurityContext {
 }
 
 /// Create a default primal context
+#[must_use]
 pub fn create_default_context(user_id: &str, device_id: &str) -> PrimalContext {
     PrimalContext {
         user_id: user_id.to_string(),
@@ -128,6 +129,7 @@ pub fn create_default_context(user_id: &str, device_id: &str) -> PrimalContext {
 }
 
 /// Create a default security context
+#[must_use]
 pub fn create_default_security_context(user_id: &str) -> UniversalSecurityContext {
     UniversalSecurityContext {
         user_id: user_id.to_string(),

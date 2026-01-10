@@ -276,6 +276,7 @@ pub struct ResourceUtilization {
 
 impl AgentDeploymentManager {
     /// Create a new agent deployment manager
+    #[must_use]
     pub fn new(
         config: AgentDeploymentConfig,
         mcp_integration: Arc<McpIntegration>,
@@ -484,28 +485,27 @@ impl AgentDeploymentManager {
             _ => 8080,                       // Default for lightweight agents
         };
 
-        let base_url = format!("http://localhost:{}", base_port);
+        let base_url = format!("http://localhost:{base_port}");
 
         // Generate service-specific endpoints based on agent spec
-        let mut health_endpoint = format!("{}/health", base_url);
-        let mut metrics_endpoint = format!("{}/metrics", base_url);
+        let mut health_endpoint = format!("{base_url}/health");
+        let mut metrics_endpoint = format!("{base_url}/metrics");
 
         // Enhance endpoints based on agent capabilities
         if let Some(manifest) = &spec.manifest {
             if manifest.capabilities.contains(&"monitoring".to_string()) {
-                metrics_endpoint = format!("{}/api/v1/agents/{}/metrics", base_url, agent_id);
+                metrics_endpoint = format!("{base_url}/api/v1/agents/{agent_id}/metrics");
             }
             if manifest
                 .capabilities
                 .contains(&"health_reporting".to_string())
             {
-                health_endpoint =
-                    format!("{}/api/v1/agents/{}/health/detailed", base_url, agent_id);
+                health_endpoint = format!("{base_url}/api/v1/agents/{agent_id}/health/detailed");
             }
         }
 
         Ok(AgentEndpoints {
-            api: format!("{}/api/v1/agents/{}", base_url, agent_id),
+            api: format!("{base_url}/api/v1/agents/{agent_id}"),
             health: health_endpoint,
             metrics: metrics_endpoint,
             websocket: Some(format!(
@@ -606,8 +606,7 @@ impl AgentDeploymentManager {
             info!("Agent {} stopped successfully", agent_id);
         } else {
             return Err(PrimalError::NotFoundError(format!(
-                "Agent {} not found",
-                agent_id
+                "Agent {agent_id} not found"
             )));
         }
 
@@ -649,8 +648,7 @@ impl AgentDeploymentManager {
             Ok(agent.status.clone())
         } else {
             Err(PrimalError::NotFoundError(format!(
-                "Agent {} not found",
-                agent_id
+                "Agent {agent_id} not found"
             )))
         }
     }
@@ -708,7 +706,7 @@ impl AgentDeploymentManager {
 
         for agent in agents.values_mut() {
             match self.check_agent_health(agent).await {
-                Ok(_) => {
+                Ok(()) => {
                     agent.last_health_check = Utc::now();
                     if matches!(agent.status, AgentStatus::Failed(_)) {
                         agent.status = AgentStatus::Running;
@@ -800,6 +798,7 @@ impl Default for DeploymentStatus {
 }
 
 impl DeploymentStatus {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             total_agents: 0,

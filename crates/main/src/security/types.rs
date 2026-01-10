@@ -176,6 +176,7 @@ impl Default for SecurityContext {
 
 impl SecurityContext {
     /// Create a new security context
+    #[must_use]
     pub fn new(operation: &str, resource: &str) -> Self {
         Self {
             user_id: None,
@@ -189,24 +190,28 @@ impl SecurityContext {
     }
 
     /// Set user ID
+    #[must_use]
     pub fn with_user_id(mut self, user_id: String) -> Self {
         self.user_id = Some(user_id);
         self
     }
 
     /// Set session ID
+    #[must_use]
     pub fn with_session_id(mut self, session_id: String) -> Self {
         self.session_id = Some(session_id);
         self
     }
 
     /// Add client information
+    #[must_use]
     pub fn with_client_info(mut self, key: String, value: String) -> Self {
         self.client_info.insert(key, value);
         self
     }
 
     /// Add environment information
+    #[must_use]
     pub fn with_environment(mut self, key: String, value: String) -> Self {
         self.environment.insert(key, value);
         self

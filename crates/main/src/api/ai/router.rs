@@ -5,7 +5,10 @@
 use super::adapters::{AiProviderAdapter, HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter};
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
-use super::types::*;
+use super::types::{
+    ActionRequirements, ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest,
+    TextGenerationResponse,
+};
 use crate::error::PrimalError;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -99,9 +102,7 @@ impl AiRouter {
         let selected = self
             .selector
             .select_best(&provider_infos, requirements.as_ref())
-            .map_err(|e| {
-                PrimalError::OperationFailed(format!("Provider selection failed: {}", e))
-            })?;
+            .map_err(|e| PrimalError::OperationFailed(format!("Provider selection failed: {e}")))?;
 
         info!(
             "🎯 Selected provider: {} ({})",
@@ -176,7 +177,7 @@ impl AiRouter {
             .selector
             .select_best(&fallback_providers, requirements)
             .map_err(|e| {
-                PrimalError::OperationFailed(format!("Fallback provider selection failed: {}", e))
+                PrimalError::OperationFailed(format!("Fallback provider selection failed: {e}"))
             })?;
 
         info!(
@@ -229,26 +230,26 @@ impl AiRouter {
         }
 
         // Use constraint-based selection if constraints provided
-        let selected = if !request.constraints.is_empty() {
-            info!(
-                "🎯 Using constraint-based routing with {} constraint(s)",
-                request.constraints.len()
-            );
-            select_provider_with_constraints(&text_providers, &request.constraints, "text")
-        } else {
+        let selected = if request.constraints.is_empty() {
             // Fallback to old selector logic
             let provider_infos = self.get_text_generation_providers().await?;
             let selected_info = self
                 .selector
                 .select_best(&provider_infos, requirements.as_ref())
                 .map_err(|e| {
-                    PrimalError::OperationFailed(format!("Provider selection failed: {}", e))
+                    PrimalError::OperationFailed(format!("Provider selection failed: {e}"))
                 })?;
 
             text_providers
                 .iter()
                 .find(|p| p.provider_id() == selected_info.provider_id)
                 .cloned()
+        } else {
+            info!(
+                "🎯 Using constraint-based routing with {} constraint(s)",
+                request.constraints.len()
+            );
+            select_provider_with_constraints(&text_providers, &request.constraints, "text")
         };
 
         let provider = selected.ok_or_else(|| {

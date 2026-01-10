@@ -22,11 +22,13 @@ pub mod optimization {
 pub const OPTIMIZATION_VERSION: &str = "1.0.0";
 
 /// Check if optimizations are enabled
+#[must_use]
 pub fn optimizations_enabled() -> bool {
     cfg!(feature = "optimizations") || true // Default to enabled
 }
 
 /// Get optimization system information
+#[must_use]
 pub fn get_optimization_info() -> OptimizationInfo {
     OptimizationInfo {
         version: OPTIMIZATION_VERSION.to_string(),

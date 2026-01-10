@@ -67,6 +67,7 @@ pub struct PrometheusExporter {
 
 impl PrometheusExporter {
     /// Create a new Prometheus exporter
+    #[must_use]
     pub fn new(config: ExporterConfig) -> Self {
         Self { config }
     }
@@ -131,8 +132,7 @@ impl MetricsExporter for PrometheusExporter {
         for (component, component_metrics) in &metrics.component_metrics {
             for (metric_name, value) in component_metrics {
                 prometheus_output.push_str(&format!(
-                    "squirrel_component_{}{{component=\"{}\"}} {}\n",
-                    metric_name, component, value
+                    "squirrel_component_{metric_name}{{component=\"{component}\"}} {value}\n"
                 ));
             }
         }
@@ -144,18 +144,18 @@ impl MetricsExporter for PrometheusExporter {
                 if !labels.is_empty() {
                     labels.push(',');
                 }
-                labels.push_str(&format!("{}=\"{}\"", label_key, label_value));
+                labels.push_str(&format!("{label_key}=\"{label_value}\""));
             }
 
-            if !labels.is_empty() {
-                prometheus_output.push_str(&format!(
-                    "squirrel_custom_{}{{{}}} {}\n",
-                    metric_name, labels, metric_value.value
-                ));
-            } else {
+            if labels.is_empty() {
                 prometheus_output.push_str(&format!(
                     "squirrel_custom_{} {}\n",
                     metric_name, metric_value.value
+                ));
+            } else {
+                prometheus_output.push_str(&format!(
+                    "squirrel_custom_{}{{{}}} {}\n",
+                    metric_name, labels, metric_value.value
                 ));
             }
         }
@@ -180,6 +180,7 @@ pub struct JsonExporter {
 
 impl JsonExporter {
     /// Create a new JSON exporter
+    #[must_use]
     pub fn new(config: ExporterConfig) -> Self {
         Self { config }
     }
@@ -190,7 +191,7 @@ impl MetricsExporter for JsonExporter {
     async fn export_metrics(&self, metrics: AllMetrics) -> Result<String, PrimalError> {
         // Convert metrics to JSON format
         serde_json::to_string_pretty(&metrics).map_err(|e| {
-            PrimalError::SerializationError(format!("Failed to serialize metrics: {}", e))
+            PrimalError::SerializationError(format!("Failed to serialize metrics: {e}"))
         })
     }
 

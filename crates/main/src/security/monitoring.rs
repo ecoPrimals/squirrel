@@ -309,6 +309,7 @@ pub struct SecurityMonitoringSystem {
 
 impl SecurityMonitoringSystem {
     /// Create a new security monitoring system
+    #[must_use]
     pub fn new(config: SecurityMonitoringConfig) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
@@ -760,7 +761,7 @@ impl SecurityMonitoringSystem {
 
 #[async_trait::async_trait]
 impl ShutdownHandler for SecurityMonitoringSystem {
-    fn component_name(&self) -> &str {
+    fn component_name(&self) -> &'static str {
         "security_monitoring"
     }
 

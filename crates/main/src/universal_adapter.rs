@@ -75,6 +75,7 @@ pub struct UniversalAdapter {
 
 impl UniversalAdapter {
     /// Create new universal adapter with Arc<str> ecosystem integration
+    #[must_use]
     pub fn new(
         config: UniversalAdapterConfig,
         ecosystem_manager: Arc<EcosystemManager>,

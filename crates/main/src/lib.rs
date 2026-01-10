@@ -4,7 +4,7 @@
 //! patterns for dynamic primal evolution and integration with the ecoPrimals ecosystem.
 //!
 //! This primal follows the universal adapter patterns defined by Songbird and
-//! implements the EcosystemServiceRegistration standard for seamless integration.
+//! implements the `EcosystemServiceRegistration` standard for seamless integration.
 
 #![deny(unsafe_code)]
 #![warn(clippy::all)]

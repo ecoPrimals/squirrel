@@ -128,6 +128,7 @@ pub struct CachedCapabilityMatch {
 
 impl CachedCapabilityMatch {
     /// Check if this cache entry is still valid
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         self.cached_at.elapsed().as_secs() < self.ttl_seconds
     }

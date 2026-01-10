@@ -3,13 +3,18 @@
 //! This module provides the JSON-RPC 2.0 server that listens on a Unix socket.
 //! It handles incoming requests and routes them to the appropriate handlers.
 
-use super::{handlers::RpcHandlers, types::*};
+use super::{
+    handlers::RpcHandlers,
+    types::{
+        AnnounceCapabilitiesRequest, HealthCheckRequest, ListProvidersRequest, QueryAiRequest,
+    },
+};
 use crate::api::ai::AiRouter;
 use crate::error::PrimalError;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::net::UnixListener;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 /// RPC server that listens on Unix socket
 pub struct RpcServer {
@@ -35,8 +40,9 @@ impl RpcServer {
     /// # Arguments
     ///
     /// * `node_id` - Unique identifier for this Squirrel instance
+    #[must_use]
     pub fn new(node_id: &str) -> Self {
-        let socket_path = format!("/tmp/squirrel-{}.sock", node_id);
+        let socket_path = format!("/tmp/squirrel-{node_id}.sock");
 
         Self {
             socket_path,
@@ -50,8 +56,9 @@ impl RpcServer {
     ///
     /// * `node_id` - Unique identifier for this Squirrel instance
     /// * `ai_router` - AI router instance
+    #[must_use]
     pub fn with_ai_router(node_id: &str, ai_router: Arc<AiRouter>) -> Self {
-        let socket_path = format!("/tmp/squirrel-{}.sock", node_id);
+        let socket_path = format!("/tmp/squirrel-{node_id}.sock");
 
         Self {
             socket_path,
@@ -60,6 +67,7 @@ impl RpcServer {
     }
 
     /// Create a new RPC server with custom socket path
+    #[must_use]
     pub fn with_socket_path(socket_path: String) -> Self {
         Self {
             socket_path,
@@ -78,14 +86,13 @@ impl RpcServer {
         // Remove existing socket if present
         if Path::new(&self.socket_path).exists() {
             info!("🧹 Removing existing socket: {}", self.socket_path);
-            std::fs::remove_file(&self.socket_path).map_err(|e| {
-                PrimalError::NetworkError(format!("Failed to remove socket: {}", e))
-            })?;
+            std::fs::remove_file(&self.socket_path)
+                .map_err(|e| PrimalError::NetworkError(format!("Failed to remove socket: {e}")))?;
         }
 
         // Bind to Unix socket
         let listener = UnixListener::bind(&self.socket_path)
-            .map_err(|e| PrimalError::NetworkError(format!("Failed to bind Unix socket: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Failed to bind Unix socket: {e}")))?;
 
         info!("🚀 JSON-RPC server listening on: {}", self.socket_path);
         info!("📡 Ready for biomeOS integration");
@@ -138,17 +145,17 @@ impl RpcServer {
                     writer
                         .write_all(response.as_bytes())
                         .await
-                        .map_err(|e| PrimalError::NetworkError(format!("Write error: {}", e)))?;
+                        .map_err(|e| PrimalError::NetworkError(format!("Write error: {e}")))?;
 
                     writer
                         .write_all(b"\n")
                         .await
-                        .map_err(|e| PrimalError::NetworkError(format!("Write error: {}", e)))?;
+                        .map_err(|e| PrimalError::NetworkError(format!("Write error: {e}")))?;
 
                     writer
                         .flush()
                         .await
-                        .map_err(|e| PrimalError::NetworkError(format!("Flush error: {}", e)))?;
+                        .map_err(|e| PrimalError::NetworkError(format!("Flush error: {e}")))?;
                 }
                 Err(e) => {
                     error!("❌ Read error: {}", e);
@@ -166,7 +173,7 @@ impl RpcServer {
         let request: serde_json::Value = match serde_json::from_str(request_str) {
             Ok(v) => v,
             Err(e) => {
-                return Self::error_response(None, -32700, format!("Parse error: {}", e));
+                return Self::error_response(None, -32700, format!("Parse error: {e}"));
             }
         };
 
@@ -202,7 +209,7 @@ impl RpcServer {
             "list_providers" => Self::handle_list_providers(params, handlers).await,
             "announce_capabilities" => Self::handle_announce_capabilities(params, handlers).await,
             "health_check" => Self::handle_health_check(params, handlers).await,
-            _ => Err(format!("Method not found: {}", method)),
+            _ => Err(format!("Method not found: {method}")),
         };
 
         // Build response
@@ -212,55 +219,55 @@ impl RpcServer {
         }
     }
 
-    /// Handle query_ai method
+    /// Handle `query_ai` method
     async fn handle_query_ai(
         params: serde_json::Value,
         handlers: &RpcHandlers,
     ) -> Result<serde_json::Value, String> {
         let request: QueryAiRequest =
-            serde_json::from_value(params).map_err(|e| format!("Invalid params: {}", e))?;
+            serde_json::from_value(params).map_err(|e| format!("Invalid params: {e}"))?;
 
         let response = handlers
             .handle_query_ai(request)
             .await
             .map_err(|e| e.to_string())?;
 
-        serde_json::to_value(response).map_err(|e| format!("Serialization error: {}", e))
+        serde_json::to_value(response).map_err(|e| format!("Serialization error: {e}"))
     }
 
-    /// Handle list_providers method
+    /// Handle `list_providers` method
     async fn handle_list_providers(
         params: serde_json::Value,
         handlers: &RpcHandlers,
     ) -> Result<serde_json::Value, String> {
         let request: ListProvidersRequest =
-            serde_json::from_value(params).map_err(|e| format!("Invalid params: {}", e))?;
+            serde_json::from_value(params).map_err(|e| format!("Invalid params: {e}"))?;
 
         let response = handlers
             .handle_list_providers(request)
             .await
             .map_err(|e| e.to_string())?;
 
-        serde_json::to_value(response).map_err(|e| format!("Serialization error: {}", e))
+        serde_json::to_value(response).map_err(|e| format!("Serialization error: {e}"))
     }
 
-    /// Handle announce_capabilities method
+    /// Handle `announce_capabilities` method
     async fn handle_announce_capabilities(
         params: serde_json::Value,
         handlers: &RpcHandlers,
     ) -> Result<serde_json::Value, String> {
         let request: AnnounceCapabilitiesRequest =
-            serde_json::from_value(params).map_err(|e| format!("Invalid params: {}", e))?;
+            serde_json::from_value(params).map_err(|e| format!("Invalid params: {e}"))?;
 
         let response = handlers
             .handle_announce_capabilities(request)
             .await
             .map_err(|e| e.to_string())?;
 
-        serde_json::to_value(response).map_err(|e| format!("Serialization error: {}", e))
+        serde_json::to_value(response).map_err(|e| format!("Serialization error: {e}"))
     }
 
-    /// Handle health_check method
+    /// Handle `health_check` method
     async fn handle_health_check(
         _params: serde_json::Value,
         handlers: &RpcHandlers,
@@ -270,7 +277,7 @@ impl RpcServer {
             .await
             .map_err(|e| e.to_string())?;
 
-        serde_json::to_value(response).map_err(|e| format!("Serialization error: {}", e))
+        serde_json::to_value(response).map_err(|e| format!("Serialization error: {e}"))
     }
 
     /// Build a JSON-RPC success response
@@ -297,6 +304,7 @@ impl RpcServer {
     }
 
     /// Get the socket path
+    #[must_use]
     pub fn socket_path(&self) -> &str {
         &self.socket_path
     }

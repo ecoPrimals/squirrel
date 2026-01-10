@@ -75,6 +75,7 @@ pub struct ComputeProviderHealth {
 
 impl ComputeProvider {
     /// Create compute provider from discovered primal
+    #[must_use]
     pub fn from_discovered_primal(primal: &DiscoveredPrimal) -> Self {
         Self {
             provider_id: primal.instance_id.clone(),

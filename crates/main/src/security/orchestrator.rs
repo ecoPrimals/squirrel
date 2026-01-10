@@ -2,7 +2,7 @@
 //!
 //! This module provides unified security orchestration that coordinates:
 //! - Authentication and authorization
-//! - Rate limiting and DoS protection
+//! - Rate limiting and `DoS` protection
 //! - Input validation and sanitization
 //! - Security monitoring and threat detection
 //! - Automated security responses
@@ -362,7 +362,7 @@ impl SecurityOrchestrator {
                 if !validation_result.is_valid {
                     allowed = false;
                     if denial_reason.is_none() {
-                        denial_reason = Some(format!("Invalid input in field: {}", field_name));
+                        denial_reason = Some(format!("Invalid input in field: {field_name}"));
                     }
 
                     overall_risk = overall_risk.max(match validation_result.risk_level {
@@ -377,11 +377,10 @@ impl SecurityOrchestrator {
                         event_id: Uuid::new_v4(),
                         event_type: SecurityEventType::InputValidationViolation {
                             client_ip: request.client_ip.to_string(),
-                            violation_type: validation_result
-                                .violations
-                                .first()
-                                .map(|v| format!("{:?}", v.violation_type))
-                                .unwrap_or_else(|| "unknown".to_string()),
+                            violation_type: validation_result.violations.first().map_or_else(
+                                || "unknown".to_string(),
+                                |v| format!("{:?}", v.violation_type),
+                            ),
                             risk_level: format!("{:?}", validation_result.risk_level),
                         },
                         timestamp: SystemTime::now(),
@@ -436,7 +435,14 @@ impl SecurityOrchestrator {
             risk_level: overall_risk,
         };
 
-        if !result.allowed {
+        if result.allowed {
+            debug!(
+                correlation_id = %request.correlation_id,
+                client_ip = %request.client_ip,
+                operation = "security_check_allowed",
+                "Security check allowed request"
+            );
+        } else {
             warn!(
                 correlation_id = %request.correlation_id,
                 client_ip = %request.client_ip,
@@ -444,13 +450,6 @@ impl SecurityOrchestrator {
                 risk_level = ?result.risk_level,
                 operation = "security_check_denied",
                 "Security check denied request"
-            );
-        } else {
-            debug!(
-                correlation_id = %request.correlation_id,
-                client_ip = %request.client_ip,
-                operation = "security_check_allowed",
-                "Security check allowed request"
             );
         }
 
@@ -476,7 +475,7 @@ impl SecurityOrchestrator {
         counter.recent_violations += 1;
         counter.last_violation = now;
 
-        let violation_type = format!("{:?}", risk_level);
+        let violation_type = format!("{risk_level:?}");
         *counter.violation_types.entry(violation_type).or_insert(0) += 1;
     }
 
@@ -604,7 +603,7 @@ impl SecurityOrchestrator {
             monitoring_stats,
             rate_limit_stats,
             total_tracked_ips: violation_counters.len(),
-            active_security_responses: active_responses.values().map(|v| v.len()).sum(),
+            active_security_responses: active_responses.values().map(std::vec::Vec::len).sum(),
             high_risk_ips: violation_counters
                 .iter()
                 .filter(|(_, counter)| counter.recent_violations >= 5)
@@ -625,7 +624,7 @@ pub struct SecurityStatistics {
 
 #[async_trait::async_trait]
 impl ShutdownHandler for SecurityOrchestrator {
-    fn component_name(&self) -> &str {
+    fn component_name(&self) -> &'static str {
         "security_orchestrator"
     }
 

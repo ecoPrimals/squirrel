@@ -76,6 +76,7 @@ impl Default for MetricsConfig {
 
 impl UniversalMetricsCollector {
     /// Create new metrics collector with capability discovery
+    #[must_use]
     pub fn new(config: MetricsConfig) -> Self {
         Self {
             endpoints: Arc::new(RwLock::new(Vec::new())),
@@ -177,7 +178,7 @@ impl UniversalMetricsCollector {
             .timeout(Duration::from_secs(10))
             .send()
             .await
-            .map_err(|e| PrimalError::NetworkError(format!("Metrics collection failed: {}", e)))?;
+            .map_err(|e| PrimalError::NetworkError(format!("Metrics collection failed: {e}")))?;
 
         if !response.status().is_success() {
             return Err(PrimalError::NetworkError(format!(
@@ -188,7 +189,7 @@ impl UniversalMetricsCollector {
 
         // Parse generic metrics format (supports Prometheus, JSON, custom formats)
         let body = response.text().await.map_err(|e| {
-            PrimalError::NetworkError(format!("Failed to read metrics response: {}", e))
+            PrimalError::NetworkError(format!("Failed to read metrics response: {e}"))
         })?;
 
         self.parse_metrics_response(&body, endpoint).await
@@ -228,7 +229,7 @@ impl UniversalMetricsCollector {
         endpoint: &MetricsEndpoint,
     ) -> Result<Vec<MetricValue>, PrimalError> {
         let json: serde_json::Value = serde_json::from_str(body)
-            .map_err(|e| PrimalError::ParsingError(format!("Invalid JSON metrics: {}", e)))?;
+            .map_err(|e| PrimalError::ParsingError(format!("Invalid JSON metrics: {e}")))?;
 
         let mut metrics = Vec::new();
 

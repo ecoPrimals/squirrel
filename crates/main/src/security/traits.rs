@@ -1,27 +1,27 @@
 //! Simple Security Coordination Traits
 //!
-//! Focused on coordinating with BearDog for security operations.
+//! Focused on coordinating with `BearDog` for security operations.
 
 use super::types::{SecurityContext, SecurityRequest, SecurityResponse};
 use crate::error::PrimalError;
 
 /// Simple Security Coordinator trait (native async - Phase 4 migration)
 ///
-/// Focuses on coordinating with BearDog rather than implementing full security system
+/// Focuses on coordinating with `BearDog` rather than implementing full security system
 pub trait SecurityCoordinator: Send + Sync {
-    /// Coordinate security request with BearDog
+    /// Coordinate security request with `BearDog`
     fn coordinate_security(
         &mut self,
         request: SecurityRequest,
     ) -> impl std::future::Future<Output = Result<SecurityResponse, PrimalError>> + Send;
 
-    /// Authenticate via BearDog
+    /// Authenticate via `BearDog`
     fn authenticate_with_beardog(
         &mut self,
         user_id: &str,
     ) -> impl std::future::Future<Output = Result<String, PrimalError>> + Send;
 
-    /// Check if request requires BearDog coordination
+    /// Check if request requires `BearDog` coordination
     fn requires_beardog_security(&self, request_type: &super::types::SecurityRequestType) -> bool;
 
     /// Get cached security context

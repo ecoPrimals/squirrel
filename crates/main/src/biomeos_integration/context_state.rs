@@ -267,15 +267,16 @@ impl ContextState {
     /// Create a new context state management system with comprehensive tracking
     ///
     /// Initializes a context state manager with:
-    /// - Empty active sessions HashMap for session tracking
-    /// - Empty persistent contexts HashMap for long-term storage
+    /// - Empty active sessions `HashMap` for session tracking
+    /// - Empty persistent contexts `HashMap` for long-term storage
     /// - Context analytics system for usage pattern analysis
     /// - State versioning system for context history management
     /// - Context sharing system for cross-session data exchange
     ///
     /// # Returns
     ///
-    /// A new ContextState instance ready for ecosystem context management
+    /// A new `ContextState` instance ready for ecosystem context management
+    #[must_use]
     pub fn new() -> Self {
         Self {
             active_sessions: HashMap::new(),
@@ -412,11 +413,13 @@ impl ContextState {
     }
 
     /// Get active sessions count
+    #[must_use]
     pub fn get_active_sessions(&self) -> u32 {
         self.active_sessions.len() as u32
     }
 
     /// Get managed states count
+    #[must_use]
     pub fn get_managed_states(&self) -> u32 {
         (self.active_sessions.len() + self.persistent_contexts.len()) as u32
     }

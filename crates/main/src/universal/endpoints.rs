@@ -48,19 +48,19 @@ impl Default for PrimalEndpoints {
             }
         });
 
-        let base_url = format!("http://{}:{}", bind_host, http_port);
+        let base_url = format!("http://{bind_host}:{http_port}");
 
         Self {
             http: Some(base_url.clone()),
-            grpc: Some(format!("http://{}:{}", bind_host, grpc_port)),
-            websocket: Some(format!("ws://{}:{}", bind_host, ws_port)),
+            grpc: Some(format!("http://{bind_host}:{grpc_port}")),
+            websocket: Some(format!("ws://{bind_host}:{ws_port}")),
             primary: Some(base_url.clone()),
-            health: Some(format!("{}/health", base_url)),
-            metrics: Some(format!("{}/metrics", base_url)),
-            mcp: Some(format!("{}/mcp", base_url)),
-            ai_coordination: Some(format!("{}/ai", base_url)),
-            admin: Some(format!("{}/admin", base_url)),
-            service_mesh: Some(format!("{}/mesh", base_url)),
+            health: Some(format!("{base_url}/health")),
+            metrics: Some(format!("{base_url}/metrics")),
+            mcp: Some(format!("{base_url}/mcp")),
+            ai_coordination: Some(format!("{base_url}/ai")),
+            admin: Some(format!("{base_url}/admin")),
+            service_mesh: Some(format!("{base_url}/mesh")),
             custom: vec![],
         }
     }

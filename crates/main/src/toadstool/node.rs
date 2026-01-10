@@ -1,7 +1,7 @@
 //! Compute node management
 //!
 //! This module defines types for managing compute nodes in the
-//! ToadStool cluster.
+//! `ToadStool` cluster.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

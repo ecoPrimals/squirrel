@@ -27,6 +27,7 @@ pub struct CorrelationId(String);
 
 impl CorrelationId {
     /// Generate a new correlation ID
+    #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -37,6 +38,7 @@ impl CorrelationId {
     }
 
     /// Get the string representation
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -71,6 +73,7 @@ pub struct PerformanceMetrics {
 
 impl PerformanceMetrics {
     /// Create new performance metrics
+    #[must_use]
     pub fn new() -> Self {
         Self {
             total_duration: Duration::ZERO,
@@ -159,12 +162,14 @@ impl OperationContext {
     }
 
     /// Add multiple metadata entries
+    #[must_use]
     pub fn with_metadata_map(mut self, metadata: HashMap<String, String>) -> Self {
         self.metadata.extend(metadata);
         self
     }
 
     /// Get elapsed time since operation start
+    #[must_use]
     pub fn elapsed(&self) -> Duration {
         self.start_time.elapsed()
     }
@@ -229,6 +234,7 @@ impl OperationContext {
     }
 
     /// Complete the operation with success
+    #[must_use]
     pub fn complete_success(mut self) -> OperationResult {
         let duration = self.elapsed();
         self.metrics.mark_success(duration);
@@ -273,16 +279,19 @@ pub struct OperationResult {
 
 impl OperationResult {
     /// Check if operation was successful
+    #[must_use]
     pub fn is_success(&self) -> bool {
         self.metrics.success
     }
 
     /// Get total duration
+    #[must_use]
     pub fn duration(&self) -> Duration {
         self.metrics.total_duration
     }
 
     /// Get error information if failed
+    #[must_use]
     pub fn error_info(&self) -> Option<&str> {
         self.metrics.error_info.as_deref()
     }
@@ -342,9 +351,10 @@ macro_rules! log_with_correlation {
 
 /// Utility functions for observability
 pub mod utils {
-    use super::*;
+    use super::HashMap;
 
     /// Create a standardized metadata map for service calls
+    #[must_use]
     pub fn service_call_metadata(
         service_name: &str,
         endpoint: &str,
@@ -358,6 +368,7 @@ pub mod utils {
     }
 
     /// Create metadata for API operations
+    #[must_use]
     pub fn api_operation_metadata(
         operation: &str,
         resource: &str,
@@ -373,6 +384,7 @@ pub mod utils {
     }
 
     /// Create metadata for database operations
+    #[must_use]
     pub fn database_operation_metadata(
         operation: &str,
         table: &str,

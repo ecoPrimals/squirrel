@@ -130,8 +130,7 @@ pub async fn handle_list_actions(
                 "provider_count": registry.find_providers_for_action(action)
                     .now_or_never()
                     .flatten()
-                    .map(|p| p.len())
-                    .unwrap_or(0),
+                    .map_or(0, |p| p.len()),
             })
         }).collect::<Vec<_>>(),
         "stats": stats,

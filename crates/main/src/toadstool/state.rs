@@ -20,6 +20,7 @@ pub struct ComputeState {
 
 impl ComputeState {
     /// Create a new compute state
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -69,16 +70,19 @@ impl ComputeState {
     }
 
     /// Get the number of active jobs
+    #[must_use]
     pub fn active_job_count(&self) -> usize {
         self.active_jobs.len()
     }
 
     /// Get the number of queued jobs
+    #[must_use]
     pub fn queued_job_count(&self) -> usize {
         self.job_queue.len()
     }
 
     /// Get the number of compute nodes
+    #[must_use]
     pub fn node_count(&self) -> usize {
         self.compute_nodes.len()
     }

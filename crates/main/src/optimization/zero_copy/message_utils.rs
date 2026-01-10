@@ -14,6 +14,7 @@ pub struct ZeroCopyMessage {
 
 impl ZeroCopyMessage {
     /// Create a new zero-copy message
+    #[must_use]
     pub fn new(message_type: Arc<str>, content: Arc<str>) -> Self {
         Self {
             message_type,
@@ -23,16 +24,19 @@ impl ZeroCopyMessage {
     }
 
     /// Get message type without cloning
+    #[must_use]
     pub fn get_type(&self) -> &str {
         &self.message_type
     }
 
     /// Get content without cloning
+    #[must_use]
     pub fn get_content(&self) -> &str {
         &self.content
     }
 
     /// Get metadata value without cloning
+    #[must_use]
     pub fn get_metadata(&self, key: &str) -> Option<&str> {
         self.metadata
             .iter()

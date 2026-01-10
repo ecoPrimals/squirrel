@@ -10,6 +10,7 @@ use super::types::PrimalCapability;
 /// This function checks if the provided capability meets the requirements
 /// of the required capability, accounting for flexible matching (e.g., a
 /// primal providing GPT-4 and Claude-3 can satisfy a requirement for GPT-4).
+#[must_use]
 pub fn validate_capability_compatibility(
     provided: &PrimalCapability,
     required: &PrimalCapability,

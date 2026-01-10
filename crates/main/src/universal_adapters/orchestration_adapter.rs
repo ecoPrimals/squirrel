@@ -288,6 +288,7 @@ impl UniversalOrchestrationAdapter {
     }
 
     /// Get current orchestration service info
+    #[must_use]
     pub fn get_current_orchestration_service(&self) -> Option<&ServiceInfo> {
         self.preferred_orchestration_service.as_ref()
     }

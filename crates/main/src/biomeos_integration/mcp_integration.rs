@@ -175,14 +175,15 @@ impl McpIntegration {
     /// Create a new MCP integration instance with default configuration
     ///
     /// Initializes an MCP integration with:
-    /// - Empty coordination sessions HashMap
-    /// - Default active protocols (mcp_2.0, ecosystem_coordination, cross_primal_messaging)
+    /// - Empty coordination sessions `HashMap`
+    /// - Default active protocols (`mcp_2.0`, `ecosystem_coordination`, `cross_primal_messaging`)
     /// - Empty message queue
     /// - Default coordination plan and load balancing configuration
     ///
     /// # Returns
     ///
-    /// A new McpIntegration instance ready for ecosystem coordination
+    /// A new `McpIntegration` instance ready for ecosystem coordination
+    #[must_use]
     pub fn new() -> Self {
         Self {
             coordination_sessions: HashMap::new(),
@@ -217,6 +218,7 @@ impl McpIntegration {
     }
 
     /// Check if MCP integration is initialized
+    #[must_use]
     pub fn is_initialized(&self) -> bool {
         self.initialized
     }

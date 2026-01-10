@@ -81,7 +81,7 @@ impl MetricsOps {
 
         loop {
             tokio::select! {
-                _ = shutdown_token.cancelled() => {
+                () = shutdown_token.cancelled() => {
                     debug!("Metrics task shutting down");
                     break;
                 }
@@ -158,8 +158,8 @@ impl MetricsOps {
     ) {
         let labels = [
             ("service_id".to_string(), service_id.to_string()),
-            ("old_status".to_string(), format!("{:?}", old_status)),
-            ("new_status".to_string(), format!("{:?}", new_status)),
+            ("old_status".to_string(), format!("{old_status:?}")),
+            ("new_status".to_string(), format!("{new_status:?}")),
         ]
         .iter()
         .cloned()

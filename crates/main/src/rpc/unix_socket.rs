@@ -6,11 +6,13 @@ use std::path::Path;
 use tracing::{info, warn};
 
 /// Get the default socket path for a Squirrel instance
+#[must_use]
 pub fn get_socket_path(node_id: &str) -> String {
-    format!("/tmp/squirrel-{}.sock", node_id)
+    format!("/tmp/squirrel-{node_id}.sock")
 }
 
 /// Get the node ID from environment or generate one
+#[must_use]
 pub fn get_node_id() -> String {
     std::env::var("SQUIRREL_NODE_ID").unwrap_or_else(|_| {
         warn!("SQUIRREL_NODE_ID not set, using hostname");

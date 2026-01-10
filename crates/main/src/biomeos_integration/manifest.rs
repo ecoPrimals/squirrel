@@ -360,16 +360,19 @@ pub struct ManifestParserConfig {
 }
 
 impl BiomeManifestParser {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: ManifestParserConfig::default(),
         }
     }
 
+    #[must_use]
     pub fn with_config(config: ManifestParserConfig) -> Self {
         Self { config }
     }
 
+    #[must_use]
     pub fn generate_template() -> BiomeManifest {
         BiomeManifest {
             metadata: BiomeMetadata {
@@ -495,9 +498,9 @@ impl BiomeManifestParser {
         let path = path.as_ref();
         info!("Parsing biome.yaml manifest from: {}", path.display());
 
-        let content = fs::read_to_string(path).await.map_err(|e| {
-            PrimalError::ConfigError(format!("Failed to read manifest file: {}", e))
-        })?;
+        let content = fs::read_to_string(path)
+            .await
+            .map_err(|e| PrimalError::ConfigError(format!("Failed to read manifest file: {e}")))?;
 
         self.parse_content(&content).await
     }
@@ -506,7 +509,7 @@ impl BiomeManifestParser {
         debug!("Parsing biome.yaml manifest content");
 
         let mut manifest: BiomeManifest = serde_yaml::from_str(content)
-            .map_err(|e| PrimalError::ConfigError(format!("Failed to parse YAML: {}", e)))?;
+            .map_err(|e| PrimalError::ConfigError(format!("Failed to parse YAML: {e}")))?;
 
         if self.config.strict_validation {
             self.validate_manifest(&mut manifest)?;
@@ -542,8 +545,7 @@ impl BiomeManifestParser {
         for (name, service) in &manifest.services {
             if service.endpoints.is_empty() {
                 return Err(PrimalError::ConfigError(format!(
-                    "Service '{}' must have at least one endpoint",
-                    name
+                    "Service '{name}' must have at least one endpoint"
                 )));
             }
         }
@@ -554,7 +556,7 @@ impl BiomeManifestParser {
     pub fn validate_yaml_schema(&self, content: &str) -> Result<(), PrimalError> {
         // Basic YAML syntax validation
         let _: serde_yaml::Value = serde_yaml::from_str(content)
-            .map_err(|e| PrimalError::ConfigError(format!("Invalid YAML syntax: {}", e)))?;
+            .map_err(|e| PrimalError::ConfigError(format!("Invalid YAML syntax: {e}")))?;
 
         Ok(())
     }

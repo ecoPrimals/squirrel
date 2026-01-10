@@ -54,12 +54,14 @@ impl PrimalRequest {
     }
 
     /// Set request timeout
+    #[must_use]
     pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
         self.timeout_ms = Some(timeout_ms);
         self
     }
 
     /// Check if the request has timed out
+    #[must_use]
     pub fn is_timed_out(&self) -> bool {
         if let Some(timeout_ms) = self.timeout_ms {
             let elapsed = Utc::now()
@@ -124,6 +126,7 @@ pub struct EcosystemResponse {
 }
 
 /// Create an ecosystem request
+#[must_use]
 pub fn create_ecosystem_request(
     source_service: &str,
     target_service: &str,
@@ -143,6 +146,7 @@ pub fn create_ecosystem_request(
 }
 
 /// Create a success response
+#[must_use]
 pub fn create_success_response(request_id: Uuid, payload: Value) -> EcosystemResponse {
     EcosystemResponse {
         request_id,
@@ -157,6 +161,7 @@ pub fn create_success_response(request_id: Uuid, payload: Value) -> EcosystemRes
 }
 
 /// Create an error response
+#[must_use]
 pub fn create_error_response(request_id: Uuid, error_message: &str) -> EcosystemResponse {
     EcosystemResponse {
         request_id,

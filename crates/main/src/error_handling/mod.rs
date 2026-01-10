@@ -6,7 +6,7 @@ pub use safe_operations::*;
 /// Module for improved error handling patterns
 ///
 /// This module provides utilities and patterns for safe error handling:
-/// - Safe alternatives to unwrap() and expect()
+/// - Safe alternatives to `unwrap()` and `expect()`
 /// - Comprehensive error types with context
 /// - Recovery strategies for failed operations
 /// - Timeout handling for async operations
@@ -23,11 +23,13 @@ pub mod error_handling {
 pub const ERROR_HANDLING_VERSION: &str = "1.0.0";
 
 /// Check if enhanced error handling is enabled
+#[must_use]
 pub fn enhanced_error_handling_enabled() -> bool {
     cfg!(feature = "enhanced_error_handling") || true // Default to enabled
 }
 
 /// Get error handling system information
+#[must_use]
 pub fn get_error_handling_info() -> ErrorHandlingInfo {
     ErrorHandlingInfo {
         version: ERROR_HANDLING_VERSION.to_string(),

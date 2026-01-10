@@ -1,8 +1,8 @@
 //! # Production Security System
 //!
 //! This module provides comprehensive enterprise-grade security including:
-//! - Authentication and authorization with BearDog integration
-//! - Rate limiting and DoS protection
+//! - Authentication and authorization with `BearDog` integration
+//! - Rate limiting and `DoS` protection
 //! - Input validation and injection attack prevention
 //! - Real-time security monitoring and threat detection
 //! - Automated security response and incident handling
@@ -62,6 +62,7 @@ pub struct SecuritySystemBuilder {
 
 impl SecuritySystemBuilder {
     /// Create a new security system builder
+    #[must_use]
     pub fn new() -> Self {
         Self {
             orchestration_config: None,
@@ -70,12 +71,14 @@ impl SecuritySystemBuilder {
     }
 
     /// Configure the security orchestration system
+    #[must_use]
     pub fn with_orchestration_config(mut self, config: SecurityOrchestrationConfig) -> Self {
         self.orchestration_config = Some(config);
         self
     }
 
-    /// Enable BearDog security integration
+    /// Enable `BearDog` security integration
+    #[must_use]
     pub fn with_beardog_integration(mut self, enable: bool) -> Self {
         self.enable_beardog_integration = enable;
         self
@@ -121,11 +124,13 @@ impl ProductionSecuritySystem {
     }
 
     /// Get the security orchestrator
+    #[must_use]
     pub fn orchestrator(&self) -> Arc<SecurityOrchestrator> {
         Arc::clone(&self.orchestrator)
     }
 
-    /// Get BearDog coordinator if available
+    /// Get `BearDog` coordinator if available
+    #[must_use]
     pub fn beardog_coordinator(&self) -> Option<Arc<BeardogSecurityCoordinator>> {
         self.beardog_coordinator.clone()
     }

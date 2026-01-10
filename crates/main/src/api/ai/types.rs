@@ -260,6 +260,7 @@ impl AiErrorResponse {
     }
 
     /// Mark as retryable
+    #[must_use]
     pub fn retryable(mut self) -> Self {
         self.retryable = true;
         self

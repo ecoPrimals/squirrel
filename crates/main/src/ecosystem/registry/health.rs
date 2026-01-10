@@ -111,7 +111,7 @@ impl HealthMonitor {
 
         loop {
             tokio::select! {
-                _ = shutdown_token.cancelled() => {
+                () = shutdown_token.cancelled() => {
                     debug!("Health monitoring task shutting down");
                     break;
                 }
@@ -157,7 +157,6 @@ impl HealthMonitor {
         let registry = service_registry.read().await;
         registry
             .get(service_id)
-            .map(|s| s.health_status == ServiceHealthStatus::Healthy)
-            .unwrap_or(false)
+            .is_some_and(|s| s.health_status == ServiceHealthStatus::Healthy)
     }
 }

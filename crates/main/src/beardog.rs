@@ -1,6 +1,6 @@
-//! BearDog Security Integration Stub
+//! `BearDog` Security Integration Stub
 //!
-//! This is a minimal BearDog module to satisfy imports
+//! This is a minimal `BearDog` module to satisfy imports
 
 use crate::error::PrimalError;
 use std::collections::HashMap;
@@ -10,6 +10,7 @@ pub struct BeardogIntegration {
 }
 
 impl BeardogIntegration {
+    #[must_use]
     pub fn new() -> Self {
         Self { initialized: false }
     }

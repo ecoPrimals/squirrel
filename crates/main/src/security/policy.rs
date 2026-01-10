@@ -164,6 +164,7 @@ pub enum PolicyStatus {
 
 impl SecurityPolicy {
     /// Create a new security policy
+    #[must_use]
     pub fn new(policy_id: String, name: String, description: String) -> Self {
         let now = Utc::now();
         Self {
@@ -192,11 +193,11 @@ impl SecurityPolicy {
         let initial_len = self.rules.len();
         self.rules.retain(|rule| rule.rule_id != rule_id);
 
-        if self.rules.len() != initial_len {
+        if self.rules.len() == initial_len {
+            false
+        } else {
             self.updated_at = Utc::now();
             true
-        } else {
-            false
         }
     }
 
@@ -207,11 +208,13 @@ impl SecurityPolicy {
     }
 
     /// Check if policy is active
+    #[must_use]
     pub fn is_active(&self) -> bool {
         self.status == PolicyStatus::Active
     }
 
     /// Get enabled rules
+    #[must_use]
     pub fn get_enabled_rules(&self) -> Vec<&PolicyRule> {
         self.rules.iter().filter(|rule| rule.enabled).collect()
     }
@@ -225,6 +228,7 @@ impl SecurityPolicy {
 
 impl PolicyRule {
     /// Create a new policy rule
+    #[must_use]
     pub fn new(
         rule_id: String,
         name: String,
@@ -242,6 +246,7 @@ impl PolicyRule {
     }
 
     /// Set rule priority
+    #[must_use]
     pub fn with_priority(mut self, priority: u32) -> Self {
         self.priority = priority;
         self
@@ -255,6 +260,7 @@ impl PolicyRule {
 
 impl PolicyCondition {
     /// Create a new policy condition
+    #[must_use]
     pub fn new(condition_type: String, operator: PolicyOperator) -> Self {
         Self {
             condition_type,
@@ -264,6 +270,7 @@ impl PolicyCondition {
     }
 
     /// Add parameter to condition
+    #[must_use]
     pub fn with_parameter(mut self, key: String, value: serde_json::Value) -> Self {
         self.parameters.insert(key, value);
         self
@@ -272,6 +279,7 @@ impl PolicyCondition {
 
 impl PolicyAction {
     /// Create a new policy action
+    #[must_use]
     pub fn new(action_type: PolicyActionType) -> Self {
         Self {
             action_type,
@@ -280,6 +288,7 @@ impl PolicyAction {
     }
 
     /// Add parameter to action
+    #[must_use]
     pub fn with_parameter(mut self, key: String, value: serde_json::Value) -> Self {
         self.parameters.insert(key, value);
         self

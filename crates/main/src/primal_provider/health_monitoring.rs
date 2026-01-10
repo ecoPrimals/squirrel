@@ -11,6 +11,7 @@ pub struct HealthReporting;
 
 impl HealthReporting {
     /// Generate comprehensive health report
+    #[must_use]
     pub fn generate_health_report(provider: &SquirrelPrimalProvider) -> PrimalHealth {
         let mut details = std::collections::HashMap::new();
         let mut string_details = std::collections::HashMap::new();
@@ -79,9 +80,9 @@ impl HealthReporting {
         let cpu_usage = memory_usage * 0.7; // CPU typically lower than memory
 
         details.insert("memory_usage".to_string(), serde_json::json!(memory_usage));
-        string_details.insert("memory_usage".to_string(), format!("{:.2}", memory_usage));
+        string_details.insert("memory_usage".to_string(), format!("{memory_usage:.2}"));
         details.insert("cpu_usage".to_string(), serde_json::json!(cpu_usage));
-        string_details.insert("cpu_usage".to_string(), format!("{:.2}", cpu_usage));
+        string_details.insert("cpu_usage".to_string(), format!("{cpu_usage:.2}"));
 
         // 8. Provider-specific capabilities status
         details.insert("primal_type".to_string(), serde_json::json!("squirrel"));
@@ -109,6 +110,7 @@ impl HealthReporting {
     }
 
     /// Check overall system health
+    #[must_use]
     pub fn check_system_health(provider: &SquirrelPrimalProvider) -> bool {
         // Check various health indicators
         let cpu_ok = provider.zero_copy_metrics.get_efficiency_score() > 0.7;
@@ -130,7 +132,7 @@ impl SquirrelPrimalProvider {
             .get_all_metrics()
             .await
             .map_err(|e| {
-                crate::error::PrimalError::Internal(format!("Failed to collect metrics: {}", e))
+                crate::error::PrimalError::Internal(format!("Failed to collect metrics: {e}"))
             })?;
 
         // Report health with comprehensive metrics to ecosystem registry
@@ -292,7 +294,7 @@ impl SquirrelPrimalProvider {
             );
             metrics.insert(
                 "active_connections".to_string(),
-                all_metrics.system_metrics.active_connections as f64,
+                f64::from(all_metrics.system_metrics.active_connections),
             );
             metrics.insert(
                 "request_rate".to_string(),
@@ -314,7 +316,7 @@ impl SquirrelPrimalProvider {
             // Add component-specific metrics
             for (component, component_metrics) in &all_metrics.component_metrics {
                 for (metric_name, value) in component_metrics {
-                    metrics.insert(format!("{}_{}", component, metric_name), *value);
+                    metrics.insert(format!("{component}_{metric_name}"), *value);
                 }
             }
 

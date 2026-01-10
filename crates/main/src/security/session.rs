@@ -41,6 +41,7 @@ pub struct SecuritySession {
 
 impl SecuritySession {
     /// Create a new security session
+    #[must_use]
     pub fn new(session_id: String, user_id: Option<String>) -> Self {
         let now = Utc::now();
         Self {
@@ -60,6 +61,7 @@ impl SecuritySession {
     }
 
     /// Create an authenticated session
+    #[must_use]
     pub fn authenticated(session_id: String, user_id: String) -> Self {
         let now = Utc::now();
         Self {
@@ -79,6 +81,7 @@ impl SecuritySession {
     }
 
     /// Check if the session is expired
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         Utc::now() > self.expires_at
     }
@@ -89,23 +92,27 @@ impl SecuritySession {
     }
 
     /// Set authorization level
+    #[must_use]
     pub fn with_authorization_level(mut self, level: AuthorizationLevel) -> Self {
         self.authorization_level = level;
         self
     }
 
     /// Set session data
+    #[must_use]
     pub fn with_session_data(mut self, key: String, value: serde_json::Value) -> Self {
         self.session_data.insert(key, value);
         self
     }
 
     /// Get session data
+    #[must_use]
     pub fn get_session_data(&self, key: &str) -> Option<&serde_json::Value> {
         self.session_data.get(key)
     }
 
     /// Set session type
+    #[must_use]
     pub fn with_session_type(mut self, session_type: String) -> Self {
         self.session_type = session_type;
         self
@@ -117,25 +124,28 @@ impl SecuritySession {
     }
 
     /// Check if session has required authorization level
+    #[must_use]
     pub fn has_authorization_level(&self, required_level: &AuthorizationLevel) -> bool {
-        use AuthorizationLevel::*;
+        use AuthorizationLevel::{Admin, Elevated, None, System, User};
 
         match (&self.authorization_level, required_level) {
             (System, _) => true,
-            (Admin, Admin) | (Admin, Elevated) | (Admin, User) | (Admin, None) => true,
-            (Elevated, Elevated) | (Elevated, User) | (Elevated, None) => true,
-            (User, User) | (User, None) => true,
+            (Admin, Admin | Elevated | User | None) => true,
+            (Elevated, Elevated | User | None) => true,
+            (User, User | None) => true,
             (None, None) => true,
             _ => false,
         }
     }
 
     /// Get session duration
+    #[must_use]
     pub fn get_duration(&self) -> chrono::Duration {
         self.last_accessed - self.created_at
     }
 
     /// Get time until expiry
+    #[must_use]
     pub fn time_until_expiry(&self) -> chrono::Duration {
         self.expires_at - Utc::now()
     }

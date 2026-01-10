@@ -1,12 +1,12 @@
-//! Configuration types for ToadStool integration
+//! Configuration types for `ToadStool` integration
 //!
 //! This module defines configuration structures for connecting to and
-//! managing the ToadStool compute primal.
+//! managing the `ToadStool` compute primal.
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// Configuration for ToadStool integration
+/// Configuration for `ToadStool` integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToadStoolConfig {
     pub toadstool_endpoint: String,

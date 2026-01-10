@@ -1,6 +1,6 @@
 //! Squirrel Primal Provider Module
 //!
-//! This module provides the concrete implementation of the PrimalProvider trait
+//! This module provides the concrete implementation of the `PrimalProvider` trait
 //! for the Squirrel AI primal, enabling it to participate in dynamic primal evolution
 //! and integrate with the Songbird service mesh.
 

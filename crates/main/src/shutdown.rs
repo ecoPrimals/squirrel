@@ -30,6 +30,7 @@ pub enum ShutdownPhase {
 }
 
 impl ShutdownPhase {
+    #[must_use]
     pub fn description(&self) -> &'static str {
         match self {
             Self::StopAccepting => "Stop accepting new requests",
@@ -95,6 +96,7 @@ pub enum ShutdownSignal {
 
 impl ShutdownManager {
     /// Create a new shutdown manager
+    #[must_use]
     pub fn new() -> Self {
         let (shutdown_tx, shutdown_rx) = mpsc::channel(10);
 
@@ -156,7 +158,7 @@ impl ShutdownManager {
 
         if let Some(ref tx) = self.shutdown_tx {
             tx.send(ShutdownSignal::Graceful).await.map_err(|e| {
-                PrimalError::Internal(format!("Failed to send shutdown signal: {}", e))
+                PrimalError::Internal(format!("Failed to send shutdown signal: {e}"))
             })?;
         }
 
@@ -216,8 +218,7 @@ impl ShutdownManager {
                     "Shutdown timeout exceeded"
                 );
                 return Err(PrimalError::Internal(format!(
-                    "Shutdown timeout in phase: {:?}",
-                    phase
+                    "Shutdown timeout in phase: {phase:?}"
                 )));
             }
             None => {
@@ -250,7 +251,7 @@ impl ShutdownManager {
             ShutdownPhase::FinalCleanup,
         ];
 
-        for phase in phases.iter() {
+        for phase in &phases {
             let phase_start = Instant::now();
             let timeout = self
                 .phase_timeouts
@@ -303,8 +304,7 @@ impl ShutdownManager {
                         "Shutdown phase timed out"
                     );
                     return Err(PrimalError::Internal(format!(
-                        "Shutdown phase {:?} timed out",
-                        phase
+                        "Shutdown phase {phase:?} timed out"
                     )));
                 }
             }
@@ -461,10 +461,10 @@ impl ShutdownManager {
                     // Success
                 }
                 Ok(Err(e)) => {
-                    errors.push(format!("{}: {}", component_name, e));
+                    errors.push(format!("{component_name}: {e}"));
                 }
                 Err(e) => {
-                    errors.push(format!("{}: Task panicked: {}", component_name, e));
+                    errors.push(format!("{component_name}: Task panicked: {e}"));
                 }
             }
         }
@@ -486,6 +486,7 @@ impl ShutdownManager {
     }
 
     /// Check if shutdown was requested
+    #[must_use]
     pub fn is_shutdown_requested(&self) -> bool {
         self.shutdown_requested
             .try_read()

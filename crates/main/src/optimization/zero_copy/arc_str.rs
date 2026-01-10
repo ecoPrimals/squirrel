@@ -34,7 +34,7 @@ use std::sync::Arc;
 /// Type alias for Arc<str> with semantic meaning
 pub type ArcStr = Arc<str>;
 
-/// Extension trait for creating ArcStr from various sources
+/// Extension trait for creating `ArcStr` from various sources
 pub trait IntoArcStr {
     fn into_arc_str(self) -> ArcStr;
 }
@@ -72,7 +72,7 @@ impl IntoArcStr for Box<str> {
 /// For strings that appear frequently (metric names, endpoint paths, error codes),
 /// we can intern them once and reuse the same Arc<str> everywhere.
 pub mod intern {
-    use super::*;
+    use super::{Arc, ArcStr};
     use std::collections::HashMap;
     use std::sync::LazyLock;
     use std::sync::RwLock;
@@ -200,20 +200,23 @@ impl SmartString {
     }
 
     /// Get the underlying Arc<str>
+    #[must_use]
     pub fn as_arc_str(&self) -> &ArcStr {
         &self.0
     }
 
     /// Convert into the underlying Arc<str>
+    #[must_use]
     pub fn into_arc_str(self) -> ArcStr {
         self.0
     }
 
     /// Create from a static string
     ///
-    /// Note: Not const fn because Arc::from is not const.
+    /// Note: Not const fn because `Arc::from` is not const.
     /// For compile-time strings, this is still efficient as Arc will
     /// just create a pointer to the static data.
+    #[must_use]
     pub fn from_static(s: &'static str) -> Self {
         Self(Arc::from(s))
     }

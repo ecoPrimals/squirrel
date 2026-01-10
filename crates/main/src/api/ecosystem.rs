@@ -33,7 +33,11 @@ pub async fn handle_ecosystem_status(
         .iter()
         .map(|s| {
             let key = format!("{:?}", s.primal_type);
-            let vals: Vec<String> = s.capabilities.iter().map(|c| c.to_string()).collect();
+            let vals: Vec<String> = s
+                .capabilities
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect();
             (key, vals)
         })
         .collect();
@@ -80,7 +84,11 @@ pub async fn handle_primals_list(
         .map(|s| PrimalStatusResponse {
             name: format!("{:?}", s.primal_type),
             health: format!("{:?}", s.health_status),
-            capabilities: s.capabilities.iter().map(|c| c.to_string()).collect(),
+            capabilities: s
+                .capabilities
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
         })
         .collect();
 
@@ -104,18 +112,21 @@ pub async fn handle_primal_status(
         .map(|s| PrimalStatusResponse {
             name: format!("{:?}", s.primal_type),
             health: format!("{:?}", s.health_status),
-            capabilities: s.capabilities.iter().map(|c| c.to_string()).collect(),
+            capabilities: s
+                .capabilities
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect(),
         });
 
-    match primal {
-        Some(p) => Ok(warp::reply::json(&p)),
-        None => {
-            let error = serde_json::json!({
-                "error": "Primal not found",
-                "primal": primal_name,
-            });
-            Ok(warp::reply::json(&error))
-        }
+    if let Some(p) = primal {
+        Ok(warp::reply::json(&p))
+    } else {
+        let error = serde_json::json!({
+            "error": "Primal not found",
+            "primal": primal_name,
+        });
+        Ok(warp::reply::json(&error))
     }
 }
 
@@ -253,8 +264,14 @@ pub async fn handle_towers_discovery(
             Some(GpuCapabilities {
                 gpu_count,
                 vram_total_gb,
-                gpu_model: service.metadata.get("gpu_model").map(|s| s.to_string()),
-                gpu_vendor: service.metadata.get("gpu_vendor").map(|s| s.to_string()),
+                gpu_model: service
+                    .metadata
+                    .get("gpu_model")
+                    .map(std::string::ToString::to_string),
+                gpu_vendor: service
+                    .metadata
+                    .get("gpu_vendor")
+                    .map(std::string::ToString::to_string),
                 supports_model_splitting: vram_total_gb >= 8,
             })
         } else {

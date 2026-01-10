@@ -1,6 +1,6 @@
 //! Dynamic action registry for provider-advertised capabilities
 //!
-//! The ActionRegistry is the heart of Phase 6 - it allows providers to
+//! The `ActionRegistry` is the heart of Phase 6 - it allows providers to
 //! dynamically register new AI actions at runtime without code changes.
 
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,7 @@ pub struct ActionRegistry {
 
 impl ActionRegistry {
     /// Create a new action registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             actions: Arc::new(RwLock::new(HashMap::new())),
@@ -137,7 +138,7 @@ impl ActionRegistry {
         let actions = self.actions.read().await;
 
         let total_actions = actions.len();
-        let total_providers = actions.values().map(|providers| providers.len()).sum();
+        let total_providers = actions.values().map(std::vec::Vec::len).sum();
         let available_actions = actions
             .iter()
             .filter(|(_, providers)| !providers.is_empty())
