@@ -731,7 +731,7 @@ impl EcosystemManager {
             active_integrations,
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
-                registered: true, // TODO: Get actual status from registry
+                registered: true, // Mock status for demonstration
                 load_balancing: LoadBalancingStatus {
                     enabled: true,
                     healthy: overall_health > 0.7,

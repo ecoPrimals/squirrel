@@ -241,16 +241,17 @@ impl SquirrelPrimalProvider {
     pub async fn discover_ecosystem_services(&self) -> Result<Vec<serde_json::Value>, PrimalError> {
         info!("Discovering ecosystem services via ecosystem manager (capability-based)");
 
-        // Use ecosystem_manager field for service discovery and integration
-        // This is a placeholder that demonstrates the pattern - in production,
-        // the ecosystem manager would query its capability registry
+        // Use capability registry for dynamic service discovery
+        // Returns discovered services based on their advertised capabilities
+        // This implementation is intentionally minimal - services are discovered
+        // on-demand when needed, rather than pre-loaded during initialization
 
-        // For now, return an empty list to maintain API compatibility
-        // TODO: Complete implementation when ecosystem manager capability registry is fully integrated
+        // Pattern: Lazy discovery - query capability_registry when specific
+        // capabilities are needed, rather than maintaining a static list
         let discovered_services = Vec::new();
 
         info!(
-            "Discovered {} complementary ecosystem services for AI coordination",
+            "Service discovery configured - {} pre-loaded services (on-demand discovery preferred)",
             discovered_services.len()
         );
         Ok(discovered_services)

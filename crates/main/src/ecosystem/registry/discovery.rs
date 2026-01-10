@@ -125,7 +125,8 @@ impl DiscoveryOps {
         _config_path: &str,
         _primal_type: &EcosystemPrimalType,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement configuration file parsing
+        // Future: Configuration file parsing for service endpoints
+        // Currently uses environment variables and discovery
         // This would read from TOML/JSON/YAML config file
         // Example: { "endpoints": { "security": "https://beardog.example.com" } }
         Err("Configuration file parsing not yet implemented".into())

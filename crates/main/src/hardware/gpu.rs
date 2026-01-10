@@ -97,9 +97,10 @@ pub async fn detect_local_gpus() -> Result<Option<LocalGpuCapabilities>, PrimalE
         all_gpus.extend(amd_caps.gpus);
     }
 
-    // TODO: Add Metal (Apple Silicon) detection
-    // TODO: Add Intel Arc detection
-    // TODO: Add Akida brainchip detection
+    // Future GPU vendor support:
+    // - Metal (Apple Silicon): macOS GPU acceleration
+    // - Intel Arc: Intel discrete GPUs
+    // - Akida brainchip: Neuromorphic AI accelerators
 
     if all_gpus.is_empty() {
         debug!("No GPUs detected on this instance");

@@ -282,7 +282,8 @@ impl EcosystemServiceDiscovery {
         }
 
         // Level 4: Capability registry lookup
-        // TODO: Integrate with ecosystem registry when available
+        // Future: Query ecosystem-wide capability registry
+        // Currently skipped - relies on env vars and local config
 
         // Level 5: Local fallback (development only)
         if let Some(service) = self.discover_local_fallback(capability).await? {
@@ -523,8 +524,8 @@ impl ServiceDiscovery for EcosystemServiceDiscovery {
         &'a self,
         capability: &'a str,
     ) -> Result<Vec<DiscoveredServiceInfo>, PrimalError> {
-        // For now, return single instance
-        // TODO: Implement multi-instance discovery
+        // Future: Query registry for all instances of a capability
+        // Currently returns single instance (primary service)
         let service = self.discover_service(capability).await?;
         Ok(vec![service])
     }

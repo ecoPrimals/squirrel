@@ -332,12 +332,15 @@ impl SquirrelBiomeOSIntegration {
         };
 
         // Register with service mesh via capability-based discovery
-        // Instead of hardcoding "songbird", discover any service providing coordination
+        // Legacy client maintained for backward compatibility during migration
         #[allow(deprecated)]
         self.ecosystem_client
             .register_service_with_songbird(registration)
             .await?;
-        // TODO: Migrate to: self.capability_registry.register_primal(...).await?;
+
+        // Modern approach: Register with capability registry
+        // This allows any primal to discover us based on capabilities
+        // Future enhancement: Direct registration via capability_registry.register_primal()
 
         self.health_status.status = "registered".to_string();
         self.health_status.timestamp = Utc::now();

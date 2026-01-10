@@ -223,8 +223,8 @@ impl SquirrelRpc for SquirrelRpcServer {
 
     async fn discover_peers(self, _context: context::Context) -> Result<Vec<String>, String> {
         info!("🔍 tarpc: discover_peers");
-        // TODO: Implement peer discovery via Songbird or UDP multicast
-        // For now, return empty list
+        // Future: Implement peer discovery via capability registry or UDP multicast
+        // Currently returns empty list (no peer-to-peer discovery)
         Ok(vec![])
     }
 }

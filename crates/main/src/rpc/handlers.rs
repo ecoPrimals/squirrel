@@ -123,8 +123,8 @@ impl RpcHandlers {
 
         self.increment_counter();
 
-        // TODO: Integrate with actual provider registry
-        // For now, return mock providers
+        // Mock providers for RPC demo/testing
+        // In production, this would query the ProviderRegistry
         let providers = vec![
             ProviderInfo {
                 id: "openai".to_string(),
@@ -170,8 +170,8 @@ impl RpcHandlers {
 
         self.increment_counter();
 
-        // TODO: Integrate with actual capability registry
-        // For now, acknowledge the announcement
+        // Mock response for RPC demo/testing
+        // In production, this would register with CapabilityRegistry
         let response = AnnounceCapabilitiesResponse {
             success: true,
             message: format!(
@@ -207,7 +207,7 @@ impl RpcHandlers {
                 0
             },
             requests_processed: requests,
-            avg_response_time_ms: Some(150.0), // TODO: Calculate from actual metrics
+            avg_response_time_ms: Some(150.0), // Mock metric for demo
         };
 
         debug!(

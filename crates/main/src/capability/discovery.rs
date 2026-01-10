@@ -144,6 +144,13 @@ impl CapabilityDiscovery {
     }
 
     /// Discover via service mesh
+    /// Discover via service mesh HTTP API
+    ///
+    /// **Status**: Stub - Triggers fallback to other discovery methods
+    ///
+    /// **Future Enhancement**: Implement HTTP client to query service mesh
+    /// discovery API for capabilities. For now, returns error to allow
+    /// fallback to environment variables and local configuration.
     async fn discover_via_service_mesh(
         &self,
         mesh_endpoint: &str,
@@ -152,26 +159,38 @@ impl CapabilityDiscovery {
         // Query service mesh for capability
         let url = format!("{mesh_endpoint}/discover/capability/{capability}");
 
-        // TODO: Implement actual HTTP request
-        // For now, return error to trigger fallback
+        // Stub: Return error to trigger fallback to env vars/config
+        // Future: reqwest::get(&url).await?.json().await
         Err(DiscoveryError::ServiceMeshUnavailable)
     }
 
     /// Discover via DNS-SD (DNS Service Discovery)
+    ///
+    /// **Status**: Stub - Not yet implemented
+    ///
+    /// **Future Enhancement**: Implement DNS-SD (RFC 6763) for service discovery
+    /// in production environments. Currently returns NotImplemented to trigger
+    /// fallback to other discovery methods.
     async fn discover_via_dns_sd(
         &self,
         _capability: &str,
     ) -> Result<DiscoveredEndpoint, DiscoveryError> {
-        // TODO: Implement DNS-SD discovery
+        // Future: Use dns-sd crate for RFC 6763 service discovery
         Err(DiscoveryError::NotImplemented("DNS-SD"))
     }
 
     /// Discover via mDNS (multicast DNS)
+    ///
+    /// **Status**: Stub - Not yet implemented
+    ///
+    /// **Future Enhancement**: Implement mDNS (RFC 6762) for local network
+    /// service discovery. Useful for development and small deployments.
+    /// Currently returns NotImplemented to trigger fallback.
     async fn discover_via_mdns(
         &self,
         _capability: &str,
     ) -> Result<DiscoveredEndpoint, DiscoveryError> {
-        // TODO: Implement mDNS discovery
+        // Future: Use mdns crate for RFC 6762 multicast discovery
         Err(DiscoveryError::NotImplemented("mDNS"))
     }
 

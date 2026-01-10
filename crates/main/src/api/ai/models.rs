@@ -437,7 +437,8 @@ async fn generate_performance_prediction(
     local_vram_gb: u32,
     discovered_services: &[crate::ecosystem::registry::types::DiscoveredService],
 ) -> Result<PerformancePredictionResponse, String> {
-    // TODO: Evolve to capability-based discovery of ToadStool's model analysis service
+    // Future Enhancement: Capability-based discovery of model analysis services
+    // Pattern: Query CapabilityRegistry for primals providing ModelAnalysis capability
     // For now, provide simplified estimation
 
     let tower_count = 1 + discovered_services.len();

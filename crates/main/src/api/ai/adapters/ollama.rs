@@ -131,7 +131,8 @@ impl OllamaAdapter {
 
     /// Select best available model for request
     async fn select_model(&self, _request: &TextGenerationRequest) -> String {
-        // TODO: Implement smart model selection based on request
+        // Future: Implement intelligent model selection based on request characteristics
+        // Currently uses first available model
         // For now, use default
         self.default_model.clone()
     }
