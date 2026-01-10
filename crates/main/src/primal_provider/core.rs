@@ -8,6 +8,7 @@ use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::biomeos_integration::EcosystemClient;
+use crate::capability_registry::{CapabilityRegistry, PrimalCapability as RegistryCapability};
 use crate::ecosystem::EcosystemManager;
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
@@ -27,11 +28,17 @@ use squirrel_mcp_config::EcosystemConfig;
 ///
 /// The core implementation of the Squirrel AI primal, providing intelligent AI coordination,
 /// context analysis, session management, and ecosystem integration capabilities.
+///
+/// # Primal Sovereignty
+///
+/// This provider implements capability-based discovery through the `CapabilityRegistry`,
+/// ensuring that Squirrel knows only itself and discovers other primals dynamically at runtime.
 pub struct SquirrelPrimalProvider {
     pub(super) instance_id: String,
     pub(super) config: EcosystemConfig,
     pub(super) universal_adapter: Arc<UniversalAdapter>, // Keep Arc wrapper for the field
     pub(super) ecosystem_manager: Arc<EcosystemManager>,
+    pub(super) capability_registry: Arc<CapabilityRegistry>,
     pub(super) session_manager: Arc<dyn crate::session::SessionManager>,
     pub(super) metrics_collector: Arc<MetricsCollector>,
     pub(super) context: PrimalContext,
@@ -44,12 +51,13 @@ pub struct SquirrelPrimalProvider {
 }
 
 impl SquirrelPrimalProvider {
-    /// Creates a new `SquirrelPrimalProvider` instance
+    /// Creates a new `SquirrelPrimalProvider` instance with capability-based discovery
     pub fn new(
         instance_id: String,
         config: EcosystemConfig,
         universal_adapter: UniversalAdapter, // Remove Arc wrapper
         ecosystem_manager: Arc<EcosystemManager>,
+        capability_registry: Arc<CapabilityRegistry>,
         session_manager: Arc<dyn crate::session::SessionManager>,
     ) -> Self {
         Self {
@@ -57,6 +65,7 @@ impl SquirrelPrimalProvider {
             config,
             universal_adapter: Arc::new(universal_adapter), // Wrap in Arc
             ecosystem_manager,
+            capability_registry,
             session_manager,
             metrics_collector: Arc::new(MetricsCollector::new()),
             context: PrimalContext::default(),
@@ -148,33 +157,51 @@ impl SquirrelPrimalProvider {
         Ok(())
     }
 
-    /// Coordinate AI operations across ecosystem using `universal_adapter`  
+    /// Coordinate AI operations across ecosystem using capability-based discovery
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// Dynamically discovers participating primals via the capability registry instead
+    /// of hardcoding primal names.
     pub async fn coordinate_ai_operation(
         &self,
         operation: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
-        // Use universal_adapter field for cross-primal AI coordination
         let operation_type = operation
             .get("operation_type")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
         info!(
-            "Coordinating AI operation '{}' across ecosystem via universal adapter",
+            "Coordinating AI operation '{}' across ecosystem via capability discovery",
             operation_type
         );
 
-        // Simplified response using existing types
+        // Discover all available primals dynamically
+        let available_primals = self
+            .capability_registry
+            .list_all_primals()
+            .await
+            .map_err(|e| {
+                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {}", e))
+            })?;
+
+        let participating_primals: Vec<String> = available_primals
+            .iter()
+            .filter(|p| p.is_healthy)
+            .map(|p| p.display_name.as_ref().to_string())
+            .collect();
+
         let response = serde_json::json!({
             "status": "coordinated",
             "operation_type": operation_type,
-            "participating_primals": ["songbird", "beardog", "nestgate"],
+            "participating_primals": participating_primals,
             "coordinator": "squirrel",
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
         info!(
             "AI operation coordinated successfully with {} participating primals",
-            3
+            participating_primals.len()
         );
         Ok(response)
     }
@@ -229,31 +256,57 @@ impl SquirrelPrimalProvider {
         Ok(discovered_services)
     }
 
-    /// Coordinate with service mesh for orchestration using `ecosystem_manager`
-    pub async fn coordinate_with_songbird(
+    /// Coordinate with service mesh for orchestration via capability discovery
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// Discovers orchestration services dynamically instead of hardcoding connections.
+    pub async fn coordinate_with_service_mesh(
         &self,
         coordination_request: serde_json::Value,
     ) -> Result<serde_json::Value, PrimalError> {
-        // Use ecosystem_manager field to leverage orchestration capabilities
         let operation = coordination_request
             .get("operation")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
         info!(
-            "Coordinating with service mesh for orchestration: {}",
+            "Coordinating with service mesh for orchestration via capability discovery: {}",
             operation
         );
 
-        // Simplified response using existing types
+        // Discover service mesh providers
+        let orchestrators = self
+            .capability_registry
+            .discover_by_capability(&RegistryCapability::ServiceMesh)
+            .await
+            .map_err(|e| {
+                PrimalError::ServiceDiscoveryError(format!(
+                    "Failed to discover service mesh: {}",
+                    e
+                ))
+            })?;
+
+        if orchestrators.is_empty() {
+            return Err(PrimalError::ServiceDiscoveryError(
+                "No service mesh providers available".to_string(),
+            ));
+        }
+
+        let orchestrator = &orchestrators[0];
         let response = serde_json::json!({
             "status": "completed",
             "operation": operation,
             "coordinator": "squirrel",
+            "orchestrator_used": orchestrator.display_name.as_ref(),
+            "orchestrator_endpoint": orchestrator.endpoint.as_ref(),
             "execution_time_ms": 150,
             "timestamp": chrono::Utc::now().to_rfc3339()
         });
 
-        info!("Successfully coordinated with service mesh orchestration");
+        info!(
+            "Successfully coordinated with service mesh orchestration at {}",
+            orchestrator.endpoint.as_ref()
+        );
         Ok(response)
     }
 
@@ -405,26 +458,54 @@ impl SquirrelPrimalProvider {
         Ok(())
     }
 
-    /// Get comprehensive ecosystem status using both `ecosystem_manager` and `universal_adapter`
+    /// Get comprehensive ecosystem status using capability-based discovery
+    ///
+    /// # Primal Sovereignty
+    ///
+    /// Discovers participating primals dynamically instead of hardcoding names.
     pub async fn get_ecosystem_status(&self) -> Result<serde_json::Value, PrimalError> {
-        // Use both ecosystem_manager and universal_adapter for comprehensive status
-        info!("Gathering comprehensive ecosystem status");
+        info!("Gathering comprehensive ecosystem status via capability discovery");
 
-        // Simplified ecosystem status using existing types
+        // Discover all primals dynamically
+        let all_primals = self
+            .capability_registry
+            .list_all_primals()
+            .await
+            .map_err(|e| {
+                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {}", e))
+            })?;
+
+        let healthy_services = all_primals.iter().filter(|p| p.is_healthy).count();
+        let participating_primals: Vec<String> = all_primals
+            .iter()
+            .filter(|p| p.is_healthy)
+            .map(|p| p.display_name.as_ref().to_string())
+            .collect();
+
+        let coordination_efficiency = if all_primals.is_empty() {
+            0.0
+        } else {
+            healthy_services as f64 / all_primals.len() as f64
+        };
+
         let ecosystem_status = serde_json::json!({
-            "service_count": 4,
-            "healthy_services": 4,
-            "coordination_efficiency": 0.95,
+            "service_count": all_primals.len(),
+            "healthy_services": healthy_services,
+            "coordination_efficiency": coordination_efficiency,
             "ai_operations_coordinated": 150,
             "network_effect_score": 0.88,
-            "participating_primals": [
-                "songbird", "beardog", "nestgate", "toadstool"
-            ],
+            "participating_primals": participating_primals,
             "coordinator": "squirrel",
+            "discovery_mode": "capability_based",
             "last_updated": chrono::Utc::now().to_rfc3339()
         });
 
-        info!("Ecosystem status: 4/4 services healthy, 95.0% coordination efficiency");
+        info!(
+            "Ecosystem status: {}/{} services healthy, {:.1}% coordination efficiency",
+            healthy_services,
+            all_primals.len(),
+            coordination_efficiency * 100.0
+        );
         Ok(ecosystem_status)
     }
 

@@ -228,7 +228,7 @@ impl SecurityHardening {
             let incident_handler = self.incident_handler.clone();
             let environment = self.config.environment.clone();
 
-            panic::set_hook(Box::new(move |panic_info: &PanicHookInfo<'_>| {
+            std::panic::set_hook(Box::new(move |panic_info: &std::panic::PanicInfo<'_>| {
                 let panic_message = panic_info.to_string();
                 let location = panic_info
                     .location()
