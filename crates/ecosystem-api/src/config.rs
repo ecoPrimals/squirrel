@@ -4,11 +4,11 @@
 //! that eliminates hardcoded values and supports dynamic configuration
 //! updates through the ecosystem.
 
-use crate::error::*;
+use crate::error::ConfigError;
 use crate::traits::{
     FeatureFlags, ResourceConfig, RetryConfig, ServiceConfig, SongbirdConfig, UniversalConfig,
 };
-use crate::types::*;
+use crate::types::{SecurityConfig, SecurityLevel};
 use std::collections::HashMap;
 use std::env;
 // Removed unused Duration import
@@ -21,6 +21,7 @@ pub struct ConfigLoader {
 
 impl ConfigLoader {
     /// Create a new configuration loader
+    #[must_use] 
     pub fn new(env_prefix: &str) -> Self {
         Self {
             env_prefix: env_prefix.to_string(),
@@ -542,6 +543,7 @@ pub struct ConfigDefaults;
 
 impl ConfigDefaults {
     /// Get default configuration for development
+    #[must_use] 
     pub fn development() -> UniversalConfig {
         UniversalConfig {
             service: ServiceConfig {
@@ -596,6 +598,7 @@ impl ConfigDefaults {
     }
 
     /// Get default configuration for production
+    #[must_use] 
     pub fn production() -> UniversalConfig {
         UniversalConfig {
             service: ServiceConfig {
@@ -608,9 +611,9 @@ impl ConfigDefaults {
                 instance_id: uuid::Uuid::new_v4().to_string(),
             },
             songbird: SongbirdConfig {
-                discovery_endpoint: "".to_string(), // Must be provided via environment
-                registration_endpoint: "".to_string(), // Must be provided via environment
-                health_endpoint: "".to_string(),    // Must be provided via environment
+                discovery_endpoint: String::new(), // Must be provided via environment
+                registration_endpoint: String::new(), // Must be provided via environment
+                health_endpoint: String::new(),    // Must be provided via environment
                 auth_token: None,                   // Must be provided via environment
                 retry_config: RetryConfig {
                     max_retries: 5,

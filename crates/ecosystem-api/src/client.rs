@@ -4,9 +4,9 @@
 //! the Songbird service mesh for service registration, discovery, and health
 //! reporting.
 
-use crate::error::*;
-use crate::traits::*;
-use crate::types::*;
+use crate::error::{EcosystemError, UniversalResult, UniversalError};
+use crate::traits::{RetryConfig, ServiceMeshClient, ServiceQuery, ServiceInfo, UniversalPrimalProvider, EcosystemIntegration};
+use crate::types::{EcosystemServiceRegistration, HealthStatus, ServiceMeshStatus, PrimalType};
 use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
 // Removed unused serde imports
@@ -47,6 +47,7 @@ impl SongbirdClient {
     }
 
     /// Set client timeout
+    #[must_use] 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
@@ -459,6 +460,7 @@ pub struct HealthMonitor {
 
 impl HealthMonitor {
     /// Create a new health monitor
+    #[must_use] 
     pub fn new(
         client: Box<dyn ServiceMeshClient + Send + Sync>,
         service_id: String,
@@ -479,7 +481,7 @@ impl HealthMonitor {
             interval.tick().await;
 
             match self.client.heartbeat(&self.service_id).await {
-                Ok(_) => {
+                Ok(()) => {
                     tracing::debug!(
                         "Heartbeat sent successfully for service: {}",
                         self.service_id
@@ -509,6 +511,7 @@ pub struct ServiceDiscovery {
 
 impl ServiceDiscovery {
     /// Create a new service discovery helper
+    #[must_use] 
     pub fn new(client: Box<dyn ServiceMeshClient + Send + Sync>) -> Self {
         Self { client }
     }

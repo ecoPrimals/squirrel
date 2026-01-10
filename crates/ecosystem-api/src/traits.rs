@@ -3,8 +3,8 @@
 //! This module contains the standardized traits that all primals in the
 //! ecoPrimals ecosystem must implement for seamless integration.
 
-use crate::error::*;
-use crate::types::*;
+use crate::error::{UniversalResult, EcosystemError};
+use crate::types::{PrimalContext, PrimalType, PrimalCapability, PrimalDependency, PrimalHealth, PrimalEndpoints, PrimalRequest, PrimalResponse, DynamicPortInfo, ServiceMeshStatus, EcosystemRequest, EcosystemResponse, HealthStatus, ServiceCapabilities, EcosystemServiceRegistration, SecurityConfig};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -260,6 +260,7 @@ pub struct ProviderHealth {
 
 impl ProviderHealth {
     /// Check if the provider is healthy
+    #[must_use] 
     pub fn is_healthy(&self) -> bool {
         self.healthy
     }
@@ -507,7 +508,7 @@ pub struct SongbirdConfig {
 
 /// Retry configuration for resilient operations
 ///
-/// Simple RetryConfig for ecosystem-api (standalone crate)
+/// Simple `RetryConfig` for ecosystem-api (standalone crate)
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
     /// Maximum number of retry attempts

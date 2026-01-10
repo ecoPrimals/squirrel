@@ -190,13 +190,13 @@ pub struct NetworkLocation {
 /// Standardized primal types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PrimalType {
-    /// ToadStool compute platform
+    /// `ToadStool` compute platform
     ToadStool,
     /// Songbird service mesh
     Songbird,
-    /// BearDog security framework
+    /// `BearDog` security framework
     BearDog,
-    /// NestGate storage system
+    /// `NestGate` storage system
     NestGate,
     /// Squirrel AI platform
     Squirrel,
@@ -208,6 +208,7 @@ pub enum PrimalType {
 
 impl PrimalType {
     /// Get string representation
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             PrimalType::ToadStool => "toadstool",
@@ -242,7 +243,7 @@ pub enum PrimalCapability {
     },
     /// Native execution support
     NativeExecution {
-        /// Supported CPU architectures (e.g., "x86_64", "aarch64")
+        /// Supported CPU architectures (e.g., "`x86_64`", "aarch64")
         architectures: Vec<String>,
     },
     /// WebAssembly execution support
@@ -379,7 +380,7 @@ pub struct PrimalDependency {
     pub primal_type: PrimalType,
     /// Human-readable name for the dependency
     pub name: String,
-    /// Required capabilities (used when primal_type is Any)
+    /// Required capabilities (used when `primal_type` is Any)
     pub capabilities: Vec<String>,
     /// Whether this dependency is required for operation
     pub required: bool,
