@@ -68,7 +68,7 @@ cargo run --example rpc_client
 - ✅ JSON-RPC 2.0 over Unix sockets (biomeOS integration)
 - ✅ REST HTTP API (external clients)
 - ✅ MCP protocol support
-- ⏳ tarpc binary RPC (60% complete, for federation)
+- ✅ tarpc binary RPC (Squirrel-to-Squirrel federation) - Feature-gated
 
 ### **Integration & Discovery**
 - ✅ **Capability-based discovery** (no hardcoded names)

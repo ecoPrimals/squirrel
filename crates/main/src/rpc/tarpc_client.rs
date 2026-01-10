@@ -1,6 +1,7 @@
 //! tarpc Client Implementation
 //!
 //! High-performance RPC client for connecting to remote Squirrel instances.
+//! Based on working implementations from Songbird and BearDog primals.
 //!
 //! The `#[tarpc::service]` macro generates a client type automatically.
 //! This module provides helper functions for connection management.
@@ -11,6 +12,7 @@ use std::net::SocketAddr;
 use tarpc::client;
 use tokio::net::TcpStream;
 use tokio_serde::formats::Bincode;
+use tokio_util::codec::LengthDelimitedCodec;
 use tracing::info;
 
 /// Connect to a remote Squirrel instance via tarpc
@@ -23,7 +25,14 @@ pub async fn connect(addr: SocketAddr) -> Result<SquirrelRpcClient, PrimalError>
         .await
         .map_err(|e| PrimalError::NetworkError(format!("Failed to connect: {}", e)))?;
 
-    let transport = tarpc::serde_transport::new(stream, Bincode::default());
+    // Create codec transport using tokio-serde with bincode
+    // Pattern from Songbird: LengthDelimitedCodec + Bincode format
+    let transport = tarpc::serde_transport::new(
+        LengthDelimitedCodec::builder()
+            .max_frame_length(16 * 1024 * 1024) // 16 MB max frame
+            .new_framed(stream),
+        Bincode::default(),
+    );
 
     let client = SquirrelRpcClient::new(client::Config::default(), transport).spawn();
 

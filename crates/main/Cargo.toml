@@ -8,7 +8,7 @@ description = "Squirrel Universal AI Primal - Main coordination primal"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
-tokio-util = "0.7"
+tokio-util = { version = "0.7.17", features = ["codec"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
@@ -37,9 +37,9 @@ regex = "1.10"
 jsonrpsee = { version = "0.24", features = ["server", "client"] }
 hostname = "0.4"
 
-# tarpc for high-performance RPC (Phase 2) - Feature-gated until API compatibility resolved
+# tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
 tarpc = { version = "0.34", features = ["full"], optional = true }
-tokio-serde = { version = "0.9", features = ["bincode"], optional = true }
+tokio-serde = { version = "0.8.0", features = ["bincode"], optional = true }
 bincode = { version = "1.3", optional = true }
 
 # Ecosystem integrations - Service Mesh via Songbird
@@ -89,11 +89,10 @@ prost = { version = "0.12", optional = true }
 default = ["monitoring", "ecosystem"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
 ecosystem = ["tonic", "prost"]
+tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]
 benchmarking = ["criterion", "pprof", "iai"]
 enhanced_error_handling = []
 optimizations = []
-# Phase 2: tarpc binary RPC (60% complete, needs API research - see docs/sessions/2026-01-09-audit-and-rpc/)
-tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]
 
 [dev-dependencies]
 tokio-test = "0.4"

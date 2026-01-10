@@ -2,7 +2,7 @@
 //!
 //! This module provides modern inter-primal communication protocols:
 //! - JSON-RPC 2.0 over Unix sockets (for biomeOS integration) ✅ COMPLETE
-//! - tarpc for high-performance peer-to-peer RPC ⏳ 60% COMPLETE (feature-gated)
+//! - tarpc for high-performance peer-to-peer RPC ✅ COMPLETE
 //!
 //! ## Architecture
 //!
@@ -19,8 +19,16 @@
 //! ## Protocol Selection
 //!
 //! - **Unix Socket + JSON-RPC**: Local biomeOS coordination (PRIMARY, READY)
-//! - **tarpc**: Remote Squirrel-to-Squirrel communication (PHASE 2, IN PROGRESS)
+//! - **tarpc**: Remote Squirrel-to-Squirrel communication (READY)
 //! - **REST HTTP**: External client APIs (legacy, maintained)
+//!
+//! ## Implementation Notes
+//!
+//! tarpc implementation based on working patterns from Songbird and BearDog primals:
+//! - Uses tarpc 0.34 with tokio-serde 0.8.0
+//! - LengthDelimitedCodec for framing
+//! - Bincode for serialization
+//! - Feature-gated behind `tarpc-rpc` feature flag
 
 pub mod handlers;
 pub mod server;
