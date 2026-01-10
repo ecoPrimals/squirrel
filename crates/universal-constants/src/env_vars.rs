@@ -70,13 +70,13 @@ pub const SERVICE_MESH_MAX_SERVICES: &str = "SERVICE_MESH_MAX_SERVICES";
 // BiomeOS Integration
 // ============================================================================
 
-/// BiomeOS registration URL environment variable
+/// `BiomeOS` registration URL environment variable
 pub const BIOMEOS_REGISTRATION_URL: &str = "BIOMEOS_REGISTRATION_URL";
 
-/// BiomeOS health URL environment variable
+/// `BiomeOS` health URL environment variable
 pub const BIOMEOS_HEALTH_URL: &str = "BIOMEOS_HEALTH_URL";
 
-/// BiomeOS metrics URL environment variable
+/// `BiomeOS` metrics URL environment variable
 pub const BIOMEOS_METRICS_URL: &str = "BIOMEOS_METRICS_URL";
 
 // ============================================================================

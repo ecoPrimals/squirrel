@@ -117,6 +117,7 @@ pub const DEFAULT_RETRY_DELAY_MS: u64 = 5_000;
 /// Convert Duration to milliseconds as u64
 ///
 /// Useful for APIs that require milliseconds.
+#[must_use] 
 pub const fn duration_to_millis(duration: Duration) -> u64 {
     duration.as_millis() as u64
 }
@@ -124,6 +125,7 @@ pub const fn duration_to_millis(duration: Duration) -> u64 {
 /// Convert Duration to seconds as u64
 ///
 /// Useful for APIs that require seconds.
+#[must_use] 
 pub const fn duration_to_secs(duration: Duration) -> u64 {
     duration.as_secs()
 }

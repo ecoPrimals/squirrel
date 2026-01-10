@@ -157,8 +157,7 @@ impl SongbirdCoordinator {
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!(
-                    "Failed to discover orchestration services: {}",
-                    e
+                    "Failed to discover orchestration services: {e}"
                 ))
             })?;
 
@@ -267,7 +266,7 @@ impl SongbirdCoordinator {
             })
             .unwrap_or_else(|_| "http://localhost:8080".to_string());
 
-        let health_endpoint = format!("{}/health", endpoint);
+        let health_endpoint = format!("{endpoint}/health");
 
         let mut metadata = HashMap::new();
         metadata.insert("coordinator_instance".to_string(), self.instance_id.clone());
@@ -286,8 +285,7 @@ impl SongbirdCoordinator {
             .await
             .map_err(|e| {
                 PrimalError::Registry(format!(
-                    "Failed to register AI coordination capabilities: {}",
-                    e
+                    "Failed to register AI coordination capabilities: {e}"
                 ))
             })?;
 
@@ -321,8 +319,7 @@ impl SongbirdCoordinator {
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!(
-                    "Failed to discover orchestration services: {}",
-                    e
+                    "Failed to discover orchestration services: {e}"
                 ))
             })?;
 
@@ -394,8 +391,7 @@ impl SongbirdCoordinator {
                 .await
                 .map_err(|e| {
                     PrimalError::ServiceDiscoveryError(format!(
-                        "Failed to discover services for {:?}: {}",
-                        capability, e
+                        "Failed to discover services for {capability:?}: {e}"
                     ))
                 })?;
 
@@ -403,7 +399,7 @@ impl SongbirdCoordinator {
                 discovered_services.push(serde_json::json!({
                     "service_id": primal.id.as_ref(),
                     "service_type": capability.description(),
-                    "capabilities": primal.capabilities.iter().map(|c| c.description()).collect::<Vec<&str>>(),
+                    "capabilities": primal.capabilities.iter().map(super::capability_registry::PrimalCapability::description).collect::<Vec<&str>>(),
                     "endpoint": primal.endpoint.as_ref(),
                     "health_status": if primal.is_healthy { "healthy" } else { "unhealthy" },
                     "discovered_via": "capability_registry",
@@ -484,7 +480,7 @@ impl SongbirdCoordinator {
             .list_all_primals()
             .await
             .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {}", e))
+                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {e}"))
             })?;
 
         let ai_coordination_services = all_primals
@@ -541,8 +537,7 @@ impl SongbirdCoordinator {
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!(
-                    "Failed to list primals for workflow: {}",
-                    e
+                    "Failed to list primals for workflow: {e}"
                 ))
             })?;
 

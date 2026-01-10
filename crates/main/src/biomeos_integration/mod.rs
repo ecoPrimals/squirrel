@@ -129,7 +129,7 @@ pub struct SquirrelBiomeOSIntegration {
     pub ai_intelligence: AiIntelligence,
     pub mcp_integration: McpIntegration,
     pub context_state: ContextState,
-    /// Legacy client (deprecated - prefer capability_registry)
+    /// Legacy client (deprecated - prefer `capability_registry`)
     #[deprecated(
         since = "0.1.0",
         note = "Use capability_registry for capability-based discovery"

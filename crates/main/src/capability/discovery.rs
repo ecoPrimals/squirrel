@@ -169,7 +169,7 @@ impl CapabilityDiscovery {
     /// **Status**: Stub - Not yet implemented
     ///
     /// **Future Enhancement**: Implement DNS-SD (RFC 6763) for service discovery
-    /// in production environments. Currently returns NotImplemented to trigger
+    /// in production environments. Currently returns `NotImplemented` to trigger
     /// fallback to other discovery methods.
     async fn discover_via_dns_sd(
         &self,
@@ -185,7 +185,7 @@ impl CapabilityDiscovery {
     ///
     /// **Future Enhancement**: Implement mDNS (RFC 6762) for local network
     /// service discovery. Useful for development and small deployments.
-    /// Currently returns NotImplemented to trigger fallback.
+    /// Currently returns `NotImplemented` to trigger fallback.
     async fn discover_via_mdns(
         &self,
         _capability: &str,

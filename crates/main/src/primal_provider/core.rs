@@ -182,7 +182,7 @@ impl SquirrelPrimalProvider {
             .list_all_primals()
             .await
             .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {}", e))
+                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {e}"))
             })?;
 
         let participating_primals: Vec<String> = available_primals
@@ -282,8 +282,7 @@ impl SquirrelPrimalProvider {
             .await
             .map_err(|e| {
                 PrimalError::ServiceDiscoveryError(format!(
-                    "Failed to discover service mesh: {}",
-                    e
+                    "Failed to discover service mesh: {e}"
                 ))
             })?;
 
@@ -473,7 +472,7 @@ impl SquirrelPrimalProvider {
             .list_all_primals()
             .await
             .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {}", e))
+                PrimalError::ServiceDiscoveryError(format!("Failed to list primals: {e}"))
             })?;
 
         let healthy_services = all_primals.iter().filter(|p| p.is_healthy).count();

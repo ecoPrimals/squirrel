@@ -121,13 +121,13 @@ pub mod capabilities {
     /// Coordination and service mesh capability (Songbird)
     pub const COORDINATION: &str = "coordination";
 
-    /// Security and authentication capability (BearDog)
+    /// Security and authentication capability (`BearDog`)
     pub const SECURITY: &str = "security";
 
-    /// Storage and persistence capability (NestGate)
+    /// Storage and persistence capability (`NestGate`)
     pub const STORAGE: &str = "storage";
 
-    /// Workload management capability (ToadStool)
+    /// Workload management capability (`ToadStool`)
     pub const WORKLOAD: &str = "workload";
 
     /// AI intelligence capability (Squirrel)
@@ -145,6 +145,7 @@ pub mod capabilities {
 /// This allows tests to provide configuration without mutating global environment variables,
 /// making tests truly concurrent and race-free.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ServiceDiscoveryConfig {
     /// Environment mode ("production", "development", etc.)
     pub environment: Option<String>,
@@ -165,16 +166,6 @@ pub struct DevFallbackConfig {
     pub port_overrides: HashMap<String, u16>,
 }
 
-impl Default for ServiceDiscoveryConfig {
-    fn default() -> Self {
-        Self {
-            environment: None,
-            dns_domain: None,
-            endpoint_overrides: HashMap::new(),
-            dev_fallback: None,
-        }
-    }
-}
 
 /// Ecosystem service discovery client implementation
 ///
@@ -203,6 +194,7 @@ impl EcosystemServiceDiscovery {
     /// - Build failures are extremely rare (only on invalid TLS config)
     ///
     /// If custom TLS or advanced features are needed, use `new_with_client()` instead.
+    #[must_use] 
     pub fn new() -> Self {
         Self::new_with_config(ServiceDiscoveryConfig::default())
     }
@@ -221,6 +213,7 @@ impl EcosystemServiceDiscovery {
     /// };
     /// let discovery = EcosystemServiceDiscovery::new_with_config(config);
     /// ```
+    #[must_use] 
     pub fn new_with_config(config: ServiceDiscoveryConfig) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
@@ -243,6 +236,7 @@ impl EcosystemServiceDiscovery {
     ///
     /// Use this when you need fine-grained control over HTTP client behavior,
     /// such as custom TLS configuration, proxy settings, or connection pooling.
+    #[must_use] 
     pub fn new_with_client(http_client: reqwest::Client) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
@@ -296,8 +290,7 @@ impl EcosystemServiceDiscovery {
         }
 
         Err(PrimalError::ServiceDiscoveryFailed(format!(
-            "No service found for capability: {}",
-            capability
+            "No service found for capability: {capability}"
         )))
     }
 
@@ -316,7 +309,7 @@ impl EcosystemServiceDiscovery {
             let health = self.check_service_health(endpoint).await;
 
             return Ok(Some(DiscoveredServiceInfo {
-                service_id: format!("{}-from-config", capability),
+                service_id: format!("{capability}-from-config"),
                 endpoint: endpoint.clone(),
                 capabilities: vec![capability.to_string()],
                 health,
@@ -341,7 +334,7 @@ impl EcosystemServiceDiscovery {
             let health = self.check_service_health(&endpoint).await;
 
             return Ok(Some(DiscoveredServiceInfo {
-                service_id: format!("{}-from-env", capability),
+                service_id: format!("{capability}-from-env"),
                 endpoint,
                 capabilities: vec![capability.to_string()],
                 health,
@@ -371,13 +364,13 @@ impl EcosystemServiceDiscovery {
 
         if dns_domain == "local" {
             // Use mDNS pattern: {capability}.local
-            let endpoint = format!("http://{}.local", capability);
+            let endpoint = format!("http://{capability}.local");
             let health = self.check_service_health(&endpoint).await;
 
             if health != ServiceHealth::Unavailable {
                 info!("Discovered service via mDNS: {}", endpoint);
                 return Ok(Some(DiscoveredServiceInfo {
-                    service_id: format!("{}-mdns", capability),
+                    service_id: format!("{capability}-mdns"),
                     endpoint,
                     capabilities: vec![capability.to_string()],
                     health,
@@ -386,13 +379,13 @@ impl EcosystemServiceDiscovery {
             }
         } else {
             // Use DNS: {capability}.{domain}
-            let endpoint = format!("http://{}.{}", capability, dns_domain);
+            let endpoint = format!("http://{capability}.{dns_domain}");
             let health = self.check_service_health(&endpoint).await;
 
             if health != ServiceHealth::Unavailable {
                 info!("Discovered service via DNS: {}", endpoint);
                 return Ok(Some(DiscoveredServiceInfo {
-                    service_id: format!("{}-dns", capability),
+                    service_id: format!("{capability}-dns"),
                     endpoint,
                     capabilities: vec![capability.to_string()],
                     health,
@@ -471,7 +464,7 @@ impl EcosystemServiceDiscovery {
                 .unwrap_or_else(|_| "localhost".to_string())
         };
 
-        let endpoint = format!("http://{}:{}", host, port);
+        let endpoint = format!("http://{host}:{port}");
         let health = self.check_service_health(&endpoint).await;
 
         debug!(
@@ -480,7 +473,7 @@ impl EcosystemServiceDiscovery {
         );
 
         Ok(Some(DiscoveredServiceInfo {
-            service_id: format!("{}-local", capability),
+            service_id: format!("{capability}-local"),
             endpoint,
             capabilities: vec![capability.to_string()],
             health,
@@ -495,7 +488,7 @@ impl EcosystemServiceDiscovery {
 
     /// Check service health
     async fn check_service_health(&self, endpoint: &str) -> ServiceHealth {
-        let health_url = format!("{}/health", endpoint);
+        let health_url = format!("{endpoint}/health");
 
         match self.http_client.get(&health_url).send().await {
             Ok(response) if response.status().is_success() => ServiceHealth::Healthy,
@@ -546,8 +539,7 @@ impl ServiceDiscovery for EcosystemServiceDiscovery {
         }
 
         Err(PrimalError::ServiceDiscoveryFailed(format!(
-            "Service not found: {}",
-            service_id
+            "Service not found: {service_id}"
         )))
     }
 

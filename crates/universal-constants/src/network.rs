@@ -84,6 +84,7 @@ pub const REGISTRATION_ENDPOINT: &str = "/register";
 // ============================================================================
 
 /// Get port from environment variable or use default
+#[must_use] 
 pub fn get_port_from_env(env_var: &str, default: u16) -> u16 {
     std::env::var(env_var)
         .ok()
@@ -92,11 +93,12 @@ pub fn get_port_from_env(env_var: &str, default: u16) -> u16 {
 }
 
 /// Construct HTTP URL from components
+#[must_use] 
 pub fn http_url(host: &str, port: u16, path: &str) -> String {
     if path.is_empty() {
-        format!("http://{}:{}", host, port)
+        format!("http://{host}:{port}")
     } else {
-        format!("http://{}:{}{}", host, port, path)
+        format!("http://{host}:{port}{path}")
     }
 }
 

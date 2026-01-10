@@ -29,10 +29,12 @@ impl ArcStr {
         Self(s.into())
     }
 
+    #[must_use] 
     pub fn as_ref(&self) -> &str {
         &self.0
     }
 
+    #[must_use] 
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -114,6 +116,7 @@ pub enum PrimalCapability {
 
 impl PrimalCapability {
     /// Get human-readable description
+    #[must_use] 
     pub fn description(&self) -> &str {
         match self {
             Self::Security => "Security and authentication services",
@@ -131,7 +134,7 @@ impl PrimalCapability {
 ///
 /// # Zero-Copy Optimization
 ///
-/// Uses `Arc<str>` for frequently-cloned fields (id, display_name, endpoints) that are
+/// Uses `Arc<str>` for frequently-cloned fields (id, `display_name`, endpoints) that are
 /// accessed during every service discovery operation. This provides O(1) cloning instead
 /// of O(n), reducing allocations by 60-70% in service discovery hot paths.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,8 +167,8 @@ pub struct RegisteredPrimal {
 ///
 /// # Zero-Copy Optimization
 ///
-/// Uses `Arc<str>` keys in HashMaps for O(1) cloning during lookups.
-/// HashMap keys are cloned on every lookup operation, so Arc<str> provides
+/// Uses `Arc<str>` keys in `HashMaps` for O(1) cloning during lookups.
+/// `HashMap` keys are cloned on every lookup operation, so Arc<str> provides
 /// significant performance benefits (60-70% reduction in allocations).
 pub struct CapabilityRegistry {
     /// Registered primals by ID (Arc<str> keys for zero-copy lookups)
@@ -199,6 +202,7 @@ impl Default for CapabilityRegistryConfig {
 
 impl CapabilityRegistry {
     /// Create a new capability registry
+    #[must_use] 
     pub fn new(config: CapabilityRegistryConfig) -> Self {
         Self {
             primals: Arc::new(RwLock::new(HashMap::new())),
@@ -216,9 +220,9 @@ impl CapabilityRegistry {
     /// # Arguments
     ///
     /// * `id` - Unique identifier for this primal instance (e.g., "beardog-01")
-    /// * `display_name` - Human-readable name (e.g., "BearDog Security")
+    /// * `display_name` - Human-readable name (e.g., "`BearDog` Security")
     /// * `capabilities` - Set of capabilities this primal provides
-    /// * `endpoint` - Base URL for API calls (e.g., "https://security.local:8443")
+    /// * `endpoint` - Base URL for API calls (e.g., "<https://security.local:8443>")
     /// * `health_endpoint` - Health check URL
     /// * `metadata` - Additional metadata (version, region, etc.)
     ///
@@ -423,7 +427,7 @@ impl CapabilityRegistry {
         primals
             .get(id)
             .cloned()
-            .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{}' not found", id)))
+            .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{id}' not found")))
     }
 
     /// List all registered primals
@@ -444,7 +448,7 @@ impl CapabilityRegistry {
             let mut primals = self.primals.write().await;
             primals
                 .remove(id)
-                .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{}' not found", id)))?
+                .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{id}' not found")))?
         };
 
         // Remove from capability index
@@ -473,7 +477,7 @@ impl CapabilityRegistry {
         let mut primals = self.primals.write().await;
         let primal = primals
             .get_mut(id)
-            .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{}' not found", id)))?;
+            .ok_or_else(|| PrimalError::NotFoundError(format!("Primal '{id}' not found")))?;
 
         primal.is_healthy = is_healthy;
         primal.last_health_check = Some(chrono::Utc::now());
@@ -551,6 +555,7 @@ impl CapabilityRegistry {
 }
 
 /// Helper to create capability registry with default config
+#[must_use] 
 pub fn create_capability_registry() -> CapabilityRegistry {
     CapabilityRegistry::new(CapabilityRegistryConfig::default())
 }

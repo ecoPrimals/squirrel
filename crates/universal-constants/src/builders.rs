@@ -112,8 +112,7 @@ pub fn parse_timeout_duration(env_var: &str, default: Duration) -> Duration {
     env::var(env_var)
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
-        .map(Duration::from_secs)
-        .unwrap_or(default)
+        .map_or(default, Duration::from_secs)
 }
 
 /// Parse limit from environment variable with default fallback

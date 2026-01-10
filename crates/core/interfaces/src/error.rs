@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-/// A type alias for a Result with a SquirrelError
+/// A type alias for a Result with a `SquirrelError`
 pub type Result<T> = std::result::Result<T, SquirrelError>;
 
 /// Persistence-related error types
@@ -160,6 +160,7 @@ impl SquirrelError {
     }
 
     /// Create a new persistence error
+    #[must_use] 
     pub fn persistence(err: PersistenceError) -> Self {
         SquirrelError::Persistence(err)
     }
@@ -183,6 +184,7 @@ impl SquirrelError {
     }
 
     /// Check if the error is recoverable
+    #[must_use] 
     pub fn is_recoverable(&self) -> bool {
         match self {
             SquirrelError::Network(_)
@@ -218,12 +220,12 @@ impl From<String> for SquirrelError {
     }
 }
 
-/// A trait for errors that can be converted to a SquirrelError
+/// A trait for errors that can be converted to a `SquirrelError`
 pub trait IntoSquirrelError {
-    /// Convert the error to a SquirrelError
+    /// Convert the error to a `SquirrelError`
     fn into_squirrel_error(self) -> SquirrelError;
 
-    /// Convert the error to a SquirrelError with context
+    /// Convert the error to a `SquirrelError` with context
     fn into_squirrel_error_with_context<C: Into<String>>(self, context: C) -> SquirrelError;
 }
 
