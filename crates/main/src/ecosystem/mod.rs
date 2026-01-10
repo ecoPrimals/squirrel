@@ -4,17 +4,32 @@
 //! Each primal is completely standalone and communicates through standardized APIs.
 //!
 //! ## Architecture Principles
-//! - Pure service discovery through Songbird service mesh
+//! - Pure capability-based service discovery
 //! - No hard dependencies between primals
 //! - Standardized HTTP/REST API communication
 //! - Each primal can function independently
 //! - Dynamic service registration and health monitoring
 //!
-//! ## Songbird Integration Pattern
-//! ```
-//! biomeOS → Songbird (Service Mesh) → All Primals
+//! ## Service Mesh Integration Pattern
+//! ```text
+//! biomeOS → Service Mesh (Capability Discovery) → All Primals
 //!               ↓
-//! ToadStool + BearDog + NestGate + Squirrel
+//! Primals discover each other by capability at runtime
+//! ```
+//!
+//! ## Migration from Hardcoded to Dynamic
+//!
+//! **Old Pattern (Hardcoded)**:
+//! ```ignore
+//! use EcosystemPrimalType::Songbird;
+//! let endpoint = Songbird.default_endpoint();
+//! ```
+//!
+//! **New Pattern (Capability-Based)**:
+//! ```ignore
+//! use CapabilityRegistry;
+//! let registry = CapabilityRegistry::new(Default::default());
+//! let coordinator = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
 //! ```
 
 use chrono::{DateTime, Utc};
@@ -89,6 +104,34 @@ pub struct EcosystemServiceRegistration {
 }
 
 /// Standardized primal types for ecosystem integration
+///
+/// **DEPRECATED**: This enum violates primal sovereignty by hardcoding all primal names.
+/// Use `CapabilityRegistry` and `PrimalCapability` for capability-based discovery instead.
+///
+/// ## Why This is Deprecated
+///
+/// - **Compile-time coupling**: Changes to the ecosystem require recompiling all primals
+/// - **Sovereignty violation**: Each primal should only know itself
+/// - **Scalability**: Cannot add new primals without code changes
+/// - **Evolution**: Cannot evolve primal names or capabilities
+///
+/// ## Migration Path
+///
+/// ```ignore
+/// // OLD (hardcoded):
+/// let primal_type = EcosystemPrimalType::Songbird;
+/// let endpoint = primal_type.default_endpoint();
+///
+/// // NEW (capability-based):
+/// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
+/// let registry = CapabilityRegistry::new(Default::default());
+/// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
+/// let endpoint = &primals[0].endpoint;
+/// ```
+#[deprecated(
+    since = "0.1.0",
+    note = "Use CapabilityRegistry for capability-based discovery instead of hardcoded primal types"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EcosystemPrimalType {
     ToadStool,
@@ -101,7 +144,10 @@ pub enum EcosystemPrimalType {
 
 impl EcosystemPrimalType {
     /// Convert to string representation
+    ///
+    /// **DEPRECATED**: Use capability-based discovery instead.
     #[must_use]
+    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry instead")]
     pub fn as_str(&self) -> &'static str {
         match self {
             EcosystemPrimalType::ToadStool => "toadstool",
@@ -115,16 +161,23 @@ impl EcosystemPrimalType {
 
     /// Get environment variable name for this primal's endpoint
     ///
-    /// # Example
-    /// ```
-    /// use squirrel::EcosystemPrimalType;
+    /// **DEPRECATED**: Use generic environment variables like `SERVICE_MESH_ENDPOINT`.
     ///
+    /// # Migration Example
+    /// ```ignore
+    /// // OLD:
     /// let primal = EcosystemPrimalType::Songbird;
-    /// assert_eq!(primal.env_name(), "SONGBIRD");
+    /// let env_name = primal.env_name(); // "SONGBIRD"
+    /// let endpoint = std::env::var(format!("{}_ENDPOINT", env_name))?;
     ///
-    /// // Set in environment: export SONGBIRD_ENDPOINT=http://songbird:8081
+    /// // NEW:
+    /// let endpoint = std::env::var("SERVICE_MESH_ENDPOINT")?; // Capability-agnostic
     /// ```
     #[must_use]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use generic env vars like SERVICE_MESH_ENDPOINT"
+    )]
     pub fn env_name(&self) -> &'static str {
         match self {
             EcosystemPrimalType::ToadStool => "TOADSTOOL",
@@ -138,22 +191,31 @@ impl EcosystemPrimalType {
 
     /// Get service name for service discovery
     ///
-    /// # Example
-    /// ```
-    /// use squirrel::EcosystemPrimalType;
+    /// **DEPRECATED**: Use capability-based discovery instead.
     ///
+    /// # Migration Example
+    /// ```ignore
+    /// // OLD:
     /// let primal = EcosystemPrimalType::Songbird;
-    /// assert_eq!(primal.service_name(), "songbird");
+    /// let service_name = primal.service_name(); // "songbird"
+    /// let url = format!("http://consul:8500/{}", service_name);
     ///
-    /// // Used with SERVICE_DISCOVERY_URL:
-    /// // http://consul:8500/songbird
+    /// // NEW:
+    /// use crate::capability_registry::{CapabilityRegistry, PrimalCapability};
+    /// let registry = CapabilityRegistry::new(Default::default());
+    /// let primals = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
+    /// let endpoint = &primals[0].endpoint; // Discovered endpoint
     /// ```
     #[must_use]
+    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
     pub fn service_name(&self) -> &'static str {
         self.as_str()
     }
 
     /// Parse from string
+    ///
+    /// **DEPRECATED**: Use capability-based discovery instead.
+    #[deprecated(since = "0.1.0", note = "Use CapabilityRegistry for discovery")]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "toadstool" => Ok(EcosystemPrimalType::ToadStool),
