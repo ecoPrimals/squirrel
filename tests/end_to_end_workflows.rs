@@ -4,6 +4,11 @@ use tokio::time::timeout;
 use serde_json::json;
 use uuid::Uuid;
 
+//! End-to-end workflow tests
+//!
+//! These tests validate complete workflows without artificial delays.
+//! All simulation sleeps have been removed for fast, concurrent testing.
+
 // Mock components for end-to-end testing
 #[derive(Debug, Clone)]
 struct WorkflowContext {
@@ -132,8 +137,7 @@ impl WorkflowOrchestrator {
             return Err("Invalid email format".into());
         }
 
-        // Step 2: Check for existing user
-        tokio::time::sleep(Duration::from_millis(100)).await; // Simulate DB check
+        // Step 2: Check for existing user (no artificial delay)
         
         // Step 3: Create user profile
         let profile = json!({
@@ -144,8 +148,7 @@ impl WorkflowOrchestrator {
             "status": "active"
         });
 
-        // Step 4: Send welcome email (simulated)
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        // Step 4: Send welcome email (simulated - no artificial delay)
 
         // Step 5: Initialize user preferences
         let preferences = json!({
@@ -172,8 +175,7 @@ impl WorkflowOrchestrator {
             return Err("Empty data provided".into());
         }
 
-        // Step 2: Data preprocessing
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Step 2: Data preprocessing (no artificial delay)
         
         // Step 3: Apply transformations
         let mut processed_data = input_data.clone();
@@ -183,8 +185,7 @@ impl WorkflowOrchestrator {
             obj.insert("size_bytes".to_string(), json!(data_size));
         }
 
-        // Step 4: Quality checks
-        tokio::time::sleep(Duration::from_millis(75)).await;
+        // Step 4: Quality checks (no artificial delay)
         
         // Step 5: Store results
         let result_id = Uuid::new_v4().to_string();
@@ -205,14 +206,13 @@ impl WorkflowOrchestrator {
         let mut service_endpoints = std::collections::HashMap::new();
         
         for service in &services {
-            tokio::time::sleep(Duration::from_millis(25)).await; // Simulate discovery
+            // No artificial delay - test concurrency
             service_endpoints.insert(service.to_string(), format!("http://{}.local:8080", service));
         }
 
-        // Step 2: Health checks
+        // Step 2: Health checks (no artificial delay)
         let mut healthy_services = Vec::new();
         for service in &services {
-            tokio::time::sleep(Duration::from_millis(10)).await; // Simulate health check
             if rand::random::<f32>() > 0.1 { // 90% health check success rate
                 healthy_services.push(service.to_string());
             }
@@ -253,11 +253,9 @@ impl WorkflowOrchestrator {
             ("metrics-collector", "1.5.0"),
         ];
 
-        // Step 2: Plugin loading
+        // Step 2: Plugin loading (no artificial delay)
         let mut loaded_plugins = Vec::new();
         for (plugin_name, version) in &available_plugins {
-            tokio::time::sleep(Duration::from_millis(100)).await; // Simulate loading
-            
             // Simulate loading success/failure
             if rand::random::<f32>() > 0.05 { // 95% success rate
                 loaded_plugins.push(json!({
@@ -269,9 +267,8 @@ impl WorkflowOrchestrator {
             }
         }
 
-        // Step 3: Plugin initialization
+        // Step 3: Plugin initialization (no artificial delay)
         for plugin in &mut loaded_plugins {
-            tokio::time::sleep(Duration::from_millis(50)).await; // Simulate init
             if let Some(obj) = plugin.as_object_mut() {
                 obj.insert("initialized".to_string(), json!(true));
                 obj.insert("init_time_ms".to_string(), json!(50));
@@ -285,7 +282,7 @@ impl WorkflowOrchestrator {
         for plugin in &loaded_plugins {
             let plugin_name = plugin.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
             
-            tokio::time::sleep(Duration::from_millis(75)).await; // Simulate execution
+            // No artificial delay - test concurrent execution
             
             execution_results.push(json!({
                 "plugin": plugin_name,
@@ -311,8 +308,7 @@ impl WorkflowOrchestrator {
             return Err("Configuration version required".into());
         }
 
-        // Step 2: Backup current configuration
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Step 2: Backup current configuration (no artificial delay)
         let backup_id = Uuid::new_v4().to_string();
 
         // Step 3: Apply configuration changes
@@ -322,15 +318,13 @@ impl WorkflowOrchestrator {
             "security.tls_enabled updated"
         ];
         
-        tokio::time::sleep(Duration::from_millis(200)).await; // Simulate application
+        // No artificial delays - test concurrent updates
 
         // Step 4: Validate new configuration
-        tokio::time::sleep(Duration::from_millis(150)).await;
         let validation_passed = true;
 
         // Step 5: Notify dependent services
         let notified_services = vec!["auth-service", "api-gateway", "load-balancer"];
-        tokio::time::sleep(Duration::from_millis(100)).await;
 
         Ok(json!({
             "update_id": Uuid::new_v4(),
@@ -359,25 +353,22 @@ impl WorkflowOrchestrator {
         // Step 3: Execute recovery actions
         let mut recovery_actions = Vec::new();
         
+        // No artificial delays - test actual recovery logic
         match recovery_strategy {
             "retry_with_backoff" => {
                 for attempt in 1..=3 {
-                    tokio::time::sleep(Duration::from_millis(attempt * 100)).await;
                     recovery_actions.push(format!("Retry attempt {} completed", attempt));
                 }
             },
             "scale_resources" => {
-                tokio::time::sleep(Duration::from_millis(200)).await;
                 recovery_actions.push("Resources scaled up".to_string());
                 recovery_actions.push("Load balancer updated".to_string());
             },
             "rollback_config" => {
-                tokio::time::sleep(Duration::from_millis(300)).await;
                 recovery_actions.push("Configuration rolled back".to_string());
                 recovery_actions.push("Services restarted".to_string());
             },
             _ => {
-                tokio::time::sleep(Duration::from_millis(150)).await;
                 recovery_actions.push("Generic recovery executed".to_string());
             }
         }
@@ -385,8 +376,7 @@ impl WorkflowOrchestrator {
         // Step 4: Verify recovery success
         let recovery_successful = rand::random::<f32>() > 0.2; // 80% success rate
 
-        // Step 5: Update monitoring and alerts
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        // Step 5: Update monitoring and alerts (no artificial delay)
 
         Ok(json!({
             "recovery_id": Uuid::new_v4(),

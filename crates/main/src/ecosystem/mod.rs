@@ -731,7 +731,8 @@ impl EcosystemManager {
             active_integrations,
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
-                registered: true, // Mock status for demonstration
+                // Check actual registration status from discovered services
+                registered: self.registry_manager.get_discovered_services().await.len() > 0,
                 load_balancing: LoadBalancingStatus {
                     enabled: true,
                     healthy: overall_health > 0.7,

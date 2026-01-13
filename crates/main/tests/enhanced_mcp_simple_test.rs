@@ -1,9 +1,11 @@
 //! Enhanced MCP Simple Test
 //!
-//! Comprehensive tests for biomeOS integration functionality
+//! Comprehensive tests for biomeOS integration functionality using the actual API.
 
 use squirrel::biomeos_integration::*;
-use squirrel::error::{PrimalError, Result};
+use squirrel::error::PrimalError;
+
+type Result<T> = std::result::Result<T, PrimalError>;
 
 /// Test AI intelligence functionality
 #[tokio::test]
@@ -59,8 +61,8 @@ async fn test_context_state_management() -> Result<()> {
 /// Test ecosystem client authentication and configuration
 #[tokio::test]
 async fn test_ecosystem_client_configuration() -> Result<()> {
-    // Test authentication configuration
-    let auth_config = AuthenticationConfig {
+    // Test authentication configuration using the correct type
+    let auth_config = EcosystemAuthConfig {
         auth_type: "ecosystem_jwt".to_string(),
         client_id: Some("squirrel-test".to_string()),
         client_secret: Some("test-secret".to_string()),
@@ -108,16 +110,18 @@ async fn test_service_registration_structure() -> Result<()> {
 /// Test health status reporting
 #[tokio::test]
 async fn test_health_status_reporting() -> Result<()> {
-    // Create health status with correct fields
+    // Create health status with ALL required fields
     let health_status = HealthStatus {
         status: "healthy".to_string(),
         timestamp: chrono::Utc::now(),
         ai_engine_status: "operational".to_string(),
         mcp_server_status: "active".to_string(),
         context_manager_status: "running".to_string(),
+        agent_deployment_status: "active".to_string(), // Required field
         active_sessions: 10,
         ai_requests_processed: 150,
         context_states_managed: 25,
+        deployed_agents: 5, // Required field
     };
 
     // Validate health status
@@ -125,9 +129,11 @@ async fn test_health_status_reporting() -> Result<()> {
     assert_eq!(health_status.active_sessions, 10);
     assert_eq!(health_status.ai_requests_processed, 150);
     assert_eq!(health_status.context_states_managed, 25);
+    assert_eq!(health_status.deployed_agents, 5);
     assert_eq!(health_status.ai_engine_status, "operational");
     assert_eq!(health_status.mcp_server_status, "active");
     assert_eq!(health_status.context_manager_status, "running");
+    assert_eq!(health_status.agent_deployment_status, "active");
 
     Ok(())
 }
@@ -140,7 +146,7 @@ async fn test_error_handling() -> Result<()> {
     let auth_error = PrimalError::Authentication("Invalid JWT token".to_string());
     let internal_error = PrimalError::Internal("Configuration missing".to_string());
 
-    // Validate error messages
+    // Validate error messages contain our text
     assert!(network_error.to_string().contains("Connection timeout"));
     assert!(auth_error.to_string().contains("Invalid JWT token"));
     assert!(internal_error.to_string().contains("Configuration missing"));
@@ -172,9 +178,9 @@ pub mod test_utils {
         SquirrelBiomeOSIntegration::new("test-biome".to_string())
     }
 
-    /// Create test authentication configuration
-    pub fn create_test_auth_config() -> AuthenticationConfig {
-        AuthenticationConfig {
+    /// Create test authentication configuration using the correct type
+    pub fn create_test_auth_config() -> EcosystemAuthConfig {
+        EcosystemAuthConfig {
             auth_type: "ecosystem_jwt".to_string(),
             client_id: Some("test-client".to_string()),
             client_secret: Some("test-secret".to_string()),
@@ -183,7 +189,7 @@ pub mod test_utils {
         }
     }
 
-    /// Create test health status
+    /// Create test health status with all required fields
     pub fn create_test_health_status() -> HealthStatus {
         HealthStatus {
             status: "healthy".to_string(),
@@ -191,9 +197,11 @@ pub mod test_utils {
             ai_engine_status: "operational".to_string(),
             mcp_server_status: "active".to_string(),
             context_manager_status: "running".to_string(),
+            agent_deployment_status: "active".to_string(),
             active_sessions: 5,
             ai_requests_processed: 100,
             context_states_managed: 20,
+            deployed_agents: 3,
         }
     }
 }

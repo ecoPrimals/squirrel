@@ -19,9 +19,8 @@ use crate::universal::{
     DynamicPortInfo, EcosystemRequest, EcosystemResponse, PrimalCapability, PrimalContext,
     PrimalDependency, PrimalEndpoints, PrimalHealth, PrimalInfo, PrimalRequest, PrimalResponse,
     PrimalType, ResponseStatus, ServiceMeshStatus, UniversalPrimalProvider, UniversalResult,
-    UniversalSecurityProvider,
 };
-use crate::universal_adapter::UniversalAdapter; // Fix import
+use crate::universal_adapter_v2::UniversalAdapterV2;
 use squirrel_mcp_config::EcosystemConfig;
 
 /// # Squirrel Primal Provider
@@ -36,7 +35,7 @@ use squirrel_mcp_config::EcosystemConfig;
 pub struct SquirrelPrimalProvider {
     pub(super) instance_id: String,
     pub(super) config: EcosystemConfig,
-    pub(super) universal_adapter: Arc<UniversalAdapter>, // Keep Arc wrapper for the field
+    pub(super) universal_adapter: Arc<UniversalAdapterV2>, // Infant primal adapter
     pub(super) ecosystem_manager: Arc<EcosystemManager>,
     pub(super) capability_registry: Arc<CapabilityRegistry>,
     pub(super) session_manager: Arc<dyn crate::session::SessionManager>,
@@ -55,7 +54,7 @@ impl SquirrelPrimalProvider {
     pub fn new(
         instance_id: String,
         config: EcosystemConfig,
-        universal_adapter: UniversalAdapter, // Remove Arc wrapper
+        universal_adapter: UniversalAdapterV2,
         ecosystem_manager: Arc<EcosystemManager>,
         capability_registry: Arc<CapabilityRegistry>,
         session_manager: Arc<dyn crate::session::SessionManager>,
@@ -63,7 +62,7 @@ impl SquirrelPrimalProvider {
         Self {
             instance_id,
             config,
-            universal_adapter: Arc::new(universal_adapter), // Wrap in Arc
+            universal_adapter: Arc::new(universal_adapter),
             ecosystem_manager,
             capability_registry,
             session_manager,
@@ -281,9 +280,7 @@ impl SquirrelPrimalProvider {
             .discover_by_capability(&RegistryCapability::ServiceMesh)
             .await
             .map_err(|e| {
-                PrimalError::ServiceDiscoveryError(format!(
-                    "Failed to discover service mesh: {e}"
-                ))
+                PrimalError::ServiceDiscoveryError(format!("Failed to discover service mesh: {e}"))
             })?;
 
         if orchestrators.is_empty() {

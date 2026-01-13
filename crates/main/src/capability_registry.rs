@@ -29,12 +29,12 @@ impl ArcStr {
         Self(s.into())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn as_ref(&self) -> &str {
         &self.0
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -116,7 +116,7 @@ pub enum PrimalCapability {
 
 impl PrimalCapability {
     /// Get human-readable description
-    #[must_use] 
+    #[must_use]
     pub fn description(&self) -> &str {
         match self {
             Self::Security => "Security and authentication services",
@@ -202,7 +202,7 @@ impl Default for CapabilityRegistryConfig {
 
 impl CapabilityRegistry {
     /// Create a new capability registry
-    #[must_use] 
+    #[must_use]
     pub fn new(config: CapabilityRegistryConfig) -> Self {
         Self {
             primals: Arc::new(RwLock::new(HashMap::new())),
@@ -555,7 +555,7 @@ impl CapabilityRegistry {
 }
 
 /// Helper to create capability registry with default config
-#[must_use] 
+#[must_use]
 pub fn create_capability_registry() -> CapabilityRegistry {
     CapabilityRegistry::new(CapabilityRegistryConfig::default())
 }

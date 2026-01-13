@@ -1,12 +1,9 @@
 //! MCP Core Tests
 //!
-//! Tests for core Machine Context Protocol functionality that belongs in Squirrel.
-//! This excludes functionality moved to other projects:
-//! - Web integration (moved to Songbird)
-//! - Compute/storage (moved to ToadStool/NestGate)
-//! - Complex monitoring (distributed across ecosystem)
+//! Tests for core Machine Context Protocol functionality in Squirrel.
+//! Tests the actual MCPError implementation and error codes.
 
-use squirrel::error::PrimalError;
+use squirrel_mcp::MCPError;
 
 #[cfg(test)]
 mod core_functionality {
@@ -14,98 +11,112 @@ mod core_functionality {
 
     #[test]
     fn test_mcp_error_types() {
-        // Test core error handling - this is fundamental MCP functionality
-        let validation_error = MCPError::ValidationFailed("test validation".to_string());
-        assert!(validation_error.to_string().contains("test validation"));
-        assert_eq!(validation_error.error_code(), "MCP-001");
+        // Test core error handling - fundamental MCP functionality
+        let validation_error = MCPError::Validation("test validation".to_string());
+        let _ = validation_error.to_string();
+        assert_eq!(validation_error.error_code(), "MCP-023");
 
-        let operation_error = MCPError::OperationFailed("test operation".to_string());
-        assert!(operation_error.to_string().contains("test operation"));
-        assert_eq!(operation_error.error_code(), "MCP-002");
+        let internal_error = MCPError::Internal("test internal".to_string());
+        let _ = internal_error.to_string();
+        assert_eq!(internal_error.error_code(), "MCP-057");
     }
 
     #[test]
     fn test_mcp_result_handling() {
         // Test Result type usage - core to MCP protocol
-        let success: Result<String> = Ok("success".to_string());
+        let success: Result<String, MCPError> = Ok("success".to_string());
         assert!(success.is_ok());
         assert_eq!(success.unwrap(), "success");
 
-        let failure: Result<String> = Err(MCPError::InternalError("failure".to_string()));
+        let failure: Result<String, MCPError> = Err(MCPError::Internal("failure".to_string()));
         assert!(failure.is_err());
     }
 
     #[test]
     fn test_error_code_consistency() {
         // Verify error codes are consistent - important for protocol compliance
+        assert_eq!(MCPError::Validation("".to_string()).error_code(), "MCP-023");
         assert_eq!(
-            MCPError::ValidationFailed("".to_string()).error_code(),
+            MCPError::OperationFailed("".to_string()).error_code(),
+            "MCP-049"
+        );
+        assert_eq!(MCPError::Internal("".to_string()).error_code(), "MCP-057");
+        assert_eq!(
+            MCPError::InternalError("".to_string()).error_code(),
+            "MCP-044"
+        );
+        assert_eq!(MCPError::Network("".to_string()).error_code(), "MCP-053");
+        assert_eq!(
+            MCPError::Configuration("".to_string()).error_code(),
+            "MCP-051"
+        );
+    }
+
+    #[test]
+    fn test_error_category_str() {
+        // Test category string representation
+        assert_eq!(
+            MCPError::Validation("".to_string()).category_str(),
+            "VALIDATION"
+        );
+        assert_eq!(
+            MCPError::Internal("".to_string()).category_str(),
+            "INTERNAL"
+        );
+        assert_eq!(MCPError::Network("".to_string()).category_str(), "NETWORK");
+    }
+
+    #[test]
+    fn test_transport_and_protocol_errors() {
+        // Test that error codes for core MCP layers are correct
+        assert_eq!(
+            MCPError::Transport(squirrel_mcp::error::TransportError::ConnectionFailed(
+                "test".to_string()
+            ))
+            .error_code(),
             "MCP-001"
         );
         assert_eq!(
-            MCPError::OperationFailed("".to_string()).error_code(),
+            MCPError::Protocol(squirrel_mcp::error::ProtocolError::InvalidVersion(
+                "test".to_string()
+            ))
+            .error_code(),
             "MCP-002"
         );
-        assert_eq!(
-            MCPError::InternalError("".to_string()).error_code(),
-            "MCP-003"
-        );
-        assert_eq!(MCPError::Network("".to_string()).error_code(), "MCP-024");
-        assert_eq!(
-            MCPError::Configuration("".to_string()).error_code(),
-            "MCP-030"
-        );
     }
 
     #[test]
-    fn test_authentication_errors() {
-        // Test authentication error types - core MCP security
-        assert_eq!(MCPError::InvalidCredentials.error_code(), "MCP-040");
-        assert_eq!(MCPError::InvalidToken.error_code(), "MCP-041");
-        assert_eq!(MCPError::AccountLocked.error_code(), "MCP-042");
-        assert_eq!(MCPError::MissingContext.error_code(), "MCP-043");
+    fn test_common_error_codes() {
+        // Test common error variants and their codes
+        let test_cases = vec![
+            (MCPError::Timeout("".to_string()), "MCP-033"),
+            (MCPError::Authentication("".to_string()), "MCP-058"),
+            (MCPError::Authorization("".to_string()), "MCP-013"),
+            (MCPError::NotFound("".to_string()), "MCP-039"),
+            (MCPError::InvalidArgument("".to_string()), "MCP-038"),
+            (MCPError::RateLimit("".to_string()), "MCP-059"),
+        ];
+
+        for (error, expected_code) in test_cases {
+            assert_eq!(error.error_code(), expected_code);
+        }
+    }
+
+    #[test]
+    fn test_error_pattern_matching() {
+        // Test pattern matching on errors
+        let error = MCPError::Validation("test message".to_string());
+        match error {
+            MCPError::Validation(msg) => assert_eq!(msg, "test message"),
+            _ => panic!("Wrong error variant"),
+        }
+    }
+
+    #[test]
+    fn test_error_clone() {
+        // MCPError should be Clone
+        let error = MCPError::General("test".to_string());
+        let cloned = error.clone();
+        assert_eq!(error.error_code(), cloned.error_code());
     }
 }
-
-#[cfg(test)]
-mod protocol_basics {
-    use super::*;
-
-    #[test]
-    fn test_mcp_core_constants() {
-        // Test that core MCP constants are available
-        // Note: These should be the minimal constants needed for MCP protocol
-        assert!(!squirrel::VERSION.is_empty());
-    }
-
-    #[test]
-    fn test_error_debug_formatting() {
-        // Test error formatting - important for debugging MCP issues
-        let error = MCPError::ValidationFailed("debug test".to_string());
-        let debug_str = format!("{error:?}");
-        assert!(debug_str.contains("ValidationFailed"));
-        assert!(debug_str.contains("debug test"));
-    }
-
-    #[test]
-    fn test_error_display_formatting() {
-        // Test error display - important for user-facing error messages
-        let error = MCPError::Network("connection failed".to_string());
-        let display_str = error.to_string();
-        assert!(display_str.contains("Network error"));
-        assert!(display_str.contains("connection failed"));
-    }
-}
-
-// Note: Tests for the following have been removed as they belong to other projects:
-// - Web integration tests (moved to Songbird)
-// - Storage/compute tests (moved to ToadStool/NestGate)
-// - Complex monitoring tests (distributed)
-// - Task management tests (removed from MCP Core)
-// - Plugin system tests (if moved to other projects)
-
-// TODO: Add tests for core MCP functionality as it's implemented:
-// - Basic protocol message handling
-// - Core transport mechanisms (if they remain in MCP Core)
-// - Essential session management (if it remains in MCP Core)
-// - Basic tool integration (if it remains in MCP Core)

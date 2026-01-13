@@ -16,6 +16,7 @@ pub mod config_validation; // ✅ PHASE 3: Configuration validation and defaults
 pub mod error_types;    // ✅ PHASE 3: Enhanced error handling
 pub mod config_manager; // ✅ PHASE 3: Centralized configuration management
 pub mod service_composition; // ✅ NEW: AI service composition engine
+pub mod workflow;            // ✅ NEW: Workflow execution system (internal)
 pub mod workflow_management; // ✅ NEW: Workflow management engine
 pub mod connection_pool;     // ✅ NEW: HTTP connection pool for AI providers
 pub mod serialization;       // ✅ NEW: Zero-copy serialization system

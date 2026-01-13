@@ -80,8 +80,7 @@ impl ErrorHandlingService {
     async fn attempt_recovery(&self) -> Result<(), TestError> {
         *self.recovery_attempts.lock().await += 1;
         
-        // Simulate recovery logic
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Recovery logic (no artificial delay)
         
         // Recovery success rate of 80%
         if rand::random::<f32>() < 0.8 {

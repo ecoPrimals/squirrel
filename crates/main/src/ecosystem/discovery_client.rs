@@ -144,8 +144,7 @@ pub mod capabilities {
 ///
 /// This allows tests to provide configuration without mutating global environment variables,
 /// making tests truly concurrent and race-free.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ServiceDiscoveryConfig {
     /// Environment mode ("production", "development", etc.)
     pub environment: Option<String>,
@@ -165,7 +164,6 @@ pub struct DevFallbackConfig {
     /// Port overrides by capability
     pub port_overrides: HashMap<String, u16>,
 }
-
 
 /// Ecosystem service discovery client implementation
 ///
@@ -194,7 +192,7 @@ impl EcosystemServiceDiscovery {
     /// - Build failures are extremely rare (only on invalid TLS config)
     ///
     /// If custom TLS or advanced features are needed, use `new_with_client()` instead.
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self::new_with_config(ServiceDiscoveryConfig::default())
     }
@@ -213,7 +211,7 @@ impl EcosystemServiceDiscovery {
     /// };
     /// let discovery = EcosystemServiceDiscovery::new_with_config(config);
     /// ```
-    #[must_use] 
+    #[must_use]
     pub fn new_with_config(config: ServiceDiscoveryConfig) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
@@ -236,7 +234,7 @@ impl EcosystemServiceDiscovery {
     ///
     /// Use this when you need fine-grained control over HTTP client behavior,
     /// such as custom TLS configuration, proxy settings, or connection pooling.
-    #[must_use] 
+    #[must_use]
     pub fn new_with_client(http_client: reqwest::Client) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),

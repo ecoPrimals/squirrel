@@ -13,6 +13,227 @@ use serde::{Serialize, Deserialize};
 use crate::error::{Result, types::MCPError};
 use super::types::*;
 
+/// Parse cron expression and calculate next execution time
+///
+/// Supports standard cron format: "minute hour day month weekday"
+/// Examples:
+/// - "0 0 * * *" - Daily at midnight
+/// - "*/5 * * * *" - Every 5 minutes
+/// - "0 9-17 * * 1-5" - Every hour from 9-5 on weekdays
+///
+/// Format: minute (0-59) hour (0-23) day (1-31) month (1-12) weekday (0-6, 0=Sunday)
+/// Special characters: * (any), */n (every n), n-m (range), n,m (list)
+fn parse_cron_expression(expr: &str) -> Result<chrono::DateTime<chrono::Utc>> {
+    let parts: Vec<&str> = expr.trim().split_whitespace().collect();
+    
+    if parts.len() != 5 {
+        return Err(MCPError::InvalidArgument(format!(
+            "Invalid cron expression '{}': expected 5 fields (minute hour day month weekday), got {}",
+            expr,
+            parts.len()
+        )));
+    }
+    
+    let now = chrono::Utc::now();
+    let mut next_time = now;
+    
+    // Parse each field
+    let minute_spec = parts[0];
+    let hour_spec = parts[1];
+    let day_spec = parts[2];
+    let month_spec = parts[3];
+    let weekday_spec = parts[4];
+    
+    // Start from the next minute
+    next_time = next_time + chrono::Duration::minutes(1);
+    next_time = next_time
+        .with_second(0)
+        .and_then(|t| t.with_nanosecond(0))
+        .unwrap_or(next_time);
+    
+    // Find next matching time (limited search to prevent infinite loops)
+    for _ in 0..10000 {
+        // Safety limit: search up to ~1 week ahead
+        if matches_cron_expression(
+            &next_time,
+            minute_spec,
+            hour_spec,
+            day_spec,
+            month_spec,
+            weekday_spec,
+        )? {
+            return Ok(next_time);
+        }
+        
+        // Advance by 1 minute
+        next_time = next_time + chrono::Duration::minutes(1);
+    }
+    
+    // If we can't find a match within a week, return an error
+    Err(MCPError::InvalidArgument(format!(
+        "Could not find next execution time for cron expression '{}' within search window",
+        expr
+    )))
+}
+
+/// Check if a datetime matches a cron expression
+fn matches_cron_expression(
+    dt: &chrono::DateTime<chrono::Utc>,
+    minute_spec: &str,
+    hour_spec: &str,
+    day_spec: &str,
+    month_spec: &str,
+    weekday_spec: &str,
+) -> Result<bool> {
+    let minute = dt.minute() as i32;
+    let hour = dt.hour() as i32;
+    let day = dt.day() as i32;
+    let month = dt.month() as i32;
+    let weekday = dt.weekday().num_days_from_sunday() as i32; // 0=Sunday
+    
+    Ok(matches_cron_field(minute_spec, minute, 0, 59)?
+        && matches_cron_field(hour_spec, hour, 0, 23)?
+        && matches_cron_field(day_spec, day, 1, 31)?
+        && matches_cron_field(month_spec, month, 1, 12)?
+        && matches_cron_field(weekday_spec, weekday, 0, 6)?)
+}
+
+/// Check if a value matches a cron field specification
+///
+/// Supports:
+/// - * (any value)
+/// - n (specific value)
+/// - n,m,o (list of values)
+/// - n-m (range)
+/// - */n (every n)
+/// - n-m/s (range with step)
+fn matches_cron_field(spec: &str, value: i32, min: i32, max: i32) -> Result<bool> {
+    // Wildcard matches everything
+    if spec == "*" {
+        return Ok(true);
+    }
+    
+    // Handle step values (*/n or n-m/s)
+    if spec.contains('/') {
+        let parts: Vec<&str> = spec.split('/').collect();
+        if parts.len() != 2 {
+            return Err(MCPError::InvalidArgument(format!(
+                "Invalid cron field '{}': step syntax requires exactly one '/'",
+                spec
+            )));
+        }
+        
+        let step: i32 = parts[1].parse().map_err(|_| {
+            MCPError::InvalidArgument(format!(
+                "Invalid cron step value '{}': must be a number",
+                parts[1]
+            ))
+        })?;
+        
+        if step <= 0 {
+            return Err(MCPError::InvalidArgument(format!(
+                "Invalid cron step value '{}': must be positive",
+                step
+            )));
+        }
+        
+        // Handle */n (every n)
+        if parts[0] == "*" {
+            return Ok(value % step == 0);
+        }
+        
+        // Handle n-m/s (range with step)
+        if parts[0].contains('-') {
+            let range_parts: Vec<&str> = parts[0].split('-').collect();
+            if range_parts.len() != 2 {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Invalid cron range '{}': expected 'start-end'",
+                    parts[0]
+                )));
+            }
+            
+            let range_start: i32 = range_parts[0].parse().map_err(|_| {
+                MCPError::InvalidArgument(format!(
+                    "Invalid cron range start '{}': must be a number",
+                    range_parts[0]
+                ))
+            })?;
+            
+            let range_end: i32 = range_parts[1].parse().map_err(|_| {
+                MCPError::InvalidArgument(format!(
+                    "Invalid cron range end '{}': must be a number",
+                    range_parts[1]
+                ))
+            })?;
+            
+            if value < range_start || value > range_end {
+                return Ok(false);
+            }
+            
+            return Ok((value - range_start) % step == 0);
+        }
+        
+        return Err(MCPError::InvalidArgument(format!(
+            "Invalid cron step specification '{}'",
+            spec
+        )));
+    }
+    
+    // Handle comma-separated lists (n,m,o)
+    if spec.contains(',') {
+        for part in spec.split(',') {
+            if matches_cron_field(part.trim(), value, min, max)? {
+                return Ok(true);
+            }
+        }
+        return Ok(false);
+    }
+    
+    // Handle ranges (n-m)
+    if spec.contains('-') {
+        let parts: Vec<&str> = spec.split('-').collect();
+        if parts.len() != 2 {
+            return Err(MCPError::InvalidArgument(format!(
+                "Invalid cron range '{}': expected 'start-end'",
+                spec
+            )));
+        }
+        
+        let range_start: i32 = parts[0].parse().map_err(|_| {
+            MCPError::InvalidArgument(format!(
+                "Invalid cron range start '{}': must be a number",
+                parts[0]
+            ))
+        })?;
+        
+        let range_end: i32 = parts[1].parse().map_err(|_| {
+            MCPError::InvalidArgument(format!(
+                "Invalid cron range end '{}': must be a number",
+                parts[1]
+            ))
+        })?;
+        
+        return Ok(value >= range_start && value <= range_end);
+    }
+    
+    // Handle specific value (n)
+    let specific_value: i32 = spec.parse().map_err(|_| {
+        MCPError::InvalidArgument(format!(
+            "Invalid cron field value '{}': must be a number, range, list, or wildcard",
+            spec
+        ))
+    })?;
+    
+    if specific_value < min || specific_value > max {
+        return Err(MCPError::InvalidArgument(format!(
+            "Cron field value {} out of range ({}-{})",
+            specific_value, min, max
+        )));
+    }
+    
+    Ok(value == specific_value)
+}
+
 /// Workflow scheduler
 ///
 /// Manages workflow scheduling, cron jobs, and time-based execution.
@@ -154,10 +375,18 @@ impl WorkflowScheduler {
             ScheduleType::Interval(duration) => {
                 Ok(Some(chrono::Utc::now() + chrono::Duration::from_std(*duration).unwrap()))
             }
-            ScheduleType::Cron(_expr) => {
-                // TODO: Implement cron parsing with cron library
-                // For now, schedule for next minute
-                Ok(Some(chrono::Utc::now() + chrono::Duration::minutes(1)))
+            ScheduleType::Cron(expr) => {
+                // Parse cron expression and calculate next execution time
+                // Supports standard cron format: "minute hour day month weekday"
+                // Examples: "0 0 * * *" (daily at midnight), "*/5 * * * *" (every 5 minutes)
+                match parse_cron_expression(expr) {
+                    Ok(next_time) => Ok(Some(next_time)),
+                    Err(e) => {
+                        tracing::warn!("Failed to parse cron expression '{}': {}. Using fallback (next minute)", expr, e);
+                        // Fallback to next minute if parsing fails
+                        Ok(Some(chrono::Utc::now() + chrono::Duration::minutes(1)))
+                    }
+                }
             }
             ScheduleType::EventDriven(_) => Ok(None), // No time-based execution
         }

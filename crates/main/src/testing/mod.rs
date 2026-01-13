@@ -4,8 +4,10 @@
 //! - Mock providers for all external services
 //! - Test fixtures and builders
 //! - Helper functions for common test scenarios
+//! - Modern concurrent test utilities (event-driven, no sleeps)
 
 pub mod mock_providers;
+pub mod concurrent_test_utils;
 //! - Integration test utilities
 
 use std::sync::Arc;

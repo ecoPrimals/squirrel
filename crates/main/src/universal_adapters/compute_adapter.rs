@@ -399,6 +399,8 @@ pub async fn register_toadstool_service(
             protocols: vec![
                 "https".to_string(),
                 "grpc".to_string(),
+                // Note: "docker" here refers to Docker API protocol support,
+                // not a hardcoded requirement to use Docker
                 "docker".to_string(),
             ],
         },
@@ -459,7 +461,7 @@ pub async fn register_toadstool_service(
             load_balancing_weight: 14,
         },
         extensions: HashMap::from([
-            ("primal_type".to_string(), serde_json::json!("toadstool")),
+            ("primal_type".to_string(), serde_json::json!("toadstool")), // Registry metadata only
             (
                 "ecosystem_role".to_string(),
                 serde_json::json!("compute_provider"),

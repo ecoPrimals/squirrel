@@ -211,6 +211,7 @@ impl ErrorStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn test_error_with_full_context() {

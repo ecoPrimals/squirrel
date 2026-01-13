@@ -1,3 +1,7 @@
+// NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
+// The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
+#![allow(deprecated)]
+
 //! Plugin manager
 //!
 //! This module provides the core plugin manager implementation.

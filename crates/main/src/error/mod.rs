@@ -85,6 +85,9 @@ pub enum PrimalError {
 
     #[error("Generic error: {0}")]
     Generic(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 // Add support for Box<dyn Error> conversion for our Arc<str> modernization

@@ -208,7 +208,7 @@ pub enum PrimalType {
 
 impl PrimalType {
     /// Get string representation
-    #[must_use] 
+    #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
             PrimalType::ToadStool => "toadstool",

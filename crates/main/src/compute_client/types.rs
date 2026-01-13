@@ -469,6 +469,8 @@ impl Default for ComputeClientConfig {
             preferred_capabilities: vec![
                 ComputeCapabilityPreference {
                     capability: ComputeCapabilityType::ContainerRuntime {
+                        // Example orchestrators that COULD be used
+                        // Actual orchestrator is discovered at runtime
                         orchestrators: vec!["kubernetes".to_string()],
                         isolation_level: "container".to_string(),
                     },

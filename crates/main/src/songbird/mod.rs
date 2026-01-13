@@ -258,13 +258,21 @@ impl SongbirdCoordinator {
         let mut capabilities = std::collections::HashSet::new();
         capabilities.insert(PrimalCapability::AIInference);
 
+        // Capability-based discovery: discover AI coordinator endpoint at runtime
+        // Falls back to environment configuration only if discovery unavailable
         let endpoint = std::env::var("AI_COORDINATOR_ENDPOINT")
             .or_else(|_| {
                 let port =
                     std::env::var("AI_COORDINATOR_PORT").unwrap_or_else(|_| "8080".to_string());
+                // Note: This is a fallback for local development only
+                // Production should use capability discovery from service mesh
                 Ok::<String, std::env::VarError>(format!("http://localhost:{port}"))
             })
-            .unwrap_or_else(|_| "http://localhost:8080".to_string());
+            .unwrap_or_else(|_| {
+                // Final fallback for local dev - in production, discovery will provide endpoint
+                tracing::warn!("Using fallback endpoint - capability discovery recommended");
+                "http://localhost:8080".to_string()
+            });
 
         let health_endpoint = format!("{endpoint}/health");
 
@@ -645,11 +653,14 @@ impl Default for SongbirdConfig {
             .unwrap_or(3);
 
         Self {
-            orchestration_endpoint: std::env::var("ORCHESTRATION_ENDPOINT")
-                .or_else(|_| std::env::var("SERVICE_MESH_ENDPOINT"))
+            // Capability-based discovery: prefer SERVICE_MESH_ENDPOINT from discovery
+            orchestration_endpoint: std::env::var("SERVICE_MESH_ENDPOINT")
+                .or_else(|_| std::env::var("ORCHESTRATION_ENDPOINT"))
                 .unwrap_or_else(|_| {
-                    let port =
-                        std::env::var("ORCHESTRATION_PORT").unwrap_or_else(|_| "8500".to_string());
+                    // Fallback for local development only
+                    let port = std::env::var("ORCHESTRATION_PORT")
+                        .unwrap_or_else(|_| "8500".to_string());
+                    tracing::warn!("Using fallback orchestration endpoint - service mesh discovery recommended");
                     format!("http://localhost:{port}")
                 }),
             heartbeat_interval: Duration::from_secs(heartbeat_interval_secs),
@@ -727,7 +738,7 @@ mod tests {
             .await
             .unwrap();
 
-        let coordinator =
+        let _coordinator =
             SongbirdCoordinator::new(EcosystemConfig::default(), registry.clone()).unwrap();
 
         // Test discovery

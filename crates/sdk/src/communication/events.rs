@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use crate::infrastructure::error::{PluginError, PluginResult};
+use crate::infrastructure::error::PluginResult;
 use crate::utils::{current_timestamp_iso, generate_listener_id, safe_lock};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
@@ -298,6 +298,7 @@ pub mod event_types {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::infrastructure::error::PluginError;
     use futures::FutureExt;
     use std::sync::Arc;
     use tokio::sync::Mutex as TokioMutex;

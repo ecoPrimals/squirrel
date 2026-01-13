@@ -68,11 +68,20 @@ impl TestSquirrelServer {
             }
         });
 
-        // Wait for server to be ready
+        // MODERNIZED: Event-driven server readiness detection
+        // Poll health endpoint with exponential backoff (no fixed delay)
         let client = Client::new();
         let health_url = format!("{}/health", base_url);
         
-        for _ in 0..30 {
+        let mut backoff = Duration::from_millis(10);
+        let max_wait = Duration::from_secs(3);
+        let start = tokio::time::Instant::now();
+        
+        loop {
+            if start.elapsed() > max_wait {
+                return Err(anyhow::anyhow!("Server failed to start within timeout"));
+            }
+            
             if let Ok(response) = client.get(&health_url).send().await {
                 if response.status().is_success() {
                     return Ok(Self {
@@ -83,11 +92,11 @@ impl TestSquirrelServer {
                     });
                 }
             }
-            // Polling delay for server startup (legitimately waiting for external server)
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            
+            // Exponential backoff: 10ms, 20ms, 40ms, 80ms, 160ms (max)
+            tokio::time::sleep(backoff).await;
+            backoff = (backoff * 2).min(Duration::from_millis(160));
         }
-
-        Err(anyhow::anyhow!("Server failed to start within timeout"))
     }
 
     /// Get the base URL

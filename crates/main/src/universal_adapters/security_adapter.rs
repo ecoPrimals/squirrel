@@ -300,6 +300,8 @@ pub async fn register_beardog_service(
             load_balancing_weight: 10,
         },
         extensions: HashMap::from([
+            // Note: This is registry metadata, not a hardcoded dependency
+            // The actual provider is discovered dynamically at runtime
             ("primal_type".to_string(), serde_json::json!("beardog")),
             (
                 "ecosystem_role".to_string(),

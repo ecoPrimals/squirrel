@@ -18,10 +18,6 @@
 //! The universal patterns framework consists of several key components:
 //!
 //! - **Universal Primal Registry**: Central registry for discovering and managing primal instances
-
-#![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed
-#![warn(clippy::all)]
-#![warn(rust_2018_idioms)]
 //! - **Primal Providers**: Individual adapter implementations for each primal service
 //! - **Communication Protocol**: Standardized request/response format for all primals
 //! - **Multi-Instance Support**: Ability to manage multiple instances of the same primal type

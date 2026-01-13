@@ -254,8 +254,7 @@ impl ProductionValidator {
         let mut monitoring_results = HashMap::new();
         let mut monitoring_ready = true;
 
-        // Check metrics collection
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Check metrics collection (no artificial delay)
         let metrics_available = self.check_metrics_endpoints().await;
         monitoring_results.insert("metrics_endpoints".to_string(), json!({
             "available": metrics_available.len(),
@@ -331,7 +330,7 @@ impl ProductionValidator {
     // Helper methods for specific checks (simplified implementations)
     
     async fn check_database_health(&self) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        // No artificial delay - test real check logic
         Ok(json!({
             "connection_pool": "healthy",
             "response_time_ms": 25,

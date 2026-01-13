@@ -91,19 +91,18 @@ impl RpcHandlers {
                 }
             }
         } else {
-            // Fallback mock response (for testing or when AI is not configured)
-            debug!("AI router not available, returning mock response");
+            // Graceful degradation when AI router not configured
+            debug!("AI router not configured - returning informational response");
             QueryAiResponse {
                 response: format!(
-                    "AI response to: '{}' (provider: {:?})",
-                    request.prompt,
-                    request.provider.as_deref().unwrap_or("auto")
+                    "Query received: '{}'. AI router not configured. Configure providers in config file or via environment variables.",
+                    request.prompt
                 ),
-                provider: request.provider.unwrap_or_else(|| "mock".to_string()),
-                model: request.model.unwrap_or_else(|| "mock-model-v1".to_string()),
-                tokens_used: Some(50),
+                provider: request.provider.clone().unwrap_or_else(|| "unconfigured".to_string()),
+                model: request.model.clone().unwrap_or_else(|| "unconfigured".to_string()),
+                tokens_used: None,
                 latency_ms: start.elapsed().as_millis() as u64,
-                success: true,
+                success: true,  // Operation succeeded (graceful degradation)
             }
         };
 
@@ -267,9 +266,10 @@ mod tests {
 
         let response = handlers.handle_query_ai(request).await.unwrap();
 
+        // Graceful degradation: Operation succeeds with informational message
         assert!(response.success);
-        assert!(!response.response.is_empty());
         assert_eq!(response.provider, "openai");
+        assert!(!response.response.is_empty());
     }
 
     #[tokio::test]
@@ -298,7 +298,7 @@ mod tests {
 
         assert_eq!(response.status, "healthy");
         assert!(!response.version.is_empty());
-        assert!(response.uptime_seconds >= 0);
+        // uptime_seconds is u64, always >= 0 (removed useless comparison)
     }
 
     #[tokio::test]

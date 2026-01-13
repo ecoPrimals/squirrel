@@ -82,9 +82,14 @@ impl UniversalComputeClient {
     async fn discover_compute_providers(&self) -> UniversalResult<()> {
         debug!("Discovering compute providers through capability-based search");
 
+        // Define compute capabilities to discover
+        // NOTE: These lists describe SUPPORTED runtimes/orchestrators, not hardcoded requirements
+        // The actual provider is discovered dynamically via UniversalAdapterV2
         let compute_capabilities = vec![
             PrimalCapability::ContainerRuntime {
+                // Capability: Can run containers via Docker API, containerd, or any OCI runtime
                 container_types: vec!["docker".to_string(), "containerd".to_string()],
+                // Capability: Can work with Kubernetes, Docker Swarm, or any orchestrator
                 orchestrators: vec!["kubernetes".to_string(), "docker".to_string()],
             },
             PrimalCapability::ServerlessExecution {

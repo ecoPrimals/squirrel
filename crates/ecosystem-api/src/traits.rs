@@ -3,8 +3,13 @@
 //! This module contains the standardized traits that all primals in the
 //! ecoPrimals ecosystem must implement for seamless integration.
 
-use crate::error::{UniversalResult, EcosystemError};
-use crate::types::{PrimalContext, PrimalType, PrimalCapability, PrimalDependency, PrimalHealth, PrimalEndpoints, PrimalRequest, PrimalResponse, DynamicPortInfo, ServiceMeshStatus, EcosystemRequest, EcosystemResponse, HealthStatus, ServiceCapabilities, EcosystemServiceRegistration, SecurityConfig};
+use crate::error::{EcosystemError, UniversalResult};
+use crate::types::{
+    DynamicPortInfo, EcosystemRequest, EcosystemResponse, EcosystemServiceRegistration,
+    HealthStatus, PrimalCapability, PrimalContext, PrimalDependency, PrimalEndpoints, PrimalHealth,
+    PrimalRequest, PrimalResponse, PrimalType, SecurityConfig, ServiceCapabilities,
+    ServiceMeshStatus,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -260,7 +265,7 @@ pub struct ProviderHealth {
 
 impl ProviderHealth {
     /// Check if the provider is healthy
-    #[must_use] 
+    #[must_use]
     pub fn is_healthy(&self) -> bool {
         self.healthy
     }

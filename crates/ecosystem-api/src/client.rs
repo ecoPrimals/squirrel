@@ -1,12 +1,25 @@
 //! Service mesh client implementation
 //!
-//! This module provides the client implementation for communicating with
-//! the Songbird service mesh for service registration, discovery, and health
-//! reporting.
+//! **DEPRECATED**: This module provides a legacy implementation for communicating with
+//! the Songbird service mesh. New code should use `UniversalAdapterV2` from the squirrel
+//! crate for capability-based discovery instead of hardcoded primal clients.
+//!
+//! ## Migration Path
+//!
+//! ```rust,ignore
+//! // ❌ OLD (deprecated)
+//! use ecosystem_api::client::SongbirdClient;
+//! let client = SongbirdClient::new("http://localhost:9090", None, Default::default())?;
+//!
+//! // ✅ NEW (capability-based)
+//! use squirrel::universal_adapter_v2::UniversalAdapterV2;
+//! let adapter = UniversalAdapterV2::awaken().await?;
+//! let service_mesh = adapter.connect_capability("service_mesh").await?;
+//! ```
 
-use crate::error::{EcosystemError, UniversalResult, UniversalError};
-use crate::traits::{RetryConfig, ServiceMeshClient, ServiceQuery, ServiceInfo, UniversalPrimalProvider, EcosystemIntegration};
-use crate::types::{EcosystemServiceRegistration, HealthStatus, ServiceMeshStatus, PrimalType};
+use crate::error::{EcosystemError, UniversalError, UniversalResult};
+use crate::traits::{RetryConfig, ServiceInfo, ServiceMeshClient, ServiceQuery};
+use crate::types::{EcosystemServiceRegistration, HealthStatus, PrimalType, ServiceMeshStatus};
 use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
 // Removed unused serde imports
@@ -15,6 +28,15 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 /// Songbird service mesh client
+///
+/// **DEPRECATED**: Use `UniversalAdapterV2` for capability-based discovery instead.
+///
+/// This client hardcodes the assumption that Songbird is the service mesh provider.
+/// In the new architecture, service mesh is discovered dynamically at runtime.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use UniversalAdapterV2::connect_capability(\"service_mesh\") instead"
+)]
 pub struct SongbirdClient {
     client: Client,
     base_url: String,
@@ -23,6 +45,7 @@ pub struct SongbirdClient {
     timeout: Duration,
 }
 
+#[allow(deprecated)] // Implementing deprecated struct for backward compatibility
 impl SongbirdClient {
     /// Create a new Songbird client
     pub fn new(
@@ -47,7 +70,7 @@ impl SongbirdClient {
     }
 
     /// Set client timeout
-    #[must_use] 
+    #[must_use]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
@@ -135,6 +158,7 @@ impl SongbirdClient {
 }
 
 #[async_trait]
+#[allow(deprecated)] // Implementation of deprecated trait for backward compatibility
 impl ServiceMeshClient for SongbirdClient {
     async fn register_service(
         &self,
@@ -436,6 +460,7 @@ pub struct ServiceMeshClientFactory;
 
 impl ServiceMeshClientFactory {
     /// Create a new service mesh client
+    #[allow(deprecated)] // Factory uses deprecated SongbirdClient for backward compatibility
     pub fn create_client(
         base_url: String,
         auth_token: Option<String>,
@@ -460,7 +485,7 @@ pub struct HealthMonitor {
 
 impl HealthMonitor {
     /// Create a new health monitor
-    #[must_use] 
+    #[must_use]
     pub fn new(
         client: Box<dyn ServiceMeshClient + Send + Sync>,
         service_id: String,
@@ -511,7 +536,7 @@ pub struct ServiceDiscovery {
 
 impl ServiceDiscovery {
     /// Create a new service discovery helper
-    #[must_use] 
+    #[must_use]
     pub fn new(client: Box<dyn ServiceMeshClient + Send + Sync>) -> Self {
         Self { client }
     }

@@ -22,7 +22,7 @@ thiserror = "1.0"
 async-trait = "0.1"
 dashmap = "5.5"
 parking_lot = "0.12"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 warp = "0.3"
 base64 = "0.21"
 rand = "0.8"
@@ -36,6 +36,7 @@ regex = "1.10"
 # JSON-RPC server for Unix socket IPC (Phase 1)
 jsonrpsee = { version = "0.24", features = ["server", "client"] }
 hostname = "0.4"
+nix = { workspace = true }
 
 # tarpc for high-performance RPC (Phase 2) - Fixed with correct versions from Songbird/BearDog
 tarpc = { version = "0.34", features = ["full"], optional = true }
@@ -72,7 +73,11 @@ squirrel-mcp = { path = "../core/mcp" }
 openai = "1.1"
 
 # Observability
+# SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
+# prometheus 0.13 depends on protobuf 2.28.0 which has a vulnerability
+# Consider migrating to opentelemetry or updating prometheus when available
 prometheus = { version = "0.13", optional = true }
+# TODO: Investigate prometheus update or migration to opentelemetry-prometheus
 metrics = { version = "0.21", optional = true }
 metrics-exporter-prometheus = { version = "0.12", optional = true }
 

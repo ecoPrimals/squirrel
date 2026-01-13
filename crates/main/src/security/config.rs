@@ -89,9 +89,13 @@ impl Default for RetryConfig {
 /// `BearDog` security configuration
 impl SecurityProviderConfig {
     /// Create configuration for `BearDog` security provider
+    ///
+    /// **NOTE**: This is a convenience constructor for BearDog-specific config.
+    /// For capability-based discovery, use `UniversalAdapterV2::connect_capability("security.authentication")`.
     #[must_use]
     pub fn beardog(endpoint: &str, auth_method: AuthMethod) -> Self {
         Self {
+            // Note: "beardog" here is just a label in config, not a hardcoded dependency
             provider_type: "beardog".to_string(),
             endpoint: endpoint.to_string(),
             auth_method,

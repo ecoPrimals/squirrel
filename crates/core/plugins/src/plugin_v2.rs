@@ -1,3 +1,7 @@
+// NOTE: Using deprecated plugin::PluginMetadata until interfaces crate stabilizes
+// The interfaces version lacks dependency tracking. See: PLUGIN_METADATA_MIGRATION_PLAN.md
+#![allow(deprecated)]
+
 //! PluginV2 trait with improved thread safety
 //!
 //! This module provides a new version of the Plugin trait that uses callbacks

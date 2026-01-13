@@ -429,15 +429,11 @@ mod tests {
             flag2_clone.store(true, Ordering::SeqCst);
         });
 
-        wait_for_all(
-            &[
-                || flag1.load(Ordering::SeqCst),
-                || flag2.load(Ordering::SeqCst),
-            ],
-            Duration::from_secs(1),
-        )
-        .await
-        .expect("Both flags should be set");
+        let check1 = || flag1.load(Ordering::SeqCst);
+        let check2 = || flag2.load(Ordering::SeqCst);
+        wait_for_all(&[&check1, &check2], Duration::from_secs(1))
+            .await
+            .expect("Both flags should be set");
     }
 
     #[tokio::test]

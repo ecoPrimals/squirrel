@@ -7,6 +7,7 @@
 
 pub mod async_test_utils;
 pub mod concurrent_helpers;
+pub mod provider_factory;
 pub mod provider_helpers;
 pub mod test_utils;
 
@@ -17,13 +18,10 @@ pub use async_test_utils::{
     Notifier, TimeoutError, Waiter,
 };
 
+// Re-export modern provider factory (NEW - for test modernization)
+pub use provider_factory::{create_test_provider, create_test_provider_with_config, ProviderFactory};
+
 // Re-export commonly used utilities
-// NOTE: provider_helpers functions are temporarily disabled due to type resolution issues
-// pub use provider_helpers::{
-//     create_test_provider, create_test_provider_with_config, create_test_provider_with_id,
-// };
 pub use test_utils::{
-    create_minimal_ecosystem_manager, create_test_ecosystem_manager,
-    create_test_ecosystem_manager_with_config, quick_test_duration, retry_with_backoff,
-    run_concurrent, test_duration, with_test_timeout,
+    quick_test_duration, retry_with_backoff, run_concurrent, test_duration, with_test_timeout,
 };

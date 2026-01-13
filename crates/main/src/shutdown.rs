@@ -236,7 +236,7 @@ impl ShutdownManager {
             *complete = true;
         }
 
-        ctx.complete_success();
+        let _ = ctx.complete_success();
         Ok(())
     }
 

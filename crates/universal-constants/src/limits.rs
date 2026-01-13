@@ -68,25 +68,25 @@ pub const DEFAULT_MAX_CONTEXT_LENGTH: usize = 128_000;
 // ============================================================================
 
 /// Convert bytes to kilobytes
-#[must_use] 
+#[must_use]
 pub const fn bytes_to_kb(bytes: usize) -> usize {
     bytes / 1024
 }
 
 /// Convert bytes to megabytes
-#[must_use] 
+#[must_use]
 pub const fn bytes_to_mb(bytes: usize) -> usize {
     bytes / (1024 * 1024)
 }
 
 /// Convert kilobytes to bytes
-#[must_use] 
+#[must_use]
 pub const fn kb_to_bytes(kb: usize) -> usize {
     kb * 1024
 }
 
 /// Convert megabytes to bytes
-#[must_use] 
+#[must_use]
 pub const fn mb_to_bytes(mb: usize) -> usize {
     mb * 1024 * 1024
 }

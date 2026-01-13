@@ -148,14 +148,9 @@ impl SquirrelRpc for SquirrelRpcServer {
                 }
             }
         } else {
-            // Fallback mock response
-            Ok(TarpcQueryResponse {
-                response: format!("Mock response to: {}", request.prompt),
-                provider: "mock".to_string(),
-                model: "mock-v1".to_string(),
-                tokens_used: Some(50),
-                latency_ms: start.elapsed().as_millis() as u64,
-            })
+            // Graceful degradation when AI router not configured
+            warn!("AI router not configured for tarpc request");
+            Err("AI router not configured. Configure providers to enable AI inference.".to_string())
         }
     }
 
@@ -195,12 +190,13 @@ impl SquirrelRpc for SquirrelRpcServer {
             );
             Ok(providers)
         } else {
+            // No providers configured
             Ok(vec![TarpcProviderInfo {
-                id: "mock".to_string(),
-                name: "Mock Provider".to_string(),
+                id: "unconfigured".to_string(),
+                name: "No Providers Configured".to_string(),
                 capabilities: vec!["ai.inference".to_string()],
                 online: false,
-                cost_tier: "free".to_string(),
+                cost_tier: "N/A".to_string(),
             }])
         }
     }

@@ -14,11 +14,13 @@
 pub mod api;
 pub mod beardog;
 pub mod biomeos_integration;
+pub mod capabilities; // NEW - Capability traits (Phase 2)
 pub mod capability;
 pub mod capability_registry;
 pub mod chaos;
 pub mod compute_client;
 pub mod config;
+pub mod discovery; // NEW - Capability-based discovery (Phase 2)
 pub mod ecosystem;
 pub mod error;
 pub mod error_handling;
@@ -38,6 +40,7 @@ pub mod storage_client;
 pub mod toadstool;
 pub mod universal;
 pub mod universal_adapter;
+pub mod universal_adapter_v2;
 pub mod universal_primal_ecosystem;
 pub mod universal_provider;
 

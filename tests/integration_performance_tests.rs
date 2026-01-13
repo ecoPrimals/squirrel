@@ -115,8 +115,7 @@ async fn test_memory_pool_performance() {
                 let buffer = memory_utils::get_message_buffer().await;
                 allocated_buffers.push(buffer);
                 
-                // Simulate some work
-                tokio::time::sleep(Duration::from_millis(1)).await;
+                // No artificial delay - test real allocation performance
             }
             
             (i, allocated_buffers.len())
@@ -354,8 +353,7 @@ async fn test_end_to_end_system_performance() {
                 
                 operations += 1;
                 
-                // Small delay to simulate real work
-                tokio::time::sleep(Duration::from_micros(100)).await;
+                // No artificial delay - test real concurrent performance
             }
             
             (client_id, operations, messages_processed, memory_allocations, plugin_operations)

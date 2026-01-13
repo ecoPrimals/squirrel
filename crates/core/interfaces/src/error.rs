@@ -160,7 +160,7 @@ impl SquirrelError {
     }
 
     /// Create a new persistence error
-    #[must_use] 
+    #[must_use]
     pub fn persistence(err: PersistenceError) -> Self {
         SquirrelError::Persistence(err)
     }
@@ -184,7 +184,7 @@ impl SquirrelError {
     }
 
     /// Check if the error is recoverable
-    #[must_use] 
+    #[must_use]
     pub fn is_recoverable(&self) -> bool {
         match self {
             SquirrelError::Network(_)

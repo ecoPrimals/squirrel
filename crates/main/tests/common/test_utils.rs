@@ -253,14 +253,14 @@ mod tests {
 ///     assert!(services.is_empty()); // No services registered yet
 /// }
 /// ```
-pub async fn create_test_ecosystem_manager() -> crate::ecosystem::EcosystemManager {
-    use crate::ecosystem::EcosystemConfig;
-    use crate::monitoring::metrics::collector::MetricsCollector;
+pub async fn create_test_ecosystem_manager() -> squirrel::ecosystem::EcosystemManager {
+    use squirrel::ecosystem::EcosystemConfig;
+    use squirrel::monitoring::metrics::collector::MetricsCollector;
     use std::sync::Arc;
 
     let config = EcosystemConfig::default();
     let metrics = Arc::new(MetricsCollector::new());
-    crate::ecosystem::EcosystemManager::new(config, metrics)
+    squirrel::ecosystem::EcosystemManager::new(config, metrics)
 }
 
 /// Creates a test ecosystem manager with custom configuration
@@ -282,19 +282,19 @@ pub async fn create_test_ecosystem_manager() -> crate::ecosystem::EcosystemManag
 /// }
 /// ```
 pub async fn create_test_ecosystem_manager_with_config(
-    config: crate::ecosystem::EcosystemConfig,
-) -> crate::ecosystem::EcosystemManager {
-    use crate::monitoring::metrics::collector::MetricsCollector;
+    config: squirrel::ecosystem::EcosystemConfig,
+) -> squirrel::ecosystem::EcosystemManager {
+    use squirrel::monitoring::metrics::collector::MetricsCollector;
     use std::sync::Arc;
 
     let metrics = Arc::new(MetricsCollector::new());
-    crate::ecosystem::EcosystemManager::new(config, metrics)
+    squirrel::ecosystem::EcosystemManager::new(config, metrics)
 }
 
 /// Creates a minimal test ecosystem manager (no metrics, minimal config)
 ///
 /// Use this for tests that don't need full ecosystem functionality
 /// and want the fastest possible initialization.
-pub async fn create_minimal_ecosystem_manager() -> crate::ecosystem::EcosystemManager {
+pub async fn create_minimal_ecosystem_manager() -> squirrel::ecosystem::EcosystemManager {
     create_test_ecosystem_manager().await
 }

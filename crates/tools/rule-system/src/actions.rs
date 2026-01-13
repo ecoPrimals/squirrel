@@ -426,7 +426,7 @@ impl ActionExecutor {
     /// Record action execution
     async fn record_execution(
         &self,
-        action: &RuleAction,
+        _action: &RuleAction, // Used for metrics tracking
         context_id: &str,
         rule_id: &str,
         timestamp: DateTime<Utc>,

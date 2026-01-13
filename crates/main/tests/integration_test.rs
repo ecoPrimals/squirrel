@@ -1,3 +1,4 @@
+use squirrel::biomeos_integration::ecosystem_client::AuthenticationConfig;
 use squirrel::biomeos_integration::*;
 use squirrel::error::PrimalError;
 use squirrel::protocol::types::*;
@@ -169,7 +170,9 @@ mod biomeos_integration_tests {
         let ai_intelligence = AiIntelligence::new();
         // Access the intelligence engine which contains ecosystem knowledge
         let ecosystem_knowledge = &ai_intelligence.intelligence_engine.ecosystem_knowledge;
-        assert!(ecosystem_knowledge.primal_capabilities.is_empty());
+        assert!(ecosystem_knowledge.patterns.is_empty());
+        assert!(ecosystem_knowledge.insights.is_empty());
+        assert!(ecosystem_knowledge.learnings.is_empty());
     }
 
     #[tokio::test]
@@ -219,14 +222,17 @@ mod biomeos_integration_tests {
             ai_engine_status: "operational".to_string(),
             mcp_server_status: "active".to_string(),
             context_manager_status: "running".to_string(),
+            agent_deployment_status: "ready".to_string(),
             active_sessions: 5,
             ai_requests_processed: 1000,
             context_states_managed: 50,
+            deployed_agents: 3,
         };
 
         assert_eq!(health_status.status, "healthy");
         assert_eq!(health_status.active_sessions, 5);
         assert_eq!(health_status.ai_requests_processed, 1000);
+        assert_eq!(health_status.deployed_agents, 3);
     }
 
     #[tokio::test]

@@ -4,18 +4,21 @@
 //! This test verifies that squirrel can properly register with and coordinate through songbird.
 
 use squirrel::biomeos_integration::{HealthStatus, SquirrelBiomeOSIntegration};
-use squirrel::songbird::SongbirdIntegration;
+use squirrel::capability_registry::CapabilityRegistry;
+use squirrel::ecosystem::EcosystemConfig;
+use squirrel::songbird::SongbirdCoordinator;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn test_songbird_integration_basic() {
-    // Test basic songbird integration functionality
-    let integration = SongbirdIntegration::new();
-    // Just check that we can create the integration
-    assert_eq!(
-        integration.config.songbird_endpoint,
-        "http://localhost:8080"
-    );
-    assert_eq!(integration.config.max_retries, 3);
+    // Test basic songbird coordinator creation using capability-based discovery
+    let config = EcosystemConfig::default();
+    let registry = Arc::new(CapabilityRegistry::new(config.clone()));
+    let coordinator = SongbirdCoordinator::new(config, registry);
+
+    // Verify coordinator was created successfully
+    let health = coordinator.get_health_status().await;
+    assert!(!health.status.is_empty());
 }
 
 #[tokio::test]
@@ -27,15 +30,18 @@ async fn test_songbird_health_status() {
         ai_engine_status: "operational".to_string(),
         mcp_server_status: "active".to_string(),
         context_manager_status: "running".to_string(),
+        agent_deployment_status: "ready".to_string(),
         active_sessions: 0,
         ai_requests_processed: 0,
         context_states_managed: 0,
+        deployed_agents: 0,
     };
 
     assert_eq!(health_status.status, "healthy");
     assert_eq!(health_status.ai_engine_status, "operational");
     assert_eq!(health_status.mcp_server_status, "active");
     assert_eq!(health_status.context_manager_status, "running");
+    assert_eq!(health_status.agent_deployment_status, "ready");
 }
 
 #[tokio::test]

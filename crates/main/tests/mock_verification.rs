@@ -4,46 +4,57 @@
 
 #[cfg(test)]
 mod mock_verification_tests {
+    use std::fs;
     use std::path::Path;
-    use walkdir::WalkDir;
+
+    fn visit_dirs(dir: &Path, violations: &mut Vec<String>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dirs(&path, violations);
+                } else if path.extension().map(|ext| ext == "rs").unwrap_or(false) {
+                    let path_str = path.to_str().unwrap_or("");
+                    if path_str.contains("_test")
+                        || path_str.contains("/tests/")
+                        || path_str.contains("testing")
+                        || path_str.contains("mock_providers.rs")
+                    {
+                        continue;
+                    }
+                    check_file_for_mocks(&path, violations);
+                }
+            }
+        }
+    }
+
+    fn check_file_for_mocks(path: &Path, violations: &mut Vec<String>) {
+        if let Ok(content) = fs::read_to_string(path) {
+            if content.contains("struct Mock") || content.contains("fn mock_") {
+                let lines: Vec<&str> = content.lines().collect();
+                for (i, line) in lines.iter().enumerate() {
+                    if (line.contains("struct Mock") || line.contains("fn mock_"))
+                        && !line.trim().starts_with("//")
+                        && !line.trim().starts_with("*")
+                    {
+                        violations.push(format!(
+                            "{}:{} - Found mock in production code: {}",
+                            path.display(),
+                            i + 1,
+                            line.trim()
+                        ));
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn verify_no_production_mocks() {
         let src_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
         let mut mock_violations = Vec::new();
 
-        for entry in WalkDir::new(&src_dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path().extension().map(|ext| ext == "rs").unwrap_or(false)
-                    && !e.path().to_str().unwrap().contains("_test")
-                    && !e.path().to_str().unwrap().contains("/tests/")
-                    && !e.path().to_str().unwrap().contains("testing")
-                    && !e.path().to_str().unwrap().contains("mock_providers.rs")
-            })
-        {
-            if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                // Look for mock patterns in production code
-                if content.contains("struct Mock") || content.contains("fn mock_") {
-                    // Allow comments and documentation about mocks
-                    let lines: Vec<&str> = content.lines().collect();
-                    for (i, line) in lines.iter().enumerate() {
-                        if (line.contains("struct Mock") || line.contains("fn mock_"))
-                            && !line.trim().starts_with("//")
-                            && !line.trim().starts_with("*")
-                        {
-                            mock_violations.push(format!(
-                                "{}:{} - Found mock in production code: {}",
-                                entry.path().display(),
-                                i + 1,
-                                line.trim()
-                            ));
-                        }
-                    }
-                }
-            }
-        }
+        visit_dirs(&src_dir, &mut mock_violations);
 
         if !mock_violations.is_empty() {
             panic!(

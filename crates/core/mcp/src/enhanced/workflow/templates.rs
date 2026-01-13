@@ -12,6 +12,226 @@ use serde::{Serialize, Deserialize};
 use crate::error::{Result, types::MCPError};
 use super::types::*;
 
+/// Substitute parameters in a workflow step
+///
+/// Replaces placeholders like {{param_name}} with actual parameter values
+/// Supports nested JSON structures
+fn substitute_parameters_in_step(
+    step: &mut WorkflowStep,
+    parameters: &HashMap<String, serde_json::Value>,
+) -> Result<()> {
+    // Substitute in step name
+    step.name = substitute_string(&step.name, parameters);
+    
+    // Substitute in step description
+    step.description = substitute_string(&step.description, parameters);
+    
+    // Substitute in step config
+    step.config = substitute_json_value(&step.config, parameters)?;
+    
+    Ok(())
+}
+
+/// Substitute parameters in a string
+///
+/// Replaces {{param_name}} with the parameter value
+/// Example: "Hello {{name}}" with {"name": "World"} -> "Hello World"
+fn substitute_string(s: &str, parameters: &HashMap<String, serde_json::Value>) -> String {
+    let mut result = s.to_string();
+    
+    // Find all {{param_name}} patterns
+    for (key, value) in parameters {
+        let placeholder = format!("{{{{{}}}}}", key);
+        let replacement = match value {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            serde_json::Value::Null => "null".to_string(),
+            _ => value.to_string(), // For arrays/objects, use JSON representation
+        };
+        
+        result = result.replace(&placeholder, &replacement);
+    }
+    
+    result
+}
+
+/// Substitute parameters in a JSON value
+///
+/// Recursively processes JSON structures, replacing {{param_name}} in strings
+fn substitute_json_value(
+    value: &serde_json::Value,
+    parameters: &HashMap<String, serde_json::Value>,
+) -> Result<serde_json::Value> {
+    match value {
+        serde_json::Value::String(s) => {
+            Ok(serde_json::Value::String(substitute_string(s, parameters)))
+        }
+        serde_json::Value::Array(arr) => {
+            let mut result = Vec::new();
+            for item in arr {
+                result.push(substitute_json_value(item, parameters)?);
+            }
+            Ok(serde_json::Value::Array(result))
+        }
+        serde_json::Value::Object(obj) => {
+            let mut result = serde_json::Map::new();
+            for (key, val) in obj {
+                result.insert(key.clone(), substitute_json_value(val, parameters)?);
+            }
+            Ok(serde_json::Value::Object(result))
+        }
+        // Numbers, booleans, and null are returned as-is
+        other => Ok(other.clone()),
+    }
+}
+
+/// Validate a parameter value against its definition
+///
+/// Checks type compatibility, ranges, patterns, and custom validation rules
+fn validate_parameter_value(param: &TemplateParameter, value: &serde_json::Value) -> Result<()> {
+    // Type validation
+    match param.param_type.as_str() {
+        "string" => {
+            if !value.is_string() {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be a string, got {:?}",
+                    param.name,
+                    value
+                )));
+            }
+            
+            // Validate string length if specified
+            if let Some(validation) = &param.validation {
+                if let Some(min_length) = validation.get("min_length").and_then(|v| v.as_u64()) {
+                    if value.as_str().unwrap().len() < min_length as usize {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must be at least {} characters",
+                            param.name, min_length
+                        )));
+                    }
+                }
+                
+                if let Some(max_length) = validation.get("max_length").and_then(|v| v.as_u64()) {
+                    if value.as_str().unwrap().len() > max_length as usize {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must be at most {} characters",
+                            param.name, max_length
+                        )));
+                    }
+                }
+                
+                // Validate pattern (regex) if specified
+                if let Some(pattern) = validation.get("pattern").and_then(|v| v.as_str()) {
+                    let regex = regex::Regex::new(pattern).map_err(|e| {
+                        MCPError::InvalidArgument(format!(
+                            "Invalid regex pattern for parameter '{}': {}",
+                            param.name, e
+                        ))
+                    })?;
+                    
+                    if !regex.is_match(value.as_str().unwrap()) {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' does not match required pattern: {}",
+                            param.name, pattern
+                        )));
+                    }
+                }
+            }
+        }
+        "number" => {
+            if !value.is_number() {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be a number, got {:?}",
+                    param.name,
+                    value
+                )));
+            }
+            
+            // Validate number range if specified
+            if let Some(validation) = &param.validation {
+                let num_value = value.as_f64().unwrap();
+                
+                if let Some(min) = validation.get("min").and_then(|v| v.as_f64()) {
+                    if num_value < min {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must be at least {}",
+                            param.name, min
+                        )));
+                    }
+                }
+                
+                if let Some(max) = validation.get("max").and_then(|v| v.as_f64()) {
+                    if num_value > max {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must be at most {}",
+                            param.name, max
+                        )));
+                    }
+                }
+            }
+        }
+        "boolean" => {
+            if !value.is_boolean() {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be a boolean, got {:?}",
+                    param.name,
+                    value
+                )));
+            }
+        }
+        "array" => {
+            if !value.is_array() {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be an array, got {:?}",
+                    param.name,
+                    value
+                )));
+            }
+            
+            // Validate array length if specified
+            if let Some(validation) = &param.validation {
+                let arr = value.as_array().unwrap();
+                
+                if let Some(min_items) = validation.get("min_items").and_then(|v| v.as_u64()) {
+                    if arr.len() < min_items as usize {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must have at least {} items",
+                            param.name, min_items
+                        )));
+                    }
+                }
+                
+                if let Some(max_items) = validation.get("max_items").and_then(|v| v.as_u64()) {
+                    if arr.len() > max_items as usize {
+                        return Err(MCPError::InvalidArgument(format!(
+                            "Parameter '{}' must have at most {} items",
+                            param.name, max_items
+                        )));
+                    }
+                }
+            }
+        }
+        "object" => {
+            if !value.is_object() {
+                return Err(MCPError::InvalidArgument(format!(
+                    "Parameter '{}' must be an object, got {:?}",
+                    param.name,
+                    value
+                )));
+            }
+        }
+        unknown_type => {
+            return Err(MCPError::InvalidArgument(format!(
+                "Unknown parameter type '{}' for parameter '{}'",
+                unknown_type, param.name
+            )));
+        }
+    }
+    
+    Ok(())
+}
+
 /// Workflow template engine
 ///
 /// Manages workflow templates for reusable patterns.
@@ -171,10 +391,13 @@ impl WorkflowTemplateEngine {
                 serde_json::json!(chrono::Utc::now().to_rfc3339()),
             );
         
-        // TODO: Implement parameter substitution in workflow steps
-        // This would involve replacing placeholders like {{param_name}} in step definitions
+        // Perform parameter substitution in workflow steps
+        // Replaces placeholders like {{param_name}} with actual parameter values
+        for step in &mut workflow.steps {
+            substitute_parameters_in_step(step, parameters)?;
+        }
         
-        info!("Instantiated workflow from template: {}", template_id);
+        info!("Instantiated workflow from template: {} with {} parameters", template_id, parameters.len());
         
         Ok(workflow)
     }
@@ -194,8 +417,10 @@ impl WorkflowTemplateEngine {
                 .into());
             }
             
-            // TODO: Implement validation rules
-            // Check parameter types, ranges, patterns, etc.
+            // Validate parameter based on its definition
+            if let Some(value) = parameters.get(&param.name) {
+                validate_parameter_value(&param, value)?;
+            }
         }
         Ok(())
     }

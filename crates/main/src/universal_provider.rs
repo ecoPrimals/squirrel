@@ -2,11 +2,16 @@
 //!
 //! This module provides the implementation of the ecosystem-api `UniversalPrimalProvider`
 //! and `EcosystemIntegration` traits for the Squirrel AI primal.
+//!
+//! ## Philosophy: Zero Hardcoded Knowledge
+//!
+//! This provider uses the Universal Adapter V2 (infant primal pattern) to discover
+//! services dynamically at runtime. NO hardcoded primal names, endpoints, or protocols.
 
 use async_trait::async_trait;
 use chrono::Utc;
 use ecosystem_api::{
-    client::SongbirdClient,
+    // Removed: client::SongbirdClient (deprecated - use UniversalAdapterV2 instead)
     error::{EcosystemError, UniversalResult},
     traits::{EcosystemIntegration, RetryConfig, UniversalPrimalProvider},
     types::{
@@ -21,52 +26,24 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::ecosystem::EcosystemConfig;
 use crate::session::SessionManagerImpl;
-
-/// Get service mesh endpoint with environment-only configuration
-///
-/// Priority order:
-/// 1. Environment variable `SERVICE_MESH_ENDPOINT` (primary)
-/// 2. Environment variable `DEFAULT_SERVICE_MESH_ENDPOINT` (secondary)
-/// 3. Development-only fallback with explicit warning
-///
-/// Philosophy: Primal has self-knowledge only, discovers others at runtime
-fn get_service_mesh_endpoint() -> String {
-    // 1. Try environment variable first (runtime configuration)
-    if let Ok(endpoint) = std::env::var("SERVICE_MESH_ENDPOINT") {
-        return endpoint;
-    }
-
-    // 2. Try default from universal constants (centralized config)
-    if let Ok(default_endpoint) = std::env::var("DEFAULT_SERVICE_MESH_ENDPOINT") {
-        return default_endpoint;
-    }
-
-    // 3. Development-only fallback
-    // IMPORTANT: This should never be used in production
-    // Production deployments MUST set SERVICE_MESH_ENDPOINT
-    tracing::warn!(
-        "⚠️ SERVICE_MESH_ENDPOINT not configured! Using development fallback.\n\
-         For production: Set SERVICE_MESH_ENDPOINT environment variable.\n\
-         This hardcoded fallback exists only for local development."
-    );
-
-    // Use environment-provided dev default if available, otherwise use localhost
-    std::env::var("DEV_SERVICE_MESH_ENDPOINT")
-        .unwrap_or_else(|_| "http://127.0.0.1:8500".to_string())
-}
+use crate::universal_adapter_v2::UniversalAdapterV2;
 
 /// Universal Squirrel Provider implementing ecosystem-api traits
+///
+/// Uses Universal Adapter V2 for zero-hardcoding capability-based discovery.
 pub struct UniversalSquirrelProvider {
     /// Instance identifier
     instance_id: String,
     /// Ecosystem configuration
     config: EcosystemConfig,
-    /// Service mesh client
-    service_mesh_client: Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>,
+    /// Universal adapter for capability-based discovery (replaces hardcoded SongbirdClient)
+    universal_adapter: Option<Arc<UniversalAdapterV2>>,
+    /// Service mesh client (dynamically discovered via adapter)
+    service_mesh_client: Option<Arc<dyn ecosystem_api::traits::ServiceMeshClient + Send + Sync>>,
     /// `BiomeOS` client for ecosystem integration
     biomeos_client: Option<Arc<crate::biomeos_integration::EcosystemClient>>,
     /// Session manager for handling sessions
@@ -82,43 +59,26 @@ pub struct UniversalSquirrelProvider {
 }
 
 impl UniversalSquirrelProvider {
-    /// Create a new universal Squirrel provider
+    /// Create a new universal Squirrel provider with capability-based discovery
+    ///
+    /// ## Zero Hardcoding Philosophy
+    ///
+    /// This provider starts with ZERO knowledge of other primals. The Universal Adapter
+    /// will discover service mesh, AI providers, security, storage, etc. dynamically
+    /// at runtime based on capabilities, NOT hardcoded primal names.
     pub fn new(config: EcosystemConfig, context: PrimalContext) -> Result<Self, EcosystemError> {
         let instance_id = uuid::Uuid::new_v4().to_string();
-        let service_mesh_client = Arc::new(
-            match SongbirdClient::new(get_service_mesh_endpoint(), None, RetryConfig::default()) {
-                Ok(client) => client,
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to create SongbirdClient: {}. Attempting fallback.",
-                        e
-                    );
-                    // Fallback: Try to get endpoint from environment again
-                    // This provides resilience without hardcoding
-                    let fallback_endpoint = get_service_mesh_endpoint();
 
-                    tracing::info!("Retrying SongbirdClient creation with fallback endpoint");
-
-                    SongbirdClient::new(fallback_endpoint, None, Default::default()).unwrap_or_else(
-                        |fallback_err| {
-                            tracing::error!(
-                                "Critical: Unable to create SongbirdClient even with fallback: {}",
-                                fallback_err
-                            );
-                            panic!(
-                                "ServiceMeshClient initialization failed. \
-                                 Ensure SERVICE_MESH_ENDPOINT is correctly configured."
-                            )
-                        },
-                    )
-                }
-            },
+        info!(
+            "🌟 Creating UniversalSquirrelProvider with zero hardcoded knowledge (instance: {})",
+            instance_id
         );
 
         Ok(Self {
             instance_id,
             config,
-            service_mesh_client,
+            universal_adapter: None,   // Will be initialized in initialize()
+            service_mesh_client: None, // Will be discovered via adapter
             biomeos_client: None,
             session_manager: None,
             initialized: false,
@@ -300,6 +260,8 @@ impl UniversalSquirrelProvider {
                     "context_awareness".to_string(),
                     "session_management".to_string(),
                 ],
+                // Note: These are example integrations for demo/test purposes
+                // Production: Discover integrations dynamically via UniversalAdapterV2
                 integrations: vec!["nestgate".to_string(), "toadstool".to_string()],
             },
             endpoints: ServiceEndpoints {
@@ -345,27 +307,40 @@ impl UniversalSquirrelProvider {
             metadata: std::collections::HashMap::new(),
         };
 
-        // Register with service mesh
-        self.service_mesh_client
-            .register_service("", registration.clone())
-            .await?;
+        // Register with service mesh (if available)
+        if let Some(ref mesh_client) = self.service_mesh_client {
+            mesh_client
+                .register_service("", registration.clone())
+                .await?;
+            info!("✅ Registered with service mesh");
+        } else {
+            warn!("⚠️ Service mesh not available - skipping registration (standalone mode)");
+        }
 
         Ok(registration)
     }
 
     /// Send heartbeat to ecosystem
     pub async fn send_heartbeat(&self) -> UniversalResult<()> {
-        let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
-        self.service_mesh_client.heartbeat(&service_id).await?;
+        if let Some(ref mesh_client) = self.service_mesh_client {
+            let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
+            mesh_client.heartbeat(&service_id).await?;
+        } else {
+            // Graceful degradation: No heartbeat in standalone mode
+            tracing::debug!("Standalone mode - skipping heartbeat");
+        }
         Ok(())
     }
 
     /// Deregister from ecosystem
     pub async fn deregister_from_ecosystem(&mut self) -> UniversalResult<()> {
-        let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
-        self.service_mesh_client
-            .deregister_service(&service_id)
-            .await?;
+        if let Some(ref mesh_client) = self.service_mesh_client {
+            let service_id = format!("{}-{}", self.primal_type().as_str(), self.instance_id);
+            mesh_client.deregister_service(&service_id).await?;
+            info!("✅ Deregistered from service mesh");
+        } else {
+            warn!("⚠️ Service mesh not available - skipping deregistration (standalone mode)");
+        }
         Ok(())
     }
 
@@ -569,10 +544,11 @@ impl UniversalPrimalProvider for UniversalSquirrelProvider {
     async fn shutdown(&mut self) -> UniversalResult<()> {
         self.shutdown = true;
         if let Some(registration) = &self.service_registration {
-            let _ = self
-                .service_mesh_client
-                .deregister_service(&registration.service_id)
-                .await;
+            if let Some(ref mesh_client) = self.service_mesh_client {
+                let _ = mesh_client
+                    .deregister_service(&registration.service_id)
+                    .await;
+            }
         }
         Ok(())
     }

@@ -482,10 +482,12 @@ impl UniversalSecurityClient {
 
         serde_json::json!({
             "threat_landscape": "moderate",
-            "recommended_providers": ["beardog", "enterprise_security"],
+            // ✅ NEW: Capability-based recommendations (no hardcoded provider names)
+            "recommended_capabilities": ["security.authentication", "security.encryption"],
+            // NOTE: Discover actual providers at runtime via UniversalAdapterV2
             "optimization_suggestions": ["enable_batching", "increase_timeout"],
             "risk_assessment": "low",
-            "ai_confidence": 0.85, // Fixed value instead of accessing undefined field
+            "ai_confidence": 0.85,
             "last_updated": chrono::Utc::now().to_rfc3339()
         })
     }

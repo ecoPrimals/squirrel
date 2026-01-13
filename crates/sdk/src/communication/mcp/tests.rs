@@ -135,7 +135,7 @@ fn test_mcp_capabilities_serialization() {
 /// Integration test for message flow
 #[tokio::test]
 async fn test_message_flow_integration() {
-    let client = McpClient::new();
+    let _client = McpClient::new();
 
     // Create a test message
     let message = McpMessage {

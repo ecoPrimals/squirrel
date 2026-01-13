@@ -339,6 +339,26 @@ pub struct RateLimiterMetrics {
     pub total_requests: u64,
 }
 
+impl Clone for RateLimiter {
+    fn clone(&self) -> Self {
+        // Original code restored for compilation
+        let rt = tokio::runtime::Handle::current();
+        let config_clone = rt.block_on(async {
+            let guard = self.config.read().await;
+            guard.clone()
+        });
+
+        Self {
+            config: RwLock::new(config_clone),
+            token_bucket: self.token_bucket.clone(),
+            rejected_count: AtomicU64::new(self.rejected_count.load(Ordering::Relaxed)),
+            retry_count: AtomicU64::new(self.retry_count.load(Ordering::Relaxed)),
+            total_requests: AtomicU64::new(self.total_requests.load(Ordering::Relaxed)),
+            provider: self.provider.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,25 +452,5 @@ mod tests {
         let result = limiter.execute(async { Ok::<_, Error>(43) }).await;
 
         assert!(result.is_err());
-    }
-}
-
-impl Clone for RateLimiter {
-    fn clone(&self) -> Self {
-        // Original code restored for compilation
-        let rt = tokio::runtime::Handle::current();
-        let config_clone = rt.block_on(async {
-            let guard = self.config.read().await;
-            guard.clone()
-        });
-
-        Self {
-            config: RwLock::new(config_clone),
-            token_bucket: self.token_bucket.clone(),
-            rejected_count: AtomicU64::new(self.rejected_count.load(Ordering::Relaxed)),
-            retry_count: AtomicU64::new(self.retry_count.load(Ordering::Relaxed)),
-            total_requests: AtomicU64::new(self.total_requests.load(Ordering::Relaxed)),
-            provider: self.provider.clone(),
-        }
     }
 }

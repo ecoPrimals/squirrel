@@ -23,7 +23,7 @@ fn test_mcp_error_creation() {
     let validation_error = PrimalError::Configuration("test validation".to_string());
     assert!(validation_error.to_string().contains("test validation"));
 
-    let operation_error = PrimalError::Protocol("test operation".to_string());
+    let operation_error = PrimalError::OperationFailed("test operation".to_string());
     assert!(operation_error.to_string().contains("test operation"));
 
     let internal_error = PrimalError::Internal("test internal".to_string());
@@ -48,9 +48,9 @@ fn test_error_code_consistency() {
     assert!(PrimalError::Configuration("".to_string())
         .to_string()
         .contains("Configuration"));
-    assert!(PrimalError::Protocol("".to_string())
+    assert!(PrimalError::OperationFailed("".to_string())
         .to_string()
-        .contains("Protocol"));
+        .contains("Operation failed"));
     assert!(PrimalError::Internal("".to_string())
         .to_string()
         .contains("Internal"));

@@ -303,16 +303,36 @@ impl ApiServer {
             .and(with_metrics_collector(metrics_collector.clone()))
             .and_then(metrics::handle_metrics);
 
-        // Songbird integration endpoints
+        // ===================================================================
+        // DEPRECATED: Hardcoded Songbird endpoints
+        // These endpoints assume Songbird is the service mesh provider.
+        // NEW: Use capability-based endpoints below instead.
+        // ===================================================================
+        #[allow(deprecated)]
         let songbird_register = warp::path!("api" / "v1" / "songbird" / "register")
             .and(warp::post())
             .and(with_ecosystem_manager(ecosystem_manager.clone()))
             .and_then(songbird::handle_songbird_register);
 
+        #[allow(deprecated)]
         let songbird_heartbeat = warp::path!("api" / "v1" / "songbird" / "heartbeat")
             .and(warp::post())
             .and(with_state(state.clone()))
             .and_then(songbird::handle_songbird_heartbeat);
+
+        // ===================================================================
+        // NEW: Capability-based service mesh endpoints (protocol-agnostic)
+        // These work with ANY service mesh provider discovered at runtime.
+        // ===================================================================
+        let service_mesh_register = warp::path!("api" / "v1" / "service_mesh" / "register")
+            .and(warp::post())
+            .and(with_ecosystem_manager(ecosystem_manager.clone()))
+            .and_then(songbird::handle_songbird_register); // Reuse handler for now
+
+        let service_mesh_heartbeat = warp::path!("api" / "v1" / "service_mesh" / "heartbeat")
+            .and(warp::post())
+            .and(with_state(state.clone()))
+            .and_then(songbird::handle_songbird_heartbeat); // Reuse handler for now
 
         // Management endpoints
         let shutdown = warp::path!("api" / "v1" / "shutdown")
@@ -344,8 +364,12 @@ impl ApiServer {
                     .or(towers) // Tower discovery for cross-tower AI mesh
                     .or(models_compatible) // Model compatibility check (Phase 2)
                     .or(model_load) // Model loading (Phase 2)
+                    // Deprecated Songbird-specific endpoints (backward compatibility)
                     .or(songbird_register)
                     .or(songbird_heartbeat)
+                    // NEW: Capability-based service mesh endpoints
+                    .or(service_mesh_register)
+                    .or(service_mesh_heartbeat)
                     .or(shutdown)
                     .or(ai) // AI routes (Phase 1-4)
                     .or(provider), // Provider registration routes (Phase 6)

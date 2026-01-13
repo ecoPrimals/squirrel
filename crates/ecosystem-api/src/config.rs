@@ -21,7 +21,7 @@ pub struct ConfigLoader {
 
 impl ConfigLoader {
     /// Create a new configuration loader
-    #[must_use] 
+    #[must_use]
     pub fn new(env_prefix: &str) -> Self {
         Self {
             env_prefix: env_prefix.to_string(),
@@ -543,7 +543,7 @@ pub struct ConfigDefaults;
 
 impl ConfigDefaults {
     /// Get default configuration for development
-    #[must_use] 
+    #[must_use]
     pub fn development() -> UniversalConfig {
         UniversalConfig {
             service: ServiceConfig {
@@ -598,7 +598,7 @@ impl ConfigDefaults {
     }
 
     /// Get default configuration for production
-    #[must_use] 
+    #[must_use]
     pub fn production() -> UniversalConfig {
         UniversalConfig {
             service: ServiceConfig {
@@ -614,7 +614,7 @@ impl ConfigDefaults {
                 discovery_endpoint: String::new(), // Must be provided via environment
                 registration_endpoint: String::new(), // Must be provided via environment
                 health_endpoint: String::new(),    // Must be provided via environment
-                auth_token: None,                   // Must be provided via environment
+                auth_token: None,                  // Must be provided via environment
                 retry_config: RetryConfig {
                     max_retries: 5,
                     initial_delay_ms: 1000,

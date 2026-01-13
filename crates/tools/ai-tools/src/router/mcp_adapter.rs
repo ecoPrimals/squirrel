@@ -276,10 +276,13 @@ impl MCPInterface for MCPAdapter {
 
 // Placeholder types for MCP protocol
 // These would be replaced with actual MCP protocol types
+// TODO: Complete MCP adapter implementation
 #[derive(Debug)]
+#[allow(dead_code)] // Planned functionality
 struct McpClient;
 
 #[derive(Debug)]
+#[allow(dead_code)] // Planned functionality
 struct McpRequest {
     id: String,
     method: String,
@@ -287,12 +290,14 @@ struct McpRequest {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // Planned functionality
 struct McpResponse {
     id: String,
     result: serde_json::Value,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // Planned functionality
 struct McpChunk {
     id: String,
     data: serde_json::Value,

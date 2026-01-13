@@ -47,6 +47,12 @@ pub use monitoring::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod scheduler_tests;
+
+#[cfg(test)]
+mod template_tests;
+
 /// Workflow Management Engine
 /// 
 /// Main orchestration engine that coordinates all workflow subsystems.
