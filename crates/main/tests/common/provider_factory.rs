@@ -1,4 +1,3 @@
-
 //! Provider Factory for Tests
 //!
 //! Creates properly configured SquirrelPrimalProvider instances for testing
@@ -184,4 +183,3 @@ mod tests {
         assert_eq!(provider.instance_id(), "custom-test-id");
     }
 }
-

@@ -2,7 +2,7 @@
 //!
 //! This module provides session management functionality for MCP connections.
 
-use async_trait::async_trait;
+use async_trait::async_trait; // KEEP: SessionManager used as trait object (Arc<dyn SessionManager>)
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

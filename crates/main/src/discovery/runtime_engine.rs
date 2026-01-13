@@ -3,6 +3,7 @@
 //! Implements the multi-stage discovery process for finding services at runtime.
 
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
+use crate::optimization::zero_copy::ArcStr;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -68,19 +69,19 @@ impl RuntimeDiscoveryEngine {
             let service = DiscoveredService {
                 name: format!("{}-provider", capability),
                 endpoint,
-                capabilities: vec![capability.to_string()],
+                capabilities: vec![capability.into()], // ZERO-COPY: Avoid allocating capability string
                 metadata: HashMap::new(),
                 discovered_at: std::time::SystemTime::now(),
-                discovery_method: "environment_variable".to_string(),
+                discovery_method: "environment_variable".into(), // ZERO-COPY: Static string
                 healthy: None,
                 priority: 100,
             };
 
-            // Cache it
+            // Cache it (use String::from for HashMap key as it needs ownership)
             self.cache
                 .write()
                 .await
-                .insert(capability.to_string(), service.clone());
+                .insert(capability.into(), service.clone());
 
             return Ok(service);
         }

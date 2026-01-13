@@ -1,7 +1,7 @@
 //! Monitoring and observability capability
 
 use crate::error::PrimalError;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -33,7 +33,7 @@ pub enum MetricType {
 }
 
 /// Capability for recording metrics and monitoring
-#[async_trait]
+
 pub trait MonitoringCapability: Send + Sync {
     /// Record a metric
     async fn record_metric(&self, metric: Metric) -> Result<(), PrimalError>;

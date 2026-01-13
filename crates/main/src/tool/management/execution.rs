@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use chrono::Utc;
 use tracing::{info, error, warn};
 

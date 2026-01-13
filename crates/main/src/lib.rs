@@ -249,7 +249,7 @@ impl SquirrelSystem {
 /// Comprehensive system status
 #[derive(Debug, Clone)]
 pub struct SquirrelSystemStatus {
-    pub ecosystem_status: ecosystem::EcosystemStatus,
+    pub ecosystem_status: ecosystem::EcosystemIntegrationStatus,
     pub monitoring_status: monitoring::SystemStatus,
     pub self_healing_status: std::collections::HashMap<String, self_healing::ComponentHealth>,
     pub shutdown_requested: bool,

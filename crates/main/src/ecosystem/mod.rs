@@ -48,6 +48,14 @@ use crate::universal_primal_ecosystem::{
     CapabilityMatch, CapabilityRequest, DiscoveredPrimal, UniversalPrimalEcosystem,
 };
 
+// Module declarations
+pub mod status;
+pub mod types;
+
+// Re-export all public items
+pub use status::*;
+pub use types::*;
+
 // Re-export registry manager types
 pub mod discovery_client;
 pub mod registry;
@@ -348,92 +356,6 @@ pub use registry::{PrimalApiRequest, PrimalApiResponse};
 // Use DiscoveredService from registry_manager module
 pub use registry::types::DiscoveredService;
 
-/// Ecosystem status information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcosystemStatus {
-    /// Overall status
-    pub status: String,
-    /// Status timestamp
-    pub timestamp: DateTime<Utc>,
-    /// Discovered services
-    pub discovered_services: Vec<DiscoveredService>,
-    /// Active integrations
-    pub active_integrations: Vec<String>,
-    /// Service mesh status
-    pub service_mesh_status: ServiceMeshStatus,
-    /// Overall health score (0.0 to 1.0)
-    pub overall_health: f64,
-}
-
-/// Service mesh status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceMeshStatus {
-    /// Service mesh enabled
-    pub enabled: bool,
-    /// Registered with Songbird
-    pub registered: bool,
-    /// Load balancing status
-    pub load_balancing: LoadBalancingStatus,
-    /// Cross-primal communication status
-    pub cross_primal_communication: CrossPrimalStatus,
-}
-
-/// Cross-primal communication status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossPrimalStatus {
-    /// Cross-primal communication enabled
-    pub enabled: bool,
-    /// Active connections
-    pub active_connections: u32,
-    /// Supported protocols
-    pub supported_protocols: Vec<String>,
-}
-
-/// Ecosystem manager status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcosystemManagerStatus {
-    /// Current status
-    pub status: String,
-    /// Initialization timestamp
-    pub initialized_at: Option<DateTime<Utc>>,
-    /// Last successful registration
-    pub last_registration: Option<DateTime<Utc>>,
-    /// Active service registrations
-    pub active_registrations: Vec<String>,
-    /// Health status
-    pub health_status: HealthStatus,
-    /// Error count
-    pub error_count: u32,
-    /// Last error message
-    pub last_error: Option<String>,
-}
-
-/// Health status information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HealthStatus {
-    /// Overall health score (0.0 to 1.0)
-    pub health_score: f64,
-    /// Component health statuses
-    pub component_statuses: HashMap<String, ComponentHealth>,
-    /// Last health check timestamp
-    pub last_check: DateTime<Utc>,
-    /// Health check errors
-    pub health_errors: Vec<String>,
-}
-
-/// Component health information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentHealth {
-    /// Health status
-    pub status: String,
-    /// Last check timestamp
-    pub last_check: DateTime<Utc>,
-    /// Error message (if any)
-    pub error: Option<String>,
-    /// Additional metadata
-    pub metadata: HashMap<String, String>,
-}
-
 impl EcosystemManager {
     /// Create new ecosystem manager
     #[must_use]
@@ -695,7 +617,7 @@ impl EcosystemManager {
     }
 
     /// Get ecosystem status
-    pub async fn get_ecosystem_status(&self) -> EcosystemStatus {
+    pub async fn get_ecosystem_status(&self) -> EcosystemIntegrationStatus {
         let discovered_services = self.registry_manager.get_discovered_services().await;
         let active_integrations = self.registry_manager.get_active_integrations().await;
 
@@ -718,7 +640,7 @@ impl EcosystemManager {
         let discovered_services_count = discovered_services.len() as u32;
         let active_integrations_count = active_integrations.len() as u32;
 
-        EcosystemStatus {
+        EcosystemIntegrationStatus {
             status: "active".to_string(),
             timestamp: Utc::now(),
             discovered_services: self

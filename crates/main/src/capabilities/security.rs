@@ -1,7 +1,7 @@
 //! Security capabilities (authentication, authorization)
 
 use crate::error::PrimalError;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 
 /// Authentication request
@@ -60,7 +60,7 @@ pub struct AuthzResponse {
 }
 
 /// Capability for authentication
-#[async_trait]
+
 pub trait AuthenticationCapability: Send + Sync {
     /// Authenticate a user
     async fn authenticate(&self, request: AuthRequest) -> Result<AuthResponse, PrimalError>;
@@ -70,7 +70,7 @@ pub trait AuthenticationCapability: Send + Sync {
 }
 
 /// Capability for authorization
-#[async_trait]
+
 pub trait AuthorizationCapability: Send + Sync {
     /// Check if an action is authorized
     async fn authorize(&self, request: AuthzRequest) -> Result<AuthzResponse, PrimalError>;

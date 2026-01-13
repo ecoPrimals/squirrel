@@ -11,6 +11,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
+use crate::optimization::zero_copy::ArcStr;
+
 /// Identity of this primal (self-knowledge)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalIdentity {
@@ -65,7 +67,8 @@ impl PrimalSelfKnowledge {
         info!("🔍 Discovering primal self-knowledge...");
 
         // Discover primal type (from ENV or default)
-        let primal_type = env::var("PRIMAL_TYPE").unwrap_or_else(|_| "squirrel".to_string());
+        // ZERO-COPY: Use static str instead of allocating "squirrel" every time
+        let primal_type = env::var("PRIMAL_TYPE").unwrap_or_else(|_| "squirrel".into());
 
         // Discover name (from ENV or default)
         let name = env::var("PRIMAL_NAME").unwrap_or_else(|_| {
@@ -82,11 +85,8 @@ impl PrimalSelfKnowledge {
             .map(|s| s.split(',').map(|c| c.trim().to_string()).collect())
             .unwrap_or_else(|| {
                 // Default Squirrel capabilities
-                vec![
-                    "ai".to_string(),
-                    "ai-inference".to_string(),
-                    "text-generation".to_string(),
-                ]
+                // ZERO-COPY: Use static strings instead of allocating on every call
+                vec!["ai".into(), "ai-inference".into(), "text-generation".into()]
             });
 
         // Version

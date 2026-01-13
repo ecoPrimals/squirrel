@@ -3,7 +3,7 @@
 //! Implements capability-based service discovery and matching following the
 //! Universal Primal Architecture Standard.
 
-use async_trait::async_trait;
+use async_trait::async_trait; // KEEP: UniversalServiceRegistry used as trait object
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -13,6 +13,7 @@ use super::{ServiceCapability, ServiceHealth, UniversalServiceRegistration};
 use crate::error::PrimalError;
 
 /// Universal Service Registry trait for capability-based discovery
+
 #[async_trait]
 pub trait UniversalServiceRegistry: Send + Sync {
     /// Register a service with its capabilities

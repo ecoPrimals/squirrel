@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use crate::tool::management::types::{Tool, ToolError, ToolLifecycleHook, ToolState};
 use crate::tool::management::ToolManager;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 
 /// Enhanced recovery strategy enumeration
 #[derive(Debug, Clone)]
@@ -50,7 +50,6 @@ impl EnhancedRecoveryHandlerImpl {
     }
 }
 
-#[async_trait]
 impl EnhancedRecoveryHandler for EnhancedRecoveryHandlerImpl {
     async fn handle_recovery(&self, tool_id: &str, _tool_manager: &dyn ToolManager) -> Result<RecoveryResult, ToolError> {
         log::info!("Handling recovery for tool: {}", tool_id);

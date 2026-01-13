@@ -13,13 +13,17 @@ pub mod test_utils;
 
 // Re-export modern async utilities (PREFERRED)
 pub use async_test_utils::{
-    assert_eventually, assert_eventually_async, create_notification, retry_until_success,
-    retry_until_success_async, wait_for, wait_for_all, wait_for_any, wait_for_async, with_timeout,
-    Notifier, TimeoutError, Waiter,
+    create_notification, retry_until_success, retry_until_success_async, wait_for, wait_for_all,
+    wait_for_any, wait_for_async, with_timeout, Notifier, TimeoutError, Waiter,
 };
 
+// Note: assert_eventually and assert_eventually_async are macros defined in async_test_utils.rs
+// They are exported via #[macro_export] and available at the crate root
+
 // Re-export modern provider factory (NEW - for test modernization)
-pub use provider_factory::{create_test_provider, create_test_provider_with_config, ProviderFactory};
+pub use provider_factory::{
+    create_test_provider, create_test_provider_with_config, ProviderFactory,
+};
 
 // Re-export commonly used utilities
 pub use test_utils::{

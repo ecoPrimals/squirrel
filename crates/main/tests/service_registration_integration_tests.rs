@@ -23,7 +23,7 @@ async fn test_service_registration_with_default_config() -> Result<(), Box<dyn s
     assert!(registration.endpoints.primary.contains("8080"));
     assert!(!registration.endpoints.secondary.is_empty());
     assert!(registration.endpoints.health.is_some());
-    
+
     Ok(())
 }
 
@@ -47,7 +47,7 @@ async fn test_service_registration_with_custom_address() -> Result<(), Box<dyn s
     // Cleanup
     env::remove_var("SERVER_BIND_ADDRESS");
     env::remove_var("SERVER_PORT");
-    
+
     Ok(())
 }
 
@@ -61,7 +61,7 @@ async fn test_service_registration_metadata() -> Result<(), Box<dyn std::error::
     assert!(!registration.description.is_empty());
     assert!(registration.tags.contains(&"ai".to_string()));
     assert!(registration.tags.contains(&"coordination".to_string()));
-    
+
     Ok(())
 }
 
@@ -79,7 +79,7 @@ async fn test_service_registration_capabilities() -> Result<(), Box<dyn std::err
         .capabilities
         .core
         .contains(&"context_analysis".to_string()));
-    
+
     Ok(())
 }
 
@@ -92,7 +92,7 @@ async fn test_service_registration_health_check() -> Result<(), Box<dyn std::err
     assert_eq!(registration.health_check.interval_secs, 30);
     assert_eq!(registration.health_check.timeout_secs, 10);
     assert_eq!(registration.health_check.failure_threshold, 3);
-    
+
     Ok(())
 }
 
@@ -115,7 +115,7 @@ async fn test_service_registration_endpoints_structure() -> Result<(), Box<dyn s
     // Verify health endpoint
     let health = registration.endpoints.health.as_ref().unwrap();
     assert!(health.contains("/health"));
-    
+
     Ok(())
 }
 
@@ -146,7 +146,7 @@ async fn test_multiple_registrations_independence() -> Result<(), Box<dyn std::e
     // Cleanup
     env::remove_var("SERVER_BIND_ADDRESS");
     env::remove_var("SERVER_PORT");
-    
+
     Ok(())
 }
 
@@ -159,12 +159,13 @@ async fn test_service_registration_security_config() -> Result<(), Box<dyn std::
     assert!(!registration.security_config.auth_required);
     assert_eq!(registration.security_config.encryption_level, "none");
     assert_eq!(registration.security_config.access_level, "public");
-    
+
     Ok(())
 }
 
 #[tokio::test]
-async fn test_service_registration_resource_requirements() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_service_registration_resource_requirements() -> Result<(), Box<dyn std::error::Error>>
+{
     let provider = create_test_provider().await?;
     let registration = EcosystemIntegration::create_service_registration(&provider);
 
@@ -172,7 +173,7 @@ async fn test_service_registration_resource_requirements() -> Result<(), Box<dyn
     assert_eq!(registration.resource_requirements.memory, "512");
     assert_eq!(registration.resource_requirements.storage, "10");
     assert_eq!(registration.resource_requirements.network, "100");
-    
+
     Ok(())
 }
 
@@ -185,6 +186,6 @@ async fn test_service_registration_timestamps() -> Result<(), Box<dyn std::error
     let now = chrono::Utc::now();
     let diff = (now - registration.registered_at).num_seconds();
     assert!(diff < 5, "registered_at should be within 5 seconds of now");
-    
+
     Ok(())
 }

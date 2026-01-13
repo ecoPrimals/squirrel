@@ -1,7 +1,7 @@
 //! Storage capability (data persistence)
 
 use crate::error::PrimalError;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 
 /// Request to store data
@@ -43,7 +43,7 @@ pub struct RetrieveResponse {
 /// Capability for data storage
 ///
 /// Typically provided by LoamSpine or other storage providers.
-#[async_trait]
+
 pub trait StorageCapability: Send + Sync {
     /// Store data
     async fn store(&self, request: StoreRequest) -> Result<(), PrimalError>;

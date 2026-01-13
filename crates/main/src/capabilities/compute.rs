@@ -1,7 +1,7 @@
 //! Compute capability (job execution, task processing)
 
 use crate::error::PrimalError;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 
 /// Request to execute a compute job
@@ -62,7 +62,7 @@ pub enum JobStatus {
 /// Capability for compute/job execution
 ///
 /// Typically provided by Toadstool or other compute providers.
-#[async_trait]
+
 pub trait ComputeCapability: Send + Sync {
     /// Submit a compute job
     async fn submit_job(&self, request: ComputeRequest) -> Result<ComputeResponse, PrimalError>;

@@ -1,7 +1,5 @@
 //! Core Squirrel Primal Provider Implementation
 
-use async_trait::async_trait;
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -606,7 +604,6 @@ impl SquirrelPrimalProvider {
 // UNIVERSAL PRIMAL PROVIDER TRAIT IMPLEMENTATION
 // ============================================================================
 
-#[async_trait]
 impl UniversalPrimalProvider for SquirrelPrimalProvider {
     /// Get the primal ID
     fn primal_id(&self) -> &'static str {

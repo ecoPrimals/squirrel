@@ -255,7 +255,7 @@ mod tests {
 /// ```
 pub async fn create_test_ecosystem_manager() -> squirrel::ecosystem::EcosystemManager {
     use squirrel::ecosystem::EcosystemConfig;
-    use squirrel::monitoring::metrics::collector::MetricsCollector;
+    use squirrel::monitoring::metrics::MetricsCollector;
     use std::sync::Arc;
 
     let config = EcosystemConfig::default();
@@ -284,7 +284,7 @@ pub async fn create_test_ecosystem_manager() -> squirrel::ecosystem::EcosystemMa
 pub async fn create_test_ecosystem_manager_with_config(
     config: squirrel::ecosystem::EcosystemConfig,
 ) -> squirrel::ecosystem::EcosystemManager {
-    use squirrel::monitoring::metrics::collector::MetricsCollector;
+    use squirrel::monitoring::metrics::MetricsCollector;
     use std::sync::Arc;
 
     let metrics = Arc::new(MetricsCollector::new());

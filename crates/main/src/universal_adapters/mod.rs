@@ -10,7 +10,7 @@
 //! Instead of hardcoded primal names, we use capability-based discovery to find services
 //! that can fulfill specific roles in the AI coordination workflow.
 
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -153,7 +153,7 @@ pub struct IntegrationPreferences {
 }
 
 /// Universal Service Provider trait - all services implement this
-#[async_trait]
+
 pub trait UniversalServiceProvider: Send + Sync {
     /// Get the capabilities this service provides
     fn get_capabilities(&self) -> Vec<ServiceCapability>;

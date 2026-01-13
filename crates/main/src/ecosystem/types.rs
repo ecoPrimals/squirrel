@@ -277,5 +277,5 @@ pub struct EcosystemConfig {
     /// Service discovery interval in seconds
     pub discovery_interval_secs: u64,
     /// Registry configuration
-    pub registry_config: crate::ecosystem::registry::RegistryConfig,
+    pub registry_config: crate::ecosystem::registry::EcosystemRegistryConfig,
 }

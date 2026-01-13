@@ -3,7 +3,6 @@
 //! This module defines the trait interfaces that enable primals to
 //! integrate with the ecosystem and provide services.
 
-use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::error::PrimalError;
@@ -28,11 +27,9 @@ pub type UniversalResult<T> = Result<T, PrimalError>;
 ///
 /// ```no_run
 /// use squirrel::universal::{UniversalPrimalProvider, PrimalRequest, PrimalResponse};
-/// use async_trait::async_trait;
 ///
 /// struct MyPrimal;
 ///
-/// #[async_trait]
 /// impl UniversalPrimalProvider for MyPrimal {
 ///     // Implement required methods...
 ///     # fn primal_id(&self) -> &str { "my_primal" }
@@ -48,7 +45,6 @@ pub type UniversalResult<T> = Result<T, PrimalError>;
 ///     # async fn shutdown(&mut self) -> squirrel::universal::UniversalResult<()> { Ok(()) }
 /// }
 /// ```
-#[async_trait]
 pub trait UniversalPrimalProvider: Send + Sync {
     fn primal_id(&self) -> &str;
     fn instance_id(&self) -> &str;
@@ -79,7 +75,6 @@ pub trait UniversalPrimalProvider: Send + Sync {
 }
 
 /// Universal security provider trait
-#[async_trait]
 pub trait UniversalSecurityProvider: Send + Sync {
     /// Associated session type
     type Session;

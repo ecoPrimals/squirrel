@@ -2,7 +2,7 @@
 //!
 //! This module provides metrics export capabilities for various monitoring systems.
 
-use async_trait::async_trait;
+use async_trait::async_trait; // KEEP: MetricsExporter used as trait object (dyn MetricsExporter)
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -10,6 +10,7 @@ use super::metrics::AllMetrics;
 use crate::error::PrimalError;
 
 /// Trait for metrics exporters
+
 #[async_trait]
 pub trait MetricsExporter: Send + Sync {
     /// Export metrics to external system

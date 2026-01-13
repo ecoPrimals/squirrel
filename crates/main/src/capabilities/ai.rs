@@ -1,7 +1,7 @@
 //! AI-related capability traits
 
 use crate::error::PrimalError;
-use async_trait::async_trait;
+// Native async traits (Rust 1.75+) - no async_trait needed!
 use serde::{Deserialize, Serialize};
 
 /// Request for AI inference (text generation, completion, etc.)
@@ -70,7 +70,7 @@ pub struct EmbeddingsResponse {
 ///
 /// Any provider implementing this trait can satisfy "ai.inference" capability requests.
 /// This could be Songbird, OpenAI, Anthropic, local LLM, etc.
-#[async_trait]
+
 pub trait AiInferenceCapability: Send + Sync {
     /// Perform inference with the given request
     async fn infer(&self, request: InferenceRequest) -> Result<InferenceResponse, PrimalError>;
@@ -80,7 +80,7 @@ pub trait AiInferenceCapability: Send + Sync {
 }
 
 /// Capability for generating embeddings
-#[async_trait]
+
 pub trait EmbeddingsCapability: Send + Sync {
     /// Generate embeddings for text
     async fn embed(&self, request: EmbeddingsRequest) -> Result<EmbeddingsResponse, PrimalError>;
