@@ -18,11 +18,11 @@
 //! squirrel-host.local. A 192.168.1.100
 //! ```
 
-use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// mDNS discovery client
 #[derive(Debug, Clone)]

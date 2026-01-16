@@ -19,10 +19,10 @@
 //! squirrel-ai._primal._tcp.squirrel.local. TXT "capabilities=ai,embeddings"
 //! ```
 
-use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// DNS-SD discovery client
 #[derive(Debug, Clone)]

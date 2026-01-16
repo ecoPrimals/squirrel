@@ -74,9 +74,8 @@ openai = "1.1"
 
 # Observability
 # SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
-# prometheus 0.13 depends on protobuf 2.28.0 which has a vulnerability
-# Consider migrating to opentelemetry or updating prometheus when available
-prometheus = { version = "0.13", optional = true }
+# Updated to 0.14 to fix protobuf vulnerability (RUSTSEC-2024-0437)
+prometheus = { version = "0.14", optional = true }
 # TODO: Investigate prometheus update or migration to opentelemetry-prometheus
 metrics = { version = "0.21", optional = true }
 metrics-exporter-prometheus = { version = "0.12", optional = true }

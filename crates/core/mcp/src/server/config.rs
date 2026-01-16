@@ -41,8 +41,8 @@ impl Default for ServerConfig {
         
         Self {
             bind_address: network::socket_addr(
-                network::DEFAULT_BIND_ADDRESS,
-                network::DEFAULT_HTTP_PORT,
+                &network::get_bind_address(),
+                network::get_service_port("http"),
             ),
             max_clients: limits::DEFAULT_MAX_CONNECTIONS,
             client_timeout_ms: timeouts::duration_to_millis(timeouts::DEFAULT_CONNECTION_TIMEOUT),

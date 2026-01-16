@@ -29,6 +29,7 @@ pub mod monitoring;
 pub mod observability;
 pub mod optimization;
 pub mod primal_provider;
+pub mod primal_pulse; // PrimalPulse - AI-powered ecosystem intelligence
 pub mod protocol;
 pub mod resource_manager;
 pub mod security;

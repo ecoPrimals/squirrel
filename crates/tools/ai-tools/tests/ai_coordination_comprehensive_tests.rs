@@ -6,7 +6,6 @@
 // These tests are temporarily disabled pending API migration
 
 use squirrel_ai_tools::router::{AIRouter, RouterConfig};
-use std::time::Duration;
 
 #[tokio::test]
 async fn test_ai_router_creation() {

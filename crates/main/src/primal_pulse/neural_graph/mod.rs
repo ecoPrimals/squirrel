@@ -1,0 +1,456 @@
+//! Neural Graph Optimizer
+//!
+//! Analyzes coordination patterns between primals and suggests optimal graph
+//! structures for biomeOS execution. Learns from execution patterns and evolves
+//! coordination strategies over time.
+
+pub mod handler;
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+pub use handler::handle_neural_graph_optimize;
+
+/// Represents a single primal node in a coordination graph
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphNode {
+    /// The primal providing this capability
+    pub primal_name: String,
+    /// The capability being provided
+    pub capability: String,
+    /// Estimated execution latency in milliseconds
+    pub estimated_latency_ms: u64,
+    /// Estimated cost in USD
+    pub estimated_cost_usd: f64,
+    /// Reliability score (0.0 - 1.0)
+    pub reliability: f64,
+}
+
+/// Type of edge connecting graph nodes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EdgeType {
+    /// Sequential execution (A then B)
+    Sequential,
+    /// Parallel execution (A and B simultaneously)
+    Parallel,
+    /// Conditional execution (A if condition)
+    Conditional,
+}
+
+/// Represents a connection between two nodes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    /// Source node
+    pub from: String,
+    /// Destination node
+    pub to: String,
+    /// Type of edge
+    pub edge_type: EdgeType,
+    /// Optional condition for conditional edges
+    pub condition: Option<String>,
+}
+
+/// A coordination graph representing primal interactions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoordinationGraph {
+    /// All nodes in the graph
+    pub nodes: Vec<GraphNode>,
+    /// All edges connecting nodes
+    pub edges: Vec<GraphEdge>,
+    /// Graph metadata
+    pub metadata: GraphMetadata,
+}
+
+/// Metadata about the graph
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphMetadata {
+    /// Purpose of this coordination
+    pub purpose: String,
+    /// Expected latency budget in milliseconds
+    pub expected_latency_ms: Option<u64>,
+    /// Cost budget in USD
+    pub cost_budget_usd: Option<f64>,
+    /// User-defined constraints
+    pub constraints: Vec<String>,
+}
+
+/// Recognized graph patterns
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GraphPattern {
+    /// Sequential pipeline A → B → C
+    Pipeline,
+    /// Fan-out: A → [B, C, D]
+    FanOut,
+    /// Fan-in: [A, B, C] → D
+    FanIn,
+    /// Hub-spoke: Central coordinator
+    HubSpoke,
+    /// Circular: A → B → C → A
+    Circular,
+    /// Mesh: Fully connected
+    Mesh,
+    /// Unknown pattern
+    Unknown,
+}
+
+/// Types of detected inefficiencies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Inefficiency {
+    /// Type of inefficiency
+    pub inefficiency_type: InefficiencyType,
+    /// Description of the issue
+    pub description: String,
+    /// Severity (0.0 - 1.0, higher is worse)
+    pub severity: f64,
+    /// Nodes/edges involved
+    pub affected_components: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InefficiencyType {
+    UnnecessarySequential,
+    Bottleneck,
+    ChattyCommunication,
+    CircularDependency,
+    RedundantPath,
+    SinglePointOfFailure,
+}
+
+/// Analysis results for a coordination graph
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphAnalysis {
+    /// Graph depth (longest path)
+    pub depth: usize,
+    /// Graph width (max parallel nodes)
+    pub width: usize,
+    /// Detected bottleneck nodes
+    pub bottlenecks: Vec<String>,
+    /// Estimated total latency in milliseconds
+    pub estimated_latency_ms: u64,
+    /// Estimated total cost in USD
+    pub estimated_cost_usd: f64,
+    /// Estimated reliability (0.0 - 1.0)
+    pub estimated_reliability: f64,
+    /// Detected graph patterns
+    pub detected_patterns: Vec<GraphPattern>,
+    /// Identified inefficiencies
+    pub inefficiencies: Vec<Inefficiency>,
+}
+
+/// Type of optimization recommendation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OptimizationType {
+    Parallelization,
+    Caching,
+    LoadBalancing,
+    ShortCircuiting,
+    AlternativePath,
+    PatternRefactoring,
+}
+
+/// Expected performance improvement
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceImprovement {
+    /// Latency reduction in milliseconds
+    pub latency_reduction_ms: i64,
+    /// Cost reduction in USD (can be negative for increase)
+    pub cost_reduction_usd: f64,
+    /// Reliability improvement (0.0 - 1.0)
+    pub reliability_improvement: f64,
+}
+
+/// An optimization recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Optimization {
+    /// Type of optimization
+    pub optimization_type: OptimizationType,
+    /// Human-readable description
+    pub description: String,
+    /// Expected improvement
+    pub expected_improvement: PerformanceImprovement,
+    /// Implementation details
+    pub implementation: String,
+    /// Confidence score (0.0 - 1.0)
+    pub confidence: f64,
+    /// Difficulty level (1-5, higher is harder)
+    pub difficulty: u8,
+}
+
+/// Complete optimization results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationResult {
+    /// Analysis of current graph
+    pub analysis: GraphAnalysis,
+    /// Recommended optimizations
+    pub recommendations: Vec<Optimization>,
+    /// Optimized graph representation
+    pub optimized_graph: Option<String>,
+    /// Neural insights from pattern learning
+    pub neural_insights: Option<String>,
+}
+
+impl CoordinationGraph {
+    /// Create a new empty coordination graph
+    #[must_use]
+    pub fn new(purpose: String) -> Self {
+        Self {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+            metadata: GraphMetadata {
+                purpose,
+                expected_latency_ms: None,
+                cost_budget_usd: None,
+                constraints: Vec::new(),
+            },
+        }
+    }
+
+    /// Add a node to the graph
+    pub fn add_node(&mut self, node: GraphNode) {
+        self.nodes.push(node);
+    }
+
+    /// Add an edge to the graph
+    pub fn add_edge(&mut self, edge: GraphEdge) {
+        self.edges.push(edge);
+    }
+
+    /// Get node by primal name
+    pub fn get_node(&self, primal_name: &str) -> Option<&GraphNode> {
+        self.nodes.iter().find(|n| n.primal_name == primal_name)
+    }
+
+    /// Calculate graph depth (longest path)
+    #[must_use]
+    pub fn calculate_depth(&self) -> usize {
+        // Simple DFS to find longest path
+        // TODO: Implement proper topological sort
+        if self.nodes.is_empty() {
+            return 0;
+        }
+
+        // For now, count sequential edges
+        let sequential_edges = self
+            .edges
+            .iter()
+            .filter(|e| e.edge_type == EdgeType::Sequential)
+            .count();
+
+        sequential_edges + 1
+    }
+
+    /// Calculate graph width (max parallel branches)
+    #[must_use]
+    pub fn calculate_width(&self) -> usize {
+        // Count maximum fan-out
+        let mut max_width = 1;
+
+        for node in &self.nodes {
+            let outgoing = self
+                .edges
+                .iter()
+                .filter(|e| e.from == node.primal_name && e.edge_type == EdgeType::Parallel)
+                .count();
+
+            if outgoing > max_width {
+                max_width = outgoing;
+            }
+        }
+
+        max_width
+    }
+
+    /// Estimate total latency
+    #[must_use]
+    pub fn estimate_latency(&self) -> u64 {
+        // Simple estimate: sum of sequential, max of parallel
+        // TODO: Implement proper critical path analysis
+        self.nodes.iter().map(|n| n.estimated_latency_ms).sum()
+    }
+
+    /// Estimate total cost
+    #[must_use]
+    pub fn estimate_cost(&self) -> f64 {
+        self.nodes.iter().map(|n| n.estimated_cost_usd).sum()
+    }
+
+    /// Estimate overall reliability
+    #[must_use]
+    pub fn estimate_reliability(&self) -> f64 {
+        // Product of individual reliabilities
+        self.nodes.iter().map(|n| n.reliability).product()
+    }
+}
+
+/// Graph analyzer
+pub struct GraphAnalyzer;
+
+impl GraphAnalyzer {
+    /// Analyze a coordination graph
+    #[must_use]
+    pub fn analyze(graph: &CoordinationGraph) -> GraphAnalysis {
+        let depth = graph.calculate_depth();
+        let width = graph.calculate_width();
+        let estimated_latency_ms = graph.estimate_latency();
+        let estimated_cost_usd = graph.estimate_cost();
+        let estimated_reliability = graph.estimate_reliability();
+
+        let bottlenecks = Self::detect_bottlenecks(graph);
+        let detected_patterns = Self::detect_patterns(graph);
+        let inefficiencies = Self::detect_inefficiencies(graph);
+
+        GraphAnalysis {
+            depth,
+            width,
+            bottlenecks,
+            estimated_latency_ms,
+            estimated_cost_usd,
+            estimated_reliability,
+            detected_patterns,
+            inefficiencies,
+        }
+    }
+
+    /// Detect bottleneck nodes
+    fn detect_bottlenecks(graph: &CoordinationGraph) -> Vec<String> {
+        let mut bottlenecks = Vec::new();
+
+        // Find nodes with high in-degree (many primals depend on them)
+        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        for edge in &graph.edges {
+            *in_degree.entry(edge.to.clone()).or_insert(0) += 1;
+        }
+
+        for (node, degree) in in_degree {
+            if degree > 2 {
+                // Arbitrary threshold
+                bottlenecks.push(node);
+            }
+        }
+
+        bottlenecks
+    }
+
+    /// Detect graph patterns
+    fn detect_patterns(graph: &CoordinationGraph) -> Vec<GraphPattern> {
+        let mut patterns = Vec::new();
+
+        // Simple heuristics for pattern detection
+        let sequential_count = graph
+            .edges
+            .iter()
+            .filter(|e| e.edge_type == EdgeType::Sequential)
+            .count();
+        let parallel_count = graph
+            .edges
+            .iter()
+            .filter(|e| e.edge_type == EdgeType::Parallel)
+            .count();
+
+        if sequential_count > 0 && parallel_count == 0 {
+            patterns.push(GraphPattern::Pipeline);
+        }
+
+        if parallel_count > 0 {
+            patterns.push(GraphPattern::FanOut);
+        }
+
+        // Check for circular dependencies
+        // TODO: Implement cycle detection
+
+        if patterns.is_empty() {
+            patterns.push(GraphPattern::Unknown);
+        }
+
+        patterns
+    }
+
+    /// Detect inefficiencies
+    fn detect_inefficiencies(graph: &CoordinationGraph) -> Vec<Inefficiency> {
+        let mut inefficiencies = Vec::new();
+
+        // Check for unnecessary sequential execution
+        if graph
+            .edges
+            .iter()
+            .all(|e| e.edge_type == EdgeType::Sequential)
+            && graph.nodes.len() > 2
+        {
+            inefficiencies.push(Inefficiency {
+                inefficiency_type: InefficiencyType::UnnecessarySequential,
+                description: "All operations are sequential, consider parallelization".to_string(),
+                severity: 0.7,
+                affected_components: graph.nodes.iter().map(|n| n.primal_name.clone()).collect(),
+            });
+        }
+
+        // Check for high-latency bottlenecks
+        for node in &graph.nodes {
+            if node.estimated_latency_ms > 3000 {
+                inefficiencies.push(Inefficiency {
+                    inefficiency_type: InefficiencyType::Bottleneck,
+                    description: format!(
+                        "{} has high latency ({}ms)",
+                        node.primal_name, node.estimated_latency_ms
+                    ),
+                    severity: 0.8,
+                    affected_components: vec![node.primal_name.clone()],
+                });
+            }
+        }
+
+        inefficiencies
+    }
+}
+
+/// Graph optimizer
+pub struct GraphOptimizer;
+
+impl GraphOptimizer {
+    /// Generate optimization recommendations
+    #[must_use]
+    pub fn optimize(graph: &CoordinationGraph, analysis: &GraphAnalysis) -> Vec<Optimization> {
+        let mut recommendations = Vec::new();
+
+        // Suggest parallelization for sequential pipelines
+        if analysis.detected_patterns.contains(&GraphPattern::Pipeline) && graph.nodes.len() > 2 {
+            recommendations.push(Optimization {
+                optimization_type: OptimizationType::Parallelization,
+                description: "Convert sequential pipeline to parallel where possible".to_string(),
+                expected_improvement: PerformanceImprovement {
+                    latency_reduction_ms: (analysis.estimated_latency_ms / 3) as i64,
+                    cost_reduction_usd: 0.0,
+                    reliability_improvement: 0.0,
+                },
+                implementation: "Identify independent operations and execute in parallel"
+                    .to_string(),
+                confidence: 0.75,
+                difficulty: 3,
+            });
+        }
+
+        // Suggest load balancing for bottlenecks
+        for bottleneck in &analysis.bottlenecks {
+            recommendations.push(Optimization {
+                optimization_type: OptimizationType::LoadBalancing,
+                description: format!(
+                    "Distribute load from {} across multiple instances",
+                    bottleneck
+                ),
+                expected_improvement: PerformanceImprovement {
+                    latency_reduction_ms: 1000,
+                    cost_reduction_usd: 0.0,
+                    reliability_improvement: 0.1,
+                },
+                implementation: format!(
+                    "Use capability discovery to find multiple {} providers",
+                    bottleneck
+                ),
+                confidence: 0.65,
+                difficulty: 4,
+            });
+        }
+
+        recommendations
+    }
+}

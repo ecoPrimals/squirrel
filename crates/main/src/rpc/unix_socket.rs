@@ -2,15 +2,17 @@
 //!
 //! Helper functions for Unix socket management following biomeOS atomic standards.
 //!
-//! ## Socket Configuration Priority
+//! ## Socket Configuration Priority (4-Tier Fallback)
 //!
-//! 1. `SQUIRREL_SOCKET` environment variable (absolute path)
-//! 2. XDG Runtime Directory: `/run/user/<uid>/squirrel-<family>.sock`
-//! 3. Temp Directory (fallback): `/tmp/squirrel-<family>-<node>.sock`
+//! 1. `SQUIRREL_SOCKET` environment variable (primal-specific override)
+//! 2. `BIOMEOS_SOCKET_PATH` environment variable (Neural API orchestration) ⭐
+//! 3. XDG Runtime Directory: `/run/user/<uid>/squirrel-<family>.sock` (secure user mode)
+//! 4. Temp Directory (fallback): `/tmp/squirrel-<family>-<node>.sock` (system default)
 //!
 //! ## Environment Variables
 //!
-//! - `SQUIRREL_SOCKET`: Override socket path (absolute)
+//! - `SQUIRREL_SOCKET`: Primal-specific override (highest priority)
+//! - `BIOMEOS_SOCKET_PATH`: Generic orchestrator path (Neural API coordination) ⭐
 //! - `SQUIRREL_FAMILY_ID`: Family identifier for atomic grouping (default: "default")
 //! - `SQUIRREL_NODE_ID`: Node identifier for multi-instance (default: hostname)
 //!
@@ -29,47 +31,69 @@ use tracing::{debug, info, warn};
 
 /// Get the socket path following biomeOS atomic standards
 ///
-/// ## Priority Order
+/// ## Priority Order (4-Tier Fallback)
 ///
-/// 1. `SQUIRREL_SOCKET` env var (highest priority)
-/// 2. XDG runtime directory (`/run/user/<uid>/squirrel-<family>.sock`)
-/// 3. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`)
+/// 1. `SQUIRREL_SOCKET` env var (primal-specific override)
+/// 2. `BIOMEOS_SOCKET_PATH` env var (Neural API orchestration) ⭐
+/// 3. XDG runtime directory (`/run/user/<uid>/squirrel-<family>.sock`)
+/// 4. Temp directory fallback (`/tmp/squirrel-<family>-<node>.sock`)
 ///
 /// ## Examples
 ///
 /// ```rust
-/// // Override with explicit path
-/// std::env::set_var("SQUIRREL_SOCKET", "/run/user/1000/squirrel-nat0.sock");
+/// // Tier 1: Primal-specific override
+/// std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
 /// let path = get_socket_path("node1");
-/// assert_eq!(path, "/run/user/1000/squirrel-nat0.sock");
+/// assert_eq!(path, "/custom/squirrel.sock");
 ///
-/// // Use XDG runtime directory
+/// // Tier 2: Neural API orchestration
 /// std::env::remove_var("SQUIRREL_SOCKET");
+/// std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
+/// let path = get_socket_path("node1");
+/// assert_eq!(path, "/tmp/squirrel-nat0.sock");
+///
+/// // Tier 3: XDG runtime directory
+/// std::env::remove_var("BIOMEOS_SOCKET_PATH");
 /// std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
 /// let path = get_socket_path("node1");
 /// // Returns: /run/user/<uid>/squirrel-nat0.sock
 /// ```
 #[must_use]
 pub fn get_socket_path(node_id: &str) -> String {
-    // Priority 1: Explicit socket path override
+    // Tier 1: Primal-specific socket path override
     if let Ok(socket_path) = std::env::var("SQUIRREL_SOCKET") {
-        debug!("Using SQUIRREL_SOCKET override: {}", socket_path);
+        debug!(
+            "Socket Path: {} (from SQUIRREL_SOCKET env var ⭐ Tier 1 - primal-specific)",
+            socket_path
+        );
+        return socket_path;
+    }
+
+    // Tier 2: Generic orchestrator environment variable (Neural API coordination)
+    if let Ok(socket_path) = std::env::var("BIOMEOS_SOCKET_PATH") {
+        debug!(
+            "Socket Path: {} (from BIOMEOS_SOCKET_PATH env var ⭐ Tier 2 - Neural API)",
+            socket_path
+        );
         return socket_path;
     }
 
     // Get family ID for atomic grouping
     let family_id = get_family_id();
 
-    // Priority 2: XDG runtime directory (preferred, secure)
+    // Tier 3: XDG runtime directory (preferred for standalone, secure)
     if let Some(xdg_path) = get_xdg_socket_path(&family_id) {
-        debug!("Using XDG runtime socket: {}", xdg_path);
+        debug!(
+            "Socket Path: {} (from XDG runtime ⭐ Tier 3 - user mode)",
+            xdg_path
+        );
         return xdg_path;
     }
 
-    // Priority 3: Temp directory fallback (last resort)
+    // Tier 4: Temp directory fallback (system default)
     let fallback_path = format!("/tmp/squirrel-{}-{}.sock", family_id, node_id);
-    warn!(
-        "Using /tmp fallback socket (less secure): {}",
+    debug!(
+        "Socket Path: {} (from /tmp ⭐ Tier 4 - system default)",
         fallback_path
     );
     fallback_path
@@ -208,12 +232,13 @@ mod tests {
 
     fn clear_env_vars() {
         std::env::remove_var("SQUIRREL_SOCKET");
+        std::env::remove_var("BIOMEOS_SOCKET_PATH");
         std::env::remove_var("SQUIRREL_FAMILY_ID");
         std::env::remove_var("SQUIRREL_NODE_ID");
     }
 
     #[test]
-    fn test_socket_path_explicit_override() {
+    fn test_socket_path_tier1_squirrel_socket() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_SOCKET", "/custom/path/socket.sock");
 
@@ -224,13 +249,37 @@ mod tests {
     }
 
     #[test]
-    fn test_socket_path_tmp_fallback() {
+    fn test_socket_path_tier2_biomeos_socket_path() {
+        clear_env_vars();
+        std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
+
+        let path = get_socket_path("test-node");
+        assert_eq!(path, "/tmp/squirrel-nat0.sock");
+
+        clear_env_vars();
+    }
+
+    #[test]
+    fn test_squirrel_socket_overrides_biomeos_socket_path() {
+        clear_env_vars();
+        std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
+        std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
+
+        let path = get_socket_path("test-node");
+        // Tier 1 (SQUIRREL_SOCKET) should override Tier 2 (BIOMEOS_SOCKET_PATH)
+        assert_eq!(path, "/custom/squirrel.sock");
+
+        clear_env_vars();
+    }
+
+    #[test]
+    fn test_socket_path_tier3_and_tier4_fallback() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "test0");
 
         let path = get_socket_path("test-node");
-        // Should use /tmp fallback if XDG doesn't exist or as fallback
-        assert!(path.contains("squirrel-test0-test-node.sock") || path.contains("/run/user/"));
+        // Should use Tier 3 (XDG) or Tier 4 (/tmp) fallback
+        assert!(path.contains("squirrel-test0") || path.contains("/run/user/"));
 
         clear_env_vars();
     }

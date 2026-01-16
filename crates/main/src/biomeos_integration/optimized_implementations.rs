@@ -79,7 +79,7 @@ impl OptimizedServiceRegistration {
             .static_strings
             .get("squirrel")
             .unwrap_or_else(|| Arc::from("squirrel"));
-        let api_version = self
+        let _api_version = self
             .static_strings
             .get("biomeOS/v1")
             .unwrap_or_else(|| Arc::from("biomeOS/v1"));

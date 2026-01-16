@@ -192,12 +192,12 @@ impl PortResolver {
     /// Resolve port from universal constants
     fn resolve_port_from_constants(&self, service: &str) -> Result<u16> {
         let port = match service {
-            "http" => network::DEFAULT_HTTP_PORT,
+            "http" => network::get_service_port("http"),
             #[allow(deprecated)]
             "https" => network::DEV_SECURITY_SERVICE_PORT, // HTTPS typically used by security services
-            "websocket" | "ws" => network::DEFAULT_WEBSOCKET_PORT,
-            "metrics" => network::DEFAULT_METRICS_PORT,
-            "admin" => network::DEFAULT_ADMIN_PORT,
+            "websocket" | "ws" => network::get_service_port("websocket"),
+            "metrics" => network::get_service_port("metrics"),
+            "admin" => network::get_service_port("admin"),
             "grpc" => network::DEFAULT_GRPC_PORT,
             _ => return Err(PortResolutionError::UnknownService(service.to_string())),
         };

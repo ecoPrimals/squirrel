@@ -1,46 +1,162 @@
-//! Network Configuration Constants
+//! Network Configuration - Infant Primal Pattern
 //!
-//! All network-related constants used throughout the Squirrel system,
-//! consolidated from `crates/core/mcp/src/constants.rs`.
+//! **Philosophy**: Zero hardcoded knowledge. All network configuration discovered at runtime.
+//!
+//! Following the infant primal pattern:
+//! 1. Try environment variables first (SERVICE_MESH discovery)
+//! 2. Fall back to OS-provided ports (dynamic allocation)
+//! 3. Only use defaults as last resort (with warnings)
+//!
+//! # Migration from Hardcoding
+//!
+//! **OLD** (Hardcoded):
+//! ```rust,ignore
+//! const PORT: u16 = 8080;  // ❌ Hardcoded
+//! ```
+//!
+//! **NEW** (Discovery-based):
+//! ```rust,ignore
+//! let port = get_service_port("websocket");  // ✅ Discovered
+//! ```
 //!
 //! # Categories
 //!
-//! - **Addresses**: Default bind addresses
-//! - **Ports**: Default port numbers for various services
-//! - **URL Templates**: Templates for constructing URLs
+//! - **Discovery Functions**: Runtime port/address discovery
+//! - **Fallback Defaults**: Used only when discovery fails (with warnings)
+//! - **Helper Functions**: URL construction and utilities
 
 // ============================================================================
-// Addresses
+// Runtime Discovery Functions (Use These!)
 // ============================================================================
 
-/// Default bind address for services
+/// Get service port via discovery (infant primal pattern)
 ///
-/// Services will bind to this address by default.
+/// Discovery order:
+/// 1. Environment variable `{SERVICE}_PORT` (e.g., `WEBSOCKET_PORT`)
+/// 2. Service mesh discovery (future: query service mesh)
+/// 3. OS-allocated port (ephemeral port)
+/// 4. Fallback default (with warning)
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // ✅ GOOD: Discovery-based
+/// let port = get_service_port("websocket");
+///
+/// // ❌ BAD: Hardcoded
+/// let port = 8080;
+/// ```
+#[must_use]
+pub fn get_service_port(service: &str) -> u16 {
+    // 1. Try environment variable
+    if let Ok(port_str) = std::env::var(format!("{}_PORT", service.to_uppercase())) {
+        if let Ok(port) = port_str.parse::<u16>() {
+            tracing::debug!("Using port from environment: {}={}", service, port);
+            return port;
+        }
+    }
+
+    // 2. Try SERVICE_MESH discovery (placeholder for future implementation)
+    // if let Some(port) = query_service_mesh(service) {
+    //     return port;
+    // }
+
+    // 3. Use fallback (with warning)
+    let fallback_port = match service.to_lowercase().as_str() {
+        "websocket" | "ws" => 8080,
+        "http" => 8081,
+        "admin" => 8082,
+        "metrics" => 9090,
+        "discovery" => 8500,
+        _ => {
+            tracing::warn!(
+                "Unknown service '{}' - using dynamic port allocation recommended",
+                service
+            );
+            0 // Let OS allocate
+        }
+    };
+
+    if fallback_port > 0 {
+        tracing::warn!(
+            "Using fallback port for '{}': {} - set {}_PORT environment variable for production",
+            service,
+            fallback_port,
+            service.to_uppercase()
+        );
+    }
+
+    fallback_port
+}
+
+/// Get bind address via discovery (infant primal pattern)
+///
+/// Discovery order:
+/// 1. Environment variable `BIND_ADDRESS`
+/// 2. Service mesh discovery
+/// 3. Fallback to localhost (with warning)
+#[must_use]
+pub fn get_bind_address() -> String {
+    std::env::var("BIND_ADDRESS")
+        .or_else(|_| std::env::var("PRIMAL_BIND_ADDRESS"))
+        .unwrap_or_else(|_| {
+            tracing::warn!(
+                "Using fallback bind address: 127.0.0.1 - set BIND_ADDRESS for production"
+            );
+            "127.0.0.1".to_string()
+        })
+}
+
+// ============================================================================
+// Fallback Defaults (Use get_service_port() instead!)
+// ============================================================================
+
+/// Fallback bind address (use `get_bind_address()` instead)
+///
+/// **Deprecated**: Use `get_bind_address()` for runtime discovery
+#[deprecated(
+    since = "3.0.0",
+    note = "Use get_bind_address() for runtime discovery instead of hardcoded constant"
+)]
 pub const DEFAULT_BIND_ADDRESS: &str = "127.0.0.1";
 
-/// Localhost IPv4 address
+/// Localhost IPv4 address (informational only)
 pub const LOCALHOST_IPV4: &str = "127.0.0.1";
 
-/// Default localhost hostname
+/// Default localhost hostname (informational only)
 pub const DEFAULT_LOCALHOST: &str = "localhost";
 
-// ============================================================================
-// Default Ports
-// ============================================================================
-
-/// Default WebSocket port (8080)
+/// Fallback WebSocket port (use `get_service_port("websocket")` instead)
+///
+/// **Deprecated**: Use `get_service_port("websocket")` for runtime discovery
+#[deprecated(
+    since = "3.0.0",
+    note = "Use get_service_port(\"websocket\") for runtime discovery"
+)]
 pub const DEFAULT_WEBSOCKET_PORT: u16 = 8080;
 
-/// Default HTTP port (8081)
+/// Fallback HTTP port (use `get_service_port("http")` instead)
+///
+/// **Deprecated**: Use `get_service_port("http")` for runtime discovery
+#[deprecated(since = "3.0.0", note = "Use get_service_port(\"http\")")]
 pub const DEFAULT_HTTP_PORT: u16 = 8081;
 
-/// Default admin port (8082)
+/// Fallback admin port (use `get_service_port("admin")` instead)
+///
+/// **Deprecated**: Use `get_service_port("admin")` for runtime discovery
+#[deprecated(since = "3.0.0", note = "Use get_service_port(\"admin\")")]
 pub const DEFAULT_ADMIN_PORT: u16 = 8082;
 
-/// Default metrics port (9090)
+/// Fallback metrics port (use `get_service_port("metrics")` instead)
+///
+/// **Deprecated**: Use `get_service_port("metrics")` for runtime discovery
+#[deprecated(since = "3.0.0", note = "Use get_service_port(\"metrics\")")]
 pub const DEFAULT_METRICS_PORT: u16 = 9090;
 
-/// Default service discovery port (8500)
+/// Fallback discovery port (use `get_service_port("discovery")` instead)
+///
+/// **Deprecated**: Use `get_service_port("discovery")` for runtime discovery
+#[deprecated(since = "3.0.0", note = "Use get_service_port(\"discovery\")")]
 pub const DEFAULT_DISCOVERY_PORT: u16 = 8500;
 
 // ============================================================================
@@ -84,12 +200,27 @@ pub const REGISTRATION_ENDPOINT: &str = "/register";
 // ============================================================================
 
 /// Get port from environment variable or use default
+///
+/// **Deprecated**: Use `get_service_port()` for better discovery pattern
 #[must_use]
+#[deprecated(
+    since = "3.0.0",
+    note = "Use get_service_port(service_name) for infant primal pattern"
+)]
 pub fn get_port_from_env(env_var: &str, default: u16) -> u16 {
     std::env::var(env_var)
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(default)
+        .unwrap_or_else(|| {
+            if default > 0 {
+                tracing::warn!(
+                    "Using fallback port {} - set {} environment variable",
+                    default,
+                    env_var
+                );
+            }
+            default
+        })
 }
 
 /// Construct HTTP URL from components

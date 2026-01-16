@@ -110,7 +110,14 @@ mod tests {
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
                 registered: true,
-                load_balancing: LoadBalancingStatus::Active,
+                load_balancing: LoadBalancingStatus {
+                    enabled: true,
+                    healthy: true,
+                    active_connections: 0,
+                    algorithm: "round-robin".to_string(),
+                    health_score: 1.0,
+                    last_check: chrono::Utc::now(),
+                },
                 cross_primal_communication: CrossPrimalStatus {
                     enabled: true,
                     active_connections: 2,

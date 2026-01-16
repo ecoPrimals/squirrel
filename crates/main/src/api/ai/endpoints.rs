@@ -163,11 +163,19 @@ pub async fn handle_execute_ai(
                 }
             }
         }
+        // PrimalPulse custom actions
+        action
+            if action.starts_with("primal.")
+                || action.starts_with("rootpulse.")
+                || action.starts_with("neural.") =>
+        {
+            handle_primalpulse_action(request, router).await
+        }
         _ => {
             let error = AiErrorResponse::new(
                 "unsupported_action",
                 format!(
-                    "Action '{}' is not supported. Available: image.generation, text.generation",
+                    "Action '{}' is not supported. Available: image.generation, text.generation, primal.analyze, primal.audit_hardcoding, rootpulse.semantic_commit, neural.graph_optimize",
                     request.action
                 ),
             );
@@ -175,6 +183,75 @@ pub async fn handle_execute_ai(
             Ok(warp::reply::with_status(
                 json(&error),
                 StatusCode::BAD_REQUEST,
+            ))
+        }
+    }
+}
+
+/// Handler for PrimalPulse custom actions
+async fn handle_primalpulse_action(
+    request: UniversalAiRequest,
+    router: Arc<AiRouter>,
+) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::Rejection> {
+    use crate::primal_pulse::handlers;
+
+    let constraints = vec![]; // TODO: Extract from request.requirements
+
+    let result = match request.action.as_str() {
+        "primal.analyze" => {
+            handlers::handle_primal_analyze(
+                request.input.clone(),
+                router.clone(),
+                constraints.clone(),
+            )
+            .await
+        }
+        "primal.audit_hardcoding" => {
+            handlers::handle_primal_audit_hardcoding(
+                request.input.clone(),
+                router.clone(),
+                constraints.clone(),
+            )
+            .await
+        }
+        "rootpulse.semantic_commit" => {
+            handlers::handle_rootpulse_semantic_commit(
+                request.input.clone(),
+                router.clone(),
+                constraints.clone(),
+            )
+            .await
+        }
+        "neural.graph_optimize" => {
+            crate::primal_pulse::neural_graph::handle_neural_graph_optimize(
+                request.input.clone(),
+                router.clone(),
+                constraints,
+            )
+            .await
+        }
+        _ => {
+            return Ok(warp::reply::with_status(
+                json(&AiErrorResponse::new(
+                    "unknown_action",
+                    format!("Unknown PrimalPulse action: {}", request.action),
+                )),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
+    match result {
+        Ok(response) => Ok(warp::reply::with_status(json(&response), StatusCode::OK)),
+        Err(e) => {
+            let error = AiErrorResponse::new(
+                "primalpulse_action_failed",
+                format!("PrimalPulse action failed: {}", e),
+            )
+            .retryable();
+            Ok(warp::reply::with_status(
+                json(&error),
+                StatusCode::INTERNAL_SERVER_ERROR,
             ))
         }
     }

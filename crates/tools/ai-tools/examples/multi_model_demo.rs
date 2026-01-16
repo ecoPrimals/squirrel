@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::time::{sleep, Duration};
 use tracing::{info, warn}; // Add missing tracing imports
 
 use squirrel_ai_tools::{
@@ -18,8 +17,6 @@ use squirrel_ai_tools::{
         MessageRole,
         ModelParameters,
     },
-    gemini::GeminiClient,
-    local::LocalAIClient,
     openai::OpenAIClient,
     router::{AIRouter, RequestContext, RouterConfig, RoutingHint, RoutingStrategy},
     Result,
@@ -85,14 +82,14 @@ impl MultiModelDispatcher {
     /// Register providers with the router
     pub async fn register_providers(&self) -> Result<()> {
         // Register OpenAI if API key is available
-        if let Some(api_key) = std::env::var("OPENAI_API_KEY").ok() {
+        if let Ok(api_key) = std::env::var("OPENAI_API_KEY") {
             let client = OpenAIClient::new(api_key)?;
             self.router.register_provider("openai", Arc::new(client))?;
             info!("Registered OpenAI provider");
         }
 
         // Register Anthropic if API key is available
-        if let Some(api_key) = std::env::var("ANTHROPIC_API_KEY").ok() {
+        if let Ok(api_key) = std::env::var("ANTHROPIC_API_KEY") {
             let client = AnthropicClient::new(api_key);
             self.router
                 .register_provider("anthropic", Arc::new(client))?;

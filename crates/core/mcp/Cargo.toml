@@ -76,7 +76,11 @@ lz4 = { version = "1.24", optional = true }
 
 # Cryptography
 # SECURITY FIX: Updated from 0.16.20 to fix RUSTSEC-2025-0009 (AES overflow panic)
-ring = "0.17.12"
+# EVOLVED: ring → RustCrypto (Jan 16, 2026 - Pure Rust evolution)
+# Old: ring = "0.17.12"  (C assembly code)
+# New: RustCrypto (100% pure Rust!)
+sha1 = "0.10"
+hmac = "0.12"
 rustls = "0.21"
 rustls-pemfile = "1.0"
 

@@ -11,8 +11,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::optimization::zero_copy::ArcStr;
-
 /// Identity of this primal (self-knowledge)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalIdentity {
@@ -335,7 +333,7 @@ impl PrimalSelfKnowledge {
             let address =
                 std::env::var("SERVICE_ADDRESS").unwrap_or_else(|_| "127.0.0.1".to_string());
 
-            let health_endpoint = Some(format!("/health"));
+            let health_endpoint = Some("/health".to_string());
 
             if let Err(e) = registry
                 .register_service(

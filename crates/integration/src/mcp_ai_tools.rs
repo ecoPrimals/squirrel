@@ -457,8 +457,8 @@ impl McpAiToolsAdapter {
         &self,
         conversation_id: &str,
         model: Option<String>,
-        temperature: Option<f32>,
-        max_tokens: Option<u32>,
+        _temperature: Option<f32>,
+        _max_tokens: Option<u32>,
     ) -> Result<String, anyhow::Error> {
         // Production implementation: this method requires a proper provider integration
         tracing::warn!(

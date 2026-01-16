@@ -3,7 +3,6 @@
 //! Implements the multi-stage discovery process for finding services at runtime.
 
 use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
-use crate::optimization::zero_copy::ArcStr;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;

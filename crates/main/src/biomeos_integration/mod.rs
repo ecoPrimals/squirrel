@@ -25,10 +25,11 @@ const STATUS_RUNNING: &str = "running";
 pub mod agent_deployment;
 pub mod ai_intelligence;
 pub mod context_state;
-pub mod ecosystem_client;
+pub mod ecosystem_client; // DEPRECATED: Use unix_socket_client instead
 pub mod manifest;
 pub mod mcp_integration;
 pub mod optimized_implementations;
+pub mod unix_socket_client; // TRUE PRIMAL compliant
 
 // Import capability-based discovery (modern pattern)
 use crate::capability_registry::CapabilityRegistry;

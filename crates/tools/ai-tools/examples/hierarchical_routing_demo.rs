@@ -4,23 +4,8 @@
 //! of the AI tools system to route requests across multiple AI providers
 //! and models in a sophisticated network topology.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 
-use tokio::time::sleep;
-use tracing::{debug, info, warn};
-use uuid::Uuid;
 
-use squirrel_ai_tools::{
-    common::{
-        capability::{AITask, SecurityLevel, SecurityRequirements, TaskType},
-        clients::mock::MockAIClient,
-        ChatMessage, ChatRequest, MessageRole, ModelParameters,
-    },
-    router::{AIRouter, RequestContext, RouterConfig, RoutingHint, RoutingStrategy},
-    Result,
-};
 
 use serde_json::json;
 

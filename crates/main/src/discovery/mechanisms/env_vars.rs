@@ -8,7 +8,7 @@
 //! `{CAPABILITY}_ENDPOINT` - Full endpoint URL
 //! Example: `AI_ENDPOINT=http://192.168.1.100:9200`
 
-use crate::discovery::types::{DiscoveredService, DiscoveryMethod, DiscoveryResult};
+use crate::discovery::types::DiscoveredService;
 use std::collections::HashMap;
 use std::env;
 use tracing::debug;

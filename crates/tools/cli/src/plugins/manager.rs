@@ -211,7 +211,7 @@ impl PluginManager {
 
         if metadata_file.exists() {
             // Parse metadata from TOML file
-            let metadata_content =
+            let _metadata_content =
                 std::fs::read_to_string(&metadata_file).map_err(PluginError::IoError)?;
 
             // For now, create basic metadata - TODO: implement TOML parsing

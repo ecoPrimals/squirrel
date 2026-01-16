@@ -13,7 +13,7 @@ use chrono::Utc;
 use ecosystem_api::{
     // Removed: client::SongbirdClient (deprecated - use UniversalAdapterV2 instead)
     error::{EcosystemError, UniversalResult},
-    traits::{EcosystemIntegration, RetryConfig, UniversalPrimalProvider},
+    traits::{EcosystemIntegration, UniversalPrimalProvider},
     types::{
         DynamicPortInfo, EcosystemRequest, EcosystemResponse, EcosystemServiceRegistration,
         HealthCheckConfig, HealthStatus, PrimalCapability, PrimalContext, PrimalDependency,

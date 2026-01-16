@@ -5,10 +5,12 @@
 mod huggingface;
 mod ollama;
 mod openai;
+mod universal;
 
 pub use huggingface::HuggingFaceAdapter;
 pub use ollama::OllamaAdapter;
 pub use openai::OpenAIAdapter;
+pub use universal::{ProviderMetadata, UniversalAiAdapter};
 
 use super::types::{
     ImageGenerationRequest, ImageGenerationResponse, TextGenerationRequest, TextGenerationResponse,
@@ -24,6 +26,8 @@ use async_trait::async_trait;
 pub enum QualityTier {
     /// Basic quality models
     Basic,
+    /// Fast models (optimized for speed)
+    Fast,
     /// Standard quality models
     Standard,
     /// High quality models
@@ -58,6 +62,11 @@ pub trait AiProviderAdapter: Send + Sync {
 
     /// Check if supports image generation
     fn supports_image_generation(&self) -> bool;
+
+    /// Check if provider is currently available
+    async fn is_available(&self) -> bool {
+        true // Default: assume available
+    }
 
     /// Generate text
     async fn generate_text(

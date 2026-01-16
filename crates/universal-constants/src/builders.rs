@@ -81,13 +81,13 @@ pub fn ws_url(base_url: &str) -> String {
 /// Build default localhost URLs (HTTP, health, metrics, admin, WS)
 #[must_use]
 pub fn default_localhost_urls() -> (String, String, String, String, String) {
-    let http_url = localhost_http(network::DEFAULT_HTTP_PORT);
+    let http_url = localhost_http(network::get_service_port("http"));
     (
         http_url.clone(),
         health_url(&http_url),
         metrics_url(&http_url),
         admin_url(&http_url),
-        ws_url(&localhost_ws(network::DEFAULT_WEBSOCKET_PORT)),
+        ws_url(&localhost_ws(network::get_service_port("websocket"))),
     )
 }
 

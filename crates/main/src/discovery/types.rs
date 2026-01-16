@@ -28,6 +28,9 @@ pub enum DiscoveryError {
 
     #[error("Parse error: {0}")]
     ParseError(String),
+
+    #[error("Feature not supported: {0}")]
+    NotSupported(String),
 }
 
 /// A discovered service provider

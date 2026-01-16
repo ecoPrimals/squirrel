@@ -40,7 +40,11 @@ lazy_static = "1.4"
 regex = "1.10"
 rand = "0.8.4"
 log = "0.4"
-ring = "0.17"
+# EVOLVED: ring → RustCrypto (Jan 16, 2026 - Pure Rust evolution)
+# Old: ring = "0.17"  (C assembly code)
+# New: RustCrypto (100% pure Rust!)
+sha1 = "0.10"
+hmac = "0.12"
 tempfile = "3.8"
 
 # Marketplace dependencies

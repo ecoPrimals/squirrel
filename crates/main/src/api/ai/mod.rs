@@ -33,14 +33,14 @@
 use std::sync::Arc;
 use warp::Filter;
 
-mod action_registry;
+pub mod action_registry;
 mod adapters;
 mod constraint_router;
 mod constraints;
 mod endpoints;
 mod models;
 mod provider_registration;
-mod router;
+pub mod router;
 mod selector;
 mod songbird_integration;
 pub mod types;

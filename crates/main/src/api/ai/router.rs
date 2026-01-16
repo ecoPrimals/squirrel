@@ -1,8 +1,23 @@
 //! AI request router with intelligent provider selection and fallback
 //!
 //! Routes AI requests to the best available provider with retry logic.
+//!
+//! ## Capability-Based Discovery (NEW!)
+//!
+//! The router now supports capability-based discovery via Songbird:
+//!
+//! ```rust,ignore
+//! // With Songbird (capability-based - TRUE PRIMAL)
+//! let router = AiRouter::new_with_discovery(songbird_client).await?;
+//!
+//! // Without Songbird (fallback to legacy adapters)
+//! let router = AiRouter::new().await?;
+//! ```
 
-use super::adapters::{AiProviderAdapter, HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter};
+use super::adapters::{
+    AiProviderAdapter, HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter, ProviderMetadata,
+    UniversalAiAdapter,
+};
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
 use super::types::{
@@ -10,6 +25,8 @@ use super::types::{
     TextGenerationResponse,
 };
 use crate::error::PrimalError;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -30,41 +47,186 @@ pub struct AiRouter {
 }
 
 impl AiRouter {
-    /// Create a new AI router
-    pub async fn new() -> Result<Self, PrimalError> {
+    /// Create a new AI router with capability-based discovery (TRUE PRIMAL!)
+    ///
+    /// This method uses Songbird to discover AI providers via capability-based discovery.
+    /// It will discover ANY primal offering AI capabilities (Toadstool, NestGate, etc.)
+    /// and also load external vendors from configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `_songbird_client` - Songbird client for capability discovery (placeholder for now)
+    ///
+    /// # Returns
+    ///
+    /// New AiRouter with discovered providers
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let router = AiRouter::new_with_discovery(songbird).await?;
+    /// ```
+    pub async fn new_with_discovery(
+        _songbird_client: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    ) -> Result<Self, PrimalError> {
+        info!("🔍 Initializing AI router with capability-based discovery...");
+
         let mut providers: Vec<Arc<dyn AiProviderAdapter>> = Vec::new();
 
-        // Try to initialize OpenAI if available
-        if let Ok(openai) = OpenAIAdapter::new() {
-            info!("✅ OpenAI adapter initialized (text + image generation)");
-            providers.push(Arc::new(openai));
-        } else {
-            info!("⚠️  OpenAI adapter not available (OPENAI_API_KEY not set)");
+        // TODO: Implement actual Songbird capability discovery
+        // For now, we'll use a placeholder that loads from environment
+        // This will be replaced with actual Songbird integration:
+        //
+        // let text_gen_providers = songbird.discover_by_capability("ai:text-generation").await?;
+        // let image_gen_providers = songbird.discover_by_capability("ai:image-generation").await?;
+        //
+        // for discovery in text_gen_providers {
+        //     let adapter = UniversalAiAdapter::from_discovery(...);
+        //     providers.push(Arc::new(adapter));
+        // }
+
+        // For now, check environment for discovered provider sockets
+        if let Ok(socket_paths) = std::env::var("AI_PROVIDER_SOCKETS") {
+            info!("📡 Discovering AI providers from environment...");
+            for socket_path in socket_paths.split(',') {
+                match Self::create_universal_adapter_from_path(socket_path.trim()).await {
+                    Ok(adapter) => {
+                        info!("✅ Discovered provider: {}", adapter.provider_name());
+                        providers.push(Arc::new(adapter));
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Failed to connect to provider at {}: {}", socket_path, e);
+                    }
+                }
+            }
         }
 
-        // Try to initialize Ollama if available (local AI)
-        let ollama = OllamaAdapter::new();
-        if ollama.is_available().await {
-            info!("✅ Ollama adapter initialized (local AI)");
-            providers.push(Arc::new(ollama));
+        // Fallback: Load legacy adapters in parallel
+        info!("🔄 Loading legacy AI adapters (fallback)...");
+        let legacy_providers = Self::load_legacy_adapters_parallel().await;
+        providers.extend(legacy_providers);
+
+        if providers.is_empty() {
+            warn!("⚠️  No AI providers available. Set OPENAI_API_KEY, HUGGINGFACE_API_KEY, or install Ollama");
+            warn!("⚠️  Or configure AI_PROVIDER_SOCKETS for capability-based discovery");
         } else {
-            info!("⚠️  Ollama not available (install: https://ollama.ai)");
+            info!(
+                "✅ AI router initialized with {} provider(s) (capability-based + legacy)",
+                providers.len()
+            );
         }
 
-        // Try to initialize HuggingFace if available
-        let huggingface = HuggingFaceAdapter::new();
-        if huggingface.is_available().await {
-            info!("✅ HuggingFace adapter initialized");
-            providers.push(Arc::new(huggingface));
-        } else {
-            info!("⚠️  HuggingFace adapter not available (HUGGINGFACE_API_KEY not set)");
+        Ok(Self {
+            providers: Arc::new(RwLock::new(providers)),
+            selector: Arc::new(ProviderSelector::new()),
+            enable_retry: true,
+            max_retries: 2,
+        })
+    }
+
+    /// Create UniversalAiAdapter from socket path (helper for discovery)
+    async fn create_universal_adapter_from_path(
+        socket_path: &str,
+    ) -> Result<UniversalAiAdapter, PrimalError> {
+        // Parse socket path to extract metadata
+        // Format: /path/to/socket.sock or /path/to/primal-capability.sock
+        let path = PathBuf::from(socket_path);
+        let file_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
+
+        // Create basic metadata from socket path
+        let metadata = ProviderMetadata {
+            primal_id: file_name.to_string(),
+            name: format!("Universal AI ({})", file_name),
+            is_local: Some(true), // Unix socket implies local
+            quality: Some("standard".to_string()),
+            cost: Some(0.0), // Local providers are free
+            max_tokens: Some(4096),
+            additional: HashMap::new(),
+        };
+
+        let adapter = UniversalAiAdapter::from_discovery(
+            "ai:text-generation", // Default capability
+            path,
+            metadata,
+        );
+
+        // Verify adapter is available
+        if !adapter.is_available().await {
+            return Err(PrimalError::OperationFailed(format!(
+                "Provider at {} is not available",
+                socket_path
+            )));
         }
+
+        Ok(adapter)
+    }
+
+    /// Load legacy adapters in parallel (concurrent initialization!)
+    async fn load_legacy_adapters_parallel() -> Vec<Arc<dyn AiProviderAdapter>> {
+        // Execute all initializations in parallel using tokio::join!
+        let (openai_result, ollama_result, huggingface_result) = tokio::join!(
+            async {
+                match OpenAIAdapter::new() {
+                    Ok(adapter) => {
+                        info!("✅ OpenAI adapter initialized (text + image generation)");
+                        Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
+                    }
+                    Err(_) => {
+                        info!("⚠️  OpenAI adapter not available (OPENAI_API_KEY not set)");
+                        None
+                    }
+                }
+            },
+            async {
+                let adapter = OllamaAdapter::new();
+                if adapter.is_available().await {
+                    info!("✅ Ollama adapter initialized (local AI)");
+                    Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
+                } else {
+                    info!("⚠️  Ollama not available (install: https://ollama.ai)");
+                    None
+                }
+            },
+            async {
+                let adapter = HuggingFaceAdapter::new();
+                if adapter.is_available().await {
+                    info!("✅ HuggingFace adapter initialized");
+                    Some(Arc::new(adapter) as Arc<dyn AiProviderAdapter>)
+                } else {
+                    info!("⚠️  HuggingFace adapter not available (HUGGINGFACE_API_KEY not set)");
+                    None
+                }
+            }
+        );
+
+        // Collect successful initializations
+        vec![openai_result, ollama_result, huggingface_result]
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+
+    /// Create a new AI router (legacy - uses hardcoded adapters)
+    ///
+    /// **Note**: This is the legacy initialization method. For TRUE PRIMAL compliance,
+    /// use `new_with_discovery()` instead for capability-based provider discovery.
+    ///
+    /// This method will be deprecated in favor of `new_with_discovery()`.
+    pub async fn new() -> Result<Self, PrimalError> {
+        info!("⚠️  Using legacy AI router initialization (hardcoded adapters)");
+        info!("⚠️  Consider using new_with_discovery() for capability-based discovery");
+
+        // Use parallel loading for legacy adapters
+        let providers = Self::load_legacy_adapters_parallel().await;
 
         if providers.is_empty() {
             warn!("⚠️  No AI providers available. Set OPENAI_API_KEY, HUGGINGFACE_API_KEY, or install Ollama");
         } else {
             info!(
-                "✅ AI router initialized with {} provider(s)",
+                "✅ AI router initialized with {} provider(s) (legacy mode)",
                 providers.len()
             );
         }
@@ -312,21 +474,34 @@ impl AiRouter {
         let mut provider_infos = Vec::new();
 
         for provider in providers.iter() {
+            // Only include providers that support text generation
+            if !provider.supports_text_generation() {
+                continue;
+            }
+
             let is_available = true; // Assume available if registered
 
-            let info = match provider.provider_id() {
-                "openai" => ProviderInfo {
-                    provider_id: "openai".to_string(),
-                    provider_name: "OpenAI GPT".to_string(),
-                    capabilities: vec!["text.generation".to_string()],
-                    quality_tier: QualityTier::High,
-                    cost_per_unit: Some(0.002),
-                    avg_latency_ms: 2000,
-                    reliability: 0.99,
-                    is_local: false,
-                    is_available,
-                },
-                _ => continue,
+            // Map adapter QualityTier to selector QualityTier
+            use super::adapters::QualityTier as AdapterQT;
+            use super::selector::QualityTier as SelectorQT;
+            let quality_tier = match provider.quality_tier() {
+                AdapterQT::Basic => SelectorQT::Low,
+                AdapterQT::Fast => SelectorQT::Low, // Fast models sacrifice quality for speed
+                AdapterQT::Standard => SelectorQT::Medium,
+                AdapterQT::High => SelectorQT::High,
+                AdapterQT::Premium => SelectorQT::Premium,
+            };
+
+            let info = ProviderInfo {
+                provider_id: provider.provider_id().to_string(),
+                provider_name: provider.provider_name().to_string(),
+                capabilities: vec!["text.generation".to_string()],
+                quality_tier,
+                cost_per_unit: provider.cost_per_unit(),
+                avg_latency_ms: provider.avg_latency_ms(),
+                reliability: 0.99, // Default for now
+                is_local: provider.is_local(),
+                is_available,
             };
 
             provider_infos.push(info);

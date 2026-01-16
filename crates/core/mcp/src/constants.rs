@@ -213,6 +213,7 @@ pub mod url_builders {
     }
 
     /// Build default localhost URLs
+    #[allow(deprecated)]
     pub fn default_localhost_urls() -> (String, String, String, String, String) {
         let http_url = localhost_http(network::DEFAULT_HTTP_PORT);
         (

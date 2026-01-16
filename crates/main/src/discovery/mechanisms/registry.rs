@@ -1,12 +1,25 @@
 //! Service Registry discovery mechanism
 //!
-//! Discovers services via a centralized service registry.
-//! Supports popular registry backends:
+//! **DEPRECATED**: This module uses hardcoded vendor-specific registry types.
+//!
+//! # Migration
+//!
+//! **Use instead**: `registry_trait::ServiceRegistryProvider` for vendor-agnostic discovery.
+//!
+//! See `registry_trait.rs` for the trait-based approach that follows the infant primal pattern.
+//!
+//! ## Old Approach (Hardcoded)
+//!
+//! This module hardcodes knowledge of specific registries:
 //! - Consul
-//! - Etcd
+//! - Etcd  
 //! - Kubernetes Service Discovery
 //! - Eureka
 //! - Custom HTTP-based registries
+//!
+//! ## New Approach (Agnostic)
+//!
+//! Use `ServiceRegistryProvider` trait which any registry can implement
 //!
 //! ## Architecture
 //!
@@ -31,12 +44,29 @@
 //! }
 //! ```
 
-use crate::discovery::types::{DiscoveredService, DiscoveryError, DiscoveryResult};
+use crate::discovery::types::{DiscoveredService, DiscoveryResult};
 use std::collections::HashMap;
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Service registry type
+///
+/// **Deprecated**: Use `ServiceRegistryProvider` trait instead for vendor-agnostic discovery.
+///
+/// # Migration
+///
+/// ```rust,ignore
+/// // ❌ OLD: Hardcoded vendor
+/// let registry = RegistryDiscovery::new(RegistryType::Consul, endpoint);
+///
+/// // ✅ NEW: Agnostic trait
+/// use crate::discovery::mechanisms::registry_trait::auto_detect_registry;
+/// let registry = auto_detect_registry().await?;
+/// ```
+#[deprecated(
+    since = "3.0.0",
+    note = "Use ServiceRegistryProvider trait for vendor-agnostic discovery"
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryType {
     /// HashiCorp Consul

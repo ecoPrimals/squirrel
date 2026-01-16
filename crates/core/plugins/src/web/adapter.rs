@@ -2,6 +2,8 @@
 //!
 //! This module provides adapter functionality to bridge between legacy and new plugin systems.
 
+#![allow(deprecated)] // Allow use of plugin::PluginMetadata during migration to squirrel_interfaces
+
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -132,7 +134,7 @@ where
     T: LegacyWebPluginTrait + Plugin + Send + Sync + 'static,
 {
     #[allow(deprecated)]
-    fn metadata(&self) -> &PluginMetadata {
+    fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }
 
@@ -284,7 +286,7 @@ where
     T: Plugin + Send + Sync + 'static,
 {
     #[allow(deprecated)]
-    fn metadata(&self) -> &PluginMetadata {
+    fn metadata(&self) -> &crate::plugin::PluginMetadata {
         self.plugin.metadata()
     }
 

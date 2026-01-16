@@ -228,6 +228,11 @@ impl ApiServer {
         // Create action registry for Phase 6 (Ultimate Vision)
         tracing::info!("🌟 Initializing ActionRegistry for dynamic provider registration...");
         let action_registry = Arc::new(ActionRegistry::new());
+
+        // Register PrimalPulse tools
+        tracing::info!("🌊 Registering PrimalPulse AI tools...");
+        crate::primal_pulse::register_primal_pulse_tools(action_registry.clone()).await;
+
         let provider = provider_routes(action_registry);
         tracing::info!("✅ ActionRegistry initialized - Phase 6 ULTIMATE endpoints ready!");
 

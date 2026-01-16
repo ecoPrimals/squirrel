@@ -120,11 +120,11 @@ fn default_bind_address() -> String {
 }
 
 fn default_http_port() -> Port {
-    Port(network::DEFAULT_HTTP_PORT)
+    Port(network::get_service_port("http"))
 }
 
 fn default_websocket_port() -> Port {
-    Port(network::DEFAULT_WEBSOCKET_PORT)
+    Port(network::get_service_port("websocket"))
 }
 
 fn default_grpc_port() -> Port {
@@ -177,7 +177,7 @@ impl NetworkConfig {
         Self {
             bind_address: network::BIND_ALL_INTERFACES.to_string(), // Bind to all interfaces
             http_port: Port(443),                                    // HTTPS
-            websocket_port: Port(network::DEFAULT_WEBSOCKET_PORT),
+            websocket_port: Port(network::get_service_port("websocket")),
             grpc_port: Port(network::DEFAULT_GRPC_PORT),
             max_connections: 10000, // High for production
             enable_tls: true,

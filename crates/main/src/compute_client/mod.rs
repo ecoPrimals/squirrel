@@ -3,6 +3,7 @@
 //! This module provides modular, capability-based compute integration.
 
 pub mod client;
+pub mod provider_trait;
 pub mod providers;
 pub mod types;
 // Removed ai_metadata - was over-engineered early implementation

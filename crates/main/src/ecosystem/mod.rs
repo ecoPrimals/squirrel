@@ -32,7 +32,7 @@
 //! let coordinator = registry.discover_by_capability(&PrimalCapability::ServiceMesh).await?;
 //! ```
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,9 +41,7 @@ use uuid::Uuid;
 use crate::error::PrimalError;
 use crate::monitoring::metrics::MetricsCollector;
 use crate::primal_provider::SquirrelPrimalProvider;
-use crate::universal::{
-    LoadBalancingStatus, PrimalCapability, PrimalContext, UniversalPrimalProvider,
-};
+use crate::universal::{LoadBalancingStatus, PrimalCapability, PrimalContext};
 use crate::universal_primal_ecosystem::{
     CapabilityMatch, CapabilityRequest, DiscoveredPrimal, UniversalPrimalEcosystem,
 };
@@ -54,7 +52,6 @@ pub mod types;
 
 // Re-export all public items
 pub use status::*;
-pub use types::*;
 
 // Re-export registry manager types
 pub mod discovery_client;
@@ -654,7 +651,11 @@ impl EcosystemManager {
             service_mesh_status: ServiceMeshStatus {
                 enabled: true,
                 // Check actual registration status from discovered services
-                registered: self.registry_manager.get_discovered_services().await.len() > 0,
+                registered: !self
+                    .registry_manager
+                    .get_discovered_services()
+                    .await
+                    .is_empty(),
                 load_balancing: LoadBalancingStatus {
                     enabled: true,
                     healthy: overall_health > 0.7,

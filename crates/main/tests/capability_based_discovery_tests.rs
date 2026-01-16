@@ -155,7 +155,7 @@ fn test_primal_type_hash_consistency() {
 #[test]
 fn test_primal_type_clone_and_copy() {
     let primal = EcosystemPrimalType::Squirrel;
-    let cloned = primal.clone();
+    let cloned = primal;
     let copied = primal;
 
     assert_eq!(primal, cloned);

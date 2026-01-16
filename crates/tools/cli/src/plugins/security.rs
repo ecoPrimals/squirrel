@@ -8,6 +8,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tracing::{error, info, warn};
 
+#[allow(deprecated)]
 use crate::plugins::plugin::PluginMetadata;
 use crate::plugins::{Plugin, PluginError}; // Use local PluginMetadata for compatibility
 

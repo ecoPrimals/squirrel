@@ -90,7 +90,8 @@ impl SongbirdAiIntegration {
         use universal_constants::network;
 
         let songbird_endpoint = std::env::var("SONGBIRD_ENDPOINT").unwrap_or_else(|_| {
-            let port = network::get_port_from_env("SONGBIRD_PORT", network::DEFAULT_HTTP_PORT);
+            let port =
+                network::get_port_from_env("SONGBIRD_PORT", network::get_service_port("http"));
             network::http_url(network::DEFAULT_LOCALHOST, port, "")
         });
 

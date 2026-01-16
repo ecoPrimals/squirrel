@@ -33,7 +33,7 @@ mod tests {
         let config = ApiGatewayConfig::default();
         assert_eq!(config.host, "0.0.0.0");
         assert_eq!(config.port, 8080);
-        assert_eq!(config.enable_cors, true);
+        assert!(config.enable_cors);
         assert_eq!(config.rate_limit, 1000);
     }
 
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn test_dashboard_config_default() {
         let config = DashboardConfig::default();
-        assert_eq!(config.enable_real_time, true);
+        assert!(config.enable_real_time);
         assert_eq!(config.update_interval, 5);
     }
 

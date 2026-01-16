@@ -168,6 +168,7 @@ fn calculate_provider_score(
                 // Favor high quality tiers
                 score += match provider.quality_tier() {
                     QualityTier::Basic => 0.0,
+                    QualityTier::Fast => 10.0, // Fast models sacrifice quality for speed
                     QualityTier::Standard => 25.0,
                     QualityTier::High => 50.0,
                     QualityTier::Premium => 75.0,
@@ -224,7 +225,7 @@ fn select_default_provider(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn test_constraint_filtering() {
