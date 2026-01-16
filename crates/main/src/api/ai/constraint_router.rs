@@ -225,7 +225,6 @@ fn select_default_provider(
 
 #[cfg(test)]
 mod tests {
-    
 
     #[test]
     fn test_constraint_filtering() {

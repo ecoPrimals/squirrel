@@ -2,6 +2,9 @@
 //!
 //! Provides integration with `HuggingFace` Inference API.
 //!
+//! **v1.1.0**: This adapter is only available with the `dev-direct-http` feature.
+//! Production builds use `UniversalAiAdapter` with Unix sockets only.
+//!
 //! # Environment Variables
 //!
 //! - `HUGGINGFACE_API_KEY` (required): Your HuggingFace API token
@@ -32,6 +35,8 @@
 //! # Ok(())
 //! # }
 //! ```
+
+#![cfg(feature = "dev-direct-http")]
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{

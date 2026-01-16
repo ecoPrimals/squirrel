@@ -1,15 +1,30 @@
 //! AI provider adapters
 //!
 //! Adapters for different AI providers (`OpenAI`, `HuggingFace`, Ollama, etc.)
+//!
+//! **v1.1.0**: HTTP-based adapters (OpenAI, HuggingFace, Ollama) are only available
+//! with the `dev-direct-http` feature. Production builds use `UniversalAiAdapter` only.
 
+// HTTP-based adapters (dev mode only)
+#[cfg(feature = "dev-direct-http")]
 mod huggingface;
+#[cfg(feature = "dev-direct-http")]
 mod ollama;
+#[cfg(feature = "dev-direct-http")]
 mod openai;
+
+// Universal adapter (always available - production mode)
 mod universal;
 
+// Conditional exports
+#[cfg(feature = "dev-direct-http")]
 pub use huggingface::HuggingFaceAdapter;
+#[cfg(feature = "dev-direct-http")]
 pub use ollama::OllamaAdapter;
+#[cfg(feature = "dev-direct-http")]
 pub use openai::OpenAIAdapter;
+
+// Always available
 pub use universal::{ProviderMetadata, UniversalAiAdapter};
 
 use super::types::{

@@ -4,12 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::neural_graph::{
-        CoordinationGraph, GraphAnalyzer, GraphNode, GraphOptimizer,
-    };
-    
-    
-    
+    use super::super::neural_graph::{CoordinationGraph, GraphAnalyzer, GraphNode, GraphOptimizer};
 
     // ============================================================================
     // UNIT TESTS

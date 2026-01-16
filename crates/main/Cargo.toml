@@ -22,6 +22,8 @@ thiserror = "1.0"
 async-trait = "0.1"
 dashmap = "5.5"
 parking_lot = "0.12"
+# HTTP client - Keep for ecosystem communication
+# v1.1.0: AI adapters wrapped with dev-direct-http feature
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 warp = "0.3"
 base64 = "0.21"
@@ -70,7 +72,8 @@ squirrel-integration = { path = "../integration" }
 # MCP and AI dependencies
 # Using our own MCP implementation instead of external mcp crate
 squirrel-mcp = { path = "../core/mcp" }
-openai = "1.1"
+# OpenAI SDK - OPTIONAL in v1.1.0+ (dev-direct-http feature only!)
+openai = { version = "1.1", optional = true }
 
 # Observability
 # SECURITY FIX: Updated from 0.13 to fix RUSTSEC-2024-0437 (protobuf uncontrolled recursion)
@@ -91,6 +94,10 @@ prost = { version = "0.12", optional = true }
 
 [features]
 default = ["monitoring", "ecosystem"]
+# v1.1.0+ Feature: Development mode with direct HTTP AI adapters
+# Production (default): UniversalAiAdapter ONLY (Unix sockets)
+# Development: Includes OpenAI/HuggingFace/Ollama adapters (HTTP)
+dev-direct-http = ["openai"]
 monitoring = ["prometheus", "metrics", "metrics-exporter-prometheus"]
 ecosystem = ["tonic", "prost"]
 tarpc-rpc = ["tarpc", "tokio-serde", "bincode"]

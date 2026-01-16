@@ -1,6 +1,38 @@
 # Squirrel Development Configuration
-# Generated: November 14, 2025
+# Version: v1.1.0+
+# Updated: January 16, 2026
 # Purpose: Development environment overrides
+
+# BUILD MODES (v1.1.0+):
+# 
+# Production Mode (default):
+#   $ cargo build --release
+#   - Uses UniversalAiAdapter ONLY (Unix sockets)
+#   - NO direct HTTP to AI providers
+#   - Requires Songbird AI proxy or AI_PROVIDER_SOCKETS
+#
+# Development Mode (--features dev-direct-http):
+#   $ cargo build --release --features dev-direct-http
+#   - Includes OpenAI, HuggingFace, Ollama adapters
+#   - Direct HTTP access to AI providers (fast iteration)
+#   - Requires API keys (see below)
+
+[ai_router]
+# Development mode AI configuration
+# If --features dev-direct-http is enabled, you can use:
+# 1. Direct HTTP to OpenAI/HuggingFace (requires API keys in environment)
+# 2. Unix sockets to Songbird proxy (no API keys needed)
+# 3. Unix sockets to Toadstool/NestGate (local AI)
+discovery_method = "hybrid"
+enable_retry = true
+max_retries = 2
+
+# API keys for direct HTTP access (DEV MODE ONLY!)
+# Set these environment variables when using --features dev-direct-http:
+# - OPENAI_API_KEY="sk-..."
+# - HUGGINGFACE_API_KEY="hf_..."
+# 
+# NOTE: In production mode, these are NOT used (Songbird manages all credentials)
 
 [network]
 default_host = "127.0.0.1"
@@ -26,6 +58,7 @@ websocket_port = 3001
 max_connections = 100
 
 [ai_tools]
+# Legacy AI tool endpoints (used when --features dev-direct-http is enabled)
 anthropic_url = "https://api.anthropic.com"
 openai_url = "https://api.openai.com"
 ollama_url = "http://localhost:11434"

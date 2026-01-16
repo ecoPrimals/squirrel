@@ -1,6 +1,22 @@
 # Squirrel Production Configuration
-# Generated: November 14, 2025
-# Purpose: Extract hardcoded values to configuration
+# Version: v1.1.0+
+# Updated: January 16, 2026
+# Purpose: Production mode configuration (Unix sockets ONLY - Zero HTTP to AI providers!)
+
+[ai_router]
+# v1.1.0+: Capability-based AI discovery (Unix sockets only!)
+# Production mode uses UniversalAiAdapter ONLY - no direct HTTP to AI providers
+discovery_method = "songbird"
+enable_retry = true
+max_retries = 2
+
+# AI provider Unix sockets (discovered via Songbird or environment variable)
+# Set via AI_PROVIDER_SOCKETS environment variable:
+# Example: AI_PROVIDER_SOCKETS="/run/user/1000/songbird-ai-openai.sock,/run/user/1000/songbird-ai-huggingface.sock"
+
+# NO API KEYS IN PRODUCTION!
+# All external AI credentials are managed by Songbird (single gateway)
+# This is the "concentrated gap" architecture - Songbird handles ALL external HTTP/HTTPS
 
 [network]
 # Default network configuration
@@ -10,7 +26,8 @@ health_check_port = 8081
 metrics_port = 9090
 
 [service_discovery]
-# Service discovery endpoints
+# Service discovery endpoints (Unix sockets preferred!)
+# For biomeOS/NUCLEUS integration, use Unix sockets instead of HTTP
 registry_url = "http://localhost:8500"
 consul_address = "127.0.0.1:8500"
 etcd_endpoints = ["http://localhost:2379"]
@@ -28,12 +45,6 @@ server_host = "127.0.0.1"
 server_port = 3000
 websocket_port = 3001
 max_connections = 1000
-
-[ai_tools]
-# AI service endpoints
-anthropic_url = "https://api.anthropic.com"
-openai_url = "https://api.openai.com"
-ollama_url = "http://localhost:11434"
 
 [observability]
 # Monitoring and telemetry

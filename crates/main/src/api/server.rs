@@ -159,9 +159,9 @@ impl ApiServer {
             self.port
         );
 
-        // Initialize AI router
+        // Initialize AI router (capability-based discovery)
         tracing::info!("🤖 Initializing AI capability router...");
-        let ai_router = match AiRouter::new().await {
+        let ai_router = match AiRouter::new_with_discovery(None).await {
             Ok(router) => {
                 let provider_count = router.provider_count().await;
                 tracing::info!(

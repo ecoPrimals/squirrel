@@ -58,6 +58,40 @@ Built with sovereignty, human dignity, and local-first principles at its core.
 - **[START_HERE_v1.0.3.md](START_HERE_v1.0.3.md)** - Comprehensive v1.0.3 guide
 - **[SESSION_SUMMARY_JAN_16_2026_COMPLETE.md](SESSION_SUMMARY_JAN_16_2026_COMPLETE.md)** - Full evolution story
 - **[CURRENT_STATUS.md](CURRENT_STATUS.md)** - Latest status (always current)
+- 🚀 **[SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md](SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md)** - v1.1.0 roadmap (ZERO HTTP!)
+
+---
+
+## 🚀 **Coming in v1.1.0** - Zero-HTTP Architecture
+
+**Target**: Squirrel with **ZERO HTTP** in production!
+
+### The Evolution
+
+```
+Current (v1.0.3):
+Squirrel → HTTPS → OpenAI/HuggingFace (direct)
+Status: ~14 transitive ring/openssl (acceptable)
+
+Future (v1.1.0):
+Squirrel → Unix Socket → Songbird → HTTPS → External AI
+Status: 0 transitive ring/openssl (PERFECT!)
+```
+
+### Benefits
+- ✅ **100% Pure Rust** (even transitive dependencies!)
+- ✅ **SINGLE** concentrated gap (Songbird only)
+- ✅ Smaller binary (~14MB vs 17MB)
+- ✅ Faster compile (~1.5min vs 2min)
+- ✅ ARM cross-compile: PERFECT (no workarounds!)
+- ✅ TRUE PRIMAL infant pattern: PERFECTED
+
+### Implementation
+- **Timeline**: 8-12 hours (joint Squirrel + Songbird)
+- **Complexity**: Medium
+- **Value**: VERY HIGH 🏆
+
+**See**: [SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md](SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md) for complete architecture design and implementation plan.
 
 ---
 
@@ -315,21 +349,67 @@ For new integrations, use the template: [`CAPABILITY_INTEGRATION_TEMPLATE.md`](C
 - Docker (optional, for containers)
 
 ### Build
-```bash
-# Development build
-cargo build
 
-# Release build
+**v1.1.0+** offers two build modes:
+
+#### Production Mode (Default) - Zero-HTTP Architecture ✨
+
+```bash
+# Build for production (Unix sockets ONLY!)
 cargo build --release
 
-# Run specific component
-cargo run --bin squirrel
+# Run production mode
+./target/release/squirrel
+
+# What's included:
+# ✅ UniversalAiAdapter ONLY (Unix sockets)
+# ✅ NO HTTP adapters (OpenAI/HuggingFace/Ollama excluded)
+# ✅ Cleaner dependency tree
+# ✅ Prepared for 100% pure Rust evolution
+# 
+# Requirements:
+# - Set AI_PROVIDER_SOCKETS environment variable, OR
+# - Configure Songbird AI proxy for external AI providers
 ```
 
-### Testing
+#### Development Mode - Direct HTTP Adapters 🔧
+
 ```bash
-# All library tests
+# Build for development (includes HTTP adapters)
+cargo build --release --features dev-direct-http
+
+# Run development mode
+export OPENAI_API_KEY="sk-..."
+export HUGGINGFACE_API_KEY="hf_..."
+./target/release/squirrel
+
+# What's included:
+# ✅ All HTTP adapters (OpenAI, HuggingFace, Ollama)
+# ✅ Fast iteration without Songbird dependency
+# ✅ Direct access to AI providers
+# 
+# Requirements:
+# - API keys in environment variables (see above)
+```
+
+**Which mode should I use?**
+- **Production**: Always use default mode (zero-HTTP)
+- **Development/Testing**: Use `--features dev-direct-http` for fast iteration
+- **CI/CD**: Use default mode (production)
+
+### Testing
+
+**v1.1.0+** supports testing in both modes:
+
+```bash
+# Production mode tests (default - Unix sockets only)
 cargo test --lib
+
+# Development mode tests (with HTTP adapters)
+cargo test --lib --features dev-direct-http
+
+# All tests (187 tests, 100% passing in both modes!)
+cargo test --release
 
 # Specific test file
 cargo test --test biomeos_integration_real

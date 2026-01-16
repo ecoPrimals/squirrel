@@ -1,6 +1,11 @@
 //! Ollama adapter for local AI execution
 //!
 //! Provides integration with Ollama for running models locally.
+//!
+//! **v1.1.0**: This adapter is only available with the `dev-direct-http` feature.
+//! Production builds use `UniversalAiAdapter` with Unix sockets only.
+
+#![cfg(feature = "dev-direct-http")]
 
 use super::AiProviderAdapter;
 use crate::api::ai::types::{

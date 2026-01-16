@@ -1,6 +1,11 @@
 //! `OpenAI` adapter for API-based AI
 //!
 //! Provides integration with `OpenAI` GPT models.
+//!
+//! **v1.1.0**: This adapter is only available with the `dev-direct-http` feature.
+//! Production builds use `UniversalAiAdapter` with Unix sockets only.
+
+#![cfg(feature = "dev-direct-http")]
 
 use super::{AiProviderAdapter, QualityTier};
 use crate::api::ai::types::{

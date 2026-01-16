@@ -14,10 +14,12 @@
 //! let router = AiRouter::new().await?;
 //! ```
 
-use super::adapters::{
-    AiProviderAdapter, HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter, ProviderMetadata,
-    UniversalAiAdapter,
-};
+// Always available (production + dev)
+use super::adapters::{AiProviderAdapter, ProviderMetadata, UniversalAiAdapter};
+
+// HTTP adapters (dev mode only)
+#[cfg(feature = "dev-direct-http")]
+use super::adapters::{HuggingFaceAdapter, OllamaAdapter, OpenAIAdapter};
 use super::constraint_router::select_provider_with_constraints;
 use super::selector::{ProviderInfo, ProviderSelector, QualityTier};
 use super::types::{
@@ -101,10 +103,18 @@ impl AiRouter {
             }
         }
 
-        // Fallback: Load legacy adapters in parallel
-        info!("🔄 Loading legacy AI adapters (fallback)...");
-        let legacy_providers = Self::load_legacy_adapters_parallel().await;
-        providers.extend(legacy_providers);
+        // Fallback: Load legacy adapters in parallel (dev mode only!)
+        #[cfg(feature = "dev-direct-http")]
+        {
+            info!("🔄 Loading legacy AI adapters (DEV MODE - HTTP enabled)...");
+            let legacy_providers = Self::load_legacy_adapters_parallel().await;
+            providers.extend(legacy_providers);
+        }
+
+        #[cfg(not(feature = "dev-direct-http"))]
+        {
+            info!("✅ Production mode: Using UniversalAiAdapter ONLY (Unix sockets)");
+        }
 
         if providers.is_empty() {
             warn!("⚠️  No AI providers available. Set OPENAI_API_KEY, HUGGINGFACE_API_KEY, or install Ollama");
@@ -165,6 +175,8 @@ impl AiRouter {
     }
 
     /// Load legacy adapters in parallel (concurrent initialization!)
+    /// **v1.1.0**: Only available with `dev-direct-http` feature
+    #[cfg(feature = "dev-direct-http")]
     async fn load_legacy_adapters_parallel() -> Vec<Arc<dyn AiProviderAdapter>> {
         // Execute all initializations in parallel using tokio::join!
         let (openai_result, ollama_result, huggingface_result) = tokio::join!(
@@ -214,7 +226,9 @@ impl AiRouter {
     /// **Note**: This is the legacy initialization method. For TRUE PRIMAL compliance,
     /// use `new_with_discovery()` instead for capability-based provider discovery.
     ///
-    /// This method will be deprecated in favor of `new_with_discovery()`.
+    /// **v1.1.0**: This method requires the `dev-direct-http` feature.
+    /// Production builds should use `new_with_discovery()` which uses UniversalAiAdapter only.
+    #[cfg(feature = "dev-direct-http")]
     pub async fn new() -> Result<Self, PrimalError> {
         info!("⚠️  Using legacy AI router initialization (hardcoded adapters)");
         info!("⚠️  Consider using new_with_discovery() for capability-based discovery");
