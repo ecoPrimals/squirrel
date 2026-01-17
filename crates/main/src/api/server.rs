@@ -50,8 +50,8 @@ impl Default for ServerState {
 
 /// HTTP API server for primal status and health endpoints
 ///
-/// `ApiServer` provides a `RESTful` API following Songbird service mesh patterns
-/// for ecosystem integration. It exposes endpoints for:
+/// `ApiServer` provides a `RESTful` API following service mesh patterns
+/// for ecosystem integration via capability discovery. It exposes endpoints for:
 ///
 /// - **Health checks**: `/health`, `/health/live`, `/health/ready`
 /// - **Ecosystem status**: `/api/v1/ecosystem/status`
@@ -182,7 +182,8 @@ impl ApiServer {
             }
         };
 
-        // Register AI capabilities with Songbird (non-blocking, optional)
+        // Register AI capabilities with service mesh (non-blocking, optional)
+        // Uses capability discovery to find available service mesh providers
         let ai_router_clone = ai_router.clone();
         let base_url = self.base_url();
         tokio::spawn(async move {
@@ -194,7 +195,7 @@ impl ApiServer {
 
             // Register capabilities
             if let Err(e) = service_mesh_integration.register_capabilities().await {
-                tracing::warn!("⚠️  Songbird AI registration failed: {}", e);
+                tracing::warn!("⚠️  Service mesh AI registration failed: {}", e);
                 tracing::info!(
                     "💡 AI capabilities available locally without service mesh coordination"
                 );
@@ -309,9 +310,9 @@ impl ApiServer {
             .and_then(metrics::handle_metrics);
 
         // ===================================================================
-        // DEPRECATED: Hardcoded Songbird endpoints
-        // These endpoints assume Songbird is the service mesh provider.
-        // NEW: Use capability-based endpoints below instead.
+        // DEPRECATED: Legacy service mesh endpoints (backward compatibility)
+        // These endpoints use hardcoded paths for compatibility with older
+        // service mesh providers. New code should use the generic paths below.
         // ===================================================================
         #[allow(deprecated)]
         let songbird_register = warp::path!("api" / "v1" / "songbird" / "register")
@@ -369,7 +370,7 @@ impl ApiServer {
                     .or(towers) // Tower discovery for cross-tower AI mesh
                     .or(models_compatible) // Model compatibility check (Phase 2)
                     .or(model_load) // Model loading (Phase 2)
-                    // Deprecated Songbird-specific endpoints (backward compatibility)
+                    // Deprecated legacy endpoints (backward compatibility only)
                     .or(songbird_register)
                     .or(songbird_heartbeat)
                     // NEW: Capability-based service mesh endpoints
