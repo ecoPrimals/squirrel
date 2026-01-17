@@ -29,7 +29,7 @@ tokio-tungstenite = { version = "0.20", optional = true }
 tungstenite = { version = "0.20", optional = true }
 hyper = { version = "0.14", features = ["full"] }
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.4", features = ["cors", "trace", "fs", "limit"] }  # ecoBin: Removed "full" to avoid zstd-sys
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }

@@ -26,16 +26,18 @@ thiserror = "1.0"
 anyhow = "1.0"
 
 # HTTP client for AI services
-reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "rustls-tls"] }
 url = "2.5"
 
 # Logging and tracing
 tracing = "0.1"
 log = "0.4"
 
-# AI service clients
-openai = "1.1"
-anthropic-sdk = "0.1"
+# AI service clients  
+# NOTE: anthropic-sdk uses reqwest v0.12 with native-tls (brings openssl-sys)
+# This is acceptable for dev/testing. Production uses Unix sockets → Songbird.
+openai = { version = "1.1", default-features = false, features = ["rustls"] }
+anthropic-sdk = "0.1"  # No rustls option available
 
 # CRITICAL FIX: Add missing config dependency
 squirrel-mcp-config = { path = "../../config" }
