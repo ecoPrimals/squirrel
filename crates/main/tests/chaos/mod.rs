@@ -17,9 +17,6 @@
 //!
 //! - **[common_complete]** - Complete test infrastructure (UPDATED)
 //! - **[service_failure]** - Service crashes, cascading failures (3 tests)
-//! - **[network_partition]** - Network issues, latency, split-brain (TODO)
-//! - **[resource_exhaustion]** - Memory, CPU, FD, disk pressure (TODO)
-//! - **[concurrent_stress]** - Thundering herd, races, cancellation (TODO)
 //!
 //! ## 🎯 Testing Philosophy
 //!

@@ -1,10 +1,7 @@
 //! Error Path Coverage Tests
 //!
-//! TODO: Re-enable these tests after capability_registry module is properly exported
-//! and PrimalCapability enum variants are updated.
-//!
 //! This module provides comprehensive error path testing to improve
-//! code coverage from 60% to 65-70%. Focus areas:
+//! code coverage. Focus areas:
 //! - Network failures
 //! - Plugin initialization errors
 //! - MCP protocol errors
