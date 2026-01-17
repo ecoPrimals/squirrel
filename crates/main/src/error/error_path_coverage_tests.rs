@@ -28,7 +28,7 @@ mod error_path_tests {
 
     #[test]
     fn test_not_implemented_error() {
-        let error = PrimalError::NotImplemented("Feature X".to_string());
+        let error = PrimalError::OperationNotSupported("Feature X".to_string());
         assert!(error.to_string().contains("Feature X"));
     }
 
@@ -153,10 +153,10 @@ mod error_path_tests {
 
     #[test]
     fn test_error_pattern_matching() {
-        let error = PrimalError::NotImplemented("Feature Y".to_string());
+        let error = PrimalError::OperationNotSupported("Feature Y".to_string());
 
         match error {
-            PrimalError::NotImplemented(msg) => {
+            PrimalError::OperationNotSupported(msg) => {
                 assert_eq!(msg, "Feature Y");
             }
             _ => panic!("Pattern match failed"),
@@ -181,7 +181,7 @@ mod error_path_tests {
             PrimalError::NetworkError("test".to_string()),
             PrimalError::Authentication("test".to_string()),
             PrimalError::Configuration("test".to_string()),
-            PrimalError::NotImplemented("test".to_string()),
+            PrimalError::OperationNotSupported("test".to_string()),
             PrimalError::ConfigurationError("test".to_string()),
             PrimalError::ConfigError("test".to_string()),
             PrimalError::ParsingError("test".to_string()),

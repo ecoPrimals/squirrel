@@ -276,7 +276,7 @@ mod additional_error_coverage {
             PrimalError::ComputeError("overload".to_string()),
             PrimalError::StorageError("full".to_string()),
             PrimalError::Generic("unknown".to_string()),
-            PrimalError::NotImplemented("todo".to_string()),
+            // PrimalError::NotImplemented removed in favor of specific error types
             PrimalError::Registry("corrupted".to_string()),
             PrimalError::ParsingError("malformed".to_string()),
             PrimalError::SerializationError("encoding".to_string()),

@@ -74,20 +74,9 @@ fn test_error_display_formatting() {
     assert!(display_str.contains("connection failed"));
 }
 
-#[tokio::test]
-async fn test_integration_module() {
-    // Test 7: Basic integration module works
-    use squirrel::integration::SimpleMCPIntegration;
-
-    let mut integration = SimpleMCPIntegration::new();
-    assert!(!integration.is_initialized());
-
-    integration
-        .initialize()
-        .await
-        .expect("Failed to initialize");
-    assert!(integration.is_initialized());
-}
+// NOTE: Integration module test removed - functionality moved to capability-based discovery
+// The SimpleMCPIntegration was part of deprecated hardcoded primal modules
+// Use CapabilityRegistry for service discovery instead
 
 // Note: All other tests removed because they test functionality moved to other projects:
 // ❌ Web integration tests → Songbird
