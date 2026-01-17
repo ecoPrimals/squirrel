@@ -30,19 +30,40 @@ mod mock_verification_tests {
 
     fn check_file_for_mocks(path: &Path, violations: &mut Vec<String>) {
         if let Ok(content) = fs::read_to_string(path) {
+            // If the entire file or large sections are #[cfg(test)], skip detailed check
             if content.contains("struct Mock") || content.contains("fn mock_") {
+                // Simple approach: check if mock is within a #[cfg(test)] mod
                 let lines: Vec<&str> = content.lines().collect();
+
                 for (i, line) in lines.iter().enumerate() {
                     if (line.contains("struct Mock") || line.contains("fn mock_"))
                         && !line.trim().starts_with("//")
                         && !line.trim().starts_with("*")
                     {
-                        violations.push(format!(
-                            "{}:{} - Found mock in production code: {}",
-                            path.display(),
-                            i + 1,
-                            line.trim()
-                        ));
+                        // Check if this line is within a #[cfg(test)] module
+                        // Look backwards for #[cfg(test)] and mod tests
+                        let mut is_in_test_mod = false;
+                        for j in (0..i).rev() {
+                            if lines[j].contains("#[cfg(test)]") {
+                                // Check if there's a mod after this cfg
+                                for k in (j + 1).min(i)..=i {
+                                    if lines[k].contains("mod ") && lines[k].contains("{") {
+                                        is_in_test_mod = true;
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+
+                        if !is_in_test_mod {
+                            violations.push(format!(
+                                "{}:{} - Found mock in production code: {}",
+                                path.display(),
+                                i + 1,
+                                line.trim()
+                            ));
+                        }
                     }
                 }
             }

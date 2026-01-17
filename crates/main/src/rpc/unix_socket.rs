@@ -229,6 +229,7 @@ pub fn verify_socket_config() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     fn clear_env_vars() {
         std::env::remove_var("SQUIRREL_SOCKET");
@@ -238,6 +239,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_socket_path_tier1_squirrel_socket() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_SOCKET", "/custom/path/socket.sock");
@@ -249,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_socket_path_tier2_biomeos_socket_path() {
         clear_env_vars();
         std::env::set_var("BIOMEOS_SOCKET_PATH", "/tmp/squirrel-nat0.sock");
@@ -260,6 +263,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_squirrel_socket_overrides_biomeos_socket_path() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_SOCKET", "/custom/squirrel.sock");
@@ -273,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_socket_path_tier3_and_tier4_fallback() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "test0");
@@ -285,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_get_family_id_default() {
         clear_env_vars();
 
@@ -293,6 +299,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_get_family_id_from_env() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_FAMILY_ID", "nat0");
@@ -304,6 +311,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_get_node_id_default() {
         clear_env_vars();
 
@@ -312,6 +320,7 @@ mod tests {
     }
 
     #[test]
+    #[serial] // Serialize env var tests
     fn test_get_node_id_from_env() {
         clear_env_vars();
         std::env::set_var("SQUIRREL_NODE_ID", "custom-node");

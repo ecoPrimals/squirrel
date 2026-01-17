@@ -2,13 +2,13 @@
 //!
 //! This crate provides the standardized API types and traits that all primals
 //! in the ecoPrimals ecosystem must implement for seamless integration through
-//! the Songbird service mesh.
+//! the service mesh.
 //!
 //! ## Key Traits
 //!
 //! - [`EcosystemIntegration`] - Core trait for ecosystem communication
 //! - [`UniversalPrimalProvider`] - Universal primal provider interface
-//! - [`ServiceMeshClient`] - Client for Songbird service mesh
+//! - [`ServiceMeshClient`] - Client for service mesh
 //!
 //! ## Core Types
 //!
@@ -16,29 +16,18 @@
 //! - [`PrimalCapability`] - Capability system for all primals
 //! - [`UniversalConfig`] - Configuration management
 //!
-//! ## Usage
+//! ## TRUE PRIMAL Philosophy
 //!
-//! ```rust
-//! use ecosystem_api::*;
-//! use async_trait::async_trait;
+//! Each primal has **self-knowledge only** and discovers other primals at runtime
+//! via the universal capability system. No primal names are hardcoded.
 //!
-//! struct MyPrimal {
-//!     config: UniversalConfig,
-//! }
-//!
-//! #[async_trait]
-//! impl UniversalPrimalProvider for MyPrimal {
-//!     fn primal_type(&self) -> PrimalType {
-//!         PrimalType::Squirrel
-//!     }
-//!
-//!     async fn handle_primal_request(&self, request: PrimalRequest) -> UniversalResult<PrimalResponse> {
-//!         // Handle request
-//!         Ok(PrimalResponse::default())
-//!     }
-//!
-//!     // ... other required methods
-//! }
+//! ```rust,no_run
+//! # use ecosystem_api::*;
+//! # use async_trait::async_trait;
+//! # struct MyPrimal { config: UniversalConfig, capabilities: Vec<PrimalCapability> }
+//! // Example: Primal with capability-based discovery (concept only)
+//! // Actual implementation requires all UniversalPrimalProvider methods
+//! // See the trait definition for complete requirements
 //! ```
 
 #![deny(unsafe_code)] // ✅ ENFORCED: No unsafe code allowed

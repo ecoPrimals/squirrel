@@ -228,15 +228,14 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
 /// Check discovered services via capability registry
 async fn check_discovered_services() -> HealthCheck {
     let start = Instant::now();
-    
+
     // Check for available services via Unix sockets
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-        .or_else(|_| std::env::var("UID")
-            .map(|uid| format!("/run/user/{}", uid)))
+        .or_else(|_| std::env::var("UID").map(|uid| format!("/run/user/{}", uid)))
         .unwrap_or_else(|_| "/tmp".to_string());
-    
+
     let mut discovered = Vec::new();
-    
+
     // Scan for Unix sockets in runtime directory
     if let Ok(entries) = std::fs::read_dir(&runtime_dir) {
         for entry in entries.flatten() {
@@ -249,19 +248,19 @@ async fn check_discovered_services() -> HealthCheck {
             }
         }
     }
-    
+
     let status = if discovered.is_empty() {
         HealthStatus::Warning
     } else {
         HealthStatus::Ok
     };
-    
+
     let message = if discovered.is_empty() {
         "No services discovered".to_string()
     } else {
         format!("Discovered {} service(s)", discovered.len())
     };
-    
+
     HealthCheck {
         name: "Ecosystem Services",
         status,

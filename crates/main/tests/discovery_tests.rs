@@ -3,12 +3,14 @@
 //! Tests the full discovery flow including capability resolution,
 //! environment variable discovery, and the infant primal pattern.
 
+use serial_test::serial;
 use squirrel::discovery::{
     CapabilityResolver, DiscoveredService, PrimalSelfKnowledge, RuntimeDiscoveryEngine,
 };
 use std::time::SystemTime;
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_discovery_from_environment_variable() {
     // Set up test environment - env vars use uppercase with underscores
     std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:8001");
@@ -42,6 +44,7 @@ async fn test_discovery_from_environment_variable() {
 }
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_discovery_capability_not_found() {
     // Ensure no environment variable exists
     std::env::remove_var("NONEXISTENT_CAPABILITY_ENDPOINT");
@@ -78,6 +81,7 @@ async fn test_primal_self_knowledge_discovery() {
 }
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_capability_resolver_with_dots_in_name() {
     // Test that capability names with dots (like "ai.inference") work correctly
     std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:9000");
@@ -152,6 +156,7 @@ async fn test_discovered_service_capability_matching() {
 }
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_runtime_discovery_engine_caching() {
     std::env::set_var("CACHE_TEST_ENDPOINT", "http://localhost:7777");
 
@@ -176,6 +181,7 @@ async fn test_runtime_discovery_engine_caching() {
 }
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_discovery_with_complex_endpoint() {
     // Test various endpoint formats
     let test_cases = vec![

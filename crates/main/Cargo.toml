@@ -112,6 +112,7 @@ test-context = "0.1"
 mockall = "0.11"
 tempfile = "3.8"
 pretty_assertions = "1.4"
+serial_test = "3.0"  # For serializing tests that modify global state (env vars)
 
 [[bin]]
 name = "squirrel"

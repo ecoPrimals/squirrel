@@ -3,6 +3,7 @@
 //! Tests the complete universal adapter flow including protocol negotiation,
 //! connection pooling, capability execution, and error handling.
 
+use serial_test::serial;
 use squirrel::universal_adapter_v2::{Protocol, UniversalAdapterV2};
 use std::sync::Arc;
 
@@ -169,6 +170,7 @@ async fn test_multiple_capability_connections() {
 }
 
 #[tokio::test]
+#[serial] // Serialize env var tests to prevent pollution
 async fn test_adapter_with_complex_capability_names() {
     // Test various capability naming patterns
     std::env::set_var("AI_INFERENCE_ENDPOINT", "http://localhost:8001");

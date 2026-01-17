@@ -82,7 +82,9 @@ mod tests {
 
         // First heartbeat
         let first_time = {
-            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state))
+                .await
+                .unwrap();
             let guard = state.read().await;
             guard.last_service_mesh_heartbeat.unwrap()
         };
@@ -91,7 +93,9 @@ mod tests {
         // Note: Chrono::Utc::now() has microsecond precision, so successive calls
         // will have different timestamps without needing to sleep
         let second_time = {
-            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state))
+                .await
+                .unwrap();
             let guard = state.read().await;
             guard.last_service_mesh_heartbeat.unwrap()
         };
@@ -236,7 +240,9 @@ mod tests {
 
         // Multiple heartbeats should keep registration flag set
         for _ in 0..5 {
-            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state))
+                .await
+                .unwrap();
             let guard = state.read().await;
             assert!(guard.service_mesh_registered);
         }
