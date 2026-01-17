@@ -1,12 +1,10 @@
 //! Testing utilities for Squirrel main crate
 //!
 //! This module provides comprehensive testing utilities including:
-//! - Mock providers for all external services
 //! - Test fixtures and builders
 //! - Helper functions for common test scenarios
 //! - Modern concurrent test utilities (event-driven, no sleeps)
 
-pub mod mock_providers;
 pub mod concurrent_test_utils;
 //! - Integration test utilities
 

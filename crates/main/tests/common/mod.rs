@@ -7,6 +7,7 @@
 
 pub mod async_test_utils;
 pub mod concurrent_helpers;
+pub mod mock_providers;
 pub mod provider_factory;
 pub mod provider_helpers;
 pub mod test_utils;
