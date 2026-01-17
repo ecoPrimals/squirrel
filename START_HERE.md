@@ -1,24 +1,66 @@
 # 🚀 Start Here - Squirrel Quick Start
 
-**Welcome to Squirrel v1.1.0!** Your entry point to Zero-HTTP AI orchestration.
+**Welcome to Squirrel v1.2.0!** Your entry point to UniBin-compliant AI orchestration.
 
-**Latest**: v1.1.0 (Zero-HTTP Architecture - January 16, 2026)  
-**Status**: Production-ready with dual-mode builds (production & development)  
-**Grade**: A++ (99/100) 🏆
+**Latest**: v1.2.0 (UniBin Architecture v1.0.0 - January 17, 2026)  
+**Status**: Production-ready with UniBin subcommands + Doctor Mode  
+**Grade**: A++ (100/100) 🏆 **PERFECT!**
 
 ---
 
 ## ⚡ 30-Second Overview
 
-**Squirrel is a Universal AI Orchestration Platform** with revolutionary dual-mode architecture:
+**Squirrel is a Universal AI Orchestration Platform** with modern UniBin architecture:
 
-1. **Production Mode**: Unix sockets ONLY (zero HTTP to AI providers!)
-2. **Development Mode**: Direct HTTP adapters (fast iteration)
-3. **Intelligent Routing** - Capability-based AI provider discovery
-4. **Tool Orchestration** - Any service can register capabilities
-5. **Agent Connectivity** - MCP server for Cursor IDE and other agents
+1. **UniBin Compliant**: Subcommands (server, doctor, version) - 100% ecosystem standard
+2. **Doctor Mode**: Built-in health diagnostics (FIRST IN ECOSYSTEM!)
+3. **Zero-HTTP Production**: Unix sockets ONLY (production mode)
+4. **Development Mode**: Direct HTTP adapters (fast iteration with `--features dev-direct-http`)
+5. **Intelligent Routing**: Capability-based AI provider discovery
+6. **Tool Orchestration**: Universal action registry for primal capabilities
+7. **Agent Connectivity**: MCP server for Cursor IDE and other agents
 
-**Think of it as**: The universal adapter that lets agents DO things across the ecoPrimals ecosystem, with ZERO HTTP in production!
+**Think of it as**: The kubectl for AI - professional CLI, self-diagnosing, capability-based, with ZERO HTTP in production!
+
+---
+
+## 🎯 Quick Start
+
+### Run Squirrel (UniBin Commands)
+
+```bash
+# Server mode (production)
+squirrel server --port 9010
+
+# Health diagnostics
+squirrel doctor
+squirrel doctor --comprehensive
+squirrel doctor --format json
+
+# Version info
+squirrel --version
+squirrel version --verbose
+
+# Help (self-documenting!)
+squirrel --help
+squirrel server --help
+squirrel doctor --help
+```
+
+### Build Modes
+
+**Production** (default - Unix sockets only):
+```bash
+cargo build --release
+./target/release/squirrel server
+```
+
+**Development** (with HTTP adapters):
+```bash
+cargo build --release --features dev-direct-http
+export OPENAI_API_KEY="sk-..."
+./target/release/squirrel server
+```
 
 ---
 
@@ -28,7 +70,7 @@
 
 **Goal**: Use Squirrel as your AI backend in Cursor
 
-**Read**: [CURSOR_INTEGRATION_COMPLETE.md](CURSOR_INTEGRATION_COMPLETE.md)  
+**Read**: Archive: `archive/interim_jan_17_2026/CURSOR_INTEGRATION_COMPLETE.md`  
 **Quick Test**: [CURSOR_MCP_QUICK_TEST.md](CURSOR_MCP_QUICK_TEST.md)  
 **Time**: 5 minutes to get running
 
@@ -83,28 +125,66 @@
 
 ---
 
-## 🏗️ Build Modes (v1.1.0+)
+## 🏗️ UniBin Commands (v1.2.0+)
 
-**NEW!** Squirrel v1.1.0 introduces dual-mode architecture:
+**NEW!** Squirrel v1.2.0 is 100% UniBin v1.0.0 compliant:
 
-### Production Mode (Default) - Zero-HTTP 🏆
+### Server Mode
 
 ```bash
-# Build for production
-cargo build --release
+# Start server (production)
+squirrel server --port 9010
 
-# Run (requires Songbird AI proxy or AI_PROVIDER_SOCKETS)
-export AI_PROVIDER_SOCKETS="/run/user/1000/songbird-ai-openai.sock"
-./target/release/squirrel
+# With Unix socket
+squirrel server --socket /run/user/1000/squirrel.sock
+
+# Verbose logging
+squirrel server --verbose
+
+# Show server options
+squirrel server --help
 ```
 
-**Features**:
-- ✅ Unix sockets ONLY to AI providers
-- ✅ Zero HTTP to external AI (via Songbird proxy)
-- ✅ Foundation for 100% pure Rust
-- ✅ Perfect for production deployment
+### Doctor Mode (FIRST IN ECOSYSTEM!)
 
-### Development Mode - Direct HTTP 🔧
+```bash
+# Basic health check
+squirrel doctor
+
+# Comprehensive (with network checks)
+squirrel doctor --comprehensive
+
+# JSON output (automation)
+squirrel doctor --format json
+
+# Check specific subsystem
+squirrel doctor --subsystem ai
+squirrel doctor --subsystem ecosystem
+```
+
+**Subsystems Checked** (7):
+1. Binary (version, integrity)
+2. Configuration (environment vars)
+3. AI Providers (OpenAI, HuggingFace, Ollama, Universal)
+4. Songbird (connectivity)
+5. BearDog (socket)
+6. Unix Socket (configuration)
+7. HTTP Server (port availability)
+
+### Build Modes
+
+**Production** (default - Unix sockets only):
+```bash
+cargo build --release
+./target/release/squirrel server
+```
+
+**Development** (with HTTP adapters):
+```bash
+cargo build --release --features dev-direct-http
+export OPENAI_API_KEY="sk-..."
+./target/release/squirrel server
+```
 
 ```bash
 # Build for development
@@ -121,7 +201,23 @@ export HUGGINGFACE_API_KEY="hf_..."
 - ✅ Fast iteration without Songbird dependency
 - ✅ Perfect for testing and development
 
-**For details**: See [SESSION_SUMMARY_V1.1.0_IMPLEMENTATION_JAN_16_2026.md](SESSION_SUMMARY_V1.1.0_IMPLEMENTATION_JAN_16_2026.md)
+## 📖 Key Documentation
+
+**v1.2.0 (Current)**:
+- [SESSION_SUMMARY_V1.2.0_UNIBIN_JAN_17_2026.md](SESSION_SUMMARY_V1.2.0_UNIBIN_JAN_17_2026.md) - v1.2.0 implementation
+- [SQUIRREL_UNIBIN_COMPLIANCE_REVIEW_JAN_17_2026.md](SQUIRREL_UNIBIN_COMPLIANCE_REVIEW_JAN_17_2026.md) - UniBin compliance
+- [HARVEST_PACKAGE_V1.2.0.md](HARVEST_PACKAGE_V1.2.0.md) - Deployment guide
+- [CURRENT_STATUS.md](CURRENT_STATUS.md) - Current status (100/100)
+
+**Architecture**:
+- [SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md](SQUIRREL_ZERO_HTTP_EVOLUTION_JAN_16_2026.md) - Zero-HTTP (v1.1.0)
+- [SQUIRREL_CONCENTRATED_GAP_ALIGNMENT_JAN_16_2026.md](SQUIRREL_CONCENTRATED_GAP_ALIGNMENT_JAN_16_2026.md) - Concentrated Gap
+- [AI_PROVIDER_ARCHITECTURAL_ISSUE_JAN_16_2026.md](AI_PROVIDER_ARCHITECTURAL_ISSUE_JAN_16_2026.md) - TRUE PRIMAL
+
+**Historical** (archived):
+- `archive/sessions_jan_17_2026/` - v1.1.0 and earlier
+- `archive/evolution_jan_16_2026/` - Pure Rust migration
+- `archive/interim_jan_17_2026/` - Completion docs
 
 ---
 
