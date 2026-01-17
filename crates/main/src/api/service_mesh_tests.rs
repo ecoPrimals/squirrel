@@ -24,76 +24,76 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }))
     }
 
     #[tokio::test]
-    async fn test_handle_songbird_register_basic() {
+    async fn test_handle_service_mesh_register_basic() {
         let manager = create_test_ecosystem_manager();
-        let result = handle_songbird_register(manager).await;
+        let result = handle_service_mesh_register(manager).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_handle_songbird_register_multiple_calls() {
+    async fn test_handle_service_mesh_register_multiple_calls() {
         let manager = create_test_ecosystem_manager();
 
         // Multiple registration attempts should all succeed with pending status
         for _ in 0..5 {
-            let result = handle_songbird_register(Arc::clone(&manager)).await;
+            let result = handle_service_mesh_register(Arc::clone(&manager)).await;
             assert!(result.is_ok());
         }
     }
 
     #[tokio::test]
-    async fn test_handle_songbird_heartbeat_basic() {
+    async fn test_handle_service_mesh_heartbeat_basic() {
         let state = create_test_state();
-        let result = handle_songbird_heartbeat(state).await;
+        let result = handle_service_mesh_heartbeat(state).await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
-    async fn test_handle_songbird_heartbeat_updates_state() {
+    async fn test_handle_service_mesh_heartbeat_updates_state() {
         let state = create_test_state();
 
         // Initially not registered
         {
             let guard = state.read().await;
             assert!(!guard.service_mesh_registered);
-            assert!(guard.last_songbird_heartbeat.is_none());
+            assert!(guard.last_service_mesh_heartbeat.is_none());
         }
 
         // Send heartbeat
-        let result = handle_songbird_heartbeat(Arc::clone(&state)).await;
+        let result = handle_service_mesh_heartbeat(Arc::clone(&state)).await;
         assert!(result.is_ok());
 
         // Now should be registered with heartbeat timestamp
         {
             let guard = state.read().await;
             assert!(guard.service_mesh_registered);
-            assert!(guard.last_songbird_heartbeat.is_some());
+            assert!(guard.last_service_mesh_heartbeat.is_some());
         }
     }
 
     #[tokio::test]
-    async fn test_handle_songbird_heartbeat_updates_timestamp() {
+    async fn test_handle_service_mesh_heartbeat_updates_timestamp() {
         let state = create_test_state();
 
         // First heartbeat
         let first_time = {
-            handle_songbird_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
             let guard = state.read().await;
-            guard.last_songbird_heartbeat.unwrap()
+            guard.last_service_mesh_heartbeat.unwrap()
         };
 
         // Second heartbeat - timestamps should be monotonically increasing
         // Note: Chrono::Utc::now() has microsecond precision, so successive calls
         // will have different timestamps without needing to sleep
         let second_time = {
-            handle_songbird_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
             let guard = state.read().await;
-            guard.last_songbird_heartbeat.unwrap()
+            guard.last_service_mesh_heartbeat.unwrap()
         };
 
         // Second timestamp should be later than or equal to first
@@ -110,7 +110,7 @@ mod tests {
         for _ in 0..20 {
             let state_clone = Arc::clone(&state);
             let handle = tokio::spawn(async move {
-                let result = handle_songbird_heartbeat(state_clone).await;
+                let result = handle_service_mesh_heartbeat(state_clone).await;
                 assert!(result.is_ok());
             });
             handles.push(handle);
@@ -123,7 +123,7 @@ mod tests {
         // Should be registered after all heartbeats
         let guard = state.read().await;
         assert!(guard.service_mesh_registered);
-        assert!(guard.last_songbird_heartbeat.is_some());
+        assert!(guard.last_service_mesh_heartbeat.is_some());
     }
 
     #[tokio::test]
@@ -134,7 +134,7 @@ mod tests {
         for _ in 0..10 {
             let manager_clone = Arc::clone(&manager);
             let handle = tokio::spawn(async move {
-                let result = handle_songbird_register(manager_clone).await;
+                let result = handle_service_mesh_register(manager_clone).await;
                 assert!(result.is_ok());
             });
             handles.push(handle);
@@ -151,14 +151,14 @@ mod tests {
 
         // Multiple heartbeats should all succeed
         for _ in 0..10 {
-            let result = handle_songbird_heartbeat(Arc::clone(&state)).await;
+            let result = handle_service_mesh_heartbeat(Arc::clone(&state)).await;
             assert!(result.is_ok());
         }
 
         // State should remain consistent
         let guard = state.read().await;
         assert!(guard.service_mesh_registered);
-        assert!(guard.last_songbird_heartbeat.is_some());
+        assert!(guard.last_service_mesh_heartbeat.is_some());
     }
 
     #[tokio::test]
@@ -169,16 +169,16 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(old_time),
+            last_service_mesh_heartbeat: Some(old_time),
         }));
 
         // Send new heartbeat after long gap
-        let result = handle_songbird_heartbeat(Arc::clone(&state)).await;
+        let result = handle_service_mesh_heartbeat(Arc::clone(&state)).await;
         assert!(result.is_ok());
 
         // Timestamp should be updated
         let guard = state.read().await;
-        assert!(guard.last_songbird_heartbeat.unwrap() > old_time);
+        assert!(guard.last_service_mesh_heartbeat.unwrap() > old_time);
     }
 
     #[tokio::test]
@@ -191,12 +191,12 @@ mod tests {
             if i % 2 == 0 {
                 let manager_clone = Arc::clone(&manager);
                 handles.push(tokio::spawn(async move {
-                    handle_songbird_register(manager_clone).await.unwrap();
+                    handle_service_mesh_register(manager_clone).await.unwrap();
                 }));
             } else {
                 let state_clone = Arc::clone(&state);
                 handles.push(tokio::spawn(async move {
-                    handle_songbird_heartbeat(state_clone).await.unwrap();
+                    handle_service_mesh_heartbeat(state_clone).await.unwrap();
                 }));
             }
         }
@@ -212,7 +212,7 @@ mod tests {
 
         // Simulate high-frequency heartbeats (like a busy mesh)
         for _ in 0..100 {
-            let result = handle_songbird_heartbeat(Arc::clone(&state)).await;
+            let result = handle_service_mesh_heartbeat(Arc::clone(&state)).await;
             assert!(result.is_ok());
         }
 
@@ -224,7 +224,7 @@ mod tests {
     async fn test_registration_without_context() {
         // Test that registration gracefully handles missing context
         let manager = create_test_ecosystem_manager();
-        let result = handle_songbird_register(manager).await;
+        let result = handle_service_mesh_register(manager).await;
 
         // Should succeed with pending status (documented limitation)
         assert!(result.is_ok());
@@ -236,7 +236,7 @@ mod tests {
 
         // Multiple heartbeats should keep registration flag set
         for _ in 0..5 {
-            handle_songbird_heartbeat(Arc::clone(&state)).await.unwrap();
+            handle_service_mesh_heartbeat(Arc::clone(&state)).await.unwrap();
             let guard = state.read().await;
             assert!(guard.service_mesh_registered);
         }

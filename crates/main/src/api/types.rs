@@ -138,21 +138,29 @@ pub struct ServiceInfo {
     pub health: String,
 }
 
-/// Songbird registration response
+/// Service mesh registration response
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SongbirdRegistrationResponse {
+pub struct ServiceMeshRegistrationResponse {
     /// Registration status
     pub status: String,
     /// Registration message
     pub message: String,
 }
 
-/// Songbird heartbeat response
+/// Service mesh heartbeat response
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SongbirdHeartbeatResponse {
+pub struct ServiceMeshHeartbeatResponse {
     /// Heartbeat status
     pub status: String,
 }
+
+/// Deprecated: Use ServiceMeshRegistrationResponse instead
+#[deprecated(note = "Use ServiceMeshRegistrationResponse for capability-based discovery")]
+pub type SongbirdRegistrationResponse = ServiceMeshRegistrationResponse;
+
+/// Deprecated: Use ServiceMeshHeartbeatResponse instead
+#[deprecated(note = "Use ServiceMeshHeartbeatResponse for capability-based discovery")]
+pub type SongbirdHeartbeatResponse = ServiceMeshHeartbeatResponse;
 
 /// Shutdown response
 #[derive(Debug, Serialize, Deserialize)]

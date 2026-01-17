@@ -21,7 +21,7 @@ mod edge_case_tests {
             request_count: u64::MAX,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -37,7 +37,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -58,7 +58,7 @@ mod edge_case_tests {
             request_count: 1000,
             active_connections: 10_000,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -77,7 +77,7 @@ mod edge_case_tests {
             request_count: 100_000_000,
             active_connections: 500,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -95,7 +95,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -114,7 +114,7 @@ mod edge_case_tests {
             request_count: 5000,
             active_connections: 50,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -143,7 +143,7 @@ mod edge_case_tests {
             request_count: initial_count,
             active_connections: 10,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -169,7 +169,7 @@ mod edge_case_tests {
             request_count: initial_data.0,
             active_connections: initial_data.1,
             service_mesh_registered: initial_data.2,
-            last_songbird_heartbeat: initial_data.3,
+            last_service_mesh_heartbeat: initial_data.3,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -183,7 +183,7 @@ mod edge_case_tests {
         assert_eq!(state_guard.request_count, initial_data.0);
         assert_eq!(state_guard.active_connections, initial_data.1);
         assert_eq!(state_guard.service_mesh_registered, initial_data.2);
-        assert_eq!(state_guard.last_songbird_heartbeat, initial_data.3);
+        assert_eq!(state_guard.last_service_mesh_heartbeat, initial_data.3);
     }
 
     // ===== Performance Characteristics =====
@@ -196,7 +196,7 @@ mod edge_case_tests {
             request_count: 1000,
             active_connections: 10,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 
@@ -222,7 +222,7 @@ mod edge_case_tests {
             request_count: 100,
             active_connections: 5,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         // Test with multiple independent collectors
@@ -249,7 +249,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = Arc::new(MetricsCollector::new());
 

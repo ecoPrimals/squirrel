@@ -15,7 +15,7 @@ mod tests {
             request_count: 100,
             active_connections: 5,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }))
     }
 
@@ -42,7 +42,7 @@ mod tests {
             request_count: 1000,
             active_connections: 10,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = create_test_metrics_collector();
 
@@ -57,7 +57,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let metrics = create_test_metrics_collector();
 
@@ -107,7 +107,7 @@ mod tests {
             request_count: 1_000_000,
             active_connections: 100,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let metrics = create_test_metrics_collector();
 

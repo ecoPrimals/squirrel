@@ -45,7 +45,7 @@ pub async fn handle_health_check(
         uptime_seconds: uptime as u64,
         service_mesh: ServiceMeshHealthStatus {
             registered: state_guard.service_mesh_registered,
-            last_heartbeat: state_guard.last_songbird_heartbeat,
+            last_heartbeat: state_guard.last_service_mesh_heartbeat,
             connection_status: if state_guard.service_mesh_registered {
                 "connected".to_string()
             } else {

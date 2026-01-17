@@ -17,7 +17,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }))
     }
 
@@ -58,7 +58,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let manager = create_test_ecosystem_manager();
 
@@ -101,7 +101,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
         let manager = create_test_ecosystem_manager();
 
@@ -116,7 +116,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let manager = create_test_ecosystem_manager();
 
@@ -201,7 +201,7 @@ mod tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
         let manager = create_test_ecosystem_manager();
 

@@ -32,8 +32,8 @@ pub struct ServerState {
     pub active_connections: u32,
     /// Service mesh registration status
     pub service_mesh_registered: bool,
-    /// Last Songbird heartbeat
-    pub last_songbird_heartbeat: Option<chrono::DateTime<chrono::Utc>>,
+    /// Last service mesh heartbeat timestamp
+    pub last_service_mesh_heartbeat: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Default for ServerState {

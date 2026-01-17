@@ -24,7 +24,7 @@ mod edge_case_tests {
             request_count: 1_000_000,
             active_connections: 500,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
 
         let config = EcosystemConfig::default();
@@ -44,7 +44,7 @@ mod edge_case_tests {
             request_count: u64::MAX, // Maximum value
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         let config = EcosystemConfig::default();
@@ -66,7 +66,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(old_heartbeat),
+            last_service_mesh_heartbeat: Some(old_heartbeat),
         }));
 
         let config = EcosystemConfig::default();
@@ -87,7 +87,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         let config = EcosystemConfig::default();
@@ -110,7 +110,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(Utc::now()),
+            last_service_mesh_heartbeat: Some(Utc::now()),
         }));
 
         let config = EcosystemConfig::default();
@@ -132,7 +132,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         let config = EcosystemConfig::default();
@@ -159,7 +159,7 @@ mod edge_case_tests {
             request_count: initial_count,
             active_connections: initial_connections,
             service_mesh_registered: true,
-            last_songbird_heartbeat: Some(initial_heartbeat),
+            last_service_mesh_heartbeat: Some(initial_heartbeat),
         }));
 
         let config = EcosystemConfig::default();
@@ -177,7 +177,7 @@ mod edge_case_tests {
         let state_guard = state.read().await;
         assert_eq!(state_guard.request_count, initial_count);
         assert_eq!(state_guard.active_connections, initial_connections);
-        assert_eq!(state_guard.last_songbird_heartbeat, Some(initial_heartbeat));
+        assert_eq!(state_guard.last_service_mesh_heartbeat, Some(initial_heartbeat));
     }
 
     // ===== Concurrent Stress Tests =====
@@ -190,7 +190,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         let config = EcosystemConfig::default();
@@ -233,7 +233,7 @@ mod edge_case_tests {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }));
 
         let config = EcosystemConfig::default();
