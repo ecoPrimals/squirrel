@@ -144,3 +144,8 @@ squirrel-plugins = { path = "crates/core/plugins" }
 missing_docs = "warn"
 unused_imports = "warn"
 unused_variables = "warn"
+
+[workspace.lints.clippy]
+# Modern async Rust uses async fn in traits (stable since Rust 1.75)
+# This is idiomatic and the warning is overly conservative
+async_fn_in_trait = "allow"

@@ -9,6 +9,10 @@ description = "Plugin system for squirrel"
 # Make this crate standalone to avoid workspace conflicts
 [workspace]
 
+[lints.clippy]
+# Modern async Rust uses async fn in traits (stable since Rust 1.75)
+async_fn_in_trait = "allow"
+
 [dependencies]
 # Core dependencies
 async-trait = "0.1"

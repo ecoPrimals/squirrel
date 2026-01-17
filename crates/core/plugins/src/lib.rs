@@ -7,6 +7,9 @@
 //! - Plugin discovery
 //! - State management
 
+// Allow deprecated items during plugin system migration to squirrel_interfaces
+#![allow(deprecated)]
+
 mod default_manager;
 mod dependency_resolver;
 mod discovery;

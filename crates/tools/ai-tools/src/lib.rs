@@ -2,6 +2,9 @@
 //!
 //! This crate provides AI provider integrations and routing capabilities.
 
+// Allow deprecated items during error type migration to universal-error crate
+#![allow(deprecated)]
+
 // TODO(docs): Systematically add documentation to all public items (enum variants, struct fields)
 // Currently 324 items need docs. This is tracked as part of Week 8 completion.
 // Priority: Document high-traffic APIs first, then complete rest incrementally.

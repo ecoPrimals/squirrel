@@ -366,7 +366,10 @@ impl DelegatedJwtClient {
         let secret_base64: String = serde_json::from_value(result["secret"].clone())
             .map_err(|e| AuthError::internal_error(format!("Secret parse error: {}", e)))?;
 
-        let secret = base64::decode(&secret_base64)
+        // Use modern base64 Engine API
+        use base64::{engine::general_purpose, Engine as _};
+        let secret = general_purpose::STANDARD
+            .decode(&secret_base64)
             .map_err(|e| AuthError::internal_error(format!("Base64 decode error: {}", e)))?;
 
         info!(

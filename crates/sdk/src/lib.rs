@@ -17,6 +17,9 @@
 //! ```rust
 //! use squirrel_sdk::prelude::*;
 //! use wasm_bindgen::prelude::*;
+
+// Allow deprecated items during SDK migration to universal-error crate
+#![allow(deprecated)]
 //!
 //! #[wasm_bindgen]
 //! pub struct MyPlugin {
