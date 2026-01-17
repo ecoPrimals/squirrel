@@ -348,6 +348,56 @@ For new integrations, use the template: [`CAPABILITY_INTEGRATION_TEMPLATE.md`](C
 - Cargo
 - Docker (optional, for containers)
 
+### Build & Test
+
+**Production Build** (Unix sockets only):
+```bash
+cargo build --release
+./target/release/squirrel --version
+```
+
+**Development Build** (with HTTP adapters):
+```bash
+cargo build --release --features dev-direct-http
+export OPENAI_API_KEY="sk-..."
+./target/release/squirrel server --verbose
+```
+
+**Run Tests**:
+```bash
+# All tests (246 total)
+cargo test
+
+# Library tests only (187)
+cargo test --lib
+
+# UniBin tests only (59)
+cargo test --bin squirrel
+
+# Specific module
+cargo test cli::
+cargo test doctor::
+```
+
+### Test Suite
+
+**Total**: 246 tests (100% passing) 🏆
+
+**Breakdown**:
+- Library: 187 tests (core functionality)
+- CLI: 39 tests (UniBin commands)
+- Doctor: 20 tests (health diagnostics)
+
+**Coverage by Type**:
+- 📝 Unit: 26 (parsing, validation)
+- 🔄 E2E: 16 (workflows, scenarios)
+- 💥 Chaos: 11 (edge cases, invalid inputs)
+- ⚠️ Fault: 6 (error handling)
+
+**Performance**: < 1 second total ⚡
+
+### Prerequisites
+
 ### Build
 
 **v1.2.0** offers **UniBin Architecture** with subcommands:
