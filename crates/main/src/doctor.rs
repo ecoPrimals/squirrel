@@ -73,8 +73,7 @@ pub async fn run_doctor(
     }
 
     if should_check(subsystem, Subsystem::Ecosystem) && comprehensive {
-        checks.push(check_songbird_connectivity().await);
-        checks.push(check_beardog_connectivity().await);
+        checks.push(check_discovered_services().await);
     }
 
     if should_check(subsystem, Subsystem::Socket) {
@@ -226,75 +225,52 @@ async fn check_ai_providers(comprehensive: bool) -> HealthCheck {
     }
 }
 
-/// Check Songbird connectivity
-async fn check_songbird_connectivity() -> HealthCheck {
+/// Check discovered services via capability registry
+async fn check_discovered_services() -> HealthCheck {
     let start = Instant::now();
-
-    let songbird_port = std::env::var("SONGBIRD_PORT")
-        .ok()
-        .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or(8081);
-
-    let url = format!("http://localhost:{}/health", songbird_port);
-
-    match timeout(Duration::from_secs(2), reqwest::get(&url)).await {
-        Ok(Ok(response)) if response.status().is_success() => HealthCheck {
-            name: "Songbird",
-            status: HealthStatus::Ok,
-            message: "Reachable".to_string(),
-            duration_ms: start.elapsed().as_millis() as u64,
-            details: Some(serde_json::json!({
-                "url": url,
-                "status": response.status().as_u16(),
-            })),
-        },
-        _ => HealthCheck {
-            name: "Songbird",
-            status: HealthStatus::Warning,
-            message: "Not reachable".to_string(),
-            duration_ms: start.elapsed().as_millis() as u64,
-            details: Some(serde_json::json!({
-                "url": url,
-                "note": "Optional for local development",
-            })),
-        },
+    
+    // Check for available services via Unix sockets
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+        .or_else(|_| std::env::var("UID")
+            .map(|uid| format!("/run/user/{}", uid)))
+        .unwrap_or_else(|_| "/tmp".to_string());
+    
+    let mut discovered = Vec::new();
+    
+    // Scan for Unix sockets in runtime directory
+    if let Ok(entries) = std::fs::read_dir(&runtime_dir) {
+        for entry in entries.flatten() {
+            if let Ok(path) = entry.path().canonicalize() {
+                if path.extension().and_then(|s| s.to_str()) == Some("sock") {
+                    if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                        discovered.push(name.to_string());
+                    }
+                }
+            }
+        }
     }
-}
-
-/// Check BearDog connectivity
-async fn check_beardog_connectivity() -> HealthCheck {
-    let start = Instant::now();
-
-    // Check for BearDog Unix socket
-    let uid = std::env::var("UID")
-        .ok()
-        .and_then(|u| u.parse::<u32>().ok())
-        .unwrap_or(1000);
-
-    let beardog_socket = std::env::var("BEARDOG_SOCKET")
-        .ok()
-        .unwrap_or_else(|| format!("/run/user/{}/beardog.sock", uid));
-
-    let status = if std::path::Path::new(&beardog_socket).exists() {
-        HealthStatus::Ok
-    } else {
+    
+    let status = if discovered.is_empty() {
         HealthStatus::Warning
-    };
-
-    let message = if status == HealthStatus::Ok {
-        "Socket exists".to_string()
     } else {
-        "Socket not found".to_string()
+        HealthStatus::Ok
     };
-
+    
+    let message = if discovered.is_empty() {
+        "No services discovered".to_string()
+    } else {
+        format!("Discovered {} service(s)", discovered.len())
+    };
+    
     HealthCheck {
-        name: "BearDog",
+        name: "Ecosystem Services",
         status,
         message,
         duration_ms: start.elapsed().as_millis() as u64,
         details: Some(serde_json::json!({
-            "socket_path": beardog_socket,
-            "note": "Optional for local development",
+            "runtime_dir": runtime_dir,
+            "discovered_services": discovered,
+            "note": "Services discovered via Unix socket capability discovery"
         })),
     }
 }

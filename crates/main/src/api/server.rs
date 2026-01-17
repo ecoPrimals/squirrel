@@ -19,7 +19,7 @@ use super::ecosystem;
 use super::health;
 use super::management;
 use super::metrics;
-use super::songbird;
+use super::service_mesh;
 
 /// Server state tracking
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ impl Default for ServerState {
             request_count: 0,
             active_connections: 0,
             service_mesh_registered: false,
-            last_songbird_heartbeat: None,
+            last_service_mesh_heartbeat: None,
         }
     }
 }
@@ -317,13 +317,13 @@ impl ApiServer {
         let songbird_register = warp::path!("api" / "v1" / "songbird" / "register")
             .and(warp::post())
             .and(with_ecosystem_manager(ecosystem_manager.clone()))
-            .and_then(songbird::handle_songbird_register);
+            .and_then(service_mesh::handle_service_mesh_register);
 
         #[allow(deprecated)]
         let songbird_heartbeat = warp::path!("api" / "v1" / "songbird" / "heartbeat")
             .and(warp::post())
             .and(with_state(state.clone()))
-            .and_then(songbird::handle_songbird_heartbeat);
+            .and_then(service_mesh::handle_service_mesh_heartbeat);
 
         // ===================================================================
         // NEW: Capability-based service mesh endpoints (protocol-agnostic)
@@ -332,12 +332,12 @@ impl ApiServer {
         let service_mesh_register = warp::path!("api" / "v1" / "service_mesh" / "register")
             .and(warp::post())
             .and(with_ecosystem_manager(ecosystem_manager.clone()))
-            .and_then(songbird::handle_songbird_register); // Reuse handler for now
+            .and_then(service_mesh::handle_service_mesh_register);
 
         let service_mesh_heartbeat = warp::path!("api" / "v1" / "service_mesh" / "heartbeat")
             .and(warp::post())
             .and(with_state(state.clone()))
-            .and_then(songbird::handle_songbird_heartbeat); // Reuse handler for now
+            .and_then(service_mesh::handle_service_mesh_heartbeat);
 
         // Management endpoints
         let shutdown = warp::path!("api" / "v1" / "shutdown")

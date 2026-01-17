@@ -42,7 +42,7 @@ mod health;
 mod management;
 mod metrics;
 mod server;
-mod songbird;
+mod service_mesh;
 mod types;
 
 // Re-export main types

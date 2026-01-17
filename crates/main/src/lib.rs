@@ -12,7 +12,6 @@
 
 // Core modules
 pub mod api;
-pub mod beardog;
 pub mod biomeos_integration;
 pub mod capabilities; // NEW - Capability traits (Phase 2)
 pub mod capability;
@@ -36,9 +35,7 @@ pub mod security;
 pub mod security_client;
 pub mod session;
 pub mod shutdown;
-pub mod songbird;
 pub mod storage_client;
-pub mod toadstool;
 pub mod universal;
 pub mod universal_adapter;
 pub mod universal_adapter_v2;
