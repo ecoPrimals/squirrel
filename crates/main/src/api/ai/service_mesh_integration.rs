@@ -1,6 +1,6 @@
-//! Songbird integration for AI capabilities
+//! Service mesh integration for AI capabilities
 //!
-//! Registers AI capabilities with Songbird service mesh and enables
+//! Registers AI capabilities with any service mesh provider and enables
 //! distributed AI provider discovery across the ecosystem.
 
 use super::router::AiRouter;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::time::{interval, Duration};
 use tracing::{debug, error, info, warn};
 
-/// AI capability registration with Songbird
+/// AI capability registration with service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiCapabilityRegistration {
     /// Service ID (Squirrel instance)
@@ -52,7 +52,7 @@ pub struct AiCapabilityInfo {
     pub quality: String,
 }
 
-/// Response from Songbird AI capability registration
+/// Response from service mesh AI capability registration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiCapabilityRegistrationResponse {
     pub success: bool,
@@ -62,7 +62,7 @@ pub struct AiCapabilityRegistrationResponse {
 }
 
 /// Songbird AI integration manager
-pub struct SongbirdAiIntegration {
+pub struct ServiceMeshAiIntegration {
     /// AI router reference
     router: Arc<AiRouter>,
 
@@ -82,7 +82,7 @@ pub struct SongbirdAiIntegration {
     registration_id: Option<String>,
 }
 
-impl SongbirdAiIntegration {
+impl ServiceMeshAiIntegration {
     /// Create new Songbird AI integration
     #[must_use]
     pub fn new(router: Arc<AiRouter>, service_id: String, service_endpoint: String) -> Self {
@@ -105,9 +105,9 @@ impl SongbirdAiIntegration {
         }
     }
 
-    /// Register AI capabilities with Songbird
+    /// Register AI capabilities with service mesh
     pub async fn register_capabilities(&mut self) -> Result<(), PrimalError> {
-        info!("🤝 Registering AI capabilities with Songbird...");
+        info!("🤝 Registering AI capabilities with service mesh...");
 
         // Get current capabilities from router
         let providers = self.router.list_providers().await;
@@ -167,7 +167,7 @@ impl SongbirdAiIntegration {
 
         debug!("AI capability registration: {:?}", registration);
 
-        // Register with Songbird
+        // Register with service mesh
         let url = format!("{}/api/v1/ai/capabilities/register", self.songbird_endpoint);
 
         match self
@@ -184,7 +184,7 @@ impl SongbirdAiIntegration {
                         Ok(reg_response) => {
                             self.registration_id = Some(reg_response.registration_id.clone());
                             info!(
-                                "✅ AI capabilities registered with Songbird: {}",
+                                "✅ AI capabilities registered with service mesh: {}",
                                 reg_response.registration_id
                             );
                             info!(
@@ -211,7 +211,7 @@ impl SongbirdAiIntegration {
             }
             Err(e) => {
                 warn!(
-                    "⚠️  Could not connect to Songbird at {}: {}",
+                    "⚠️  Could not connect to service mesh at {}: {}",
                     self.songbird_endpoint, e
                 );
                 warn!("💡 AI capabilities will work locally without Songbird coordination");
@@ -220,10 +220,10 @@ impl SongbirdAiIntegration {
         }
     }
 
-    /// Send heartbeat to Songbird
+    /// Send heartbeat to service mesh
     pub async fn send_heartbeat(&self) -> Result<(), PrimalError> {
         if self.registration_id.is_none() {
-            debug!("Skipping heartbeat - not registered with Songbird");
+            debug!("Skipping heartbeat - not registered with service mesh");
             return Ok(());
         }
 
@@ -231,7 +231,7 @@ impl SongbirdAiIntegration {
         let registration_id = if let Some(id) = &self.registration_id {
             id
         } else {
-            debug!("Cannot send heartbeat - not registered with Songbird");
+            debug!("Cannot send heartbeat - not registered with service mesh");
             return Ok(());
         };
 
@@ -261,7 +261,7 @@ impl SongbirdAiIntegration {
             .await
         {
             Ok(response) if response.status().is_success() => {
-                debug!("💓 Heartbeat sent to Songbird");
+                debug!("💓 Heartbeat sent to service mesh");
                 Ok(())
             }
             Ok(response) => {
@@ -338,7 +338,7 @@ impl SongbirdAiIntegration {
     }
 }
 
-/// Distributed AI provider information from Songbird
+/// Distributed AI provider information from service mesh
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DistributedAiProvider {
     /// Service ID

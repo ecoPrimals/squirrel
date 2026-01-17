@@ -13,7 +13,7 @@ use crate::MetricsCollector;
 
 use super::ai::{
     ai_routes, handle_compatible_models, handle_model_load, provider_routes, ActionRegistry,
-    AiRouter, SongbirdAiIntegration,
+    AiRouter, ServiceMeshAiIntegration,
 };
 use super::ecosystem;
 use super::health;
@@ -186,14 +186,14 @@ impl ApiServer {
         let ai_router_clone = ai_router.clone();
         let base_url = self.base_url();
         tokio::spawn(async move {
-            let mut songbird_integration = SongbirdAiIntegration::new(
+            let mut service_mesh_integration = ServiceMeshAiIntegration::new(
                 ai_router_clone.clone(),
                 "squirrel".to_string(), // Service ID
                 base_url.clone(),
             );
 
             // Register capabilities
-            if let Err(e) = songbird_integration.register_capabilities().await {
+            if let Err(e) = service_mesh_integration.register_capabilities().await {
                 tracing::warn!("⚠️  Songbird AI registration failed: {}", e);
                 tracing::info!(
                     "💡 AI capabilities available locally without service mesh coordination"
@@ -201,7 +201,7 @@ impl ApiServer {
             }
 
             // Start heartbeat loop (30s interval)
-            let integration = Arc::new(songbird_integration);
+            let integration = Arc::new(service_mesh_integration);
             integration.start_heartbeat_loop(30).await;
         });
 

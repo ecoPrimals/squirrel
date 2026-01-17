@@ -42,12 +42,12 @@ mod models;
 mod provider_registration;
 pub mod router;
 mod selector;
-mod songbird_integration;
+mod service_mesh_integration;
 pub mod types;
 
 pub use action_registry::ActionRegistry;
 pub use router::AiRouter;
-pub use songbird_integration::SongbirdAiIntegration;
+pub use service_mesh_integration::ServiceMeshAiIntegration;
 
 // Re-export handlers
 pub use endpoints::{
