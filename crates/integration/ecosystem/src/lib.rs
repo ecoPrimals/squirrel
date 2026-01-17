@@ -34,8 +34,10 @@ impl EcosystemIntegration {
 
     /// Register Squirrel MCP services with the ecosystem
     pub async fn register_mcp_services(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: Implement Songbird service registration
-        // TODO: Implement Toadstool compute integration
+        // TODO: Implement service mesh registration via capability discovery
+        // Use capability registry to discover service mesh, then register via Unix socket
+        // TODO: Implement compute integration via capability discovery
+        // Use capability registry to discover compute providers, then integrate via universal adapter
         Ok(())
     }
 }

@@ -48,13 +48,11 @@ tarpc = { version = "0.34", features = ["full"], optional = true }
 tokio-serde = { version = "0.8.0", features = ["bincode"], optional = true }
 bincode = { version = "1.3", optional = true }
 
-# Ecosystem integrations - Service Mesh via Songbird
+# Ecosystem integrations - Service Mesh via Capability Discovery
 ecosystem-api = { path = "../ecosystem-api" }
-# TODO: Uncomment when songbird dependencies are available
-# songbird-registry = { path = "../../../songbird/crates/songbird-registry" }
-# songbird-discovery = { path = "../../../songbird/crates/songbird-discovery" }
-# songbird-core = { path = "../../../songbird/crates/songbird-core" }
-# songbird-errors = { path = "../../../songbird/crates/songbird-errors" }
+# NOTE: Service mesh dependencies discovered at runtime via capability registry.
+# No compile-time primal dependencies needed (TRUE PRIMAL architecture).
+# Squirrel knows only itself; other primals are discovered dynamically via Unix sockets.
 
 # Configuration management
 squirrel-mcp-config = { path = "../config" }

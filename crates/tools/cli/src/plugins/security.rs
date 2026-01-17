@@ -188,7 +188,8 @@ impl SecurePluginLoader {
             return Ok(false); // In production, this should fail
         }
 
-        // TODO: Integrate with BearDog security framework for signature verification
+        // TODO: Integrate with security primal via capability discovery for signature verification
+        // Use capability registry to discover security service, then verify via Unix socket JSON-RPC
         info!(
             "🔐 Signature verification placeholder for checksum: {}",
             checksum
